@@ -18,6 +18,10 @@ and more to come. Checkout the planned features section.
 
 ## Demo and Screenshots
 
+> [!note]
+> Demo was run locally on my Macbook Air M2 using docker.
+> Performance depends on the size of the model used and also
+> number of cores and threads you assign.
 
 https://github.com/user-attachments/assets/69d0c5a8-3412-4af5-a312-f3eddebc392e
 
