@@ -37,7 +37,7 @@ Scriberr can be deployed using Docker. Use the docker-compose shown below with y
 ```yaml
 services:
   scriberr:
-    image: ghcr.io/rishikanthc/Scriberr:beta
+    image: ghcr.io/rishikanthc/scriberr:beta
     ports:
       - "3000:3000"
       - "8080:8080" #Optionally expose DB UI
@@ -50,7 +50,7 @@ services:
       - REDIS_PORT=6379
       - SCRIBO_FILES=/scriberr
     volumes:
-      - ./pb_data:/app/pb
+      - ./pb_data:/app/db
       - ./scriberr_files:/scriberr
 ```
 
