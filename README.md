@@ -60,6 +60,9 @@ services:
       - ./scriberr_files:/scriberr
 ```
 
+> [!warning]
+> Make sure to create the sub-directories inside `SCRIBO_FILES` as transcription will fail silently without that.
+
 > [!important]
 > On first load, the app will throw a 500 Error because the database collection hasn't been created.
 > Please reload the page for the app to start working. This only happens on the very first run after
