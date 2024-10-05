@@ -79,7 +79,7 @@ services:
 ## Known Bugs
 - First app load will fail due to missing database. Reloading will fix it.
 - Requires page refresh to load audio for newly transcribed files
-- Automatic update of processed files is finnicky and might require a page refresh for update
+- Automatic update of processed files is finicky and might require a page refresh for update
 
 ## Note
 This is a beta app in development, so expect a few rough edges and minor bugs. The app is functional
