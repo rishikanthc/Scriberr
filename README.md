@@ -37,6 +37,8 @@ https://github.com/user-attachments/assets/69d0c5a8-3412-4af5-a312-f3eddebc392e
 ## Installation
 
 Scriberr can be deployed using Docker. Use the docker-compose shown below with your configuration values.
+Under the directory or volume you are mapping to `/scriberr`, please create the following 2 sub-directories,
+`audio` and `transcripts`.
 
 ```yaml
 services:
