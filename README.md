@@ -40,6 +40,14 @@ Scriberr can be deployed using Docker. Use the docker-compose shown below with y
 Under the directory or volume you are mapping to `/scriberr`, please create the following 2 sub-directories,
 `audio` and `transcripts`.
 
+> [!warning]
+> Make sure to create the sub-directories inside `SCRIBO_FILES` as transcription will fail silently without that.
+
+> [!important]
+> On first load, the app will throw a 500 Error because the database collection hasn't been created.
+> Please reload the page for the app to start working. This only happens on the very first run after
+> install.
+
 ```yaml
 services:
   scriberr:
@@ -57,17 +65,35 @@ services:
       - SCRIBO_FILES=/scriberr
     volumes:
       - ./pb_data:/app/db
-      - ./scriberr_files:/scriberr
+      - ./scriberr:/scriberr
+```
+
+### Full Local Stack
+
+To run all components locally, including Ollama in place of OpenAI, see [`docker-compose.ollama.yaml`](./docker-compose.ollama.yaml).
+
+```sh
+$ mkdir -p .dockerdata/scriberr/audio .dockerdata/scriberr/transcripts
+$ docker-compose -f docker-compose.ollama.yaml up
+...
+```
+
+The app will be available in your browser: `http://localhost:3000`
+
+Additionally, you can run the container against an external Ollama instance by passing in the appropriate values for these environment variables:
+
+```env
+OPENAI_ENDPOINT=<ollama service api url>
+OPENAI_MODEL=<the ollama model> # must already be pulled
+OPENAI_ROLE=user
 ```
 
 > [!warning]
-> Make sure to create the sub-directories inside `SCRIBO_FILES` as transcription will fail silently without that.
+> This will be _very_ slow without an NVIDIA GPU to pass through.
 
-> [!important]
-> On first load, the app will throw a 500 Error because the database collection hasn't been created.
-> Please reload the page for the app to start working. This only happens on the very first run after
-> install.
- 
+> [!warning]
+> If you have issues re-starting the stack (`403: 'Only admins can perform this action.'`), clear the Auth token cookie.
+
 ## Planned Features
 
 - Speaker diarization for speaker labels
