@@ -7,9 +7,9 @@ ARG SCRIBO_FILES
 ARG REDIS_HOST
 ARG REDIS_PORT
 ARG OPENAI_API_KEY
-ARG OPENAI_ENDPOINT
-ARG OPENAI_MODEL
-ARG OPENAI_ROLE
+ARG OPENAI_ENDPOINT="https://api.openai.com/v1"
+ARG OPENAI_MODEL="gpt-4"
+ARG OPENAI_ROLE="system"
 
 
 # Set environment variables to be overridden at runtime
