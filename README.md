@@ -2,14 +2,14 @@
 
 This is Scriberr, a self-hostable AI audio transcription app. Scriberr uses the open-source [Whisper](https://github.com/openai/whisper) models from OpenAI,
 to transcribe audio files locally on your hardware. It uses the [Whisper.cpp](https://github.com/ggerganov/whisper.cpp) high-performance inference engine
-for OpenAI's Whisper. Scriberr also allows you to summarize transcripts using OpenAI's ChatGPT API, with your own custom prompts.
+for OpenAI's Whisper. Scriberr also allows you to summarize transcripts using OpenAI's ChatGPT API, with your own custom prompts. Summarization using ollama is also supported. 
 
 ## Features
 - Fast transcription with support for hardware acceleration across a wide variety of platforms
 - Customizable compute settings. Choose #threads, #cores and your model size
 - Transcription happens locally on device
 - Exposes API endpoints for automation pipelines and integrating with other tools
-- Optionally summarize transcripts with ChatGPT
+- Optionally summarize transcripts with ChatGPT or Ollama
 - Use your own custom prompts for summarization
 - Mobile ready
 - Simple & Easy to use
