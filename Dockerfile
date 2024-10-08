@@ -64,12 +64,6 @@ RUN git clone https://github.com/ggerganov/whisper.cpp.git
 
 # Set the Whisper directory as the working directory
 WORKDIR /app/whisper.cpp
-
-# Use bash to download the models
-# RUN bash ./models/download-ggml-model.sh base.en && \
-#     bash ./models/download-ggml-model.sh tiny.en && \
-#     bash ./models/download-ggml-model.sh small.en
-
 # Compile Whisper.cpp with make
 RUN make
 
