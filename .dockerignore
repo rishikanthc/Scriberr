@@ -1,0 +1,6 @@
+.dockerdata
+docker-compose.ollama.yaml
+Dockerfile
+install_audiowaveform.sh
+install_aw.sh
+.prettier*

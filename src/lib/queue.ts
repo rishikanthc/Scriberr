@@ -12,7 +12,7 @@ import express from 'express';
 
 // Create the queue
 export const transcriptionQueue = new Queue('transcriptionQueue', {
-	connection: { host: 'localhost', port: 6379 } // Adjust as needed
+	connection: { host: env.REDIS_HOST, port: env.REDIS_PORT }
 });
 const pb = new PocketBase('http://localhost:8080');
 pb.autoCancellation(false);
@@ -116,7 +116,7 @@ const worker = new Worker(
 
 		// Execute whisper.cpp command and log output
 		const transcriptPath = path.resolve(env.SCRIBO_FILES, 'transcripts', `${recordId}`);
-		const whisperCmd = `./whisper.cpp/main -m ./whisper.cpp/models/ggml-${settings.model}.en.bin -f ${ffmpegPath} -oj -of ${transcriptPath} -t ${settings.threads} -p ${settings.processors} -pp`;
+		const whisperCmd = `whisper -m /models/ggml-${settings.model}.en.bin -f ${ffmpegPath} -oj -of ${transcriptPath} -t ${settings.threads} -p ${settings.processors} -pp`;
 		await execCommandWithLogging(whisperCmd, job);
 		await job.log(`Whisper transcription for ${recordId} completed`);
 
@@ -144,7 +144,7 @@ const worker = new Worker(
 		job.updateProgress(100); // Mark job progress as complete
 	},
 	{
-		connection: { host: 'localhost', port: 6379 }, // Redis connection
+		connection: { host: env.REDIS_HOST, port: env.REDIS_PORT }, // Redis connection
 		concurrency: 5 // Allows multiple jobs to run concurrently
 	}
 );
