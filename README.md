@@ -51,7 +51,7 @@ Under the directory or volume you are mapping to `/scriberr`, please create the 
 ```yaml
 services:
   scriberr:
-    image: ghcr.io/rishikanthc/scriberr:beta-0.1
+    image: ghcr.io/rishikanthc/scriberr:beta-0.2
     ports:
       - "3000:3000"
       - "8080:8080" #Optionally expose DB UI

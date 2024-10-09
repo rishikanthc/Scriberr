@@ -110,7 +110,14 @@ RUN download-ggml-model.sh base.en /models && \
     download-ggml-model.sh small.en /models
 
 # Download and unzip PocketBase
-ADD https://github.com/pocketbase/pocketbase/releases/download/v${POCKETBASE_VERSION}/pocketbase_${POCKETBASE_VERSION}_linux_amd64.zip /tmp/pb.zip
+# Dynamically set the URL based on the architecture
+RUN if [ "$TARGETARCH" = "arm64" ]; then \
+      ARCH="arm64"; \
+    else \
+      ARCH="amd64"; \
+    fi && \
+    curl -L "https://github.com/pocketbase/pocketbase/releases/download/v${POCKETBASE_VERSION}/pocketbase_${POCKETBASE_VERSION}_linux_${ARCH}.zip" -o /tmp/pb.zip
+
 RUN unzip /tmp/pb.zip pocketbase -d /usr/local/bin/ && rm /tmp/pb.zip
 
 # Set the working directory back to /app
