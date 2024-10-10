@@ -95,7 +95,7 @@ ENV BODY_SIZE_LIMIT=512M
 
 ENV POCKETBASE_VERSION=0.22.21
 # Install required packages
-RUN apk update && apk add --no-cache wget ffmpeg unzip libgd libmad libid3tag boost-static boost-build
+RUN apk update && apk add --no-cache wget ffmpeg unzip libgd libmad libid3tag boost-static boost-build curl
 
 COPY --from=build_flac /usr/local/bin/* /usr/local/bin/
 COPY --from=build_flac /usr/local/share/man/man1/* /usr/local/share/man/man1/
