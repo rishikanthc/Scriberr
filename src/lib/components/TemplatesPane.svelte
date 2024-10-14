@@ -4,6 +4,7 @@
 	import { createEventDispatcher } from 'svelte';
 	import { ContextMenu } from 'bits-ui';
 	import { Plus, Trash } from 'lucide-svelte';
+	import StatusSpinner from './StatusSpinner.svelte';
 
 	export let templates;
 	let dispatch = createEventDispatcher();
@@ -26,15 +27,25 @@
 		}
 	}
 
+	let deleting = false;
+	let delMessage = null;
+	let success = -1;
+
 	async function deleteTemplate(event) {
-		const delId = event.target.id;
+		const delId = event.currentTarget.id;
 
 		if (!delId) {
 			console.error('Template ID is missing');
 			return;
 		}
 
+		if (delId === clickedId) {
+			dispatch('onTemplateClick', null);
+		}
+
 		try {
+			delMessage = `Deleting record ${delId}`;
+			deleting = true;
 			// Delete the template
 			const deleteResponse = await fetch(`/api/templates?id=${delId}`, {
 				method: 'DELETE'
@@ -43,19 +54,35 @@
 			if (deleteResponse.ok) {
 				const deleteResult = await deleteResponse.json();
 				console.log('Template deleted successfully:', deleteResult);
+				delMessage = `Deleted`;
+				success = 1;
 
 				dispatch('templatesModified');
 			} else {
 				const error = await deleteResponse.json();
 				console.error('Error deleting template:', error);
+				delMessage = `Delete failed`;
+				success = 0;
 			}
 		} catch (err) {
 			console.error('Error during API call:', err);
+			delMessage = `Delete failed`;
+			success = 0;
+		} finally {
+			setInterval(() => {
+				deleting = false;
+				success = -1;
+			}, 3000);
 		}
 	}
 </script>
 
-<ScrollArea.Root class="h-[480px] w-full px-0 2xl:h-[784px]">
+{#if deleting}
+	<div class="absolute bottom-0 right-0">
+		<StatusSpinner bind:msg={delMessage} {success} />
+	</div>
+{/if}
+<ScrollArea.Root class=" h-[480px] w-full px-0 2xl:h-[784px]">
 	<ScrollArea.Viewport class="h-full w-full">
 		<div class="flex w-full justify-end">
 			<Button.Root
@@ -88,10 +115,11 @@
 									<Button.Root
 										class="flex items-center justify-center gap-3"
 										on:click={deleteTemplate}
+										id={rec.id}
 									>
-										<Trash size={15} id={rec.id} />
+										<Trash size={15} />
 
-										<div class="text-base" id={rec.id}>Delete</div>
+										<div class="text-base">Delete</div>
 									</Button.Root>
 								</ContextMenu.Item>
 							</ContextMenu.Content>
