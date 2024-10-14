@@ -44,18 +44,7 @@
 				const deleteResult = await deleteResponse.json();
 				console.log('Template deleted successfully:', deleteResult);
 
-				// Fetch the updated list of templates
-				const getResponse = await fetch('/api/templates');
-
-				if (getResponse.ok) {
-					const updatedTemplates = await getResponse.json();
-
-					// Update the templates variable with the new data
-					templates = updatedTemplates;
-				} else {
-					const error = await getResponse.json();
-					console.error('Error fetching updated templates:', error);
-				}
+				dispatch('templatesModified');
 			} else {
 				const error = await deleteResponse.json();
 				console.error('Error deleting template:', error);

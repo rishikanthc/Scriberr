@@ -12,6 +12,10 @@
 		const response = await fetch('/api/records');
 		records = await response.json();
 	}
+	async function refreshTemplates() {
+		const response = await fetch('/api/templates');
+		templates = await response.json();
+	}
 </script>
 
 <div>
@@ -24,6 +28,7 @@
 				{templates}
 				on:onUpload={onUpload}
 				on:finishedProcessing={onUpload}
+				on:templatesModified={refreshTemplates}
 			/>
 		{/if}
 	</div>
