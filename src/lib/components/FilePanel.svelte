@@ -18,6 +18,7 @@
 	import { Trash, Pencil } from 'lucide-svelte';
 
 	import { Loader2, Check, X } from 'lucide-svelte';
+	import StatusSpinner from './StatusSpinner.svelte';
 	let isLoading = false;
 	let isUploaded = false;
 	let isError = false;
@@ -116,6 +117,10 @@
 		dispatcher('onUpload');
 	}
 
+	let deleting = false;
+	let delMessage = null;
+	let success = -1;
+
 	async function deleteRecording(event) {
 		const delId = event.currentTarget.id;
 
@@ -125,6 +130,8 @@
 		}
 
 		try {
+			delMessage = `Deleting record ${delId}`;
+			deleting = true;
 			// Delete the template
 			const deleteResponse = await fetch(`/api/records?id=${delId}`, {
 				method: 'DELETE'
@@ -133,15 +140,26 @@
 			if (deleteResponse.ok) {
 				const deleteResult = await deleteResponse.json();
 				console.log('Record deleted successfully:', deleteResult);
+				delMessage = 'Deleted';
+				success = 1;
 
 				// dispatch('templatesModified');
 				dispatcher('recordsModified');
 			} else {
 				const error = await deleteResponse.json();
 				console.error('Error deleting record:', error);
+				delMessage = `Delete failed`;
+				success = 0;
 			}
 		} catch (err) {
 			console.error('Error during API call:', err);
+			delMessage = `Delete failed`;
+			success = 0;
+		} finally {
+			setInterval(() => {
+				deleting = false;
+				success = -1;
+			}, 3000);
 		}
 	}
 
@@ -252,8 +270,13 @@
 </script>
 
 <div
-	class="items-top z-0 h-[704px] w-full justify-start gap-2 p-1 lg:flex lg:h-[700px] 2xl:h-[900px]"
+	class="items-top relative z-0 h-[704px] w-full justify-start gap-2 p-1 lg:flex lg:h-[700px] 2xl:h-[900px]"
 >
+	{#if deleting}
+		<div class="absolute bottom-0 right-0">
+			<StatusSpinner bind:msg={delMessage} {success} />
+		</div>
+	{/if}
 	<div
 		class="flex h-full w-full flex-shrink-0 rounded bg-carbongray-50 p-2 text-lg dark:bg-carbongray-700 lg:w-[300px]"
 	>
