@@ -24,9 +24,17 @@ export const POST: RequestHandler = async ({ request, params, locals }) => {
 	ensureCollectionExists(pb);
 
 	try {
-		// Get the body from the request (containing the new 'prompt' value)
+		// Get the body from the request (containing the new 'title' and/or 'prompt' values)
 		const data = await request.json();
-		const prompt = data.prompt;
+		const { title } = data;
+
+		// Ensure that at least one of 'title' or 'prompt' is provided
+		if (!title) {
+			return new Response(JSON.stringify({ error: 'Title must be provided' }), {
+				status: 400,
+				headers: { 'Content-Type': 'application/json' }
+			});
+		}
 
 		// Find the record by its id
 		const record = await pb.collection('scribo').getOne(id);
@@ -37,10 +45,12 @@ export const POST: RequestHandler = async ({ request, params, locals }) => {
 			});
 		}
 
-		// Update the 'prompt' field of the record
-		const updatedRecord = await pb.collection('scribo').update(id, {
-			prompt: prompt
-		});
+		// Prepare the update object with only the fields that are provided
+		const updateData: { title?: string; prompt?: string } = {};
+		if (title) updateData.title = title;
+
+		// Update the record with the provided data
+		const updatedRecord = await pb.collection('scribo').update(id, updateData);
 
 		return new Response(JSON.stringify(updatedRecord), {
 			status: 200,
@@ -48,7 +58,7 @@ export const POST: RequestHandler = async ({ request, params, locals }) => {
 		});
 	} catch (err) {
 		console.log('API records | Error updating record', err);
-		return new Response(JSON.stringify(err), {
+		return new Response(JSON.stringify({ error: err.message }), {
 			status: 500,
 			headers: { 'Content-Type': 'application/json' }
 		});

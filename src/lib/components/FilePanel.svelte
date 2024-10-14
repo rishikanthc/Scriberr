@@ -200,11 +200,51 @@
 
 	function handleKeydown(event) {
 		if (event.key === 'Enter' && event.shiftKey) {
-			console.log('save detected');
 			event.preventDefault();
 			saveTitle();
-			console.log('saved');
 			dispatcher('templatesModified');
+		} else if (event.key === 'Escape') {
+			renaming = false;
+		}
+	}
+
+	let renameTitleRecord;
+	async function saveTitleRecord() {
+		renameLoading = true;
+		try {
+			// Make a POST request to the API with the updated title only
+			const response = await fetch(`/api/records/${selected.id}`, {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify({
+					title: renameTitleRecord // Send only the updated title or any other field
+				})
+			});
+
+			if (response.ok) {
+				const updatedRecord = await response.json();
+				console.log('Template updated successfully:', updatedRecord);
+				selected = updatedRecord;
+				dispatcher('recordsModified');
+			} else {
+				const error = await response.json();
+				console.error('Error updating title:', error);
+			}
+		} catch (err) {
+			console.error('Error during API call:', err);
+		} finally {
+			// Exit rename mode regardless of success or failure
+			renaming = false;
+			renameLoading = false;
+		}
+	}
+
+	function handleKeydownRecord(event) {
+		if (event.key === 'Enter' && event.shiftKey) {
+			event.preventDefault();
+			saveTitleRecord();
 		} else if (event.key === 'Escape') {
 			renaming = false;
 		}
@@ -336,9 +376,25 @@
 			class="absolute left-0 top-[50px] z-50 h-full w-full bg-white dark:bg-carbongray-800 lg:relative lg:top-0 lg:z-10"
 		>
 			<div class="flex items-center justify-between p-3">
-				<div class="text-4xl">
-					{selected?.title}
-				</div>
+				{#if renaming}
+					<div class="justify-left flex w-full items-center gap-1">
+						<textarea
+							id="newtitle"
+							bind:value={renameTitleRecord}
+							class="h-[30px] w-[300px] rounded-md border border-carbongray-300 p-1 focus:outline-none focus:ring-2 focus:ring-carbongray-800 focus:ring-offset-2 focus:ring-offset-white disabled:bg-carbongray-50 dark:bg-carbongray-700 disabled:dark:bg-carbongray-600"
+							on:keydown={handleKeydownRecord}
+							autofocus
+							disabled={renameLoading}
+						/>
+						{#if renameLoading}
+							<Loader class="animate-spin" size={15} />
+						{/if}
+					</div>
+				{:else}
+					<div class="text-4xl" on:dblclick={renameTempl}>
+						{selected?.title}
+					</div>
+				{/if}
 				<Button.Root class="hover:bg-carbongray-100" on:click={closeRecord}>
 					<SquareX size={20} />
 				</Button.Root>
