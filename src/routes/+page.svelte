@@ -29,6 +29,7 @@
 				on:onUpload={onUpload}
 				on:finishedProcessing={onUpload}
 				on:templatesModified={refreshTemplates}
+				on:recordsModified={onUpload}
 			/>
 		{/if}
 	</div>

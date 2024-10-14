@@ -26,3 +26,76 @@ export const GET: RequestHandler = async ({ request, locals }) => {
 		headers: { 'Content-Type': 'application/json' }
 	});
 };
+
+// New DELETE endpoint to delete a template by ID
+export const DELETE: RequestHandler = async ({ url, locals }) => {
+	const pb = locals.pb;
+	await ensureCollectionExists(pb);
+
+	try {
+		// Extract the 'id' query parameter from the request URL
+		const id = url.searchParams.get('id');
+
+		if (!id) {
+			return new Response(JSON.stringify({ error: 'Record ID is required' }), {
+				status: 400,
+				headers: { 'Content-Type': 'application/json' }
+			});
+		}
+
+		// Delete the record from the PocketBase collection 'templates'
+		await pb.collection('scribo').delete(id);
+
+		// Respond with a success message
+		return new Response(JSON.stringify({ message: 'Record deleted successfully' }), {
+			status: 200,
+			headers: { 'Content-Type': 'application/json' }
+		});
+	} catch (err) {
+		console.log('API records | Error deleting record', err);
+		return new Response(JSON.stringify({ error: err.message }), {
+			status: 500,
+			headers: { 'Content-Type': 'application/json' }
+		});
+	}
+};
+
+export const POST: RequestHandler = async ({ request, locals }) => {
+	const pb = locals.pb;
+	await ensureCollectionExists(pb);
+
+	try {
+		// Get the JSON data from the request
+		const data = await request.json();
+
+		// Check if there is at least one valid field to update
+		if (!data.title) {
+			return new Response(JSON.stringify({ error: 'At least one field (title) is required' }), {
+				status: 400,
+				headers: { 'Content-Type': 'application/json' }
+			});
+		}
+
+		// Prepare the object with the provided fields only
+		const updateData: { title?: string } = {};
+
+		if (data.title) {
+			updateData.title = data.title;
+		}
+
+		// Create or update the record in the PocketBase collection 'templates'
+		const newRecord = await pb.collection('scribo').create(updateData);
+
+		// Respond with the created or updated record
+		return new Response(JSON.stringify(newRecord), {
+			status: 201,
+			headers: { 'Content-Type': 'application/json' }
+		});
+	} catch (err) {
+		console.log('API records | Error creating/updating record', err);
+		return new Response(JSON.stringify({ error: err.message }), {
+			status: 500,
+			headers: { 'Content-Type': 'application/json' }
+		});
+	}
+};
