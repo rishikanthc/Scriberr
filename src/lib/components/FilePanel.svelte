@@ -31,6 +31,11 @@
 		selectedTemplate = null;
 	}
 
+	async function refreshTemplates() {
+		const response = await fetch('/api/templates');
+		templates = await response.json();
+	}
+
 	function openTemplate(event) {
 		selectedTemplate = event.detail;
 	}
@@ -173,7 +178,7 @@
 					<SquareX size={20} />
 				</Button.Root>
 			</div>
-			<TemplateDisplay record={selectedTemplate} />
+			<TemplateDisplay bind:record={selectedTemplate} on:onTemplatesUpdate={refreshTemplates} />
 		</div>
 	{:else}
 		<div class="hidden lg:block">

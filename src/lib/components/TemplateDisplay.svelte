@@ -2,6 +2,7 @@
 	import { ScrollArea } from 'bits-ui';
 	import { Button } from 'bits-ui';
 	import { SaveOff, Pencil, Save } from 'lucide-svelte';
+	import { createEventDispatcher } from 'svelte';
 	export let record;
 	let editMode = false;
 	let inputValue;
@@ -9,6 +10,7 @@
 	let newPrompt;
 
 	$: prompt = record?.prompt;
+	const dispatcher = createEventDispatcher();
 
 	function enableEditMode() {
 		editMode = true;
@@ -51,6 +53,7 @@
 
 			const updatedRecord = await getResponse.json();
 			record = updatedRecord; // Update the record with the fetched data
+			dispatcher('onTemplatesUpdate');
 
 			console.log('Updated record:', record);
 		} catch (err) {
