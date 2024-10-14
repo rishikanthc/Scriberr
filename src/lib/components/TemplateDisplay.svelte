@@ -53,7 +53,7 @@
 
 			const updatedRecord = await getResponse.json();
 			record = updatedRecord; // Update the record with the fetched data
-			dispatcher('onTemplatesUpdate');
+			dispatcher('templatesModified');
 
 			console.log('Updated record:', record);
 		} catch (err) {

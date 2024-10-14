@@ -76,7 +76,7 @@
 						isUploaded = false; // Reset uploaded status
 					}, 2000); // Delay for 2 seconds
 
-					refreshTemplates();
+					dispatcher('templatesModified');
 				} else {
 					const error = await response.json();
 					errorMessage = error.message || 'Error creating template';
@@ -97,11 +97,6 @@
 		clickedId = null;
 		selectedTemplate = null;
 		raiseNewTemplate = false;
-	}
-
-	async function refreshTemplates() {
-		const response = await fetch('/api/templates');
-		templates = await response.json();
 	}
 
 	function openTemplate(event) {
@@ -220,6 +215,7 @@
 					{templates}
 					on:onTemplateClick={openTemplate}
 					on:openNewTemplate={newTemplate}
+					on:templatesModified
 				/>
 			</Tabs.Content>
 		</Tabs.Root>
@@ -251,7 +247,7 @@
 					<SquareX size={20} />
 				</Button.Root>
 			</div>
-			<TemplateDisplay bind:record={selectedTemplate} on:onTemplatesUpdate={refreshTemplates} />
+			<TemplateDisplay bind:record={selectedTemplate} on:templatesModified />
 		</div>
 	{:else if raiseNewTemplate}
 		<div
