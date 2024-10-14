@@ -62,3 +62,36 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		});
 	}
 };
+
+// New DELETE endpoint to delete a template by ID
+export const DELETE: RequestHandler = async ({ url, locals }) => {
+	const pb = locals.pb;
+	await ensureCollectionExists(pb);
+
+	try {
+		// Extract the 'id' query parameter from the request URL
+		const id = url.searchParams.get('id');
+
+		if (!id) {
+			return new Response(JSON.stringify({ error: 'Template ID is required' }), {
+				status: 400,
+				headers: { 'Content-Type': 'application/json' }
+			});
+		}
+
+		// Delete the record from the PocketBase collection 'templates'
+		await pb.collection('templates').delete(id);
+
+		// Respond with a success message
+		return new Response(JSON.stringify({ message: 'Template deleted successfully' }), {
+			status: 200,
+			headers: { 'Content-Type': 'application/json' }
+		});
+	} catch (err) {
+		console.log('API records | Error deleting record', err);
+		return new Response(JSON.stringify({ error: err.message }), {
+			status: 500,
+			headers: { 'Content-Type': 'application/json' }
+		});
+	}
+};
