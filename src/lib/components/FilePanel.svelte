@@ -15,9 +15,10 @@
 	import SysStats from '$lib/components/SysStats.svelte';
 	import { createEventDispatcher } from 'svelte';
 
-	import { Loader2, Check } from 'lucide-svelte';
+	import { Loader2, Check, X } from 'lucide-svelte';
 	let isLoading = false;
 	let isUploaded = false;
+	let isError = false;
 	let errorMessage = '';
 
 	export let data;
@@ -46,6 +47,7 @@
 			try {
 				isLoading = true;
 				isUploaded = false;
+				isError = false;
 				errorMessage = '';
 
 				// Prepare the payload
@@ -78,10 +80,12 @@
 				} else {
 					const error = await response.json();
 					errorMessage = error.message || 'Error creating template';
+					isError = true;
 					console.error('Error creating template:', error);
 				}
 			} catch (err) {
 				errorMessage = 'Error during API call';
+				isError = true;
 				console.error('Error during API call:', err);
 			} finally {
 				isLoading = false;
@@ -279,8 +283,8 @@
 			</div>
 			<Button.Root
 				on:click={createTemplate}
-				class="m-2 flex items-center justify-center gap-1 rounded-md bg-carbongray-100 p-2 hover:bg-carbongray-200 disabled:bg-carbongray-50 dark:bg-carbongray-700"
-				disabled={isLoading}
+				class="m-2 flex items-center justify-center gap-1 rounded-md bg-carbongray-100 p-2 hover:bg-carbongray-200 dark:bg-carbongray-700"
+				disabled={isLoading || isUploaded || isError}
 			>
 				{#if isLoading}
 					<Loader2 size={20} class="animate-spin" />
@@ -288,6 +292,9 @@
 				{:else if isUploaded}
 					<Check size={20} class="animate-ping text-green-500" />
 					<span>Uploaded!</span>
+				{:else if isError}
+					<X size={20} class="text-red-500" />
+					<span>Failed!</span>
 				{:else}
 					Save <Save size={20} />
 				{/if}

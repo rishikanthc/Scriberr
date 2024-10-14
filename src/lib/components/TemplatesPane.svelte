@@ -3,7 +3,7 @@
 	import { ScrollArea } from 'bits-ui';
 	import { createEventDispatcher } from 'svelte';
 	import { ContextMenu } from 'bits-ui';
-	import { Plus } from 'lucide-svelte';
+	import { Plus, Trash } from 'lucide-svelte';
 
 	export let templates;
 	let dispatch = createEventDispatcher();
@@ -25,6 +25,45 @@
 			dispatch('onTemplateClick', selected);
 		}
 	}
+
+	async function deleteTemplate(event) {
+		const delId = event.target.id;
+
+		if (!delId) {
+			console.error('Template ID is missing');
+			return;
+		}
+
+		try {
+			// Delete the template
+			const deleteResponse = await fetch(`/api/templates?id=${delId}`, {
+				method: 'DELETE'
+			});
+
+			if (deleteResponse.ok) {
+				const deleteResult = await deleteResponse.json();
+				console.log('Template deleted successfully:', deleteResult);
+
+				// Fetch the updated list of templates
+				const getResponse = await fetch('/api/templates');
+
+				if (getResponse.ok) {
+					const updatedTemplates = await getResponse.json();
+
+					// Update the templates variable with the new data
+					templates = updatedTemplates;
+				} else {
+					const error = await getResponse.json();
+					console.error('Error fetching updated templates:', error);
+				}
+			} else {
+				const error = await deleteResponse.json();
+				console.error('Error deleting template:', error);
+			}
+		} catch (err) {
+			console.error('Error during API call:', err);
+		}
+	}
 </script>
 
 <ScrollArea.Root class="h-[480px] w-full px-0 2xl:h-[784px]">
@@ -40,14 +79,34 @@
 			<div class="flex w-full flex-col items-start gap-0">
 				{#if templates}
 					{#each templates as rec}
-						<Button.Root
-							class="w-full border-b border-carbongray-100 p-2 hover:bg-carbongray-50 dark:border-b-carbongray-800 dark:hover:bg-carbongray-800"
-							id={rec.id}
-							on:click={onClick}
-							><div id={rec.id} class="flex items-center justify-start text-lg">
-								{rec.title}
-							</div></Button.Root
-						>
+						<ContextMenu.Root>
+							<ContextMenu.Trigger class="w-full">
+								<Button.Root
+									class="w-full border-b border-carbongray-100 p-2 hover:bg-carbongray-100  dark:border-b-carbongray-800 dark:hover:bg-carbongray-800"
+									id={rec.id}
+									on:click={onClick}
+									><div id={rec.id} class="flex items-center justify-start text-lg">
+										{rec.title}
+									</div></Button.Root
+								>
+							</ContextMenu.Trigger>
+							<ContextMenu.Content
+								class="border-muted z-50 w-full max-w-[229px] rounded-xl border bg-white px-1 py-1.5"
+							>
+								<ContextMenu.Item
+									class="rounded-button flex h-10 select-none items-center py-3 pl-3 pr-1.5 text-sm font-medium outline-none !ring-0 !ring-transparent data-[highlighted]:bg-carbongray-50"
+								>
+									<Button.Root
+										class="flex items-center justify-center gap-3"
+										on:click={deleteTemplate}
+									>
+										<Trash size={15} id={rec.id} />
+
+										<div class="text-base" id={rec.id}>Delete</div>
+									</Button.Root>
+								</ContextMenu.Item>
+							</ContextMenu.Content>
+						</ContextMenu.Root>
 					{/each}
 				{/if}
 			</div>
