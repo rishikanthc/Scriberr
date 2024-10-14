@@ -91,7 +91,7 @@
 				success = false;
 			}
 		}
-		currSettings = await getSettings();
+		// currSettings = getSettings();
 		updating = false;
 	}
 </script>
