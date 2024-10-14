@@ -2,6 +2,8 @@
 	import { Button } from 'bits-ui';
 	import { ScrollArea } from 'bits-ui';
 	import { createEventDispatcher } from 'svelte';
+	import { ContextMenu } from 'bits-ui';
+	import { Plus } from 'lucide-svelte';
 
 	export let templates;
 	let dispatch = createEventDispatcher();
@@ -9,6 +11,10 @@
 	let clickedId;
 	let selected;
 	$: console.log('TEMPLATES', selected);
+
+	function newTemplate() {
+		dispatch('openNewTemplate');
+	}
 
 	function onClick(event) {
 		clickedId = event.target.id;
@@ -23,6 +29,13 @@
 
 <ScrollArea.Root class="h-[480px] w-full px-0 2xl:h-[784px]">
 	<ScrollArea.Viewport class="h-full w-full">
+		<div class="flex w-full justify-end">
+			<Button.Root
+				on:click={newTemplate}
+				class="mt-2 flex w-[60px] items-center gap-1 rounded-md bg-carbongray-200 p-1 text-base hover:bg-carbongray-100"
+				>New <Plus size={15} /></Button.Root
+			>
+		</div>
 		<ScrollArea.Content>
 			<div class="flex w-full flex-col items-start gap-0">
 				{#if templates}
