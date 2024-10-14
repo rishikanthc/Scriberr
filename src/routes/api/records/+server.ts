@@ -9,7 +9,15 @@ export const GET: RequestHandler = async ({ request, locals }) => {
 
 	try {
 		const records = await pb.collection('scribo').getFullList();
-		return new Response(JSON.stringify(records), {
+
+		const fileUrlPromises = records.map(async (value) => {
+			const record = await pb.collection('scribo').getOne(value.id);
+			const selected_file = pb.getFileUrl(record, record.audio);
+
+			return { selected_file, id: record.id };
+		});
+		const fileUrls = await Promise.all(fileUrlPromises);
+		return new Response(JSON.stringify({ records, fileUrls }), {
 			status: 200,
 			headers: { 'Content-Type': 'application/json' }
 		});

@@ -10,7 +10,9 @@
 	async function onUpload() {
 		console.log('Files uploaded from page');
 		const response = await fetch('/api/records');
-		records = await response.json();
+		const jres = await response.json();
+		records = jres.records;
+		fileUrls = jres.fileUrls;
 	}
 	async function refreshTemplates() {
 		const response = await fetch('/api/templates');
@@ -23,7 +25,7 @@
 		<div class="flex items-center justify-between gap-2"></div>
 		{#if records}
 			<FilePanel
-				data={records}
+				bind:data={records}
 				{fileUrls}
 				{templates}
 				on:onUpload={onUpload}

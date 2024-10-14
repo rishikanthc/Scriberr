@@ -1,10 +1,12 @@
 <script lang="ts">
 	import { AudioLines, Upload } from 'lucide-svelte';
 	import { createEventDispatcher } from 'svelte';
-	import { Button } from 'bits-ui';
+	import { Button, Progress } from 'bits-ui';
+	import StatusSpinner from './StatusSpinner.svelte';
 
 	let draggedFiles: File[] = [];
 	const dispatch = createEventDispatcher();
+	let uploading = false;
 
 	// Function to validate if the file is an audio file
 	function isValidAudioFile(file: File): boolean {
@@ -34,11 +36,18 @@
 		}
 	}
 
+	let nfiles = 0;
+	let currFile;
+
 	// Function to iterate over all files and upload only valid audio files
 	async function uploadFiles(files: File[]) {
+		nfiles = files.length;
 		for (const file of files) {
+			currFile = file.name;
 			if (isValidAudioFile(file)) {
+				uploading = true;
 				await uploadFile(file); // Upload only if the file is valid
+				uploading = false;
 			} else {
 				console.error(`Invalid file type: ${file.name} (${file.type})`);
 			}
@@ -71,7 +80,11 @@
 	>
 		<div class="flex flex-col items-center justify-center">
 			<div>Drag and Drop audio</div>
-			<Upload size={40} />
+			{#if uploading}
+				<StatusSpinner msg={'Uploading'} />
+			{:else}
+				<Upload size={40} />
+			{/if}
 		</div>
 	</div>
 

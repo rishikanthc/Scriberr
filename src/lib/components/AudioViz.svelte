@@ -12,7 +12,7 @@
 	let waveformElement;
 	let playing = false;
 
-	$: if (wavesurfer && audioSrc) {
+	$: if (wavesurfer && audioSrc && peaks.length > 0) {
 		updateWaveSurfer();
 	}
 
@@ -34,28 +34,19 @@
 		wavesurfer.on('finish', () => {
 			playing = false;
 		});
-
-		updateWaveSurfer();
 	}
 
 	function updateWaveSurfer() {
-		if (wavesurfer && audioSrc) {
-			if (peaks.length > 0) {
-				wavesurfer.load(audioSrc, peaks);
-			}
-			resetPlayState();
-		}
+		createWaveSurfer();
+		wavesurfer.empty(); // This clears the waveform
+		wavesurfer.load(audioSrc, peaks);
+		resetPlayState();
 	}
 
 	function resetPlayState() {
 		playing = false;
-		if (wavesurfer) {
-			wavesurfer.stop(); // This stops and resets the wavesurfer progress
-			wavesurfer.empty(); // This clears the waveform
-			if (peaks.length > 0) {
-				wavesurfer.load(audioSrc, peaks); // Reload the current audio
-			}
-		}
+		wavesurfer.stop(); // This stops and resets the wavesurfer progress
+		// wavesurfer.empty(); // This clears the waveform
 	}
 
 	function togglePlayPause() {
