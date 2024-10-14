@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Save, SaveOff, Library, CircleCheck, Timer, TypeOutline } from 'lucide-svelte';
+	import { Save, SaveOff, Library, CircleCheck, Timer, TypeOutline, Loader } from 'lucide-svelte';
 	import { Separator } from 'bits-ui';
 	import { Button } from 'bits-ui';
 	import { Label } from 'bits-ui';
@@ -14,6 +14,8 @@
 	import { ScrollArea } from 'bits-ui';
 	import SysStats from '$lib/components/SysStats.svelte';
 	import { createEventDispatcher } from 'svelte';
+	import { ContextMenu } from 'bits-ui';
+	import { Trash, Pencil } from 'lucide-svelte';
 
 	import { Loader2, Check, X } from 'lucide-svelte';
 	let isLoading = false;
@@ -114,6 +116,35 @@
 		dispatcher('onUpload');
 	}
 
+	async function deleteRecording(event) {
+		const delId = event.currentTarget.id;
+
+		if (!delId) {
+			console.error('Record ID is missing');
+			return;
+		}
+
+		try {
+			// Delete the template
+			const deleteResponse = await fetch(`/api/records?id=${delId}`, {
+				method: 'DELETE'
+			});
+
+			if (deleteResponse.ok) {
+				const deleteResult = await deleteResponse.json();
+				console.log('Record deleted successfully:', deleteResult);
+
+				// dispatch('templatesModified');
+				dispatcher('recordsModified');
+			} else {
+				const error = await deleteResponse.json();
+				console.error('Error deleting record:', error);
+			}
+		} catch (err) {
+			console.error('Error during API call:', err);
+		}
+	}
+
 	function onClick(event) {
 		clickedId = event.target.id;
 		selected = data.find((value) => {
@@ -122,6 +153,61 @@
 		fileurl = fileUrls.find((value) => {
 			return value.id === clickedId;
 		});
+	}
+
+	let renaming = false;
+	async function renameTempl(event) {
+		renaming = true;
+		console.log('Double clicked');
+	}
+
+	let renameTitle;
+	let renameLoading = false;
+
+	async function saveTitle() {
+		renameLoading = true;
+		try {
+			// Make a POST request to the API with the updated title only
+			const response = await fetch(`/api/templates/${selectedTemplate.id}`, {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify({
+					title: renameTitle // Send only the updated title or any other field
+				})
+			});
+
+			// Check if the response is successful
+			if (response.ok) {
+				const updatedRecord = await response.json();
+				console.log('Template updated successfully:', updatedRecord);
+				selectedTemplate = updatedRecord;
+				dispatcher('templatesModified');
+				// Update the selected template title locally
+			} else {
+				const error = await response.json();
+				console.error('Error updating title:', error);
+			}
+		} catch (err) {
+			console.error('Error during API call:', err);
+		} finally {
+			// Exit rename mode regardless of success or failure
+			renaming = false;
+			renameLoading = false;
+		}
+	}
+
+	function handleKeydown(event) {
+		if (event.key === 'Enter' && event.shiftKey) {
+			console.log('save detected');
+			event.preventDefault();
+			saveTitle();
+			console.log('saved');
+			dispatcher('templatesModified');
+		} else if (event.key === 'Escape') {
+			renaming = false;
+		}
 	}
 </script>
 
@@ -174,19 +260,43 @@
 												: ''}"
 											on:click={onClick}
 										>
-											<div class="justify-left flex items-center gap-4" id={rec.id}>
-												{#if rec.processed}<CircleCheck
-														color={'#24a147'}
-														id={rec.id}
-														size={15}
-													/>{:else}<Timer id={rec.id} size={15} />{/if}
-												<div class="gap-0.25 flex flex-col items-start justify-center" id={rec.id}>
-													<div class="text-base" id={rec.id}>{rec.title}</div>
-													<div class="text-xs text-carbongray-600" id={rec.id}>
-														{rec.date.split(' ')[0]}
+											<ContextMenu.Root>
+												<ContextMenu.Trigger class="w-full">
+													<div class="justify-left flex items-center gap-4" id={rec.id}>
+														{#if rec.processed}<CircleCheck
+																color={'#24a147'}
+																id={rec.id}
+																size={15}
+															/>{:else}<Timer id={rec.id} size={15} />{/if}
+														<div
+															class="gap-0.25 flex flex-col items-start justify-center"
+															id={rec.id}
+														>
+															<div class="text-base" id={rec.id}>{rec.title}</div>
+															<div class="text-xs text-carbongray-600" id={rec.id}>
+																{rec.date.split(' ')[0]}
+															</div>
+														</div>
 													</div>
-												</div>
-											</div>
+												</ContextMenu.Trigger>
+												<ContextMenu.Content
+													class="border-muted z-50 w-full max-w-[229px] rounded-xl border bg-white px-1 py-1.5"
+												>
+													<ContextMenu.Item
+														class="rounded-button flex h-10 select-none items-center py-3 pl-3 pr-1.5 text-sm font-medium outline-none !ring-0 !ring-transparent data-[highlighted]:bg-carbongray-50"
+													>
+														<Button.Root
+															class="flex items-center justify-center gap-3"
+															on:click={deleteRecording}
+															id={rec.id}
+														>
+															<Trash size={15} />
+
+															<div class="text-base">Delete</div>
+														</Button.Root>
+													</ContextMenu.Item>
+												</ContextMenu.Content>
+											</ContextMenu.Root>
 										</Button.Root>
 									{/each}
 								{/if}
@@ -240,9 +350,25 @@
 			class="absolute left-0 top-[50px] z-50 h-full w-full bg-white dark:bg-carbongray-800 lg:relative lg:top-0 lg:z-10"
 		>
 			<div class="flex items-center justify-between p-3">
-				<div class="text-4xl">
-					{selectedTemplate?.title}
-				</div>
+				{#if renaming}
+					<div class="justify-left flex w-full items-center gap-1">
+						<textarea
+							id="newtitle"
+							bind:value={renameTitle}
+							class="h-[30px] w-[300px] rounded-md border border-carbongray-300 p-1 focus:outline-none focus:ring-2 focus:ring-carbongray-800 focus:ring-offset-2 focus:ring-offset-white disabled:bg-carbongray-50 dark:bg-carbongray-700 disabled:dark:bg-carbongray-600"
+							on:keydown={handleKeydown}
+							autofocus
+							disabled={renameLoading}
+						/>
+						{#if renameLoading}
+							<Loader class="animate-spin" size={15} />
+						{/if}
+					</div>
+				{:else}
+					<div class="text-4xl" on:dblclick={renameTempl}>
+						{selectedTemplate?.title}
+					</div>
+				{/if}
 				<Button.Root class="hover:bg-carbongray-100" on:click={closeRecord}>
 					<SquareX size={20} />
 				</Button.Root>

@@ -36,12 +36,23 @@ export const GET: RequestHandler = async ({ request, locals, params }) => {
 export const POST: RequestHandler = async ({ request, params, locals }) => {
 	const pb = locals.pb;
 	const { id } = params;
-	ensureCollectionExists(pb);
+	await ensureCollectionExists(pb); // Ensure collection exists
 
 	try {
-		// Get the body from the request (containing the new 'prompt' value)
+		// Get the body from the request (containing the new 'title' and/or 'prompt' values)
 		const data = await request.json();
-		const prompt = data.prompt;
+		const { title, prompt } = data;
+
+		// Ensure that at least one of 'title' or 'prompt' is provided
+		if (!title && !prompt) {
+			return new Response(
+				JSON.stringify({ error: 'At least one field (title or prompt) must be provided' }),
+				{
+					status: 400,
+					headers: { 'Content-Type': 'application/json' }
+				}
+			);
+		}
 
 		// Find the record by its id
 		const record = await pb.collection('templates').getOne(id);
@@ -52,10 +63,13 @@ export const POST: RequestHandler = async ({ request, params, locals }) => {
 			});
 		}
 
-		// Update the 'prompt' field of the record
-		const updatedRecord = await pb.collection('templates').update(id, {
-			prompt: prompt
-		});
+		// Prepare the update object with only the fields that are provided
+		const updateData: { title?: string; prompt?: string } = {};
+		if (title) updateData.title = title;
+		if (prompt) updateData.prompt = prompt;
+
+		// Update the record with the provided data
+		const updatedRecord = await pb.collection('templates').update(id, updateData);
 
 		return new Response(JSON.stringify(updatedRecord), {
 			status: 200,
@@ -63,7 +77,7 @@ export const POST: RequestHandler = async ({ request, params, locals }) => {
 		});
 	} catch (err) {
 		console.log('API records | Error updating record', err);
-		return new Response(JSON.stringify(err), {
+		return new Response(JSON.stringify({ error: err.message }), {
 			status: 500,
 			headers: { 'Content-Type': 'application/json' }
 		});
