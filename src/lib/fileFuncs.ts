@@ -22,8 +22,14 @@ export async function ensureCollectionExists(pb) {
 							maxSize: 524288222
 						}
 					},
+					{
+						name: 'transcript',
+						type: 'json',
+						options: {
+							maxSize: 524288222
+						}
+					},
 					{ name: 'title', type: 'text' },
-					{ name: 'transcript', type: 'text' },
 					{ name: 'summary', type: 'text' },
 					{ name: 'processed', type: 'bool' },
 					{ name: 'model', type: 'text' },

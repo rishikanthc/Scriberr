@@ -10,7 +10,8 @@
 	export let fileurl;
 	export let templates;
 
-	$: transcript = record.transcript !== '' ? JSON.parse(record.transcript).transcription : null;
+	// $: transcript = record.transcript !== '' ? JSON.parse(record.transcript).transcription : null;
+	$: transcript = record?.transcript?.transcription || {};
 	$: summary = record.summary;
 	$: audioSrc = fileurl?.selected_file || '';
 	$: audioPeaks = record.peaks?.data || [];
@@ -86,14 +87,16 @@
 						<div>
 							{#if transcript}
 								{#each transcript as t}
-									<div class="my-3 flex flex-col items-start">
-										<div class="text-xs text-carbongray-500">
-											{t.timestamps.from.split(',')[0]}
+									{#if t.text !== ''}
+										<div class="my-3 flex flex-col items-start">
+											<div class="text-xs text-carbongray-500">
+												{t.timestamps.from.split(',')[0]}
+											</div>
+											<div class="text-base leading-relaxed">
+												<p id={t.timestamps.from}>{t.text}</p>
+											</div>
 										</div>
-										<div class="text-base leading-relaxed">
-											<p id={t.timestamps.from}>{t.text}</p>
-										</div>
-									</div>
+									{/if}
 								{/each}
 							{/if}
 						</div>

@@ -165,7 +165,7 @@ const worker = new Worker(
 
 			job.updateProgress(12);
 			const rttmPath = path.resolve(baseUrl, `${recordId}.rttm`);
-			const diarizeCmd = `python ./diarize/diarize.py ${ffmpegPath} ${rttmPath}`;
+			const diarizeCmd = `python ./diarize/local.py ${ffmpegPath} ${rttmPath}`;
 			await execCommandWithLogging(diarizeCmd, job);
 			await job.log(`Diarization completed successfully`);
 
@@ -225,13 +225,14 @@ const worker = new Worker(
 
 			// Read and update transcript
 			// const transcript = fs.readFileSync(`${transcriptPath}.json`, 'utf-8');
-			const validTranscription = JSON.stringify(transcription);
+			const validTranscription = JSON.stringify({"transcription": transcription});
 			console.log(validTranscription);
 
 			const audioPeaks = fs.readFileSync(`${audioPath}.json`, 'utf-8');
 
 			const upd = await pb.collection('scribo').update(recordId, {
-				transcript: '{ "test": "hi" }', // This ensures we send valid JSON
+				// transcript: '{ "test": "hi" }',
+				transcript: validTranscription,
 				processed: true,
 				peaks: JSON.parse(audioPeaks)
 			});

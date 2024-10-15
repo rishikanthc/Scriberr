@@ -20,7 +20,6 @@ export async function load({ params, fetch, locals }) {
 	// // Wait for all promises to resolve
 	// const fileUrls = await Promise.all(fileUrlPromises);
 
-	console.log('Home page - fetched', records.length);
 
 	// Return both records and fileUrls
 	return { records, fileUrls, templates };
