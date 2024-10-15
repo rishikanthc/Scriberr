@@ -80,7 +80,7 @@
 		<div class="grid grid-cols-2 gap-4">
 			{#each jobs.active as job (job.id)}
 				<div class="rounded-md p-4 shadow-md dark:bg-carbongray-700">
-					<div class="text-sm">Record ID: {job.data.recordId}</div>
+					<div class="text-sm">Processing {job.data.title}</div>
 					<Progress.Root
 						value={job.progress}
 						max={100}

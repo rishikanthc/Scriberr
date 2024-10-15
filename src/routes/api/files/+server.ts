@@ -24,7 +24,10 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
 		const record = await locals.pb.collection('scribo').create(data);
 
-		const job = await transcriptionQueue.add('processAudio', { recordId: record.id });
+		const job = await transcriptionQueue.add('processAudio', {
+			recordId: record.id,
+			title: record.title
+		});
 		console.log('Created job:', job.id);
 
 		return new Response(JSON.stringify({ message: 'File uploaded successfully', record }), {

@@ -36,6 +36,7 @@
 	"dependencies": {
 		"@bull-board/api": "^6.0.0",
 		"@bull-board/express": "^6.0.0",
+		"@ffmpeg/ffmpeg": "^0.12.10",
 		"@sveltejs/adapter-node": "^5.2.5",
 		"bits-ui": "^0.21.15",
 		"bull-board": "^2.1.3",

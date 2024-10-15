@@ -40,6 +40,51 @@ app.listen(PORT, () => {
 	console.log(`Bull Board running at http://localhost:${PORT}/admin/queues`);
 });
 
+// Remove all jobs from the queue
+async function clearQueue() {
+	await transcriptionQueue.drain();
+	console.log('Queue cleared!');
+}
+
+async function cleanAllJobs() {
+	// Remove all completed jobs
+	await transcriptionQueue.clean(0, 0, 'completed');
+	console.log('All completed jobs have been removed');
+
+	// Remove all failed jobs
+	await transcriptionQueue.clean(0, 0, 'failed');
+	console.log('All failed jobs have been removed');
+
+	// Remove all waiting jobs
+	await transcriptionQueue.clean(0, 0, 'waiting');
+	console.log('All waiting jobs have been removed');
+
+	// Remove all active jobs (this may kill jobs that are actively being processed)
+	await transcriptionQueue.clean(0, 0, 'active');
+	console.log('All active jobs have been removed');
+
+	// Remove all delayed jobs
+	await transcriptionQueue.clean(0, 0, 'delayed');
+	console.log('All delayed jobs have been removed');
+}
+
+async function pauseAndCleanQueue() {
+	// Pause the queue to prevent new jobs from being processed
+	await transcriptionQueue.pause();
+	console.log('Queue paused');
+
+	// Clean all jobs as described above
+	await cleanAllJobs();
+
+	// Optionally resume the queue
+	await transcriptionQueue.resume();
+	console.log('Queue resumed');
+}
+
+pauseAndCleanQueue();
+
+clearQueue();
+
 // Helper function to execute shell commands and log output
 const execCommandWithLogging = (cmd: string, job: Job) => {
 	return new Promise((resolve, reject) => {
@@ -82,69 +127,177 @@ const execCommandWithLogging = (cmd: string, job: Job) => {
 const worker = new Worker(
 	'transcriptionQueue',
 	async (job) => {
-		const { recordId } = job.data;
-		await job.log(`Starting job ${job.id} for record ${recordId}`);
+		try {
+			const { recordId, title } = job.data;
+			await job.log(`Starting job ${job.id} for record ${recordId}`);
 
-		// Authenticate with PocketBase
-		const record = await pb.collection('scribo').getOne(recordId);
-		await job.log(`Fetched record for ${recordId}`);
+			// Authenticate with PocketBase
+			const record = await pb.collection('scribo').getOne(recordId);
+			await job.log(`Fetched record for ${recordId}`);
 
-		const audioFilename = record.audio;
-		const fileExtension = path.extname(audioFilename);
+			const audioFilename = record.audio;
+			const fileExtension = path.extname(audioFilename);
 
-		// Download the audio file
-		const audioUrl = pb.files.getUrl(record, audioFilename);
-		const audioPath = path.resolve(env.SCRIBO_FILES, 'audio', `${recordId}${fileExtension}`);
-		const ffmpegPath = path.resolve(env.SCRIBO_FILES, 'audio', `${recordId}-ffmpeg.wav`);
-		const res = await fetch(audioUrl);
+			// Download the audio file
+			const baseUrl = path.resolve(env.SCRIBO_FILES, 'audio', `${recordId}`);
+			fs.mkdir(baseUrl, { recursive: true }, (err) => {
+				if (err) throw err;
+			});
+			const audioUrl = pb.files.getUrl(record, audioFilename);
+			const audioPath = path.resolve(baseUrl, `${recordId}${fileExtension}`);
+			const ffmpegPath = path.resolve(baseUrl, `${recordId}-ffmpeg.wav`);
+			const res = await fetch(audioUrl);
 
-		const buffer = await res.arrayBuffer();
-		fs.writeFileSync(audioPath, Buffer.from(buffer));
-		await job.log(`Downloaded and saved audio file for record ${recordId}`);
+			const buffer = await res.arrayBuffer();
+			fs.writeFileSync(audioPath, Buffer.from(buffer));
+			await job.log(`Downloaded and saved audio file for record ${recordId}`);
 
-		const audiowaveformCmd = `audiowaveform -i ${audioPath} -o ${audioPath}.json`;
-		await execCommandWithLogging(audiowaveformCmd, job);
-		await job.log(`Audiowaveform for ${recordId} generated`);
+			job.updateProgress(1.5);
+			// Execute the ffmpeg command and log output
+			const ffmpegCmd = `ffmpeg -i ${audioPath} -ar 16000 -ac 1 -c:a pcm_s16le ${ffmpegPath}`;
+			await execCommandWithLogging(ffmpegCmd, job);
+			await job.log(`Audio file for ${recordId} converted successfully`);
 
-		// Execute the ffmpeg command and log output
-		const ffmpegCmd = `ffmpeg -i ${audioPath} -ar 16000 -ac 1 -c:a pcm_s16le ${ffmpegPath}`;
-		await execCommandWithLogging(ffmpegCmd, job);
-		await job.log(`Audio file for ${recordId} converted successfully`);
+			job.updateProgress(7.5);
+			const audiowaveformCmd = `audiowaveform -i ${ffmpegPath} -o ${audioPath}.json`;
+			await execCommandWithLogging(audiowaveformCmd, job);
+			await job.log(`Audiowaveform for ${recordId} generated`);
 
-		const settingsRecords = await pb.collection('settings').getList(1, 1);
-		const settings = settingsRecords.items[0];
+			job.updateProgress(12);
+			const rttmPath = path.resolve(baseUrl, `${recordId}.rttm`);
+			const diarizeCmd = `python ./diarize/diarize.py ${ffmpegPath} ${rttmPath}`;
+			await execCommandWithLogging(diarizeCmd, job);
+			await job.log(`Diarization completed successfully`);
 
-		// Execute whisper.cpp command and log output
-		const transcriptPath = path.resolve(env.SCRIBO_FILES, 'transcripts', `${recordId}`);
-		const whisperCmd = `whisper -m /models/ggml-${settings.model}.en.bin -f ${ffmpegPath} -oj -of ${transcriptPath} -t ${settings.threads} -p ${settings.processors} -pp`;
-		await execCommandWithLogging(whisperCmd, job);
-		await job.log(`Whisper transcription for ${recordId} completed`);
+			job.updateProgress(22.5);
+			// Read and parse the RTTM file
+			const rttmContent = fs.readFileSync(rttmPath, 'utf-8');
+			const segments = parseRttm(rttmContent);
+			await job.log(`Parsed RTTM file for record ${recordId}`);
 
-		// Audiowaveform generation
+			// Split the audio into segments using FFmpeg
+			const segmentPaths = await splitAudioIntoSegments(ffmpegPath, segments, baseUrl, job);
+			await job.log(`Audio split into segments for record ${recordId}`);
 
-		// Read and update transcript
-		const transcript = fs.readFileSync(`${transcriptPath}.json`, 'utf-8');
-		const audioPeaks = fs.readFileSync(`${audioPath}.json`, 'utf-8');
+			job.updateProgress(30);
 
-		await pb.collection('scribo').update(recordId, {
-			transcript,
-			processed: true,
-			peaks: JSON.parse(audioPeaks)
-		});
-		await job.log(`Updated PocketBase record for ${recordId}`);
+			const settingsRecords = await pb.collection('settings').getList(1, 1);
+			const settings = settingsRecords.items[0];
+			const transcriptPath = path.resolve(env.SCRIBO_FILES, 'transcripts', `${recordId}`);
+			fs.mkdir(transcriptPath, { recursive: true }, (err) => {
+				if (err) throw err;
+			});
 
-		// Clean up
-		fs.unlinkSync(audioPath);
-		fs.unlinkSync(`${audioPath}.json`);
-		fs.unlinkSync(ffmpegPath);
-		fs.unlinkSync(`${transcriptPath}.json`);
-		await job.log(`Cleaned up temporary files for ${recordId}`);
+			let transcription = [];
+			let prog = 0;
 
-		console.log(`Job ${job.id} for record ${recordId} completed successfully`);
-		job.updateProgress(100); // Mark job progress as complete
+			for (let i = 0; i < segmentPaths.length; i++) {
+				prog = 30 + (70 * i) / segmentPaths.length;
+				job.updateProgress(prog);
+				const segmentFilePath = path.resolve(baseUrl, `segment_${i}.wav`);
+				const segmentTranscriptPath = path.resolve(transcriptPath, `segment_${i}`);
+
+				// Execute whisper command on the segment
+				const whisperCmd = `./whisper.cpp/main -m ./whisper.cpp/models/ggml-${settings.model}.en.bin -f ${segmentFilePath} -of ${segmentTranscriptPath} -otxt -t ${settings.threads} -p ${settings.processors}`;
+				await execCommandWithLogging(whisperCmd, job);
+				await job.log(`Whisper transcription for segment ${i} of ${recordId} completed`);
+
+				// Read the transcript JSON file and append it to the combined transcript
+				const transcriptxt = fs.readFileSync(`${segmentTranscriptPath}.txt`, 'utf-8');
+				transcription.push({
+					timestamps: {
+						from: formatRttmTimestamp(segments[i].startTime),
+						to: formatRttmTimestamp(segments[i].startTime + segments[i].duration)
+					},
+					speaker: segments[i].speaker,
+					text: transcriptxt.trim()
+				});
+			}
+
+			// const settingsRecords = await pb.collection('settings').getList(1, 1);
+			// const settings = settingsRecords.items[0];
+
+			// // Execute whisper.cpp command and log output
+			// const transcriptPath = path.resolve(env.SCRIBO_FILES, 'transcripts', `${recordId}`);
+			// const whisperCmd = `whisper -m /models/ggml-${settings.model}.en.bin -f ${ffmpegPath} -oj -of ${transcriptPath} -t ${settings.threads} -p ${settings.processors} -pp`;
+			// await execCommandWithLogging(whisperCmd, job);
+			// await job.log(`Whisper transcription for ${recordId} completed`);
+
+			// Read and update transcript
+			// const transcript = fs.readFileSync(`${transcriptPath}.json`, 'utf-8');
+			const validTranscription = JSON.stringify(transcription);
+			console.log(validTranscription);
+
+			const audioPeaks = fs.readFileSync(`${audioPath}.json`, 'utf-8');
+
+			const upd = await pb.collection('scribo').update(recordId, {
+				transcript: '{ "test": "hi" }', // This ensures we send valid JSON
+				processed: true,
+				peaks: JSON.parse(audioPeaks)
+			});
+			await job.log(`Updated PocketBase record for ${recordId}`);
+			console.log('UPDATED +++++ ', upd);
+
+			// Clean up
+			// fs.unlinkSync(audioPath);
+			// fs.unlinkSync(`${audioPath}.json`);
+			// fs.unlinkSync(ffmpegPath);
+			// fs.unlinkSync(`${transcriptPath}.json`);
+			fs.rm(baseUrl, { recursive: true, force: true }, (err) => {
+				if (err) throw err;
+			});
+			await job.log(`Cleaned up temporary files for ${recordId}`);
+
+			console.log(`Job ${job.id} for record ${recordId} completed successfully`);
+			job.updateProgress(100); // Mark job progress as complete
+		} catch (error) {
+			await job.log(`Error: ${error.message}`);
+			console.error(error);
+		}
 	},
 	{
 		connection: { host: env.REDIS_HOST, port: env.REDIS_PORT }, // Redis connection
 		concurrency: 5 // Allows multiple jobs to run concurrently
 	}
 );
+
+// Helper function to format time from RTTM file into HH:mm:ss,SSS
+function formatRttmTimestamp(seconds) {
+	const hours = Math.floor(seconds / 3600)
+		.toString()
+		.padStart(2, '0');
+	const minutes = Math.floor((seconds % 3600) / 60)
+		.toString()
+		.padStart(2, '0');
+	const secs = (seconds % 60).toFixed(3).padStart(6, '0');
+	return `${hours}:${minutes}:${secs}`;
+}
+
+function parseRttm(text) {
+	const lines = text.split('\n');
+	return lines
+		.map((line) => {
+			const parts = line.split(' ');
+			if (parts.length >= 5) {
+				const startTime = parseFloat(parts[3]);
+				const duration = parseFloat(parts[4]);
+				const speaker = parts[7]; // Assuming speaker info is in column 8
+				return { startTime, duration, speaker };
+			}
+		})
+		.filter(Boolean);
+}
+
+async function splitAudioIntoSegments(audioPath, segments, outputDir, job) {
+	const segmentPaths = [];
+	for (let i = 0; i < segments.length; i++) {
+		const { startTime, duration } = segments[i];
+		const outputFileName = path.resolve(outputDir, `segment_${i}.wav`);
+		segmentPaths.push(outputFileName);
+
+		const ffmpegCmd = `ffmpeg -i ${audioPath} -ss ${startTime} -t ${duration} -c copy ${outputFileName}`;
+		await execCommandWithLogging(ffmpegCmd, job);
+		await job.log(`Segment ${i} saved as ${outputFileName}`);
+	}
+	return segmentPaths;
+}
