@@ -30,11 +30,18 @@ export async function ensureCollectionExists(pb) {
 						}
 					},
 					{ name: 'title', type: 'text' },
+					{ name: 'rttm', type: 'text' },
 					{ name: 'summary', type: 'text' },
 					{ name: 'processed', type: 'bool' },
 					{ name: 'model', type: 'text' },
 					{ name: 'peaks', type: 'json', options: { maxSize: 524288000 } },
-					{ name: 'date', type: 'date', required: true }
+					{ name: 'date', type: 'date', required: true },
+					{
+						name: 'diarized', type: 'json',
+						options: {
+							maxSize: 524288222
+						}
+					}
 				]
 			});
 			console.log('Collection "scribo" created successfully.');
@@ -55,7 +62,8 @@ export async function ensureCollectionExists(pb) {
 					{ name: 'default_openai_model', type: 'text' },
 					{ name: 'default_template', type: 'text' },
 					{ name: 'threads', type: 'number', required: true },
-					{ name: 'processors', type: 'number', required: true }
+					{ name: 'processors', type: 'number', required: true },
+					{ name: 'diarize', type: 'bool'}
 				]
 			});
 
@@ -64,7 +72,8 @@ export async function ensureCollectionExists(pb) {
 				openai: '',
 				default_openai_model: 'gpt-4o',
 				threads: 2,
-				processors: 1
+				processors: 1,
+				diarize: false
 			});
 
 			console.log('Settings collection created.');
