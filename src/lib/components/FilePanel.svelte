@@ -422,7 +422,7 @@
 					<SquareX size={20} />
 				</Button.Root>
 			</div>
-			<DisplayPane record={selected} {fileurl} {templates} />
+			<DisplayPane record={selected} {fileurl} {templates} on:recordsModified />
 		</div>
 	{:else if selectedTemplate}
 		<div
