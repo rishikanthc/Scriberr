@@ -167,12 +167,10 @@ const worker = new Worker(
 			const audiowaveformCmd = `audiowaveform -i ${ffmpegPath} -o ${audioPath}.json`;
 			await execCommandWithLogging(audiowaveformCmd, job);
 			await job.log(`Audiowaveform for ${recordId} generated`);
-
 			
 			const settingsRecords = await pb.collection('settings').getList(1, 1);
 			const settings = settingsRecords.items[0];
 
-			
 			// Execute whisper.cpp command and log output
 			const transcriptdir = path.resolve(env.SCRIBO_FILES, 'transcripts', `${recordId}`);
 			const transcriptPath= path.resolve(env.SCRIBO_FILES, 'transcripts', `${recordId}`, `${recordId}`);
@@ -208,7 +206,6 @@ const worker = new Worker(
 			const transcript = fs.readFileSync(`${transcriptPath}.json`, 'utf-8');
 			let transcriptJson = JSON.parse(transcript);
 			console.log(transcriptJson);
-
 
 			const audioPeaks = fs.readFileSync(`${audioPath}.json`, 'utf-8');
 			let upd;
@@ -338,7 +335,6 @@ function preprocessWordTimestamps(wordTimestamps) {
             //     nextWord.timestamps.from = word.timestamps.from;
             // }
             console.log('deleting char')
-
         } else if (text.length === 1 && (text === 'a' || text === 'I' || text === 'i')) {
             // Keep "a" as a separate word
             cleanedTimestamps.push(word);
