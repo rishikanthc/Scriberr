@@ -110,7 +110,7 @@ const execCommandWithLogging = (cmd: string, job: Job, progress: number) => {
 				// 	return;
 				// }
 
-				const _remaining = 100 - progress
+				const _remaining = 95 - progress
 				const _prog = _remaining * tprogress / 100
 
 				await job.updateProgress(_prog);
@@ -189,8 +189,6 @@ const worker = new Worker(
 				const diarizeCmd = `python ./diarize/local.py ${ffmpegPath} ${rttmPath}`;
 				await execCommandWithLogging(diarizeCmd, job);
 				await job.log(`Diarization completed successfully`);
-
-				job.updateProgress(35);
 				// Read and parse the RTTM file
 				rttmContent = fs.readFileSync(rttmPath, 'utf-8');
 				segments = parseRttm(rttmContent);
@@ -198,6 +196,8 @@ const worker = new Worker(
 
 				whisperCmd = `./whisper.cpp/main -m ./whisper.cpp/models/ggml-${settings.model}.en.bin -f ${ffmpegPath} -oj -of ${transcriptPath} -t ${settings.threads} -p ${settings.processors} -pp -ml 1`;
 			}
+
+			job.updateProgress(35);
 
 			await execCommandWithLogging(whisperCmd, job, 35);
 			await job.log(`Whisper transcription for ${recordId} completed`);

@@ -2,5 +2,7 @@
 docker-compose.ollama.yaml
 Dockerfile
 install_audiowaveform.sh
+samples
+scribber_files
 install_aw.sh
 .prettier*
