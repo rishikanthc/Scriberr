@@ -1,10 +1,11 @@
 <script>
-	import { ScrollArea } from 'bits-ui';
+	import { Label, ScrollArea } from 'bits-ui';
 	import { Button } from 'bits-ui';
 	import { Tabs } from 'bits-ui';
 	import AudioViz from '$lib/components/AudioViz.svelte';
 	import { Combobox } from 'bits-ui';
-	import { IdCard, Volume2, Sparkles, ChevronsUpDown, Search, Check } from 'lucide-svelte';
+	import { Dialog } from 'bits-ui';
+	import { CircleX, IdCard, Volume2, Sparkles, ChevronsUpDown, Search, Check } from 'lucide-svelte';
 
 	export let record;
 	export let fileurl;
@@ -104,9 +105,58 @@
 							<div
 								class="flex h-[38px] w-full items-center justify-end rounded-b-2xl bg-carbongray-50 p-3 dark:bg-carbongray-700"
 							>
-								<Button.Root>
-									<IdCard class="text-carbongray-600 dark:text-carbongray-100" />
-								</Button.Root>
+								<Dialog.Root>
+									<Dialog.Trigger
+										class="rounded-input bg-dark text-background
+	shadow-mini hover:bg-dark/95 focus-visible:ring-foreground focus-visible:ring-offset-background active:scale-98
+	inline-flex h-12 items-center justify-center whitespace-nowrap px-[21px] text-[15px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+									>
+										<IdCard class="text-carbongray-600 dark:text-carbongray-100" />
+									</Dialog.Trigger>
+									<Dialog.Portal>
+										<Dialog.Overlay
+											transitionConfig={{ duration: 150 }}
+											class="fixed inset-0 z-50 bg-black/80"
+										/>
+										<Dialog.Content
+											class="fixed left-[50%] top-[50%] z-50 w-full max-w-[94%] translate-x-[-50%] translate-y-[-50%] rounded-lg border bg-white p-5 shadow-md outline-none sm:max-w-[490px] md:w-[300px]"
+										>
+											<Dialog.Title
+												class="flex w-full items-center justify-center text-lg font-semibold tracking-tight"
+												>Label Speakers</Dialog.Title
+											>
+
+											<Dialog.Description class="text-foreground-alt text-sm"></Dialog.Description>
+											<div class="flex flex-col items-start gap-1 pb-11 pt-7">
+												<Label.Root for="apiKey" class="text-sm font-medium">API Key</Label.Root>
+												<div class="relative w-full">
+													<input
+														id="apiKey"
+														class="h-input bg-background focus:ring-foreground focus:ring-offset-background inline-flex w-full items-center rounded-sm border px-4 text-sm placeholder:text-carbongray-600 hover:border-carbongray-500 focus:outline-none focus:ring-2 focus:ring-offset-2"
+														placeholder="secret_api_key"
+														type="password"
+														autocomplete="off"
+													/>
+												</div>
+											</div>
+											<div class="flex w-full justify-end">
+												<Dialog.Close
+													class="text-background focus-visible:ring-dark focus-visible:ring-offset-background active:scale-98 inline-flex h-[35px] items-center justify-center rounded-md bg-carbongray-800 px-[50px] text-[15px] font-semibold text-carbongray-100 shadow-sm hover:bg-carbongray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+												>
+													Save
+												</Dialog.Close>
+											</div>
+											<Dialog.Close
+												class="focus-visible:ring-foreground focus-visible:ring-offset-background active:scale-98 absolute right-5 top-5 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+											>
+												<div>
+													<CircleX />
+													<span class="sr-only">Close</span>
+												</div>
+											</Dialog.Close>
+										</Dialog.Content>
+									</Dialog.Portal>
+								</Dialog.Root>
 							</div>
 						</div>
 					</div>
