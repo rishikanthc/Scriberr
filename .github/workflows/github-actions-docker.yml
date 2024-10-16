@@ -20,6 +20,16 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Cache compiled binaries
+        uses: actions/cache@v3
+        with:
+          path: |
+            /app/whisper.cpp
+            /usr/local/bin/
+            /usr/local/share/man/man1/
+            /usr/local/share/man/man5/
+          key: ${{ runner.os }}-build-${{ hashFiles('Dockerfile') }}
+
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
         with:  
@@ -27,6 +37,12 @@ jobs:
           push: true
           tags: |
             ghcr.io/rishikanthc/scriberr:nightly
+          cache-from: |
+            type=registry,ref=ghcr.io/rishikanthc/scriberr:nightly-linux-amd64
+            type=registry,ref=ghcr.io/rishikanthc/scriberr:nightly-linux-arm64
+          cache-to: |
+            type=registry,ref=ghcr.io/rishikanthc/scriberr:nightly-linux-amd64,mode=max,compress=true
+            type=registry,ref=ghcr.io/rishikanthc/scriberr:nightly-linux-arm64,mode=max,compress=true
 
       - name: Verify multi-platform image
         run: |
