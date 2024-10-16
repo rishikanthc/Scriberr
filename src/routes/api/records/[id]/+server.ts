@@ -26,16 +26,17 @@ export const POST: RequestHandler = async ({ request, params, locals }) => {
 	try {
 		// Get the body from the request (containing the new 'title' and/or 'prompt' values)
 		const data = await request.json();
-		const { title } = data;
+		const { title, transcript, diarizedtranscript } = data;
 
 		// Ensure that at least one of 'title' or 'prompt' is provided
-		if (!title) {
+		if (!title && !transcript && !diarizedtranscript) {
 			return new Response(JSON.stringify({ error: 'Title must be provided' }), {
 				status: 400,
 				headers: { 'Content-Type': 'application/json' }
 			});
 		}
 
+		
 		// Find the record by its id
 		const record = await pb.collection('scribo').getOne(id);
 		if (!record) {
@@ -46,8 +47,10 @@ export const POST: RequestHandler = async ({ request, params, locals }) => {
 		}
 
 		// Prepare the update object with only the fields that are provided
-		const updateData: { title?: string; prompt?: string } = {};
+		const updateData: { title?: string; transcript?: object, diarizedtranscript?: object} = {};
 		if (title) updateData.title = title;
+		if (transcript) updateData.transcript = transcript;
+		if (diarizedtranscript) updateData.diarizedtranscript = diarizedtranscript;
 
 		// Update the record with the provided data
 		const updatedRecord = await pb.collection('scribo').update(id, updateData);
