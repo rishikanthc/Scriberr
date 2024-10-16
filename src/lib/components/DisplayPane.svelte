@@ -4,17 +4,29 @@
 	import { Tabs } from 'bits-ui';
 	import AudioViz from '$lib/components/AudioViz.svelte';
 	import { Combobox } from 'bits-ui';
-	import { Sparkles, ChevronsUpDown, Search, Check } from 'lucide-svelte';
+	import { Volume2, Sparkles, ChevronsUpDown, Search, Check } from 'lucide-svelte';
 
 	export let record;
 	export let fileurl;
 	export let templates;
 
+	let transcript;
+
 	// $: transcript = record.transcript !== '' ? JSON.parse(record.transcript).transcription : null;
-	$: transcript = record?.transcript?.transcription || {};
+	$: {
+		if (record) {
+			if (record.diarized) {
+				transcript = record.diarizedtranscript?.transcription || [];
+			} else {
+				transcript = record.transcript?.transcription || [];
+			}
+		}
+	}
+	// $: transcript = record?.transcript?.transcription || {};
 	$: summary = record.summary;
 	$: audioSrc = fileurl?.selected_file || '';
 	$: audioPeaks = record.peaks?.data || [];
+	$: diarized = record?.diarized;
 
 	$: templateList = templates.map((val) => {
 		return { value: val.title, label: val.title, id: val.id };
@@ -88,12 +100,24 @@
 							{#if transcript}
 								{#each transcript as t}
 									{#if t.text !== ''}
-										<div class="my-3 flex flex-col items-start">
-											<div class="text-xs text-carbongray-500">
-												{t.timestamps.from.split(',')[0]}
+										<div class="my-4 flex flex-col items-start">
+											<div
+												class="flex items-center justify-center gap-3 text-xs text-carbongray-500"
+											>
+												<div
+													class="flex items-center gap-1 text-sm font-bold text-carbongray-800 dark:text-carbongray-50"
+												>
+													<Volume2 size={12} />
+													<div class="text-sm">{t.speaker}</div>
+												</div>
+												<div class="text-[0.8em]">
+													{t.timestamps.from.split(',')[0]}
+												</div>
 											</div>
 											<div class="text-base leading-relaxed">
-												<p id={t.timestamps.from}>{t.text}</p>
+												<p id={t.timestamps.from}>
+													{t.text}
+												</p>
 											</div>
 										</div>
 									{/if}
