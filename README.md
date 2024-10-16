@@ -2,7 +2,8 @@
 
 This is Scriberr, a self-hostable AI audio transcription app. Scriberr uses the open-source [Whisper](https://github.com/openai/whisper) models from OpenAI,
 to transcribe audio files locally on your hardware. It uses the [Whisper.cpp](https://github.com/ggerganov/whisper.cpp) high-performance inference engine
-for OpenAI's Whisper. Scriberr also allows you to summarize transcripts using OpenAI's ChatGPT API, with your own custom prompts. Summarization using ollama is also supported. 
+for OpenAI's Whisper. Scriberr also allows you to summarize transcripts using ollama or OpenAI's ChatGPT API, with your own custom prompts. From v0.2.0 Scriberr supports
+offline speaker diarization.
 
 ## Features
 - Fast transcription with support for hardware acceleration across a wide variety of platforms
@@ -13,6 +14,7 @@ for OpenAI's Whisper. Scriberr also allows you to summarize transcripts using Op
 - Use your own custom prompts for summarization
 - Mobile ready
 - Simple & Easy to use
+- Speaker Diarization (**New**)
 
 and more to come. Checkout the planned features section.
 
@@ -96,25 +98,28 @@ OPENAI_ROLE=user
 
 ## Planned Features
 
-- Speaker diarization for speaker labels
-- Audio recording functionality
-- File actions - rename, delete
-- Full text fuzzy search
-- Tag based organization system
-- Follow along text with playback
-- Edit summaries
-- Export options
-- Support for other languages
+- [x] Speaker diarization for speaker labels
+- [x] File actions - rename, delete
+- [ ] Provide multiple algorithms for speaker label corrections
+- [ ] Hardware Acceleration setup wizard
+- [ ] Youtube integration
+- [ ] Subtitle generation
+- [ ] Support for other languages
+- [ ] Audio recording functionality
+- [ ] Full text fuzzy search
+- [ ] Tag based organization system
+- [ ] Follow along text with playback
+- [ ] Edit summaries
+- [ ] Export options
 
 
 ## Known Bugs
-- First app load will fail due to missing database. Reloading will fix it.
-- Requires page refresh to load audio for newly transcribed files
-- Automatic update of processed files is finnicky and might require a page refresh for update
+- First app load will load a blank due to missing database. Reloading will fix it.
+- ~~Requires page refresh to load audio for newly transcribed files~~
+- ~~Automatic update of processed files is finnicky and might require a page refresh for update~~
 
 ## Note
-This is a beta app in development, so expect a few rough edges and minor bugs. The app is functional
-and should for the most part be usable barring the need to refresh the page at times for the UI to
-update state.
+This app is under development, so expect a few rough edges and minor bugs. Expect breaking changes
+in the first few minor releases. Will smooth out and try to avoid it as best as I can
 
 If you like this project I would really appreciate it if you could star this repository.
