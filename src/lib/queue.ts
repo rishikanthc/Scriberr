@@ -325,7 +325,7 @@ function preprocessWordTimestamps(wordTimestamps) {
                 previousWord.text += text;
                 previousWord.timestamps.to = word.timestamps.to;
             }
-        } else if (text.length === 1 && text !== 'a') {
+        } else if (text.length === 1 && text !== 'a' && text !== 'i' && text !== 'I') {
             // Handle single character words (except "a")
             // if (previousWord) {
             //     // Append single character to the previous word
@@ -339,7 +339,7 @@ function preprocessWordTimestamps(wordTimestamps) {
             // }
             console.log('deleting char')
 
-        } else if (text.length === 1 && text === 'a') {
+        } else if (text.length === 1 && (text === 'a' || text === 'I' || text === 'i')) {
             // Keep "a" as a separate word
             cleanedTimestamps.push(word);
             previousWord = word;
