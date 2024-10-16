@@ -167,20 +167,7 @@ const worker = new Worker(
 			const audiowaveformCmd = `audiowaveform -i ${ffmpegPath} -o ${audioPath}.json`;
 			await execCommandWithLogging(audiowaveformCmd, job);
 			await job.log(`Audiowaveform for ${recordId} generated`);
-
-			job.updateProgress(12);
-			const rttmPath = path.resolve(baseUrl, `${recordId}.rttm`);
-			const diarizeCmd = `python ./diarize/local.py ${ffmpegPath} ${rttmPath}`;
-			await execCommandWithLogging(diarizeCmd, job);
-			await job.log(`Diarization completed successfully`);
-
-			job.updateProgress(35);
-			// Read and parse the RTTM file
-			const rttmContent = fs.readFileSync(rttmPath, 'utf-8');
-			const segments = parseRttm(rttmContent);
-			await job.log(`Parsed RTTM file for record ${recordId}`);
-
-
+			
 			const settingsRecords = await pb.collection('settings').getList(1, 1);
 			const settings = settingsRecords.items[0];
 
@@ -191,7 +178,27 @@ const worker = new Worker(
 				if (err) throw err;
 			});
 
-			const whisperCmd = `./whisper.cpp/main -m ./whisper.cpp/models/ggml-${settings.model}.en.bin -f ${ffmpegPath} -oj -of ${transcriptPath} -t ${settings.threads} -p ${settings.processors} -pp -ml 1`;
+			let whisperCmd = `whisper -m /models/ggml-${settings.model}.en.bin -f ${ffmpegPath} -oj -of ${transcriptPath} -t ${settings.threads} -p ${settings.processors} -pp`;
+
+			let rttmContent;
+			let segments;
+
+			if (settings.diarize) {
+				job.updateProgress(12);
+				const rttmPath = path.resolve(baseUrl, `${recordId}.rttm`);
+				const diarizeCmd = `python ./diarize/local.py ${ffmpegPath} ${rttmPath}`;
+				await execCommandWithLogging(diarizeCmd, job);
+				await job.log(`Diarization completed successfully`);
+
+				job.updateProgress(35);
+				// Read and parse the RTTM file
+				rttmContent = fs.readFileSync(rttmPath, 'utf-8');
+				segments = parseRttm(rttmContent);
+				await job.log(`Parsed RTTM file for record ${recordId}`);
+
+				whisperCmd = `./whisper.cpp/main -m ./whisper.cpp/models/ggml-${settings.model}.en.bin -f ${ffmpegPath} -oj -of ${transcriptPath} -t ${settings.threads} -p ${settings.processors} -pp -ml 1`;
+			}
+
 			await execCommandWithLogging(whisperCmd, job, 35);
 			await job.log(`Whisper transcription for ${recordId} completed`);
 
@@ -200,18 +207,34 @@ const worker = new Worker(
 			let transcriptJson = JSON.parse(transcript);
 			console.log(transcriptJson);
 
-			const diarizedTranscript = generateTranscript(transcriptJson.transcription, rttmContent)
-			transcriptJson.transcription = diarizedTranscript
-
 			const audioPeaks = fs.readFileSync(`${audioPath}.json`, 'utf-8');
+			let upd;
 
-			const upd = await pb.collection('scribo').update(recordId, {
+			if (settings.diarize) {
+				const diarizedTranscript = generateTranscript(transcriptJson.transcription, rttmContent)
+				const diarizedJson = {transcription: diarizedTranscript};
+
+				upd = await pb.collection('scribo').update(recordId, {
 				// transcript: '{ "test": "hi" }',
 				transcript: transcriptJson,
+				diarizedtranscript: diarizedJson,
 				rttm: rttmContent,
 				processed: true,
+				diarized: true,
 				peaks: JSON.parse(audioPeaks)
-			});
+				});
+
+			} else {
+				
+				upd = await pb.collection('scribo').update(recordId, {
+				// transcript: '{ "test": "hi" }',
+				transcript: transcriptJson,
+				processed: true,
+				diarized: false,
+				peaks: JSON.parse(audioPeaks)
+				});
+			}
+			
 			await job.log(`Updated PocketBase record for ${recordId}`);
 			console.log('UPDATED +++++ ', upd);
 
@@ -299,7 +322,7 @@ function preprocessWordTimestamps(wordTimestamps) {
                 previousWord.text += text;
                 previousWord.timestamps.to = word.timestamps.to;
             }
-        } else if (text.length === 1 && text !== 'a') {
+        } else if (text.length === 1 && text !== 'a' && text !== 'i' && text !== 'I') {
             // Handle single character words (except "a")
             // if (previousWord) {
             //     // Append single character to the previous word
@@ -312,8 +335,7 @@ function preprocessWordTimestamps(wordTimestamps) {
             //     nextWord.timestamps.from = word.timestamps.from;
             // }
             console.log('deleting char')
-
-        } else if (text.length === 1 && text === 'a') {
+        } else if (text.length === 1 && (text === 'a' || text === 'I' || text === 'i')) {
             // Keep "a" as a separate word
             cleanedTimestamps.push(word);
             previousWord = word;

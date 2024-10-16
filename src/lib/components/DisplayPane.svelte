@@ -1,24 +1,53 @@
 <script>
-	import { ScrollArea } from 'bits-ui';
+	import { Label, ScrollArea } from 'bits-ui';
 	import { Button } from 'bits-ui';
 	import { Tabs } from 'bits-ui';
-	import { Volume2 } from 'lucide-svelte';
+	import { createEventDispatcher } from 'svelte';
 	import AudioViz from '$lib/components/AudioViz.svelte';
 	import { Combobox } from 'bits-ui';
-	import { Sparkles, ChevronsUpDown, Search, Check } from 'lucide-svelte';
+	import { Dialog } from 'bits-ui';
+	import StatusSpinner from './StatusSpinner.svelte';
+	import {
+		CircleX,
+		IdCard,
+		Volume2,
+		Sparkles,
+		ChevronsUpDown,
+		Search,
+		Check,
+		Loader
+	} from 'lucide-svelte';
 
 	export let record;
 	export let fileurl;
 	export let templates;
 
+	let transcript;
+
 	// $: transcript = record.transcript !== '' ? JSON.parse(record.transcript).transcription : null;
-	$: transcript = record?.transcript?.transcription || {};
+	$: {
+		if (record) {
+			if (record.diarized) {
+				transcript = record.diarizedtranscript?.transcription || [];
+			} else {
+				transcript = record.transcript?.transcription || [];
+			}
+		}
+	}
+	// $: transcript = record?.transcript?.transcription || {};
 	$: summary = record.summary;
 	$: audioSrc = fileurl?.selected_file || '';
 	$: audioPeaks = record.peaks?.data || [];
+	$: diarized = record?.diarized;
 
 	$: templateList = templates.map((val) => {
 		return { value: val.title, label: val.title, id: val.id };
+	});
+
+	$: uniqueSpeakers = [...new Set(transcript.map((item) => item.speaker))];
+	let speakerRenames = {};
+	uniqueSpeakers?.forEach((spkr) => {
+		speakerRenames[spkr] = spkr;
 	});
 
 	let inputValue = '';
@@ -31,6 +60,48 @@
 					template.value.toLowerCase().includes(inputValue.toLowerCase())
 				)
 			: templateList;
+
+	let updating = false;
+	let suc = -1;
+	let msg = 'Updating';
+
+	async function renameSpeakers() {
+		updating = true;
+		console.log('renaming speakers');
+		transcript = transcript.map((t) => {
+			if (speakerRenames[t.speaker]) {
+				return { ...t, speaker: speakerRenames[t.speaker] };
+			} else {
+				return { ...t };
+			}
+		});
+
+		await updateTranscript(transcript);
+		suc = 1;
+		msg = 'Updated';
+		setTimeout(() => {
+			updating = false;
+		}, 2000);
+	}
+
+	const dispatch = createEventDispatcher();
+
+	async function updateTranscript(transcript) {
+		const update = { ...record };
+
+		if (record.diarized) {
+			record.diarizedtranscript.transcription = transcript;
+		} else {
+			record.transcript.transcription = transcript;
+		}
+
+		const response = await fetch(`/api/records/${record.id}`, {
+			method: 'POST',
+			body: JSON.stringify(update)
+		});
+
+		dispatch('recordsModified');
+	}
 
 	async function generateSummary() {
 		const recordId = record.id;
@@ -59,55 +130,135 @@
 	}
 </script>
 
-<div class="flex w-full flex-col justify-center gap-2">
-	<div class="p-3">
-		<AudioViz {audioSrc} bind:peaks={audioPeaks} />
-	</div>
+<div class="flex w-full flex-col justify-center gap-2 dark:bg-carbongray-800">
+	{#if updating}
+		<div class="absolute bottom-0 right-0">
+			<StatusSpinner {msg} bind:success={suc} />
+		</div>
+		<!-- Dimmed overlay with spinner -->
+	{/if}
 	<Tabs.Root
 		value="transcript"
-		class="rounded-card bg-background-alt shadow-card h-[90%] w-full px-3"
+		class="rounded-card bg-background-alt shadow-card h-[90%] w-full px-3 dark:bg-carbongray-800"
 	>
-		<Tabs.List
-			class="shadow-mini-inset grid w-full grid-cols-2 gap-1 rounded-md bg-carbongray-200 p-1 text-sm font-semibold leading-[0.01em] dark:border dark:border-neutral-600/30 dark:bg-carbongray-600"
-		>
-			<Tabs.Trigger
-				value="transcript"
-				class="data-[state=active]:shadow-xs h-7 rounded-[7px] bg-transparent py-2 data-[state=active]:bg-white dark:data-[state=active]:bg-carbongray-700"
-				>Transcript</Tabs.Trigger
+		<div>
+			<div
+				class="flex items-center justify-between rounded-2xl bg-carbongray-50 dark:bg-carbongray-700"
 			>
-			<Tabs.Trigger
-				value="summary"
-				class="data-[state=active]:shadow-mini h-7 rounded-[7px] bg-transparent py-2 data-[state=active]:bg-white dark:data-[state=active]:bg-carbongray-700"
-				>Summary</Tabs.Trigger
-			>
-		</Tabs.List>
+				<div class="w-full">
+					<div class="my-2 p-2">
+						<AudioViz {audioSrc} bind:peaks={audioPeaks} />
+					</div>
+					<div class="m-0 flex p-0">
+						<div class="ml-5 w-[65%] rounded-t-2xl bg-white dark:bg-carbongray-800">
+							<Tabs.List
+								class="shadow-mini-inset grid w-[full] grid-cols-2 gap-1 rounded-md bg-white p-1 text-sm font-semibold leading-[0.01em]  dark:bg-carbongray-800"
+							>
+								<Tabs.Trigger
+									value="transcript"
+									class="data-[state=active]:shadow-xs h-7 rounded-[7px]  py-2 text-carbongray-600 data-[state=active]:bg-carbongray-700 data-[state=active]:text-carbongray-50  dark:text-carbongray-200 dark:data-[state=active]:bg-carbongray-700 dark:data-[state=active]:text-carbongray-50"
+									>Transcript</Tabs.Trigger
+								>
+								<Tabs.Trigger
+									value="summary"
+									class="data-[state=active]:shadow-mini h-7 rounded-[7px] bg-transparent py-2 text-carbongray-600 data-[state=active]:bg-carbongray-700 data-[state=active]:text-carbongray-50 dark:text-carbongray-200 dark:data-[state=active]:text-carbongray-50"
+									>Summary</Tabs.Trigger
+								>
+							</Tabs.List>
+						</div>
+						<div class="m-0 h-full w-[35%] bg-white p-0 dark:bg-carbongray-800">
+							<div
+								class="flex h-[38px] w-full items-center justify-end rounded-b-2xl bg-carbongray-50 p-3 dark:bg-carbongray-700"
+							>
+								<Dialog.Root>
+									<Dialog.Trigger
+										class="rounded-input bg-dark text-background
+	shadow-mini hover:bg-dark/95 focus-visible:ring-foreground focus-visible:ring-offset-background active:scale-98
+	inline-flex h-12 items-center justify-center whitespace-nowrap px-[21px] text-[15px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+									>
+										<IdCard class="text-carbongray-600 dark:text-carbongray-100" />
+									</Dialog.Trigger>
+									<Dialog.Portal>
+										<Dialog.Overlay
+											transitionConfig={{ duration: 150 }}
+											class="fixed inset-0 z-50 bg-black/80"
+										/>
+										<Dialog.Content
+											class="fixed left-[50%] top-[50%] z-50 w-full max-w-[94%] translate-x-[-50%] translate-y-[-50%] rounded-lg border bg-white p-5 shadow-md outline-none sm:max-w-[490px] md:w-[300px]"
+										>
+											<Dialog.Title
+												class="flex w-full items-center justify-center text-lg font-semibold tracking-tight"
+												>Label Speakers</Dialog.Title
+											>
+
+											<Dialog.Description class="text-foreground-alt text-sm"></Dialog.Description>
+											<div class="mb-8 mt-3 flex flex-col justify-center gap-4">
+												{#each uniqueSpeakers as spkr}
+													<div class="flex flex-col items-start">
+														<Label.Root for={spkr} class="text-sm font-medium">{spkr}</Label.Root>
+														<div class="relative w-full">
+															<input
+																id={spkr}
+																bind:value={speakerRenames[spkr]}
+																class="h-input bg-background focus:ring-foreground focus:ring-offset-background inline-flex w-full items-center rounded-sm border px-4 text-sm placeholder:text-carbongray-600 hover:border-carbongray-500 focus:outline-none focus:ring-2 focus:ring-offset-2"
+																placeholder={spkr}
+																autocomplete="off"
+															/>
+														</div>
+													</div>
+												{/each}
+											</div>
+											<div class="flex w-full justify-end">
+												<Dialog.Close
+													on:click={renameSpeakers}
+													class="text-background focus-visible:ring-dark focus-visible:ring-offset-background active:scale-98 inline-flex h-[35px] items-center justify-center rounded-md bg-carbongray-800 px-[50px] text-[15px] font-semibold text-carbongray-100 shadow-sm hover:bg-carbongray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+												>
+													Save
+												</Dialog.Close>
+											</div>
+											<Dialog.Close
+												class="focus-visible:ring-foreground focus-visible:ring-offset-background active:scale-98 absolute right-5 top-5 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+											>
+												<div>
+													<CircleX />
+													<span class="sr-only">Close</span>
+												</div>
+											</Dialog.Close>
+										</Dialog.Content>
+									</Dialog.Portal>
+								</Dialog.Root>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
 		<Tabs.Content value="transcript" class="pt-3">
 			<ScrollArea.Root class="relative h-[480px] px-4 2xl:h-[672px]">
-				<ScrollArea.Viewport class="h-full w-full">
+				<ScrollArea.Viewport class="relative h-full w-full">
 					<ScrollArea.Content>
 						<div>
 							{#if transcript}
 								{#each transcript as t}
 									{#if t.text !== ''}
-										<div class="my-3 flex flex-col items-start lg:my-4">
+										<div class="my-4 flex flex-col items-start">
 											<div
-												class="flex items-center justify-center gap-3 text-[0.6rem] text-carbongray-500"
+												class="flex items-center justify-center gap-3 text-xs text-carbongray-500"
 											>
-												{#if t.speaker}
-													<div
-														class="flex items-center justify-center gap-1 text-xs font-bold text-carbongray-800 dark:text-carbongray-100"
-													>
-														<Volume2
-															size={12}
-															class="text-carbonblue-600 dark:text-carbonblue-500"
-														/>
-														<div class="text-xs">{t.speaker}</div>
-													</div>
-												{/if}
-												{t.timestamps.from.split(',')[0]}
+												<div
+													class="flex items-center gap-1 text-sm font-bold text-carbongray-800 dark:text-carbongray-50"
+												>
+													<Volume2 size={12} />
+													<div class="text-sm">{t.speaker}</div>
+												</div>
+												<div class="text-[0.8em]">
+													{t.timestamps.from.split(',')[0]}
+												</div>
 											</div>
 											<div class="text-base leading-relaxed">
-												<p id={t.timestamps.from} class="dark:text-carbongray-100">{t.text}</p>
+												<p id={t.timestamps.from}>
+													{t.text}
+												</p>
 											</div>
 										</div>
 									{/if}
