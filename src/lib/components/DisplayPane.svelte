@@ -2,6 +2,7 @@
 	import { ScrollArea } from 'bits-ui';
 	import { Button } from 'bits-ui';
 	import { Tabs } from 'bits-ui';
+	import { Volume2 } from 'lucide-svelte';
 	import AudioViz from '$lib/components/AudioViz.svelte';
 	import { Combobox } from 'bits-ui';
 	import { Sparkles, ChevronsUpDown, Search, Check } from 'lucide-svelte';
@@ -88,12 +89,25 @@
 							{#if transcript}
 								{#each transcript as t}
 									{#if t.text !== ''}
-										<div class="my-3 flex flex-col items-start">
-											<div class="text-xs text-carbongray-500">
+										<div class="my-3 flex flex-col items-start lg:my-4">
+											<div
+												class="flex items-center justify-center gap-3 text-[0.6rem] text-carbongray-500"
+											>
+												{#if t.speaker}
+													<div
+														class="flex items-center justify-center gap-1 text-xs font-bold text-carbongray-800 dark:text-carbongray-100"
+													>
+														<Volume2
+															size={12}
+															class="text-carbonblue-600 dark:text-carbonblue-500"
+														/>
+														<div class="text-xs">{t.speaker}</div>
+													</div>
+												{/if}
 												{t.timestamps.from.split(',')[0]}
 											</div>
 											<div class="text-base leading-relaxed">
-												<p id={t.timestamps.from}>{t.text}</p>
+												<p id={t.timestamps.from} class="dark:text-carbongray-100">{t.text}</p>
 											</div>
 										</div>
 									{/if}
