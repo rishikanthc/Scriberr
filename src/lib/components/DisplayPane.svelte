@@ -2,10 +2,21 @@
 	import { Label, ScrollArea } from 'bits-ui';
 	import { Button } from 'bits-ui';
 	import { Tabs } from 'bits-ui';
+	import { createEventDispatcher } from 'svelte';
 	import AudioViz from '$lib/components/AudioViz.svelte';
 	import { Combobox } from 'bits-ui';
 	import { Dialog } from 'bits-ui';
-	import { CircleX, IdCard, Volume2, Sparkles, ChevronsUpDown, Search, Check } from 'lucide-svelte';
+	import StatusSpinner from './StatusSpinner.svelte';
+	import {
+		CircleX,
+		IdCard,
+		Volume2,
+		Sparkles,
+		ChevronsUpDown,
+		Search,
+		Check,
+		Loader
+	} from 'lucide-svelte';
 
 	export let record;
 	export let fileurl;
@@ -33,6 +44,12 @@
 		return { value: val.title, label: val.title, id: val.id };
 	});
 
+	$: uniqueSpeakers = [...new Set(transcript.map((item) => item.speaker))];
+	let speakerRenames = {};
+	uniqueSpeakers?.forEach((spkr) => {
+		speakerRenames[spkr] = spkr;
+	});
+
 	let inputValue = '';
 	let touchedInput = false;
 	let selectedTemplate;
@@ -43,6 +60,48 @@
 					template.value.toLowerCase().includes(inputValue.toLowerCase())
 				)
 			: templateList;
+
+	let updating = false;
+	let suc = -1;
+	let msg = 'Updating';
+
+	async function renameSpeakers() {
+		updating = true;
+		console.log('renaming speakers');
+		transcript = transcript.map((t) => {
+			if (speakerRenames[t.speaker]) {
+				return { ...t, speaker: speakerRenames[t.speaker] };
+			} else {
+				return { ...t };
+			}
+		});
+
+		await updateTranscript(transcript);
+		suc = 1;
+		msg = 'Updated';
+		setTimeout(() => {
+			updating = false;
+		}, 2000);
+	}
+
+	const dispatch = createEventDispatcher();
+
+	async function updateTranscript(transcript) {
+		const update = { ...record };
+
+		if (record.diarized) {
+			record.diarizedtranscript.transcription = transcript;
+		} else {
+			record.transcript.transcription = transcript;
+		}
+
+		const response = await fetch(`/api/records/${record.id}`, {
+			method: 'POST',
+			body: JSON.stringify(update)
+		});
+
+		dispatch('recordsModified');
+	}
 
 	async function generateSummary() {
 		const recordId = record.id;
@@ -72,6 +131,12 @@
 </script>
 
 <div class="flex w-full flex-col justify-center gap-2 dark:bg-carbongray-800">
+	{#if updating}
+		<div class="absolute bottom-0 right-0">
+			<StatusSpinner {msg} bind:success={suc} />
+		</div>
+		<!-- Dimmed overlay with spinner -->
+	{/if}
 	<Tabs.Root
 		value="transcript"
 		class="rounded-card bg-background-alt shadow-card h-[90%] w-full px-3 dark:bg-carbongray-800"
@@ -127,20 +192,25 @@
 											>
 
 											<Dialog.Description class="text-foreground-alt text-sm"></Dialog.Description>
-											<div class="flex flex-col items-start gap-1 pb-11 pt-7">
-												<Label.Root for="apiKey" class="text-sm font-medium">API Key</Label.Root>
-												<div class="relative w-full">
-													<input
-														id="apiKey"
-														class="h-input bg-background focus:ring-foreground focus:ring-offset-background inline-flex w-full items-center rounded-sm border px-4 text-sm placeholder:text-carbongray-600 hover:border-carbongray-500 focus:outline-none focus:ring-2 focus:ring-offset-2"
-														placeholder="secret_api_key"
-														type="password"
-														autocomplete="off"
-													/>
-												</div>
+											<div class="mb-8 mt-3 flex flex-col justify-center gap-4">
+												{#each uniqueSpeakers as spkr}
+													<div class="flex flex-col items-start">
+														<Label.Root for={spkr} class="text-sm font-medium">{spkr}</Label.Root>
+														<div class="relative w-full">
+															<input
+																id={spkr}
+																bind:value={speakerRenames[spkr]}
+																class="h-input bg-background focus:ring-foreground focus:ring-offset-background inline-flex w-full items-center rounded-sm border px-4 text-sm placeholder:text-carbongray-600 hover:border-carbongray-500 focus:outline-none focus:ring-2 focus:ring-offset-2"
+																placeholder={spkr}
+																autocomplete="off"
+															/>
+														</div>
+													</div>
+												{/each}
 											</div>
 											<div class="flex w-full justify-end">
 												<Dialog.Close
+													on:click={renameSpeakers}
 													class="text-background focus-visible:ring-dark focus-visible:ring-offset-background active:scale-98 inline-flex h-[35px] items-center justify-center rounded-md bg-carbongray-800 px-[50px] text-[15px] font-semibold text-carbongray-100 shadow-sm hover:bg-carbongray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
 												>
 													Save
@@ -165,7 +235,7 @@
 		</div>
 		<Tabs.Content value="transcript" class="pt-3">
 			<ScrollArea.Root class="relative h-[480px] px-4 2xl:h-[672px]">
-				<ScrollArea.Viewport class="h-full w-full">
+				<ScrollArea.Viewport class="relative h-full w-full">
 					<ScrollArea.Content>
 						<div>
 							{#if transcript}
