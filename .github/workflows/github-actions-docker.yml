@@ -25,9 +25,9 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           tags: |
-            rishikanthc/scriberr:latest
+            rishikanthc/scriberr:nightly
 
       - name: Push image to GHCR
         run: |
           docker buildx imagetools create \
-            --tag ghcr.io/rishikanthc/scriberr:latest
+            --tag ghcr.io/rishikanthc/scriberr:nightly
