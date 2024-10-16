@@ -33,11 +33,12 @@ export async function ensureCollectionExists(pb) {
 					{ name: 'rttm', type: 'text' },
 					{ name: 'summary', type: 'text' },
 					{ name: 'processed', type: 'bool' },
+					{ name: 'diarized', type: 'bool' },
 					{ name: 'model', type: 'text' },
 					{ name: 'peaks', type: 'json', options: { maxSize: 524288000 } },
 					{ name: 'date', type: 'date', required: true },
 					{
-						name: 'diarized', type: 'json',
+						name: 'diarizedtranscript', type: 'json',
 						options: {
 							maxSize: 524288222
 						}

@@ -220,7 +220,7 @@ const worker = new Worker(
 				upd = await pb.collection('scribo').update(recordId, {
 				// transcript: '{ "test": "hi" }',
 				transcript: transcriptJson,
-				diarizedTranscript: diarizedJson,
+				diarizedtranscript: diarizedJson,
 				rttm: rttmContent,
 				processed: true,
 				diarized: true,

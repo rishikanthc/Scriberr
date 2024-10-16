@@ -3,6 +3,7 @@
 	import { Select } from 'bits-ui';
 	import { Label } from 'bits-ui';
 	import { Check, CircleCheck, CircleX, Loader } from 'lucide-svelte';
+	import { Switch } from 'bits-ui';
 	import { onMount, tick } from 'svelte';
 
 	const models = [
@@ -23,6 +24,7 @@
 	let selSummaryModel;
 	let cpus;
 	let threads;
+	let diarize;
 
 	async function getSettings() {
 		const response = await fetch('/api/settings', {
@@ -39,6 +41,7 @@
 		console.log(currSettings);
 		threads = [currSettings.threads];
 		cpus = [currSettings.processors];
+		diarize = currSettings.diarize;
 		selWhisperModel = models.filter((rec) => {
 			return rec.value === currSettings.model;
 		})[0];
@@ -51,12 +54,12 @@
 	});
 
 	let newSettings;
-	$: updateSettings(selWhisperModel, selSummaryModel, threads, cpus);
+	$: updateSettings(selWhisperModel, selSummaryModel, threads, cpus, diarize);
 	let updating = false;
 	let success = false;
 	let error = false;
 
-	async function updateSettings(whisper, summModel, threads, cpus) {
+	async function updateSettings(whisper, summModel, threads, cpus, diarize) {
 		if (!initLoad) {
 			updating = false;
 			console.log('settings not loaded yet');
@@ -65,7 +68,8 @@
 				model: whisper.value,
 				default_openai_model: summModel.value,
 				threads: threads[0],
-				processors: cpus[0]
+				processors: cpus[0],
+				diarize: diarize
 			};
 
 			try {
@@ -243,6 +247,20 @@
 				{threads[0]}
 			{/if}
 		</div>
+	</div>
+
+	<div class="flex items-center space-x-3">
+		<Label.Root for="diarize" class="text-sm font-medium">Auto-diarization</Label.Root>
+		<Switch.Root
+			id="diarize"
+			bind:checked={diarize}
+			disabled={updating}
+			class="focus-visible:ring-foreground focus-visible:ring-offset-background data-[state=unchecked]:shadow-mini-inset dark:data-[state=checked]:bg-foreground peer inline-flex h-[24px] min-h-[24px] w-[48px] shrink-0 cursor-pointer items-center rounded-full px-[3px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:bg-carbongray-700 data-[state=unchecked]:bg-carbongray-200"
+		>
+			<Switch.Thumb
+				class="data-[state=unchecked]:shadow-mini dark:border-background/30 dark:bg-foreground dark:shadow-popover pointer-events-none block size-[18px] shrink-0 rounded-full bg-carbongray-50 transition-transform data-[state=checked]:translate-x-6 data-[state=unchecked]:translate-x-0 dark:border dark:data-[state=unchecked]:border"
+			/>
+		</Switch.Root>
 	</div>
 	{#if updating}
 		<div class="flex items-center justify-center gap-2">
