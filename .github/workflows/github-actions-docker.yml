@@ -31,4 +31,5 @@ jobs:
       - name: Push image to GHCR
         run: |
           docker buildx imagetools create \
+            ghcr.io/rishikanthc/scriberr:nightly \
             --tag ghcr.io/rishikanthc/scriberr:nightly
