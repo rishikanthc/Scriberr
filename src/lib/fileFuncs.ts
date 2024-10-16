@@ -30,6 +30,7 @@ export async function ensureCollectionExists(pb) {
 						}
 					},
 					{ name: 'title', type: 'text' },
+					{ name: 'rttm', type: 'text' },
 					{ name: 'summary', type: 'text' },
 					{ name: 'processed', type: 'bool' },
 					{ name: 'model', type: 'text' },

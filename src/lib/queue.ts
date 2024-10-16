@@ -86,7 +86,7 @@ pauseAndCleanQueue();
 clearQueue();
 
 // Helper function to execute shell commands and log output
-const execCommandWithLogging = (cmd: string, job: Job) => {
+const execCommandWithLogging = (cmd: string, job: Job, progress: number) => {
 	return new Promise((resolve, reject) => {
 		const process = exec(cmd);
 
@@ -104,11 +104,16 @@ const execCommandWithLogging = (cmd: string, job: Job) => {
 			// Check if stderr contains a progress update from Whisper
 			const progressMatch = data.toString().match(/progress\s*=\s*(\d+)%/);
 			if (progressMatch) {
-				const progress = parseInt(progressMatch[1], 10);
-				if (progress == 100) {
-					return;
-				}
-				await job.updateProgress(progress);
+				const tprogress = parseInt(progressMatch[1], 10);
+
+				// if (tprogress == 100) {
+				// 	return;
+				// }
+
+				const _remaining = 100 - progress
+				const _prog = _remaining * tprogress / 100
+
+				await job.updateProgress(_prog);
 			}
 		});
 
@@ -169,70 +174,41 @@ const worker = new Worker(
 			await execCommandWithLogging(diarizeCmd, job);
 			await job.log(`Diarization completed successfully`);
 
-			job.updateProgress(22.5);
+			job.updateProgress(35);
 			// Read and parse the RTTM file
 			const rttmContent = fs.readFileSync(rttmPath, 'utf-8');
 			const segments = parseRttm(rttmContent);
 			await job.log(`Parsed RTTM file for record ${recordId}`);
 
-			// Split the audio into segments using FFmpeg
-			const segmentPaths = await splitAudioIntoSegments(ffmpegPath, segments, baseUrl, job);
-			await job.log(`Audio split into segments for record ${recordId}`);
-
-			job.updateProgress(30);
 
 			const settingsRecords = await pb.collection('settings').getList(1, 1);
 			const settings = settingsRecords.items[0];
-			const transcriptPath = path.resolve(env.SCRIBO_FILES, 'transcripts', `${recordId}`);
-			fs.mkdir(transcriptPath, { recursive: true }, (err) => {
+
+			// Execute whisper.cpp command and log output
+			const transcriptdir = path.resolve(env.SCRIBO_FILES, 'transcripts', `${recordId}`);
+			const transcriptPath= path.resolve(env.SCRIBO_FILES, 'transcripts', `${recordId}`, `${recordId}`);
+			fs.mkdir(transcriptdir, { recursive: true }, (err) => {
 				if (err) throw err;
 			});
 
-			let transcription = [];
-			let prog = 0;
-
-			for (let i = 0; i < segmentPaths.length; i++) {
-				prog = 30 + (70 * i) / segmentPaths.length;
-				job.updateProgress(prog);
-				const segmentFilePath = path.resolve(baseUrl, `segment_${i}.wav`);
-				const segmentTranscriptPath = path.resolve(transcriptPath, `segment_${i}`);
-
-				// Execute whisper command on the segment
-				const whisperCmd = `./whisper.cpp/main -m ./whisper.cpp/models/ggml-${settings.model}.en.bin -f ${segmentFilePath} -of ${segmentTranscriptPath} -otxt -t ${settings.threads} -p ${settings.processors}`;
-				await execCommandWithLogging(whisperCmd, job);
-				await job.log(`Whisper transcription for segment ${i} of ${recordId} completed`);
-
-				// Read the transcript JSON file and append it to the combined transcript
-				const transcriptxt = fs.readFileSync(`${segmentTranscriptPath}.txt`, 'utf-8');
-				transcription.push({
-					timestamps: {
-						from: formatRttmTimestamp(segments[i].startTime),
-						to: formatRttmTimestamp(segments[i].startTime + segments[i].duration)
-					},
-					speaker: segments[i].speaker,
-					text: transcriptxt.trim()
-				});
-			}
-
-			// const settingsRecords = await pb.collection('settings').getList(1, 1);
-			// const settings = settingsRecords.items[0];
-
-			// // Execute whisper.cpp command and log output
-			// const transcriptPath = path.resolve(env.SCRIBO_FILES, 'transcripts', `${recordId}`);
-			// const whisperCmd = `whisper -m /models/ggml-${settings.model}.en.bin -f ${ffmpegPath} -oj -of ${transcriptPath} -t ${settings.threads} -p ${settings.processors} -pp`;
-			// await execCommandWithLogging(whisperCmd, job);
-			// await job.log(`Whisper transcription for ${recordId} completed`);
+			const whisperCmd = `./whisper.cpp/main -m ./whisper.cpp/models/ggml-${settings.model}.en.bin -f ${ffmpegPath} -oj -of ${transcriptPath} -t ${settings.threads} -p ${settings.processors} -pp -ml 1`;
+			await execCommandWithLogging(whisperCmd, job, 35);
+			await job.log(`Whisper transcription for ${recordId} completed`);
 
 			// Read and update transcript
-			// const transcript = fs.readFileSync(`${transcriptPath}.json`, 'utf-8');
-			const validTranscription = JSON.stringify({"transcription": transcription});
-			console.log(validTranscription);
+			const transcript = fs.readFileSync(`${transcriptPath}.json`, 'utf-8');
+			let transcriptJson = JSON.parse(transcript);
+			console.log(transcriptJson);
+
+			const diarizedTranscript = generateTranscript(transcriptJson.transcription, rttmContent)
+			transcriptJson.transcription = diarizedTranscript
 
 			const audioPeaks = fs.readFileSync(`${audioPath}.json`, 'utf-8');
 
 			const upd = await pb.collection('scribo').update(recordId, {
 				// transcript: '{ "test": "hi" }',
-				transcript: validTranscription,
+				transcript: transcriptJson,
+				rttm: rttmContent,
 				processed: true,
 				peaks: JSON.parse(audioPeaks)
 			});
@@ -302,3 +278,121 @@ async function splitAudioIntoSegments(audioPath, segments, outputDir, job) {
 	}
 	return segmentPaths;
 }
+
+function preprocessWordTimestamps(wordTimestamps) {
+    const cleanedTimestamps = [];
+    let previousWord = null;
+
+    wordTimestamps.forEach((word, index) => {
+        const text = word.text.trim();
+
+        // Handle periods and other punctuation
+        if (text === '.') {
+            if (previousWord) {
+                // Append the period to the previous word
+                previousWord.text += text;
+                previousWord.timestamps.to = word.timestamps.to;
+            }
+        } else if (text.startsWith("'")) {
+            // Append apostrophe-starting words to the previous word
+            if (previousWord) {
+                previousWord.text += text;
+                previousWord.timestamps.to = word.timestamps.to;
+            }
+        } else if (text.length === 1 && text !== 'a') {
+            // Handle single character words (except "a")
+            // if (previousWord) {
+            //     // Append single character to the previous word
+            //     previousWord.text += ` ${text}`;
+            //     previousWord.timestamps.to = word.timestamps.to;
+            // } else if (index + 1 < wordTimestamps.length) {
+            //     // If no previous word, prepend to the next word
+            //     const nextWord = wordTimestamps[index + 1];
+            //     nextWord.text = `${text} ${nextWord.text}`;
+            //     nextWord.timestamps.from = word.timestamps.from;
+            // }
+            console.log('deleting char')
+
+        } else if (text.length === 1 && text === 'a') {
+            // Keep "a" as a separate word
+            cleanedTimestamps.push(word);
+            previousWord = word;
+        } else {
+            // Remove other single-character symbols (e.g., parentheses, commas)
+            if (!/^[\.,!?;:()\[\]]$/.test(text)) {
+                cleanedTimestamps.push(word);
+                previousWord = word;
+            }
+        }
+    });
+
+    return cleanedTimestamps;
+}
+
+function generateTranscript(wordys, rttmString) {
+    const speakerSegments = parseRttm(rttmString);
+    const wordTimestamps = preprocessWordTimestamps(wordys);
+
+    const finalTranscript = [];
+    let currentSegment = {
+        text: "",
+        timestamps: { from: null, to: null },
+        speaker: null
+    };
+
+    wordTimestamps.forEach(word => {
+    	const wordStart = word.offsets.from;
+        const wordEnd = word.offsets.to;
+
+        const matchingSpeakerSegment = speakerSegments.find(speakerSegment => {
+        		const speakerStart = speakerSegment.startTime * 1000;
+        		const speakerEnd = speakerStart + (speakerSegment.duration * 1000);
+            return wordEnd >= speakerStart && wordEnd <= speakerEnd;
+        });
+
+        const assignedSpeaker = matchingSpeakerSegment ? matchingSpeakerSegment.speaker : currentSegment.speaker;
+
+        if (!matchingSpeakerSegment) {
+        	console.log('---------> Speaker unknown')
+        }
+
+        // If the current segment is for the same speaker, append the word
+        if (currentSegment.speaker === assignedSpeaker) {
+            currentSegment.text += word.text;
+            currentSegment.timestamps.to = word.timestamps.to; // Update end time
+        } else if (currentSegment === null) {
+	        	currentSegment.speaker = assignedSpeaker;
+	        	currentSegment.text += word.text
+            currentSegment.timestamps.to = word.timestamps.to; // Update end time
+        	
+        } else {
+            // Push the current segment if it has text
+            if (currentSegment.text.length > 0) {
+                finalTranscript.push({ ...currentSegment });
+            }
+
+            // Start a new segment for the new speaker
+            currentSegment = {
+                text: word.text,
+                timestamps: { from: word.timestamps.from, to: word.timestamps.to },
+                speaker: assignedSpeaker
+            };
+        }
+    });
+
+    // Push the last segment if any
+    if (currentSegment.text.length > 0) {
+        finalTranscript.push(currentSegment);
+    }
+
+    return finalTranscript;
+}
+
+function timestampToSeconds(timestamp) {
+    const [hours, minutes, seconds] = timestamp.split(":");
+    const [sec, ms] = seconds.split(",");
+    return parseFloat(hours) * 3600 + parseFloat(minutes) * 60 + parseFloat(sec) + parseFloat(ms) / 1000;
+}
+
+
+
