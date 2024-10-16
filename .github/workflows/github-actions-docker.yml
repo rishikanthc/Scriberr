@@ -19,6 +19,24 @@ jobs:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Cache Node.js dependencies
+      - name: Cache Node.js modules
+        uses: actions/cache@v3
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      - name: Cache compiled binaries
+        uses: actions/cache@v3
+        with:
+          path: |
+            /usr/local/bin/
+            /usr/local/share/man/man1/
+            /usr/local/share/man/man5/
+          key: ${{ runner.os }}-build-${{ hashFiles('Dockerfile') }}
       
       - name: Build and push to GHCR
         uses: docker/build-push-action@v6
@@ -27,6 +45,8 @@ jobs:
           push: true
           tags: |
             ghcr.io/rishikanthc/scriberr:nightly
+          cache-from: type=registry,ref=ghcr.io/rishikanthc/scriberr:nightly
+          cache-to: type=registry,ref=ghcr.io/rishikanthc/scriberr:nightly,mode=max
 
       - name: Push image to GHCR
         run: |
