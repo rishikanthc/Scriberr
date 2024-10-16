@@ -20,15 +20,6 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # Cache Node.js dependencies
-      - name: Cache Node.js modules
-        uses: actions/cache@v3
-        with:
-          path: ~/.npm
-          key: ${{ runner.os }}-node-${{ hashFiles('package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-node-
-
       - name: Cache compiled binaries
         uses: actions/cache@v3
         with:
@@ -41,8 +32,7 @@ jobs:
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
-        with:
-          context: .
+        with:  
           platforms: linux/amd64,linux/arm64
           push: true
           tags: |
