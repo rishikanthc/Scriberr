@@ -4,7 +4,7 @@
 	import { Tabs } from 'bits-ui';
 	import AudioViz from '$lib/components/AudioViz.svelte';
 	import { Combobox } from 'bits-ui';
-	import { Volume2, Sparkles, ChevronsUpDown, Search, Check } from 'lucide-svelte';
+	import { IdCard, Volume2, Sparkles, ChevronsUpDown, Search, Check } from 'lucide-svelte';
 
 	export let record;
 	export let fileurl;
@@ -70,28 +70,49 @@
 	}
 </script>
 
-<div class="flex w-full flex-col justify-center gap-2">
-	<div class="p-3">
-		<AudioViz {audioSrc} bind:peaks={audioPeaks} />
-	</div>
+<div class="flex w-full flex-col justify-center gap-2 dark:bg-carbongray-800">
 	<Tabs.Root
 		value="transcript"
-		class="rounded-card bg-background-alt shadow-card h-[90%] w-full px-3"
+		class="rounded-card bg-background-alt shadow-card h-[90%] w-full px-3 dark:bg-carbongray-800"
 	>
-		<Tabs.List
-			class="shadow-mini-inset grid w-full grid-cols-2 gap-1 rounded-md bg-carbongray-200 p-1 text-sm font-semibold leading-[0.01em] dark:border dark:border-neutral-600/30 dark:bg-carbongray-600"
-		>
-			<Tabs.Trigger
-				value="transcript"
-				class="data-[state=active]:shadow-xs h-7 rounded-[7px] bg-transparent py-2 data-[state=active]:bg-white dark:data-[state=active]:bg-carbongray-700"
-				>Transcript</Tabs.Trigger
+		<div>
+			<div
+				class="flex items-center justify-between rounded-2xl bg-carbongray-50 dark:bg-carbongray-700"
 			>
-			<Tabs.Trigger
-				value="summary"
-				class="data-[state=active]:shadow-mini h-7 rounded-[7px] bg-transparent py-2 data-[state=active]:bg-white dark:data-[state=active]:bg-carbongray-700"
-				>Summary</Tabs.Trigger
-			>
-		</Tabs.List>
+				<div class="w-full">
+					<div class="my-2 p-2">
+						<AudioViz {audioSrc} bind:peaks={audioPeaks} />
+					</div>
+					<div class="m-0 flex p-0">
+						<div class="ml-5 w-[65%] rounded-t-2xl bg-white dark:bg-carbongray-800">
+							<Tabs.List
+								class="shadow-mini-inset grid w-[full] grid-cols-2 gap-1 rounded-md bg-white p-1 text-sm font-semibold leading-[0.01em]  dark:bg-carbongray-800"
+							>
+								<Tabs.Trigger
+									value="transcript"
+									class="data-[state=active]:shadow-xs h-7 rounded-[7px]  py-2 text-carbongray-600 data-[state=active]:bg-carbongray-700 data-[state=active]:text-carbongray-50  dark:text-carbongray-200 dark:data-[state=active]:bg-carbongray-700 dark:data-[state=active]:text-carbongray-50"
+									>Transcript</Tabs.Trigger
+								>
+								<Tabs.Trigger
+									value="summary"
+									class="data-[state=active]:shadow-mini h-7 rounded-[7px] bg-transparent py-2 text-carbongray-600 data-[state=active]:bg-carbongray-700 data-[state=active]:text-carbongray-50 dark:text-carbongray-200 dark:data-[state=active]:text-carbongray-50"
+									>Summary</Tabs.Trigger
+								>
+							</Tabs.List>
+						</div>
+						<div class="m-0 h-full w-[35%] bg-white p-0 dark:bg-carbongray-800">
+							<div
+								class="flex h-[38px] w-full items-center justify-end rounded-b-2xl bg-carbongray-50 p-3 dark:bg-carbongray-700"
+							>
+								<Button.Root>
+									<IdCard class="text-carbongray-600 dark:text-carbongray-100" />
+								</Button.Root>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
 		<Tabs.Content value="transcript" class="pt-3">
 			<ScrollArea.Root class="relative h-[480px] px-4 2xl:h-[672px]">
 				<ScrollArea.Viewport class="h-full w-full">
