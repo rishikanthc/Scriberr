@@ -104,9 +104,9 @@ WORKDIR /app
 COPY . .
 
 # Install Node.js and dependencies
-# RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && apt-get install -y nodejs && npm ci
+RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && apt-get install -y nodejs
 
-RUN apt install nodejs && apt install npm
+# RUN apt install nodejs && apt install npm
 RUN npm ci
 
 # Expose necessary ports
