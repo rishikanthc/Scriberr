@@ -1,0 +1,92 @@
+# Start from NVIDIA CUDA Ubuntu image for GPU support
+FROM nvidia/cuda:12.2.0-devel-ubuntu22.04 AS build_whisper
+
+# Install necessary build tools and dependencies for Whisper
+RUN apt-get update && apt-get install -y \
+    git \
+    wget \
+    make \
+    g++ \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Clone and build Whisper.cpp
+WORKDIR /app
+RUN git clone https://github.com/ggerganov/whisper.cpp.git
+
+WORKDIR /app/whisper.cpp
+# Compile Whisper.cpp with make
+RUN make
+
+# Use the NVIDIA CUDA base image with Ubuntu
+FROM nvidia/cuda:12.2.0-runtime-ubuntu22.04 AS base
+
+# Add AudioWaveform via PPA and install necessary tools
+RUN apt-get update && \
+    apt-get install -y software-properties-common && \
+    add-apt-repository ppa:chris-needham/ppa && \
+    apt-get update && \
+    apt-get install -y audiowaveform ffmpeg libgd3 libmad0 libid3tag0 libsndfile1 zlib1g wget \
+    && rm -rf /var/lib/apt/lists/*
+
+# Environment variables for PocketBase, Redis, OpenAI, and others
+ARG POCKETBASE_ADMIN_EMAIL
+ARG POCKETBASE_ADMIN_PASSWORD
+ARG SCRIBO_FILES
+ARG REDIS_HOST
+ARG REDIS_PORT
+ARG OPENAI_API_KEY
+ARG OPENAI_ENDPOINT="https://api.openai.com/v1"
+ARG OPENAI_MODEL="gpt-4"
+ARG OPENAI_ROLE="system"
+
+# Set environment variables to be overridden at runtime
+ENV POCKETBASE_ADMIN_EMAIL=$POCKETBASE_ADMIN_EMAIL
+ENV POCKETBASE_ADMIN_PASSWORD=$POCKETBASE_ADMIN_PASSWORD
+ENV SCRIBO_FILES=$SCRIBO_FILES
+ENV REDIS_HOST=$REDIS_HOST
+ENV REDIS_PORT=$REDIS_PORT
+ENV OPENAI_API_KEY=$OPENAI_API_KEY
+ENV OPENAI_ENDPOINT=$OPENAI_ENDPOINT
+ENV OPENAI_MODEL=$OPENAI_MODEL
+ENV OPENAI_ROLE=$OPENAI_ROLE
+ENV BODY_SIZE_LIMIT=512M
+
+# Install additional packages and dependencies
+RUN apt-get update && apt-get install -y curl unzip wget
+
+# Download and unzip PocketBase dynamically based on architecture
+ENV POCKETBASE_VERSION=0.22.21
+RUN if [ "$(uname -m)" = "aarch64" ]; then \
+      ARCH="arm64"; \
+    else \
+      ARCH="amd64"; \
+    fi && \
+    curl -L "https://github.com/pocketbase/pocketbase/releases/download/v${POCKETBASE_VERSION}/pocketbase_${POCKETBASE_VERSION}_linux_${ARCH}.zip" -o /tmp/pb.zip
+
+RUN unzip /tmp/pb.zip pocketbase -d /usr/local/bin/ && rm /tmp/pb.zip
+
+# Copy Whisper from the build stage
+COPY --from=build_whisper /app/whisper.cpp/main /usr/local/bin/whisper
+
+# Set up Whisper models
+WORKDIR /models
+RUN wget https://github.com/ggerganov/whisper.cpp/raw/master/models/ggml-base.en.bin -O /models/base.en.bin && \
+    wget https://github.com/ggerganov/whisper.cpp/raw/master/models/ggml-tiny.en.bin -O /models/tiny.en.bin && \
+    wget https://github.com/ggerganov/whisper.cpp/raw/master/models/ggml-small.en.bin -O /models/small.en.bin
+
+# Set the working directory for the application
+WORKDIR /app
+
+# Copy application files
+COPY . .
+
+# Install Node.js dependencies
+RUN apt-get install -y nodejs npm && npm ci
+
+# Expose necessary ports
+EXPOSE 3000 8080 9243 5173
+
+# Start the services
+CMD ["/bin/sh", "/app/start_services.sh"]
+
