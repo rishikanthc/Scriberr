@@ -64,19 +64,19 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Add the repository and install audiowaveform
-RUN add-apt-repository ppa:chris-needham/ppa && \
-    apt-get update && \
-    apt-get install -y audiowaveform
-# RUN ARCH="$(dpkg --print-architecture)" && \
-#     case "${ARCH}" in \
-#       "amd64") ARCH_URL="https://github.com/bbc/audiowaveform/releases/download/1.10.1/audiowaveform_1.10.1-1-10_amd64.deb" ;; \
-#       "arm64") ARCH_URL="https://github.com/bbc/audiowaveform/releases/download/1.10.1/audiowaveform_1.10.1-1-10_arm64.deb" ;; \
-#       *) echo "Unsupported architecture"; exit 1 ;; \
-#     esac && \
-#     wget ${ARCH_URL} -O audiowaveform.deb && \
-#     dpkg -i audiowaveform.deb && \
-#     apt-get -f install -y && \
-#     rm audiowaveform.deb
+# RUN add-apt-repository ppa:chris-needham/ppa && \
+#     apt-get update && \
+#     apt-get install -y audiowaveform
+RUN ARCH="$(dpkg --print-architecture)" && \
+    case "${ARCH}" in \
+      "amd64") ARCH_URL="https://github.com/bbc/audiowaveform/releases/download/1.10.1/audiowaveform_1.10.1-1-10_amd64.deb" ;; \
+      "arm64") ARCH_URL="https://github.com/bbc/audiowaveform/releases/download/1.10.1/audiowaveform_1.10.1-1-10_arm64.deb" ;; \
+      *) echo "Unsupported architecture"; exit 1 ;; \
+    esac && \
+    wget ${ARCH_URL} -O audiowaveform.deb && \
+    dpkg -i audiowaveform.deb && \
+    apt-get -f install -y && \
+    rm audiowaveform.deb
 
 # Copy the whisper.cpp binary from the build stage
 COPY --from=build_whisper /app/whisper.cpp/main /usr/local/bin/whisper
