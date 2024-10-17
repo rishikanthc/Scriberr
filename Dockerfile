@@ -72,8 +72,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 #     apt-get install -y audiowaveform
 RUN ARCH="$(dpkg --print-architecture)" && \
     case "${ARCH}" in \
-      "amd64") ARCH_URL="https://github.com/bbc/audiowaveform/releases/download/1.10.1/audiowaveform_1.10.1-1-10_amd64.deb" ;; \
-      "arm64") ARCH_URL="https://github.com/bbc/audiowaveform/releases/download/1.10.1/audiowaveform_1.10.1-1-10_arm64.deb" ;; \
+      "amd64") ARCH_URL="https://github.com/bbc/audiowaveform/releases/download/1.10.1/audiowaveform_1.10.1-1-12_amd64.deb" ;; \
+      "arm64") ARCH_URL="https://github.com/bbc/audiowaveform/releases/download/1.10.1/audiowaveform_1.10.1-1-12_arm64.deb" ;; \
       *) echo "Unsupported architecture"; exit 1 ;; \
     esac && \
     wget ${ARCH_URL} -O audiowaveform.deb && \
