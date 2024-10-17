@@ -24,7 +24,7 @@ RUN apt-get update && \
     apt-get install -y software-properties-common && \
     add-apt-repository ppa:chris-needham/ppa && \
     apt-get update && \
-    apt-get install -y audiowaveform ffmpeg libgd3 libmad0 libid3tag0 libsndfile1 zlib1g wget \
+    apt-get install -y audiowaveform ffmpeg libgd3 libmad0 libid3tag0 libsndfile1 zlib1g wget python3-pip \
     && rm -rf /var/lib/apt/lists/*
 
 # Environment variables for PocketBase, Redis, OpenAI, and others
