@@ -107,8 +107,8 @@ RUN apk update && apk add --no-cache \
     libsndfile
 
 # Upgrade pip and install pyannote.audio and dependencies
-RUN pip3 install --upgrade pip && \
-    pip3 install pyannote.audio
+RUN pip3 install --upgrade pip --break-system-packages && \
+    pip3 install pyannote.audio --break-system-packages
 
 # Copy binaries from previous build stages
 COPY --from=build_flac /usr/local/bin/* /usr/local/bin/
