@@ -53,21 +53,33 @@ Under the directory or volume you are mapping to `/scriberr`, please create the 
 ```yaml
 services:
   scriberr:
-    image: ghcr.io/rishikanthc/scriberr:beta-0.2
+    image: ghcr.io/rishikanthc/scriberr:0.2.2 #use nightly for the latest cutting edge version (might be unstable)
+    depends_on:
+      redis:
+        condition: service_started
+
     ports:
       - "3000:3000"
-      - "8080:8080" #Optionally expose DB UI
-      - "9243:9243" #Optionally expose JobQueue UI
+      - "8080:8080" # Optionally expose DB UI
+      - "9243:9243" # Optionally expose JobQueue UI
     environment:
       - OPENAI_API_KEY=<reallylongsecretkey>
+      - OPENAI_ENDPOINT=http://ollama:11434/v1
+      - OPENAI_MODEL=llama3.2 # Ensure this model matches in `ollama-models` service
+      - OPENAI_ROLE=user
       - POCKETBASE_ADMIN_EMAIL=admin@example.com
       - POCKETBASE_ADMIN_PASSWORD=password
-      - REDIS_HOST=127.0.0.1
+      - REDIS_HOST=redis
       - REDIS_PORT=6379
       - SCRIBO_FILES=/scriberr
     volumes:
-      - ./pb_data:/app/db
-      - ./scriberr:/scriberr
+      - ./.dockerdata/pb_data:/app/db
+      - ./.dockerdata/scriberr:/scriberr
+
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - ./.dockerdata/redis:/data
 ```
 
 ### Full Local Stack
