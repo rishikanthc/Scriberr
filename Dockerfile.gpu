@@ -2,13 +2,11 @@
 FROM nvidia/cuda:12.2.0-devel-ubuntu22.04 AS build_whisper
 
 # Install necessary build tools and dependencies for Whisper
-RUN apt-get update && apt-get install -y \
-    git \
-    wget \
-    make \
-    g++ \
-    build-essential \
-    && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && \
+    apt-get install -y build-essential \
+    ca-certificates \
+    git && \
+    rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
 
 # Clone and build Whisper.cpp
 WORKDIR /app
@@ -66,14 +64,18 @@ RUN if [ "$(uname -m)" = "aarch64" ]; then \
 
 RUN unzip /tmp/pb.zip pocketbase -d /usr/local/bin/ && rm /tmp/pb.zip
 
-# Copy Whisper from the build stage
-COPY --from=build_whisper /app/whisper.cpp/main /usr/local/bin/whisper
+# Install pyannote
+RUN python3 -m pip install pyannote.audio --break-system-packages
 
-# Set up Whisper models
+# Copy the whisper.cpp binary from the build stage
+COPY --from=build_whisper /app/whisper.cpp/main /usr/local/bin/whisper
+COPY --from=build_whisper /app/whisper.cpp/models/download-ggml-model.sh /usr/local/bin/download-ggml-model.sh
+
+# Download Whisper models
 WORKDIR /models
-RUN wget https://github.com/ggerganov/whisper.cpp/raw/master/models/ggml-base.en.bin -O /models/base.en.bin && \
-    wget https://github.com/ggerganov/whisper.cpp/raw/master/models/ggml-tiny.en.bin -O /models/tiny.en.bin && \
-    wget https://github.com/ggerganov/whisper.cpp/raw/master/models/ggml-small.en.bin -O /models/small.en.bin
+RUN download-ggml-model.sh base.en /models && \
+    download-ggml-model.sh tiny.en /models && \
+    download-ggml-model.sh small.en /models
 
 # Set the working directory for the application
 WORKDIR /app
@@ -81,11 +83,14 @@ WORKDIR /app
 # Copy application files
 COPY . .
 
-# Install Node.js dependencies
-RUN apt-get install -y nodejs npm && npm ci
+# Install Node.js and dependencies
+RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && apt-get install -y nodejs
+
+# RUN apt install nodejs && apt install npm
+RUN npm ci
 
 # Expose necessary ports
-EXPOSE 3000 8080 9243 5173
+EXPOSE 3000 8080 9243
 
 # Start the services
 CMD ["/bin/sh", "/app/start_services.sh"]
