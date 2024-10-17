@@ -186,7 +186,7 @@ const worker = new Worker(
 			if (settings.diarize) {
 				job.updateProgress(12);
 				const rttmPath = path.resolve(baseUrl, `${recordId}.rttm`);
-				const diarizeCmd = `python ./diarize/local.py ${ffmpegPath} ${rttmPath}`;
+				const diarizeCmd = `python3 ./diarize/local.py ${ffmpegPath} ${rttmPath}`;
 				await execCommandWithLogging(diarizeCmd, job);
 				await job.log(`Diarization completed successfully`);
 				// Read and parse the RTTM file
