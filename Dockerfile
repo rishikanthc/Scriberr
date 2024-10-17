@@ -1,3 +1,4 @@
+# Build FLAC and AudioWaveform
 FROM alpine:3.20 AS build_flac
 
 ENV FLAC_VERSION=1.3.3
@@ -52,23 +53,20 @@ RUN cmake ..
 RUN make
 RUN make install
 
+# Build Whisper.cpp
 FROM alpine:3.20 AS build_whisper
 
 RUN apk update && apk add git wget make gcc g++
 
-# Download and unzip Whisper.cpp
-# ADD https://github.com/ggerganov/whisper.cpp/archive/refs/heads/master.zip /tmp/whisper.zip
-# RUN unzip /tmp/whisper.zip -d /app/
+# Download and build Whisper.cpp
 WORKDIR /app
 RUN git clone https://github.com/ggerganov/whisper.cpp.git
 
-# Set the Whisper directory as the working directory
 WORKDIR /app/whisper.cpp
-# Compile Whisper.cpp with make
 RUN make
 
+# Base image for the final build, using Node.js and installing additional packages
 FROM node:22.9.0-alpine AS base
-# FROM arm64v8/node:22.9.0-alpine
 
 ARG POCKETBASE_ADMIN_EMAIL
 ARG POCKETBASE_ADMIN_PASSWORD
@@ -79,9 +77,9 @@ ARG OPENAI_API_KEY
 ARG OPENAI_ENDPOINT="https://api.openai.com/v1"
 ARG OPENAI_MODEL="gpt-4"
 ARG OPENAI_ROLE="system"
+ARG POCKETBASE_VERSION=0.22.21
 
-
-# Set environment variables to be overridden at runtime
+# Set environment variables
 ENV POCKETBASE_ADMIN_EMAIL=$POCKETBASE_ADMIN_EMAIL
 ENV POCKETBASE_ADMIN_PASSWORD=$POCKETBASE_ADMIN_PASSWORD
 ENV SCRIBO_FILES=$SCRIBO_FILES
@@ -93,10 +91,26 @@ ENV OPENAI_MODEL=$OPENAI_MODEL
 ENV OPENAI_ROLE=$OPENAI_ROLE
 ENV BODY_SIZE_LIMIT=512M
 
-ENV POCKETBASE_VERSION=0.22.21
-# Install required packages
-RUN apk update && apk add --no-cache wget ffmpeg unzip libgd libmad libid3tag boost-static boost-build curl
+# Install required packages (added Python and dependencies for pyannote)
+RUN apk update && apk add --no-cache \
+    wget \
+    ffmpeg \
+    unzip \
+    libgd \
+    libmad \
+    libid3tag \
+    boost-static \
+    boost-build \
+    curl \
+    python3 \
+    py3-pip \
+    libsndfile
 
+# Upgrade pip and install pyannote.audio and dependencies
+RUN pip3 install --upgrade pip && \
+    pip3 install pyannote.audio
+
+# Copy binaries from previous build stages
 COPY --from=build_flac /usr/local/bin/* /usr/local/bin/
 COPY --from=build_flac /usr/local/share/man/man1/* /usr/local/share/man/man1/
 COPY --from=build_flac /usr/local/share/man/man5/* /usr/local/share/man/man5/
@@ -104,13 +118,14 @@ COPY --from=build_flac /usr/local/share/man/man5/* /usr/local/share/man/man5/
 COPY --from=build_whisper /app/whisper.cpp/models/download-ggml-model.sh /usr/local/bin/download-ggml-model.sh
 COPY --from=build_whisper /app/whisper.cpp/main /usr/local/bin/whisper
 
+# Download Whisper models
 WORKDIR /models
 RUN download-ggml-model.sh base.en /models && \
     download-ggml-model.sh tiny.en /models && \
     download-ggml-model.sh small.en /models
 
 # Download and unzip PocketBase
-# Dynamically set the URL based on the architecture
+# Dynamically set the URL based on architecture
 RUN if [ "$TARGETARCH" = "arm64" ]; then \
       ARCH="arm64"; \
     else \
@@ -120,10 +135,10 @@ RUN if [ "$TARGETARCH" = "arm64" ]; then \
 
 RUN unzip /tmp/pb.zip pocketbase -d /usr/local/bin/ && rm /tmp/pb.zip
 
-# Set the working directory back to /app
+# Set working directory back to /app
 WORKDIR /app
 
-# Copy the application files
+# Copy application files
 COPY . .
 
 # Install Node.js dependencies
