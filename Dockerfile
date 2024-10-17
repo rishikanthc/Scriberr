@@ -1,5 +1,6 @@
 # Build Whisper.cpp using the official process
-FROM ubuntu:22.04 AS build_whisper
+ARG ARCH=
+FROM ${ARCH}debian:bookworm-slim AS build_whisper
 
 # Set working directory
 WORKDIR /app
@@ -17,7 +18,7 @@ WORKDIR /app/whisper.cpp
 RUN make
 
 # Final base image for the application (Node.js)
-FROM ubuntu:22.04 AS base
+FROM ${ARCH}debian:bookworm-slim AS base
 
 # Set ARG to dynamically handle architecture
 ARG POCKETBASE_ADMIN_EMAIL
@@ -102,7 +103,8 @@ COPY . .
 # Install Node.js and dependencies
 # RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && apt-get install -y nodejs && npm ci
 
-RUN apt install nodejs && apt install npm && npm ci
+RUN apt install nodejs && apt install npm
+RUN npm ci
 
 # Expose necessary ports
 EXPOSE 3000 8080 9243
