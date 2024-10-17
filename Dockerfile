@@ -55,9 +55,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libmad0 \
     libid3tag0 \
     libboost-all-dev \
-    libboost-program-options \
-    libboost-filesystem \
-    libboost-regex \
+    libboost-filesystem-dev \
+    libboost-program-options-dev \
+    libboost-regex-dev \
     curl \
     python3 \
     python3-pip \
