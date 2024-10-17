@@ -66,7 +66,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libsndfile1 \
     && rm -rf /var/lib/apt/lists/*
 
-RUN python -m pip install pyannote.audio
+RUN python3 -m pip install pyannote.audio
 
 # Add the repository and install audiowaveform
 # RUN add-apt-repository ppa:chris-needham/ppa && \
