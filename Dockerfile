@@ -49,6 +49,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     wget \
     ffmpeg \
     unzip \
+    libgd3 \
+    libmad0 \
+    libid3tag0 \
     libboost-all-dev \
     libboost-filesystem-dev \
     libboost-program-options-dev \
@@ -57,9 +60,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 \
     python3-pip \
     pkg-config \
+    libsndfile1 \
     && rm -rf /var/lib/apt/lists/*
 
-RUN python3 -m pip install pyannote.audio --break-system-packages
+RUN python3 -m pip install pyannote.audio --break-system-packages --no-cache-dir
 
 # Add the repository and install audiowaveform
 # RUN add-apt-repository ppa:chris-needham/ppa && \
