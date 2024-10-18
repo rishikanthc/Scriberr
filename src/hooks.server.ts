@@ -4,6 +4,7 @@ import type { Handle } from '@sveltejs/kit';
 import { sequence } from '@sveltejs/kit/hooks';
 import { redirect } from '@sveltejs/kit';
 import '$lib/queue';
+import { resolve } from 'chart.js/helpers';
 
 export const authentication: Handle = async ({ event, resolve }) => {
 	event.locals.pb = new PocketBase('http://localhost:8080');
@@ -37,6 +38,7 @@ export const authentication: Handle = async ({ event, resolve }) => {
 		}
 	}
 
+	
 	const response = await resolve(event);
 
 	// Send back the auth cookie to the client with the latest store state
@@ -51,4 +53,18 @@ export const authentication: Handle = async ({ event, resolve }) => {
 	return response;
 };
 
-export const handle = authentication;
+export const configuration: Handle = async ({event, resolve}) => {
+		const settings = await event.locals.pb.collection('settings').getList(1,1);
+
+		if (!settings.wizard && !event.url.pathname.endsWith('/wizard')) {
+			// If the wizard is not completed, redirect to /wizard
+			console.log("Redirecting to wizard <-------------");
+			throw redirect(307, '/wizard');
+		} else {
+			console.log("Hardware has been configured. Opening app");
+		}
+
+		return resolve(event)
+};
+
+export const handle = sequence(authentication, configuration);

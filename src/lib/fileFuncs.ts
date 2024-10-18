@@ -64,7 +64,8 @@ export async function ensureCollectionExists(pb) {
 					{ name: 'default_template', type: 'text' },
 					{ name: 'threads', type: 'number', required: true },
 					{ name: 'processors', type: 'number', required: true },
-					{ name: 'diarize', type: 'bool'}
+					{ name: 'diarize', type: 'bool'},
+					{ name: 'wizard', type: 'bool'}
 				]
 			});
 
@@ -74,7 +75,8 @@ export async function ensureCollectionExists(pb) {
 				default_openai_model: 'gpt-4o',
 				threads: 2,
 				processors: 1,
-				diarize: false
+				diarize: false,
+				wizard: false
 			});
 
 			console.log('Settings collection created.');
