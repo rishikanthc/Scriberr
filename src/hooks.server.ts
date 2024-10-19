@@ -3,6 +3,7 @@ import { env } from '$env/dynamic/private';
 import type { Handle } from '@sveltejs/kit';
 import { sequence } from '@sveltejs/kit/hooks';
 import { redirect } from '@sveltejs/kit';
+import { ensureCollectionExists } from '$lib/fileFuncs';
 import '$lib/queue';
 import { resolve } from 'chart.js/helpers';
 
@@ -54,6 +55,7 @@ export const authentication: Handle = async ({ event, resolve }) => {
 };
 
 export const configuration: Handle = async ({event, resolve}) => {
+		ensureCollectionExists(event.locals.pb);
 		const settings = await event.locals.pb.collection('settings').getList(1,1);
 
 		console.log(settings)
