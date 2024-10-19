@@ -126,6 +126,11 @@ const execCommandWithLogging = (cmd: string, job: Job, progress: number) => {
 				reject(new Error(`Command failed with exit code ${code}`));
 			}
 		});
+
+		
+		process.on('error', (err) => {
+			reject(new Error(`Failed to start process: ${err.message}`));
+		});
 	});
 };
 
