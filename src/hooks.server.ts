@@ -55,12 +55,12 @@ export const authentication: Handle = async ({ event, resolve }) => {
 };
 
 export const configuration: Handle = async ({event, resolve}) => {
-		await ensureCollectionExists(event.locals.pb);
 		const settings = await event.locals.pb.collection('settings').getList(1,1);
 
 		console.log(settings)
+		const condition = (settings.items.length <= 0) || settings.items?.wizard
 
-		if (!settings.items[0].wizard && !event.url.pathname.endsWith('/wizard') && !event.url.pathname.startsWith('/api/')) {
+		if (condition && !event.url.pathname.endsWith('/wizard') && !event.url.pathname.startsWith('/api/')) {
 			// If the wizard is not completed, redirect to /wizard
 			console.log("Redirecting to wizard <-------------");
 			throw redirect(307, '/wizard');

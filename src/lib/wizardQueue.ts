@@ -5,6 +5,7 @@ import fs from 'fs';
 import path from 'path';
 import PocketBase from 'pocketbase';
 import { env } from '$env/dynamic/private';
+import { ensureCollectionExists } from '$lib/fileFuncs';
 
 // Create the queue
 export const wizardQueue = new Queue('wizardQueue', {
@@ -127,6 +128,7 @@ const worker = new Worker(
 	'wizardQueue',
 	async (job) => {
 		console.log("hello world from wizard")
+		ensureCollectionExists(pb);
 		let modelPath;
 		let cmd;
 		try {
