@@ -31,6 +31,7 @@ ENV BODY_SIZE_LIMIT=512M
  
 RUN apt-get update && apt-get install -y --no-install-recommends \
     wget \
+    build-essential \
     ffmpeg \
     unzip \
     libgd3 \
