@@ -171,6 +171,11 @@ const worker = new Worker(
 		}
 		
 
+		if (!env.DEV_MODE) {
+			cmd2 = `cp ${modelPath}/main /usr/local/bin/whisper`;
+		  execCommandWithLoggingSync(cmd2, job);
+		}
+
 		const settt = await pb.collection('settings').getList(1,1);
 
 		if (settt && settt.items.length > 0) {
