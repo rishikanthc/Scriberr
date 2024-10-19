@@ -25,7 +25,7 @@ ENV OPENAI_ENDPOINT=$OPENAI_ENDPOINT
 ENV OPENAI_MODEL=$OPENAI_MODEL
 ENV OPENAI_ROLE=$OPENAI_ROLE
 ENV BODY_SIZE_LIMIT=512M
-ENV DEV_MODE
+ENV DEV_MODE=$DEV_MODE
  
 # COPY --from=build_ml /usr/local/lib/python3.10/site-packages /usr/local/lib/python3.10/site-packages
 # COPY --from=build_ml /usr/local/bin /usr/local/bin
