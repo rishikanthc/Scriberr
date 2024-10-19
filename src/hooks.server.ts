@@ -59,14 +59,12 @@ export const configuration: Handle = async ({ event, resolve }) => {
 	const collections = await event.locals.pb.collections.getFullList();
 	const hasSettings = collections.some(collection => collection.name === 'settings');
 
-	if (hasSettings || event.url.pathname.endsWith('/wizard')) {
-		resolve(event);
+	if (hasSettings || event.url.pathname.endsWith('/wizard') || event.url.pathname.startsWith('/api/')) {
+		console.log(event.url.pathname)
+		return resolve(event);
 	} else {
 		throw redirect(307, '/wizard');
 	}
-
-	// Resolve event if no issues
-	return resolve(event);
 };
 
 export const handle = sequence(authentication, configuration);
