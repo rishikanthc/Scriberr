@@ -27,7 +27,7 @@ ENV BODY_SIZE_LIMIT=512M
  
 # COPY --from=build_ml /usr/local/lib/python3.10/site-packages /usr/local/lib/python3.10/site-packages
 # COPY --from=build_ml /usr/local/bin /usr/local/bin
-COPY --from=build_ml /install /usr/local
+# COPY --from=build_ml /install /usr/local
  
 RUN apt-get update && apt-get install -y --no-install-recommends \
     wget \
