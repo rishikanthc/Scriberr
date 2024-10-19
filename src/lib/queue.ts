@@ -1,5 +1,6 @@
 import { Queue, Worker } from 'bullmq';
 import { exec } from 'child_process';
+import { wizardQueue } from './wizardQueue'; 
 import fs from 'fs';
 import path from 'path';
 import PocketBase from 'pocketbase';
@@ -24,7 +25,7 @@ const app = express();
 // Create Bull Board UI
 const serverAdapter = new ExpressAdapter();
 createBullBoard({
-	queues: [new BullMQAdapter(transcriptionQueue)],
+	queues: [new BullMQAdapter(transcriptionQueue), new BullMQAdapter(wizardQueue)],
 	serverAdapter: serverAdapter
 });
 
@@ -178,7 +179,14 @@ const worker = new Worker(
 				if (err) throw err;
 			});
 
-			let whisperCmd = `whisper -m /models/ggml-${settings.model}.en.bin -f ${ffmpegPath} -oj -of ${transcriptPath} -t ${settings.threads} -p ${settings.processors} -pp`;
+			let whisperCmd;
+
+			if (env.DEV_MODE) {
+				whisperCmd = `./whisper.cpp/main -m ./whisper.cpp/models/ggml-${settings.model}.en.bin -f ${ffmpegPath} -oj -of ${transcriptPath} -t ${settings.threads} -p ${settings.processors} -pp`;
+			} else {
+				whisperCmd = `whisper -m /models/ggml-${settings.model}.en.bin -f ${ffmpegPath} -oj -of ${transcriptPath} -t ${settings.threads} -p ${settings.processors} -pp`;
+			}
+
 
 			let rttmContent;
 			let segments;
@@ -186,7 +194,7 @@ const worker = new Worker(
 			if (settings.diarize) {
 				job.updateProgress(12);
 				const rttmPath = path.resolve(baseUrl, `${recordId}.rttm`);
-				const diarizeCmd = `python3 ./diarize/local.py ${ffmpegPath} ${rttmPath}`;
+				const diarizeCmd = `python ./diarize/local.py ${ffmpegPath} ${rttmPath}`;
 				await execCommandWithLogging(diarizeCmd, job);
 				await job.log(`Diarization completed successfully`);
 				// Read and parse the RTTM file
@@ -194,7 +202,11 @@ const worker = new Worker(
 				segments = parseRttm(rttmContent);
 				await job.log(`Parsed RTTM file for record ${recordId}`);
 
-				whisperCmd = `./whisper.cpp/main -m ./whisper.cpp/models/ggml-${settings.model}.en.bin -f ${ffmpegPath} -oj -of ${transcriptPath} -t ${settings.threads} -p ${settings.processors} -pp -ml 1`;
+				if (env.DEV_MODE) {
+					whisperCmd = `./whisper.cpp/main -m ./whisper.cpp/models/ggml-${settings.model}.en.bin -f ${ffmpegPath} -oj -of ${transcriptPath} -t ${settings.threads} -p ${settings.processors} -pp -ml 1`;
+				} else {
+					whisperCmd = `whisper -m /models/ggml-${settings.model}.en.bin -f ${ffmpegPath} -oj -of ${transcriptPath} -t ${settings.threads} -p ${settings.processors} -pp -ml 1`;
+				}
 			}
 
 			job.updateProgress(35);
