@@ -55,7 +55,7 @@ export const authentication: Handle = async ({ event, resolve }) => {
 };
 
 export const configuration: Handle = async ({event, resolve}) => {
-		ensureCollectionExists(event.locals.pb);
+		await ensureCollectionExists(event.locals.pb);
 		const settings = await event.locals.pb.collection('settings').getList(1,1);
 
 		console.log(settings)

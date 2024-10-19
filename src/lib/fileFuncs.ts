@@ -73,6 +73,7 @@ export async function ensureCollectionExists(pb) {
 				model: 'tiny',
 				openai: '',
 				default_openai_model: 'gpt-4o',
+				default_template: '',
 				threads: 2,
 				processors: 1,
 				diarize: false,
