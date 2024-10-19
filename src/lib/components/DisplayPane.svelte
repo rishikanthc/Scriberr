@@ -245,12 +245,14 @@
 											<div
 												class="flex items-center justify-center gap-3 text-xs text-carbongray-500"
 											>
-												<div
-													class="flex items-center gap-1 text-sm font-bold text-carbongray-800 dark:text-carbongray-50"
-												>
-													<Volume2 size={12} />
-													<div class="text-sm">{t.speaker}</div>
-												</div>
+												{#if t.speaker}
+													<div
+														class="flex items-center gap-1 text-sm font-bold text-carbongray-800 dark:text-carbongray-50"
+													>
+														<Volume2 size={12} />
+														<div class="text-sm">{t.speaker}</div>
+													</div>
+												{/if}
 												<div class="text-[0.8em]">
 													{t.timestamps.from.split(',')[0]}
 												</div>
