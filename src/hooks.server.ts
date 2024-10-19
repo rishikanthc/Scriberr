@@ -54,19 +54,29 @@ export const authentication: Handle = async ({ event, resolve }) => {
 	return response;
 };
 
-export const configuration: Handle = async ({event, resolve}) => {
-		const settings = await event.locals.pb.collection('settings').getList(1,1);
+export const configuration: Handle = async ({ event, resolve }) => {
+	try {
+		// Try to fetch settings collection
+		const settings = await event.locals.pb.collection('settings').getList(1, 1);
 
-		console.log(settings)
-		const condition = (settings.items.length <= 0) || settings.items?.wizard
+		// Check if the collection is empty or wizard hasn't been completed
+		const condition = (settings.items.length <= 0) || settings.items[0]?.wizard;
 
 		if (condition && !event.url.pathname.endsWith('/wizard') && !event.url.pathname.startsWith('/api/')) {
-			// If the wizard is not completed, redirect to /wizard
+			// Redirect to wizard if conditions are met
 			console.log("Redirecting to wizard <-------------");
 			throw redirect(307, '/wizard');
 		}
+	} catch (error) {
+		// If the settings collection doesn't exist or there's an error, redirect to wizard
+		console.error('Error fetching settings collection or collection does not exist:', error);
+		if (!event.url.pathname.endsWith('/wizard') && !event.url.pathname.startsWith('/api/')) {
+			throw redirect(307, '/wizard');
+		}
+	}
 
-		return resolve(event)
+	// Resolve event if no issues
+	return resolve(event);
 };
 
 export const handle = sequence(authentication, configuration);
