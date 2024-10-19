@@ -150,7 +150,14 @@ const worker = new Worker(
 			await job.log(modToDownload)
 
 			modToDownload.forEach(async (m, idx) => {
-			  const cmd2 = `sh ${modelPath}/models/download-ggml-model.sh ${m}.en`;
+				let cmd2;
+
+				if (env.DEV_MODE) {
+				  cmd2 = `sh ${modelPath}/models/download-ggml-model.sh ${m}.en`;
+				} else {
+				  cmd2 = `sh ${modelPath}/models/download-ggml-model.sh ${m}.en /models`;
+				}
+
 			  await job.log(`Executing command: ${cmd2}`);
 			  execCommandWithLoggingSync(cmd2, job);
 			  const prg = 50 + (50 * (idx + 1) / modelsToDownload.length); // idx + 1 ensures progress increments
@@ -163,6 +170,7 @@ const worker = new Worker(
 			job.log(error)
 		}
 		
+
 		const settt = await pb.collection('settings').getList(1,1);
 
 		if (settt && settt.items.length > 0) {
