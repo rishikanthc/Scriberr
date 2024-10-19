@@ -1,26 +1,4 @@
 ARG ARCH=
-FROM ${ARCH}python:3.10-slim AS build_ml
-
-WORKDIR /app
-
-RUN apt-get update && \
-    apt-get install -y build-essential \
-    ca-certificates \
-    ffmpeg \
-    libsndfile1 \
-    git && \
-    rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
-
-RUN git clone https://github.com/ggerganov/whisper.cpp.git
-WORKDIR /app/whisper.cpp
-
-# Build Whisper.cpp
-RUN make
-
-RUN pip install --prefix=/install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
-RUN pip install --prefix=/install --no-cache-dir pyannote.audio
-
-ARG ARCH=
 FROM ${ARCH}python:3.10-slim
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -63,6 +41,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libboost-program-options-dev \
     libboost-regex-dev \
     curl \
+    git \
     pkg-config \
     libsndfile1 \
     && rm -rf /var/lib/apt/lists/*
@@ -87,17 +66,23 @@ RUN ARCH="$(dpkg --print-architecture)" && \
 
 RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && apt-get install -y nodejs
 	
-COPY --from=build_ml /app/whisper.cpp/main /usr/local/bin/whisper
-COPY --from=build_ml /app/whisper.cpp/models/download-ggml-model.sh /usr/local/bin/download-ggml-model.sh
+# COPY --from=build_ml /app/whisper.cpp/main /usr/local/bin/whisper
+# COPY --from=build_ml /app/whisper.cpp/models/download-ggml-model.sh /usr/local/bin/download-ggml-model.sh
 
-WORKDIR /models
-RUN download-ggml-model.sh base.en /models && \
-    download-ggml-model.sh tiny.en /models && \
-    download-ggml-model.sh small.en /models
+# WORKDIR /models
+# RUN download-ggml-model.sh base.en /models && \
+#     download-ggml-model.sh tiny.en /models && \
+#     download-ggml-model.sh small.en /models
+
+RUN pip install --prefix=/install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+RUN pip install --prefix=/install --no-cache-dir pyannote.audio
+
 
 WORKDIR /app
 
 COPY . .
+
+RUN git clone https://github.com/ggerganov/whisper.cpp.git
 
 RUN npm ci
 
