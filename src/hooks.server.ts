@@ -56,12 +56,12 @@ export const authentication: Handle = async ({ event, resolve }) => {
 export const configuration: Handle = async ({event, resolve}) => {
 		const settings = await event.locals.pb.collection('settings').getList(1,1);
 
-		if (!settings.wizard && !event.url.pathname.endsWith('/wizard')) {
+		console.log(settings)
+
+		if (!settings.items[0].wizard && !event.url.pathname.endsWith('/wizard') && !event.url.pathname.startsWith('/api/')) {
 			// If the wizard is not completed, redirect to /wizard
 			console.log("Redirecting to wizard <-------------");
 			throw redirect(307, '/wizard');
-		} else {
-			console.log("Hardware has been configured. Opening app");
 		}
 
 		return resolve(event)

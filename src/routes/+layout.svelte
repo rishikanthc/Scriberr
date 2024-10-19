@@ -43,7 +43,7 @@
 	</div>
 </div>
 <div
-	class="container mx-auto h-[704px] max-h-screen border-carbongray-100 text-black shadow transition-colors duration-300 ease-in-out dark:border-carbongray-700 dark:text-white lg:max-w-[1000px] lg:rounded-xl lg:border 2xl:mt-[50px] 2xl:h-[900px]"
+	class="container mx-auto h-[704px] max-h-screen border-carbongray-100 text-black shadow transition-colors duration-300 ease-in-out dark:border-carbongray-700 dark:text-white lg:max-w-[1000px] lg:rounded-xl lg:border 2xl:mt-[30px] 2xl:h-[900px]"
 >
 	<slot></slot>
 </div>
