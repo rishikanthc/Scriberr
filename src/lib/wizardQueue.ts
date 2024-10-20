@@ -144,7 +144,13 @@ const worker = new Worker(
 			cmd = `make clean -C ${modelPath}`
 			await execCommandWithLogging(cmd, job);
 
-			cmd = `make -C ${modelPath}`;
+			const isNvidia= env.NVIDIA === 'true' || env.NVIDIA === true;
+
+			if (isNvidia) {
+				cmd = `GGML_CUDA=1 make -j -C ${modelPath}`;
+			} else {
+				cmd = `make -C ${modelPath}`;
+			}
 			await execCommandWithLogging(cmd, job);
 			await job.log('finished making whisper')
 			job.updateProgress(50)

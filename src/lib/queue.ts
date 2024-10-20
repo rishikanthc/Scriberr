@@ -281,7 +281,7 @@ const worker = new Worker(
 	},
 	{
 		connection: { host: env.REDIS_HOST, port: env.REDIS_PORT }, // Redis connection
-		concurrency: 5 // Allows multiple jobs to run concurrently
+		concurrency: env.CONCURRENCY // Allows multiple jobs to run concurrently
 	}
 );
 
