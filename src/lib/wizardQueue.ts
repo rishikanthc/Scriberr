@@ -11,7 +11,7 @@ import { ensureCollectionExists } from '$lib/fileFuncs';
 export const wizardQueue = new Queue('wizardQueue', {
 	connection: { host: env.REDIS_HOST, port: env.REDIS_PORT }
 });
-const pb = new PocketBase('http://localhost:8080');
+const pb = new PocketBase(env.POCKETBASE_URL);
 pb.autoCancellation(false);
 await pb.admins.authWithPassword(env.POCKETBASE_ADMIN_EMAIL, env.POCKETBASE_ADMIN_PASSWORD);
 
@@ -131,13 +131,15 @@ const worker = new Worker(
 		ensureCollectionExists(pb);
 		let modelPath;
 		let cmd;
+
+		const isDevMode = env.DEV_MODE === 'true' || env.DEV_MODE === true;
+		if (isDevMode) {
+			modelPath = path.resolve(env.SCRIBO_FILES, 'models/whisper.cpp')
+		} else {
+			modelPath = path.resolve('/models/whisper.cpp')
+		}
 		try {
 			const {settings }= job.data;
-			if (env.DEV_MODE) {
-				modelPath = path.resolve(env.SCRIBO_FILES, 'models/whisper.cpp')
-			} else {
-				modelPath = path.resolve('/models/whisper.cpp')
-			}
 			await job.log('starting job')
 			cmd = `make clean -C ${modelPath}`
 			await execCommandWithLogging(cmd, job);
@@ -147,14 +149,21 @@ const worker = new Worker(
 			await job.log('finished making whisper')
 			job.updateProgress(50)
 
+			cmd = `python3 -m pip install --no-cache-dir pyannote.audio`
+			await execCommandWithLogging(cmd, job);
+			await job.log('finished installing pyannote')
+			job.updateProgress(75)
+
 			const modToDownload = modelsToDownload(settings);
 			console.log(modToDownload)
 			await job.log(modToDownload)
 
+			const isDevMode = env.DEV_MODE === 'true' || env.DEV_MODE === true;
+
 			modToDownload.forEach(async (m, idx) => {
 				let cmd2;
 
-				if (env.DEV_MODE) {
+				if (isDevMode) {
 				  cmd2 = `sh ${modelPath}/models/download-ggml-model.sh ${m}.en`;
 				} else {
 				  cmd2 = `sh ${modelPath}/models/download-ggml-model.sh ${m}.en /models`;
@@ -162,7 +171,7 @@ const worker = new Worker(
 
 			  await job.log(`Executing command: ${cmd2}`);
 			  execCommandWithLoggingSync(cmd2, job);
-			  const prg = 50 + (50 * (idx + 1) / modelsToDownload.length); // idx + 1 ensures progress increments
+			  const prg = 75 + (25 * (idx + 1) / modelsToDownload.length); // idx + 1 ensures progress increments
 			  await job.updateProgress(prg);
 			});
 
@@ -173,9 +182,18 @@ const worker = new Worker(
 		}
 		
 
-		if (!env.DEV_MODE) {
-			cmd2 = `cp ${modelPath}/main /usr/local/bin/whisper`;
-		  execCommandWithLoggingSync(cmd2, job);
+		console.log(`DEVMODE ------>>>>>> ${isDevMode}`)
+		job.log(`DEVMODE ------>>>>>> ${isDevMode}`)
+
+		if (!isDevMode) {
+			console.log("eecuting copy")
+			job.log("eecuting copy")
+			cmd = `cp ${modelPath}/main /usr/local/bin/whisper`;
+			console.log(cmd)
+			job.log(cmd)
+		  execCommandWithLoggingSync(cmd, job);
+		  job.log("COPIED WHISPER BINARY")
+		  console.log("COPIED WHISPER BINARY")
 		}
 
 		const settt = await pb.collection('settings').getList(1,1);

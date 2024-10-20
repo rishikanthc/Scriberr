@@ -15,7 +15,7 @@ import express from 'express';
 export const transcriptionQueue = new Queue('transcriptionQueue', {
 	connection: { host: env.REDIS_HOST, port: env.REDIS_PORT }
 });
-const pb = new PocketBase('http://localhost:8080');
+const pb = new PocketBase(env.POCKETBASE_URL);
 pb.autoCancellation(false);
 await pb.admins.authWithPassword(env.POCKETBASE_ADMIN_EMAIL, env.POCKETBASE_ADMIN_PASSWORD);
 
@@ -185,8 +185,15 @@ const worker = new Worker(
 			});
 
 			let whisperCmd;
+			console.log(env.DEV_MODE)
+			job.log(env.DEV_MODE)
 
-			if (env.DEV_MODE) {
+			const isDevMode = env.DEV_MODE === 'true' || env.DEV_MODE === true;
+
+			console.log("DEV MODE ----->", isDevMode)
+			job.log(`DEV MODE -----> ${isDevMode}`)
+
+			if (isDevMode) {
 				whisperCmd = `./whisper.cpp/main -m ./whisper.cpp/models/ggml-${settings.model}.en.bin -f ${ffmpegPath} -oj -of ${transcriptPath} -t ${settings.threads} -p ${settings.processors} -pp`;
 			} else {
 				whisperCmd = `whisper -m /models/ggml-${settings.model}.en.bin -f ${ffmpegPath} -oj -of ${transcriptPath} -t ${settings.threads} -p ${settings.processors} -pp`;
@@ -199,7 +206,7 @@ const worker = new Worker(
 			if (settings.diarize) {
 				job.updateProgress(12);
 				const rttmPath = path.resolve(baseUrl, `${recordId}.rttm`);
-				const diarizeCmd = `python ./diarize/local.py ${ffmpegPath} ${rttmPath}`;
+				const diarizeCmd = `python3 ./diarize/local.py ${ffmpegPath} ${rttmPath}`;
 				await execCommandWithLogging(diarizeCmd, job);
 				await job.log(`Diarization completed successfully`);
 				// Read and parse the RTTM file
@@ -207,7 +214,7 @@ const worker = new Worker(
 				segments = parseRttm(rttmContent);
 				await job.log(`Parsed RTTM file for record ${recordId}`);
 
-				if (env.DEV_MODE) {
+				if (isDevMode) {
 					whisperCmd = `./whisper.cpp/main -m ./whisper.cpp/models/ggml-${settings.model}.en.bin -f ${ffmpegPath} -oj -of ${transcriptPath} -t ${settings.threads} -p ${settings.processors} -pp -ml 1`;
 				} else {
 					whisperCmd = `whisper -m /models/ggml-${settings.model}.en.bin -f ${ffmpegPath} -oj -of ${transcriptPath} -t ${settings.threads} -p ${settings.processors} -pp -ml 1`;

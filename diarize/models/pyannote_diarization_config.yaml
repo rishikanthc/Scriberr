@@ -5,10 +5,12 @@ pipeline:
   params:
     clustering: AgglomerativeClustering
     # embedding: pyannote/wespeaker-voxceleb-resnet34-LM  # if you want to use the HF model
+    # embedding: /Users/richandrasekaran/Code/Scriberr/diarize/models/pyannote_model_wespeaker-voxceleb-resnet34-LM.bin  # if you want to use the local model
     embedding: /app/diarize/models/pyannote_model_wespeaker-voxceleb-resnet34-LM.bin  # if you want to use the local model
     embedding_batch_size: 32
     embedding_exclude_overlap: true
     # segmentation: pyannote/segmentation-3.0  # if you want to use the HF model
+    # segmentation: /Users/richandrasekaran/Code/Scriberr/diarize/models/pyannote_model_segmentation-3.0.bin  # if you want to use the local model
     segmentation: /app/diarize/models/pyannote_model_segmentation-3.0.bin  # if you want to use the local model
     segmentation_batch_size: 32
 

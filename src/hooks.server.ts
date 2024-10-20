@@ -8,7 +8,7 @@ import '$lib/queue';
 import { resolve } from 'chart.js/helpers';
 
 export const authentication: Handle = async ({ event, resolve }) => {
-	event.locals.pb = new PocketBase('http://localhost:8080');
+	event.locals.pb = new PocketBase(env.POCKETBASE_URL);
 	event.locals.pb.autoCancellation(false);
 	// Load the store data from the request cookie string
 	const cookieHeader = event.request.headers.get('cookie') || '';

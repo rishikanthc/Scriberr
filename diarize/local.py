@@ -43,7 +43,8 @@ def load_pipeline_from_pretrained(path_to_config: str | Path) -> Pipeline:
 
     return pipeline
 
-PATH_TO_CONFIG = "/Users/richandrasekaran/Code/Scriberr/diarize/models/pyannote_diarization_config.yaml"
+# PATH_TO_CONFIG = "/Users/richandrasekaran/Code/Scriberr/diarize/models/pyannote_diarization_config.yaml"
+PATH_TO_CONFIG = "/app/diarize/models/pyannote_diarization_config.yaml"
 pipeline = load_pipeline_from_pretrained(PATH_TO_CONFIG)
 
 
