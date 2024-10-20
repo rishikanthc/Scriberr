@@ -36,6 +36,7 @@ jobs:
         with:  
           platforms: linux/amd64,linux/arm64
           push: true
+          file: ./Dockerfile
           tags: |
             ghcr.io/rishikanthc/scriberr:${{ github.ref_name }}
           # cache-from: |
