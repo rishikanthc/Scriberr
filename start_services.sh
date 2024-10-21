@@ -4,6 +4,7 @@
 echo "Creating admin with email: ${POCKETBASE_ADMIN_EMAIL}"
 echo "PocketBase URL: ${POCKETBASE_URL}"
 
+cp -r /app/whisper.cpp /models/
 # Start PocketBase in the background
 # pocketbase serve --http=0.0.0.0:8080 --dir /app/db &
 

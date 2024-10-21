@@ -26,6 +26,7 @@ services:
       - REDIS_PORT=6379
       - SCRIBO_FILES=/scriberr
       - DEV_MODE=false
+      - CONCURRENCY=1
     volumes:
       - ./scriberr/pb_data:/app/db
       - ./scriberr:/scriberr

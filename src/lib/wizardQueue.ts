@@ -15,7 +15,6 @@ const pb = new PocketBase(env.POCKETBASE_URL);
 pb.autoCancellation(false);
 await pb.admins.authWithPassword(env.POCKETBASE_ADMIN_EMAIL, env.POCKETBASE_ADMIN_PASSWORD);
 
-
 // Remove all jobs from the queue
 async function clearQueue() {
 	await wizardQueue.drain();
@@ -93,58 +92,56 @@ const execCommandWithLogging = (cmd, job) => {
 		});
 	});
 };
-;
+export const execCommandWithLoggingSync = (cmd: string, job: any): Promise => {
+	return new Promise((resolve, reject) => {
+		const process = exec(cmd, { shell: true, maxBuffer: 1024 * 1024 * 10 }); // Max buffer for larger outputs
 
-export const execCommandWithLoggingSync = (cmd: string, job: any): Promise<boolean> => {
-    return new Promise((resolve, reject) => {
-        const process = exec(cmd, { shell: true, maxBuffer: 1024 * 1024 * 10 }); // Max buffer for larger outputs
+		process.stdout.on('data', async (data) => {
+			console.log(`stdout: ${data}`);
+			await job.log(`stdout: ${data}`);
+		});
 
-        process.stdout.on('data', async (data) => {
-            console.log(`stdout: ${data}`);
-            await job.log(`stdout: ${data}`);
-        });
+		process.stderr.on('data', async (data) => {
+			console.error(`stderr: ${data}`);
+			await job.log(`stderr: ${data}`);
+		});
 
-        process.stderr.on('data', async (data) => {
-            console.error(`stderr: ${data}`);
-            await job.log(`stderr: ${data}`);
-        });
+		process.on('close', (code) => {
+			if (code === 0) {
+				resolve(true);
+			} else {
+				reject(new Error(`Command failed with exit code ${code !== null ? code : 'unknown'}`));
+			}
+		});
 
-        process.on('close', (code) => {
-            if (code === 0) {
-                resolve(true);
-            } else {
-                reject(new Error(`Command failed with exit code ${code !== null ? code : 'unknown'}`));
-            }
-        });
-
-        process.on('error', (err) => {
-            reject(new Error(`Failed to start process: ${err.message}`));
-        });
-    });
+		process.on('error', (err) => {
+			reject(new Error(`Failed to start process: ${err.message}`));
+		});
+	});
 };
 
 // Set up the worker to process jobs automatically
 const worker = new Worker(
 	'wizardQueue',
 	async (job) => {
-		console.log("hello world from wizard")
+		console.log('hello world from wizard');
 		ensureCollectionExists(pb);
 		let modelPath;
 		let cmd;
 
 		const isDevMode = env.DEV_MODE === 'true' || env.DEV_MODE === true;
 		if (isDevMode) {
-			modelPath = path.resolve(env.SCRIBO_FILES, 'models/whisper.cpp')
+			modelPath = path.resolve(env.SCRIBO_FILES, 'models/whisper.cpp');
 		} else {
-			modelPath = path.resolve('/models/whisper.cpp')
+			modelPath = path.resolve('/models/whisper.cpp');
 		}
 		try {
-			const {settings }= job.data;
-			await job.log('starting job')
-			cmd = `make clean -C ${modelPath}`
+			const { settings } = job.data;
+			await job.log('starting job');
+			cmd = `make clean -C ${modelPath}`;
 			await execCommandWithLogging(cmd, job);
 
-			const isNvidia= env.NVIDIA === 'true' || env.NVIDIA === true;
+			const isNvidia = env.NVIDIA === 'true' || env.NVIDIA === true;
 
 			if (isNvidia) {
 				cmd = `GGML_CUDA=1 make -j -C ${modelPath}`;
@@ -152,17 +149,17 @@ const worker = new Worker(
 				cmd = `make -C ${modelPath}`;
 			}
 			await execCommandWithLogging(cmd, job);
-			await job.log('finished making whisper')
-			job.updateProgress(50)
+			await job.log('finished making whisper');
+			job.updateProgress(50);
 
-			cmd = `python3 -m pip install --no-cache-dir pyannote.audio`
+			cmd = `python3 -m pip install --no-cache-dir pyannote.audio`;
 			await execCommandWithLogging(cmd, job);
-			await job.log('finished installing pyannote')
-			job.updateProgress(75)
+			await job.log('finished installing pyannote');
+			job.updateProgress(75);
 
 			const modToDownload = modelsToDownload(settings);
-			console.log(modToDownload)
-			await job.log(modToDownload)
+			console.log(modToDownload);
+			await job.log(modToDownload);
 
 			const isDevMode = env.DEV_MODE === 'true' || env.DEV_MODE === true;
 
@@ -170,83 +167,81 @@ const worker = new Worker(
 				let cmd2;
 
 				if (isDevMode) {
-				  cmd2 = `sh ${modelPath}/models/download-ggml-model.sh ${m}.en`;
+					cmd2 = `sh ${modelPath}/models/download-ggml-model.sh ${m}.en`;
 				} else {
-				  cmd2 = `sh ${modelPath}/models/download-ggml-model.sh ${m}.en /models`;
+					cmd2 = `sh ${modelPath}/models/download-ggml-model.sh ${m}.en /models`;
 				}
 
-			  await job.log(`Executing command: ${cmd2}`);
-			  execCommandWithLoggingSync(cmd2, job);
-			  const prg = 75 + (25 * (idx + 1) / modelsToDownload.length); // idx + 1 ensures progress increments
-			  await job.updateProgress(prg);
+				await job.log(`Executing command: ${cmd2}`);
+				execCommandWithLoggingSync(cmd2, job);
+				const prg = 75 + (25 * (idx + 1)) / modelsToDownload.length; // idx + 1 ensures progress increments
+				await job.updateProgress(prg);
 			});
 
-			await job.log('finished job')
-		} catch(error) {
+			await job.log('finished job');
+		} catch (error) {
 			console.log(error);
-			job.log(error)
+			job.log(error);
 		}
-		
 
-		console.log(`DEVMODE ------>>>>>> ${isDevMode}`)
-		job.log(`DEVMODE ------>>>>>> ${isDevMode}`)
+		console.log(`DEVMODE ------>>>>>> ${isDevMode}`);
+		job.log(`DEVMODE ------>>>>>> ${isDevMode}`);
 
 		if (!isDevMode) {
-			console.log("eecuting copy")
-			job.log("eecuting copy")
+			console.log('eecuting copy');
+			job.log('eecuting copy');
 			cmd = `cp ${modelPath}/main /usr/local/bin/whisper`;
-			console.log(cmd)
-			job.log(cmd)
-		  execCommandWithLoggingSync(cmd, job);
-		  job.log("COPIED WHISPER BINARY")
-		  console.log("COPIED WHISPER BINARY")
+			console.log(cmd);
+			job.log(cmd);
+			execCommandWithLoggingSync(cmd, job);
+			job.log('COPIED WHISPER BINARY');
+			console.log('COPIED WHISPER BINARY');
 		}
 
-		const settt = await pb.collection('settings').getList(1,1);
+		const settt = await pb.collection('settings').getList(1, 1);
 
 		if (settt && settt.items.length > 0) {
-	    const record = settt.items[0]; // Get the first record (assuming one record is returned)
+			const record = settt.items[0]; // Get the first record (assuming one record is returned)
 
-	    // Update the 'wizard' field to true
-	    const updatedRecord = await pb.collection('settings').update(record.id, {
-	        wizard: true
-	    });
+			// Update the 'wizard' field to true
+			const updatedRecord = await pb.collection('settings').update(record.id, {
+				wizard: true
+			});
 
-	    console.log('Updated record:', updatedRecord);
+			console.log('Updated record:', updatedRecord);
 		} else {
-		    console.log('No records found in settings collection');
+			console.log('No records found in settings collection');
 		}
 
-		job.updateProgress(100)
+		job.updateProgress(100);
 	},
 	{
 		connection: { host: env.REDIS_HOST, port: env.REDIS_PORT }, // Redis connection
 		concurrency: 1, // Allows multiple jobs to run concurrently
 		lockDuration: 500000, // Lock duration (in milliseconds), e.g., 5 minutes
-    lockRenewTime: 500000
+		lockRenewTime: 500000
 	}
 );
 
 function modelsToDownload(settings) {
-		let m = [];
+	let m = [];
 
-		const set = JSON.parse(settings)
-		console.log('Settings:', settings);
+	const set = JSON.parse(settings);
+	console.log('Settings:', settings);
 	console.log('Models:', set.models);
 
-
-		if (set.models.small) {
-			m.push('small');
-		}
-		if (set.models.tiny) {
-			m.push('tiny');
-		}
-		if (set.models.medium) {
-			m.push('medium');
-		}
-		if (set.models.largev1) {
-			m.push('large-v1');
-		}
-
-		return m;
+	if (set.models.small) {
+		m.push('small');
 	}
+	if (set.models.tiny) {
+		m.push('tiny');
+	}
+	if (set.models.medium) {
+		m.push('medium');
+	}
+	if (set.models.largev1) {
+		m.push('large-v1');
+	}
+
+	return m;
+}
