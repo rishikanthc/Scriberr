@@ -1,9 +1,10 @@
 # Scriberr
+[![ci](https://github.com/rishikanthc/Scriberr/actions/workflows/github-actions-docker.yml/badge.svg?event=push)](https://github.com/rishikanthc/Scriberr/actions/workflows/github-actions-docker.yml)
 
 This is Scriberr, a self-hostable AI audio transcription app. Scriberr uses the open-source [Whisper](https://github.com/openai/whisper) models from OpenAI,
 to transcribe audio files locally on your hardware. It uses the [Whisper.cpp](https://github.com/ggerganov/whisper.cpp) high-performance inference engine
 for OpenAI's Whisper. Scriberr also allows you to summarize transcripts using ollama or OpenAI's ChatGPT API, with your own custom prompts. From v0.2.0 Scriberr supports
-offline speaker diarization.
+offline speaker diarization. Check out the documentation [website](https://scriberr.app) for more details and instructions.
 
 ## Features
 - Fast transcription with support for hardware acceleration across a wide variety of platforms
@@ -37,98 +38,7 @@ https://github.com/user-attachments/assets/69d0c5a8-3412-4af5-a312-f3eddebc392e
 
 
 ## Installation
-
-Scriberr can be deployed using Docker. Use the docker-compose shown below with your configuration values.
-Under the directory or volume you are mapping to `/scriberr`, please create the following 2 sub-directories,
-`audio` and `transcripts`.
-
-> [!warning]
-> Make sure to create the sub-directories inside `SCRIBO_FILES` as transcription will fail silently without that.
-
-> [!important]
-> On first load, the app will throw a 500 Error because the database collection hasn't been created.
-> Please reload the page for the app to start working. This only happens on the very first run after
-> install.
-
-```yaml
-services:
-  scriberr:
-    image: ghcr.io/rishikanthc/scriberr:0.2.2 #use nightly for the latest cutting edge version (might be unstable)
-    depends_on:
-      redis:
-        condition: service_started
-
-    ports:
-      - "3000:3000"
-      - "8080:8080" # Optionally expose DB UI
-      - "9243:9243" # Optionally expose JobQueue UI
-    environment:
-      - OPENAI_API_KEY=<reallylongsecretkey>
-      - OPENAI_ENDPOINT=http://ollama:11434/v1
-      - OPENAI_MODEL=llama3.2 # Ensure this model matches in `ollama-models` service
-      - OPENAI_ROLE=user
-      - POCKETBASE_ADMIN_EMAIL=admin@example.com
-      - POCKETBASE_ADMIN_PASSWORD=password
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - SCRIBO_FILES=/scriberr
-    volumes:
-      - ./.dockerdata/pb_data:/app/db
-      - ./.dockerdata/scriberr:/scriberr
-
-  redis:
-    image: redis:7-alpine
-    volumes:
-      - ./.dockerdata/redis:/data
-```
-
-### Full Local Stack
-
-To run all components locally, including Ollama in place of OpenAI, see [`docker-compose.ollama.yaml`](./docker-compose.ollama.yaml).
-
-```sh
-$ mkdir -p .dockerdata/scriberr/audio .dockerdata/scriberr/transcripts
-$ docker-compose -f docker-compose.ollama.yaml up
-...
-```
-
-The app will be available in your browser: `http://localhost:3000`
-
-Additionally, you can run the container against an external Ollama instance by passing in the appropriate values for these environment variables:
-
-```env
-OPENAI_ENDPOINT=<ollama service api url>
-OPENAI_MODEL=<the ollama model> # must already be pulled
-OPENAI_ROLE=user
-```
-
-> [!warning]
-> This will be _very_ slow without an NVIDIA GPU to pass through.
-
-> [!warning]
-> If you have issues re-starting the stack (`403: 'Only admins can perform this action.'`), clear the Auth token cookie.
-
-## Planned Features
-
-- [x] Speaker diarization for speaker labels
-- [x] File actions - rename, delete
-- [ ] Provide multiple algorithms for speaker label corrections
-- [ ] Hardware Acceleration setup wizard
-- [ ] Youtube integration
-- [ ] Subtitle generation
-- [ ] Support for other languages
-- [ ] Audio recording functionality
-- [ ] Full text fuzzy search
-- [ ] Tag based organization system
-- [ ] Follow along text with playback
-- [ ] Edit summaries
-- [ ] Export options
-
-
-## Known Bugs
-- First app load will load a blank due to missing database. Reloading will fix it.
-- ~~Requires page refresh to load audio for newly transcribed files~~
-- ~~Automatic update of processed files is finnicky and might require a page refresh for update~~
+For installation and usage instruction refer the documentation website at [scriberr.app](https://scriberr.app)
 
 ## Note
 This app is under development, so expect a few rough edges and minor bugs. Expect breaking changes
