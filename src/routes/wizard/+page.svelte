@@ -107,7 +107,7 @@
 	{#if status === 'wizard'}
 		<div class="text-2xl">Configuration Wizard</div>
 		<div class="my-4 flex items-start justify-start gap-2">
-			<div class="flex w-[200px] flex-col items-start gap-2 rounded-md bg-carbongray-50 p-2">
+			<div class="flex w-[200px] flex-col items-start gap-2 rounded-md bg-carbongray-50 p-2 text-gray-800 shadow-sm dark:bg-carbongray-700 dark:text-white">
 				<div>Language</div>
 				<Separator.Root
 					class="shrink-0 bg-carbongray-100 data-[orientation=horizontal]:h-px data-[orientation=vertical]:h-full data-[orientation=horizontal]:w-full data-[orientation=vertical]:w-[1px]"
@@ -151,7 +151,7 @@
 					<Label.Root id="light-label" for="light">Others</Label.Root>
 				</div>
 			</div>
-			<div class="flex w-[200px] flex-col items-start gap-2 rounded-md bg-carbongray-50 p-2">
+			<div class="flex w-[200px] flex-col items-start gap-2 rounded-md bg-carbongray-50 p-2 text-gray-800 shadow-sm dark:bg-carbongray-700 dark:text-white">
 				<div>Models to download</div>
 				<Separator.Root
 					class="shrink-0 bg-carbongray-100 data-[orientation=horizontal]:h-px data-[orientation=vertical]:h-full data-[orientation=horizontal]:w-full data-[orientation=vertical]:w-[1px]"
@@ -274,7 +274,7 @@
 		</div>
 		<Button.Root
 			on:click={hand}
-			class="my-3 flex h-[30px] items-center justify-center rounded-md bg-black p-1 text-base text-carbongray-50"
+			class="my-3 flex h-[40px] items-center justify-center rounded-md bg-black p-2 text-base text-carbongray-50 shadow-sm dark:bg-carbongray-700 dark:text-white"
 			>Configure</Button.Root
 		>
 	{:else if status === 'progress'}
