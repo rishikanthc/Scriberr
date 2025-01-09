@@ -1,0 +1,66 @@
+services:
+  app:
+    build:
+      context: .
+      platforms:
+        - linux/arm64
+      args: # Build-time variables
+        - DATABASE_URL=postgres://root:mysecretpassword@db:5432/local
+        - ADMIN_USERNAME=admin
+        - ADMIN_PASSWORD=password
+        - AI_MODEL="gpt-4o-mini"
+        - OLLAMA_BASE_URL=""
+        - MODELS_DIR="/scriberr/models"
+        - WORK_DIR="/scriberr/temp"
+        - AUDIO_DIR="/scriberr/uploads"
+        - OPENAI_API_KEY=""
+        - BODY_SIZE_LIMIT=100M
+    environment: # Runtime variables (these override build args)
+      DATABASE_URL: postgres://root:mysecretpassword@db:5432/local
+      ADMIN_USERNAME: admin
+      ADMIN_PASSWORD: password
+      OLLAMA_BASE_URL: ""
+      AI_MODEL: "gpt-4o-mini"
+      MODELS_DIR: "/scriberr/models"
+      WORK_DIR: "/scriberr/temp"
+      AUDIO_DIR: "/scriberr/uploads"
+      OPENAI_API_KEY: ""
+      BODY_SIZE_LIMIT: 1G
+    ports:
+      - "3000:3000"
+    volumes:
+      - scriberr_data:/scriberr
+    networks:
+      - app-network
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: mysecretpassword
+      POSTGRES_DB: local
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U root -d local"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
+    restart: unless-stopped
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  scriberr_data:
+
