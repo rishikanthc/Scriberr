@@ -4,6 +4,7 @@ services:
       context: .
       platforms:
         - linux/arm64
+        - linux/amd64
       args: # Build-time variables
         - DATABASE_URL=postgres://root:mysecretpassword@db:5432/local
         - ADMIN_USERNAME=admin
@@ -16,20 +17,25 @@ services:
         - OPENAI_API_KEY=""
         - BODY_SIZE_LIMIT=100M
     environment: # Runtime variables (these override build args)
-      DATABASE_URL: postgres://root:mysecretpassword@db:5432/local
-      ADMIN_USERNAME: admin
-      ADMIN_PASSWORD: password
-      OLLAMA_BASE_URL: ""
-      AI_MODEL: "gpt-4o-mini"
-      MODELS_DIR: "/scriberr/models"
-      WORK_DIR: "/scriberr/temp"
-      AUDIO_DIR: "/scriberr/uploads"
-      OPENAI_API_KEY: ""
-      BODY_SIZE_LIMIT: 1G
+      DATABASE_URL: ${DATABASE_URL}
+      ADMIN_USERNAME: ${ADMIN_USERNAME}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL}
+      AI_MODEL: ${AI_MODEL}
+      MODELS_DIR: ${MODELS_DIR}
+      WORK_DIR: ${WORK_DIR}
+      AUDIO_DIR: ${AUDIO_DIR}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      DIARIZATION_MODEL: ${DIARIZATION_MODEL}
+      HF_API_KEY: ${HF_API_KEY}
+      BODY_SIZE_LIMIT: ${BODY_SIZE_LIMIT}
     ports:
       - "3000:3000"
     volumes:
+      # Comment out the following line if you want to use a local directory for Scriberr data storage
       - scriberr_data:/scriberr
+      # Uncomment the following line if you want to use a local directory for data storage
+      #- /path/to/scriberr_data:/scriberr
     networks:
       - app-network
     depends_on:
@@ -40,13 +46,16 @@ services:
   db:
     image: postgres:15-alpine
     environment:
-      POSTGRES_USER: root
-      POSTGRES_PASSWORD: mysecretpassword
-      POSTGRES_DB: local
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
     ports:
       - "5432:5432"
     volumes:
+      # Comment out the following line if you want to use a local directory for PostgreSQL data storage
       - postgres_data:/var/lib/postgresql/data
+      # Uncomment the following line if you want to use a local directory for data storage
+      #- /path/to/postgres_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U root -d local"]
       interval: 5s
@@ -60,6 +69,7 @@ networks:
   app-network:
     driver: bridge
 
+# Comment out the following lines if you want to use a local directory for data storage
 volumes:
   postgres_data:
   scriberr_data:
