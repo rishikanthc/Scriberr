@@ -8,7 +8,7 @@ wait_for_db() {
   # For debugging
   echo "Current DATABASE_URL: $DATABASE_URL"
   
-  until PGPASSWORD=mysecretpassword pg_isready -h db -p 5432 -U root -d local
+  until PGPASSWORD="$POSTGRES_PASSWORD" pg_isready -h db -p 5432 -U "$POSTGRES_USER" -d "$POSTGRES_DB"
   do
     echo "Database connection attempt failed. Retrying in 2 seconds..."
     sleep 2
@@ -38,10 +38,10 @@ fi
 
 # Start the application
 echo "Building the application..."
-exec "$@"
+"$@"
 
 # Uncomment these lines if needed
-npm run build
+# npm run build
 
 echo "Starting the application..."
 node build

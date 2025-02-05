@@ -41,6 +41,10 @@ RUN apt-get install -y nodejs
 #     apt-get install -f -y && \
 #     rm -rf /var/lib/apt/lists/*
 
+# Install WhisperX and Diarization models
+RUN pip install whisperx faster-whisper pyannote-audio pyannote-core pyannote-pipeline \
+    pyannote-database pyannote-metrics
+
 WORKDIR /app
 
 # Copy application code
@@ -49,6 +53,9 @@ COPY . .
 # Temporarily set NODE_ENV to development to install dev dependencies
 ENV NODE_ENV=development
 RUN npm install
+
+# Build the frontend web application (saving time on container startup
+RUN npm run build
 
 # Copy and set up entrypoint script
 COPY docker-entrypoint.sh /usr/local/bin/

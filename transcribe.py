@@ -23,6 +23,8 @@ def main():
     parser.add_argument("--output-file", type=str, default="transcript.json",
                    help="Path to the output JSON file.")
     parser.add_argument('--threads', type=int, default=1, help="number of threads used by torch for CPU inference")
+    parser.add_argument("--HF_TOKEN", type=str, default=None, help="HuggingFace token, necessary for diarization")
+    parser.add_argument("--diarization-model", type=str, default="pyannote/speaker-diarization", help="Speaker diarization model to use")
 
     args = parser.parse_args()
 
@@ -65,7 +67,8 @@ def main():
     if args.diarize:
         # load diarization pipeline
         diarize_model = whisperx.DiarizationPipeline(
-            use_auth_token="YOUR_HF_TOKEN_IF_NEEDED",
+            model_name=f"{args.diarize_model}",
+            use_auth_token=f"{args.HF_TOKEN}",
             device=args.device
         )
         # run diarization
