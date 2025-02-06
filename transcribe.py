@@ -2,29 +2,77 @@ import argparse
 import json
 import whisperx
 
+
 def main():
     parser = argparse.ArgumentParser(
         description="WhisperX Transcription Script with optional diarization/alignment."
     )
-    parser.add_argument("--audio-file", type=str, required=True,
-                        help="Path to the audio file to transcribe.")
-    parser.add_argument("--model-size", type=str, default="small",
-                        help="Whisper model size (e.g., tiny, base, small, medium, large, large-v2).")
-    parser.add_argument("--language", type=str, default=None,
-                        help="Optional language code to force Whisper to use (e.g., 'en').")
-    parser.add_argument("--diarize", action="store_true", default=False,
-                        help="Enable speaker diarization.")
-    parser.add_argument("--align", action="store_true", default=False,
-                        help="Perform alignment on the transcribed segments.")
-    parser.add_argument("--device", type=str, default="cpu",
-                        help="Device to run WhisperX on (e.g., 'cpu' or 'cuda').")
-    parser.add_argument("--compute-type", type=str, default="int8",
-                        help="Compute type for WhisperX inference (e.g., 'float16', 'int8').")
-    parser.add_argument("--output-file", type=str, default="transcript.json",
-                   help="Path to the output JSON file.")
-    parser.add_argument('--threads', type=int, default=1, help="number of threads used by torch for CPU inference")
-    parser.add_argument("--HF_TOKEN", type=str, default=None, help="HuggingFace token, necessary for diarization")
-    parser.add_argument("--diarization-model", type=str, default="pyannote/speaker-diarization", help="Speaker diarization model to use")
+    parser.add_argument(
+        "--audio-file",
+        type=str,
+        required=True,
+        help="Path to the audio file to transcribe.",
+    )
+    parser.add_argument(
+        "--model-size",
+        type=str,
+        default="small",
+        help="Whisper model size (e.g., tiny, base, small, medium, large, large-v2).",
+    )
+    parser.add_argument(
+        "--language",
+        type=str,
+        default=None,
+        help="Optional language code to force Whisper to use (e.g., 'en').",
+    )
+    parser.add_argument(
+        "--diarize",
+        action="store_true",
+        default=False,
+        help="Enable speaker diarization.",
+    )
+    parser.add_argument(
+        "--align",
+        action="store_true",
+        default=False,
+        help="Perform alignment on the transcribed segments.",
+    )
+    parser.add_argument(
+        "--device",
+        type=str,
+        default="cpu",
+        help="Device to run WhisperX on (e.g., 'cpu' or 'cuda').",
+    )
+    parser.add_argument(
+        "--compute-type",
+        type=str,
+        default="int8",
+        help="Compute type for WhisperX inference (e.g., 'float16', 'int8').",
+    )
+    parser.add_argument(
+        "--output-file",
+        type=str,
+        default="transcript.json",
+        help="Path to the output JSON file.",
+    )
+    parser.add_argument(
+        "--threads",
+        type=int,
+        default=1,
+        help="number of threads used by torch for CPU inference",
+    )
+    parser.add_argument(
+        "--HF_TOKEN",
+        type=str,
+        default=None,
+        help="HuggingFace token, necessary for diarization",
+    )
+    parser.add_argument(
+        "--diarization-model",
+        type=str,
+        default="pyannote/speaker-diarization",
+        help="Speaker diarization model to use",
+    )
 
     args = parser.parse_args()
 
@@ -33,7 +81,7 @@ def main():
         args.model_size,
         device=args.device,
         compute_type=args.compute_type,
-        language=args.language  # if None, Whisper will attempt language detection
+        language=args.language,  # if None, Whisper will attempt language detection
     )
 
     # 2. Load audio
@@ -47,8 +95,7 @@ def main():
     if args.align:
         # load alignment model
         model_a, metadata = whisperx.load_align_model(
-            language_code=result["language"],
-            device=args.device
+            language_code=result["language"], device=args.device
         )
         aligned_result = whisperx.align(
             result["segments"],
@@ -56,7 +103,7 @@ def main():
             metadata,
             audio,
             args.device,
-            return_char_alignments=False
+            return_char_alignments=False,
         )
         # aligned_result is similar in structure to the original result
         # but with more precise timings per word, etc.
@@ -69,7 +116,7 @@ def main():
         diarize_model = whisperx.DiarizationPipeline(
             model_name=f"{args.diarize_model}",
             use_auth_token=f"{args.HF_TOKEN}",
-            device=args.device
+            device=args.device,
         )
         # run diarization
         diarize_segments = diarize_model(audio)
@@ -82,12 +129,14 @@ def main():
         #   "start", "end", "text" for each segment
         output_segments = []
         for seg in result["segments"]:
-            output_segments.append({
-                "start": seg["start"],
-                "end": seg["end"],
-                "text": seg["text"],
-                "speaker": seg["speaker"]
-            })
+            output_segments.append(
+                {
+                    "start": seg["start"],
+                    "end": seg["end"],
+                    "text": seg["text"],
+                    "speaker": seg["speaker"],
+                }
+            )
 
         # Print the simplified JSON
         # print(json.dumps(output_segments, indent=2))
