@@ -38,7 +38,7 @@ fi
 
 # Start the application
 echo "Building the application..."
-"$@"
+exec "$@"
 
 # Uncomment these lines if needed
 # npm run build
