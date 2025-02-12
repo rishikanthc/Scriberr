@@ -1,4 +1,5 @@
 // lib/server/transcription.ts
+
 import { spawn } from 'child_process';
 import { readFile } from 'fs/promises';
 import { join } from 'path';
@@ -21,6 +22,7 @@ export async function transcribeAudio(audioId: number, stream: TranscribeStream)
     .from(audioFiles)
     .where(eq(audioFiles.id, audioId))
     .then(rows => rows[0]);
+
   if (!file) throw new Error('File not found');
 
   // 2. Prepare paths
@@ -36,24 +38,34 @@ export async function transcribeAudio(audioId: number, stream: TranscribeStream)
     '--device', 'cpu',
     '--compute-type', 'int8',
     '--output-file', outputPath,
-    '--HF_TOKEN', process.env.HF_API_KEY,
-    '--diarization-model', process.env.DIARIZATION_MODEL,
   ];
 
   // If user selected an explicit language
   if (file.language) {
     pythonArgs.push('--language', file.language);
   }
+
   // If alignment was requested
   if (file.align) {
     pythonArgs.push('--align');
   }
+
   // If diarization was requested
   if (file.diarization) {
     pythonArgs.push('--diarize');
+
+    // Check if HF_API_KEY is defined
+    if (process.env.HF_API_KEY) {
+      pythonArgs.push('--HF_TOKEN', process.env.HF_API_KEY);
+    } else {
+      console.warn('HF_API_KEY is not set. Diarization may not be performed.');
+    }
+
+    // Check if DIARIZATION_MODEL is defined
+    if (process.env.DIARIZATION_MODEL) {
+      pythonArgs.push('--diarization-model', process.env.DIARIZATION_MODEL);
+    }
   }
-  // If we store CPU threads in `file.threads`, you might pass:
-  // pythonArgs.push('--threads', String(file.threads ?? 1));
 
   console.log("Launching transcribe.py with arguments:", pythonArgs);
 
@@ -67,10 +79,11 @@ export async function transcribeAudio(audioId: number, stream: TranscribeStream)
   let progressStream = stream;
   let lastProgress = 0;
 
-  // 5. Parse progress from the Python script's stderr or stdout
+  // 5. Parse progress from the Python script's stdout
   pythonProcess.stdout.on('data', async (data) => {
     const output = data.toString();
-    // If your transcribe.py prints lines like: "Progress: 33.33%"
+
+    // If your transcribe.py prints progress lines like: "Progress: 33.33%"
     // we can detect and parse them:
     const match = output.match(/Progress:\s*([\d.]+)%/i);
     if (match) {
@@ -78,24 +91,21 @@ export async function transcribeAudio(audioId: number, stream: TranscribeStream)
       if (!isNaN(currentProgress) && currentProgress !== lastProgress) {
         lastProgress = currentProgress;
         await db.update(audioFiles)
-          .set({ 
+          .set({
             transcriptionProgress: Math.floor(currentProgress),
             transcriptionStatus: 'processing',
             updatedAt: new Date()
           })
           .where(eq(audioFiles.id, audioId));
-
-        jobQueue.broadcastToJob(audioId, { 
-          status: 'processing', 
-          progress: currentProgress 
+        jobQueue.broadcastToJob(audioId, {
+          status: 'processing',
+          progress: currentProgress
         });
       }
     }
 
-    console.log("COMPLETED TRANSCRIBING --->")
-
-    // If you also print lines like: "Transcript: [0.301 --> 29.883] ...text..."
-    // you can parse them similarly if desired.
+    // Log other outputs for debugging purposes
+    console.log(output);
   });
 
   pythonProcess.stderr.on('data', (data) => {
@@ -112,31 +122,16 @@ export async function transcribeAudio(audioId: number, stream: TranscribeStream)
             // 7. The script wrote "outputPath" as JSON
             const rawJson = await readFile(outputPath, 'utf-8');
             const jsonData = JSON.parse(rawJson);
+            let transcriptSegments: TranscriptSegment[] = [];
 
-            let transcriptSegments: TranscriptSegment[];
-
-            if (file.diarization) {
-              // If diarization is on, the script writes an array of segments
-              //  e.g. [ {start, end, text, speaker}, ... ]
-              transcriptSegments = jsonData.map((seg) => ({
-                start: seg.start,
-                end: seg.end,
-                text: seg.text,
-                speaker: seg.speaker
-              }));
-            } else {
-              // If diarization is off, the script wrote the full "result"
-              // structure. Usually that's { "segments": [...] } if you used
-              // `json.dump(result, ...)`.
-              // So let's parse the segments:
-              const segments = jsonData.segments || [];
-              transcriptSegments = segments.map((seg: any) => ({
-                start: seg.start,
-                end: seg.end,
-                text: seg.text,
-                speaker: seg.speaker ?? 'unknown'
-              }));
-            }
+            // Extract the segments consistently, regardless of diarization
+            const segments = jsonData.segments || [];
+            transcriptSegments = segments.map((seg: any) => ({
+              start: seg.start,
+              end: seg.end,
+              text: seg.text,
+              speaker: seg.speaker ?? 'unknown'  // Use 'unknown' if speaker is not set
+            }));
 
             // 8. Save transcript to DB
             await db.update(audioFiles)
@@ -157,8 +152,8 @@ export async function transcribeAudio(audioId: number, stream: TranscribeStream)
                 transcript: transcriptSegments
               });
             }
-            resolve(null);
 
+            resolve(null);
           } catch (err) {
             reject(err);
           }
@@ -166,32 +161,32 @@ export async function transcribeAudio(audioId: number, stream: TranscribeStream)
           reject(new Error(`transcribe.py exited with code ${code}`));
         }
       });
+
       pythonProcess.on('error', reject);
     });
-
   } catch (error: any) {
     console.error('Transcription error:', error);
 
     // Update DB with failure status
     await db.update(audioFiles)
-      .set({ 
+      .set({
         transcriptionStatus: 'failed',
         lastError: error.message,
         updatedAt: new Date()
       })
       .where(eq(audioFiles.id, audioId));
 
-    // broadcast the failure
+    // Broadcast the failure
     jobQueue.broadcastToJob(audioId, { status: 'failed', error: error.message });
-    throw error;
 
+    throw error;
   } finally {
-    // 10. Cleanup
-    pythonProcess.kill();
-    if (progressStream) {
-      jobQueue.setJobRunning(audioId, false);
-      await progressStream.close();
-      progressStream = null;
-    }
+      // 10. Cleanup
+      pythonProcess.kill();
+      if (progressStream) {
+        jobQueue.setJobRunning(audioId, false);
+        await progressStream.close();
+        progressStream = null;
+      }
   }
 }
