@@ -38,6 +38,8 @@ export async function transcribeAudio(audioId: number, stream: TranscribeStream)
     '--device', 'cpu',
     '--compute-type', 'int8',
     '--output-file', outputPath,
+    '--HF_TOKEN', process.env.HF_API_KEY,
+    '--diarization-model', process.env.DIARIZATION_MODEL,
   ];
 
   // If user selected an explicit language
