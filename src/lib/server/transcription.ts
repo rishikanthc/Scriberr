@@ -31,43 +31,37 @@ export async function transcribeAudio(audioId: number, stream: TranscribeStream)
   const outputPath = join(UPLOAD_DIR, `${file.fileName}.json`);
 
   // 3. Build arguments for the Python script
-  const pythonArgs: string[] = [
-    'transcribe.py',
-    '--audio-file', inputPath,
-    '--model-size', 'base',
-    '--device', 'cpu',
-    '--compute-type', 'int8',
-    '--output-file', outputPath,
-    '--HF_TOKEN', process.env.HF_API_KEY,
-    '--diarization-model', process.env.DIARIZATION_MODEL,
-  ];
+    const pythonArgs: string[] = [
+      'transcribe.py',
+      '--audio-file', inputPath,
+      '--model-size', 'base',
+      '--device', 'cpu',
+      '--compute-type', 'int8',
+      '--output-file', outputPath,
+      '--diarization-model', process.env.DIARIZATION_MODEL,
+    ];
 
-  // If user selected an explicit language
-  if (file.language) {
-    pythonArgs.push('--language', file.language);
-  }
-
-  // If alignment was requested
-  if (file.align) {
-    pythonArgs.push('--align');
-  }
-
-  // If diarization was requested
-  if (file.diarization) {
-    pythonArgs.push('--diarize');
-
-    // Check if HF_API_KEY is defined
-    if (process.env.HF_API_KEY) {
-      pythonArgs.push('--HF_TOKEN', process.env.HF_API_KEY);
-    } else {
-      console.warn('HF_API_KEY is not set. Diarization may not be performed.');
+    // If user selected an explicit language
+    if (file.language) {
+      pythonArgs.push('--language', file.language);
     }
 
-    // Check if DIARIZATION_MODEL is defined
-    if (process.env.DIARIZATION_MODEL) {
-      pythonArgs.push('--diarization-model', process.env.DIARIZATION_MODEL);
+    // If alignment was requested
+    if (file.align) {
+      pythonArgs.push('--align');
     }
-  }
+
+    // If diarization was requested
+    if (file.diarization) {
+      pythonArgs.push('--diarize');
+
+      // Only add --HF_TOKEN if HF_API_KEY is defined
+      if (process.env.HF_API_KEY) {
+        pythonArgs.push('--HF_TOKEN', process.env.HF_API_KEY);
+      } else {
+        console.warn('HF_API_KEY is not set. Diarization may not be performed.');
+      }
+    }
 
   console.log("Launching transcribe.py with arguments:", pythonArgs);
 

@@ -21,9 +21,10 @@ services:
         - OPENAI_API_KEY=""
         - BODY_SIZE_LIMIT=100M
     env_file:
-      - .env
+      # Specify your .env file here
+      - personal.env
     ports:
-      - "3000:3000"
+      - "${PORT:-3000}:3000"
     volumes:
       # Comment out the following line if you want to use a local directory for Scriberr data storage
       - scriberr_data:/scriberr
@@ -43,7 +44,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       # Comment out the following line if you want to use a local directory for PostgreSQL data storage
       - postgres_data:/var/lib/postgresql/data
