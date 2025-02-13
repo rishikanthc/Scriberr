@@ -1,67 +1,67 @@
-# ARG TARGETARCH
-# ADD "https://github.com/bbc/audiowaveform/releases/download/1.10.1/audiowaveform_1.10.1-1-12_$TARGETARCH.deb" /pre/audiowaveform.deb
-
-# RUN echo "I'm building for $TARGETARCH" && sleep 4
-# RUN ls -l /pre && sleep 4
-
+# Use a specific version of Ubuntu as the base image
 FROM ubuntu:22.04
 
-# Set environment variables to make the installation non-interactive
-ENV DEBIAN_FRONTEND=noninteractive
-ENV TZ="Etc/UTC"
+# Set environment variables to make installation non-interactive and set timezone
+ENV DEBIAN_FRONTEND=noninteractive \
+    TZ="Etc/UTC" \
+    PATH="/root/.local/bin/:$PATH"
 
-RUN apt-get update && apt-get install -y \
-    python3 \
-    python3-dev \
-    python3-pip \
-    postgresql-client \
-    software-properties-common \
-    build-essential \
-    cmake \
-    tzdata \
-    ffmpeg \
-    curl \
-    unzip \
-    git
-    
-RUN add-apt-repository ppa:chris-needham/ppa \
-    && apt-get update \
-    && apt-get install -y audiowaveform
+# Combine all apt-get related commands to reduce layers and avoid multiple updates
+RUN apt-get update && \
+    apt-get install -y \
+        python3 \
+        python3-dev \
+        python3-pip \
+        postgresql-client \
+        software-properties-common \
+        build-essential \
+        cmake \
+        tzdata \
+        ffmpeg \
+        curl \
+        unzip \
+        git && \
+    # Add the PPA and install audiowaveform
+    add-apt-repository ppa:chris-needham/ppa && \
+    apt-get update && \
+    apt-get install -y audiowaveform && \
+    # Install UV
+    curl -sSL https://astral.sh/uv/install.sh -o /uv-installer.sh && \
+    sh /uv-installer.sh && \
+    rm /uv-installer.sh && \
+    # Install Node.js
+    curl -fsSL https://deb.nodesource.com/setup_23.x | bash - && \
+    apt-get install -y nodejs && \
+    # Clean up to reduce image size
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
-# Clean up the apt cache to reduce image size
-RUN apt-get clean && rm -rf /var/lib/apt/lists/*
-
-RUN curl -fsSL https://deb.nodesource.com/setup_23.x -o nodesource_setup.sh && bash nodesource_setup.sh
-RUN apt-get install -y nodejs
-
-# Install audiowaveform and its dependencies
-# RUN apt-get update && \
-#     apt-get install -y libmad0 libid3tag0 libsndfile1 libgd3 && \
-#     dpkg -i /pre/audiowaveform.deb || true && \
-#     apt-get install -f -y && \
-#     rm -rf /var/lib/apt/lists/*
-
-# Install WhisperX and Diarization models
-RUN pip install whisperx faster-whisper pyannote-audio pyannote-core pyannote-pipeline \
-    pyannote-database pyannote-metrics
-
+# Set the working directory
 WORKDIR /app
 
-# Copy application code
+# Copy and install Python dependencies first to leverage caching
+COPY requirements.txt .
+RUN uv pip install --system -r requirements.txt
+
+# Copy package.json and package-lock.json separately to cache npm install
+COPY package*.json ./
+RUN npm ci
+
+# Now copy the rest of the application code
 COPY . .
 
-# Temporarily set NODE_ENV to development to install dev dependencies
-ENV NODE_ENV=development
-RUN npm install
-
-# Build the frontend web application (saving time on container startup
+# Build the frontend application
 RUN npm run build
 
-# Copy and set up entrypoint script
+# Copy the entrypoint script and ensure it has execute permissions
 COPY docker-entrypoint.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
+# Set NODE_ENV to production after building to avoid installing dev dependencies
+ENV NODE_ENV=production
+
+# Expose the desired port
 EXPOSE 3000
 
-CMD ["/bin/sh", "/usr/local/bin/docker-entrypoint.sh"]
-
+# Define the default command
+CMD ["/usr/local/bin/docker-entrypoint.sh"]

@@ -13,8 +13,8 @@ if (OLLAMA_BASE_URL === "") {
   })
 } else {
   openai = new OpenAI({
-    baseURL: `${OLLAMA_BASE_URL}/v1/`,
-    apiKey: "ollama"
+    baseURL: `${OLLAMA_BASE_URL}`,
+    apiKey: OPENAI_API_KEY !== "" ? `${OPENAI_API_KEY}` : "ollama"
   });
 }
 
