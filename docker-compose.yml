@@ -3,7 +3,7 @@
 
 services:
   app:
-    image: ghcr.io/spirusnox/scriberr:${IMAGE_TAG:-main}
+    image: ghcr.io/rishikanthc/scriberr:${IMAGE_TAG:-main}
     build:
       context: .
       platforms:
