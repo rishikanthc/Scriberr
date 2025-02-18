@@ -22,7 +22,7 @@ services:
         - BODY_SIZE_LIMIT=100M
     env_file:
       # Specify your .env file here
-      - personal.env
+      - .env
     ports:
       - "${PORT:-3000}:3000"
     volumes:
