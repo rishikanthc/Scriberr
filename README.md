@@ -1,3 +1,27 @@
+# Important
+im in the process of doing a full rewrite of the app.There are a few reasons for this:
+- Svelte 5 which brings a lot of improvements especially for reactivity
+- the previous implementation was a bit more hacky than i wanted it to be
+- diarization wasnt great
+
+i had to take some time off this project due to some commitments. Ill be back on working on this project regularly. you can wxpect weekly updates from here on and ill clean up things for a new release. 
+in the meantime as tou might have noticed the existing docker images arent valid. this is because currently docker pulls whisper.cpp from their official repo and sets it up. unfortunately this turned out to be a bad move as whisper.cpp changed thier build process and hence the current setup no longer works. 
+i have already moved the main branch ahead for the new release. hence if you want to try out the new release please download the repo and run docker build to create your own image. 
+My sincere apologies for the inconvenience and ill fix this up soon. 
+
+in the meantime folks who have the time and resources to build and try the new release any feedback would be greatlt appreciated. 
+also a warning this release is a breaking change and you will loose your old data. 
+
+The new releae brings these changes
+- performance improvements. rewrite takes advantage of svelte 5 reactivity features
+- changed the transcription engine from whisper.cpp to whisperX
+- significant improvements to the diarization pipeline. diarization will be vastly better.
+- streamlined and simplified setup process. removes the wizard altogether. 
+- a new UI. tried playing around with glassmorphism. appreciate feedback on UI. im no frontend designer :P
+- support for multilingual transcription. both transceiption and diarization now support all languages that whisper model supports
+
+looking forward to any and all feedback. thank you for your patience, support and interest in the project. 
+Folks have submitted some great PRs and im excited to see how the app evolves. 
 # Scriberr
 [![ci](https://github.com/rishikanthc/Scriberr/actions/workflows/github-actions-docker.yml/badge.svg?event=push)](https://github.com/rishikanthc/Scriberr/actions/workflows/github-actions-docker.yml)
 
