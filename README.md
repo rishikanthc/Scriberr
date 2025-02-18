@@ -1,3 +1,18 @@
+# Important
+im in the process of doing a full rewrite of the app.There are a few reasona for this:
+- Svelte 5 which brings a lot of improvements especially for reactivity
+- the previous implementation was a bit more backy than i wanted it to be
+- diarization wasnt great
+
+i had to take some time off this project due to some commitments. Ill be back on working on this project regularly. you can wxpect weekly updates from here on and ill clean up things for a new release. 
+in the meantime as tou might have noticed the existing docker images arent valid. this is because currently docker pulls whisper.cpp from their official repo and sets it up. unfortunately this turned out to be a bad move as whisper.cpp changed thier build process and hence the current setup no longer works. 
+i have already moved the main branch ahead for the new release. hence if you want to try out the new release please download the repo and run docker build to create your own image. 
+My sincere apologies for the inconvenience and ill fix this up soon. 
+
+in the meantime folks who have the time and resources to build and try the new release any feedback would be greatlt appreciated. 
+also a warning this release is a breaking change and you will loose your old data. 
+
+
 # Scriberr
 [![ci](https://github.com/rishikanthc/Scriberr/actions/workflows/github-actions-docker.yml/badge.svg?event=push)](https://github.com/rishikanthc/Scriberr/actions/workflows/github-actions-docker.yml)
 
