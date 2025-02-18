@@ -1,7 +1,7 @@
 # Important
-im in the process of doing a full rewrite of the app.There are a few reasona for this:
+im in the process of doing a full rewrite of the app.There are a few reasons for this:
 - Svelte 5 which brings a lot of improvements especially for reactivity
-- the previous implementation was a bit more backy than i wanted it to be
+- the previous implementation was a bit more hacky than i wanted it to be
 - diarization wasnt great
 
 i had to take some time off this project due to some commitments. Ill be back on working on this project regularly. you can wxpect weekly updates from here on and ill clean up things for a new release. 
