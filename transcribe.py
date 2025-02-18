@@ -2,7 +2,6 @@ import argparse
 import json
 import whisperx
 
-
 def main():
     parser = argparse.ArgumentParser(
         description="WhisperX Transcription Script with optional diarization/alignment."
@@ -64,6 +63,7 @@ def main():
     parser.add_argument(
         "--HF_TOKEN",
         type=str,
+        required=False,
         default=None,
         help="HuggingFace token, necessary for diarization",
     )
@@ -73,7 +73,6 @@ def main():
         default="pyannote/speaker-diarization",
         help="Speaker diarization model to use",
     )
-
     args = parser.parse_args()
 
     # 1. Load the WhisperX model
@@ -105,50 +104,37 @@ def main():
             args.device,
             return_char_alignments=False,
         )
-        # aligned_result is similar in structure to the original result
-        # but with more precise timings per word, etc.
         # Overwrite the old segments with the aligned segments
         result["segments"] = aligned_result["segments"]
 
     # 5. Optionally perform diarization
     if args.diarize:
-        # load diarization pipeline
-        diarize_model = whisperx.DiarizationPipeline(
-            model_name=f"{args.diarize_model}",
-            use_auth_token=f"{args.HF_TOKEN}",
-            device=args.device,
-        )
-        # run diarization
-        diarize_segments = diarize_model(audio)
-
-        # assign speaker labels
-        diarized_result = whisperx.assign_word_speakers(diarize_segments, result)
-        result["segments"] = diarized_result["segments"]
-
-        # If diarization is enabled, we only want to output:
-        #   "start", "end", "text" for each segment
-        output_segments = []
-        for seg in result["segments"]:
-            output_segments.append(
-                {
-                    "start": seg["start"],
-                    "end": seg["end"],
-                    "text": seg["text"],
-                    "speaker": seg["speaker"],
-                }
+        if args.HF_TOKEN:
+            # load diarization pipeline
+            diarize_model = whisperx.DiarizationPipeline(
+                model_name=args.diarization_model,
+                use_auth_token=args.HF_TOKEN,
+                device=args.device,
             )
-
-        # Print the simplified JSON
-        # print(json.dumps(output_segments, indent=2))
-        with open(args.output_file, "w", encoding="utf-8") as f:
-            json.dump(output_segments, f, indent=2, ensure_ascii=False)
-
+            # run diarization
+            diarize_segments = diarize_model(audio)
+            # assign speaker labels
+            diarized_result = whisperx.assign_word_speakers(diarize_segments, result)
+            result["segments"] = diarized_result["segments"]
+        else:
+            print("Hugging Face token not provided. Diarization will not be performed.")
+            # Optionally set speaker labels to 'unknown'
+            #for segment in result["segments"]:
+                #segment["speaker"] = "unknown"
     else:
-        # If diarization is not enabled, print the entire result as JSON
-        # print(json.dumps(result, indent=2))
-        with open(args.output_file, "w", encoding="utf-8") as f:
-            json.dump(result, f, indent=2, ensure_ascii=False)
+        # If diarization not requested, set speakers to blank
+        for segment in result["segments"]:
+            segment["speaker"] = ""
 
+
+    # 6. Write the result to the output file
+    with open(args.output_file, "w", encoding="utf-8") as f:
+        json.dump(result, f, indent=2, ensure_ascii=False)
 
 if __name__ == "__main__":
     main()

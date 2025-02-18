@@ -1,5 +1,9 @@
+# Docker Compose file for deploying Scriberr with a PostgreSQL database
+# Make sure a .env file is present in the same directory that this is being run from:
+
 services:
   app:
+    image: ghcr.io/spirusnox/scriberr:${IMAGE_TAG:-main}
     build:
       context: .
       platforms:
@@ -16,21 +20,11 @@ services:
         - AUDIO_DIR="/scriberr/uploads"
         - OPENAI_API_KEY=""
         - BODY_SIZE_LIMIT=100M
-    environment: # Runtime variables (these override build args)
-      DATABASE_URL: ${DATABASE_URL}
-      ADMIN_USERNAME: ${ADMIN_USERNAME}
-      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
-      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL}
-      AI_MODEL: ${AI_MODEL}
-      MODELS_DIR: ${MODELS_DIR}
-      WORK_DIR: ${WORK_DIR}
-      AUDIO_DIR: ${AUDIO_DIR}
-      OPENAI_API_KEY: ${OPENAI_API_KEY}
-      DIARIZATION_MODEL: ${DIARIZATION_MODEL}
-      HF_API_KEY: ${HF_API_KEY}
-      BODY_SIZE_LIMIT: ${BODY_SIZE_LIMIT}
+    env_file:
+      # Specify your .env file here
+      - personal.env
     ports:
-      - "3000:3000"
+      - "${PORT:-3000}:3000"
     volumes:
       # Comment out the following line if you want to use a local directory for Scriberr data storage
       - scriberr_data:/scriberr
@@ -50,7 +44,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       # Comment out the following line if you want to use a local directory for PostgreSQL data storage
       - postgres_data:/var/lib/postgresql/data

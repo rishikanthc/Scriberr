@@ -1,0 +1,7 @@
+whisperx
+faster-whisper
+pyannote-audio
+pyannote-core
+pyannote-pipeline
+pyannote-database
+pyannote-metrics
