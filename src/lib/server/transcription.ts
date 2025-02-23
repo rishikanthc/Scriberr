@@ -35,7 +35,7 @@ export async function transcribeAudio(audioId: number, stream: TranscribeStream)
       'transcribe.py',
       '--audio-file', inputPath,
       '--model-size', 'base',
-      '--device', 'cpu',
+      '--device', process.env.HARDWARE_ACCEL || 'cpu',
       '--compute-type', 'int8',
       '--output-file', outputPath,
       '--diarization-model', process.env.DIARIZATION_MODEL,
