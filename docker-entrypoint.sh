@@ -1,6 +1,12 @@
 #!/bin/bash
 set -e
 
+# If the HARDWARE_ACCEL environment variable is not set, default to 'cpu', if set to GPU, use 'cuda'
+if [ "$HARDWARE_ACCEL" = "gpu" ]; then
+  export HARDWARE_ACCEL='cuda'
+fi
+
+
 # Function to wait for database to be ready
 wait_for_db() {
   echo "Waiting for database to be ready..."
