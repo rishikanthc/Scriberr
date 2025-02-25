@@ -1,0 +1,52 @@
+name: build-images-main
+
+on:
+  push:
+    branches:
+      - main  # Only trigger on pushes to the main branch
+
+jobs:
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete huge unnecessary tools folder
+        run: rm -rf /opt/hostedtoolcache
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push scriberr:main Docker image
+        uses: docker/build-push-action@v6
+        with:
+          platforms: linux/amd64,linux/arm64
+          push: true
+          file: ./Dockerfile
+          tags: |
+            ghcr.io/rishikanthc/scriberr:main
+
+      - name: Build and push scriberr:main-gpu Docker image
+        uses: docker/build-push-action@v6
+        with:
+          platforms: linux/amd64,linux/arm64
+          push: true
+          file: ./Dockerfile-gpu
+          tags: |
+            ghcr.io/rishikanthc/scriberr:main-gpu
+
+      - name: Verify multi-platform image for scriberr:main
+        run: |
+          docker buildx imagetools inspect ghcr.io/rishikanthc/scriberr:latest
+
+      - name: Verify multi-platform image for scriberr:main-gpu
+        run: |
+          docker buildx imagetools inspect ghcr.io/rishikanthc/scriberr:latest-gpu
