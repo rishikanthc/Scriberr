@@ -60,7 +60,7 @@ export const GET: RequestHandler = async ({ url }) => {
                sendMessage('Installing dependencies...', 0);
                try {
                    await execWithProgress(
-                       `python3 -m pip install torch==2.0.0 torchaudio==2.0.0 --index-url https://download.pytorch.org/whl/cpu`, 
+                       `uv pip install torch torchaudio --index-url https://download.pytorch.org/whl/cpu`,
                        { shell: true }
                    );
                } catch (err) {
@@ -73,7 +73,7 @@ export const GET: RequestHandler = async ({ url }) => {
                sendMessage('Installing WhisperX...', 30);
                try {
                    await execWithProgress(
-                       `python3 -m pip install whisperx`, 
+                       `uv pip install whisperx`,
                        { shell: true }
                    );
                } catch (err) {

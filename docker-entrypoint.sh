@@ -6,6 +6,8 @@ if [ "$HARDWARE_ACCEL" = "gpu" ]; then
   export HARDWARE_ACCEL='cuda'
 fi
 
+# Active the python virtual environment
+source /app/.venv/bin/activate
 
 # Function to wait for database to be ready
 wait_for_db() {
@@ -45,9 +47,6 @@ fi
 # Start the application
 echo "Building the application..."
 exec "$@"
-
-# Uncomment these lines if needed
-# npm run build
 
 echo "Starting the application..."
 node build
