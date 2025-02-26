@@ -1,5 +1,5 @@
 # Use a specific version of Ubuntu as the base image
-FROM ubuntu:22.04
+FROM ubuntu:24.04
 
 # Set environment variables to make installation non-interactive and set timezone
 ENV DEBIAN_FRONTEND=noninteractive \
@@ -8,6 +8,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
 
 # Combine all apt-get related commands to reduce layers and avoid multiple updates
 RUN apt-get update && \
+    apt-get upgrade -y && \
     apt-get install -y \
         python3 \
         python3-dev \
@@ -41,7 +42,8 @@ WORKDIR /app
 
 # Copy and install Python dependencies first to leverage caching
 COPY requirements.txt .
-RUN uv pip install --system -r requirements.txt
+RUN uv venv && \
+    uv pip install -r requirements.txt
 
 # Copy package.json and package-lock.json separately to cache npm install
 COPY package*.json ./

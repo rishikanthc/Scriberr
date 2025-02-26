@@ -43,8 +43,9 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
-    ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+    # Uncomment the following lines if you want to access PostgreSQL from outside the container
+    #ports:
+      #- "${POSTGRES_PORT:-5432}:5432"
     volumes:
       # Comment out the following line if you want to use a local directory for PostgreSQL data storage
       - postgres_data:/var/lib/postgresql/data
