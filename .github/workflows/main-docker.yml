@@ -1,4 +1,4 @@
-name: build-images-main
+name: main-docker
 
 on:
   push:

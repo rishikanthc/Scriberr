@@ -1,4 +1,4 @@
-name: build-images-nightly
+name: nightly-docker
 
 on:
   push:
