@@ -34,19 +34,6 @@ jobs:
           tags: |
             ghcr.io/rishikanthc/scriberr:nightly
 
-      - name: Build and push scriberr:nightly-gpu Docker image
-        uses: docker/build-push-action@v6
-        with:
-          platforms: linux/amd64,linux/arm64
-          push: true
-          file: ./Dockerfile-gpu
-          tags: |
-            ghcr.io/rishikanthc/scriberr:nightly-gpu
-
       - name: Verify multi-platform image for scriberr:nightly
         run: |
           docker buildx imagetools inspect ghcr.io/rishikanthc/scriberr:nightly
-
-      - name: Verify multi-platform image for scriberr:nightly-gpu
-        run: |
-          docker buildx imagetools inspect ghcr.io/rishikanthc/scriberr:nightly-gpu

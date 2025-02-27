@@ -12,9 +12,9 @@ services:
         - ADMIN_PASSWORD=password
         - AI_MODEL="gpt-4o-mini"
         - OLLAMA_BASE_URL=""
-        - MODELS_DIR="/scriberr/models"
-        - WORK_DIR="/scriberr/temp"
-        - AUDIO_DIR="/scriberr/uploads"
+        - MODELS_DIR=${MODELS_DIR:-/scriberr/models}
+        - WORK_DIR=${WORK_DIR:-/scriberr/temp}
+        - AUDIO_DIR=${AUDIO_DIR:-/scriberr/uploads}
         - OPENAI_API_KEY=""
         - BODY_SIZE_LIMIT=100M
     env_file:
@@ -23,7 +23,6 @@ services:
       - "${PORT:-3000}:3000"
     volumes:
       - scriberr_data:/scriberr
-      - scriberr_deps:/app/deps  # For marker files like requirements_installed
     networks:
       - app-network
     depends_on:
@@ -57,4 +56,3 @@ networks:
 volumes:
   postgres_data:
   scriberr_data:
-  scriberr_deps:
