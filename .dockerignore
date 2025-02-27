@@ -1,7 +1,7 @@
 .dockerdata
 docker-compose.ollama.yaml
 Dockerfile
-Dockerfile-gpu
+Dockerfile-cuda128
 install_audiowaveform.sh
 samples
 scriberr_files
@@ -11,4 +11,3 @@ install_aw.sh
 venv
 node_modules
 *.env
-

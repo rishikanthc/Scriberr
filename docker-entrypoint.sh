@@ -26,9 +26,8 @@ wait_for_db() {
 install_dependencies() {
   echo "Checking and installing dependencies..."
 
-  VENV_LOCATION_DIR="/app/deps/"
-  VENV_DIR="/app/deps/.venv"
-  MARKER_FILE="/app/deps/requirements_installed"
+  VENV_LOCATION_DIR="/scriberr/"
+  VENV_DIR="/scriberr/.venv"
 
   # Create venv if it doesn't exist
   if [ ! -d "$VENV_DIR" ]; then
@@ -42,27 +41,20 @@ install_dependencies() {
   # Activate venv
   source "$VENV_DIR/bin/activate"
 
-  # Install Python dependencies if not already installed
-  if [ ! -f "$MARKER_FILE" ]; then
-    echo "Installing Python dependencies..."
+  # Install Python dependencies
+  echo "Installing Python dependencies..."
 
-    # Install PyTorch based on hardware
-    if [ "$HARDWARE_ACCEL" = "cuda" ]; then
-      uv pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu126
-      uv pip install nvidia-cudnn-cu11==8.9.6.50
-      echo "PyTorch with CUDA installed."
-    else
-      uv pip install torch==2.0.0 torchvision==0.15.1 torchaudio==2.0.1 --index-url https://download.pytorch.org/whl/cpu
-    fi
-
-    # Install remaining dependencies from requirements.txt
-    uv pip install -r requirements.txt
-
-    # Create marker file
-    touch "$MARKER_FILE"
+  # Install PyTorch based on hardware
+  if [ "$HARDWARE_ACCEL" = "cuda" ]; then
+    uv pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu126
+    uv pip install nvidia-cudnn-cu11==8.9.6.50
+    echo "PyTorch with CUDA installed."
   else
-    echo "Python dependencies already installed."
+    uv pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
   fi
+
+  # Install remaining dependencies from requirements.txt
+  uv pip install -r requirements.txt
   # Note: Venv remains activated so PATH is set for the Node.js application
 
   # Install Node.js dependencies if directory is empty
@@ -81,7 +73,7 @@ install_dependencies() {
     echo "Application already built."
   fi
 }
-export VENV_DIR="/app/deps/.venv"
+export VENV_DIR="/scriberr/.venv"
 export LD_LIBRARY_PATH=$VENV_DIR/lib/python3.12/site-packages/nvidia/cudnn/lib
 export NODE_ENV=production
 

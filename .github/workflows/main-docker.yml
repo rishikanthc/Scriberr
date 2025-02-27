@@ -34,19 +34,7 @@ jobs:
           tags: |
             ghcr.io/rishikanthc/scriberr:main
 
-      - name: Build and push scriberr:main-gpu Docker image
-        uses: docker/build-push-action@v6
-        with:
-          platforms: linux/amd64,linux/arm64
-          push: true
-          file: ./Dockerfile-gpu
-          tags: |
-            ghcr.io/rishikanthc/scriberr:main-gpu
 
       - name: Verify multi-platform image for scriberr:main
         run: |
           docker buildx imagetools inspect ghcr.io/rishikanthc/scriberr:latest
-
-      - name: Verify multi-platform image for scriberr:main-gpu
-        run: |
-          docker buildx imagetools inspect ghcr.io/rishikanthc/scriberr:latest-gpu
