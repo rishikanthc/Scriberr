@@ -13,8 +13,11 @@ RUN apt-get update && \
         python3-pip \
         python3-venv \
         postgresql-client \
+        software-properties-common \
+        tzdata \
         ffmpeg \
         curl \
+        unzip \
         git && \
     # Add the PPA and install audiowaveform
     add-apt-repository ppa:chris-needham/ppa && \
@@ -39,9 +42,10 @@ RUN mkdir -p /app/deps
 
 # Copy only the files needed for dependency installation and runtime
 COPY . .
+COPY env.example .env
 
 # Install node dependencies and build frontend
-RUN npm install && \
+RUN npm ci && \
     npm run build
 
 # Ensure entrypoint script is executable
