@@ -10,5 +10,6 @@ install_aw.sh
 .prettier*
 venv
 node_modules
+*.env
 
 
