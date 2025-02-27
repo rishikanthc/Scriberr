@@ -16,6 +16,10 @@ RUN apt-get update && \
         ffmpeg \
         curl \
         git && \
+    # Add the PPA and install audiowaveform
+    add-apt-repository ppa:chris-needham/ppa && \
+    apt-get update && \
+    apt-get install -y audiowaveform && \
     # Install UV
     curl -sSL https://astral.sh/uv/install.sh -o /uv-installer.sh && \
     sh /uv-installer.sh && \
