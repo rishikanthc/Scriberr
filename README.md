@@ -24,11 +24,17 @@ looking forward to any and all feedback. thank you for your patience, support an
 Folks have submitted some great PRs and im excited to see how the app evolves. 
 # Scriberr
 
-[![ci](https://github.com/rishikanthc/Scriberr/actions/workflows/nightly-docker.yml/badge.svg?event=push)](https://github.com/rishikanthc/Scriberr/actions/workflows/nightly-docker.yml)
-[![ci](https://github.com/rishikanthc/Scriberr/actions/workflows/nightly-cuda-docker.yml/badge.svg?event=push)](https://github.com/rishikanthc/Scriberr/actions/workflows/nightly-cuda-docker.yml)
-[![ci](https://github.com/rishikanthc/Scriberr/actions/workflows/main-docker.yml/badge.svg?event=push)](https://github.com/rishikanthc/Scriberr/actions/workflows/main-docker.yml)
-[![ci](https://github.com/rishikanthc/Scriberr/actions/workflows/main-cuda-docker.yml/badge.svg?event=push)](https://github.com/rishikanthc/Scriberr/actions/workflows/main-cuda-docker.yml)
+### Build Status
+**Main Branch:**
+[![Main Docker](https://github.com/rishikanthc/Scriberr/actions/workflows/main-docker.yml/badge.svg)](https://github.com/rishikanthc/Scriberr/actions/workflows/main-docker.yml)
+[![Main CUDA Docker](https://github.com/rishikanthc/Scriberr/actions/workflows/main-cuda-docker.yml/badge.svg)](https://github.com/rishikanthc/Scriberr/actions/workflows/main-cuda-docker.yml)
 
+**Nightly Branch:**
+[![Nightly Docker](https://github.com/rishikanthc/Scriberr/actions/workflows/nightly-docker.yml/badge.svg)](https://github.com/rishikanthc/Scriberr/actions/workflows/nightly-docker.yml)
+[![Nightly CUDA Docker](https://github.com/rishikanthc/Scriberr/actions/workflows/nightly-cuda-docker.yml/badge.svg)](https://github.com/rishikanthc/Scriberr/actions/workflows/nightly-cuda-docker.yml)
+
+
+## About
 Scriberr is a self-hostable AI audio transcription app. It leverages the open-source [Whisper](https://github.com/openai/whisper) models from OpenAI, utilizing the high-performance [WhisperX](https://github.com/m-bain/whisperX) transcription engine to transcribe audio files locally on your hardware. Scriberr also allows you to summarize transcripts using Ollama or OpenAI's ChatGPT API, with your own custom prompts. From v0.2.0, Scriberr supports offline speaker diarization with significant improvements.
 
 **Note**: This app is under active development, and this release includes **breaking changes**. You will lose your old data. Please read the installation instructions carefully.
