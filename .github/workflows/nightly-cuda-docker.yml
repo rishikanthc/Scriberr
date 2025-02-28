@@ -1,4 +1,4 @@
-name: nightly-cuda-docker
+name: Nightly CUDA Docker Build
 
 on:
   push:
