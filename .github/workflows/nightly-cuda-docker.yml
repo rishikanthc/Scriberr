@@ -1,4 +1,4 @@
-name: nightly-docker
+name: nightly-cuda-docker
 
 on:
   push:

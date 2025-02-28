@@ -1,4 +1,4 @@
-name: main-docker
+name: main-cuda-docker
 
 on:
   push:
