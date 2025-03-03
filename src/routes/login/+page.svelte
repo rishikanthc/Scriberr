@@ -12,22 +12,61 @@
 	import { Input } from '$lib/components/ui/input';
 	import { Button } from '$lib/components/ui/button';
 	import { Alert, AlertDescription } from '$lib/components/ui/alert';
+	import { authToken, isAuthenticated } from '$lib/stores/config';
+	import { onMount } from 'svelte';
+	import { browser } from '$app/environment';
 
 	let error = '';
+	let isSubmitting = false;
+
+	// Check if user is already authenticated on page load
+	onMount(() => {
+		if (browser) {
+			const storedToken = localStorage.getItem('sessionToken');
+			const storedExpires = localStorage.getItem('sessionExpires');
+			
+			if (storedToken && storedExpires) {
+				const expiresAt = new Date(storedExpires).getTime();
+				const now = Date.now();
+				
+				// If token is valid, redirect to home
+				if (expiresAt > now) {
+					authToken.set(storedToken);
+					isAuthenticated.set(true);
+					goto('/');
+				}
+			}
+		}
+	});
 
 	function handleSubmit(event: SubmitEvent) {
+		isSubmitting = true;
+		
 		return async ({ result }) => {
+			isSubmitting = false;
+			
 			if (result.type === 'success') {
-				// Store the token in localStorage
+				// Store the token in localStorage and update auth state
 				if (result.data?.token) {
-					localStorage.setItem('sessionToken', result.data.token);
-					if (result.data.expiresAt) {
-						localStorage.setItem('sessionExpires', result.data.expiresAt);
-					}
+					const token = result.data.token;
+					const expiresAt = result.data.expiresAt || 
+						new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(); // Default to 30 days
+					
+					// Update localStorage
+					localStorage.setItem('sessionToken', token);
+					localStorage.setItem('sessionExpires', expiresAt);
+					
+					// Update auth state
+					authToken.set(token);
+					isAuthenticated.set(true);
+					
+					// Navigate to home
+					goto('/');
+				} else {
+					error = 'Authentication failed: No token received';
 				}
-				goto('/');
 			} else {
-				error = 'Invalid credentials';
+				error = result.data?.message || 'Invalid credentials';
 			}
 		};
 	}
@@ -54,7 +93,9 @@
 					<Label for="password">Password</Label>
 					<Input type="password" id="password" name="password" required />
 				</div>
-				<Button type="submit" class="w-full">Sign in</Button>
+				<Button type="submit" class="w-full" disabled={isSubmitting}>
+					{isSubmitting ? 'Signing in...' : 'Sign in'}
+				</Button>
 			</form>
 		</CardContent>
 	</Card>
