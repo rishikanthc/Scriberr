@@ -25,6 +25,8 @@ export const GET: RequestHandler = async ({ params, locals }) => {
   return new Response(JSON.stringify({
     id: audioFile.id,
     fileName: audioFile.fileName,
+    originalFileName: audioFile.originalFileName,
+    originalFileType: audioFile.originalFileType,
     status: audioFile.transcriptionStatus,
     transcript: audioFile.transcript,
     error: audioFile.lastError,

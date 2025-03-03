@@ -8,17 +8,22 @@
 
 	const {
 		audioSrc,
+		originalAudioSrc = null, // Path to original high-quality audio if available
 		peaks = null,
 		height = 35,
 		waveColor = '#8d8d8d',
 		progressColor = '#0e61fe'
 	} = $props<{
-		audioSrc: string;
+		audioSrc: string; // Path to WAV file for transcription
+		originalAudioSrc?: string | null; // Path to original high-quality file
 		peaks?: number[] | null;
 		height?: number;
 		waveColor?: string;
 		progressColor?: string;
 	}>();
+
+	// Use original audio source if available, otherwise use the WAV transcription file
+	const effectiveAudioSrc = originalAudioSrc || audioSrc;
 
 	let wavesurfer: WaveSurfer | null = null;
 	let waveformElement: HTMLDivElement | null = null;
@@ -63,7 +68,7 @@
 			headers['Authorization'] = `Bearer ${token}`;
 		}
 
-		const response = await fetch(audioSrc, { headers });
+		const response = await fetch(effectiveAudioSrc, { headers });
 		if (!response.ok) {
 			throw new Error(`HTTP error! status: ${response.status}`);
 		}
@@ -71,7 +76,7 @@
 	}
 
 	async function initializeWaveSurfer() {
-		if (!waveformElement || !audioSrc || !browser) {
+		if (!waveformElement || !effectiveAudioSrc || !browser) {
 			error = 'Missing required elements';
 			isLoading = false;
 			return;
@@ -156,7 +161,7 @@
 	// Watch for audioSrc changes and auth token changes
 	$effect(() => {
 		const token = get(authToken);
-		if (audioSrc && waveformElement && browser) {
+		if (effectiveAudioSrc && waveformElement && browser) {
 			isLoading = true;
 			error = null;
 			retryCount = 0;

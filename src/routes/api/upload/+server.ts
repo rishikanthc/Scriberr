@@ -23,7 +23,6 @@ if (AUDIO_DIR !== '') {
 
 if (WORK_DIR !== '') {
     TEMP_DIR = WORK_DIR;
-
 } else {
     TEMP_DIR = join(process.cwd(), 'temp');
 }
@@ -74,50 +73,66 @@ export const POST: RequestHandler = async ({ request, locals}) => {
             throw error(400, 'No file uploaded');
         }
 
-        // Save original file to temp directory first
+        // Create directories if needed
         await mkdir(TEMP_DIR, { recursive: true });
-        const tempOriginalPath = join(TEMP_DIR, `${Date.now()}-original-${file.name}`);
+        await mkdir(UPLOAD_DIR, { recursive: true });
+        
+        // Generate a timestamp for consistent naming
+        const timestamp = Date.now();
+        const fileExt = file.name.split('.').pop()?.toLowerCase() || '';
+        
+        // Create temporary path for uploaded file
+        const tempOriginalPath = join(TEMP_DIR, `${timestamp}-original-${file.name}`);
         await writeFile(tempOriginalPath, Buffer.from(await file.arrayBuffer()));
         console.log("SAVE ORIG --->")
 
         try {
-            // Convert to WAV
+            // Save a copy of the original file in its native format for high-quality playback
+            const originalFileName = `${timestamp}-original.${fileExt}`;
+            const originalFilePath = join(UPLOAD_DIR, originalFileName);
+            await execAsync(`cp "${tempOriginalPath}" "${originalFilePath}"`);
+            console.log("Saved original file for playback:", originalFilePath);
+            
+            // Convert to WAV for transcription (optimized for speech recognition)
             const convertedPath = await convertToWav(tempOriginalPath);
             
-            // Generate final filename and move to uploads directory
-            const finalFileName = `${Date.now()}.wav`;
+            // Generate WAV filename and move to uploads directory
+            const finalFileName = `${timestamp}.wav`;
             const finalPath = join(UPLOAD_DIR, finalFileName);
             
             // Move converted file to uploads directory
             await execAsync(`mv "${convertedPath}" "${finalPath}"`);
             
-            // Extract peaks from the converted WAV file
+            // Extract peaks from the converted WAV file for visualization
             const peaks = await extractPeaks(finalPath);
             
-            // Create database entry
+            // Create database entry with both original and WAV file info
             const [audioFile] = await db.insert(audioFiles).values({
-                fileName: finalFileName,
+                fileName: finalFileName, // WAV file for transcription
+                originalFileName: originalFileName, // Original file preserved
+                originalFileType: fileExt, // Store the file type
                 transcriptionStatus: 'pending',
                 language: options.language,
                 uploadedAt: new Date(),
-                title: finalFileName,
+                title: file.name.replace(/\.[^/.]+$/, ""), // Use original filename without extension as title
                 peaks,
                 modelSize: options.modelSize,
                 diarization: options.diarization,
-               threads: options.threads,
-               processors: options.processors,
+                threads: options.threads,
+                processors: options.processors,
             }).returning();
 
             // Queue transcription job
             await queueTranscriptionJob(audioFile.id, options);
             console.log('Queued job:', { audioFile });
 
-            // Clean up temp files
+            // Clean up temp file
             await unlink(tempOriginalPath).catch(console.error);
 
             return new Response(JSON.stringify({ 
                 id: audioFile.id,
                 fileName: finalFileName,
+                originalFileName: originalFileName,
                 peaks,
             }), {
                 headers: {
