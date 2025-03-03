@@ -5,6 +5,7 @@ import OpenAI from 'openai';
 import { db } from '$lib/server/db';
 import { audioFiles } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
+import { processThinkingSections } from '$lib/utils';
 
 let openai = null;
 if (OLLAMA_BASE_URL === "") {
@@ -20,7 +21,7 @@ if (OLLAMA_BASE_URL === "") {
 
 export async function POST({ request }) {
   try {
-    const { fileId, prompt, transcript } = await request.json();
+    const { fileId, prompt, transcript, processThinking = false } = await request.json();
     
     if (!fileId || !prompt || !transcript) {
       return new Response('Missing fileId, prompt, or transcript', { status: 400 });
@@ -48,7 +49,12 @@ export async function POST({ request }) {
       ]
     });
 
-    const summary = chatCompletion.choices[0].message.content;
+    // Get the raw summary from the model
+    const rawSummary = chatCompletion.choices[0].message.content;
+
+    // Process the summary - keep the thinking sections in the database
+    // but allow clients to request it without thinking sections
+    const summary = rawSummary;
 
     // Update the database with the summary
     await db.update(audioFiles)
@@ -59,7 +65,15 @@ export async function POST({ request }) {
       })
       .where(eq(audioFiles.id, fileId));
 
-    return json({ summary });
+    // For the response, process the thinking sections if requested
+    const processedSummary = processThinking 
+      ? processThinkingSections(summary, 'remove').processedText
+      : summary;
+
+    return json({ 
+      summary: processedSummary,
+      hasThinking: processThinkingSections(summary).hasThinkingSections
+    });
 
   } catch (error) {
     console.error('Summarization error:', error);
