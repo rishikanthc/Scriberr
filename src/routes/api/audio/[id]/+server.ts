@@ -8,7 +8,7 @@ import { eq } from 'drizzle-orm';
 import { requireAuth } from '$lib/server/auth';
 import { AUDIO_DIR, WORK_DIR } from '$env/static/private'; 
 
-export const GET: RequestHandler = async ({ params, locals, request }) => {
+export const GET: RequestHandler = async ({ params, locals, request, url }) => {
     console.log("AUDIO REQ --->")
     await requireAuth(locals);
     console.log("AUDIO REQ ---> AUTH DONE")
@@ -18,6 +18,9 @@ export const GET: RequestHandler = async ({ params, locals, request }) => {
             throw error(400, 'Invalid file ID');
         }
 
+        // Check if the original file is requested
+        const useOriginal = url.searchParams.get('original') === 'true';
+        
         const [file] = await db
             .select()
             .from(audioFiles)
@@ -27,7 +30,38 @@ export const GET: RequestHandler = async ({ params, locals, request }) => {
             throw error(404, 'File not found');
         }
 
-        const filePath = join(AUDIO_DIR, file.fileName);
+        // Choose between original file or WAV based on request
+        let filePath;
+        let contentType;
+        
+        if (useOriginal && file.originalFileName) {
+            // Use the original high-quality file if requested and available
+            filePath = join(AUDIO_DIR, file.originalFileName);
+            
+            // Set the content type based on file extension
+            const fileExt = file.originalFileType?.toLowerCase() || '';
+            switch (fileExt) {
+                case 'mp3':
+                    contentType = 'audio/mpeg';
+                    break;
+                case 'm4a':
+                    contentType = 'audio/mp4';
+                    break;
+                case 'ogg':
+                    contentType = 'audio/ogg';
+                    break;
+                case 'flac':
+                    contentType = 'audio/flac';
+                    break;
+                default:
+                    contentType = 'audio/mpeg'; // fallback
+            }
+        } else {
+            // Use the WAV file by default (for transcription)
+            filePath = join(AUDIO_DIR, file.fileName);
+            contentType = 'audio/wav';
+        }
+        
         const stats = statSync(filePath);
         
         // Handle range requests for better streaming
@@ -40,7 +74,7 @@ export const GET: RequestHandler = async ({ params, locals, request }) => {
             const stream = createReadStream(filePath, { start, end });
             
             const headers = new Headers({
-                'Content-Type': 'audio/mpeg', // or the correct mime type for your audio
+                'Content-Type': contentType,
                 'Content-Length': chunkSize.toString(),
                 'Content-Range': `bytes ${start}-${end}/${stats.size}`,
                 'Accept-Ranges': 'bytes',
@@ -56,7 +90,7 @@ export const GET: RequestHandler = async ({ params, locals, request }) => {
         // Non-range request - send entire file
         const stream = createReadStream(filePath);
         const headers = new Headers({
-            'Content-Type': 'audio/mpeg', // or the correct mime type for your audio
+            'Content-Type': contentType,
             'Content-Length': stats.size.toString(),
             'Accept-Ranges': 'bytes',
             'Cache-Control': 'public, max-age=3600',

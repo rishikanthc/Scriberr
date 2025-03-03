@@ -15,6 +15,8 @@ export const GET: RequestHandler = async ({ locals }) => {
             .select({
                 id: audioFiles.id,
                 fileName: audioFiles.fileName,
+                originalFileName: audioFiles.originalFileName,
+                originalFileType: audioFiles.originalFileType,
                 duration: audioFiles.duration,
                 title: audioFiles.title,
                 transcriptionStatus: audioFiles.transcriptionStatus,
@@ -23,6 +25,7 @@ export const GET: RequestHandler = async ({ locals }) => {
                 uploadedAt: audioFiles.uploadedAt,
                 transcribedAt: audioFiles.transcribedAt,
                 diarization: audioFiles.diarization,
+                peaks: audioFiles.peaks,
             })
             .from(audioFiles)
             .orderBy(desc(audioFiles.uploadedAt));
