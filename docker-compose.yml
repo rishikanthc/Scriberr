@@ -6,16 +6,8 @@ services:
       platforms:
         - linux/arm64
         - linux/amd64
+      # No build args needed - we use runtime environment variables only
       args:
-        - DATABASE_URL=postgres://root:mysecretpassword@db:5432/local
-        - ADMIN_USERNAME=admin
-        - ADMIN_PASSWORD=password
-        - AI_MODEL="gpt-4o-mini"
-        - OLLAMA_BASE_URL=""
-        - MODELS_DIR=${MODELS_DIR:-/scriberr/models}
-        - WORK_DIR=${WORK_DIR:-/scriberr/temp}
-        - AUDIO_DIR=${AUDIO_DIR:-/scriberr/uploads}
-        - OPENAI_API_KEY=""
         - BODY_SIZE_LIMIT=100M
     env_file:
       - .env
@@ -29,19 +21,35 @@ services:
       db:
         condition: service_healthy
     restart: unless-stopped
+    # Required runtime environment variables - these will be available at runtime
+    environment:
+      - DATABASE_URL=postgres://${POSTGRES_USER:-root}:${POSTGRES_PASSWORD:-mysecretpassword}@db:5432/${POSTGRES_DB:-local}
+      - POSTGRES_USER=${POSTGRES_USER:-root}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-mysecretpassword}
+      - POSTGRES_DB=${POSTGRES_DB:-local}
+      - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-password}
+      - AI_MODEL=${AI_MODEL:-gpt-4o-mini}
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://ollama:11434/api}
+      - MODELS_DIR=${MODELS_DIR:-/scriberr/models}
+      - WORK_DIR=${WORK_DIR:-/scriberr/temp}
+      - AUDIO_DIR=${AUDIO_DIR:-/scriberr/uploads}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - NODE_ENV=production
+      - RUNTIME_CHECK=true
 
   db:
     image: postgres:15-alpine
     environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER:-root}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mysecretpassword}
+      POSTGRES_DB: ${POSTGRES_DB:-local}
     #ports:
      # - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U root -d local"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-root} -d ${POSTGRES_DB:-local}"]
       interval: 5s
       timeout: 5s
       retries: 5

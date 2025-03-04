@@ -6,6 +6,22 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 /**
+ * Format seconds to MM:SS format for audio player display
+ * 
+ * @param seconds The time in seconds to format
+ * @returns Formatted time string in MM:SS format
+ */
+export function formatTime(seconds: number): string {
+	if (isNaN(seconds) || !isFinite(seconds)) {
+		return '0:00';
+	}
+	
+	const mins = Math.floor(seconds / 60);
+	const secs = Math.floor(seconds % 60);
+	return `${mins}:${secs.toString().padStart(2, '0')}`;
+}
+
+/**
  * Process LLM responses that contain thinking sections.
  * 
  * @param text The LLM response text that may contain <think>...</think> sections
@@ -41,12 +57,17 @@ export function processThinkingSections(text: string, mode: 'remove' | 'process'
 		processedText = text.replace(thinkingPattern, '');
 		// Clean up extra blank lines
 		processedText = processedText.replace(/\n{3,}/g, '\n\n').trim();
-	} else {
+	} else if (hasThinkingSections) {
 		// Replace each thinking section with a placeholder for later display
 		let index = 0;
 		processedText = text.replace(thinkingPattern, () => {
 			return `\n[THINKING_SECTION_${index++}]\n`;
 		});
+	}
+	
+	// Make sure we at least return the original text if there are no thinking sections
+	if (processedText === '') {
+		processedText = text;
 	}
 
 	return { 

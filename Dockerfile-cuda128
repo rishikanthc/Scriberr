@@ -1,6 +1,7 @@
+# Use NVIDIA CUDA as base image for GPU support
 FROM nvidia/cuda:12.8.0-cudnn-runtime-ubuntu24.04
 
-# Set environment variables
+# Set only basic environment variables needed for build
 ENV DEBIAN_FRONTEND=noninteractive \
     TZ="Etc/UTC" \
     PATH="/root/.local/bin/:$PATH"
@@ -36,17 +37,25 @@ RUN apt-get update && \
 # Set working directory
 WORKDIR /app
 
+# Copy only the files needed for dependency installation
+COPY package.json package-lock.json ./
 
-# Copy files to container
+# Install node dependencies
+RUN npm ci
+
+# Copy the rest of the files needed for the build
 COPY . .
 
-# Copy environment variables for initial build
-COPY env.example .env
+# Install necessary build dependencies
+RUN npm install -D autoprefixer tailwindcss postcss tailwindcss-animate
 
-# Install node dependencies and build frontend
-RUN npm ci && \
-    npm install && \
-    npm run build
+# Build the application using generic placeholder values (not used at runtime)
+ENV NODE_ENV=build \
+    BUILD_ONLY=true \
+    HARDWARE_ACCEL=gpu
+
+# Run the build without any environment variables that would be needed at runtime
+RUN npm run build
 
 # Ensure entrypoint script is executable
 RUN chmod +x docker-entrypoint.sh
@@ -54,8 +63,5 @@ RUN chmod +x docker-entrypoint.sh
 # Expose port
 EXPOSE 3000
 
-# Remove environment variables file after build
-RUN rm .env
-
-# Define default command
+# Define default command (entrypoint will read actual environment variables at runtime)
 CMD ["./docker-entrypoint.sh"]
