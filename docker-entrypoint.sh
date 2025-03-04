@@ -28,86 +28,54 @@ install_dependencies() {
 
   VENV_LOCATION_DIR="/scriberr/"
   VENV_DIR="/scriberr/.venv"
-  DEPS_MARKER="/scriberr/.deps_installed"
 
-  # Only install dependencies if not already installed (for faster restarts)
-  if [ ! -f "$DEPS_MARKER" ]; then
-    echo "First run detected - installing Python dependencies..."
-    
-    # Create venv if it doesn't exist
-    if [ ! -d "$VENV_DIR" ]; then
-      echo "Creating virtual environment..."
-      uv venv --directory "$VENV_LOCATION_DIR"
-      echo "Virtual environment created."
-    fi
-
-    # Activate venv
-    source "$VENV_DIR/bin/activate"
-
-    # Install Python dependencies
-    echo "Installing Python dependencies..."
-
-    # Install PyTorch based on hardware
-    if [ "$HARDWARE_ACCEL" = "cuda" ]; then
-      uv pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu126
-      uv pip install nvidia-cudnn-cu11==8.9.6.50
-      echo "PyTorch with CUDA installed."
-    else
-      uv pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
-    fi
-
-    # Install remaining dependencies from requirements.txt
-    uv pip install -r requirements.txt
-    
-    # Create marker file to indicate dependencies are installed
-    touch "$DEPS_MARKER"
-    echo "Python dependencies installation complete."
+  # Create venv if it doesn't exist
+  if [ ! -d "$VENV_DIR" ]; then
+    echo "Creating virtual environment..."
+    uv venv --directory "$VENV_LOCATION_DIR"
+     echo "Virtual environment created."
   else
-    echo "Dependencies already installed. Skipping installation for faster startup."
+    echo "Virtual environment already exists."
   fi
 
-  # Activate venv (needed even if dependencies were already installed)
+  # Activate venv
   source "$VENV_DIR/bin/activate"
-  
-  # Skip rebuilding during startup to use pre-built files
-  echo "Using pre-built application files..."
+
+  # Install Python dependencies
+  echo "Installing Python dependencies..."
+
+  # Install PyTorch based on hardware
+  if [ "$HARDWARE_ACCEL" = "cuda" ]; then
+    uv pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu126
+    uv pip install nvidia-cudnn-cu11==8.9.6.50
+    echo "PyTorch with CUDA installed."
+  else
+    uv pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+  fi
+
+  # Install remaining dependencies from requirements.txt
+  uv pip install -r requirements.txt
+  # Note: Venv remains activated so PATH is set for the Node.js application
+
+  # Install Node.js dependencies if directory is empty
+  echo "Checking for Node.js dependencies..."
+ if [ ! "$(ls -A /app/node_modules)" ]; then
+    echo "Installing Node.js dependencies..."
+  else
+    echo "Node.js dependencies already installed."
+  fi
+
+  # Build the application
+  if [ ! "$(ls -A /app/build)" ]; then
+    echo "Building the application..."
+    NODE_ENV=development npm run build
+  else
+    echo "Application already built."
+  fi
 }
 export VENV_DIR="/scriberr/.venv"
 export LD_LIBRARY_PATH=$VENV_DIR/lib/python3.12/site-packages/nvidia/cudnn/lib
 export NODE_ENV=production
-
-# Auto-generate DATABASE_URL if not provided
-if [ -z "$DATABASE_URL" ] && [ -n "$POSTGRES_USER" ] && [ -n "$POSTGRES_PASSWORD" ] && [ -n "$POSTGRES_DB" ]; then
-  export DATABASE_URL="postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}"
-  echo "Auto-generated DATABASE_URL: $DATABASE_URL"
-fi
-
-# Debug environment variables if debug variable is enabled
-if [ "$DEBUG" = "true" ]; then
-  echo "Runtime environment variables:"
-  echo "OLLAMA_BASE_URL=$OLLAMA_BASE_URL"
-  echo "AI_MODEL=$AI_MODEL"
-  echo "POSTGRES_USER=$POSTGRES_USER"
-  echo "POSTGRES_DB=$POSTGRES_DB"
-  echo "DATABASE_URL=$DATABASE_URL"
-  echo "ADMIN_USERNAME=$ADMIN_USERNAME"
-  echo "AUDIO_DIR=$AUDIO_DIR"
-  echo "HARDWARE_ACCEL=$HARDWARE_ACCEL"
-  echo "DIARIZATION_MODEL=$DIARIZATION_MODEL"
-  echo "HF_API_KEY=$HF_API_KEY"
-  echo "OPENAI_API_KEY=$OPENAI_API_KEY"
-fi # End of debug block
-
-# Ensure all runtime environment variables are correctly set for the app process
-export NODE_ENV=production
-export RUNTIME_CHECK=true
-
-# Print the full environment variable list (redacted for security)
-echo "Full list of environment variables available at runtime:"
-env | grep -v PASSWORD | grep -v TOKEN | grep -v KEY | grep -v SECRET | sort
-
-# Mark as runtime check to enable DB connection validation
-export RUNTIME_CHECK=true
 
 # Execute the setup steps
 install_dependencies

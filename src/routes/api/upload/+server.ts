@@ -8,13 +8,25 @@ import { audioFiles } from '$lib/server/db/schema';
 import { queueTranscriptionJob } from '$lib/server/queue';
 import { promisify } from 'util';
 import { exec } from 'child_process';
+import { AUDIO_DIR, WORK_DIR } from '$env/static/private'; 
 
-// Use runtime environment variables instead of static imports
 const execAsync = promisify(exec);
 
-// Get directories from environment variables with fallbacks
-const UPLOAD_DIR = process.env.AUDIO_DIR || join(process.cwd(), 'uploads');
-const TEMP_DIR = process.env.WORK_DIR || join(process.cwd(), 'temp');
+let UPLOAD_DIR;
+let TEMP_DIR;
+
+if (AUDIO_DIR !== '') {
+    UPLOAD_DIR = AUDIO_DIR;
+} else {
+    UPLOAD_DIR = join(process.cwd(), 'uploads')
+}
+
+if (WORK_DIR !== '') {
+    TEMP_DIR = WORK_DIR;
+
+} else {
+    TEMP_DIR = join(process.cwd(), 'temp');
+}
 
 async function convertToWav(inputPath: string): Promise<string> {
     await mkdir(TEMP_DIR, { recursive: true });
