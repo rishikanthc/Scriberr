@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { processThinkingSections } from '$lib/utils';
 	import { Lightbulb, ChevronUp, ChevronDown } from 'lucide-svelte';
+	import { marked } from 'marked';
 
 	// Props
 	const { summary = '', initialShowThinking = true } = $props<{
@@ -41,6 +42,12 @@
 	function getThinkingSections() {
 		if (!summary) return [];
 		return processThinkingSections(summary, 'process').thinkingSections;
+	}
+
+	// Convert text to HTML with markdown rendering
+	function renderMarkdown(text: string) {
+		if (!text) return '';
+		return marked(text);
 	}
 
 	// Format sections for display
@@ -98,20 +105,26 @@
 		<!-- Empty state -->
 		<div class="text-gray-400">No summary available</div>
 	{:else if !hasThinkingSections()}
-		<!-- No thinking sections -->
-		<div>{summary}</div>
+		<!-- No thinking sections - render markdown -->
+		<div class="prose prose-invert prose-sm max-w-none" class:prose-a:text-blue-400={true}>
+			{@html renderMarkdown(summary)}
+		</div>
 	{:else if !showThinkingSections}
-		<!-- Plain text without thinking sections -->
-		<div>{processThinkingSections(summary, 'remove').processedText}</div>
+		<!-- Plain text without thinking sections - render markdown -->
+		<div class="prose prose-invert prose-sm max-w-none" class:prose-a:text-blue-400={true}>
+			{@html renderMarkdown(processThinkingSections(summary, 'remove').processedText)}
+		</div>
 	{:else}
 		<!-- Display with thinking sections -->
 		{#each getFormattedSections() as section}
 			{#if section.type === 'text'}
-				<!-- Regular text content -->
-				<div>{section.content}</div>
+				<!-- Regular text content with markdown -->
+				<div class="prose prose-invert prose-sm max-w-none mb-2" class:prose-a:text-blue-400={true}>
+					{@html renderMarkdown(section.content)}
+				</div>
 			{:else if section.type === 'thinking'}
 				<!-- Thinking section -->
-				<div class="my-2 rounded-md border border-gray-600 bg-gray-800/40">
+				<div class="my-3 rounded-md border border-gray-600 bg-gray-800/40">
 					<button
 						class="flex w-full items-center justify-between rounded-t-md bg-gray-700/40 px-3 py-2 text-left text-sm hover:bg-gray-700/60"
 						onclick={() => toggleSection(section.index)}
@@ -127,7 +140,11 @@
 						{/if}
 					</button>
 					{#if expandedSections[section.index]}
-						<div class="p-3 text-sm text-gray-300">{section.content}</div>
+						<div class="p-3 text-sm text-gray-300">
+							<div class="prose prose-invert prose-sm max-w-none" class:prose-a:text-blue-400={true}>
+								{@html renderMarkdown(section.content)}
+							</div>
+						</div>
 					{/if}
 				</div>
 			{/if}
