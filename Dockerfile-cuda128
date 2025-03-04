@@ -37,31 +37,24 @@ RUN apt-get update && \
 # Set working directory
 WORKDIR /app
 
-# Copy only the files needed for dependency installation
-COPY package.json package-lock.json ./
+# Copy everything except node_modules
+COPY . .
+RUN rm -rf node_modules
 
-# Install node dependencies
+# Clean install of all dependencies
 RUN npm ci
 
-# Copy the rest of the files needed for the build
-COPY . .
-
-# Install necessary build dependencies
-RUN npm install -D autoprefixer tailwindcss postcss tailwindcss-animate
-
-# Build the application using generic placeholder values (not used at runtime)
-ENV NODE_ENV=build \
-    BUILD_ONLY=true \
-    HARDWARE_ACCEL=gpu
-
-# Run the build without any environment variables that would be needed at runtime
-RUN npm run build
+# Build the application
+RUN NODE_ENV=production npm run build
 
 # Ensure entrypoint script is executable
 RUN chmod +x docker-entrypoint.sh
 
+# Create directory for Python virtual environment
+RUN mkdir -p /scriberr
+
 # Expose port
 EXPOSE 3000
 
-# Define default command (entrypoint will read actual environment variables at runtime)
+# Define default command
 CMD ["./docker-entrypoint.sh"]
