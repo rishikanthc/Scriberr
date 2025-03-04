@@ -47,7 +47,23 @@
 	// Convert text to HTML with markdown rendering
 	function renderMarkdown(text: string) {
 		if (!text) return '';
-		return marked(text);
+		
+		// Remove excessive newlines in the input text before rendering
+		const cleanedText = text
+			.replace(/\n\s*\n\s*\n/g, '\n\n')
+			.replace(/\n{2,}/g, '\n\n')
+			.trim();
+		
+		// Convert markdown to HTML
+		const html = marked(cleanedText);
+		
+		// Further cleanup of the HTML output
+		return html
+			.replace(/<\/p>\s*<p>/g, '</p><p>') // Remove space between paragraphs
+			.replace(/<br>\s*<br>/g, '<br>') // Remove double line breaks
+			.replace(/<p>\s*<br>\s*<\/p>/g, '') // Remove empty paragraphs with just a break
+			.replace(/<p>\s*<\/p>/g, '') // Remove completely empty paragraphs
+			.replace(/\n{2,}/g, '\n'); // Remove extra newlines in the HTML
 	}
 
 	// Format sections for display
@@ -99,6 +115,27 @@
 		}
 	});
 </script>
+
+<style>
+	/* Fix the large gaps between paragraphs in markdown content */
+	:global(.prose p) {
+		margin-top: 0.25rem !important;
+		margin-bottom: 0.25rem !important;
+	}
+	:global(.prose h1, .prose h2, .prose h3) {
+		margin-top: 0.75rem !important;
+		margin-bottom: 0.25rem !important;
+	}
+	:global(.prose) {
+		line-height: 1.4 !important;
+	}
+	:global(.prose p + p) {
+		margin-top: 0.25rem !important;
+	}
+	:global(.prose br) {
+		display: none !important;
+	}
+</style>
 
 <div class="whitespace-pre-wrap text-gray-200">
 	{#if !summary}

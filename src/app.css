@@ -3,6 +3,31 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Fix excessive spacing in markdown summaries */
+.prose p {
+  margin-top: 0.25rem !important;
+  margin-bottom: 0.25rem !important;
+}
+
+.prose h1, 
+.prose h2, 
+.prose h3 {
+  margin-top: 0.75rem !important;
+  margin-bottom: 0.25rem !important;
+}
+
+.prose {
+  line-height: 1.4 !important;
+}
+
+.prose p + p {
+  margin-top: 0.25rem !important;
+}
+
+.prose br {
+  display: none !important;
+}
+
 @layer base {
   :root {
     --background: 0 0% 100%;
