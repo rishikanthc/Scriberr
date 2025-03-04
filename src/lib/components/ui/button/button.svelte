@@ -39,6 +39,10 @@
 
 <script lang="ts">
 	import { cn } from '$lib/utils.js';
+	import { createEventDispatcher } from 'svelte';
+
+	// Create event dispatcher
+	const dispatch = createEventDispatcher();
 
 	let {
 		class: className,
@@ -47,13 +51,28 @@
 		ref = $bindable(null),
 		href = undefined,
 		type = 'button',
+		disabled = false,
 		children,
 		...restProps
 	}: ButtonProps = $props();
+
+	// Handle click with explicit dispatcher
+	function handleClick(event) {
+		if (!disabled) {
+			console.log('Button click handled');
+			dispatch('click', event);
+		}
+	}
 </script>
 
 {#if href}
-	<a bind:this={ref} class={cn(buttonVariants({ variant, size, className }))} {href} {...restProps}>
+	<a
+		bind:this={ref}
+		class={cn(buttonVariants({ variant, size, className }))}
+		{href}
+		{...restProps}
+		on:click={handleClick}
+	>
 		{@render children?.()}
 	</a>
 {:else}
@@ -61,7 +80,9 @@
 		bind:this={ref}
 		class={cn(buttonVariants({ variant, size, className }))}
 		{type}
+		{disabled}
 		{...restProps}
+		on:click={handleClick}
 	>
 		{@render children?.()}
 	</button>

@@ -6,7 +6,10 @@ import { db } from '$lib/server/db';
 import { audioFiles } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
 import { requireAuth } from '$lib/server/auth';
-import { AUDIO_DIR, WORK_DIR } from '$env/static/private'; 
+
+// Use runtime environment variables instead of static imports
+const AUDIO_DIR = process.env.AUDIO_DIR || join(process.cwd(), 'uploads');
+const WORK_DIR = process.env.WORK_DIR || join(process.cwd(), 'temp'); 
 
 export const GET: RequestHandler = async ({ params, locals, request }) => {
     console.log("AUDIO REQ --->")

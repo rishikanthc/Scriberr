@@ -1,7 +1,7 @@
 # Use a specific version of Ubuntu as the base image
 FROM ubuntu:24.04
 
-# Set environment variables
+# Set only basic environment variables needed for build
 ENV DEBIAN_FRONTEND=noninteractive \
     TZ="Etc/UTC" \
     PATH="/root/.local/bin/:$PATH"
@@ -37,25 +37,24 @@ RUN apt-get update && \
 # Set working directory
 WORKDIR /app
 
-# Copy only the files needed for dependency installation and runtime
+# Copy everything except node_modules
 COPY . .
+RUN rm -rf node_modules
 
-# Copy environment variables for initial build
-COPY env.example .env
+# Clean install of all dependencies
+RUN npm ci
 
-# Install node dependencies and build frontend
-RUN npm ci && \
-    npm install && \
-    npm run build
+# Build the application
+RUN NODE_ENV=production npm run build
 
 # Ensure entrypoint script is executable
 RUN chmod +x docker-entrypoint.sh
 
+# Create directory for Python virtual environment
+RUN mkdir -p /scriberr
+
 # Expose port
 EXPOSE 3000
-
-# Remove environment variables file after build
-RUN rm .env
 
 # Define default command
 CMD ["./docker-entrypoint.sh"]

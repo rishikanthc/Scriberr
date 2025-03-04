@@ -4,6 +4,29 @@ import { eq } from 'drizzle-orm';
 import { audioFiles, speakerLabelsTable } from '$lib/server/db/schema';
 import { requireAuth } from '$lib/server/auth';
 
+export async function GET({ params, locals }) {
+  await requireAuth(locals);
+
+  try {
+    const { id } = params;
+    const fileId = parseInt(id);
+    
+    // Get speaker labels
+    const labels = await db.select()
+      .from(speakerLabelsTable)
+      .where(eq(speakerLabelsTable.fileId, fileId));
+    
+    if (labels.length === 0) {
+      return json({ speakerLabels: {} });
+    }
+    
+    return json({ speakerLabels: labels[0].labels });
+  } catch (err) {
+    console.error('Failed to get speaker labels:', err);
+    throw error(500, 'Failed to get speaker labels');
+  }
+}
+
 export async function PUT({ params, request, locals }) {
   await requireAuth(locals);
 

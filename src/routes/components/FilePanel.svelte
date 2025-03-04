@@ -14,13 +14,15 @@
 	import { Button } from '$lib/components/ui/button';
 	import { onMount } from 'svelte';
 	import { ScrollArea } from '$lib/components/ui/scroll-area';
-	import { ChevronsUpDown, TextQuote, Check, Mic2, Settings } from 'lucide-svelte';
+	import { ChevronsUpDown, TextQuote, Check, Mic2, Settings, BrainCircuit } from 'lucide-svelte';
 	import { toast } from 'svelte-sonner';
 	import { audioFiles } from '$lib/stores/audioFiles';
 	import { speakerLabels } from '$lib/stores/speakerLabels';
 	import { getSpeakerColor } from '$lib/speakerColors';
+	import { processThinkingSections, formatTime } from '$lib/utils';
 	import AudioPlayer from './AudioPlayer.svelte';
 	import SpeakerLabels from './SpeakerLabels.svelte';
+	import ThinkingDisplay from './ThinkingDisplay.svelte';
 	import { serverUrl } from '$lib/stores/config';
 	import type { TranscriptSegment } from '$lib/types';
 
@@ -33,120 +35,111 @@
 		transcript?: TranscriptSegment[];
 		transcriptionStatus: string;
 		diarization?: boolean;
+		summary?: string;
 	}
 
 	// Props definition using $props
 	let { file, isOpen = $bindable() } = $props();
 
-	// Basic state management
+	let audioUrl = '';
+	let summary = '';
+	let isSummarizing = $state(false);
+	let selectedTemplateId = $state(null);
+	let selectedTemplate = $state('Select a template...');
 	let isDialogOpen = $state(false);
 	let titleDialogOpen = $state(false);
-	let newTitle = $state('');
-	let error = $state<string | null>(null);
-	let audioUrl = $state('');
-
+	let newTitle = '';
+	let error = null;
 	let templateOpen = $state(false);
-	let selectedTemplateId = $state('');
-	let triggerRef = $state<HTMLButtonElement>(null!);
-
-	let summary = $state('');
-	let isSummarizing = $state(false);
-
-	const selectedTemplate = $derived(
-		$templates.find((t) => t.id === selectedTemplateId)?.title ?? 'Select a template...'
+	let triggerRef = null;
+	
+	// Toggle for handling thinking sections
+	let showThinkingSections = $state(true); 
+	
+	// Check for thinking sections in the summary
+	let summaryHasThinking = $derived(
+		Boolean(summary && typeof summary === 'string' && summary.includes('<think>'))
 	);
+	
+	// Check for thinking sections in the file summary
+	let fileSummaryHasThinking = $derived(
+		Boolean(file?.summary && typeof file.summary === 'string' && file.summary.includes('<think>'))
+	);
+	
+	// Combined check for any thinking sections
+	let hasThinkingSections = $derived(summaryHasThinking || fileSummaryHasThinking);
 
-	function closeAndFocusTrigger() {
+	function logError(error: any, context: string) {
+		console.error(`${context}:`, error);
+		return error.message || 'An unexpected error occurred';
+	}
+
+	// Handle template selection
+	function selectTemplate(templateId: string, templateTitle: string) {
+		console.log("Template selected:", templateTitle, templateId);
+		selectedTemplateId = templateId;
+		selectedTemplate = templateTitle;
 		templateOpen = false;
-		tick().then(() => {
-			triggerRef?.focus();
-		});
 	}
 
-	onMount(() => {
-		templates.refresh();
-	});
-
+	// Load initial data
 	onMount(async () => {
-		console.log('MOUNTING -->');
-		if (window.Capacitor?.isNative) {
-			audioUrl = get(serverUrl);
-			console.log('IS CAPACITOR -->', audioUrl);
+		audioUrl = get(serverUrl) || '';
+
+		if (file?.id) {
+			// Load speaker labels if they exist
+			await speakerLabels.loadLabels(file.id);
+
+			// Set title if it exists
+			if (file.title) {
+				newTitle = file.title;
+			}
 		}
 	});
 
-	// Derived values
-	let currentLabels = $derived(() => {
-		return file?.id ? $speakerLabels[file.id] || {} : {};
-	});
+	// Reactive binding for speaker labels
+	const currentLabels = $derived(get(speakerLabels)[file?.id] || {});
 
-	let displayTitle = $derived(file?.title || file?.fileName || '');
-
-	// Lifecycle cleanup
+	// Watch for template selection changes
 	$effect(() => {
-		return () => {
-			isDialogOpen = false;
-			titleDialogOpen = false;
-			error = null;
-		};
+		if (file) {
+			summary = '';
+			if (file.title) {
+				newTitle = file.title;
+			}
+		}
 	});
-
-	// Error handling utility
-	function logError(error: unknown, context: string): string {
-		const errorMessage = error instanceof Error ? error.message : String(error);
-		console.error(`[FilePanel] ${context}:`, errorMessage);
-		return errorMessage;
-	}
-
-	function formatDate(date: string): string {
-		if (!date) return '';
-		try {
-			return new Date(date).toLocaleDateString();
-		} catch (error) {
-			logError(error, 'Date formatting error');
-			return '';
-		}
-	}
-
-	function formatTime(seconds: number): string {
-		try {
-			const minutes = Math.floor(seconds / 60);
-			const remainingSeconds = Math.floor(seconds % 60);
-			return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
-		} catch (error) {
-			logError(error, 'Time formatting error');
-			return '0:00';
-		}
-	}
 
 	function openTitleDialog() {
-		if (!file) {
-			toast.error('No file selected');
+		titleDialogOpen = true;
+		newTitle = file.title || '';
+	}
+
+	async function handleTitleUpdate() {
+		if (!newTitle.trim()) {
+			error = 'Title cannot be empty';
 			return;
 		}
 
 		try {
-			newTitle = file.title || file.fileName;
-			titleDialogOpen = true;
 			error = null;
-		} catch (error) {
-			logError(error, 'Opening title dialog');
-			toast.error('Unable to open rename dialog');
-		}
-	}
+			const response = await apiFetch(`/api/audio/${file.id}`, {
+				method: 'PATCH',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify({
+					title: newTitle
+				})
+			});
 
-	async function handleTitleUpdate() {
-		if (!file) return;
-
-		try {
-			if (!newTitle.trim()) {
-				throw new Error('Title cannot be empty');
+			if (!response.ok) {
+				throw new Error('Failed to update title');
 			}
 
-			await audioFiles.updateFile(file.id, { title: newTitle });
 			titleDialogOpen = false;
-			error = null;
-			toast.success('File renamed successfully');
+			audioFiles.refresh();
+			toast.success('Title updated successfully');
 		} catch (error) {
 			const errorMessage = logError(error, 'Title update failed');
 			error = errorMessage;
@@ -167,51 +160,70 @@
 		error = null;
 	}
 
-	async function doSummary() {
+	// Rewritten to use promise-based approach
+	function doSummary() {
+		console.log("doSummary called");
+		
 		if (!file?.transcript || !selectedTemplateId) {
 			toast.error('Please select a template and ensure transcript is available');
 			return;
 		}
 
-		try {
-			isSummarizing = true;
+		isSummarizing = true;
+		console.log("Setting isSummarizing to true");
 
+		try {
 			// Get the selected template's prompt
-			const selectedTemplate = $templates.find((t) => t.id === selectedTemplateId);
-			if (!selectedTemplate) {
+			const template = $templates.find((t) => t.id === selectedTemplateId);
+			if (!template) {
 				throw new Error('Template not found');
 			}
 
 			// Combine all transcript segments into one text
 			const transcriptText = file.transcript.map((segment) => segment.text).join(' ');
 
-			// Call our backend API endpoint with the file ID
-			const response = await apiFetch('/api/summarize', {
+			// Use promise chaining instead of async/await
+			apiFetch('/api/summarize', {
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json'
 				},
 				body: JSON.stringify({
 					fileId: file.id,
-					prompt: selectedTemplate.prompt,
-					transcript: transcriptText
+					prompt: template.prompt,
+					transcript: transcriptText,
+					processThinking: false // False to keep thinking sections for UI processing
 				})
+			})
+			.then(response => {
+				console.log("API response received", response.status);
+				if (!response.ok) {
+					throw new Error('Failed to generate summary');
+				}
+				return response.json();
+			})
+			.then(data => {
+				console.log("Data parsed successfully");
+				summary = data.summary;
+				return audioFiles.refresh();
+			})
+			.then(() => {
+				console.log("Summary generated and files refreshed");
+				toast.success('Summary generated successfully');
+			})
+			.catch(error => {
+				console.error("Promise chain error:", error);
+				const errorMessage = logError(error, 'Summary generation failed');
+				toast.error(errorMessage);
+			})
+			.finally(() => {
+				console.log("Setting isSummarizing to false");
+				isSummarizing = false;
 			});
-
-			if (!response.ok) {
-				throw new Error('Failed to generate summary');
-			}
-
-			const data = await response.json();
-			summary = data.summary;
-			audioFiles.refresh();
-
-			// Show success message to user
-			toast.success('Summary generated successfully');
 		} catch (error) {
+			console.error("Initial setup error:", error);
 			const errorMessage = logError(error, 'Summary generation failed');
 			toast.error(errorMessage);
-		} finally {
 			isSummarizing = false;
 		}
 	}
@@ -268,7 +280,7 @@
 				</div>
 				<Tabs.Content value="transcript">
 					<ScrollArea
-						class="h-[45svh] rounded-lg p-4  text-base min-[390px]:h-[50svh] lg:h-[55svh]"
+						class="h-[45svh] rounded-lg p-4 text-base min-[390px]:h-[50svh] lg:h-[55svh]"
 					>
 						<div class="flex flex-col gap-5">
 							{#each file.transcript as segment}
@@ -319,47 +331,57 @@
 										<Command.List>
 											<Command.Empty>No templates found.</Command.Empty>
 											{#each $templates as template}
-												<Command.Item
-													value={template.title}
-													onSelect={() => {
-														selectedTemplateId = template.id;
-														closeAndFocusTrigger();
-													}}
-													class="text-gray-200 aria-selected:bg-neutral-600 aria-selected:text-gray-50"
+												<div 
+													class="flex items-center gap-2 px-2 py-1.5 text-sm text-gray-200 hover:bg-neutral-600 hover:text-gray-50 cursor-pointer"
+													onclick={() => selectTemplate(template.id, template.title)}
 												>
-													<Check class={selectedTemplateId !== template.id && 'text-transparent'} />
+													<Check class={selectedTemplateId !== template.id ? "text-transparent" : ""} />
 													{template.title}
-												</Command.Item>
+												</div>
 											{/each}
 										</Command.List>
 									</Command.Root>
 								</Popover.Content>
 							</Popover.Root>
 						</div>
-						<Button
-							variant="ghost"
-							size="icon"
-							class="bg-neutral-700 p-1 disabled:bg-neutral-500"
-							onclick={doSummary}
-							disabled={isSummarizing || !selectedTemplateId}
-						>
-							<TextQuote size="20" class="text-gray-300" />
-						</Button>
+						<div class="flex gap-2">
+							<Button
+								variant="ghost"
+								size="icon"
+								class="bg-neutral-700 p-1 disabled:bg-neutral-500"
+								onclick={() => doSummary()}
+								disabled={isSummarizing || !selectedTemplateId}
+							>
+								<TextQuote size="20" class="text-gray-300" />
+							</Button>
+							
+							{#if summaryHasThinking || fileSummaryHasThinking}
+								<Button
+									variant="ghost"
+									size="icon"
+									class="bg-neutral-700 p-1"
+									onclick={() => showThinkingSections = !showThinkingSections}
+									title={showThinkingSections ? "Hide AI\'s thinking process" : "Show AI\'s thinking process"}
+								>
+									<BrainCircuit size="20" class={showThinkingSections ? "text-amber-400" : "text-gray-500"} />
+								</Button>
+							{/if}
+						</div>
 					</div>
 					<ScrollArea
-						class="h-[45svh] rounded-lg p-4  text-base min-[390px]:h-[50svh] lg:h-[55svh]"
+						class="h-[45svh] rounded-lg p-4 text-base min-[390px]:h-[50svh] lg:h-[55svh]"
 					>
 						{#if file.summary}
-							<div class="mt-6 whitespace-pre-wrap text-gray-200">
-								{file.summary}
+							<div class="mt-6">
+								<ThinkingDisplay summary={file.summary} initialShowThinking={showThinkingSections} />
 							</div>
 						{:else if isSummarizing}
 							<div class="flex h-full items-center justify-center">
 								<div class="text-gray-400">Generating summary...</div>
 							</div>
 						{:else if summary}
-							<div class="whitespace-pre-wrap text-gray-200">
-								{summary}
+							<div>
+								<ThinkingDisplay summary={summary} initialShowThinking={showThinkingSections} />
 							</div>
 						{:else}
 							<div class="flex h-full items-center justify-center text-gray-400">

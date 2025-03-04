@@ -4,17 +4,18 @@ import { sha256 } from '@oslojs/crypto/sha2';
 import { encodeBase64url, encodeHexLowerCase } from '@oslojs/encoding';
 import { db } from '$lib/server/db';
 import * as table from '$lib/server/db/schema';
-import { ADMIN_USERNAME, ADMIN_PASSWORD } from '$env/static/private';
 
 const DAY_IN_MS = 1000 * 60 * 60 * 24;
 export const sessionCookieName = 'auth-session';
 
 async function setupAdminAccount() {
-    const adminUsername = ADMIN_USERNAME;
-    const adminPassword = ADMIN_PASSWORD;
+    // Get credentials from runtime environment variables
+    const adminUsername = process.env.ADMIN_USERNAME;
+    const adminPassword = process.env.ADMIN_PASSWORD;
 
     if (!adminUsername || !adminPassword) {
-        throw new Error('Admin credentials not found in environment variables');
+        console.warn('Admin credentials not found in environment variables');
+        return;
     }
 
     const [existingAdmin] = await db
@@ -29,6 +30,7 @@ async function setupAdminAccount() {
             passwordHash,
             isAdmin: true,
         }).returning();
+        console.log(`Admin account created: ${adminUsername}`);
         return user;
     }
 }
