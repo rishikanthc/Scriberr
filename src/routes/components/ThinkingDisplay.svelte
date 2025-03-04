@@ -1,88 +1,120 @@
 <script lang="ts">
 	import { processThinkingSections } from '$lib/utils';
-	import { Button } from '$lib/components/ui/button';
-	import { cn } from '$lib/utils';
 	import { Lightbulb, ChevronUp, ChevronDown } from 'lucide-svelte';
 
-	const { summary, mode = 'process' } = $props<{
+	// Props
+	const { summary = '', initialShowThinking = true } = $props<{
 		summary: string;
-		mode?: 'remove' | 'process';
+		initialShowThinking?: boolean;
 	}>();
 
-	let showThinkingSections = $state(false);
+	// Local state
+	let showThinkingSections = $state(initialShowThinking);
 	let expandedSections = $state<Record<number, boolean>>({});
 
+	// Sync with parent
 	$effect(() => {
-		// Reset expanded sections whenever the summary changes
-		expandedSections = {};
-	}, [summary]);
+		showThinkingSections = initialShowThinking;
+		console.log('ThinkingDisplay - showThinkingSections updated:', showThinkingSections);
+	});
 
-	const toggleThinkingSections = () => {
-		showThinkingSections = !showThinkingSections;
-	};
+	// Get the processed output (with or without thinking sections)
+	function getProcessedText() {
+		if (!summary) return "";
+		
+		if (showThinkingSections) {
+			// Show thinking sections
+			return processThinkingSections(summary, 'process').processedText;
+		} else {
+			// Hide thinking sections
+			return processThinkingSections(summary, 'remove').processedText;
+		}
+	}
 
-	const toggleSection = (index: number) => {
-		expandedSections[index] = !expandedSections[index];
-	};
+	// Check if summary has thinking sections
+	function hasThinkingSections() {
+		if (!summary) return false;
+		return processThinkingSections(summary, 'process').hasThinkingSections;
+	}
 
-	const { processedText, hasThinkingSections, thinkingSections } = $derived(
-		processThinkingSections(summary, mode)
-	);
+	// Get thinking sections array
+	function getThinkingSections() {
+		if (!summary) return [];
+		return processThinkingSections(summary, 'process').thinkingSections;
+	}
 
-	// Split processed text by thinking section placeholders
-	const formattedSections = $derived(() => {
-		if (mode === 'remove' || !hasThinkingSections) {
-			return [processedText];
+	// Format sections for display
+	function getFormattedSections() {
+		if (!summary || !hasThinkingSections()) {
+			return [{ type: 'text', content: summary }];
 		}
 
-		const sections = processedText.split(/\[THINKING_SECTION_(\d+)\]/);
+		const processedText = getProcessedText();
+		const thinkingSections = getThinkingSections();
+		const parts = processedText.split(/\[THINKING_SECTION_(\d+)\]/);
 		const result = [];
-
-		// The first element is always text
-		result.push({ type: 'text', content: sections[0] });
-
-		// Process the remaining sections
-		for (let i = 1; i < sections.length; i += 2) {
-			if (i < sections.length - 1) {
-				const thinkingIndex = parseInt(sections[i]);
-				result.push({
-					type: 'thinking',
-					index: thinkingIndex,
-					content: thinkingSections[thinkingIndex]
-				});
-				result.push({ type: 'text', content: sections[i + 1] });
+		
+		// Add the first text part
+		result.push({ type: 'text', content: parts[0] });
+		
+		// Add the thinking sections and remaining text parts
+		for (let i = 1; i < parts.length; i += 2) {
+			const index = parseInt(parts[i]);
+			// Add thinking section
+			result.push({ 
+				type: 'thinking', 
+				index, 
+				content: thinkingSections[index] 
+			});
+			
+			// Add next text part if it exists
+			if (i + 1 < parts.length) {
+				result.push({ type: 'text', content: parts[i + 1] });
 			}
 		}
-
+		
 		return result;
+	}
+
+	// Toggle a specific thinking section
+	function toggleSection(index: number) {
+		expandedSections[index] = !expandedSections[index];
+	}
+
+	// Initialize expanded state for all sections
+	$effect(() => {
+		if (hasThinkingSections()) {
+			const newSections = {};
+			getThinkingSections().forEach((_, i) => {
+				newSections[i] = true; // Auto-expand
+			});
+			expandedSections = newSections;
+		}
 	});
 </script>
 
 <div class="whitespace-pre-wrap text-gray-200">
-	{#if hasThinkingSections && mode === 'process'}
-		<div class="mb-3 flex items-center justify-between">
-			<span class="text-sm text-gray-400">
-				This response contains "thinking" sections from the AI.
-			</span>
-			<Button
-				variant="outline"
-				size="sm"
-				class="border-gray-600 bg-neutral-700/20 text-gray-300 hover:bg-neutral-600/20"
-				on:click={toggleThinkingSections}
-			>
-				<Lightbulb class="mr-2 h-4 w-4" />
-				{showThinkingSections ? 'Hide Thinking' : 'Show Thinking'}
-			</Button>
-		</div>
-
-		{#each formattedSections as section}
+	{#if !summary}
+		<!-- Empty state -->
+		<div class="text-gray-400">No summary available</div>
+	{:else if !hasThinkingSections()}
+		<!-- No thinking sections -->
+		<div>{summary}</div>
+	{:else if !showThinkingSections}
+		<!-- Plain text without thinking sections -->
+		<div>{processThinkingSections(summary, 'remove').processedText}</div>
+	{:else}
+		<!-- Display with thinking sections -->
+		{#each getFormattedSections() as section}
 			{#if section.type === 'text'}
+				<!-- Regular text content -->
 				<div>{section.content}</div>
-			{:else if section.type === 'thinking' && showThinkingSections}
+			{:else if section.type === 'thinking'}
+				<!-- Thinking section -->
 				<div class="my-2 rounded-md border border-gray-600 bg-gray-800/40">
 					<button
 						class="flex w-full items-center justify-between rounded-t-md bg-gray-700/40 px-3 py-2 text-left text-sm hover:bg-gray-700/60"
-						on:click={() => toggleSection(section.index)}
+						onclick={() => toggleSection(section.index)}
 					>
 						<span class="flex items-center">
 							<Lightbulb class="mr-2 h-4 w-4 text-amber-500" />
@@ -100,7 +132,5 @@
 				</div>
 			{/if}
 		{/each}
-	{:else}
-		{processedText}
 	{/if}
 </div>
