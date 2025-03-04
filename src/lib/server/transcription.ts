@@ -9,9 +9,11 @@ import { jobQueue } from './jobQueue';
 import type { TranscriptSegment } from '$lib/types';
 import { eq } from 'drizzle-orm';
 import { TranscribeStream } from './transcribeStream';
+import { AUDIO_DIR } from '$env/static/private';
 
-// Get audio directory from runtime environment variables
-let UPLOAD_DIR = process.env.AUDIO_DIR || join(process.cwd(), 'uploads');
+let UPLOAD_DIR = AUDIO_DIR
+  ? AUDIO_DIR
+  : join(process.cwd(), 'uploads');
 
 export async function transcribeAudio(audioId: number, stream: TranscribeStream) {
   // 1. Grab the file record

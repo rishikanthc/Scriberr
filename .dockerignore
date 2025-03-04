@@ -1,50 +1,13 @@
-# Exclude version control files
-.git
-.gitignore
-.gitattributes
-
-# Docker-related files
 .dockerdata
-docker-compose*.yml
-docker-compose*.yaml
-Dockerfile*
+docker-compose.ollama.yaml
+Dockerfile
+Dockerfile-cuda128
 install_audiowaveform.sh
-install_aw.sh
-
-# Runtime data directories
 samples
 scriberr_files
 scriberr
-uploads
-temp
-.downloads
-
-# Development and build artifacts
+install_aw.sh
 .prettier*
 venv
-.venv
 node_modules
-build
-dist
-.svelte-kit
-.eslintcache
-.npm
-npm-debug.log*
-
-# Environment variables and secrets 
 *.env
-.env
-.env.*
-.ENV
-.env.local
-.env.development
-.env.test
-.env.production
-
-# IDE specific files
-.idea
-.vscode
-*.swp
-*.swo
-*.sublime-workspace
-*.sublime-project

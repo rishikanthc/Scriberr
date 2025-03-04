@@ -18,8 +18,7 @@
 	let editingTemplate = $state<{ id: string; title: string; prompt: string } | null>(null);
 	let editDialogOpen = $state(false);
 
-	async function handleSubmit(event) {
-		if (event) event.preventDefault();
+	async function handleSubmit() {
 		await templates.add({ title, prompt });
 		dialogOpen = false;
 		title = '';
@@ -37,8 +36,7 @@
 		editDialogOpen = true;
 	}
 
-	async function handleEdit(event) {
-		if (event) event.preventDefault();
+	async function handleEdit() {
 		if (editingTemplate) {
 			await templates.update(editingTemplate.id, {
 				title: editingTitle,
@@ -147,7 +145,7 @@
 			<Dialog.Title>New Template</Dialog.Title>
 		</Dialog.Header>
 
-		<form class="grid gap-4 py-4" onsubmit={handleSubmit}>
+		<form class="grid gap-4 py-4" on:submit|preventDefault={handleSubmit}>
 			<Input
 				placeholder="Template Title"
 				bind:value={title}
@@ -175,7 +173,7 @@
 			<Dialog.Title>Edit Template</Dialog.Title>
 		</Dialog.Header>
 
-		<form class="grid gap-4 py-4" onsubmit={handleEdit}>
+		<form class="grid gap-4 py-4" on:submit|preventDefault={handleEdit}>
 			<Input
 				placeholder="Template Title"
 				bind:value={editingTitle}
