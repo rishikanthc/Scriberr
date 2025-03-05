@@ -64,6 +64,7 @@
 		"audiomotion-analyzer": "",
 		"capacitor-voice-recorder": "6.0.3",
 		"drizzle-orm": "",
+		"marked": "^15.0.7",
 		"openai": "",
 		"pg-boss": "",
 		"postgres": "",
