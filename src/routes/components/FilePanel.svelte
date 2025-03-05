@@ -36,6 +36,7 @@
 		transcriptionStatus: string;
 		diarization?: boolean;
 		summary?: string;
+		originalFileName?: string;
 	}
 
 	// Props definition using $props
@@ -84,7 +85,9 @@
 
 	// Load initial data
 	onMount(async () => {
-		audioUrl = get(serverUrl) || '';
+		if (window.Capacitor?.isNative) {
+			audioUrl = get(serverUrl);
+		}
 
 		if (file?.id) {
 			// Load speaker labels if they exist
@@ -230,7 +233,11 @@
 </script>
 
 {#if file}
-	<AudioPlayer audioSrc={`${audioUrl}/api/audio/${file.id}`} peaks={file.peaks} />
+	<AudioPlayer 
+		audioSrc={`${audioUrl}/api/audio/${file.id}`}
+		originalAudioSrc={file.originalFileName ? `${audioUrl}/api/audio/${file.id}?original=true` : undefined}
+		peaks={file.peaks}
+	/>
 
 	{#if file.transcriptionStatus === 'completed' && file.transcript}
 		<div class="mt-6">
