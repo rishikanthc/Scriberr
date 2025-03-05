@@ -12,16 +12,34 @@ export const actions: Actions = {
         const password = data.get('password');
 
         if (!username || !password) {
-            return fail(400, { success: false });
+            return fail(400, { 
+                success: false, 
+                message: 'Username and password are required' 
+            });
         }
 
         try {
             const { token, session, user } = await auth.login(username.toString(), password.toString());
+            
+            // Set the session cookie
             auth.setSessionTokenCookie(event, token, session.expiresAt);
-            return { success: true, token, expiresAt: session.expiresAt };
+            
+            // Return token and expiration info for client-side storage
+            return { 
+                success: true, 
+                token, 
+                expiresAt: session.expiresAt.toISOString(),
+                user: {
+                    username: user.username,
+                    isAdmin: user.isAdmin
+                }
+            };
         } catch (error) {
             console.error('Login error:', error);
-            return fail(400, { success: false });
+            return fail(400, { 
+                success: false, 
+                message: error instanceof Error ? error.message : 'Authentication failed'
+            });
         }
     }
 };

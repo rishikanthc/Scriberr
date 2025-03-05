@@ -17,6 +17,9 @@ const ALLOWED_ORIGINS = [
     'http://your-frontend-domain.com'
 ];
 
+// Static paths that should always show a 401 error for API, not redirect
+const API_PATHS = ['/api/'];
+
 if (!building) {
     // startWorker().catch(console.error);
     await setupTranscriptionWorker().catch(console.error);
@@ -76,6 +79,7 @@ const handleAuth: Handle = async ({ event, resolve }) => {
 
     const path = event.url.pathname;
     const isPublicPath = PUBLIC_PATHS.some((p) => path.startsWith(p));
+    const isApiPath = API_PATHS.some((p) => path.startsWith(p));
     
     // Check authentication in this order: Bearer token, URL token (for EventSource), Cookie
     let authenticated = false;
@@ -131,6 +135,8 @@ const handleAuth: Handle = async ({ event, resolve }) => {
                 }
             } catch (error) {
                 console.error('[Hooks] Cookie validation error:', error);
+                // Explicitly clear cookie on validation error
+                auth.deleteSessionTokenCookie(event);
             }
         }
     }
@@ -138,8 +144,14 @@ const handleAuth: Handle = async ({ event, resolve }) => {
     // Handle unauthenticated requests to protected paths
     if (!authenticated && !isPublicPath) {
         console.log('[Hooks] Unauthenticated request to protected path:', path);
-        if (path.startsWith('/api/')) {
-            return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        
+        // API requests return 401 Unauthorized
+        if (isApiPath || path.startsWith('/api/')) {
+            return new Response(JSON.stringify({ 
+                error: 'Unauthorized',
+                code: 'AUTH_REQUIRED',
+                message: 'Authentication required'
+            }), {
                 status: 401,
                 headers: {
                     ...corsHeaders,
@@ -147,13 +159,19 @@ const handleAuth: Handle = async ({ event, resolve }) => {
                 }
             });
         }
+        
+        // Non-API requests redirect to login
         throw redirect(303, '/login');
     }
 
+    // Continue processing the request
     const response = await resolve(event);
+    
+    // Add CORS headers to all responses
     Object.entries(corsHeaders).forEach(([key, value]) => {
         response.headers.set(key, value);
     });
+    
     return response;
 };
 
