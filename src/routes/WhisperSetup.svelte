@@ -70,39 +70,38 @@
 			console.log("Setup complete, notifying parent component");
 			dispatch('setupcomplete', { complete: true });
 		} else if (status === 'error') {
-			console.log("Setup error, notifying parent component");
+			log = [...log, "Setup encountered an error."];
 			dispatch('setupcomplete', { complete: false });
 		}
 	});
 
 	async function startSetup() {
 		// Log button press and state for debugging
-		console.log("START SETUP BUTTON PRESSED!");
-		console.log("Current config:", {
+		log = [...log, "START SETUP BUTTON PRESSED!"];
+		log = [...log, "Current config:", JSON.stringify({
 			modelSizes: config.modelSizes,
 			multilingual: config.multilingual,
 			enableDiarization: enableDiarization,
 			hfApiKey: config.hfApiKey ? "provided" : "not provided",
 			quantization: config.quantization
-		});
+		})];
 		
-		// Skip validation for debugging
-		/*if (enableDiarization && !config.hfApiKey) {
-			alert('HuggingFace API key is required for diarization. Please enter a valid API key.');
+		// Re-enable validation for HuggingFace API key
+		if (enableDiarization && !config.hfApiKey) {
+			log = [...log, "HuggingFace API key is required for diarization. Please enter a valid API key."];
 			return;
-		}*/
+		}
 
-		console.log("Starting setup...");
+		log = [...log, "Starting setup..."];
 		status = 'installing';
 		progress = 0;
-		log = [...log, "Starting installation..."];
 		dispatch('setupcomplete', { complete: false });
 
 		try {
 			const params = new URLSearchParams({
 				models: JSON.stringify(modelNames),
 				multilingual: config.multilingual.toString(),
-				diarization: enableDiarization.toString(),
+			 диarization: enableDiarization.toString(),
 				compute_type: config.quantization === 'none' ? 'float32' : 'int8'
 			});
 
@@ -114,29 +113,25 @@
 			// Also try a direct fetch to see if the endpoint is reachable
 			try {
 				const testFetch = await fetch(`/api/setup/whisper?${params}`, { method: 'HEAD' });
-				console.log("Test fetch status:", testFetch.status);
 				log = [...log, `API endpoint is reachable (status: ${testFetch.status})`];
 			} catch (fetchError) {
-				console.error("Test fetch failed:", fetchError);
 				log = [...log, `Warning: API endpoint test failed: ${fetchError.message}`];
 			}
 
-			console.log("Starting installation with params:", Object.fromEntries(params.entries()));
+			log = [...log, "Starting installation with params:", JSON.stringify(Object.fromEntries(params.entries()))];
 			log = [...log, "Connecting to server..."];
 
 			try {
 				eventSource = new EventSource(`/api/setup/whisper?${params}`);
-				console.log("EventSource created with readyState:", eventSource.readyState);
+				log = [...log, "EventSource created with readyState:", eventSource.readyState];
 				
 				// Add onopen handler to verify connection is established
 				eventSource.onopen = (event) => {
-					console.log("EventSource connection opened successfully");
-					log = [...log, "Connected to server"];
+					log = [...log, "EventSource connection opened successfully"];
 				};
 			} catch (esError) {
-				console.error("Failed to create EventSource:", esError);
-				status = 'error';
 				log = [...log, `Failed to create EventSource: ${esError.message}`];
+				status = 'error';
 				dispatch('setupcomplete', { complete: false });
 				return;
 			}
@@ -145,37 +140,36 @@
 				try {
 					const data = JSON.parse(event.data);
 					log = [...log, data.message];
-					console.log('Message received:', data);
 					
 					if (data.progress) progress = data.progress;
 					
 					if (data.status === 'complete') {
-						console.log("Received COMPLETE status");
+						log = [...log, "Received COMPLETE status"];
 						eventSource.close();
 						status = 'complete';
 						dispatch('setupcomplete', { complete: true });
 						eventSource = null;
 					} else if (data.status === 'error') {
-						console.log("Received ERROR status");
+						log = [...log, "Received ERROR status"];
+						log = [...log, `Error: ${data.message}`];
 						eventSource.close();
 						status = 'error';
 						dispatch('setupcomplete', { complete: false });
 						eventSource = null;
 					}
 				} catch (error) {
-					console.error("Error processing EventSource message:", error);
-					log = [...log, `Error processing message: ${error.message}`];
+					log = [...log, `Error processing EventSource message: ${error.message}`];
 				}
 			};
 
 			eventSource.onerror = (error) => {
-				console.error("EventSource error:", error);
-				console.error("EventSource readyState:", eventSource.readyState);
+				log = [...log, `EventSource error: ${error.message}`];
+				log = [...log, `EventSource readyState: ${eventSource.readyState}`];
 				log = [...log, `Connection error: The server might be unavailable`];
 				
 				// Try to get more error details
 				if (error instanceof Event) {
-					console.error("Error type:", error.type);
+					log = [...log, `Error type: ${error.type}`];
 				}
 				
 				eventSource.close();
@@ -187,7 +181,7 @@
 			// Set a timeout to detect if connection is not established
 			setTimeout(() => {
 				if (eventSource && eventSource.readyState !== 1) { // 1 = OPEN
-					console.error("EventSource connection not established after timeout");
+					log = [...log, "EventSource connection not established after timeout"];
 					log = [...log, "Timeout: Connection to server not established"];
 					eventSource.close();
 					status = 'error';
@@ -197,10 +191,9 @@
 			}, 5000);
 			
 		} catch (error) {
-			console.error("Setup error:", error);
+			log = [...log, `Setup error: ${error.message}`];
 			status = 'error';
 			dispatch('setupcomplete', { complete: false });
-			log = [...log, `Error: ${error.message}`];
 		}
 	}
 
@@ -245,7 +238,7 @@
 									id={`model-${size}`}
 									name={`model-${size}`}
 									checked={config.modelSizes.includes(size)}
-									onCheckedChange={(checked) => {
+								(onCheckedChange={(checked) => {
 										if (checked) {
 											config.modelSizes = [...config.modelSizes, size];
 										} else {
@@ -274,7 +267,7 @@
 						id="multilingual-switch"
 						name="multilingual"
 						checked={config.multilingual}
-						onCheckedChange={(checked) => (config.multilingual = checked)}
+						(onCheckedChange={(checked) => (config.multilingual = checked)}
 					/>
 				</div>
 
@@ -288,7 +281,7 @@
 						id="diarization-switch"
 						name="diarization"
 						checked={enableDiarization}
-						onCheckedChange={(checked) => (enableDiarization = checked)}
+						(onCheckedChange={(checked) => (enableDiarization = checked)}
 					/>
 				</div>
 
@@ -319,7 +312,7 @@
 						id="quantization-select"
 						name="quantization"
 						value={config.quantization}
-						onValueChange={(value) => (config.quantization = value as ConfigOptions['quantization'])}
+						(onValueChange={(value) => (config.quantization = value as ConfigOptions['quantization'])}
 						defaultValue="none"
 					>
 						<Select.Trigger id="quantization-trigger" placeholder="Select quantization">
@@ -351,15 +344,15 @@
 							{/if}
 						</ul>
 					</div>
-					<!-- Validation disabled for debugging -->
+					<!-- Re-enable validation for debugging -->
 					<Button
 						id="start-installation"
 						name="start-installation"
 						type="button"
 						variant="default"
 						class="w-full"
-						on:click={startSetup}
-						disabled={false}
+						(on:click={startSetup}
+						disabled={enableDiarization && !config.hfApiKey}
 					>
 						Start Installation
 					</Button>
