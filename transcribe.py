@@ -1,6 +1,16 @@
 import argparse
 import json
+import os
 import whisperx
+import tempfile
+import subprocess
+
+# Configure environment variables for HuggingFace
+os.environ["HF_HUB_DISABLE_TELEMETRY"] = "1"
+os.environ["TRUST_REMOTE_CODE"] = "1"
+
+# Use HuggingFace token from environment variable if available
+hf_token = os.environ.get("HUGGINGFACE_TOKEN", "")
 
 def main():
     parser = argparse.ArgumentParser(
@@ -61,16 +71,15 @@ def main():
         help="number of threads used by torch for CPU inference",
     )
     parser.add_argument(
-        "--HF_TOKEN",
+        "--models-dir",
         type=str,
-        required=False,
-        default=None,
-        help="HuggingFace token, necessary for diarization",
+        default="/scriberr/models",
+        help="Directory where models are stored and cached",
     )
     parser.add_argument(
         "--diarization-model",
         type=str,
-        default="pyannote/speaker-diarization",
+        default="pyannote/speaker-diarization-3.1",
         help="Speaker diarization model to use",
     )
     args = parser.parse_args()
@@ -81,6 +90,7 @@ def main():
         device=args.device,
         compute_type=args.compute_type,
         language=args.language,  # if None, Whisper will attempt language detection
+        download_root=args.models_dir  # Specify the download directory
     )
 
     # 2. Load audio
@@ -94,7 +104,9 @@ def main():
     if args.align:
         # load alignment model
         model_a, metadata = whisperx.load_align_model(
-            language_code=result["language"], device=args.device
+            language_code=result["language"], 
+            device=args.device,
+            model_dir=args.models_dir  # Specify the model directory
         )
         aligned_result = whisperx.align(
             result["segments"],
@@ -109,23 +121,52 @@ def main():
 
     # 5. Optionally perform diarization
     if args.diarize:
-        if args.HF_TOKEN:
-            # load diarization pipeline
-            diarize_model = whisperx.DiarizationPipeline(
-                model_name=args.diarization_model,
-                use_auth_token=args.HF_TOKEN,
-                device=args.device,
-            )
-            # run diarization
-            diarize_segments = diarize_model(audio)
-            # assign speaker labels
-            diarized_result = whisperx.assign_word_speakers(diarize_segments, result)
-            result["segments"] = diarized_result["segments"]
-        else:
-            print("Hugging Face token not provided. Diarization will not be performed.")
-            # Optionally set speaker labels to 'unknown'
-            #for segment in result["segments"]:
-                #segment["speaker"] = "unknown"
+        try:
+            print(f"Diarization requested for {args.audio_file}")
+            
+            # Save the transcript to a temporary file for diarization
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as temp_transcript:
+                json.dump(result, temp_transcript)
+                transcript_path = temp_transcript.name
+            
+            # Create a temporary file for the diarized output
+            with tempfile.NamedTemporaryFile(suffix='.json', delete=False) as temp_output:
+                output_path = temp_output.name
+            
+            print(f"Running separate diarization process")
+            
+            # Build the command for the diarize.py script
+            diarize_cmd = [
+                "python", "diarize.py",
+                "--audio-file", args.audio_file,
+                "--transcript-file", transcript_path,
+                "--output-file", output_path,
+                "--device", args.device,
+                "--diarization-model", args.diarization_model
+            ]
+            
+            # Run the diarize.py script as a subprocess
+            diarize_process = subprocess.run(diarize_cmd, check=True)
+            print(f"Diarization process completed with return code: {diarize_process.returncode}")
+            
+            # Read the diarized output
+            with open(output_path, 'r') as f:
+                diarized_result = json.load(f)
+            
+            # Use the diarized segments in our result
+            if "segments" in diarized_result:
+                result["segments"] = diarized_result["segments"]
+                print(f"Successfully loaded diarized segments")
+            
+            # Clean up temporary files
+            os.unlink(transcript_path)
+            os.unlink(output_path)
+            
+        except Exception as e:
+            print(f"Diarization failed: {str(e)}")
+            # Set speaker labels to 'unknown' on failure
+            for segment in result["segments"]:
+                segment["speaker"] = "unknown"
     else:
         # If diarization not requested, set speakers to blank
         for segment in result["segments"]:
