@@ -10,9 +10,12 @@ import { processThinkingSections } from '$lib/utils';
 // This ensures we use the runtime environment variables
 function getOpenAI() {
   try {
+    // Only run if debug environemnt variable is enabled
     // Get ALL environment variables for debugging
-    console.log("ALL ENV VARIABLES:");
-    console.log(JSON.stringify(process.env, null, 2));
+    if (process.env.DEBUG === "true") {
+        console.log("ALL ENV VARIABLES:");
+        console.log(JSON.stringify(process.env, null, 2));
+    }
     
     // Get environment variables at runtime (when function is called)
     const runtimeOllamaBaseUrl = process.env.OLLAMA_BASE_URL || "";
