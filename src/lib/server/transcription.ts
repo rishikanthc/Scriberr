@@ -181,8 +181,10 @@ export const transcribeAudio = async (fileId: number, transcribeStream: any) => 
     // Force enable diarization for testing
     console.log("FORCING DIARIZATION FLAG ON");
     args.push('--diarize');
+    
     // Determine the compute device (CPU or GPU)
-    const device = process.env.USE_GPU === 'true' ? 'cuda' : 'cpu';
+    const device = process.env.HARDWARE_ACCEL === 'cuda' ? 'cuda' : 'cpu';
+    console.log(`Using device: ${device} (HARDWARE_ACCEL=${process.env.HARDWARE_ACCEL})`);
     args.push('--device', device);
     
     // Compute type based on device
