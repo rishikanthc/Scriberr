@@ -37,11 +37,6 @@
 	let retryCount = 0;
 	const MAX_RETRIES = 3;
 
-	// New state for microphone recording
-	let isRecording = $state(false);
-	let mediaRecorder: MediaRecorder | null = null;
-	let recordedChunks: Blob[] = [];
-
 	function formatTime(seconds: number): string {
 		if (!seconds || isNaN(seconds)) return '0:00';
 		const minutes = Math.floor(seconds / 60);
@@ -159,53 +154,9 @@
 		isMuted = !isMuted;
 	}
 
-	// New function for starting/stopping recording
-	async function toggleRecording() {
-		if (isRecording) {
-			mediaRecorder?.stop();
-			isRecording = false;
-		} else {
-			try {
-				const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-				mediaRecorder = new MediaRecorder(stream);
-				recordedChunks = [];
-
-				mediaRecorder.ondataavailable = (event) => {
-					if (event.data.size > 0) {
-						recordedChunks.push(event.data);
-					}
-				};
-
-				mediaRecorder.onstop = () => {
-					const blob = new Blob(recordedChunks, { type: 'audio/wav' });
-					// Here you can handle the recorded audio, e.g., send it to the server for transcription
-					// For now, we'll just log it
-					console.log('Recorded Blob:', blob);
-				};
-
-				mediaRecorder.start();
-				isRecording = true;
-			} catch (err) {
-				error = 'Failed to start recording: ' + err.message;
-				isRecording = false;
-			}
-		}
-	}
-
-	// Cleanup function for recording
-	function cleanupRecording() {
-		if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-			mediaRecorder.stop();
-		}
-		mediaRecorder = null;
-		recordedChunks = [];
-		isRecording = false;
-	}
-
 	// Cleanup on component destruction
 	onDestroy(() => {
 		cleanupWaveSurfer();
-		cleanupRecording();
 	});
 
 	// Watch for audioSrc changes and auth token changes
@@ -228,16 +179,16 @@
 			<div class="text-sm text-red-500">{error}</div>
 		{:else if isLoading}
 			<div class="flex h-2 items-center justify-center">
-				<div class="h-1.5 w-1.5 animate-bounce rounded-full bg-gray-400 [animation-delay:-0.3s]" />
+				<div class="h-1.5 w-1.5 animate-bounce rounded-full bg-gray-400 [animation-delay:-0.3s]"></div>
 				<div
 					class="mx-1 h-1.5 w-1.5 animate-bounce rounded-full bg-gray-400 [animation-delay:-0.15s]"
-				/>
-				<div class="h-1.5 w-1.5 animate-bounce rounded-full bg-gray-400" />
+				></div>
+				<div class="h-1.5 w-1.5 animate-bounce rounded-full bg-gray-400"></div>
 			</div>
 		{/if}
 
 		<div class="w-full max-w-3xl">
-			<div bind:this={waveformElement} class="w-full" />
+			<div bind:this={waveformElement} class="w-full"></div>
 		</div>
 
 		<div class="flex items-center justify-between">
@@ -261,21 +212,10 @@
 					aria-label={isMuted ? 'Unmute' : 'Mute'}
 					disabled={isLoading || !!error}
 				>
-					<svelte:component this={isMuted ? VolumeX : Volume2} size={20} />
-				</button>
-
-				<!-- New button for toggling recording -->
-				<button
-					on:click={toggleRecording}
-					class="text-gray-200 transition-colors hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-50"
-					aria-label={isRecording ? 'Stop Recording' : 'Start Recording'}
-					disabled={isLoading || !!error}
-				>
-					{#if isRecording}
-						Stop Recording
-					{:else}
-						Start Recording
-					{/if}
+					<svelte:component 
+						this={isMuted ? VolumeX : Volume2} 
+						size={20} 
+					/>
 				</button>
 			</div>
 

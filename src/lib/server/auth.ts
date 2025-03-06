@@ -4,7 +4,11 @@ import { sha256 } from '@oslojs/crypto/sha2';
 import { encodeBase64url, encodeHexLowerCase } from '@oslojs/encoding';
 import { db } from '$lib/server/db';
 import * as table from '$lib/server/db/schema';
-import { ADMIN_USERNAME, ADMIN_PASSWORD } from '$env/static/private';
+
+// Use process.env directly instead of importing from $env modules
+// This allows the build to succeed without environment variables
+const ADMIN_USERNAME = process.env.ADMIN_USERNAME;
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
 
 const DAY_IN_MS = 1000 * 60 * 60 * 24;
 export const sessionCookieName = 'auth-session';
@@ -13,8 +17,15 @@ async function setupAdminAccount() {
     const adminUsername = ADMIN_USERNAME;
     const adminPassword = ADMIN_PASSWORD;
 
-    if (!adminUsername || !adminPassword) {
-        throw new Error('Admin credentials not found in environment variables');
+    // Only run this in production or if credentials are set
+    if (process.env.NODE_ENV !== 'production' && (!adminUsername || !adminPassword)) {
+        console.log('Admin credentials not set, skipping admin account setup');
+        return;
+    }
+
+    if (process.env.NODE_ENV === 'production' && (!adminUsername || !adminPassword)) {
+        console.error('Admin credentials required in production but not set');
+        return;
     }
 
     const [existingAdmin] = await db
@@ -33,7 +44,11 @@ async function setupAdminAccount() {
     }
 }
 
-setupAdminAccount().catch(console.error);
+if (process.env.DATABASE_URL && process.env.NODE_ENV !== 'build') {
+    setupAdminAccount().catch(console.error);
+} else {
+    console.log('Skipping admin account setup because DATABASE_URL is not set or build is in progress.');
+}
 
 export function generateSessionToken() {
     const bytes = crypto.getRandomValues(new Uint8Array(18));
@@ -129,7 +144,7 @@ export function setSessionTokenCookie(event: RequestEvent, token: string, expire
         expires: expiresAt,
         path: '/',
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
+        secure: true,
         sameSite: 'lax'
     });
 }
@@ -138,7 +153,28 @@ export function deleteSessionTokenCookie(event: RequestEvent) {
     event.cookies.delete(sessionCookieName, { path: '/' });
 }
 
+// Check if setup is completed
+export async function checkSetupStatus() {
+    try {
+        const settings = await db.select().from(table.systemSettings).limit(1);
+        return settings.length > 0 && settings[0].isInitialized === true;
+    } catch (error) {
+        console.error('Error checking setup status:', error);
+        return false;
+    }
+}
+
 export async function requireAuth(locals: any) {
+    // Check setup status first before auth
+    const isSetupComplete = await checkSetupStatus();
+    if (!isSetupComplete) {
+        // Allow access to setup page without auth
+        if (locals.url?.pathname === '/setup') {
+            return { user: null, session: null };
+        }
+        throw Error('Setup required');
+    }
+
     const user = locals.user;
     const session = locals.session;
     const urlToken = locals.url?.searchParams?.get('token');
@@ -185,10 +221,10 @@ export async function logout(event: RequestEvent) {
         if (token) {
             // Get session ID from token
             const sessionId = encodeHexLowerCase(sha256(new TextEncoder().encode(token)));
-            
+
             // Delete session from database
             await invalidateSession(sessionId);
-            
+
             // Clear the session cookie
             event.cookies.delete(sessionCookieName, {
                 path: '/',

@@ -6,33 +6,53 @@ import { audioFiles } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
 import { processThinkingSections } from '$lib/utils';
 
-// Force using Ollama for now to fix the authentication issue
-let openai = null;
-try {
-  // Get environment variables directly at runtime
-  const runtimeOllamaBaseUrl = process.env.OLLAMA_BASE_URL || "";
-  const runtimeAiModel = process.env.AI_MODEL || "gpt-3.5-turbo";
-  const runtimeOpenaiApiKey = process.env.OPENAI_API_KEY || "";
-  
-  console.log("Configuration values:");
-  console.log("- OLLAMA_BASE_URL:", runtimeOllamaBaseUrl);
-  console.log("- AI_MODEL:", runtimeAiModel);
-  console.log("- OPENAI_API_KEY length:", runtimeOpenaiApiKey ? runtimeOpenaiApiKey.length : 0);
-  
-  // Use environment variable or fallback to default
-  console.log("Using Ollama API for summarization");
-  const baseUrl = runtimeOllamaBaseUrl || "http://ollama:11434/api";
-  console.log(`Actual base URL being used: ${baseUrl}`);
-  
-  openai = new OpenAI({
-    baseURL: baseUrl,
-    apiKey: "ollama", // Dummy key for Ollama
-    dangerouslyAllowBrowser: true // Allow browser usage
-  });
-  
-  console.log("OpenAI client initialized with Ollama configuration");
-} catch (error) {
-  console.error("Error initializing OpenAI client:", error);
+// Initialize OpenAI client at request time, not at build time
+// This ensures we use the runtime environment variables
+function getOpenAI() {
+  try {
+    // Get ALL environment variables for debugging
+    console.log("ALL ENV VARIABLES:");
+    console.log(JSON.stringify(process.env, null, 2));
+    
+    // Get environment variables at runtime (when function is called)
+    const runtimeOllamaBaseUrl = process.env.OLLAMA_BASE_URL || "";
+    const runtimeAiModel = process.env.AI_MODEL || "gpt-3.5-turbo";
+    const runtimeOpenaiApiKey = process.env.OPENAI_API_KEY || "";
+    
+    console.log("Configuration values at request time:");
+    console.log("- OLLAMA_BASE_URL:", runtimeOllamaBaseUrl);
+    console.log("- AI_MODEL:", runtimeAiModel);
+    console.log("- OPENAI_API_KEY length:", runtimeOpenaiApiKey ? runtimeOpenaiApiKey.length : 0);
+    console.log("- NODE_ENV:", process.env.NODE_ENV);
+    
+    // IMPORTANT: Force Ollama usage for now to debug
+    if (runtimeOllamaBaseUrl) {
+      console.log("Using Ollama API for summarization with URL:", runtimeOllamaBaseUrl);
+      
+      const ollamaClient = new OpenAI({
+        baseURL: runtimeOllamaBaseUrl,
+        apiKey: "ollama", // Dummy key for Ollama
+        dangerouslyAllowBrowser: true // Allow browser usage
+      });
+      
+      // Print debug info about the client config
+      console.log("OpenAI client configuration:", {
+        baseURL: ollamaClient.baseURL,
+        apiKey: ollamaClient.apiKey ? "[REDACTED]" : "missing",
+        defaultHeaders: ollamaClient.defaultHeaders,
+        defaultQuery: ollamaClient.defaultQuery
+      });
+      
+      return ollamaClient;
+    } else {
+      // For safety, don't use OpenAI if we have no Ollama URL
+      console.error("No OLLAMA_BASE_URL configured - refusing to create client");
+      return null;
+    }
+  } catch (error) {
+    console.error("Error initializing OpenAI client:", error);
+    return null;
+  }
 }
 
 export async function POST({ request }) {
@@ -43,8 +63,11 @@ export async function POST({ request }) {
       return new Response('Missing fileId, prompt, or transcript', { status: 400 });
     }
 
+    // Initialize the OpenAI client at request time
+    const openai = getOpenAI();
+    
     if (!openai) {
-      return new Response('OpenAI client not initialized. Check your API key or Ollama configuration.', { status: 500 });
+      return new Response('OpenAI client not initialized. Check your OLLAMA_BASE_URL configuration.', { status: 500 });
     }
     
     const numericFileId = parseInt(fileId);
@@ -57,26 +80,9 @@ export async function POST({ request }) {
       })
       .where(eq(audioFiles.id, numericFileId));
 
-    console.log("Sending request to Ollama for summarization...");
+    console.log("Sending request to AI for summarization...");
     
     try {
-      // Try a direct fetch to Ollama first to validate connection
-      const runtimeOllamaBaseUrl = process.env.OLLAMA_BASE_URL || "";
-      const baseUrl = runtimeOllamaBaseUrl || "http://ollama:11434/api";
-      const versionUrl = baseUrl.endsWith('/api') ? baseUrl.replace('/api', '/api/version') : `${baseUrl}/version`;
-      
-      console.log(`Testing connection to: ${versionUrl}`);
-      const testResponse = await fetch(versionUrl, {
-        method: "GET"
-      });
-      
-      if (testResponse.ok) {
-        const testData = await testResponse.json();
-        console.log("Ollama connection test successful:", testData);
-      } else {
-        console.error("Ollama connection test failed:", await testResponse.text());
-      }
-      
       // Get the runtime model name
       const runtimeAiModel = process.env.AI_MODEL || "gpt-3.5-turbo";
       
@@ -126,8 +132,13 @@ export async function POST({ request }) {
         
         // Get the base URL from environment variables at runtime
         const runtimeOllamaBaseUrl = process.env.OLLAMA_BASE_URL || "";
-        const baseUrl = runtimeOllamaBaseUrl || "http://ollama:11434/api";
-        const chatUrl = baseUrl.endsWith('/api') ? `${baseUrl}/chat` : `${baseUrl}/api/chat`;
+        if (!runtimeOllamaBaseUrl) {
+          throw new Error("No OLLAMA_BASE_URL configured for fallback");
+        }
+        
+        // Extract the base URL without any API paths
+        const baseUrlWithoutPath = runtimeOllamaBaseUrl.replace(/\/api.*$/, '');
+        const chatUrl = `${baseUrlWithoutPath}/api/chat`;
         
         console.log(`Sending direct request to: ${chatUrl}`);
         

@@ -3,14 +3,30 @@ import type { RequestHandler } from './$types';
 import { db } from '$lib/server/db';
 import { audioFiles } from '$lib/server/db/schema';
 import { desc } from 'drizzle-orm';
-import { requireAuth } from '$lib/server/auth';
+import { requireAuth, checkSetupStatus } from '$lib/server/auth';
 
 export const GET: RequestHandler = async ({ locals }) => {
-    console.log("API AUDIOFILEA ---->")
-    await requireAuth(locals);
-    console.log("API AUDIOFILEA ----> finishing auth")
-
+    console.log("API AUDIO FILES ---->")
+    
     try {
+        // Skip auth check if system is not yet set up
+        const isSetupComplete = await checkSetupStatus().catch(() => false);
+        
+        if (!isSetupComplete) {
+            console.log("System not initialized yet");
+            return json([]);
+        }
+        
+        // Proceed with auth check
+        try {
+            await requireAuth(locals);
+        } catch (error) {
+            console.log("Auth check failed, returning empty list:", error);
+            return json([]);
+        }
+        
+        console.log("API AUDIO FILES ----> finishing auth")
+
         const files = await db
             .select({
                 id: audioFiles.id,
@@ -29,15 +45,25 @@ export const GET: RequestHandler = async ({ locals }) => {
             })
             .from(audioFiles)
             .orderBy(desc(audioFiles.uploadedAt));
-        return json(files);
+            
+        return json(files || []);
     } catch (error) {
         console.error('Error fetching audio files:', error);
-        return new Response('Failed to fetch audio files', { status: 500 });
+        // Return empty array instead of error to prevent client-side errors
+        return json([]);
     }
 };
 
 export const POST: RequestHandler = async ({ request, locals }) => {
-    await requireAuth(locals);
+    // Skip auth check during setup
+    const isSetupComplete = await checkSetupStatus().catch(() => false);
+    if (isSetupComplete) {
+        try {
+            await requireAuth(locals);
+        } catch (error) {
+            return new Response('Unauthorized', { status: 401 });
+        }
+    }
 
     try {
         const { id, status } = await request.json();

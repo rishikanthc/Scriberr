@@ -5,6 +5,20 @@ import { fail, redirect } from '@sveltejs/kit';
 
 export const prerender = false;
 
+export async function load({ fetch }) {
+    try {
+        const response = await fetch('/api/check-config');
+        const { isConfigured } = await response.json();
+        
+        // If system is not configured, stay on login page
+        // The layout will handle showing the setup wizard
+        return { isConfigured };
+    } catch (error) {
+        console.error('Error checking system configuration:', error);
+        return { isConfigured: false, error: 'Failed to check system configuration' };
+    }
+}
+
 export const actions: Actions = {
     default: async (event) => {
         const data = await event.request.formData();

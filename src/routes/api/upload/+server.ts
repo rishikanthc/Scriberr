@@ -1,14 +1,20 @@
 import { error } from '@sveltejs/kit';
-import { requireAuth } from '$lib/server/auth';
+import { requireAuth, checkSetupStatus } from '$lib/server/auth';
 import type { RequestHandler } from './$types';
 import { mkdir, writeFile, readFile, unlink } from 'fs/promises';
 import { join } from 'path';
 import { db } from '$lib/server/db';
 import { audioFiles } from '$lib/server/db/schema';
 import { queueTranscriptionJob } from '$lib/server/queue';
+import { transcribeAudio } from '$lib/server/transcription';
+import { TranscribeStream } from '$lib/server/transcribeStream';
+import { jobQueue } from '$lib/server/jobQueue';
 import { promisify } from 'util';
 import { exec } from 'child_process';
-import { AUDIO_DIR, WORK_DIR } from '$env/static/private'; 
+
+// Use process.env directly instead of importing from $env modules
+const AUDIO_DIR = process.env.AUDIO_DIR;
+const WORK_DIR = process.env.WORK_DIR;
 
 const execAsync = promisify(exec);
 
@@ -61,13 +67,32 @@ async function extractPeaks(audioPath: string): Promise<number[]> {
 }
 
 export const POST: RequestHandler = async ({ request, locals}) => {
-    await requireAuth(locals);
+    // Skip auth check during setup
+    const isSetupComplete = await checkSetupStatus().catch(() => false);
+    
+    if (isSetupComplete) {
+        try {
+            await requireAuth(locals);
+        } catch (error) {
+            console.error("Auth failed for upload:", error);
+            return new Response('Unauthorized', { status: 401 });
+        }
+    } else {
+        console.log("Skipping auth check for upload as system may not be initialized");
+    }
     
     try {
         await mkdir(UPLOAD_DIR, { recursive: true });
         const formData = await request.formData();
         const file = formData.get('file') as File;
-        const options = JSON.parse(formData.get('options') as string);
+        const optionsStr = formData.get('options') as string;
+        const options = optionsStr ? JSON.parse(optionsStr) : {
+            language: 'en',
+            modelSize: 'base',
+            diarization: false,
+            threads: 4,
+            processors: 1
+        };
         
         if (!file) {
             throw error(400, 'No file uploaded');
@@ -107,6 +132,8 @@ export const POST: RequestHandler = async ({ request, locals}) => {
             const peaks = await extractPeaks(finalPath);
             
             // Create database entry with both original and WAV file info
+            console.log("Transcription options being used:", options);
+            console.log("Diarization setting:", options.diarization);
             const [audioFile] = await db.insert(audioFiles).values({
                 fileName: finalFileName, // WAV file for transcription
                 originalFileName: originalFileName, // Original file preserved
@@ -122,9 +149,31 @@ export const POST: RequestHandler = async ({ request, locals}) => {
                 processors: options.processors,
             }).returning();
 
-            // Queue transcription job
+            // Queue transcription job for worker
             await queueTranscriptionJob(audioFile.id, options);
             console.log('Queued job:', { audioFile });
+            
+            // START TRANSCRIPTION IMMEDIATELY - don't wait for the worker
+            console.log(`Starting transcription immediately for file ID: ${audioFile.id}`);
+            
+            // Fire and forget - start transcription in the background
+            setTimeout(async () => {
+                try {
+                    // Create stream for this transcription
+                    const transcribeStream = new TranscribeStream();
+                    
+                    // Mark job as running to prevent duplicate processing
+                    jobQueue.setJobRunning(audioFile.id, true);
+                    jobQueue.addStream(audioFile.id, transcribeStream);
+                    
+                    // Process transcription directly
+                    await transcribeAudio(audioFile.id, transcribeStream);
+                    console.log(`Direct transcription completed for file ID: ${audioFile.id}`);
+                } catch (err) {
+                    console.error('Direct transcription error:', err);
+                    jobQueue.setJobRunning(audioFile.id, false);
+                }
+            }, 100);
 
             // Clean up temp file
             await unlink(tempOriginalPath).catch(console.error);
