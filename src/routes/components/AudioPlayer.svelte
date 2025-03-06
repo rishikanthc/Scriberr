@@ -154,6 +154,7 @@
 		isMuted = !isMuted;
 	}
 
+	// Cleanup on component destruction
 	onDestroy(() => {
 		cleanupWaveSurfer();
 	});
@@ -178,16 +179,16 @@
 			<div class="text-sm text-red-500">{error}</div>
 		{:else if isLoading}
 			<div class="flex h-2 items-center justify-center">
-				<div class="h-1.5 w-1.5 animate-bounce rounded-full bg-gray-400 [animation-delay:-0.3s]" />
+				<div class="h-1.5 w-1.5 animate-bounce rounded-full bg-gray-400 [animation-delay:-0.3s]"></div>
 				<div
 					class="mx-1 h-1.5 w-1.5 animate-bounce rounded-full bg-gray-400 [animation-delay:-0.15s]"
-				/>
-				<div class="h-1.5 w-1.5 animate-bounce rounded-full bg-gray-400" />
+				></div>
+				<div class="h-1.5 w-1.5 animate-bounce rounded-full bg-gray-400"></div>
 			</div>
 		{/if}
 
 		<div class="w-full max-w-3xl">
-			<div bind:this={waveformElement} class="w-full" />
+			<div bind:this={waveformElement} class="w-full"></div>
 		</div>
 
 		<div class="flex items-center justify-between">
@@ -211,7 +212,10 @@
 					aria-label={isMuted ? 'Unmute' : 'Mute'}
 					disabled={isLoading || !!error}
 				>
-					<svelte:component this={isMuted ? VolumeX : Volume2} size={20} />
+					<svelte:component 
+						this={isMuted ? VolumeX : Volume2} 
+						size={20} 
+					/>
 				</button>
 			</div>
 

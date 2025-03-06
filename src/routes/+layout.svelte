@@ -60,12 +60,29 @@
 		}
 		
 		try {
+			console.log("Calling config check API...");
 			const response = await apiFetch('/api/check-config');
-			if (!response.ok) throw new Error('Failed to complete startup check');
-			check = await response.json();
-			console.log(check);
+			console.log("Config check API response status:", response.status);
+			
+			if (!response.ok) {
+				throw new Error(`Failed to complete startup check, status: ${response.status}`);
+			}
+			
+			const data = await response.json();
+			console.log("Config check API response data:", data);
+			check = data;
+			
+			// Force ConfigWizard to show if system is not configured
+			if (!data.isConfigured) {
+				console.log("System not configured, showing setup wizard");
+			} else {
+				console.log("System already configured, showing main application");
+			}
 		} catch (error) {
 			console.error('Error with check-config api', error);
+			// Set check to show ConfigWizard on error
+			check = { isConfigured: false };
+			console.log("Showing setup wizard due to API error");
 		}
 
 		if (browser && window.Capacitor?.isNative) {

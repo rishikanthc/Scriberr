@@ -1,39 +1,50 @@
-<!-- src/lib/components/ConfigWizard.svelte -->
 <script lang="ts">
-	import { goto } from '$app/navigation';
-	import * as Card from '$lib/components/ui/card';
-	import WhisperSetup from './WhisperSetup.svelte';
-	import { Button } from '$lib/components/ui/button';
-	import { apiFetch } from '$lib/api';
-
-	let currentStep = 1;
-	let config = {
-		// Your configuration options
-	};
-
-	async function completeSetup() {
-		const response = await apiFetch('/api/check-config');
-		if (!response.ok) throw new Error('Failed to complete startup check');
-		const check = await response.json();
-
-		if (!check.needsConfiguration) {
-			goto('/');
-		}
-	}
+  import { onMount } from 'svelte';
+  import WhisperSetup from './WhisperSetup.svelte';
+  import { Button } from '$lib/components/ui/button/index.js';
+  
+  // Configuration state
+  let isSetupComplete = $state(false);
+  let step = $state(1);
+  
+  function handleSetupComplete(event) {
+    isSetupComplete = event.detail.complete;
+    if (isSetupComplete) {
+      step = 2;
+    }
+  }
+  
+  function reloadApp() {
+    window.location.href = '/';
+  }
 </script>
 
-<Card.Root class="mx-auto mt-16 h-[784px] w-[784px]">
-	<Card.Header>
-		<Card.Title>Setup Wizard</Card.Title>
-		<Card.Description>Configure Scriberr</Card.Description>
-	</Card.Header>
-	<Card.Content>
-		<WhisperSetup />
-
-		{#if currentStep === 1}
-			<div class="mt-6 flex justify-end">
-				<Button variant="default" onclick={completeSetup}>Complete Setup</Button>
-			</div>
-		{/if}
-	</Card.Content>
-</Card.Root>
+<div class="p-4 space-y-8">
+  <h2 class="text-2xl font-semibold">System Configuration</h2>
+  
+  <div class="space-y-2">
+    <div class="flex items-center space-x-2">
+      <div class="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center">
+        {step > 1 ? '✓' : '1'}
+      </div>
+      <div class="font-medium">Speech Recognition Setup</div>
+    </div>
+    
+    {#if step === 1}
+      <div class="pl-10">
+        <WhisperSetup on:setupcomplete={handleSetupComplete} />
+      </div>
+    {/if}
+    
+    {#if step === 2}
+      <div class="pl-10 py-4">
+        <div class="bg-green-50 p-4 rounded border border-green-200">
+          <p class="text-green-800">Setup completed successfully!</p>
+          <Button class="mt-4" on:click={reloadApp}>
+            Go to Application
+          </Button>
+        </div>
+      </div>
+    {/if}
+  </div>
+</div>

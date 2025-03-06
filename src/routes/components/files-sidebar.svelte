@@ -3,7 +3,7 @@
 	import { toast } from 'svelte-sonner';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import AudioRec from './AudioRec.svelte';
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import { browser } from '$app/environment';
 	import * as Sheet from '$lib/components/ui/sheet';
 	import { Button } from '$lib/components/ui/button';
@@ -37,6 +37,7 @@
 	let selectedFileId = $state<number | null>(null);
 	let isLoading = $state(true);
 	let isFileOpen = $state(false);
+	let refreshInterval: ReturnType<typeof setInterval>;
 
 	// Subscribe to the store value
 	let files = $derived($audioFiles);
@@ -113,6 +114,26 @@
 		if (window.Capacitor?.isNative) {
 			height = 'h-[55svh]';
 		}
+		
+		// Setup auto-refresh for file list
+		refreshInterval = setInterval(async () => {
+			// Only refresh if we're not in a detail view and looking at the file list
+			if (!selectedFileId && !showUpload) {
+				console.log('Auto-refreshing file list...');
+				try {
+					await audioFiles.refresh();
+				} catch (error) {
+					console.error('Auto-refresh failed:', error);
+				}
+			}
+		}, 5000); // Check every 5 seconds
+	});
+	
+	// Clean up on component destroy
+	onDestroy(() => {
+		if (refreshInterval) {
+			clearInterval(refreshInterval);
+		}
 	});
 </script>
 
@@ -129,11 +150,11 @@
 					<div class="flex gap-1">
 						<div
 							class="h-1.5 w-1.5 animate-bounce rounded-full bg-gray-400 [animation-delay:-0.3s]"
-						/>
+						></div>
 						<div
 							class="h-1.5 w-1.5 animate-bounce rounded-full bg-gray-400 [animation-delay:-0.15s]"
-						/>
-						<div class="h-1.5 w-1.5 animate-bounce rounded-full bg-gray-400" />
+						></div>
+						<div class="h-1.5 w-1.5 animate-bounce rounded-full bg-gray-400"></div>
 					</div>
 				</div>
 			{:else}
@@ -237,18 +258,17 @@
 					</span>
 				</div>
 
-				<div class="flex items-center gap-2">
-					<svelte:component
-						this={getStatusIcon(selectedFile.transcriptionStatus)}
-						class="h-4 w-4 text-gray-300"
-					/>
-					<span class="text-xs text-gray-300 lg:text-sm">
-						Status: {selectedFile.transcriptionStatus}
-						{#if selectedFile.transcriptionStatus === 'failed' && selectedFile.lastError}
-							- {selectedFile.lastError}
-						{/if}
-					</span>
-				</div>
+				{#if selectedFile.transcriptionStatus}
+					<div class="flex items-center gap-2">
+						<svelte:component this={getStatusIcon(selectedFile.transcriptionStatus)} class="h-4 w-4 text-gray-300" />
+						<span class="text-xs text-gray-300 lg:text-sm">
+							Status: {selectedFile.transcriptionStatus}
+							{#if selectedFile.transcriptionStatus === 'failed' && selectedFile.lastError}
+								- {selectedFile.lastError}
+							{/if}
+						</span>
+					</div>
+				{/if}
 			</div>
 			<FilePanel file={selectedFile} bind:isOpen={isFileOpen} />
 		</div>

@@ -6,17 +6,7 @@ services:
       platforms:
         - linux/arm64
         - linux/amd64
-      args:
-        - DATABASE_URL=postgres://root:mysecretpassword@db:5432/local
-        - ADMIN_USERNAME=admin
-        - ADMIN_PASSWORD=password
-        - AI_MODEL="gpt-4o-mini"
-        - OLLAMA_BASE_URL=""
-        - MODELS_DIR=${MODELS_DIR:-/scriberr/models}
-        - WORK_DIR=${WORK_DIR:-/scriberr/temp}
-        - AUDIO_DIR=${AUDIO_DIR:-/scriberr/uploads}
-        - OPENAI_API_KEY=""
-        - BODY_SIZE_LIMIT=100M
+      # No args needed as environment variables are passed at runtime
     env_file:
       - .env
     ports:

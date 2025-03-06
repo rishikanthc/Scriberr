@@ -11,6 +11,25 @@ function createSpeakerLabelStore() {
     updateLabels: (fileId: number, labels: Record<string, string>) => {
       update(state => ({ ...state, [fileId]: labels }));
     },
+    async loadLabels(fileId: number) {
+      try {
+        const response = await apiFetch(`/api/audio-files/${fileId}/transcript`);
+        if (!response.ok) {
+          console.error('Failed to fetch transcript data');
+          return {};
+        }
+        
+        const data = await response.json();
+        if (data.speakerLabels) {
+          this.updateLabels(fileId, data.speakerLabels);
+          return data.speakerLabels;
+        }
+        return {};
+      } catch (error) {
+        console.error('Error loading speaker labels:', error);
+        return {};
+      }
+    },
     async saveLabels(fileId: number, transcript: TranscriptSegment[], labels: Record<string, string>) {
       try {
         const response = await apiFetch(`/api/audio-files/${fileId}/transcript`, {

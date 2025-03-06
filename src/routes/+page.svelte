@@ -98,7 +98,7 @@
 					true
 						? 'bg-gray-900 text-white'
 						: 'text-neutral-400'} backdrop-blur-lg hover:bg-neutral-900"
-					onclick={handleRecMenu}
+					on:click={handleRecMenu}
 				>
 					<Mic size={18} />
 				</button>
@@ -107,7 +107,7 @@
 					'files'
 						? 'bg-gray-900 text-white'
 						: 'text-neutral-400'} backdrop-blur-lg hover:bg-gray-900"
-					onclick={() => {
+					on:click={() => {
 						showAudioRec = false;
 						activePanel = 'files';
 					}}
@@ -119,7 +119,7 @@
 					'status'
 						? 'bg-gray-900 text-white'
 						: 'text-neutral-400'} backdrop-blur-lg hover:bg-gray-900"
-					onclick={() => {
+					on:click={() => {
 						showAudioRec = false;
 						activePanel = 'status';
 					}}
@@ -191,7 +191,7 @@
 					'templates'
 						? 'bg-gray-900 text-white'
 						: 'text-neutral-400'} backdrop-blur-lg hover:bg-neutral-900"
-					onclick={() => {
+					on:click={() => {
 						showAudioRec = false;
 						activePanel = 'templates';
 					}}
@@ -207,7 +207,7 @@
 						<DropdownMenu.Content class="w-48">
 							<DropdownMenu.Label>My Account</DropdownMenu.Label>
 							<DropdownMenu.Separator />
-							<DropdownMenu.Item onclick={handleLogout} class="cursor-pointer">
+							<DropdownMenu.Item on:click={handleLogout} class="cursor-pointer">
 								<LogOut class="mr-2 h-4 w-4 text-gray-700" />
 								<span>Log out</span>
 							</DropdownMenu.Item>

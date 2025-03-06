@@ -1,18 +1,42 @@
-// routes/api/check-configuration/+server.ts
 import { json } from '@sveltejs/kit';
+import { db } from '$lib/server/db';
+import { systemSettings } from '$lib/server/db/schema';
+import { eq } from 'drizzle-orm';
 import type { RequestHandler } from './$types';
-import { checkFirstStartup } from '$lib/server/startup';
-// import { requireAuth } from '$lib/server/auth';
 
-export const GET: RequestHandler = async ({request, locals}) => {
-  // await requireAuth(locals);
+export const GET: RequestHandler = async () => {
+  console.log("API: /api/check-config endpoint called");
+  
   try {
-   const isConfigured = await checkFirstStartup();
-   return json({ isConfigured });
+    // Check if database is working
+    const settings = await db.select().from(systemSettings).limit(1);
+    console.log("API: Database connection successful");
+    
+    const isConfigured = settings.length > 0 && settings[0].isInitialized === true;
+    console.log("API: System configuration check result:", { isConfigured });
+    
+    // Add debug information to help diagnose issues
+    return json({
+      isConfigured,
+      debug: {
+        timestamp: new Date().toISOString(),
+        connectionWorking: true,
+        settingsFound: settings.length > 0,
+        settingsValue: settings.length > 0 ? { 
+          isInitialized: settings[0].isInitialized,
+          id: settings[0].id
+        } : null
+      }
+    });
   } catch (error) {
-   return json(
-     { error: error instanceof Error ? error.message : 'Unknown error' }, 
-     { status: 500 }
-   );
+    console.error("API: Database error during config check:", error);
+    return json({
+      isConfigured: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+      debug: {
+        timestamp: new Date().toISOString(),
+        connectionWorking: false
+      }
+    }, { status: 500 });
   }
 };
