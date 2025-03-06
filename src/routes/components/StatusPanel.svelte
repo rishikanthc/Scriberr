@@ -6,6 +6,7 @@
 	import { Alert, AlertDescription } from '$lib/components/ui/alert';
 	import { Loader2, Check, AlertCircle } from 'lucide-svelte';
 	import { ScrollArea } from '$lib/components/ui/scroll-area';
+	import { audioFiles } from '$lib/stores/audioFiles';
 
 	interface JobStatus {
 		id: number;
@@ -75,6 +76,12 @@
 				eventSource.close();
 				delete eventSources[id];
 				delete activeJobs[id];
+				
+				// Refresh the audio files list to update the UI after job completes
+				console.log(`Transcription of job ${id} is ${progress.status}, refreshing file list`);
+				audioFiles.refresh().catch(err => {
+					console.error('Failed to refresh file list after transcription completion:', err);
+				});
 			}
 		};
 
@@ -91,6 +98,18 @@
 
 	onMount(() => {
 		fetchActiveJobs();
+		
+		// Set up a refresh interval to update the file list periodically
+		const refreshInterval = setInterval(() => {
+			// Only refresh if we're not actively transcribing something
+			if (Object.keys(activeJobs).length === 0) {
+				audioFiles.refresh().catch(err => {
+					console.error('Failed to refresh files during interval:', err);
+				});
+			}
+		}, 10000); // Refresh every 10 seconds when idle
+		
+		return () => clearInterval(refreshInterval);
 	});
 
 	onDestroy(() => {

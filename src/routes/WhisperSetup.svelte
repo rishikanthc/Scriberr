@@ -3,19 +3,16 @@
 	import * as Card from '$lib/components/ui/card';
 	import { Progress } from '$lib/components/ui/progress/index.js';
 	import { Alert, AlertDescription } from '$lib/components/ui/alert';
-	import { Button } from '$lib/components/ui/button';
 	import * as Switch from '$lib/components/ui/switch';
 	import * as Select from '$lib/components/ui/select';
 	import { Label } from '$lib/components/ui/label';
 	import { Input } from '$lib/components/ui/input';
 	import { createEventDispatcher } from 'svelte';
-	import { goto } from '$app/navigation';
-	import { authToken } from '$lib/stores/auth'; // Assuming you have an auth store
 
 	// Set up event dispatcher for parent component communication
 	const dispatch = createEventDispatcher();
 
-	type ModelSize = 'tiny' | 'base' | 'small' | 'medium' | 'large';
+	type ModelSize = 'tiny' | 'base' | 'small' | 'medium' | 'large' | 'large-v2' | 'large-v3';
 	type LargeVersion = 'v1' | 'v2' | 'v3' | 'v3-turbo';
 
 	interface ConfigOptions {
@@ -58,6 +55,10 @@
 				return `large-${version}${quant}`;
 			}
 
+			// Special handling for large-v2 and large-v3
+			if (size === 'large-v2' || size === 'large-v3') {
+				return `${size}${quant}`;
+			}
 			return `${size}${lang}${quant}`;
 		});
 	});
@@ -71,142 +72,80 @@
 			console.log("Setup complete, notifying parent component");
 			dispatch('setupcomplete', { complete: true });
 		} else if (status === 'error') {
-			log = [...log, "Setup encountered an error."];
+			console.log("Setup error, notifying parent component");
 			dispatch('setupcomplete', { complete: false });
 		}
 	});
 
-	// Check if user is logged in
-	$effect(() => {
-		if (!$authToken) {
-			log = [...log, "User not logged in. Redirecting to login page."];
-			setTimeout(() => {
-				// Redirect to login page after a short delay to allow the log message to be displayed
-				goto('/login');
-			}, 1000);
-		}
-	});
-
-	async function startSetup() {
-		// Log button press and state for debugging
-		log = [...log, "START SETUP BUTTON PRESSED!"];
-		log = [...log, "Current config:", JSON.stringify({
-			modelSizes: config.modelSizes,
-			multilingual: config.multilingual,
-			enableDiarization: enableDiarization,
-			hfApiKey: config.hfApiKey ? "provided" : "not provided",
-			quantization: config.quantization
-		})];
+	// Function for installation button
+	function startInstallation() {
+		console.log("INSTALLATION BUTTON CLICKED");
+		log = [...log, "Installation started..."];
 		
-		// Re-enable validation for HuggingFace API key
-		if (enableDiarization && !config.hfApiKey) {
-			log = [...log, "HuggingFace API key is required for diarization. Please enter a valid API key."];
-			return;
-		}
-
-		log = [...log, "Starting setup..."];
+		// Set up installation
 		status = 'installing';
 		progress = 0;
-		dispatch('setupcomplete', { complete: false });
+		
+		// Build URL with parameters
+		const params = new URLSearchParams({
+			models: JSON.stringify(modelNames),
+			multilingual: config.multilingual.toString(),
+			diarization: enableDiarization.toString(),
+			compute_type: config.quantization === 'none' ? 'float32' : 'int8'
+		});
 
-		try {
-			const params = new URLSearchParams({
-				models: JSON.stringify(modelNames),
-				multilingual: config.multilingual.toString(),
-			 диarization: enableDiarization.toString(),
-				compute_type: config.quantization === 'none' ? 'float32' : 'int8'
-			});
-
-			// Add HF API key if provided
-			if (config.hfApiKey) {
-				params.append('hf_api_key', config.hfApiKey);
-			}
-
-			// Also try a direct fetch to see if the endpoint is reachable
-			try {
-				const testFetch = await fetch(`/api/setup/whisper?${params}`, { method: 'HEAD' });
-				log = [...log, `API endpoint is reachable (status: ${testFetch.status})`];
-			} catch (fetchError) {
-				log = [...log, `Warning: API endpoint test failed: ${fetchError.message}`];
-			}
-
-			log = [...log, "Starting installation with params:", JSON.stringify(Object.fromEntries(params.entries()))];
-			log = [...log, "Connecting to server..."];
-
-			try {
-				eventSource = new EventSource(`/api/setup/whisper?${params}`);
-				log = [...log, "EventSource created with readyState:", eventSource.readyState];
-				
-				// Add onopen handler to verify connection is established
-				eventSource.onopen = (event) => {
-					log = [...log, "EventSource connection opened successfully"];
-				};
-			} catch (esError) {
-				log = [...log, `Failed to create EventSource: ${esError.message}`];
-				status = 'error';
-				dispatch('setupcomplete', { complete: false });
-				return;
-			}
-
-			eventSource.onmessage = (event) => {
-				try {
-					const data = JSON.parse(event.data);
-					log = [...log, data.message];
-					
-					if (data.progress) progress = data.progress;
-					
-					if (data.status === 'complete') {
-						log = [...log, "Received COMPLETE status"];
-						eventSource.close();
-						status = 'complete';
-						dispatch('setupcomplete', { complete: true });
-						eventSource = null;
-					} else if (data.status === 'error') {
-						log = [...log, "Received ERROR status"];
-						log = [...log, `Error: ${data.message}`];
-						eventSource.close();
-						status = 'error';
-						dispatch('setupcomplete', { complete: false });
-						eventSource = null;
-					}
-				} catch (error) {
-					log = [...log, `Error processing EventSource message: ${error.message}`];
-				}
-			};
-
-			eventSource.onerror = (error) => {
-				log = [...log, `EventSource error: ${error.message}`];
-				log = [...log, `EventSource readyState: ${eventSource.readyState}`];
-				log = [...log, `Connection error: The server might be unavailable`];
-				
-				// Try to get more error details
-				if (error instanceof Event) {
-					log = [...log, `Error type: ${error.type}`];
-				}
-				
-				eventSource.close();
-				status = 'error';
-				dispatch('setupcomplete', { complete: false });
-				eventSource = null;
-			};
-			
-			// Set a timeout to detect if connection is not established
-			setTimeout(() => {
-				if (eventSource && eventSource.readyState !== 1) { // 1 = OPEN
-					log = [...log, "EventSource connection not established after timeout"];
-					log = [...log, "Timeout: Connection to server not established"];
-					eventSource.close();
-					status = 'error';
-					dispatch('setupcomplete', { complete: false });
-					eventSource = null;
-				}
-			}, 5000);
-			
-		} catch (error) {
-			log = [...log, `Setup error: ${error.message}`];
-			status = 'error';
-			dispatch('setupcomplete', { complete: false });
+		// Add HF API key if provided
+		if (config.hfApiKey) {
+			params.append('hf_api_key', config.hfApiKey);
 		}
+		
+		// Start direct installation with params
+		fetch(`/api/direct-setup?${params}`)
+			.then(response => {
+				console.log("Installation API response:", response.status);
+				log = [...log, `API response status: ${response.status}`];
+				return response.json();
+			})
+			.then(data => {
+				console.log("Installation response data:", data);
+				
+				// Process model download results
+				if (data.modelResults) {
+					data.modelResults.forEach(result => {
+						if (result.success) {
+							log = [...log, `✅ Downloaded model: ${result.model}`];
+						} else {
+							log = [...log, `❌ Failed to download model ${result.model}: ${result.error}`];
+						}
+					});
+				}
+				
+				// Process diarization results if applicable
+				if (data.diarizationResult) {
+					if (data.diarizationResult.success) {
+						log = [...log, "✅ Downloaded diarization model successfully"];
+					} else {
+						log = [...log, `❌ Failed to download diarization model: ${data.diarizationResult.error}`];
+					}
+				}
+				
+				if (data.success) {
+					status = 'complete';
+					progress = 100;
+					log = [...log, "Setup completed successfully!"];
+					dispatch('setupcomplete', { complete: true });
+				} else {
+					status = 'error';
+					log = [...log, `Setup failed: ${data.error || "Unknown error"}`];
+					dispatch('setupcomplete', { complete: false });
+				}
+			})
+			.catch(error => {
+				console.error("Installation error:", error);
+				status = 'error';
+				log = [...log, `Error: ${error.message}`];
+				dispatch('setupcomplete', { complete: false });
+			});
 	}
 
 	// Cleanup on component destroy
@@ -244,13 +183,13 @@
 				<div class="space-y-2">
 					<Label for="model-sizes">Model Sizes</Label>
 					<div id="model-sizes" class="grid gap-2">
-						{#each ['tiny', 'base', 'small', 'medium', 'large'] as size}
+						{#each ['tiny', 'base', 'small', 'medium', 'large', 'large-v2', 'large-v3'] as size}
 							<div class="flex items-center space-x-2">
 								<Switch.Root
 									id={`model-${size}`}
 									name={`model-${size}`}
 									checked={config.modelSizes.includes(size)}
-								(onCheckedChange={(checked) => {
+									onCheckedChange={(checked) => {
 										if (checked) {
 											config.modelSizes = [...config.modelSizes, size];
 										} else {
@@ -260,9 +199,13 @@
 								/>
 								<Label for={`model-${size}`}>
 									{size}
-									{#if size === 'tiny'}(75MB){:else if size === 'base'}(142MB)
-									{:else if size === 'small'}(466MB){:else if size === 'medium'}(1.5GB)
-									{:else}(2.9GB+){/if}
+									{#if size === 'tiny'}(75MB)
+									{:else if size === 'base'}(142MB)
+									{:else if size === 'small'}(466MB)
+									{:else if size === 'medium'}(1.5GB)
+									{:else if size === 'large'}(2.9GB)
+									{:else if size === 'large-v2'}(3.1GB)
+									{:else if size === 'large-v3'}(3.6GB){/if}
 								</Label>
 							</div>
 						{/each}
@@ -279,7 +222,7 @@
 						id="multilingual-switch"
 						name="multilingual"
 						checked={config.multilingual}
-						(onCheckedChange={(checked) => (config.multilingual = checked)}
+						onCheckedChange={(checked) => (config.multilingual = checked)}
 					/>
 				</div>
 
@@ -293,7 +236,7 @@
 						id="diarization-switch"
 						name="diarization"
 						checked={enableDiarization}
-						(onCheckedChange={(checked) => (enableDiarization = checked)}
+						onCheckedChange={(checked) => (enableDiarization = checked)}
 					/>
 				</div>
 
@@ -324,7 +267,7 @@
 						id="quantization-select"
 						name="quantization"
 						value={config.quantization}
-						(onValueChange={(value) => (config.quantization = value as ConfigOptions['quantization'])}
+						onValueChange={(value) => (config.quantization = value as ConfigOptions['quantization'])}
 						defaultValue="none"
 					>
 						<Select.Trigger id="quantization-trigger" placeholder="Select quantization">
@@ -356,18 +299,17 @@
 							{/if}
 						</ul>
 					</div>
-					<!-- Re-enable validation for debugging -->
-					<Button
-						id="start-installation"
-						name="start-installation"
+					
+					<!-- Installation button -->
+					<button
+						id="install-button"
 						type="button"
-						variant="default"
-						class="w-full"
-						(on:click={startSetup}
-						disabled={enableDiarization && !config.hfApiKey}
+						class="bg-primary text-primary-foreground inline-flex h-9 w-full items-center justify-center rounded-md px-4 py-2 text-sm font-medium shadow transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"
+						on:click={startInstallation}
 					>
-						Start Installation
-					</Button>
+						Install Selected Models
+					</button>
+						
 					{#if enableDiarization && !config.hfApiKey}
 						<p class="text-xs text-red-500 mt-2">HuggingFace API key is required for diarization</p>
 					{/if}

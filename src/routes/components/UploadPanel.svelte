@@ -62,9 +62,15 @@
 	}
 
 	async function uploadFile(file: File) {
+		console.log("Setting up upload with options:", transcriptionOptions);
+		console.log("Diarization enabled:", transcriptionOptions.diarization);
 		const formData = new FormData();
 		formData.append('file', file);
 		formData.append('options', JSON.stringify(transcriptionOptions));
+		
+		// For debugging
+		const optionsJson = JSON.stringify(transcriptionOptions);
+		console.log("Options being sent as JSON:", optionsJson);
 
 		try {
 			fileStatus[file.name] = {

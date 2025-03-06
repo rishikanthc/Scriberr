@@ -4,7 +4,7 @@
 	import * as Select from '$lib/components/ui/select';
 
 	export let transcriptionOptions: {
-		modelSize: 'tiny' | 'base' | 'small' | 'medium' | 'large';
+		modelSize: 'tiny' | 'base' | 'small' | 'medium' | 'large' | 'large-v2' | 'large-v3';
 		language: string;
 		threads: number;
 		processors: number;
@@ -124,6 +124,8 @@
 					<Select.Item value="small">Small (Better)</Select.Item>
 					<Select.Item value="medium">Medium (Good)</Select.Item>
 					<Select.Item value="large">Large (Best)</Select.Item>
+					<Select.Item value="large-v2">Large v2 (Enhanced)</Select.Item>
+					<Select.Item value="large-v3">Large v3 (Latest)</Select.Item>
 				</Select.Content>
 			</Select.Root>
 		</Label>
@@ -185,6 +187,7 @@
 	</div>
 
 	<!-- Diarization -->
+	<!-- Diarization -->
 	<div class="space-y-2">
 		<Label class="text-sm font-bold text-gray-50">Speaker Detection</Label>
 		<div class="flex items-center space-x-2">
@@ -196,5 +199,14 @@
 			/>
 			<Label for="diarization" class="text-sm text-gray-100">Enable speaker identification</Label>
 		</div>
+		{#if transcriptionOptions.diarization}
+			<div class="mt-2 rounded-md bg-amber-800/20 p-2 text-xs text-amber-400">
+				<p>
+					<strong>Note:</strong> Speaker detection requires a HuggingFace API token with access to 
+					<code>pyannote</code> models. Make sure to add your token to the <code>HUGGINGFACE_TOKEN</code>
+					environment variable in your <code>.env</code> file.
+				</p>
+			</div>
+		{/if}
 	</div>
 </div>
