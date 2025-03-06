@@ -9,7 +9,8 @@
 	import { Label } from '$lib/components/ui/label';
 	import { Input } from '$lib/components/ui/input';
 	import { createEventDispatcher } from 'svelte';
-	// import { apiFetch, createEventSource } from '$lib/api';
+	import { goto } from '$app/navigation';
+	import { authToken } from '$lib/stores/auth'; // Assuming you have an auth store
 
 	// Set up event dispatcher for parent component communication
 	const dispatch = createEventDispatcher();
@@ -72,6 +73,17 @@
 		} else if (status === 'error') {
 			log = [...log, "Setup encountered an error."];
 			dispatch('setupcomplete', { complete: false });
+		}
+	});
+
+	// Check if user is logged in
+	$effect(() => {
+		if (!$authToken) {
+			log = [...log, "User not logged in. Redirecting to login page."];
+			setTimeout(() => {
+				// Redirect to login page after a short delay to allow the log message to be displayed
+				goto('/login');
+			}, 1000);
 		}
 	});
 
