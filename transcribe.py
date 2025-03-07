@@ -2,8 +2,7 @@ import argparse
 import json
 import os
 import whisperx
-import tempfile
-import subprocess
+from diarize import diarize_transcript
 
 # Configure environment variables for HuggingFace
 os.environ["HF_HUB_DISABLE_TELEMETRY"] = "1"
@@ -128,45 +127,13 @@ def main():
     # 5. Optionally perform diarization
     if args.diarize:
         try:
-            print(f"Diarization requested for {args.audio_file}")
-            with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as temp_transcript:
-                json.dump(result, temp_transcript)
-                transcript_path = temp_transcript.name
-
-            with tempfile.NamedTemporaryFile(suffix='.json', delete=False) as temp_output:
-                output_path = temp_output.name
-
-            print(f"Running diarization: python diarize.py --audio-file {args.audio_file} --transcript-file {transcript_path}")
-            diarize_cmd = [
-                "python", "diarize.py",
-                "--audio-file", args.audio_file,
-                "--transcript-file", transcript_path,
-                "--output-file", output_path,
-                "--device", args.device,
-                "--diarization-model", args.diarization_model
-            ]
-
-            diarize_process = subprocess.run(diarize_cmd, check=True)
-            print(f"Diarization completed with return code: {diarize_process.returncode}")
-
-            with open(output_path, 'r') as f:
-                diarized_result = json.load(f)
-
-            if "segments" in diarized_result:
-                result["segments"] = diarized_result["segments"]
-                print(f"Diarized segments loaded: {len(diarized_result['segments'])} segments")
-                if diarized_result["segments"]:
-                    print(f"Sample segment: {diarized_result['segments'][0]}")
-            else:
-                print("No segments found in diarized result")
-
-            os.unlink(transcript_path)
-            os.unlink(output_path)
-
+            diarized_result = diarize_transcript(args.audio_file, result, args.device, args.diarization_model)
+            result["segments"] = diarized_result["segments"]
         except Exception as e:
-            print(f"Diarization failed: {str(e)}")
+            print(f"Diarization failed: {e}")
+            # If diarization fails, we can still save the transcript without speaker labels
             for segment in result["segments"]:
-                segment["speaker"] = "unknown"
+                segment["speaker"] = ""
     else:
         for segment in result["segments"]:
             segment["speaker"] = ""

@@ -117,8 +117,8 @@ export const transcribeAudio = async (fileId: number, transcribeStream: any) => 
     console.log(`Using audio file path: ${filePath}`);
     
     // Update status to processing
-    await updateTranscriptionStatus(fileId, 'processing');
-    
+    await updateTranscriptionStatus(fileId, 'processing', null, null, audioFiles.diarization);
+
     // Get file information from the database to pass to whisper
     const fileInfo = await db
       .select({
@@ -178,9 +178,10 @@ export const transcribeAudio = async (fileId: number, transcribeStream: any) => 
     }
     
     console.log(`Checking if diarization should be enabled: ${fileInfo.diarization}`);
-    if (fileInfo.diarization) {
+    if (fileInfo.diarization === true) {
       console.log('Diarization is enabled.');
       args.push('--diarize');
+      args.push('--align');
     } else {
       console.log('Diarization is disabled.');
     }
@@ -190,7 +191,7 @@ export const transcribeAudio = async (fileId: number, transcribeStream: any) => 
       args.push('--batch_size', process.env.WHISPER_BATCH_SIZE);
     }
 
-    
+
     // Determine the compute device (CPU or GPU)
     const device = process.env.HARDWARE_ACCEL === 'cuda' ? 'cuda' : 'cpu';
     console.log(`Using device: ${device} (HARDWARE_ACCEL=${process.env.HARDWARE_ACCEL})`);

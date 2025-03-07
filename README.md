@@ -5,6 +5,8 @@ Scriberr is a self-hostable AI audio transcription app. It leverages the open-so
 
 **Note**: This app is under active development, and this release includes **breaking changes**. You will lose your old data. Please read the installation instructions carefully.
 
+** DIARIZATION UPDATE **: Diarization is under heavy development and will be disabled until an appropriate implementation is able to be handled. Currently it does not perform to expectation and is being disabled. Hoping to have this released as a full feature in 0.5.0.
+
 ### Build Status
 **Main Branch:**
 [![Main Docker](https://github.com/rishikanthc/Scriberr/actions/workflows/main-docker.yml/badge.svg)](https://github.com/rishikanthc/Scriberr/actions/workflows/main-docker.yml)
