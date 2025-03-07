@@ -11,3 +11,5 @@ install_aw.sh
 venv
 node_modules
 *.env
+.venv
+.aider.*

@@ -103,7 +103,7 @@ def main():
     audio = whisperx.load_audio(args.audio_file)
 
     # 3. Transcribe
-    result = model.transcribe(audio, batch_size=16, print_progress=True)
+    result = model.transcribe(audio, batch_size=args.batch_size, print_progress=True)
     # result is a dictionary with keys like "segments", "language", etc.
 
     # 4. Optionally align the segments

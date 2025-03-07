@@ -187,7 +187,7 @@ export const transcribeAudio = async (fileId: number, transcribeStream: any) => 
 
     // Check if WHISPER_BATCH_SIZE is set and add it to the arguments if present
     if (process.env.WHISPER_BATCH_SIZE) {
-      args.push('--batch-size', process.env.WHISPER_BATCH_SIZE);
+      args.push('--batch_size', process.env.WHISPER_BATCH_SIZE);
     }
 
     
