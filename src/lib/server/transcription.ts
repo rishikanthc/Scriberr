@@ -178,9 +178,18 @@ export const transcribeAudio = async (fileId: number, transcribeStream: any) => 
     }
     
     console.log(`Checking if diarization should be enabled: ${fileInfo.diarization}`);
-    // Force enable diarization for testing
-    console.log("FORCING DIARIZATION FLAG ON");
-    args.push('--diarize');
+    if (fileInfo.diarization) {
+      console.log('Diarization is enabled.');
+      args.push('--diarize');
+    } else {
+      console.log('Diarization is disabled.');
+    }
+
+    // Check if WHISPER_BATCH_SIZE is set and add it to the arguments if present
+    if (process.env.WHISPER_BATCH_SIZE) {
+      args.push('--batch_size', process.env.WHISPER_BATCH_SIZE);
+    }
+
     
     // Determine the compute device (CPU or GPU)
     const device = process.env.HARDWARE_ACCEL === 'cuda' ? 'cuda' : 'cpu';

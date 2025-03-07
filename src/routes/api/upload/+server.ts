@@ -15,6 +15,7 @@ import { exec } from 'child_process';
 // Use process.env directly instead of importing from $env modules
 const AUDIO_DIR = process.env.AUDIO_DIR;
 const WORK_DIR = process.env.WORK_DIR;
+const WHISPER_BATCH_SIZE = process.env.WHISPER_BATCH_SIZE || '16';
 
 const execAsync = promisify(exec);
 

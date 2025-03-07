@@ -184,6 +184,7 @@ Changes include:
 - **GPU Not Detected**: Ensure that the NVIDIA Container Toolkit is installed and that Docker is configured correctly.
 - **Permission Issues**: Running Docker commands may require root permissions or being part of the `docker` group.
 - **Diarization Model Download Failure**: Make sure you've entered a valid HuggingFace API key during setup.
+- **CUDA failed with error out of memory**: Ensure that your GPU has enough memory to run the models. You can try reducing the batch size by adding WHISPER_BATCH_SIZE= to your .env file. The default is 16, you can reduce to 8, 4, 2, etc. (Got large-v2 running on a 1.5 hour audio file on a 3070 with 8GB VRAM using batch size of 1. Anything higher and it died.)
 
 Check the logs for more details:
 

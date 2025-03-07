@@ -10,7 +10,7 @@ os.environ["HF_HUB_DISABLE_TELEMETRY"] = "1"
 os.environ["TRUST_REMOTE_CODE"] = "1"
 
 # Use HuggingFace token from environment variable if available
-hf_token = os.environ.get("HUGGINGFACE_TOKEN", "")
+hf_token = os.environ.get("HF_API_KEY", "")
 
 def main():
     parser = argparse.ArgumentParser(
@@ -82,6 +82,12 @@ def main():
         default="pyannote/speaker-diarization-3.1",
         help="Speaker diarization model to use",
     )
+    parser.add_argument(
+        "--batch_size",
+        type=int,
+        default=16,
+        help="Batch size for inference",
+    )
     args = parser.parse_args()
 
     # 1. Load the WhisperX model
@@ -97,7 +103,7 @@ def main():
     audio = whisperx.load_audio(args.audio_file)
 
     # 3. Transcribe
-    result = model.transcribe(audio, batch_size=16, print_progress=True)
+    result = model.transcribe(audio, batch_size=args.batch_size, print_progress=True)
     # result is a dictionary with keys like "segments", "language", etc.
 
     # 4. Optionally align the segments
@@ -123,19 +129,14 @@ def main():
     if args.diarize:
         try:
             print(f"Diarization requested for {args.audio_file}")
-            
-            # Save the transcript to a temporary file for diarization
             with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as temp_transcript:
                 json.dump(result, temp_transcript)
                 transcript_path = temp_transcript.name
-            
-            # Create a temporary file for the diarized output
+
             with tempfile.NamedTemporaryFile(suffix='.json', delete=False) as temp_output:
                 output_path = temp_output.name
-            
-            print(f"Running separate diarization process")
-            
-            # Build the command for the diarize.py script
+
+            print(f"Running diarization: python diarize.py --audio-file {args.audio_file} --transcript-file {transcript_path}")
             diarize_cmd = [
                 "python", "diarize.py",
                 "--audio-file", args.audio_file,
@@ -144,38 +145,35 @@ def main():
                 "--device", args.device,
                 "--diarization-model", args.diarization_model
             ]
-            
-            # Run the diarize.py script as a subprocess
+
             diarize_process = subprocess.run(diarize_cmd, check=True)
-            print(f"Diarization process completed with return code: {diarize_process.returncode}")
-            
-            # Read the diarized output
+            print(f"Diarization completed with return code: {diarize_process.returncode}")
+
             with open(output_path, 'r') as f:
                 diarized_result = json.load(f)
-            
-            # Use the diarized segments in our result
+
             if "segments" in diarized_result:
                 result["segments"] = diarized_result["segments"]
-                print(f"Successfully loaded diarized segments")
-            
-            # Clean up temporary files
+                print(f"Diarized segments loaded: {len(diarized_result['segments'])} segments")
+                if diarized_result["segments"]:
+                    print(f"Sample segment: {diarized_result['segments'][0]}")
+            else:
+                print("No segments found in diarized result")
+
             os.unlink(transcript_path)
             os.unlink(output_path)
-            
+
         except Exception as e:
             print(f"Diarization failed: {str(e)}")
-            # Set speaker labels to 'unknown' on failure
             for segment in result["segments"]:
                 segment["speaker"] = "unknown"
     else:
-        # If diarization not requested, set speakers to blank
         for segment in result["segments"]:
             segment["speaker"] = ""
 
-
-    # 6. Write the result to the output file
     with open(args.output_file, "w", encoding="utf-8") as f:
         json.dump(result, f, indent=2, ensure_ascii=False)
+        print(f"Transcript saved to {args.output_file}")
 
 if __name__ == "__main__":
     main()
