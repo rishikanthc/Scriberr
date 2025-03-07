@@ -82,6 +82,12 @@ def main():
         default="pyannote/speaker-diarization-3.1",
         help="Speaker diarization model to use",
     )
+    parser.add_argument(
+        "--batch_size",
+        type=int,
+        default=16,
+        help="Batch size for inference",
+    )
     args = parser.parse_args()
 
     # 1. Load the WhisperX model
