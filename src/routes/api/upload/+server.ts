@@ -94,7 +94,12 @@ export const POST: RequestHandler = async ({ request, locals}) => {
             threads: 4,
             processors: 1
         };
-        
+
+        // Convert diarization to a Boolean
+        options.diarization = Boolean(options.diarization);
+
+        console.log("Diarization setting:", options.diarization);
+
         if (!file) {
             throw error(400, 'No file uploaded');
         }
@@ -153,9 +158,6 @@ export const POST: RequestHandler = async ({ request, locals}) => {
             // Queue transcription job for worker
             await queueTranscriptionJob(audioFile.id, options);
             console.log('Queued job:', { audioFile });
-            
-            // START TRANSCRIPTION IMMEDIATELY - don't wait for the worker
-            console.log(`Starting transcription immediately for file ID: ${audioFile.id}`);
             
             // Fire and forget - start transcription in the background
             setTimeout(async () => {
