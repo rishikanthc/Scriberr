@@ -89,14 +89,29 @@ def main():
     )
     args = parser.parse_args()
 
-    # 1. Load the WhisperX model
-    model = whisperx.load_model(
-        args.model_size,
-        device=args.device,
-        compute_type=args.compute_type,
-        language=args.language,  # if None, Whisper will attempt language detection
-        download_root=args.models_dir  # Specify the download directory
-    )
+    # 1. Load the WhisperX model with fallback for compute_type
+    try:
+        model = whisperx.load_model(
+            args.model_size,
+            device=args.device,
+            compute_type=args.compute_type,
+            language=args.language,  # if None, Whisper will attempt language detection
+            download_root=args.models_dir  # Specify the download directory
+        )
+    except ValueError as e:
+        if "float16 compute type" in str(e) and args.compute_type == "float16":
+            print(f"Warning: {e}")
+            print("Trying with float32 compute type instead...")
+            model = whisperx.load_model(
+                args.model_size,
+                device=args.device,
+                compute_type="float32",
+                language=args.language,
+                download_root=args.models_dir
+            )
+        else:
+            # Re-raise if it's not the float16 issue or fallback also fails
+            raise
 
     # 2. Load audio
     audio = whisperx.load_audio(args.audio_file)
