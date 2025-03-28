@@ -142,6 +142,25 @@ def main():
     # 5. Optionally perform diarization
     if args.diarize:
         try:
+            # Clear memory before diarization if using CUDA
+            if args.device == "cuda":
+                try:
+                    import torch
+                    # Release model from memory to free CUDA memory
+                    del model
+                    # If alignment was used, also clear that model
+                    if args.align:
+                        del model_a
+                        del metadata
+                    # Explicit garbage collection
+                    import gc
+                    gc.collect()
+                    # Clear CUDA cache
+                    torch.cuda.empty_cache()
+                    print("Cleared model from memory before diarization")
+                except (ImportError, NameError) as e:
+                    print(f"Could not fully clear memory: {e}")
+
             diarized_result = diarize_transcript(args.audio_file, result, args.device, args.diarization_model)
             result["segments"] = diarized_result["segments"]
         except Exception as e:
