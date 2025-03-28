@@ -1,14 +1,19 @@
 name: Nightly Docker Build
 
 on:
-  push:
+  pull_request:
+    types: [closed]
     branches:
-      - nightly  # Only trigger on pushes to the nightly branch
+      - nightly
 
 jobs:
   docker:
+    if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
       - name: Delete huge unnecessary tools folder
         run: rm -rf /opt/hostedtoolcache
 
@@ -25,7 +30,7 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push scriberr:nightly Docker image
+      - name: Build and push CPU nightly image
         uses: docker/build-push-action@v6
         with:
           platforms: linux/amd64,linux/arm64
@@ -34,6 +39,6 @@ jobs:
           tags: |
             ghcr.io/rishikanthc/scriberr:nightly
 
-      - name: Verify multi-platform image for scriberr:nightly
+      - name: Verify multi-platform image
         run: |
           docker buildx imagetools inspect ghcr.io/rishikanthc/scriberr:nightly
