@@ -198,8 +198,19 @@ export const transcribeAudio = async (fileId: number, transcribeStream: any) => 
     args.push('--device', device);
     
     // Compute type based on device
+    // For CUDA devices, try float16 by default but the Python script has fallback to float32
+    // For CPU devices, use int8 which is more efficient
     const computeType = device === 'cuda' ? 'float16' : 'int8';
-    args.push('--compute-type', computeType);
+    
+    // Check if WHISPER_COMPUTE_TYPE environment variable is set to override the default
+    const envComputeType = process.env.WHISPER_COMPUTE_TYPE;
+    if (envComputeType) {
+      console.log(`Using compute type from environment: ${envComputeType}`);
+      args.push('--compute-type', envComputeType);
+    } else {
+      console.log(`Using default compute type: ${computeType}`);
+      args.push('--compute-type', computeType);
+    }
     
     console.log('Executing Python with args:', args);
     
