@@ -1,6 +1,15 @@
 import argparse
 import json
+import os
 import whisperx
+from diarize import diarize_transcript
+
+# Configure environment variables for HuggingFace
+os.environ["HF_HUB_DISABLE_TELEMETRY"] = "1"
+os.environ["TRUST_REMOTE_CODE"] = "1"
+
+# Use HuggingFace token from environment variable if available
+hf_token = os.environ.get("HF_API_KEY", "")
 
 def main():
     parser = argparse.ArgumentParser(
@@ -61,17 +70,22 @@ def main():
         help="number of threads used by torch for CPU inference",
     )
     parser.add_argument(
-        "--HF_TOKEN",
+        "--models-dir",
         type=str,
-        required=False,
-        default=None,
-        help="HuggingFace token, necessary for diarization",
+        default="/scriberr/models",
+        help="Directory where models are stored and cached",
     )
     parser.add_argument(
         "--diarization-model",
         type=str,
-        default="pyannote/speaker-diarization",
+        default="pyannote/speaker-diarization-3.1",
         help="Speaker diarization model to use",
+    )
+    parser.add_argument(
+        "--batch_size",
+        type=int,
+        default=16,
+        help="Batch size for inference",
     )
     args = parser.parse_args()
 
@@ -81,20 +95,23 @@ def main():
         device=args.device,
         compute_type=args.compute_type,
         language=args.language,  # if None, Whisper will attempt language detection
+        download_root=args.models_dir  # Specify the download directory
     )
 
     # 2. Load audio
     audio = whisperx.load_audio(args.audio_file)
 
     # 3. Transcribe
-    result = model.transcribe(audio, batch_size=16, print_progress=True)
+    result = model.transcribe(audio, batch_size=args.batch_size, print_progress=True)
     # result is a dictionary with keys like "segments", "language", etc.
 
     # 4. Optionally align the segments
     if args.align:
         # load alignment model
         model_a, metadata = whisperx.load_align_model(
-            language_code=result["language"], device=args.device
+            language_code=result["language"], 
+            device=args.device,
+            model_dir=args.models_dir  # Specify the model directory
         )
         aligned_result = whisperx.align(
             result["segments"],
@@ -109,32 +126,21 @@ def main():
 
     # 5. Optionally perform diarization
     if args.diarize:
-        if args.HF_TOKEN:
-            # load diarization pipeline
-            diarize_model = whisperx.DiarizationPipeline(
-                model_name=args.diarization_model,
-                use_auth_token=args.HF_TOKEN,
-                device=args.device,
-            )
-            # run diarization
-            diarize_segments = diarize_model(audio)
-            # assign speaker labels
-            diarized_result = whisperx.assign_word_speakers(diarize_segments, result)
+        try:
+            diarized_result = diarize_transcript(args.audio_file, result, args.device, args.diarization_model)
             result["segments"] = diarized_result["segments"]
-        else:
-            print("Hugging Face token not provided. Diarization will not be performed.")
-            # Optionally set speaker labels to 'unknown'
-            #for segment in result["segments"]:
-                #segment["speaker"] = "unknown"
+        except Exception as e:
+            print(f"Diarization failed: {e}")
+            # If diarization fails, we can still save the transcript without speaker labels
+            for segment in result["segments"]:
+                segment["speaker"] = ""
     else:
-        # If diarization not requested, set speakers to blank
         for segment in result["segments"]:
             segment["speaker"] = ""
 
-
-    # 6. Write the result to the output file
     with open(args.output_file, "w", encoding="utf-8") as f:
         json.dump(result, f, indent=2, ensure_ascii=False)
+        print(f"Transcript saved to {args.output_file}")
 
 if __name__ == "__main__":
     main()

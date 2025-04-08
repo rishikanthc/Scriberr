@@ -1,6 +1,7 @@
 .dockerdata
 docker-compose.ollama.yaml
 Dockerfile
+Dockerfile-cuda128
 install_audiowaveform.sh
 samples
 scriberr_files
@@ -8,4 +9,7 @@ scriberr
 install_aw.sh
 .prettier*
 venv
-
+node_modules
+*.env
+.venv
+.aider.*

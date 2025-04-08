@@ -4,12 +4,12 @@ services:
   app:
     build:
       context: .
-      dockerfile: Dockerfile-gpu
+      dockerfile: Dockerfile-cuda128
     # You can find your architecture by running: nvidia-smi if on linux
     # You can find your architecture by running: system_profiler SPDisplaysDataType if on mac
     # You can find your architecture by running: wmic path win32_videocontroller get name if on windows
     # You will need to change the image to match your architecture, E.G. "main-cuda-11"
-    image: ghcr.io/rishikanthc/scriberr:main-cuda-11
+    image: ghcr.io/rishikanthc/scriberr:${IMAGE_TAG:-main-gpu}
     deploy:
       resources:
         reservations:

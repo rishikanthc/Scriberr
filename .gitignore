@@ -21,3 +21,6 @@ vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 
 .dockerdata
+.aider*
+.env
+.env
