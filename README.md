@@ -9,8 +9,8 @@ Scriberr is a self-hostable AI audio transcription app. It leverages the open-so
 
 ### Build Status
 **Main Branch:**
-[![Main Docker](https://github.com/rishikanthc/Scriberr/actions/workflows/main-docker.yml/badge.svg)](https://github.com/rishikanthc/Scriberr/actions/workflows/main-docker.yml)
-[![Main CUDA Docker](https://github.com/rishikanthc/Scriberr/actions/workflows/main-cuda-docker.yml/badge.svg)](https://github.com/rishikanthc/Scriberr/actions/workflows/main-cuda-docker.yml)
+[![Main Docker](https://github.com/rishikanthc/Scriberr/actions/workflows/Main_Docker_Build.yml/badge.svg)](https://github.com/rishikanthc/Scriberr/actions/workflows/Main_Docker_Build.yml)
+[![Main CUDA Docker](https://github.com/rishikanthc/Scriberr/actions/workflows/Main_CUDA_Docker_Build.yml/badge.svg)](https://github.com/rishikanthc/Scriberr/actions/workflows/Main_CUDA_Docker_Build.yml)
 
 **Nightly Branch:**
 [![Nightly Docker](https://github.com/rishikanthc/Scriberr/actions/workflows/nightly-docker.yml/badge.svg)](https://github.com/rishikanthc/Scriberr/actions/workflows/nightly-docker.yml)
