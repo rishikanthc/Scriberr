@@ -5,16 +5,14 @@ Scriberr is a self-hostable AI audio transcription app. It leverages the open-so
 
 **Note**: This app is under active development, and this release includes **breaking changes**. You will lose your old data. Please read the installation instructions carefully.
 
-** DIARIZATION UPDATE **: Diarization is under heavy development and will be disabled until an appropriate implementation is able to be handled. Currently it does not perform to expectation and is being disabled. Hoping to have this released as a full feature in 0.5.0.
-
 ### Build Status
 **Main Branch:**
-[![Main Docker](https://github.com/rishikanthc/Scriberr/actions/workflows/Main_Docker_Build.yml/badge.svg)](https://github.com/rishikanthc/Scriberr/actions/workflows/Main_Docker_Build.yml)
-[![Main CUDA Docker](https://github.com/rishikanthc/Scriberr/actions/workflows/Main_CUDA_Docker_Build.yml/badge.svg)](https://github.com/rishikanthc/Scriberr/actions/workflows/Main_CUDA_Docker_Build.yml)
+[![Main Docker](https://github.com/rishikanthc/Scriberr/actions/workflows/Main%20Docker%20Build.yml/badge.svg)](https://github.com/rishikanthc/Scriberr/actions/workflows/Main%20Docker%20Build.yml)
+[![Main CUDA Docker](https://github.com/rishikanthc/Scriberr/actions/workflows/Main%20Cuda%20Docker%20Build.yml/badge.svg)](https://github.com/rishikanthc/Scriberr/actions/workflows/Main%20Cuda%20Docker%20Build.yml)
 
 **Nightly Branch:**
-[![Nightly Docker](https://github.com/rishikanthc/Scriberr/actions/workflows/nightly-docker.yml/badge.svg)](https://github.com/rishikanthc/Scriberr/actions/workflows/nightly-docker.yml)
-[![Nightly CUDA Docker](https://github.com/rishikanthc/Scriberr/actions/workflows/nightly-cuda-docker.yml/badge.svg)](https://github.com/rishikanthc/Scriberr/actions/workflows/nightly-cuda-docker.yml)
+[![Nightly Docker](https://github.com/rishikanthc/Scriberr/actions/workflows/Nightly%20Docker%20Build.yml/badge.svg)](https://github.com/rishikanthc/Scriberr/actions/workflows/Nightly%20Docker%20Build.yml)
+[![Nightly CUDA Docker](https://github.com/rishikanthc/Scriberr/actions/workflows/Nightly%20Cuda%20Docker%20Build.yml/badge.svg)](https://github.com/rishikanthc/Scriberr/actions/workflows/Nightly%20Cuda%20Docker%20Build.yml)
 
 ## Table of Contents
 
@@ -158,14 +156,23 @@ The application can be customized using the following environment variables in y
 
 #### Speaker Diarization Setup
 
-Scriberr uses the PyAnnote speaker diarization model from HuggingFace, which requires an API key for download. During the initial setup process:
+##### Required Models
+The application requires access to the following Hugging Face models:
 
-1. Create a free account at [HuggingFace](https://huggingface.co/)
-2. Generate an API token at https://huggingface.co/settings/tokens
-3. Enter this token in the setup wizard when prompted
-4. The token is only used during initial setup and is not stored permanently
+* pyannote/speaker-diarization-3.1
+* pyannote/segmentation-3.0
+###### Setup Steps
+1. Create a free account at HuggingFace if you don’t already have one.
+2. Generate an API token at HuggingFace Tokens.
+3. Accept user conditions for the required models on Hugging Face:
+    - Visit pyannote/speaker-diarization-3.1 and accept the conditions.
+    - Visit pyannote/segmentation-3.0 and accept the conditions.
+4. Enter the API token in the setup wizard when prompted. The token is only used during initial setup and is not stored permanently.
+Storage and Usage
 
-The diarization model is downloaded once and stored locally, so you won't need to provide the API key again after setup.
+
+The diarization models are downloaded once and stored locally, so you won’t need to provide the API key again after the initial setup.
+
 
 ### Updating from Previous Versions
 
