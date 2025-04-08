@@ -248,6 +248,12 @@
 							Required for diarization model download. Get your free API key at 
 							<a href="https://huggingface.co/settings/tokens" class="text-blue-600 hover:underline" target="_blank" rel="noopener noreferrer">huggingface.co/settings/tokens</a>
 						</p>
+							<div class="rounded-md bg-amber-800/20 p-2 text-xs text-amber-400 mb-2">
+							<p>
+								<strong>Warning:</strong> This input field is not fully implemented yet. Please add your HuggingFace token to the <code>HF_API_KEY</code> 
+								environment variable in your <code>.env</code> file instead.
+							</p>
+							</div>
 						<Input
 							id="hf-api-key"
 							name="hfApiKey"

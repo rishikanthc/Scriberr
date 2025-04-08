@@ -1,14 +1,16 @@
 name: Main Docker Build
 
 on:
-  push:
-    branches:
-      - main  # Only trigger on pushes to the main branch
+  release:
+    types: [published]
 
 jobs:
   docker:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
       - name: Delete huge unnecessary tools folder
         run: rm -rf /opt/hostedtoolcache
 
@@ -24,17 +26,24 @@ jobs:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: Extract version from tag
+        id: version
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
 
-      - name: Build and push scriberr:main Docker image
+      - name: Build and push CPU Docker image
         uses: docker/build-push-action@v6
         with:
           platforms: linux/amd64,linux/arm64
           push: true
           file: ./Dockerfile
           tags: |
-            ghcr.io/rishikanthc/scriberr:main
+            ghcr.io/rishikanthc/scriberr:${{ steps.version.outputs.version }}
+            ghcr.io/rishikanthc/scriberr:latest
 
-
-      - name: Verify multi-platform image for scriberr:main
+      - name: Verify multi-platform image
         run: |
+          docker buildx imagetools inspect ghcr.io/rishikanthc/scriberr:${{ steps.version.outputs.version }}
           docker buildx imagetools inspect ghcr.io/rishikanthc/scriberr:latest
