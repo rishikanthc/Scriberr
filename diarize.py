@@ -22,6 +22,20 @@ def diarize_transcript(audio_file, transcript, device="cpu", model_name="pyannot
         dict: Transcript with segments split by individual speakers.
     """
     try:
+        # Clear CUDA cache before loading diarization model
+        if device == "cuda":
+            try:
+                import torch
+                torch.cuda.empty_cache()
+                print("Cleared CUDA cache before diarization")
+                
+                # Set memory management for PyTorch
+                if os.environ.get("PYTORCH_CUDA_ALLOC_CONF") is None:
+                    os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
+                    print("Set PYTORCH_CUDA_ALLOC_CONF to expandable_segments:True")
+            except ImportError:
+                print("Could not import torch for CUDA memory management")
+        
         print(f"Loading diarization model: {model_name}")
         diarize_model = whisperx.DiarizationPipeline(
             model_name=model_name,
@@ -90,6 +104,22 @@ def diarize_transcript(audio_file, transcript, device="cpu", model_name="pyannot
 
         # Step 5: Return the new segments
         print(f"Created {len(new_segments)} speaker-specific segments")
+        
+        # Clear memory after processing
+        if device == "cuda":
+            try:
+                import torch
+                # Delete model to free memory
+                del diarize_model
+                # Explicit garbage collection
+                import gc
+                gc.collect()
+                # Clear CUDA cache again
+                torch.cuda.empty_cache()
+                print("Cleared memory after diarization")
+            except ImportError:
+                pass
+                
         return {"segments": new_segments}
 
     except Exception as e:

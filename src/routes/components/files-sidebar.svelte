@@ -15,8 +15,7 @@
 	import { setContext } from 'svelte';
 	import UploadPanel from './UploadPanel.svelte';
 
-	let { showAudioRec = $bindable() } = $props();
-	let showUpload = $state(false);
+	let { showAudioRec = $bindable(), selectedFileId = $bindable(), showUpload = $bindable() } = $props();
 	let showSettings = $state(false);
 
 	interface AudioFile {
@@ -34,7 +33,7 @@
 		lastError?: string;
 	}
 
-	let selectedFileId = $state<number | null>(null);
+	// selectedFileId is now a prop
 	let isLoading = $state(true);
 	let isFileOpen = $state(false);
 	let refreshInterval: ReturnType<typeof setInterval>;
@@ -137,12 +136,7 @@
 	});
 </script>
 
-<Card.Root
-	class="mx-auto rounded-xl border-none bg-neutral-400/15 p-4 shadow-lg backdrop-blur-xl 2xl:w-[500px] {showUpload ||
-	selectedFileId
-		? 'pointer-events-none opacity-0'
-		: 'opacity-100'}"
->
+<Card.Root class="mx-auto rounded-xl border-none bg-neutral-400/15 p-4 shadow-lg backdrop-blur-xl w-full {showUpload ? 'pointer-events-none opacity-0' : 'opacity-100'}">
 	<Card.Content class="p-2">
 		<div class="w-full rounded-md">
 			{#if isLoading}
@@ -171,9 +165,7 @@
 						<Button
 							variant="secondary"
 							size="sm"
-							onclick={() => {
-								showUpload = true;
-							}}
+							onclick={handleUploadClick}
 						>
 							<div>Upload</div>
 							<Upload size={16} class="mr-1 text-blue-500" />
@@ -181,7 +173,7 @@
 					</div>
 				</div>
 				<div
-					class="{showAudioRec ? 'h-[54svh]' : 'h-[65svh]'}  {showSettings
+					class="{showAudioRec ? 'h-[54svh]' : 'h-[65svh]'} {showSettings
 						? 'opacity-0'
 						: 'opacity-100'} divide-y divide-neutral-500/15 overflow-y-scroll"
 				>
@@ -189,7 +181,7 @@
 						<button
 							type="button"
 							class="w-full cursor-pointer rounded-md p-3 text-left transition-colors hover:bg-neutral-400/30
-                  "
+                  {selectedFileId === file.id ? 'bg-neutral-400/30' : ''}"
 							onclick={() => handleFileClick(file)}
 						>
 							<ContextMenu.Root>
@@ -224,53 +216,3 @@
 		</div>
 	</Card.Content>
 </Card.Root>
-
-{#if showUpload}
-	<UploadPanel bind:showUpload />
-{/if}
-
-{#if selectedFileId}
-	<div
-		class="fixed left-1/2 top-10 z-[9999] mx-auto mt-8 max-h-[95svh] w-[95svw] -translate-x-1/2 rounded-xl border border-neutral-300/30 bg-neutral-400/15 p-6 shadow-lg backdrop-blur-xl 2xl:w-[784px]"
-	>
-		<div class="relative mt-2 rounded-lg lg:max-w-[784px] lg:p-0">
-			<div class="flex items-center justify-between">
-				<h3 class="font-bold text-gray-50">
-					{selectedFile.title || selectedFile.fileName}
-				</h3>
-				<Button
-					variant="ghost"
-					size="icon"
-					class="text-300 hover:bg-neutral-400/30"
-					onclick={() => {
-						selectedFileId = null;
-						isFileOpen = false;
-					}}
-				>
-					<CircleX class="h-5 w-5 text-gray-300" />
-				</Button>
-			</div>
-			<div class="my-2 mb-4 flex items-center gap-6">
-				<div class="flex items-center gap-2">
-					<Clock class="h-4 w-4 text-gray-300" />
-					<span class="text-xs text-gray-300 lg:text-sm">
-						Uploaded: {new Date(selectedFile.uploadedAt).toLocaleString()}
-					</span>
-				</div>
-
-				{#if selectedFile.transcriptionStatus}
-					<div class="flex items-center gap-2">
-						<svelte:component this={getStatusIcon(selectedFile.transcriptionStatus)} class="h-4 w-4 text-gray-300" />
-						<span class="text-xs text-gray-300 lg:text-sm">
-							Status: {selectedFile.transcriptionStatus}
-							{#if selectedFile.transcriptionStatus === 'failed' && selectedFile.lastError}
-								- {selectedFile.lastError}
-							{/if}
-						</span>
-					</div>
-				{/if}
-			</div>
-			<FilePanel file={selectedFile} bind:isOpen={isFileOpen} />
-		</div>
-	</div>
-{/if}
