@@ -1,6 +1,3 @@
-# Docker Compose file for deploying Scriberr with a PostgreSQL database
-# Make sure a .env file is present in the same directory that this is being run from:
-
 services:
   app:
     image: ghcr.io/rishikanthc/scriberr:${IMAGE_TAG:-main}
@@ -9,27 +6,13 @@ services:
       platforms:
         - linux/arm64
         - linux/amd64
-      args: # Build-time variables
-        - DATABASE_URL=postgres://root:mysecretpassword@db:5432/local
-        - ADMIN_USERNAME=admin
-        - ADMIN_PASSWORD=password
-        - AI_MODEL="gpt-4o-mini"
-        - OLLAMA_BASE_URL=""
-        - MODELS_DIR="/scriberr/models"
-        - WORK_DIR="/scriberr/temp"
-        - AUDIO_DIR="/scriberr/uploads"
-        - OPENAI_API_KEY=""
-        - BODY_SIZE_LIMIT=100M
+      # No args needed as environment variables are passed at runtime
     env_file:
-      # Specify your .env file here
       - .env
     ports:
       - "${PORT:-3000}:3000"
     volumes:
-      # Comment out the following line if you want to use a local directory for Scriberr data storage
       - scriberr_data:/scriberr
-      # Uncomment the following line if you want to use a local directory for data storage
-      #- /path/to/scriberr_data:/scriberr
     networks:
       - app-network
     depends_on:
@@ -43,13 +26,10 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
-    ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+    #ports:
+     # - "${POSTGRES_PORT:-5432}:5432"
     volumes:
-      # Comment out the following line if you want to use a local directory for PostgreSQL data storage
       - postgres_data:/var/lib/postgresql/data
-      # Uncomment the following line if you want to use a local directory for data storage
-      #- /path/to/postgres_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U root -d local"]
       interval: 5s
@@ -63,8 +43,6 @@ networks:
   app-network:
     driver: bridge
 
-# Comment out the following lines if you want to use a local directory for data storage
 volumes:
   postgres_data:
   scriberr_data:
-

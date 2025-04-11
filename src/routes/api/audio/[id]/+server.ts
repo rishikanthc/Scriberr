@@ -6,61 +6,95 @@ import { db } from '$lib/server/db';
 import { audioFiles } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
 import { requireAuth } from '$lib/server/auth';
-import { AUDIO_DIR, WORK_DIR } from '$env/static/private'; 
 
-export const GET: RequestHandler = async ({ params, locals, request }) => {
+// Use process.env directly instead of importing from $env modules
+const AUDIO_DIR = process.env.AUDIO_DIR;
+const WORK_DIR = process.env.WORK_DIR;
+
+export const GET: RequestHandler = async ({ params, locals, request, url }) => {
     console.log("AUDIO REQ --->")
     await requireAuth(locals);
     console.log("AUDIO REQ ---> AUTH DONE")
     try {
         const id = parseInt(params.id);
-        if (isNaN(id)) {
-            throw error(400, 'Invalid file ID');
-        }
+        if (isNaN(id)) throw error(400, 'Invalid file ID');
 
-        const [file] = await db
+        // Get the file info from the database
+        const file = await db
             .select()
             .from(audioFiles)
-            .where(eq(audioFiles.id, id));
+            .where(eq(audioFiles.id, id))
+            .then(rows => rows[0]);
 
-        if (!file) {
-            throw error(404, 'File not found');
-        }
+        if (!file) throw error(404, 'File not found');
 
-        const filePath = join(AUDIO_DIR, file.fileName);
+        // Determine which file to serve (original or transcoded)
+        const useOriginal = url.searchParams.has('original');
+        const fileName = useOriginal ? file.originalFileName : file.fileName;
+
+        // Determine audio directory
+        let audioDirectory = AUDIO_DIR || join(process.cwd(), 'uploads');
+
+        // Build the full path to the audio file
+        const filePath = join(audioDirectory, fileName);
+
+        // Get file stats
         const stats = statSync(filePath);
+
+        // Determine content type based on file extension
+        const fileExt = fileName.split('.').pop()?.toLowerCase();
+        let contentType = 'audio/mpeg'; // Default
         
-        // Handle range requests for better streaming
+        if (fileExt === 'wav') contentType = 'audio/wav';
+        else if (fileExt === 'ogg') contentType = 'audio/ogg';
+        else if (fileExt === 'flac') contentType = 'audio/flac';
+        else if (fileExt === 'm4a') contentType = 'audio/mp4';
+        else if (fileExt === 'mp3') contentType = 'audio/mpeg';
+        
+        // Support range requests for seeking
         const range = request.headers.get('range');
+        
         if (range) {
             const parts = range.replace(/bytes=/, '').split('-');
             const start = parseInt(parts[0], 10);
-            const end = parts[1] ? parseInt(parts[1], 10) : stats.size - 1;
-            const chunkSize = (end - start) + 1;
+            let end = parts[1] ? parseInt(parts[1], 10) : stats.size - 1;
+            
+            // Prevent oversized chunks
+            const CHUNK_SIZE = 1024 * 1024; // 1MB
+            if (end - start >= CHUNK_SIZE) {
+                end = start + CHUNK_SIZE - 1;
+            }
+            
+            const contentLength = end - start + 1;
+            console.log("Serving audio range:", { start, end, contentLength });
+            
+            // Create read stream for the specific range
             const stream = createReadStream(filePath, { start, end });
             
-            const headers = new Headers({
-                'Content-Type': 'audio/mpeg', // or the correct mime type for your audio
-                'Content-Length': chunkSize.toString(),
+            const headers = {
+                'Content-Type': contentType,
+                'Content-Length': contentLength.toString(),
                 'Content-Range': `bytes ${start}-${end}/${stats.size}`,
                 'Accept-Ranges': 'bytes',
                 'Cache-Control': 'public, max-age=3600',
-            });
+            };
             
             return new Response(stream, { 
-                status: 206,
-                headers 
+                status: 206, 
+                headers
             });
         }
-
-        // Non-range request - send entire file
+        
+        // Serve the entire file
+        console.log("Serving full audio file:", filePath);
         const stream = createReadStream(filePath);
-        const headers = new Headers({
-            'Content-Type': 'audio/mpeg', // or the correct mime type for your audio
+        
+        const headers = {
+            'Content-Type': contentType,
             'Content-Length': stats.size.toString(),
             'Accept-Ranges': 'bytes',
             'Cache-Control': 'public, max-age=3600',
-        });
+        };
 
         return new Response(stream, { headers });
     } catch (err) {

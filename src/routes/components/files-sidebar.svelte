@@ -3,7 +3,7 @@
 	import { toast } from 'svelte-sonner';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import AudioRec from './AudioRec.svelte';
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import { browser } from '$app/environment';
 	import * as Sheet from '$lib/components/ui/sheet';
 	import { Button } from '$lib/components/ui/button';
@@ -15,8 +15,7 @@
 	import { setContext } from 'svelte';
 	import UploadPanel from './UploadPanel.svelte';
 
-	let { showAudioRec = $bindable() } = $props();
-	let showUpload = $state(false);
+	let { showAudioRec = $bindable(), selectedFileId = $bindable(), showUpload = $bindable() } = $props();
 	let showSettings = $state(false);
 
 	interface AudioFile {
@@ -34,9 +33,10 @@
 		lastError?: string;
 	}
 
-	let selectedFileId = $state<number | null>(null);
+	// selectedFileId is now a prop
 	let isLoading = $state(true);
 	let isFileOpen = $state(false);
+	let refreshInterval: ReturnType<typeof setInterval>;
 
 	// Subscribe to the store value
 	let files = $derived($audioFiles);
@@ -113,15 +113,30 @@
 		if (window.Capacitor?.isNative) {
 			height = 'h-[55svh]';
 		}
+		
+		// Setup auto-refresh for file list
+		refreshInterval = setInterval(async () => {
+			// Only refresh if we're not in a detail view and looking at the file list
+			if (!selectedFileId && !showUpload) {
+				console.log('Auto-refreshing file list...');
+				try {
+					await audioFiles.refresh();
+				} catch (error) {
+					console.error('Auto-refresh failed:', error);
+				}
+			}
+		}, 5000); // Check every 5 seconds
+	});
+	
+	// Clean up on component destroy
+	onDestroy(() => {
+		if (refreshInterval) {
+			clearInterval(refreshInterval);
+		}
 	});
 </script>
 
-<Card.Root
-	class="mx-auto rounded-xl border-none bg-neutral-400/15 p-4 shadow-lg backdrop-blur-xl 2xl:w-[500px] {showUpload ||
-	selectedFileId
-		? 'pointer-events-none opacity-0'
-		: 'opacity-100'}"
->
+<Card.Root class="mx-auto rounded-xl border-none bg-neutral-400/15 p-4 shadow-lg backdrop-blur-xl w-full {showUpload ? 'pointer-events-none opacity-0' : 'opacity-100'}">
 	<Card.Content class="p-2">
 		<div class="w-full rounded-md">
 			{#if isLoading}
@@ -129,11 +144,11 @@
 					<div class="flex gap-1">
 						<div
 							class="h-1.5 w-1.5 animate-bounce rounded-full bg-gray-400 [animation-delay:-0.3s]"
-						/>
+						></div>
 						<div
 							class="h-1.5 w-1.5 animate-bounce rounded-full bg-gray-400 [animation-delay:-0.15s]"
-						/>
-						<div class="h-1.5 w-1.5 animate-bounce rounded-full bg-gray-400" />
+						></div>
+						<div class="h-1.5 w-1.5 animate-bounce rounded-full bg-gray-400"></div>
 					</div>
 				</div>
 			{:else}
@@ -150,9 +165,7 @@
 						<Button
 							variant="secondary"
 							size="sm"
-							onclick={() => {
-								showUpload = true;
-							}}
+							onclick={handleUploadClick}
 						>
 							<div>Upload</div>
 							<Upload size={16} class="mr-1 text-blue-500" />
@@ -160,7 +173,7 @@
 					</div>
 				</div>
 				<div
-					class="{showAudioRec ? 'h-[54svh]' : 'h-[65svh]'}  {showSettings
+					class="{showAudioRec ? 'h-[54svh]' : 'h-[65svh]'} {showSettings
 						? 'opacity-0'
 						: 'opacity-100'} divide-y divide-neutral-500/15 overflow-y-scroll"
 				>
@@ -168,7 +181,7 @@
 						<button
 							type="button"
 							class="w-full cursor-pointer rounded-md p-3 text-left transition-colors hover:bg-neutral-400/30
-                  "
+                  {selectedFileId === file.id ? 'bg-neutral-400/30' : ''}"
 							onclick={() => handleFileClick(file)}
 						>
 							<ContextMenu.Root>
@@ -203,54 +216,3 @@
 		</div>
 	</Card.Content>
 </Card.Root>
-
-{#if showUpload}
-	<UploadPanel bind:showUpload />
-{/if}
-
-{#if selectedFileId}
-	<div
-		class="fixed left-1/2 top-10 z-[9999] mx-auto mt-8 max-h-[95svh] w-[95svw] -translate-x-1/2 rounded-xl border border-neutral-300/30 bg-neutral-400/15 p-6 shadow-lg backdrop-blur-xl 2xl:w-[784px]"
-	>
-		<div class="relative mt-2 rounded-lg lg:max-w-[784px] lg:p-0">
-			<div class="flex items-center justify-between">
-				<h3 class="font-bold text-gray-50">
-					{selectedFile.title || selectedFile.fileName}
-				</h3>
-				<Button
-					variant="ghost"
-					size="icon"
-					class="text-300 hover:bg-neutral-400/30"
-					onclick={() => {
-						selectedFileId = null;
-						isFileOpen = false;
-					}}
-				>
-					<CircleX class="h-5 w-5 text-gray-300" />
-				</Button>
-			</div>
-			<div class="my-2 mb-4 flex items-center gap-6">
-				<div class="flex items-center gap-2">
-					<Clock class="h-4 w-4 text-gray-300" />
-					<span class="text-xs text-gray-300 lg:text-sm">
-						Uploaded: {new Date(selectedFile.uploadedAt).toLocaleString()}
-					</span>
-				</div>
-
-				<div class="flex items-center gap-2">
-					<svelte:component
-						this={getStatusIcon(selectedFile.transcriptionStatus)}
-						class="h-4 w-4 text-gray-300"
-					/>
-					<span class="text-xs text-gray-300 lg:text-sm">
-						Status: {selectedFile.transcriptionStatus}
-						{#if selectedFile.transcriptionStatus === 'failed' && selectedFile.lastError}
-							- {selectedFile.lastError}
-						{/if}
-					</span>
-				</div>
-			</div>
-			<FilePanel file={selectedFile} bind:isOpen={isFileOpen} />
-		</div>
-	</div>
-{/if}

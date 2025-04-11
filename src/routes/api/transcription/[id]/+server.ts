@@ -22,11 +22,24 @@ export const GET: RequestHandler = async ({ params, locals }) => {
     throw error(404, 'File not found');
   }
 
+  // Parse transcript if it's a string
+  let transcript = audioFile.transcript;
+  try {
+    if (typeof transcript === 'string') {
+      transcript = JSON.parse(transcript);
+    }
+  } catch (e) {
+    console.error('Failed to parse transcript:', e);
+    transcript = [];
+  }
+
   return new Response(JSON.stringify({
     id: audioFile.id,
     fileName: audioFile.fileName,
+    originalFileName: audioFile.originalFileName,
+    originalFileType: audioFile.originalFileType,
     status: audioFile.transcriptionStatus,
-    transcript: audioFile.transcript,
+    transcript: transcript,
     error: audioFile.lastError,
     updatedAt: audioFile.updatedAt
   }), {

@@ -12,15 +12,17 @@
 	import * as Popover from '$lib/components/ui/popover/index.js';
 	import { Input } from '$lib/components/ui/input';
 	import { Button } from '$lib/components/ui/button';
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import { ScrollArea } from '$lib/components/ui/scroll-area';
-	import { ChevronsUpDown, TextQuote, Check, Mic2, Settings } from 'lucide-svelte';
+	import { ChevronsUpDown, TextQuote, Check, Mic2, Settings, BrainCircuit, Star } from 'lucide-svelte';
 	import { toast } from 'svelte-sonner';
 	import { audioFiles } from '$lib/stores/audioFiles';
 	import { speakerLabels } from '$lib/stores/speakerLabels';
 	import { getSpeakerColor } from '$lib/speakerColors';
+	import { processThinkingSections, formatTime } from '$lib/utils';
 	import AudioPlayer from './AudioPlayer.svelte';
 	import SpeakerLabels from './SpeakerLabels.svelte';
+	import ThinkingDisplay from './ThinkingDisplay.svelte';
 	import { serverUrl } from '$lib/stores/config';
 	import type { TranscriptSegment } from '$lib/types';
 
@@ -33,120 +35,118 @@
 		transcript?: TranscriptSegment[];
 		transcriptionStatus: string;
 		diarization?: boolean;
+		summary?: string;
+		originalFileName?: string;
 	}
 
-	// Props definition using $props
 	let { file, isOpen = $bindable() } = $props();
-
-	// Basic state management
+	let audioUrl = $state('');
+	let summary = $state('');
+	let isSummarizing = $state(false);
+	let isGeneratingTitle = $state(false);
+	let selectedTemplateId = $state(null);
+	let selectedTemplate = $state('Select a template...');
 	let isDialogOpen = $state(false);
 	let titleDialogOpen = $state(false);
 	let newTitle = $state('');
-	let error = $state<string | null>(null);
-	let audioUrl = $state('');
-
+	let error = $state(null);
 	let templateOpen = $state(false);
-	let selectedTemplateId = $state('');
-	let triggerRef = $state<HTMLButtonElement>(null!);
+	let triggerRef = null;
+	let showThinkingSections = $state(true);
+	let summaryHasThinking = $derived(Boolean(summary && typeof summary === 'string' && summary.includes('<think>')));
+	let fileSummaryHasThinking = $derived(Boolean(file?.summary && typeof file.summary === 'string' && file.summary.includes('<think>')));
+	let hasThinkingSections = $derived(summaryHasThinking || fileSummaryHasThinking);
 
-	let summary = $state('');
-	let isSummarizing = $state(false);
-
-	const selectedTemplate = $derived(
-		$templates.find((t) => t.id === selectedTemplateId)?.title ?? 'Select a template...'
-	);
-
-	function closeAndFocusTrigger() {
-		templateOpen = false;
-		tick().then(() => {
-			triggerRef?.focus();
-		});
+	function logError(error: any, context: string) {
+		console.error(`${context}:`, error);
+		return error.message || 'An unexpected error occurred';
 	}
 
-	onMount(() => {
-		templates.refresh();
-	});
+	function selectTemplate(templateId: string, templateTitle: string) {
+		console.log("Template selected:", templateTitle, templateId);
+		selectedTemplateId = templateId;
+		selectedTemplate = templateTitle;
+		templateOpen = false;
+	}
+
+	let refreshInterval: ReturnType<typeof setInterval>;
 
 	onMount(async () => {
-		console.log('MOUNTING -->');
 		if (window.Capacitor?.isNative) {
 			audioUrl = get(serverUrl);
-			console.log('IS CAPACITOR -->', audioUrl);
+		}
+		if (file?.id) {
+			try {
+				await speakerLabels.loadLabels(file.id);
+			} catch (err) {
+				console.error("Failed to load speaker labels:", err);
+			}
+			if (file.title) {
+				newTitle = file.title;
+			}
+			refreshInterval = setInterval(async () => {
+				if (file?.id && isOpen) {
+					if (file.transcriptionStatus !== 'completed' && file.transcriptionStatus !== 'failed') {
+						console.log(`Auto-refreshing file ${file.id} details while viewing`);
+						await audioFiles.refresh();
+					} else {
+						if (Math.random() < 0.2) {
+							await audioFiles.refresh();
+						}
+					}
+				}
+			}, 2000);
 		}
 	});
 
-	// Derived values
-	let currentLabels = $derived(() => {
-		return file?.id ? $speakerLabels[file.id] || {} : {};
+	onDestroy(() => {
+		if (refreshInterval) {
+			clearInterval(refreshInterval);
+			console.log('Cleaned up file refresh interval');
+		}
 	});
 
-	let displayTitle = $derived(file?.title || file?.fileName || '');
+	const currentLabels = $derived(get(speakerLabels)[file?.id] || {});
 
-	// Lifecycle cleanup
 	$effect(() => {
-		return () => {
-			isDialogOpen = false;
-			titleDialogOpen = false;
-			error = null;
-		};
+		if (file) {
+			summary = '';
+			if (file.title) {
+				newTitle = file.title;
+			}
+		}
 	});
-
-	// Error handling utility
-	function logError(error: unknown, context: string): string {
-		const errorMessage = error instanceof Error ? error.message : String(error);
-		console.error(`[FilePanel] ${context}:`, errorMessage);
-		return errorMessage;
-	}
-
-	function formatDate(date: string): string {
-		if (!date) return '';
-		try {
-			return new Date(date).toLocaleDateString();
-		} catch (error) {
-			logError(error, 'Date formatting error');
-			return '';
-		}
-	}
-
-	function formatTime(seconds: number): string {
-		try {
-			const minutes = Math.floor(seconds / 60);
-			const remainingSeconds = Math.floor(seconds % 60);
-			return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
-		} catch (error) {
-			logError(error, 'Time formatting error');
-			return '0:00';
-		}
-	}
 
 	function openTitleDialog() {
-		if (!file) {
-			toast.error('No file selected');
+		titleDialogOpen = true;
+		newTitle = file.title || '';
+	}
+
+	async function handleTitleUpdate() {
+		if (!newTitle.trim()) {
+			error = 'Title cannot be empty';
 			return;
 		}
 
 		try {
-			newTitle = file.title || file.fileName;
-			titleDialogOpen = true;
 			error = null;
-		} catch (error) {
-			logError(error, 'Opening title dialog');
-			toast.error('Unable to open rename dialog');
-		}
-	}
+			const response = await apiFetch(`/api/audio/${file.id}`, {
+				method: 'PATCH',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify({
+					title: newTitle
+				})
+			});
 
-	async function handleTitleUpdate() {
-		if (!file) return;
-
-		try {
-			if (!newTitle.trim()) {
-				throw new Error('Title cannot be empty');
+			if (!response.ok) {
+				throw new Error('Failed to update title');
 			}
 
-			await audioFiles.updateFile(file.id, { title: newTitle });
 			titleDialogOpen = false;
-			error = null;
-			toast.success('File renamed successfully');
+			audioFiles.refresh();
+			toast.success('Title updated successfully');
 		} catch (error) {
 			const errorMessage = logError(error, 'Title update failed');
 			error = errorMessage;
@@ -167,74 +167,149 @@
 		error = null;
 	}
 
-	async function doSummary() {
+    async function generateTitle() {
+      if (!file?.transcript || file.transcript.length === 0) {
+        toast.error('Cannot generate title: Transcript is not available');
+        return;
+      }
+
+      try {
+        isGeneratingTitle = true;
+        const transcriptText = file.transcript.map(segment => segment.text).join(' ');
+        const system_prompt = "You are a concise title generator. Always provide titles that are 3-8 words long. Never explain your reasoning. Never use quotes. Never provide multiple options.";
+        const titlePrompt = "Create a short, descriptive title that captures the main subject or theme of this transcript.";
+        
+        const response = await apiFetch('/api/summarize', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            fileId: file.id,
+            prompt: titlePrompt,
+            system_prompt: system_prompt,
+            transcript: transcriptText,
+            processThinking: true,
+            maxLength: 50
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to generate title');
+        }
+
+        const data = await response.json();
+        let generatedTitle = data.summary.trim();
+
+        // Remove quotes if present
+        if (generatedTitle.startsWith('"') && generatedTitle.endsWith('"')) {
+          generatedTitle = generatedTitle.substring(1, generatedTitle.length - 1);
+        }
+
+        await apiFetch(`/api/audio/${file.id}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            title: generatedTitle
+          })
+        });
+
+        await audioFiles.refresh();
+        toast.success('Generated new title');
+        newTitle = generatedTitle;
+      } catch (error) {
+        const errorMessage = logError(error, 'Title generation failed');
+        toast.error(errorMessage);
+      } finally {
+        isGeneratingTitle = false;
+      }
+    }
+
+	function doSummary() {
+		console.log("doSummary called");
 		if (!file?.transcript || !selectedTemplateId) {
 			toast.error('Please select a template and ensure transcript is available');
 			return;
 		}
 
-		try {
-			isSummarizing = true;
+		isSummarizing = true;
+		console.log("Setting isSummarizing to true");
 
-			// Get the selected template's prompt
-			const selectedTemplate = $templates.find((t) => t.id === selectedTemplateId);
-			if (!selectedTemplate) {
+		try {
+			const template = $templates.find((t) => t.id === selectedTemplateId);
+			if (!template) {
 				throw new Error('Template not found');
 			}
 
-			// Combine all transcript segments into one text
 			const transcriptText = file.transcript.map((segment) => segment.text).join(' ');
 
-			// Call our backend API endpoint with the file ID
-			const response = await apiFetch('/api/summarize', {
+			apiFetch('/api/summarize', {
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json'
 				},
 				body: JSON.stringify({
 					fileId: file.id,
-					prompt: selectedTemplate.prompt,
-					transcript: transcriptText
+					prompt: template.prompt,
+					transcript: transcriptText,
+					processThinking: false
 				})
+			})
+			.then(response => {
+				console.log("API response received", response.status);
+				if (!response.ok) {
+					throw new Error('Failed to generate summary');
+				}
+				return response.json();
+			})
+			.then(data => {
+				console.log("Data parsed successfully");
+				summary = data.summary;
+				return audioFiles.refresh();
+			})
+			.then(() => {
+				console.log("Summary generated and files refreshed");
+				toast.success('Summary generated successfully');
+			})
+			.catch(error => {
+				console.error("Promise chain error:", error);
+				const errorMessage = logError(error, 'Summary generation failed');
+				toast.error(errorMessage);
+			})
+			.finally(() => {
+				console.log("Setting isSummarizing to false");
+				isSummarizing = false;
 			});
-
-			if (!response.ok) {
-				throw new Error('Failed to generate summary');
-			}
-
-			const data = await response.json();
-			summary = data.summary;
-			audioFiles.refresh();
-
-			// Show success message to user
-			toast.success('Summary generated successfully');
 		} catch (error) {
+			console.error("Initial setup error:", error);
 			const errorMessage = logError(error, 'Summary generation failed');
 			toast.error(errorMessage);
-		} finally {
 			isSummarizing = false;
 		}
 	}
 </script>
 
 {#if file}
-	<AudioPlayer audioSrc={`${audioUrl}/api/audio/${file.id}`} peaks={file.peaks} />
-
+	<AudioPlayer
+		audioSrc={`${audioUrl}/api/audio/${file.id}`}
+		originalAudioSrc={file.originalFileName ? `${audioUrl}/api/audio/${file.id}?original=true` : null}
+		peaks={file.peaks}
+	/>
 	{#if file.transcriptionStatus === 'completed' && file.transcript}
-		<div class="mt-6">
+		<div class="mt-6 h-[calc(100%-120px)] flex flex-col">
 			<Tabs.Root value="transcript">
 				<div class="mb-2 flex items-center justify-between">
 					<Tabs.List class="mb-2 bg-neutral-800/60">
 						<Tabs.Trigger
 							value="transcript"
 							class="data-[state=active]:bg-neutral-600/90 data-[state=active]:text-gray-200"
-							>Transcript</Tabs.Trigger
-						>
+							>Transcript</Tabs.Trigger>
 						<Tabs.Trigger
 							value="summary"
 							class="data-[state=active]:bg-neutral-600/90 data-[state=active]:text-gray-200"
-							>Summary</Tabs.Trigger
-						>
+							>Summary</Tabs.Trigger>
 					</Tabs.List>
 					<div class="flex justify-end">
 						<DropdownMenu.Root>
@@ -246,14 +321,18 @@
 							</DropdownMenu.Trigger>
 							<DropdownMenu.Content>
 								<DropdownMenu.Item class="data-[highlighted]:bg-gray-100" onclick={openTitleDialog}
-									>Rename</DropdownMenu.Item
+									>Rename</DropdownMenu.Item>
+								<DropdownMenu.Item
+									class="data-[highlighted]:bg-gray-100"
+									onclick={generateTitle}
 								>
+									{isGeneratingTitle ? 'Generating Title...' : 'Auto-Generate Title'}
+								</DropdownMenu.Item>
 								<DropdownMenu.Item
 									class="data-[highlighted]:bg-gray-100"
 									onclick={() => {
 										deleteFile(file.id);
-									}}>Delete</DropdownMenu.Item
-								>
+									}}>Delete</DropdownMenu.Item>
 								{#if file.diarization}
 									<DropdownMenu.Item
 										class="data-[highlighted]:bg-gray-100"
@@ -266,28 +345,31 @@
 						</DropdownMenu.Root>
 					</div>
 				</div>
-				<Tabs.Content value="transcript">
-					<ScrollArea
-						class="h-[45svh] rounded-lg p-4  text-base min-[390px]:h-[50svh] lg:h-[55svh]"
-					>
-						<div class="flex flex-col gap-5">
+				<Tabs.Content value="transcript" class="h-full">
+					<ScrollArea class="h-[40svh] rounded-lg p-4 text-base min-[390px]:h-[45svh] lg:h-[50svh] xl:h-[55svh] 2xl:h-[60svh] max-h-[calc(100vh-320px)]">
+						<div class="flex flex-col gap-6 max-w-[1000px] mx-auto pb-10">
 							{#each file.transcript as segment}
-								<div class="flex flex-col gap-0">
+								<div class="flex flex-col gap-1">
 									<div class="flex items-center gap-2 text-xs font-medium text-gray-400">
-										{#if file.diarization && segment.speaker}
+										{#if file.diarization && segment.speaker && segment.speaker.trim() !== ""}
 											<div
-												class="flex items-center gap-1 text-sm"
+												class="flex items-center gap-1 text-sm font-bold"
 												style="color: {getSpeakerColor(segment.speaker)}"
 											>
 												<Mic2 size={16} />
-												{currentLabels[segment.speaker]?.charAt(0).toUpperCase() +
-													currentLabels[segment.speaker]?.slice(1) ||
-													segment.speaker.charAt(0).toUpperCase() + segment.speaker.slice(1)}
+												{#if currentLabels[segment.speaker]}
+													{currentLabels[segment.speaker].charAt(0).toUpperCase() +
+													currentLabels[segment.speaker].slice(1)}
+												{:else if segment.speaker.startsWith("SPEAKER_")}
+													Speaker {segment.speaker.split("_")[1]}
+												{:else}
+													{segment.speaker.charAt(0).toUpperCase() + segment.speaker.slice(1)}
+												{/if}
 											</div>
 										{/if}
 										<div>{formatTime(segment.start)}</div>
 									</div>
-									<div class="text-base leading-relaxed text-gray-200">
+									<div class="text-lg leading-relaxed text-gray-100">
 										{segment.text}
 									</div>
 								</div>
@@ -295,7 +377,7 @@
 						</div>
 					</ScrollArea>
 				</Tabs.Content>
-				<Tabs.Content value="summary">
+				<Tabs.Content value="summary" class="h-full">
 					<div class="flex items-center gap-2">
 						<div class="space-y-4">
 							<Popover.Root bind:open={templateOpen}>
@@ -319,59 +401,67 @@
 										<Command.List>
 											<Command.Empty>No templates found.</Command.Empty>
 											{#each $templates as template}
-												<Command.Item
-													value={template.title}
-													onSelect={() => {
-														selectedTemplateId = template.id;
-														closeAndFocusTrigger();
-													}}
-													class="text-gray-200 aria-selected:bg-neutral-600 aria-selected:text-gray-50"
+												<div
+													class="flex items-center gap-2 px-2 py-1.5 text-sm text-gray-200 hover:bg-neutral-600 hover:text-gray-50 cursor-pointer"
+													onclick={() => selectTemplate(template.id, template.title)}
 												>
-													<Check class={selectedTemplateId !== template.id && 'text-transparent'} />
+													<Check class={selectedTemplateId !== template.id ? "text-transparent" : ""} />
 													{template.title}
-												</Command.Item>
+												</div>
 											{/each}
 										</Command.List>
 									</Command.Root>
 								</Popover.Content>
 							</Popover.Root>
 						</div>
-						<Button
-							variant="ghost"
-							size="icon"
-							class="bg-neutral-700 p-1 disabled:bg-neutral-500"
-							onclick={doSummary}
-							disabled={isSummarizing || !selectedTemplateId}
-						>
-							<TextQuote size="20" class="text-gray-300" />
-						</Button>
+						<div class="flex gap-2">
+							<Button
+								variant="ghost"
+								size="icon"
+								class="bg-neutral-700 p-1 disabled:bg-neutral-500"
+								onclick={() => doSummary()}
+								disabled={isSummarizing || !selectedTemplateId}
+							>
+								<Star size="20" class="text-gray-300" />
+							</Button>
+							{#if summaryHasThinking || fileSummaryHasThinking}
+								<Button
+									variant="ghost"
+									size="icon"
+									class="bg-neutral-700 p-1"
+									onclick={() => showThinkingSections = !showThinkingSections}
+									title={showThinkingSections ? "Hide AI's thinking process" : "Show AI's thinking process"}
+								>
+									<BrainCircuit size="20" class={showThinkingSections ? "text-amber-400" : "text-gray-500"} />
+								</Button>
+							{/if}
+						</div>
 					</div>
-					<ScrollArea
-						class="h-[45svh] rounded-lg p-4  text-base min-[390px]:h-[50svh] lg:h-[55svh]"
-					>
-						{#if file.summary}
-							<div class="mt-6 whitespace-pre-wrap text-gray-200">
-								{file.summary}
-							</div>
-						{:else if isSummarizing}
-							<div class="flex h-full items-center justify-center">
-								<div class="text-gray-400">Generating summary...</div>
-							</div>
-						{:else if summary}
-							<div class="whitespace-pre-wrap text-gray-200">
-								{summary}
-							</div>
-						{:else}
-							<div class="flex h-full items-center justify-center text-gray-400">
-								Select a template and click summarize to generate a summary
-							</div>
-						{/if}
+					<ScrollArea class="h-[40svh] rounded-lg p-4 text-base min-[390px]:h-[45svh] lg:h-[50svh] xl:h-[55svh] 2xl:h-[60svh] max-h-[calc(100vh-380px)]">
+						<div class="max-w-[1000px] mx-auto pb-10">
+							{#if file.summary}
+								<div class="mt-6">
+									<ThinkingDisplay summary={file.summary} initialShowThinking={showThinkingSections} />
+								</div>
+							{:else if isSummarizing}
+								<div class="flex h-full items-center justify-center">
+									<div class="text-gray-400">Generating summary...</div>
+								</div>
+							{:else if summary}
+								<div>
+									<ThinkingDisplay summary={summary} initialShowThinking={showThinkingSections} />
+								</div>
+							{:else}
+								<div class="flex h-full items-center justify-center text-gray-400">
+									Select a template and click summarize to generate a summary
+								</div>
+							{/if}
+						</div>
 					</ScrollArea>
 				</Tabs.Content>
 			</Tabs.Root>
 		</div>
 	{/if}
-
 	<Dialog.Root bind:open={titleDialogOpen}>
 		<Dialog.Content class="w-[90svw] rounded-md p-2">
 			<Dialog.Header>
@@ -396,7 +486,6 @@
 			</Dialog.Footer>
 		</Dialog.Content>
 	</Dialog.Root>
-
 	{#if file.diarization}
 		<AlertDialog.Root bind:open={isDialogOpen}>
 			<AlertDialog.Content class="w-[90svw] rounded-md p-2">
@@ -406,7 +495,6 @@
 						Assign custom names to speakers in the transcript
 					</AlertDialog.Description>
 				</AlertDialog.Header>
-
 				<SpeakerLabels
 					fileId={file.id}
 					transcript={file.transcript}
