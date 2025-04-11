@@ -39,7 +39,7 @@ jobs:
             if [[ "$commit" == *"BREAKING CHANGE"* || "$commit" == *"!:"* ]]; then
               MAJOR_CHANGE=true
               break
-            elif [[ "$commit" =~ ^feat(\([^)]+\))?:.* ]]; then
+            elif echo "$commit" | grep -Eq "^feat(\([^)]+\))?:.*"; then
               MINOR_CHANGE=true
             fi
           done
