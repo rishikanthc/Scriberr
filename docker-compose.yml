@@ -9,6 +9,8 @@ services:
       # No args needed as environment variables are passed at runtime
     env_file:
       - .env
+    environment:
+    - DATABASE_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
     ports:
       - "${PORT:-3000}:3000"
     volumes:

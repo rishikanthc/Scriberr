@@ -26,7 +26,7 @@ wait_for_db() {
   echo "Waiting for database to be ready..."
   echo "Current DATABASE_URL: $DATABASE_URL"
 
-  until PGPASSWORD="$POSTGRES_PASSWORD" pg_isready -h db -p 5432 -U "$POSTGRES_USER" -d "$POSTGRES_DB"
+  until PGPASSWORD="$POSTGRES_PASSWORD" pg_isready -h $POSTGRES_HOST -p 5432 -U "$POSTGRES_USER" -d "$POSTGRES_DB"
   do
     echo "Database connection attempt failed. Retrying in 2 seconds..."
     sleep 2
