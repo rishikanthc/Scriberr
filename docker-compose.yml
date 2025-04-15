@@ -9,12 +9,19 @@ services:
       # No args needed as environment variables are passed at runtime
     env_file:
       - .env
+    environment:
+    - DATABASE_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
     ports:
       - "${PORT:-3000}:3000"
     volumes:
       - scriberr_data:/scriberr
     networks:
       - app-network
+    healthcheck:
+     test: ["CMD-SHELL", "curl -f http://localhost:3000/health || exit 1"]
+     interval: 30s
+     timeout: 10s
+     retries: 5
     depends_on:
       db:
         condition: service_healthy
@@ -31,7 +38,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U root -d local"]
+      test: ["CMD-SHELL", "pg_isready -U root -d ${POSTGRES_DB}"]
       interval: 5s
       timeout: 5s
       retries: 5
