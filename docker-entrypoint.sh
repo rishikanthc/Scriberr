@@ -77,7 +77,7 @@ install_dependencies() {
 
   # Install PyTorch based on hardware
   if [ "$HARDWARE_ACCEL" = "cuda" ]; then
-    uv pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu126
+    uv pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/cu128
     uv pip install nvidia-cudnn-cu11==8.9.6.50
     echo "PyTorch with CUDA installed."
   else
