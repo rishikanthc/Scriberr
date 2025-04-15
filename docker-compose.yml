@@ -17,6 +17,11 @@ services:
       - scriberr_data:/scriberr
     networks:
       - app-network
+    healthcheck:
+     test: ["CMD-SHELL", "curl -f http://localhost:3000/health || exit 1"]
+     interval: 30s
+     timeout: 10s
+     retries: 5
     depends_on:
       db:
         condition: service_healthy
@@ -33,7 +38,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U root -d local"]
+      test: ["CMD-SHELL", "pg_isready -U root -d ${POSTGRES_DB}"]
       interval: 5s
       timeout: 5s
       retries: 5
