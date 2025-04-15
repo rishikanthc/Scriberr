@@ -131,13 +131,13 @@ If you wish to build the Docker images yourself, you can use the provided `Docke
 #### CPU Image
 
 ```bash
-docker build -t scriberr:latest -f Dockerfile .
+docker build -t scriberr:main -f Dockerfile .
 ```
 
 #### GPU Image
 
 ```bash
-docker build -t scriberr:latest-gpu -f Dockerfile-cuda128 .
+docker build -t scriberr:main-cuda128 -f Dockerfile-cuda128 .
 ```
 
 ### Advanced Configuration
