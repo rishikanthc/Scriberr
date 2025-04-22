@@ -51,6 +51,21 @@ export async function POST({ request }) {
       return new Response('Missing fileId, prompt, or transcript', { status: 400 });
     }
 
+    // Parse transcript if it's an object instead of a string
+    let transcriptText;
+    try {
+      if (typeof transcript === 'string') {
+        transcriptText = transcript;
+      } else if (typeof transcript === 'object') {
+        // If it's already an object, stringify it for use in the prompt
+        transcriptText = JSON.stringify(transcript);
+      } else {
+        throw new Error(`Invalid transcript format: ${typeof transcript}`);
+      }
+    } catch (transcriptError) {
+      return new Response(`Failed to parse transcript: ${transcriptError.message}`, { status: 400 });
+    }
+
     const openai = getOpenAI();
     if (!openai) {
       return new Response('AI client not initialized. Check your OPENAI_BASE_URL, OLLAMA_BASE_URL or OPENAI_API_KEY configuration.', { status: 500 });
@@ -70,7 +85,7 @@ export async function POST({ request }) {
       const messages = [
         {
           role: 'user',
-          content: `${prompt}\n\nTranscript:\n${transcript}`
+          content: `${prompt}\n\nTranscript:\n${transcriptText}`
         }
       ];
 
@@ -125,7 +140,7 @@ export async function POST({ request }) {
             messages: [
               {
                 role: "user",
-                content: `${prompt}\n\nTranscript:\n${transcript}`
+                content: `${prompt}\n\nTranscript:\n${transcriptText}`
               }
             ]
           })

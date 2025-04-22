@@ -32,9 +32,25 @@ export async function GET({ params, locals }) {
     // Parse the transcript
     let transcript = [];
     try {
-      transcript = file.transcript ? JSON.parse(file.transcript) : [];
+      if (file.transcript) {
+        if (typeof file.transcript === 'string') {
+          try {
+            transcript = JSON.parse(file.transcript);
+          } catch (parseError) {
+            console.error('Failed to parse transcript string:', parseError);
+          }
+        } else if (Array.isArray(file.transcript)) {
+          transcript = file.transcript;
+        } else if (typeof file.transcript === 'object') {
+          // Try to convert object to array if possible
+          console.warn('Transcript is an object, not an array or string. Attempting to handle.');
+          transcript = Array.isArray(Object.values(file.transcript)) 
+            ? Object.values(file.transcript) 
+            : [file.transcript];
+        }
+      }
     } catch (e) {
-      console.error('Failed to parse transcript:', e);
+      console.error('Failed to process transcript:', e);
     }
     
     return json({
