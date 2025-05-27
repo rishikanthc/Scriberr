@@ -3,6 +3,7 @@ name: Main Docker Build
 on:
   release:
     types: [published]
+  workflow_dispatch:
 
 jobs:
   docker:
