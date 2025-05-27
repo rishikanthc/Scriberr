@@ -37,7 +37,7 @@ def diarize_transcript(audio_file, transcript, device="cpu", model_name="pyannot
                 print("Could not import torch for CUDA memory management")
         
         print(f"Loading diarization model: {model_name}")
-        diarize_model = whisperx.DiarizationPipeline(
+        diarize_model = whisperx.diarize.DiarizationPipeline(
             model_name=model_name,
             device=device,
             use_auth_token=hf_token if hf_token else None
