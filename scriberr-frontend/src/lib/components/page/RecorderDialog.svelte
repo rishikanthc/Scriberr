@@ -215,7 +215,11 @@
 				const blob = new Blob(audioChunks, { type: selectedMimeType });
 				audioBlob = blob;
 				audioUrl = URL.createObjectURL(blob);
-				duration = recordingTimer; // Set duration from recording timer as an initial estimate
+
+				// Set duration from recording timer as initial estimate
+				duration = recordingTimer;
+				console.log('Initial duration from recording timer:', duration);
+
 				stopMediaStream();
 				recordingState = 'stopped'; // Transition state only when blob is ready
 			};
@@ -274,7 +278,23 @@
 	}
 
 	function handleMetadataLoaded() {
-		if (audioElement) duration = Math.floor(audioElement.duration); // Refine duration with actual value
+		if (audioElement) {
+			const actualDuration = Math.floor(audioElement.duration);
+			console.log('Audio metadata loaded, actual duration:', actualDuration);
+
+			// Only update duration if it's a valid number and different from current
+			if (!isNaN(actualDuration) && actualDuration > 0) {
+				duration = actualDuration;
+				console.log('Updated duration from audio metadata:', duration);
+			} else {
+				console.warn('Invalid duration from audio metadata:', actualDuration);
+				// Keep the recording timer duration if audio metadata is invalid
+				if (duration === 0 || isNaN(duration)) {
+					duration = recordingTimer;
+					console.log('Using recording timer duration as fallback:', duration);
+				}
+			}
+		}
 	}
 
 	function handleTimeUpdate() {
@@ -308,8 +328,13 @@
 		recordingIntervalId = null;
 	}
 	function formatTime(seconds: number) {
+		// Handle NaN and invalid values
+		if (isNaN(seconds) || seconds < 0) {
+			return '00:00';
+		}
+
 		const min = Math.floor(seconds / 60);
-		const sec = seconds % 60;
+		const sec = Math.floor(seconds % 60);
 		return `${String(min).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
 	}
 
@@ -425,6 +450,7 @@
 		websocket.onmessage = (event) => {
 			console.log('Received WebSocket message:', event.data);
 			const data = JSON.parse(event.data);
+
 			if (data.type === 'ready') {
 				toast.success('Live transcription ready!');
 			} else if (data.type === 'transcription') {
@@ -437,8 +463,51 @@
 				} else {
 					console.log('Skipping duplicate or empty transcription text');
 				}
+			} else if (data.status === 'active_transcription') {
+				// Handle WhisperLiveKit transcription format
+				console.log('Received WhisperLiveKit transcription:', data);
+
+				// Extract transcription from lines
+				if (data.lines && data.lines.length > 0) {
+					const latestLine = data.lines[data.lines.length - 1];
+					const text = latestLine.text?.trim();
+
+					if (text && text !== lastTranscriptionText) {
+						// For live transcription, accumulate the text
+						// Only add new content that we haven't seen before
+						if (!liveTranscriptionText.includes(text)) {
+							liveTranscriptionText =
+								liveTranscriptionText + (liveTranscriptionText ? ' ' : '') + text;
+						}
+						lastTranscriptionText = text;
+						console.log(
+							'Updated liveTranscriptionText with WhisperLiveKit:',
+							liveTranscriptionText
+						);
+					}
+				}
+
+				// Also handle buffer transcription if available (this is usually more current)
+				if (data.buffer_transcription && data.buffer_transcription.trim()) {
+					const bufferText = data.buffer_transcription.trim();
+					if (bufferText !== lastTranscriptionText) {
+						// For buffer transcription, we want to show the most recent content
+						// Replace the last part of the transcription with the buffer
+						const baseText = liveTranscriptionText.replace(lastTranscriptionText, '').trim();
+						liveTranscriptionText = baseText + (baseText ? ' ' : '') + bufferText;
+						lastTranscriptionText = bufferText;
+						console.log('Updated liveTranscriptionText with buffer:', liveTranscriptionText);
+					}
+				}
+			} else if (data.type === 'init_success') {
+				console.log('Transcription service initialized successfully');
+				toast.success('Live transcription initialized!');
 			} else if (data.type === 'error') {
 				toast.error('Transcription error', { description: data.message });
+			} else if (data.type === 'status' && data.status === 'no_audio_detected') {
+				console.log('No audio detected by transcription service');
+			} else {
+				console.log('Unhandled WebSocket message type:', data.type || data.status);
 			}
 		};
 
@@ -515,8 +584,6 @@
 			console.log('=== AUDIO CHUNK DEBUG ===');
 			console.log(`Audio blob type: ${audioBlob.type}`);
 			console.log(`Audio blob size: ${audioBlob.size} bytes`);
-			console.log(`Audio blob lastModified: ${audioBlob.lastModified}`);
-			console.log(`Audio blob name: ${audioBlob.name || 'unnamed'}`);
 
 			// Check if this is the problematic MP4 format
 			if (audioBlob.type === 'audio/mp4') {
@@ -696,7 +763,7 @@
 					<div
 						class="max-h-32 min-h-[4rem] overflow-y-auto rounded-md bg-gray-800 p-3 text-sm text-gray-200"
 					>
-						{#if liveTranscriptionText}
+						{#if liveTranscriptionText && liveTranscriptionText.trim()}
 							{liveTranscriptionText}
 						{:else}
 							<span class="italic text-gray-500">Waiting for speech...</span>

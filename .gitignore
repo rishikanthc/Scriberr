@@ -24,3 +24,5 @@ vite.config.ts.timestamp-*
 .aider*
 .env
 .env
+scriberr-backend/cmd
+scriberr-backend/storage

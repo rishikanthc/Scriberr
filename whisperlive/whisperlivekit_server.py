@@ -154,9 +154,34 @@ async def handle_websocket_results(
                 )
 
             else:
-                # Send other response types as-is
+                # Send other response types as-is, but also send a transcription version for WhisperLiveKit format
                 logger.info(f"📨 Other response for client {client_id}: {response}")
-                await websocket.send_json(response)
+
+                # If this is a WhisperLiveKit active_transcription response, also send it as a transcription
+                if response.get("status") == "active_transcription":
+                    lines = response.get("lines", [])
+                    if lines:
+                        latest_line = lines[-1]
+                        text = latest_line.get("text", "").strip()
+                        if text:
+                            # Send both the original response and a simplified transcription
+                            await websocket.send_json(response)
+
+                            # Also send a simplified transcription format
+                            transcription_response = {
+                                "type": "transcription",
+                                "text": text,
+                                "timestamp": time.time(),
+                                "final": True,
+                                "client_id": client_id,
+                            }
+                            await websocket.send_json(transcription_response)
+                        else:
+                            await websocket.send_json(response)
+                    else:
+                        await websocket.send_json(response)
+                else:
+                    await websocket.send_json(response)
 
         # Send ready to stop signal
         await websocket.send_json(
