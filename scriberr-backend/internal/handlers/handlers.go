@@ -23,7 +23,7 @@ import (
 const (
 	uploadsDir    = "./storage/uploads"
 	convertedDir  = "./storage/converted"
-	maxUploadSize = 30 << 20 // 30 MB
+	maxUploadSize = 2 << 30 // 2 GB
 )
 
 // writeJSONError sends a JSON formatted error message.
@@ -321,7 +321,7 @@ func CreateAudio(w http.ResponseWriter, r *http.Request) {
 
 	r.Body = http.MaxBytesReader(w, r.Body, maxUploadSize)
 	if err := r.ParseMultipartForm(maxUploadSize); err != nil {
-		writeJSONError(w, "The uploaded file is too big. Please choose a file that is less than 30MB in size.", http.StatusBadRequest)
+		writeJSONError(w, "The uploaded file is too big. Please choose a file that is less than 2GB in size.", http.StatusBadRequest)
 		return
 	}
 
