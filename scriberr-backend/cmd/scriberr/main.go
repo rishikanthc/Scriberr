@@ -57,6 +57,9 @@ func main() {
 	// Initialize the summarization job worker.
 	summary_tasks.Init()
 
+	// Start the WebSocket hub for live transcription
+	handlers.StartHub()
+
 	// --- Frontend File Server Setup ---
 	// Create an fs.FS that is rooted at the "embedded_assets" directory
 	// within the raw embedded filesystem. This makes 'index.html' available at the root.
@@ -105,6 +108,9 @@ func main() {
 	mux.HandleFunc("GET /api/summarize/status/job/{jobid}", middleware.AuthFunc(handlers.GetSummarizeStatus))
 	mux.HandleFunc("GET /api/summarize/status/audio/{id}", middleware.AuthFunc(handlers.GetSummarizeStatusByAudioID))
 
+	// WebSocket route for live transcription
+	mux.HandleFunc("/api/ws/live-transcription", handlers.HandleWebSocket)
+
 	// The root handler serves the frontend SPA.
 	// This must be registered after all other routes to act as a catch-all.
 	mux.Handle("/", fileServer)
@@ -117,12 +123,21 @@ func main() {
 		// In production, this should be restricted to your frontend's actual domain.
 		AllowedOrigins:   []string{"http://localhost:5173", "http://localhost:8080"},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"Content-Type", "X-Requested-With"},
+		AllowedHeaders:   []string{"Content-Type", "X-Requested-With", "Upgrade", "Connection"},
 		AllowCredentials: true,
 	})
 
-	// Wrap the main mux with the CORS handler.
-	handler := c.Handler(mux)
+	// Create a custom handler that bypasses CORS for WebSocket routes
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Bypass CORS for WebSocket routes
+		if r.URL.Path == "/api/ws/live-transcription" {
+			mux.ServeHTTP(w, r)
+			return
+		}
+		
+		// Apply CORS for all other routes
+		c.Handler(mux).ServeHTTP(w, r)
+	})
 
 	log.Println("Server starting on http://localhost:8080")
 	if err := http.ListenAndServe(":8080", handler); err != nil {
