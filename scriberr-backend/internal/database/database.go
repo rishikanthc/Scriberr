@@ -6,7 +6,7 @@ import (
 	"log"
 	"os"
 
-	_ "github.com/mattn/go-sqlite3" // SQLite driver
+	_ "modernc.org/sqlite" // Pure Go SQLite driver
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -25,7 +25,7 @@ func InitDB() (*sql.DB, error) {
 	}
 
 	// Open the SQLite database file. It will be created if it doesn't exist.
-	database, err := sql.Open("sqlite3", dbFile)
+	database, err := sql.Open("sqlite", dbFile)
 	if err != nil {
 		return nil, err
 	}

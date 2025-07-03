@@ -1,0 +1,75 @@
+# Multi-stage build with Python base image for reliability
+FROM --platform=$BUILDPLATFORM golang:1.24 AS builder
+
+# Install build dependencies (only what's needed for Go build)
+RUN apt-get update && apt-get install -y \
+    gcc \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set working directory
+WORKDIR /app
+
+# Copy go mod files
+COPY go.mod go.sum ./
+
+# Download dependencies
+RUN go mod download
+
+# Copy source code (including embedded assets)
+COPY . .
+
+# Build the binary with proper architecture flags
+ARG TARGETPLATFORM
+ARG BUILDPLATFORM
+ARG TARGETOS
+ARG TARGETARCH
+
+# Disable CGO for cross-compilation (using pure Go SQLite driver)
+ENV CGO_ENABLED=0
+ENV GOOS=${TARGETOS}
+ENV GOARCH=${TARGETARCH}
+
+# Build the binary with architecture-specific optimizations
+RUN go build -ldflags="-s -w" -o scriberr ./cmd/scriberr
+
+# Make the binary executable
+RUN chmod +x /app/scriberr
+
+# Final stage - use python base image for reliability
+FROM --platform=$TARGETPLATFORM python:3.12-slim
+
+# Install runtime dependencies
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        ca-certificates \
+        sqlite3 \
+        ffmpeg \
+        curl \
+        build-essential \
+        && apt-get clean \
+        && rm -rf /var/lib/apt/lists/*
+
+# Copy the binary and Python dependencies
+COPY --from=builder /app/scriberr /app/scriberr
+COPY pyproject.toml uv.lock ./
+
+# Install uv and dependencies
+RUN pip install --upgrade pip && \
+    pip install uv && \
+    uv sync --frozen
+
+# Create storage directory for database and files
+RUN mkdir -p /app/storage
+
+# Set working directory
+WORKDIR /app
+
+# Expose port
+EXPOSE 8080
+
+# Set environment variables with defaults
+ENV OPENAI_API_KEY=""
+ENV SESSION_KEY=""
+
+# Set the entrypoint to run the binary
+ENTRYPOINT ["/app/scriberr"] 

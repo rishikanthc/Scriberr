@@ -212,7 +212,7 @@ func worker() {
 		}
 
 		// 3. Call OpenAI API
-		finalPrompt := template.Prompt + "\n\n---\n\n" + fullTranscriptText + "\n\n---\n\nPlease format your response as clean markdown. Return only the markdown-formatted summary without any additional text, explanations, or formatting instructions."
+		finalPrompt := template.Prompt + "\n\n---\n\n" + fullTranscriptText + "\n\n---\n\nPlease provide a summary formatted with markdown syntax (headings, lists, emphasis, etc.). Do not wrap your response in code blocks or backticks. Return only the markdown-formatted summary without any additional text, explanations, or formatting instructions."
 
 		resp, err := openaiClient.CreateChatCompletion(
 			context.Background(),

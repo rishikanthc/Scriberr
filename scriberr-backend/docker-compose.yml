@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  scriberr:
+    build:
+      context: .
+      dockerfile: Dockerfile.alpine
+      platforms:
+        - linux/amd64
+        - linux/arm64
+    container_name: scriberr-backend
+    platform: linux/amd64  # You can change this to linux/arm64 for ARM builds
+    ports:
+      - "8080:8080"
+    environment:
+      # OpenAI API Key - Set this to your actual API key
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      # Session Key - Generate a secure random key for production
+      # You can generate one with: openssl rand -base64 32
+      - SESSION_KEY=${SESSION_KEY:-}
+    volumes:
+      # Persist database and storage files
+      - ./test-storage:/app/storage
+      # Optional: Mount whisper models for faster startup (if you have them locally)
+      # - ./whisper-models:/app/whisper-models
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  default:
+    name: scriberr-network 
