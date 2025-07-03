@@ -596,7 +596,7 @@
 								<span>New Recording</span>
 							{/if}
 						</Popover.Trigger>
-						<Popover.Content class="w-48 border-gray-600 bg-gray-800 p-2 text-gray-200">
+						<Popover.Content class="w-48 border-gray-700 bg-gray-800 p-2 text-gray-200">
 							<div class="grid gap-2">
 								<Button
 									variant="ghost"
@@ -650,15 +650,15 @@
 
 		<main class="mt-8">
 			<Tabs.Root bind:value={activeTab} class="w-full">
-				<Tabs.List class="grid w-full grid-cols-3 bg-gray-900 text-gray-100">
+				<Tabs.List class="gap-2 w-full h-10 justify-center flex bg-gray-900 text-gray-100">
 					<Tabs.Trigger
 						value="audio"
-						class="text-gray-100 data-[state=active]:bg-gray-800 data-[state=active]:text-blue-400"
+						class="text-gray-100 h-8 data-[state=active]:bg-gray-800 data-[state=active]:text-blue-400"
 						>Audio</Tabs.Trigger
 					>
 					<Tabs.Trigger
 						value="jobs"
-						class="text-gray-100 data-[state=active]:bg-gray-800 data-[state=active]:text-blue-400"
+						class="text-gray-100 h-8 data-[state=active]:bg-gray-800 data-[state=active]:text-blue-400"
 					>
 						Active Jobs
 						{#if activeJobs.length > 0}
@@ -671,7 +671,7 @@
 					</Tabs.Trigger>
 					<Tabs.Trigger
 						value="templates"
-						class="text-gray-100 data-[state=active]:bg-gray-800 data-[state=active]:text-blue-400"
+						class="text-gray-100 h-8 data-[state=active]:bg-gray-800 data-[state=active]:text-blue-400"
 						>Templates</Tabs.Trigger
 					>
 				</Tabs.List>

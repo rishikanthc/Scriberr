@@ -53,7 +53,7 @@
 						title="Stop Job"
 						onclick={() => onTerminateJob(job.id)}
 					>
-						<StopCircle class="h-5 w-5" />
+						<StopCircle class="h-7 w-7" />
 					</Button>
 				</div>
 			</div>

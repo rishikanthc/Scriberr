@@ -84,7 +84,7 @@
 						{formatDate(record.created_at)}
 					</span>
 				</ContextMenuTrigger>
-				<ContextMenuContent class="border-none bg-gray-800 text-gray-100">
+				<ContextMenuContent class="border-gray-700 bg-gray-800 shadow-lg text-gray-100">
 					<ContextMenuItem
 						onclick={(e) => {
 							e.stopPropagation();

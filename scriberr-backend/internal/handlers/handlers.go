@@ -674,14 +674,3 @@ func formatSrtTime(seconds float64) string {
 	millisecs := int((seconds - float64(int(seconds))) * 1000)
 	return fmt.Sprintf("%02d:%02d:%02d,%03d", hours, minutes, secs, millisecs)
 }
-
-// HealthCheck returns a simple status for health checks.
-func HealthCheck(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		writeJSONError(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
-}

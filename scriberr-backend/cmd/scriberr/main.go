@@ -105,9 +105,6 @@ func main() {
 	mux.HandleFunc("GET /api/summarize/status/job/{jobid}", middleware.AuthFunc(handlers.GetSummarizeStatus))
 	mux.HandleFunc("GET /api/summarize/status/audio/{id}", middleware.AuthFunc(handlers.GetSummarizeStatusByAudioID))
 
-	// Health check endpoint
-	mux.HandleFunc("GET /api/health", handlers.HealthCheck)
-
 	// The root handler serves the frontend SPA.
 	// This must be registered after all other routes to act as a catch-all.
 	mux.Handle("/", fileServer)
