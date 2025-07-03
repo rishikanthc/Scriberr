@@ -1,0 +1,4 @@
+whisperlivekit
+fastapi
+uvicorn
+websockets 

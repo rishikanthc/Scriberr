@@ -1,0 +1,11 @@
+# Minimal requirements for WhisperLive testing
+# This avoids problematic dependencies like kaldialign on macOS ARM64
+
+websockets>=12.0
+faster-whisper>=0.10.0
+torch>=2.0.0
+torchaudio>=2.0.0
+numpy>=1.24.0
+
+# Note: whisper-live will be installed separately if needed
+# For now, we'll use a simplified version without kaldialign 
