@@ -224,14 +224,21 @@ func worker() {
 		}
 
 		// Build command arguments
-		args := []string{"run", "whisperx", audioPath, "--model", model, "--compute_type", "int8", "--output_format", "json", "--output_dir", transcriptOutputDir}
+		var args []string
 		
-		// Add diarization flag if enabled
+		// Use dedicated diarization script for better robustness
 		if job.Diarize {
-			args = append(args, "--diarize")
-			// Add speaker count parameters
-			args = append(args, "--min_speakers", fmt.Sprintf("%d", job.MinSpeakers))
-			args = append(args, "--max_speakers", fmt.Sprintf("%d", job.MaxSpeakers))
+			// Use the dedicated diarization script
+			outputFile := filepath.Join(transcriptOutputDir, job.AudioID+".json")
+			args = []string{"run", "diarize.py", audioPath, "--model", model, "--min-speakers", fmt.Sprintf("%d", job.MinSpeakers), "--max-speakers", fmt.Sprintf("%d", job.MaxSpeakers), "--output", outputFile}
+			
+			// Add HF token if available
+			if hfToken := os.Getenv("HF_TOKEN"); hfToken != "" {
+				args = append(args, "--hf-token", hfToken)
+			}
+		} else {
+			// Use regular whisperx for non-diarized transcription
+			args = []string{"run", "whisperx", audioPath, "--model", model, "--compute_type", "int8", "--output_format", "json", "--output_dir", transcriptOutputDir, "--vad", "--vad_onset", "0.5", "--vad_offset", "0.5", "--condition_on_previous_text", "True", "--compression_ratio_threshold", "2.4", "--logprob_threshold", "-1.0", "--no_speech_threshold", "0.6"}
 		}
 
 		// Command: uv run whisperx <audio_path> --model <model_size> --compute_type int8 --output_format json --output_dir <output_dir> [--diarize]
@@ -288,7 +295,7 @@ func updateJobStatus(jobID string, status JobStatus, errorMsg string) {
 	}
 }
 
-// processJSONAndUpdateDB reads the .json output from whisperx, parses it, and updates the database.
+// processJSONAndUpdateDB reads the .json output from whisperx or diarization script, parses it, and updates the database.
 func processJSONAndUpdateDB(jobID, audioID, outputDir string) error {
 	jsonFilePath := filepath.Join(outputDir, audioID+".json")
 
@@ -303,7 +310,11 @@ func processJSONAndUpdateDB(jobID, audioID, outputDir string) error {
 		return fmt.Errorf("failed to parse json file for job %s: %w", jobID, err)
 	}
 
-	// Store the complete JSON transcript as-is
+	// The dedicated diarization script already includes post-processing, so we don't need to do it again
+	// Just store the result directly
+	processedJSONData := jsonData
+
+	// Store the JSON transcript
 	db := database.GetDB()
 	query := `UPDATE audio_records SET transcript = ?, speaker_map = ?, summary = ? WHERE id = ?`
 
@@ -314,7 +325,7 @@ func processJSONAndUpdateDB(jobID, audioID, outputDir string) error {
 	defer stmt.Close()
 
 	// Set speaker_map and summary to an empty JSON object.
-	_, err = stmt.Exec(string(jsonData), "{}", "{}", audioID)
+	_, err = stmt.Exec(string(processedJSONData), "{}", "{}", audioID)
 	if err != nil {
 		return fmt.Errorf("failed to update database with transcription results: %w", err)
 	}
@@ -322,5 +333,7 @@ func processJSONAndUpdateDB(jobID, audioID, outputDir string) error {
 	log.Printf("Successfully updated database for audio record %s", audioID)
 	return nil
 }
+
+
 
 
