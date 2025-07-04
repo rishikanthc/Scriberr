@@ -92,7 +92,7 @@ func main() {
 	mux.HandleFunc("GET /api/audio/{id}/transcript/download", middleware.AuthFunc(handlers.DownloadTranscript))
 	mux.HandleFunc("PUT /api/audio/{id}", middleware.AuthFunc(handlers.UpdateAudioTitle))
 	mux.HandleFunc("DELETE /api/audio/{id}", middleware.AuthFunc(handlers.DeleteAudio))
-	mux.HandleFunc("POST /api/transcribe", middleware.AuthFunc(handlers.TranscribeAudio))
+	mux.HandleFunc("POST /api/transcribe", middleware.AuthFunc(handlers.HandleTranscribe))
 	mux.HandleFunc("GET /api/transcribe/status/{jobid}", middleware.AuthFunc(handlers.GetTranscriptionStatus))
 	mux.HandleFunc("GET /api/transcribe/jobs/active", middleware.AuthFunc(handlers.GetActiveJobs))
 	mux.HandleFunc("DELETE /api/transcribe/job/{jobid}", middleware.AuthFunc(handlers.TerminateJob))

@@ -33,8 +33,8 @@ func writeJSONError(w http.ResponseWriter, message string, statusCode int) {
 	json.NewEncoder(w).Encode(map[string]string{"error": message})
 }
 
-// TranscribeAudio handles the request to start a new transcription job.
-func TranscribeAudio(w http.ResponseWriter, r *http.Request) {
+// HandleTranscribe handles requests to start a transcription job.
+func HandleTranscribe(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		writeJSONError(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -46,6 +46,23 @@ func TranscribeAudio(w http.ResponseWriter, r *http.Request) {
 		Diarize     bool   `json:"diarize"`
 		MinSpeakers int    `json:"min_speakers"`
 		MaxSpeakers int    `json:"max_speakers"`
+		// Additional transcription parameters
+		BatchSize                    int     `json:"batch_size"`
+		ComputeType                  string  `json:"compute_type"`
+		VadOnset                     float64 `json:"vad_onset"`
+		VadOffset                    float64 `json:"vad_offset"`
+		ConditionOnPreviousText      bool    `json:"condition_on_previous_text"`
+		CompressionRatioThreshold    float64 `json:"compression_ratio_threshold"`
+		LogprobThreshold             float64 `json:"logprob_threshold"`
+		NoSpeechThreshold            float64 `json:"no_speech_threshold"`
+		Temperature                  float64 `json:"temperature"`
+		BestOf                       int     `json:"best_of"`
+		BeamSize                     int     `json:"beam_size"`
+		Patience                     float64 `json:"patience"`
+		LengthPenalty                float64 `json:"length_penalty"`
+		SuppressNumerals             bool    `json:"suppress_numerals"`
+		InitialPrompt                string  `json:"initial_prompt"`
+		TemperatureIncrementOnFallback float64 `json:"temperature_increment_on_fallback"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -58,18 +75,74 @@ func TranscribeAudio(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Optional: Check if the audio record and file actually exist before creating a job
-	// For now, we'll trust the client and let the worker handle file-not-found errors.
-
 	// Set default values if not provided
+	if req.ModelSize == "" {
+		req.ModelSize = "small"
+	}
 	if req.MinSpeakers == 0 {
 		req.MinSpeakers = 1
 	}
 	if req.MaxSpeakers == 0 {
 		req.MaxSpeakers = 2
 	}
+	if req.BatchSize == 0 {
+		req.BatchSize = 16
+	}
+	if req.ComputeType == "" {
+		req.ComputeType = "int8"
+	}
+	if req.VadOnset == 0 {
+		req.VadOnset = 0.5
+	}
+	if req.VadOffset == 0 {
+		req.VadOffset = 0.5
+	}
+	if req.CompressionRatioThreshold == 0 {
+		req.CompressionRatioThreshold = 2.4
+	}
+	if req.LogprobThreshold == 0 {
+		req.LogprobThreshold = -1.0
+	}
+	if req.NoSpeechThreshold == 0 {
+		req.NoSpeechThreshold = 0.6
+	}
+	if req.Temperature == 0 {
+		req.Temperature = 0.0
+	}
+	if req.BestOf == 0 {
+		req.BestOf = 5
+	}
+	if req.BeamSize == 0 {
+		req.BeamSize = 5
+	}
+	if req.Patience == 0 {
+		req.Patience = 1.0
+	}
+	if req.LengthPenalty == 0 {
+		req.LengthPenalty = 1.0
+	}
+	if req.TemperatureIncrementOnFallback == 0 {
+		req.TemperatureIncrementOnFallback = 0.2
+	}
 
-	job, err := tasks.NewJob(req.AudioID, req.ModelSize, req.Diarize, req.MinSpeakers, req.MaxSpeakers)
+	job, err := tasks.NewJob(req.AudioID, req.ModelSize, req.Diarize, req.MinSpeakers, req.MaxSpeakers, map[string]interface{}{
+		"batch_size":                      req.BatchSize,
+		"compute_type":                    req.ComputeType,
+		"vad_onset":                       req.VadOnset,
+		"vad_offset":                      req.VadOffset,
+		"condition_on_previous_text":      req.ConditionOnPreviousText,
+		"compression_ratio_threshold":     req.CompressionRatioThreshold,
+		"logprob_threshold":               req.LogprobThreshold,
+		"no_speech_threshold":             req.NoSpeechThreshold,
+		"temperature":                     req.Temperature,
+		"best_of":                         req.BestOf,
+		"beam_size":                       req.BeamSize,
+		"patience":                        req.Patience,
+		"length_penalty":                  req.LengthPenalty,
+		"suppress_numerals":               req.SuppressNumerals,
+		"initial_prompt":                  req.InitialPrompt,
+		"temperature_increment_on_fallback": req.TemperatureIncrementOnFallback,
+	})
 	if err != nil {
 		log.Printf("Error creating new job for audio ID %s: %v", req.AudioID, err)
 		writeJSONError(w, "Failed to create transcription job", http.StatusInternalServerError)

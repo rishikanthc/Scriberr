@@ -39,6 +39,24 @@ type Job struct {
 	Error       string    `json:"error,omitempty"`
 	CreatedAt   time.Time `json:"created_at"`
 	Cmd         *exec.Cmd `json:"-"` // The running command, not serialized
+	
+	// Additional transcription parameters
+	BatchSize                    int     `json:"batch_size,omitempty"`
+	ComputeType                  string  `json:"compute_type,omitempty"`
+	VadOnset                     float64 `json:"vad_onset,omitempty"`
+	VadOffset                    float64 `json:"vad_offset,omitempty"`
+	ConditionOnPreviousText      bool    `json:"condition_on_previous_text,omitempty"`
+	CompressionRatioThreshold    float64 `json:"compression_ratio_threshold,omitempty"`
+	LogprobThreshold             float64 `json:"logprob_threshold,omitempty"`
+	NoSpeechThreshold            float64 `json:"no_speech_threshold,omitempty"`
+	Temperature                  float64 `json:"temperature,omitempty"`
+	BestOf                       int     `json:"best_of,omitempty"`
+	BeamSize                     int     `json:"beam_size,omitempty"`
+	Patience                     float64 `json:"patience,omitempty"`
+	LengthPenalty                float64 `json:"length_penalty,omitempty"`
+	SuppressNumerals             bool    `json:"suppress_numerals,omitempty"`
+	InitialPrompt                string  `json:"initial_prompt,omitempty"`
+	TemperatureIncrementOnFallback float64 `json:"temperature_increment_on_fallback,omitempty"`
 }
 
 // TranscriptSegment represents one entry in a parsed transcript file.
@@ -74,39 +92,129 @@ func Init() {
 }
 
 // NewJob creates a new transcription job and adds it to the queue.
-func NewJob(audioID string, model string, diarize bool, minSpeakers int, maxSpeakers int) (*Job, error) {
-	storeMutex.Lock()
-	defer storeMutex.Unlock()
-
-	if model == "" {
-		model = "small" // Default model
-	}
-
-	// Set default values if not provided
-	if minSpeakers == 0 {
-		minSpeakers = 1
-	}
-	if maxSpeakers == 0 {
-		maxSpeakers = 2
+func NewJob(audioID, model string, diarize bool, minSpeakers, maxSpeakers int, params ...map[string]interface{}) (*Job, error) {
+	// Clear old transcript data when starting a new transcription
+	if err := clearOldTranscriptData(audioID); err != nil {
+		log.Printf("Warning: Failed to clear old transcript data for audio %s: %v", audioID, err)
 	}
 
 	job := &Job{
-		ID:          uuid.NewString(),
+		ID:          uuid.New().String(),
 		AudioID:     audioID,
 		Model:       model,
 		Diarize:     diarize,
 		MinSpeakers: minSpeakers,
 		MaxSpeakers: maxSpeakers,
 		Status:      StatusPending,
-		CreatedAt:   time.Now().UTC(),
-		Cmd:         nil,
+		CreatedAt:   time.Now(),
+		
+		// Set default values for additional parameters
+		BatchSize:                    16,
+		ComputeType:                  "int8",
+		VadOnset:                     0.5,
+		VadOffset:                    0.5,
+		ConditionOnPreviousText:      true,
+		CompressionRatioThreshold:    2.4,
+		LogprobThreshold:             -1.0,
+		NoSpeechThreshold:            0.6,
+		Temperature:                  0.0,
+		BestOf:                       5,
+		BeamSize:                     5,
+		Patience:                     1.0,
+		LengthPenalty:                1.0,
+		SuppressNumerals:             false,
+		InitialPrompt:                "",
+		TemperatureIncrementOnFallback: 0.2,
 	}
 
-	jobStore[job.ID] = job
-	jobQueue <- *job // Send a copy of the job to the queue
+	// Apply custom parameters if provided
+	if len(params) > 0 {
+		paramMap := params[0]
+		if v, ok := paramMap["batch_size"].(int); ok && v > 0 {
+			job.BatchSize = v
+		}
+		if v, ok := paramMap["compute_type"].(string); ok && v != "" {
+			job.ComputeType = v
+		}
+		if v, ok := paramMap["vad_onset"].(float64); ok && v > 0 {
+			job.VadOnset = v
+		}
+		if v, ok := paramMap["vad_offset"].(float64); ok && v > 0 {
+			job.VadOffset = v
+		}
+		if v, ok := paramMap["condition_on_previous_text"].(bool); ok {
+			job.ConditionOnPreviousText = v
+		}
+		if v, ok := paramMap["compression_ratio_threshold"].(float64); ok && v > 0 {
+			job.CompressionRatioThreshold = v
+		}
+		if v, ok := paramMap["logprob_threshold"].(float64); ok {
+			job.LogprobThreshold = v
+		}
+		if v, ok := paramMap["no_speech_threshold"].(float64); ok && v > 0 {
+			job.NoSpeechThreshold = v
+		}
+		if v, ok := paramMap["temperature"].(float64); ok {
+			job.Temperature = v
+		}
+		if v, ok := paramMap["best_of"].(int); ok && v > 0 {
+			job.BestOf = v
+		}
+		if v, ok := paramMap["beam_size"].(int); ok && v > 0 {
+			job.BeamSize = v
+		}
+		if v, ok := paramMap["patience"].(float64); ok && v > 0 {
+			job.Patience = v
+		}
+		if v, ok := paramMap["length_penalty"].(float64); ok && v > 0 {
+			job.LengthPenalty = v
+		}
+		if v, ok := paramMap["suppress_numerals"].(bool); ok {
+			job.SuppressNumerals = v
+		}
+		if v, ok := paramMap["initial_prompt"].(string); ok {
+			job.InitialPrompt = v
+		}
+		if v, ok := paramMap["temperature_increment_on_fallback"].(float64); ok && v > 0 {
+			job.TemperatureIncrementOnFallback = v
+		}
+	}
 
-	log.Printf("New job created and queued. JobID: %s, AudioID: %s, Model: %s, Diarize: %t, MinSpeakers: %d, MaxSpeakers: %d", job.ID, job.AudioID, job.Model, job.Diarize, job.MinSpeakers, job.MaxSpeakers)
-	return job, nil
+	storeMutex.Lock()
+	jobStore[job.ID] = job
+	storeMutex.Unlock()
+
+	select {
+	case jobQueue <- *job:
+		log.Printf("New job created and queued. JobID: %s, AudioID: %s, Model: %s, Diarize: %t, MinSpeakers: %d, MaxSpeakers: %d", job.ID, job.AudioID, job.Model, job.Diarize, job.MinSpeakers, job.MaxSpeakers)
+		return job, nil
+	default:
+		// Queue is full, remove the job from store
+		storeMutex.Lock()
+		delete(jobStore, job.ID)
+		storeMutex.Unlock()
+		return nil, fmt.Errorf("job queue is full")
+	}
+}
+
+// clearOldTranscriptData removes old transcript, speaker map, and summary data when retranscribing
+func clearOldTranscriptData(audioID string) error {
+	db := database.GetDB()
+	query := `UPDATE audio_records SET transcript = NULL, speaker_map = NULL, summary = NULL WHERE id = ?`
+	
+	stmt, err := db.Prepare(query)
+	if err != nil {
+		return fmt.Errorf("failed to prepare database cleanup statement: %w", err)
+	}
+	defer stmt.Close()
+
+	_, err = stmt.Exec(audioID)
+	if err != nil {
+		return fmt.Errorf("failed to clear old transcript data: %w", err)
+	}
+
+	log.Printf("Cleared old transcript data for audio record %s", audioID)
+	return nil
 }
 
 // GetJobStatus retrieves the status of a specific job.
@@ -232,13 +340,66 @@ func worker() {
 			outputFile := filepath.Join(transcriptOutputDir, job.AudioID+".json")
 			args = []string{"run", "diarize.py", audioPath, "--model", model, "--min-speakers", fmt.Sprintf("%d", job.MinSpeakers), "--max-speakers", fmt.Sprintf("%d", job.MaxSpeakers), "--output", outputFile}
 			
+			// Add additional parameters to diarization script
+			args = append(args, "--batch-size", fmt.Sprintf("%d", job.BatchSize))
+			args = append(args, "--compute-type", job.ComputeType)
+			
+			// Add VAD parameters
+			args = append(args, "--vad-onset", fmt.Sprintf("%.1f", job.VadOnset))
+			args = append(args, "--vad-offset", fmt.Sprintf("%.1f", job.VadOffset))
+			
+			// Add transcription quality parameters
+			conditionText := "False"
+			if job.ConditionOnPreviousText {
+				conditionText = "True"
+			}
+			args = append(args, "--condition-on-previous-text", conditionText)
+			args = append(args, "--compression-ratio-threshold", fmt.Sprintf("%.1f", job.CompressionRatioThreshold))
+			args = append(args, "--logprob-threshold", fmt.Sprintf("%.1f", job.LogprobThreshold))
+			args = append(args, "--no-speech-threshold", fmt.Sprintf("%.1f", job.NoSpeechThreshold))
+			
+			// Add additional parameters
+			args = append(args, "--temperature", fmt.Sprintf("%.1f", job.Temperature))
+			args = append(args, "--best-of", fmt.Sprintf("%d", job.BestOf))
+			args = append(args, "--beam-size", fmt.Sprintf("%d", job.BeamSize))
+			args = append(args, "--patience", fmt.Sprintf("%.1f", job.Patience))
+			args = append(args, "--length-penalty", fmt.Sprintf("%.1f", job.LengthPenalty))
+			
+			if job.SuppressNumerals {
+				args = append(args, "--suppress-numerals")
+			}
+			
+			if job.InitialPrompt != "" {
+				args = append(args, "--initial-prompt", job.InitialPrompt)
+			}
+			
+			args = append(args, "--temperature-increment-on-fallback", fmt.Sprintf("%.1f", job.TemperatureIncrementOnFallback))
+			
 			// Add HF token if available
 			if hfToken := os.Getenv("HF_TOKEN"); hfToken != "" {
 				args = append(args, "--hf-token", hfToken)
 			}
 		} else {
-			// Use regular whisperx for non-diarized transcription
-			args = []string{"run", "whisperx", audioPath, "--model", model, "--compute_type", "int8", "--output_format", "json", "--output_dir", transcriptOutputDir, "--vad", "--vad_onset", "0.5", "--vad_offset", "0.5", "--condition_on_previous_text", "True", "--compression_ratio_threshold", "2.4", "--logprob_threshold", "-1.0", "--no_speech_threshold", "0.6"}
+			// Use regular whisperx for non-diarized transcription with basic parameters only
+			args = []string{"run", "whisperx", audioPath, "--model", model, "--compute_type", job.ComputeType, "--output_format", "json", "--output_dir", transcriptOutputDir}
+			
+			// Add batch size
+			args = append(args, "--batch_size", fmt.Sprintf("%d", job.BatchSize))
+			
+			// Add basic transcription parameters that are definitely supported
+			args = append(args, "--temperature", fmt.Sprintf("%.1f", job.Temperature))
+			args = append(args, "--best_of", fmt.Sprintf("%d", job.BestOf))
+			args = append(args, "--beam_size", fmt.Sprintf("%d", job.BeamSize))
+			args = append(args, "--patience", fmt.Sprintf("%.1f", job.Patience))
+			args = append(args, "--length_penalty", fmt.Sprintf("%.1f", job.LengthPenalty))
+			
+			if job.SuppressNumerals {
+				args = append(args, "--suppress_numerals")
+			}
+			
+			if job.InitialPrompt != "" {
+				args = append(args, "--initial_prompt", job.InitialPrompt)
+			}
 		}
 
 		// Command: uv run whisperx <audio_path> --model <model_size> --compute_type int8 --output_format json --output_dir <output_dir> [--diarize]

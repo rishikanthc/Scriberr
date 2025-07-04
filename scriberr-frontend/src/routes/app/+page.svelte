@@ -265,9 +265,10 @@
 	async function transcribe(
 		audioId: string,
 		modelSize: string,
-		diarize: boolean = false,
-		minSpeakers: number = 1,
-		maxSpeakers: number = 2
+		diarize: boolean,
+		minSpeakers: number,
+		maxSpeakers: number,
+		params?: any
 	) {
 		if (transcriptionStatus[audioId] === 'processing') {
 			toast.info('Transcription is already in progress.');
@@ -277,16 +278,23 @@
 		activeTab = 'jobs';
 
 		try {
+			const requestBody: any = {
+				audio_id: audioId,
+				model_size: modelSize,
+				diarize: diarize,
+				min_speakers: minSpeakers,
+				max_speakers: maxSpeakers
+			};
+
+			// Add advanced parameters if provided
+			if (params) {
+				Object.assign(requestBody, params);
+			}
+
 			const response = await fetch('/api/transcribe', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					audio_id: audioId,
-					model_size: modelSize,
-					diarize: diarize,
-					min_speakers: minSpeakers,
-					max_speakers: maxSpeakers
-				}),
+				body: JSON.stringify(requestBody),
 				credentials: 'include'
 			});
 
@@ -544,9 +552,14 @@
 		isModelSelectOpen = true;
 	}
 
-	function handleStartTranscription(diarize: boolean, minSpeakers: number, maxSpeakers: number) {
+	function handleStartTranscription(
+		diarize: boolean,
+		minSpeakers: number,
+		maxSpeakers: number,
+		params: any
+	) {
 		if (!recordToTranscribe) return;
-		transcribe(recordToTranscribe.id, selectedModel, diarize, minSpeakers, maxSpeakers);
+		transcribe(recordToTranscribe.id, selectedModel, diarize, minSpeakers, maxSpeakers, params);
 		isModelSelectOpen = false;
 	}
 

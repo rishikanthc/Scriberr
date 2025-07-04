@@ -13,6 +13,15 @@ dependencies = [
   "websockets>=12.0",
   "python-multipart>=0.0.6",
   "aiofiles>=23.2.1",
+  "pyannote.audio>=3.0.0",
+  "pyannote.core>=5.0.0",
+  "torch>=2.0.0",
+  "torchaudio>=2.0.0",
+  "numpy>=1.21.0",
+  "librosa>=0.10.0",
+  "soundfile>=0.12.0",
+  "accelerate>=0.20.0",
+  "transformers>=4.30.0",
 ]
 
 [project.optional-dependencies]
