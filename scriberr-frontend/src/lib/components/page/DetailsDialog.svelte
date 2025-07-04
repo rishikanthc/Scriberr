@@ -73,7 +73,7 @@
 						<Button
 							size="sm"
 							variant="default"
-							class="bg-neon-100 h-7 text-black"
+							class="bg-neon-100 hover:bg-neon-200 h-7 text-black"
 							disabled={!editableTitle.trim()}
 							onclick={handleSaveTitle}>Save</Button
 						>
