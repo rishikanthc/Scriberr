@@ -34,6 +34,12 @@
 		suppress_numerals: boolean;
 		initial_prompt: string;
 		temperature_increment_on_fallback: number;
+		// New diarization parameters
+		diarization_model: string;
+		min_segment_duration: number;
+		merge_short_segments: boolean;
+		merge_min_duration: number;
+		merge_max_gap: number;
 	};
 
 	// --- PROPS ---
@@ -61,6 +67,34 @@
 	let minSpeakers = $state(1);
 	let maxSpeakers = $state(2);
 
+	// Available diarization models
+	const diarizationModels = [
+		{
+			id: 'pyannote/speaker-diarization-3.1',
+			name: 'Pyannote 3.1 (Recommended)',
+			description: 'Latest pyannote model with improved accuracy',
+			requiresToken: true
+		},
+		{
+			id: 'pyannote/speaker-diarization-3.0',
+			name: 'Pyannote 3.0',
+			description: 'Previous generation pyannote model',
+			requiresToken: true
+		},
+		{
+			id: 'pyannote/speaker-diarization-2.1',
+			name: 'Pyannote 2.1',
+			description: 'Older but stable pyannote model',
+			requiresToken: true
+		},
+		{
+			id: 'whisperx-default',
+			name: 'WhisperX Default',
+			description: 'Built-in WhisperX diarization',
+			requiresToken: false
+		}
+	];
+
 	// Advanced parameters state
 	let transcriptionParams = $state<TranscriptionParams>({
 		model_size: selectedModel,
@@ -79,7 +113,13 @@
 		length_penalty: 1.0,
 		suppress_numerals: false,
 		initial_prompt: '',
-		temperature_increment_on_fallback: 0.2
+		temperature_increment_on_fallback: 0.2,
+		// New diarization parameters
+		diarization_model: 'pyannote/speaker-diarization-3.1',
+		min_segment_duration: 0.5,
+		merge_short_segments: true,
+		merge_min_duration: 1.0,
+		merge_max_gap: 0.5
 	});
 
 	// Update model size when selectedModel changes
@@ -109,7 +149,13 @@
 			length_penalty: 1.0,
 			suppress_numerals: false,
 			initial_prompt: '',
-			temperature_increment_on_fallback: 0.2
+			temperature_increment_on_fallback: 0.2,
+			// New diarization parameters
+			diarization_model: 'pyannote/speaker-diarization-3.1',
+			min_segment_duration: 0.5,
+			merge_short_segments: true,
+			merge_min_duration: 1.0,
+			merge_max_gap: 0.5
 		};
 	}
 </script>
@@ -181,6 +227,34 @@
 									</p>
 								</div>
 
+								<!-- Diarization Model Selection -->
+								<div class="space-y-2">
+									<Label for="diarization-model">Diarization Model</Label>
+									<Select.Root bind:value={transcriptionParams.diarization_model} type="single">
+										<Select.Trigger class="w-full border-gray-600 bg-gray-800 text-gray-200">
+											{diarizationModels.find((m) => m.id === transcriptionParams.diarization_model)
+												?.name || 'Select a model'}
+										</Select.Trigger>
+										<Select.Content class="border-gray-600 bg-gray-800">
+											{#each diarizationModels as model}
+												<Select.Item value={model.id} class="text-gray-200 hover:bg-gray-700">
+													<div class="flex flex-col">
+														<span class="font-medium">{model.name}</span>
+														<span class="text-xs text-gray-400">{model.description}</span>
+														{#if model.requiresToken}
+															<span class="text-xs text-yellow-400">Requires HF Token</span>
+														{/if}
+													</div>
+												</Select.Item>
+											{/each}
+										</Select.Content>
+									</Select.Root>
+									<p class="text-xs text-gray-400">
+										{diarizationModels.find((m) => m.id === transcriptionParams.diarization_model)
+											?.description}
+									</p>
+								</div>
+
 								<!-- Speaker Count Configuration -->
 								<div class="grid grid-cols-2 gap-4">
 									<div class="space-y-2">
@@ -205,6 +279,68 @@
 											class="w-full border-gray-600 bg-gray-800 text-gray-200"
 										/>
 									</div>
+								</div>
+
+								<!-- Segment Configuration -->
+								<div class="space-y-3">
+									<h4 class="text-sm font-medium text-gray-300">Segment Configuration</h4>
+
+									<div class="space-y-2">
+										<Label for="min-segment-duration">Minimum Segment Duration (seconds)</Label>
+										<Input
+											type="number"
+											id="min-segment-duration"
+											bind:value={transcriptionParams.min_segment_duration}
+											min="0.1"
+											max="5.0"
+											step="0.1"
+											class="w-full border-gray-600 bg-gray-800 text-gray-200"
+										/>
+										<p class="text-xs text-gray-400">
+											Minimum duration for a speaker segment. Shorter segments will be merged.
+										</p>
+									</div>
+
+									<div class="flex items-center space-x-2">
+										<Checkbox
+											id="merge-short-segments"
+											bind:checked={transcriptionParams.merge_short_segments}
+										/>
+										<Label for="merge-short-segments">Merge Short Segments</Label>
+									</div>
+
+									{#if transcriptionParams.merge_short_segments}
+										<div class="grid grid-cols-2 gap-4">
+											<div class="space-y-2">
+												<Label for="merge-min-duration">Merge Min Duration (seconds)</Label>
+												<Input
+													type="number"
+													id="merge-min-duration"
+													bind:value={transcriptionParams.merge_min_duration}
+													min="0.5"
+													max="5.0"
+													step="0.1"
+													class="w-full border-gray-600 bg-gray-800 text-gray-200"
+												/>
+												<p class="text-xs text-gray-400">
+													Segments shorter than this will be merged
+												</p>
+											</div>
+											<div class="space-y-2">
+												<Label for="merge-max-gap">Max Gap to Merge (seconds)</Label>
+												<Input
+													type="number"
+													id="merge-max-gap"
+													bind:value={transcriptionParams.merge_max_gap}
+													min="0.1"
+													max="2.0"
+													step="0.1"
+													class="w-full border-gray-600 bg-gray-800 text-gray-200"
+												/>
+												<p class="text-xs text-gray-400">Maximum gap between segments to merge</p>
+											</div>
+										</div>
+									{/if}
 								</div>
 
 								{#if minSpeakers > maxSpeakers}

@@ -63,6 +63,12 @@ func HandleTranscribe(w http.ResponseWriter, r *http.Request) {
 		SuppressNumerals             bool    `json:"suppress_numerals"`
 		InitialPrompt                string  `json:"initial_prompt"`
 		TemperatureIncrementOnFallback float64 `json:"temperature_increment_on_fallback"`
+		// New diarization parameters
+		DiarizationModel            string  `json:"diarization_model"`
+		MinSegmentDuration          float64 `json:"min_segment_duration"`
+		MergeShortSegments          bool    `json:"merge_short_segments"`
+		MergeMinDuration            float64 `json:"merge_min_duration"`
+		MergeMaxGap                 float64 `json:"merge_max_gap"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -125,6 +131,20 @@ func HandleTranscribe(w http.ResponseWriter, r *http.Request) {
 		req.TemperatureIncrementOnFallback = 0.2
 	}
 
+	// Set default values for new diarization parameters
+	if req.DiarizationModel == "" {
+		req.DiarizationModel = "pyannote/speaker-diarization-3.1"
+	}
+	if req.MinSegmentDuration == 0 {
+		req.MinSegmentDuration = 0.5
+	}
+	if req.MergeMinDuration == 0 {
+		req.MergeMinDuration = 1.0
+	}
+	if req.MergeMaxGap == 0 {
+		req.MergeMaxGap = 0.5
+	}
+
 	job, err := tasks.NewJob(req.AudioID, req.ModelSize, req.Diarize, req.MinSpeakers, req.MaxSpeakers, map[string]interface{}{
 		"batch_size":                      req.BatchSize,
 		"compute_type":                    req.ComputeType,
@@ -142,6 +162,12 @@ func HandleTranscribe(w http.ResponseWriter, r *http.Request) {
 		"suppress_numerals":               req.SuppressNumerals,
 		"initial_prompt":                  req.InitialPrompt,
 		"temperature_increment_on_fallback": req.TemperatureIncrementOnFallback,
+		// New diarization parameters
+		"diarization_model":               req.DiarizationModel,
+		"min_segment_duration":            req.MinSegmentDuration,
+		"merge_short_segments":            req.MergeShortSegments,
+		"merge_min_duration":              req.MergeMinDuration,
+		"merge_max_gap":                   req.MergeMaxGap,
 	})
 	if err != nil {
 		log.Printf("Error creating new job for audio ID %s: %v", req.AudioID, err)

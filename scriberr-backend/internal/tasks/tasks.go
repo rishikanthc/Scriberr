@@ -57,6 +57,12 @@ type Job struct {
 	SuppressNumerals             bool    `json:"suppress_numerals,omitempty"`
 	InitialPrompt                string  `json:"initial_prompt,omitempty"`
 	TemperatureIncrementOnFallback float64 `json:"temperature_increment_on_fallback,omitempty"`
+	// New diarization parameters
+	DiarizationModel            string  `json:"diarization_model,omitempty"`
+	MinSegmentDuration          float64 `json:"min_segment_duration,omitempty"`
+	MergeShortSegments          bool    `json:"merge_short_segments,omitempty"`
+	MergeMinDuration            float64 `json:"merge_min_duration,omitempty"`
+	MergeMaxGap                 float64 `json:"merge_max_gap,omitempty"`
 }
 
 // TranscriptSegment represents one entry in a parsed transcript file.
@@ -125,60 +131,81 @@ func NewJob(audioID, model string, diarize bool, minSpeakers, maxSpeakers int, p
 		SuppressNumerals:             false,
 		InitialPrompt:                "",
 		TemperatureIncrementOnFallback: 0.2,
+		// New diarization parameters
+		DiarizationModel:            "pyannote/speaker-diarization-3.1",
+		MinSegmentDuration:          0.5,
+		MergeShortSegments:          true,
+		MergeMinDuration:            1.0,
+		MergeMaxGap:                 0.5,
 	}
 
-	// Apply custom parameters if provided
-	if len(params) > 0 {
-		paramMap := params[0]
-		if v, ok := paramMap["batch_size"].(int); ok && v > 0 {
-			job.BatchSize = v
+		// Apply custom parameters if provided
+		if len(params) > 0 {
+			if batchSize, ok := params[0]["batch_size"].(int); ok {
+				job.BatchSize = batchSize
+			}
+			if computeType, ok := params[0]["compute_type"].(string); ok {
+				job.ComputeType = computeType
+			}
+			if vadOnset, ok := params[0]["vad_onset"].(float64); ok {
+				job.VadOnset = vadOnset
+			}
+			if vadOffset, ok := params[0]["vad_offset"].(float64); ok {
+				job.VadOffset = vadOffset
+			}
+			if conditionOnPreviousText, ok := params[0]["condition_on_previous_text"].(bool); ok {
+				job.ConditionOnPreviousText = conditionOnPreviousText
+			}
+			if compressionRatioThreshold, ok := params[0]["compression_ratio_threshold"].(float64); ok {
+				job.CompressionRatioThreshold = compressionRatioThreshold
+			}
+			if logprobThreshold, ok := params[0]["logprob_threshold"].(float64); ok {
+				job.LogprobThreshold = logprobThreshold
+			}
+			if noSpeechThreshold, ok := params[0]["no_speech_threshold"].(float64); ok {
+				job.NoSpeechThreshold = noSpeechThreshold
+			}
+			if temperature, ok := params[0]["temperature"].(float64); ok {
+				job.Temperature = temperature
+			}
+			if bestOf, ok := params[0]["best_of"].(int); ok {
+				job.BestOf = bestOf
+			}
+			if beamSize, ok := params[0]["beam_size"].(int); ok {
+				job.BeamSize = beamSize
+			}
+			if patience, ok := params[0]["patience"].(float64); ok {
+				job.Patience = patience
+			}
+			if lengthPenalty, ok := params[0]["length_penalty"].(float64); ok {
+				job.LengthPenalty = lengthPenalty
+			}
+			if suppressNumerals, ok := params[0]["suppress_numerals"].(bool); ok {
+				job.SuppressNumerals = suppressNumerals
+			}
+			if initialPrompt, ok := params[0]["initial_prompt"].(string); ok {
+				job.InitialPrompt = initialPrompt
+			}
+			if temperatureIncrementOnFallback, ok := params[0]["temperature_increment_on_fallback"].(float64); ok {
+				job.TemperatureIncrementOnFallback = temperatureIncrementOnFallback
+			}
+			// New diarization parameters
+			if diarizationModel, ok := params[0]["diarization_model"].(string); ok {
+				job.DiarizationModel = diarizationModel
+			}
+			if minSegmentDuration, ok := params[0]["min_segment_duration"].(float64); ok {
+				job.MinSegmentDuration = minSegmentDuration
+			}
+			if mergeShortSegments, ok := params[0]["merge_short_segments"].(bool); ok {
+				job.MergeShortSegments = mergeShortSegments
+			}
+			if mergeMinDuration, ok := params[0]["merge_min_duration"].(float64); ok {
+				job.MergeMinDuration = mergeMinDuration
+			}
+			if mergeMaxGap, ok := params[0]["merge_max_gap"].(float64); ok {
+				job.MergeMaxGap = mergeMaxGap
+			}
 		}
-		if v, ok := paramMap["compute_type"].(string); ok && v != "" {
-			job.ComputeType = v
-		}
-		if v, ok := paramMap["vad_onset"].(float64); ok && v > 0 {
-			job.VadOnset = v
-		}
-		if v, ok := paramMap["vad_offset"].(float64); ok && v > 0 {
-			job.VadOffset = v
-		}
-		if v, ok := paramMap["condition_on_previous_text"].(bool); ok {
-			job.ConditionOnPreviousText = v
-		}
-		if v, ok := paramMap["compression_ratio_threshold"].(float64); ok && v > 0 {
-			job.CompressionRatioThreshold = v
-		}
-		if v, ok := paramMap["logprob_threshold"].(float64); ok {
-			job.LogprobThreshold = v
-		}
-		if v, ok := paramMap["no_speech_threshold"].(float64); ok && v > 0 {
-			job.NoSpeechThreshold = v
-		}
-		if v, ok := paramMap["temperature"].(float64); ok {
-			job.Temperature = v
-		}
-		if v, ok := paramMap["best_of"].(int); ok && v > 0 {
-			job.BestOf = v
-		}
-		if v, ok := paramMap["beam_size"].(int); ok && v > 0 {
-			job.BeamSize = v
-		}
-		if v, ok := paramMap["patience"].(float64); ok && v > 0 {
-			job.Patience = v
-		}
-		if v, ok := paramMap["length_penalty"].(float64); ok && v > 0 {
-			job.LengthPenalty = v
-		}
-		if v, ok := paramMap["suppress_numerals"].(bool); ok {
-			job.SuppressNumerals = v
-		}
-		if v, ok := paramMap["initial_prompt"].(string); ok {
-			job.InitialPrompt = v
-		}
-		if v, ok := paramMap["temperature_increment_on_fallback"].(float64); ok && v > 0 {
-			job.TemperatureIncrementOnFallback = v
-		}
-	}
 
 	storeMutex.Lock()
 	jobStore[job.ID] = job
@@ -343,6 +370,15 @@ func worker() {
 			// Add basic parameters that are supported by the diarization script
 			args = append(args, "--batch-size", fmt.Sprintf("%d", job.BatchSize))
 			args = append(args, "--compute-type", job.ComputeType)
+			
+			// Add new diarization parameters
+			args = append(args, "--diarization-model", job.DiarizationModel)
+			args = append(args, "--min-segment-duration", fmt.Sprintf("%.1f", job.MinSegmentDuration))
+			if job.MergeShortSegments {
+				args = append(args, "--merge-short-segments")
+			}
+			args = append(args, "--merge-min-duration", fmt.Sprintf("%.1f", job.MergeMinDuration))
+			args = append(args, "--merge-max-gap", fmt.Sprintf("%.1f", job.MergeMaxGap))
 			
 			// Add HF token if available
 			if hfToken := os.Getenv("HF_TOKEN"); hfToken != "" {

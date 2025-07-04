@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Enhanced speaker diarization script using whisperx
+Enhanced speaker diarization script using whisperx with multiple model options
 This script provides robust diarization with improved transcript coverage and speaker alignment
 """
 
@@ -25,6 +25,154 @@ try:
 except ImportError:
     PYANNOTE_AVAILABLE = False
     print("Warning: pyannote.audio not available. Using WhisperX diarization only.")
+
+# Available diarization models
+DIARIZATION_MODELS = {
+    "pyannote/speaker-diarization-3.1": {
+        "name": "Pyannote 3.1 (Recommended)",
+        "description": "Latest pyannote model with improved accuracy",
+        "requires_token": True,
+        "type": "pyannote",
+    },
+    "pyannote/speaker-diarization-3.0": {
+        "name": "Pyannote 3.0",
+        "description": "Previous generation pyannote model",
+        "requires_token": True,
+        "type": "pyannote",
+    },
+    "pyannote/speaker-diarization-2.1": {
+        "name": "Pyannote 2.1",
+        "description": "Older but stable pyannote model",
+        "requires_token": True,
+        "type": "pyannote",
+    },
+    "whisperx-default": {
+        "name": "WhisperX Default",
+        "description": "Built-in WhisperX diarization",
+        "requires_token": False,
+        "type": "whisperx",
+    },
+}
+
+
+def create_speaker_based_segments(
+    result: Dict[str, Any], min_segment_duration: float = 0.5
+) -> Dict[str, Any]:
+    """
+    Create segments based on speaker changes rather than time-based segmentation.
+    Combines contiguous words with the same speaker into segments.
+
+    Args:
+        result: WhisperX result with word-level speaker assignments
+        min_segment_duration: Minimum duration for a segment (seconds)
+
+    Returns:
+        Dict with speaker-based segments
+    """
+    if "segments" not in result or not result["segments"]:
+        return result
+
+    new_segments = []
+    current_segment = None
+
+    for segment in result["segments"]:
+        if "words" not in segment or not segment["words"]:
+            # If no word-level data, keep the original segment
+            new_segments.append(segment)
+            continue
+
+        words = segment["words"]
+
+        for word in words:
+            if "speaker" not in word:
+                continue
+
+            speaker = word["speaker"]
+            start = word["start"]
+            end = word["end"]
+            text = word.get("word", "")
+
+            # Initialize first segment
+            if current_segment is None:
+                current_segment = {
+                    "start": start,
+                    "end": end,
+                    "speaker": speaker,
+                    "text": text,
+                    "words": [word],
+                }
+            elif current_segment["speaker"] == speaker:
+                # Same speaker, extend current segment
+                current_segment["end"] = end
+                current_segment["text"] += " " + text
+                current_segment["words"].append(word)
+            else:
+                # Different speaker, finalize current segment and start new one
+                if (
+                    current_segment["end"] - current_segment["start"]
+                    >= min_segment_duration
+                ):
+                    new_segments.append(current_segment)
+
+                current_segment = {
+                    "start": start,
+                    "end": end,
+                    "speaker": speaker,
+                    "text": text,
+                    "words": [word],
+                }
+
+    # Add the last segment if it exists
+    if (
+        current_segment
+        and current_segment["end"] - current_segment["start"] >= min_segment_duration
+    ):
+        new_segments.append(current_segment)
+
+    # Update the result with new segments
+    result["segments"] = new_segments
+    return result
+
+
+def merge_short_segments(
+    segments: List[Dict], min_duration: float = 1.0, max_gap: float = 0.5
+) -> List[Dict]:
+    """
+    Merge short segments with adjacent segments to improve readability.
+
+    Args:
+        segments: List of segments
+        min_duration: Minimum duration for a segment to be kept separate
+        max_gap: Maximum gap between segments to merge
+
+    Returns:
+        List of merged segments
+    """
+    if not segments:
+        return segments
+
+    merged = []
+    current = segments[0].copy()
+
+    for next_segment in segments[1:]:
+        gap = next_segment["start"] - current["end"]
+
+        # Merge if current segment is too short and gap is small
+        if (
+            current["end"] - current["start"] < min_duration
+            and gap <= max_gap
+            and current.get("speaker") == next_segment.get("speaker")
+        ):
+            current["end"] = next_segment["end"]
+            current["text"] += " " + next_segment["text"]
+            if "words" in current and "words" in next_segment:
+                current["words"].extend(next_segment["words"])
+        else:
+            merged.append(current)
+            current = next_segment.copy()
+
+    merged.append(current)
+    return merged
 
 
 def diarize_audio(
@@ -52,6 +200,11 @@ def diarize_audio(
     suppress_numerals=False,
     initial_prompt="",
     temperature_increment_on_fallback=0.2,
+    # New parameters for improved diarization
+    min_segment_duration=0.5,
+    merge_short_segments_enabled=True,
+    merge_min_duration=1.0,
+    merge_max_gap=0.5,
 ):
     """
     Perform robust speaker diarization using whisperx with enhanced transcript coverage
@@ -65,7 +218,7 @@ def diarize_audio(
         compute_type: Compute type (float16, int8)
         output_file: Output JSON file path
         hf_token: HuggingFace token for pyannote.audio
-        diarization_model: Pyannote diarization model to use
+        diarization_model: Diarization model to use
         vad_onset: VAD onset threshold
         vad_offset: VAD offset threshold
         condition_on_previous_text: Condition on previous text
@@ -80,6 +233,10 @@ def diarize_audio(
         suppress_numerals: Suppress numerals in output
         initial_prompt: Initial prompt for transcription
         temperature_increment_on_fallback: Temperature increment on fallback
+        min_segment_duration: Minimum duration for speaker-based segments
+        merge_short_segments_enabled: Whether to merge short segments
+        merge_min_duration: Minimum duration for segments to be kept separate
+        merge_max_gap: Maximum gap between segments to merge
 
     Returns:
         dict: Processed transcript with robust speaker diarization
@@ -141,37 +298,48 @@ def diarize_audio(
             torch.cuda.empty_cache()
 
         # 4. Speaker diarization
-        print("Loading diarization model...")
+        print(f"Loading diarization model: {diarization_model}")
 
-        # Try to use pyannote.audio first for better results
+        # Check if the model requires a token
+        model_info = DIARIZATION_MODELS.get(diarization_model, {})
+        requires_token = model_info.get("requires_token", True)
+
+        # --- Token handling: always check env if CLI arg is missing or empty ---
+        if not hf_token:
+            hf_token = os.getenv("HF_TOKEN")
+        if requires_token and not hf_token:
+            print(
+                f"Warning: {diarization_model} requires HF token but none provided. Set the HF_TOKEN environment variable or use --hf-token. Falling back to WhisperX default."
+            )
+            diarization_model = "whisperx-default"
+
+        # Try to use pyannote.audio for better results
         diarize_segments = None
-        if PYANNOTE_AVAILABLE and hf_token:
+        if (
+            diarization_model.startswith("pyannote/")
+            and PYANNOTE_AVAILABLE
+            and hf_token
+        ):
             print("Using pyannote.audio for enhanced diarization...")
             diarize_segments = enhanced_pyannote_diarization(
-                audio_file, hf_token, device, min_speakers, max_speakers
+                audio_file,
+                hf_token,
+                device,
+                min_speakers,
+                max_speakers,
+                diarization_model,
             )
 
         # Fall back to WhisperX diarization if pyannote fails or is not available
         if diarize_segments is None:
             print("Using WhisperX diarization...")
-            if hf_token:
+            if hf_token and diarization_model.startswith("pyannote/"):
                 diarize_model = whisperx.diarize.DiarizationPipeline(
                     use_auth_token=hf_token, device=device, model_name=diarization_model
                 )
             else:
-                # Try to use environment variable
-                hf_token = os.getenv("HF_TOKEN")
-                if hf_token:
-                    diarize_model = whisperx.diarize.DiarizationPipeline(
-                        use_auth_token=hf_token,
-                        device=device,
-                        model_name=diarization_model,
-                    )
-                else:
-                    print("Warning: No HF token provided. Using default diarization.")
-                    diarize_model = whisperx.diarize.DiarizationPipeline(
-                        device=device, model_name=diarization_model
-                    )
+                # Use default WhisperX diarization
+                diarize_model = whisperx.diarize.DiarizationPipeline(device=device)
 
             print("Performing WhisperX speaker diarization...")
             # Use only supported parameters for WhisperX diarization
@@ -188,6 +356,23 @@ def diarize_audio(
         result = whisperx.assign_word_speakers(diarize_segments, result)
         print(f"Speaker assignment complete. Final segments: {len(result['segments'])}")
 
+        # 6. Create speaker-based segments
+        print("Creating speaker-based segments...")
+        result = create_speaker_based_segments(result, min_segment_duration)
+        print(
+            f"Speaker-based segmentation complete. Segments: {len(result['segments'])}"
+        )
+
+        # 7. Merge short segments if enabled
+        if merge_short_segments_enabled:
+            print("Merging short segments...")
+            result["segments"] = merge_short_segments(
+                result["segments"], merge_min_duration, merge_max_gap
+            )
+            print(
+                f"Segment merging complete. Final segments: {len(result['segments'])}"
+            )
+
         # Clean up diarization model (only if it was created)
         if "diarize_model" in locals():
             del diarize_model
@@ -195,7 +380,7 @@ def diarize_audio(
         if device == "cuda":
             torch.cuda.empty_cache()
 
-        # 6. Save to file if specified
+        # 8. Save to file if specified
         if output_file:
             print(f"Saving transcript to {output_file}")
             with open(output_file, "w", encoding="utf-8") as f:
@@ -209,20 +394,23 @@ def diarize_audio(
 
 
 def enhanced_pyannote_diarization(
-    audio_file: str, hf_token: str, device: str, min_speakers: int, max_speakers: int
+    audio_file: str,
+    hf_token: str,
+    device: str,
+    min_speakers: int,
+    max_speakers: int,
+    model_name: str,
 ) -> Optional[Any]:
     """Enhanced diarization using pyannote.audio directly for better results"""
     try:
-        # Initialize the pipeline with the latest model
-        pipeline = Pipeline.from_pretrained(
-            "pyannote/speaker-diarization-3.1", use_auth_token=hf_token
-        )
+        # Initialize the pipeline with the specified model
+        pipeline = Pipeline.from_pretrained(model_name, use_auth_token=hf_token)
 
         # Move to device if available
         if device == "cuda":
             pipeline = pipeline.to(torch.device("cuda"))
 
-        print("Running pyannote.audio diarization...")
+        print(f"Running pyannote.audio diarization with {model_name}...")
 
         # Run diarization with only supported parameters
         with ProgressHook() as hook:
@@ -252,11 +440,27 @@ def enhanced_pyannote_diarization(
         return None
 
 
+def list_available_models():
+    """List all available diarization models"""
+    print("Available diarization models:")
+    print("-" * 50)
+    for model_id, info in DIARIZATION_MODELS.items():
+        print(f"ID: {model_id}")
+        print(f"Name: {info['name']}")
+        print(f"Description: {info['description']}")
+        print(f"Requires HF Token: {info['requires_token']}")
+        print(f"Type: {info['type']}")
+        print("-" * 50)
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Enhanced robust speaker diarization using whisperx and pyannote.audio"
     )
-    parser.add_argument("audio_file", help="Path to audio file")
+    parser.add_argument(
+        "--list-models", action="store_true", help="List available diarization models"
+    )
+    parser.add_argument("audio_file", nargs="?", help="Path to audio file")
     parser.add_argument("--model", default="large-v2", help="Whisper model size")
     parser.add_argument(
         "--min-speakers", type=int, default=1, help="Minimum number of speakers"
@@ -275,8 +479,36 @@ def main():
     parser.add_argument(
         "--diarization-model",
         default="pyannote/speaker-diarization-3.1",
+        choices=list(DIARIZATION_MODELS.keys()),
         help="Diarization model to use",
     )
+
+    # New diarization parameters
+    parser.add_argument(
+        "--min-segment-duration",
+        type=float,
+        default=0.5,
+        help="Minimum duration for speaker-based segments (seconds)",
+    )
+    parser.add_argument(
+        "--merge-short-segments",
+        action="store_true",
+        default=True,
+        help="Merge short segments with adjacent segments",
+    )
+    parser.add_argument(
+        "--merge-min-duration",
+        type=float,
+        default=1.0,
+        help="Minimum duration for segments to be kept separate (seconds)",
+    )
+    parser.add_argument(
+        "--merge-max-gap",
+        type=float,
+        default=0.5,
+        help="Maximum gap between segments to merge (seconds)",
+    )
+
     # Additional transcription parameters
     parser.add_argument(
         "--vad-onset",
@@ -365,7 +597,16 @@ def main():
 
     args = parser.parse_args()
 
+    # Handle list models command
+    if args.list_models:
+        list_available_models()
+        return
+
     # Validate input file
+    if not args.audio_file:
+        print("Error: Audio file is required")
+        sys.exit(1)
+
     if not os.path.exists(args.audio_file):
         print(f"Error: Audio file '{args.audio_file}' not found")
         sys.exit(1)
@@ -405,6 +646,10 @@ def main():
             suppress_numerals=args.suppress_numerals,
             initial_prompt=args.initial_prompt,
             temperature_increment_on_fallback=args.temperature_increment_on_fallback,
+            min_segment_duration=args.min_segment_duration,
+            merge_short_segments_enabled=args.merge_short_segments,
+            merge_min_duration=args.merge_min_duration,
+            merge_max_gap=args.merge_max_gap,
         )
 
         print(f"Enhanced diarization completed successfully!")
