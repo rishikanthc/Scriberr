@@ -51,18 +51,24 @@ RUN apt-get update && \
 
 # Copy the binary and Python dependencies
 COPY --from=builder /app/scriberr /app/scriberr
-COPY pyproject.toml uv.lock ./
+COPY --from=builder /app/pyproject.toml /app/pyproject.toml
+COPY --from=builder /app/uv.lock /app/uv.lock
+COPY --from=builder /app/diarize.py /app/diarize.py
+# COPY pyproject.toml uv.lock /app/
+# COPY diarize.py  /app/
 
 # Install uv and dependencies
 RUN pip install --upgrade pip && \
-    pip install uv && \
-    uv sync --frozen
+    pip install --root-user-action ignore uv
+
+# Set working directory for uv operations
+WORKDIR /app
+
+# Install Python dependencies
+RUN uv sync --frozen
 
 # Create storage directory for database and files
 RUN mkdir -p /app/storage
-
-# Set working directory
-WORKDIR /app
 
 # Expose port
 EXPOSE 8080
@@ -70,6 +76,7 @@ EXPOSE 8080
 # Set environment variables with defaults
 ENV OPENAI_API_KEY=""
 ENV SESSION_KEY=""
+ENV HF_TOKEN=""
 
 # Set the entrypoint to run the binary
 ENTRYPOINT ["/app/scriberr"] 

@@ -365,7 +365,7 @@ func worker() {
 		if job.Diarize {
 			// Use the dedicated diarization script
 			outputFile := filepath.Join(transcriptOutputDir, job.AudioID+".json")
-			args = []string{"run", "diarize.py", audioPath, "--model", model, "--min-speakers", fmt.Sprintf("%d", job.MinSpeakers), "--max-speakers", fmt.Sprintf("%d", job.MaxSpeakers), "--output", outputFile}
+			args = []string{"run", "--native-tls", "diarize.py", audioPath, "--model", model, "--min-speakers", fmt.Sprintf("%d", job.MinSpeakers), "--max-speakers", fmt.Sprintf("%d", job.MaxSpeakers), "--output", outputFile}
 			
 			// Add basic parameters that are supported by the diarization script
 			args = append(args, "--batch-size", fmt.Sprintf("%d", job.BatchSize))
@@ -386,7 +386,7 @@ func worker() {
 			}
 		} else {
 			// Use regular whisperx for non-diarized transcription with basic parameters only
-			args = []string{"run", "whisperx", audioPath, "--model", model, "--compute_type", job.ComputeType, "--output_format", "json", "--output_dir", transcriptOutputDir}
+			args = []string{"run", "--native-tls", "whisperx", audioPath, "--model", model, "--compute_type", job.ComputeType, "--output_format", "json", "--output_dir", transcriptOutputDir}
 			
 			// Add batch size
 			args = append(args, "--batch_size", fmt.Sprintf("%d", job.BatchSize))
