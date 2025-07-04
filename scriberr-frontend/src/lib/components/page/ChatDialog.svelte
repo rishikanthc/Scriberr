@@ -68,8 +68,25 @@
 	});
 
 	$effect(() => {
+		if (!open) {
+			// Clear session and messages when dialog is closed
+			currentSession = null;
+			messages = [];
+			sessions = [];
+		}
+	});
+
+	$effect(() => {
 		if (currentSession) {
 			fetchChatMessages();
+		}
+	});
+
+	// Clear session when record changes (different audio file)
+	$effect(() => {
+		if (record && currentSession && currentSession.audio_id !== record.id) {
+			currentSession = null;
+			messages = [];
 		}
 	});
 
