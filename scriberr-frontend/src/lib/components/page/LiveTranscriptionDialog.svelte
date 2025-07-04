@@ -9,6 +9,7 @@
 		modelSize: string;
 		language: string;
 		translate: boolean;
+		chunkSize: number;
 	};
 
 	type Props = {
@@ -22,6 +23,7 @@
 	let modelSize = $state('small');
 	let language = $state('en');
 	let translate = $state(false);
+	let chunkSize = $state(500); // Changed from 250 to 500ms for better stability
 
 	// Available model sizes with descriptions
 	const modelSizes = [
@@ -48,11 +50,21 @@
 		{ value: 'hi', label: 'Hindi' }
 	];
 
+	// Available chunk sizes with descriptions (updated with larger options)
+	const chunkSizes = [
+		{ value: 100, label: '100ms', description: 'Ultra-low latency, may cause buffer overflow' },
+		{ value: 250, label: '250ms', description: 'Low latency, may cause buffer overflow' },
+		{ value: 500, label: '500ms', description: 'Recommended: Balanced latency and stability' },
+		{ value: 1000, label: '1000ms', description: 'High stability, higher latency' },
+		{ value: 2000, label: '2000ms', description: 'Maximum stability, highest latency' }
+	];
+
 	function handleStart() {
 		const config: LiveTranscriptionConfig = {
 			modelSize,
 			language,
-			translate
+			translate,
+			chunkSize
 		};
 		onStart(config);
 		open = false;
@@ -116,6 +128,26 @@
 				</Select.Root>
 			</div>
 
+			<!-- Chunk Size Selection -->
+			<div class="space-y-2">
+				<label for="chunk-size" class="text-sm font-medium text-gray-300">Audio Chunk Size</label>
+				<Select.Root bind:value={chunkSize} type="single">
+					<Select.Trigger class="w-full border-gray-600 bg-gray-800 text-gray-200">
+						{chunkSize ? chunkSizes.find((c) => c.value === chunkSize)?.label : 'Select chunk size'}
+					</Select.Trigger>
+					<Select.Content class="border-gray-600 bg-gray-800">
+						{#each chunkSizes as chunk}
+							<Select.Item value={chunk.value} class="text-gray-200 hover:bg-gray-700">
+								<div class="flex flex-col">
+									<span class="font-medium">{chunk.label}</span>
+									<span class="text-xs text-gray-400">{chunk.description}</span>
+								</div>
+							</Select.Item>
+						{/each}
+					</Select.Content>
+				</Select.Root>
+			</div>
+
 			<!-- Translation Option -->
 			<div class="flex items-center space-x-2">
 				<input
@@ -130,8 +162,8 @@
 			<!-- Info Box -->
 			<div class="rounded-md bg-gray-800 p-3 text-sm text-gray-400">
 				<p>
-					<strong>Note:</strong> Smaller models are faster but less accurate. Larger models provide better
-					accuracy but may have higher latency.
+					<strong>Note:</strong> Smaller models and chunk sizes are faster but less accurate. Larger
+					models and chunk sizes provide better accuracy but may have higher latency.
 				</p>
 			</div>
 		</div>

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Robust WhisperLiveKit-based live transcription server
-Enhanced with better error handling, connection management, and performance monitoring
+Simple Robust WhisperLiveKit-based live transcription server
+Based on the official example with enhanced error handling and connection management
 """
 
 import asyncio
@@ -9,18 +9,29 @@ import logging
 import time
 import json
 import base64
+import gc
 from contextlib import asynccontextmanager
 from typing import Dict, Optional, Set
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
-from whisperlivekit import TranscriptionEngine, AudioProcessor, get_web_interface_html
+from whisperlivekit import (
+    TranscriptionEngine,
+    AudioProcessor,
+    get_web_interface_html,
+    parse_args,
+)
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
 )
+logging.getLogger().setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+
+# Parse command line arguments
+args = parse_args()
 
 # Global transcription engine
 transcription_engine = None
@@ -37,7 +48,7 @@ performance_stats = {
     "total_audio_processed": 0,
     "total_transcriptions": 0,
     "errors": 0,
-    "ffmpeg_restarts": 0,
+    "cleanups": 0,
     "start_time": time.time(),
 }
 
@@ -49,31 +60,8 @@ async def lifespan(app: FastAPI):
 
     try:
         logger.info("🚀 Initializing WhisperLiveKit transcription engine...")
-
-        # Initialize with optimized settings for long-running sessions
-        transcription_engine = TranscriptionEngine(
-            model="tiny.en",  # Fastest model for English
-            diarization=False,  # Disable for simplicity and performance
-            lan="en",  # English language
-            backend="faster-whisper",  # Fastest backend
-            confidence_validation=False,  # Disable for simplicity
-            min_chunk_size=0.5,  # Larger chunks for better performance (500ms)
-            buffer_trimming="segment",  # Trim on segments
-            no_vad=True,  # Disable VAD to avoid FFmpeg issues
-            # Memory and performance optimizations
-            max_audio_length=5.0,  # Shorter audio length limit (5 seconds)
-            chunk_length=1.0,  # Process in 1-second chunks
-            stride_length=0.1,  # Small stride for overlap
-            # Low latency specific settings
-            condition_on_previous_text=False,  # Disable for lower latency
-            temperature=0.0,  # Deterministic output
-            compression_ratio_threshold=2.4,  # More aggressive compression
-            log_prob_threshold=-1.0,  # Lower threshold for faster processing
-            no_speech_threshold=0.6,  # Higher threshold to skip silence faster
-        )
-
+        transcription_engine = TranscriptionEngine(**vars(args))
         logger.info("✅ Transcription engine initialized successfully")
-
     except Exception as e:
         logger.error(f"❌ Failed to initialize transcription engine: {e}")
         raise
@@ -87,7 +75,7 @@ async def lifespan(app: FastAPI):
         logger.info("✅ Transcription engine cleaned up")
 
 
-app = FastAPI(title="WhisperLiveKit Robust Server", lifespan=lifespan)
+app = FastAPI(lifespan=lifespan)
 
 # Add CORS middleware
 app.add_middleware(
@@ -99,23 +87,43 @@ app.add_middleware(
 )
 
 
+async def cleanup_audio_processor(audio_processor, client_id: str):
+    """Properly cleanup audio processor with error handling"""
+    if audio_processor:
+        try:
+            logger.info(f"🧹 Cleaning up audio processor for {client_id}")
+            await audio_processor.cleanup()
+            logger.info(f"✅ Audio processor cleaned up for {client_id}")
+        except Exception as e:
+            logger.warning(f"⚠️ Error cleaning up audio processor for {client_id}: {e}")
+            # Force garbage collection to help with resource cleanup
+            gc.collect()
+
+
 def cleanup_connection(client_id: str):
     """Clean up connection resources"""
     if client_id in active_connections:
         conn_info = active_connections[client_id]
+
+        # Cancel tasks
+        for task_name in ["results_task", "health_monitor_task"]:
+            if conn_info.get(task_name) and not conn_info[task_name].done():
+                conn_info[task_name].cancel()
+
+        # Clean up audio processor
         if conn_info.get("audio_processor"):
             try:
-                asyncio.create_task(conn_info["audio_processor"].cleanup())
+                asyncio.create_task(
+                    cleanup_audio_processor(conn_info["audio_processor"], client_id)
+                )
             except Exception as e:
                 logger.warning(
-                    f"Error cleaning up audio processor for {client_id}: {e}"
+                    f"Error scheduling audio processor cleanup for {client_id}: {e}"
                 )
-
-        if conn_info.get("results_task") and not conn_info["results_task"].done():
-            conn_info["results_task"].cancel()
 
         del active_connections[client_id]
         performance_stats["active_connections"] = len(active_connections)
+        performance_stats["cleanups"] += 1
         logger.info(f"🧹 Cleaned up connection for {client_id}")
 
 
@@ -183,50 +191,69 @@ async def monitor_connection_health(client_id: str):
         logger.error(f"Error in connection health monitor for {client_id}: {e}")
 
 
+@app.get("/")
+async def get():
+    """Root endpoint with web interface"""
+    return HTMLResponse(get_web_interface_html())
+
+
 @app.websocket("/asr")
 async def asr_endpoint(websocket: WebSocket):
     """Official WhisperLiveKit /asr endpoint"""
     global transcription_engine
 
-    audio_processor = AudioProcessor(transcription_engine=transcription_engine)
-    await websocket.accept()
-    logger.info("WebSocket connection opened.")
-
-    results_generator = await audio_processor.create_tasks()
-    websocket_task = asyncio.create_task(
-        handle_websocket_results(websocket, results_generator, "asr_client")
-    )
+    audio_processor = None
+    websocket_task = None
 
     try:
-        while True:
-            message = await websocket.receive_bytes()
-            await audio_processor.process_audio(message)
-    except KeyError as e:
-        if "bytes" in str(e):
-            logger.warning(f"Client has closed the connection.")
-        else:
-            logger.error(
-                f"Unexpected KeyError in websocket_endpoint: {e}", exc_info=True
-            )
-    except WebSocketDisconnect:
-        logger.info("WebSocket disconnected by client during message receiving loop.")
-    except Exception as e:
-        logger.error(
-            f"Unexpected error in websocket_endpoint main loop: {e}", exc_info=True
-        )
-    finally:
-        logger.info("Cleaning up WebSocket endpoint...")
-        if not websocket_task.done():
-            websocket_task.cancel()
-        try:
-            await websocket_task
-        except asyncio.CancelledError:
-            logger.info("WebSocket results handler task was cancelled.")
-        except Exception as e:
-            logger.warning(f"Exception while awaiting websocket_task completion: {e}")
+        audio_processor = AudioProcessor(transcription_engine=transcription_engine)
+        await websocket.accept()
+        logger.info("WebSocket connection opened.")
 
-        await audio_processor.cleanup()
-        logger.info("WebSocket endpoint cleaned up successfully.")
+        results_generator = await audio_processor.create_tasks()
+        websocket_task = asyncio.create_task(
+            handle_websocket_results(websocket, results_generator, "asr_client")
+        )
+
+        try:
+            while True:
+                message = await websocket.receive_bytes()
+                await audio_processor.process_audio(message)
+        except KeyError as e:
+            if "bytes" in str(e):
+                logger.warning(f"Client has closed the connection.")
+            else:
+                logger.error(
+                    f"Unexpected KeyError in websocket_endpoint: {e}", exc_info=True
+                )
+        except WebSocketDisconnect:
+            logger.info(
+                "WebSocket disconnected by client during message receiving loop."
+            )
+        except Exception as e:
+            logger.error(
+                f"Unexpected error in websocket_endpoint main loop: {e}", exc_info=True
+            )
+        finally:
+            logger.info("Cleaning up WebSocket endpoint...")
+            if not websocket_task.done():
+                websocket_task.cancel()
+            try:
+                await websocket_task
+            except asyncio.CancelledError:
+                logger.info("WebSocket results handler task was cancelled.")
+            except Exception as e:
+                logger.warning(
+                    f"Exception while awaiting websocket_task completion: {e}"
+                )
+
+            await cleanup_audio_processor(audio_processor, "asr_client")
+            logger.info("WebSocket endpoint cleaned up successfully.")
+
+    except Exception as e:
+        logger.error(f"Error in asr endpoint: {e}")
+        if audio_processor:
+            await cleanup_audio_processor(audio_processor, "asr_client")
 
 
 @app.websocket("/ws/transcribe")
@@ -282,10 +309,14 @@ async def websocket_endpoint(websocket: WebSocket):
             "client_id", f"client_{int(asyncio.get_event_loop().time() * 1000)}"
         )
 
-        # Check if client_id already exists
+        # Check if client_id already exists and cleanup old connection
         if client_id in active_connections:
-            logger.warning(f"Client {client_id} already connected, generating new ID")
-            client_id = f"{client_id}_{int(time.time())}"
+            logger.warning(
+                f"Client {client_id} already connected, cleaning up old connection"
+            )
+            cleanup_connection(client_id)
+            # Wait a bit for cleanup to complete
+            await asyncio.sleep(0.1)
 
         logger.info(f"New client {client_id} connecting")
 
@@ -296,27 +327,45 @@ async def websocket_endpoint(websocket: WebSocket):
             )
             return
 
-        # Create AudioProcessor for this connection
-        try:
-            audio_processor = AudioProcessor(transcription_engine=transcription_engine)
-            results_generator = await audio_processor.create_tasks()
+        # Create AudioProcessor for this connection with retry logic
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                audio_processor = AudioProcessor(
+                    transcription_engine=transcription_engine
+                )
+                results_generator = await audio_processor.create_tasks()
 
-            # Log client configuration
-            chunk_size = init_data.get("chunk_size", 250)
-            model_size = init_data.get("model_size", "small")
-            language = init_data.get("language", "en")
-            translate = init_data.get("translate", False)
+                # Log client configuration
+                chunk_size = init_data.get("chunk_size", 250)
+                model_size = init_data.get("model_size", "small")
+                language = init_data.get("language", "en")
+                translate = init_data.get("translate", False)
 
-            logger.info(
-                f"Client {client_id} configuration: chunk_size={chunk_size}ms, model_size={model_size}, language={language}, translate={translate}"
-            )
+                logger.info(
+                    f"Client {client_id} configuration: chunk_size={chunk_size}ms, model_size={model_size}, language={language}, translate={translate}"
+                )
+                break  # Success, exit retry loop
 
-        except Exception as e:
-            logger.error(f"Failed to create audio processor for {client_id}: {e}")
-            await websocket.send_json(
-                {"type": "error", "message": "Failed to initialize audio processor"}
-            )
-            return
+            except Exception as e:
+                logger.error(
+                    f"Failed to create audio processor for {client_id} (attempt {attempt + 1}/{max_retries}): {e}"
+                )
+                if audio_processor:
+                    await cleanup_audio_processor(audio_processor, client_id)
+                    audio_processor = None
+
+                if attempt == max_retries - 1:
+                    await websocket.send_json(
+                        {
+                            "type": "error",
+                            "message": "Failed to initialize audio processor after multiple attempts",
+                        }
+                    )
+                    return
+                else:
+                    # Wait before retry
+                    await asyncio.sleep(0.5)
 
         # Start results handler
         results_task = asyncio.create_task(
@@ -392,7 +441,7 @@ async def websocket_endpoint(websocket: WebSocket):
                                 logger.warning(
                                     f"⚠️ Audio processing timeout for {client_id}, restarting FFmpeg"
                                 )
-                                performance_stats["ffmpeg_restarts"] += 1
+                                performance_stats["errors"] += 1
                                 # The AudioProcessor will handle FFmpeg restart internally
                             except Exception as e:
                                 logger.error(
@@ -481,20 +530,9 @@ async def websocket_endpoint(websocket: WebSocket):
                 pass
 
         if audio_processor:
-            try:
-                await audio_processor.cleanup()
-            except Exception as e:
-                logger.warning(
-                    f"Error cleaning up audio processor for {client_id}: {e}"
-                )
+            await cleanup_audio_processor(audio_processor, client_id)
 
         cleanup_connection(client_id)
-
-
-@app.get("/")
-async def root():
-    """Root endpoint with web interface"""
-    return HTMLResponse(get_web_interface_html())
 
 
 @app.get("/health")
@@ -504,7 +542,7 @@ async def health_check():
 
     return {
         "status": "healthy" if transcription_engine else "initializing",
-        "service": "whisperlivekit-robust",
+        "service": "whisperlivekit-simple-robust",
         "uptime_seconds": int(uptime),
         "performance": {
             "total_connections": performance_stats["total_connections"],
@@ -512,7 +550,7 @@ async def health_check():
             "total_audio_processed_bytes": performance_stats["total_audio_processed"],
             "total_transcriptions": performance_stats["total_transcriptions"],
             "errors": performance_stats["errors"],
-            "ffmpeg_restarts": performance_stats["ffmpeg_restarts"],
+            "cleanups": performance_stats["cleanups"],
             "connections": [
                 {
                     "client_id": client_id,
@@ -532,8 +570,43 @@ async def get_stats():
     return performance_stats
 
 
-if __name__ == "__main__":
+def main():
+    """Entry point for the CLI command."""
     import uvicorn
 
-    logger.info("🚀 Starting WhisperLiveKit Robust Server...")
-    uvicorn.run(app, host="0.0.0.0", port=9090)
+    uvicorn_kwargs = {
+        "app": app,
+        "host": args.host,
+        "port": 9090,
+        "reload": False,
+        "log_level": "info",
+        "lifespan": "on",
+    }
+
+    ssl_kwargs = {}
+    if args.ssl_certfile or args.ssl_keyfile:
+        if not (args.ssl_certfile and args.ssl_keyfile):
+            raise ValueError(
+                "Both --ssl-certfile and --ssl-keyfile must be specified together."
+            )
+        ssl_kwargs = {
+            "ssl_certfile": args.ssl_certfile,
+            "ssl_keyfile": args.ssl_keyfile,
+        }
+
+    if ssl_kwargs:
+        uvicorn_kwargs = {**uvicorn_kwargs, **ssl_kwargs}
+
+    logger.info("🚀 Starting WhisperLiveKit Simple Robust Server...")
+    logger.info("This version includes:")
+    logger.info("- Robust connection handling")
+    logger.info("- Enhanced error handling")
+    logger.info("- Connection health monitoring")
+    logger.info("- Performance statistics")
+    logger.info("- Improved resource cleanup")
+
+    uvicorn.run(**uvicorn_kwargs)
+
+
+if __name__ == "__main__":
+    main()

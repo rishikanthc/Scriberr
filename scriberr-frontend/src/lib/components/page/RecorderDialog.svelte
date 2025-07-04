@@ -11,6 +11,7 @@
 		modelSize: string;
 		language: string;
 		translate: boolean;
+		chunkSize: number;
 	};
 
 	type TranscriptLine = {
@@ -240,8 +241,9 @@
 				recordingState = 'stopped';
 			};
 
-			// Start recording with smaller chunks for better real-time performance
-			mediaRecorder.start(500);
+			// Start recording with configurable chunk size
+			const chunkSize = liveTranscriptionConfig?.chunkSize || 250;
+			mediaRecorder.start(chunkSize);
 			recordingState = 'recording';
 			startRecordingTimer();
 			drawWaveform();
@@ -456,7 +458,8 @@
 						client_id: `client_${Date.now()}`,
 						model_size: liveTranscriptionConfig.modelSize,
 						language: liveTranscriptionConfig.language,
-						translate: liveTranscriptionConfig.translate
+						translate: liveTranscriptionConfig.translate,
+						chunk_size: Math.max(liveTranscriptionConfig.chunkSize, 500) // Minimum 500ms to prevent buffer overflow
 					};
 					console.log('Sending init message:', initMessage);
 					websocket?.send(JSON.stringify(initMessage));
@@ -598,9 +601,9 @@
 			const audioBlob = audioChunkQueue.shift()!;
 			audioQueueSize = audioChunkQueue.length;
 
-			if (audioQueueSize > 5) {
+			if (audioQueueSize > 3) {
 				console.warn(`⚠️ Audio queue too large (${audioQueueSize}), dropping oldest chunks`);
-				while (audioChunkQueue.length > 2) {
+				while (audioChunkQueue.length > 1) {
 					audioChunkQueue.shift();
 				}
 				audioQueueSize = audioChunkQueue.length;
@@ -615,7 +618,7 @@
 				break;
 			}
 
-			await new Promise((resolve) => setTimeout(resolve, 50));
+			await new Promise((resolve) => setTimeout(resolve, 25));
 		}
 
 		isProcessingAudio = false;

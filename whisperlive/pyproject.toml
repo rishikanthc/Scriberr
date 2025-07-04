@@ -17,4 +17,5 @@ dependencies = [
   "torch>=2.7.1",
   "mosestokenizer>=1.2.1",
   "wtpsplit>=2.1.6",
+  "psutil>=7.0.0",
 ]
