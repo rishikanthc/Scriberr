@@ -1,7 +1,9 @@
 # Git
 .git
 .gitignore
-
+storage
+.venv
+__pycache__
 # Docker
 Dockerfile
 docker-compose.yml
