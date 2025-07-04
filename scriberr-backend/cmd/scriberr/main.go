@@ -104,6 +104,7 @@ func main() {
 	mux.HandleFunc("POST /api/summarize", middleware.AuthFunc(handlers.SummarizeAudio))
 	mux.HandleFunc("GET /api/summarize/status/job/{jobid}", middleware.AuthFunc(handlers.GetSummarizeStatus))
 	mux.HandleFunc("GET /api/summarize/status/audio/{id}", middleware.AuthFunc(handlers.GetSummarizeStatusByAudioID))
+	mux.HandleFunc("GET /api/models", middleware.AuthFunc(handlers.GetAvailableModels))
 
 	// The root handler serves the frontend SPA.
 	// This must be registered after all other routes to act as a catch-all.

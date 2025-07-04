@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -46,6 +47,7 @@ var (
 	storeMutex   = &sync.RWMutex{}
 	once         sync.Once
 	openaiClient *openai.Client
+	ollamaClient *OllamaClient
 )
 
 // Init starts the job queue worker for summarization.
@@ -54,11 +56,22 @@ func Init() {
 	once.Do(func() {
 		log.Println("Initializing summary job queue worker...")
 
+		// Initialize OpenAI client
 		apiKey := os.Getenv("OPENAI_API_KEY")
 		if apiKey == "" {
-			log.Println("WARNING: OPENAI_API_KEY environment variable not set. Summarization will not work.")
+			log.Println("WARNING: OPENAI_API_KEY environment variable not set. OpenAI summarization will not work.")
+		} else {
+			openaiClient = openai.NewClient(apiKey)
+			log.Println("OpenAI client initialized")
 		}
-		openaiClient = openai.NewClient(apiKey)
+
+		// Initialize Ollama client
+		ollamaClient = NewOllamaClient()
+		if ollamaClient.IsAvailable(context.Background()) {
+			log.Println("Ollama client initialized and available")
+		} else {
+			log.Println("WARNING: Ollama is not available. Ollama summarization will not work.")
+		}
 
 		go worker()
 	})
@@ -165,11 +178,24 @@ func worker() {
 		log.Printf("Processing summary job %s for audio %s", job.ID, job.AudioID)
 		updateJobStatus(job.ID, StatusProcessing, "")
 
-		apiKey := os.Getenv("OPENAI_API_KEY")
-		if apiKey == "" {
-			log.Printf("Error for job %s: OPENAI_API_KEY is not set.", job.ID)
-			updateJobStatus(job.ID, StatusFailed, "OpenAI API key is not configured on the server.")
-			continue
+		// Determine which service to use based on model name
+		useOllama := strings.HasPrefix(job.Model, "ollama:")
+		useOpenAI := !useOllama
+
+		// Check if the required service is available
+		if useOpenAI {
+			apiKey := os.Getenv("OPENAI_API_KEY")
+			if apiKey == "" {
+				log.Printf("Error for job %s: OPENAI_API_KEY is not set.", job.ID)
+				updateJobStatus(job.ID, StatusFailed, "OpenAI API key is not configured on the server.")
+				continue
+			}
+		} else if useOllama {
+			if !ollamaClient.IsAvailable(context.Background()) {
+				log.Printf("Error for job %s: Ollama is not available.", job.ID)
+				updateJobStatus(job.ID, StatusFailed, "Ollama is not available on the server.")
+				continue
+			}
 		}
 
 		db := database.GetDB()
@@ -211,35 +237,54 @@ func worker() {
 			continue
 		}
 
-		// 3. Call OpenAI API
+		// 3. Call AI API (OpenAI or Ollama)
 		finalPrompt := template.Prompt + "\n\n---\n\n" + fullTranscriptText + "\n\n---\n\nProvide a summary in markdown format. Return only the summary without code blocks or additional text."
 
-		resp, err := openaiClient.CreateChatCompletion(
-			context.Background(),
-			openai.ChatCompletionRequest{
-				Model: job.Model,
-				Messages: []openai.ChatCompletionMessage{
-					{
-						Role:    openai.ChatMessageRoleUser,
-						Content: finalPrompt,
+		var summaryText string
+
+		if useOpenAI {
+			// Use OpenAI
+			resp, err := openaiClient.CreateChatCompletion(
+				context.Background(),
+				openai.ChatCompletionRequest{
+					Model: job.Model,
+					Messages: []openai.ChatCompletionMessage{
+						{
+							Role:    openai.ChatMessageRoleUser,
+							Content: finalPrompt,
+						},
 					},
 				},
-			},
-		)
+			)
 
-		if err != nil {
-			log.Printf("Error from OpenAI API for job %s: %v", job.ID, err)
-			updateJobStatus(job.ID, StatusFailed, "Failed to get summary from AI service.")
-			continue
+			if err != nil {
+				log.Printf("Error from OpenAI API for job %s: %v", job.ID, err)
+				updateJobStatus(job.ID, StatusFailed, "Failed to get summary from OpenAI.")
+				continue
+			}
+
+			if len(resp.Choices) == 0 {
+				log.Printf("OpenAI API returned no choices for job %s", job.ID)
+				updateJobStatus(job.ID, StatusFailed, "OpenAI returned an empty response.")
+				continue
+			}
+
+			summaryText = resp.Choices[0].Message.Content
+		} else {
+			// Use Ollama
+			ollamaModel := strings.TrimPrefix(job.Model, "ollama:")
+			options := &OllamaOptions{
+				Temperature: 0.7,
+				TopP:        0.9,
+			}
+
+			summaryText, err = ollamaClient.GenerateText(context.Background(), ollamaModel, finalPrompt, options)
+			if err != nil {
+				log.Printf("Error from Ollama API for job %s: %v", job.ID, err)
+				updateJobStatus(job.ID, StatusFailed, "Failed to get summary from Ollama.")
+				continue
+			}
 		}
-
-		if len(resp.Choices) == 0 {
-			log.Printf("OpenAI API returned no choices for job %s", job.ID)
-			updateJobStatus(job.ID, StatusFailed, "AI service returned an empty response.")
-			continue
-		}
-
-		summaryText := resp.Choices[0].Message.Content
 
 		// 4. Update the database with the summary
 		query := `UPDATE audio_records SET summary = ? WHERE id = ?`
@@ -264,4 +309,29 @@ func updateJobStatus(jobID string, status JobStatus, errorMsg string) {
 		job.Status = status
 		job.Error = errorMsg
 	}
+}
+
+// GetAvailableModels returns all available models for summarization
+func GetAvailableModels() (map[string][]string, error) {
+	models := make(map[string][]string)
+	
+	// Add OpenAI models
+	openaiModels := []string{"gpt-3.5-turbo", "gpt-4", "gpt-4-turbo", "gpt-4o", "gpt-4o-mini"}
+	models["openai"] = openaiModels
+	
+	// Add Ollama models if available
+	if ollamaClient != nil && ollamaClient.IsAvailable(context.Background()) {
+		ollamaModels, err := ollamaClient.GetModels(context.Background())
+		if err != nil {
+			log.Printf("Failed to get Ollama models: %v", err)
+		} else {
+			var modelNames []string
+			for _, model := range ollamaModels {
+				modelNames = append(modelNames, "ollama:"+model.Name)
+			}
+			models["ollama"] = modelNames
+		}
+	}
+	
+	return models, nil
 }

@@ -67,7 +67,7 @@
 	let selectedSummaryModel = $state('gpt-3.5-turbo'); // Default model for summarization
 	let selectedTemplateId = $state('');
 	const modelSizes = ['tiny', 'base', 'small', 'medium', 'large-v1', 'large-v2', 'large-v3'];
-	const summaryModelOptions = ['gpt-3.5-turbo', 'gpt-4', 'gpt-4-turbo', 'gpt-4o', 'gpt-4o-mini'];
+	let summaryModelOptions = $state(['gpt-3.5-turbo', 'gpt-4', 'gpt-4-turbo', 'gpt-4o', 'gpt-4o-mini']); // Will be populated from API
 
 	// --- EFFECTS ---
 	$effect(() => {
@@ -75,6 +75,7 @@
 		fetchRecords();
 		fetchActiveJobs();
 		fetchTemplates();
+		fetchAvailableModels();
 		const jobsInterval = setInterval(fetchActiveJobs, 5000);
 		const recordsInterval = setInterval(fetchRecords, 5000);
 
@@ -115,6 +116,36 @@
 			console.error('Error fetching templates:', error);
 			toast.error('Failed to load templates.');
 			templates = []; // reset on error
+		}
+	}
+
+	async function fetchAvailableModels() {
+		try {
+			const response = await fetch('/api/models', { credentials: 'include' });
+			if (!response.ok) {
+				throw new Error('Failed to fetch models');
+			}
+			const models = await response.json();
+			
+			// Combine all available models
+			let allModels: string[] = [];
+			if (models.openai) {
+				allModels = allModels.concat(models.openai);
+			}
+			if (models.ollama) {
+				allModels = allModels.concat(models.ollama);
+			}
+			
+			// Update the model options
+			summaryModelOptions = allModels;
+			
+			// If the currently selected model is not in the new list, reset to first available
+			if (allModels.length > 0 && !allModels.includes(selectedSummaryModel)) {
+				selectedSummaryModel = allModels[0];
+			}
+		} catch (error) {
+			console.error('Failed to fetch available models:', error);
+			// Keep the default models if fetch fails
 		}
 	}
 

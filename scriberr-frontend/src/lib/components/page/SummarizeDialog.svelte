@@ -36,6 +36,10 @@
 		onStartSummarization: () => void;
 	} = $props();
 
+	// Group models by provider
+	const openaiModels = $derived(modelOptions.filter(model => !model.startsWith('ollama:')));
+	const ollamaModels = $derived(modelOptions.filter(model => model.startsWith('ollama:')));
+
 	function getSelectedTemplateName() {
 		if (!selectedTemplateId) return 'Select a prompt';
 		const template = templates.find((t) => t.id === selectedTemplateId);
@@ -44,6 +48,9 @@
 
 	function getSelectedModelName() {
 		if (!selectedModel) return 'Select a model';
+		if (selectedModel.startsWith('ollama:')) {
+			return selectedModel.replace('ollama:', '');
+		}
 		return selectedModel;
 	}
 </script>
@@ -75,9 +82,22 @@
 					{getSelectedModelName()}
 				</Select.Trigger>
 				<Select.Content>
-					{#each modelOptions as model}
-						<Select.Item value={model}>{model}</Select.Item>
-					{/each}
+					{#if openaiModels.length > 0}
+						<Select.Group>
+							<Select.Label>OpenAI Models</Select.Label>
+							{#each openaiModels as model}
+								<Select.Item value={model}>{model}</Select.Item>
+							{/each}
+						</Select.Group>
+					{/if}
+					{#if ollamaModels.length > 0}
+						<Select.Group>
+							<Select.Label>Ollama Models</Select.Label>
+							{#each ollamaModels as model}
+								<Select.Item value={model}>{model.replace('ollama:', '')}</Select.Item>
+							{/each}
+						</Select.Group>
+					{/if}
 				</Select.Content>
 			</Select.Root>
 		</div>
