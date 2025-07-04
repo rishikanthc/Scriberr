@@ -5,7 +5,7 @@
 		ContextMenuItem,
 		ContextMenuTrigger
 	} from '$lib/components/ui/context-menu/index.js';
-	import { CheckCircle2, LoaderCircle, Download, MessageCircle } from 'lucide-svelte';
+	import { CheckCircle2, LoaderCircle, Download, MessageCircle, Mic, FileText, Sparkles, Trash2 } from 'lucide-svelte';
 
 	// --- TYPES ---
 	type AudioRecord = {
@@ -86,7 +86,7 @@
 						{formatDate(record.created_at)}
 					</span>
 				</ContextMenuTrigger>
-				<ContextMenuContent class="border-gray-700 bg-gray-800 shadow-lg text-gray-100">
+				<ContextMenuContent class="border-gray-600 bg-gray-800 shadow-lg text-gray-100">
 					<ContextMenuItem
 						onclick={(e) => {
 							e.stopPropagation();
@@ -96,6 +96,7 @@
 						disabled={record.downloading || transcriptionStatus[record.id] === 'processing' ||
 							summarizationStatus[record.id] === 'processing'}
 					>
+						<Sparkles class="h-4 w-4 mr-2" />
 						Transcribe...
 					</ContextMenuItem>
 					<ContextMenuItem
@@ -107,6 +108,13 @@
 						disabled={record.downloading || transcriptionStatus[record.id] !== 'completed' ||
 							summarizationStatus[record.id] === 'processing'}
 					>
+						<svg class="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+							<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+							<polyline points="14,2 14,8 20,8"/>
+							<line x1="16" y1="13" x2="8" y2="13"/>
+							<line x1="16" y1="17" x2="8" y2="17"/>
+							<polyline points="10,9 9,9 8,9"/>
+						</svg>
 						Summarize...
 					</ContextMenuItem>
 					<ContextMenuItem
@@ -128,6 +136,7 @@
 						class="text-magenta-400 data-[highlighted]:bg-gray-700 data-[highlighted]:text-red-500"
 						disabled={record.downloading}
 					>
+						<Trash2 class="h-4 w-4 mr-2" />
 						Delete
 					</ContextMenuItem>
 				</ContextMenuContent>
