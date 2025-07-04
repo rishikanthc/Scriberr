@@ -177,3 +177,122 @@
   --color-neon-100: oklch(95% 41% 123deg);
   --color-neon-200: oklch(92% 40% 122deg);
 }
+
+/* Custom styles for the recorder dialog */
+@layer components {
+  .recorder-button {
+    @apply flex items-center justify-center w-12 h-12 rounded-full bg-white border border-gray-300 cursor-pointer transition-all duration-300 hover:scale-105 disabled:opacity-50;
+  }
+
+  .recorder-button.recording {
+    @apply w-44 rounded-full justify-start pl-5;
+  }
+
+  .recorder-shape {
+    @apply w-6 h-6 bg-red-500 rounded-full transition-all duration-300;
+  }
+
+  .recorder-shape.recording {
+    @apply rounded-md;
+  }
+
+  .wave-container {
+    @apply w-15 h-8 relative flex items-center justify-center;
+  }
+
+  .wave-canvas {
+    @apply w-full h-full;
+  }
+
+  .speaker-label {
+    @apply inline-block text-xs px-3 py-1 rounded-full;
+  }
+
+  .speaker-label.silence {
+    @apply bg-gray-600 text-gray-300;
+  }
+
+  .speaker-label.speaker-1 {
+    @apply bg-green-600 text-white;
+  }
+
+  .speaker-label.speaker-other {
+    @apply bg-purple-600 text-white;
+  }
+
+  .speaker-label.diarization {
+    @apply bg-blue-600 text-white;
+  }
+
+  .lag-indicator {
+    @apply inline-block text-xs px-3 py-1 rounded-full ml-2;
+  }
+
+  .lag-indicator.transcription {
+    @apply bg-yellow-600 text-white;
+  }
+
+  .lag-indicator.diarization {
+    @apply bg-blue-600 text-white;
+  }
+
+  .spinner {
+    @apply inline-block w-2 h-2 border-2 border-white border-t-transparent rounded-full animate-spin mr-1;
+  }
+
+  .text-content {
+    @apply text-gray-200 mt-2 pl-3 border-l-2 border-gray-600;
+  }
+
+  .buffer-text {
+    @apply text-gray-400;
+  }
+
+  .buffer-transcription {
+    @apply text-gray-500;
+  }
+
+  .time-info {
+    @apply ml-2 text-gray-400;
+  }
+
+  .time-info.speaker {
+    @apply text-gray-200;
+  }
+}
+
+/* Animation for the recording button */
+@keyframes pulse {
+
+  0%,
+  100% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.05);
+  }
+}
+
+.recording-pulse {
+  animation: pulse 2s infinite;
+}
+
+/* Custom scrollbar for the transcript area */
+.transcript-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.transcript-scrollbar::-webkit-scrollbar-track {
+  background: #374151;
+  border-radius: 3px;
+}
+
+.transcript-scrollbar::-webkit-scrollbar-thumb {
+  background: #6b7280;
+  border-radius: 3px;
+}
+
+.transcript-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
