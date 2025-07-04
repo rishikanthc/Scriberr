@@ -262,7 +262,13 @@
 		}, 3000);
 	}
 
-	async function transcribe(audioId: string, modelSize: string) {
+	async function transcribe(
+		audioId: string,
+		modelSize: string,
+		diarize: boolean = false,
+		minSpeakers: number = 1,
+		maxSpeakers: number = 2
+	) {
 		if (transcriptionStatus[audioId] === 'processing') {
 			toast.info('Transcription is already in progress.');
 			return;
@@ -274,7 +280,13 @@
 			const response = await fetch('/api/transcribe', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ audio_id: audioId, model_size: modelSize }),
+				body: JSON.stringify({
+					audio_id: audioId,
+					model_size: modelSize,
+					diarize: diarize,
+					min_speakers: minSpeakers,
+					max_speakers: maxSpeakers
+				}),
 				credentials: 'include'
 			});
 
@@ -384,7 +396,7 @@
 	async function handleYouTubeDownload(url: string, title: string) {
 		isUploading = true;
 		responseText = 'Downloading YouTube audio...';
-		
+
 		// Create a temporary record to show in the UI
 		const tempId = `temp-${Date.now()}`;
 		const tempRecord: AudioRecord = {
@@ -394,7 +406,7 @@
 			transcript: '{}',
 			downloading: true
 		};
-		
+
 		// Add to records list
 		records = [tempRecord, ...records];
 
@@ -412,18 +424,18 @@
 			if (!response.ok) {
 				throw new Error(result.error || 'Unknown download error');
 			}
-			
+
 			toast.success('YouTube download successful!', { description: `Audio ID: ${result.id}` });
-			
+
 			// Remove temporary record and fetch updated records
-			records = records.filter(r => r.id !== tempId);
+			records = records.filter((r) => r.id !== tempId);
 			await fetchRecords();
 		} catch (error) {
 			const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred.';
 			toast.error('YouTube download failed', { description: errorMessage });
-			
+
 			// Remove temporary record on error
-			records = records.filter(r => r.id !== tempId);
+			records = records.filter((r) => r.id !== tempId);
 		} finally {
 			isUploading = false;
 			responseText = '';
@@ -532,9 +544,9 @@
 		isModelSelectOpen = true;
 	}
 
-	function handleStartTranscription() {
+	function handleStartTranscription(diarize: boolean, minSpeakers: number, maxSpeakers: number) {
 		if (!recordToTranscribe) return;
-		transcribe(recordToTranscribe.id, selectedModel);
+		transcribe(recordToTranscribe.id, selectedModel, diarize, minSpeakers, maxSpeakers);
 		isModelSelectOpen = false;
 	}
 
@@ -650,15 +662,15 @@
 
 		<main class="mt-8">
 			<Tabs.Root bind:value={activeTab} class="w-full">
-				<Tabs.List class="gap-2 w-full h-10 justify-center flex bg-gray-900 text-gray-100">
+				<Tabs.List class="flex h-10 w-full justify-center gap-2 bg-gray-900 text-gray-100">
 					<Tabs.Trigger
 						value="audio"
-						class="text-gray-100 h-8 data-[state=active]:bg-gray-800 data-[state=active]:text-blue-400"
+						class="h-8 text-gray-100 data-[state=active]:bg-gray-800 data-[state=active]:text-blue-400"
 						>Audio</Tabs.Trigger
 					>
 					<Tabs.Trigger
 						value="jobs"
-						class="text-gray-100 h-8 data-[state=active]:bg-gray-800 data-[state=active]:text-blue-400"
+						class="h-8 text-gray-100 data-[state=active]:bg-gray-800 data-[state=active]:text-blue-400"
 					>
 						Active Jobs
 						{#if activeJobs.length > 0}
@@ -671,7 +683,7 @@
 					</Tabs.Trigger>
 					<Tabs.Trigger
 						value="templates"
-						class="text-gray-100 h-8 data-[state=active]:bg-gray-800 data-[state=active]:text-blue-400"
+						class="h-8 text-gray-100 data-[state=active]:bg-gray-800 data-[state=active]:text-blue-400"
 						>Templates</Tabs.Trigger
 					>
 				</Tabs.List>

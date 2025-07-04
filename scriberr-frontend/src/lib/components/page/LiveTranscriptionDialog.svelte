@@ -10,6 +10,7 @@
 		language: string;
 		translate: boolean;
 		chunkSize: number;
+		diarize: boolean;
 	};
 
 	type Props = {
@@ -24,6 +25,7 @@
 	let language = $state('en');
 	let translate = $state(false);
 	let chunkSize = $state(500); // Changed from 250 to 500ms for better stability
+	let diarize = $state(false);
 
 	// Available model sizes with descriptions
 	const modelSizes = [
@@ -64,7 +66,8 @@
 			modelSize,
 			language,
 			translate,
-			chunkSize
+			chunkSize,
+			diarize
 		};
 		onStart(config);
 		open = false;
@@ -158,6 +161,25 @@
 				/>
 				<label for="translate" class="text-sm text-gray-300"> Translate to English </label>
 			</div>
+
+			<!-- Speaker Diarization Option -->
+			<div class="flex items-center space-x-2">
+				<input
+					type="checkbox"
+					id="diarize"
+					bind:checked={diarize}
+					class="h-4 w-4 rounded border-gray-600 bg-gray-800 text-blue-600 focus:ring-blue-500"
+				/>
+				<label for="diarize" class="text-sm text-gray-300"> Enable Speaker Diarization </label>
+			</div>
+			{#if diarize}
+				<div class="rounded-md border border-blue-500/30 bg-blue-900/20 p-3 text-sm text-blue-300">
+					<p>
+						<strong>Note:</strong> Speaker diarization will identify and label different speakers in
+						the audio. This may increase processing time but provides more detailed transcriptions.
+					</p>
+				</div>
+			{/if}
 
 			<!-- Info Box -->
 			<div class="rounded-md bg-gray-800 p-3 text-sm text-gray-400">

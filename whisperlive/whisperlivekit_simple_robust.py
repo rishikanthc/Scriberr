@@ -341,9 +341,10 @@ async def websocket_endpoint(websocket: WebSocket):
                 model_size = init_data.get("model_size", "small")
                 language = init_data.get("language", "en")
                 translate = init_data.get("translate", False)
+                diarize = init_data.get("diarize", False)
 
                 logger.info(
-                    f"Client {client_id} configuration: chunk_size={chunk_size}ms, model_size={model_size}, language={language}, translate={translate}"
+                    f"Client {client_id} configuration: chunk_size={chunk_size}ms, model_size={model_size}, language={language}, translate={translate}, diarize={diarize}"
                 )
                 break  # Success, exit retry loop
 

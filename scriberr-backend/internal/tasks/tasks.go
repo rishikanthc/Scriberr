@@ -29,13 +29,16 @@ const (
 
 // Job represents a transcription job.
 type Job struct {
-	ID        string    `json:"id"`
-	AudioID   string    `json:"audio_id"`
-	Model     string    `json:"model,omitempty"`
-	Status    JobStatus `json:"status"`
-	Error     string    `json:"error,omitempty"`
-	CreatedAt time.Time `json:"created_at"`
-	Cmd       *exec.Cmd `json:"-"` // The running command, not serialized
+	ID          string    `json:"id"`
+	AudioID     string    `json:"audio_id"`
+	Model       string    `json:"model,omitempty"`
+	Diarize     bool      `json:"diarize,omitempty"`
+	MinSpeakers int       `json:"min_speakers,omitempty"`
+	MaxSpeakers int       `json:"max_speakers,omitempty"`
+	Status      JobStatus `json:"status"`
+	Error       string    `json:"error,omitempty"`
+	CreatedAt   time.Time `json:"created_at"`
+	Cmd         *exec.Cmd `json:"-"` // The running command, not serialized
 }
 
 // TranscriptSegment represents one entry in a parsed transcript file.
@@ -71,7 +74,7 @@ func Init() {
 }
 
 // NewJob creates a new transcription job and adds it to the queue.
-func NewJob(audioID string, model string) (*Job, error) {
+func NewJob(audioID string, model string, diarize bool, minSpeakers int, maxSpeakers int) (*Job, error) {
 	storeMutex.Lock()
 	defer storeMutex.Unlock()
 
@@ -79,19 +82,30 @@ func NewJob(audioID string, model string) (*Job, error) {
 		model = "small" // Default model
 	}
 
+	// Set default values if not provided
+	if minSpeakers == 0 {
+		minSpeakers = 1
+	}
+	if maxSpeakers == 0 {
+		maxSpeakers = 2
+	}
+
 	job := &Job{
-		ID:        uuid.NewString(),
-		AudioID:   audioID,
-		Model:     model,
-		Status:    StatusPending,
-		CreatedAt: time.Now().UTC(),
-		Cmd:       nil,
+		ID:          uuid.NewString(),
+		AudioID:     audioID,
+		Model:       model,
+		Diarize:     diarize,
+		MinSpeakers: minSpeakers,
+		MaxSpeakers: maxSpeakers,
+		Status:      StatusPending,
+		CreatedAt:   time.Now().UTC(),
+		Cmd:         nil,
 	}
 
 	jobStore[job.ID] = job
 	jobQueue <- *job // Send a copy of the job to the queue
 
-	log.Printf("New job created and queued. JobID: %s, AudioID: %s, Model: %s", job.ID, job.AudioID, job.Model)
+	log.Printf("New job created and queued. JobID: %s, AudioID: %s, Model: %s, Diarize: %t, MinSpeakers: %d, MaxSpeakers: %d", job.ID, job.AudioID, job.Model, job.Diarize, job.MinSpeakers, job.MaxSpeakers)
 	return job, nil
 }
 
@@ -209,8 +223,19 @@ func worker() {
 			model = "small" // Fallback default
 		}
 
-		// Command: uv run whisperx <audio_path> --model <model_size> --compute_type int8 --output_format json --output_dir <output_dir>
-		cmd := exec.Command("uv", "run", "whisperx", audioPath, "--model", model, "--compute_type", "int8", "--output_format", "json", "--output_dir", transcriptOutputDir)
+		// Build command arguments
+		args := []string{"run", "whisperx", audioPath, "--model", model, "--compute_type", "int8", "--output_format", "json", "--output_dir", transcriptOutputDir}
+		
+		// Add diarization flag if enabled
+		if job.Diarize {
+			args = append(args, "--diarize")
+			// Add speaker count parameters
+			args = append(args, "--min_speakers", fmt.Sprintf("%d", job.MinSpeakers))
+			args = append(args, "--max_speakers", fmt.Sprintf("%d", job.MaxSpeakers))
+		}
+
+		// Command: uv run whisperx <audio_path> --model <model_size> --compute_type int8 --output_format json --output_dir <output_dir> [--diarize]
+		cmd := exec.Command("uv", args...)
 
 		// Store the command on the job so it can be terminated if requested.
 		storeMutex.Lock()

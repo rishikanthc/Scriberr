@@ -12,6 +12,7 @@
 		language: string;
 		translate: boolean;
 		chunkSize: number;
+		diarize: boolean;
 	};
 
 	type TranscriptLine = {
@@ -459,7 +460,8 @@
 						model_size: liveTranscriptionConfig.modelSize,
 						language: liveTranscriptionConfig.language,
 						translate: liveTranscriptionConfig.translate,
-						chunk_size: Math.max(liveTranscriptionConfig.chunkSize, 500) // Minimum 500ms to prevent buffer overflow
+						chunk_size: Math.max(liveTranscriptionConfig.chunkSize, 500), // Minimum 500ms to prevent buffer overflow
+						diarize: liveTranscriptionConfig.diarize
 					};
 					console.log('Sending init message:', initMessage);
 					websocket?.send(JSON.stringify(initMessage));

@@ -49,18 +49,20 @@ type TranscriptSegment struct {
 
 // Word represents a single word with timing and confidence score
 type Word struct {
-	Word  string  `json:"word"`
-	Start float64 `json:"start"`
-	End   float64 `json:"end"`
-	Score float64 `json:"score"`
+	Word    string  `json:"word"`
+	Start   float64 `json:"start"`
+	End     float64 `json:"end"`
+	Score   float64 `json:"score"`
+	Speaker string  `json:"speaker,omitempty"`
 }
 
 // JSONTranscriptSegment represents a segment in the new JSON format
 type JSONTranscriptSegment struct {
-	Start float64 `json:"start"`
-	End   float64 `json:"end"`
-	Text  string  `json:"text"`
-	Words []Word  `json:"words"`
+	Start   float64 `json:"start"`
+	End     float64 `json:"end"`
+	Text    string  `json:"text"`
+	Words   []Word  `json:"words"`
+	Speaker string  `json:"speaker,omitempty"`
 }
 
 // JSONTranscript represents the complete transcript in the new JSON format

@@ -38,6 +38,7 @@ type WSMessage struct {
 	ModelSize string      `json:"model_size,omitempty"`
 	Language  string      `json:"language,omitempty"`
 	Translate bool        `json:"translate,omitempty"`
+	Diarize   bool        `json:"diarize,omitempty"`
 	Audio     string      `json:"audio,omitempty"` // Base64 encoded audio data
 	Format    string      `json:"format,omitempty"` // Audio format (e.g., "audio/mp4", "audio/webm")
 	Text      string      `json:"text,omitempty"`
@@ -191,6 +192,7 @@ func (c *Client) readPump() {
 				"model_size": wsMsg.ModelSize,
 				"language":   wsMsg.Language,
 				"translate":  wsMsg.Translate,
+				"diarize":    wsMsg.Diarize,
 			}
 			initBytes, _ := json.Marshal(initMsg)
 			if err := whisperConn.WriteMessage(websocket.TextMessage, initBytes); err != nil {

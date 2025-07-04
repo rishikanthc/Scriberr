@@ -41,8 +41,11 @@ func TranscribeAudio(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req struct {
-		AudioID   string `json:"audio_id"`
-		ModelSize string `json:"model_size"`
+		AudioID     string `json:"audio_id"`
+		ModelSize   string `json:"model_size"`
+		Diarize     bool   `json:"diarize"`
+		MinSpeakers int    `json:"min_speakers"`
+		MaxSpeakers int    `json:"max_speakers"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -58,7 +61,15 @@ func TranscribeAudio(w http.ResponseWriter, r *http.Request) {
 	// Optional: Check if the audio record and file actually exist before creating a job
 	// For now, we'll trust the client and let the worker handle file-not-found errors.
 
-	job, err := tasks.NewJob(req.AudioID, req.ModelSize)
+	// Set default values if not provided
+	if req.MinSpeakers == 0 {
+		req.MinSpeakers = 1
+	}
+	if req.MaxSpeakers == 0 {
+		req.MaxSpeakers = 2
+	}
+
+	job, err := tasks.NewJob(req.AudioID, req.ModelSize, req.Diarize, req.MinSpeakers, req.MaxSpeakers)
 	if err != nil {
 		log.Printf("Error creating new job for audio ID %s: %v", req.AudioID, err)
 		writeJSONError(w, "Failed to create transcription job", http.StatusInternalServerError)
