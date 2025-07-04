@@ -340,40 +340,9 @@ func worker() {
 			outputFile := filepath.Join(transcriptOutputDir, job.AudioID+".json")
 			args = []string{"run", "diarize.py", audioPath, "--model", model, "--min-speakers", fmt.Sprintf("%d", job.MinSpeakers), "--max-speakers", fmt.Sprintf("%d", job.MaxSpeakers), "--output", outputFile}
 			
-			// Add additional parameters to diarization script
+			// Add basic parameters that are supported by the diarization script
 			args = append(args, "--batch-size", fmt.Sprintf("%d", job.BatchSize))
 			args = append(args, "--compute-type", job.ComputeType)
-			
-			// Add VAD parameters
-			args = append(args, "--vad-onset", fmt.Sprintf("%.1f", job.VadOnset))
-			args = append(args, "--vad-offset", fmt.Sprintf("%.1f", job.VadOffset))
-			
-			// Add transcription quality parameters
-			conditionText := "False"
-			if job.ConditionOnPreviousText {
-				conditionText = "True"
-			}
-			args = append(args, "--condition-on-previous-text", conditionText)
-			args = append(args, "--compression-ratio-threshold", fmt.Sprintf("%.1f", job.CompressionRatioThreshold))
-			args = append(args, "--logprob-threshold", fmt.Sprintf("%.1f", job.LogprobThreshold))
-			args = append(args, "--no-speech-threshold", fmt.Sprintf("%.1f", job.NoSpeechThreshold))
-			
-			// Add additional parameters
-			args = append(args, "--temperature", fmt.Sprintf("%.1f", job.Temperature))
-			args = append(args, "--best-of", fmt.Sprintf("%d", job.BestOf))
-			args = append(args, "--beam-size", fmt.Sprintf("%d", job.BeamSize))
-			args = append(args, "--patience", fmt.Sprintf("%.1f", job.Patience))
-			args = append(args, "--length-penalty", fmt.Sprintf("%.1f", job.LengthPenalty))
-			
-			if job.SuppressNumerals {
-				args = append(args, "--suppress-numerals")
-			}
-			
-			if job.InitialPrompt != "" {
-				args = append(args, "--initial-prompt", job.InitialPrompt)
-			}
-			
-			args = append(args, "--temperature-increment-on-fallback", fmt.Sprintf("%.1f", job.TemperatureIncrementOnFallback))
 			
 			// Add HF token if available
 			if hfToken := os.Getenv("HF_TOKEN"); hfToken != "" {
