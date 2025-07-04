@@ -53,32 +53,36 @@
 	let selectedModel = $state('');
 	let newSessionTitle = $state('');
 
-	// Group models by provider
-	const openaiModels = $derived(modelOptions.filter(model => !model.startsWith('ollama:')));
-	const ollamaModels = $derived(modelOptions.filter(model => model.startsWith('ollama:')));
+	// Group models by provider - simplified
+	let openaiModels = $state<string[]>([]);
+	let ollamaModels = $state<string[]>([]);
 
 	// --- EFFECTS ---
 	$effect(() => {
 		if (open && record) {
+			// Update model lists
+			openaiModels = (modelOptions || []).filter(model => !model.startsWith('ollama:'));
+			ollamaModels = (modelOptions || []).filter(model => model.startsWith('ollama:'));
+			
 			fetchChatSessions();
-			if (modelOptions.length > 0 && !selectedModel) {
+			if (modelOptions && modelOptions.length > 0 && !selectedModel) {
 				selectedModel = modelOptions[0];
 			}
-		}
-	});
-
-	$effect(() => {
-		if (!open) {
+		} else if (!open) {
 			// Clear session and messages when dialog is closed
 			currentSession = null;
 			messages = [];
 			sessions = [];
+			newSessionTitle = '';
 		}
 	});
 
 	$effect(() => {
-		if (currentSession) {
+		if (currentSession && currentSession.id) {
 			fetchChatMessages();
+		} else {
+			// Clear messages when no session is selected
+			messages = [];
 		}
 	});
 
@@ -92,48 +96,62 @@
 
 	// --- FUNCTIONS ---
 	async function fetchChatSessions() {
-		if (!record) return;
+		if (!record?.id) return;
 
 		try {
 			const response = await fetch(`/api/chat/sessions?audio_id=${record.id}`, {
 				credentials: 'include'
 			});
 			if (!response.ok) throw new Error('Failed to fetch chat sessions');
-			sessions = await response.json();
+			const fetchedSessions = await response.json();
+			sessions = Array.isArray(fetchedSessions) ? fetchedSessions : [];
 		} catch (error) {
 			console.error('Error fetching chat sessions:', error);
 			toast.error('Failed to load chat sessions');
+			sessions = [];
 		}
 	}
 
 	async function fetchChatMessages() {
-		if (!currentSession) return;
+		if (!currentSession?.id) return;
 
 		try {
 			const response = await fetch(`/api/chat/messages?session_id=${currentSession.id}`, {
 				credentials: 'include'
 			});
 			if (!response.ok) throw new Error('Failed to fetch chat messages');
-			messages = await response.json();
+			const fetchedMessages = await response.json();
+			messages = Array.isArray(fetchedMessages) ? fetchedMessages : [];
 		} catch (error) {
 			console.error('Error fetching chat messages:', error);
 			toast.error('Failed to load chat messages');
+			messages = [];
 		}
 	}
 
 	async function createNewSession() {
-		if (!record || !selectedModel || !newSessionTitle.trim()) return;
+		console.log('createNewSession called', { record, selectedModel, newSessionTitle });
+		
+		if (!record?.id || !selectedModel || !newSessionTitle.trim()) {
+			console.log('Validation failed', { recordId: record?.id, selectedModel, newSessionTitle });
+			toast.error('Please fill in all required fields');
+			return;
+		}
 
 		isCreatingSession = true;
 		try {
+			const requestBody = {
+				audio_id: record.id,
+				title: newSessionTitle.trim(),
+				model: selectedModel
+			};
+			
+			console.log('Sending request:', requestBody);
+			
 			const response = await fetch('/api/chat/sessions', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					audio_id: record.id,
-					title: newSessionTitle.trim(),
-					model: selectedModel
-				}),
+				body: JSON.stringify(requestBody),
 				credentials: 'include'
 			});
 
@@ -143,11 +161,17 @@
 			}
 
 			const session: ChatSession = await response.json();
-			sessions = [session, ...sessions];
+			console.log('Session created:', session);
+			
+			// Update sessions array properly for Svelte 5 reactivity
+			// Create a new array to ensure proper reactivity
+			const currentSessions = sessions || [];
+			sessions = [session, ...currentSessions];
 			currentSession = session;
 			newSessionTitle = '';
 			toast.success('Chat session created');
 		} catch (error) {
+			console.error('Error creating session:', error);
 			const message = error instanceof Error ? error.message : 'Failed to create chat session';
 			toast.error('Error', { description: message });
 		} finally {
@@ -170,7 +194,10 @@
 			content: userMessage,
 			created_at: new Date().toISOString()
 		};
-		messages = [...messages, tempUserMessage];
+		
+		// Create new messages array for proper reactivity
+		const currentMessages = messages || [];
+		messages = [...currentMessages, tempUserMessage];
 
 		try {
 			const response = await fetch('/api/chat/messages', {
@@ -198,6 +225,8 @@
 				content: result.content,
 				created_at: new Date().toISOString()
 			};
+			
+			// Update messages array properly
 			messages = [...messages, assistantMessage];
 
 			// Update session timestamp
@@ -224,7 +253,10 @@
 				throw new Error(error.error || 'Failed to delete session');
 			}
 
-			sessions = sessions.filter(s => s.id !== sessionId);
+			// Update sessions array properly
+			const currentSessions = sessions || [];
+			sessions = currentSessions.filter(s => s.id !== sessionId);
+			
 			if (currentSession?.id === sessionId) {
 				currentSession = null;
 				messages = [];
@@ -252,6 +284,13 @@
 			event.preventDefault();
 			sendMessage();
 		}
+	}
+
+	function selectSession(session: ChatSession) {
+		// Clear current messages first
+		messages = [];
+		// Then set the new session
+		currentSession = session;
 	}
 </script>
 
@@ -319,13 +358,13 @@
 				<!-- Sessions list -->
 				<ScrollArea class="flex-1">
 					<div class="p-2 space-y-2">
-						{#each sessions as session (session.id)}
+						{#each (sessions || []) as session}
 							<button
 								type="button"
 								class="w-full p-3 rounded-lg cursor-pointer transition-colors text-left {currentSession?.id === session.id
 									? 'bg-blue-500 text-white'
 									: 'bg-gray-600 hover:bg-gray-500 text-gray-200'}"
-								onclick={() => (currentSession = session)}
+								onclick={() => selectSession(session)}
 							>
 								<div class="flex items-start justify-between">
 									<div class="flex-1 min-w-0">
@@ -361,7 +400,7 @@
 					<!-- Messages -->
 					<ScrollArea class="flex-1 p-4">
 						<div class="space-y-4">
-							{#each messages as message (message.id)}
+							{#each (messages || []) as message}
 								{#if message.role !== 'system'}
 									<div class="flex {message.role === 'user' ? 'justify-end' : 'justify-start'}">
 										<div
