@@ -5,7 +5,7 @@
 		ContextMenuItem,
 		ContextMenuTrigger
 	} from '$lib/components/ui/context-menu/index.js';
-	import { CheckCircle2, LoaderCircle, Download } from 'lucide-svelte';
+	import { CheckCircle2, LoaderCircle, Download, MessageCircle } from 'lucide-svelte';
 
 	// --- TYPES ---
 	type AudioRecord = {
@@ -26,6 +26,7 @@
 		onOpenDetail: (record: AudioRecord) => void;
 		onOpenModelSelect: (record: AudioRecord) => void;
 		onOpenSummarizeDialog: (record: AudioRecord) => void;
+		onOpenChatDialog: (record: AudioRecord) => void;
 		onDeleteRecord: (id: string) => void;
 	};
 
@@ -37,6 +38,7 @@
 		onOpenDetail,
 		onOpenModelSelect,
 		onOpenSummarizeDialog,
+		onOpenChatDialog,
 		onDeleteRecord
 	}: Props = $props();
 
@@ -106,6 +108,17 @@
 							summarizationStatus[record.id] === 'processing'}
 					>
 						Summarize...
+					</ContextMenuItem>
+					<ContextMenuItem
+						onclick={(e) => {
+							e.stopPropagation();
+							onOpenChatDialog(record);
+						}}
+						class="data-[highlighted]:bg-gray-700 data-[highlighted]:text-gray-50"
+						disabled={record.downloading || transcriptionStatus[record.id] !== 'completed'}
+					>
+						<MessageCircle class="h-4 w-4 mr-2" />
+						Chat with Transcript...
 					</ContextMenuItem>
 					<ContextMenuItem
 						onclick={(e) => {

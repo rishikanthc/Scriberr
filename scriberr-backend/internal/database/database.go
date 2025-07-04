@@ -114,6 +114,27 @@ func runMigrations(db *sql.DB) error {
 		"created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 	);`
 
+	createChatSessionsTableSQL := `
+	CREATE TABLE IF NOT EXISTS chat_sessions (
+		"id" TEXT NOT NULL PRIMARY KEY,
+		"audio_id" TEXT NOT NULL,
+		"title" TEXT NOT NULL,
+		"model" TEXT NOT NULL,
+		"created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+		"updated_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+		FOREIGN KEY (audio_id) REFERENCES audio_records(id) ON DELETE CASCADE
+	);`
+
+	createChatMessagesTableSQL := `
+	CREATE TABLE IF NOT EXISTS chat_messages (
+		"id" TEXT NOT NULL PRIMARY KEY,
+		"session_id" TEXT NOT NULL,
+		"role" TEXT NOT NULL,
+		"content" TEXT NOT NULL,
+		"created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+		FOREIGN KEY (session_id) REFERENCES chat_sessions(id) ON DELETE CASCADE
+	);`
+
 	createUsersTableSQL := `
 	CREATE TABLE IF NOT EXISTS users (
 		"id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
@@ -141,6 +162,16 @@ func runMigrations(db *sql.DB) error {
 	}
 
 	if _, err := tx.Exec(createSummaryTemplatesTableSQL); err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	if _, err := tx.Exec(createChatSessionsTableSQL); err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	if _, err := tx.Exec(createChatMessagesTableSQL); err != nil {
 		tx.Rollback()
 		return err
 	}

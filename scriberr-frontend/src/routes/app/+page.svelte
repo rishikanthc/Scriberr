@@ -18,6 +18,7 @@
 	import TemplateDialog from '$lib/components/page/TemplateDialog.svelte';
 	import SummarizeDialog from '$lib/components/page/SummarizeDialog.svelte';
 	import YouTubeDialog from '$lib/components/page/YouTubeDialog.svelte';
+	import ChatDialog from '$lib/components/page/ChatDialog.svelte';
 
 	// --- TYPES ---
 	type AudioRecord = {
@@ -61,6 +62,8 @@
 	let selectedTemplate: SummaryTemplate | null = $state(null);
 	let isSummarizeDialogOpen = $state(false);
 	let recordToSummarize: AudioRecord | null = $state(null);
+	let isChatDialogOpen = $state(false);
+	let recordToChat: AudioRecord | null = $state(null);
 
 	// Model/Template selection state
 	let selectedModel = $state('small'); // Default model for transcription
@@ -611,6 +614,11 @@
 		isSummarizeDialogOpen = true;
 	}
 
+	function openChatDialog(record: AudioRecord) {
+		recordToChat = record;
+		isChatDialogOpen = true;
+	}
+
 	function handleStartSummarization() {
 		summarize();
 		isSummarizeDialogOpen = false;
@@ -740,6 +748,7 @@
 						onOpenDetail={openDetailDialog}
 						onOpenModelSelect={openModelSelectDialog}
 						onOpenSummarizeDialog={openSummarizeDialog}
+						onOpenChatDialog={openChatDialog}
 						onDeleteRecord={handleDelete}
 					/>
 				</Tabs.Content>
@@ -787,4 +796,10 @@
 	bind:open={isTemplateDialogOpen}
 	template={selectedTemplate}
 	onUpdate={fetchTemplates}
+/>
+
+<ChatDialog
+	bind:open={isChatDialogOpen}
+	record={recordToChat}
+	modelOptions={summaryModelOptions}
 />

@@ -106,6 +106,13 @@ func main() {
 	mux.HandleFunc("GET /api/summarize/status/audio/{id}", middleware.AuthFunc(handlers.GetSummarizeStatusByAudioID))
 	mux.HandleFunc("GET /api/models", middleware.AuthFunc(handlers.GetAvailableModels))
 
+	// Chat routes
+	mux.HandleFunc("POST /api/chat/sessions", middleware.AuthFunc(handlers.CreateChatSession))
+	mux.HandleFunc("GET /api/chat/sessions", middleware.AuthFunc(handlers.GetChatSessions))
+	mux.HandleFunc("GET /api/chat/messages", middleware.AuthFunc(handlers.GetChatMessages))
+	mux.HandleFunc("POST /api/chat/messages", middleware.AuthFunc(handlers.SendChatMessage))
+	mux.HandleFunc("DELETE /api/chat/sessions/{id}", middleware.AuthFunc(handlers.DeleteChatSession))
+
 	// The root handler serves the frontend SPA.
 	// This must be registered after all other routes to act as a catch-all.
 	mux.Handle("/", fileServer)
