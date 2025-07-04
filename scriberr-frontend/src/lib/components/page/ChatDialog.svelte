@@ -308,9 +308,9 @@
 
 		<div class="flex h-[70vh] gap-4">
 			<!-- Sidebar with sessions -->
-			<div class="w-80 border-r border-gray-600 flex flex-col">
+			<div class="w-80 flex flex-col">
 				<!-- Create new session -->
-				<div class="p-4 border-b border-gray-600">
+				<div class="p-4">
 					<div class="space-y-3">
 						<Input
 							placeholder="Session title"
@@ -398,7 +398,7 @@
 			<div class="flex-1 flex flex-col">
 				{#if currentSession}
 					<!-- Messages -->
-					<ScrollArea class="flex-1 p-4">
+					<ScrollArea class="flex-1 p-4 bg-gray-800 h-[90%] rounded-md shadow-md">
 						<div class="space-y-4">
 							{#each (messages || []) as message}
 								{#if message.role !== 'system'}
