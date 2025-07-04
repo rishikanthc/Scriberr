@@ -140,15 +140,16 @@
 				}
 			};
 
-			mediaRecorder.onstop = () => {
-				console.log('MediaRecorder stopped, audioChunks length:', audioChunks.length);
-				const blob = new Blob(audioChunks, { type: selectedMimeType });
-				audioBlob = blob;
-				audioUrl = URL.createObjectURL(blob);
-				duration = recordingTimer;
-				stopMediaStream();
-				recordingState = 'stopped';
-			};
+				mediaRecorder.onstop = () => {
+		console.log('MediaRecorder stopped, audioChunks length:', audioChunks.length);
+		const blob = new Blob(audioChunks, { type: selectedMimeType });
+		audioBlob = blob;
+		audioUrl = URL.createObjectURL(blob);
+		// Set initial duration from recording timer as fallback
+		duration = recordingTimer;
+		stopMediaStream();
+		recordingState = 'stopped';
+	};
 
 			// Start recording with 1 second chunks
 			mediaRecorder.start(1000);
@@ -200,11 +201,12 @@
 
 	function handleMetadataLoaded() {
 		if (audioElement) {
-			const actualDuration = Math.floor(audioElement.duration);
-			if (!isNaN(actualDuration) && actualDuration > 0) {
-				duration = actualDuration;
+			const actualDuration = audioElement.duration;
+			if (!isNaN(actualDuration) && actualDuration > 0 && isFinite(actualDuration)) {
+				duration = Math.floor(actualDuration);
 			} else {
-				if (duration === 0 || isNaN(duration)) {
+				// Fallback to recording timer if audio duration is not available
+				if (recordingTimer > 0) {
 					duration = recordingTimer;
 				}
 			}
@@ -242,7 +244,7 @@
 		recordingIntervalId = null;
 	}
 	function formatTime(seconds: number) {
-		if (isNaN(seconds) || seconds < 0) {
+		if (isNaN(seconds) || !isFinite(seconds) || seconds < 0) {
 			return '00:00';
 		}
 		const min = Math.floor(seconds / 60);
@@ -417,6 +419,7 @@
 			bind:this={audioElement}
 			src={audioUrl}
 			onloadedmetadata={handleMetadataLoaded}
+			oncanplay={handleMetadataLoaded}
 			ontimeupdate={handleTimeUpdate}
 			onplay={() => (playbackState = 'playing')}
 			onpause={() => (playbackState = 'paused')}
