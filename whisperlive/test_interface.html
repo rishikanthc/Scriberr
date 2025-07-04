@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>WhisperLiveKit Test Interface</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+
+        .connected {
+            background-color: #d4edda;
+            color: #155724;
+        }
+
+        .disconnected {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+
+        .transcript {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            min-height: 200px;
+        }
+
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .start {
+            background-color: #28a745;
+            color: white;
+        }
+
+        .stop {
+            background-color: #dc3545;
+            color: white;
+        }
+
+        .disabled {
+            background-color: #6c757d;
+            color: white;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>WhisperLiveKit Test Interface</h1>
+
+        <div id="status" class="status disconnected">
+            Disconnected
+        </div>
+
+        <div>
+            <button id="startBtn" class="start" onclick="startRecording()">Start Recording</button>
+            <button id="stopBtn" class="stop disabled" onclick="stopRecording()">Stop Recording</button>
+        </div>
+
+        <h3>Live Transcript:</h3>
+        <div id="transcript" class="transcript">
+            Click "Start Recording" to begin...
+        </div>
+
+        <h3>Debug Log:</h3>
+        <div id="debug"
+            style="background-color: #f8f9fa; padding: 10px; border-radius: 5px; max-height: 200px; overflow-y: auto; font-family: monospace; font-size: 12px;">
+        </div>
+    </div>
+
+    <script>
+        let ws = null;
+        let mediaRecorder = null;
+        let isRecording = false;
+        let clientId = 'test_client_' + Date.now();
+
+        function log(message) {
+            const debug = document.getElementById('debug');
+            const timestamp = new Date().toLocaleTimeString();
+            debug.innerHTML += `[${timestamp}] ${message}\n`;
+            debug.scrollTop = debug.scrollHeight;
+        }
+
+        function updateStatus(connected) {
+            const status = document.getElementById('status');
+            if (connected) {
+                status.className = 'status connected';
+                status.textContent = 'Connected';
+            } else {
+                status.className = 'status disconnected';
+                status.textContent = 'Disconnected';
+            }
+        }
+
+        function updateButtons(recording) {
+            const startBtn = document.getElementById('startBtn');
+            const stopBtn = document.getElementById('stopBtn');
+
+            if (recording) {
+                startBtn.className = 'start disabled';
+                startBtn.disabled = true;
+                stopBtn.className = 'stop';
+                stopBtn.disabled = false;
+            } else {
+                startBtn.className = 'start';
+                startBtn.disabled = false;
+                stopBtn.className = 'stop disabled';
+                stopBtn.disabled = true;
+            }
+        }
+
+        async function connect() {
+            try {
+                log('Connecting to WebSocket...');
+                ws = new WebSocket('ws://localhost:9090/ws/transcribe');
+
+                ws.onopen = function () {
+                    log('WebSocket connected');
+                    updateStatus(true);
+
+                    // Send init message
+                    const initMessage = {
+                        type: 'init',
+                        client_id: clientId,
+                        model_size: 'tiny',
+                        language: 'en'
+                    };
+                    ws.send(JSON.stringify(initMessage));
+                    log('Sent init message: ' + JSON.stringify(initMessage));
+                };
+
+                ws.onmessage = function (event) {
+                    try {
+                        const data = JSON.parse(event.data);
+                        log('Received: ' + JSON.stringify(data));
+
+                        if (data.type === 'init_success') {
+                            log('Initialization successful');
+                        } else if (data.type === 'transcription') {
+                            const transcript = document.getElementById('transcript');
+                            transcript.textContent = data.text || 'No text received';
+                        } else if (data.type === 'ready_to_stop') {
+                            log('Server ready to stop');
+                        }
+                    } catch (e) {
+                        log('Error parsing message: ' + e.message);
+                    }
+                };
+
+                ws.onclose = function () {
+                    log('WebSocket disconnected');
+                    updateStatus(false);
+                    updateButtons(false);
+                };
+
+                ws.onerror = function (error) {
+                    log('WebSocket error: ' + error);
+                };
+
+            } catch (e) {
+                log('Connection error: ' + e.message);
+            }
+        }
+
+        async function startRecording() {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                log('WebSocket not connected');
+                return;
+            }
+
+            try {
+                log('Requesting microphone access...');
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+                log('Starting MediaRecorder...');
+                mediaRecorder = new MediaRecorder(stream, {
+                    mimeType: 'audio/webm;codecs=opus'
+                });
+
+                mediaRecorder.ondataavailable = function (event) {
+                    if (event.data.size > 0 && ws && ws.readyState === WebSocket.OPEN) {
+                        // Convert blob to base64
+                        const reader = new FileReader();
+                        reader.onload = function () {
+                            const base64Audio = reader.result.split(',')[1];
+                            const audioMessage = {
+                                type: 'audio_data',
+                                audio: base64Audio,
+                                format: 'audio/webm'
+                            };
+                            ws.send(JSON.stringify(audioMessage));
+                            log('Sent audio chunk: ' + event.data.size + ' bytes');
+                        };
+                        reader.readAsDataURL(event.data);
+                    }
+                };
+
+                mediaRecorder.start(1000); // Send chunks every 1 second
+                isRecording = true;
+                updateButtons(true);
+                log('Recording started');
+
+            } catch (e) {
+                log('Error starting recording: ' + e.message);
+            }
+        }
+
+        function stopRecording() {
+            if (mediaRecorder && isRecording) {
+                mediaRecorder.stop();
+                mediaRecorder.stream.getTracks().forEach(track => track.stop());
+                isRecording = false;
+                updateButtons(false);
+                log('Recording stopped');
+
+                // Send stop message
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({ type: 'stop' }));
+                    log('Sent stop message');
+                }
+            }
+        }
+
+        // Connect when page loads
+        window.onload = function () {
+            connect();
+        };
+    </script>
+</body>
+
+</html>

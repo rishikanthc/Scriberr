@@ -147,6 +147,13 @@
 		remainingTimeDiarization = 0;
 		waitingForStop = false;
 		lastReceivedData = null;
+
+		// Clean up connection health monitoring
+		if (pingInterval) {
+			clearInterval(pingInterval);
+			pingInterval = null;
+		}
+		connectionHealth = 'unknown';
 	}
 
 	// --- RECORDING ---
@@ -428,7 +435,20 @@
 				console.log('WebSocket connection opened successfully');
 				isWebSocketConnected = true;
 				connectionStatus = 'connected';
+				connectionHealth = 'healthy';
 				toast.success('Live transcription connected!');
+
+				// Start connection health monitoring
+				pingInterval = setInterval(() => {
+					if (websocket && websocket.readyState === WebSocket.OPEN) {
+						try {
+							websocket.send(JSON.stringify({ type: 'ping', client_id: `client_${Date.now()}` }));
+						} catch (e) {
+							console.warn('Failed to send ping:', e);
+							connectionHealth = 'unhealthy';
+						}
+					}
+				}, 15000); // Ping every 15 seconds
 
 				if (liveTranscriptionConfig) {
 					const initMessage = {
@@ -454,6 +474,14 @@
 					toast.success('Live transcription initialized!');
 				} else if (data.type === 'error') {
 					toast.error('Transcription error', { description: data.message });
+				} else if (data.type === 'pong') {
+					// Connection health check response
+					connectionHealth = 'healthy';
+				} else if (data.type === 'ping') {
+					// Respond to server ping
+					if (websocket && websocket.readyState === WebSocket.OPEN) {
+						websocket.send(JSON.stringify({ type: 'pong', client_id: data.client_id }));
+					}
 				} else if (data.type === 'ready_to_stop') {
 					console.log('Ready to stop received, finalizing display');
 					waitingForStop = false;
@@ -779,6 +807,16 @@
 										? 'bg-yellow-500'
 										: 'bg-green-500'}"
 							></span>
+							<span class="flex items-center gap-1">
+								<div
+									class="h-2 w-2 rounded-full {connectionHealth === 'healthy'
+										? 'bg-green-500'
+										: connectionHealth === 'unhealthy'
+											? 'bg-red-500'
+											: 'bg-yellow-500'}"
+								></div>
+								<span>{connectionHealth}</span>
+							</span>
 						</div>
 					{/if}
 				</div>
