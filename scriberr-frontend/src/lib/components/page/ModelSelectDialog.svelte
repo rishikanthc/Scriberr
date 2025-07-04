@@ -127,9 +127,19 @@
 
 		<div class="flex h-full flex-col">
 			<Tabs.Root value="basic" class="flex-1 overflow-hidden">
-				<Tabs.List class="grid w-full grid-cols-2">
-					<Tabs.Trigger value="basic">Basic Settings</Tabs.Trigger>
-					<Tabs.Trigger value="advanced">Advanced Settings</Tabs.Trigger>
+				<Tabs.List
+					class="grid w-full grid-cols-2 rounded-lg border border-gray-600 bg-gray-800 p-1"
+				>
+					<Tabs.Trigger
+						value="basic"
+						class="text-gray-300 data-[state=active]:bg-gray-700 data-[state=active]:text-gray-100"
+						>Basic Settings</Tabs.Trigger
+					>
+					<Tabs.Trigger
+						value="advanced"
+						class="text-gray-300 data-[state=active]:bg-gray-700 data-[state=active]:text-gray-100"
+						>Advanced Settings</Tabs.Trigger
+					>
 				</Tabs.List>
 
 				<Tabs.Content value="basic" class="max-h-[60vh] space-y-4 overflow-y-auto">
@@ -141,12 +151,14 @@
 						<div class="space-y-2">
 							<Label for="model">Model Size</Label>
 							<Select.Root bind:value={selectedModel} type="single">
-								<Select.Trigger class="w-full">
+								<Select.Trigger class="w-full border-gray-600 bg-gray-800 text-gray-200">
 									{selectedModel ? selectedModel : 'Select a model'}
 								</Select.Trigger>
-								<Select.Content>
+								<Select.Content class="border-gray-600 bg-gray-800">
 									{#each modelSizes as model}
-										<Select.Item value={model}>{model}</Select.Item>
+										<Select.Item value={model} class="text-gray-200 hover:bg-gray-700">
+											{model}
+										</Select.Item>
 									{/each}
 								</Select.Content>
 							</Select.Root>
@@ -179,7 +191,7 @@
 											bind:value={minSpeakers}
 											min="1"
 											max="10"
-											class="w-full"
+											class="w-full border-gray-600 bg-gray-800 text-gray-200"
 										/>
 									</div>
 									<div class="space-y-2">
@@ -190,7 +202,7 @@
 											bind:value={maxSpeakers}
 											min="1"
 											max="10"
-											class="w-full"
+											class="w-full border-gray-600 bg-gray-800 text-gray-200"
 										/>
 									</div>
 								</div>
@@ -211,7 +223,12 @@
 					<div class="grid gap-4 py-4">
 						<div class="flex items-center justify-between">
 							<h3 class="text-lg font-medium">Advanced Transcription Parameters</h3>
-							<Button variant="outline" size="sm" onclick={resetToDefaults}>
+							<Button
+								variant="outline"
+								size="sm"
+								onclick={resetToDefaults}
+								class="border-gray-600 text-gray-300 hover:bg-gray-600 hover:text-gray-100"
+							>
 								Reset to Defaults
 							</Button>
 						</div>
@@ -230,7 +247,7 @@
 										bind:value={transcriptionParams.batch_size}
 										min="1"
 										max="32"
-										class="w-full"
+										class="w-full border-gray-600 bg-gray-800 text-gray-200"
 									/>
 									<p class="text-xs text-gray-400">
 										Higher values use more memory but may be faster
@@ -239,13 +256,19 @@
 								<div class="space-y-2">
 									<Label for="compute-type">Compute Type</Label>
 									<Select.Root bind:value={transcriptionParams.compute_type} type="single">
-										<Select.Trigger class="w-full">
+										<Select.Trigger class="w-full border-gray-600 bg-gray-800 text-gray-200">
 											{transcriptionParams.compute_type}
 										</Select.Trigger>
-										<Select.Content>
-											<Select.Item value="int8">int8 (CPU)</Select.Item>
-											<Select.Item value="float16">float16 (GPU)</Select.Item>
-											<Select.Item value="float32">float32 (GPU)</Select.Item>
+										<Select.Content class="border-gray-600 bg-gray-800">
+											<Select.Item value="int8" class="text-gray-200 hover:bg-gray-700"
+												>int8 (CPU)</Select.Item
+											>
+											<Select.Item value="float16" class="text-gray-200 hover:bg-gray-700"
+												>float16 (GPU)</Select.Item
+											>
+											<Select.Item value="float32" class="text-gray-200 hover:bg-gray-700"
+												>float32 (GPU)</Select.Item
+											>
 										</Select.Content>
 									</Select.Root>
 									<p class="text-xs text-gray-400">int8 for CPU, float16/32 for GPU</p>
@@ -266,7 +289,7 @@
 										min="0.1"
 										max="1.0"
 										step="0.1"
-										class="w-full"
+										class="w-full border-gray-600 bg-gray-800 text-gray-200"
 									/>
 									<p class="text-xs text-gray-400">Lower = more sensitive to speech start</p>
 								</div>
@@ -279,7 +302,7 @@
 										min="0.1"
 										max="1.0"
 										step="0.1"
-										class="w-full"
+										class="w-full border-gray-600 bg-gray-800 text-gray-200"
 									/>
 									<p class="text-xs text-gray-400">Lower = more sensitive to speech end</p>
 								</div>
@@ -299,7 +322,7 @@
 										min="0.1"
 										max="10.0"
 										step="0.1"
-										class="w-full"
+										class="w-full border-gray-600 bg-gray-800 text-gray-200"
 									/>
 									<p class="text-xs text-gray-400">Higher = more aggressive filtering</p>
 								</div>
@@ -312,7 +335,7 @@
 										min="-5.0"
 										max="0.0"
 										step="0.1"
-										class="w-full"
+										class="w-full border-gray-600 bg-gray-800 text-gray-200"
 									/>
 									<p class="text-xs text-gray-400">Lower = more permissive</p>
 								</div>
@@ -326,7 +349,7 @@
 									min="0.1"
 									max="1.0"
 									step="0.1"
-									class="w-full"
+									class="w-full border-gray-600 bg-gray-800 text-gray-200"
 								/>
 								<p class="text-xs text-gray-400">Higher = more likely to skip silence</p>
 							</div>
@@ -345,7 +368,7 @@
 										min="0.0"
 										max="2.0"
 										step="0.1"
-										class="w-full"
+										class="w-full border-gray-600 bg-gray-800 text-gray-200"
 									/>
 									<p class="text-xs text-gray-400">0.0 = deterministic, higher = more random</p>
 								</div>
@@ -357,7 +380,7 @@
 										bind:value={transcriptionParams.best_of}
 										min="1"
 										max="10"
-										class="w-full"
+										class="w-full border-gray-600 bg-gray-800 text-gray-200"
 									/>
 									<p class="text-xs text-gray-400">Number of candidates to consider</p>
 								</div>
@@ -371,7 +394,7 @@
 										bind:value={transcriptionParams.beam_size}
 										min="1"
 										max="10"
-										class="w-full"
+										class="w-full border-gray-600 bg-gray-800 text-gray-200"
 									/>
 									<p class="text-xs text-gray-400">Beam search width</p>
 								</div>
@@ -384,7 +407,7 @@
 										min="0.1"
 										max="5.0"
 										step="0.1"
-										class="w-full"
+										class="w-full border-gray-600 bg-gray-800 text-gray-200"
 									/>
 									<p class="text-xs text-gray-400">Beam search patience</p>
 								</div>
@@ -398,7 +421,7 @@
 									min="0.1"
 									max="5.0"
 									step="0.1"
-									class="w-full"
+									class="w-full border-gray-600 bg-gray-800 text-gray-200"
 								/>
 								<p class="text-xs text-gray-400">Penalty for longer sequences</p>
 							</div>
@@ -414,7 +437,7 @@
 									id="initial-prompt"
 									bind:value={transcriptionParams.initial_prompt}
 									placeholder="Enter context or prompt for transcription..."
-									class="w-full"
+									class="w-full border-gray-600 bg-gray-800 text-gray-200"
 								/>
 								<p class="text-xs text-gray-400">
 									Provide context to improve transcription accuracy
@@ -429,7 +452,7 @@
 									min="0.0"
 									max="2.0"
 									step="0.1"
-									class="w-full"
+									class="w-full border-gray-600 bg-gray-800 text-gray-200"
 								/>
 								<p class="text-xs text-gray-400">
 									Temperature increase when retrying failed segments
