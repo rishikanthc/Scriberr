@@ -18,6 +18,7 @@ services:
       # Session Key - Generate a secure random key for production
       # You can generate one with: openssl rand -base64 32
       - SESSION_KEY=${SESSION_KEY:-}
+      - HF_TOKEN=${HF_TOKEN:-}
     volumes:
       # Persist database and storage files
       - ./test-storage:/app/storage
