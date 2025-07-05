@@ -5,6 +5,7 @@
 	import { isAuthenticated } from '$lib/stores';
 	import { LoaderCircle } from 'lucide-svelte';
 	import { toast } from 'svelte-sonner';
+	import Logo from '$lib/components/Logo.svelte';
 
 	// --- STATE ---
 	let username = $state('');
@@ -56,7 +57,10 @@
 <div class="flex min-h-screen items-center justify-center bg-gray-900 p-4">
 	<div class="w-full max-w-sm rounded-xl border border-gray-700 bg-gray-800 p-8 shadow-lg">
 		<div class="mb-8 text-center">
-			<h1 class="text-3xl font-bold text-gray-100">Scriberr</h1>
+			<h1 class="text-3xl font-bold text-gray-100 flex items-center gap-3">
+				<Logo size={40} strokeColor="#f0f9ff" />
+				Scriberr
+			</h1>
 			<p class="text-gray-400">Sign in to your account</p>
 		</div>
 

@@ -2,7 +2,13 @@
   import { Card } from '$lib/components/ui/card';
   import { Button } from '$lib/components/ui/button';
   import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '$lib/components/ui/carousel';
-  import { LucideSparkles, LucideMic, LucideYoutube, LucideDownload, LucideUser, LucideMessageCircle, LucideSettings2 } from 'lucide-svelte';
+  import { Dialog, DialogContent, DialogTrigger } from '$lib/components/ui/dialog';
+  import { LucideSparkles, LucideMic, LucideYoutube, LucideDownload, LucideUser, LucideMessageCircle, LucideSettings2, LucideZoomIn } from 'lucide-svelte';
+  import Logo from '$lib/components/Logo.svelte';
+
+  // State for zoom modal
+  let selectedScreenshot: typeof screenshots[0] | null = null;
+  let isDialogOpen = false;
 
   // Screenshots with captions
   const screenshots = [
@@ -64,12 +70,20 @@
       desc: 'Tweak advanced parameters for transcription and diarization models.'
     }
   ];
+
+  function openZoom(screenshot: typeof screenshots[0]) {
+    selectedScreenshot = screenshot;
+    isDialogOpen = true;
+  }
 </script>
 
 <section class="min-h-screen bg-background text-foreground flex flex-col items-center px-4 py-12">
   <div class="max-w-3xl w-full text-center mb-12">
-    <img src="/favicon.svg" alt="Scriberr Logo" class="mx-auto mb-6 w-16 h-16" />
-    <h1 class="text-4xl md:text-5xl font-bold mb-4 tracking-tight">Scriberr</h1>
+
+    <h1 class="text-4xl md:text-5xl font-bold mb-4 tracking-tight flex items-center justify-center gap-3">
+      <Logo size={64} strokeColor="#daff7d" />
+      Scriberr
+    </h1>
     <p class="text-lg md:text-xl text-muted-foreground mb-4">
       Self-hosted, fully local audio transcription app. Fast, private, and feature-rich.
     </p>
@@ -82,6 +96,9 @@
       </Button>
       <Button variant="secondary" size="lg" href="#features">
         See Features
+      </Button>
+      <Button variant="outline" size="lg" href="/docs">
+        Documentation
       </Button>
     </div>
   </div>
@@ -106,13 +123,16 @@
           <CarouselItem class="md:basis-1/2 lg:basis-1/3">
             <div class="p-2">
               <Card class="overflow-hidden border border-border bg-card/70 shadow-lg">
-                <div class="aspect-[4/3] overflow-hidden">
+                <div class="aspect-[4/3] overflow-hidden relative group cursor-pointer" on:click={() => openZoom(shot)}>
                   <img 
                     src={shot.src} 
                     alt={shot.alt} 
                     class="w-full h-full object-cover object-top hover:scale-105 transition-transform duration-300" 
                     loading="lazy" 
                   />
+                  <div class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center">
+                    <LucideZoomIn class="w-8 h-8 text-white" />
+                  </div>
                 </div>
                 <div class="p-4 pt-3">
                   <p class="text-sm text-muted-foreground text-center font-medium leading-relaxed">{shot.caption}</p>
@@ -142,3 +162,21 @@
     </Card>
   </div>
 </section>
+
+<!-- Zoom Modal -->
+<Dialog bind:open={isDialogOpen}>
+  <DialogContent class="max-w-4xl w-[90vw] max-h-[90vh] p-0 overflow-hidden">
+    {#if selectedScreenshot}
+      <div class="relative">
+        <img 
+          src={selectedScreenshot.src} 
+          alt={selectedScreenshot.alt} 
+          class="w-full h-auto max-h-[80vh] object-contain" 
+        />
+        <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4">
+          <p class="text-white text-center font-medium">{selectedScreenshot.caption}</p>
+        </div>
+      </div>
+    {/if}
+  </DialogContent>
+</Dialog>

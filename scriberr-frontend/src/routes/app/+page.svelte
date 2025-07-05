@@ -6,6 +6,7 @@
 	import { toast } from 'svelte-sonner';
 	import { cn } from '$lib/utils';
 	import { isAuthenticated } from '$lib/stores';
+	import Logo from '$lib/components/Logo.svelte';
 
 	// Page-specific components
 	import AudioTab from '$lib/components/page/AudioTab.svelte';
@@ -628,7 +629,10 @@
 <div class="min-h-screen w-full bg-gray-800 p-8 text-gray-200">
 	<div class="mx-auto max-w-4xl">
 		<header class="flex items-center justify-between border-b border-gray-700 pb-4">
-			<h1 class="text-2xl font-bold">Scriberr</h1>
+			<h1 class="text-2xl flex items-center gap-2">
+				<Logo size={64} strokeColor="#daff7d" />
+				Scriberr
+			</h1>
 			<div class="flex items-center gap-2">
 				{#if activeTab === 'templates'}
 					<Button
