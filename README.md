@@ -37,6 +37,10 @@ The app has been rebuilt with Go for the backend and Svelte5 for the frontend an
 * Toast notifications for all actions to provide instant status (NEW)
 * Simplified deployment - single binary (Single container) (NEW)
 
+## Screenshots
+You can checkout screenshots in the app website https://scriberr.app
+or in this folder on the git repo https://github.com/rishikanthc/Scriberr/tree/v1.0.0/screenshots
+
 ## Installing the Beta version
 You can install and try the new beta version with the following docker compose:
 
