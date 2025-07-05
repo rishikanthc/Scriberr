@@ -24,7 +24,7 @@ The app has been rebuilt with Go for the backend and Svelte5 for the frontend an
 * Speaker diarization (Speaker detection and identification)
 * Automatic summarization using OpenAI/Ollama endpoints
 * Markdown rendering of Summaries (NEW)
-* AI Chat with notes using OpenAI/Ollama endpoints (NEW)
+* AI Chat with transcript using OpenAI/Ollama endpoints (NEW)
   * Multiple chat sessions for each transcript (NEW)
 * Built-in audio recorder
 * YouTube video transcription (NEW)
