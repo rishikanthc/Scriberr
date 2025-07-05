@@ -79,6 +79,7 @@ ENV SESSION_KEY=""
 ENV HF_TOKEN=""
 ENV SCRIBERR_USERNAME=""
 ENV SCRIBERR_PASSWORD=""
+ENV OLLAMA_BASE_URL=""
 
 # Set the entrypoint to run the binary
 ENTRYPOINT ["/app/scriberr"] 

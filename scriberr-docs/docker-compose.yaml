@@ -1,0 +1,10 @@
+services:
+  scriberr-docs:
+    build: .
+    # image: ghcr.io/rishikanthc/scriberr-docs:latest
+    container_name: scriberr-docs
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+
+

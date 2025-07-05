@@ -12,19 +12,22 @@ Use the below `docker-compose.yaml` to deploy using docker.
 services:
   scriberr:
     image: ghcr.io/rishikanthc/scriberr:v1.0.0-beta1
-    container_name: scriberr
     ports:
       - "8080:8080"
     environment:
       # OpenAI API Key - Set this to your actual API key
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      # Ollama config for using Ollama for summarization and chat
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-}
       # Session Key - Generate a secure random key for production
       # You can generate one with: openssl rand -base64 32
       - SESSION_KEY=${SESSION_KEY:-}
+      # Hugging face token needed for speaker diarization
       - HF_TOKEN=${HF_TOKEN:-}
       # Authentication credentials - Set these for custom admin credentials
       - SCRIBERR_USERNAME=${SCRIBERR_USERNAME:-admin}
       - SCRIBERR_PASSWORD=${SCRIBERR_PASSWORD:-password}
+      
     volumes:
       # Persist database and storage files
       - ./scriberr-storage:/app/storage

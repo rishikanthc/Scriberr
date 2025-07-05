@@ -1,7 +1,7 @@
-import adapter from '@sveltejs/adapter-auto';
-import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
-import { mdsvex } from 'mdsvex';
-import { fileURLToPath, URL } from 'node:url';
+import adapter from "@sveltejs/adapter-node";
+import { vitePreprocess } from "@sveltejs/vite-plugin-svelte";
+import { mdsvex } from "mdsvex";
+import { fileURLToPath, URL } from "node:url";
 
 /** @type {import('@sveltejs/kit').Config} */
 const config = {
@@ -10,8 +10,8 @@ const config = {
 	preprocess: [
 		vitePreprocess(),
 		mdsvex({
-			extensions: ['.md', '.svx']
-		})
+			extensions: [".md", ".svx"],
+		}),
 	],
 
 	kit: {
@@ -20,11 +20,11 @@ const config = {
 		// See https://kit.svelte.dev/docs/adapters for more information about adapters.
 		adapter: adapter(),
 		alias: {
-			$lib: fileURLToPath(new URL('./src/lib', import.meta.url))
-		}
+			$lib: fileURLToPath(new URL("./src/lib", import.meta.url)),
+		},
 	},
 
-	extensions: ['.svelte', '.md', '.svx']
+	extensions: [".svelte", ".md", ".svx"],
 };
 
 export default config;

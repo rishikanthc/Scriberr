@@ -12,14 +12,14 @@
 
   // Screenshots with captions
   const screenshots = [
+    { src: '/transcript-window-diarization.png', alt: 'Diarization', caption: 'Speaker diarization with color-coded speakers' },
+    { src: '/transcript-window.png', alt: 'Transcript Window', caption: 'Transcript display with playback controls' },
     { src: '/homepage.png', alt: 'Homepage', caption: 'Clean and intuitive homepage interface' },
     { src: '/chat-with-transcript.png', alt: 'Chat with Transcript', caption: 'AI-powered chat with your transcript' },
-    { src: '/audio-recorder-window.png', alt: 'Audio Recorder', caption: 'Built-in audio recorder for instant transcription' },
-    { src: '/transcript-window.png', alt: 'Transcript Window', caption: 'Real-time transcript display with playback controls' },
-    { src: '/transcript-window-diarization.png', alt: 'Diarization', caption: 'Speaker diarization with color-coded speakers' },
+    { src: '/youtube-download.png', alt: 'YouTube Download', caption: 'Direct YouTube video transcription' },
     { src: '/summarization.png', alt: 'Summarization', caption: 'Automatic summarization with customizable prompts' },
     { src: '/summary-markdown-preview.png', alt: 'Summary Markdown Preview', caption: 'Rich markdown preview for summaries' },
-    { src: '/youtube-download.png', alt: 'YouTube Download', caption: 'Direct YouTube video transcription' },
+    { src: '/audio-recorder-window.png', alt: 'Audio Recorder', caption: 'Built-in audio recorder for instant transcription' },
     { src: '/transcription-settings.png', alt: 'Transcription Settings', caption: 'Advanced transcription model settings' },
     { src: '/audio-options.png', alt: 'Audio Options', caption: 'Flexible audio input options' },
     { src: '/right-click-context-menu.png', alt: 'Context Menu', caption: 'Right-click context menu for quick actions' },
@@ -91,12 +91,10 @@
       <span class="font-semibold">v1.0.0-beta1</span> &mdash; Public beta available now!
     </p>
     <div class="flex justify-center gap-4 mt-6">
-      <Button size="lg" href="https://github.com/noeticgeek/scriberr" target="_blank" rel="noopener">
+      <Button size="lg" href="https://github.com/rishikanthc/Scriberr" target="_blank" rel="noopener">
         View on GitHub
       </Button>
-      <Button variant="secondary" size="lg" href="#features">
-        See Features
-      </Button>
+
       <Button variant="outline" size="lg" href="/docs">
         Documentation
       </Button>
@@ -147,20 +145,7 @@
     </Carousel>
   </div>
 
-  <div class="max-w-2xl w-full text-center mt-8">
-    <Card class="p-8 bg-primary text-primary-foreground border-none shadow-lg">
-      <h2 class="text-2xl font-bold mb-2">Ready to try Scriberr?</h2>
-      <p class="mb-6 text-lg">Download the latest release or check out the docs to get started with your own private, local transcription server.</p>
-      <div class="flex justify-center gap-4">
-        <Button size="lg" href="https://github.com/noeticgeek/scriberr/releases" target="_blank" rel="noopener">
-          Download
-        </Button>
-        <Button variant="secondary" size="lg" href="https://github.com/noeticgeek/scriberr#readme" target="_blank" rel="noopener">
-          Read the Docs
-        </Button>
-      </div>
-    </Card>
-  </div>
+
 </section>
 
 <!-- Zoom Modal -->

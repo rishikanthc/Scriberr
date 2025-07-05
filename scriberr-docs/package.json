@@ -45,6 +45,7 @@
 		"vite": "^6.2.6"
 	},
 	"dependencies": {
+		"@sveltejs/adapter-node": "^5.2.12",
 		"lucide-svelte": "^0.525.0",
 		"shadcn-svelte": "^1.0.6"
 	}
