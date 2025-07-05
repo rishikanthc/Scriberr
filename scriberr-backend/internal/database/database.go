@@ -243,10 +243,17 @@ func createDefaultUser(db *sql.DB) error {
 
 	if userCount == 0 {
 		log.Println("No users found. Creating default admin user...")
-		username := "admin"
-		// This password is for demonstration only. In a real application,
-		// this should be handled more securely, perhaps via an initial setup process.
-		password := "password"
+		
+		// Read credentials from environment variables with fallbacks
+		username := os.Getenv("SCRIBERR_USERNAME")
+		if username == "" {
+			username = "admin"
+		}
+		
+		password := os.Getenv("SCRIBERR_PASSWORD")
+		if password == "" {
+			password = "password"
+		}
 
 		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 		if err != nil {
@@ -264,7 +271,7 @@ func createDefaultUser(db *sql.DB) error {
 		if err != nil {
 			return err
 		}
-		log.Println("Default user 'admin' with password 'password' created successfully.")
+		log.Printf("Default user '%s' created successfully.", username)
 	}
 	return nil
 }
