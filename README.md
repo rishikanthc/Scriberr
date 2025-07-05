@@ -66,6 +66,7 @@ services:
     restart: unless-stopped
 ```
 
+# Current version v0.4.1
 ### Build Status
 **Main Branch:**
 [![Main Docker](https://github.com/rishikanthc/Scriberr/actions/workflows/Main%20Docker%20Build.yml/badge.svg)](https://github.com/rishikanthc/Scriberr/actions/workflows/Main%20Docker%20Build.yml)
