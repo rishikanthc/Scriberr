@@ -1,9 +1,70 @@
 # Scriberr - Self-hosted AI Transcription App
 
+
+
+
 ## About
 Scriberr is a self-hostable AI audio transcription app. It leverages the open-source [Whisper](https://github.com/openai/whisper) models from OpenAI, utilizing the high-performance [WhisperX](https://github.com/m-bain/whisperX) transcription engine to transcribe audio files locally on your hardware. Scriberr also allows you to summarize transcripts using Ollama or OpenAI's ChatGPT API, with your own custom prompts. From v0.2.0, Scriberr supports offline speaker diarization with significant improvements.
 
 **Note**: This app is under active development, and this release includes **breaking changes**. You will lose your old data. Please read the installation instructions carefully.
+
+## Call for Beta Testers
+Hi all, It's been several months since I started this project. The project has come a long way since then, and now, I'm about to release the first stable release v1.0.0. In light of this, I am releasing a beta version for seeking feedback before the release to smooth out any bugs. I request anyone interested to please try out the beta version and provide quality feedback so I can smooth any bugs out before the stable release.
+
+## Updates
+The stable version brings a lot of updates to the app. The app has been rebuilt from the ground up and also introduces a bunch of cool new features.
+
+### Under the hood
+The app has been rebuilt with Go for the backend and Svelte5 for the frontend and runs as a single binary file. The frontend is compiled to static website (plain HTML and JS) and this static website is embedded into the Go binary to provide a fast and highly responsive app. It uses Python for the actual AI transcription by leveraging the WhisperX engine for running Whisper models. This release is a breaking release and moves to using SQLite for the database. Audio files are stored to disk as is.
+
+### New Features and improvements
+* Fast transcription with support for all model sizes
+* Automatic language detection
+* Uses VAD and ASR models for better alignment and speech detection to remove silence periods
+* Speaker diarization (Speaker detection and identification)
+* Automatic summarization using OpenAI/Ollama endpoints
+* Markdown rendering of Summaries (NEW)
+* AI Chat with notes using OpenAI/Ollama endpoints (NEW)
+  * Multiple chat sessions for each transcript (NEW)
+* Built-in audio recorder
+* YouTube video transcription (NEW)
+* Download transcript as plaintext / JSON / SRT file (NEW)
+* Save and reuse summarization prompt templates
+* Tweak advanced parameters for transcription and diarization models (NEW)
+* Audio playback follow (highlights transcript segment currently being played) (NEW)
+* Stop or terminate running transcription jobs (NEW)
+* Better reactivity and responsiveness (NEW)
+* Toast notifications for all actions to provide instant status (NEW)
+* Simplified deployment - single binary (Single container) (NEW)
+
+## Installing the Beta version
+You can install and try the new beta version with the following docker compose:
+
+```yaml
+services:
+  scriberr:
+    image: ghcr.io/rishikanthc/scriberr:v1.0.0-beta1
+    ports:
+      - "8080:8080"
+    environment:
+      # OpenAI API Key - Set this to your actual API key
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      # Ollama config for using Ollama for summarization and chat
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-}
+      # Session Key - Generate a secure random key for production
+      # You can generate one with: openssl rand -base64 32
+      - SESSION_KEY=${SESSION_KEY:-}
+      # Hugging face token needed for speaker diarization
+      - HF_TOKEN=${HF_TOKEN:-}
+      # Authentication credentials - Set these for custom admin credentials
+      - SCRIBERR_USERNAME=${SCRIBERR_USERNAME:-admin}
+      - SCRIBERR_PASSWORD=${SCRIBERR_PASSWORD:-password}
+      
+    volumes:
+      # Persist database and storage files
+      - ./scriberr-storage:/app/storage
+    restart: unless-stopped
+```
 
 ### Build Status
 **Main Branch:**
