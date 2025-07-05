@@ -1,23 +1,24 @@
 <script lang="ts">
   import { Card } from '$lib/components/ui/card';
   import { Button } from '$lib/components/ui/button';
+  import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '$lib/components/ui/carousel';
   import { LucideSparkles, LucideMic, LucideYoutube, LucideDownload, LucideUser, LucideMessageCircle, LucideSettings2 } from 'lucide-svelte';
 
-  // Screenshots
+  // Screenshots with captions
   const screenshots = [
-    { src: '/homepage.png', alt: 'Homepage' },
-    { src: '/chat-with-transcript.png', alt: 'Chat with Transcript' },
-    { src: '/audio-recorder-window.png', alt: 'Audio Recorder' },
-    { src: '/transcript-window.png', alt: 'Transcript Window' },
-    { src: '/transcript-window-diarization.png', alt: 'Diarization' },
-    { src: '/summarization.png', alt: 'Summarization' },
-    { src: '/summary-markdown-preview.png', alt: 'Summary Markdown Preview' },
-    { src: '/youtube-download.png', alt: 'YouTube Download' },
-    { src: '/transcription-settings.png', alt: 'Transcription Settings' },
-    { src: '/audio-options.png', alt: 'Audio Options' },
-    { src: '/right-click-context-menu.png', alt: 'Context Menu' },
-    { src: '/active-jobs.png', alt: 'Active Jobs' },
-    { src: '/transcript-download-options.png', alt: 'Download Options' },
+    { src: '/homepage.png', alt: 'Homepage', caption: 'Clean and intuitive homepage interface' },
+    { src: '/chat-with-transcript.png', alt: 'Chat with Transcript', caption: 'AI-powered chat with your transcript' },
+    { src: '/audio-recorder-window.png', alt: 'Audio Recorder', caption: 'Built-in audio recorder for instant transcription' },
+    { src: '/transcript-window.png', alt: 'Transcript Window', caption: 'Real-time transcript display with playback controls' },
+    { src: '/transcript-window-diarization.png', alt: 'Diarization', caption: 'Speaker diarization with color-coded speakers' },
+    { src: '/summarization.png', alt: 'Summarization', caption: 'Automatic summarization with customizable prompts' },
+    { src: '/summary-markdown-preview.png', alt: 'Summary Markdown Preview', caption: 'Rich markdown preview for summaries' },
+    { src: '/youtube-download.png', alt: 'YouTube Download', caption: 'Direct YouTube video transcription' },
+    { src: '/transcription-settings.png', alt: 'Transcription Settings', caption: 'Advanced transcription model settings' },
+    { src: '/audio-options.png', alt: 'Audio Options', caption: 'Flexible audio input options' },
+    { src: '/right-click-context-menu.png', alt: 'Context Menu', caption: 'Right-click context menu for quick actions' },
+    { src: '/active-jobs.png', alt: 'Active Jobs', caption: 'Monitor active transcription jobs' },
+    { src: '/transcript-download-options.png', alt: 'Download Options', caption: 'Multiple export formats (TXT, JSON, SRT)' },
   ];
 
   // Features
@@ -98,14 +99,32 @@
   </div>
 
   <div class="max-w-6xl w-full mb-20">
-    <h2 class="text-2xl font-bold mb-6 text-center">Screenshots</h2>
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-      {#each screenshots as shot}
-        <div class="rounded-lg overflow-hidden border border-border bg-card/70 shadow">
-          <img src={shot.src} alt={shot.alt} class="w-full h-32 object-cover object-top md:h-40 hover:scale-105 transition-transform duration-200" loading="lazy" />
-        </div>
-      {/each}
-    </div>
+    <h2 class="text-2xl font-bold mb-8 text-center">Screenshots</h2>
+    <Carousel class="w-full">
+      <CarouselContent>
+        {#each screenshots as shot}
+          <CarouselItem class="md:basis-1/2 lg:basis-1/3">
+            <div class="p-2">
+              <Card class="overflow-hidden border border-border bg-card/70 shadow-lg">
+                <div class="aspect-[4/3] overflow-hidden">
+                  <img 
+                    src={shot.src} 
+                    alt={shot.alt} 
+                    class="w-full h-full object-cover object-top hover:scale-105 transition-transform duration-300" 
+                    loading="lazy" 
+                  />
+                </div>
+                <div class="p-4 pt-3">
+                  <p class="text-sm text-muted-foreground text-center font-medium leading-relaxed">{shot.caption}</p>
+                </div>
+              </Card>
+            </div>
+          </CarouselItem>
+        {/each}
+      </CarouselContent>
+      <CarouselPrevious />
+      <CarouselNext />
+    </Carousel>
   </div>
 
   <div class="max-w-2xl w-full text-center mt-8">
