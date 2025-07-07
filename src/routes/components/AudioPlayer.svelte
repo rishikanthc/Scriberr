@@ -5,6 +5,7 @@
 	import { authToken } from '$lib/stores/config';
 	import { get } from 'svelte/store';
 	import { browser } from '$app/environment';
+	import { formatTime } from '$lib/utils';
 
 	const {
 		audioSrc,
@@ -36,13 +37,6 @@
 	let error = $state<string | null>(null);
 	let retryCount = 0;
 	const MAX_RETRIES = 3;
-
-	function formatTime(seconds: number): string {
-		if (!seconds || isNaN(seconds)) return '0:00';
-		const minutes = Math.floor(seconds / 60);
-		const remainingSeconds = Math.floor(seconds % 60);
-		return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
-	}
 
 	async function cleanupWaveSurfer() {
 		if (wavesurfer) {

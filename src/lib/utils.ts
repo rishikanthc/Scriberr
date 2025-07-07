@@ -6,7 +6,7 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 /**
- * Format seconds to MM:SS format for audio player display
+ * Format seconds to (HH:)MM:SS format for audio player display
  * 
  * @param seconds The time in seconds to format
  * @returns Formatted time string in MM:SS format
@@ -16,9 +16,15 @@ export function formatTime(seconds: number): string {
 		return '0:00';
 	}
 	
+	const hours = Math.floor(seconds / 3600);
 	const mins = Math.floor(seconds / 60);
 	const secs = Math.floor(seconds % 60);
-	return `${mins}:${secs.toString().padStart(2, '0')}`;
+	
+	if (process.env.FORCE_HH === true || hours > 0) {
+		return `${hours}:${mins}:${secs.toString().padStart(2, '0')}`;	
+	} else {
+		return `${mins}:${secs.toString().padStart(2, '0')}`;
+	}
 }
 
 /**
