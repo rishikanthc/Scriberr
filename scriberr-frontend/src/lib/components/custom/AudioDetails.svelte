@@ -263,14 +263,53 @@
 		}
 	}
 
-	// Handle keyboard events for audio control
+	// Helper function to handle Enter key
+	function handleEnterKey(event: KeyboardEvent, segment: TranscriptSegment) {
+		if (segment.start !== undefined && (event.key === 'Enter' || event.keyCode === 13)) {
+			seekTo(segment.start);
+		}
+	}
+
+	// Helper function to handle space key for play/pause
+	function handleSpaceKey(event: KeyboardEvent) {
+		if (event.key === ' ' || event.key === 'Space') {
+			if (audioPlayer) {
+				if (audioPlayer.paused) {
+					audioPlayer.play().catch((e) => console.error('Error playing audio:', e));
+				} else {
+					audioPlayer.pause();
+				}
+			}
+		}
+	}
+
+	// Helper function to handle arrow keys for navigation
+	function handleArrowKeys(event: KeyboardEvent, segment: TranscriptSegment) {
+		if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+			event.preventDefault();
+			if (!segment) return;
+			
+			const direction = event.key === 'ArrowDown' ? 1 : -1;
+			const nextIndex = Math.min(Math.max(0, segment.index + direction), segments.length - 1);
+			
+			if (nextIndex !== segment.index) {
+				const nextElement = document.querySelector(`[data-segment-index="${nextIndex}"]`);
+				if (nextElement) {
+					(nextElement as HTMLElement).focus();
+					seekTo(segments[nextIndex].start);
+				}
+			}
+		}
+	}
+
+	// Main keyboard handler function
 	function handleAudioKeyDown(event: KeyboardEvent, segment: TranscriptSegment) {
 		const isVisible =
 			document.visibilityState === 'visible' &&
 			getComputedStyle(event.target as HTMLElement).display !== 'none';
 		if (!isVisible) return;
 
-		// Handle space or enter key
+		// Prevent default for all handled keys
 		if (
 			event.key === 'Enter' ||
 			event.key === ' ' ||
@@ -281,37 +320,12 @@
 			event.preventDefault();
 			event.stopPropagation();
 
-			// If segmentStart is provided and it's an Enter key, seek to that position
-			if (segment.start !== undefined && (event.key === 'Enter' || event.keyCode === 13)) {
-				seekTo(segment.start);
-			}
-			// If it's a space key, toggle play/pause
-			else if (event.key === ' ' || event.key === 'Space') {
-				if (audioPlayer) {
-					if (audioPlayer.paused) {
-						audioPlayer.play().catch((e) => console.error('Error playing audio:', e));
-					} else {
-						audioPlayer.pause();
-					}
-				}
-			}
-			else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-				event.preventDefault();
-				if (!segment) return;
-				const direction = event.key === 'ArrowDown' ? 1 : -1;
-				const nextIndex = Math.min(Math.max(0, segment.index + direction), segments.length - 1);
-				
-				if (nextIndex !== segment.index) {
-					// Focus and play the next segment
-					const nextElement = document.querySelector(`[data-segment-index="${nextIndex}"]`);
-					if (nextElement) {
-						(nextElement as HTMLElement).focus();
-						seekTo(segments[nextIndex].start);
-					}
-				}
-			}
+			// Handle each key type
+			handleEnterKey(event, segment);
+			handleSpaceKey(event);
+			handleArrowKeys(event, segment);
 		}
-	} 
+	}
 </script>
 
 {#if isLoading}
