@@ -167,29 +167,11 @@
 		}
 	}
 
-	let lastClickTime = 0;
-	const DOUBLE_CLICK_DELAY = 300; // ms
-
-	function handleSegmentClick(e: MouseEvent, segmentStart: number) {
-		const now = Date.now();
-
-		// If this is a double click, prevent the click action
-		if (now - lastClickTime < DOUBLE_CLICK_DELAY) {
-			e.preventDefault();
-			return;
+	function handleSegmentClick(e: MouseEvent, segment: TranscriptSegment) {
+		if (audioPlayer) {
+			audioPlayer.pause();
+			audioPlayer.currentTime = segment.start;
 		}
-
-		lastClickTime = now;
-
-		// If text is selected, don't trigger seek
-		const selection = window.getSelection();
-		if (selection && selection.toString().length > 0) {
-			e.preventDefault();
-			return;
-		}
-
-		// Only trigger seek for clean single clicks
-		seekTo(segmentStart);
 	}
 
 	function seekTo(time: number) {
@@ -431,19 +413,15 @@
 									<span class="text-sm text-gray-400">Speaker diarization is enabled</span>
 								</div>
 							{/if}
-							{#each segments as segment, index (index)}
+							{#each segments as segment}
 								{@const isActive = currentTime >= segment.start && currentTime < segment.end}
 								{@const speakerName = getSpeakerDisplayName(segment.speaker)}
 								<div
 									class="flex cursor-pointer flex-col gap-1 rounded-sm p-1 transition-colors {isActive
 										? 'bg-gray-700 ring-2 ring-blue-500 ring-opacity-50'
 										: 'hover:bg-gray-700'}"
-									data-segment-index={index}
-									onclick={(e) => {
-										e.stopPropagation();
-										e.preventDefault();
-										handleSegmentClick(e, segment.start);
-									}}
+									data-segment-index={segment.index}
+									onclick={(e) => handleSegmentClick(e, segment)}
 									role="button"
 									tabindex={isActive ? 0 : -1}
 									onkeydown={(e) => handleAudioKeyDown(e, segment)}
