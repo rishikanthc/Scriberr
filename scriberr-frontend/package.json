@@ -12,7 +12,7 @@
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
 		"format": "prettier --write .",
 		"lint": "prettier --check . && eslint .",
-		"watch": "vite build --watch --outDir=../scriberr-backend/cmd/scriberr/embedded_assets --minify false --sourcemap false"
+		"watch": "chokidar \"src/**/*\" -c 'npm run build && mkdir -p ../scriberr-backend/cmd/scriberr/embedded_assets && cp -r ./build/* ../scriberr-backend/cmd/scriberr/embedded_assets/' --initial"
 	},
 	"devDependencies": {
 		"@eslint/compat": "^1.2.5",
@@ -44,7 +44,8 @@
 		"typescript": "^5.0.0",
 		"typescript-eslint": "^8.20.0",
 		"vite": "^6.2.6",
-		"vite-plugin-devtools-json": "^0.2.0"
+		"vite-plugin-devtools-json": "^0.2.0",
+		"chokidar-cli": "^3.0.0"
 	},
 	"dependencies": {
 		"@cartamd/plugin-code": "^4.2.0",
