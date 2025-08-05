@@ -2,7 +2,7 @@
 	import { ScrollArea } from '$lib/components/ui/scroll-area';
 	import * as Popover from '$lib/components/ui/popover/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
-	import { Download, FileText, FileJson, FileVideo } from 'lucide-svelte';
+	import { Download, FileText, FileJson, FileVideo, Gauge } from 'lucide-svelte';
 	import { toast } from 'svelte-sonner';
 	import MarkdownRenderer from './MarkdownRenderer.svelte';
 
@@ -50,6 +50,8 @@
 	let errorMessage = $state<string | null>(null);
 	let audioPlayer = $state<HTMLAudioElement | null>(null);
 	let currentTime = $state(0);
+	let duration = $state(0);
+	let playbackRate = $state(1.0);
 	let isDownloadPopoverOpen = $state(false);
 	let activeSegmentElement = $state<HTMLElement | null>(null);
 
@@ -319,15 +321,33 @@
 	</div>
 {:else if record}
 	<div class="grid gap-6">
+		<div class="flex items-center gap-4 w-full">
 		<audio
 			bind:this={audioPlayer}
 			src={`/api/audio/file/${record.id}`}
 			controls
-			class="w-full"
+			class="flex-1"
 			ontimeupdate={handleTimeUpdate}
 		>
 			Your browser does not support the audio element.
 		</audio>
+		<div class="flex items-center gap-2 w-48">
+			<Gauge class="h-4 w-4 text-gray-400" />
+			<input
+				type="range"
+				min="0.5"
+				max="1.5"
+				step="0.1"
+				bind:value={playbackRate}
+				oninput={(e) => {
+					const target = e.target as HTMLInputElement;
+					if (audioPlayer) audioPlayer.playbackRate = parseFloat(target.value);
+				}}
+				class="w-full h-2 bg-gray-400 rounded-lg appearance-none cursor-pointer accent-blue-500"
+			/>
+			<span class="text-xs text-gray-400 w-8 text-right">{playbackRate.toFixed(1)}x</span>
+		</div>
+	</div>
 
 		<div class="flex-1 overflow-auto">
 			<div class="flex items-center justify-between border-b border-gray-700">
