@@ -28,3 +28,7 @@ scriberr-backend/cmd
 scriberr-backend/storage
 scriberr-backend/__pycache__
 scriberr-backend/test-storage
+
+# Go build logs
+.build-errors.log
+tmp
