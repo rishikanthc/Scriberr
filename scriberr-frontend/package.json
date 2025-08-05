@@ -11,7 +11,8 @@
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
 		"format": "prettier --write .",
-		"lint": "prettier --check . && eslint ."
+		"lint": "prettier --check . && eslint .",
+		"watch": "vite build --watch --outDir=../scriberr-backend/cmd/scriberr/embedded_assets --minify false --sourcemap false"
 	},
 	"devDependencies": {
 		"@eslint/compat": "^1.2.5",
