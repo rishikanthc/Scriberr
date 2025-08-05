@@ -50,6 +50,7 @@
 	let audioPlayer = $state<HTMLAudioElement | null>(null);
 	let currentTime = $state(0);
 	let isDownloadPopoverOpen = $state(false);
+	let activeSegmentElement = $state<HTMLElement | null>(null);
 
 	async function fetchRecordDetails() {
 		if (!recordId) return;
@@ -130,6 +131,35 @@
 	function handleTimeUpdate() {
 		if (!audioPlayer) return;
 		currentTime = audioPlayer.currentTime;
+		
+		// Focus the active segment
+		focusActiveSegment();
+	}
+
+	function focusActiveSegment() {
+		if (!segments.length) return;
+		
+		// Find the currently active segment
+		const activeSegmentIndex = segments.findIndex(
+			segment => currentTime >= segment.start && currentTime < segment.end
+		);		
+		if (activeSegmentIndex >= 0) {
+			// Get the active segment element
+			const segmentElement = document.querySelector(`[data-segment-index="${activeSegmentIndex}"]`) as HTMLElement;
+			if (segmentElement && segmentElement !== activeSegmentElement) {
+				activeSegmentElement = segmentElement;
+				
+				// Scroll the element into view smoothly
+				segmentElement.scrollIntoView({
+					behavior: 'smooth',
+					block: 'center',
+					inline: 'nearest'
+				});
+				
+				// Focus the element for keyboard accessibility
+				segmentElement.focus();
+			}
+		}
 	}
 
 	let lastClickTime = 0;
@@ -371,15 +401,16 @@
 								{@const speakerName = getSpeakerDisplayName(segment.speaker)}
 								<div
 									class="flex cursor-pointer flex-col gap-1 rounded-sm p-1 transition-colors {isActive
-										? 'bg-gray-700'
+										? 'bg-gray-700 ring-2 ring-blue-500 ring-opacity-50'
 										: 'hover:bg-gray-700'}"
+									data-segment-index={index}
 									onclick={(e) => {
 										e.stopPropagation();
 										e.preventDefault();
 										handleSegmentClick(e, segment.start);
 									}}
 									role="button"
-									tabindex="0"
+									tabindex={isActive ? 0 : -1}
 									onkeydown={(e) => handleAudioKeyDown(e, segment.start)}
 								>
 									<div class="flex items-center gap-2">
