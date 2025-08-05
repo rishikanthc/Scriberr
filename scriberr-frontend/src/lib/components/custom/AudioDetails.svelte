@@ -32,6 +32,7 @@
 		end: number;
 		text: string;
 		words: Word[];
+		index: number;
 		speaker?: string;
 	};
 
@@ -71,7 +72,11 @@
 			if (data.transcript && data.transcript !== '{}') {
 				try {
 					const transcriptData: JSONTranscript = JSON.parse(data.transcript);
-					segments = transcriptData.segments || [];
+					// Add index property to each segment
+					segments = transcriptData.segments.map((segment, index) => ({
+						...segment,
+						index
+					})) || [];
 				} catch (error) {
 					console.error('Error parsing transcript:', error);
 					segments = [];
@@ -259,7 +264,7 @@
 	}
 
 	// Handle keyboard events for audio control
-	function handleAudioKeyDown(event: KeyboardEvent, segmentStart?: number) {
+	function handleAudioKeyDown(event: KeyboardEvent, segment: TranscriptSegment) {
 		const isVisible =
 			document.visibilityState === 'visible' &&
 			getComputedStyle(event.target as HTMLElement).display !== 'none';
@@ -270,17 +275,18 @@
 			event.key === 'Enter' ||
 			event.key === ' ' ||
 			event.key === 'Space' ||
-			event.keyCode === 32
+			event.key === 'ArrowUp' ||
+			event.key === 'ArrowDown'
 		) {
 			event.preventDefault();
 			event.stopPropagation();
 
 			// If segmentStart is provided and it's an Enter key, seek to that position
-			if (segmentStart !== undefined && (event.key === 'Enter' || event.keyCode === 13)) {
-				seekTo(segmentStart);
+			if (segment.start !== undefined && (event.key === 'Enter' || event.keyCode === 13)) {
+				seekTo(segment.start);
 			}
 			// If it's a space key, toggle play/pause
-			else if (event.key === ' ' || event.key === 'Space' || event.keyCode === 32) {
+			else if (event.key === ' ' || event.key === 'Space') {
 				if (audioPlayer) {
 					if (audioPlayer.paused) {
 						audioPlayer.play().catch((e) => console.error('Error playing audio:', e));
@@ -289,8 +295,23 @@
 					}
 				}
 			}
+			else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+				event.preventDefault();
+				if (!segment) return;
+				const direction = event.key === 'ArrowDown' ? 1 : -1;
+				const nextIndex = Math.min(Math.max(0, segment.index + direction), segments.length - 1);
+				
+				if (nextIndex !== segment.index) {
+					// Focus and play the next segment
+					const nextElement = document.querySelector(`[data-segment-index="${nextIndex}"]`);
+					if (nextElement) {
+						(nextElement as HTMLElement).focus();
+						seekTo(segments[nextIndex].start);
+					}
+				}
+			}
 		}
-	}
+	} 
 </script>
 
 {#if isLoading}
@@ -411,7 +432,7 @@
 									}}
 									role="button"
 									tabindex={isActive ? 0 : -1}
-									onkeydown={(e) => handleAudioKeyDown(e, segment.start)}
+									onkeydown={(e) => handleAudioKeyDown(e, segment)}
 								>
 									<div class="flex items-center gap-2">
 										<div class="text-sm font-medium {isActive ? 'text-neon-100' : 'text-gray-400'}">
