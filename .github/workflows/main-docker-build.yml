@@ -45,8 +45,8 @@ jobs:
           push: true
           file: ./Dockerfile
           tags: |
-            ghcr.io/Aken-2019/scriberr_ll:${{ steps.version.outputs.version }}
-            ghcr.io/Aken-2019/scriberr_ll:latest
+            ghcr.io/aken-2019/scriberr_ll:${{ steps.version.outputs.version }}
+            ghcr.io/aken-2019/scriberr_ll:latest
 
       - name: Verify multi-platform image
         run: |
