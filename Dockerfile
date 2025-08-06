@@ -1,4 +1,28 @@
-# Multi-stage build with Python base image for reliability
+# Multi-stage build for frontend
+FROM --platform=$BUILDPLATFORM node:20 AS frontend-builder
+
+# Set working directory for frontend
+WORKDIR /frontend
+
+# Copy frontend files
+COPY scriberr-frontend/package*.json ./
+
+# Install frontend dependencies
+RUN npm install
+
+# Copy frontend source
+COPY scriberr-frontend/ .
+
+# Build frontend
+RUN npm run build
+
+# Create target directory for embedded assets
+RUN mkdir -p /app/cmd/scriberr/embedded_assets
+
+# Copy built frontend to embedded assets
+RUN cp -r ./build/* /app/cmd/scriberr/embedded_assets/
+
+# Build stage for Go application
 FROM --platform=$BUILDPLATFORM golang:1.24 AS builder
 
 # Install build dependencies (only what's needed for Go build)
@@ -10,13 +34,16 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /app
 
 # Copy go mod files
-COPY go.mod go.sum ./
+COPY ./scriberr-backend/go.mod ./scriberr-backend/go.sum ./
 
-# Download dependencies
+# Dow load dependencies
 RUN go mod download
 
 # Copy source code (including embedded assets)
-COPY . .
+COPY ./scriberr-backend/ .
+
+# Copy frontend assets from frontend-builder stage
+COPY --from=frontend-builder /app/cmd/scriberr/embedded_assets ./cmd/scriberr/embedded_assets
 
 # Build the binary with proper architecture flags
 ARG TARGETPLATFORM
@@ -54,8 +81,6 @@ COPY --from=builder /app/scriberr /app/scriberr
 COPY --from=builder /app/pyproject.toml /app/pyproject.toml
 COPY --from=builder /app/uv.lock /app/uv.lock
 COPY --from=builder /app/diarize.py /app/diarize.py
-# COPY pyproject.toml uv.lock /app/
-# COPY diarize.py  /app/
 
 # Install uv and dependencies
 RUN pip install --upgrade pip && \
@@ -82,4 +107,4 @@ ENV SCRIBERR_PASSWORD=""
 ENV OLLAMA_BASE_URL=""
 
 # Set the entrypoint to run the binary
-ENTRYPOINT ["/app/scriberr"] 
+ENTRYPOINT ["/app/scriberr"]
