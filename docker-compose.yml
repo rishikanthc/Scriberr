@@ -4,7 +4,7 @@ services:
   scriberr:
     build:
       context: .
-      dockerfile: Dockerfile.alpine
+      dockerfile: Dockerfile
       platforms:
         - linux/amd64
         - linux/arm64

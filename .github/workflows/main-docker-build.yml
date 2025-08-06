@@ -26,12 +26,16 @@ jobs:
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          password: ${{ secrets.GH_PAT }}
           
       - name: Extract version from tag
         id: version
         run: |
-          VERSION=${GITHUB_REF#refs/tags/v}
+          if [[ $GITHUB_REF == refs/tags/v* ]]; then
+            VERSION=${GITHUB_REF#refs/tags/v}
+          else
+            VERSION=$(date +'%Y%m%d-%H%M%S')
+          fi
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Build and push CPU Docker image
@@ -41,10 +45,10 @@ jobs:
           push: true
           file: ./Dockerfile
           tags: |
-            ghcr.io/rishikanthc/scriberr:${{ steps.version.outputs.version }}
-            ghcr.io/rishikanthc/scriberr:latest
+            ghcr.io/aken-2019/scriberr_ll:${{ steps.version.outputs.version }}
+            ghcr.io/aken-2019/scriberr_ll:latest
 
       - name: Verify multi-platform image
         run: |
-          docker buildx imagetools inspect ghcr.io/rishikanthc/scriberr:${{ steps.version.outputs.version }}
-          docker buildx imagetools inspect ghcr.io/rishikanthc/scriberr:latest
+          docker buildx imagetools inspect ghcr.io/aken-2019/scriberr_ll:${{ steps.version.outputs.version }}
+          docker buildx imagetools inspect ghcr.io/aken-2019/scriberr_ll:latest

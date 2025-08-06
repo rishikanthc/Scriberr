@@ -32,3 +32,6 @@ scriberr-backend/test-storage
 # Go build logs
 .build-errors.log
 tmp
+
+# Application data
+scriberr.db
