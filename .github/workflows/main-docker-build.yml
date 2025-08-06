@@ -50,5 +50,5 @@ jobs:
 
       - name: Verify multi-platform image
         run: |
-          docker buildx imagetools inspect ghcr.io/Aken-2019/scriberr_ll:${{ steps.version.outputs.version }}
-          docker buildx imagetools inspect ghcr.io/Aken-2019/scriberr_ll:latest
+          docker buildx imagetools inspect ghcr.io/aken-2019/scriberr_ll:${{ steps.version.outputs.version }}
+          docker buildx imagetools inspect ghcr.io/aken-2019/scriberr_ll:latest
