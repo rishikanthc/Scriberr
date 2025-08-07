@@ -6,8 +6,10 @@ The repo is based on the fantastic [Scriberr](https://github.com/rishikanthc/Scr
 ## Features
 ### New Features
 The base features can be found on the [Scriberr](https://github.com/rishikanthc/Scriberr) project. Here are the additional features:
-- On the audio detail page, users can use up / down arrow keys to navigate among segments.
-- Active segment is highlighted and automatically focused when being played.
+- It has better keyboard ineractions on the audio detail page:
+  - `Space` key to play and pause the audio player when any audio segment is in focuse.
+  - `↑` or `↓` key to navigate among segments.
+  - A segment being played is automatically focused so users can interact with it more efficiently.
 - Clicks no more start playing the segment, but the default behaviors are reserved to select texts. It's more convinient for users to copy the transcripts and paste them to other places such as dictionaries. An additional play button is placed in every segment so users can use that to jump among segments.
 ### Planned Features
 - [ ] Add a function to scan the disk and discover the audios and transcripts, to let users import processed audios and transcripts.
