@@ -62,35 +62,65 @@ RUN go build -ldflags="-s -w" -o scriberr ./cmd/scriberr
 # Make the binary executable
 RUN chmod +x /app/scriberr
 
-# Final stage - use python base image for reliability
+# New stage for Python dependencies
+FROM --platform=$TARGETPLATFORM python:3.12-slim AS python-deps
+
+# Install build dependencies
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        build-essential \
+        && apt-get clean \
+        && rm -rf /var/lib/apt/lists/*
+
+# Install uv
+RUN pip install --no-cache-dir uv
+
+# Set working directory
+WORKDIR /app
+
+# Copy Python dependency files
+COPY --from=builder /app/pyproject.toml /app/uv.lock ./
+
+# Create and activate virtual environment
+RUN python -m venv /app/.venv
+ENV PATH="/app/.venv/bin:$PATH"
+
+# Install Python dependencies using uv sync
+RUN uv sync --frozen
+
+# Final stage
 FROM --platform=$TARGETPLATFORM python:3.12-slim
 
-# Install runtime dependencies
+# Install runtime dependencies and build tools for uv
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         ca-certificates \
         sqlite3 \
         ffmpeg \
         curl \
-        build-essential \
+        python3-pip \
         && apt-get clean \
         && rm -rf /var/lib/apt/lists/*
 
-# Copy the binary and Python dependencies
+# Install uv system-wide
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir --root-user-action ignore uv
+
+# Copy the binary from builder
 COPY --from=builder /app/scriberr /app/scriberr
-COPY --from=builder /app/pyproject.toml /app/pyproject.toml
-COPY --from=builder /app/uv.lock /app/uv.lock
+
+# Copy virtual environment and lock file from python-deps stage
+COPY --from=python-deps /app/.venv /app/.venv
+COPY --from=python-deps /app/uv.lock /app/uv.lock
+
+# Ensure virtual environment is in PATH
+ENV PATH="/app/.venv/bin:$PATH"
+
+# Copy necessary Python files
 COPY --from=builder /app/diarize.py /app/diarize.py
 
-# Install uv and dependencies
-RUN pip install --upgrade pip && \
-    pip install --root-user-action ignore uv
-
-# Set working directory for uv operations
+# Set working directory
 WORKDIR /app
-
-# Install Python dependencies
-RUN uv sync --frozen
 
 # Create storage directory for database and files
 RUN mkdir -p /app/storage
