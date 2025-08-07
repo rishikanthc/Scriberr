@@ -23,6 +23,9 @@ services:
     volumes:
       # Persist database and storage files
       - ./storage:/app/storage
+      # Persist cache files
+      - ./cache/torch:/root/.cache/torch
+      - ./cache/huggingface:/root/.cache/huggingface
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/api/health"]
