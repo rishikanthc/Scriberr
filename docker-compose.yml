@@ -19,7 +19,11 @@ services:
       # Session Key - Generate a secure random key for production
       # You can generate one with: openssl rand -base64 32
       - SESSION_KEY=${SESSION_KEY:-}
+      # Huggingface token to use diarization feature
       - HF_TOKEN=${HF_TOKEN:-}
+      # Default username and passwords
+      - SCRIBERR_USERNAME=${SCRIBERR_USERNAME:-admin}
+      - SCRIBERR_PASSWORD=${SCRIBERR_PASSWORD:-password}
     volumes:
       # Persist database and storage files
       - ./storage:/app/storage
