@@ -2,6 +2,7 @@ version: '3.8'
 
 services:
   scriberr:
+    image: ghcr.io/aken-19/scriberr_ll:latest
     build:
       context: .
       dockerfile: Dockerfile
@@ -21,9 +22,7 @@ services:
       - HF_TOKEN=${HF_TOKEN:-}
     volumes:
       # Persist database and storage files
-      - ./test-storage:/app/storage
-      # Optional: Mount whisper models for faster startup (if you have them locally)
-      # - ./whisper-models:/app/whisper-models
+      - ./storage:/app/storage
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/api/health"]
