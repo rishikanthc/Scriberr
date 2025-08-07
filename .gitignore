@@ -37,3 +37,4 @@ scriberr-backend/storage
 scriberr-backend/__pycache__
 scriberr-backend/test-storage
 /storage
+/cache
