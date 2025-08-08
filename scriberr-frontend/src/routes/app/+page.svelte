@@ -71,7 +71,19 @@
 	let selectedSummaryModel = $state('gpt-3.5-turbo'); // Default model for summarization
 	let selectedTemplateId = $state('');
 	const modelSizes = ['tiny', 'base', 'small', 'medium', 'large-v1', 'large-v2', 'large-v3'];
-	let summaryModelOptions = $state(['gpt-4', 'gpt-4-turbo', 'gpt-4o', 'gpt-4o-mini', 'gpt-4.1', 'gpt-4.1-mini', 'gpt-4.1-nano','gpt-5', 'gpt-5-chat', 'gpt-5-mini', 'gpt-5-nano']); // Will be populated from API
+	let summaryModelOptions = $state([
+		'gpt-4',
+		'gpt-4-turbo',
+		'gpt-4o',
+		'gpt-4o-mini',
+		'gpt-4.1',
+		'gpt-4.1-mini',
+		'gpt-4.1-nano',
+		'gpt-5',
+		'gpt-5-chat',
+		'gpt-5-mini',
+		'gpt-5-nano'
+	]); // Will be populated from API
 
 	// --- EFFECTS ---
 	$effect(() => {
@@ -130,7 +142,7 @@
 				throw new Error('Failed to fetch models');
 			}
 			const models = await response.json();
-			
+
 			// Combine all available models
 			let allModels: string[] = [];
 			if (models.openai) {
@@ -139,10 +151,10 @@
 			if (models.ollama) {
 				allModels = allModels.concat(models.ollama);
 			}
-			
+
 			// Update the model options
 			summaryModelOptions = allModels;
-			
+
 			// If the currently selected model is not in the new list, reset to first available
 			if (allModels.length > 0 && !allModels.includes(selectedSummaryModel)) {
 				selectedSummaryModel = allModels[0];
@@ -629,7 +641,7 @@
 <div class="min-h-screen w-full bg-gray-800 p-8 text-gray-200">
 	<div class="mx-auto max-w-4xl">
 		<header class="flex items-center justify-between border-b border-gray-700 pb-4">
-			<h1 class="text-2xl flex items-center gap-2">
+			<h1 class="flex items-center gap-2 text-2xl">
 				<Logo size={64} strokeColor="#daff7d" />
 				Scriberr
 			</h1>
@@ -802,8 +814,4 @@
 	onUpdate={fetchTemplates}
 />
 
-<ChatDialog
-	bind:open={isChatDialogOpen}
-	record={recordToChat}
-	modelOptions={summaryModelOptions}
-/>
+<ChatDialog bind:open={isChatDialogOpen} record={recordToChat} modelOptions={summaryModelOptions} />
