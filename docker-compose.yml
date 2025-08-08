@@ -16,6 +16,7 @@ services:
     environment:
       # OpenAI API Key - Set this to your actual API key
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - OPENAI_API_BASE=${OPENAI_API_BASE:-}
       # Session Key - Generate a secure random key for production
       # You can generate one with: openssl rand -base64 32
       - SESSION_KEY=${SESSION_KEY:-}
