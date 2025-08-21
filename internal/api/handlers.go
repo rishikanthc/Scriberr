@@ -368,6 +368,101 @@ func (h *Handler) ListJobs(c *gin.Context) {
 	})
 }
 
+// @Summary Start transcription for uploaded file
+// @Description Start transcription for an already uploaded audio file
+// @Tags transcription
+// @Accept json
+// @Produce json
+// @Param id path string true "Job ID"
+// @Param parameters body models.WhisperXParams true "Transcription parameters"
+// @Success 200 {object} models.TranscriptionJob
+// @Failure 400 {object} map[string]string
+// @Failure 404 {object} map[string]string
+// @Router /api/v1/transcription/{id}/start [post]
+// @Security ApiKeyAuth
+func (h *Handler) StartTranscription(c *gin.Context) {
+	jobID := c.Param("id")
+	
+	var job models.TranscriptionJob
+	if err := database.DB.Where("id = ?", jobID).First(&job).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Job not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get job"})
+		return
+	}
+
+	// Allow transcription for uploaded, completed, and failed jobs (re-transcription)
+	if job.Status != models.StatusUploaded && job.Status != models.StatusCompleted && job.Status != models.StatusFailed {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Cannot start transcription: job is currently processing or pending"})
+		return
+	}
+
+	// Parse transcription parameters from request body
+	var params struct {
+		Model       string  `json:"model"`
+		Language    *string `json:"language,omitempty"`
+		BatchSize   int     `json:"batch_size"`
+		ComputeType string  `json:"compute_type"`
+		Device      string  `json:"device"`
+		VadFilter   bool    `json:"vad_filter"`
+		VadOnset    float64 `json:"vad_onset"`
+		VadOffset   float64 `json:"vad_offset"`
+		MinSpeakers *int    `json:"min_speakers,omitempty"`
+		MaxSpeakers *int    `json:"max_speakers,omitempty"`
+		Diarization bool    `json:"diarization"`
+	}
+
+	// Set defaults
+	params.Model = "base"
+	params.BatchSize = 16
+	params.ComputeType = "int8"
+	params.Device = "cpu"
+	params.VadOnset = 0.500
+	params.VadOffset = 0.363
+
+	// Parse request body if provided
+	if err := c.ShouldBindJSON(&params); err != nil {
+		// Use defaults if JSON parsing fails
+	}
+
+	// Update job with parameters
+	job.Parameters = models.WhisperXParams{
+		Model:       params.Model,
+		Language:    params.Language,
+		BatchSize:   params.BatchSize,
+		ComputeType: params.ComputeType,
+		Device:      params.Device,
+		VadFilter:   params.VadFilter,
+		VadOnset:    params.VadOnset,
+		VadOffset:   params.VadOffset,
+		MinSpeakers: params.MinSpeakers,
+		MaxSpeakers: params.MaxSpeakers,
+	}
+	job.Diarization = params.Diarization
+	job.Status = models.StatusPending
+	
+	// Clear previous results for re-transcription
+	job.Transcript = nil
+	job.Summary = nil
+	job.ErrorMessage = nil
+
+	// Save updated job
+	if err := database.DB.Save(&job).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update job"})
+		return
+	}
+
+	// Enqueue job for transcription
+	if err := h.taskQueue.EnqueueJob(jobID); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to enqueue job"})
+		return
+	}
+
+	c.JSON(http.StatusOK, job)
+}
+
 // @Summary Get transcription record by ID
 // @Description Get a specific transcription record by its ID
 // @Tags transcription

@@ -30,11 +30,16 @@ export function Homepage() {
     }
   }
 
+  const handleTranscribe = (_jobId: string) => {
+    // Refresh table when transcription starts
+    setRefreshTrigger(prev => prev + 1)
+  }
+
   return (
     <div className="min-h-screen bg-gray-900">
       <div className="mx-auto px-8 py-6" style={{ width: '90vw' }}>
         <Header onFileSelect={handleFileSelect} />
-        <AudioFilesTable refreshTrigger={refreshTrigger} />
+        <AudioFilesTable refreshTrigger={refreshTrigger} onTranscribe={handleTranscribe} />
       </div>
     </div>
   )

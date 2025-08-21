@@ -50,6 +50,7 @@ func SetupRoutes(handler *Handler, authService *auth.AuthService) *gin.Engine {
 		{
 			transcription.POST("/upload", handler.UploadAudio)
 			transcription.POST("/submit", handler.SubmitJob)
+			transcription.POST("/:id/start", handler.StartTranscription)
 			transcription.GET("/:id/status", handler.GetJobStatus)
 			transcription.GET("/:id/transcript", handler.GetTranscript)
 			transcription.GET("/:id", handler.GetJobByID)
