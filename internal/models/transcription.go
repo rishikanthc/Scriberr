@@ -28,6 +28,7 @@ type TranscriptionJob struct {
 type JobStatus string
 
 const (
+	StatusUploaded    JobStatus = "uploaded"
 	StatusPending     JobStatus = "pending"
 	StatusProcessing  JobStatus = "processing"
 	StatusCompleted   JobStatus = "completed"

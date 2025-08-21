@@ -4,7 +4,7 @@ import { CheckCircle, Clock, XCircle, Loader2 } from "lucide-react";
 interface AudioFile {
 	id: string;
 	title?: string;
-	status: "pending" | "processing" | "completed" | "failed";
+	status: "uploaded" | "pending" | "processing" | "completed" | "failed";
 	created_at: string;
 	audio_path: string;
 }
@@ -53,8 +53,10 @@ export function AudioFilesTable({ refreshTrigger }: AudioFilesTableProps) {
 			case "failed":
 				return <XCircle size={iconSize} className="text-magenta-400" />;
 			case "pending":
-			default:
 				return <Clock size={iconSize} className="text-purple-400" />;
+			case "uploaded":
+			default:
+				return <Clock size={iconSize} className="text-neon-100" />;
 		}
 	};
 

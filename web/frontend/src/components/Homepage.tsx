@@ -9,11 +9,9 @@ export function Homepage() {
     const formData = new FormData()
     formData.append('audio', file)
     formData.append('title', file.name.replace(/\.[^/.]+$/, ""))
-    formData.append('model', 'base')
-    formData.append('diarization', 'false')
 
     try {
-      const response = await fetch('/api/v1/transcription/submit', {
+      const response = await fetch('/api/v1/transcription/upload', {
         method: 'POST',
         headers: {
           'X-API-Key': 'dev-api-key-123'

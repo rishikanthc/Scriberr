@@ -61,6 +61,74 @@ type LoginResponse struct {
 	} `json:"user"`
 }
 
+// @Summary Upload audio file
+// @Description Upload an audio file without starting transcription
+// @Tags transcription
+// @Accept multipart/form-data
+// @Produce json
+// @Param audio formData file true "Audio file"
+// @Param title formData string false "Job title"
+// @Success 200 {object} models.TranscriptionJob
+// @Failure 400 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /api/v1/transcription/upload [post]
+// @Security ApiKeyAuth
+func (h *Handler) UploadAudio(c *gin.Context) {
+	// Parse multipart form
+	file, header, err := c.Request.FormFile("audio")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Audio file is required"})
+		return
+	}
+	defer file.Close()
+
+	// Create upload directory
+	uploadDir := h.config.UploadDir
+	if err := os.MkdirAll(uploadDir, 0755); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create upload directory"})
+		return
+	}
+
+	// Generate unique filename
+	jobID := uuid.New().String()
+	ext := filepath.Ext(header.Filename)
+	filename := fmt.Sprintf("%s%s", jobID, ext)
+	filePath := filepath.Join(uploadDir, filename)
+
+	// Save file
+	dst, err := os.Create(filePath)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save file"})
+		return
+	}
+	defer dst.Close()
+
+	if _, err = io.Copy(dst, file); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save file"})
+		return
+	}
+
+	// Create job record with "uploaded" status (not queued for transcription)
+	job := models.TranscriptionJob{
+		ID:        jobID,
+		AudioPath: filePath,
+		Status:    models.StatusUploaded, // New status for uploaded but not transcribed
+	}
+
+	if title := c.PostForm("title"); title != "" {
+		job.Title = &title
+	}
+
+	// Save to database
+	if err := database.DB.Create(&job).Error; err != nil {
+		os.Remove(filePath) // Clean up file
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create job"})
+		return
+	}
+
+	c.JSON(http.StatusOK, job)
+}
+
 // @Summary Submit a transcription job
 // @Description Submit an audio file for transcription with WhisperX
 // @Tags transcription

@@ -48,6 +48,7 @@ func SetupRoutes(handler *Handler, authService *auth.AuthService) *gin.Engine {
 		transcription := v1.Group("/transcription")
 		transcription.Use(middleware.AuthMiddleware(authService))
 		{
+			transcription.POST("/upload", handler.UploadAudio)
 			transcription.POST("/submit", handler.SubmitJob)
 			transcription.GET("/:id/status", handler.GetJobStatus)
 			transcription.GET("/:id/transcript", handler.GetTranscript)
