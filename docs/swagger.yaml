@@ -1,0 +1,400 @@
+basePath: /api/v1
+definitions:
+  api.LoginRequest:
+    properties:
+      password:
+        type: string
+      username:
+        type: string
+    required:
+    - password
+    - username
+    type: object
+  api.LoginResponse:
+    properties:
+      token:
+        type: string
+      user:
+        properties:
+          id:
+            type: integer
+          username:
+            type: string
+        type: object
+    type: object
+  models.JobStatus:
+    enum:
+    - pending
+    - processing
+    - completed
+    - failed
+    type: string
+    x-enum-varnames:
+    - StatusPending
+    - StatusProcessing
+    - StatusCompleted
+    - StatusFailed
+  models.TranscriptionJob:
+    properties:
+      audio_path:
+        type: string
+      created_at:
+        type: string
+      diarization:
+        type: boolean
+      error_message:
+        type: string
+      id:
+        type: string
+      parameters:
+        allOf:
+        - $ref: '#/definitions/models.WhisperXParams'
+        description: WhisperX parameters
+      status:
+        $ref: '#/definitions/models.JobStatus'
+      summary:
+        type: string
+      title:
+        type: string
+      transcript:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  models.WhisperXParams:
+    properties:
+      batch_size:
+        type: integer
+      compute_type:
+        type: string
+      device:
+        type: string
+      language:
+        type: string
+      max_speakers:
+        type: integer
+      min_speakers:
+        type: integer
+      model:
+        type: string
+      vad_filter:
+        type: boolean
+      vad_offset:
+        type: number
+      vad_onset:
+        type: number
+    type: object
+host: localhost:8080
+info:
+  contact:
+    email: support@swagger.io
+    name: API Support
+    url: http://www.swagger.io/support
+  description: Audio transcription service using WhisperX
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+  termsOfService: http://swagger.io/terms/
+  title: Scriberr API
+  version: "1.0"
+paths:
+  /api/v1/admin/queue/stats:
+    get:
+      description: Get current queue statistics
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Get queue statistics
+      tags:
+      - admin
+  /api/v1/auth/login:
+    post:
+      consumes:
+      - application/json
+      description: Authenticate user and return JWT token
+      parameters:
+      - description: User credentials
+        in: body
+        name: credentials
+        required: true
+        schema:
+          $ref: '#/definitions/api.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.LoginResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Login
+      tags:
+      - auth
+  /api/v1/transcription/{id}:
+    get:
+      description: Get a specific transcription record by its ID
+      parameters:
+      - description: Job ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.TranscriptionJob'
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Get transcription record by ID
+      tags:
+      - transcription
+  /api/v1/transcription/{id}/status:
+    get:
+      description: Get the current status of a transcription job
+      parameters:
+      - description: Job ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.TranscriptionJob'
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Get job status
+      tags:
+      - transcription
+  /api/v1/transcription/{id}/transcript:
+    get:
+      description: Get the transcript for a completed transcription job
+      parameters:
+      - description: Job ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Get transcript
+      tags:
+      - transcription
+  /api/v1/transcription/list:
+    get:
+      description: Get a list of all transcription jobs
+      parameters:
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: Items per page
+        in: query
+        name: limit
+        type: integer
+      - description: Filter by status
+        in: query
+        name: status
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: List all transcription records
+      tags:
+      - transcription
+  /api/v1/transcription/models:
+    get:
+      description: Get list of supported WhisperX models
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Get supported models
+      tags:
+      - transcription
+  /api/v1/transcription/submit:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Submit an audio file for transcription with WhisperX
+      parameters:
+      - description: Audio file
+        in: formData
+        name: audio
+        required: true
+        type: file
+      - description: Job title
+        in: formData
+        name: title
+        type: string
+      - description: Enable speaker diarization
+        in: formData
+        name: diarization
+        type: boolean
+      - default: base
+        description: Whisper model
+        in: formData
+        name: model
+        type: string
+      - description: Language code
+        in: formData
+        name: language
+        type: string
+      - default: 16
+        description: Batch size
+        in: formData
+        name: batch_size
+        type: integer
+      - default: float16
+        description: Compute type
+        in: formData
+        name: compute_type
+        type: string
+      - default: auto
+        description: Device
+        in: formData
+        name: device
+        type: string
+      - description: Enable VAD filter
+        in: formData
+        name: vad_filter
+        type: boolean
+      - default: 0.5
+        description: VAD onset
+        in: formData
+        name: vad_onset
+        type: number
+      - default: 0.363
+        description: VAD offset
+        in: formData
+        name: vad_offset
+        type: number
+      - description: Minimum speakers for diarization
+        in: formData
+        name: min_speakers
+        type: integer
+      - description: Maximum speakers for diarization
+        in: formData
+        name: max_speakers
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.TranscriptionJob'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Submit a transcription job
+      tags:
+      - transcription
+  /health:
+    get:
+      description: Check if the API is healthy
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Health check
+      tags:
+      - health
+securityDefinitions:
+  ApiKeyAuth:
+    in: header
+    name: X-API-Key
+    type: apiKey
+  BearerAuth:
+    description: JWT token with Bearer prefix
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"
