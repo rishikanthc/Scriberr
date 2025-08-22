@@ -53,42 +53,12 @@ import {
 	useReactTable,
 	getCoreRowModel,
 	getSortedRowModel,
-	getFilteredRowModel,
-	getPaginationRowModel,
 	flexRender,
 	type ColumnDef,
 	type SortingState,
 	type ColumnFiltersState,
-	type FilterFn,
 } from "@tanstack/react-table";
-import {
-	rankItem,
-	type RankingInfo,
-} from "@tanstack/match-sorter-utils";
 
-// Extend TanStack Table types for fuzzy filtering
-declare module "@tanstack/react-table" {
-	interface FilterFns {
-		fuzzy: FilterFn<unknown>;
-	}
-	interface FilterMeta {
-		itemRank: RankingInfo;
-	}
-}
-
-// Define fuzzy filter function
-const fuzzyFilter: FilterFn<any> = (row, columnId, value, addMeta) => {
-	// Rank the item
-	const itemRank = rankItem(row.getValue(columnId), value);
-	
-	// Store the itemRank info
-	addMeta({
-		itemRank,
-	});
-	
-	// Return if the item should be filtered in/out
-	return itemRank.passed;
-};
 
 // Debounced search input component to prevent focus loss
 function DebouncedSearchInput({ 
@@ -172,7 +142,7 @@ export function AudioFilesTable({
 	const [totalItems, setTotalItems] = useState(0);
 	const [pageCount, setPageCount] = useState(0);
 
-	const fetchAudioFiles = useCallback(async (page?: number, limit?: number, isInitialLoad = false) => {
+	const fetchAudioFiles = useCallback(async (page?: number, limit?: number, searchQuery?: string, isInitialLoad = false) => {
 		try {
 			// Only show loading skeleton on initial load, use page changing indicator for pagination
 			if (isInitialLoad) {
@@ -183,11 +153,17 @@ export function AudioFilesTable({
 			
 			const currentPage = page || pagination.pageIndex + 1;
 			const currentLimit = limit || pagination.pageSize;
+			const currentSearch = searchQuery !== undefined ? searchQuery : globalFilter;
 			
 			const params = new URLSearchParams({
 				page: currentPage.toString(),
 				limit: currentLimit.toString(),
 			});
+			
+			// Add search parameter if provided
+			if (currentSearch) {
+				params.set('q', currentSearch);
+			}
 			
 			const response = await fetch(`/api/v1/transcription/list?${params}`, {
 				headers: {
@@ -201,6 +177,7 @@ export function AudioFilesTable({
 				console.log("Total from API:", result.pagination.total);
 				console.log("Current page:", result.pagination.page);
 				console.log("Total pages:", result.pagination.pages);
+				console.log("Search query:", currentSearch);
 				
 				setData(result.jobs || []);
 				setTotalItems(result.pagination.total);
@@ -214,7 +191,7 @@ export function AudioFilesTable({
 			setLoading(false);
 			setIsPageChanging(false);
 		}
-	}, [pagination.pageIndex, pagination.pageSize]);
+	}, [pagination.pageIndex, pagination.pageSize, globalFilter]);
 
 	// Fetch queue positions for pending jobs
 	const fetchQueuePositions = async (jobs: AudioFile[]) => {
@@ -264,7 +241,7 @@ export function AudioFilesTable({
 
 			if (response.ok) {
 				// Refresh to show updated status
-				fetchAudioFiles(undefined, undefined, false);
+				fetchAudioFiles();
 				if (onTranscribe) {
 					onTranscribe(jobId);
 				}
@@ -296,7 +273,7 @@ export function AudioFilesTable({
 
 			if (response.ok) {
 				// Refresh to show updated list
-				fetchAudioFiles(undefined, undefined, false);
+				fetchAudioFiles();
 			} else {
 				alert("Failed to delete audio file");
 			}
@@ -308,23 +285,26 @@ export function AudioFilesTable({
 	// Initial load
 	useEffect(() => {
 		const isInitialLoad = data.length === 0;
-		fetchAudioFiles(undefined, undefined, isInitialLoad);
+		fetchAudioFiles(undefined, undefined, undefined, isInitialLoad);
 	}, [refreshTrigger, fetchAudioFiles]);
 
-	// Pagination changes (not initial load)
+	// Handle pagination and search changes
 	useEffect(() => {
 		if (data.length > 0) { // Only fetch if not initial load
-			fetchAudioFiles();
+			fetchAudioFiles(
+				pagination.pageIndex + 1, 
+				pagination.pageSize, 
+				globalFilter || undefined
+			);
 		}
-	}, [pagination.pageIndex, pagination.pageSize, fetchAudioFiles, data.length]);
+	}, [pagination.pageIndex, pagination.pageSize, globalFilter, fetchAudioFiles]);
 
-	// Separate effect for search - when search changes, fetch all data for filtering
+	// Reset to first page when search changes
 	useEffect(() => {
-		if (globalFilter) {
-			// For search, fetch all data (up to reasonable limit)
-			fetchAudioFiles(1, 100, false); // Not initial load
+		if (globalFilter !== undefined) {
+			setPagination(prev => ({ ...prev, pageIndex: 0 }));
 		}
-	}, [globalFilter, fetchAudioFiles]);
+	}, [globalFilter]);
 
 	// Poll for status updates every 3 seconds for active jobs
 	useEffect(() => {
@@ -336,7 +316,7 @@ export function AudioFilesTable({
 
 		const interval = setInterval(() => {
 			// Keep current pagination when polling
-			fetchAudioFiles(undefined, undefined, false);
+			fetchAudioFiles();
 		}, 3000);
 
 		return () => clearInterval(interval);
@@ -477,8 +457,7 @@ export function AudioFilesTable({
 						</button>
 					);
 				},
-				enableGlobalFilter: true,
-				filterFn: "fuzzy",
+				enableGlobalFilter: false,
 			},
 			{
 				accessorKey: "created_at",
@@ -621,13 +600,10 @@ export function AudioFilesTable({
 		[openPopovers, queuePositions, getStatusIcon, handleAudioClick, handleTranscribe, handleDelete, canTranscribe, getFileName]
 	);
 
-	// Create the table instance
+	// Create the table instance with server-side pagination and search
 	const table = useReactTable({
 		data,
 		columns,
-		filterFns: {
-			fuzzy: fuzzyFilter,
-		},
 		state: {
 			sorting,
 			columnFilters,
@@ -638,15 +614,11 @@ export function AudioFilesTable({
 		onColumnFiltersChange: setColumnFilters,
 		onGlobalFilterChange: setGlobalFilter,
 		onPaginationChange: setPagination,
-		globalFilterFn: "fuzzy",
 		getCoreRowModel: getCoreRowModel(),
 		getSortedRowModel: getSortedRowModel(),
-		// Server-side pagination
+		// Server-side pagination and search
 		manualPagination: true,
 		pageCount: pageCount,
-		// For search, we'll fetch all data and use client-side filtering
-		getFilteredRowModel: globalFilter ? getFilteredRowModel() : undefined,
-		getPaginationRowModel: globalFilter ? getPaginationRowModel() : undefined,
 	});
 
 
@@ -678,7 +650,7 @@ export function AudioFilesTable({
 						</h2>
 						<p className="text-gray-600 dark:text-gray-400 text-sm">
 							{globalFilter 
-								? `${table.getFilteredRowModel().rows.length} file${table.getFilteredRowModel().rows.length !== 1 ? "s" : ""} (filtered)`
+								? `${totalItems} file${totalItems !== 1 ? "s" : ""} found`
 								: `${totalItems} file${totalItems !== 1 ? "s" : ""} total`
 							}
 						</p>
@@ -780,13 +752,11 @@ export function AudioFilesTable({
 							<div className="flex items-center space-x-2">
 								<p className="text-sm text-gray-600 dark:text-gray-400">
 									{globalFilter ? (
-										// Client-side filtering mode
-										`Showing ${table.getState().pagination.pageIndex * table.getState().pagination.pageSize + 1} to ${Math.min(
-											(table.getState().pagination.pageIndex + 1) * table.getState().pagination.pageSize,
-											table.getFilteredRowModel().rows.length
-										)} of ${table.getFilteredRowModel().rows.length} entries (filtered)`
+										`Showing ${pagination.pageIndex * pagination.pageSize + 1} to ${Math.min(
+											(pagination.pageIndex + 1) * pagination.pageSize,
+											totalItems
+										)} of ${totalItems} entries (filtered)`
 									) : (
-										// Server-side pagination mode
 										`Showing ${pagination.pageIndex * pagination.pageSize + 1} to ${Math.min(
 											(pagination.pageIndex + 1) * pagination.pageSize,
 											totalItems
@@ -815,7 +785,7 @@ export function AudioFilesTable({
 								</Button>
 								<span className="text-sm text-gray-600 dark:text-gray-400">
 									Page {table.getState().pagination.pageIndex + 1} of{" "}
-									{globalFilter ? table.getPageCount() : pageCount}
+									{pageCount}
 								</span>
 								<Button
 									variant="outline"
@@ -829,7 +799,7 @@ export function AudioFilesTable({
 								<Button
 									variant="outline"
 									size="sm"
-									onClick={() => table.setPageIndex((globalFilter ? table.getPageCount() : pageCount) - 1)}
+									onClick={() => table.setPageIndex(pageCount - 1)}
 									disabled={!table.getCanNextPage()}
 									className="text-gray-600 dark:text-gray-400"
 								>

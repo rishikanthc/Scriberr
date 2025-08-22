@@ -319,12 +319,13 @@ func (h *Handler) GetTranscript(c *gin.Context) {
 }
 
 // @Summary List all transcription records
-// @Description Get a list of all transcription jobs
+// @Description Get a list of all transcription jobs with optional search and filtering
 // @Tags transcription
 // @Produce json
 // @Param page query int false "Page number" default(1)
 // @Param limit query int false "Items per page" default(10)
 // @Param status query string false "Filter by status"
+// @Param q query string false "Search in title and audio filename"
 // @Success 200 {object} map[string]interface{}
 // @Router /api/v1/transcription/list [get]
 // @Security ApiKeyAuth
@@ -332,26 +333,37 @@ func (h *Handler) ListJobs(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
 	status := c.Query("status")
+	search := c.Query("q") // Add search parameter
 	
 	if page < 1 {
 		page = 1
 	}
-	if limit < 1 || limit > 100 {
+	if limit < 1 || limit > 1000 {
 		limit = 10
 	}
 
 	offset := (page - 1) * limit
 
 	query := database.DB.Model(&models.TranscriptionJob{})
+	
+	// Apply status filter
 	if status != "" {
 		query = query.Where("status = ?", status)
+	}
+	
+	// Apply search filter - search in title and audio_path
+	if search != "" {
+		searchPattern := "%" + search + "%"
+		query = query.Where("title LIKE ? COLLATE NOCASE OR audio_path LIKE ? COLLATE NOCASE", searchPattern, searchPattern)
 	}
 
 	var jobs []models.TranscriptionJob
 	var total int64
 	
+	// Count total matching records
 	query.Count(&total)
 	
+	// Apply pagination and ordering
 	if err := query.Offset(offset).Limit(limit).Order("created_at DESC").Find(&jobs).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to list jobs"})
 		return
@@ -360,10 +372,11 @@ func (h *Handler) ListJobs(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"jobs": jobs,
 		"pagination": gin.H{
-			"page":  page,
-			"limit": limit,
-			"total": total,
-			"pages": (total + int64(limit) - 1) / int64(limit),
+			"page":   page,
+			"limit":  limit,
+			"total":  total,
+			"pages":  (total + int64(limit) - 1) / int64(limit),
+			"search": search, // Include search term in response
 		},
 	})
 }
