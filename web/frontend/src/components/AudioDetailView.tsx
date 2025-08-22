@@ -4,6 +4,7 @@ import WaveSurfer from "wavesurfer.js";
 import { Button } from "./ui/button";
 import { useRouter } from "../contexts/RouterContext";
 import { useTheme } from "../contexts/ThemeContext";
+import { ThemeSwitcher } from "./ThemeSwitcher";
 
 interface AudioFile {
 	id: string;
@@ -311,12 +312,13 @@ export function AudioDetailView({ audioId }: AudioDetailViewProps) {
 	return (
 		<div className="min-h-screen bg-gray-50 dark:bg-gray-900">
 			<div className="mx-auto px-8 py-6" style={{ width: "60vw" }}>
-				{/* Header with back button */}
-				<div className="mb-6">
-					<Button onClick={handleBack} variant="outline" className="mb-4">
+				{/* Header with back button and theme switcher */}
+				<div className="flex items-center justify-between mb-6">
+					<Button onClick={handleBack} variant="outline">
 						<ArrowLeft className="mr-2 h-4 w-4" />
 						Back to Audio Files
 					</Button>
+					<ThemeSwitcher />
 				</div>
 
 				{/* Audio Player Section */}

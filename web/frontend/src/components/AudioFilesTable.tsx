@@ -206,10 +206,10 @@ export function AudioFilesTable({
 					<Tooltip>
 						<TooltipTrigger asChild>
 							<div className="cursor-help inline-block">
-								<CheckCircle size={iconSize} className="text-magnum-400" />
+								<CheckCircle size={iconSize} className="text-green-500" />
 							</div>
 						</TooltipTrigger>
-						<TooltipContent className="bg-gray-900 dark:bg-gray-800 border-gray-700 dark:border-gray-600">
+						<TooltipContent className="bg-gray-900 border-gray-700 text-white">
 							<p>Completed</p>
 						</TooltipContent>
 					</Tooltip>
@@ -225,7 +225,7 @@ export function AudioFilesTable({
 								/>
 							</div>
 						</TooltipTrigger>
-						<TooltipContent className="bg-gray-900 dark:bg-gray-800 border-gray-700 dark:border-gray-600">
+						<TooltipContent className="bg-gray-900 border-gray-700 text-white">
 							<p>Processing</p>
 						</TooltipContent>
 					</Tooltip>
@@ -238,7 +238,7 @@ export function AudioFilesTable({
 								<XCircle size={iconSize} className="text-magenta-400" />
 							</div>
 						</TooltipTrigger>
-						<TooltipContent className="bg-gray-900 dark:bg-gray-800 border-gray-700 dark:border-gray-600">
+						<TooltipContent className="bg-gray-900 border-gray-700 text-white">
 							<p>Failed</p>
 						</TooltipContent>
 					</Tooltip>
@@ -254,7 +254,7 @@ export function AudioFilesTable({
 								</span>
 							</div>
 						</TooltipTrigger>
-						<TooltipContent className="bg-gray-900 dark:bg-gray-800 border-gray-700 dark:border-gray-600">
+						<TooltipContent className="bg-gray-900 border-gray-700 text-white">
 							<p>Queued (Position {queuePosition || "?"})</p>
 						</TooltipContent>
 					</Tooltip>
@@ -268,7 +268,7 @@ export function AudioFilesTable({
 								<Clock size={iconSize} className="text-blue-500" />
 							</div>
 						</TooltipTrigger>
-						<TooltipContent className="bg-gray-900 dark:bg-gray-800 border-gray-700 dark:border-gray-600">
+						<TooltipContent className="bg-gray-900 border-gray-700 text-white">
 							<p>Uploaded</p>
 						</TooltipContent>
 					</Tooltip>
