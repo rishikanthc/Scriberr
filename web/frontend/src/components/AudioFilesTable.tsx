@@ -1,5 +1,14 @@
 import { useState, useEffect } from "react";
-import { CheckCircle, Clock, XCircle, Loader2, MoreVertical, Play, Hash, Trash2 } from "lucide-react";
+import {
+	CheckCircle,
+	Clock,
+	XCircle,
+	Loader2,
+	MoreVertical,
+	Play,
+	Hash,
+	Trash2,
+} from "lucide-react";
 import {
 	Popover,
 	PopoverContent,
@@ -21,6 +30,14 @@ import {
 	AlertDialogTitle,
 	AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+	Table,
+	TableBody,
+	TableCell,
+	TableHead,
+	TableHeader,
+	TableRow,
+} from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 
 interface AudioFile {
@@ -36,10 +53,15 @@ interface AudioFilesTableProps {
 	onTranscribe?: (jobId: string) => void;
 }
 
-export function AudioFilesTable({ refreshTrigger, onTranscribe }: AudioFilesTableProps) {
+export function AudioFilesTable({
+	refreshTrigger,
+	onTranscribe,
+}: AudioFilesTableProps) {
 	const [audioFiles, setAudioFiles] = useState<AudioFile[]>([]);
 	const [loading, setLoading] = useState(true);
-	const [queuePositions, setQueuePositions] = useState<Record<string, number>>({});
+	const [queuePositions, setQueuePositions] = useState<Record<string, number>>(
+		{},
+	);
 	const [openPopovers, setOpenPopovers] = useState<Record<string, boolean>>({});
 
 	const fetchAudioFiles = async () => {
@@ -65,16 +87,16 @@ export function AudioFilesTable({ refreshTrigger, onTranscribe }: AudioFilesTabl
 
 	// Fetch queue positions for pending jobs
 	const fetchQueuePositions = async (jobs: AudioFile[]) => {
-		const pendingJobs = jobs.filter(job => job.status === 'pending');
+		const pendingJobs = jobs.filter((job) => job.status === "pending");
 		if (pendingJobs.length === 0) return;
 
 		try {
-			const response = await fetch('/api/v1/admin/queue/stats', {
+			const response = await fetch("/api/v1/admin/queue/stats", {
 				headers: {
-					'X-API-Key': 'dev-api-key-123'
-				}
+					"X-API-Key": "dev-api-key-123",
+				},
 			});
-			
+
 			if (response.ok) {
 				// For now, use simple position calculation
 				const positions: Record<string, number> = {};
@@ -84,29 +106,29 @@ export function AudioFilesTable({ refreshTrigger, onTranscribe }: AudioFilesTabl
 				setQueuePositions(positions);
 			}
 		} catch (error) {
-			console.error('Failed to fetch queue positions:', error);
+			console.error("Failed to fetch queue positions:", error);
 		}
 	};
 
 	// Handle transcribe action
 	const handleTranscribe = async (jobId: string) => {
 		try {
-			const job = audioFiles.find(f => f.id === jobId);
+			const job = audioFiles.find((f) => f.id === jobId);
 			if (!job) return;
 
 			// Close the popover
-			setOpenPopovers(prev => ({ ...prev, [jobId]: false }));
+			setOpenPopovers((prev) => ({ ...prev, [jobId]: false }));
 
 			const response = await fetch(`/api/v1/transcription/${jobId}/start`, {
-				method: 'POST',
+				method: "POST",
 				headers: {
-					'X-API-Key': 'dev-api-key-123',
-					'Content-Type': 'application/json'
+					"X-API-Key": "dev-api-key-123",
+					"Content-Type": "application/json",
 				},
 				body: JSON.stringify({
-					model: 'base',
-					diarization: false
-				})
+					model: "base",
+					diarization: false,
+				}),
 			});
 
 			if (response.ok) {
@@ -116,39 +138,39 @@ export function AudioFilesTable({ refreshTrigger, onTranscribe }: AudioFilesTabl
 					onTranscribe(jobId);
 				}
 			} else {
-				alert('Failed to start transcription');
+				alert("Failed to start transcription");
 			}
 		} catch (error) {
-			alert('Error starting transcription');
+			alert("Error starting transcription");
 		}
 	};
 
 	// Check if job can be transcribed (not currently processing or pending)
 	const canTranscribe = (file: AudioFile) => {
-		return file.status !== 'processing' && file.status !== 'pending';
+		return file.status !== "processing" && file.status !== "pending";
 	};
 
 	// Handle delete action
 	const handleDelete = async (jobId: string) => {
 		// Close the popover
-		setOpenPopovers(prev => ({ ...prev, [jobId]: false }));
-		
+		setOpenPopovers((prev) => ({ ...prev, [jobId]: false }));
+
 		try {
 			const response = await fetch(`/api/v1/transcription/${jobId}`, {
-				method: 'DELETE',
+				method: "DELETE",
 				headers: {
-					'X-API-Key': 'dev-api-key-123'
-				}
+					"X-API-Key": "dev-api-key-123",
+				},
 			});
 
 			if (response.ok) {
 				// Refresh to show updated list
 				fetchAudioFiles();
 			} else {
-				alert('Failed to delete audio file');
+				alert("Failed to delete audio file");
 			}
 		} catch (error) {
-			alert('Error deleting audio file');
+			alert("Error deleting audio file");
 		}
 	};
 
@@ -158,10 +180,10 @@ export function AudioFilesTable({ refreshTrigger, onTranscribe }: AudioFilesTabl
 
 	// Poll for status updates every 3 seconds for active jobs
 	useEffect(() => {
-		const activeJobs = audioFiles.filter(job => 
-			job.status === 'pending' || job.status === 'processing'
+		const activeJobs = audioFiles.filter(
+			(job) => job.status === "pending" || job.status === "processing",
 		);
-		
+
 		if (activeJobs.length === 0) return;
 
 		const interval = setInterval(() => {
@@ -195,7 +217,10 @@ export function AudioFilesTable({ refreshTrigger, onTranscribe }: AudioFilesTabl
 					<Tooltip>
 						<TooltipTrigger asChild>
 							<div className="cursor-help inline-block">
-								<Loader2 size={iconSize} className="text-blue-400 animate-spin" />
+								<Loader2
+									size={iconSize}
+									className="text-blue-400 animate-spin"
+								/>
 							</div>
 						</TooltipTrigger>
 						<TooltipContent className="bg-gray-900 border-gray-700">
@@ -222,11 +247,13 @@ export function AudioFilesTable({ refreshTrigger, onTranscribe }: AudioFilesTabl
 						<TooltipTrigger asChild>
 							<div className="flex items-center gap-1 cursor-help inline-flex">
 								<Hash size={12} className="text-purple-400" />
-								<span className="text-xs text-purple-400 font-medium">{queuePosition || '?'}</span>
+								<span className="text-xs text-purple-400 font-medium">
+									{queuePosition || "?"}
+								</span>
 							</div>
 						</TooltipTrigger>
 						<TooltipContent className="bg-gray-900 border-gray-700">
-							<p>Queued (Position {queuePosition || '?'})</p>
+							<p>Queued (Position {queuePosition || "?"})</p>
 						</TooltipContent>
 					</Tooltip>
 				);
@@ -279,12 +306,12 @@ export function AudioFilesTable({ refreshTrigger, onTranscribe }: AudioFilesTabl
 
 	return (
 		<div className="bg-gray-800 rounded-xl overflow-hidden">
-				<div className="p-6">
-					<h2 className="text-xl font-semibold text-gray-50 mb-2">Audio Files</h2>
-					<p className="text-gray-400 text-sm">
-						{audioFiles.length} file{audioFiles.length !== 1 ? "s" : ""} total
-					</p>
-				</div>
+			<div className="p-6">
+				<h2 className="text-xl font-semibold text-gray-50 mb-2">Audio Files</h2>
+				<p className="text-gray-400 text-sm">
+					{audioFiles.length} file{audioFiles.length !== 1 ? "s" : ""} total
+				</p>
+			</div>
 
 			{audioFiles.length === 0 ? (
 				<div className="p-12 text-center">
@@ -297,99 +324,115 @@ export function AudioFilesTable({ refreshTrigger, onTranscribe }: AudioFilesTabl
 					</p>
 				</div>
 			) : (
-				<div className="overflow-x-auto">
-					<table className="w-full">
-						<thead className="bg-gray-700">
-							<tr>
-								<th className="text-left px-6 py-3 text-sm font-medium text-gray-300">
-									Title
-								</th>
-								<th className="text-left px-6 py-3 text-sm font-medium text-gray-300">
-									Date Added
-								</th>
-								<th className="text-center px-6 py-3 text-sm font-medium text-gray-300">
-									Status
-								</th>
-								<th className="text-center px-6 py-3 text-sm font-medium text-gray-300">
-									Actions
-								</th>
-							</tr>
-						</thead>
-						<tbody>
-							{audioFiles.map((file) => (
-								<tr
-									key={file.id}
-									className="hover:bg-gray-700 transition-colors duration-200 border-b border-gray-850 last:border-b-0"
-								>
-									<td className="px-6 py-3">
-										<span className="text-gray-50 font-medium">
-											{file.title || getFileName(file.audio_path)}
-										</span>
-									</td>
-									<td className="px-6 py-3 text-gray-300 text-sm">
-										{formatDate(file.created_at)}
-									</td>
-									<td className="px-6 py-3 text-center">{getStatusIcon(file)}</td>
-									<td className="px-6 py-3 text-center">
-										<Popover 
-											open={openPopovers[file.id] || false}
-											onOpenChange={(open) => setOpenPopovers(prev => ({ ...prev, [file.id]: open }))}
-										>
-											<PopoverTrigger asChild>
-												<Button variant="ghost" size="sm" className="h-9 w-9 p-0">
-													<MoreVertical className="h-5 w-5" />
-												</Button>
-											</PopoverTrigger>
-											<PopoverContent className="w-40 bg-gray-900 border-gray-600 p-1">
-												<div className="space-y-1">
+				<div className="flex justify-center p-6">
+					<div className="w-[100%] mb-6 border border-gray-850 rounded-lg">
+						<Table className="border border-gray-900 rounded-lg overflow-hidden">
+							<TableHeader>
+								<TableRow className="bg-gray-700 hover:bg-gray-700 border-b border-gray-700">
+									<TableHead className="text-gray-300">Title</TableHead>
+									<TableHead className="text-gray-300">Date Added</TableHead>
+									<TableHead className="text-center text-gray-300">
+										Status
+									</TableHead>
+									<TableHead className="text-center text-gray-300">
+										Actions
+									</TableHead>
+								</TableRow>
+							</TableHeader>
+							<TableBody>
+								{audioFiles.map((file) => (
+									<TableRow
+										key={file.id}
+										className="hover:bg-gray-700 transition-colors duration-200 border-b border-gray-850 last:border-b-0"
+									>
+										<TableCell>
+											<span className="text-gray-50 font-medium">
+												{file.title || getFileName(file.audio_path)}
+											</span>
+										</TableCell>
+										<TableCell className="text-gray-300 text-sm">
+											{formatDate(file.created_at)}
+										</TableCell>
+										<TableCell className="text-center">
+											{getStatusIcon(file)}
+										</TableCell>
+										<TableCell className="text-center">
+											<Popover
+												open={openPopovers[file.id] || false}
+												onOpenChange={(open) =>
+													setOpenPopovers((prev) => ({
+														...prev,
+														[file.id]: open,
+													}))
+												}
+											>
+												<PopoverTrigger asChild>
 													<Button
 														variant="ghost"
 														size="sm"
-														className="w-full justify-start h-8 text-sm hover:bg-gray-700"
-														disabled={!canTranscribe(file)}
-														onClick={() => handleTranscribe(file.id)}
+														className="h-9 w-9 p-0"
 													>
-														<Play className="mr-2 h-4 w-4" />
-														Transcribe
+														<MoreVertical className="h-5 w-5" />
 													</Button>
-													<AlertDialog>
-														<AlertDialogTrigger asChild>
-															<Button
-																variant="ghost"
-																size="sm"
-																className="w-full justify-start h-8 text-sm hover:bg-gray-700 text-red-400 hover:text-red-300"
-															>
-																<Trash2 className="mr-2 h-4 w-4" />
-																Delete
-															</Button>
-														</AlertDialogTrigger>
-														<AlertDialogContent className="bg-gray-900 border-gray-700">
-															<AlertDialogHeader>
-																<AlertDialogTitle className="text-gray-100">Delete Audio File</AlertDialogTitle>
-																<AlertDialogDescription className="text-gray-400">
-																	Are you sure you want to delete "{file.title || getFileName(file.audio_path)}"? 
-																	This action cannot be undone and will permanently remove the audio file and any transcription data.
-																</AlertDialogDescription>
-															</AlertDialogHeader>
-															<AlertDialogFooter>
-																<AlertDialogCancel className="bg-gray-800 border-gray-600 text-gray-200 hover:bg-gray-700">Cancel</AlertDialogCancel>
-																<AlertDialogAction 
-																	className="bg-red-600 text-white hover:bg-red-700"
-																	onClick={() => handleDelete(file.id)}
+												</PopoverTrigger>
+												<PopoverContent className="w-40 bg-gray-900 border-gray-600 p-1">
+													<div className="space-y-1">
+														<Button
+															variant="ghost"
+															size="sm"
+															className="w-full justify-start h-8 text-sm hover:bg-gray-700"
+															disabled={!canTranscribe(file)}
+															onClick={() => handleTranscribe(file.id)}
+														>
+															<Play className="mr-2 h-4 w-4" />
+															Transcribe
+														</Button>
+														<AlertDialog>
+															<AlertDialogTrigger asChild>
+																<Button
+																	variant="ghost"
+																	size="sm"
+																	className="w-full justify-start h-8 text-sm hover:bg-gray-700 text-red-400 hover:text-red-300"
 																>
+																	<Trash2 className="mr-2 h-4 w-4" />
 																	Delete
-																</AlertDialogAction>
-															</AlertDialogFooter>
-														</AlertDialogContent>
-													</AlertDialog>
-												</div>
-											</PopoverContent>
-										</Popover>
-									</td>
-								</tr>
-							))}
-						</tbody>
-					</table>
+																</Button>
+															</AlertDialogTrigger>
+															<AlertDialogContent className="bg-gray-900 border-gray-700">
+																<AlertDialogHeader>
+																	<AlertDialogTitle className="text-gray-100">
+																		Delete Audio File
+																	</AlertDialogTitle>
+																	<AlertDialogDescription className="text-gray-400">
+																		Are you sure you want to delete "
+																		{file.title || getFileName(file.audio_path)}
+																		"? This action cannot be undone and will
+																		permanently remove the audio file and any
+																		transcription data.
+																	</AlertDialogDescription>
+																</AlertDialogHeader>
+																<AlertDialogFooter>
+																	<AlertDialogCancel className="bg-gray-800 border-gray-600 text-gray-200 hover:bg-gray-700">
+																		Cancel
+																	</AlertDialogCancel>
+																	<AlertDialogAction
+																		className="bg-red-600 text-white hover:bg-red-700"
+																		onClick={() => handleDelete(file.id)}
+																	>
+																		Delete
+																	</AlertDialogAction>
+																</AlertDialogFooter>
+															</AlertDialogContent>
+														</AlertDialog>
+													</div>
+												</PopoverContent>
+											</Popover>
+										</TableCell>
+									</TableRow>
+								))}
+							</TableBody>
+						</Table>
+					</div>
 				</div>
 			)}
 		</div>
