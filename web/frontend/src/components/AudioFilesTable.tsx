@@ -490,20 +490,22 @@ export function AudioFilesTable({
 				accessorKey: "status",
 				header: ({ column }) => {
 					return (
-						<Button
-							variant="ghost"
-							onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-							className="h-auto p-0 font-medium"
-						>
-							Status
-							{column.getIsSorted() === "asc" ? (
-								<ChevronUp className="ml-2 h-4 w-4" />
-							) : column.getIsSorted() === "desc" ? (
-								<ChevronDown className="ml-2 h-4 w-4" />
-							) : (
-								<ChevronsUpDown className="ml-2 h-4 w-4" />
-							)}
-						</Button>
+						<div className="text-center w-full">
+							<Button
+								variant="ghost"
+								onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+								className="h-auto p-0 font-medium"
+							>
+								Status
+								{column.getIsSorted() === "asc" ? (
+									<ChevronUp className="ml-2 h-4 w-4" />
+								) : column.getIsSorted() === "desc" ? (
+									<ChevronDown className="ml-2 h-4 w-4" />
+								) : (
+									<ChevronsUpDown className="ml-2 h-4 w-4" />
+								)}
+							</Button>
+						</div>
 					);
 				},
 				cell: ({ row }) => (
@@ -515,7 +517,11 @@ export function AudioFilesTable({
 			},
 			{
 				id: "actions",
-				header: "Actions",
+				header: () => (
+					<div className="text-center w-full">
+						Actions
+					</div>
+				),
 				cell: ({ row }) => {
 					const file = row.original;
 					return (
