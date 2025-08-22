@@ -543,6 +543,73 @@ func (h *Handler) GetJobByID(c *gin.Context) {
 	c.JSON(http.StatusOK, job)
 }
 
+// @Summary Get audio file
+// @Description Serve the audio file for a transcription job
+// @Tags transcription
+// @Produce audio/mpeg,audio/wav,audio/mp4
+// @Param id path string true "Job ID"
+// @Success 200 {file} binary
+// @Failure 404 {object} map[string]string
+// @Router /api/v1/transcription/{id}/audio [get]
+// @Security ApiKeyAuth
+func (h *Handler) GetAudioFile(c *gin.Context) {
+	jobID := c.Param("id")
+	
+	var job models.TranscriptionJob
+	if err := database.DB.Where("id = ?", jobID).First(&job).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Job not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get job"})
+		return
+	}
+
+	// Debug logging
+	fmt.Printf("DEBUG: GetAudioFile for job %s\n", jobID)
+	fmt.Printf("DEBUG: Job status: %s\n", job.Status)
+	fmt.Printf("DEBUG: Audio path: '%s'\n", job.AudioPath)
+
+	// Check if audio file exists
+	if job.AudioPath == "" {
+		fmt.Printf("DEBUG: Audio path is empty\n")
+		c.JSON(http.StatusNotFound, gin.H{"error": "Audio file path not found"})
+		return
+	}
+
+	// Check if file exists on filesystem
+	if _, err := os.Stat(job.AudioPath); os.IsNotExist(err) {
+		fmt.Printf("DEBUG: Audio file does not exist on disk: %s\n", job.AudioPath)
+		c.JSON(http.StatusNotFound, gin.H{"error": "Audio file not found on disk"})
+		return
+	}
+
+	fmt.Printf("DEBUG: Audio file exists, serving: %s\n", job.AudioPath)
+
+	// Set appropriate content type based on file extension
+	ext := filepath.Ext(job.AudioPath)
+	switch ext {
+	case ".mp3":
+		c.Header("Content-Type", "audio/mpeg")
+	case ".wav":
+		c.Header("Content-Type", "audio/wav")
+	case ".m4a":
+		c.Header("Content-Type", "audio/mp4")
+	case ".ogg":
+		c.Header("Content-Type", "audio/ogg")
+	default:
+		c.Header("Content-Type", "audio/mpeg")
+	}
+
+	// Add CORS headers for audio
+	c.Header("Access-Control-Allow-Origin", "*")
+	c.Header("Access-Control-Allow-Methods", "GET")
+	c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, X-API-Key")
+
+	// Serve the audio file
+	c.File(job.AudioPath)
+}
+
 // @Summary Login
 // @Description Authenticate user and return JWT token
 // @Tags auth

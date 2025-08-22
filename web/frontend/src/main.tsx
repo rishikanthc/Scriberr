@@ -4,11 +4,17 @@ import './index.css'
 import './App.css'
 import App from './App.tsx'
 import { ThemeProvider } from './contexts/ThemeContext'
+import { RouterProvider } from './contexts/RouterContext'
+import { TooltipProvider } from '@/components/ui/tooltip'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ThemeProvider>
-      <App />
+      <RouterProvider>
+        <TooltipProvider>
+          <App />
+        </TooltipProvider>
+      </RouterProvider>
     </ThemeProvider>
   </StrictMode>,
 )

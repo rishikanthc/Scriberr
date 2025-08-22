@@ -39,6 +39,7 @@ import {
 	TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
+import { useRouter } from "../contexts/RouterContext";
 
 interface AudioFile {
 	id: string;
@@ -57,6 +58,7 @@ export function AudioFilesTable({
 	refreshTrigger,
 	onTranscribe,
 }: AudioFilesTableProps) {
+	const { navigate } = useRouter();
 	const [audioFiles, setAudioFiles] = useState<AudioFile[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [queuePositions, setQueuePositions] = useState<Record<string, number>>(
@@ -289,6 +291,10 @@ export function AudioFilesTable({
 		return parts[parts.length - 1];
 	};
 
+	const handleAudioClick = (audioId: string) => {
+		navigate({ path: 'audio-detail', params: { id: audioId } });
+	};
+
 	if (loading) {
 		return (
 			<div className="bg-white dark:bg-gray-700 rounded-xl p-6">
@@ -355,9 +361,12 @@ export function AudioFilesTable({
 										className="hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200 border-b border-gray-100 dark:border-gray-700 last:border-b-0"
 									>
 										<TableCell>
-											<span className="text-gray-900 dark:text-gray-50 font-medium">
+											<button
+												onClick={() => handleAudioClick(file.id)}
+												className="text-gray-900 dark:text-gray-50 font-medium hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer text-left"
+											>
 												{file.title || getFileName(file.audio_path)}
-											</span>
+											</button>
 										</TableCell>
 										<TableCell className="text-gray-600 dark:text-gray-300 text-sm">
 											{formatDate(file.created_at)}
