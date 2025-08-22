@@ -40,6 +40,7 @@ export function AudioFilesTable({ refreshTrigger, onTranscribe }: AudioFilesTabl
 	const [audioFiles, setAudioFiles] = useState<AudioFile[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [queuePositions, setQueuePositions] = useState<Record<string, number>>({});
+	const [openPopovers, setOpenPopovers] = useState<Record<string, boolean>>({});
 
 	const fetchAudioFiles = async () => {
 		try {
@@ -93,7 +94,8 @@ export function AudioFilesTable({ refreshTrigger, onTranscribe }: AudioFilesTabl
 			const job = audioFiles.find(f => f.id === jobId);
 			if (!job) return;
 
-			// Popover will close automatically with shadcn
+			// Close the popover
+			setOpenPopovers(prev => ({ ...prev, [jobId]: false }));
 
 			const response = await fetch(`/api/v1/transcription/${jobId}/start`, {
 				method: 'POST',
@@ -128,6 +130,9 @@ export function AudioFilesTable({ refreshTrigger, onTranscribe }: AudioFilesTabl
 
 	// Handle delete action
 	const handleDelete = async (jobId: string) => {
+		// Close the popover
+		setOpenPopovers(prev => ({ ...prev, [jobId]: false }));
+		
 		try {
 			const response = await fetch(`/api/v1/transcription/${jobId}`, {
 				method: 'DELETE',
@@ -326,7 +331,10 @@ export function AudioFilesTable({ refreshTrigger, onTranscribe }: AudioFilesTabl
 									</td>
 									<td className="px-6 py-3 text-center">{getStatusIcon(file)}</td>
 									<td className="px-6 py-3 text-center">
-										<Popover>
+										<Popover 
+											open={openPopovers[file.id] || false}
+											onOpenChange={(open) => setOpenPopovers(prev => ({ ...prev, [file.id]: open }))}
+										>
 											<PopoverTrigger asChild>
 												<Button variant="ghost" size="sm" className="h-9 w-9 p-0">
 													<MoreVertical className="h-5 w-5" />
