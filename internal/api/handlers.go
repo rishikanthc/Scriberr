@@ -463,6 +463,61 @@ func (h *Handler) StartTranscription(c *gin.Context) {
 	c.JSON(http.StatusOK, job)
 }
 
+// @Summary Delete transcription job
+// @Description Delete a transcription job and its associated files
+// @Tags transcription
+// @Produce json
+// @Param id path string true "Job ID"
+// @Success 200 {object} map[string]string
+// @Failure 404 {object} map[string]string
+// @Failure 400 {object} map[string]string
+// @Router /api/v1/transcription/{id} [delete]
+// @Security ApiKeyAuth
+func (h *Handler) DeleteJob(c *gin.Context) {
+	jobID := c.Param("id")
+	
+	var job models.TranscriptionJob
+	if err := database.DB.Where("id = ?", jobID).First(&job).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Job not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get job"})
+		return
+	}
+
+	// Prevent deletion of jobs that are currently processing
+	if job.Status == models.StatusProcessing {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Cannot delete job that is currently processing"})
+		return
+	}
+
+	// Delete the audio file from filesystem
+	if job.AudioPath != "" {
+		if err := os.Remove(job.AudioPath); err != nil && !os.IsNotExist(err) {
+			// Log the error but don't fail the request - database cleanup is more important
+			fmt.Printf("Warning: Failed to delete audio file %s: %v\n", job.AudioPath, err)
+		}
+	}
+
+	// Delete any transcript files
+	if job.Transcript != nil {
+		// Remove transcript directory if it exists (assume it's in data/transcripts)
+		transcriptDir := filepath.Join("data", "transcripts", jobID)
+		if err := os.RemoveAll(transcriptDir); err != nil && !os.IsNotExist(err) {
+			fmt.Printf("Warning: Failed to delete transcript directory %s: %v\n", transcriptDir, err)
+		}
+	}
+
+	// Delete the job from database
+	if err := database.DB.Delete(&job).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete job from database"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Job deleted successfully"})
+}
+
 // @Summary Get transcription record by ID
 // @Description Get a specific transcription record by its ID
 // @Tags transcription

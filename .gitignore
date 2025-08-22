@@ -24,3 +24,6 @@ vite.config.ts.timestamp-*
 .aider*
 .env
 .env
+data
+samples
+scriberr

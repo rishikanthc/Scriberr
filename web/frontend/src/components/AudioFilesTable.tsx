@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { CheckCircle, Clock, XCircle, Loader2, MoreVertical, Play, Hash } from "lucide-react";
+import { CheckCircle, Clock, XCircle, Loader2, MoreVertical, Play, Hash, Trash2 } from "lucide-react";
 import {
 	Popover,
 	PopoverContent,
@@ -10,6 +10,17 @@ import {
 	TooltipContent,
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+	AlertDialog,
+	AlertDialogAction,
+	AlertDialogCancel,
+	AlertDialogContent,
+	AlertDialogDescription,
+	AlertDialogFooter,
+	AlertDialogHeader,
+	AlertDialogTitle,
+	AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 
 interface AudioFile {
@@ -115,6 +126,27 @@ export function AudioFilesTable({ refreshTrigger, onTranscribe }: AudioFilesTabl
 		return file.status !== 'processing' && file.status !== 'pending';
 	};
 
+	// Handle delete action
+	const handleDelete = async (jobId: string) => {
+		try {
+			const response = await fetch(`/api/v1/transcription/${jobId}`, {
+				method: 'DELETE',
+				headers: {
+					'X-API-Key': 'dev-api-key-123'
+				}
+			});
+
+			if (response.ok) {
+				// Refresh to show updated list
+				fetchAudioFiles();
+			} else {
+				alert('Failed to delete audio file');
+			}
+		} catch (error) {
+			alert('Error deleting audio file');
+		}
+	};
+
 	useEffect(() => {
 		fetchAudioFiles();
 	}, [refreshTrigger]);
@@ -144,11 +176,11 @@ export function AudioFilesTable({ refreshTrigger, onTranscribe }: AudioFilesTabl
 				return (
 					<Tooltip>
 						<TooltipTrigger asChild>
-							<div className="cursor-help">
+							<div className="cursor-help inline-block">
 								<CheckCircle size={iconSize} className="text-magnum-400" />
 							</div>
 						</TooltipTrigger>
-						<TooltipContent>
+						<TooltipContent className="bg-gray-900 border-gray-700">
 							<p>Completed</p>
 						</TooltipContent>
 					</Tooltip>
@@ -157,11 +189,11 @@ export function AudioFilesTable({ refreshTrigger, onTranscribe }: AudioFilesTabl
 				return (
 					<Tooltip>
 						<TooltipTrigger asChild>
-							<div className="cursor-help">
+							<div className="cursor-help inline-block">
 								<Loader2 size={iconSize} className="text-blue-400 animate-spin" />
 							</div>
 						</TooltipTrigger>
-						<TooltipContent>
+						<TooltipContent className="bg-gray-900 border-gray-700">
 							<p>Processing</p>
 						</TooltipContent>
 					</Tooltip>
@@ -170,11 +202,11 @@ export function AudioFilesTable({ refreshTrigger, onTranscribe }: AudioFilesTabl
 				return (
 					<Tooltip>
 						<TooltipTrigger asChild>
-							<div className="cursor-help">
+							<div className="cursor-help inline-block">
 								<XCircle size={iconSize} className="text-magenta-400" />
 							</div>
 						</TooltipTrigger>
-						<TooltipContent>
+						<TooltipContent className="bg-gray-900 border-gray-700">
 							<p>Failed</p>
 						</TooltipContent>
 					</Tooltip>
@@ -183,12 +215,12 @@ export function AudioFilesTable({ refreshTrigger, onTranscribe }: AudioFilesTabl
 				return (
 					<Tooltip>
 						<TooltipTrigger asChild>
-							<div className="flex items-center gap-1 cursor-help">
+							<div className="flex items-center gap-1 cursor-help inline-flex">
 								<Hash size={12} className="text-purple-400" />
 								<span className="text-xs text-purple-400 font-medium">{queuePosition || '?'}</span>
 							</div>
 						</TooltipTrigger>
-						<TooltipContent>
+						<TooltipContent className="bg-gray-900 border-gray-700">
 							<p>Queued (Position {queuePosition || '?'})</p>
 						</TooltipContent>
 					</Tooltip>
@@ -198,11 +230,11 @@ export function AudioFilesTable({ refreshTrigger, onTranscribe }: AudioFilesTabl
 				return (
 					<Tooltip>
 						<TooltipTrigger asChild>
-							<div className="cursor-help">
+							<div className="cursor-help inline-block">
 								<Clock size={iconSize} className="text-neon-100" />
 							</div>
 						</TooltipTrigger>
-						<TooltipContent>
+						<TooltipContent className="bg-gray-900 border-gray-700">
 							<p>Uploaded</p>
 						</TooltipContent>
 					</Tooltip>
@@ -270,7 +302,7 @@ export function AudioFilesTable({ refreshTrigger, onTranscribe }: AudioFilesTabl
 								<th className="text-left px-6 py-3 text-sm font-medium text-gray-300">
 									Date Added
 								</th>
-								<th className="text-left px-6 py-3 text-sm font-medium text-gray-300">
+								<th className="text-center px-6 py-3 text-sm font-medium text-gray-300">
 									Status
 								</th>
 								<th className="text-center px-6 py-3 text-sm font-medium text-gray-300">
@@ -292,7 +324,7 @@ export function AudioFilesTable({ refreshTrigger, onTranscribe }: AudioFilesTabl
 									<td className="px-6 py-3 text-gray-300 text-sm">
 										{formatDate(file.created_at)}
 									</td>
-									<td className="px-6 py-3">{getStatusIcon(file)}</td>
+									<td className="px-6 py-3 text-center">{getStatusIcon(file)}</td>
 									<td className="px-6 py-3 text-center">
 										<Popover>
 											<PopoverTrigger asChild>
@@ -301,16 +333,48 @@ export function AudioFilesTable({ refreshTrigger, onTranscribe }: AudioFilesTabl
 												</Button>
 											</PopoverTrigger>
 											<PopoverContent className="w-40 bg-gray-900 border-gray-600 p-1">
-												<Button
-													variant="ghost"
-													size="sm"
-													className="w-full justify-start h-8 text-sm hover:bg-gray-700"
-													disabled={!canTranscribe(file)}
-													onClick={() => handleTranscribe(file.id)}
-												>
-													<Play className="mr-2 h-4 w-4" />
-													Transcribe
-												</Button>
+												<div className="space-y-1">
+													<Button
+														variant="ghost"
+														size="sm"
+														className="w-full justify-start h-8 text-sm hover:bg-gray-700"
+														disabled={!canTranscribe(file)}
+														onClick={() => handleTranscribe(file.id)}
+													>
+														<Play className="mr-2 h-4 w-4" />
+														Transcribe
+													</Button>
+													<AlertDialog>
+														<AlertDialogTrigger asChild>
+															<Button
+																variant="ghost"
+																size="sm"
+																className="w-full justify-start h-8 text-sm hover:bg-gray-700 text-red-400 hover:text-red-300"
+															>
+																<Trash2 className="mr-2 h-4 w-4" />
+																Delete
+															</Button>
+														</AlertDialogTrigger>
+														<AlertDialogContent className="bg-gray-900 border-gray-700">
+															<AlertDialogHeader>
+																<AlertDialogTitle className="text-gray-100">Delete Audio File</AlertDialogTitle>
+																<AlertDialogDescription className="text-gray-400">
+																	Are you sure you want to delete "{file.title || getFileName(file.audio_path)}"? 
+																	This action cannot be undone and will permanently remove the audio file and any transcription data.
+																</AlertDialogDescription>
+															</AlertDialogHeader>
+															<AlertDialogFooter>
+																<AlertDialogCancel className="bg-gray-800 border-gray-600 text-gray-200 hover:bg-gray-700">Cancel</AlertDialogCancel>
+																<AlertDialogAction 
+																	className="bg-red-600 text-white hover:bg-red-700"
+																	onClick={() => handleDelete(file.id)}
+																>
+																	Delete
+																</AlertDialogAction>
+															</AlertDialogFooter>
+														</AlertDialogContent>
+													</AlertDialog>
+												</div>
 											</PopoverContent>
 										</Popover>
 									</td>
