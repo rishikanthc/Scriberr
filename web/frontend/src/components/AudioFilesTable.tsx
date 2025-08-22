@@ -140,7 +140,7 @@ export function AudioFilesTable({
 			} else {
 				alert("Failed to start transcription");
 			}
-		} catch (error) {
+		} catch {
 			alert("Error starting transcription");
 		}
 	};
@@ -169,7 +169,7 @@ export function AudioFilesTable({
 			} else {
 				alert("Failed to delete audio file");
 			}
-		} catch (error) {
+		} catch {
 			alert("Error deleting audio file");
 		}
 	};
@@ -207,7 +207,7 @@ export function AudioFilesTable({
 								<CheckCircle size={iconSize} className="text-magnum-400" />
 							</div>
 						</TooltipTrigger>
-						<TooltipContent className="bg-gray-900 border-gray-700">
+						<TooltipContent className="bg-gray-900 dark:bg-gray-800 border-gray-700 dark:border-gray-600">
 							<p>Completed</p>
 						</TooltipContent>
 					</Tooltip>
@@ -223,7 +223,7 @@ export function AudioFilesTable({
 								/>
 							</div>
 						</TooltipTrigger>
-						<TooltipContent className="bg-gray-900 border-gray-700">
+						<TooltipContent className="bg-gray-900 dark:bg-gray-800 border-gray-700 dark:border-gray-600">
 							<p>Processing</p>
 						</TooltipContent>
 					</Tooltip>
@@ -236,7 +236,7 @@ export function AudioFilesTable({
 								<XCircle size={iconSize} className="text-magenta-400" />
 							</div>
 						</TooltipTrigger>
-						<TooltipContent className="bg-gray-900 border-gray-700">
+						<TooltipContent className="bg-gray-900 dark:bg-gray-800 border-gray-700 dark:border-gray-600">
 							<p>Failed</p>
 						</TooltipContent>
 					</Tooltip>
@@ -252,7 +252,7 @@ export function AudioFilesTable({
 								</span>
 							</div>
 						</TooltipTrigger>
-						<TooltipContent className="bg-gray-900 border-gray-700">
+						<TooltipContent className="bg-gray-900 dark:bg-gray-800 border-gray-700 dark:border-gray-600">
 							<p>Queued (Position {queuePosition || "?"})</p>
 						</TooltipContent>
 					</Tooltip>
@@ -263,10 +263,10 @@ export function AudioFilesTable({
 					<Tooltip>
 						<TooltipTrigger asChild>
 							<div className="cursor-help inline-block">
-								<Clock size={iconSize} className="text-neon-100" />
+								<Clock size={iconSize} className="text-blue-500" />
 							</div>
 						</TooltipTrigger>
-						<TooltipContent className="bg-gray-900 border-gray-700">
+						<TooltipContent className="bg-gray-900 dark:bg-gray-800 border-gray-700 dark:border-gray-600">
 							<p>Uploaded</p>
 						</TooltipContent>
 					</Tooltip>
@@ -291,12 +291,15 @@ export function AudioFilesTable({
 
 	if (loading) {
 		return (
-			<div className="bg-gray-800 rounded-xl p-6">
+			<div className="bg-white dark:bg-gray-700 rounded-xl p-6">
 				<div className="animate-pulse">
-					<div className="h-4 bg-gray-700 rounded w-1/4 mb-6"></div>
+					<div className="h-4 bg-gray-200 dark:bg-gray-600 rounded w-1/4 mb-6"></div>
 					<div className="space-y-3">
 						{[...Array(5)].map((_, i) => (
-							<div key={i} className="h-12 bg-gray-700/50 rounded-lg"></div>
+							<div
+								key={i}
+								className="h-12 bg-gray-100 dark:bg-gray-600/50 rounded-lg"
+							></div>
 						))}
 					</div>
 				</div>
@@ -305,10 +308,12 @@ export function AudioFilesTable({
 	}
 
 	return (
-		<div className="bg-gray-800 rounded-xl overflow-hidden">
+		<div className="bg-white dark:bg-gray-800 rounded-xl overflow-hidden">
 			<div className="p-6">
-				<h2 className="text-xl font-semibold text-gray-50 mb-2">Audio Files</h2>
-				<p className="text-gray-400 text-sm">
+				<h2 className="text-xl font-semibold text-gray-900 dark:text-gray-50 mb-2">
+					Audio Files
+				</h2>
+				<p className="text-gray-600 dark:text-gray-400 text-sm">
 					{audioFiles.length} file{audioFiles.length !== 1 ? "s" : ""} total
 				</p>
 			</div>
@@ -316,25 +321,29 @@ export function AudioFilesTable({
 			{audioFiles.length === 0 ? (
 				<div className="p-12 text-center">
 					<div className="text-5xl mb-4 opacity-50">🎵</div>
-					<h3 className="text-lg font-medium text-gray-300 mb-2">
+					<h3 className="text-lg font-medium text-gray-600 dark:text-gray-300 mb-2">
 						No audio files yet
 					</h3>
-					<p className="text-gray-500">
+					<p className="text-gray-500 dark:text-gray-400">
 						Upload your first audio file to get started
 					</p>
 				</div>
 			) : (
 				<div className="flex justify-center p-6">
-					<div className="w-[100%] mb-6 border border-gray-850 rounded-lg">
-						<Table className="border border-gray-900 rounded-lg overflow-hidden">
+					<div className="w-[100%] mb-6 border border-gray-100 dark:border-gray-900 rounded-lg">
+						<Table className="border border-gray-100 dark:border-gray-900 rounded-lg overflow-hidden">
 							<TableHeader>
-								<TableRow className="bg-gray-700 hover:bg-gray-700 border-b border-gray-700">
-									<TableHead className="text-gray-300">Title</TableHead>
-									<TableHead className="text-gray-300">Date Added</TableHead>
-									<TableHead className="text-center text-gray-300">
+								<TableRow className="bg-gray-50 dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 border-b border-gray-100 dark:border-gray-900">
+									<TableHead className="text-gray-700 dark:text-gray-300">
+										Title
+									</TableHead>
+									<TableHead className="text-gray-700 dark:text-gray-300">
+										Date Added
+									</TableHead>
+									<TableHead className="text-center text-gray-700 dark:text-gray-300">
 										Status
 									</TableHead>
-									<TableHead className="text-center text-gray-300">
+									<TableHead className="text-center text-gray-700 dark:text-gray-300">
 										Actions
 									</TableHead>
 								</TableRow>
@@ -343,14 +352,14 @@ export function AudioFilesTable({
 								{audioFiles.map((file) => (
 									<TableRow
 										key={file.id}
-										className="hover:bg-gray-700 transition-colors duration-200 border-b border-gray-850 last:border-b-0"
+										className="hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200 border-b border-gray-100 dark:border-gray-700 last:border-b-0"
 									>
 										<TableCell>
-											<span className="text-gray-50 font-medium">
+											<span className="text-gray-900 dark:text-gray-50 font-medium">
 												{file.title || getFileName(file.audio_path)}
 											</span>
 										</TableCell>
-										<TableCell className="text-gray-300 text-sm">
+										<TableCell className="text-gray-600 dark:text-gray-300 text-sm">
 											{formatDate(file.created_at)}
 										</TableCell>
 										<TableCell className="text-center">
@@ -375,12 +384,12 @@ export function AudioFilesTable({
 														<MoreVertical className="h-5 w-5" />
 													</Button>
 												</PopoverTrigger>
-												<PopoverContent className="w-40 bg-gray-900 border-gray-600 p-1">
+												<PopoverContent className="w-40 bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-600 p-1">
 													<div className="space-y-1">
 														<Button
 															variant="ghost"
 															size="sm"
-															className="w-full justify-start h-8 text-sm hover:bg-gray-700"
+															className="w-full justify-start h-8 text-sm hover:bg-gray-100 dark:hover:bg-gray-700"
 															disabled={!canTranscribe(file)}
 															onClick={() => handleTranscribe(file.id)}
 														>
@@ -392,18 +401,18 @@ export function AudioFilesTable({
 																<Button
 																	variant="ghost"
 																	size="sm"
-																	className="w-full justify-start h-8 text-sm hover:bg-gray-700 text-red-400 hover:text-red-300"
+																	className="w-full justify-start h-8 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 text-red-500 dark:text-red-400 hover:text-red-600 dark:hover:text-red-300"
 																>
 																	<Trash2 className="mr-2 h-4 w-4" />
 																	Delete
 																</Button>
 															</AlertDialogTrigger>
-															<AlertDialogContent className="bg-gray-900 border-gray-700">
+															<AlertDialogContent className="bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700">
 																<AlertDialogHeader>
-																	<AlertDialogTitle className="text-gray-100">
+																	<AlertDialogTitle className="text-gray-900 dark:text-gray-100">
 																		Delete Audio File
 																	</AlertDialogTitle>
-																	<AlertDialogDescription className="text-gray-400">
+																	<AlertDialogDescription className="text-gray-600 dark:text-gray-400">
 																		Are you sure you want to delete "
 																		{file.title || getFileName(file.audio_path)}
 																		"? This action cannot be undone and will
@@ -412,7 +421,7 @@ export function AudioFilesTable({
 																	</AlertDialogDescription>
 																</AlertDialogHeader>
 																<AlertDialogFooter>
-																	<AlertDialogCancel className="bg-gray-800 border-gray-600 text-gray-200 hover:bg-gray-700">
+																	<AlertDialogCancel className="bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700">
 																		Cancel
 																	</AlertDialogCancel>
 																	<AlertDialogAction

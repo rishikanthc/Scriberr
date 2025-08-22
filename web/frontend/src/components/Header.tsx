@@ -1,6 +1,7 @@
 import { useRef } from 'react'
 import { Button } from '@/components/ui/button'
 import { ScriberrLogo } from './ScriberrLogo'
+import { ThemeSwitcher } from './ThemeSwitcher'
 
 interface HeaderProps {
   onFileSelect: (file: File) => void
@@ -23,16 +24,17 @@ export function Header({ onFileSelect }: HeaderProps) {
   }
 
   return (
-    <header className="bg-gray-800 rounded-xl p-8 mb-8">
+    <header className="bg-white dark:bg-gray-800 rounded-xl p-6 mb-6">
       <div className="flex items-center justify-between">
         {/* Left side - Logo */}
         <ScriberrLogo />
         
-        {/* Right side - Add Audio Button */}
+        {/* Right side - Theme Switcher and Add Audio Button */}
         <div className="flex items-center gap-4">
+          <ThemeSwitcher />
           <Button
             onClick={handleAddAudioClick}
-            className="bg-neon-100 hover:bg-neon-200 text-gray-900 font-medium px-8 py-3 rounded-xl transition-all duration-300 hover:scale-[1.02] hover:shadow-lg hover:shadow-neon-100/20"
+            className="bg-blue-500 hover:bg-blue-600 text-white font-medium px-6 py-2 rounded-xl transition-all duration-300 hover:scale-[1.02] hover:shadow-lg hover:shadow-blue-500/20"
           >
             Add Audio
           </Button>

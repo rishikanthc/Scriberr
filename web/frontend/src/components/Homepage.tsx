@@ -25,19 +25,19 @@ export function Homepage() {
 			} else {
 				alert("Failed to upload file");
 			}
-		} catch (error) {
+		} catch {
 			alert("Error uploading file");
 		}
 	};
 
-	const handleTranscribe = (_jobId: string) => {
+	const handleTranscribe = () => {
 		// Refresh table when transcription starts
 		setRefreshTrigger((prev) => prev + 1);
 	};
 
 	return (
-		<div className="min-h-screen bg-gray-900">
-			<div className="mx-auto px-8 py-6" style={{ width: "70vw" }}>
+		<div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+			<div className="mx-auto px-8 py-6" style={{ width: "60vw" }}>
 				<Header onFileSelect={handleFileSelect} />
 				<AudioFilesTable
 					refreshTrigger={refreshTrigger}
