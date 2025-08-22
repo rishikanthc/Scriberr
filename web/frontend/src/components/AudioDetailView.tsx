@@ -3,6 +3,7 @@ import { ArrowLeft, Play, Pause } from 'lucide-react'
 import WaveSurfer from 'wavesurfer.js'
 import { Button } from './ui/button'
 import { useRouter } from '../contexts/RouterContext'
+import { useTheme } from '../contexts/ThemeContext'
 
 interface AudioFile {
   id: string
@@ -27,6 +28,7 @@ interface AudioDetailViewProps {
 
 export function AudioDetailView({ audioId }: AudioDetailViewProps) {
   const { navigate } = useRouter()
+  const { theme } = useTheme()
   const [audioFile, setAudioFile] = useState<AudioFile | null>(null)
   const [transcript, setTranscript] = useState<Transcript | null>(null)
   const [loading, setLoading] = useState(true)
@@ -167,11 +169,16 @@ export function AudioDetailView({ audioId }: AudioDetailViewProps) {
 
       console.log('Audio file accessible, creating WaveSurfer...')
       
+      // Theme-aware colors
+      const isDark = theme === 'dark'
+      const waveColor = isDark ? '#4b5563' : '#d1d5db' // dark: gray-600, light: gray-300
+      const progressColor = '#3b82f6' // blue-500 for both themes
+      
       // Create WaveSurfer instance
       wavesurferRef.current = WaveSurfer.create({
         container: waveformRef.current,
-        waveColor: '#d1d5db', // gray-300
-        progressColor: '#3b82f6', // blue-500
+        waveColor,
+        progressColor,
         barWidth: 2,
         barGap: 1,
         barRadius: 2,
@@ -302,27 +309,29 @@ export function AudioDetailView({ audioId }: AudioDetailViewProps) {
             </p>
           </div>
 
-          {/* WaveSurfer Container */}
+          {/* Audio Player Controls */}
           <div className="mb-6">
-            <div 
-              ref={waveformRef} 
-              className="w-full bg-gray-50 dark:bg-gray-700 rounded-lg p-4"
-              style={{ minHeight: '100px' }}
-            />
-            
-            {/* Play/Pause Controls */}
-            <div className="flex items-center justify-center mt-4">
-              <Button
+            <div className="flex items-center gap-4">
+              {/* Circular Play/Pause Button */}
+              <button
                 onClick={togglePlayPause}
-                size="lg"
-                className="bg-blue-500 hover:bg-blue-600 text-white"
+                className="w-16 h-16 rounded-full bg-blue-500 hover:bg-blue-600 text-white shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105 flex items-center justify-center group"
               >
                 {isPlaying ? (
-                  <Pause className="h-6 w-6" />
+                  <Pause className="h-6 w-6 group-hover:scale-110 transition-transform" />
                 ) : (
-                  <Play className="h-6 w-6" />
+                  <Play className="h-6 w-6 ml-0.5 group-hover:scale-110 transition-transform" />
                 )}
-              </Button>
+              </button>
+              
+              {/* WaveSurfer Container */}
+              <div className="flex-1">
+                <div 
+                  ref={waveformRef} 
+                  className="w-full bg-gray-50 dark:bg-gray-700 rounded-lg p-4"
+                  style={{ minHeight: '80px' }}
+                />
+              </div>
             </div>
           </div>
         </div>
