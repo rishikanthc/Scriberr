@@ -316,6 +316,7 @@ func (ws *WhisperXService) buildDiarizationCommand(job *models.TranscriptionJob,
 	args = append(args, "--diarize")
 	
 	// Diarization parameters
+	args = append(args, "--diarize_model", p.DiarizeModel)
 	if p.MinSpeakers != nil {
 		args = append(args, "--min_speakers", strconv.Itoa(*p.MinSpeakers))
 	}

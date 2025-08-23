@@ -38,6 +38,7 @@ def main():
     parser.add_argument("--diarize", action="store_true", help="Enable speaker diarization")
     parser.add_argument("--min_speakers", type=int, help="Minimum number of speakers")
     parser.add_argument("--max_speakers", type=int, help="Maximum number of speakers")
+    parser.add_argument("--diarize_model", default="pyannote/speaker-diarization-3.1", help="Diarization model to use")
     parser.add_argument("--hf_token", help="Hugging Face token for diarization models")
     
     # Other parameters
@@ -99,7 +100,9 @@ def main():
                 print("Warning: No HuggingFace token provided. Diarization may fail for some models.")
             
             # Initialize diarization pipeline
+            print(f"Using diarization model: {args.diarize_model}")
             diarize_model = whisperx.diarize.DiarizationPipeline(
+                model_name=args.diarize_model,
                 use_auth_token=args.hf_token, 
                 device=args.device
             )
