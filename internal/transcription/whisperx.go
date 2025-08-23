@@ -80,7 +80,9 @@ func (ws *WhisperXService) ProcessJob(jobID string) error {
 	}
 
 	// Execute WhisperX
-	if err := cmd.Run(); err != nil {
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		fmt.Printf("DEBUG: WhisperX stderr/stdout: %s\n", string(output))
 		return fmt.Errorf("WhisperX execution failed: %v", err)
 	}
 
@@ -148,39 +150,127 @@ func (ws *WhisperXService) installWhisperX() error {
 
 // buildWhisperXCommand builds the WhisperX command
 func (ws *WhisperXService) buildWhisperXCommand(job *models.TranscriptionJob, outputDir string) (*exec.Cmd, error) {
+	p := job.Parameters
 	args := []string{
 		"run", "--project", ws.config.WhisperXEnv, "python", "-m", "whisperx",
 		job.AudioPath,
 		"--output_dir", outputDir,
-		"--output_format", "json",
-		"--model", job.Parameters.Model,
-		"--batch_size", strconv.Itoa(job.Parameters.BatchSize),
-		"--compute_type", job.Parameters.ComputeType,
-		"--device", job.Parameters.Device,
 	}
 
-	if job.Parameters.Language != nil {
-		args = append(args, "--language", *job.Parameters.Language)
+	// Core parameters
+	args = append(args, "--model", p.Model)
+	if p.ModelCacheOnly {
+		args = append(args, "--model_cache_only", "True")
+	}
+	if p.ModelDir != nil {
+		args = append(args, "--model_dir", *p.ModelDir)
 	}
 
-	if job.Parameters.VadFilter {
-		args = append(args, "--vad_filter")
-		args = append(args, "--vad_onset", fmt.Sprintf("%.3f", job.Parameters.VadOnset))
-		args = append(args, "--vad_offset", fmt.Sprintf("%.3f", job.Parameters.VadOffset))
+	// Device and computation
+	args = append(args, "--device", p.Device)
+	args = append(args, "--device_index", strconv.Itoa(p.DeviceIndex))
+	args = append(args, "--batch_size", strconv.Itoa(p.BatchSize))
+	args = append(args, "--compute_type", p.ComputeType)
+	if p.Threads > 0 {
+		args = append(args, "--threads", strconv.Itoa(p.Threads))
 	}
 
-	if job.Diarization {
+	// Output settings
+	args = append(args, "--output_format", p.OutputFormat)
+	if !p.Verbose {
+		args = append(args, "--verbose", "False")
+	}
+
+	// Task and language
+	args = append(args, "--task", p.Task)
+	if p.Language != nil {
+		args = append(args, "--language", *p.Language)
+	}
+
+	// Alignment settings
+	if p.AlignModel != nil {
+		args = append(args, "--align_model", *p.AlignModel)
+	}
+	args = append(args, "--interpolate_method", p.InterpolateMethod)
+	if p.NoAlign {
+		args = append(args, "--no_align")
+	}
+	if p.ReturnCharAlignments {
+		args = append(args, "--return_char_alignments")
+	}
+
+	// VAD settings
+	args = append(args, "--vad_method", p.VadMethod)
+	args = append(args, "--vad_onset", fmt.Sprintf("%.3f", p.VadOnset))
+	args = append(args, "--vad_offset", fmt.Sprintf("%.3f", p.VadOffset))
+	args = append(args, "--chunk_size", strconv.Itoa(p.ChunkSize))
+
+	// Diarization settings
+	if p.Diarize {
 		args = append(args, "--diarize")
-		if job.Parameters.MinSpeakers != nil {
-			args = append(args, "--min_speakers", strconv.Itoa(*job.Parameters.MinSpeakers))
+		if p.MinSpeakers != nil {
+			args = append(args, "--min_speakers", strconv.Itoa(*p.MinSpeakers))
 		}
-		if job.Parameters.MaxSpeakers != nil {
-			args = append(args, "--max_speakers", strconv.Itoa(*job.Parameters.MaxSpeakers))
+		if p.MaxSpeakers != nil {
+			args = append(args, "--max_speakers", strconv.Itoa(*p.MaxSpeakers))
 		}
+		args = append(args, "--diarize_model", p.DiarizeModel)
+		if p.SpeakerEmbeddings {
+			args = append(args, "--speaker_embeddings")
+		}
+	}
+
+	// Transcription quality settings
+	args = append(args, "--temperature", fmt.Sprintf("%.2f", p.Temperature))
+	args = append(args, "--best_of", strconv.Itoa(p.BestOf))
+	args = append(args, "--beam_size", strconv.Itoa(p.BeamSize))
+	args = append(args, "--patience", fmt.Sprintf("%.2f", p.Patience))
+	args = append(args, "--length_penalty", fmt.Sprintf("%.2f", p.LengthPenalty))
+	if p.SuppressTokens != nil {
+		args = append(args, "--suppress_tokens", *p.SuppressTokens)
+	}
+	if p.SuppressNumerals {
+		args = append(args, "--suppress_numerals")
+	}
+	if p.InitialPrompt != nil {
+		args = append(args, "--initial_prompt", *p.InitialPrompt)
+	}
+	if p.ConditionOnPreviousText {
+		args = append(args, "--condition_on_previous_text", "True")
+	}
+	if !p.Fp16 {
+		args = append(args, "--fp16", "False")
+	}
+	args = append(args, "--temperature_increment_on_fallback", fmt.Sprintf("%.2f", p.TemperatureIncrementOnFallback))
+	args = append(args, "--compression_ratio_threshold", fmt.Sprintf("%.2f", p.CompressionRatioThreshold))
+	args = append(args, "--logprob_threshold", fmt.Sprintf("%.2f", p.LogprobThreshold))
+	args = append(args, "--no_speech_threshold", fmt.Sprintf("%.2f", p.NoSpeechThreshold))
+
+	// Output formatting
+	if p.MaxLineWidth != nil {
+		args = append(args, "--max_line_width", strconv.Itoa(*p.MaxLineWidth))
+	}
+	if p.MaxLineCount != nil {
+		args = append(args, "--max_line_count", strconv.Itoa(*p.MaxLineCount))
+	}
+	if p.HighlightWords {
+		args = append(args, "--highlight_words", "True")
+	}
+	args = append(args, "--segment_resolution", p.SegmentResolution)
+
+	// Token and progress
+	if p.HfToken != nil {
+		args = append(args, "--hf_token", *p.HfToken)
+	}
+	if p.PrintProgress {
+		args = append(args, "--print_progress", "True")
 	}
 
 	cmd := exec.Command(ws.config.UVPath, args...)
 	cmd.Env = append(os.Environ(), "PYTHONUNBUFFERED=1")
+	
+	// Debug: log the command being executed
+	fmt.Printf("DEBUG: WhisperX command: %s %v\n", ws.config.UVPath, args)
 	
 	return cmd, nil
 }

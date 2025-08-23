@@ -193,7 +193,6 @@ func (h *Handler) SubmitJob(c *gin.Context) {
 		BatchSize:   getFormIntWithDefault(c, "batch_size", 16),
 		ComputeType: getFormValueWithDefault(c, "compute_type", "int8"),
 		Device:      getFormValueWithDefault(c, "device", "cpu"),
-		VadFilter:   getFormBoolWithDefault(c, "vad_filter", false),
 		VadOnset:    getFormFloatWithDefault(c, "vad_onset", 0.500),
 		VadOffset:   getFormFloatWithDefault(c, "vad_offset", 0.363),
 	}
@@ -413,47 +412,63 @@ func (h *Handler) StartTranscription(c *gin.Context) {
 	}
 
 	// Parse transcription parameters from request body
-	var params struct {
-		Model       string  `json:"model"`
-		Language    *string `json:"language,omitempty"`
-		BatchSize   int     `json:"batch_size"`
-		ComputeType string  `json:"compute_type"`
-		Device      string  `json:"device"`
-		VadFilter   bool    `json:"vad_filter"`
-		VadOnset    float64 `json:"vad_onset"`
-		VadOffset   float64 `json:"vad_offset"`
-		MinSpeakers *int    `json:"min_speakers,omitempty"`
-		MaxSpeakers *int    `json:"max_speakers,omitempty"`
-		Diarization bool    `json:"diarization"`
-	}
+	var requestParams models.WhisperXParams
 
 	// Set defaults
-	params.Model = "base"
-	params.BatchSize = 16
-	params.ComputeType = "int8"
-	params.Device = "cpu"
-	params.VadOnset = 0.500
-	params.VadOffset = 0.363
+	requestParams = models.WhisperXParams{
+		Model:                               "small",
+		ModelCacheOnly:                      false,
+		Device:                              "cpu",
+		DeviceIndex:                         0,
+		BatchSize:                           8,
+		ComputeType:                         "float32",
+		Threads:                             0,
+		OutputFormat:                        "all",
+		Verbose:                             true,
+		Task:                                "transcribe",
+		InterpolateMethod:                   "nearest",
+		NoAlign:                             false,
+		ReturnCharAlignments:                false,
+		VadMethod:                           "pyannote",
+		VadOnset:                            0.5,
+		VadOffset:                           0.363,
+		ChunkSize:                           30,
+		Diarize:                             false,
+		DiarizeModel:                        "pyannote/speaker-diarization-3.1",
+		SpeakerEmbeddings:                   false,
+		Temperature:                         0,
+		BestOf:                              5,
+		BeamSize:                            5,
+		Patience:                            1.0,
+		LengthPenalty:                       1.0,
+		SuppressNumerals:                    false,
+		ConditionOnPreviousText:             false,
+		Fp16:                                true,
+		TemperatureIncrementOnFallback:      0.2,
+		CompressionRatioThreshold:           2.4,
+		LogprobThreshold:                    -1.0,
+		NoSpeechThreshold:                   0.6,
+		HighlightWords:                      false,
+		SegmentResolution:                   "sentence",
+		PrintProgress:                       false,
+	}
 
-	// Parse request body if provided
-	if err := c.ShouldBindJSON(&params); err != nil {
+	// Parse diarization from legacy field for backward compatibility
+	var legacyParams struct {
+		Diarization bool `json:"diarization"`
+	}
+	if err := c.ShouldBindJSON(&legacyParams); err == nil {
+		requestParams.Diarize = legacyParams.Diarization
+	}
+
+	// Parse request body parameters, overriding defaults
+	if err := c.ShouldBindJSON(&requestParams); err != nil {
 		// Use defaults if JSON parsing fails
 	}
 
 	// Update job with parameters
-	job.Parameters = models.WhisperXParams{
-		Model:       params.Model,
-		Language:    params.Language,
-		BatchSize:   params.BatchSize,
-		ComputeType: params.ComputeType,
-		Device:      params.Device,
-		VadFilter:   params.VadFilter,
-		VadOnset:    params.VadOnset,
-		VadOffset:   params.VadOffset,
-		MinSpeakers: params.MinSpeakers,
-		MaxSpeakers: params.MaxSpeakers,
-	}
-	job.Diarization = params.Diarization
+	job.Parameters = requestParams
+	job.Diarization = requestParams.Diarize
 	job.Status = models.StatusPending
 	
 	// Clear previous results for re-transcription

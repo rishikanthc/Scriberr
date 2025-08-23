@@ -48,6 +48,7 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { TranscriptionConfigDialog, type WhisperXParams } from "./TranscriptionConfigDialog";
 import { useRouter } from "../contexts/RouterContext";
 import {
 	useReactTable,
@@ -141,6 +142,9 @@ export function AudioFilesTable({
 	const [openPopovers, setOpenPopovers] = useState<Record<string, boolean>>({});
 	const [totalItems, setTotalItems] = useState(0);
 	const [pageCount, setPageCount] = useState(0);
+	const [configDialogOpen, setConfigDialogOpen] = useState(false);
+	const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
+	const [transcriptionLoading, setTranscriptionLoading] = useState(false);
 
 	const fetchAudioFiles = useCallback(async (page?: number, limit?: number, searchQuery?: string, isInitialLoad = false) => {
 		try {
@@ -218,40 +222,52 @@ export function AudioFilesTable({
 		}
 	};
 
-	// Handle transcribe action
-	const handleTranscribe = useCallback(async (jobId: string) => {
+	// Handle transcribe action - opens configuration dialog
+	const handleTranscribe = useCallback((jobId: string) => {
+		const job = data.find((f) => f.id === jobId);
+		if (!job) return;
+
+		// Close the popover
+		setOpenPopovers((prev) => ({ ...prev, [jobId]: false }));
+		
+		// Open configuration dialog
+		setSelectedJobId(jobId);
+		setConfigDialogOpen(true);
+	}, [data]);
+
+	// Handle actual transcription start with parameters
+	const handleStartTranscription = useCallback(async (params: WhisperXParams) => {
+		if (!selectedJobId) return;
+
 		try {
-			const job = data.find((f) => f.id === jobId);
-			if (!job) return;
+			setTranscriptionLoading(true);
 
-			// Close the popover
-			setOpenPopovers((prev) => ({ ...prev, [jobId]: false }));
-
-			const response = await fetch(`/api/v1/transcription/${jobId}/start`, {
+			const response = await fetch(`/api/v1/transcription/${selectedJobId}/start`, {
 				method: "POST",
 				headers: {
 					"X-API-Key": "dev-api-key-123",
 					"Content-Type": "application/json",
 				},
-				body: JSON.stringify({
-					model: "base",
-					diarization: false,
-				}),
+				body: JSON.stringify(params),
 			});
 
 			if (response.ok) {
-				// Refresh to show updated status
+				// Close dialog and refresh
+				setConfigDialogOpen(false);
+				setSelectedJobId(null);
 				fetchAudioFiles();
 				if (onTranscribe) {
-					onTranscribe(jobId);
+					onTranscribe(selectedJobId);
 				}
 			} else {
 				alert("Failed to start transcription");
 			}
 		} catch {
 			alert("Error starting transcription");
+		} finally {
+			setTranscriptionLoading(false);
 		}
-	}, [data, fetchAudioFiles, onTranscribe]);
+	}, [selectedJobId, fetchAudioFiles, onTranscribe]);
 
 	// Check if job can be transcribed (not currently processing or pending)
 	const canTranscribe = useCallback((file: AudioFile) => {
@@ -816,6 +832,14 @@ export function AudioFilesTable({
 					</>
 				)}
 			</div>
+
+			{/* Transcription Configuration Dialog */}
+			<TranscriptionConfigDialog
+				open={configDialogOpen}
+				onOpenChange={setConfigDialogOpen}
+				onStartTranscription={handleStartTranscription}
+				loading={transcriptionLoading}
+			/>
 		</div>
 	);
 }

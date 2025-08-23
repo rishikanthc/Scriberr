@@ -37,16 +37,70 @@ const (
 
 // WhisperXParams contains parameters for WhisperX transcription
 type WhisperXParams struct {
-	Model           string  `json:"model" gorm:"type:varchar(50);default:'base'"`
-	Language        *string `json:"language,omitempty" gorm:"type:varchar(10)"`
-	BatchSize       int     `json:"batch_size" gorm:"type:int;default:16"`
-	ComputeType     string  `json:"compute_type" gorm:"type:varchar(20);default:'int8'"`
-	Device          string  `json:"device" gorm:"type:varchar(20);default:'cpu'"`
-	VadFilter       bool    `json:"vad_filter" gorm:"type:boolean;default:false"`
-	VadOnset        float64 `json:"vad_onset" gorm:"type:real;default:0.500"`
-	VadOffset       float64 `json:"vad_offset" gorm:"type:real;default:0.363"`
-	MinSpeakers     *int    `json:"min_speakers,omitempty" gorm:"type:int"`
-	MaxSpeakers     *int    `json:"max_speakers,omitempty" gorm:"type:int"`
+	// Model parameters
+	Model                string  `json:"model" gorm:"type:varchar(50);default:'small'"`
+	ModelCacheOnly       bool    `json:"model_cache_only" gorm:"type:boolean;default:false"`
+	ModelDir             *string `json:"model_dir,omitempty" gorm:"type:text"`
+	
+	// Device and computation
+	Device               string  `json:"device" gorm:"type:varchar(20);default:'cpu'"`
+	DeviceIndex          int     `json:"device_index" gorm:"type:int;default:0"`
+	BatchSize            int     `json:"batch_size" gorm:"type:int;default:8"`
+	ComputeType          string  `json:"compute_type" gorm:"type:varchar(20);default:'float32'"`
+	Threads              int     `json:"threads" gorm:"type:int;default:0"`
+	
+	// Output settings
+	OutputFormat         string  `json:"output_format" gorm:"type:varchar(20);default:'all'"`
+	Verbose              bool    `json:"verbose" gorm:"type:boolean;default:true"`
+	
+	// Task and language
+	Task                 string  `json:"task" gorm:"type:varchar(20);default:'transcribe'"`
+	Language             *string `json:"language,omitempty" gorm:"type:varchar(10)"`
+	
+	// Alignment settings
+	AlignModel           *string `json:"align_model,omitempty" gorm:"type:varchar(100)"`
+	InterpolateMethod    string  `json:"interpolate_method" gorm:"type:varchar(20);default:'nearest'"`
+	NoAlign              bool    `json:"no_align" gorm:"type:boolean;default:false"`
+	ReturnCharAlignments bool    `json:"return_char_alignments" gorm:"type:boolean;default:false"`
+	
+	// VAD (Voice Activity Detection) settings
+	VadMethod            string  `json:"vad_method" gorm:"type:varchar(20);default:'pyannote'"`
+	VadOnset             float64 `json:"vad_onset" gorm:"type:real;default:0.5"`
+	VadOffset            float64 `json:"vad_offset" gorm:"type:real;default:0.363"`
+	ChunkSize            int     `json:"chunk_size" gorm:"type:int;default:30"`
+	
+	// Diarization settings
+	Diarize              bool    `json:"diarize" gorm:"type:boolean;default:false"`
+	MinSpeakers          *int    `json:"min_speakers,omitempty" gorm:"type:int"`
+	MaxSpeakers          *int    `json:"max_speakers,omitempty" gorm:"type:int"`
+	DiarizeModel         string  `json:"diarize_model" gorm:"type:varchar(100);default:'pyannote/speaker-diarization-3.1'"`
+	SpeakerEmbeddings    bool    `json:"speaker_embeddings" gorm:"type:boolean;default:false"`
+	
+	// Transcription quality settings
+	Temperature                           float64  `json:"temperature" gorm:"type:real;default:0"`
+	BestOf                               int      `json:"best_of" gorm:"type:int;default:5"`
+	BeamSize                             int      `json:"beam_size" gorm:"type:int;default:5"`
+	Patience                             float64  `json:"patience" gorm:"type:real;default:1.0"`
+	LengthPenalty                        float64  `json:"length_penalty" gorm:"type:real;default:1.0"`
+	SuppressTokens                       *string  `json:"suppress_tokens,omitempty" gorm:"type:text"`
+	SuppressNumerals                     bool     `json:"suppress_numerals" gorm:"type:boolean;default:false"`
+	InitialPrompt                        *string  `json:"initial_prompt,omitempty" gorm:"type:text"`
+	ConditionOnPreviousText              bool     `json:"condition_on_previous_text" gorm:"type:boolean;default:false"`
+	Fp16                                 bool     `json:"fp16" gorm:"type:boolean;default:true"`
+	TemperatureIncrementOnFallback       float64  `json:"temperature_increment_on_fallback" gorm:"type:real;default:0.2"`
+	CompressionRatioThreshold            float64  `json:"compression_ratio_threshold" gorm:"type:real;default:2.4"`
+	LogprobThreshold                     float64  `json:"logprob_threshold" gorm:"type:real;default:-1.0"`
+	NoSpeechThreshold                    float64  `json:"no_speech_threshold" gorm:"type:real;default:0.6"`
+	
+	// Output formatting
+	MaxLineWidth                         *int     `json:"max_line_width,omitempty" gorm:"type:int"`
+	MaxLineCount                         *int     `json:"max_line_count,omitempty" gorm:"type:int"`
+	HighlightWords                       bool     `json:"highlight_words" gorm:"type:boolean;default:false"`
+	SegmentResolution                    string   `json:"segment_resolution" gorm:"type:varchar(20);default:'sentence'"`
+	
+	// Token and progress
+	HfToken                              *string  `json:"hf_token,omitempty" gorm:"type:text"`
+	PrintProgress                        bool     `json:"print_progress" gorm:"type:boolean;default:false"`
 }
 
 // BeforeCreate sets the ID if not already set
