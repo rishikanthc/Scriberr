@@ -27,6 +27,8 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
+import { Info } from "lucide-react";
 
 export interface WhisperXParams {
   // Model parameters
@@ -94,6 +96,46 @@ export interface WhisperXParams {
   hf_token?: string;
   print_progress: boolean;
 }
+
+// Parameter descriptions for hover cards
+const PARAM_DESCRIPTIONS = {
+  model: "Size of the Whisper model to use. Larger models are more accurate but slower and require more memory.",
+  language: "Source language of the audio. Leave as auto-detect for automatic language detection.",
+  task: "Whether to transcribe the audio or translate it to English.",
+  device: "Processing device: CPU (slower, universal), GPU (faster, requires CUDA), or Auto (automatic selection).",
+  compute_type: "Precision type: Float16 (faster, less memory), Float32 (more accurate), Int8 (fastest, least accurate).",
+  batch_size: "Number of audio segments processed simultaneously. Higher values are faster but use more memory.",
+  diarize: "Enable speaker diarization to identify and separate different speakers in the audio.",
+  min_speakers: "Minimum number of speakers expected in the audio (leave empty for automatic detection).",
+  max_speakers: "Maximum number of speakers expected in the audio (leave empty for automatic detection).",
+  temperature: "Controls randomness in output. 0 = deterministic, higher values = more creative but less accurate.",
+  beam_size: "Number of beams for beam search decoding. Higher values improve quality but are slower.",
+  best_of: "Number of candidate sequences when sampling. Higher values improve quality but are slower.",
+  patience: "Patience factor for beam search. Higher values wait longer for better sequences.",
+  length_penalty: "Penalty applied to longer sequences. >1 favors longer, <1 favors shorter sequences.",
+  initial_prompt: "Optional text to provide context for the first transcription window.",
+  suppress_numerals: "Suppress numeric symbols and currency symbols during transcription sampling.",
+  condition_on_previous_text: "Use previous transcription output as context for next segment (may cause repetition loops).",
+  vad_method: "Voice Activity Detection method: Pyannote (more accurate) or Silero (faster).",
+  vad_onset: "Sensitivity threshold for detecting speech start. Lower = more sensitive to quiet speech.",
+  vad_offset: "Sensitivity threshold for detecting speech end. Lower = continues longer into silence.",
+  chunk_size: "Duration in seconds for merging adjacent speech segments detected by VAD.",
+  compression_ratio_threshold: "Fail transcription if text compression ratio exceeds this value (indicates repetitive output).",
+  logprob_threshold: "Fail transcription if average log probability is below this value (indicates low confidence).",
+  no_speech_threshold: "Consider segment as silence if no-speech probability exceeds this value.",
+  suppress_tokens: "Comma-separated token IDs to suppress during generation (e.g., -1 for default special tokens).",
+  no_align: "Skip phoneme-level alignment for faster processing but less precise word timestamps.",
+  return_char_alignments: "Include character-level timing alignments in the output (increases processing time).",
+  fp16: "Use 16-bit floating point precision for faster inference with slightly reduced accuracy.",
+  output_format: "File format(s) to generate: SRT (subtitles), VTT (web), TXT (plain text), JSON (structured), TSV (tabular), or All.",
+  segment_resolution: "How to break up transcription: Sentence (natural breaks) or Chunk (fixed VAD segments).",
+  max_line_width: "Maximum characters per line in subtitle formats before text wrapping.",
+  max_line_count: "Maximum number of lines per subtitle segment.",
+  highlight_words: "Add word-level timing highlights in SRT/VTT formats (underlines words as spoken).",
+  verbose: "Show detailed progress and debug messages during transcription.",
+  print_progress: "Display processing progress information in the console output.",
+  hf_token: "Hugging Face API token required for accessing private or gated models."
+};
 
 interface TranscriptionConfigDialogProps {
   open: boolean;
@@ -279,8 +321,8 @@ export function TranscriptionConfigDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700">
-        <DialogHeader>
+      <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700 p-8">
+        <DialogHeader className="mb-6">
           <DialogTitle className="text-gray-900 dark:text-gray-100">Transcription Configuration</DialogTitle>
           <DialogDescription className="text-gray-600 dark:text-gray-400">
             Configure WhisperX parameters for your transcription. Advanced settings allow fine-tuning quality and performance.
@@ -295,16 +337,26 @@ export function TranscriptionConfigDialog({
             <TabsTrigger value="output" className="data-[state=active]:bg-white data-[state=active]:dark:bg-gray-700 text-gray-700 dark:text-gray-300">Output</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="basic" className="space-y-6">
-            <div className="grid grid-cols-2 gap-6">
-              <div className="space-y-4">
+          <TabsContent value="basic" className="space-y-8 mt-6">
+            <div className="grid grid-cols-2 gap-8">
+              <div className="space-y-6">
                 <div>
-                  <Label htmlFor="model" className="text-gray-700 dark:text-gray-300">Model Size</Label>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Label htmlFor="model" className="text-gray-700 dark:text-gray-300">Model Size</Label>
+                    <HoverCard>
+                      <HoverCardTrigger asChild>
+                        <Info className="h-4 w-4 text-gray-400 cursor-help" />
+                      </HoverCardTrigger>
+                      <HoverCardContent className="w-80 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                        <p className="text-sm text-gray-700 dark:text-gray-300">{PARAM_DESCRIPTIONS.model}</p>
+                      </HoverCardContent>
+                    </HoverCard>
+                  </div>
                   <Select
                     value={params.model}
                     onValueChange={(value) => updateParam('model', value)}
                   >
-                    <SelectTrigger className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100">
+                    <SelectTrigger className="mt-3 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
@@ -315,18 +367,25 @@ export function TranscriptionConfigDialog({
                       ))}
                     </SelectContent>
                   </Select>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    Larger models are more accurate but slower
-                  </p>
                 </div>
 
                 <div>
-                  <Label htmlFor="language" className="text-gray-700 dark:text-gray-300">Language</Label>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Label htmlFor="language" className="text-gray-700 dark:text-gray-300">Language</Label>
+                    <HoverCard>
+                      <HoverCardTrigger asChild>
+                        <Info className="h-4 w-4 text-gray-400 cursor-help" />
+                      </HoverCardTrigger>
+                      <HoverCardContent className="w-80 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                        <p className="text-sm text-gray-700 dark:text-gray-300">{PARAM_DESCRIPTIONS.language}</p>
+                      </HoverCardContent>
+                    </HoverCard>
+                  </div>
                   <Select
                     value={params.language || "auto"}
                     onValueChange={(value) => updateParam('language', value === "auto" ? undefined : value)}
                   >
-                    <SelectTrigger className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100">
+                    <SelectTrigger className="mt-3 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 max-h-60">
@@ -337,18 +396,25 @@ export function TranscriptionConfigDialog({
                       ))}
                     </SelectContent>
                   </Select>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    Leave as auto-detect for automatic language detection
-                  </p>
                 </div>
 
                 <div>
-                  <Label htmlFor="task" className="text-gray-700 dark:text-gray-300">Task</Label>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Label htmlFor="task" className="text-gray-700 dark:text-gray-300">Task</Label>
+                    <HoverCard>
+                      <HoverCardTrigger asChild>
+                        <Info className="h-4 w-4 text-gray-400 cursor-help" />
+                      </HoverCardTrigger>
+                      <HoverCardContent className="w-80 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                        <p className="text-sm text-gray-700 dark:text-gray-300">{PARAM_DESCRIPTIONS.task}</p>
+                      </HoverCardContent>
+                    </HoverCard>
+                  </div>
                   <Select
                     value={params.task}
                     onValueChange={(value) => updateParam('task', value)}
                   >
-                    <SelectTrigger className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100">
+                    <SelectTrigger className="mt-3 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
@@ -359,14 +425,24 @@ export function TranscriptionConfigDialog({
                 </div>
               </div>
 
-              <div className="space-y-4">
+              <div className="space-y-6">
                 <div>
-                  <Label htmlFor="device" className="text-gray-700 dark:text-gray-300">Device</Label>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Label htmlFor="device" className="text-gray-700 dark:text-gray-300">Device</Label>
+                    <HoverCard>
+                      <HoverCardTrigger asChild>
+                        <Info className="h-4 w-4 text-gray-400 cursor-help" />
+                      </HoverCardTrigger>
+                      <HoverCardContent className="w-80 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                        <p className="text-sm text-gray-700 dark:text-gray-300">{PARAM_DESCRIPTIONS.device}</p>
+                      </HoverCardContent>
+                    </HoverCard>
+                  </div>
                   <Select
                     value={params.device}
                     onValueChange={(value) => updateParam('device', value)}
                   >
-                    <SelectTrigger className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100">
+                    <SelectTrigger className="mt-3 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
@@ -378,12 +454,22 @@ export function TranscriptionConfigDialog({
                 </div>
 
                 <div>
-                  <Label htmlFor="compute_type" className="text-gray-700 dark:text-gray-300">Compute Type</Label>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Label htmlFor="compute_type" className="text-gray-700 dark:text-gray-300">Compute Type</Label>
+                    <HoverCard>
+                      <HoverCardTrigger asChild>
+                        <Info className="h-4 w-4 text-gray-400 cursor-help" />
+                      </HoverCardTrigger>
+                      <HoverCardContent className="w-80 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                        <p className="text-sm text-gray-700 dark:text-gray-300">{PARAM_DESCRIPTIONS.compute_type}</p>
+                      </HoverCardContent>
+                    </HoverCard>
+                  </div>
                   <Select
                     value={params.compute_type}
                     onValueChange={(value) => updateParam('compute_type', value)}
                   >
-                    <SelectTrigger className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100">
+                    <SelectTrigger className="mt-3 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
@@ -395,8 +481,18 @@ export function TranscriptionConfigDialog({
                 </div>
 
                 <div>
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="batch_size" className="text-gray-700 dark:text-gray-300">Batch Size: {params.batch_size}</Label>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <Label htmlFor="batch_size" className="text-gray-700 dark:text-gray-300">Batch Size: {params.batch_size}</Label>
+                      <HoverCard>
+                        <HoverCardTrigger asChild>
+                          <Info className="h-4 w-4 text-gray-400 cursor-help" />
+                        </HoverCardTrigger>
+                        <HoverCardContent className="w-80 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                          <p className="text-sm text-gray-700 dark:text-gray-300">{PARAM_DESCRIPTIONS.batch_size}</p>
+                        </HoverCardContent>
+                      </HoverCard>
+                    </div>
                   </div>
                   <Slider
                     value={[params.batch_size]}
@@ -404,16 +500,13 @@ export function TranscriptionConfigDialog({
                     min={1}
                     max={32}
                     step={1}
-                    className="mt-2"
+                    className="mt-3"
                   />
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    Higher values are faster but use more memory
-                  </p>
                 </div>
               </div>
             </div>
 
-            <Separator className="bg-gray-200 dark:bg-gray-700" />
+            <Separator className="bg-gray-200 dark:bg-gray-700 my-8" />
 
             <div>
               <div className="flex items-center space-x-2">
@@ -423,33 +516,58 @@ export function TranscriptionConfigDialog({
                   onCheckedChange={(checked) => updateParam('diarize', checked)}
                 />
                 <Label htmlFor="diarize" className="text-gray-700 dark:text-gray-300">Speaker Diarization</Label>
+                <HoverCard>
+                  <HoverCardTrigger asChild>
+                    <Info className="h-4 w-4 text-gray-400 cursor-help" />
+                  </HoverCardTrigger>
+                  <HoverCardContent className="w-80 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                    <p className="text-sm text-gray-700 dark:text-gray-300">{PARAM_DESCRIPTIONS.diarize}</p>
+                  </HoverCardContent>
+                </HoverCard>
               </div>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                Identify different speakers in the audio
-              </p>
 
               {params.diarize && (
-                <div className="grid grid-cols-2 gap-4 mt-4 p-4 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800">
+                <div className="grid grid-cols-2 gap-6 mt-6 p-6 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800">
                   <div>
-                    <Label htmlFor="min_speakers" className="text-gray-700 dark:text-gray-300">Min Speakers</Label>
+                    <div className="flex items-center gap-2 mb-2">
+                      <Label htmlFor="min_speakers" className="text-gray-700 dark:text-gray-300">Min Speakers</Label>
+                      <HoverCard>
+                        <HoverCardTrigger asChild>
+                          <Info className="h-3 w-3 text-gray-400 cursor-help" />
+                        </HoverCardTrigger>
+                        <HoverCardContent className="w-64 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                          <p className="text-xs text-gray-700 dark:text-gray-300">{PARAM_DESCRIPTIONS.min_speakers}</p>
+                        </HoverCardContent>
+                      </HoverCard>
+                    </div>
                     <Input
                       type="number"
                       min="1"
                       max="20"
                       value={params.min_speakers || ""}
                       onChange={(e) => updateParam('min_speakers', e.target.value ? parseInt(e.target.value) : undefined)}
-                      className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100"
+                      className="mt-3 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100"
                     />
                   </div>
                   <div>
-                    <Label htmlFor="max_speakers" className="text-gray-700 dark:text-gray-300">Max Speakers</Label>
+                    <div className="flex items-center gap-2 mb-2">
+                      <Label htmlFor="max_speakers" className="text-gray-700 dark:text-gray-300">Max Speakers</Label>
+                      <HoverCard>
+                        <HoverCardTrigger asChild>
+                          <Info className="h-3 w-3 text-gray-400 cursor-help" />
+                        </HoverCardTrigger>
+                        <HoverCardContent className="w-64 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                          <p className="text-xs text-gray-700 dark:text-gray-300">{PARAM_DESCRIPTIONS.max_speakers}</p>
+                        </HoverCardContent>
+                      </HoverCard>
+                    </div>
                     <Input
                       type="number"
                       min="1"
                       max="20"
                       value={params.max_speakers || ""}
                       onChange={(e) => updateParam('max_speakers', e.target.value ? parseInt(e.target.value) : undefined)}
-                      className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100"
+                      className="mt-3 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100"
                     />
                   </div>
                 </div>
@@ -457,12 +575,22 @@ export function TranscriptionConfigDialog({
             </div>
           </TabsContent>
 
-          <TabsContent value="quality" className="space-y-6">
-            <div className="grid grid-cols-2 gap-6">
-              <div className="space-y-4">
+          <TabsContent value="quality" className="space-y-8 mt-6">
+            <div className="grid grid-cols-2 gap-8">
+              <div className="space-y-6">
                 <div>
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="temperature" className="text-gray-700 dark:text-gray-300">Temperature: {params.temperature}</Label>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <Label htmlFor="temperature" className="text-gray-700 dark:text-gray-300">Temperature: {params.temperature}</Label>
+                      <HoverCard>
+                        <HoverCardTrigger asChild>
+                          <Info className="h-4 w-4 text-gray-400 cursor-help" />
+                        </HoverCardTrigger>
+                        <HoverCardContent className="w-80 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                          <p className="text-sm text-gray-700 dark:text-gray-300">{PARAM_DESCRIPTIONS.temperature}</p>
+                        </HoverCardContent>
+                      </HoverCard>
+                    </div>
                   </div>
                   <Slider
                     value={[params.temperature]}
@@ -470,16 +598,23 @@ export function TranscriptionConfigDialog({
                     min={0}
                     max={1}
                     step={0.1}
-                    className="mt-2"
+                    className="mt-3"
                   />
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    Higher values increase randomness in output
-                  </p>
                 </div>
 
                 <div>
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="beam_size" className="text-gray-700 dark:text-gray-300">Beam Size: {params.beam_size}</Label>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <Label htmlFor="beam_size" className="text-gray-700 dark:text-gray-300">Beam Size: {params.beam_size}</Label>
+                      <HoverCard>
+                        <HoverCardTrigger asChild>
+                          <Info className="h-4 w-4 text-gray-400 cursor-help" />
+                        </HoverCardTrigger>
+                        <HoverCardContent className="w-80 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                          <p className="text-sm text-gray-700 dark:text-gray-300">{PARAM_DESCRIPTIONS.beam_size}</p>
+                        </HoverCardContent>
+                      </HoverCard>
+                    </div>
                   </div>
                   <Slider
                     value={[params.beam_size]}
@@ -487,16 +622,23 @@ export function TranscriptionConfigDialog({
                     min={1}
                     max={20}
                     step={1}
-                    className="mt-2"
+                    className="mt-3"
                   />
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    Number of beams for beam search (higher = better quality)
-                  </p>
                 </div>
 
                 <div>
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="best_of" className="text-gray-700 dark:text-gray-300">Best Of: {params.best_of}</Label>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <Label htmlFor="best_of" className="text-gray-700 dark:text-gray-300">Best Of: {params.best_of}</Label>
+                      <HoverCard>
+                        <HoverCardTrigger asChild>
+                          <Info className="h-4 w-4 text-gray-400 cursor-help" />
+                        </HoverCardTrigger>
+                        <HoverCardContent className="w-80 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                          <p className="text-sm text-gray-700 dark:text-gray-300">{PARAM_DESCRIPTIONS.best_of}</p>
+                        </HoverCardContent>
+                      </HoverCard>
+                    </div>
                   </div>
                   <Slider
                     value={[params.best_of]}
@@ -504,18 +646,25 @@ export function TranscriptionConfigDialog({
                     min={1}
                     max={20}
                     step={1}
-                    className="mt-2"
+                    className="mt-3"
                   />
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    Number of candidates when sampling
-                  </p>
                 </div>
               </div>
 
-              <div className="space-y-4">
+              <div className="space-y-6">
                 <div>
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="patience" className="text-gray-700 dark:text-gray-300">Patience: {params.patience}</Label>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <Label htmlFor="patience" className="text-gray-700 dark:text-gray-300">Patience: {params.patience}</Label>
+                      <HoverCard>
+                        <HoverCardTrigger asChild>
+                          <Info className="h-4 w-4 text-gray-400 cursor-help" />
+                        </HoverCardTrigger>
+                        <HoverCardContent className="w-80 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                          <p className="text-sm text-gray-700 dark:text-gray-300">{PARAM_DESCRIPTIONS.patience}</p>
+                        </HoverCardContent>
+                      </HoverCard>
+                    </div>
                   </div>
                   <Slider
                     value={[params.patience]}
@@ -523,16 +672,23 @@ export function TranscriptionConfigDialog({
                     min={0.1}
                     max={3.0}
                     step={0.1}
-                    className="mt-2"
+                    className="mt-3"
                   />
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    Patience value for beam decoding
-                  </p>
                 </div>
 
                 <div>
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="length_penalty" className="text-gray-700 dark:text-gray-300">Length Penalty: {params.length_penalty}</Label>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <Label htmlFor="length_penalty" className="text-gray-700 dark:text-gray-300">Length Penalty: {params.length_penalty}</Label>
+                      <HoverCard>
+                        <HoverCardTrigger asChild>
+                          <Info className="h-4 w-4 text-gray-400 cursor-help" />
+                        </HoverCardTrigger>
+                        <HoverCardContent className="w-80 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                          <p className="text-sm text-gray-700 dark:text-gray-300">{PARAM_DESCRIPTIONS.length_penalty}</p>
+                        </HoverCardContent>
+                      </HoverCard>
+                    </div>
                   </div>
                   <Slider
                     value={[params.length_penalty]}
@@ -540,29 +696,36 @@ export function TranscriptionConfigDialog({
                     min={0.1}
                     max={3.0}
                     step={0.1}
-                    className="mt-2"
+                    className="mt-3"
                   />
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    Token length penalty coefficient
-                  </p>
                 </div>
 
                 <div>
-                  <Label htmlFor="initial_prompt" className="text-gray-700 dark:text-gray-300">Initial Prompt</Label>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Label htmlFor="initial_prompt" className="text-gray-700 dark:text-gray-300">Initial Prompt</Label>
+                    <HoverCard>
+                      <HoverCardTrigger asChild>
+                        <Info className="h-4 w-4 text-gray-400 cursor-help" />
+                      </HoverCardTrigger>
+                      <HoverCardContent className="w-80 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                        <p className="text-sm text-gray-700 dark:text-gray-300">{PARAM_DESCRIPTIONS.initial_prompt}</p>
+                      </HoverCardContent>
+                    </HoverCard>
+                  </div>
                   <Textarea
                     placeholder="Optional text to provide as context for the first window"
                     value={params.initial_prompt || ""}
                     onChange={(e) => updateParam('initial_prompt', e.target.value || undefined)}
                     rows={3}
-                    className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 placeholder:text-gray-500 dark:placeholder:text-gray-400"
+                    className="mt-3 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 placeholder:text-gray-500 dark:placeholder:text-gray-400"
                   />
                 </div>
               </div>
             </div>
 
-            <Separator className="bg-gray-200 dark:bg-gray-700" />
+            <Separator className="bg-gray-200 dark:bg-gray-700 my-8" />
 
-            <div className="space-y-4">
+            <div className="space-y-6">
               <div className="flex items-center space-x-2">
                 <Switch
                   id="suppress_numerals"
@@ -570,10 +733,15 @@ export function TranscriptionConfigDialog({
                   onCheckedChange={(checked) => updateParam('suppress_numerals', checked)}
                 />
                 <Label htmlFor="suppress_numerals" className="text-gray-700 dark:text-gray-300">Suppress Numerals</Label>
+                <HoverCard>
+                  <HoverCardTrigger asChild>
+                    <Info className="h-4 w-4 text-gray-400 cursor-help" />
+                  </HoverCardTrigger>
+                  <HoverCardContent className="w-80 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                    <p className="text-sm text-gray-700 dark:text-gray-300">{PARAM_DESCRIPTIONS.suppress_numerals}</p>
+                  </HoverCardContent>
+                </HoverCard>
               </div>
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                Suppress numeric symbols and currency symbols during sampling
-              </p>
 
               <div className="flex items-center space-x-2">
                 <Switch
@@ -582,25 +750,40 @@ export function TranscriptionConfigDialog({
                   onCheckedChange={(checked) => updateParam('condition_on_previous_text', checked)}
                 />
                 <Label htmlFor="condition_on_previous_text" className="text-gray-700 dark:text-gray-300">Condition on Previous Text</Label>
+                <HoverCard>
+                  <HoverCardTrigger asChild>
+                    <Info className="h-4 w-4 text-gray-400 cursor-help" />
+                  </HoverCardTrigger>
+                  <HoverCardContent className="w-80 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                    <p className="text-sm text-gray-700 dark:text-gray-300">{PARAM_DESCRIPTIONS.condition_on_previous_text}</p>
+                  </HoverCardContent>
+                </HoverCard>
               </div>
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                Use previous output as prompt for next window (may cause loops)
-              </p>
             </div>
           </TabsContent>
 
-          <TabsContent value="advanced" className="space-y-6">
-            <div className="grid grid-cols-2 gap-6">
-              <div className="space-y-4">
+          <TabsContent value="advanced" className="space-y-8 mt-6">
+            <div className="grid grid-cols-2 gap-8">
+              <div className="space-y-6">
                 <h4 className="font-medium text-gray-900 dark:text-gray-100">VAD Settings</h4>
                 
                 <div>
-                  <Label htmlFor="vad_method" className="text-gray-700 dark:text-gray-300">VAD Method</Label>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Label htmlFor="vad_method" className="text-gray-700 dark:text-gray-300">VAD Method</Label>
+                    <HoverCard>
+                      <HoverCardTrigger asChild>
+                        <Info className="h-4 w-4 text-gray-400 cursor-help" />
+                      </HoverCardTrigger>
+                      <HoverCardContent className="w-80 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                        <p className="text-sm text-gray-700 dark:text-gray-300">{PARAM_DESCRIPTIONS.vad_method}</p>
+                      </HoverCardContent>
+                    </HoverCard>
+                  </div>
                   <Select
                     value={params.vad_method}
                     onValueChange={(value) => updateParam('vad_method', value)}
                   >
-                    <SelectTrigger className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100">
+                    <SelectTrigger className="mt-3 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
@@ -611,8 +794,18 @@ export function TranscriptionConfigDialog({
                 </div>
 
                 <div>
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="vad_onset">VAD Onset: {params.vad_onset}</Label>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <Label htmlFor="vad_onset" className="text-gray-700 dark:text-gray-300">VAD Onset: {params.vad_onset}</Label>
+                      <HoverCard>
+                        <HoverCardTrigger asChild>
+                          <Info className="h-4 w-4 text-gray-400 cursor-help" />
+                        </HoverCardTrigger>
+                        <HoverCardContent className="w-80 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                          <p className="text-sm text-gray-700 dark:text-gray-300">{PARAM_DESCRIPTIONS.vad_onset}</p>
+                        </HoverCardContent>
+                      </HoverCard>
+                    </div>
                   </div>
                   <Slider
                     value={[params.vad_onset]}
@@ -620,16 +813,23 @@ export function TranscriptionConfigDialog({
                     min={0.1}
                     max={1.0}
                     step={0.01}
-                    className="mt-2"
+                    className="mt-3"
                   />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Onset threshold for VAD (reduce if speech not detected)
-                  </p>
                 </div>
 
                 <div>
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="vad_offset">VAD Offset: {params.vad_offset}</Label>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <Label htmlFor="vad_offset" className="text-gray-700 dark:text-gray-300">VAD Offset: {params.vad_offset}</Label>
+                      <HoverCard>
+                        <HoverCardTrigger asChild>
+                          <Info className="h-4 w-4 text-gray-400 cursor-help" />
+                        </HoverCardTrigger>
+                        <HoverCardContent className="w-80 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                          <p className="text-sm text-gray-700 dark:text-gray-300">{PARAM_DESCRIPTIONS.vad_offset}</p>
+                        </HoverCardContent>
+                      </HoverCard>
+                    </div>
                   </div>
                   <Slider
                     value={[params.vad_offset]}
@@ -637,16 +837,23 @@ export function TranscriptionConfigDialog({
                     min={0.1}
                     max={1.0}
                     step={0.01}
-                    className="mt-2"
+                    className="mt-3"
                   />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Offset threshold for VAD
-                  </p>
                 </div>
 
                 <div>
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="chunk_size">Chunk Size: {params.chunk_size}</Label>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <Label htmlFor="chunk_size" className="text-gray-700 dark:text-gray-300">Chunk Size: {params.chunk_size}</Label>
+                      <HoverCard>
+                        <HoverCardTrigger asChild>
+                          <Info className="h-4 w-4 text-gray-400 cursor-help" />
+                        </HoverCardTrigger>
+                        <HoverCardContent className="w-80 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                          <p className="text-sm text-gray-700 dark:text-gray-300">{PARAM_DESCRIPTIONS.chunk_size}</p>
+                        </HoverCardContent>
+                      </HoverCard>
+                    </div>
                   </div>
                   <Slider
                     value={[params.chunk_size]}
@@ -654,20 +861,27 @@ export function TranscriptionConfigDialog({
                     min={5}
                     max={60}
                     step={1}
-                    className="mt-2"
+                    className="mt-3"
                   />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Chunk size for merging VAD segments (seconds)
-                  </p>
                 </div>
               </div>
 
-              <div className="space-y-4">
+              <div className="space-y-6">
                 <h4 className="font-medium">Detection Thresholds</h4>
                 
                 <div>
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="compression_ratio_threshold">Compression Ratio: {params.compression_ratio_threshold}</Label>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <Label htmlFor="compression_ratio_threshold" className="text-gray-700 dark:text-gray-300">Compression Ratio: {params.compression_ratio_threshold}</Label>
+                      <HoverCard>
+                        <HoverCardTrigger asChild>
+                          <Info className="h-4 w-4 text-gray-400 cursor-help" />
+                        </HoverCardTrigger>
+                        <HoverCardContent className="w-80 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                          <p className="text-sm text-gray-700 dark:text-gray-300">{PARAM_DESCRIPTIONS.compression_ratio_threshold}</p>
+                        </HoverCardContent>
+                      </HoverCard>
+                    </div>
                   </div>
                   <Slider
                     value={[params.compression_ratio_threshold]}
@@ -675,16 +889,23 @@ export function TranscriptionConfigDialog({
                     min={1.0}
                     max={5.0}
                     step={0.1}
-                    className="mt-2"
+                    className="mt-3"
                   />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Fail if compression ratio is higher than this
-                  </p>
                 </div>
 
                 <div>
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="logprob_threshold">Log Probability: {params.logprob_threshold}</Label>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <Label htmlFor="logprob_threshold" className="text-gray-700 dark:text-gray-300">Log Probability: {params.logprob_threshold}</Label>
+                      <HoverCard>
+                        <HoverCardTrigger asChild>
+                          <Info className="h-4 w-4 text-gray-400 cursor-help" />
+                        </HoverCardTrigger>
+                        <HoverCardContent className="w-80 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                          <p className="text-sm text-gray-700 dark:text-gray-300">{PARAM_DESCRIPTIONS.logprob_threshold}</p>
+                        </HoverCardContent>
+                      </HoverCard>
+                    </div>
                   </div>
                   <Slider
                     value={[params.logprob_threshold]}
@@ -692,16 +913,23 @@ export function TranscriptionConfigDialog({
                     min={-3.0}
                     max={0.0}
                     step={0.1}
-                    className="mt-2"
+                    className="mt-3"
                   />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Fail if average log probability is lower than this
-                  </p>
                 </div>
 
                 <div>
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="no_speech_threshold">No Speech: {params.no_speech_threshold}</Label>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <Label htmlFor="no_speech_threshold" className="text-gray-700 dark:text-gray-300">No Speech: {params.no_speech_threshold}</Label>
+                      <HoverCard>
+                        <HoverCardTrigger asChild>
+                          <Info className="h-4 w-4 text-gray-400 cursor-help" />
+                        </HoverCardTrigger>
+                        <HoverCardContent className="w-80 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                          <p className="text-sm text-gray-700 dark:text-gray-300">{PARAM_DESCRIPTIONS.no_speech_threshold}</p>
+                        </HoverCardContent>
+                      </HoverCard>
+                    </div>
                   </div>
                   <Slider
                     value={[params.no_speech_threshold]}
@@ -709,41 +937,51 @@ export function TranscriptionConfigDialog({
                     min={0.1}
                     max={1.0}
                     step={0.01}
-                    className="mt-2"
+                    className="mt-3"
                   />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Consider segment as silence if probability is higher
-                  </p>
                 </div>
 
                 <div>
-                  <Label htmlFor="suppress_tokens">Suppress Tokens</Label>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Label htmlFor="suppress_tokens" className="text-gray-700 dark:text-gray-300">Suppress Tokens</Label>
+                    <HoverCard>
+                      <HoverCardTrigger asChild>
+                        <Info className="h-4 w-4 text-gray-400 cursor-help" />
+                      </HoverCardTrigger>
+                      <HoverCardContent className="w-80 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                        <p className="text-sm text-gray-700 dark:text-gray-300">{PARAM_DESCRIPTIONS.suppress_tokens}</p>
+                      </HoverCardContent>
+                    </HoverCard>
+                  </div>
                   <Input
                     placeholder="-1 (default: suppress special characters)"
                     value={params.suppress_tokens || ""}
                     onChange={(e) => updateParam('suppress_tokens', e.target.value || undefined)}
+                    className="mt-3"
                   />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Comma-separated token IDs to suppress
-                  </p>
                 </div>
               </div>
             </div>
 
-            <Separator />
+            <Separator className="my-8" />
 
-            <div className="space-y-4">
+            <div className="space-y-6">
               <div className="flex items-center space-x-2">
                 <Switch
                   id="no_align"
                   checked={params.no_align}
                   onCheckedChange={(checked) => updateParam('no_align', checked)}
                 />
-                <Label htmlFor="no_align">Disable Alignment</Label>
+                <Label htmlFor="no_align" className="text-gray-700 dark:text-gray-300">Disable Alignment</Label>
+                <HoverCard>
+                  <HoverCardTrigger asChild>
+                    <Info className="h-4 w-4 text-gray-400 cursor-help" />
+                  </HoverCardTrigger>
+                  <HoverCardContent className="w-80 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                    <p className="text-sm text-gray-700 dark:text-gray-300">{PARAM_DESCRIPTIONS.no_align}</p>
+                  </HoverCardContent>
+                </HoverCard>
               </div>
-              <p className="text-xs text-muted-foreground">
-                Skip phoneme-level alignment (faster but less precise timestamps)
-              </p>
 
               <div className="flex items-center space-x-2">
                 <Switch
@@ -751,11 +989,16 @@ export function TranscriptionConfigDialog({
                   checked={params.return_char_alignments}
                   onCheckedChange={(checked) => updateParam('return_char_alignments', checked)}
                 />
-                <Label htmlFor="return_char_alignments">Character-level Alignments</Label>
+                <Label htmlFor="return_char_alignments" className="text-gray-700 dark:text-gray-300">Character-level Alignments</Label>
+                <HoverCard>
+                  <HoverCardTrigger asChild>
+                    <Info className="h-4 w-4 text-gray-400 cursor-help" />
+                  </HoverCardTrigger>
+                  <HoverCardContent className="w-80 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                    <p className="text-sm text-gray-700 dark:text-gray-300">{PARAM_DESCRIPTIONS.return_char_alignments}</p>
+                  </HoverCardContent>
+                </HoverCard>
               </div>
-              <p className="text-xs text-muted-foreground">
-                Return character-level alignments in output
-              </p>
 
               <div className="flex items-center space-x-2">
                 <Switch
@@ -763,24 +1006,39 @@ export function TranscriptionConfigDialog({
                   checked={params.fp16}
                   onCheckedChange={(checked) => updateParam('fp16', checked)}
                 />
-                <Label htmlFor="fp16">FP16 Inference</Label>
+                <Label htmlFor="fp16" className="text-gray-700 dark:text-gray-300">FP16 Inference</Label>
+                <HoverCard>
+                  <HoverCardTrigger asChild>
+                    <Info className="h-4 w-4 text-gray-400 cursor-help" />
+                  </HoverCardTrigger>
+                  <HoverCardContent className="w-80 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                    <p className="text-sm text-gray-700 dark:text-gray-300">{PARAM_DESCRIPTIONS.fp16}</p>
+                  </HoverCardContent>
+                </HoverCard>
               </div>
-              <p className="text-xs text-muted-foreground">
-                Use 16-bit floating point for inference (faster, less accurate)
-              </p>
             </div>
           </TabsContent>
 
-          <TabsContent value="output" className="space-y-6">
-            <div className="grid grid-cols-2 gap-6">
-              <div className="space-y-4">
+          <TabsContent value="output" className="space-y-8 mt-6">
+            <div className="grid grid-cols-2 gap-8">
+              <div className="space-y-6">
                 <div>
-                  <Label htmlFor="output_format">Output Format</Label>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Label htmlFor="output_format" className="text-gray-700 dark:text-gray-300">Output Format</Label>
+                    <HoverCard>
+                      <HoverCardTrigger asChild>
+                        <Info className="h-4 w-4 text-gray-400 cursor-help" />
+                      </HoverCardTrigger>
+                      <HoverCardContent className="w-80 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                        <p className="text-sm text-gray-700 dark:text-gray-300">{PARAM_DESCRIPTIONS.output_format}</p>
+                      </HoverCardContent>
+                    </HoverCard>
+                  </div>
                   <Select
                     value={params.output_format}
                     onValueChange={(value) => updateParam('output_format', value)}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="mt-3">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -795,12 +1053,22 @@ export function TranscriptionConfigDialog({
                 </div>
 
                 <div>
-                  <Label htmlFor="segment_resolution">Segment Resolution</Label>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Label htmlFor="segment_resolution" className="text-gray-700 dark:text-gray-300">Segment Resolution</Label>
+                    <HoverCard>
+                      <HoverCardTrigger asChild>
+                        <Info className="h-4 w-4 text-gray-400 cursor-help" />
+                      </HoverCardTrigger>
+                      <HoverCardContent className="w-80 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                        <p className="text-sm text-gray-700 dark:text-gray-300">{PARAM_DESCRIPTIONS.segment_resolution}</p>
+                      </HoverCardContent>
+                    </HoverCard>
+                  </div>
                   <Select
                     value={params.segment_resolution}
                     onValueChange={(value) => updateParam('segment_resolution', value)}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="mt-3">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -808,13 +1076,20 @@ export function TranscriptionConfigDialog({
                       <SelectItem value="chunk">Chunk</SelectItem>
                     </SelectContent>
                   </Select>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    How to break up segments in the output
-                  </p>
                 </div>
 
                 <div>
-                  <Label htmlFor="max_line_width">Max Line Width</Label>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Label htmlFor="max_line_width" className="text-gray-700 dark:text-gray-300">Max Line Width</Label>
+                    <HoverCard>
+                      <HoverCardTrigger asChild>
+                        <Info className="h-4 w-4 text-gray-400 cursor-help" />
+                      </HoverCardTrigger>
+                      <HoverCardContent className="w-80 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                        <p className="text-sm text-gray-700 dark:text-gray-300">{PARAM_DESCRIPTIONS.max_line_width}</p>
+                      </HoverCardContent>
+                    </HoverCard>
+                  </div>
                   <Input
                     type="number"
                     min="10"
@@ -822,14 +1097,22 @@ export function TranscriptionConfigDialog({
                     placeholder="No limit"
                     value={params.max_line_width || ""}
                     onChange={(e) => updateParam('max_line_width', e.target.value ? parseInt(e.target.value) : undefined)}
+                    className="mt-3"
                   />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Maximum characters per line before breaking
-                  </p>
                 </div>
 
                 <div>
-                  <Label htmlFor="max_line_count">Max Line Count</Label>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Label htmlFor="max_line_count" className="text-gray-700 dark:text-gray-300">Max Line Count</Label>
+                    <HoverCard>
+                      <HoverCardTrigger asChild>
+                        <Info className="h-4 w-4 text-gray-400 cursor-help" />
+                      </HoverCardTrigger>
+                      <HoverCardContent className="w-80 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                        <p className="text-sm text-gray-700 dark:text-gray-300">{PARAM_DESCRIPTIONS.max_line_count}</p>
+                      </HoverCardContent>
+                    </HoverCard>
+                  </div>
                   <Input
                     type="number"
                     min="1"
@@ -837,25 +1120,28 @@ export function TranscriptionConfigDialog({
                     placeholder="No limit"
                     value={params.max_line_count || ""}
                     onChange={(e) => updateParam('max_line_count', e.target.value ? parseInt(e.target.value) : undefined)}
+                    className="mt-3"
                   />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Maximum lines per segment
-                  </p>
                 </div>
               </div>
 
-              <div className="space-y-4">
+              <div className="space-y-6">
                 <div className="flex items-center space-x-2">
                   <Switch
                     id="highlight_words"
                     checked={params.highlight_words}
                     onCheckedChange={(checked) => updateParam('highlight_words', checked)}
                   />
-                  <Label htmlFor="highlight_words">Highlight Words</Label>
+                  <Label htmlFor="highlight_words" className="text-gray-700 dark:text-gray-300">Highlight Words</Label>
+                  <HoverCard>
+                    <HoverCardTrigger asChild>
+                      <Info className="h-4 w-4 text-gray-400 cursor-help" />
+                    </HoverCardTrigger>
+                    <HoverCardContent className="w-80 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                      <p className="text-sm text-gray-700 dark:text-gray-300">{PARAM_DESCRIPTIONS.highlight_words}</p>
+                    </HoverCardContent>
+                  </HoverCard>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  Underline each word as it's spoken in SRT/VTT
-                </p>
 
                 <div className="flex items-center space-x-2">
                   <Switch
@@ -863,11 +1149,16 @@ export function TranscriptionConfigDialog({
                     checked={params.verbose}
                     onCheckedChange={(checked) => updateParam('verbose', checked)}
                   />
-                  <Label htmlFor="verbose">Verbose Output</Label>
+                  <Label htmlFor="verbose" className="text-gray-700 dark:text-gray-300">Verbose Output</Label>
+                  <HoverCard>
+                    <HoverCardTrigger asChild>
+                      <Info className="h-4 w-4 text-gray-400 cursor-help" />
+                    </HoverCardTrigger>
+                    <HoverCardContent className="w-80 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                      <p className="text-sm text-gray-700 dark:text-gray-300">{PARAM_DESCRIPTIONS.verbose}</p>
+                    </HoverCardContent>
+                  </HoverCard>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  Show progress and debug messages
-                </p>
 
                 <div className="flex items-center space-x-2">
                   <Switch
@@ -875,32 +1166,45 @@ export function TranscriptionConfigDialog({
                     checked={params.print_progress}
                     onCheckedChange={(checked) => updateParam('print_progress', checked)}
                   />
-                  <Label htmlFor="print_progress">Print Progress</Label>
+                  <Label htmlFor="print_progress" className="text-gray-700 dark:text-gray-300">Print Progress</Label>
+                  <HoverCard>
+                    <HoverCardTrigger asChild>
+                      <Info className="h-4 w-4 text-gray-400 cursor-help" />
+                    </HoverCardTrigger>
+                    <HoverCardContent className="w-80 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                      <p className="text-sm text-gray-700 dark:text-gray-300">{PARAM_DESCRIPTIONS.print_progress}</p>
+                    </HoverCardContent>
+                  </HoverCard>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  Print progress information during processing
-                </p>
 
-                <Separator />
+                <Separator className="my-8" />
 
                 <div>
-                  <Label htmlFor="hf_token">Hugging Face Token</Label>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Label htmlFor="hf_token" className="text-gray-700 dark:text-gray-300">Hugging Face Token</Label>
+                    <HoverCard>
+                      <HoverCardTrigger asChild>
+                        <Info className="h-4 w-4 text-gray-400 cursor-help" />
+                      </HoverCardTrigger>
+                      <HoverCardContent className="w-80 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                        <p className="text-sm text-gray-700 dark:text-gray-300">{PARAM_DESCRIPTIONS.hf_token}</p>
+                      </HoverCardContent>
+                    </HoverCard>
+                  </div>
                   <Input
                     type="password"
                     placeholder="Optional HF token for private models"
                     value={params.hf_token || ""}
                     onChange={(e) => updateParam('hf_token', e.target.value || undefined)}
+                    className="mt-3"
                   />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Required for some private models
-                  </p>
                 </div>
               </div>
             </div>
           </TabsContent>
         </Tabs>
 
-        <DialogFooter className="gap-2 border-t border-gray-200 dark:border-gray-700 pt-4">
+        <DialogFooter className="gap-2 border-t border-gray-200 dark:border-gray-700 pt-6 mt-8">
           <Button variant="outline" onClick={() => onOpenChange(false)} className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700">
             Cancel
           </Button>
