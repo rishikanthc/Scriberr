@@ -188,6 +188,7 @@ func (h *Handler) SubmitJob(c *gin.Context) {
 	}
 
 	// Parse parameters
+	diarize := getFormBoolWithDefault(c, "diarize", false)
 	params := models.WhisperXParams{
 		Model:       getFormValueWithDefault(c, "model", "base"),
 		BatchSize:   getFormIntWithDefault(c, "batch_size", 16),
@@ -195,6 +196,7 @@ func (h *Handler) SubmitJob(c *gin.Context) {
 		Device:      getFormValueWithDefault(c, "device", "cpu"),
 		VadOnset:    getFormFloatWithDefault(c, "vad_onset", 0.500),
 		VadOffset:   getFormFloatWithDefault(c, "vad_offset", 0.363),
+		Diarize:     diarize,
 	}
 
 	if lang := c.PostForm("language"); lang != "" {
@@ -213,12 +215,16 @@ func (h *Handler) SubmitJob(c *gin.Context) {
 		}
 	}
 
+	if hfToken := c.PostForm("hf_token"); hfToken != "" {
+		params.HfToken = &hfToken
+	}
+
 	// Create job
 	job := models.TranscriptionJob{
 		ID:          jobID,
 		AudioPath:   filePath,
 		Status:      models.StatusPending,
-		Diarization: getFormBoolWithDefault(c, "diarization", false),
+		Diarization: diarize,
 		Parameters:  params,
 	}
 
@@ -453,18 +459,14 @@ func (h *Handler) StartTranscription(c *gin.Context) {
 		PrintProgress:                       false,
 	}
 
-	// Parse diarization from legacy field for backward compatibility
-	var legacyParams struct {
-		Diarization bool `json:"diarization"`
-	}
-	if err := c.ShouldBindJSON(&legacyParams); err == nil {
-		requestParams.Diarize = legacyParams.Diarization
-	}
-
 	// Parse request body parameters, overriding defaults
 	if err := c.ShouldBindJSON(&requestParams); err != nil {
 		// Use defaults if JSON parsing fails
+		fmt.Printf("DEBUG: Failed to parse JSON parameters: %v\n", err)
 	}
+	
+	// Debug: log what we received
+	fmt.Printf("DEBUG: Parsed parameters for job %s: Diarize=%v\n", jobID, requestParams.Diarize)
 
 	// Update job with parameters
 	job.Parameters = requestParams

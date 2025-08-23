@@ -105,7 +105,7 @@ func (ws *WhisperXService) ensurePythonEnv() error {
 	}
 	
 	// Check if WhisperX is installed
-	cmd := exec.Command(ws.config.UVPath, "run", "--project", envPath, "python", "-c", "import whisperx")
+	cmd := exec.Command(ws.config.UVPath, "run", "--native-tls", "--project", envPath, "python", "-c", "import whisperx")
 	if err := cmd.Run(); err != nil {
 		return ws.installWhisperX()
 	}
@@ -135,10 +135,11 @@ func (ws *WhisperXService) createPythonEnv() error {
 func (ws *WhisperXService) installWhisperX() error {
 	envPath := ws.config.WhisperXEnv
 	
-	// Install WhisperX
-	cmd := exec.Command(ws.config.UVPath, "add", "--project", envPath, 
+	// Install WhisperX and diarization dependencies
+	cmd := exec.Command(ws.config.UVPath, "add", "--native-tls", "--project", envPath, 
 		"git+https://github.com/m-bain/whisperX.git", 
-		"torch", "torchaudio", "numpy", "pandas")
+		"torch", "torchaudio", "numpy", "pandas", 
+		"pyannote.audio", "faster-whisper")
 	cmd.Dir = envPath
 	
 	if err := cmd.Run(); err != nil {
@@ -151,8 +152,19 @@ func (ws *WhisperXService) installWhisperX() error {
 // buildWhisperXCommand builds the WhisperX command
 func (ws *WhisperXService) buildWhisperXCommand(job *models.TranscriptionJob, outputDir string) (*exec.Cmd, error) {
 	p := job.Parameters
+	
+	// Debug: log diarization status
+	fmt.Printf("DEBUG: Job ID %s, Diarize parameter: %v, Job Diarization field: %v\n", job.ID, p.Diarize, job.Diarization)
+	
+	// If diarization is enabled, use our custom diarization script
+	if p.Diarize {
+		fmt.Printf("DEBUG: Using diarization script for job %s\n", job.ID)
+		return ws.buildDiarizationCommand(job, outputDir)
+	}
+	
+	// Otherwise use standard WhisperX command
 	args := []string{
-		"run", "--project", ws.config.WhisperXEnv, "python", "-m", "whisperx",
+		"run", "--native-tls", "--project", ws.config.WhisperXEnv, "python", "-m", "whisperx",
 		job.AudioPath,
 		"--output_dir", outputDir,
 	}
@@ -275,20 +287,75 @@ func (ws *WhisperXService) buildWhisperXCommand(job *models.TranscriptionJob, ou
 	return cmd, nil
 }
 
+// buildDiarizationCommand builds command for our custom diarization script
+func (ws *WhisperXService) buildDiarizationCommand(job *models.TranscriptionJob, outputDir string) (*exec.Cmd, error) {
+	p := job.Parameters
+	
+	// Prepare output file path
+	outputFile := filepath.Join(outputDir, "result.json")
+	
+	args := []string{
+		"run", "--native-tls", "--project", ws.config.WhisperXEnv, "python", 
+		filepath.Join(ws.config.WhisperXEnv, "diarize_transcript.py"),
+		job.AudioPath,
+		outputFile,
+	}
+	
+	// Core parameters
+	args = append(args, "--model", p.Model)
+	args = append(args, "--device", p.Device)
+	args = append(args, "--compute_type", p.ComputeType)
+	args = append(args, "--batch_size", strconv.Itoa(p.BatchSize))
+	
+	// Language
+	if p.Language != nil {
+		args = append(args, "--language", *p.Language)
+	}
+	
+	// Enable diarization
+	args = append(args, "--diarize")
+	
+	// Diarization parameters
+	if p.MinSpeakers != nil {
+		args = append(args, "--min_speakers", strconv.Itoa(*p.MinSpeakers))
+	}
+	if p.MaxSpeakers != nil {
+		args = append(args, "--max_speakers", strconv.Itoa(*p.MaxSpeakers))
+	}
+	if p.HfToken != nil {
+		args = append(args, "--hf_token", *p.HfToken)
+	}
+	
+	cmd := exec.Command(ws.config.UVPath, args...)
+	cmd.Env = append(os.Environ(), "PYTHONUNBUFFERED=1")
+	
+	// Debug: log the command being executed
+	fmt.Printf("DEBUG: Diarization command: %s %v\n", ws.config.UVPath, args)
+	
+	return cmd, nil
+}
+
 // parseAndSaveResult parses WhisperX output and saves to database
 func (ws *WhisperXService) parseAndSaveResult(jobID, resultPath string) error {
-	// Find the actual result file (WhisperX creates files based on input filename)
-	files, err := filepath.Glob(filepath.Join(filepath.Dir(resultPath), "*.json"))
-	if err != nil {
-		return fmt.Errorf("failed to find result files: %v", err)
-	}
+	var resultFile string
 	
-	if len(files) == 0 {
-		return fmt.Errorf("no result files found")
+	// Check if result.json exists (from diarization script)
+	if _, err := os.Stat(resultPath); err == nil {
+		resultFile = resultPath
+	} else {
+		// Find the actual result file (WhisperX creates files based on input filename)
+		files, err := filepath.Glob(filepath.Join(filepath.Dir(resultPath), "*.json"))
+		if err != nil {
+			return fmt.Errorf("failed to find result files: %v", err)
+		}
+		
+		if len(files) == 0 {
+			return fmt.Errorf("no result files found")
+		}
+		
+		// Use the first JSON file found
+		resultFile = files[0]
 	}
-	
-	// Use the first JSON file found
-	resultFile := files[0]
 	
 	// Read the result file
 	data, err := os.ReadFile(resultFile)

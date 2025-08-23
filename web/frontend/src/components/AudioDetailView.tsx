@@ -20,6 +20,7 @@ interface Transcript {
 		start: number;
 		end: number;
 		text: string;
+		speaker?: string;
 	}>;
 }
 
@@ -426,10 +427,15 @@ export function AudioDetailView({ audioId }: AudioDetailViewProps) {
 												key={index}
 												className="flex gap-4 p-3 rounded-lg bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors duration-150"
 											>
-												<div className="flex-shrink-0">
+												<div className="flex-shrink-0 flex flex-col gap-2">
 													<span className="inline-block px-2 py-1 text-xs font-mono bg-blue-100 dark:bg-blue-700 text-blue-800 dark:text-blue-200 rounded">
 														{formatTimestamp(segment.start)}
 													</span>
+													{segment.speaker && (
+														<span className="inline-block px-2 py-1 text-xs font-medium bg-green-100 dark:bg-green-700 text-green-800 dark:text-green-200 rounded">
+															{segment.speaker}
+														</span>
+													)}
 												</div>
 												<div className="flex-1">
 													<p className="text-gray-700 dark:text-gray-200 leading-relaxed">
