@@ -24,6 +24,9 @@ vite.config.ts.timestamp-*
 .aider*
 .env
 .env
-data
 samples
 scriberr
+data/scriberr.db
+data/transcripts
+data/uploads
+data/whisperx-env/test
