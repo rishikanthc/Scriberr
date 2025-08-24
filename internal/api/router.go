@@ -42,6 +42,7 @@ func SetupRoutes(handler *Handler, authService *auth.AuthService) *gin.Engine {
 		auth := v1.Group("/auth")
 		{
 			auth.POST("/login", handler.Login)
+			auth.POST("/logout", handler.Logout)
 		}
 
 		// Transcription routes (require authentication)
@@ -85,7 +86,7 @@ func SetupRoutes(handler *Handler, authService *auth.AuthService) *gin.Engine {
 	}
 
 	// Set up static file serving for React app
-	web.SetupStaticRoutes(router)
+	web.SetupStaticRoutes(router, authService)
 
 	return router
 }

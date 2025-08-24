@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"strings"
 
+	"scriberr/internal/auth"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -29,7 +31,7 @@ func GetIndexHTML() ([]byte, error) {
 }
 
 // SetupStaticRoutes configures static file serving in Gin
-func SetupStaticRoutes(router *gin.Engine) {
+func SetupStaticRoutes(router *gin.Engine, authService *auth.AuthService) {
 
 	// Serve static assets (CSS, JS, images) directly from embedded filesystem
 	router.GET("/assets/*filepath", func(c *gin.Context) {
@@ -68,6 +70,7 @@ func SetupStaticRoutes(router *gin.Engine) {
 		c.Data(http.StatusOK, "image/svg+xml", fileContent)
 	})
 
+
 	// Serve index.html for root and any unmatched routes (SPA behavior)
 	router.NoRoute(func(c *gin.Context) {
 		// For API routes, return 404
@@ -77,6 +80,7 @@ func SetupStaticRoutes(router *gin.Engine) {
 		}
 
 		// For all other routes, serve the React app
+		// The React app will handle authentication client-side
 		indexHTML, err := GetIndexHTML()
 		if err != nil {
 			c.String(http.StatusInternalServerError, "Error loading page")

@@ -721,6 +721,20 @@ func (h *Handler) Login(c *gin.Context) {
 	c.JSON(http.StatusOK, response)
 }
 
+// @Summary Logout user
+// @Description Logout user and invalidate token (client-side action)
+// @Tags auth
+// @Produce json
+// @Success 200 {object} map[string]string
+// @Security BearerAuth
+// @Router /api/v1/auth/logout [post]
+func (h *Handler) Logout(c *gin.Context) {
+	// In a JWT-based system, logout is typically handled client-side
+	// by removing the token. For more security, you could maintain
+	// a blacklist of tokens on the server side.
+	c.JSON(http.StatusOK, gin.H{"message": "Logged out successfully"})
+}
+
 // @Summary Get queue statistics
 // @Description Get current queue statistics
 // @Tags admin

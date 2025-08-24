@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { Header } from "./Header";
 import { AudioFilesTable } from "./AudioFilesTable";
+import { useAuth } from "../contexts/AuthContext";
 
 export function Homepage() {
+	const { getAuthHeaders } = useAuth();
 	const [refreshTrigger, setRefreshTrigger] = useState(0);
 
 	const handleFileSelect = async (file: File) => {
@@ -14,7 +16,7 @@ export function Homepage() {
 			const response = await fetch("/api/v1/transcription/upload", {
 				method: "POST",
 				headers: {
-					"X-API-Key": "dev-api-key-123",
+					...getAuthHeaders(),
 				},
 				body: formData,
 			});

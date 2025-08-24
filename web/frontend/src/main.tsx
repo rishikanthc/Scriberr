@@ -5,16 +5,22 @@ import './App.css'
 import App from './App.tsx'
 import { ThemeProvider } from './contexts/ThemeContext'
 import { RouterProvider } from './contexts/RouterContext'
+import { AuthProvider } from './contexts/AuthContext'
+import { ProtectedRoute } from './components/ProtectedRoute'
 import { TooltipProvider } from '@/components/ui/tooltip'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ThemeProvider>
-      <RouterProvider>
-        <TooltipProvider>
-          <App />
-        </TooltipProvider>
-      </RouterProvider>
+      <AuthProvider>
+        <RouterProvider>
+          <TooltipProvider>
+            <ProtectedRoute>
+              <App />
+            </ProtectedRoute>
+          </TooltipProvider>
+        </RouterProvider>
+      </AuthProvider>
     </ThemeProvider>
   </StrictMode>,
 )

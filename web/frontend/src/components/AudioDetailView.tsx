@@ -5,6 +5,7 @@ import { Button } from "./ui/button";
 import { useRouter } from "../contexts/RouterContext";
 import { useTheme } from "../contexts/ThemeContext";
 import { ThemeSwitcher } from "./ThemeSwitcher";
+import { useAuth } from "../contexts/AuthContext";
 
 interface AudioFile {
 	id: string;
@@ -31,6 +32,7 @@ interface AudioDetailViewProps {
 export function AudioDetailView({ audioId }: AudioDetailViewProps) {
 	const { navigate } = useRouter();
 	const { theme } = useTheme();
+	const { getAuthHeaders } = useAuth();
 	const [audioFile, setAudioFile] = useState<AudioFile | null>(null);
 	const [transcript, setTranscript] = useState<Transcript | null>(null);
 	const [loading, setLoading] = useState(true);
@@ -95,7 +97,7 @@ export function AudioDetailView({ audioId }: AudioDetailViewProps) {
 			// Fetch audio file details
 			const audioResponse = await fetch(`/api/v1/transcription/${audioId}`, {
 				headers: {
-					"X-API-Key": "dev-api-key-123",
+					...getAuthHeaders(),
 				},
 			});
 
@@ -112,7 +114,7 @@ export function AudioDetailView({ audioId }: AudioDetailViewProps) {
 						`/api/v1/transcription/${audioId}/transcript`,
 						{
 							headers: {
-								"X-API-Key": "dev-api-key-123",
+								...getAuthHeaders(),
 							},
 						},
 					);
@@ -167,7 +169,7 @@ export function AudioDetailView({ audioId }: AudioDetailViewProps) {
 
 			const response = await fetch(audioUrl, {
 				headers: {
-					"X-API-Key": "dev-api-key-123",
+					...getAuthHeaders(),
 				},
 			});
 

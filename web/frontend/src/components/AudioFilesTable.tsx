@@ -53,6 +53,7 @@ import { Input } from "@/components/ui/input";
 import { TranscriptionConfigDialog, type WhisperXParams } from "./TranscriptionConfigDialog";
 import { TranscribeDDialog } from "./TranscribeDDialog";
 import { useRouter } from "../contexts/RouterContext";
+import { useAuth } from "../contexts/AuthContext";
 import {
 	useReactTable,
 	getCoreRowModel,
@@ -131,6 +132,7 @@ export function AudioFilesTable({
 	onTranscribe,
 }: AudioFilesTableProps) {
 	const { navigate } = useRouter();
+	const { getAuthHeaders } = useAuth();
 	const [data, setData] = useState<AudioFile[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [isPageChanging, setIsPageChanging] = useState(false);
@@ -176,7 +178,7 @@ export function AudioFilesTable({
 			
 			const response = await fetch(`/api/v1/transcription/list?${params}`, {
 				headers: {
-					"X-API-Key": "dev-api-key-123",
+					...getAuthHeaders(),
 				},
 			});
 
@@ -210,7 +212,7 @@ export function AudioFilesTable({
 		try {
 			const response = await fetch("/api/v1/admin/queue/stats", {
 				headers: {
-					"X-API-Key": "dev-api-key-123",
+					...getAuthHeaders(),
 				},
 			});
 
@@ -263,7 +265,7 @@ export function AudioFilesTable({
 			const response = await fetch(`/api/v1/transcription/${selectedJobId}/start`, {
 				method: "POST",
 				headers: {
-					"X-API-Key": "dev-api-key-123",
+					...getAuthHeaders(),
 					"Content-Type": "application/json",
 				},
 				body: JSON.stringify(params),
@@ -297,7 +299,7 @@ export function AudioFilesTable({
 			const response = await fetch(`/api/v1/transcription/${selectedJobId}/start`, {
 				method: "POST",
 				headers: {
-					"X-API-Key": "dev-api-key-123",
+					...getAuthHeaders(),
 					"Content-Type": "application/json",
 				},
 				body: JSON.stringify(params),
@@ -335,7 +337,7 @@ export function AudioFilesTable({
 			const response = await fetch(`/api/v1/transcription/${jobId}`, {
 				method: "DELETE",
 				headers: {
-					"X-API-Key": "dev-api-key-123",
+					...getAuthHeaders(),
 				},
 			});
 
@@ -361,7 +363,7 @@ export function AudioFilesTable({
 			const response = await fetch(`/api/v1/transcription/${jobId}/kill`, {
 				method: "POST",
 				headers: {
-					"X-API-Key": "dev-api-key-123",
+					...getAuthHeaders(),
 				},
 			});
 

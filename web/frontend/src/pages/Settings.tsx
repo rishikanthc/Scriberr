@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { ArrowLeft, Check, ChevronsUpDown } from "lucide-react";
+import { useAuth } from "../contexts/AuthContext";
 import { Button } from "../components/ui/button";
 import {
   Command,
@@ -34,6 +35,7 @@ interface TranscriptionProfile {
 
 export function Settings() {
 	const { navigate } = useRouter();
+	const { getAuthHeaders } = useAuth();
 	const [profileDialogOpen, setProfileDialogOpen] = useState(false);
 	const [editingProfile, setEditingProfile] = useState<TranscriptionProfile | null>(null);
 	const [refreshTrigger, setRefreshTrigger] = useState(0);
@@ -49,7 +51,7 @@ export function Settings() {
 		try {
 			const response = await fetch("/api/v1/profiles/", {
 				headers: {
-					"X-API-Key": "dev-api-key-123",
+					...getAuthHeaders(),
 				},
 			});
 
@@ -96,7 +98,7 @@ export function Settings() {
 				method,
 				headers: {
 					"Content-Type": "application/json",
-					"X-API-Key": "dev-api-key-123",
+					...getAuthHeaders(),
 				},
 				body: JSON.stringify({
 					name: params.profileName,
@@ -124,7 +126,7 @@ export function Settings() {
 			const response = await fetch(`/api/v1/profiles/${profileId}/set-default`, {
 				method: "POST",
 				headers: {
-					"X-API-Key": "dev-api-key-123",
+					...getAuthHeaders(),
 				},
 			});
 

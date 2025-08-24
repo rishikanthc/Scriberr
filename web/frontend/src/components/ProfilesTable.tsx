@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { MoreVertical, Trash2, Settings, Terminal } from "lucide-react";
 import { Button } from "./ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
+import { useAuth } from "../contexts/AuthContext";
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -36,6 +37,7 @@ export function ProfilesTable({
 	onProfileChange,
 	onEditProfile,
 }: ProfilesTableProps) {
+	const { getAuthHeaders } = useAuth();
 	const [profiles, setProfiles] = useState<TranscriptionProfile[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [openPopovers, setOpenPopovers] = useState<Record<string, boolean>>({});
@@ -48,7 +50,7 @@ export function ProfilesTable({
 			setLoading(true);
 			const response = await fetch("/api/v1/profiles", {
 				headers: {
-					"X-API-Key": "dev-api-key-123",
+					...getAuthHeaders(),
 				},
 			});
 
@@ -79,7 +81,7 @@ export function ProfilesTable({
 				const response = await fetch(`/api/v1/profiles/${profileId}`, {
 					method: "DELETE",
 					headers: {
-						"X-API-Key": "dev-api-key-123",
+						...getAuthHeaders(),
 					},
 				});
 

@@ -6,11 +6,12 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { ChevronDown, Upload, Mic, Settings } from 'lucide-react'
+import { ChevronDown, Upload, Mic, Settings, LogOut } from 'lucide-react'
 import { ScriberrLogo } from './ScriberrLogo'
 import { ThemeSwitcher } from './ThemeSwitcher'
 import { AudioRecorder } from './AudioRecorder'
 import { useRouter } from '../contexts/RouterContext'
+import { useAuth } from '../contexts/AuthContext'
 
 interface HeaderProps {
   onFileSelect: (file: File) => void
@@ -18,6 +19,7 @@ interface HeaderProps {
 
 export function Header({ onFileSelect }: HeaderProps) {
   const { navigate } = useRouter()
+  const { logout } = useAuth()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [isRecorderOpen, setIsRecorderOpen] = useState(false)
 
@@ -31,6 +33,10 @@ export function Header({ onFileSelect }: HeaderProps) {
 
   const handleSettingsClick = () => {
     navigate({ path: 'settings' })
+  }
+
+  const handleLogout = () => {
+    logout()
   }
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -54,7 +60,7 @@ export function Header({ onFileSelect }: HeaderProps) {
         {/* Left side - Logo */}
         <ScriberrLogo />
         
-        {/* Right side - Settings, Theme Switcher and Add Audio Dropdown */}
+        {/* Right side - Settings, Theme Switcher, Logout and Add Audio Dropdown */}
         <div className="flex items-center gap-4">
           <Button
             variant="ghost"
@@ -63,6 +69,14 @@ export function Header({ onFileSelect }: HeaderProps) {
             className="h-10 w-10 p-0 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200"
           >
             <Settings className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleLogout}
+            className="h-10 w-10 p-0 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200"
+          >
+            <LogOut className="h-5 w-5 text-gray-600 dark:text-gray-400" />
           </Button>
           <ThemeSwitcher />
           

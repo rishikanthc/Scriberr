@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
 import type { WhisperXParams } from "./TranscriptionConfigDialog";
+import { useAuth } from "../contexts/AuthContext";
 
 interface TranscriptionProfile {
   id: string;
@@ -42,6 +43,7 @@ export function TranscribeDDialog({
   onStartTranscription,
   loading = false,
 }: TranscribeDDialogProps) {
+  const { getAuthHeaders } = useAuth();
   const [profiles, setProfiles] = useState<TranscriptionProfile[]>([]);
   const [selectedProfileId, setSelectedProfileId] = useState<string>("");
   const [profilesLoading, setProfilesLoading] = useState(false);
@@ -58,7 +60,7 @@ export function TranscribeDDialog({
       setProfilesLoading(true);
       const response = await fetch("/api/v1/profiles", {
         headers: {
-          "X-API-Key": "dev-api-key-123",
+          ...getAuthHeaders(),
         },
       });
 
