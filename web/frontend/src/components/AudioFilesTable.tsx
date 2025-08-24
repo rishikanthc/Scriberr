@@ -17,6 +17,7 @@ import {
 	ChevronRight,
 	ChevronsLeft,
 	ChevronsRight,
+	Settings,
 } from "lucide-react";
 import {
 	Popover,
@@ -50,6 +51,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { TranscriptionConfigDialog, type WhisperXParams } from "./TranscriptionConfigDialog";
+import { TranscribeDDialog } from "./TranscribeDDialog";
 import { useRouter } from "../contexts/RouterContext";
 import {
 	useReactTable,
@@ -147,6 +149,7 @@ export function AudioFilesTable({
 	const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
 	const [transcriptionLoading, setTranscriptionLoading] = useState(false);
 	const [killingJobs, setKillingJobs] = useState<Set<string>>(new Set());
+	const [transcribeDDialogOpen, setTranscribeDDialogOpen] = useState(false);
 
 	const fetchAudioFiles = useCallback(async (page?: number, limit?: number, searchQuery?: string, isInitialLoad = false) => {
 		try {
@@ -237,6 +240,19 @@ export function AudioFilesTable({
 		setConfigDialogOpen(true);
 	}, [data]);
 
+	// Handle transcribe-D action - opens profile selection dialog
+	const handleTranscribeD = useCallback((jobId: string) => {
+		const job = data.find((f) => f.id === jobId);
+		if (!job) return;
+
+		// Close the popover
+		setOpenPopovers((prev) => ({ ...prev, [jobId]: false }));
+		
+		// Open Transcribe-D dialog
+		setSelectedJobId(jobId);
+		setTranscribeDDialogOpen(true);
+	}, [data]);
+
 	// Handle actual transcription start with parameters
 	const handleStartTranscription = useCallback(async (params: WhisperXParams) => {
 		if (!selectedJobId) return;
@@ -256,6 +272,40 @@ export function AudioFilesTable({
 			if (response.ok) {
 				// Close dialog and refresh
 				setConfigDialogOpen(false);
+				setSelectedJobId(null);
+				fetchAudioFiles();
+				if (onTranscribe) {
+					onTranscribe(selectedJobId);
+				}
+			} else {
+				alert("Failed to start transcription");
+			}
+		} catch {
+			alert("Error starting transcription");
+		} finally {
+			setTranscriptionLoading(false);
+		}
+	}, [selectedJobId, fetchAudioFiles, onTranscribe]);
+
+	// Handle actual transcription start with profile parameters
+	const handleStartTranscriptionWithProfile = useCallback(async (params: WhisperXParams, _profileId?: string) => {
+		if (!selectedJobId) return;
+
+		try {
+			setTranscriptionLoading(true);
+
+			const response = await fetch(`/api/v1/transcription/${selectedJobId}/start`, {
+				method: "POST",
+				headers: {
+					"X-API-Key": "dev-api-key-123",
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify(params),
+			});
+
+			if (response.ok) {
+				// Close dialog and refresh
+				setTranscribeDDialogOpen(false);
 				setSelectedJobId(null);
 				fetchAudioFiles();
 				if (onTranscribe) {
@@ -607,6 +657,17 @@ export function AudioFilesTable({
 											Transcribe
 										</Button>
 										
+										<Button
+											variant="ghost"
+											size="sm"
+											className="w-full justify-start h-8 text-sm hover:bg-gray-100 dark:hover:bg-gray-700"
+											disabled={!canTranscribe(file)}
+											onClick={() => handleTranscribeD(file.id)}
+										>
+											<Settings className="mr-2 h-4 w-4" />
+											Transcribe-D
+										</Button>
+										
 										{file.status === "processing" && (
 											<AlertDialog>
 												<AlertDialogTrigger asChild>
@@ -702,7 +763,7 @@ export function AudioFilesTable({
 				enableGlobalFilter: false,
 			},
 		],
-		[openPopovers, queuePositions, getStatusIcon, handleAudioClick, handleTranscribe, handleDelete, canTranscribe, getFileName]
+		[openPopovers, queuePositions, getStatusIcon, handleAudioClick, handleTranscribe, handleTranscribeD, handleDelete, canTranscribe, getFileName, killingJobs, handleKillJob]
 	);
 
 	// Create the table instance with server-side pagination and search
@@ -921,6 +982,14 @@ export function AudioFilesTable({
 				open={configDialogOpen}
 				onOpenChange={setConfigDialogOpen}
 				onStartTranscription={handleStartTranscription}
+				loading={transcriptionLoading}
+			/>
+
+			{/* Transcribe-D Dialog */}
+			<TranscribeDDialog
+				open={transcribeDDialogOpen}
+				onOpenChange={setTranscribeDDialogOpen}
+				onStartTranscription={handleStartTranscriptionWithProfile}
 				loading={transcriptionLoading}
 			/>
 		</div>
