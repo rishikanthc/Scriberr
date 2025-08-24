@@ -466,7 +466,7 @@ func (h *Handler) StartTranscription(c *gin.Context) {
 	}
 	
 	// Debug: log what we received
-	fmt.Printf("DEBUG: Parsed parameters for job %s: Diarize=%v\n", jobID, requestParams.Diarize)
+	fmt.Printf("DEBUG: Parsed parameters for job %s: Diarize=%v, DiarizeModel=%s\n", jobID, requestParams.Diarize, requestParams.DiarizeModel)
 
 	// Update job with parameters
 	job.Parameters = requestParams
@@ -491,6 +491,44 @@ func (h *Handler) StartTranscription(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, job)
+}
+
+// @Summary Kill running transcription job
+// @Description Cancel a currently running transcription job
+// @Tags transcription
+// @Produce json
+// @Param id path string true "Job ID"
+// @Success 200 {object} map[string]string
+// @Failure 404 {object} map[string]string
+// @Failure 400 {object} map[string]string
+// @Router /api/v1/transcription/{id}/kill [post]
+// @Security ApiKeyAuth
+func (h *Handler) KillJob(c *gin.Context) {
+	jobID := c.Param("id")
+	
+	var job models.TranscriptionJob
+	if err := database.DB.Where("id = ?", jobID).First(&job).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Job not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get job"})
+		return
+	}
+	
+	// Check if job is currently processing
+	if job.Status != models.StatusProcessing {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Job is not currently running"})
+		return
+	}
+	
+	// Attempt to kill the job
+	if err := h.taskQueue.KillJob(jobID); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	
+	c.JSON(http.StatusOK, gin.H{"message": "Job cancellation requested"})
 }
 
 // @Summary Delete transcription job
@@ -759,4 +797,169 @@ func getFormBoolWithDefault(c *gin.Context, key string, defaultValue bool) bool 
 		}
 	}
 	return defaultValue
+}
+
+// Profile API Handlers
+
+// @Summary List transcription profiles
+// @Description Get list of all transcription profiles
+// @Tags profiles
+// @Produce json
+// @Success 200 {array} models.TranscriptionProfile
+// @Router /api/v1/profiles [get]
+// @Security ApiKeyAuth
+func (h *Handler) ListProfiles(c *gin.Context) {
+	var profiles []models.TranscriptionProfile
+	if err := database.DB.Order("created_at DESC").Find(&profiles).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch profiles"})
+		return
+	}
+	c.JSON(http.StatusOK, profiles)
+}
+
+// @Summary Create transcription profile
+// @Description Create a new transcription profile
+// @Tags profiles
+// @Accept json
+// @Produce json
+// @Param profile body models.TranscriptionProfile true "Profile data"
+// @Success 201 {object} models.TranscriptionProfile
+// @Failure 400 {object} map[string]string
+// @Router /api/v1/profiles [post]
+// @Security ApiKeyAuth
+func (h *Handler) CreateProfile(c *gin.Context) {
+	var profile models.TranscriptionProfile
+	if err := c.ShouldBindJSON(&profile); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request data"})
+		return
+	}
+
+	// Validate required fields
+	if profile.Name == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Profile name is required"})
+		return
+	}
+
+	// Check if profile name already exists
+	var existingProfile models.TranscriptionProfile
+	if err := database.DB.Where("name = ?", profile.Name).First(&existingProfile).Error; err == nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Profile name already exists"})
+		return
+	}
+
+	if err := database.DB.Create(&profile).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create profile"})
+		return
+	}
+
+	c.JSON(http.StatusCreated, profile)
+}
+
+// @Summary Get transcription profile
+// @Description Get a transcription profile by ID
+// @Tags profiles
+// @Produce json
+// @Param id path string true "Profile ID"
+// @Success 200 {object} models.TranscriptionProfile
+// @Failure 404 {object} map[string]string
+// @Router /api/v1/profiles/{id} [get]
+// @Security ApiKeyAuth
+func (h *Handler) GetProfile(c *gin.Context) {
+	profileID := c.Param("id")
+	
+	var profile models.TranscriptionProfile
+	if err := database.DB.Where("id = ?", profileID).First(&profile).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Profile not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get profile"})
+		return
+	}
+
+	c.JSON(http.StatusOK, profile)
+}
+
+// @Summary Update transcription profile
+// @Description Update a transcription profile
+// @Tags profiles
+// @Accept json
+// @Produce json
+// @Param id path string true "Profile ID"
+// @Param profile body models.TranscriptionProfile true "Updated profile data"
+// @Success 200 {object} models.TranscriptionProfile
+// @Failure 400 {object} map[string]string
+// @Failure 404 {object} map[string]string
+// @Router /api/v1/profiles/{id} [put]
+// @Security ApiKeyAuth
+func (h *Handler) UpdateProfile(c *gin.Context) {
+	profileID := c.Param("id")
+	
+	var existingProfile models.TranscriptionProfile
+	if err := database.DB.Where("id = ?", profileID).First(&existingProfile).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Profile not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get profile"})
+		return
+	}
+
+	var updatedProfile models.TranscriptionProfile
+	if err := c.ShouldBindJSON(&updatedProfile); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request data"})
+		return
+	}
+
+	// Validate required fields
+	if updatedProfile.Name == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Profile name is required"})
+		return
+	}
+
+	// Check if profile name already exists (excluding current profile)
+	var nameCheck models.TranscriptionProfile
+	if err := database.DB.Where("name = ? AND id != ?", updatedProfile.Name, profileID).First(&nameCheck).Error; err == nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Profile name already exists"})
+		return
+	}
+
+	// Update the profile
+	updatedProfile.ID = profileID // Ensure ID doesn't change
+	if err := database.DB.Save(&updatedProfile).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update profile"})
+		return
+	}
+
+	c.JSON(http.StatusOK, updatedProfile)
+}
+
+// @Summary Delete transcription profile
+// @Description Delete a transcription profile
+// @Tags profiles
+// @Produce json
+// @Param id path string true "Profile ID"
+// @Success 200 {object} map[string]string
+// @Failure 404 {object} map[string]string
+// @Router /api/v1/profiles/{id} [delete]
+// @Security ApiKeyAuth
+func (h *Handler) DeleteProfile(c *gin.Context) {
+	profileID := c.Param("id")
+	
+	var profile models.TranscriptionProfile
+	if err := database.DB.Where("id = ?", profileID).First(&profile).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Profile not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get profile"})
+		return
+	}
+
+	if err := database.DB.Delete(&profile).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete profile"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Profile deleted successfully"})
 }

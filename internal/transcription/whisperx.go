@@ -1,6 +1,7 @@
 package transcription
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -50,7 +51,7 @@ type Word struct {
 }
 
 // ProcessJob implements the JobProcessor interface
-func (ws *WhisperXService) ProcessJob(jobID string) error {
+func (ws *WhisperXService) ProcessJob(ctx context.Context, jobID string) error {
 	// Get the job from database
 	var job models.TranscriptionJob
 	if err := database.DB.Where("id = ?", jobID).First(&job).Error; err != nil {
@@ -79,8 +80,15 @@ func (ws *WhisperXService) ProcessJob(jobID string) error {
 		return fmt.Errorf("failed to build command: %v", err)
 	}
 
+	// Set context for cancellation support
+	cmdWithCtx := exec.CommandContext(ctx, cmd.Path, cmd.Args[1:]...)
+	cmdWithCtx.Env = cmd.Env
+
 	// Execute WhisperX
-	output, err := cmd.CombinedOutput()
+	output, err := cmdWithCtx.CombinedOutput()
+	if ctx.Err() == context.Canceled {
+		return fmt.Errorf("job was cancelled")
+	}
 	if err != nil {
 		fmt.Printf("DEBUG: WhisperX stderr/stdout: %s\n", string(output))
 		return fmt.Errorf("WhisperX execution failed: %v", err)

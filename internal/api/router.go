@@ -51,6 +51,7 @@ func SetupRoutes(handler *Handler, authService *auth.AuthService) *gin.Engine {
 			transcription.POST("/upload", handler.UploadAudio)
 			transcription.POST("/submit", handler.SubmitJob)
 			transcription.POST("/:id/start", handler.StartTranscription)
+			transcription.POST("/:id/kill", handler.KillJob)
 			transcription.GET("/:id/status", handler.GetJobStatus)
 			transcription.GET("/:id/transcript", handler.GetTranscript)
 			transcription.GET("/:id/audio", handler.GetAudioFile)
@@ -58,6 +59,17 @@ func SetupRoutes(handler *Handler, authService *auth.AuthService) *gin.Engine {
 			transcription.DELETE("/:id", handler.DeleteJob)
 			transcription.GET("/list", handler.ListJobs)
 			transcription.GET("/models", handler.GetSupportedModels)
+		}
+
+		// Profile routes (require authentication)
+		profiles := v1.Group("/profiles")
+		profiles.Use(middleware.AuthMiddleware(authService))
+		{
+			profiles.GET("/", handler.ListProfiles)
+			profiles.POST("/", handler.CreateProfile)
+			profiles.GET("/:id", handler.GetProfile)
+			profiles.PUT("/:id", handler.UpdateProfile)
+			profiles.DELETE("/:id", handler.DeleteProfile)
 		}
 
 		// Admin routes (require authentication)

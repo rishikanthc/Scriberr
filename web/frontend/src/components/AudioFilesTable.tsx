@@ -8,6 +8,7 @@ import {
 	Play,
 	Hash,
 	Trash2,
+	StopCircle,
 	ChevronUp,
 	ChevronDown,
 	ChevronsUpDown,
@@ -145,6 +146,7 @@ export function AudioFilesTable({
 	const [configDialogOpen, setConfigDialogOpen] = useState(false);
 	const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
 	const [transcriptionLoading, setTranscriptionLoading] = useState(false);
+	const [killingJobs, setKillingJobs] = useState<Set<string>>(new Set());
 
 	const fetchAudioFiles = useCallback(async (page?: number, limit?: number, searchQuery?: string, isInitialLoad = false) => {
 		try {
@@ -295,6 +297,38 @@ export function AudioFilesTable({
 			}
 		} catch {
 			alert("Error deleting audio file");
+		}
+	}, [fetchAudioFiles]);
+
+	// Handle kill action
+	const handleKillJob = useCallback(async (jobId: string) => {
+		// Close the popover
+		setOpenPopovers((prev) => ({ ...prev, [jobId]: false }));
+
+		try {
+			setKillingJobs((prev) => new Set(prev).add(jobId));
+			
+			const response = await fetch(`/api/v1/transcription/${jobId}/kill`, {
+				method: "POST",
+				headers: {
+					"X-API-Key": "dev-api-key-123",
+				},
+			});
+
+			if (response.ok) {
+				// Refresh to show updated status
+				fetchAudioFiles();
+			} else {
+				alert("Failed to kill transcription job");
+			}
+		} catch {
+			alert("Error killing transcription job");
+		} finally {
+			setKillingJobs((prev) => {
+				const newSet = new Set(prev);
+				newSet.delete(jobId);
+				return newSet;
+			});
 		}
 	}, [fetchAudioFiles]);
 
@@ -572,6 +606,55 @@ export function AudioFilesTable({
 											<Play className="mr-2 h-4 w-4" />
 											Transcribe
 										</Button>
+										
+										{file.status === "processing" && (
+											<AlertDialog>
+												<AlertDialogTrigger asChild>
+													<Button
+														variant="ghost"
+														size="sm"
+														className="w-full justify-start h-8 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 text-orange-500 dark:text-orange-400 hover:text-orange-600 dark:hover:text-orange-300"
+														disabled={killingJobs.has(file.id)}
+													>
+														{killingJobs.has(file.id) ? (
+															<>
+																<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+																Stopping...
+															</>
+														) : (
+															<>
+																<StopCircle className="mr-2 h-4 w-4" />
+																Stop
+															</>
+														)}
+													</Button>
+												</AlertDialogTrigger>
+												<AlertDialogContent className="bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700">
+													<AlertDialogHeader>
+														<AlertDialogTitle className="text-gray-900 dark:text-gray-100">
+															Stop Transcription
+														</AlertDialogTitle>
+														<AlertDialogDescription className="text-gray-600 dark:text-gray-400">
+															Are you sure you want to stop the transcription of "
+															{file.title || getFileName(file.audio_path)}
+															"? This will cancel the current transcription process.
+														</AlertDialogDescription>
+													</AlertDialogHeader>
+													<AlertDialogFooter>
+														<AlertDialogCancel className="bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700">
+															Cancel
+														</AlertDialogCancel>
+														<AlertDialogAction
+															className="bg-orange-600 text-white hover:bg-orange-700"
+															onClick={() => handleKillJob(file.id)}
+														>
+															Stop Transcription
+														</AlertDialogAction>
+													</AlertDialogFooter>
+												</AlertDialogContent>
+											</AlertDialog>
+										)}
+										
 										<AlertDialog>
 											<AlertDialogTrigger asChild>
 												<Button

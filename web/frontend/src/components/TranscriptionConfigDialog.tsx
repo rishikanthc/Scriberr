@@ -141,8 +141,12 @@ const PARAM_DESCRIPTIONS = {
 interface TranscriptionConfigDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onStartTranscription: (params: WhisperXParams) => void;
+  onStartTranscription: (params: WhisperXParams & { profileName?: string; profileDescription?: string }) => void;
   loading?: boolean;
+  isProfileMode?: boolean;
+  initialParams?: WhisperXParams;
+  initialName?: string;
+  initialDescription?: string;
 }
 
 const DEFAULT_PARAMS: WhisperXParams = {
@@ -299,15 +303,23 @@ export function TranscriptionConfigDialog({
   onOpenChange,
   onStartTranscription,
   loading = false,
+  isProfileMode = false,
+  initialParams,
+  initialName = "",
+  initialDescription = "",
 }: TranscriptionConfigDialogProps) {
   const [params, setParams] = useState<WhisperXParams>(DEFAULT_PARAMS);
+  const [profileName, setProfileName] = useState("");
+  const [profileDescription, setProfileDescription] = useState("");
 
-  // Reset to defaults when dialog opens
+  // Reset to defaults or initial values when dialog opens
   useEffect(() => {
     if (open) {
-      setParams(DEFAULT_PARAMS);
+      setParams(initialParams || DEFAULT_PARAMS);
+      setProfileName(initialName);
+      setProfileDescription(initialDescription);
     }
-  }, [open]);
+  }, [open, initialParams, initialName, initialDescription]);
 
   const updateParam = <K extends keyof WhisperXParams>(
     key: K,
@@ -317,18 +329,61 @@ export function TranscriptionConfigDialog({
   };
 
   const handleStartTranscription = () => {
-    onStartTranscription(params);
+    if (isProfileMode) {
+      onStartTranscription({ ...params, profileName, profileDescription });
+    } else {
+      onStartTranscription(params);
+    }
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700 p-8">
         <DialogHeader className="mb-6">
-          <DialogTitle className="text-gray-900 dark:text-gray-100">Transcription Configuration</DialogTitle>
+          <DialogTitle className="text-gray-900 dark:text-gray-100">
+            {isProfileMode 
+              ? (initialName ? `Edit "${initialName}"` : "New Transcription Profile")
+              : "Transcription Configuration"
+            }
+          </DialogTitle>
           <DialogDescription className="text-gray-600 dark:text-gray-400">
-            Configure WhisperX parameters for your transcription. Advanced settings allow fine-tuning quality and performance.
+            {isProfileMode 
+              ? (initialName ? "Update your transcription profile settings." : "Create a new profile to save and reuse your transcription settings.")
+              : "Configure WhisperX parameters for your transcription. Advanced settings allow fine-tuning quality and performance."
+            }
           </DialogDescription>
         </DialogHeader>
+
+        {isProfileMode && (
+          <div className="mb-6 space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="profileName" className="text-gray-700 dark:text-gray-300 font-medium">
+                Profile Name
+              </Label>
+              <Input
+                id="profileName"
+                value={profileName}
+                onChange={(e) => setProfileName(e.target.value)}
+                placeholder="Enter a name for this profile..."
+                className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="profileDescription" className="text-gray-700 dark:text-gray-300 font-medium">
+                Description <span className="text-gray-500 dark:text-gray-400 font-normal">(optional)</span>
+              </Label>
+              <Textarea
+                id="profileDescription"
+                value={profileDescription}
+                onChange={(e) => setProfileDescription(e.target.value)}
+                placeholder="Describe this profile's purpose..."
+                className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 resize-none"
+                rows={2}
+              />
+            </div>
+          </div>
+        )}
 
         <Tabs defaultValue="basic" className="w-full">
           <TabsList className="grid w-full grid-cols-4 bg-gray-100 dark:bg-gray-800">
@@ -1241,8 +1296,15 @@ export function TranscriptionConfigDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)} className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700">
             Cancel
           </Button>
-          <Button onClick={handleStartTranscription} disabled={loading} className="bg-blue-600 dark:bg-blue-700 hover:bg-blue-700 dark:hover:bg-blue-800 text-white">
-            {loading ? "Starting..." : "Start Transcription"}
+          <Button 
+            onClick={handleStartTranscription} 
+            disabled={loading || (isProfileMode && !profileName.trim())} 
+            className="bg-blue-600 dark:bg-blue-700 hover:bg-blue-700 dark:hover:bg-blue-800 text-white"
+          >
+            {loading 
+              ? (isProfileMode ? "Saving..." : "Starting...") 
+              : (isProfileMode ? "Save Profile" : "Start Transcription")
+            }
           </Button>
         </DialogFooter>
       </DialogContent>

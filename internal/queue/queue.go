@@ -19,11 +19,13 @@ type TaskQueue struct {
 	cancel       context.CancelFunc
 	wg           sync.WaitGroup
 	processor    JobProcessor
+	runningJobs  map[string]context.CancelFunc
+	jobsMutex    sync.RWMutex
 }
 
 // JobProcessor defines the interface for processing jobs
 type JobProcessor interface {
-	ProcessJob(jobID string) error
+	ProcessJob(ctx context.Context, jobID string) error
 }
 
 // NewTaskQueue creates a new task queue
@@ -36,6 +38,7 @@ func NewTaskQueue(workers int, processor JobProcessor) *TaskQueue {
 		ctx:         ctx,
 		cancel:      cancel,
 		processor:   processor,
+		runningJobs: make(map[string]context.CancelFunc),
 	}
 }
 
@@ -96,11 +99,31 @@ func (tq *TaskQueue) worker(id int) {
 				continue
 			}
 			
+			// Create context for this job and track it
+			jobCtx, jobCancel := context.WithCancel(tq.ctx)
+			tq.jobsMutex.Lock()
+			tq.runningJobs[jobID] = jobCancel
+			tq.jobsMutex.Unlock()
+			
 			// Process the job
-			if err := tq.processor.ProcessJob(jobID); err != nil {
-				log.Printf("Worker %d: Failed to process job %s: %v", id, jobID, err)
-				tq.updateJobStatus(jobID, models.StatusFailed)
-				tq.updateJobError(jobID, err.Error())
+			err := tq.processor.ProcessJob(jobCtx, jobID)
+			
+			// Remove job from running jobs
+			tq.jobsMutex.Lock()
+			delete(tq.runningJobs, jobID)
+			tq.jobsMutex.Unlock()
+			
+			// Handle result
+			if err != nil {
+				if jobCtx.Err() == context.Canceled {
+					log.Printf("Worker %d: Job %s was cancelled", id, jobID)
+					tq.updateJobStatus(jobID, models.StatusFailed)
+					tq.updateJobError(jobID, "Job was cancelled by user")
+				} else {
+					log.Printf("Worker %d: Failed to process job %s: %v", id, jobID, err)
+					tq.updateJobStatus(jobID, models.StatusFailed)
+					tq.updateJobError(jobID, err.Error())
+				}
 			} else {
 				log.Printf("Worker %d: Successfully processed job %s", id, jobID)
 				tq.updateJobStatus(jobID, models.StatusCompleted)
@@ -151,6 +174,29 @@ func (tq *TaskQueue) scanPendingJobs() {
 			break
 		}
 	}
+}
+
+// KillJob cancels a running job
+func (tq *TaskQueue) KillJob(jobID string) error {
+	tq.jobsMutex.Lock()
+	defer tq.jobsMutex.Unlock()
+	
+	if cancel, exists := tq.runningJobs[jobID]; exists {
+		log.Printf("Killing job %s", jobID)
+		cancel()
+		return nil
+	}
+	
+	return fmt.Errorf("job %s is not currently running", jobID)
+}
+
+// IsJobRunning checks if a job is currently being processed
+func (tq *TaskQueue) IsJobRunning(jobID string) bool {
+	tq.jobsMutex.RLock()
+	defer tq.jobsMutex.RUnlock()
+	
+	_, exists := tq.runningJobs[jobID]
+	return exists
 }
 
 // updateJobStatus updates the status of a job

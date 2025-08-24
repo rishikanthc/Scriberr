@@ -138,3 +138,21 @@ func (ak *APIKey) BeforeCreate(tx *gorm.DB) error {
 	}
 	return nil
 }
+
+// TranscriptionProfile represents a saved transcription configuration profile
+type TranscriptionProfile struct {
+	ID          string          `json:"id" gorm:"primaryKey;type:varchar(36)"`
+	Name        string          `json:"name" gorm:"type:varchar(255);not null"`
+	Description *string         `json:"description,omitempty" gorm:"type:text"`
+	Parameters  WhisperXParams  `json:"parameters" gorm:"embedded"`
+	CreatedAt   time.Time       `json:"created_at" gorm:"autoCreateTime"`
+	UpdatedAt   time.Time       `json:"updated_at" gorm:"autoUpdateTime"`
+}
+
+// BeforeCreate sets the ID if not already set
+func (tp *TranscriptionProfile) BeforeCreate(tx *gorm.DB) error {
+	if tp.ID == "" {
+		tp.ID = uuid.New().String()
+	}
+	return nil
+}
