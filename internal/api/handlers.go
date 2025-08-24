@@ -963,3 +963,32 @@ func (h *Handler) DeleteProfile(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"message": "Profile deleted successfully"})
 }
+
+// SetDefaultProfile sets a profile as the default profile
+func (h *Handler) SetDefaultProfile(c *gin.Context) {
+	profileID := c.Param("id")
+	if profileID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Profile ID is required"})
+		return
+	}
+
+	// Find the profile
+	var profile models.TranscriptionProfile
+	if err := database.DB.Where("id = ?", profileID).First(&profile).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Profile not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get profile"})
+		return
+	}
+
+	// Set this profile as default (the BeforeSave hook will handle unsetting other defaults)
+	profile.IsDefault = true
+	if err := database.DB.Save(&profile).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to set default profile"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Default profile set successfully", "profile": profile})
+}

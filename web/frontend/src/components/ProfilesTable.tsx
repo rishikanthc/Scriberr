@@ -1,11 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { MoreVertical, Trash2, Settings, Terminal } from "lucide-react";
 import { Button } from "./ui/button";
-import {
-	Popover,
-	PopoverContent,
-	PopoverTrigger,
-} from "./ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -23,6 +19,7 @@ interface TranscriptionProfile {
 	id: string;
 	name: string;
 	description?: string;
+	is_default: boolean;
 	parameters: WhisperXParams;
 	created_at: string;
 	updated_at: string;
@@ -34,11 +31,17 @@ interface ProfilesTableProps {
 	onEditProfile: (profile: TranscriptionProfile) => void;
 }
 
-export function ProfilesTable({ refreshTrigger, onProfileChange, onEditProfile }: ProfilesTableProps) {
+export function ProfilesTable({
+	refreshTrigger,
+	onProfileChange,
+	onEditProfile,
+}: ProfilesTableProps) {
 	const [profiles, setProfiles] = useState<TranscriptionProfile[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [openPopovers, setOpenPopovers] = useState<Record<string, boolean>>({});
-	const [deletingProfiles, setDeletingProfiles] = useState<Set<string>>(new Set());
+	const [deletingProfiles, setDeletingProfiles] = useState<Set<string>>(
+		new Set(),
+	);
 
 	const fetchProfiles = useCallback(async () => {
 		try {
@@ -66,34 +69,37 @@ export function ProfilesTable({ refreshTrigger, onProfileChange, onEditProfile }
 		fetchProfiles();
 	}, [refreshTrigger, fetchProfiles]);
 
-	const handleDelete = useCallback(async (profileId: string) => {
-		setOpenPopovers((prev) => ({ ...prev, [profileId]: false }));
+	const handleDelete = useCallback(
+		async (profileId: string) => {
+			setOpenPopovers((prev) => ({ ...prev, [profileId]: false }));
 
-		try {
-			setDeletingProfiles((prev) => new Set(prev).add(profileId));
-			
-			const response = await fetch(`/api/v1/profiles/${profileId}`, {
-				method: "DELETE",
-				headers: {
-					"X-API-Key": "dev-api-key-123",
-				},
-			});
+			try {
+				setDeletingProfiles((prev) => new Set(prev).add(profileId));
 
-			if (response.ok) {
-				onProfileChange();
-			} else {
-				alert("Failed to delete profile");
+				const response = await fetch(`/api/v1/profiles/${profileId}`, {
+					method: "DELETE",
+					headers: {
+						"X-API-Key": "dev-api-key-123",
+					},
+				});
+
+				if (response.ok) {
+					onProfileChange();
+				} else {
+					alert("Failed to delete profile");
+				}
+			} catch {
+				alert("Error deleting profile");
+			} finally {
+				setDeletingProfiles((prev) => {
+					const newSet = new Set(prev);
+					newSet.delete(profileId);
+					return newSet;
+				});
 			}
-		} catch {
-			alert("Error deleting profile");
-		} finally {
-			setDeletingProfiles((prev) => {
-				const newSet = new Set(prev);
-				newSet.delete(profileId);
-				return newSet;
-			});
-		}
-	}, [onProfileChange]);
+		},
+		[onProfileChange],
+	);
 
 	const formatDate = useCallback((dateString: string) => {
 		return new Date(dateString).toLocaleDateString("en-US", {
@@ -104,7 +110,6 @@ export function ProfilesTable({ refreshTrigger, onProfileChange, onEditProfile }
 			minute: "2-digit",
 		});
 	}, []);
-
 
 	if (loading) {
 		return (
@@ -138,7 +143,8 @@ export function ProfilesTable({ refreshTrigger, onProfileChange, onEditProfile }
 					No profiles yet
 				</h3>
 				<p className="text-gray-600 dark:text-gray-400 mb-6 max-w-sm mx-auto">
-					Create your first transcription profile to save and reuse your preferred settings.
+					Create your first transcription profile to save and reuse your
+					preferred settings.
 				</p>
 				<Button
 					onClick={() => {}}
@@ -156,12 +162,12 @@ export function ProfilesTable({ refreshTrigger, onProfileChange, onEditProfile }
 			{profiles.map((profile) => (
 				<div
 					key={profile.id}
-					className="group bg-gray-100 dark:bg-gray-800 rounded-lg p-4 hover:bg-gray-200 dark:hover:bg-gray-700 transition-all duration-200 cursor-pointer"
+					className="group bg-gray-100 dark:bg-gray-700 rounded-lg p-4 hover:bg-gray-200 dark:hover:bg-gray-600 transition-all duration-200 cursor-pointer"
 					onClick={() => onEditProfile(profile)}
 				>
 					<div className="flex items-center justify-between">
 						<div className="flex items-center gap-3 flex-1 min-w-0">
-							<div className="bg-gray-200 dark:bg-gray-700 rounded-md p-1.5">
+							<div className="bg-gray-200 dark:bg-gray-800 rounded-md p-1.5">
 								<Terminal className="h-3.5 w-3.5 text-gray-500 dark:text-gray-400" />
 							</div>
 							<div className="flex-1 min-w-0">
@@ -180,8 +186,8 @@ export function ProfilesTable({ refreshTrigger, onProfileChange, onEditProfile }
 								)}
 							</div>
 						</div>
-						
-						<div 
+
+						<div
 							className="opacity-0 group-hover:opacity-100 transition-opacity duration-200"
 							onClick={(e) => e.stopPropagation()}
 						>
@@ -222,7 +228,8 @@ export function ProfilesTable({ refreshTrigger, onProfileChange, onEditProfile }
 													Delete Profile
 												</AlertDialogTitle>
 												<AlertDialogDescription className="text-gray-600 dark:text-gray-400">
-													Are you sure you want to delete "{profile.name}"? This action cannot be undone.
+													Are you sure you want to delete "{profile.name}"? This
+													action cannot be undone.
 												</AlertDialogDescription>
 											</AlertDialogHeader>
 											<AlertDialogFooter>

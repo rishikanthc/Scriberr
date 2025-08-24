@@ -144,6 +144,7 @@ type TranscriptionProfile struct {
 	ID          string          `json:"id" gorm:"primaryKey;type:varchar(36)"`
 	Name        string          `json:"name" gorm:"type:varchar(255);not null"`
 	Description *string         `json:"description,omitempty" gorm:"type:text"`
+	IsDefault   bool            `json:"is_default" gorm:"type:boolean;default:false"`
 	Parameters  WhisperXParams  `json:"parameters" gorm:"embedded"`
 	CreatedAt   time.Time       `json:"created_at" gorm:"autoCreateTime"`
 	UpdatedAt   time.Time       `json:"updated_at" gorm:"autoUpdateTime"`
@@ -153,6 +154,17 @@ type TranscriptionProfile struct {
 func (tp *TranscriptionProfile) BeforeCreate(tx *gorm.DB) error {
 	if tp.ID == "" {
 		tp.ID = uuid.New().String()
+	}
+	return nil
+}
+
+// BeforeSave ensures only one profile can be default
+func (tp *TranscriptionProfile) BeforeSave(tx *gorm.DB) error {
+	if tp.IsDefault {
+		// Set all other profiles to not default
+		if err := tx.Model(&TranscriptionProfile{}).Where("id != ?", tp.ID).Update("is_default", false).Error; err != nil {
+			return err
+		}
 	}
 	return nil
 }

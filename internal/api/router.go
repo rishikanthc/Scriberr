@@ -70,6 +70,7 @@ func SetupRoutes(handler *Handler, authService *auth.AuthService) *gin.Engine {
 			profiles.GET("/:id", handler.GetProfile)
 			profiles.PUT("/:id", handler.UpdateProfile)
 			profiles.DELETE("/:id", handler.DeleteProfile)
+			profiles.POST("/:id/set-default", handler.SetDefaultProfile)
 		}
 
 		// Admin routes (require authentication)
