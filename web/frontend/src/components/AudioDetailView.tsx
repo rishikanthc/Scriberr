@@ -15,6 +15,14 @@ interface AudioFile {
 	audio_path: string;
 }
 
+interface WordSegment {
+	start: number;
+	end: number;
+	word: string;
+	score: number;
+	speaker?: string;
+}
+
 interface Transcript {
 	text: string;
 	segments?: Array<{
@@ -23,6 +31,7 @@ interface Transcript {
 		text: string;
 		speaker?: string;
 	}>;
+	word_segments?: WordSegment[];
 }
 
 interface AudioDetailViewProps {
@@ -40,8 +49,12 @@ export function AudioDetailView({ audioId }: AudioDetailViewProps) {
 	const [transcriptMode, setTranscriptMode] = useState<"compact" | "expanded">(
 		"compact",
 	);
+	const [currentTime, setCurrentTime] = useState(0);
+	const [currentWordIndex, setCurrentWordIndex] = useState<number | null>(null);
 	const waveformRef = useRef<HTMLDivElement>(null);
 	const wavesurferRef = useRef<WaveSurfer | null>(null);
+	const transcriptRef = useRef<HTMLDivElement>(null);
+	const highlightedWordRef = useRef<HTMLSpanElement>(null);
 
 	useEffect(() => {
 		console.log("AudioDetailView mounted, audioId:", audioId);
@@ -91,6 +104,59 @@ export function AudioDetailView({ audioId }: AudioDetailViewProps) {
 		};
 	}, [audioFile]);
 
+	// Update current word index based on audio time
+	useEffect(() => {
+		if (!transcript?.word_segments) {
+			return;
+		}
+
+		// Find the word that should be highlighted based on current time
+		const currentWordIdx = transcript.word_segments.findIndex(
+			(word) => {
+				// Use word's end time for more accurate highlighting
+				return currentTime >= word.start && currentTime <= word.end;
+			}
+		);
+
+		// If no exact match, find the closest upcoming word
+		const fallbackWordIdx = currentWordIdx === -1 
+			? transcript.word_segments.findIndex(word => word.start > currentTime) - 1
+			: currentWordIdx;
+
+		const finalWordIdx = Math.max(0, fallbackWordIdx);
+
+		if (finalWordIdx !== currentWordIndex && (isPlaying || currentTime > 0)) {
+			setCurrentWordIndex(finalWordIdx);
+		}
+
+		// Clear highlighting when audio is stopped and at the beginning
+		if (!isPlaying && currentTime === 0) {
+			setCurrentWordIndex(null);
+		}
+	}, [currentTime, transcript?.word_segments, isPlaying, currentWordIndex]);
+
+	// Auto-scroll to highlighted word
+	useEffect(() => {
+		if (currentWordIndex !== null && highlightedWordRef.current && transcriptRef.current) {
+			const highlightedElement = highlightedWordRef.current;
+			const container = transcriptRef.current;
+			
+			// Check if the highlighted word is outside the visible area
+			const containerRect = container.getBoundingClientRect();
+			const highlightedRect = highlightedElement.getBoundingClientRect();
+			
+			const isAboveView = highlightedRect.top < containerRect.top;
+			const isBelowView = highlightedRect.bottom > containerRect.bottom;
+			
+			if (isAboveView || isBelowView) {
+				highlightedElement.scrollIntoView({
+					behavior: 'smooth',
+					block: 'center',
+				});
+			}
+		}
+	}, [currentWordIndex]);
+
 	const fetchAudioDetails = async () => {
 		console.log("Fetching audio details for ID:", audioId);
 		try {
@@ -139,6 +205,7 @@ export function AudioDetailView({ audioId }: AudioDetailViewProps) {
 								setTranscript({
 									text: fullText,
 									segments: transcriptData.transcript.segments,
+									word_segments: transcriptData.transcript.word_segments,
 								});
 							}
 						}
@@ -233,6 +300,12 @@ export function AudioDetailView({ audioId }: AudioDetailViewProps) {
 
 			wavesurferRef.current.on("finish", () => {
 				setIsPlaying(false);
+				setCurrentWordIndex(null);
+			});
+
+			// Add time update listener for word highlighting
+			wavesurferRef.current.on("audioprocess", (time) => {
+				setCurrentTime(time);
 			});
 		} catch (error) {
 			console.error("Failed to initialize WaveSurfer:", error);
@@ -247,6 +320,79 @@ export function AudioDetailView({ audioId }: AudioDetailViewProps) {
 
 	const handleBack = () => {
 		navigate({ path: "home" });
+	};
+
+	// Handle word click to seek to that time
+	const handleWordClick = (word: WordSegment) => {
+		if (wavesurferRef.current) {
+			const duration = wavesurferRef.current.getDuration();
+			const progress = word.start / duration;
+			wavesurferRef.current.seekTo(progress);
+			// Manually update current time to ensure highlighting syncs immediately
+			setCurrentTime(word.start);
+		}
+	};
+
+	// Render transcript with word-level highlighting
+	const renderHighlightedTranscript = () => {
+		if (!transcript?.word_segments) {
+			return transcript?.text || '';
+		}
+
+		return transcript.word_segments.map((word, index) => {
+			const isHighlighted = index === currentWordIndex;
+			return (
+				<span
+					key={index}
+					ref={isHighlighted ? highlightedWordRef : undefined}
+					onClick={() => handleWordClick(word)}
+					className={`cursor-pointer transition-colors duration-150 hover:bg-blue-100 dark:hover:bg-blue-800 ${
+						isHighlighted
+							? 'bg-yellow-300 dark:bg-yellow-500 dark:text-black px-1 rounded'
+							: 'px-0.5'
+					}`}
+					title={`${formatTimestamp(word.start)} - Click to seek`}
+				>
+					{word.word}
+				</span>
+			);
+		});
+	};
+
+	// Render segment with word-level highlighting for expanded view
+	const renderSegmentWithHighlighting = (segment: any) => {
+		if (!transcript?.word_segments) {
+			return segment.text.trim();
+		}
+
+		// Find words that belong to this segment
+		const segmentWords = transcript.word_segments.filter(
+			word => word.start >= segment.start && word.end <= segment.end
+		);
+
+		if (segmentWords.length === 0) {
+			return segment.text.trim();
+		}
+
+		return segmentWords.map((word, index) => {
+			const globalIndex = transcript.word_segments?.findIndex(w => w === word) ?? -1;
+			const isHighlighted = globalIndex === currentWordIndex;
+			return (
+				<span
+					key={index}
+					ref={isHighlighted ? highlightedWordRef : undefined}
+					onClick={() => handleWordClick(word)}
+					className={`cursor-pointer transition-colors duration-150 hover:bg-blue-100 dark:hover:bg-blue-800 ${
+						isHighlighted
+							? 'bg-yellow-300 dark:bg-yellow-500 dark:text-black px-1 rounded'
+							: 'px-0.5'
+					}`}
+					title={`${formatTimestamp(word.start)} - Click to seek`}
+				>
+					{word.word}
+				</span>
+			);
+		});
 	};
 
 	const getFileName = (audioPath: string) => {
@@ -407,9 +553,12 @@ export function AudioDetailView({ audioId }: AudioDetailViewProps) {
 								}`}
 							>
 								{transcriptMode === "compact" && (
-									<div className="prose prose-gray dark:prose-invert max-w-none">
+									<div 
+										ref={transcriptRef}
+										className="prose prose-gray dark:prose-invert max-w-none max-h-96 overflow-y-auto"
+									>
 										<p className="text-gray-700 dark:text-gray-300 leading-relaxed">
-											{transcript.text}
+											{renderHighlightedTranscript()}
 										</p>
 									</div>
 								)}
@@ -423,7 +572,10 @@ export function AudioDetailView({ audioId }: AudioDetailViewProps) {
 								}`}
 							>
 								{transcriptMode === "expanded" && transcript.segments && (
-									<div className="space-y-4">
+									<div 
+										ref={transcriptRef}
+										className="space-y-4 max-h-96 overflow-y-auto"
+									>
 										{transcript.segments.map((segment, index) => (
 											<div
 												key={index}
@@ -441,7 +593,7 @@ export function AudioDetailView({ audioId }: AudioDetailViewProps) {
 												</div>
 												<div className="flex-1">
 													<p className="text-gray-700 dark:text-gray-200 leading-relaxed">
-														{segment.text.trim()}
+														{renderSegmentWithHighlighting(segment)}
 													</p>
 												</div>
 											</div>
