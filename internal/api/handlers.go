@@ -73,6 +73,19 @@ type RegistrationStatusResponse struct {
 	RequiresRegistration bool `json:"requiresRegistration"`
 }
 
+// ChangePasswordRequest represents the change password request
+type ChangePasswordRequest struct {
+	CurrentPassword string `json:"currentPassword" binding:"required"`
+	NewPassword     string `json:"newPassword" binding:"required,min=6"`
+	ConfirmPassword string `json:"confirmPassword" binding:"required"`
+}
+
+// ChangeUsernameRequest represents the change username request
+type ChangeUsernameRequest struct {
+	NewUsername string `json:"newUsername" binding:"required,min=3,max=50"`
+	Password    string `json:"password" binding:"required"`
+}
+
 // @Summary Upload audio file
 // @Description Upload an audio file without starting transcription
 // @Tags transcription
@@ -838,6 +851,122 @@ func (h *Handler) Register(c *gin.Context) {
 	response.User.Username = user.Username
 
 	c.JSON(http.StatusCreated, response)
+}
+
+// @Summary Change user password
+// @Description Change the current user's password
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Param request body ChangePasswordRequest true "Password change details"
+// @Success 200 {object} map[string]string
+// @Failure 400 {object} map[string]string
+// @Failure 401 {object} map[string]string
+// @Security BearerAuth
+// @Router /api/v1/auth/change-password [post]
+func (h *Handler) ChangePassword(c *gin.Context) {
+	// Get user ID from context (set by auth middleware)
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		return
+	}
+
+	var req ChangePasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request: " + err.Error()})
+		return
+	}
+
+	// Validate password confirmation
+	if req.NewPassword != req.ConfirmPassword {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "New passwords do not match"})
+		return
+	}
+
+	// Get current user
+	var user models.User
+	if err := database.DB.First(&user, userID).Error; err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not found"})
+		return
+	}
+
+	// Verify current password
+	if !auth.CheckPassword(req.CurrentPassword, user.Password) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Current password is incorrect"})
+		return
+	}
+
+	// Hash new password
+	hashedPassword, err := auth.HashPassword(req.NewPassword)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to secure new password"})
+		return
+	}
+
+	// Update password
+	if err := database.DB.Model(&user).Update("password", hashedPassword).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update password"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Password changed successfully"})
+}
+
+// @Summary Change username
+// @Description Change the current user's username
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Param request body ChangeUsernameRequest true "Username change details"
+// @Success 200 {object} map[string]string
+// @Failure 400 {object} map[string]string
+// @Failure 401 {object} map[string]string
+// @Failure 409 {object} map[string]string
+// @Security BearerAuth
+// @Router /api/v1/auth/change-username [post]
+func (h *Handler) ChangeUsername(c *gin.Context) {
+	// Get user ID from context (set by auth middleware)
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		return
+	}
+
+	var req ChangeUsernameRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request: " + err.Error()})
+		return
+	}
+
+	// Get current user
+	var user models.User
+	if err := database.DB.First(&user, userID).Error; err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not found"})
+		return
+	}
+
+	// Verify password
+	if !auth.CheckPassword(req.Password, user.Password) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Password is incorrect"})
+		return
+	}
+
+	// Check if new username already exists
+	var existingUser models.User
+	result := database.DB.Where("username = ? AND id != ?", req.NewUsername, userID).First(&existingUser)
+	if result.Error == nil {
+		c.JSON(http.StatusConflict, gin.H{"error": "Username already exists"})
+		return
+	}
+
+	// Update username
+	if err := database.DB.Model(&user).Update("username", req.NewUsername).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update username"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Username changed successfully"})
 }
 
 // @Summary Get queue statistics

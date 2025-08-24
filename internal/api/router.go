@@ -45,6 +45,14 @@ func SetupRoutes(handler *Handler, authService *auth.AuthService) *gin.Engine {
 			auth.POST("/register", handler.Register)
 			auth.POST("/login", handler.Login)
 			auth.POST("/logout", handler.Logout)
+			
+			// Account management routes (require authentication)
+			authProtected := auth.Group("")
+			authProtected.Use(middleware.AuthMiddleware(authService))
+			{
+				authProtected.POST("/change-password", handler.ChangePassword)
+				authProtected.POST("/change-username", handler.ChangeUsername)
+			}
 		}
 
 		// Transcription routes (require authentication)
