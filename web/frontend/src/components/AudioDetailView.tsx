@@ -137,16 +137,18 @@ export function AudioDetailView({ audioId }: AudioDetailViewProps) {
 
 	// Auto-scroll to highlighted word
 	useEffect(() => {
-		if (currentWordIndex !== null && highlightedWordRef.current && transcriptRef.current) {
+		if (currentWordIndex !== null && highlightedWordRef.current) {
 			const highlightedElement = highlightedWordRef.current;
-			const container = transcriptRef.current;
 			
-			// Check if the highlighted word is outside the visible area
-			const containerRect = container.getBoundingClientRect();
+			// Check if the highlighted word is outside the visible viewport
 			const highlightedRect = highlightedElement.getBoundingClientRect();
+			const viewportHeight = window.innerHeight;
 			
-			const isAboveView = highlightedRect.top < containerRect.top;
-			const isBelowView = highlightedRect.bottom > containerRect.bottom;
+			// Consider the word out of view if it's too close to the top or bottom edges
+			// This provides a buffer so the word isn't right at the edge
+			const buffer = viewportHeight * 0.2; // 20% buffer
+			const isAboveView = highlightedRect.top < buffer;
+			const isBelowView = highlightedRect.bottom > (viewportHeight - buffer);
 			
 			if (isAboveView || isBelowView) {
 				highlightedElement.scrollIntoView({
@@ -555,7 +557,7 @@ export function AudioDetailView({ audioId }: AudioDetailViewProps) {
 								{transcriptMode === "compact" && (
 									<div 
 										ref={transcriptRef}
-										className="prose prose-gray dark:prose-invert max-w-none max-h-96 overflow-y-auto overflow-x-hidden"
+										className="prose prose-gray dark:prose-invert max-w-none"
 									>
 										<p className="text-gray-700 dark:text-gray-300 leading-relaxed break-words">
 											{renderHighlightedTranscript()}
@@ -574,7 +576,7 @@ export function AudioDetailView({ audioId }: AudioDetailViewProps) {
 								{transcriptMode === "expanded" && transcript.segments && (
 									<div 
 										ref={transcriptRef}
-										className="space-y-4 max-h-96 overflow-y-auto overflow-x-hidden"
+										className="space-y-4"
 									>
 										{transcript.segments.map((segment, index) => (
 											<div
