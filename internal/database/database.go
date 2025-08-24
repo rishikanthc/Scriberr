@@ -37,6 +37,7 @@ func Initialize(dbPath string) error {
 		&models.User{},
 		&models.APIKey{},
 		&models.TranscriptionProfile{},
+		&models.LLMConfig{},
 	); err != nil {
 		return fmt.Errorf("failed to auto migrate: %v", err)
 	}

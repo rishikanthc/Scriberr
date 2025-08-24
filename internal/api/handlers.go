@@ -101,6 +101,25 @@ type CreateAPIKeyResponse struct {
 	Description string `json:"description,omitempty"`
 }
 
+// LLMConfigRequest represents the LLM configuration request
+type LLMConfigRequest struct {
+	Provider string  `json:"provider" binding:"required,oneof=ollama openai"`
+	BaseURL  *string `json:"base_url,omitempty"`
+	APIKey   *string `json:"api_key,omitempty"`
+	IsActive bool    `json:"is_active"`
+}
+
+// LLMConfigResponse represents the LLM configuration response
+type LLMConfigResponse struct {
+	ID        uint    `json:"id"`
+	Provider  string  `json:"provider"`
+	BaseURL   *string `json:"base_url,omitempty"`
+	HasAPIKey bool    `json:"has_api_key"` // Don't return actual API key
+	IsActive  bool    `json:"is_active"`
+	CreatedAt string  `json:"created_at"`
+	UpdatedAt string  `json:"updated_at"`
+}
+
 // APIKeyListResponse represents an API key in the list (without the actual key)
 type APIKeyListResponse struct {
 	ID          uint   `json:"id"`
@@ -1116,6 +1135,116 @@ func (h *Handler) DeleteAPIKey(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "API key deleted successfully"})
+}
+
+// @Summary Get LLM configuration
+// @Description Get the current active LLM configuration
+// @Tags llm
+// @Produce json
+// @Success 200 {object} LLMConfigResponse
+// @Failure 404 {object} map[string]string
+// @Security BearerAuth
+// @Router /api/v1/llm/config [get]
+func (h *Handler) GetLLMConfig(c *gin.Context) {
+	var config models.LLMConfig
+	if err := database.DB.Where("is_active = ?", true).First(&config).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			c.JSON(http.StatusNotFound, gin.H{"error": "No active LLM configuration found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch LLM configuration"})
+		return
+	}
+
+	response := LLMConfigResponse{
+		ID:        config.ID,
+		Provider:  config.Provider,
+		BaseURL:   config.BaseURL,
+		HasAPIKey: config.APIKey != nil && *config.APIKey != "",
+		IsActive:  config.IsActive,
+		CreatedAt: config.CreatedAt.Format("2006-01-02 15:04:05"),
+		UpdatedAt: config.UpdatedAt.Format("2006-01-02 15:04:05"),
+	}
+
+	c.JSON(http.StatusOK, response)
+}
+
+// @Summary Create or update LLM configuration
+// @Description Create or update LLM configuration settings
+// @Tags llm
+// @Accept json
+// @Produce json
+// @Param request body LLMConfigRequest true "LLM configuration details"
+// @Success 200 {object} LLMConfigResponse
+// @Failure 400 {object} map[string]string
+// @Security BearerAuth
+// @Router /api/v1/llm/config [post]
+func (h *Handler) SaveLLMConfig(c *gin.Context) {
+	var req LLMConfigRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request: " + err.Error()})
+		return
+	}
+
+	// Validate provider-specific requirements
+	if req.Provider == "ollama" && (req.BaseURL == nil || *req.BaseURL == "") {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Base URL is required for Ollama provider"})
+		return
+	}
+	if req.Provider == "openai" && (req.APIKey == nil || *req.APIKey == "") {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "API key is required for OpenAI provider"})
+		return
+	}
+
+	// Check if there's an existing active configuration
+	var existingConfig models.LLMConfig
+	err := database.DB.Where("is_active = ?", true).First(&existingConfig).Error
+	
+	if err != nil && err != gorm.ErrRecordNotFound {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to check existing configuration"})
+		return
+	}
+
+	var config models.LLMConfig
+	
+	if err == gorm.ErrRecordNotFound {
+		// No existing active config, create new one
+		config = models.LLMConfig{
+			Provider: req.Provider,
+			BaseURL:  req.BaseURL,
+			APIKey:   req.APIKey,
+			IsActive: req.IsActive,
+		}
+		
+		if err := database.DB.Create(&config).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create LLM configuration"})
+			return
+		}
+	} else {
+		// Update existing config
+		existingConfig.Provider = req.Provider
+		existingConfig.BaseURL = req.BaseURL
+		existingConfig.APIKey = req.APIKey
+		existingConfig.IsActive = req.IsActive
+		
+		if err := database.DB.Save(&existingConfig).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update LLM configuration"})
+			return
+		}
+		config = existingConfig
+	}
+
+	response := LLMConfigResponse{
+		ID:        config.ID,
+		Provider:  config.Provider,
+		BaseURL:   config.BaseURL,
+		HasAPIKey: config.APIKey != nil && *config.APIKey != "",
+		IsActive:  config.IsActive,
+		CreatedAt: config.CreatedAt.Format("2006-01-02 15:04:05"),
+		UpdatedAt: config.UpdatedAt.Format("2006-01-02 15:04:05"),
+	}
+
+	c.JSON(http.StatusOK, response)
 }
 
 // generateSecureAPIKey generates a cryptographically secure API key

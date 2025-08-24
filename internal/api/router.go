@@ -102,6 +102,14 @@ func SetupRoutes(handler *Handler, authService *auth.AuthService) *gin.Engine {
 				queue.GET("/stats", handler.GetQueueStats)
 			}
 		}
+
+		// LLM configuration routes (require authentication)
+		llm := v1.Group("/llm")
+		llm.Use(middleware.AuthMiddleware(authService))
+		{
+			llm.GET("/config", handler.GetLLMConfig)
+			llm.POST("/config", handler.SaveLLMConfig)
+		}
 	}
 
 	// Set up static file serving for React app

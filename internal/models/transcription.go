@@ -168,3 +168,25 @@ func (tp *TranscriptionProfile) BeforeSave(tx *gorm.DB) error {
 	}
 	return nil
 }
+
+// LLMConfig represents LLM configuration settings
+type LLMConfig struct {
+	ID        uint      `json:"id" gorm:"primaryKey"`
+	Provider  string    `json:"provider" gorm:"not null;type:varchar(50)"` // "ollama" or "openai"
+	BaseURL   *string   `json:"base_url,omitempty" gorm:"type:text"`       // For Ollama
+	APIKey    *string   `json:"api_key,omitempty" gorm:"type:text"`        // For OpenAI (encrypted)
+	IsActive  bool      `json:"is_active" gorm:"type:boolean;default:false"`
+	CreatedAt time.Time `json:"created_at" gorm:"autoCreateTime"`
+	UpdatedAt time.Time `json:"updated_at" gorm:"autoUpdateTime"`
+}
+
+// BeforeSave ensures only one LLM config can be active
+func (lc *LLMConfig) BeforeSave(tx *gorm.DB) error {
+	if lc.IsActive {
+		// Set all other configs to not active
+		if err := tx.Model(&LLMConfig{}).Where("id != ?", lc.ID).Update("is_active", false).Error; err != nil {
+			return err
+		}
+	}
+	return nil
+}

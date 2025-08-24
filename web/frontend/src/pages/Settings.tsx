@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { User, Settings as SettingsIcon, Key } from "lucide-react";
+import { User, Settings as SettingsIcon, Key, Bot } from "lucide-react";
 import {
 	Tabs,
 	TabsContent,
@@ -10,6 +10,7 @@ import { Header } from "../components/Header";
 import { ProfileSettings } from "../components/ProfileSettings";
 import { AccountSettings } from "../components/AccountSettings";
 import { APIKeySettings } from "../components/APIKeySettings";
+import { LLMSettings } from "../components/LLMSettings";
 
 export function Settings() {
 	const [activeTab, setActiveTab] = useState("profiles");
@@ -42,7 +43,7 @@ export function Settings() {
 						onValueChange={setActiveTab}
 						className="space-y-6"
 					>
-						<TabsList className="grid w-full grid-cols-3 lg:w-[600px] bg-gray-100 dark:bg-gray-800 p-1 rounded-xl">
+						<TabsList className="grid w-full grid-cols-4 lg:w-[800px] bg-gray-100 dark:bg-gray-800 p-1 rounded-xl">
 							<TabsTrigger
 								value="profiles"
 								className="flex items-center space-x-2 data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-gray-900 dark:data-[state=active]:text-gray-100 text-gray-600 dark:text-gray-400 font-medium rounded-lg"
@@ -64,6 +65,13 @@ export function Settings() {
 								<Key className="h-4 w-4" />
 								<span>API Keys</span>
 							</TabsTrigger>
+							<TabsTrigger
+								value="llms"
+								className="flex items-center space-x-2 data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-gray-900 dark:data-[state=active]:text-gray-100 text-gray-600 dark:text-gray-400 font-medium rounded-lg"
+							>
+								<Bot className="h-4 w-4" />
+								<span>LLMs</span>
+							</TabsTrigger>
 						</TabsList>
 
 						{/* Profiles Tab */}
@@ -79,6 +87,11 @@ export function Settings() {
 						{/* API Keys Tab */}
 						<TabsContent value="apikeys" className="space-y-6">
 							<APIKeySettings />
+						</TabsContent>
+
+						{/* LLMs Tab */}
+						<TabsContent value="llms" className="space-y-6">
+							<LLMSettings />
 						</TabsContent>
 					</Tabs>
 				</div>
