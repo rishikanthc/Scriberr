@@ -1,6 +1,7 @@
 package api
 
 import (
+	"crypto/rand"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -84,6 +85,32 @@ type ChangePasswordRequest struct {
 type ChangeUsernameRequest struct {
 	NewUsername string `json:"newUsername" binding:"required,min=3,max=50"`
 	Password    string `json:"password" binding:"required"`
+}
+
+// CreateAPIKeyRequest represents the create API key request
+type CreateAPIKeyRequest struct {
+	Name        string `json:"name" binding:"required,min=1,max=100"`
+	Description string `json:"description,omitempty"`
+}
+
+// CreateAPIKeyResponse represents the create API key response
+type CreateAPIKeyResponse struct {
+	ID          uint   `json:"id"`
+	Key         string `json:"key"`
+	Name        string `json:"name"`
+	Description string `json:"description,omitempty"`
+}
+
+// APIKeyListResponse represents an API key in the list (without the actual key)
+type APIKeyListResponse struct {
+	ID          uint   `json:"id"`
+	Name        string `json:"name"`
+	Description string `json:"description,omitempty"`
+	KeyPreview  string `json:"key_preview"`
+	IsActive    bool   `json:"is_active"`
+	CreatedAt   string `json:"created_at"`
+	UpdatedAt   string `json:"updated_at"`
+	LastUsed    string `json:"last_used,omitempty"`
 }
 
 // @Summary Upload audio file
@@ -967,6 +994,145 @@ func (h *Handler) ChangeUsername(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Username changed successfully"})
+}
+
+// @Summary List API keys
+// @Description Get all API keys for the current user (without exposing the actual keys)
+// @Tags api-keys
+// @Produce json
+// @Success 200 {array} APIKeyListResponse
+// @Security BearerAuth
+// @Router /api/v1/api-keys [get]
+func (h *Handler) ListAPIKeys(c *gin.Context) {
+	var apiKeys []models.APIKey
+	if err := database.DB.Where("is_active = ?", true).Find(&apiKeys).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch API keys"})
+		return
+	}
+
+	var responseKeys []APIKeyListResponse
+	for _, key := range apiKeys {
+		// Create key preview (show only last 8 characters)
+		keyPreview := "••••••••"
+		if len(key.Key) >= 8 {
+			keyPreview = "••••••••" + key.Key[len(key.Key)-8:]
+		}
+
+		responseKeys = append(responseKeys, APIKeyListResponse{
+			ID:          key.ID,
+			Name:        key.Name,
+			Description: func() string {
+				if key.Description != nil {
+					return *key.Description
+				}
+				return ""
+			}(),
+			KeyPreview: keyPreview,
+			IsActive:   key.IsActive,
+			CreatedAt:  key.CreatedAt.Format("2006-01-02 15:04:05"),
+			UpdatedAt:  key.UpdatedAt.Format("2006-01-02 15:04:05"),
+			// TODO: Add last_used tracking in future
+			LastUsed: "",
+		})
+	}
+
+	// Return in the format the frontend expects
+	c.JSON(http.StatusOK, gin.H{
+		"api_keys": responseKeys,
+	})
+}
+
+// @Summary Create API key
+// @Description Create a new API key for external API access
+// @Tags api-keys
+// @Accept json
+// @Produce json
+// @Param request body CreateAPIKeyRequest true "API key creation details"
+// @Success 201 {object} CreateAPIKeyResponse
+// @Failure 400 {object} map[string]string
+// @Security BearerAuth
+// @Router /api/v1/api-keys [post]
+func (h *Handler) CreateAPIKey(c *gin.Context) {
+	var req CreateAPIKeyRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request: " + err.Error()})
+		return
+	}
+
+	// Generate a secure API key
+	apiKey := generateSecureAPIKey(32)
+
+	// Create the API key record
+	newKey := models.APIKey{
+		Key:         apiKey,
+		Name:        req.Name,
+		Description: &req.Description,
+		IsActive:    true,
+	}
+
+	if err := database.DB.Create(&newKey).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create API key"})
+		return
+	}
+
+	response := CreateAPIKeyResponse{
+		ID:          newKey.ID,
+		Key:         newKey.Key,
+		Name:        newKey.Name,
+		Description: req.Description,
+	}
+
+	c.JSON(http.StatusCreated, response)
+}
+
+// @Summary Delete API key
+// @Description Delete an API key
+// @Tags api-keys
+// @Param id path int true "API Key ID"
+// @Success 200 {object} map[string]string
+// @Failure 400 {object} map[string]string
+// @Failure 404 {object} map[string]string
+// @Security BearerAuth
+// @Router /api/v1/api-keys/{id} [delete]
+func (h *Handler) DeleteAPIKey(c *gin.Context) {
+	idParam := c.Param("id")
+	id, err := strconv.ParseUint(idParam, 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid API key ID"})
+		return
+	}
+
+	// Check if the API key exists
+	var apiKey models.APIKey
+	if err := database.DB.First(&apiKey, uint(id)).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "API key not found"})
+		return
+	}
+
+	// Delete the API key (soft delete by setting is_active to false)
+	if err := database.DB.Model(&apiKey).Update("is_active", false).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete API key"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "API key deleted successfully"})
+}
+
+// generateSecureAPIKey generates a cryptographically secure API key
+func generateSecureAPIKey(length int) string {
+	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	b := make([]byte, length)
+	randomBytes := make([]byte, length)
+	
+	if _, err := rand.Read(randomBytes); err != nil {
+		// Fallback to a UUID if crypto/rand fails
+		return uuid.New().String()
+	}
+	
+	for i := range b {
+		b[i] = charset[randomBytes[i]%byte(len(charset))]
+	}
+	return string(b)
 }
 
 // @Summary Get queue statistics

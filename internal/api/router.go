@@ -55,6 +55,15 @@ func SetupRoutes(handler *Handler, authService *auth.AuthService) *gin.Engine {
 			}
 		}
 
+		// API Key management routes (require authentication)
+		apiKeys := v1.Group("/api-keys")
+		apiKeys.Use(middleware.AuthMiddleware(authService))
+		{
+			apiKeys.GET("/", handler.ListAPIKeys)
+			apiKeys.POST("/", handler.CreateAPIKey)
+			apiKeys.DELETE("/:id", handler.DeleteAPIKey)
+		}
+
 		// Transcription routes (require authentication)
 		transcription := v1.Group("/transcription")
 		transcription.Use(middleware.AuthMiddleware(authService))
