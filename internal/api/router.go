@@ -41,6 +41,8 @@ func SetupRoutes(handler *Handler, authService *auth.AuthService) *gin.Engine {
 		// Authentication routes (no auth required)
 		auth := v1.Group("/auth")
 		{
+			auth.GET("/registration-status", handler.GetRegistrationStatus)
+			auth.POST("/register", handler.Register)
 			auth.POST("/login", handler.Login)
 			auth.POST("/logout", handler.Logout)
 		}

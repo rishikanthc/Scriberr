@@ -61,6 +61,18 @@ type LoginResponse struct {
 	} `json:"user"`
 }
 
+// RegisterRequest represents the registration request
+type RegisterRequest struct {
+	Username        string `json:"username" binding:"required,min=3,max=50"`
+	Password        string `json:"password" binding:"required,min=6"`
+	ConfirmPassword string `json:"confirmPassword" binding:"required"`
+}
+
+// RegistrationStatusResponse represents the registration status
+type RegistrationStatusResponse struct {
+	RequiresRegistration bool `json:"requiresRegistration"`
+}
+
 // @Summary Upload audio file
 // @Description Upload an audio file without starting transcription
 // @Tags transcription
@@ -733,6 +745,99 @@ func (h *Handler) Logout(c *gin.Context) {
 	// by removing the token. For more security, you could maintain
 	// a blacklist of tokens on the server side.
 	c.JSON(http.StatusOK, gin.H{"message": "Logged out successfully"})
+}
+
+// @Summary Check registration status
+// @Description Check if the application requires initial user registration
+// @Tags auth
+// @Produce json
+// @Success 200 {object} RegistrationStatusResponse
+// @Router /api/v1/auth/registration-status [get]
+func (h *Handler) GetRegistrationStatus(c *gin.Context) {
+	var userCount int64
+	if err := database.DB.Model(&models.User{}).Count(&userCount).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to check registration status"})
+		return
+	}
+
+	response := RegistrationStatusResponse{
+		RequiresRegistration: userCount == 0,
+	}
+
+	c.JSON(http.StatusOK, response)
+}
+
+// @Summary Register initial admin user
+// @Description Register the initial admin user (only allowed when no users exist)
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Param request body RegisterRequest true "Registration details"
+// @Success 201 {object} LoginResponse
+// @Failure 400 {object} map[string]string
+// @Failure 409 {object} map[string]string
+// @Router /api/v1/auth/register [post]
+func (h *Handler) Register(c *gin.Context) {
+	// Check if any users already exist
+	var userCount int64
+	if err := database.DB.Model(&models.User{}).Count(&userCount).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to check existing users"})
+		return
+	}
+
+	if userCount > 0 {
+		c.JSON(http.StatusConflict, gin.H{"error": "Registration is not allowed. Admin user already exists"})
+		return
+	}
+
+	var req RegisterRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request: " + err.Error()})
+		return
+	}
+
+	// Validate password confirmation
+	if req.Password != req.ConfirmPassword {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Passwords do not match"})
+		return
+	}
+
+	// Hash password
+	hashedPassword, err := auth.HashPassword(req.Password)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to secure password"})
+		return
+	}
+
+	// Create user
+	user := models.User{
+		Username: req.Username,
+		Password: hashedPassword,
+	}
+
+	if err := database.DB.Create(&user).Error; err != nil {
+		if database.DB.Error.Error() == "UNIQUE constraint failed: users.username" {
+			c.JSON(http.StatusConflict, gin.H{"error": "Username already exists"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user"})
+		return
+	}
+
+	// Generate token for immediate login
+	token, err := h.authService.GenerateToken(&user)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate login token"})
+		return
+	}
+
+	response := LoginResponse{
+		Token: token,
+	}
+	response.User.ID = user.ID
+	response.User.Username = user.Username
+
+	c.JSON(http.StatusCreated, response)
 }
 
 // @Summary Get queue statistics

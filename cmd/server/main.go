@@ -114,31 +114,9 @@ func main() {
 	log.Println("Server exited")
 }
 
-// initializeDefaultData creates default user and API key for development
+// initializeDefaultData creates default API key for development (user registration handled separately)
 func initializeDefaultData(cfg *config.Config) error {
-	// Create default user
-	var userCount int64
-	database.DB.Model(&models.User{}).Count(&userCount)
-	
-	if userCount == 0 {
-		hashedPassword, err := auth.HashPassword("admin123")
-		if err != nil {
-			return err
-		}
-
-		defaultUser := models.User{
-			Username: "admin",
-			Password: hashedPassword,
-		}
-
-		if err := database.DB.Create(&defaultUser).Error; err != nil {
-			return err
-		}
-
-		log.Println("Created default user: admin/admin123")
-	}
-
-	// Create default API key
+	// Create default API key for backward compatibility
 	var apiKeyCount int64
 	database.DB.Model(&models.APIKey{}).Count(&apiKeyCount)
 	

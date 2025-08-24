@@ -4,6 +4,8 @@ import type { ReactNode } from "react";
 interface AuthContextType {
 	token: string | null;
 	isAuthenticated: boolean;
+	requiresRegistration: boolean;
+	isInitialized: boolean;
 	login: (token: string) => void;
 	logout: () => void;
 	getAuthHeaders: () => { Authorization?: string };
@@ -18,6 +20,7 @@ interface AuthProviderProps {
 export function AuthProvider({ children }: AuthProviderProps) {
 	const [token, setToken] = useState<string | null>(null);
 	const [isInitialized, setIsInitialized] = useState(false);
+	const [requiresRegistration, setRequiresRegistration] = useState(false);
 
 	// Check if token is expired
 	const isTokenExpired = useCallback((token: string): boolean => {
@@ -47,18 +50,46 @@ export function AuthProvider({ children }: AuthProviderProps) {
 		});
 	}, [token]);
 
-	// Load token from localStorage on mount and setup auto-logout
+	// Check registration status and load token on mount
 	useEffect(() => {
-		const savedToken = localStorage.getItem("scriberr_auth_token");
-		if (savedToken) {
-			if (isTokenExpired(savedToken)) {
-				// Token expired, remove it
-				localStorage.removeItem("scriberr_auth_token");
-			} else {
-				setToken(savedToken);
+		const initializeAuth = async () => {
+			try {
+				// First, check if registration is required
+				const response = await fetch("/api/v1/auth/registration-status");
+				if (response.ok) {
+					const data = await response.json();
+					setRequiresRegistration(data.requiresRegistration);
+					
+					// Only check for existing token if registration is not required
+					if (!data.requiresRegistration) {
+						const savedToken = localStorage.getItem("scriberr_auth_token");
+						if (savedToken) {
+							if (isTokenExpired(savedToken)) {
+								// Token expired, remove it
+								localStorage.removeItem("scriberr_auth_token");
+							} else {
+								setToken(savedToken);
+							}
+						}
+					}
+				}
+			} catch (error) {
+				console.error("Failed to check registration status:", error);
+				// If we can't check status, assume no registration needed and check token
+				const savedToken = localStorage.getItem("scriberr_auth_token");
+				if (savedToken) {
+					if (isTokenExpired(savedToken)) {
+						localStorage.removeItem("scriberr_auth_token");
+					} else {
+						setToken(savedToken);
+					}
+				}
+			} finally {
+				setIsInitialized(true);
 			}
-		}
-		setIsInitialized(true);
+		};
+
+		initializeAuth();
 	}, [isTokenExpired]);
 
 	// Setup auto-logout when token expires
@@ -82,6 +113,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 	const login = (newToken: string) => {
 		setToken(newToken);
 		localStorage.setItem("scriberr_auth_token", newToken);
+		setRequiresRegistration(false); // Clear registration requirement after successful login/registration
 	};
 
 	const getAuthHeaders = () => {
@@ -94,22 +126,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
 	const value = {
 		token,
 		isAuthenticated: !!token && isInitialized,
+		requiresRegistration,
+		isInitialized,
 		login,
 		logout,
 		getAuthHeaders,
 	};
 
-	// Show loading state until initialization is complete
-	if (!isInitialized) {
-		return (
-			<div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-				<div className="text-center">
-					<div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-					<p className="mt-2 text-gray-600 dark:text-gray-400">Loading...</p>
-				</div>
-			</div>
-		);
-	}
 
 	return (
 		<AuthContext.Provider value={value}>

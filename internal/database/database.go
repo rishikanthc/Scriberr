@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 
-	"scriberr/internal/auth"
 	"scriberr/internal/models"
 
 	"github.com/glebarez/sqlite"
@@ -42,48 +41,16 @@ func Initialize(dbPath string) error {
 		return fmt.Errorf("failed to auto migrate: %v", err)
 	}
 
-	// Create default user and API key if they don't exist
-	if err := createDefaultCredentials(); err != nil {
-		return fmt.Errorf("failed to create default credentials: %v", err)
+	// Create default API key if it doesn't exist (for backward compatibility)
+	if err := createDefaultAPIKey(); err != nil {
+		return fmt.Errorf("failed to create default API key: %v", err)
 	}
 
 	return nil
 }
 
-// createDefaultCredentials creates default user and API key if they don't exist
-func createDefaultCredentials() error {
-	// Check if any users exist
-	var userCount int64
-	if err := DB.Model(&models.User{}).Count(&userCount).Error; err != nil {
-		return err
-	}
-
-	// Create default user if no users exist
-	if userCount == 0 {
-		// Use environment variable for default password or generate a secure default
-		defaultPassword := os.Getenv("SCRIBERR_DEFAULT_PASSWORD")
-		if defaultPassword == "" {
-			defaultPassword = "admin123" // This should be changed on first login
-		}
-
-		hashedPassword, err := auth.HashPassword(defaultPassword)
-		if err != nil {
-			return fmt.Errorf("failed to hash default password: %v", err)
-		}
-
-		defaultUser := models.User{
-			Username: "admin",
-			Password: hashedPassword,
-		}
-
-		if err := DB.Create(&defaultUser).Error; err != nil {
-			return fmt.Errorf("failed to create default user: %v", err)
-		}
-
-		fmt.Printf("✓ Default user created: username='admin', password='%s'\n", defaultPassword)
-		fmt.Println("⚠️  SECURITY WARNING: Please change the default password after first login!")
-	}
-
+// createDefaultAPIKey creates default API key if it doesn't exist
+func createDefaultAPIKey() error {
 	// Check if any API keys exist
 	var apiKeyCount int64
 	if err := DB.Model(&models.APIKey{}).Count(&apiKeyCount).Error; err != nil {
