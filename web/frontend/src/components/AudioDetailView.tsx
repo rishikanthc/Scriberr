@@ -346,7 +346,7 @@ export function AudioDetailView({ audioId }: AudioDetailViewProps) {
 					key={index}
 					ref={isHighlighted ? highlightedWordRef : undefined}
 					onClick={() => handleWordClick(word)}
-					className={`cursor-pointer transition-colors duration-150 hover:bg-blue-100 dark:hover:bg-blue-800 ${
+					className={`cursor-pointer transition-colors duration-150 hover:bg-blue-100 dark:hover:bg-blue-800 inline-block ${
 						isHighlighted
 							? 'bg-yellow-300 dark:bg-yellow-500 dark:text-black px-1 rounded'
 							: 'px-0.5'
@@ -382,7 +382,7 @@ export function AudioDetailView({ audioId }: AudioDetailViewProps) {
 					key={index}
 					ref={isHighlighted ? highlightedWordRef : undefined}
 					onClick={() => handleWordClick(word)}
-					className={`cursor-pointer transition-colors duration-150 hover:bg-blue-100 dark:hover:bg-blue-800 ${
+					className={`cursor-pointer transition-colors duration-150 hover:bg-blue-100 dark:hover:bg-blue-800 inline-block ${
 						isHighlighted
 							? 'bg-yellow-300 dark:bg-yellow-500 dark:text-black px-1 rounded'
 							: 'px-0.5'
@@ -555,9 +555,9 @@ export function AudioDetailView({ audioId }: AudioDetailViewProps) {
 								{transcriptMode === "compact" && (
 									<div 
 										ref={transcriptRef}
-										className="prose prose-gray dark:prose-invert max-w-none max-h-96 overflow-y-auto"
+										className="prose prose-gray dark:prose-invert max-w-none max-h-96 overflow-y-auto overflow-x-hidden"
 									>
-										<p className="text-gray-700 dark:text-gray-300 leading-relaxed">
+										<p className="text-gray-700 dark:text-gray-300 leading-relaxed break-words">
 											{renderHighlightedTranscript()}
 										</p>
 									</div>
@@ -574,7 +574,7 @@ export function AudioDetailView({ audioId }: AudioDetailViewProps) {
 								{transcriptMode === "expanded" && transcript.segments && (
 									<div 
 										ref={transcriptRef}
-										className="space-y-4 max-h-96 overflow-y-auto"
+										className="space-y-4 max-h-96 overflow-y-auto overflow-x-hidden"
 									>
 										{transcript.segments.map((segment, index) => (
 											<div
@@ -591,8 +591,8 @@ export function AudioDetailView({ audioId }: AudioDetailViewProps) {
 														</span>
 													)}
 												</div>
-												<div className="flex-1">
-													<p className="text-gray-700 dark:text-gray-200 leading-relaxed">
+												<div className="flex-1 min-w-0">
+													<p className="text-gray-700 dark:text-gray-200 leading-relaxed break-words">
 														{renderSegmentWithHighlighting(segment)}
 													</p>
 												</div>
