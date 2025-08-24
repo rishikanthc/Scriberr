@@ -42,7 +42,7 @@ export function ProfileSettings() {
 
 	return (
 		<div className="space-y-6">
-			<div className="bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl p-6">
+			<div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-6">
 				<div className="flex items-center justify-between mb-4">
 					<div>
 						<h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">
