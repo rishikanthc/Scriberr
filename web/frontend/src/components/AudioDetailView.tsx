@@ -584,8 +584,8 @@ export function AudioDetailView({ audioId }: AudioDetailViewProps) {
 	if (loading) {
 		return (
 			<div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-				<div className="mx-auto px-8 py-6" style={{ width: "60vw" }}>
-					<div className="bg-white dark:bg-gray-800 rounded-xl p-6">
+				<div className="mx-auto w-full max-w-6xl px-2 sm:px-6 md:px-8 py-3 sm:py-6">
+					<div className="bg-white dark:bg-gray-800 rounded-xl p-3 sm:p-6">
 						<div className="animate-pulse">
 							<div className="h-6 bg-gray-200 dark:bg-gray-600 rounded w-1/4 mb-4"></div>
 							<div className="h-4 bg-gray-200 dark:bg-gray-600 rounded w-1/2 mb-8"></div>
@@ -608,8 +608,8 @@ export function AudioDetailView({ audioId }: AudioDetailViewProps) {
 	if (!audioFile) {
 		return (
 			<div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-				<div className="mx-auto px-8 py-6" style={{ width: "60vw" }}>
-					<div className="bg-white dark:bg-gray-800 rounded-xl p-6 text-center">
+				<div className="mx-auto w-full max-w-6xl px-2 sm:px-6 md:px-8 py-3 sm:py-6">
+					<div className="bg-white dark:bg-gray-800 rounded-xl p-3 sm:p-6 text-center">
 						<h1 className="text-xl font-semibold text-gray-900 dark:text-gray-50 mb-4">
 							Audio file not found
 						</h1>
@@ -625,10 +625,10 @@ export function AudioDetailView({ audioId }: AudioDetailViewProps) {
 
 	return (
 		<div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-			<div className="mx-auto px-8 py-6" style={{ width: "60vw" }}>
+			<div className="mx-auto w-full max-w-6xl px-2 sm:px-6 md:px-8 py-3 sm:py-6">
 				{/* Header with back button and theme switcher */}
-				<div className="flex items-center justify-between mb-6">
-					<Button onClick={handleBack} variant="outline">
+				<div className="flex items-center justify-between mb-3 sm:mb-6">
+					<Button onClick={handleBack} variant="outline" size="sm">
 						<ArrowLeft className="mr-2 h-4 w-4" />
 						Back to Audio Files
 					</Button>
@@ -636,7 +636,7 @@ export function AudioDetailView({ audioId }: AudioDetailViewProps) {
 				</div>
 
 				{/* Audio Player Section */}
-				<div className="bg-white dark:bg-gray-800 rounded-xl p-6 mb-6">
+				<div className="bg-white dark:bg-gray-800 rounded-xl p-3 sm:p-6 mb-3 sm:mb-6">
 					<div className="mb-6">
 						<h1 className="text-2xl font-bold text-gray-900 dark:text-gray-50 mb-2">
 							{audioFile.title || getFileName(audioFile.audio_path)}
@@ -652,12 +652,12 @@ export function AudioDetailView({ audioId }: AudioDetailViewProps) {
 							{/* Circular Play/Pause Button */}
 							<button
 								onClick={togglePlayPause}
-								className="w-16 h-16 rounded-full bg-blue-500 hover:bg-blue-600 text-white shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105 flex items-center justify-center group cursor-pointer"
+								className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-blue-500 hover:bg-blue-600 text-white shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105 flex items-center justify-center group cursor-pointer"
 							>
 								{isPlaying ? (
-									<Pause className="h-6 w-6 group-hover:scale-110 transition-transform" />
+									<Pause className="h-5 w-5 sm:h-6 sm:w-6 group-hover:scale-110 transition-transform" />
 								) : (
-									<Play className="h-6 w-6 ml-0.5 group-hover:scale-110 transition-transform" />
+									<Play className="h-5 w-5 sm:h-6 sm:w-6 ml-0.5 group-hover:scale-110 transition-transform" />
 								)}
 							</button>
 
@@ -665,7 +665,7 @@ export function AudioDetailView({ audioId }: AudioDetailViewProps) {
 							<div className="flex-1">
 								<div
 									ref={waveformRef}
-									className="w-full bg-gray-50 dark:bg-gray-700 rounded-lg p-4"
+									className="w-full bg-gray-50 dark:bg-gray-700 rounded-lg p-2 sm:p-4"
 									style={{ minHeight: "80px" }}
 								/>
 							</div>
@@ -675,8 +675,8 @@ export function AudioDetailView({ audioId }: AudioDetailViewProps) {
 
 				{/* Transcript Section */}
 				{audioFile.status === "completed" && transcript && (
-					<div className="bg-white dark:bg-gray-800 rounded-xl p-6">
-						<div className="flex items-center justify-between mb-6">
+					<div className="bg-white dark:bg-gray-800 rounded-xl p-3 sm:p-6">
+						<div className="flex items-center justify-between mb-3 sm:mb-6">
 							<h2 className="text-xl font-semibold text-gray-900 dark:text-gray-50">
 								{viewMode === "transcript" ? "Transcript" : "Chat with Transcript"}
 							</h2>
