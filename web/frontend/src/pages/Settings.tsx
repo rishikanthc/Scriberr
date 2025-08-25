@@ -27,7 +27,7 @@ export function Settings() {
 				<Header onFileSelect={handleFileSelect} />
 
 				{/* Main Content Container with same styling as Homepage */}
-				<div className="bg-white dark:bg-gray-800 rounded-xl p-4 sm:p-6 mt-4 sm:mt-6">
+				<div className="bg-white dark:bg-gray-800 rounded-xl p-2 sm:p-6 mt-4 sm:mt-6">
 					<div className="mb-4 sm:mb-8">
 						<h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">
 							Settings

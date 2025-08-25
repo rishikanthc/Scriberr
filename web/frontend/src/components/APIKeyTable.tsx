@@ -116,22 +116,22 @@ export function APIKeyTable({ refreshTrigger, onKeyChange }: APIKeyTableProps) {
 			<table className="w-full">
 				<thead>
 					<tr className="border-b border-gray-200 dark:border-gray-600">
-						<th className="text-left py-3 px-4 font-medium text-gray-700 dark:text-gray-300">
+						<th className="text-left py-2 px-2 sm:py-3 sm:px-4 font-medium text-gray-700 dark:text-gray-300">
 							Name
 						</th>
-						<th className="text-left py-3 px-4 font-medium text-gray-700 dark:text-gray-300">
+						<th className="hidden sm:table-cell text-left py-2 px-2 sm:py-3 sm:px-4 font-medium text-gray-700 dark:text-gray-300">
 							Description
 						</th>
-						<th className="text-left py-3 px-4 font-medium text-gray-700 dark:text-gray-300">
+						<th className="hidden sm:table-cell text-left py-2 px-2 sm:py-3 sm:px-4 font-medium text-gray-700 dark:text-gray-300">
 							Key Preview
 						</th>
-						<th className="text-left py-3 px-4 font-medium text-gray-700 dark:text-gray-300">
+						<th className="hidden sm:table-cell text-left py-2 px-2 sm:py-3 sm:px-4 font-medium text-gray-700 dark:text-gray-300">
 							Created
 						</th>
-						<th className="text-left py-3 px-4 font-medium text-gray-700 dark:text-gray-300">
+						<th className="hidden sm:table-cell text-left py-2 px-2 sm:py-3 sm:px-4 font-medium text-gray-700 dark:text-gray-300">
 							Last Used
 						</th>
-						<th className="text-right py-3 px-4 font-medium text-gray-700 dark:text-gray-300">
+						<th className="text-right py-2 px-2 sm:py-3 sm:px-4 font-medium text-gray-700 dark:text-gray-300">
 							Actions
 						</th>
 					</tr>
@@ -142,28 +142,28 @@ export function APIKeyTable({ refreshTrigger, onKeyChange }: APIKeyTableProps) {
 							key={apiKey.id}
 							className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50"
 						>
-							<td className="py-3 px-4">
+							<td className="py-2 px-2 sm:py-3 sm:px-4">
 								<div className="font-medium text-gray-900 dark:text-gray-100">
 									{apiKey.name}
 								</div>
 							</td>
-							<td className="py-3 px-4">
+							<td className="hidden sm:table-cell py-2 px-2 sm:py-3 sm:px-4">
 								<div className="text-sm text-gray-600 dark:text-gray-400">
 									{apiKey.description || "—"}
 								</div>
 							</td>
-							<td className="py-3 px-4">
+							<td className="hidden sm:table-cell py-2 px-2 sm:py-3 sm:px-4">
 								<div className="font-mono text-sm text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">
 									{apiKey.key_preview}
 								</div>
 							</td>
-							<td className="py-3 px-4">
+							<td className="hidden sm:table-cell py-2 px-2 sm:py-3 sm:px-4">
 								<div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
 									<Calendar className="h-4 w-4 mr-1" />
 									{formatDate(apiKey.created_at)}
 								</div>
 							</td>
-							<td className="py-3 px-4">
+							<td className="hidden sm:table-cell py-2 px-2 sm:py-3 sm:px-4">
 								<div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
 									{apiKey.last_used ? (
 										<>
@@ -175,7 +175,7 @@ export function APIKeyTable({ refreshTrigger, onKeyChange }: APIKeyTableProps) {
 									)}
 								</div>
 							</td>
-							<td className="py-3 px-4 text-right">
+							<td className="py-2 px-2 sm:py-3 sm:px-4 text-right">
 								<Button
 									variant="ghost"
 									size="sm"
