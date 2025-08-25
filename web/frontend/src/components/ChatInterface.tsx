@@ -598,9 +598,9 @@ export function ChatInterface({ transcriptionId, activeSessionId, onSessionChang
               <div ref={messagesEndRef} />
             </div>
 
-            {/* Input: absolute at bottom with margin */}
-            <div className="absolute bottom-0 left-0 right-0 p-4">
-              <div className="flex gap-2 rounded-lg border bg-background p-2 shadow-sm">
+            {/* Input: absolute at bottom with solid background and spacing */}
+            <div className="absolute bottom-0 left-0 right-0 p-4 bg-white dark:bg-gray-950">
+              <div className="flex gap-2 rounded-lg bg-gray-100 dark:bg-gray-900 p-2 shadow-md">
                 <Input
                   ref={inputRef}
                   value={inputMessage}
@@ -608,7 +608,7 @@ export function ChatInterface({ transcriptionId, activeSessionId, onSessionChang
                   onKeyDown={handleKeyPress}
                   placeholder="Type your message..."
                   disabled={isLoading}
-                  className="flex-1"
+                  className="flex-1 border-0 bg-transparent focus-visible:ring-0"
                 />
                 <Button
                   onClick={sendMessage}

@@ -25,7 +25,7 @@ export function Sidebar({ children, topOffset = 56, className = '' }: PropsWithC
   const { open, width } = useSidebar()
   return (
     <div
-      className={`fixed left-0 z-30 bg-sidebar text-sidebar-foreground border-r border-sidebar-border shadow-sm ${className}`}
+      className={`fixed left-0 z-30 bg-sidebar text-sidebar-foreground shadow-md ${className}`}
       style={{
         top: topOffset,
         bottom: 0,
@@ -66,4 +66,3 @@ export function SidebarTrigger({ children, className = '', onClick }: PropsWithC
     </button>
   )
 }
-
