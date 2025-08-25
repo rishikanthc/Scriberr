@@ -8,6 +8,7 @@ import rehypeHighlight from 'rehype-highlight'
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { useAuth } from "../contexts/AuthContext";
+import { useChatEvents } from "../contexts/ChatEventsContext";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "./ui/dialog";
 import { Label } from "./ui/label";
@@ -47,6 +48,7 @@ interface ChatInterfaceProps {
 
 export function ChatInterface({ transcriptionId, activeSessionId, onSessionChange, hideSidebar = false }: ChatInterfaceProps) {
   const { getAuthHeaders } = useAuth();
+  const { emitSessionTitleUpdated } = useChatEvents();
   const { toast } = useToast();
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [activeSession, setActiveSession] = useState<ChatSession | null>(null);
@@ -375,6 +377,7 @@ export function ChatInterface({ transcriptionId, activeSessionId, onSessionChang
               setActiveSession(prev => prev ? { ...prev, title: updated.title } as any : prev)
             }
             toast({ title: 'Chat Renamed', description: updated.title })
+            emitSessionTitleUpdated({ sessionId: updated.id, title: updated.title })
           }
         }
       } catch {}

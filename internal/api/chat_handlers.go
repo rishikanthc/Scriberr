@@ -650,8 +650,9 @@ func (h *Handler) AutoGenerateChatTitle(c *gin.Context) {
     // Prepare LLM messages
     prompt := `You are an expert at titling conversations concisely.
 Given the following early conversation messages between a user and an assistant, produce a short, specific title (max 8 words) in Title Case.
-- No quotes, no trailing punctuation, no emojis.
-- Avoid generic words like "Chat", "Conversation", or model names.
+- Do NOT wrap the title in quotes of any kind.
+- No trailing punctuation, no emojis.
+- Avoid generic words like Chat, Conversation, or model names.
 - Capture the main topic or task.
 Return ONLY the title string.`
 
@@ -686,6 +687,14 @@ Return ONLY the title string.`
     }
 
     title := strings.TrimSpace(resp.Choices[0].Message.Content)
+    // Strip wrapping quotes/backticks if present
+    if len(title) >= 2 {
+        if (strings.HasPrefix(title, "\"") && strings.HasSuffix(title, "\"")) ||
+            (strings.HasPrefix(title, "'") && strings.HasSuffix(title, "'")) ||
+            (strings.HasPrefix(title, "`") && strings.HasSuffix(title, "`")) {
+            title = strings.Trim(title, "'\"`")
+        }
+    }
     // Sanitize: enforce max length and single line
     title = strings.ReplaceAll(title, "\n", " ")
     title = strings.ReplaceAll(title, "\r", " ")

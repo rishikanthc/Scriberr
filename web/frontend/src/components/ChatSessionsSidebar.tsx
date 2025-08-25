@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
 import { Label } from './ui/label'
 import { useAuth } from '../contexts/AuthContext'
+import { useChatEvents } from '../contexts/ChatEventsContext'
 
 interface ChatSession {
   id: string
@@ -25,6 +26,7 @@ export function ChatSessionsSidebar({
   onSessionChange: (id: string | null) => void
 }) {
   const { getAuthHeaders } = useAuth()
+  const { subscribeSessionTitleUpdated } = useChatEvents()
   const [sessions, setSessions] = useState<ChatSession[]>([])
   const [availableModels, setAvailableModels] = useState<string[]>([])
   const [selectedModel, setSelectedModel] = useState<string>('')
@@ -38,6 +40,14 @@ export function ChatSessionsSidebar({
     loadSessions()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [transcriptionId])
+
+  // Reactively apply title updates emitted elsewhere
+  useEffect(() => {
+    const unsubscribe = subscribeSessionTitleUpdated(({ sessionId, title }) => {
+      setSessions(prev => prev.map(s => (s.id === sessionId ? { ...s, title } : s)))
+    })
+    return unsubscribe
+  }, [subscribeSessionTitleUpdated])
 
   async function loadModels() {
     try {

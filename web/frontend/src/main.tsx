@@ -11,6 +11,7 @@ import { AuthProvider } from './contexts/AuthContext'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { ToastProvider } from '@/components/ui/toast'
+import { ChatEventsProvider } from './contexts/ChatEventsContext'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -19,9 +20,11 @@ createRoot(document.getElementById('root')!).render(
         <RouterProvider>
           <TooltipProvider>
             <ToastProvider>
-              <ProtectedRoute>
-                <App />
-              </ProtectedRoute>
+              <ChatEventsProvider>
+                <ProtectedRoute>
+                  <App />
+                </ProtectedRoute>
+              </ChatEventsProvider>
             </ToastProvider>
           </TooltipProvider>
         </RouterProvider>
