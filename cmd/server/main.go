@@ -62,13 +62,19 @@ func main() {
 	// Initialize WhisperX service
 	whisperXService := transcription.NewWhisperXService(cfg)
 
+	// Initialize quick transcription service
+	quickTranscriptionService, err := transcription.NewQuickTranscriptionService(cfg, whisperXService)
+	if err != nil {
+		log.Fatal("Failed to initialize quick transcription service:", err)
+	}
+
 	// Initialize task queue
 	taskQueue := queue.NewTaskQueue(2, whisperXService) // 2 workers
 	taskQueue.Start()
 	defer taskQueue.Stop()
 
 	// Initialize API handlers
-	handler := api.NewHandler(cfg, authService, taskQueue, whisperXService)
+	handler := api.NewHandler(cfg, authService, taskQueue, whisperXService, quickTranscriptionService)
 
 	// Set up router
 	if cfg.Host != "localhost" {

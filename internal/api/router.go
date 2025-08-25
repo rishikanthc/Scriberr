@@ -79,6 +79,10 @@ func SetupRoutes(handler *Handler, authService *auth.AuthService) *gin.Engine {
 			transcription.DELETE("/:id", handler.DeleteJob)
 			transcription.GET("/list", handler.ListJobs)
 			transcription.GET("/models", handler.GetSupportedModels)
+			
+			// Quick transcription endpoints
+			transcription.POST("/quick", handler.SubmitQuickTranscription)
+			transcription.GET("/quick/:id", handler.GetQuickTranscriptionStatus)
 		}
 
 		// Profile routes (require authentication)

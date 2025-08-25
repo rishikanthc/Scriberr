@@ -24,19 +24,21 @@ import (
 
 // Handler contains all the API handlers
 type Handler struct {
-	config          *config.Config
-	authService     *auth.AuthService
-	taskQueue       *queue.TaskQueue
-	whisperXService *transcription.WhisperXService
+	config             *config.Config
+	authService        *auth.AuthService
+	taskQueue          *queue.TaskQueue
+	whisperXService    *transcription.WhisperXService
+	quickTranscription *transcription.QuickTranscriptionService
 }
 
 // NewHandler creates a new handler
-func NewHandler(cfg *config.Config, authService *auth.AuthService, taskQueue *queue.TaskQueue, whisperXService *transcription.WhisperXService) *Handler {
+func NewHandler(cfg *config.Config, authService *auth.AuthService, taskQueue *queue.TaskQueue, whisperXService *transcription.WhisperXService, quickTranscription *transcription.QuickTranscriptionService) *Handler {
 	return &Handler{
-		config:          cfg,
-		authService:     authService,
-		taskQueue:       taskQueue,
-		whisperXService: whisperXService,
+		config:             cfg,
+		authService:        authService,
+		taskQueue:          taskQueue,
+		whisperXService:    whisperXService,
+		quickTranscription: quickTranscription,
 	}
 }
 
@@ -1534,4 +1536,146 @@ func (h *Handler) SetDefaultProfile(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Default profile set successfully", "profile": profile})
+}
+
+// QuickTranscriptionRequest represents the quick transcription request
+type QuickTranscriptionRequest struct {
+	Parameters  *models.WhisperXParams `json:"parameters,omitempty"`
+	ProfileName *string               `json:"profile_name,omitempty"`
+}
+
+// @Summary Submit quick transcription job
+// @Description Submit an audio file for temporary transcription (data discarded after 6 hours)
+// @Tags transcription
+// @Accept multipart/form-data
+// @Produce json
+// @Param audio formData file true "Audio file"
+// @Param parameters formData string false "JSON string of transcription parameters"
+// @Param profile_name formData string false "Profile name to use for transcription"
+// @Success 200 {object} transcription.QuickTranscriptionJob
+// @Failure 400 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /api/v1/transcription/quick [post]
+// @Security ApiKeyAuth
+func (h *Handler) SubmitQuickTranscription(c *gin.Context) {
+	// Parse multipart form
+	file, header, err := c.Request.FormFile("audio")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Audio file is required"})
+		return
+	}
+	defer file.Close()
+
+	var params models.WhisperXParams
+
+	// Check if profile_name was provided
+	if profileName := c.PostForm("profile_name"); profileName != "" {
+		// Load parameters from profile
+		var profile models.TranscriptionProfile
+		if err := database.DB.Where("name = ?", profileName).First(&profile).Error; err != nil {
+			if err == gorm.ErrRecordNotFound {
+				c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Profile '%s' not found", profileName)})
+				return
+			}
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to load profile"})
+			return
+		}
+		params = profile.Parameters
+	} else if parametersJSON := c.PostForm("parameters"); parametersJSON != "" {
+		// Parse parameters from JSON string
+		if err := json.Unmarshal([]byte(parametersJSON), &params); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid parameters JSON"})
+			return
+		}
+	} else {
+		// Use default parameters with all required fields
+		params = models.WhisperXParams{
+			// Model parameters
+			Model:                               "small",
+			ModelCacheOnly:                      false,
+			
+			// Device and computation
+			Device:                              "cpu",
+			DeviceIndex:                         0,
+			BatchSize:                           8,
+			ComputeType:                         "float32",
+			Threads:                             0,
+			
+			// Output settings
+			OutputFormat:                        "all",
+			Verbose:                             true,
+			
+			// Task and language
+			Task:                                "transcribe",
+			
+			// Alignment settings
+			InterpolateMethod:                   "nearest",
+			NoAlign:                             false,
+			ReturnCharAlignments:                false,
+			
+			// VAD (Voice Activity Detection) settings
+			VadMethod:                           "pyannote",
+			VadOnset:                            0.5,
+			VadOffset:                           0.363,
+			ChunkSize:                           30,
+			
+			// Diarization settings
+			Diarize:                             false,
+			DiarizeModel:                        "pyannote/speaker-diarization-3.1",
+			SpeakerEmbeddings:                   false,
+			
+			// Transcription quality settings
+			Temperature:                         0,
+			BestOf:                              5,
+			BeamSize:                            5,
+			Patience:                            1.0,
+			LengthPenalty:                       1.0,
+			SuppressNumerals:                    false,
+			ConditionOnPreviousText:             false,
+			Fp16:                                true,
+			TemperatureIncrementOnFallback:      0.2,
+			CompressionRatioThreshold:           2.4,
+			LogprobThreshold:                    -1.0,
+			NoSpeechThreshold:                   0.6,
+			
+			// Output formatting
+			HighlightWords:                      false,
+			SegmentResolution:                   "sentence",
+			PrintProgress:                       false,
+		}
+	}
+
+	// Submit quick transcription job
+	job, err := h.quickTranscription.SubmitQuickJob(file, header.Filename, params)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to submit quick transcription: %v", err)})
+		return
+	}
+
+	c.JSON(http.StatusOK, job)
+}
+
+// @Summary Get quick transcription status
+// @Description Get the current status of a quick transcription job
+// @Tags transcription
+// @Produce json
+// @Param id path string true "Job ID"
+// @Success 200 {object} transcription.QuickTranscriptionJob
+// @Failure 404 {object} map[string]string
+// @Router /api/v1/transcription/quick/{id} [get]
+// @Security ApiKeyAuth
+func (h *Handler) GetQuickTranscriptionStatus(c *gin.Context) {
+	jobID := c.Param("id")
+	
+	job, err := h.quickTranscription.GetQuickJob(jobID)
+	if err != nil {
+		if err.Error() == "job not found" || err.Error() == "job expired" {
+			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get job status"})
+		return
+	}
+
+	c.JSON(http.StatusOK, job)
 }
