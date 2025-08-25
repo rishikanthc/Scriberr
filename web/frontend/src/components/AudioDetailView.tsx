@@ -521,17 +521,15 @@ export function AudioDetailView({ audioId }: AudioDetailViewProps) {
 							</h2>
 
 							<div className="flex items-center gap-2">
-								{/* Chat Toggle Button */}
+								{/* Open Chat Page */}
 								<Button
-									onClick={() => setViewMode(viewMode === "transcript" ? "chat" : "transcript")}
-									variant={viewMode === "chat" ? "default" : "outline"}
+									onClick={() => navigate({ path: 'chat', params: { audioId } })}
+									variant="outline"
 									size="sm"
 									className="flex items-center gap-2"
 								>
 									<MessageCircle className="h-4 w-4" />
-									<span className="hidden sm:inline">
-										{viewMode === "transcript" ? "Chat" : "Transcript"}
-									</span>
+									<span className="hidden sm:inline">Open Chat</span>
 								</Button>
 
 								{/* Transcript View Toggle Buttons - only show in transcript mode */}

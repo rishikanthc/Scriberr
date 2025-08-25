@@ -1,8 +1,8 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 
 export type Route = {
-  path: 'home' | 'audio-detail' | 'settings'
-  params?: Record<string, string>
+  path: 'home' | 'audio-detail' | 'settings' | 'chat'
+  params?: Record<string, string | undefined>
 }
 
 interface RouterContextType {
@@ -16,14 +16,27 @@ export function RouterProvider({ children }: { children: React.ReactNode }) {
   const [currentRoute, setCurrentRoute] = useState<Route>(() => {
     // Parse initial URL
     const path = window.location.pathname
-    
+
+    // /audio/<audioId>/chat/<chatSessionId>
+    const chatMatch = path.match(/^\/audio\/([^\/]+)\/chat\/(.+)$/)
+    if (chatMatch) {
+      return { path: 'chat', params: { audioId: chatMatch[1], sessionId: chatMatch[2] } }
+    }
+
+    // /audio/<audioId>/chat (no session specified)
+    const chatBase = path.match(/^\/audio\/([^\/]+)\/chat\/?$/)
+    if (chatBase) {
+      return { path: 'chat', params: { audioId: chatBase[1] } }
+    }
+
+    // /audio/<audioId>
     if (path.startsWith('/audio/')) {
       const audioId = path.split('/audio/')[1]
       return { path: 'audio-detail', params: { id: audioId } }
     } else if (path === '/settings') {
       return { path: 'settings' }
     }
-    
+
     return { path: 'home' }
   })
 
@@ -34,6 +47,10 @@ export function RouterProvider({ children }: { children: React.ReactNode }) {
     let url = '/'
     if (route.path === 'audio-detail' && route.params?.id) {
       url = `/audio/${route.params.id}`
+    } else if (route.path === 'chat' && route.params?.audioId && route.params?.sessionId) {
+      url = `/audio/${route.params.audioId}/chat/${route.params.sessionId}`
+    } else if (route.path === 'chat' && route.params?.audioId) {
+      url = `/audio/${route.params.audioId}/chat`
     } else if (route.path === 'settings') {
       url = '/settings'
     }
@@ -48,13 +65,22 @@ export function RouterProvider({ children }: { children: React.ReactNode }) {
       } else {
         // Fallback to parsing URL
         const path = window.location.pathname
-        if (path.startsWith('/audio/')) {
-          const audioId = path.split('/audio/')[1]
-          setCurrentRoute({ path: 'audio-detail', params: { id: audioId } })
-        } else if (path === '/settings') {
-          setCurrentRoute({ path: 'settings' })
+        const chatMatch = path.match(/^\/audio\/([^\/]+)\/chat\/(.+)$/)
+        if (chatMatch) {
+          setCurrentRoute({ path: 'chat', params: { audioId: chatMatch[1], sessionId: chatMatch[2] } })
         } else {
-          setCurrentRoute({ path: 'home' })
+          const chatBase = path.match(/^\/audio\/([^\/]+)\/chat\/?$/)
+          if (chatBase) {
+            setCurrentRoute({ path: 'chat', params: { audioId: chatBase[1] } })
+            return
+          } else if (path.startsWith('/audio/')) {
+            const audioId = path.split('/audio/')[1]
+            setCurrentRoute({ path: 'audio-detail', params: { id: audioId } })
+          } else if (path === '/settings') {
+            setCurrentRoute({ path: 'settings' })
+          } else {
+            setCurrentRoute({ path: 'home' })
+          }
         }
       }
     }

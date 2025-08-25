@@ -2,6 +2,7 @@ import { Homepage } from './components/Homepage'
 import { AudioDetailView } from './components/AudioDetailView'
 import { Settings } from './pages/Settings'
 import { useRouter } from './contexts/RouterContext'
+import { ChatPage } from './pages/ChatPage'
 
 function App() {
   const { currentRoute } = useRouter()
@@ -12,6 +13,10 @@ function App() {
 
   if (currentRoute.path === 'settings') {
     return <Settings />
+  }
+
+  if (currentRoute.path === 'chat') {
+    return <ChatPage />
   }
 
   return <Homepage />

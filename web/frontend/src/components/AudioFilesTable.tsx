@@ -1,23 +1,24 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import {
-	CheckCircle,
-	Clock,
-	XCircle,
-	Loader2,
-	MoreVertical,
-	Play,
-	Hash,
-	Trash2,
-	StopCircle,
-	ChevronUp,
-	ChevronDown,
-	ChevronsUpDown,
-	Search,
-	ChevronLeft,
-	ChevronRight,
-	ChevronsLeft,
-	ChevronsRight,
-	Settings,
+    CheckCircle,
+    Clock,
+    XCircle,
+    Loader2,
+    MoreVertical,
+    Play,
+    Hash,
+    Trash2,
+    StopCircle,
+    ChevronUp,
+    ChevronDown,
+    ChevronsUpDown,
+    Search,
+    ChevronLeft,
+    ChevronRight,
+    ChevronsLeft,
+    ChevronsRight,
+    Settings,
+    MessageCircle,
 } from "lucide-react";
 import {
 	Popover,
@@ -648,6 +649,20 @@ export function AudioFilesTable({
 								</PopoverTrigger>
 								<PopoverContent className="w-40 bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-600 p-1">
 									<div className="space-y-1">
+										{file.status === "completed" && (
+											<Button
+												variant="ghost"
+												size="sm"
+												className="w-full justify-start h-8 text-sm hover:bg-gray-100 dark:hover:bg-gray-700"
+												onClick={() => {
+													setOpenPopovers((prev) => ({ ...prev, [file.id]: false }));
+													navigate({ path: 'chat', params: { audioId: file.id } });
+												}}
+											>
+												<MessageCircle className="mr-2 h-4 w-4" />
+												Open Chat
+											</Button>
+										)}
 										<Button
 											variant="ghost"
 											size="sm"

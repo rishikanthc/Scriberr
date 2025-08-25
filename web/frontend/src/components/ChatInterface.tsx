@@ -33,10 +33,12 @@ interface ChatMessage {
 
 interface ChatInterfaceProps {
   transcriptionId: string;
+  activeSessionId?: string;
+  onSessionChange?: (sessionId: string | null) => void;
   onClose?: () => void;
 }
 
-export function ChatInterface({ transcriptionId }: ChatInterfaceProps) {
+export function ChatInterface({ transcriptionId, activeSessionId, onSessionChange }: ChatInterfaceProps) {
   const { getAuthHeaders } = useAuth();
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [activeSession, setActiveSession] = useState<ChatSession | null>(null);
@@ -68,6 +70,19 @@ export function ChatInterface({ transcriptionId }: ChatInterfaceProps) {
       loadChatModels();
     }
   }, [transcriptionId]);
+
+  // Respond to external sessionId changes (via router)
+  useEffect(() => {
+    if (!sessions || sessions.length === 0) return;
+    if (!activeSessionId) return;
+    if (activeSession?.id === activeSessionId) return;
+
+    const found = sessions.find(s => s.id === activeSessionId);
+    if (found) {
+      setActiveSession(found);
+      loadChatSession(found.id);
+    }
+  }, [activeSessionId, sessions]);
 
   const loadChatModels = async () => {
     try {
@@ -110,11 +125,21 @@ export function ChatInterface({ transcriptionId }: ChatInterfaceProps) {
       
       const data = await response.json();
       setSessions(data || []);
-      
-      // Auto-select the most recent session if available
-      if (data && data.length > 0 && !activeSession) {
-        setActiveSession(data[0]);
-        loadChatSession(data[0].id);
+
+      // Determine active session: prefer prop, else most recent
+      if (data && data.length > 0) {
+        if (activeSessionId) {
+          const fromProp = data.find((s: ChatSession) => s.id === activeSessionId);
+          if (fromProp) {
+            setActiveSession(fromProp);
+            loadChatSession(fromProp.id);
+          }
+        } else if (!activeSession) {
+          setActiveSession(data[0]);
+          loadChatSession(data[0].id);
+          // If no sessionId in URL and consumer wants routing, inform
+          onSessionChange?.(data[0].id);
+        }
       }
     } catch (err: any) {
       console.error("Error loading chat sessions:", err);
@@ -178,6 +203,7 @@ export function ChatInterface({ transcriptionId }: ChatInterfaceProps) {
       setShowNewSessionDialog(false);
       setNewSessionTitle("");
       setError(null);
+      onSessionChange?.(newSession.id);
     } catch (err: any) {
       console.error("Error creating chat session:", err);
       setError(err.message);
@@ -233,9 +259,11 @@ export function ChatInterface({ transcriptionId }: ChatInterfaceProps) {
         if (remainingSessions.length > 0) {
           setActiveSession(remainingSessions[0]);
           loadChatSession(remainingSessions[0].id);
+          onSessionChange?.(remainingSessions[0].id);
         } else {
           setActiveSession(null);
           setMessages([]);
+          onSessionChange?.(null);
         }
       }
       setError(null);
@@ -417,6 +445,7 @@ export function ChatInterface({ transcriptionId }: ChatInterfaceProps) {
                   onClick={() => {
                     setActiveSession(session);
                     loadChatSession(session.id);
+                    onSessionChange?.(session.id);
                   }}
                 >
                   <div className="flex items-start justify-between">
