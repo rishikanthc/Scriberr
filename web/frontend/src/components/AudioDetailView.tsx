@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef } from "react";
-import { ArrowLeft, Play, Pause, List, AlignLeft } from "lucide-react";
+import { ArrowLeft, Play, Pause, List, AlignLeft, MessageCircle } from "lucide-react";
 import WaveSurfer from "wavesurfer.js";
 import { Button } from "./ui/button";
 import { useRouter } from "../contexts/RouterContext";
 import { useTheme } from "../contexts/ThemeContext";
 import { ThemeSwitcher } from "./ThemeSwitcher";
 import { useAuth } from "../contexts/AuthContext";
+import { ChatInterface } from "./ChatInterface";
 
 interface AudioFile {
 	id: string;
@@ -49,6 +50,7 @@ export function AudioDetailView({ audioId }: AudioDetailViewProps) {
 	const [transcriptMode, setTranscriptMode] = useState<"compact" | "expanded">(
 		"compact",
 	);
+	const [viewMode, setViewMode] = useState<"transcript" | "chat">("transcript");
 	const [currentTime, setCurrentTime] = useState(0);
 	const [currentWordIndex, setCurrentWordIndex] = useState<number | null>(null);
 	const waveformRef = useRef<HTMLDivElement>(null);
@@ -515,95 +517,121 @@ export function AudioDetailView({ audioId }: AudioDetailViewProps) {
 					<div className="bg-white dark:bg-gray-800 rounded-xl p-6">
 						<div className="flex items-center justify-between mb-6">
 							<h2 className="text-xl font-semibold text-gray-900 dark:text-gray-50">
-								Transcript
+								{viewMode === "transcript" ? "Transcript" : "Chat with Transcript"}
 							</h2>
 
-							{/* View Toggle Buttons */}
-							<div className="flex items-center bg-gray-100 dark:bg-gray-600 rounded-lg p-1">
-								<button
-									onClick={() => setTranscriptMode("compact")}
-									className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-200 flex items-center gap-2 ${
+							<div className="flex items-center gap-2">
+								{/* Chat Toggle Button */}
+								<Button
+									onClick={() => setViewMode(viewMode === "transcript" ? "chat" : "transcript")}
+									variant={viewMode === "chat" ? "default" : "outline"}
+									size="sm"
+									className="flex items-center gap-2"
+								>
+									<MessageCircle className="h-4 w-4" />
+									<span className="hidden sm:inline">
+										{viewMode === "transcript" ? "Chat" : "Transcript"}
+									</span>
+								</Button>
+
+								{/* Transcript View Toggle Buttons - only show in transcript mode */}
+								{viewMode === "transcript" && (
+									<div className="flex items-center bg-gray-100 dark:bg-gray-600 rounded-lg p-1">
+										<button
+											onClick={() => setTranscriptMode("compact")}
+											className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-200 flex items-center gap-2 ${
+												transcriptMode === "compact"
+													? "bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-sm"
+													: "text-gray-600 dark:text-gray-200 hover:text-gray-900 dark:hover:text-gray-200"
+											}`}
+										>
+											<AlignLeft className="h-4 w-4" />
+											<span className="hidden sm:inline">Compact</span>
+										</button>
+										<button
+											onClick={() => setTranscriptMode("expanded")}
+											className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-200 flex items-center gap-2 ${
+												transcriptMode === "expanded"
+													? "bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-sm"
+													: "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
+											}`}
+										>
+											<List className="h-4 w-4" />
+											<span className="hidden sm:inline">Timeline</span>
+										</button>
+									</div>
+								)}
+							</div>
+						</div>
+
+						{/* Content Area - Show transcript or chat based on view mode */}
+						{viewMode === "transcript" ? (
+							<div className="relative overflow-hidden">
+								<div
+									className={`transition-all duration-300 ease-in-out ${
 										transcriptMode === "compact"
-											? "bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-sm"
-											: "text-gray-600 dark:text-gray-200 hover:text-gray-900 dark:hover:text-gray-200"
+											? "opacity-100 translate-y-0"
+											: "opacity-0 -translate-y-4 absolute inset-0"
 									}`}
 								>
-									<AlignLeft className="h-4 w-4" />
-									<span className="hidden sm:inline">Compact</span>
-								</button>
-								<button
-									onClick={() => setTranscriptMode("expanded")}
-									className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-200 flex items-center gap-2 ${
+									{transcriptMode === "compact" && (
+										<div 
+											ref={transcriptRef}
+											className="prose prose-gray dark:prose-invert max-w-none"
+										>
+											<p className="text-gray-700 dark:text-gray-300 leading-relaxed break-words">
+												{renderHighlightedTranscript()}
+											</p>
+										</div>
+									)}
+								</div>
+
+								<div
+									className={`transition-all duration-300 ease-in-out ${
 										transcriptMode === "expanded"
-											? "bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-sm"
-											: "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
+											? "opacity-100 translate-y-0"
+											: "opacity-0 translate-y-4 absolute inset-0"
 									}`}
 								>
-									<List className="h-4 w-4" />
-									<span className="hidden sm:inline">Timeline</span>
-								</button>
-							</div>
-						</div>
-
-						{/* Transcript Content with Smooth Transition */}
-						<div className="relative overflow-hidden">
-							<div
-								className={`transition-all duration-300 ease-in-out ${
-									transcriptMode === "compact"
-										? "opacity-100 translate-y-0"
-										: "opacity-0 -translate-y-4 absolute inset-0"
-								}`}
-							>
-								{transcriptMode === "compact" && (
-									<div 
-										ref={transcriptRef}
-										className="prose prose-gray dark:prose-invert max-w-none"
-									>
-										<p className="text-gray-700 dark:text-gray-300 leading-relaxed break-words">
-											{renderHighlightedTranscript()}
-										</p>
-									</div>
-								)}
-							</div>
-
-							<div
-								className={`transition-all duration-300 ease-in-out ${
-									transcriptMode === "expanded"
-										? "opacity-100 translate-y-0"
-										: "opacity-0 translate-y-4 absolute inset-0"
-								}`}
-							>
-								{transcriptMode === "expanded" && transcript.segments && (
-									<div 
-										ref={transcriptRef}
-										className="space-y-4"
-									>
-										{transcript.segments.map((segment, index) => (
-											<div
-												key={index}
-												className="flex gap-4 p-3 rounded-lg bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors duration-150"
-											>
-												<div className="flex-shrink-0 flex flex-col gap-2">
-													<span className="inline-block px-2 py-1 text-xs font-mono bg-blue-100 dark:bg-blue-700 text-blue-800 dark:text-blue-200 rounded">
-														{formatTimestamp(segment.start)}
-													</span>
-													{segment.speaker && (
-														<span className="inline-block px-2 py-1 text-xs font-medium bg-green-100 dark:bg-green-700 text-green-800 dark:text-green-200 rounded">
-															{segment.speaker}
+									{transcriptMode === "expanded" && transcript.segments && (
+										<div 
+											ref={transcriptRef}
+											className="space-y-4"
+										>
+											{transcript.segments.map((segment, index) => (
+												<div
+													key={index}
+													className="flex gap-4 p-3 rounded-lg bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors duration-150"
+												>
+													<div className="flex-shrink-0 flex flex-col gap-2">
+														<span className="inline-block px-2 py-1 text-xs font-mono bg-blue-100 dark:bg-blue-700 text-blue-800 dark:text-blue-200 rounded">
+															{formatTimestamp(segment.start)}
 														</span>
-													)}
+														{segment.speaker && (
+															<span className="inline-block px-2 py-1 text-xs font-medium bg-green-100 dark:bg-green-700 text-green-800 dark:text-green-200 rounded">
+																{segment.speaker}
+															</span>
+														)}
+													</div>
+													<div className="flex-1 min-w-0">
+														<p className="text-gray-700 dark:text-gray-200 leading-relaxed break-words">
+															{renderSegmentWithHighlighting(segment)}
+														</p>
+													</div>
 												</div>
-												<div className="flex-1 min-w-0">
-													<p className="text-gray-700 dark:text-gray-200 leading-relaxed break-words">
-														{renderSegmentWithHighlighting(segment)}
-													</p>
-												</div>
-											</div>
-										))}
-									</div>
-								)}
+											))}
+										</div>
+									)}
+								</div>
 							</div>
-						</div>
+						) : (
+							<div style={{ height: "600px" }}>
+								<ChatInterface 
+									transcriptionId={audioId}
+									onClose={() => setViewMode("transcript")}
+								/>
+							</div>
+						)}
 					</div>
 				)}
 

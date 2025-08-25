@@ -110,6 +110,19 @@ func SetupRoutes(handler *Handler, authService *auth.AuthService) *gin.Engine {
 			llm.GET("/config", handler.GetLLMConfig)
 			llm.POST("/config", handler.SaveLLMConfig)
 		}
+
+		// Chat routes (require authentication)
+		chat := v1.Group("/chat")
+		chat.Use(middleware.AuthMiddleware(authService))
+		{
+			chat.GET("/models", handler.GetChatModels)
+			chat.POST("/sessions", handler.CreateChatSession)
+			chat.GET("/transcriptions/:transcription_id/sessions", handler.GetChatSessions)
+			chat.GET("/sessions/:session_id", handler.GetChatSession)
+			chat.POST("/sessions/:session_id/messages", handler.SendChatMessage)
+			chat.PUT("/sessions/:session_id/title", handler.UpdateChatSessionTitle)
+			chat.DELETE("/sessions/:session_id", handler.DeleteChatSession)
+		}
 	}
 
 	// Set up static file serving for React app

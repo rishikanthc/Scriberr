@@ -38,6 +38,8 @@ func Initialize(dbPath string) error {
 		&models.APIKey{},
 		&models.TranscriptionProfile{},
 		&models.LLMConfig{},
+		&models.ChatSession{},
+		&models.ChatMessage{},
 	); err != nil {
 		return fmt.Errorf("failed to auto migrate: %v", err)
 	}

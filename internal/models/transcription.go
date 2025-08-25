@@ -190,3 +190,60 @@ func (lc *LLMConfig) BeforeSave(tx *gorm.DB) error {
 	}
 	return nil
 }
+
+// ChatSession represents a chat session with a transcript
+type ChatSession struct {
+	ID                string         `json:"id" gorm:"primaryKey;type:varchar(36)"`
+	JobID             string         `json:"job_id" gorm:"type:varchar(36);not null"`
+	TranscriptionID   string         `json:"transcription_id" gorm:"type:varchar(36);not null;index"`
+	Title             string         `json:"title" gorm:"type:varchar(255);not null"`
+	Model             string         `json:"model" gorm:"type:varchar(100);not null"`
+	Provider          string         `json:"provider" gorm:"type:varchar(50);not null;default:'openai'"`
+	SystemContext     *string        `json:"system_context,omitempty" gorm:"type:text"`
+	MessageCount      int            `json:"message_count" gorm:"type:integer;default:0"`
+	LastActivityAt    *time.Time     `json:"last_activity_at,omitempty" gorm:"type:datetime"`
+	IsActive          bool           `json:"is_active" gorm:"type:boolean;default:true"`
+	CreatedAt         time.Time      `json:"created_at" gorm:"autoCreateTime"`
+	UpdatedAt         time.Time      `json:"updated_at" gorm:"autoUpdateTime"`
+	
+	// Relationships
+	Transcription     TranscriptionJob `json:"transcription,omitempty" gorm:"foreignKey:TranscriptionID"`
+	Job               TranscriptionJob `json:"job,omitempty" gorm:"foreignKey:JobID"`
+	Messages          []ChatMessage    `json:"messages,omitempty" gorm:"foreignKey:ChatSessionID"`
+}
+
+// BeforeCreate sets the ID if not already set
+func (cs *ChatSession) BeforeCreate(tx *gorm.DB) error {
+	if cs.ID == "" {
+		cs.ID = uuid.New().String()
+	}
+	if cs.Title == "" {
+		cs.Title = "New Chat Session"
+	}
+	return nil
+}
+
+// ChatMessage represents a message in a chat session
+type ChatMessage struct {
+	ID            uint      `json:"id" gorm:"primaryKey;autoIncrement"`
+	SessionID     string    `json:"session_id" gorm:"type:varchar(36);not null;index"`
+	ChatSessionID string    `json:"chat_session_id" gorm:"type:varchar(36);not null;index"`
+	Role          string    `json:"role" gorm:"type:varchar(20);not null"` // "user" or "assistant"
+	Content       string    `json:"content" gorm:"type:text;not null"`
+	TokensUsed    *int      `json:"tokens_used,omitempty" gorm:"type:integer"`
+	CreatedAt     time.Time `json:"created_at" gorm:"autoCreateTime"`
+	
+	// Relationships
+	ChatSession   ChatSession `json:"chat_session,omitempty" gorm:"foreignKey:ChatSessionID"`
+}
+
+// BeforeCreate sets both session IDs to the same value for compatibility
+func (cm *ChatMessage) BeforeCreate(tx *gorm.DB) error {
+	if cm.SessionID == "" {
+		cm.SessionID = cm.ChatSessionID
+	}
+	if cm.ChatSessionID == "" {
+		cm.ChatSessionID = cm.SessionID
+	}
+	return nil
+}
