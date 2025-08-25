@@ -1,5 +1,10 @@
 import { useState, useEffect, useRef } from "react";
-import { Send, Bot, User, MessageCircle, Plus, Trash2, Edit2 } from "lucide-react";
+import { Send, Bot, User, MessageCircle, Plus, Trash2, Edit2, Copy, Check } from "lucide-react";
+import ReactMarkdown from 'react-markdown'
+import remarkMath from 'remark-math'
+import rehypeKatex from 'rehype-katex'
+import rehypeRaw from 'rehype-raw'
+import rehypeHighlight from 'rehype-highlight'
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { useAuth } from "../contexts/AuthContext";
@@ -297,7 +302,9 @@ export function ChatInterface({ transcriptionId, activeSessionId, onSessionChang
           ...getAuthHeaders(),
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ content: messageContent }),
+        body: JSON.stringify({
+          content: `${messageContent}\n\nTypeset all your answers in markdown and provide the markdown formatted string (Make sure not to wrap the markdown string within fenced codeblocks)`,
+        }),
       });
 
       if (!response.ok) {
@@ -361,6 +368,33 @@ export function ChatInterface({ transcriptionId, activeSessionId, onSessionChang
     });
   };
 
+  // Code block with copy button
+  const PreBlock = (props: any) => {
+    const preRef = useRef<HTMLPreElement>(null)
+    const [copied, setCopied] = useState(false)
+    const handleCopy = async () => {
+      try {
+        const text = preRef.current?.innerText || ''
+        await navigator.clipboard.writeText(text)
+        setCopied(true)
+        setTimeout(() => setCopied(false), 1200)
+      } catch {}
+    }
+    return (
+      <div className="relative group">
+        <button
+          onClick={handleCopy}
+          className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs bg-black/60 dark:bg-white/10 text-white dark:text-gray-200 hover:bg-black/70 dark:hover:bg-white/20 transition-opacity opacity-0 group-hover:opacity-100"
+          aria-label="Copy code"
+        >
+          {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+          {copied ? 'Copied' : 'Copy'}
+        </button>
+        <pre ref={preRef} className={props.className}>{props.children}</pre>
+      </div>
+    )
+  }
+
   if (error && error.includes("OpenAI")) {
     return (
       <div className="h-full flex flex-col items-center justify-center p-6">
@@ -377,10 +411,10 @@ export function ChatInterface({ transcriptionId, activeSessionId, onSessionChang
   }
 
   return (
-    <div className="h-full flex">
-      {/* Session Sidebar */}
-      <div className="w-80 border-r bg-background flex flex-col">
-        <div className="p-4 border-b">
+      <div className="h-full flex">
+        {/* Session Sidebar */}
+      <div className="w-80 bg-muted/20 flex flex-col shadow-sm">
+        <div className="p-4">
           <div className="flex items-center justify-between mb-3">
             <h3 className="font-medium">Chat Sessions</h3>
             <Dialog open={showNewSessionDialog} onOpenChange={setShowNewSessionDialog}>
@@ -389,7 +423,7 @@ export function ChatInterface({ transcriptionId, activeSessionId, onSessionChang
                   <Plus className="h-4 w-4" />
                 </Button>
               </DialogTrigger>
-              <DialogContent className="sm:max-w-[425px] bg-background border border-border">
+              <DialogContent className="sm:max-w-[425px] bg-background shadow-lg">
                 <DialogHeader className="pb-4">
                   <DialogTitle className="text-lg font-semibold text-foreground">New Chat Session</DialogTitle>
                 </DialogHeader>
@@ -439,7 +473,7 @@ export function ChatInterface({ transcriptionId, activeSessionId, onSessionChang
                   key={session.id}
                   className={`p-3 rounded-lg cursor-pointer transition-colors group ${
                     activeSession?.id === session.id
-                      ? "bg-primary/10 border border-primary/20"
+                      ? "bg-primary/10 shadow-sm"
                       : "hover:bg-muted/50"
                   }`}
                   onClick={() => {
@@ -515,7 +549,7 @@ export function ChatInterface({ transcriptionId, activeSessionId, onSessionChang
         {activeSession ? (
           <>
             {/* Chat Header */}
-            <div className="p-4 border-b bg-background">
+            <div className="p-4 bg-background shadow-sm">
               <h2 className="font-medium">{activeSession.title}</h2>
               <p className="text-sm text-muted-foreground">
                 Model: {activeSession.model}
@@ -539,12 +573,18 @@ export function ChatInterface({ transcriptionId, activeSessionId, onSessionChang
                   <div
                     className={`max-w-[70%] rounded-lg p-3 ${
                       message.role === "user"
-                        ? "bg-primary text-primary-foreground"
+                        ? "bg-primary/10 border border-primary/20"
                         : "bg-muted"
                     }`}
                   >
-                    <div className="text-sm whitespace-pre-wrap">
-                      {message.content}
+                    <div className="prose prose-gray dark:prose-invert max-w-none text-sm">
+                      <ReactMarkdown
+                        remarkPlugins={[remarkMath]}
+                        rehypePlugins={[rehypeRaw as any, rehypeKatex as any, rehypeHighlight as any]}
+                        components={{ pre: PreBlock as any }}
+                      >
+                        {message.content}
+                      </ReactMarkdown>
                     </div>
                   </div>
                   {message.role === "user" && (
@@ -558,7 +598,7 @@ export function ChatInterface({ transcriptionId, activeSessionId, onSessionChang
             </div>
 
             {/* Input */}
-            <div className="p-4 border-t bg-background">
+            <div className="p-4 bg-background shadow-[inset_0_1px_0_0_rgba(0,0,0,0.06)] dark:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06)]">
               <div className="flex gap-2">
                 <Input
                   ref={inputRef}
