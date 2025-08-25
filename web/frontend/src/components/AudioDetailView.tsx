@@ -694,20 +694,20 @@ export function AudioDetailView({ audioId }: AudioDetailViewProps) {
 											<Download className="h-4 w-4" />
 										</Button>
 									</DropdownMenuTrigger>
-									<DropdownMenuContent align="end" className="w-48">
-										<DropdownMenuItem onClick={downloadSRT} className="flex items-center gap-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700">
-											<FileImage className="h-4 w-4" />
-											Download as SRT
-										</DropdownMenuItem>
-										<DropdownMenuItem onClick={() => handleDownloadWithDialog('txt')} className="flex items-center gap-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700">
-											<FileText className="h-4 w-4" />
-											Download as TXT
-										</DropdownMenuItem>
-										<DropdownMenuItem onClick={() => handleDownloadWithDialog('json')} className="flex items-center gap-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700">
-											<FileJson className="h-4 w-4" />
-											Download as JSON
-										</DropdownMenuItem>
-									</DropdownMenuContent>
+                            <DropdownMenuContent align="end" className="w-48 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 shadow-md">
+                                <DropdownMenuItem onClick={downloadSRT} className="flex items-center gap-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-gray-100">
+                                    <FileImage className="h-4 w-4" />
+                                    Download as SRT
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleDownloadWithDialog('txt')} className="flex items-center gap-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-gray-100">
+                                    <FileText className="h-4 w-4" />
+                                    Download as TXT
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleDownloadWithDialog('json')} className="flex items-center gap-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-gray-100">
+                                    <FileJson className="h-4 w-4" />
+                                    Download as JSON
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
 								</DropdownMenu>
 
 								{/* Open Chat Page */}
