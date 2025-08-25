@@ -655,15 +655,15 @@ export function AudioFilesTable({
 									}))
 								}
 							>
-								<PopoverTrigger asChild>
-									<Button
-										variant="ghost"
-										size="sm"
-										className="h-9 w-9 p-0"
-									>
-										<MoreVertical className="h-5 w-5" />
-									</Button>
-								</PopoverTrigger>
+									<PopoverTrigger asChild>
+										<Button
+											variant="ghost"
+											size="sm"
+											className="h-8 w-8 sm:h-9 sm:w-9 p-0"
+										>
+											<MoreVertical className="h-5 w-5" />
+										</Button>
+									</PopoverTrigger>
 								<PopoverContent className="w-40 bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-600 p-1">
 									<div className="space-y-1">
 										{file.status === "completed" && (
@@ -842,8 +842,8 @@ export function AudioFilesTable({
 
 	return (
 		<div className="bg-white dark:bg-gray-800 rounded-xl overflow-hidden">
-			<div className="p-6">
-				<div className="flex justify-between items-center mb-4">
+			<div className="p-3 sm:p-6">
+				<div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0 mb-4">
 					<div>
 						<h2 className="text-xl font-semibold text-gray-900 dark:text-gray-50 mb-2">
 							Audio Files
@@ -857,7 +857,7 @@ export function AudioFilesTable({
 					</div>
 					
 					{/* Global Search */}
-					<div className="relative w-72">
+					<div className="relative w-full sm:w-72">
 						<Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4 z-10" />
 						<DebouncedSearchInput
 							placeholder="Search audio files..."
@@ -884,7 +884,7 @@ export function AudioFilesTable({
 				) : (
 					<>
 						{/* Table */}
-						<div className={`border border-gray-100 dark:border-gray-900 rounded-lg overflow-hidden relative transition-opacity duration-200 ${isPageChanging ? 'opacity-75' : ''}`}>
+					<div className={`border border-gray-100 dark:border-gray-900 rounded-lg overflow-hidden relative transition-opacity duration-200 ${isPageChanging ? 'opacity-75' : ''}`}>
 							{isPageChanging && (
 								<div className="absolute inset-0 bg-white/20 dark:bg-gray-800/20 flex items-center justify-center z-10">
 									<div className="flex items-center space-x-2 text-gray-600 dark:text-gray-400 bg-white dark:bg-gray-800 px-3 py-1 rounded-md shadow-sm">
@@ -894,7 +894,7 @@ export function AudioFilesTable({
 								</div>
 							)}
 							<Table>
-								<TableHeader>
+								<TableHeader className="hidden sm:table-header-group">
 									{table.getHeaderGroups().map((headerGroup) => (
 										<TableRow 
 											key={headerGroup.id}
@@ -903,7 +903,7 @@ export function AudioFilesTable({
 											{headerGroup.headers.map((header) => (
 												<TableHead 
 													key={header.id}
-													className="text-gray-700 dark:text-gray-300"
+													className={`text-gray-700 dark:text-gray-300 ${header.column.id === 'created_at' ? 'hidden sm:table-cell' : ''} ${header.column.id === 'title' ? 'w-full' : ''} ${header.column.id === 'status' ? 'w-10 text-center' : ''} ${header.column.id === 'actions' ? 'w-10 text-center' : ''}`}
 												>
 													{header.isPlaceholder
 														? null
@@ -924,7 +924,15 @@ export function AudioFilesTable({
 												className="hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200 border-b border-gray-100 dark:border-gray-700 last:border-b-0"
 											>
 												{row.getVisibleCells().map((cell) => (
-													<TableCell key={cell.id}>
+													<TableCell
+														key={cell.id}
+														className={`
+															${cell.column.id === 'created_at' ? 'hidden sm:table-cell' : ''}
+															${cell.column.id === 'title' ? 'whitespace-normal break-words pr-1 sm:pr-2' : ''}
+															${cell.column.id === 'status' ? 'w-[36px] px-1 text-center' : ''}
+															${cell.column.id === 'actions' ? 'w-[36px] px-1 text-center' : ''}
+														`}
+													>
 														{flexRender(
 															cell.column.columnDef.cell,
 															cell.getContext()
@@ -948,7 +956,7 @@ export function AudioFilesTable({
 						</div>
 
 						{/* Pagination */}
-						<div className="flex items-center justify-between px-2 py-4">
+						<div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0 px-2 py-4">
 							<div className="flex items-center space-x-2">
 								<p className="text-sm text-gray-600 dark:text-gray-400">
 									{globalFilter ? (

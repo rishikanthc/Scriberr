@@ -6,7 +6,7 @@ import {
 	DropdownMenuItem,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { ChevronDown, Upload, Mic, Settings, LogOut, Home } from "lucide-react";
+import { Upload, Mic, Settings, LogOut, Home, Plus, Grip } from "lucide-react";
 import { ScriberrLogo } from "./ScriberrLogo";
 import { ThemeSwitcher } from "./ThemeSwitcher";
 import { AudioRecorder } from "./AudioRecorder";
@@ -59,44 +59,23 @@ export function Header({ onFileSelect }: HeaderProps) {
 	};
 
 	return (
-		<header className="bg-white dark:bg-gray-800 rounded-xl p-6 mb-6">
+		<header className="bg-white dark:bg-gray-800 rounded-xl p-4 sm:p-6 mb-4 sm:mb-6">
 			<div className="flex items-center justify-between">
 				{/* Left side - Logo */}
 				<ScriberrLogo />
 
-				{/* Right side - Home, Settings, Theme Switcher, Logout and Add Audio Dropdown */}
-				<div className="flex items-center gap-4">
-					<Button
-						variant="ghost"
-						size="sm"
-						onClick={handleHomeClick}
-						className="h-10 w-10 p-0 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 cursor-pointer"
-					>
-						<Home className="h-5 w-5 text-gray-600 dark:text-gray-400" />
-					</Button>
-					<Button
-						variant="ghost"
-						size="sm"
-						onClick={handleSettingsClick}
-						className="h-10 w-10 p-0 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 cursor-pointer"
-					>
-						<Settings className="h-5 w-5 text-gray-600 dark:text-gray-400" />
-					</Button>
-					<Button
-						variant="ghost"
-						size="sm"
-						onClick={handleLogout}
-						className="h-10 w-10 p-0 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 cursor-pointer"
-					>
-						<LogOut className="h-5 w-5 text-gray-600 dark:text-gray-400" />
-					</Button>
-					<ThemeSwitcher />
-
+				{/* Right side - Plus (Add Audio), Grip Menu, Theme Switcher */}
+				<div className="flex items-center gap-2 sm:gap-3">
+					{/* Add Audio (icon-only) */}
 					<DropdownMenu>
 						<DropdownMenuTrigger asChild>
-							<Button className="bg-blue-500 hover:bg-blue-600 text-white font-medium px-6 py-2 rounded-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-lg hover:shadow-blue-500/20 gap-2 cursor-pointer">
-								Add Audio
-								<ChevronDown className="h-4 w-4" />
+							<Button
+								variant="default"
+								size="icon"
+								className="bg-blue-500 hover:bg-blue-600 text-white h-9 w-9 sm:h-10 sm:w-10 cursor-pointer"
+							>
+								<Plus className="h-4 w-4" />
+								<span className="sr-only">Add audio</span>
 							</Button>
 						</DropdownMenuTrigger>
 						<DropdownMenuContent
@@ -129,6 +108,37 @@ export function Header({ onFileSelect }: HeaderProps) {
 							</DropdownMenuItem>
 						</DropdownMenuContent>
 					</DropdownMenu>
+
+					{/* Main Menu (Grip) */}
+					<DropdownMenu>
+						<DropdownMenuTrigger asChild>
+							<Button
+								variant="outline"
+								size="icon"
+								className="h-9 w-9 sm:h-10 sm:w-10 cursor-pointer"
+							>
+								<Grip className="h-5 w-5" />
+								<span className="sr-only">Open menu</span>
+							</Button>
+						</DropdownMenuTrigger>
+						<DropdownMenuContent align="end" className="w-44 bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700">
+							<DropdownMenuItem onClick={handleHomeClick} className="cursor-pointer">
+								<Home className="h-4 w-4" />
+								Home
+							</DropdownMenuItem>
+							<DropdownMenuItem onClick={handleSettingsClick} className="cursor-pointer">
+								<Settings className="h-4 w-4" />
+								Settings
+							</DropdownMenuItem>
+							<DropdownMenuItem onClick={handleLogout} className="cursor-pointer" variant="destructive">
+								<LogOut className="h-4 w-4" />
+								Logout
+							</DropdownMenuItem>
+						</DropdownMenuContent>
+					</DropdownMenu>
+
+					{/* Theme Switcher (icon-only) */}
+					<ThemeSwitcher />
 
 					{/* Hidden file input */}
 					<input
