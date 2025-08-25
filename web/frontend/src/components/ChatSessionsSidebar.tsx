@@ -111,7 +111,7 @@ export function ChatSessionsSidebar({
 
   return (
     <div className="h-full w-full flex flex-col bg-gray-100 dark:bg-gray-900 chat-sidebar">
-      <div className="p-4 bg-gray-100 dark:bg-gray-900 shadow-sm">
+      <div className="p-2 sm:p-4 bg-gray-100 dark:bg-gray-900 shadow-sm">
         <div className="flex items-center justify-between">
           <h3 className="font-medium">Chat Sessions</h3>
           <Dialog open={showNewSessionDialog} onOpenChange={setShowNewSessionDialog}>
@@ -140,7 +140,7 @@ export function ChatSessionsSidebar({
           </Dialog>
         </div>
       </div>
-      <div className="flex-1 overflow-y-auto chat-scroll p-2 space-y-1">
+      <div className="flex-1 overflow-y-auto chat-scroll p-1 sm:p-2 space-y-1">
         {(sessions || []).map(s => (
           <div
             key={s.id}
