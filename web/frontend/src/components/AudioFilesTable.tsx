@@ -659,7 +659,7 @@ export function AudioFilesTable({
 										<Button
 											variant="ghost"
 											size="sm"
-											className="h-8 w-8 sm:h-9 sm:w-9 p-0"
+											className="h-8 w-8 sm:h-9 sm:w-9 p-0 cursor-pointer"
 										>
 											<MoreVertical className="h-5 w-5" />
 										</Button>
