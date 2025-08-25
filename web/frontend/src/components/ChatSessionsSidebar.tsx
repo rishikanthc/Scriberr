@@ -124,8 +124,10 @@ export function ChatSessionsSidebar({
                 <div className="space-y-2">
                   <Label htmlFor="model">Model</Label>
                   <Select value={selectedModel} onValueChange={setSelectedModel}>
-                    <SelectTrigger className="w-full"><SelectValue placeholder="Select a model" /></SelectTrigger>
-                    <SelectContent>
+                    <SelectTrigger className="w-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-foreground">
+                      <SelectValue placeholder="Select a model" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700">
                       {(availableModels || []).map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
                     </SelectContent>
                   </Select>

@@ -468,10 +468,10 @@ export function ChatInterface({ transcriptionId, activeSessionId, onSessionChang
                   <div className="space-y-2">
                     <Label htmlFor="model" className="text-sm font-medium text-foreground">Model</Label>
                     <Select value={selectedModel} onValueChange={setSelectedModel}>
-                      <SelectTrigger className="w-full">
+                      <SelectTrigger className="w-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-foreground">
                         <SelectValue placeholder="Select a model" />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700">
                         {(availableModels || []).map(model => (
                           <SelectItem key={model} value={model}>{model}</SelectItem>
                         ))}
