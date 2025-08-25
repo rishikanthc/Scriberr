@@ -6,10 +6,11 @@ import {
 	DropdownMenuItem,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Upload, Mic, Settings, LogOut, Home, Plus, Grip } from "lucide-react";
+import { Upload, Mic, Settings, LogOut, Home, Plus, Grip, Zap } from "lucide-react";
 import { ScriberrLogo } from "./ScriberrLogo";
 import { ThemeSwitcher } from "./ThemeSwitcher";
 import { AudioRecorder } from "./AudioRecorder";
+import { QuickTranscriptionDialog } from "./QuickTranscriptionDialog";
 import { useRouter } from "../contexts/RouterContext";
 import { useAuth } from "../contexts/AuthContext";
 
@@ -22,6 +23,7 @@ export function Header({ onFileSelect }: HeaderProps) {
 	const { logout } = useAuth();
 	const fileInputRef = useRef<HTMLInputElement>(null);
 	const [isRecorderOpen, setIsRecorderOpen] = useState(false);
+	const [isQuickTranscriptionOpen, setIsQuickTranscriptionOpen] = useState(false);
 
 	const handleUploadClick = () => {
 		fileInputRef.current?.click();
@@ -29,6 +31,10 @@ export function Header({ onFileSelect }: HeaderProps) {
 
 	const handleRecordClick = () => {
 		setIsRecorderOpen(true);
+	};
+
+	const handleQuickTranscriptionClick = () => {
+		setIsQuickTranscriptionOpen(true);
 	};
 
 	const handleSettingsClick = () => {
@@ -82,6 +88,18 @@ export function Header({ onFileSelect }: HeaderProps) {
 							align="end"
 							className="w-48 bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700 shadow-lg"
 						>
+							<DropdownMenuItem
+								onClick={handleQuickTranscriptionClick}
+								className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
+							>
+								<Zap className="h-4 w-4 text-yellow-500" />
+								<div>
+									<div className="font-medium">Quick Transcribe</div>
+									<div className="text-xs text-gray-500 dark:text-gray-400">
+										Fast transcribe without saving
+									</div>
+								</div>
+							</DropdownMenuItem>
 							<DropdownMenuItem
 								onClick={handleUploadClick}
 								className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
@@ -156,6 +174,12 @@ export function Header({ onFileSelect }: HeaderProps) {
 				isOpen={isRecorderOpen}
 				onClose={() => setIsRecorderOpen(false)}
 				onRecordingComplete={handleRecordingComplete}
+			/>
+
+			{/* Quick Transcription Dialog */}
+			<QuickTranscriptionDialog
+				isOpen={isQuickTranscriptionOpen}
+				onClose={() => setIsQuickTranscriptionOpen(false)}
 			/>
 		</header>
 	);
