@@ -652,7 +652,7 @@ export function AudioDetailView({ audioId }: AudioDetailViewProps) {
 							{/* Circular Play/Pause Button */}
 							<button
 								onClick={togglePlayPause}
-								className="w-16 h-16 rounded-full bg-blue-500 hover:bg-blue-600 text-white shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105 flex items-center justify-center group"
+								className="w-16 h-16 rounded-full bg-blue-500 hover:bg-blue-600 text-white shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105 flex items-center justify-center group cursor-pointer"
 							>
 								{isPlaying ? (
 									<Pause className="h-6 w-6 group-hover:scale-110 transition-transform" />
@@ -688,22 +688,22 @@ export function AudioDetailView({ audioId }: AudioDetailViewProps) {
 										<Button
 											variant="outline"
 											size="sm"
-											className="h-8 w-8 p-0"
+											className="h-8 w-8 p-0 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer"
 											title="Download Transcript"
 										>
 											<Download className="h-4 w-4" />
 										</Button>
 									</DropdownMenuTrigger>
 									<DropdownMenuContent align="end" className="w-48">
-										<DropdownMenuItem onClick={downloadSRT} className="flex items-center gap-2">
+										<DropdownMenuItem onClick={downloadSRT} className="flex items-center gap-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700">
 											<FileImage className="h-4 w-4" />
 											Download as SRT
 										</DropdownMenuItem>
-										<DropdownMenuItem onClick={() => handleDownloadWithDialog('txt')} className="flex items-center gap-2">
+										<DropdownMenuItem onClick={() => handleDownloadWithDialog('txt')} className="flex items-center gap-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700">
 											<FileText className="h-4 w-4" />
 											Download as TXT
 										</DropdownMenuItem>
-										<DropdownMenuItem onClick={() => handleDownloadWithDialog('json')} className="flex items-center gap-2">
+										<DropdownMenuItem onClick={() => handleDownloadWithDialog('json')} className="flex items-center gap-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700">
 											<FileJson className="h-4 w-4" />
 											Download as JSON
 										</DropdownMenuItem>
@@ -726,7 +726,7 @@ export function AudioDetailView({ audioId }: AudioDetailViewProps) {
 									<div className="flex items-center bg-gray-100 dark:bg-gray-600 rounded-lg p-1">
 										<button
 											onClick={() => setTranscriptMode("compact")}
-											className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-200 flex items-center gap-2 ${
+											className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-200 flex items-center gap-2 cursor-pointer ${
 												transcriptMode === "compact"
 													? "bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-sm"
 													: "text-gray-600 dark:text-gray-200 hover:text-gray-900 dark:hover:text-gray-200"
@@ -737,7 +737,7 @@ export function AudioDetailView({ audioId }: AudioDetailViewProps) {
 										</button>
 										<button
 											onClick={() => setTranscriptMode("expanded")}
-											className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-200 flex items-center gap-2 ${
+											className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-200 flex items-center gap-2 cursor-pointer ${
 												transcriptMode === "expanded"
 													? "bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-sm"
 													: "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"

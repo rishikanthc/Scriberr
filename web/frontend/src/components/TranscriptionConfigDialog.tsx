@@ -1171,13 +1171,13 @@ export function TranscriptionConfigDialog({
         </Tabs>
 
         <DialogFooter className="gap-2 border-t border-gray-200 dark:border-gray-700 pt-6 mt-8">
-          <Button variant="outline" onClick={() => onOpenChange(false)} className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700">
+          <Button variant="outline" onClick={() => onOpenChange(false)} className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer">
             Cancel
           </Button>
           <Button 
             onClick={handleStartTranscription} 
             disabled={loading || (isProfileMode && !profileName.trim())} 
-            className="bg-blue-600 dark:bg-blue-700 hover:bg-blue-700 dark:hover:bg-blue-800 text-white"
+            className="bg-blue-600 dark:bg-blue-700 hover:bg-blue-700 dark:hover:bg-blue-800 text-white cursor-pointer disabled:cursor-not-allowed"
           >
             {loading 
               ? (isProfileMode ? "Saving..." : "Starting...") 

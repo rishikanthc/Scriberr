@@ -10,7 +10,7 @@ export function ThemeSwitcher() {
       variant="outline" 
       size="icon"
       onClick={toggleTheme}
-      className="h-9 w-9"
+      className="h-9 w-9 cursor-pointer"
     >
       {theme === 'light' ? (
         <Moon className="h-4 w-4" />

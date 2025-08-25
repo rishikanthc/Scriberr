@@ -670,7 +670,7 @@ export function AudioFilesTable({
 											<Button
 												variant="ghost"
 												size="sm"
-												className="w-full justify-start h-8 text-sm hover:bg-gray-100 dark:hover:bg-gray-700"
+												className="w-full justify-start h-8 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
 												onClick={() => {
 													setOpenPopovers((prev) => ({ ...prev, [file.id]: false }));
 													navigate({ path: 'chat', params: { audioId: file.id } });
@@ -683,7 +683,7 @@ export function AudioFilesTable({
 										<Button
 											variant="ghost"
 											size="sm"
-											className="w-full justify-start h-8 text-sm hover:bg-gray-100 dark:hover:bg-gray-700"
+											className="w-full justify-start h-8 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer disabled:cursor-not-allowed"
 											disabled={!canTranscribe(file)}
 											onClick={() => handleTranscribeD(file.id)}
 										>
@@ -694,7 +694,7 @@ export function AudioFilesTable({
 										<Button
 											variant="ghost"
 											size="sm"
-											className="w-full justify-start h-8 text-sm hover:bg-gray-100 dark:hover:bg-gray-700"
+											className="w-full justify-start h-8 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer disabled:cursor-not-allowed"
 											disabled={!canTranscribe(file)}
 											onClick={() => handleTranscribe(file.id)}
 										>
@@ -708,7 +708,7 @@ export function AudioFilesTable({
 													<Button
 														variant="ghost"
 														size="sm"
-														className="w-full justify-start h-8 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 text-orange-500 dark:text-orange-400 hover:text-orange-600 dark:hover:text-orange-300"
+														className="w-full justify-start h-8 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 text-orange-500 dark:text-orange-400 hover:text-orange-600 dark:hover:text-orange-300 cursor-pointer"
 														disabled={killingJobs.has(file.id)}
 													>
 														{killingJobs.has(file.id) ? (
@@ -755,7 +755,7 @@ export function AudioFilesTable({
 												<Button
 													variant="ghost"
 													size="sm"
-													className="w-full justify-start h-8 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 text-red-500 dark:text-red-400 hover:text-red-600 dark:hover:text-red-300"
+													className="w-full justify-start h-8 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 text-red-500 dark:text-red-400 hover:text-red-600 dark:hover:text-red-300 cursor-pointer"
 												>
 													<Trash2 className="mr-2 h-4 w-4" />
 													Delete

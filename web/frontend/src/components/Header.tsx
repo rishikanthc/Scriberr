@@ -70,7 +70,7 @@ export function Header({ onFileSelect }: HeaderProps) {
 						variant="ghost"
 						size="sm"
 						onClick={handleHomeClick}
-						className="h-10 w-10 p-0 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200"
+						className="h-10 w-10 p-0 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 cursor-pointer"
 					>
 						<Home className="h-5 w-5 text-gray-600 dark:text-gray-400" />
 					</Button>
@@ -78,7 +78,7 @@ export function Header({ onFileSelect }: HeaderProps) {
 						variant="ghost"
 						size="sm"
 						onClick={handleSettingsClick}
-						className="h-10 w-10 p-0 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200"
+						className="h-10 w-10 p-0 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 cursor-pointer"
 					>
 						<Settings className="h-5 w-5 text-gray-600 dark:text-gray-400" />
 					</Button>
@@ -86,7 +86,7 @@ export function Header({ onFileSelect }: HeaderProps) {
 						variant="ghost"
 						size="sm"
 						onClick={handleLogout}
-						className="h-10 w-10 p-0 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200"
+						className="h-10 w-10 p-0 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 cursor-pointer"
 					>
 						<LogOut className="h-5 w-5 text-gray-600 dark:text-gray-400" />
 					</Button>
@@ -94,7 +94,7 @@ export function Header({ onFileSelect }: HeaderProps) {
 
 					<DropdownMenu>
 						<DropdownMenuTrigger asChild>
-							<Button className="bg-blue-500 hover:bg-blue-600 text-white font-medium px-6 py-2 rounded-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-lg hover:shadow-blue-500/20 gap-2">
+							<Button className="bg-blue-500 hover:bg-blue-600 text-white font-medium px-6 py-2 rounded-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-lg hover:shadow-blue-500/20 gap-2 cursor-pointer">
 								Add Audio
 								<ChevronDown className="h-4 w-4" />
 							</Button>
