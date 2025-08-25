@@ -41,9 +41,10 @@ interface ChatInterfaceProps {
   activeSessionId?: string;
   onSessionChange?: (sessionId: string | null) => void;
   onClose?: () => void;
+  hideSidebar?: boolean;
 }
 
-export function ChatInterface({ transcriptionId, activeSessionId, onSessionChange }: ChatInterfaceProps) {
+export function ChatInterface({ transcriptionId, activeSessionId, onSessionChange, hideSidebar = false }: ChatInterfaceProps) {
   const { getAuthHeaders } = useAuth();
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [activeSession, setActiveSession] = useState<ChatSession | null>(null);
@@ -60,6 +61,7 @@ export function ChatInterface({ transcriptionId, activeSessionId, onSessionChang
   const [error, setError] = useState<string | null>(null);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const scrollToBottom = () => {
@@ -67,8 +69,14 @@ export function ChatInterface({ transcriptionId, activeSessionId, onSessionChang
   };
 
   useEffect(() => {
-    scrollToBottom();
-  }, [messages, streamingMessage]);
+    const el = messagesContainerRef.current
+    if (!el) return
+    const distanceFromBottom = el.scrollHeight - (el.scrollTop + el.clientHeight)
+    const nearBottom = distanceFromBottom < 120
+    if (nearBottom) {
+      scrollToBottom()
+    }
+  }, [messages, streamingMessage])
 
   useEffect(() => {
     if (transcriptionId) {
@@ -405,7 +413,8 @@ export function ChatInterface({ transcriptionId, activeSessionId, onSessionChang
 
   return (
       <div className="h-full flex chat-shell overflow-hidden">
-        {/* Session Sidebar */}
+        {/* Session Sidebar (optional) */}
+      {!hideSidebar && (
       <div className="w-80 bg-gray-50 dark:bg-gray-800 flex flex-col shadow-sm chat-sidebar shrink-0 overflow-hidden">
         <div className="p-4">
           <div className="flex items-center justify-between mb-3">
@@ -534,9 +543,10 @@ export function ChatInterface({ transcriptionId, activeSessionId, onSessionChang
           )}
         </div>
       </div>
+      )}
 
       {/* Chat Area */}
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col overflow-hidden relative">
         {activeSession ? (
           <>
             {/* Chat Header */}
@@ -547,8 +557,8 @@ export function ChatInterface({ transcriptionId, activeSessionId, onSessionChang
               </p>
             </div>
 
-            {/* Messages */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4 chat-scroll">
+            {/* Messages: only scrollable area; padded for bottom input */}
+            <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-4 pt-6 pb-28 md:pb-32 space-y-4 chat-scroll">
               {(messages || []).map(message => (
                 <div
                   key={message.id}
@@ -588,9 +598,9 @@ export function ChatInterface({ transcriptionId, activeSessionId, onSessionChang
               <div ref={messagesEndRef} />
             </div>
 
-            {/* Input */}
-            <div className="p-4 bg-background shadow-[inset_0_1px_0_0_rgba(0,0,0,0.06)] dark:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06)]">
-              <div className="flex gap-2">
+            {/* Input: absolute at bottom with margin */}
+            <div className="absolute bottom-0 left-0 right-0 p-4">
+              <div className="flex gap-2 rounded-lg border bg-background p-2 shadow-sm">
                 <Input
                   ref={inputRef}
                   value={inputMessage}
