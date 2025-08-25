@@ -390,7 +390,7 @@ export function TranscriptionConfigDialog({
             <TabsTrigger value="basic" className="data-[state=active]:bg-white data-[state=active]:dark:bg-gray-700 text-gray-700 dark:text-gray-300">Basic</TabsTrigger>
             <TabsTrigger value="quality" className="data-[state=active]:bg-white data-[state=active]:dark:bg-gray-700 text-gray-700 dark:text-gray-300">Quality</TabsTrigger>
             <TabsTrigger value="advanced" className="data-[state=active]:bg-white data-[state=active]:dark:bg-gray-700 text-gray-700 dark:text-gray-300">Advanced</TabsTrigger>
-            <TabsTrigger value="output" className="data-[state=active]:bg-white data-[state=active]:dark:bg-gray-700 text-gray-700 dark:text-gray-300">Output</TabsTrigger>
+            <TabsTrigger value="diarization" className="data-[state=active]:bg-white data-[state=active]:dark:bg-gray-700 text-gray-700 dark:text-gray-300">Diarization</TabsTrigger>
           </TabsList>
 
           <TabsContent value="basic" className="space-y-8 mt-6">
@@ -559,108 +559,33 @@ export function TranscriptionConfigDialog({
                     className="mt-3"
                   />
                 </div>
-              </div>
-            </div>
 
-            <Separator className="bg-gray-200 dark:bg-gray-700 my-8" />
-
-            <div>
-              <div className="flex items-center space-x-2">
-                <Switch
-                  id="diarize"
-                  checked={params.diarize}
-                  onCheckedChange={(checked) => updateParam('diarize', checked)}
-                />
-                <Label htmlFor="diarize" className="text-gray-700 dark:text-gray-300">Speaker Diarization</Label>
-                <HoverCard>
-                  <HoverCardTrigger asChild>
-                    <Info className="h-4 w-4 text-gray-400 cursor-help" />
-                  </HoverCardTrigger>
-                  <HoverCardContent className="w-80 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
-                    <p className="text-sm text-gray-700 dark:text-gray-300">{PARAM_DESCRIPTIONS.diarize}</p>
-                  </HoverCardContent>
-                </HoverCard>
-              </div>
-
-              {params.diarize && (
-                <div className="mt-6 p-6 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800 space-y-6">
-                  <div>
-                    <div className="flex items-center gap-2 mb-2">
-                      <Label htmlFor="diarize_model" className="text-gray-700 dark:text-gray-300">Diarization Model</Label>
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <Label htmlFor="threads" className="text-gray-700 dark:text-gray-300">Threads: {params.threads}</Label>
                       <HoverCard>
                         <HoverCardTrigger asChild>
-                          <Info className="h-3 w-3 text-gray-400 cursor-help" />
+                          <Info className="h-4 w-4 text-gray-400 cursor-help" />
                         </HoverCardTrigger>
                         <HoverCardContent className="w-80 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
-                          <p className="text-xs text-gray-700 dark:text-gray-300">{PARAM_DESCRIPTIONS.diarize_model}</p>
+                          <p className="text-sm text-gray-700 dark:text-gray-300">Number of threads used by torch for CPU inference. 0 means auto-detect.</p>
                         </HoverCardContent>
                       </HoverCard>
                     </div>
-                    <Select
-                      value={params.diarize_model}
-                      onValueChange={(value) => updateParam('diarize_model', value)}
-                    >
-                      <SelectTrigger className="mt-3 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
-                        <SelectItem value="pyannote/speaker-diarization-3.1" className="text-gray-900 dark:text-gray-100 focus:bg-gray-100 dark:focus:bg-gray-700">
-                          pyannote/speaker-diarization-3.1 (Recommended)
-                        </SelectItem>
-                        <SelectItem value="pyannote/speaker-diarization-3.0" className="text-gray-900 dark:text-gray-100 focus:bg-gray-100 dark:focus:bg-gray-700">
-                          pyannote/speaker-diarization-3.0 (Stable)
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
                   </div>
-                  
-                  <div className="grid grid-cols-2 gap-6">
-                    <div>
-                      <div className="flex items-center gap-2 mb-2">
-                        <Label htmlFor="min_speakers" className="text-gray-700 dark:text-gray-300">Min Speakers</Label>
-                        <HoverCard>
-                          <HoverCardTrigger asChild>
-                            <Info className="h-3 w-3 text-gray-400 cursor-help" />
-                          </HoverCardTrigger>
-                          <HoverCardContent className="w-64 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
-                            <p className="text-xs text-gray-700 dark:text-gray-300">{PARAM_DESCRIPTIONS.min_speakers}</p>
-                          </HoverCardContent>
-                        </HoverCard>
-                      </div>
-                      <Input
-                        type="number"
-                        min="1"
-                        max="20"
-                        value={params.min_speakers || ""}
-                        onChange={(e) => updateParam('min_speakers', e.target.value ? parseInt(e.target.value) : undefined)}
-                        className="mt-3 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100"
-                      />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2 mb-2">
-                        <Label htmlFor="max_speakers" className="text-gray-700 dark:text-gray-300">Max Speakers</Label>
-                        <HoverCard>
-                          <HoverCardTrigger asChild>
-                            <Info className="h-3 w-3 text-gray-400 cursor-help" />
-                          </HoverCardTrigger>
-                          <HoverCardContent className="w-64 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
-                            <p className="text-xs text-gray-700 dark:text-gray-300">{PARAM_DESCRIPTIONS.max_speakers}</p>
-                          </HoverCardContent>
-                        </HoverCard>
-                      </div>
-                      <Input
-                        type="number"
-                        min="1"
-                        max="20"
-                        value={params.max_speakers || ""}
-                        onChange={(e) => updateParam('max_speakers', e.target.value ? parseInt(e.target.value) : undefined)}
-                        className="mt-3 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100"
-                      />
-                    </div>
-                  </div>
+                  <Slider
+                    value={[params.threads]}
+                    onValueChange={([value]) => updateParam('threads', value)}
+                    min={0}
+                    max={16}
+                    step={1}
+                    className="mt-3"
+                  />
                 </div>
-              )}
+              </div>
             </div>
+
           </TabsContent>
 
           <TabsContent value="quality" className="space-y-8 mt-6">
@@ -1107,187 +1032,140 @@ export function TranscriptionConfigDialog({
             </div>
           </TabsContent>
 
-          <TabsContent value="output" className="space-y-8 mt-6">
-            <div className="grid grid-cols-2 gap-8">
-              <div className="space-y-6">
-                <div>
-                  <div className="flex items-center gap-2 mb-2">
-                    <Label htmlFor="output_format" className="text-gray-700 dark:text-gray-300">Output Format</Label>
-                    <HoverCard>
-                      <HoverCardTrigger asChild>
-                        <Info className="h-4 w-4 text-gray-400 cursor-help" />
-                      </HoverCardTrigger>
-                      <HoverCardContent className="w-80 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
-                        <p className="text-sm text-gray-700 dark:text-gray-300">{PARAM_DESCRIPTIONS.output_format}</p>
-                      </HoverCardContent>
-                    </HoverCard>
-                  </div>
-                  <Select
-                    value={params.output_format}
-                    onValueChange={(value) => updateParam('output_format', value)}
-                  >
-                    <SelectTrigger className="mt-3">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All formats</SelectItem>
-                      <SelectItem value="srt">SRT</SelectItem>
-                      <SelectItem value="vtt">VTT</SelectItem>
-                      <SelectItem value="txt">TXT</SelectItem>
-                      <SelectItem value="json">JSON</SelectItem>
-                      <SelectItem value="tsv">TSV</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <div className="flex items-center gap-2 mb-2">
-                    <Label htmlFor="segment_resolution" className="text-gray-700 dark:text-gray-300">Segment Resolution</Label>
-                    <HoverCard>
-                      <HoverCardTrigger asChild>
-                        <Info className="h-4 w-4 text-gray-400 cursor-help" />
-                      </HoverCardTrigger>
-                      <HoverCardContent className="w-80 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
-                        <p className="text-sm text-gray-700 dark:text-gray-300">{PARAM_DESCRIPTIONS.segment_resolution}</p>
-                      </HoverCardContent>
-                    </HoverCard>
-                  </div>
-                  <Select
-                    value={params.segment_resolution}
-                    onValueChange={(value) => updateParam('segment_resolution', value)}
-                  >
-                    <SelectTrigger className="mt-3">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="sentence">Sentence</SelectItem>
-                      <SelectItem value="chunk">Chunk</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <div className="flex items-center gap-2 mb-2">
-                    <Label htmlFor="max_line_width" className="text-gray-700 dark:text-gray-300">Max Line Width</Label>
-                    <HoverCard>
-                      <HoverCardTrigger asChild>
-                        <Info className="h-4 w-4 text-gray-400 cursor-help" />
-                      </HoverCardTrigger>
-                      <HoverCardContent className="w-80 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
-                        <p className="text-sm text-gray-700 dark:text-gray-300">{PARAM_DESCRIPTIONS.max_line_width}</p>
-                      </HoverCardContent>
-                    </HoverCard>
-                  </div>
-                  <Input
-                    type="number"
-                    min="10"
-                    max="200"
-                    placeholder="No limit"
-                    value={params.max_line_width || ""}
-                    onChange={(e) => updateParam('max_line_width', e.target.value ? parseInt(e.target.value) : undefined)}
-                    className="mt-3"
-                  />
-                </div>
-
-                <div>
-                  <div className="flex items-center gap-2 mb-2">
-                    <Label htmlFor="max_line_count" className="text-gray-700 dark:text-gray-300">Max Line Count</Label>
-                    <HoverCard>
-                      <HoverCardTrigger asChild>
-                        <Info className="h-4 w-4 text-gray-400 cursor-help" />
-                      </HoverCardTrigger>
-                      <HoverCardContent className="w-80 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
-                        <p className="text-sm text-gray-700 dark:text-gray-300">{PARAM_DESCRIPTIONS.max_line_count}</p>
-                      </HoverCardContent>
-                    </HoverCard>
-                  </div>
-                  <Input
-                    type="number"
-                    min="1"
-                    max="20"
-                    placeholder="No limit"
-                    value={params.max_line_count || ""}
-                    onChange={(e) => updateParam('max_line_count', e.target.value ? parseInt(e.target.value) : undefined)}
-                    className="mt-3"
-                  />
-                </div>
+          <TabsContent value="diarization" className="space-y-8 mt-6">
+            <div>
+              <div className="flex items-center space-x-2 mb-6">
+                <Switch
+                  id="diarize"
+                  checked={params.diarize}
+                  onCheckedChange={(checked) => updateParam('diarize', checked)}
+                />
+                <Label htmlFor="diarize" className="text-gray-700 dark:text-gray-300">Enable Speaker Diarization</Label>
+                <HoverCard>
+                  <HoverCardTrigger asChild>
+                    <Info className="h-4 w-4 text-gray-400 cursor-help" />
+                  </HoverCardTrigger>
+                  <HoverCardContent className="w-80 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                    <p className="text-sm text-gray-700 dark:text-gray-300">{PARAM_DESCRIPTIONS.diarize}</p>
+                  </HoverCardContent>
+                </HoverCard>
               </div>
 
-              <div className="space-y-6">
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    id="highlight_words"
-                    checked={params.highlight_words}
-                    onCheckedChange={(checked) => updateParam('highlight_words', checked)}
-                  />
-                  <Label htmlFor="highlight_words" className="text-gray-700 dark:text-gray-300">Highlight Words</Label>
-                  <HoverCard>
-                    <HoverCardTrigger asChild>
-                      <Info className="h-4 w-4 text-gray-400 cursor-help" />
-                    </HoverCardTrigger>
-                    <HoverCardContent className="w-80 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
-                      <p className="text-sm text-gray-700 dark:text-gray-300">{PARAM_DESCRIPTIONS.highlight_words}</p>
-                    </HoverCardContent>
-                  </HoverCard>
-                </div>
-
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    id="verbose"
-                    checked={params.verbose}
-                    onCheckedChange={(checked) => updateParam('verbose', checked)}
-                  />
-                  <Label htmlFor="verbose" className="text-gray-700 dark:text-gray-300">Verbose Output</Label>
-                  <HoverCard>
-                    <HoverCardTrigger asChild>
-                      <Info className="h-4 w-4 text-gray-400 cursor-help" />
-                    </HoverCardTrigger>
-                    <HoverCardContent className="w-80 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
-                      <p className="text-sm text-gray-700 dark:text-gray-300">{PARAM_DESCRIPTIONS.verbose}</p>
-                    </HoverCardContent>
-                  </HoverCard>
-                </div>
-
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    id="print_progress"
-                    checked={params.print_progress}
-                    onCheckedChange={(checked) => updateParam('print_progress', checked)}
-                  />
-                  <Label htmlFor="print_progress" className="text-gray-700 dark:text-gray-300">Print Progress</Label>
-                  <HoverCard>
-                    <HoverCardTrigger asChild>
-                      <Info className="h-4 w-4 text-gray-400 cursor-help" />
-                    </HoverCardTrigger>
-                    <HoverCardContent className="w-80 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
-                      <p className="text-sm text-gray-700 dark:text-gray-300">{PARAM_DESCRIPTIONS.print_progress}</p>
-                    </HoverCardContent>
-                  </HoverCard>
-                </div>
-
-                <Separator className="my-8" />
-
-                <div>
-                  <div className="flex items-center gap-2 mb-2">
-                    <Label htmlFor="hf_token" className="text-gray-700 dark:text-gray-300">Hugging Face Token</Label>
-                    <HoverCard>
-                      <HoverCardTrigger asChild>
-                        <Info className="h-4 w-4 text-gray-400 cursor-help" />
-                      </HoverCardTrigger>
-                      <HoverCardContent className="w-80 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
-                        <p className="text-sm text-gray-700 dark:text-gray-300">{PARAM_DESCRIPTIONS.hf_token}</p>
-                      </HoverCardContent>
-                    </HoverCard>
+              {params.diarize && (
+                <div className="p-6 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800 space-y-6">
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <Label htmlFor="diarize_model" className="text-gray-700 dark:text-gray-300">Diarization Model</Label>
+                      <HoverCard>
+                        <HoverCardTrigger asChild>
+                          <Info className="h-4 w-4 text-gray-400 cursor-help" />
+                        </HoverCardTrigger>
+                        <HoverCardContent className="w-80 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                          <p className="text-sm text-gray-700 dark:text-gray-300">{PARAM_DESCRIPTIONS.diarize_model}</p>
+                        </HoverCardContent>
+                      </HoverCard>
+                    </div>
+                    <Select
+                      value={params.diarize_model}
+                      onValueChange={(value) => updateParam('diarize_model', value)}
+                    >
+                      <SelectTrigger className="mt-3 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                        <SelectItem value="pyannote/speaker-diarization-3.1" className="text-gray-900 dark:text-gray-100 focus:bg-gray-100 dark:focus:bg-gray-700">
+                          pyannote/speaker-diarization-3.1 (Recommended)
+                        </SelectItem>
+                        <SelectItem value="pyannote/speaker-diarization-3.0" className="text-gray-900 dark:text-gray-100 focus:bg-gray-100 dark:focus:bg-gray-700">
+                          pyannote/speaker-diarization-3.0 (Stable)
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
-                  <Input
-                    type="password"
-                    placeholder="Optional HF token for private models"
-                    value={params.hf_token || ""}
-                    onChange={(e) => updateParam('hf_token', e.target.value || undefined)}
-                    className="mt-3"
-                  />
+                  
+                  <div className="grid grid-cols-2 gap-6">
+                    <div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <Label htmlFor="min_speakers" className="text-gray-700 dark:text-gray-300">Min Speakers</Label>
+                        <HoverCard>
+                          <HoverCardTrigger asChild>
+                            <Info className="h-4 w-4 text-gray-400 cursor-help" />
+                          </HoverCardTrigger>
+                          <HoverCardContent className="w-64 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                            <p className="text-sm text-gray-700 dark:text-gray-300">{PARAM_DESCRIPTIONS.min_speakers}</p>
+                          </HoverCardContent>
+                        </HoverCard>
+                      </div>
+                      <Input
+                        type="number"
+                        min="1"
+                        max="20"
+                        placeholder="Auto-detect"
+                        value={params.min_speakers || ""}
+                        onChange={(e) => updateParam('min_speakers', e.target.value ? parseInt(e.target.value) : undefined)}
+                        className="mt-3 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100"
+                      />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <Label htmlFor="max_speakers" className="text-gray-700 dark:text-gray-300">Max Speakers</Label>
+                        <HoverCard>
+                          <HoverCardTrigger asChild>
+                            <Info className="h-4 w-4 text-gray-400 cursor-help" />
+                          </HoverCardTrigger>
+                          <HoverCardContent className="w-64 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                            <p className="text-sm text-gray-700 dark:text-gray-300">{PARAM_DESCRIPTIONS.max_speakers}</p>
+                          </HoverCardContent>
+                        </HoverCard>
+                      </div>
+                      <Input
+                        type="number"
+                        min="1"
+                        max="20"
+                        placeholder="Auto-detect"
+                        value={params.max_speakers || ""}
+                        onChange={(e) => updateParam('max_speakers', e.target.value ? parseInt(e.target.value) : undefined)}
+                        className="mt-3 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100"
+                      />
+                    </div>
+                  </div>
+
+                  <Separator className="my-6" />
+
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <Label htmlFor="hf_token" className="text-gray-700 dark:text-gray-300">Hugging Face Token</Label>
+                      <HoverCard>
+                        <HoverCardTrigger asChild>
+                          <Info className="h-4 w-4 text-gray-400 cursor-help" />
+                        </HoverCardTrigger>
+                        <HoverCardContent className="w-80 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                          <p className="text-sm text-gray-700 dark:text-gray-300">{PARAM_DESCRIPTIONS.hf_token}</p>
+                        </HoverCardContent>
+                      </HoverCard>
+                    </div>
+                    <Input
+                      type="password"
+                      placeholder="Required for diarization models"
+                      value={params.hf_token || ""}
+                      onChange={(e) => updateParam('hf_token', e.target.value || undefined)}
+                      className="mt-3 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100"
+                    />
+                  </div>
                 </div>
-              </div>
+              )}
+
+              {!params.diarize && (
+                <div className="p-8 text-center border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800">
+                  <div className="text-4xl mb-3 opacity-50">🎤</div>
+                  <h3 className="text-lg font-medium text-gray-600 dark:text-gray-300 mb-2">
+                    Speaker Diarization Disabled
+                  </h3>
+                  <p className="text-gray-500 dark:text-gray-400 text-sm">
+                    Enable speaker diarization to identify and separate different speakers in your audio.
+                  </p>
+                </div>
+              )}
             </div>
           </TabsContent>
         </Tabs>

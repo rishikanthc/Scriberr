@@ -61,7 +61,7 @@ func TestWhisperXParams_Defaults(t *testing.T) {
 		BatchSize:   16,
 		ComputeType: "float16",
 		Device:      "auto",
-		VadFilter:   false,
+		Threads:     4,
 		VadOnset:    0.500,
 		VadOffset:   0.363,
 	}
@@ -70,7 +70,7 @@ func TestWhisperXParams_Defaults(t *testing.T) {
 	assert.Equal(t, 16, params.BatchSize)
 	assert.Equal(t, "float16", params.ComputeType)
 	assert.Equal(t, "auto", params.Device)
-	assert.False(t, params.VadFilter)
+	assert.Equal(t, 4, params.Threads)
 	assert.Equal(t, 0.500, params.VadOnset)
 	assert.Equal(t, 0.363, params.VadOffset)
 }
@@ -94,7 +94,7 @@ func TestTranscriptionJob_JSON_Serialization(t *testing.T) {
 			BatchSize:   16,
 			ComputeType: "float16",
 			Device:      "auto",
-			VadFilter:   true,
+			Threads:     4,
 			VadOnset:    0.500,
 			VadOffset:   0.363,
 			MinSpeakers: intPtr(2),

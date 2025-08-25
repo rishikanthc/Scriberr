@@ -195,11 +195,9 @@ func (ws *WhisperXService) buildWhisperXCommand(job *models.TranscriptionJob, ou
 		args = append(args, "--threads", strconv.Itoa(p.Threads))
 	}
 
-	// Output settings
-	args = append(args, "--output_format", p.OutputFormat)
-	if !p.Verbose {
-		args = append(args, "--verbose", "False")
-	}
+	// Output settings - hard-coded for consistency
+	args = append(args, "--output_format", "all")
+	args = append(args, "--verbose", "True")
 
 	// Task and language
 	args = append(args, "--task", p.Task)
@@ -266,25 +264,17 @@ func (ws *WhisperXService) buildWhisperXCommand(job *models.TranscriptionJob, ou
 	args = append(args, "--logprob_threshold", fmt.Sprintf("%.2f", p.LogprobThreshold))
 	args = append(args, "--no_speech_threshold", fmt.Sprintf("%.2f", p.NoSpeechThreshold))
 
-	// Output formatting
-	if p.MaxLineWidth != nil {
-		args = append(args, "--max_line_width", strconv.Itoa(*p.MaxLineWidth))
-	}
-	if p.MaxLineCount != nil {
-		args = append(args, "--max_line_count", strconv.Itoa(*p.MaxLineCount))
-	}
-	if p.HighlightWords {
-		args = append(args, "--highlight_words", "True")
-	}
-	args = append(args, "--segment_resolution", p.SegmentResolution)
+	// Output formatting - hard-coded for consistency
+	// Hard-coded: no max line width/count restrictions
+	args = append(args, "--highlight_words", "False")
+	args = append(args, "--segment_resolution", "sentence")
 
 	// Token and progress
 	if p.HfToken != nil {
 		args = append(args, "--hf_token", *p.HfToken)
 	}
-	if p.PrintProgress {
-		args = append(args, "--print_progress", "True")
-	}
+	// Hard-coded: disable print progress for cleaner output
+	args = append(args, "--print_progress", "False")
 
 	cmd := exec.Command(ws.config.UVPath, args...)
 	cmd.Env = append(os.Environ(), "PYTHONUNBUFFERED=1")
