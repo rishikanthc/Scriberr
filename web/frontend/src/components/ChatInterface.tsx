@@ -303,7 +303,7 @@ export function ChatInterface({ transcriptionId, activeSessionId, onSessionChang
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          content: `${messageContent}\n\nTypeset all your answers in markdown and provide the markdown formatted string (Make sure not to wrap the markdown string within fenced codeblocks)`,
+          content: `${messageContent}\n\nTypeset all your answers in markdown and provide the markdown formatted string (Make sure not to wrap the markdown string within fenced codeblocks)-write equations in latex.`,
         }),
       });
 
@@ -413,7 +413,7 @@ export function ChatInterface({ transcriptionId, activeSessionId, onSessionChang
   return (
       <div className="h-full flex">
         {/* Session Sidebar */}
-      <div className="w-80 bg-muted/20 flex flex-col shadow-sm">
+      <div className="w-80 bg-gray-50 dark:bg-gray-800 flex flex-col shadow-sm">
         <div className="p-4">
           <div className="flex items-center justify-between mb-3">
             <h3 className="font-medium">Chat Sessions</h3>
@@ -473,8 +473,8 @@ export function ChatInterface({ transcriptionId, activeSessionId, onSessionChang
                   key={session.id}
                   className={`p-3 rounded-lg cursor-pointer transition-colors group ${
                     activeSession?.id === session.id
-                      ? "bg-primary/10 shadow-sm"
-                      : "hover:bg-muted/50"
+                      ? "bg-gray-100 dark:bg-gray-700 shadow-sm"
+                      : "hover:bg-gray-100 dark:hover:bg-gray-700"
                   }`}
                   onClick={() => {
                     setActiveSession(session);
@@ -573,7 +573,7 @@ export function ChatInterface({ transcriptionId, activeSessionId, onSessionChang
                   <div
                     className={`max-w-[70%] rounded-lg p-3 ${
                       message.role === "user"
-                        ? "bg-primary/10 border border-primary/20"
+                        ? "bg-gray-100 dark:bg-gray-700"
                         : "bg-muted"
                     }`}
                   >

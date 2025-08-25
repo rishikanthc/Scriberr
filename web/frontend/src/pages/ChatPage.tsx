@@ -1,14 +1,17 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from '../contexts/RouterContext'
 import { ChatInterface } from '../components/ChatInterface'
 import { Button } from '../components/ui/button'
 import { ArrowLeft } from 'lucide-react'
 import { ThemeSwitcher } from '../components/ThemeSwitcher'
+import { useAuth } from '../contexts/AuthContext'
 
 export function ChatPage() {
   const { currentRoute, navigate } = useRouter()
   const audioId = currentRoute.params?.audioId
   const sessionId = currentRoute.params?.sessionId
+  const { getAuthHeaders } = useAuth()
+  const [audioTitle, setAudioTitle] = useState<string | null>(null)
 
   useEffect(() => {
     // If we somehow landed on chat without required params, bounce home
@@ -16,6 +19,24 @@ export function ChatPage() {
       navigate({ path: 'home' })
     }
   }, [audioId, navigate])
+
+  useEffect(() => {
+    if (!audioId) return
+    const fetchTitle = async () => {
+      try {
+        const res = await fetch(`/api/v1/transcription/${audioId}`, { headers: getAuthHeaders() })
+        if (res.ok) {
+          const data = await res.json()
+          setAudioTitle(data?.title || null)
+        } else {
+          setAudioTitle(null)
+        }
+      } catch {
+        setAudioTitle(null)
+      }
+    }
+    fetchTitle()
+  }, [audioId, getAuthHeaders])
 
   if (!audioId) return null
 
@@ -29,7 +50,7 @@ export function ChatPage() {
             Back to Transcript
           </Button>
           <div className="flex items-center gap-3">
-            <div className="text-sm text-muted-foreground">Audio: {audioId}</div>
+            <div className="text-sm text-muted-foreground">{audioTitle || audioId}</div>
             <ThemeSwitcher />
           </div>
         </div>
