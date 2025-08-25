@@ -157,7 +157,7 @@ export function AccountSettings() {
 			)}
 
 			{/* Username Change Section */}
-			<div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-6">
+			<div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 sm:p-6">
 				<div className="mb-4">
 					<div className="flex items-center space-x-2 mb-2">
 						<User className="h-5 w-5 text-blue-600 dark:text-blue-400" />
@@ -226,7 +226,7 @@ export function AccountSettings() {
 			<Separator className="bg-gray-200 dark:bg-gray-700" />
 
 			{/* Password Change Section */}
-			<div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-6">
+			<div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 sm:p-6">
 				<div className="mb-4">
 					<div className="flex items-center space-x-2 mb-2">
 						<Lock className="h-5 w-5 text-red-600 dark:text-red-400" />

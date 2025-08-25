@@ -40,8 +40,8 @@ export function APIKeySettings() {
 
 	return (
 		<div className="space-y-6">
-			<div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-6">
-				<div className="flex items-center justify-between mb-4">
+			<div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 sm:p-6">
+				<div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0 mb-4">
 					<div>
 						<h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">
 							API Keys

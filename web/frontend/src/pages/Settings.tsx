@@ -22,13 +22,13 @@ export function Settings() {
 
 	return (
 		<div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-			<div className="mx-auto px-8 py-6" style={{ width: "60vw" }}>
+			<div className="mx-auto w-full max-w-6xl px-2 sm:px-6 md:px-8 py-3 sm:py-6">
 				{/* Use the same Header component as Homepage */}
 				<Header onFileSelect={handleFileSelect} />
 
 				{/* Main Content Container with same styling as Homepage */}
-				<div className="bg-white dark:bg-gray-800 rounded-xl p-6 mt-6">
-					<div className="mb-8">
+				<div className="bg-white dark:bg-gray-800 rounded-xl p-4 sm:p-6 mt-4 sm:mt-6">
+					<div className="mb-4 sm:mb-8">
 						<h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">
 							Settings
 						</h1>
@@ -38,41 +38,41 @@ export function Settings() {
 					</div>
 
 					{/* Tabbed Interface */}
-					<Tabs
-						value={activeTab}
-						onValueChange={setActiveTab}
-						className="space-y-6"
-					>
-						<TabsList className="grid w-full grid-cols-4 lg:w-[800px] bg-gray-100 dark:bg-gray-800 p-1 rounded-xl">
-							<TabsTrigger
-								value="profiles"
-								className="flex items-center space-x-2 data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-gray-900 dark:data-[state=active]:text-gray-100 text-gray-600 dark:text-gray-400 font-medium rounded-lg"
-							>
-								<SettingsIcon className="h-4 w-4" />
-								<span>Profiles</span>
-							</TabsTrigger>
-							<TabsTrigger
-								value="account"
-								className="flex items-center space-x-2 data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-gray-900 dark:data-[state=active]:text-gray-100 text-gray-600 dark:text-gray-400 font-medium rounded-lg"
-							>
-								<User className="h-4 w-4" />
-								<span>Account</span>
-							</TabsTrigger>
-							<TabsTrigger
-								value="apikeys"
-								className="flex items-center space-x-2 data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-gray-900 dark:data-[state=active]:text-gray-100 text-gray-600 dark:text-gray-400 font-medium rounded-lg"
-							>
-								<Key className="h-4 w-4" />
-								<span>API Keys</span>
-							</TabsTrigger>
-							<TabsTrigger
-								value="llms"
-								className="flex items-center space-x-2 data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-gray-900 dark:data-[state=active]:text-gray-100 text-gray-600 dark:text-gray-400 font-medium rounded-lg"
-							>
-								<Bot className="h-4 w-4" />
-								<span>LLMs</span>
-							</TabsTrigger>
-						</TabsList>
+						<Tabs
+							value={activeTab}
+							onValueChange={setActiveTab}
+							className="space-y-4 sm:space-y-6"
+						>
+							<TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 bg-gray-100 dark:bg-gray-800 p-1 rounded-xl">
+								<TabsTrigger
+									value="profiles"
+									className="flex items-center justify-center gap-2 data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-gray-900 dark:data-[state=active]:text-gray-100 text-gray-600 dark:text-gray-400 font-medium rounded-lg text-xs sm:text-sm py-1.5"
+								>
+									<SettingsIcon className="h-4 w-4" />
+									<span>Profiles</span>
+								</TabsTrigger>
+								<TabsTrigger
+									value="account"
+									className="flex items-center justify-center gap-2 data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-gray-900 dark:data-[state=active]:text-gray-100 text-gray-600 dark:text-gray-400 font-medium rounded-lg text-xs sm:text-sm py-1.5"
+								>
+									<User className="h-4 w-4" />
+									<span>Account</span>
+								</TabsTrigger>
+								<TabsTrigger
+									value="apikeys"
+									className="flex items-center justify-center gap-2 data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-gray-900 dark:data-[state=active]:text-gray-100 text-gray-600 dark:text-gray-400 font-medium rounded-lg text-xs sm:text-sm py-1.5"
+								>
+									<Key className="h-4 w-4" />
+									<span>API Keys</span>
+								</TabsTrigger>
+								<TabsTrigger
+									value="llms"
+									className="flex items-center justify-center gap-2 data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-gray-900 dark:data-[state=active]:text-gray-100 text-gray-600 dark:text-gray-400 font-medium rounded-lg text-xs sm:text-sm py-1.5"
+								>
+									<Bot className="h-4 w-4" />
+									<span>LLMs</span>
+								</TabsTrigger>
+							</TabsList>
 
 						{/* Profiles Tab */}
 						<TabsContent value="profiles" className="space-y-6">

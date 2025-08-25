@@ -114,8 +114,8 @@ export function LLMSettings() {
 
 	return (
 		<div className="space-y-6">
-			<div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-6">
-				<div className="mb-6">
+			<div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 sm:p-6">
+				<div className="mb-4 sm:mb-6">
 					<h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 flex items-center gap-2">
 						<Bot className="h-5 w-5" />
 						LLM Configuration
@@ -126,7 +126,7 @@ export function LLMSettings() {
 				</div>
 
 				{message && (
-					<div className={`mb-6 p-4 rounded-lg flex items-center gap-2 ${
+					<div className={`mb-4 sm:mb-6 p-3 sm:p-4 rounded-lg flex items-center gap-2 ${
 						message.type === "success" 
 							? "bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-200" 
 							: "bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-200"
