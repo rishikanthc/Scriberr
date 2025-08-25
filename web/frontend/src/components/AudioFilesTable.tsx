@@ -668,9 +668,9 @@ export function AudioFilesTable({
 											size="sm"
 											className="w-full justify-start h-8 text-sm hover:bg-gray-100 dark:hover:bg-gray-700"
 											disabled={!canTranscribe(file)}
-											onClick={() => handleTranscribe(file.id)}
+											onClick={() => handleTranscribeD(file.id)}
 										>
-											<Play className="mr-2 h-4 w-4" />
+											<Settings className="mr-2 h-4 w-4" />
 											Transcribe
 										</Button>
 										
@@ -679,10 +679,10 @@ export function AudioFilesTable({
 											size="sm"
 											className="w-full justify-start h-8 text-sm hover:bg-gray-100 dark:hover:bg-gray-700"
 											disabled={!canTranscribe(file)}
-											onClick={() => handleTranscribeD(file.id)}
+											onClick={() => handleTranscribe(file.id)}
 										>
-											<Settings className="mr-2 h-4 w-4" />
-											Transcribe-D
+											<Play className="mr-2 h-4 w-4" />
+											Transcribe+
 										</Button>
 										
 										{file.status === "processing" && (
