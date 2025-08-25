@@ -5,7 +5,6 @@ import {
     XCircle,
     Loader2,
     MoreVertical,
-    Play,
     Hash,
     Trash2,
     StopCircle,
@@ -17,9 +16,27 @@ import {
     ChevronRight,
     ChevronsLeft,
     ChevronsRight,
-    Settings,
     MessageCircle,
 } from "lucide-react";
+
+// Custom SVG icons for transcription actions
+const QuickTranscribeIcon = ({ className }: { className?: string }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M12 2L15.09 8.26L22 9L17 14L18.18 21L12 17.77L5.82 21L7 14L2 9L8.91 8.26L12 2Z" />
+    <path d="M8 12h8" strokeWidth="1.5" />
+    <path d="M8 16h6" strokeWidth="1.5" />
+  </svg>
+);
+
+const AdvancedTranscribeIcon = ({ className }: { className?: string }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <circle cx="12" cy="12" r="3" />
+    <path d="M12 1v6m0 6v6" />
+    <path d="m21 12-6 0m-6 0-6 0" />
+    <path d="m16.24 7.76-4.24 4.24m-4.24 4.24-1.41-1.41" />
+    <path d="M16.24 16.24 12 12m-4.24-4.24L6.34 6.34" />
+  </svg>
+);
 import {
 	Popover,
 	PopoverContent,
@@ -670,7 +687,7 @@ export function AudioFilesTable({
 											disabled={!canTranscribe(file)}
 											onClick={() => handleTranscribeD(file.id)}
 										>
-											<Settings className="mr-2 h-4 w-4" />
+											<QuickTranscribeIcon className="mr-2 h-4 w-4" />
 											Transcribe
 										</Button>
 										
@@ -681,7 +698,7 @@ export function AudioFilesTable({
 											disabled={!canTranscribe(file)}
 											onClick={() => handleTranscribe(file.id)}
 										>
-											<Play className="mr-2 h-4 w-4" />
+											<AdvancedTranscribeIcon className="mr-2 h-4 w-4" />
 											Transcribe+
 										</Button>
 										
