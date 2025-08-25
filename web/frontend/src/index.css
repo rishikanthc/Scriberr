@@ -96,8 +96,8 @@
 
   /* Scrollbar (light) */
   --scroll-track: var(--color-gray-100);
-  --scroll-thumb: var(--color-gray-300);
-  --scroll-thumb-hover: var(--color-gray-400);
+  --scroll-thumb: var(--color-gray-400);
+  --scroll-thumb-hover: var(--color-gray-500);
 }
 
 .dark {
@@ -134,7 +134,7 @@
   --sidebar-ring: oklch(0.556 0 0);
 
   /* Scrollbar (dark) */
-  --scroll-track: var(--color-gray-800);
+  --scroll-track: var(--color-gray-900);
   --scroll-thumb: var(--color-gray-700);
   --scroll-thumb-hover: var(--color-gray-600);
 }
@@ -174,21 +174,25 @@
 }
 
 .chat-scroll::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+  width: 8px;
+  height: 8px;
 }
 
 .chat-scroll::-webkit-scrollbar-track {
   background: var(--scroll-track);
-  border-radius: 8px;
+  border-radius: 9999px;
 }
 
 .chat-scroll::-webkit-scrollbar-thumb {
   background-color: var(--scroll-thumb);
-  border-radius: 8px;
+  border-radius: 9999px;
   border: 2px solid var(--scroll-track);
 }
 
 .chat-scroll:hover::-webkit-scrollbar-thumb {
   background-color: var(--scroll-thumb-hover);
+}
+
+.chat-scroll::-webkit-scrollbar-corner {
+  background: var(--scroll-track);
 }

@@ -91,7 +91,6 @@ export function ChatInterface({ transcriptionId, activeSessionId, onSessionChang
 
   // Respond to external sessionId changes (via router)
   useEffect(() => {
-    if (!sessions || sessions.length === 0) return;
     if (!activeSessionId) return;
     if (activeSession?.id === activeSessionId) return;
 
@@ -99,6 +98,12 @@ export function ChatInterface({ transcriptionId, activeSessionId, onSessionChang
     if (found) {
       setActiveSession(found);
       loadChatSession(found.id);
+    } else {
+      // Fallback: load the session directly and refresh sessions list
+      setActiveSession(null);
+      setMessages([]);
+      loadChatSession(activeSessionId);
+      loadChatSessions();
     }
   }, [activeSessionId, sessions]);
 
@@ -171,6 +176,7 @@ export function ChatInterface({ transcriptionId, activeSessionId, onSessionChang
 
   const loadChatSession = async (sessionId: string) => {
     try {
+      setMessages([])
       const response = await fetch(`/api/v1/chat/sessions/${sessionId}`, {
         headers: getAuthHeaders(),
       });
@@ -552,13 +558,13 @@ export function ChatInterface({ transcriptionId, activeSessionId, onSessionChang
 
       {/* Chat Area */}
       <div className="flex-1 flex flex-col overflow-hidden relative">
-        {activeSession ? (
+        {activeSession || activeSessionId ? (
           <>
             {/* Chat Header */}
             <div className="p-4 bg-background shadow-sm">
-              <h2 className="font-medium">{activeSession.title}</h2>
+              <h2 className="font-medium">{activeSession?.title || 'New Chat'}</h2>
               <p className="text-sm text-muted-foreground">
-                Model: {activeSession.model}
+                Model: {activeSession?.model || '—'}
               </p>
             </div>
 
