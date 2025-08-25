@@ -338,8 +338,8 @@ export function TranscriptionConfigDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700 p-8">
-        <DialogHeader className="mb-6">
+      <DialogContent className="max-w-full sm:max-w-4xl w-[calc(100vw-1rem)] sm:w-auto max-h-[85vh] overflow-y-auto bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700 p-3 sm:p-8">
+        <DialogHeader className="mb-3 sm:mb-6">
           <DialogTitle className="text-gray-900 dark:text-gray-100">
             {isProfileMode 
               ? (initialName ? `Edit "${initialName}"` : "New Transcription Profile")
@@ -387,15 +387,15 @@ export function TranscriptionConfigDialog({
 
         <Tabs defaultValue="basic" className="w-full">
           <TabsList className="grid w-full grid-cols-4 bg-gray-100 dark:bg-gray-800">
-            <TabsTrigger value="basic" className="data-[state=active]:bg-white data-[state=active]:dark:bg-gray-700 text-gray-700 dark:text-gray-300">Basic</TabsTrigger>
-            <TabsTrigger value="quality" className="data-[state=active]:bg-white data-[state=active]:dark:bg-gray-700 text-gray-700 dark:text-gray-300">Quality</TabsTrigger>
-            <TabsTrigger value="advanced" className="data-[state=active]:bg-white data-[state=active]:dark:bg-gray-700 text-gray-700 dark:text-gray-300">Advanced</TabsTrigger>
-            <TabsTrigger value="diarization" className="data-[state=active]:bg-white data-[state=active]:dark:bg-gray-700 text-gray-700 dark:text-gray-300">Diarization</TabsTrigger>
+            <TabsTrigger value="basic" className="data-[state=active]:bg-white data-[state=active]:dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs sm:text-sm py-1.5">Basic</TabsTrigger>
+            <TabsTrigger value="quality" className="data-[state=active]:bg-white data-[state=active]:dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs sm:text-sm py-1.5">Quality</TabsTrigger>
+            <TabsTrigger value="advanced" className="data-[state=active]:bg-white data-[state=active]:dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs sm:text-sm py-1.5">Advanced</TabsTrigger>
+            <TabsTrigger value="diarization" className="data-[state=active]:bg-white data-[state=active]:dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs sm:text-sm py-1.5">Diarization</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="basic" className="space-y-8 mt-6">
-            <div className="grid grid-cols-2 gap-8">
-              <div className="space-y-6">
+          <TabsContent value="basic" className="space-y-6 sm:space-y-8 mt-4 sm:mt-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-8">
+              <div className="space-y-4 sm:space-y-6">
                 <div>
                   <div className="flex items-center gap-2 mb-2">
                     <Label htmlFor="model" className="text-gray-700 dark:text-gray-300">Model Size</Label>
@@ -412,7 +412,7 @@ export function TranscriptionConfigDialog({
                     value={params.model}
                     onValueChange={(value) => updateParam('model', value)}
                   >
-                    <SelectTrigger className="mt-3 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100">
+                    <SelectTrigger className="mt-3 w-full min-w-0 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
@@ -441,7 +441,7 @@ export function TranscriptionConfigDialog({
                     value={params.language || "auto"}
                     onValueChange={(value) => updateParam('language', value === "auto" ? undefined : value)}
                   >
-                    <SelectTrigger className="mt-3 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100">
+                    <SelectTrigger className="mt-3 w-full min-w-0 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 max-h-60">
@@ -481,7 +481,7 @@ export function TranscriptionConfigDialog({
                 </div>
               </div>
 
-              <div className="space-y-6">
+              <div className="space-y-4 sm:space-y-6">
                 <div>
                   <div className="flex items-center gap-2 mb-2">
                     <Label htmlFor="device" className="text-gray-700 dark:text-gray-300">Device</Label>
@@ -498,7 +498,7 @@ export function TranscriptionConfigDialog({
                     value={params.device}
                     onValueChange={(value) => updateParam('device', value)}
                   >
-                    <SelectTrigger className="mt-3 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100">
+                    <SelectTrigger className="mt-3 w-full min-w-0 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
@@ -525,7 +525,7 @@ export function TranscriptionConfigDialog({
                     value={params.compute_type}
                     onValueChange={(value) => updateParam('compute_type', value)}
                   >
-                    <SelectTrigger className="mt-3 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100">
+                    <SelectTrigger className="mt-3 w-full min-w-0 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
@@ -588,9 +588,9 @@ export function TranscriptionConfigDialog({
 
           </TabsContent>
 
-          <TabsContent value="quality" className="space-y-8 mt-6">
-            <div className="grid grid-cols-2 gap-8">
-              <div className="space-y-6">
+          <TabsContent value="quality" className="space-y-6 sm:space-y-8 mt-4 sm:mt-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-8">
+              <div className="space-y-4 sm:space-y-6">
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
@@ -664,7 +664,7 @@ export function TranscriptionConfigDialog({
                 </div>
               </div>
 
-              <div className="space-y-6">
+              <div className="space-y-4 sm:space-y-6">
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
@@ -736,9 +736,9 @@ export function TranscriptionConfigDialog({
               </div>
             </div>
 
-            <Separator className="bg-gray-200 dark:bg-gray-700 my-8" />
+            <Separator className="bg-gray-200 dark:bg-gray-700 my-6 sm:my-8" />
 
-            <div className="space-y-6">
+            <div className="space-y-4 sm:space-y-6">
               <div className="flex items-center space-x-2">
                 <Switch
                   id="suppress_numerals"
@@ -775,9 +775,9 @@ export function TranscriptionConfigDialog({
             </div>
           </TabsContent>
 
-          <TabsContent value="advanced" className="space-y-8 mt-6">
-            <div className="grid grid-cols-2 gap-8">
-              <div className="space-y-6">
+          <TabsContent value="advanced" className="space-y-6 sm:space-y-8 mt-4 sm:mt-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-8">
+              <div className="space-y-4 sm:space-y-6">
                 <h4 className="font-medium text-gray-900 dark:text-gray-100">VAD Settings</h4>
                 
                 <div>
@@ -879,7 +879,7 @@ export function TranscriptionConfigDialog({
                 </div>
               </div>
 
-              <div className="space-y-6">
+              <div className="space-y-4 sm:space-y-6">
                 <h4 className="font-medium">Detection Thresholds</h4>
                 
                 <div>
@@ -1032,7 +1032,7 @@ export function TranscriptionConfigDialog({
             </div>
           </TabsContent>
 
-          <TabsContent value="diarization" className="space-y-8 mt-6">
+          <TabsContent value="diarization" className="space-y-6 sm:space-y-8 mt-4 sm:mt-6">
             <div>
               <div className="flex items-center space-x-2 mb-6">
                 <Switch
@@ -1052,7 +1052,7 @@ export function TranscriptionConfigDialog({
               </div>
 
               {params.diarize && (
-                <div className="p-6 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800 space-y-6">
+                <div className="p-4 sm:p-6 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800 space-y-4 sm:space-y-6">
                   <div>
                     <div className="flex items-center gap-2 mb-2">
                       <Label htmlFor="diarize_model" className="text-gray-700 dark:text-gray-300">Diarization Model</Label>
@@ -1083,7 +1083,7 @@ export function TranscriptionConfigDialog({
                     </Select>
                   </div>
                   
-                  <div className="grid grid-cols-2 gap-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                     <div>
                       <div className="flex items-center gap-2 mb-2">
                         <Label htmlFor="min_speakers" className="text-gray-700 dark:text-gray-300">Min Speakers</Label>
@@ -1130,7 +1130,7 @@ export function TranscriptionConfigDialog({
                     </div>
                   </div>
 
-                  <Separator className="my-6" />
+                  <Separator className="my-4 sm:my-6" />
 
                   <div>
                     <div className="flex items-center gap-2 mb-2">
@@ -1156,7 +1156,7 @@ export function TranscriptionConfigDialog({
               )}
 
               {!params.diarize && (
-                <div className="p-8 text-center border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800">
+                <div className="p-4 sm:p-8 text-center border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800">
                   <div className="text-4xl mb-3 opacity-50">🎤</div>
                   <h3 className="text-lg font-medium text-gray-600 dark:text-gray-300 mb-2">
                     Speaker Diarization Disabled
@@ -1170,7 +1170,7 @@ export function TranscriptionConfigDialog({
           </TabsContent>
         </Tabs>
 
-        <DialogFooter className="gap-2 border-t border-gray-200 dark:border-gray-700 pt-6 mt-8">
+        <DialogFooter className="gap-2 border-t border-gray-200 dark:border-gray-700 pt-3 sm:pt-6 mt-4 sm:mt-8">
           <Button variant="outline" onClick={() => onOpenChange(false)} className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer">
             Cancel
           </Button>
