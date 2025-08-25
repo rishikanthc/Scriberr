@@ -359,14 +359,7 @@ export function ChatInterface({ transcriptionId, activeSessionId, onSessionChang
     }
   };
 
-  const formatTimestamp = (timestamp: string) => {
-    return new Date(timestamp).toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
+  // Removed timestamp formatting helper as timestamps are no longer displayed in the sidebar
 
   // Code block with copy button
   const PreBlock = (props: any) => {
@@ -411,9 +404,9 @@ export function ChatInterface({ transcriptionId, activeSessionId, onSessionChang
   }
 
   return (
-      <div className="h-full flex">
+      <div className="h-full flex chat-shell overflow-hidden">
         {/* Session Sidebar */}
-      <div className="w-80 bg-gray-50 dark:bg-gray-800 flex flex-col shadow-sm">
+      <div className="w-80 bg-gray-50 dark:bg-gray-800 flex flex-col shadow-sm chat-sidebar shrink-0 overflow-hidden">
         <div className="p-4">
           <div className="flex items-center justify-between mb-3">
             <h3 className="font-medium">Chat Sessions</h3>
@@ -461,7 +454,7 @@ export function ChatInterface({ transcriptionId, activeSessionId, onSessionChang
         </div>
 
         {/* Sessions List */}
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto chat-scroll">
           {!sessions || sessions.length === 0 ? (
             <div className="p-4 text-center text-sm text-muted-foreground">
               No chat sessions yet. Create your first one!
@@ -507,9 +500,7 @@ export function ChatInterface({ transcriptionId, activeSessionId, onSessionChang
                         <span>•</span>
                         <span>{session.message_count} messages</span>
                       </div>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {formatTimestamp(session.updated_at)}
-                      </p>
+                      {/* Removed timestamp per design */}
                     </div>
                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                       <Button
@@ -545,7 +536,7 @@ export function ChatInterface({ transcriptionId, activeSessionId, onSessionChang
       </div>
 
       {/* Chat Area */}
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col overflow-hidden">
         {activeSession ? (
           <>
             {/* Chat Header */}
@@ -557,7 +548,7 @@ export function ChatInterface({ transcriptionId, activeSessionId, onSessionChang
             </div>
 
             {/* Messages */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            <div className="flex-1 overflow-y-auto p-4 space-y-4 chat-scroll">
               {(messages || []).map(message => (
                 <div
                   key={message.id}
@@ -577,7 +568,7 @@ export function ChatInterface({ transcriptionId, activeSessionId, onSessionChang
                         : "bg-muted"
                     }`}
                   >
-                    <div className="prose prose-gray dark:prose-invert max-w-none text-sm">
+                    <div className="prose prose-gray dark:prose-invert max-w-none text-base">
                       <ReactMarkdown
                         remarkPlugins={[remarkMath]}
                         rehypePlugins={[rehypeRaw as any, rehypeKatex as any, rehypeHighlight as any]}
