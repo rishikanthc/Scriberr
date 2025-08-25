@@ -613,7 +613,7 @@ export function AudioDetailView({ audioId }: AudioDetailViewProps) {
 						<h1 className="text-xl font-semibold text-gray-900 dark:text-gray-50 mb-4">
 							Audio file not found
 						</h1>
-						<Button onClick={handleBack} variant="outline">
+						<Button onClick={handleBack} variant="outline" className="cursor-pointer">
 							<ArrowLeft className="mr-2 h-4 w-4" />
 							Back to Audio Files
 						</Button>
@@ -628,7 +628,7 @@ export function AudioDetailView({ audioId }: AudioDetailViewProps) {
 			<div className="mx-auto w-full max-w-6xl px-2 sm:px-6 md:px-8 py-3 sm:py-6">
 				{/* Header with back button and theme switcher */}
 				<div className="flex items-center justify-between mb-3 sm:mb-6">
-					<Button onClick={handleBack} variant="outline" size="sm">
+					<Button onClick={handleBack} variant="outline" size="sm" className="cursor-pointer">
 						<ArrowLeft className="mr-2 h-4 w-4" />
 						Back to Audio Files
 					</Button>
@@ -715,7 +715,7 @@ export function AudioDetailView({ audioId }: AudioDetailViewProps) {
 									onClick={() => navigate({ path: 'chat', params: { audioId } })}
 									variant="outline"
 									size="sm"
-									className="flex items-center gap-2"
+									className="flex items-center gap-2 cursor-pointer"
 								>
 									<MessageCircle className="h-4 w-4" />
 									<span className="hidden sm:inline">Open Chat</span>
