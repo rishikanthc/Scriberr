@@ -100,7 +100,7 @@ export function ChatSessionsSidebar({
   }
 
   return (
-    <div className="h-full w-full flex flex-col bg-gray-50 dark:bg-gray-900 chat-sidebar">
+    <div className="h-full w-full flex flex-col bg-gray-100 dark:bg-gray-900 chat-sidebar">
       <div className="p-4 bg-gray-100 dark:bg-gray-900 shadow-sm">
         <div className="flex items-center justify-between">
           <h3 className="font-medium">Chat Sessions</h3>

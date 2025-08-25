@@ -65,7 +65,12 @@ export function ChatInterface({ transcriptionId, activeSessionId, onSessionChang
   const inputRef = useRef<HTMLInputElement>(null);
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    const el = messagesContainerRef.current
+    if (el) {
+      el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
+    } else {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    }
   };
 
   useEffect(() => {
@@ -412,7 +417,7 @@ export function ChatInterface({ transcriptionId, activeSessionId, onSessionChang
   }
 
   return (
-      <div className="h-full flex chat-shell overflow-hidden">
+      <div className="h-full flex chat-shell overflow-hidden bg-white dark:bg-gray-950">
         {/* Session Sidebar (optional) */}
       {!hideSidebar && (
       <div className="w-80 bg-gray-50 dark:bg-gray-800 flex flex-col shadow-sm chat-sidebar shrink-0 overflow-hidden">
@@ -567,8 +572,8 @@ export function ChatInterface({ transcriptionId, activeSessionId, onSessionChang
                   }`}
                 >
                   {message.role === "assistant" && (
-                    <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                      <Bot className="h-4 w-4 text-primary" />
+                    <div className="h-8 w-8 rounded-full bg-purple-100 dark:bg-purple-900/40 flex items-center justify-center flex-shrink-0">
+                      <Bot className="h-4 w-4 text-purple-700 dark:text-purple-300" />
                     </div>
                   )}
                   <div
@@ -589,8 +594,8 @@ export function ChatInterface({ transcriptionId, activeSessionId, onSessionChang
                     </div>
                   </div>
                   {message.role === "user" && (
-                    <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
-                      <User className="h-4 w-4" />
+                    <div className="h-8 w-8 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center flex-shrink-0">
+                      <User className="h-4 w-4 text-emerald-700 dark:text-emerald-300" />
                     </div>
                   )}
                 </div>
