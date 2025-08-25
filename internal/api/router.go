@@ -121,6 +121,7 @@ func SetupRoutes(handler *Handler, authService *auth.AuthService) *gin.Engine {
 			chat.GET("/sessions/:session_id", handler.GetChatSession)
 			chat.POST("/sessions/:session_id/messages", handler.SendChatMessage)
 			chat.PUT("/sessions/:session_id/title", handler.UpdateChatSessionTitle)
+			chat.POST("/sessions/:session_id/title/auto", handler.AutoGenerateChatTitle)
 			chat.DELETE("/sessions/:session_id", handler.DeleteChatSession)
 		}
 	}

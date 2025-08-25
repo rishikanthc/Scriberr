@@ -11,6 +11,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "./ui/dialog";
 import { Label } from "./ui/label";
+import { useToast } from "./ui/toast";
 
 interface ChatSession {
   id: string;
@@ -46,6 +47,7 @@ interface ChatInterfaceProps {
 
 export function ChatInterface({ transcriptionId, activeSessionId, onSessionChange, hideSidebar = false }: ChatInterfaceProps) {
   const { getAuthHeaders } = useAuth();
+  const { toast } = useToast();
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [activeSession, setActiveSession] = useState<ChatSession | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -357,6 +359,25 @@ export function ChatInterface({ transcriptionId, activeSessionId, onSessionChang
           index === prev.length - 1 ? { ...msg, content: assistantContent } : msg
         ));
       }
+
+      // Auto-generate a better session title using LLM (server decides whether to update)
+      try {
+        const sid = activeSession?.id || activeSessionId
+        if (sid) {
+          const res = await fetch(`/api/v1/chat/sessions/${sid}/title/auto`, {
+            method: 'POST',
+            headers: { ...getAuthHeaders() },
+          })
+          if (res.ok) {
+            const updated = await res.json()
+            setSessions(prev => prev.map(s => s.id === updated.id ? { ...s, title: updated.title } : s))
+            if ((activeSession && activeSession.id === updated.id) || (!activeSession && sid === updated.id)) {
+              setActiveSession(prev => prev ? { ...prev, title: updated.title } as any : prev)
+            }
+            toast({ title: 'Chat Renamed', description: updated.title })
+          }
+        }
+      } catch {}
 
       // Reload sessions to update message count and last message
       loadChatSessions();

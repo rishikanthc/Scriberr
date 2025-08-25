@@ -1,11 +1,11 @@
 package api
 
 import (
-	"context"
-	"fmt"
-	"net/http"
-	"strings"
-	"time"
+    "context"
+    "fmt"
+    "net/http"
+    "strings"
+    "time"
 
 	"scriberr/internal/database"
 	"scriberr/internal/llm"
@@ -575,4 +575,147 @@ func generateChatTitle(message string) string {
 	}
 	
 	return title
+}
+
+// AutoGenerateChatTitle generates a session title using the configured LLM based on conversation history
+// @Summary Auto-generate chat session title
+// @Description Uses the configured LLM to summarize the first exchange into a concise title. Only updates if the current title appears default/user-unset.
+// @Tags chat
+// @Produce json
+// @Param session_id path string true "Chat Session ID"
+// @Success 200 {object} ChatSessionResponse
+// @Failure 400 {object} map[string]string
+// @Failure 404 {object} map[string]string
+// @Router /api/v1/chat/sessions/{session_id}/title/auto [post]
+// @Security ApiKeyAuth
+func (h *Handler) AutoGenerateChatTitle(c *gin.Context) {
+    sessionID := c.Param("session_id")
+    if sessionID == "" {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "Session ID is required"})
+        return
+    }
+
+    // Load session
+    var session models.ChatSession
+    if err := database.DB.Where("id = ?", sessionID).First(&session).Error; err != nil {
+        if err == gorm.ErrRecordNotFound {
+            c.JSON(http.StatusNotFound, gin.H{"error": "Chat session not found"})
+            return
+        }
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get chat session"})
+        return
+    }
+
+    // Determine if title appears user-unset (default or derived from first user message)
+    isDefaultTitle := strings.EqualFold(strings.TrimSpace(session.Title), "New Chat Session")
+
+    // Load first user message to compare against simple generator
+    var firstUser models.ChatMessage
+    _ = database.DB.Where("chat_session_id = ? AND role = ?", sessionID, "user").Order("created_at ASC").First(&firstUser).Error
+    if firstUser.ID != 0 {
+        simple := generateChatTitle(firstUser.Content)
+        if strings.EqualFold(strings.TrimSpace(session.Title), strings.TrimSpace(simple)) {
+            isDefaultTitle = true
+        }
+    }
+
+    if !isDefaultTitle {
+        // Respect user-edited titles; return current session response
+        c.JSON(http.StatusOK, ChatSessionResponse{
+            ID:              session.ID,
+            TranscriptionID: session.TranscriptionID,
+            Title:           session.Title,
+            Model:           session.Model,
+            Provider:        session.Provider,
+            IsActive:        session.IsActive,
+            CreatedAt:       session.CreatedAt,
+            UpdatedAt:       session.UpdatedAt,
+            MessageCount:    session.MessageCount,
+            LastActivityAt:  session.LastActivityAt,
+        })
+        return
+    }
+
+    // Fetch recent messages (first user + first assistant ideally)
+    var msgs []models.ChatMessage
+    if err := database.DB.Where("chat_session_id = ?", sessionID).Order("created_at ASC").Limit(6).Find(&msgs).Error; err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get messages"})
+        return
+    }
+    if len(msgs) == 0 {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "Not enough conversation to generate a title"})
+        return
+    }
+
+    // Prepare LLM messages
+    prompt := `You are an expert at titling conversations concisely.
+Given the following early conversation messages between a user and an assistant, produce a short, specific title (max 8 words) in Title Case.
+- No quotes, no trailing punctuation, no emojis.
+- Avoid generic words like "Chat", "Conversation", or model names.
+- Capture the main topic or task.
+Return ONLY the title string.`
+
+    var chatMsgs []llm.ChatMessage
+    chatMsgs = append(chatMsgs, llm.ChatMessage{Role: "system", Content: prompt})
+    // Include up to first 2-4 messages for context
+    maxCtx := len(msgs)
+    if maxCtx > 4 {
+        maxCtx = 4
+    }
+    for i := 0; i < maxCtx; i++ {
+        role := msgs[i].Role
+        if role != "user" && role != "assistant" {
+            role = "user"
+        }
+        chatMsgs = append(chatMsgs, llm.ChatMessage{Role: role, Content: msgs[i].Content})
+    }
+
+    // Use configured OpenAI service
+    openaiService, err := h.getOpenAIService()
+    if err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+        return
+    }
+
+    ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+    defer cancel()
+    resp, err := openaiService.ChatCompletion(ctx, session.Model, chatMsgs, 0.2)
+    if err != nil || resp == nil || len(resp.Choices) == 0 || resp.Choices[0].Message.Content == "" {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate title"})
+        return
+    }
+
+    title := strings.TrimSpace(resp.Choices[0].Message.Content)
+    // Sanitize: enforce max length and single line
+    title = strings.ReplaceAll(title, "\n", " ")
+    title = strings.ReplaceAll(title, "\r", " ")
+    if len(title) > 60 {
+        title = title[:57] + "..."
+    }
+
+    // Update session title
+    if err := database.DB.Model(&session).Update("title", title).Error; err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update title"})
+        return
+    }
+
+    // Reload to return response
+    var updated models.ChatSession
+    if err := database.DB.Where("id = ?", sessionID).First(&updated).Error; err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to load updated session"})
+        return
+    }
+
+    c.JSON(http.StatusOK, ChatSessionResponse{
+        ID:              updated.ID,
+        TranscriptionID: updated.TranscriptionID,
+        Title:           updated.Title,
+        Model:           updated.Model,
+        Provider:        updated.Provider,
+        IsActive:        updated.IsActive,
+        CreatedAt:       updated.CreatedAt,
+        UpdatedAt:       updated.UpdatedAt,
+        MessageCount:    updated.MessageCount,
+        LastActivityAt:  updated.LastActivityAt,
+    })
 }
