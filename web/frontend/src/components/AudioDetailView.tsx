@@ -1,7 +1,23 @@
 import { useState, useEffect, useRef } from "react";
-import { ArrowLeft, Play, Pause, List, AlignLeft, MessageCircle } from "lucide-react";
+import { ArrowLeft, Play, Pause, List, AlignLeft, MessageCircle, Download, FileText, FileJson, FileImage, Check } from "lucide-react";
 import WaveSurfer from "wavesurfer.js";
 import { Button } from "./ui/button";
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuTrigger,
+} from "./ui/dropdown-menu";
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from "./ui/dialog";
+import { Label } from "./ui/label";
+import { Switch } from "./ui/switch";
 import { useRouter } from "../contexts/RouterContext";
 import { useTheme } from "../contexts/ThemeContext";
 import { ThemeSwitcher } from "./ThemeSwitcher";
@@ -53,6 +69,10 @@ export function AudioDetailView({ audioId }: AudioDetailViewProps) {
 	const [viewMode, setViewMode] = useState<"transcript" | "chat">("transcript");
 	const [currentTime, setCurrentTime] = useState(0);
 	const [currentWordIndex, setCurrentWordIndex] = useState<number | null>(null);
+	const [downloadDialogOpen, setDownloadDialogOpen] = useState(false);
+	const [downloadFormat, setDownloadFormat] = useState<'txt' | 'json'>('txt');
+	const [includeSpeakerLabels, setIncludeSpeakerLabels] = useState(true);
+	const [includeTimestamps, setIncludeTimestamps] = useState(true);
 	const waveformRef = useRef<HTMLDivElement>(null);
 	const wavesurferRef = useRef<WaveSurfer | null>(null);
 	const transcriptRef = useRef<HTMLDivElement>(null);
@@ -420,6 +440,147 @@ export function AudioDetailView({ audioId }: AudioDetailViewProps) {
 		});
 	};
 
+	// Download functions
+	const downloadSRT = () => {
+		if (!transcript) return;
+
+		let srtContent = '';
+		let counter = 1;
+
+		if (transcript.segments) {
+			// Use segments for SRT format
+			transcript.segments.forEach((segment) => {
+				const startTime = formatSRTTime(segment.start);
+				const endTime = formatSRTTime(segment.end);
+				srtContent += `${counter}\n${startTime} --> ${endTime}\n${segment.text.trim()}\n\n`;
+				counter++;
+			});
+		} else {
+			// If no segments, create one entry with the full text
+			srtContent = `1\n00:00:00,000 --> 99:59:59,999\n${transcript.text}\n\n`;
+		}
+
+		downloadFile(srtContent, `${getFileNameWithoutExt()}.srt`, 'text/plain');
+	};
+
+	const downloadTXT = () => {
+		if (!transcript) return;
+
+		let content = '';
+
+		if (!includeSpeakerLabels && !includeTimestamps) {
+			// Simple paragraph format
+			content = transcript.text;
+		} else if (transcript.segments) {
+			// Segmented format with optional labels/timestamps
+			transcript.segments.forEach((segment, index) => {
+				if (index > 0) content += '\n\n';
+
+				// Add timestamp if enabled
+				if (includeTimestamps) {
+					content += `[${formatTimestamp(segment.start)}] `;
+				}
+
+				// Add speaker if enabled and available
+				if (includeSpeakerLabels && segment.speaker) {
+					content += `${segment.speaker}: `;
+				}
+
+				content += segment.text.trim();
+			});
+		} else {
+			// No segments, just use the full text
+			content = transcript.text;
+		}
+
+		downloadFile(content, `${getFileNameWithoutExt()}.txt`, 'text/plain');
+	};
+
+	const downloadJSON = () => {
+		if (!transcript) return;
+
+		let jsonData: any;
+
+		if (!includeSpeakerLabels && !includeTimestamps) {
+			// Simple text format
+			jsonData = {
+				text: transcript.text,
+				format: 'simple'
+			};
+		} else if (transcript.segments) {
+			// Detailed format with segments
+			jsonData = {
+				text: transcript.text,
+				format: 'segmented',
+				segments: transcript.segments.map(segment => {
+					const segmentData: any = {
+						text: segment.text.trim()
+					};
+
+					if (includeTimestamps) {
+						segmentData.start = segment.start;
+						segmentData.end = segment.end;
+						segmentData.timestamp = formatTimestamp(segment.start);
+					}
+
+					if (includeSpeakerLabels && segment.speaker) {
+						segmentData.speaker = segment.speaker;
+					}
+
+					return segmentData;
+				})
+			};
+		} else {
+			// No segments available
+			jsonData = {
+				text: transcript.text,
+				format: 'simple'
+			};
+		}
+
+		downloadFile(JSON.stringify(jsonData, null, 2), `${getFileNameWithoutExt()}.json`, 'application/json');
+	};
+
+	const formatSRTTime = (seconds: number): string => {
+		const hours = Math.floor(seconds / 3600);
+		const minutes = Math.floor((seconds % 3600) / 60);
+		const secs = Math.floor(seconds % 60);
+		const milliseconds = Math.floor((seconds % 1) * 1000);
+
+		return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')},${milliseconds.toString().padStart(3, '0')}`;
+	};
+
+	const downloadFile = (content: string, filename: string, contentType: string) => {
+		const blob = new Blob([content], { type: contentType });
+		const url = URL.createObjectURL(blob);
+		const link = document.createElement('a');
+		link.href = url;
+		link.download = filename;
+		document.body.appendChild(link);
+		link.click();
+		document.body.removeChild(link);
+		URL.revokeObjectURL(url);
+	};
+
+	const getFileNameWithoutExt = (): string => {
+		const name = audioFile?.title || getFileName(audioFile?.audio_path || '');
+		return name.replace(/\.[^/.]+$/, '') || 'transcript';
+	};
+
+	const handleDownloadWithDialog = (format: 'txt' | 'json') => {
+		setDownloadFormat(format);
+		setDownloadDialogOpen(true);
+	};
+
+	const handleDownloadConfirm = () => {
+		if (downloadFormat === 'txt') {
+			downloadTXT();
+		} else {
+			downloadJSON();
+		}
+		setDownloadDialogOpen(false);
+	};
+
 	if (loading) {
 		return (
 			<div className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -521,6 +682,34 @@ export function AudioDetailView({ audioId }: AudioDetailViewProps) {
 							</h2>
 
 							<div className="flex items-center gap-2">
+								{/* Download Transcript */}
+								<DropdownMenu>
+									<DropdownMenuTrigger asChild>
+										<Button
+											variant="outline"
+											size="sm"
+											className="h-8 w-8 p-0"
+											title="Download Transcript"
+										>
+											<Download className="h-4 w-4" />
+										</Button>
+									</DropdownMenuTrigger>
+									<DropdownMenuContent align="end" className="w-48">
+										<DropdownMenuItem onClick={downloadSRT} className="flex items-center gap-2">
+											<FileImage className="h-4 w-4" />
+											Download as SRT
+										</DropdownMenuItem>
+										<DropdownMenuItem onClick={() => handleDownloadWithDialog('txt')} className="flex items-center gap-2">
+											<FileText className="h-4 w-4" />
+											Download as TXT
+										</DropdownMenuItem>
+										<DropdownMenuItem onClick={() => handleDownloadWithDialog('json')} className="flex items-center gap-2">
+											<FileJson className="h-4 w-4" />
+											Download as JSON
+										</DropdownMenuItem>
+									</DropdownMenuContent>
+								</DropdownMenu>
+
 								{/* Open Chat Page */}
 								<Button
 									onClick={() => navigate({ path: 'chat', params: { audioId } })}
@@ -657,6 +846,81 @@ export function AudioDetailView({ audioId }: AudioDetailViewProps) {
 						</div>
 					</div>
 				)}
+
+			{/* Download Options Dialog */}
+			<Dialog open={downloadDialogOpen} onOpenChange={setDownloadDialogOpen}>
+				<DialogContent className="sm:max-w-md bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700">
+					<DialogHeader>
+						<DialogTitle className="text-gray-900 dark:text-gray-100">
+							Download as {downloadFormat.toUpperCase()}
+						</DialogTitle>
+						<DialogDescription className="text-gray-600 dark:text-gray-400">
+							Choose your download options for the transcript.
+						</DialogDescription>
+					</DialogHeader>
+
+					<div className="space-y-4 py-4">
+						<div className="flex items-center justify-between">
+							<Label htmlFor="speaker-labels" className="text-gray-700 dark:text-gray-300">
+								Include Speaker Labels
+							</Label>
+							<Switch
+								id="speaker-labels"
+								checked={includeSpeakerLabels}
+								onCheckedChange={setIncludeSpeakerLabels}
+								disabled={!transcript?.segments?.some(s => s.speaker)}
+							/>
+						</div>
+
+						<div className="flex items-center justify-between">
+							<Label htmlFor="timestamps" className="text-gray-700 dark:text-gray-300">
+								Include Timestamps
+							</Label>
+							<Switch
+								id="timestamps"
+								checked={includeTimestamps}
+								onCheckedChange={setIncludeTimestamps}
+								disabled={!transcript?.segments}
+							/>
+						</div>
+
+						{(!includeSpeakerLabels && !includeTimestamps) && (
+							<div className="text-sm text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 p-3 rounded-md">
+								<div className="flex items-center gap-2">
+									<Check className="h-4 w-4 text-green-500" />
+									Transcript will be formatted as a single paragraph
+								</div>
+							</div>
+						)}
+
+						{(includeSpeakerLabels || includeTimestamps) && (
+							<div className="text-sm text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 p-3 rounded-md">
+								<div className="flex items-center gap-2">
+									<Check className="h-4 w-4 text-green-500" />
+									Transcript will be formatted in segments with selected labels
+								</div>
+							</div>
+						)}
+					</div>
+
+					<DialogFooter className="gap-2">
+						<Button 
+							variant="outline" 
+							onClick={() => setDownloadDialogOpen(false)}
+							className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
+						>
+							Cancel
+						</Button>
+						<Button 
+							onClick={handleDownloadConfirm}
+							className="bg-blue-600 dark:bg-blue-700 hover:bg-blue-700 dark:hover:bg-blue-800 text-white"
+						>
+							<Download className="mr-2 h-4 w-4" />
+							Download {downloadFormat.toUpperCase()}
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
 			</div>
 		</div>
 	);
