@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import { ArrowLeft, Play, Pause, List, AlignLeft, MessageCircle, Download, FileText, FileJson, FileImage, Check, StickyNote, Plus, X, Sparkles, Pencil } from "lucide-react";
+import { ArrowLeft, Play, Pause, List, AlignLeft, MessageCircle, Download, FileText, FileJson, FileImage, Check, StickyNote, Plus, X, Sparkles, Pencil, ChevronUp, ChevronDown } from "lucide-react";
 import WaveSurfer from "wavesurfer.js";
 import { Button } from "./ui/button";
 import {
@@ -125,6 +125,24 @@ export function AudioDetailView({ audioId }: AudioDetailViewProps) {
     const [editingTitle, setEditingTitle] = useState(false);
     const [titleInput, setTitleInput] = useState("");
     const [savingTitle, setSavingTitle] = useState(false);
+    const [audioCollapsed, setAudioCollapsed] = useState(false);
+
+    // Persist collapsed state per transcription
+    useEffect(() => {
+        try {
+            const key = `scriberr.audioCollapsed.${audioId}`;
+            const saved = localStorage.getItem(key);
+            if (saved !== null) setAudioCollapsed(saved === '1');
+        } catch {}
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [audioId]);
+
+    useEffect(() => {
+        try {
+            const key = `scriberr.audioCollapsed.${audioId}`;
+            localStorage.setItem(key, audioCollapsed ? '1' : '0');
+        } catch {}
+    }, [audioId, audioCollapsed]);
 
 useEffect(() => {
     console.log("AudioDetailView mounted, audioId:", audioId);
@@ -145,11 +163,11 @@ useEffect(() => {
 }, [audioId]);
 
 	// Initialize WaveSurfer when audioFile is available - with proper DOM timing
-	useEffect(() => {
-		if (!audioFile) {
-			console.log("No audioFile yet, skipping WaveSurfer initialization");
-			return;
-		}
+    useEffect(() => {
+        if (!audioFile) {
+            console.log("No audioFile yet, skipping WaveSurfer initialization");
+            return;
+        }
 
 		console.log("AudioFile available, checking DOM readiness...");
 
@@ -175,7 +193,7 @@ useEffect(() => {
 		};
 
 		// Initial check with a small delay
-		const timer = setTimeout(checkAndInitialize, 50);
+        const timer = setTimeout(checkAndInitialize, 50);
 
 		return () => {
 			clearTimeout(timer);
@@ -185,7 +203,7 @@ useEffect(() => {
 				wavesurferRef.current = null;
 			}
 		};
-	}, [audioFile]);
+    }, [audioFile]);
 
 	// Update current word index based on audio time
 	useEffect(() => {
@@ -628,6 +646,14 @@ useEffect(() => {
         return transcript.text || '';
     };
 
+    const toggleAudioCollapsed = () => {
+        if (!audioCollapsed && wavesurferRef.current && isPlaying) {
+            // Pause when collapsing
+            try { wavesurferRef.current.pause(); } catch {}
+        }
+        setAudioCollapsed(v => !v);
+    };
+
     const saveTitle = async () => {
         if (!audioFile) { setEditingTitle(false); return; }
         const currentDisplay = audioFile.title || getFileName(audioFile.audio_path);
@@ -925,9 +951,9 @@ useEffect(() => {
 				</div>
 
 				{/* Audio Player Section */}
-				<div className="bg-white dark:bg-gray-800 rounded-xl p-3 sm:p-6 mb-3 sm:mb-6">
+				<div className={`bg-white dark:bg-gray-800 rounded-xl ${audioCollapsed ? 'p-3 sm:p-4' : 'p-3 sm:p-6'} mb-3 sm:mb-6`}>
 					<div className="mb-6">
-						<div className="mb-2 flex items-center gap-2">
+						<div className="mb-2 flex items-center gap-2 justify-between">
 							{editingTitle ? (
 								<input
 									autoFocus
@@ -942,7 +968,7 @@ useEffect(() => {
 									}}
 								/>
 							) : (
-								<>
+								<div className="flex items-center gap-2">
 									<h1 className="text-2xl font-bold text-gray-900 dark:text-gray-50">
 										{audioFile.title || getFileName(audioFile.audio_path)}
 									</h1>
@@ -958,16 +984,28 @@ useEffect(() => {
 									>
 										<Pencil className="h-4 w-4" />
 									</button>
-								</>
+								</div>
 							)}
+							<button
+								className="h-7 w-7 inline-flex items-center justify-center rounded-md cursor-pointer text-gray-500 hover:text-gray-700 hover:bg-gray-200/60 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-gray-700/60 transition-colors"
+								aria-label={audioCollapsed ? 'Expand audio' : 'Collapse audio'}
+								title={audioCollapsed ? 'Expand audio' : 'Collapse audio'}
+								onClick={toggleAudioCollapsed}
+							>
+								{audioCollapsed ? (
+									<ChevronDown className="h-4 w-4" />
+								) : (
+									<ChevronUp className="h-4 w-4" />
+								)}
+							</button>
 						</div>
 						<p className="text-gray-600 dark:text-gray-400 text-sm">
 							Added on {formatDate(audioFile.created_at)}
 						</p>
 					</div>
 
-					{/* Audio Player Controls */}
-					<div className="mb-6">
+					{/* Audio Player Controls (hidden when collapsed, but kept mounted) */}
+					<div className={`mb-6 ${audioCollapsed ? 'hidden' : ''}`}>
 						<div className="flex items-center gap-4">
 							{/* Circular Play/Pause Button */}
 							<button
