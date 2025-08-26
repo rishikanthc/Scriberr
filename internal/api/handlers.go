@@ -604,6 +604,59 @@ func (h *Handler) KillJob(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Job cancellation requested"})
 }
 
+// UpdateTranscriptionTitle updates the title of a transcription job
+// @Summary Update transcription title
+// @Description Update the title of an audio file / transcription
+// @Tags transcription
+// @Accept json
+// @Produce json
+// @Param id path string true "Job ID"
+// @Param request body map[string]string true "Title update request"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} map[string]string
+// @Failure 404 {object} map[string]string
+// @Router /api/v1/transcription/{id}/title [put]
+// @Security ApiKeyAuth
+func (h *Handler) UpdateTranscriptionTitle(c *gin.Context) {
+    jobID := c.Param("id")
+    if jobID == "" {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "Job ID required"})
+        return
+    }
+
+    var body struct {
+        Title string `json:"title" binding:"required,min=1,max=255"`
+    }
+    if err := c.ShouldBindJSON(&body); err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+        return
+    }
+
+    var job models.TranscriptionJob
+    if err := database.DB.Where("id = ?", jobID).First(&job).Error; err != nil {
+        if err == gorm.ErrRecordNotFound {
+            c.JSON(http.StatusNotFound, gin.H{"error": "Job not found"})
+            return
+        }
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get job"})
+        return
+    }
+
+    job.Title = &body.Title
+    if err := database.DB.Model(&job).Update("title", body.Title).Error; err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update title"})
+        return
+    }
+
+    c.JSON(http.StatusOK, gin.H{
+        "id":          job.ID,
+        "title":       job.Title,
+        "status":      job.Status,
+        "created_at":  job.CreatedAt,
+        "audio_path":  job.AudioPath,
+    })
+}
+
 // @Summary Delete transcription job
 // @Description Delete a transcription job and its associated files
 // @Tags transcription

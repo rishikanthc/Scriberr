@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import { ArrowLeft, Play, Pause, List, AlignLeft, MessageCircle, Download, FileText, FileJson, FileImage, Check, StickyNote, Plus, X, Sparkles } from "lucide-react";
+import { ArrowLeft, Play, Pause, List, AlignLeft, MessageCircle, Download, FileText, FileJson, FileImage, Check, StickyNote, Plus, X, Sparkles, Pencil } from "lucide-react";
 import WaveSurfer from "wavesurfer.js";
 import { Button } from "./ui/button";
 import {
@@ -122,6 +122,9 @@ export function AudioDetailView({ audioId }: AudioDetailViewProps) {
     const [llmReady, setLlmReady] = useState<boolean | null>(null);
     const [selectionViewportPos, setSelectionViewportPos] = useState<{x:number,y:number}>({x:0,y:0});
     const { toast } = useToast();
+    const [editingTitle, setEditingTitle] = useState(false);
+    const [titleInput, setTitleInput] = useState("");
+    const [savingTitle, setSavingTitle] = useState(false);
 
 useEffect(() => {
     console.log("AudioDetailView mounted, audioId:", audioId);
@@ -625,6 +628,34 @@ useEffect(() => {
         return transcript.text || '';
     };
 
+    const saveTitle = async () => {
+        if (!audioFile) { setEditingTitle(false); return; }
+        const currentDisplay = audioFile.title || getFileName(audioFile.audio_path);
+        const trimmed = titleInput.trim();
+        if (!trimmed || trimmed === currentDisplay) { setEditingTitle(false); return; }
+        setSavingTitle(true);
+        try {
+            const res = await fetch(`/api/v1/transcription/${audioFile.id}/title`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+                body: JSON.stringify({ title: trimmed }),
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setAudioFile(prev => prev ? { ...prev, title: data.title } : prev);
+                toast({ title: 'Title updated' });
+            } else {
+                const msg = await res.text();
+                toast({ title: 'Failed to update title', description: msg });
+            }
+        } catch (e) {
+            toast({ title: 'Failed to update title' });
+        } finally {
+            setSavingTitle(false);
+            setEditingTitle(false);
+        }
+    };
+
     const openSummarizeDialog = async () => {
         if (llmReady === false) return;
         // If a summary already exists for this transcription, show it directly
@@ -896,9 +927,40 @@ useEffect(() => {
 				{/* Audio Player Section */}
 				<div className="bg-white dark:bg-gray-800 rounded-xl p-3 sm:p-6 mb-3 sm:mb-6">
 					<div className="mb-6">
-						<h1 className="text-2xl font-bold text-gray-900 dark:text-gray-50 mb-2">
-							{audioFile.title || getFileName(audioFile.audio_path)}
-						</h1>
+						<div className="mb-2 flex items-center gap-2">
+							{editingTitle ? (
+								<input
+									autoFocus
+									className="w-full max-w-xl text-2xl font-bold bg-transparent border-b border-blue-400 focus:outline-none focus:ring-0 dark:text-gray-50 text-gray-900"
+									value={titleInput}
+									disabled={savingTitle}
+									onChange={(e) => setTitleInput(e.target.value)}
+									onBlur={async () => { await saveTitle(); }}
+									onKeyDown={async (e) => {
+										if (e.key === 'Enter') { e.preventDefault(); await saveTitle(); }
+										if (e.key === 'Escape') { setEditingTitle(false); }
+									}}
+								/>
+							) : (
+								<>
+									<h1 className="text-2xl font-bold text-gray-900 dark:text-gray-50">
+										{audioFile.title || getFileName(audioFile.audio_path)}
+									</h1>
+									<button
+										className="h-7 w-7 inline-flex items-center justify-center rounded-md cursor-pointer text-gray-500 hover:text-gray-700 hover:bg-gray-200/60 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-gray-700/60 transition-colors"
+										aria-label="Edit title"
+										title="Edit title"
+										onClick={() => {
+											const currentTitle = audioFile.title || getFileName(audioFile.audio_path);
+											setTitleInput(currentTitle);
+											setEditingTitle(true);
+										}}
+									>
+										<Pencil className="h-4 w-4" />
+									</button>
+								</>
+							)}
+						</div>
 						<p className="text-gray-600 dark:text-gray-400 text-sm">
 							Added on {formatDate(audioFile.created_at)}
 						</p>
