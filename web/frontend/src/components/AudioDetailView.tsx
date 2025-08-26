@@ -912,86 +912,99 @@ useEffect(() => {
 							</h2>
 
 							<div className="flex items-center gap-2">
-								{/* Download Transcript */}
-								<DropdownMenu>
-									<DropdownMenuTrigger asChild>
-										<Button
-											variant="outline"
-											size="sm"
-											className="h-8 w-8 p-0 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer"
-											title="Download Transcript"
-										>
-											<Download className="h-4 w-4" />
-										</Button>
-									</DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-48 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 shadow-md">
-                                <DropdownMenuItem onClick={downloadSRT} className="flex items-center gap-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-gray-100">
-                                    <FileImage className="h-4 w-4" />
-                                    Download as SRT
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleDownloadWithDialog('txt')} className="flex items-center gap-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-gray-100">
-                                    <FileText className="h-4 w-4" />
-                                    Download as TXT
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleDownloadWithDialog('json')} className="flex items-center gap-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-gray-100">
-                                    <FileJson className="h-4 w-4" />
-                                    Download as JSON
-                                </DropdownMenuItem>
-                            </DropdownMenuContent>
-								</DropdownMenu>
 
-								{/* Open Chat Page */}
-								<Button
-									onClick={() => navigate({ path: 'chat', params: { audioId } })}
-									variant="outline"
-									size="sm"
-									className="flex items-center gap-2 cursor-pointer"
-								>
-									<MessageCircle className="h-4 w-4" />
-									<span className="hidden sm:inline">Open Chat</span>
-								</Button>
 
-                                {/* Transcript view mode toggle (icon-only) */}
-                                {viewMode === "transcript" && (
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => setTranscriptMode(transcriptMode === "compact" ? "expanded" : "compact")}
-                                        className="h-8 w-8 p-0 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer"
-                                        title={transcriptMode === "compact" ? "Switch to Timeline view" : "Switch to Compact view"}
+                                {/* Transcript view mode toggle moved into sleek toolbar below */}
+
+                            {/* Sleek toolbar (transcript view only) */}
+                            {viewMode === 'transcript' && (
+                            <div className="flex items-center gap-1.5 rounded-lg bg-gray-100/80 dark:bg-gray-800/80 px-2 py-1 border border-gray-200 dark:border-gray-700 shadow-sm">
+                                {/* View toggle */}
+                                <button
+                                  type="button"
+                                  onClick={() => setTranscriptMode(m => m === 'compact' ? 'expanded' : 'compact')}
+                                  className={`h-7 w-7 inline-flex items-center justify-center rounded-md cursor-pointer text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors ${transcriptMode === 'compact' ? 'bg-white dark:bg-gray-700 shadow-sm' : ''}`}
+                                  title={transcriptMode === 'compact' ? 'Switch to Timeline view' : 'Switch to Compact view'}
+                                >
+                                  {transcriptMode === 'compact' ? (
+                                    <List className="h-4 w-4" />
+                                  ) : (
+                                    <AlignLeft className="h-4 w-4" />
+                                  )}
+                                </button>
+
+                                <div className="mx-1 h-5 w-px bg-gray-300 dark:bg-gray-700" />
+
+                                {/* Notes toggle (icon + tiny count) */}
+                                <button
+                                  type="button"
+                                  onClick={() => setNotesOpen(v => !v)}
+                                  className={`relative h-7 w-7 inline-flex items-center justify-center rounded-md cursor-pointer text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors ${notesOpen ? 'bg-white dark:bg-gray-700 shadow-sm' : ''}`}
+                                  title="Toggle notes"
+                                >
+                                  <StickyNote className="h-4 w-4" />
+                                  {notes.length > 0 && (
+                                    <span className="absolute -top-1 -right-0.5 min-w-[15px] h-[15px] px-1 rounded-full bg-blue-600 text-white text-[10px] leading-[15px] text-center">
+                                      {notes.length > 99 ? '99+' : notes.length}
+                                    </span>
+                                  )}
+                                </button>
+
+                                <div className="mx-1 h-5 w-px bg-gray-300 dark:bg-gray-700" />
+
+                                {/* Summarize */}
+                                <button
+                                  type="button"
+                                  onClick={openSummarizeDialog}
+                                  className="h-7 w-7 inline-flex items-center justify-center rounded-md cursor-pointer text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
+                                  title={llmReady === false ? 'Configure LLM in Settings' : 'Summarize transcript'}
+                                  disabled={llmReady === false}
+                                >
+                                  <Sparkles className="h-4 w-4" />
+                                </button>
+
+                                <div className="mx-1 h-5 w-px bg-gray-300 dark:bg-gray-700" />
+
+                                {/* Download dropdown */}
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <button
+                                      type="button"
+                                      className="h-7 w-7 inline-flex items-center justify-center rounded-md cursor-pointer text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                                      title="Download transcript"
                                     >
-                                        {transcriptMode === "compact" ? (
-                                            <List className="h-4 w-4" />
-                                        ) : (
-                                            <AlignLeft className="h-4 w-4" />
-                                        )}
-                                    </Button>
-                                )}
+                                      <Download className="h-4 w-4" />
+                                    </button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent className="w-44 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                                    <DropdownMenuItem onClick={downloadSRT} className="flex items-center gap-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-gray-100">
+                                      <FileImage className="h-4 w-4" />
+                                      Download as SRT
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => handleDownloadWithDialog('txt')} className="flex items-center gap-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-gray-100">
+                                      <FileText className="h-4 w-4" />
+                                      Download as TXT
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => handleDownloadWithDialog('json')} className="flex items-center gap-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-gray-100">
+                                      <FileJson className="h-4 w-4" />
+                                      Download as JSON
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
 
-								{/* Notes toggle */}
-								<Button
-									variant="outline"
-									size="sm"
-									onClick={() => setNotesOpen(v => !v)}
-									className="flex items-center gap-2 cursor-pointer"
-									title="Toggle notes"
-								>
-									<StickyNote className="h-4 w-4" />
-									<span className="hidden sm:inline">Notes</span>
-									<span className="ml-1 text-xs rounded-full px-1.5 py-0.5 bg-gray-200 dark:bg-gray-700">{notes.length}</span>
-								</Button>
+                                <div className="mx-1 h-5 w-px bg-gray-300 dark:bg-gray-700" />
 
-								{/* Summarize transcript */}
-								<Button
-									variant="outline"
-									size="sm"
-									onClick={openSummarizeDialog}
-									className="h-8 w-8 p-0 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer"
-									title={llmReady === false ? 'Configure LLM in Settings' : 'Summarize transcript'}
-									disabled={llmReady === false}
-								>
-									<Sparkles className="h-4 w-4" />
-								</Button>
+                                {/* Open Chat Page */}
+                                <button
+                                  type="button"
+                                  onClick={() => navigate({ path: 'chat', params: { audioId } })}
+                                  className="h-7 w-7 inline-flex items-center justify-center rounded-md cursor-pointer text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                                  title="Open chat"
+                                >
+                                  <MessageCircle className="h-4 w-4" />
+                                </button>
+                            </div>
+                            )}
 							</div>
 						</div>
 
