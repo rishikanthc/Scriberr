@@ -42,6 +42,7 @@ func Initialize(dbPath string) error {
 		&models.ChatMessage{},
 		&models.SummaryTemplate{},
 		&models.SummarySetting{},
+		&models.Summary{},
 		&models.Note{},
 	); err != nil {
 		return fmt.Errorf("failed to auto migrate: %v", err)

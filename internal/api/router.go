@@ -75,6 +75,7 @@ func SetupRoutes(handler *Handler, authService *auth.AuthService) *gin.Engine {
 			transcription.GET("/:id/status", handler.GetJobStatus)
 			transcription.GET("/:id/transcript", handler.GetTranscript)
 			transcription.GET("/:id/audio", handler.GetAudioFile)
+			transcription.GET("/:id/summary", handler.GetSummaryForTranscription)
 			transcription.GET("/:id", handler.GetJobByID)
 			transcription.DELETE("/:id", handler.DeleteJob)
 			transcription.GET("/list", handler.ListJobs)
@@ -152,6 +153,13 @@ func SetupRoutes(handler *Handler, authService *auth.AuthService) *gin.Engine {
 			notes.GET("/:note_id", handler.GetNote)
 			notes.PUT("/:note_id", handler.UpdateNote)
 			notes.DELETE("/:note_id", handler.DeleteNote)
+		}
+
+		// Summarization route (require authentication)
+		summarize := v1.Group("/summarize")
+		summarize.Use(middleware.AuthMiddleware(authService))
+		{
+			summarize.POST("/", handler.Summarize)
 		}
 	}
 

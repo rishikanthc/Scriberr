@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import { ArrowLeft, Play, Pause, List, AlignLeft, MessageCircle, Download, FileText, FileJson, FileImage, Check, StickyNote, Plus, X } from "lucide-react";
+import { ArrowLeft, Play, Pause, List, AlignLeft, MessageCircle, Download, FileText, FileJson, FileImage, Check, StickyNote, Plus, X, Sparkles } from "lucide-react";
 import WaveSurfer from "wavesurfer.js";
 import { Button } from "./ui/button";
 import {
@@ -26,6 +26,15 @@ import { useAuth } from "../contexts/AuthContext";
 import { ChatInterface } from "./ChatInterface";
 import type { Note } from "../types/note";
 import { NotesSidebar } from "./NotesSidebar";
+import ReactMarkdown from 'react-markdown';
+import rehypeRaw from 'rehype-raw';
+import rehypeHighlight from 'rehype-highlight';
+import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
+import { Dialog as UIDialog, DialogContent as UIDialogContent, DialogHeader as UIDialogHeader, DialogTitle as UIDialogTitle, DialogDescription as UIDialogDescription } from "./ui/dialog";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "./ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
+import { Label as UILabel } from "./ui/label";
 
 interface AudioFile {
 	id: string;
@@ -97,12 +106,37 @@ export function AudioDetailView({ audioId }: AudioDetailViewProps) {
     const [pendingSelection, setPendingSelection] = useState<{startIdx:number; endIdx:number; startTime:number; endTime:number; quote:string} | null>(null);
     const [newNoteContent, setNewNoteContent] = useState("");
     const [showEditor, setShowEditor] = useState(false);
+
+    // Summarization state
+    type SummTpl = { id: string; name: string; model: string; prompt: string; };
+    const [summarizeOpen, setSummarizeOpen] = useState(false);
+    const [templates, setTemplates] = useState<SummTpl[]>([]);
+    const [templatesLoading, setTemplatesLoading] = useState(false);
+    const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
+    const selectedTemplate: SummTpl | undefined = templates.find(t => t.id === selectedTemplateId);
+    const [tplPopoverOpen, setTplPopoverOpen] = useState(false);
+    const [summaryOpen, setSummaryOpen] = useState(false);
+    const [summaryStream, setSummaryStream] = useState("");
+    const [isSummarizing, setIsSummarizing] = useState(false);
+    const [llmReady, setLlmReady] = useState<boolean | null>(null);
     const [selectionViewportPos, setSelectionViewportPos] = useState<{x:number,y:number}>({x:0,y:0});
 
 useEffect(() => {
     console.log("AudioDetailView mounted, audioId:", audioId);
     fetchAudioDetails();
-    fetchNotes();
+        fetchNotes();
+        // Check LLM configured status for gating
+        (async () => {
+            try {
+                const res = await fetch('/api/v1/llm/config', { headers: { ...getAuthHeaders() }});
+                if (res.ok) {
+                    const cfg = await res.json();
+                    setLlmReady(!!cfg && cfg.is_active);
+                } else {
+                    setLlmReady(false);
+                }
+            } catch { setLlmReady(false); }
+        })();
 }, [audioId]);
 
 	// Initialize WaveSurfer when audioFile is available - with proper DOM timing
@@ -549,10 +583,74 @@ useEffect(() => {
         });
     };
 
-	const getFileName = (audioPath: string) => {
-		const parts = audioPath.split("/");
-		return parts[parts.length - 1];
-	};
+    const getFileName = (audioPath: string) => {
+        const parts = audioPath.split("/");
+        return parts[parts.length - 1];
+    };
+
+    const getFullTranscriptText = (): string => {
+        if (!transcript) return '';
+        if (transcript.segments && transcript.segments.length > 0) {
+            return transcript.segments.map(s => s.text.trim()).join('\n');
+        }
+        return transcript.text || '';
+    };
+
+    const openSummarizeDialog = async () => {
+        if (llmReady === false) return;
+        // If a summary already exists for this transcription, show it directly
+        try {
+            const resExisting = await fetch(`/api/v1/transcription/${audioId}/summary`, { headers: { ...getAuthHeaders() }});
+            if (resExisting.ok) {
+                const data = await resExisting.json();
+                setSummaryStream(data.content || '');
+                setSummaryOpen(true);
+                return;
+            }
+        } catch {}
+        // Else open template picker
+        setSummarizeOpen(true);
+        if (templates.length === 0) {
+            try {
+                setTemplatesLoading(true);
+                const res = await fetch('/api/v1/summaries', { headers: { ...getAuthHeaders() }});
+                if (res.ok) {
+                    const data = await res.json();
+                    setTemplates(data || []);
+                }
+            } finally { setTemplatesLoading(false); }
+        }
+    };
+
+    const startSummarization = async () => {
+        const tpl = templates.find(t => t.id === selectedTemplateId);
+        if (!tpl) return;
+        const transcriptText = getFullTranscriptText();
+        const combined = `Transcript:\n${transcriptText}\n\nInstructions:\n${tpl.prompt}`;
+        setSummaryOpen(true);
+        setSummaryStream("");
+        setIsSummarizing(true);
+        try {
+            const res = await fetch('/api/v1/summarize', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+                body: JSON.stringify({ model: tpl.model, content: combined, transcription_id: audioId, template_id: tpl.id }),
+            });
+            if (!res.body) { setIsSummarizing(false); return; }
+            const reader = res.body.getReader();
+            const decoder = new TextDecoder();
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                const chunk = decoder.decode(value);
+                setSummaryStream(prev => prev + chunk);
+            }
+        } catch (e) {
+            // ignore for now
+        } finally {
+            setIsSummarizing(false);
+        }
+    };
 
 	const formatTimestamp = (seconds: number): string => {
 		const minutes = Math.floor(seconds / 60);
@@ -880,6 +978,18 @@ useEffect(() => {
 									<span className="hidden sm:inline">Notes</span>
 									<span className="ml-1 text-xs rounded-full px-1.5 py-0.5 bg-gray-200 dark:bg-gray-700">{notes.length}</span>
 								</Button>
+
+								{/* Summarize transcript */}
+								<Button
+									variant="outline"
+									size="sm"
+									onClick={openSummarizeDialog}
+									className="h-8 w-8 p-0 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer"
+									title={llmReady === false ? 'Configure LLM in Settings' : 'Summarize transcript'}
+									disabled={llmReady === false}
+								>
+									<Sparkles className="h-4 w-4" />
+								</Button>
 							</div>
 						</div>
 
@@ -1057,7 +1167,84 @@ useEffect(() => {
 						</Button>
 					</DialogFooter>
 				</DialogContent>
-			</Dialog>
+            </Dialog>
+
+            {/* Summarization template selector dialog */}
+            <UIDialog open={summarizeOpen} onOpenChange={(o) => { setSummarizeOpen(o); if (!o) { setTplPopoverOpen(false); } }}>
+                <UIDialogContent className="sm:max-w-lg bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700">
+                    <UIDialogHeader>
+                        <UIDialogTitle className="text-gray-900 dark:text-gray-100">Summarize Transcript</UIDialogTitle>
+                        <UIDialogDescription className="text-gray-600 dark:text-gray-400">Choose a summarization template</UIDialogDescription>
+                    </UIDialogHeader>
+                    <div className="py-2 space-y-3">
+                        <div className="space-y-1">
+                            <UILabel className="text-sm text-gray-700 dark:text-gray-300">Template</UILabel>
+                            <Popover open={tplPopoverOpen} onOpenChange={setTplPopoverOpen}>
+                                <PopoverTrigger asChild>
+                                    <button
+                                        className="w-full inline-flex justify-between items-center rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer"
+                                        aria-label="Choose template"
+                                    >
+                                        <span className="truncate text-left">{selectedTemplate ? selectedTemplate.name : (templatesLoading ? 'Loading...' : 'Select a template')}</span>
+                                        <span className="text-xs text-gray-500 ml-2 truncate">{selectedTemplate?.model ? `(${selectedTemplate.model})` : ''}</span>
+                                    </button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+                                    <Command>
+                                        <CommandInput placeholder="Search templates..." />
+                                        <CommandList className="max-h-64 overflow-auto">
+                                            <CommandEmpty>{templatesLoading ? 'Loading...' : 'No templates found'}</CommandEmpty>
+                                            <CommandGroup heading="Templates">
+                                                {templates.map(t => (
+                                                    <CommandItem
+                                                        key={t.id}
+                                                        value={t.name}
+                                                        onSelect={() => { setSelectedTemplateId(t.id); setTplPopoverOpen(false); }}
+                                                    >
+                                                        <div className="flex flex-col">
+                                                            <span className="text-sm">{t.name}</span>
+                                                            <span className="text-xs text-gray-500">Model: {t.model || '—'}</span>
+                                                        </div>
+                                                    </CommandItem>
+                                                ))}
+                                            </CommandGroup>
+                                        </CommandList>
+                                    </Command>
+                                </PopoverContent>
+                            </Popover>
+                            {!templatesLoading && templates.length === 0 && (
+                                <p className="text-xs text-gray-500">No templates. Create one in Settings → Summary.</p>
+                            )}
+                            {selectedTemplate && !selectedTemplate.model && (
+                                <p className="text-xs text-red-600">Selected template has no model configured. Edit it in Settings.</p>
+                            )}
+                        </div>
+                        <div className="mt-1 flex items-center justify-end gap-2">
+                            <button className="px-3 py-1.5 rounded-md bg-gray-200 dark:bg-gray-700" onClick={() => setSummarizeOpen(false)}>Cancel</button>
+                            <button className="px-3 py-1.5 rounded-md bg-blue-600 text-white disabled:opacity-50" disabled={!selectedTemplateId || !selectedTemplate?.model} onClick={() => { setSummarizeOpen(false); startSummarization(); }}>Summarize</button>
+                        </div>
+                    </div>
+                </UIDialogContent>
+            </UIDialog>
+
+            {/* Summary output dialog */}
+            <UIDialog open={summaryOpen} onOpenChange={setSummaryOpen}>
+                <UIDialogContent className="sm:max-w-3xl bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700 max-h-[85vh] overflow-y-auto">
+                    <UIDialogHeader>
+                        <UIDialogTitle className="text-gray-900 dark:text-gray-100">Summary</UIDialogTitle>
+                        <UIDialogDescription className="text-gray-600 dark:text-gray-400">Live generated using your template</UIDialogDescription>
+                    </UIDialogHeader>
+                    <div className="prose prose-gray dark:prose-invert max-w-none min-h-[200px]">
+                        {summaryStream ? (
+                            <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeRaw as any, rehypeKatex as any, rehypeHighlight as any]}>
+                                {summaryStream}
+                            </ReactMarkdown>
+                        ) : (
+                            <p className="text-sm text-gray-500">{isSummarizing ? 'Generating summary...' : 'No content'}</p>
+                        )}
+                    </div>
+                </UIDialogContent>
+            </UIDialog>
 
 			{/* Portal: add-note bubble + editor */}
 				{((showSelectionMenu || showEditor) && pendingSelection) ? (
