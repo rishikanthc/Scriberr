@@ -837,33 +837,22 @@ useEffect(() => {
 									<span className="hidden sm:inline">Open Chat</span>
 								</Button>
 
-								{/* Transcript View Toggle Buttons - only show in transcript mode */}
-								{viewMode === "transcript" && (
-									<div className="flex items-center bg-gray-100 dark:bg-gray-600 rounded-lg p-1">
-										<button
-											onClick={() => setTranscriptMode("compact")}
-											className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-200 flex items-center gap-2 cursor-pointer ${
-												transcriptMode === "compact"
-													? "bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-sm"
-													: "text-gray-600 dark:text-gray-200 hover:text-gray-900 dark:hover:text-gray-200"
-											}`}
-										>
-											<AlignLeft className="h-4 w-4" />
-											<span className="hidden sm:inline">Compact</span>
-										</button>
-										<button
-											onClick={() => setTranscriptMode("expanded")}
-											className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-200 flex items-center gap-2 cursor-pointer ${
-												transcriptMode === "expanded"
-													? "bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-sm"
-													: "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
-											}`}
-										>
-											<List className="h-4 w-4" />
-											<span className="hidden sm:inline">Timeline</span>
-										</button>
-									</div>
-								)}
+                                {/* Transcript view mode toggle (icon-only) */}
+                                {viewMode === "transcript" && (
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => setTranscriptMode(transcriptMode === "compact" ? "expanded" : "compact")}
+                                        className="h-8 w-8 p-0 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer"
+                                        title={transcriptMode === "compact" ? "Switch to Timeline view" : "Switch to Compact view"}
+                                    >
+                                        {transcriptMode === "compact" ? (
+                                            <List className="h-4 w-4" />
+                                        ) : (
+                                            <AlignLeft className="h-4 w-4" />
+                                        )}
+                                    </Button>
+                                )}
 
 								{/* Notes toggle */}
 								<Button
