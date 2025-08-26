@@ -72,8 +72,14 @@ export function SummaryTemplateDialog({ open, onOpenChange, onSave, initial }: S
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button onClick={handleSave} disabled={saving || !name.trim() || !prompt.trim()}>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleSave}
+            disabled={saving || !name.trim() || !prompt.trim()}
+            className="bg-blue-600 hover:bg-blue-700 text-white dark:bg-blue-600 dark:hover:bg-blue-500"
+          >
             {saving ? 'Saving...' : 'Save'}
           </Button>
         </DialogFooter>
@@ -81,4 +87,3 @@ export function SummaryTemplateDialog({ open, onOpenChange, onSave, initial }: S
     </Dialog>
   );
 }
-

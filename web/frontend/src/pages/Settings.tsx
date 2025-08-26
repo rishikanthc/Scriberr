@@ -20,6 +20,7 @@ export function Settings() {
   const { getAuthHeaders } = useAuth();
   const [summaryDialogOpen, setSummaryDialogOpen] = useState(false);
   const [editingSummary, setEditingSummary] = useState<SummaryTemplate | null>(null);
+  const [summaryRefresh, setSummaryRefresh] = useState(0);
 
 	// Dummy function for file select (Settings page doesn't upload files)
 	const handleFileSelect = () => {
@@ -127,7 +128,7 @@ export function Settings() {
                   <Plus className="h-4 w-4" /> New Template
                 </button>
               </div>
-              <SummaryTemplatesTable onEdit={(tpl) => { setEditingSummary(tpl); setSummaryDialogOpen(true); }} />
+              <SummaryTemplatesTable onEdit={(tpl) => { setEditingSummary(tpl); setSummaryDialogOpen(true); }} refreshTrigger={summaryRefresh} />
             </div>
 
             <SummaryTemplateDialog
@@ -143,8 +144,10 @@ export function Settings() {
                     await fetch('/api/v1/summaries', { method: 'POST', headers, body: JSON.stringify({ name: tpl.name, description: tpl.description, prompt: tpl.prompt }) });
                   }
                 } finally {
-                  // simple approach: reload page to refresh the list; or could lift state up
-                  setTimeout(() => window.location.reload(), 150);
+                  // keep user on Summary tab and refresh the list without a full reload
+                  setSummaryDialogOpen(false);
+                  setEditingSummary(null);
+                  setSummaryRefresh((n) => n + 1);
                 }
               }}
             />

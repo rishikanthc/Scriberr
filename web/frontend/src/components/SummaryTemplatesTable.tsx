@@ -8,9 +8,10 @@ import { useAuth } from "../contexts/AuthContext";
 
 interface SummaryTemplatesTableProps {
   onEdit: (tpl: SummaryTemplate) => void;
+  refreshTrigger?: number;
 }
 
-export function SummaryTemplatesTable({ onEdit }: SummaryTemplatesTableProps) {
+export function SummaryTemplatesTable({ onEdit, refreshTrigger = 0 }: SummaryTemplatesTableProps) {
   const { getAuthHeaders } = useAuth();
   const [items, setItems] = useState<SummaryTemplate[]>([]);
   const [loading, setLoading] = useState(true);
@@ -30,7 +31,7 @@ export function SummaryTemplatesTable({ onEdit }: SummaryTemplatesTableProps) {
     }
   }, []);
 
-  useEffect(() => { fetchItems(); }, [fetchItems]);
+  useEffect(() => { fetchItems(); }, [fetchItems, refreshTrigger]);
 
   const handleDelete = async (id: string) => {
     setOpenPop(prev => ({ ...prev, [id]: false }));
