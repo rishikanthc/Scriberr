@@ -43,36 +43,36 @@ export function Settings() {
 							onValueChange={setActiveTab}
 							className="space-y-4 sm:space-y-6"
 						>
-							<TabsList className="grid w-full grid-cols-4 bg-gray-100 dark:bg-gray-800 p-1 rounded-xl">
-								<TabsTrigger
-									value="profiles"
-									aria-label="Profiles"
-									className="flex items-center justify-center gap-2 data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-gray-900 dark:data-[state=active]:text-gray-100 text-gray-600 dark:text-gray-400 font-medium rounded-lg text-xs sm:text-sm py-1.5"
-								>
+							<TabsList className="grid w-full grid-cols-4 items-center h-auto bg-gray-100 dark:bg-gray-800 p-1 rounded-xl">
+                            <TabsTrigger
+                                value="profiles"
+                                aria-label="Profiles"
+                                className="flex items-center justify-center gap-2 h-10 py-2 data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-gray-900 dark:data-[state=active]:text-gray-100 text-gray-600 dark:text-gray-400 font-medium rounded-lg text-xs sm:text-sm"
+                            >
 									<SettingsIcon className="h-4 w-4" />
 									<span className="hidden sm:inline">Profiles</span>
 								</TabsTrigger>
-								<TabsTrigger
-									value="account"
-									aria-label="Account"
-									className="flex items-center justify-center gap-2 data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-gray-900 dark:data-[state=active]:text-gray-100 text-gray-600 dark:text-gray-400 font-medium rounded-lg text-xs sm:text-sm py-1.5"
-								>
+                            <TabsTrigger
+                                value="account"
+                                aria-label="Account"
+                                className="flex items-center justify-center gap-2 h-10 py-2 data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-gray-900 dark:data-[state=active]:text-gray-100 text-gray-600 dark:text-gray-400 font-medium rounded-lg text-xs sm:text-sm"
+                            >
 									<User className="h-4 w-4" />
 									<span className="hidden sm:inline">Account</span>
 								</TabsTrigger>
-								<TabsTrigger
-									value="apikeys"
-									aria-label="API Keys"
-									className="flex items-center justify-center gap-2 data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-gray-900 dark:data-[state=active]:text-gray-100 text-gray-600 dark:text-gray-400 font-medium rounded-lg text-xs sm:text-sm py-1.5"
-								>
+                            <TabsTrigger
+                                value="apikeys"
+                                aria-label="API Keys"
+                                className="flex items-center justify-center gap-2 h-10 py-2 data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-gray-900 dark:data-[state=active]:text-gray-100 text-gray-600 dark:text-gray-400 font-medium rounded-lg text-xs sm:text-sm"
+                            >
 									<Key className="h-4 w-4" />
 									<span className="hidden sm:inline">API Keys</span>
 								</TabsTrigger>
-								<TabsTrigger
-									value="llms"
-									aria-label="LLMs"
-									className="flex items-center justify-center gap-2 data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-gray-900 dark:data-[state=active]:text-gray-100 text-gray-600 dark:text-gray-400 font-medium rounded-lg text-xs sm:text-sm py-1.5"
-								>
+                            <TabsTrigger
+                                value="llms"
+                                aria-label="LLMs"
+                                className="flex items-center justify-center gap-2 h-10 py-2 data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-gray-900 dark:data-[state=active]:text-gray-100 text-gray-600 dark:text-gray-400 font-medium rounded-lg text-xs sm:text-sm"
+                            >
 									<Bot className="h-4 w-4" />
 									<span className="hidden sm:inline">LLMs</span>
 								</TabsTrigger>
