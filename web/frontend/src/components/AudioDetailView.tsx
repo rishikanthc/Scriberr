@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import { ArrowLeft, Play, Pause, List, AlignLeft, MessageCircle, Download, FileText, FileJson, FileImage, Check, StickyNote, Plus } from "lucide-react";
+import { ArrowLeft, Play, Pause, List, AlignLeft, MessageCircle, Download, FileText, FileJson, FileImage, Check, StickyNote, Plus, X } from "lucide-react";
 import WaveSurfer from "wavesurfer.js";
 import { Button } from "./ui/button";
 import {
@@ -1098,10 +1098,20 @@ useEffect(() => {
 						<div className="fixed inset-y-0 right-0 w-[88vw] max-w-[380px] md:max-w-[420px] bg-white dark:bg-gray-900 shadow-2xl z-[9990]">
 							<div className="h-full flex flex-col">
 								<div className="px-3 md:px-4 py-3">
-									<h3 className="font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
-										<StickyNote className="h-4 w-4" /> Notes
-										<span className="ml-1 text-xs rounded-full px-1.5 py-0.5 bg-gray-200 dark:bg-gray-700">{notes.length}</span>
-									</h3>
+									<div className="flex items-center justify-between">
+										<h3 className="font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+											<StickyNote className="h-4 w-4" /> Notes
+											<span className="ml-1 text-xs rounded-full px-1.5 py-0.5 bg-gray-200 dark:bg-gray-700">{notes.length}</span>
+										</h3>
+										<button
+											type="button"
+											onClick={() => setNotesOpen(false)}
+											className="h-8 w-8 inline-flex items-center justify-center rounded-md text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer"
+											aria-label="Close notes"
+										>
+											<X className="h-4 w-4" />
+										</button>
+									</div>
 								</div>
 								<div className="flex-1 overflow-y-auto px-3 md:px-4 pb-4">
 									<NotesSidebar
