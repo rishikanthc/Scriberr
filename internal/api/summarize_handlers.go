@@ -51,6 +51,26 @@ func (h *Handler) Summarize(c *gin.Context) {
     writer := bufio.NewWriter(c.Writer)
 
     finalText := ""
+
+    // helper to persist any accumulated content
+    persistIfAny := func() {
+        if req.TranscriptionID == "" || finalText == "" {
+            return
+        }
+        sum := models.Summary{
+            TranscriptionID: req.TranscriptionID,
+            TemplateID:      req.TemplateID,
+            Model:           req.Model,
+            Content:         finalText,
+        }
+        if err := database.DB.Create(&sum).Error; err != nil {
+            // Fallback: store on the transcription job record
+            _ = database.DB.Model(&models.TranscriptionJob{}).Where("id = ?", req.TranscriptionID).Update("summary", finalText).Error
+        } else {
+            // Also cache on the transcription job for quick access
+            _ = database.DB.Model(&models.TranscriptionJob{}).Where("id = ?", req.TranscriptionID).Update("summary", finalText).Error
+        }
+    }
     for {
         select {
         case chunk, ok := <-contentChan:
@@ -60,21 +80,7 @@ func (h *Handler) Summarize(c *gin.Context) {
                     flusher.Flush()
                 }
                 // Persist summary once streaming completes
-                if req.TranscriptionID != "" && finalText != "" {
-                    sum := models.Summary{
-                        TranscriptionID: req.TranscriptionID,
-                        TemplateID:      req.TemplateID,
-                        Model:           req.Model,
-                        Content:         finalText,
-                    }
-                    if err := database.DB.Create(&sum).Error; err != nil {
-                        // Fallback: store on the transcription job record
-                        _ = database.DB.Model(&models.TranscriptionJob{}).Where("id = ?", req.TranscriptionID).Update("summary", finalText).Error
-                    } else {
-                        // Also cache on the transcription job for quick access
-                        _ = database.DB.Model(&models.TranscriptionJob{}).Where("id = ?", req.TranscriptionID).Update("summary", finalText).Error
-                    }
-                }
+                persistIfAny()
                 return
             }
             finalText += chunk
@@ -92,8 +98,12 @@ func (h *Handler) Summarize(c *gin.Context) {
                     flusher.Flush()
                 }
             }
+            // Persist any partial content on error
+            persistIfAny()
             return
         case <-ctx.Done():
+            // Persist any partial content on timeout/cancel
+            persistIfAny()
             return
         }
     }

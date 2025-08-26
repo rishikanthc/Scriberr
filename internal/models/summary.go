@@ -41,3 +41,11 @@ type Summary struct {
     CreatedAt       time.Time `json:"created_at" gorm:"autoCreateTime"`
     UpdatedAt       time.Time `json:"updated_at" gorm:"autoUpdateTime"`
 }
+
+// BeforeCreate ensures Summary has a UUID primary key
+func (s *Summary) BeforeCreate(tx *gorm.DB) error {
+    if s.ID == "" {
+        s.ID = uuid.New().String()
+    }
+    return nil
+}
