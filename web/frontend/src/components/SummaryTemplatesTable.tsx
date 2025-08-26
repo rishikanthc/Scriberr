@@ -9,9 +9,10 @@ import { useAuth } from "../contexts/AuthContext";
 interface SummaryTemplatesTableProps {
   onEdit: (tpl: SummaryTemplate) => void;
   refreshTrigger?: number;
+  disabled?: boolean;
 }
 
-export function SummaryTemplatesTable({ onEdit, refreshTrigger = 0 }: SummaryTemplatesTableProps) {
+export function SummaryTemplatesTable({ onEdit, refreshTrigger = 0, disabled = false }: SummaryTemplatesTableProps) {
   const { getAuthHeaders } = useAuth();
   const [items, setItems] = useState<SummaryTemplate[]>([]);
   const [loading, setLoading] = useState(true);
@@ -62,7 +63,7 @@ export function SummaryTemplatesTable({ onEdit, refreshTrigger = 0 }: SummaryTem
 
   if (items.length === 0) {
     return (
-      <div className="text-center py-16">
+      <div className={`text-center py-16 ${disabled ? 'opacity-60 pointer-events-none' : ''}`}>
         <div className="bg-gray-100 dark:bg-gray-700 rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center">
           <FileText className="h-8 w-8 text-gray-400 dark:text-gray-500" />
         </div>
@@ -73,9 +74,9 @@ export function SummaryTemplatesTable({ onEdit, refreshTrigger = 0 }: SummaryTem
   }
 
   return (
-    <div className="space-y-2">
+    <div className={`space-y-2 ${disabled ? 'opacity-60 pointer-events-none' : ''}`}>
       {items.map(tpl => (
-        <div key={tpl.id} className="group bg-gray-100 dark:bg-gray-700 rounded-lg p-4 hover:bg-gray-200 dark:hover:bg-gray-600 transition-all duration-200 cursor-pointer" onClick={() => onEdit(tpl)}>
+        <div key={tpl.id} className="group bg-gray-100 dark:bg-gray-700 rounded-lg p-4 hover:bg-gray-200 dark:hover:bg-gray-600 transition-all duration-200 cursor-pointer" onClick={() => !disabled && onEdit(tpl)}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3 flex-1 min-w-0">
               <div className="bg-gray-200 dark:bg-gray-800 rounded-md p-1.5">
@@ -92,6 +93,7 @@ export function SummaryTemplatesTable({ onEdit, refreshTrigger = 0 }: SummaryTem
               </div>
             </div>
             <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200" onClick={(e) => e.stopPropagation()}>
+              {!disabled && (
               <Popover open={openPop[tpl.id!] || false} onOpenChange={(open) => setOpenPop(prev => ({ ...prev, [tpl.id!]: open }))}>
                 <PopoverTrigger asChild>
                   <Button variant="ghost" size="sm" className="h-7 w-7 p-0 hover:bg-gray-300 dark:hover:bg-gray-600">
@@ -118,6 +120,7 @@ export function SummaryTemplatesTable({ onEdit, refreshTrigger = 0 }: SummaryTem
                   </AlertDialog>
                 </PopoverContent>
               </Popover>
+              )}
             </div>
           </div>
         </div>

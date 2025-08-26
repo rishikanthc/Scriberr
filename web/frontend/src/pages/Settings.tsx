@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { User, Settings as SettingsIcon, Key, Bot, FileText, Plus } from "lucide-react";
 import {
 	Tabs,
@@ -14,6 +14,7 @@ import { LLMSettings } from "../components/LLMSettings";
 import { SummaryTemplateDialog, type SummaryTemplate } from "../components/SummaryTemplateDialog";
 import { SummaryTemplatesTable } from "../components/SummaryTemplatesTable";
 import { useAuth } from "../contexts/AuthContext";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 
 export function Settings() {
   const [activeTab, setActiveTab] = useState("profiles");
@@ -21,6 +22,34 @@ export function Settings() {
   const [summaryDialogOpen, setSummaryDialogOpen] = useState(false);
   const [editingSummary, setEditingSummary] = useState<SummaryTemplate | null>(null);
   const [summaryRefresh, setSummaryRefresh] = useState(0);
+  const [llmConfigured, setLlmConfigured] = useState(false);
+  const [models, setModels] = useState<string[]>([]);
+  const [selectedModel, setSelectedModel] = useState<string>("");
+
+  // Fetch LLM config and models
+  useEffect(() => {
+    const fetchLLM = async () => {
+      try {
+        const cfgRes = await fetch('/api/v1/llm/config', { headers: { ...getAuthHeaders() }});
+        if (!cfgRes.ok) { setLlmConfigured(false); return; }
+        const cfg = await cfgRes.json();
+        setLlmConfigured(!!cfg && cfg.is_active);
+        if (cfg && cfg.is_active) {
+          const mRes = await fetch('/api/v1/chat/models', { headers: { ...getAuthHeaders() }});
+          if (mRes.ok) {
+            const data = await mRes.json();
+            setModels(data.models || []);
+            if (!selectedModel && (data.models || []).length) {
+              setSelectedModel(data.models[0]);
+            }
+          }
+        }
+      } catch (e) {
+        setLlmConfigured(false);
+      }
+    };
+    fetchLLM();
+  }, []);
 
 	// Dummy function for file select (Settings page doesn't upload files)
 	const handleFileSelect = () => {
@@ -121,14 +150,36 @@ export function Settings() {
                   <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">Summarization Templates</h3>
                   <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Create and manage prompts used to summarize transcripts.</p>
                 </div>
-                <button
-                  onClick={() => { setEditingSummary(null); setSummaryDialogOpen(true); }}
-                  className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-md cursor-pointer"
-                >
-                  <Plus className="h-4 w-4" /> New Template
-                </button>
+                <div className="flex items-center gap-3">
+                  <div className="min-w-[200px]">
+                    <Select value={selectedModel} onValueChange={setSelectedModel} disabled={!llmConfigured || models.length === 0}>
+                      <SelectTrigger className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100">
+                        <SelectValue placeholder={llmConfigured ? 'Select model' : 'LLM not configured'} />
+                      </SelectTrigger>
+                      <SelectContent className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 max-h-60">
+                        {models.map((m) => (
+                          <SelectItem key={m} value={m} className="text-gray-900 dark:text-gray-100 focus:bg-gray-100 dark:focus:bg-gray-700">
+                            {m}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <button
+                    onClick={() => { setEditingSummary(null); setSummaryDialogOpen(true); }}
+                    disabled={!llmConfigured}
+                    className={`inline-flex items-center gap-2 px-3 py-2 rounded-md cursor-pointer ${llmConfigured ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}
+                  >
+                    <Plus className="h-4 w-4" /> New Template
+                  </button>
+                </div>
               </div>
-              <SummaryTemplatesTable onEdit={(tpl) => { setEditingSummary(tpl); setSummaryDialogOpen(true); }} refreshTrigger={summaryRefresh} />
+              {!llmConfigured && (
+                <div className="mb-3 text-sm text-gray-700 dark:text-gray-300 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-md px-3 py-2">
+                  Configure an LLM provider in the LLMs tab to enable summary templates and model selection.
+                </div>
+              )}
+              <SummaryTemplatesTable onEdit={(tpl) => { setEditingSummary(tpl); setSummaryDialogOpen(true); }} refreshTrigger={summaryRefresh} disabled={!llmConfigured} />
             </div>
 
             <SummaryTemplateDialog
