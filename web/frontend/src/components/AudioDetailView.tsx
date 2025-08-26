@@ -422,6 +422,20 @@ useEffect(() => {
         return () => el.removeEventListener('mouseup', onMouseUp);
     }, [transcript, transcriptMode]);
 
+    // Hide selection bubble when selection collapses (and not editing)
+    useEffect(() => {
+        const onSelectionChange = () => {
+            if (showEditor) return;
+            const sel = window.getSelection();
+            if (!sel || sel.isCollapsed) {
+                setShowSelectionMenu(false);
+                setPendingSelection(null);
+            }
+        };
+        document.addEventListener('selectionchange', onSelectionChange);
+        return () => document.removeEventListener('selectionchange', onSelectionChange);
+    }, [showEditor]);
+
     const openEditorForSelection = () => {
         setShowEditor(true);
         setShowSelectionMenu(false);
@@ -1050,7 +1064,18 @@ useEffect(() => {
 					createPortal(
 						<div>
 							{/* Backdrop to intercept clicks below the portal UI */}
-							<div style={{ position: 'fixed', inset: 0, zIndex: 9995, background: 'transparent' }} />
+                    <div
+                      style={{ position: 'fixed', inset: 0, zIndex: 9995, background: 'transparent' }}
+                      onMouseDown={() => {
+                        // Clicking backdrop cancels the add-note bubble
+                        if (showSelectionMenu && !showEditor) {
+                          setShowSelectionMenu(false);
+                          setPendingSelection(null);
+                          const sel = window.getSelection();
+                          sel?.removeAllRanges();
+                        }
+                      }}
+                    />
 
 							{showSelectionMenu && (
 								<div style={{ position: 'fixed', left: selectionViewportPos.x, top: selectionViewportPos.y, transform: 'translate(-50%, -100%)', zIndex: 10000 }} onMouseDown={(e) => e.stopPropagation()}>
