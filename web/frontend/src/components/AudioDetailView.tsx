@@ -458,6 +458,33 @@ useEffect(() => {
         return () => el.removeEventListener('mouseup', onMouseUp);
     }, [transcript, transcriptMode]);
 
+    // Cmd/Ctrl + click to seek to word start (without breaking selection or follow-along)
+    useEffect(() => {
+        const el = transcriptRef.current;
+        if (!el) return;
+        const onClick = (e: MouseEvent) => {
+            // Only handle when meta/ctrl is pressed; otherwise let normal selection/add-note flow work
+            if (!(e.metaKey || e.ctrlKey)) return;
+            const target = e.target as HTMLElement | null;
+            if (!target) return;
+            const wordEl = target.closest('span[data-word-index]') as HTMLElement | null;
+            if (!wordEl) return;
+            const startAttr = wordEl.getAttribute('data-start');
+            const start = startAttr ? parseFloat(startAttr) : NaN;
+            if (isNaN(start)) return;
+            e.preventDefault();
+            e.stopPropagation();
+            if (wavesurferRef.current) {
+                const dur = wavesurferRef.current.getDuration() || 1;
+                const ratio = Math.min(0.999, Math.max(0, start / dur));
+                wavesurferRef.current.seekTo(ratio);
+                setCurrentTime(start);
+            }
+        };
+        el.addEventListener('click', onClick);
+        return () => el.removeEventListener('click', onClick);
+    }, [wavesurferRef.current]);
+
     // Hide selection bubble when selection collapses (and not editing)
     useEffect(() => {
         const onSelectionChange = () => {
