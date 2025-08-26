@@ -14,7 +14,6 @@ import { LLMSettings } from "../components/LLMSettings";
 import { SummaryTemplateDialog, type SummaryTemplate } from "../components/SummaryTemplateDialog";
 import { SummaryTemplatesTable } from "../components/SummaryTemplatesTable";
 import { useAuth } from "../contexts/AuthContext";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 
 export function Settings() {
   const [activeTab, setActiveTab] = useState("profiles");
@@ -23,8 +22,6 @@ export function Settings() {
   const [editingSummary, setEditingSummary] = useState<SummaryTemplate | null>(null);
   const [summaryRefresh, setSummaryRefresh] = useState(0);
   const [llmConfigured, setLlmConfigured] = useState(false);
-  const [models, setModels] = useState<string[]>([]);
-  const [selectedModel, setSelectedModel] = useState<string>("");
 
   // Fetch LLM config and models
   useEffect(() => {
@@ -34,15 +31,9 @@ export function Settings() {
         if (!cfgRes.ok) { setLlmConfigured(false); return; }
         const cfg = await cfgRes.json();
         setLlmConfigured(!!cfg && cfg.is_active);
+        // Set configured; models are chosen per-template in dialog now
         if (cfg && cfg.is_active) {
-          const mRes = await fetch('/api/v1/chat/models', { headers: { ...getAuthHeaders() }});
-          if (mRes.ok) {
-            const data = await mRes.json();
-            setModels(data.models || []);
-            if (!selectedModel && (data.models || []).length) {
-              setSelectedModel(data.models[0]);
-            }
-          }
+          setLlmConfigured(true);
         }
       } catch (e) {
         setLlmConfigured(false);
@@ -50,6 +41,7 @@ export function Settings() {
     };
     fetchLLM();
   }, []);
+
 
 	// Dummy function for file select (Settings page doesn't upload files)
 	const handleFileSelect = () => {
@@ -151,20 +143,6 @@ export function Settings() {
                   <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Create and manage prompts used to summarize transcripts.</p>
                 </div>
                 <div className="flex items-center gap-3">
-                  <div className="min-w-[200px]">
-                    <Select value={selectedModel} onValueChange={setSelectedModel} disabled={!llmConfigured || models.length === 0}>
-                      <SelectTrigger className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100">
-                        <SelectValue placeholder={llmConfigured ? 'Select model' : 'LLM not configured'} />
-                      </SelectTrigger>
-                      <SelectContent className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 max-h-60">
-                        {models.map((m) => (
-                          <SelectItem key={m} value={m} className="text-gray-900 dark:text-gray-100 focus:bg-gray-100 dark:focus:bg-gray-700">
-                            {m}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
                   <button
                     onClick={() => { setEditingSummary(null); setSummaryDialogOpen(true); }}
                     disabled={!llmConfigured}

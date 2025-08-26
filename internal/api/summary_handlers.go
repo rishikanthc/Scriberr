@@ -14,7 +14,16 @@ import (
 type SummaryTemplateRequest struct {
     Name        string  `json:"name" binding:"required,min=1"`
     Description *string `json:"description"`
+    Model       string  `json:"model" binding:"required,min=1"`
     Prompt      string  `json:"prompt" binding:"required,min=1"`
+}
+
+type SummarySettingsRequest struct {
+    DefaultModel string `json:"default_model" binding:"required,min=1"`
+}
+
+type SummarySettingsResponse struct {
+    DefaultModel string `json:"default_model"`
 }
 
 // ListSummaryTemplates returns all templates
@@ -37,6 +46,7 @@ func (h *Handler) CreateSummaryTemplate(c *gin.Context) {
     item := models.SummaryTemplate{
         Name:        req.Name,
         Description: req.Description,
+        Model:       req.Model,
         Prompt:      req.Prompt,
         CreatedAt:   time.Now(),
         UpdatedAt:   time.Now(),
@@ -82,6 +92,7 @@ func (h *Handler) UpdateSummaryTemplate(c *gin.Context) {
     }
     item.Name = req.Name
     item.Description = req.Description
+    item.Model = req.Model
     item.Prompt = req.Prompt
     item.UpdatedAt = time.Now()
     if err := database.DB.Save(&item).Error; err != nil {
@@ -101,3 +112,47 @@ func (h *Handler) DeleteSummaryTemplate(c *gin.Context) {
     c.Status(http.StatusNoContent)
 }
 
+// GetSummarySettings returns the global summary settings (default model)
+func (h *Handler) GetSummarySettings(c *gin.Context) {
+    var s models.SummarySetting
+    if err := database.DB.First(&s).Error; err != nil {
+        if err == gorm.ErrRecordNotFound {
+            c.JSON(http.StatusOK, SummarySettingsResponse{DefaultModel: ""})
+            return
+        }
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch settings"})
+        return
+    }
+    c.JSON(http.StatusOK, SummarySettingsResponse{DefaultModel: s.DefaultModel})
+}
+
+// SaveSummarySettings updates default model (creates row if absent)
+func (h *Handler) SaveSummarySettings(c *gin.Context) {
+    var req SummarySettingsRequest
+    if err := c.ShouldBindJSON(&req); err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+        return
+    }
+    var s models.SummarySetting
+    if err := database.DB.First(&s).Error; err != nil {
+        if err == gorm.ErrRecordNotFound {
+            s.DefaultModel = req.DefaultModel
+            s.UpdatedAt = time.Now()
+            if err := database.DB.Create(&s).Error; err != nil {
+                c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save settings"})
+                return
+            }
+            c.JSON(http.StatusOK, SummarySettingsResponse{DefaultModel: s.DefaultModel})
+            return
+        }
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save settings"})
+        return
+    }
+    s.DefaultModel = req.DefaultModel
+    s.UpdatedAt = time.Now()
+    if err := database.DB.Save(&s).Error; err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save settings"})
+        return
+    }
+    c.JSON(http.StatusOK, SummarySettingsResponse{DefaultModel: s.DefaultModel})
+}

@@ -127,6 +127,8 @@ func SetupRoutes(handler *Handler, authService *auth.AuthService) *gin.Engine {
 			summaries.GET("/:id", handler.GetSummaryTemplate)
 			summaries.PUT("/:id", handler.UpdateSummaryTemplate)
 			summaries.DELETE("/:id", handler.DeleteSummaryTemplate)
+			summaries.GET("/settings", handler.GetSummarySettings)
+			summaries.POST("/settings", handler.SaveSummarySettings)
 		}
 
 		// Chat routes (require authentication)
