@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { User, Settings as SettingsIcon, Key, Bot } from "lucide-react";
+import { User, Settings as SettingsIcon, Key, Bot, FileText, Plus } from "lucide-react";
 import {
 	Tabs,
 	TabsContent,
@@ -11,9 +11,15 @@ import { ProfileSettings } from "../components/ProfileSettings";
 import { AccountSettings } from "../components/AccountSettings";
 import { APIKeySettings } from "../components/APIKeySettings";
 import { LLMSettings } from "../components/LLMSettings";
+import { SummaryTemplateDialog, type SummaryTemplate } from "../components/SummaryTemplateDialog";
+import { SummaryTemplatesTable } from "../components/SummaryTemplatesTable";
+import { useAuth } from "../contexts/AuthContext";
 
 export function Settings() {
-	const [activeTab, setActiveTab] = useState("profiles");
+  const [activeTab, setActiveTab] = useState("profiles");
+  const { getAuthHeaders } = useAuth();
+  const [summaryDialogOpen, setSummaryDialogOpen] = useState(false);
+  const [editingSummary, setEditingSummary] = useState<SummaryTemplate | null>(null);
 
 	// Dummy function for file select (Settings page doesn't upload files)
 	const handleFileSelect = () => {
@@ -43,7 +49,7 @@ export function Settings() {
 							onValueChange={setActiveTab}
 							className="space-y-4 sm:space-y-6"
 						>
-							<TabsList className="grid w-full grid-cols-4 items-center h-auto bg-gray-100 dark:bg-gray-800 p-1 rounded-xl">
+            <TabsList className="grid w-full grid-cols-5 items-center h-auto bg-gray-100 dark:bg-gray-800 p-1 rounded-xl">
                             <TabsTrigger
                                 value="profiles"
                                 aria-label="Profiles"
@@ -68,14 +74,22 @@ export function Settings() {
 									<Key className="h-4 w-4" />
 									<span className="hidden sm:inline">API Keys</span>
 								</TabsTrigger>
-                            <TabsTrigger
-                                value="llms"
-                                aria-label="LLMs"
-                                className="flex items-center justify-center gap-2 h-9 py-1.5 data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-gray-900 dark:data-[state=active]:text-gray-100 text-gray-600 dark:text-gray-400 font-medium rounded-lg text-xs sm:text-sm"
-                            >
-									<Bot className="h-4 w-4" />
-									<span className="hidden sm:inline">LLMs</span>
-								</TabsTrigger>
+            <TabsTrigger
+              value="llms"
+              aria-label="LLMs"
+              className="flex items-center justify-center gap-2 h-9 py-1.5 data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-gray-900 dark:data-[state=active]:text-gray-100 text-gray-600 dark:text-gray-400 font-medium rounded-lg text-xs sm:text-sm"
+            >
+              <Bot className="h-4 w-4" />
+              <span className="hidden sm:inline">LLMs</span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="summary"
+              aria-label="Summary"
+              className="flex items-center justify-center gap-2 h-9 py-1.5 data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-gray-900 dark:data-[state=active]:text-gray-100 text-gray-600 dark:text-gray-400 font-medium rounded-lg text-xs sm:text-sm"
+            >
+              <FileText className="h-4 w-4" />
+              <span className="hidden sm:inline">Summary</span>
+            </TabsTrigger>
 							</TabsList>
 
 						{/* Profiles Tab */}
@@ -93,10 +107,48 @@ export function Settings() {
 							<APIKeySettings />
 						</TabsContent>
 
-						{/* LLMs Tab */}
-						<TabsContent value="llms" className="space-y-6">
-							<LLMSettings />
-						</TabsContent>
+          {/* LLMs Tab */}
+          <TabsContent value="llms" className="space-y-6">
+            <LLMSettings />
+          </TabsContent>
+
+          {/* Summary Tab */}
+          <TabsContent value="summary" className="space-y-6">
+            <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 sm:p-6">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0 mb-4">
+                <div>
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">Summarization Templates</h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Create and manage prompts used to summarize transcripts.</p>
+                </div>
+                <button
+                  onClick={() => { setEditingSummary(null); setSummaryDialogOpen(true); }}
+                  className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-md cursor-pointer"
+                >
+                  <Plus className="h-4 w-4" /> New Template
+                </button>
+              </div>
+              <SummaryTemplatesTable onEdit={(tpl) => { setEditingSummary(tpl); setSummaryDialogOpen(true); }} />
+            </div>
+
+            <SummaryTemplateDialog
+              open={summaryDialogOpen}
+              onOpenChange={(o) => { setSummaryDialogOpen(o); if (!o) setEditingSummary(null); }}
+              initial={editingSummary}
+              onSave={async (tpl) => {
+                const headers: HeadersInit = { 'Content-Type': 'application/json', ...getAuthHeaders() };
+                try {
+                  if (tpl.id) {
+                    await fetch(`/api/v1/summaries/${tpl.id}`, { method: 'PUT', headers, body: JSON.stringify({ name: tpl.name, description: tpl.description, prompt: tpl.prompt }) });
+                  } else {
+                    await fetch('/api/v1/summaries', { method: 'POST', headers, body: JSON.stringify({ name: tpl.name, description: tpl.description, prompt: tpl.prompt }) });
+                  }
+                } finally {
+                  // simple approach: reload page to refresh the list; or could lift state up
+                  setTimeout(() => window.location.reload(), 150);
+                }
+              }}
+            />
+          </TabsContent>
 					</Tabs>
 				</div>
 			</div>

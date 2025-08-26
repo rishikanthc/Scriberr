@@ -118,6 +118,17 @@ func SetupRoutes(handler *Handler, authService *auth.AuthService) *gin.Engine {
 			llm.POST("/config", handler.SaveLLMConfig)
 		}
 
+		// Summarization templates routes (require authentication)
+		summaries := v1.Group("/summaries")
+		summaries.Use(middleware.AuthMiddleware(authService))
+		{
+			summaries.GET("/", handler.ListSummaryTemplates)
+			summaries.POST("/", handler.CreateSummaryTemplate)
+			summaries.GET("/:id", handler.GetSummaryTemplate)
+			summaries.PUT("/:id", handler.UpdateSummaryTemplate)
+			summaries.DELETE("/:id", handler.DeleteSummaryTemplate)
+		}
+
 		// Chat routes (require authentication)
 		chat := v1.Group("/chat")
 		chat.Use(middleware.AuthMiddleware(authService))
