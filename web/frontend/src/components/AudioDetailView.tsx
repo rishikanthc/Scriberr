@@ -395,8 +395,16 @@ useEffect(() => {
 
             const range = sel.getRangeAt(0);
             const rect = range.getBoundingClientRect();
-            // Use viewport coords for portal positioning
-            setSelectionViewportPos({ x: rect.left + rect.width / 2, y: rect.top - 10 });
+            // Robust viewport coordinates for the selection UI
+            // Clamp X within viewport with 16px gutters
+            const centerX = rect.left + rect.width / 2;
+            const clampedX = Math.min(window.innerWidth - 16, Math.max(16, centerX));
+            // Prefer above selection; if too close to the top, place below
+            let bubbleY = rect.top - 10;
+            if (bubbleY < 12) {
+                bubbleY = rect.bottom + 8;
+            }
+            setSelectionViewportPos({ x: clampedX, y: bubbleY });
             setPendingSelection({ startIdx, endIdx, startTime, endTime, quote });
             setShowSelectionMenu(true);
         };
@@ -937,20 +945,7 @@ useEffect(() => {
 
 					)}
 
-				{notesOpen && (
-					<div className="mt-4 grid grid-cols-1 md:grid-cols-[1fr_360px] gap-4">
-						<div></div>
-						<div className="bg-white dark:bg-gray-800 rounded-xl p-3 md:p-4 border border-gray-200 dark:border-gray-700 h-[520px]">
-							<h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-3 flex items-center gap-2"><StickyNote className="h-4 w-4"/> Notes</h3>
-							<NotesSidebar 
-								notes={notes}
-								onEdit={updateNote}
-								onDelete={deleteNote}
-								onJumpTo={(t) => { if (wavesurferRef.current) { const dur = wavesurferRef.current.getDuration(); wavesurferRef.current.seekTo(Math.min(0.999, Math.max(0, t / dur))); setCurrentTime(t); }}}
-							/>
-						</div>
-					</div>
-				)}
+
 
 				{/* Status Messages */}
 				{audioFile.status !== "completed" && (
@@ -1053,38 +1048,67 @@ useEffect(() => {
 			</Dialog>
 
 			{/* Portal: add-note bubble + editor */}
-			{((showSelectionMenu || showEditor) && pendingSelection) ? (
-				createPortal(
-					<div>
-						{showSelectionMenu && (
-							<div style={{ position: 'fixed', left: selectionViewportPos.x, top: selectionViewportPos.y, transform: 'translate(-50%, -100%)', zIndex: 10000 }}>
-								<div className="bg-gray-900 text-white text-xs rounded-md shadow-2xl px-2 py-1 flex items-center gap-1">
-									<button className="flex items-center gap-1 hover:opacity-90" onClick={openEditorForSelection}>
-										<Plus className="h-3 w-3" /> Add note
-									</button>
-								</div>
-							</div>
-						)}
-						{showEditor && (
-							<div style={{ position: 'fixed', left: selectionViewportPos.x, top: selectionViewportPos.y + 18, transform: 'translate(-50%, 0)', zIndex: 10000 }} className="w-[min(90vw,520px)]">
-								<div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-2xl p-3">
-									<div className="text-xs text-gray-500 dark:text-gray-400 border-l-2 border-gray-300 dark:border-gray-600 pl-2 italic mb-2 max-h-32 overflow-auto">
-										{pendingSelection.quote}
-									</div>
-									<textarea className="w-full text-sm bg-transparent border rounded-md p-2 border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-100" placeholder="Add a note..." value={newNoteContent} onChange={e => setNewNoteContent(e.target.value)} rows={4} />
-									<div className="mt-2 flex items-center justify-end gap-2">
-										<button className="px-2 py-1 text-sm rounded-md bg-gray-200 dark:bg-gray-700" onClick={() => { setShowEditor(false); setPendingSelection(null); }}>{"Cancel"}</button>
-										<button className="px-2 py-1 text-sm rounded-md bg-blue-600 text-white" onClick={saveNewNote}>{"Save"}</button>
-									</div>
-								</div>
-							</div>
-						)}
-					</div>,
-					document.body
-				)
-			) : null}
+				{((showSelectionMenu || showEditor) && pendingSelection) ? (
+					createPortal(
+						<div>
+							{/* Backdrop to intercept clicks below the portal UI */}
+							<div style={{ position: 'fixed', inset: 0, zIndex: 9995, background: 'transparent' }} />
 
-			</div>
+							{showSelectionMenu && (
+								<div style={{ position: 'fixed', left: selectionViewportPos.x, top: selectionViewportPos.y, transform: 'translate(-50%, -100%)', zIndex: 10000 }} onMouseDown={(e) => e.stopPropagation()}>
+									<div className="bg-gray-900 text-white text-xs rounded-md shadow-2xl px-2 py-1 flex items-center gap-1 pointer-events-auto">
+										<button type="button" className="flex items-center gap-1 hover:opacity-90" onClick={openEditorForSelection}>
+											<Plus className="h-3 w-3" /> Add note
+										</button>
+									</div>
+								</div>
+							)}
+
+							{showEditor && (
+								<div style={{ position: 'fixed', left: selectionViewportPos.x, top: selectionViewportPos.y + 18, transform: 'translate(-50%, 0)', zIndex: 10001 }} className="w-[min(90vw,520px)]" onMouseDown={(e) => e.stopPropagation()}>
+									<div className="bg-white dark:bg-gray-900 rounded-lg shadow-2xl p-3 pointer-events-auto">
+										<div className="text-xs text-gray-500 dark:text-gray-400 border-l-2 border-gray-300 dark:border-gray-600 pl-2 italic mb-2 max-h-32 overflow-auto">
+											{pendingSelection.quote}
+										</div>
+										<textarea className="w-full text-sm bg-transparent border rounded-md p-2 border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-100" placeholder="Add a note..." value={newNoteContent} onChange={e => setNewNoteContent(e.target.value)} rows={4} />
+										<div className="mt-2 flex items-center justify-end gap-2">
+											<button type="button" className="px-2 py-1 text-sm rounded-md bg-gray-200 dark:bg-gray-700" onClick={() => { setShowEditor(false); setPendingSelection(null); }}>{"Cancel"}</button>
+											<button type="button" className="px-2 py-1 text-sm rounded-md bg-blue-600 text-white" onClick={saveNewNote}>{"Save"}</button>
+										</div>
+									</div>
+								</div>
+							)}
+						</div>,
+						document.body
+					)
+				) : null}
+
+				{/* Notes sidebar (right, full height) */}
+				{notesOpen ? (
+					createPortal(
+						<div className="fixed inset-y-0 right-0 w-[88vw] max-w-[380px] md:max-w-[420px] bg-white dark:bg-gray-900 shadow-2xl z-[9990]">
+							<div className="h-full flex flex-col">
+								<div className="px-3 md:px-4 py-3">
+									<h3 className="font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+										<StickyNote className="h-4 w-4" /> Notes
+										<span className="ml-1 text-xs rounded-full px-1.5 py-0.5 bg-gray-200 dark:bg-gray-700">{notes.length}</span>
+									</h3>
+								</div>
+								<div className="flex-1 overflow-y-auto px-3 md:px-4 pb-4">
+									<NotesSidebar
+										notes={notes}
+										onEdit={updateNote}
+										onDelete={deleteNote}
+										onJumpTo={(t) => { if (wavesurferRef.current) { const dur = wavesurferRef.current.getDuration(); wavesurferRef.current.seekTo(Math.min(0.999, Math.max(0, t / dur))); setCurrentTime(t); }}}
+									/>
+								</div>
+							</div>
+						</div>,
+						document.body
+					)
+				) : null}
+
+				</div>
 		</div>
 	);
 }

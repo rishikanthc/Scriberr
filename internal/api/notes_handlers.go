@@ -1,6 +1,7 @@
 package api
 
 import (
+    "log"
     "net/http"
     "time"
 
@@ -14,10 +15,11 @@ import (
 
 // NoteCreateRequest is the payload for creating a note
 type NoteCreateRequest struct {
-    StartWordIndex int     `json:"start_word_index" binding:"required,min=0"`
-    EndWordIndex   int     `json:"end_word_index" binding:"required,min=0"`
-    StartTime      float64 `json:"start_time" binding:"required"`
-    EndTime        float64 `json:"end_time" binding:"required"`
+    // Use gte=0 so 0 is valid (first word/time); avoid 'required' which fails for zero values
+    StartWordIndex int     `json:"start_word_index" binding:"gte=0"`
+    EndWordIndex   int     `json:"end_word_index" binding:"gte=0"`
+    StartTime      float64 `json:"start_time" binding:"gte=0"`
+    EndTime        float64 `json:"end_time" binding:"gte=0"`
     Quote          string  `json:"quote" binding:"required,min=1"`
     Content        string  `json:"content" binding:"required,min=1"`
 }
@@ -60,22 +62,26 @@ func (h *Handler) ListNotes(c *gin.Context) {
 func (h *Handler) CreateNote(c *gin.Context) {
     transcriptionID := c.Param("id")
     if transcriptionID == "" {
+        log.Printf("notes.CreateNote: missing transcription ID")
         c.JSON(http.StatusBadRequest, gin.H{"error": "Transcription ID is required"})
         return
     }
 
     var req NoteCreateRequest
     if err := c.ShouldBindJSON(&req); err != nil {
-        c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+        log.Printf("notes.CreateNote: invalid payload for transcription %s: %v", transcriptionID, err)
+        c.JSON(http.StatusBadRequest, gin.H{"error": "invalid payload", "details": err.Error()})
         return
     }
 
     if req.EndWordIndex < req.StartWordIndex {
-        c.JSON(http.StatusBadRequest, gin.H{"error": "end_word_index must be >= start_word_index"})
+        log.Printf("notes.CreateNote: invalid indices (start=%d end=%d) for transcription %s", req.StartWordIndex, req.EndWordIndex, transcriptionID)
+        c.JSON(http.StatusBadRequest, gin.H{"error": "end_word_index must be >= start_word_index", "start_word_index": req.StartWordIndex, "end_word_index": req.EndWordIndex})
         return
     }
     if req.EndTime < req.StartTime {
-        c.JSON(http.StatusBadRequest, gin.H{"error": "end_time must be >= start_time"})
+        log.Printf("notes.CreateNote: invalid times (start=%.3f end=%.3f) for transcription %s", req.StartTime, req.EndTime, transcriptionID)
+        c.JSON(http.StatusBadRequest, gin.H{"error": "end_time must be >= start_time", "start_time": req.StartTime, "end_time": req.EndTime})
         return
     }
 
@@ -83,9 +89,11 @@ func (h *Handler) CreateNote(c *gin.Context) {
     var job models.TranscriptionJob
     if err := database.DB.Where("id = ?", transcriptionID).First(&job).Error; err != nil {
         if err == gorm.ErrRecordNotFound {
+            log.Printf("notes.CreateNote: transcription %s not found", transcriptionID)
             c.JSON(http.StatusNotFound, gin.H{"error": "Transcription not found"})
             return
         }
+        log.Printf("notes.CreateNote: failed to fetch transcription %s: %v", transcriptionID, err)
         c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch transcription"})
         return
     }
@@ -104,10 +112,12 @@ func (h *Handler) CreateNote(c *gin.Context) {
     }
 
     if err := database.DB.Create(&n).Error; err != nil {
+        log.Printf("notes.CreateNote: DB error creating note for transcription %s (start=%d end=%d startTime=%.3f endTime=%.3f): %v", transcriptionID, n.StartWordIndex, n.EndWordIndex, n.StartTime, n.EndTime, err)
         c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create note"})
         return
     }
 
+    log.Printf("notes.CreateNote: created note %s for transcription %s (start=%d end=%d startTime=%.3f endTime=%.3f quoteLen=%d)", n.ID, transcriptionID, n.StartWordIndex, n.EndWordIndex, n.StartTime, n.EndTime, len(n.Quote))
     c.JSON(http.StatusCreated, n)
 }
 
@@ -165,4 +175,3 @@ func (h *Handler) DeleteNote(c *gin.Context) {
     }
     c.Status(http.StatusNoContent)
 }
-
