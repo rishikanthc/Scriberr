@@ -79,6 +79,9 @@ func SetupRoutes(handler *Handler, authService *auth.AuthService) *gin.Engine {
 			transcription.DELETE("/:id", handler.DeleteJob)
 			transcription.GET("/list", handler.ListJobs)
 			transcription.GET("/models", handler.GetSupportedModels)
+			// Notes for a transcription
+			transcription.GET("/:id/notes", handler.ListNotes)
+			transcription.POST("/:id/notes", handler.CreateNote)
 			
 			// Quick transcription endpoints
 			transcription.POST("/quick", handler.SubmitQuickTranscription)
@@ -127,6 +130,15 @@ func SetupRoutes(handler *Handler, authService *auth.AuthService) *gin.Engine {
 			chat.PUT("/sessions/:session_id/title", handler.UpdateChatSessionTitle)
 			chat.POST("/sessions/:session_id/title/auto", handler.AutoGenerateChatTitle)
 			chat.DELETE("/sessions/:session_id", handler.DeleteChatSession)
+		}
+
+		// Notes routes (require authentication)
+		notes := v1.Group("/notes")
+		notes.Use(middleware.AuthMiddleware(authService))
+		{
+			notes.GET("/:note_id", handler.GetNote)
+			notes.PUT("/:note_id", handler.UpdateNote)
+			notes.DELETE("/:note_id", handler.DeleteNote)
 		}
 	}
 

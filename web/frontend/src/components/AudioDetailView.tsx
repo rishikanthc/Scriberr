@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
-import { ArrowLeft, Play, Pause, List, AlignLeft, MessageCircle, Download, FileText, FileJson, FileImage, Check } from "lucide-react";
+import { createPortal } from "react-dom";
+import { ArrowLeft, Play, Pause, List, AlignLeft, MessageCircle, Download, FileText, FileJson, FileImage, Check, StickyNote, Plus } from "lucide-react";
 import WaveSurfer from "wavesurfer.js";
 import { Button } from "./ui/button";
 import {
@@ -23,6 +24,8 @@ import { useTheme } from "../contexts/ThemeContext";
 import { ThemeSwitcher } from "./ThemeSwitcher";
 import { useAuth } from "../contexts/AuthContext";
 import { ChatInterface } from "./ChatInterface";
+import type { Note } from "../types/note";
+import { NotesSidebar } from "./NotesSidebar";
 
 interface AudioFile {
 	id: string;
@@ -78,10 +81,20 @@ export function AudioDetailView({ audioId }: AudioDetailViewProps) {
 	const transcriptRef = useRef<HTMLDivElement>(null);
 	const highlightedWordRef = useRef<HTMLSpanElement>(null);
 
-	useEffect(() => {
-		console.log("AudioDetailView mounted, audioId:", audioId);
-		fetchAudioDetails();
-	}, [audioId]);
+    // Notes state
+    const [notes, setNotes] = useState<Note[]>([]);
+    const [notesOpen, setNotesOpen] = useState(false);
+    const [showSelectionMenu, setShowSelectionMenu] = useState(false);
+    const [pendingSelection, setPendingSelection] = useState<{startIdx:number; endIdx:number; startTime:number; endTime:number; quote:string} | null>(null);
+    const [newNoteContent, setNewNoteContent] = useState("");
+    const [showEditor, setShowEditor] = useState(false);
+    const [selectionViewportPos, setSelectionViewportPos] = useState<{x:number,y:number}>({x:0,y:0});
+
+useEffect(() => {
+    console.log("AudioDetailView mounted, audioId:", audioId);
+    fetchAudioDetails();
+    fetchNotes();
+}, [audioId]);
 
 	// Initialize WaveSurfer when audioFile is available - with proper DOM timing
 	useEffect(() => {
@@ -250,6 +263,16 @@ export function AudioDetailView({ audioId }: AudioDetailViewProps) {
 		}
 	};
 
+    const fetchNotes = async () => {
+        try {
+            const res = await fetch(`/api/v1/transcription/${audioId}/notes`, { headers: { ...getAuthHeaders() }});
+            if (res.ok) {
+                const data = await res.json();
+                setNotes(data);
+            }
+        } catch (e) { console.error("Failed to fetch notes", e); }
+    };
+
 	const initializeWaveSurfer = async () => {
 		if (!waveformRef.current || !audioFile) return;
 
@@ -336,26 +359,96 @@ export function AudioDetailView({ audioId }: AudioDetailViewProps) {
 		}
 	};
 
-	const togglePlayPause = () => {
-		if (wavesurferRef.current) {
-			wavesurferRef.current.playPause();
-		}
-	};
+    const togglePlayPause = () => {
+        if (wavesurferRef.current) {
+            wavesurferRef.current.playPause();
+        }
+    };
 
-	const handleBack = () => {
-		navigate({ path: "home" });
-	};
+    const handleBack = () => {
+        navigate({ path: "home" });
+    };
 
-	// Handle word click to seek to that time
-	const handleWordClick = (word: WordSegment) => {
-		if (wavesurferRef.current) {
-			const duration = wavesurferRef.current.getDuration();
-			const progress = word.start / duration;
-			wavesurferRef.current.seekTo(progress);
-			// Manually update current time to ensure highlighting syncs immediately
-			setCurrentTime(word.start);
-		}
-	};
+    // Selection handling for annotation
+    useEffect(() => {
+        const el = transcriptRef.current;
+        if (!el) return;
+
+        const onMouseUp = () => {
+            const sel = window.getSelection();
+            if (!sel || sel.isCollapsed) { setShowSelectionMenu(false); setShowEditor(false); return; }
+            const anchor = sel.anchorNode as HTMLElement | null;
+            const focus = sel.focusNode as HTMLElement | null;
+            if (!anchor || !focus) return;
+            const aSpan = (anchor.nodeType === 3 ? anchor.parentElement : anchor) as HTMLElement;
+            const fSpan = (focus.nodeType === 3 ? focus.parentElement : focus) as HTMLElement;
+            if (!aSpan || !fSpan) return;
+            const aIdx = aSpan.closest('span[data-word-index]') as HTMLElement | null;
+            const fIdx = fSpan.closest('span[data-word-index]') as HTMLElement | null;
+            if (!aIdx || !fIdx) { setShowSelectionMenu(false); return; }
+            const startIdx = Math.min(Number(aIdx.dataset.wordIndex), Number(fIdx.dataset.wordIndex));
+            const endIdx = Math.max(Number(aIdx.dataset.wordIndex), Number(fIdx.dataset.wordIndex));
+            if (!transcript?.word_segments || endIdx < startIdx) { setShowSelectionMenu(false); return; }
+            const startTime = transcript.word_segments[startIdx]?.start ?? 0;
+            const endTime = transcript.word_segments[endIdx]?.end ?? startTime;
+            const quote = transcript.word_segments.slice(startIdx, endIdx + 1).map(w => w.word).join(" ");
+
+            const range = sel.getRangeAt(0);
+            const rect = range.getBoundingClientRect();
+            // Use viewport coords for portal positioning
+            setSelectionViewportPos({ x: rect.left + rect.width / 2, y: rect.top - 10 });
+            setPendingSelection({ startIdx, endIdx, startTime, endTime, quote });
+            setShowSelectionMenu(true);
+        };
+
+        el.addEventListener('mouseup', onMouseUp);
+        return () => el.removeEventListener('mouseup', onMouseUp);
+    }, [transcript, transcriptMode]);
+
+    const openEditorForSelection = () => {
+        setShowEditor(true);
+        setShowSelectionMenu(false);
+        setNewNoteContent("");
+    };
+
+    const saveNewNote = async () => {
+        if (!pendingSelection) return;
+        try {
+            const res = await fetch(`/api/v1/transcription/${audioId}/notes`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+                body: JSON.stringify({
+                    start_word_index: pendingSelection.startIdx,
+                    end_word_index: pendingSelection.endIdx,
+                    start_time: pendingSelection.startTime,
+                    end_time: pendingSelection.endTime,
+                    quote: pendingSelection.quote,
+                    content: newNoteContent.trim() || pendingSelection.quote,
+                }),
+            });
+            if (res.ok) {
+                const created = await res.json();
+                setNotes(prev => [...prev, created]);
+                setShowEditor(false);
+                setPendingSelection(null);
+                const sel = window.getSelection(); sel?.removeAllRanges();
+            }
+        } catch (e) { console.error('Failed to create note', e); }
+    };
+
+    const updateNote = async (id: string, newContent: string) => {
+        await fetch(`/api/v1/notes/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+            body: JSON.stringify({ content: newContent }),
+        });
+        setNotes(prev => prev.map(n => n.id === id ? { ...n, content: newContent } : n));
+    };
+
+    const deleteNote = async (id: string) => {
+        await fetch(`/api/v1/notes/${id}`, { method: 'DELETE', headers: { ...getAuthHeaders() }});
+        setNotes(prev => prev.filter(n => n.id !== id));
+    };
 
 	// Render transcript with word-level highlighting
 	const renderHighlightedTranscript = () => {
@@ -365,23 +458,26 @@ export function AudioDetailView({ audioId }: AudioDetailViewProps) {
 
 		return transcript.word_segments.map((word, index) => {
 			const isHighlighted = index === currentWordIndex;
-			return (
-				<span
-					key={index}
-					ref={isHighlighted ? highlightedWordRef : undefined}
-					onClick={() => handleWordClick(word)}
-					className={`cursor-pointer transition-colors duration-150 hover:bg-blue-100 dark:hover:bg-blue-800 inline-block ${
-						isHighlighted
-							? 'bg-yellow-300 dark:bg-yellow-500 dark:text-black px-1 rounded'
-							: 'px-0.5'
-					}`}
-					title={`${formatTimestamp(word.start)} - Click to seek`}
-				>
-					{word.word}
-				</span>
-			);
-		});
-	};
+			const isAnnotated = notes.some(n => index >= n.start_word_index && index <= n.end_word_index);
+            return (
+                <span
+                    key={index}
+                    ref={isHighlighted ? highlightedWordRef : undefined}
+                    data-word-index={index}
+                    data-word={word.word}
+                    data-start={word.start}
+                    data-end={word.end}
+                    className={`cursor-text transition-colors duration-150 hover:bg-blue-100 dark:hover:bg-blue-800 inline ${
+                        isHighlighted
+                            ? 'bg-yellow-300 dark:bg-yellow-500 dark:text-black px-1 rounded'
+                            : isAnnotated ? 'bg-amber-100/70 dark:bg-amber-800/40 px-0.5 rounded' : 'px-0.5'
+                    }`}
+                >
+                    {word.word}{" "}
+                </span>
+            );
+        });
+    };
 
 	// Render segment with word-level highlighting for expanded view
 	const renderSegmentWithHighlighting = (segment: any) => {
@@ -401,23 +497,26 @@ export function AudioDetailView({ audioId }: AudioDetailViewProps) {
 		return segmentWords.map((word, index) => {
 			const globalIndex = transcript.word_segments?.findIndex(w => w === word) ?? -1;
 			const isHighlighted = globalIndex === currentWordIndex;
-			return (
-				<span
-					key={index}
-					ref={isHighlighted ? highlightedWordRef : undefined}
-					onClick={() => handleWordClick(word)}
-					className={`cursor-pointer transition-colors duration-150 hover:bg-blue-100 dark:hover:bg-blue-800 inline-block ${
-						isHighlighted
-							? 'bg-yellow-300 dark:bg-yellow-500 dark:text-black px-1 rounded'
-							: 'px-0.5'
-					}`}
-					title={`${formatTimestamp(word.start)} - Click to seek`}
-				>
-					{word.word}
-				</span>
-			);
-		});
-	};
+			const isAnnotated = notes.some(n => globalIndex >= n.start_word_index && globalIndex <= n.end_word_index);
+            return (
+                <span
+                    key={index}
+                    ref={isHighlighted ? highlightedWordRef : undefined}
+                    data-word-index={globalIndex}
+                    data-word={word.word}
+                    data-start={word.start}
+                    data-end={word.end}
+                    className={`cursor-text transition-colors duration-150 hover:bg-blue-100 dark:hover:bg-blue-800 inline ${
+                        isHighlighted
+                            ? 'bg-yellow-300 dark:bg-yellow-500 dark:text-black px-1 rounded'
+                            : isAnnotated ? 'bg-amber-100/70 dark:bg-amber-800/40 px-0.5 rounded' : 'px-0.5'
+                    }`}
+                >
+                    {word.word}{" "}
+                </span>
+            );
+        });
+    };
 
 	const getFileName = (audioPath: string) => {
 		const parts = audioPath.split("/");
@@ -597,7 +696,8 @@ export function AudioDetailView({ audioId }: AudioDetailViewProps) {
 										className="h-4 bg-gray-200 dark:bg-gray-600 rounded"
 									></div>
 								))}
-							</div>
+                                        {/* Selection bubble and editor moved to portal */}
+                                    </div>
 						</div>
 					</div>
 				</div>
@@ -673,7 +773,6 @@ export function AudioDetailView({ audioId }: AudioDetailViewProps) {
 					</div>
 				</div>
 
-				{/* Transcript Section */}
 				{audioFile.status === "completed" && transcript && (
 					<div className="bg-white dark:bg-gray-800 rounded-xl p-3 sm:p-6">
 						<div className="flex items-center justify-between mb-3 sm:mb-6">
@@ -748,6 +847,19 @@ export function AudioDetailView({ audioId }: AudioDetailViewProps) {
 										</button>
 									</div>
 								)}
+
+								{/* Notes toggle */}
+								<Button
+									variant="outline"
+									size="sm"
+									onClick={() => setNotesOpen(v => !v)}
+									className="flex items-center gap-2 cursor-pointer"
+									title="Toggle notes"
+								>
+									<StickyNote className="h-4 w-4" />
+									<span className="hidden sm:inline">Notes</span>
+									<span className="ml-1 text-xs rounded-full px-1.5 py-0.5 bg-gray-200 dark:bg-gray-700">{notes.length}</span>
+								</Button>
 							</div>
 						</div>
 
@@ -755,36 +867,38 @@ export function AudioDetailView({ audioId }: AudioDetailViewProps) {
 						{viewMode === "transcript" ? (
 							<div className="relative overflow-hidden">
 								<div
-									className={`transition-all duration-300 ease-in-out ${
-										transcriptMode === "compact"
-											? "opacity-100 translate-y-0"
-											: "opacity-0 -translate-y-4 absolute inset-0"
-									}`}
+                                className={`transition-all duration-300 ease-in-out ${
+                                    transcriptMode === "compact"
+                                        ? "opacity-100 translate-y-0"
+                                        : "opacity-0 -translate-y-4 absolute inset-0 pointer-events-none"
+                                }`}
 								>
 									{transcriptMode === "compact" && (
-										<div 
-											ref={transcriptRef}
-											className="prose prose-gray dark:prose-invert max-w-none"
-										>
-											<p className="text-gray-700 dark:text-gray-300 leading-relaxed break-words">
-												{renderHighlightedTranscript()}
-											</p>
+                                    <div 
+                                        ref={transcriptRef}
+                                        className="prose prose-gray dark:prose-invert max-w-none relative select-text cursor-text"
+                                    >
+                                    <p className="text-gray-700 dark:text-gray-300 leading-relaxed break-words select-text">
+                                        {renderHighlightedTranscript()}
+                                    </p>
+
+                                    {/* Selection bubble and editor moved to portal */}
 										</div>
 									)}
 								</div>
 
 								<div
-									className={`transition-all duration-300 ease-in-out ${
-										transcriptMode === "expanded"
-											? "opacity-100 translate-y-0"
-											: "opacity-0 translate-y-4 absolute inset-0"
-									}`}
+                                className={`transition-all duration-300 ease-in-out ${
+                                    transcriptMode === "expanded"
+                                        ? "opacity-100 translate-y-0"
+                                        : "opacity-0 translate-y-4 absolute inset-0 pointer-events-none"
+                                }`}
 								>
 									{transcriptMode === "expanded" && transcript.segments && (
-										<div 
-											ref={transcriptRef}
-											className="space-y-4"
-										>
+                                    <div 
+                                        ref={transcriptRef}
+                                        className="space-y-4 relative select-text cursor-text"
+                                    >
 											{transcript.segments.map((segment, index) => (
 												<div
 													key={index}
@@ -800,11 +914,11 @@ export function AudioDetailView({ audioId }: AudioDetailViewProps) {
 															</span>
 														)}
 													</div>
-													<div className="flex-1 min-w-0">
-														<p className="text-gray-700 dark:text-gray-200 leading-relaxed break-words">
-															{renderSegmentWithHighlighting(segment)}
-														</p>
-													</div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-gray-700 dark:text-gray-200 leading-relaxed break-words select-text">
+                                                    {renderSegmentWithHighlighting(segment)}
+                                                </p>
+                                            </div>
 												</div>
 											))}
 										</div>
@@ -819,6 +933,22 @@ export function AudioDetailView({ audioId }: AudioDetailViewProps) {
 								/>
 							</div>
 						)}
+						</div>
+
+					)}
+
+				{notesOpen && (
+					<div className="mt-4 grid grid-cols-1 md:grid-cols-[1fr_360px] gap-4">
+						<div></div>
+						<div className="bg-white dark:bg-gray-800 rounded-xl p-3 md:p-4 border border-gray-200 dark:border-gray-700 h-[520px]">
+							<h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-3 flex items-center gap-2"><StickyNote className="h-4 w-4"/> Notes</h3>
+							<NotesSidebar 
+								notes={notes}
+								onEdit={updateNote}
+								onDelete={deleteNote}
+								onJumpTo={(t) => { if (wavesurferRef.current) { const dur = wavesurferRef.current.getDuration(); wavesurferRef.current.seekTo(Math.min(0.999, Math.max(0, t / dur))); setCurrentTime(t); }}}
+							/>
+						</div>
 					</div>
 				)}
 
@@ -921,6 +1051,39 @@ export function AudioDetailView({ audioId }: AudioDetailViewProps) {
 					</DialogFooter>
 				</DialogContent>
 			</Dialog>
+
+			{/* Portal: add-note bubble + editor */}
+			{((showSelectionMenu || showEditor) && pendingSelection) ? (
+				createPortal(
+					<div>
+						{showSelectionMenu && (
+							<div style={{ position: 'fixed', left: selectionViewportPos.x, top: selectionViewportPos.y, transform: 'translate(-50%, -100%)', zIndex: 10000 }}>
+								<div className="bg-gray-900 text-white text-xs rounded-md shadow-2xl px-2 py-1 flex items-center gap-1">
+									<button className="flex items-center gap-1 hover:opacity-90" onClick={openEditorForSelection}>
+										<Plus className="h-3 w-3" /> Add note
+									</button>
+								</div>
+							</div>
+						)}
+						{showEditor && (
+							<div style={{ position: 'fixed', left: selectionViewportPos.x, top: selectionViewportPos.y + 18, transform: 'translate(-50%, 0)', zIndex: 10000 }} className="w-[min(90vw,520px)]">
+								<div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-2xl p-3">
+									<div className="text-xs text-gray-500 dark:text-gray-400 border-l-2 border-gray-300 dark:border-gray-600 pl-2 italic mb-2 max-h-32 overflow-auto">
+										{pendingSelection.quote}
+									</div>
+									<textarea className="w-full text-sm bg-transparent border rounded-md p-2 border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-100" placeholder="Add a note..." value={newNoteContent} onChange={e => setNewNoteContent(e.target.value)} rows={4} />
+									<div className="mt-2 flex items-center justify-end gap-2">
+										<button className="px-2 py-1 text-sm rounded-md bg-gray-200 dark:bg-gray-700" onClick={() => { setShowEditor(false); setPendingSelection(null); }}>{"Cancel"}</button>
+										<button className="px-2 py-1 text-sm rounded-md bg-blue-600 text-white" onClick={saveNewNote}>{"Save"}</button>
+									</div>
+								</div>
+							</div>
+						)}
+					</div>,
+					document.body
+				)
+			) : null}
+
 			</div>
 		</div>
 	);

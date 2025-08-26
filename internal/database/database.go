@@ -40,6 +40,7 @@ func Initialize(dbPath string) error {
 		&models.LLMConfig{},
 		&models.ChatSession{},
 		&models.ChatMessage{},
+		&models.Note{},
 	); err != nil {
 		return fmt.Errorf("failed to auto migrate: %v", err)
 	}
