@@ -1034,7 +1034,7 @@ useEffect(() => {
 				{audioFile.status === "completed" && transcript && (
 					<div className="bg-white dark:bg-gray-800 rounded-xl p-3 sm:p-6">
 						<div className="flex items-center justify-between mb-3 sm:mb-6">
-							<h2 className="text-xl font-semibold text-gray-900 dark:text-gray-50">
+							<h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-gray-50">
 								{viewMode === "transcript" ? "Transcript" : "Chat with Transcript"}
 							</h2>
 
@@ -1045,18 +1045,18 @@ useEffect(() => {
 
                             {/* Sleek toolbar (transcript view only) */}
                             {viewMode === 'transcript' && (
-                            <div className="flex items-center gap-1.5 rounded-lg bg-gray-100/80 dark:bg-gray-800/80 px-2 py-1 border border-gray-200 dark:border-gray-700 shadow-sm">
+                            <div className="flex items-center gap-1 sm:gap-1.5 rounded-md sm:rounded-lg bg-gray-100/80 dark:bg-gray-800/80 px-1.5 py-0.5 sm:px-2 sm:py-1 border border-gray-200 dark:border-gray-700 shadow-sm">
                                 {/* View toggle */}
                                 <button
                                   type="button"
                                   onClick={() => setTranscriptMode(m => m === 'compact' ? 'expanded' : 'compact')}
-                                  className={`h-7 w-7 inline-flex items-center justify-center rounded-md cursor-pointer text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors ${transcriptMode === 'compact' ? 'bg-white dark:bg-gray-700 shadow-sm' : ''}`}
+                                  className={`h-6 w-6 sm:h-7 sm:w-7 inline-flex items-center justify-center rounded-md cursor-pointer text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors ${transcriptMode === 'compact' ? 'bg-white dark:bg-gray-700 shadow-sm' : ''}`}
                                   title={transcriptMode === 'compact' ? 'Switch to Timeline view' : 'Switch to Compact view'}
                                 >
                                   {transcriptMode === 'compact' ? (
-                                    <List className="h-4 w-4" />
+                                    <List className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                                   ) : (
-                                    <AlignLeft className="h-4 w-4" />
+                                    <AlignLeft className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                                   )}
                                 </button>
 
@@ -1066,10 +1066,10 @@ useEffect(() => {
                                 <button
                                   type="button"
                                   onClick={() => setNotesOpen(v => !v)}
-                                  className={`relative h-7 w-7 inline-flex items-center justify-center rounded-md cursor-pointer text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors ${notesOpen ? 'bg-white dark:bg-gray-700 shadow-sm' : ''}`}
+                                  className={`relative h-6 w-6 sm:h-7 sm:w-7 inline-flex items-center justify-center rounded-md cursor-pointer text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors ${notesOpen ? 'bg-white dark:bg-gray-700 shadow-sm' : ''}`}
                                   title="Toggle notes"
                                 >
-                                  <StickyNote className="h-4 w-4" />
+                                  <StickyNote className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                                   {notes.length > 0 && (
                                     <span className="absolute -top-1 -right-0.5 min-w-[15px] h-[15px] px-1 rounded-full bg-blue-600 text-white text-[10px] leading-[15px] text-center">
                                       {notes.length > 99 ? '99+' : notes.length}
@@ -1083,11 +1083,11 @@ useEffect(() => {
                                 <button
                                   type="button"
                                   onClick={openSummarizeDialog}
-                                  className="h-7 w-7 inline-flex items-center justify-center rounded-md cursor-pointer text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
+                                  className="h-6 w-6 sm:h-7 sm:w-7 inline-flex items-center justify-center rounded-md cursor-pointer text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
                                   title={llmReady === false ? 'Configure LLM in Settings' : 'Summarize transcript'}
                                   disabled={llmReady === false}
                                 >
-                                  <Sparkles className="h-4 w-4" />
+                                  <Sparkles className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                                 </button>
 
                                 <div className="mx-1 h-5 w-px bg-gray-300 dark:bg-gray-700" />
@@ -1097,10 +1097,10 @@ useEffect(() => {
                                   <DropdownMenuTrigger asChild>
                                     <button
                                       type="button"
-                                      className="h-7 w-7 inline-flex items-center justify-center rounded-md cursor-pointer text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                                      className="h-6 w-6 sm:h-7 sm:w-7 inline-flex items-center justify-center rounded-md cursor-pointer text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
                                       title="Download transcript"
                                     >
-                                      <Download className="h-4 w-4" />
+                                      <Download className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                                     </button>
                                   </DropdownMenuTrigger>
                                   <DropdownMenuContent className="w-44 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
