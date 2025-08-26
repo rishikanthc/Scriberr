@@ -94,6 +94,10 @@
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
 
+  /* Brand accents (light) - Blue → Purple */
+  --brand-accent-start: var(--color-blue-500);
+  --brand-accent-end: var(--color-purple-500);
+
   /* Scrollbar (light) */
   --scroll-track: var(--color-gray-100);
   --scroll-thumb: var(--color-gray-400);
@@ -133,6 +137,10 @@
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
 
+  /* Brand accents (dark) - Blue → Purple */
+  --brand-accent-start: var(--color-blue-600);
+  --brand-accent-end: var(--color-purple-400);
+
   /* Scrollbar (dark) */
   --scroll-track: var(--color-gray-900);
   --scroll-thumb: var(--color-gray-700);
@@ -145,6 +153,11 @@
   }
   body {
     @apply bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-50;
+  }
+
+  .logo-font-poiret {
+    font-family: 'Poiret One', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    letter-spacing: 0.04em;
   }
 }
 
