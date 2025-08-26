@@ -35,6 +35,7 @@ import { Dialog as UIDialog, DialogContent as UIDialogContent, DialogHeader as U
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "./ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { Label as UILabel } from "./ui/label";
+import { useToast } from "./ui/toast";
 
 interface AudioFile {
 	id: string;
@@ -120,6 +121,7 @@ export function AudioDetailView({ audioId }: AudioDetailViewProps) {
     const [isSummarizing, setIsSummarizing] = useState(false);
     const [llmReady, setLlmReady] = useState<boolean | null>(null);
     const [selectionViewportPos, setSelectionViewportPos] = useState<{x:number,y:number}>({x:0,y:0});
+    const { toast } = useToast();
 
 useEffect(() => {
     console.log("AudioDetailView mounted, audioId:", audioId);
@@ -1232,8 +1234,53 @@ useEffect(() => {
                 <UIDialogContent className="sm:max-w-3xl bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700 max-h-[85vh] overflow-y-auto">
                     <UIDialogHeader>
                         <UIDialogTitle className="text-gray-900 dark:text-gray-100">Summary</UIDialogTitle>
-                        <UIDialogDescription className="text-gray-600 dark:text-gray-400">Live generated using your template</UIDialogDescription>
+                        <UIDialogDescription className="text-gray-600 dark:text-gray-400">{isSummarizing ? 'Generating summary...' : 'Summary ready'}</UIDialogDescription>
                     </UIDialogHeader>
+                    <div className="flex items-center justify-end gap-2 mb-2">
+                        <button
+                            className="px-2.5 py-1.5 rounded-md bg-blue-600 text-white text-sm"
+                            onClick={async () => {
+                                setSummaryOpen(false);
+                                setSummarizeOpen(true);
+                                if (templates.length === 0) {
+                                    try {
+                                        setTemplatesLoading(true);
+                                        const res = await fetch('/api/v1/summaries', { headers: { ...getAuthHeaders() }});
+                                        if (res.ok) {
+                                            const data = await res.json();
+                                            setTemplates(data || []);
+                                        }
+                                    } finally { setTemplatesLoading(false); }
+                                }
+                            }}
+                            disabled={isSummarizing}
+                        >
+                            Regenerate
+                        </button>
+                        <button
+                            className="px-2.5 py-1.5 rounded-md bg-gray-200 dark:bg-gray-700 text-sm"
+                            onClick={async () => {
+                                try {
+                                    await navigator.clipboard.writeText(summaryStream || '');
+                                    toast({ title: 'Copied to clipboard' });
+                                } catch {}
+                            }}
+                            disabled={!summaryStream}
+                        >
+                            Copy Text
+                        </button>
+                        <button
+                            className="px-2.5 py-1.5 rounded-md bg-gray-200 dark:bg-gray-700 text-sm"
+                            onClick={() => {
+                                if (!summaryStream) return;
+                                const base = getFileNameWithoutExt();
+                                downloadFile(summaryStream, `${base}-summary.md`, 'text/markdown');
+                            }}
+                            disabled={!summaryStream}
+                        >
+                            Download .md
+                        </button>
+                    </div>
                     <div className="prose prose-gray dark:prose-invert max-w-none min-h-[200px]">
                         {summaryStream ? (
                             <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeRaw as any, rehypeKatex as any, rehypeHighlight as any]}>
