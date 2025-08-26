@@ -386,11 +386,11 @@ export function TranscriptionConfigDialog({
         )}
 
         <Tabs defaultValue="basic" className="w-full">
-          <TabsList className="grid w-full grid-cols-4 bg-gray-100 dark:bg-gray-800">
-            <TabsTrigger value="basic" className="data-[state=active]:bg-white data-[state=active]:dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs sm:text-sm py-1.5">Basic</TabsTrigger>
-            <TabsTrigger value="quality" className="data-[state=active]:bg-white data-[state=active]:dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs sm:text-sm py-1.5">Quality</TabsTrigger>
-            <TabsTrigger value="advanced" className="data-[state=active]:bg-white data-[state=active]:dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs sm:text-sm py-1.5">Advanced</TabsTrigger>
-            <TabsTrigger value="diarization" className="data-[state=active]:bg-white data-[state=active]:dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs sm:text-sm py-1.5">Diarization</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-4 items-center h-auto bg-gray-100 dark:bg-gray-800 p-1 rounded-lg">
+            <TabsTrigger value="basic" className="h-9 py-1.5 data-[state=active]:bg-white data-[state=active]:dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs sm:text-sm">Basic</TabsTrigger>
+            <TabsTrigger value="quality" className="h-9 py-1.5 data-[state=active]:bg-white data-[state=active]:dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs sm:text-sm">Quality</TabsTrigger>
+            <TabsTrigger value="advanced" className="h-9 py-1.5 data-[state=active]:bg-white data-[state=active]:dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs sm:text-sm">Advanced</TabsTrigger>
+            <TabsTrigger value="diarization" className="h-9 py-1.5 data-[state=active]:bg-white data-[state=active]:dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs sm:text-sm">Diarization</TabsTrigger>
           </TabsList>
 
           <TabsContent value="basic" className="space-y-6 sm:space-y-8 mt-4 sm:mt-6">

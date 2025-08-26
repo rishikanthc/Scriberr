@@ -47,7 +47,7 @@ export function Settings() {
                             <TabsTrigger
                                 value="profiles"
                                 aria-label="Profiles"
-                                className="flex items-center justify-center gap-2 h-10 py-2 data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-gray-900 dark:data-[state=active]:text-gray-100 text-gray-600 dark:text-gray-400 font-medium rounded-lg text-xs sm:text-sm"
+                                className="flex items-center justify-center gap-2 h-9 py-1.5 data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-gray-900 dark:data-[state=active]:text-gray-100 text-gray-600 dark:text-gray-400 font-medium rounded-lg text-xs sm:text-sm"
                             >
 									<SettingsIcon className="h-4 w-4" />
 									<span className="hidden sm:inline">Profiles</span>
@@ -55,7 +55,7 @@ export function Settings() {
                             <TabsTrigger
                                 value="account"
                                 aria-label="Account"
-                                className="flex items-center justify-center gap-2 h-10 py-2 data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-gray-900 dark:data-[state=active]:text-gray-100 text-gray-600 dark:text-gray-400 font-medium rounded-lg text-xs sm:text-sm"
+                                className="flex items-center justify-center gap-2 h-9 py-1.5 data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-gray-900 dark:data-[state=active]:text-gray-100 text-gray-600 dark:text-gray-400 font-medium rounded-lg text-xs sm:text-sm"
                             >
 									<User className="h-4 w-4" />
 									<span className="hidden sm:inline">Account</span>
@@ -63,7 +63,7 @@ export function Settings() {
                             <TabsTrigger
                                 value="apikeys"
                                 aria-label="API Keys"
-                                className="flex items-center justify-center gap-2 h-10 py-2 data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-gray-900 dark:data-[state=active]:text-gray-100 text-gray-600 dark:text-gray-400 font-medium rounded-lg text-xs sm:text-sm"
+                                className="flex items-center justify-center gap-2 h-9 py-1.5 data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-gray-900 dark:data-[state=active]:text-gray-100 text-gray-600 dark:text-gray-400 font-medium rounded-lg text-xs sm:text-sm"
                             >
 									<Key className="h-4 w-4" />
 									<span className="hidden sm:inline">API Keys</span>
@@ -71,7 +71,7 @@ export function Settings() {
                             <TabsTrigger
                                 value="llms"
                                 aria-label="LLMs"
-                                className="flex items-center justify-center gap-2 h-10 py-2 data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-gray-900 dark:data-[state=active]:text-gray-100 text-gray-600 dark:text-gray-400 font-medium rounded-lg text-xs sm:text-sm"
+                                className="flex items-center justify-center gap-2 h-9 py-1.5 data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-gray-900 dark:data-[state=active]:text-gray-100 text-gray-600 dark:text-gray-400 font-medium rounded-lg text-xs sm:text-sm"
                             >
 									<Bot className="h-4 w-4" />
 									<span className="hidden sm:inline">LLMs</span>
