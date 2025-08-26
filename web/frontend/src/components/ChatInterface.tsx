@@ -607,12 +607,21 @@ export function ChatInterface({ transcriptionId, activeSessionId, onSessionChang
                     </div>
                   )}
                   <div
-                    className={`max-w-[70%] rounded-lg p-3 ${
+                    className={`relative group max-w-[70%] rounded-lg p-3 ${
                       message.role === "user"
                         ? "bg-gray-100 dark:bg-gray-700"
                         : "bg-muted"
                     }`}
                   >
+                    {/* Copy whole message button */}
+                    <button
+                      onClick={async () => { try { await navigator.clipboard.writeText(message.content || ''); } catch {} }}
+                      className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-md px-2 py-1 text-[10px] bg-black/60 dark:bg-white/10 text-white dark:text-gray-200 hover:bg-black/70 dark:hover:bg-white/20 transition-opacity opacity-0 group-hover:opacity-100"
+                      aria-label="Copy message"
+                      title="Copy message"
+                    >
+                      <Copy className="h-3 w-3" /> Copy
+                    </button>
                     <div className="prose prose-gray dark:prose-invert max-w-none text-base">
                       <ReactMarkdown
                         remarkPlugins={[remarkMath]}
