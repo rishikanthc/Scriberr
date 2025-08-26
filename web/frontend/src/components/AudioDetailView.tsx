@@ -83,6 +83,15 @@ export function AudioDetailView({ audioId }: AudioDetailViewProps) {
 
     // Notes state
     const [notes, setNotes] = useState<Note[]>([]);
+
+    const sortNotes = (list: Note[]) => {
+        return [...list].sort((a, b) => {
+            if (a.start_time !== b.start_time) return a.start_time - b.start_time;
+            if (a.start_word_index !== b.start_word_index) return a.start_word_index - b.start_word_index;
+            // Fallback stable tiebreaker by created_at
+            return (a.created_at || '').localeCompare(b.created_at || '');
+        });
+    };
     const [notesOpen, setNotesOpen] = useState(false);
     const [showSelectionMenu, setShowSelectionMenu] = useState(false);
     const [pendingSelection, setPendingSelection] = useState<{startIdx:number; endIdx:number; startTime:number; endTime:number; quote:string} | null>(null);
@@ -268,7 +277,7 @@ useEffect(() => {
             const res = await fetch(`/api/v1/transcription/${audioId}/notes`, { headers: { ...getAuthHeaders() }});
             if (res.ok) {
                 const data = await res.json();
-                setNotes(data);
+                setNotes(sortNotes(data));
             }
         } catch (e) { console.error("Failed to fetch notes", e); }
     };
@@ -436,7 +445,7 @@ useEffect(() => {
             });
             if (res.ok) {
                 const created = await res.json();
-                setNotes(prev => [...prev, created]);
+                setNotes(prev => sortNotes([...(prev || []), created]));
                 setShowEditor(false);
                 setPendingSelection(null);
                 const sel = window.getSelection(); sel?.removeAllRanges();
