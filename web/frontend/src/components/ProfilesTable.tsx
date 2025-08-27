@@ -27,15 +27,17 @@ interface TranscriptionProfile {
 }
 
 interface ProfilesTableProps {
-	refreshTrigger: number;
-	onProfileChange: () => void;
-	onEditProfile: (profile: TranscriptionProfile) => void;
+    refreshTrigger: number;
+    onProfileChange: () => void;
+    onEditProfile: (profile: TranscriptionProfile) => void;
+    onCreateProfile?: () => void;
 }
 
 export function ProfilesTable({
-	refreshTrigger,
-	onProfileChange,
-	onEditProfile,
+    refreshTrigger,
+    onProfileChange,
+    onEditProfile,
+    onCreateProfile,
 }: ProfilesTableProps) {
 	const { getAuthHeaders } = useAuth();
 	const [profiles, setProfiles] = useState<TranscriptionProfile[]>([]);
@@ -148,13 +150,13 @@ export function ProfilesTable({
 					Create your first transcription profile to save and reuse your
 					preferred settings.
 				</p>
-				<Button
-					onClick={() => {}}
-					variant="outline"
-					className="border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400"
-				>
-					Create Profile
-				</Button>
+        <Button
+            onClick={() => onCreateProfile?.()}
+            variant="outline"
+            className="border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400"
+        >
+            Create Profile
+        </Button>
 			</div>
 		);
 	}
