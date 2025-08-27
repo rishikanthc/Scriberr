@@ -136,12 +136,24 @@ func (qs *QuickTranscriptionService) processQuickJob(jobID string) {
 	job.Status = models.StatusProcessing
 	qs.jobsMutex.Unlock()
 
-	// Create temporary transcription job for WhisperX processing
-	tempJob := models.TranscriptionJob{
-		ID:         jobID,
-		AudioPath:  job.AudioPath,
-		Parameters: job.Parameters,
-		Status:     models.StatusProcessing,
+    // Ensure Python environment and embedded assets are ready
+    if err := qs.whisperX.ensurePythonEnv(); err != nil {
+        qs.jobsMutex.Lock()
+        if job, exists := qs.jobs[jobID]; exists {
+            job.Status = models.StatusFailed
+            msg := fmt.Sprintf("env setup failed: %v", err)
+            job.ErrorMessage = &msg
+        }
+        qs.jobsMutex.Unlock()
+        return
+    }
+
+    // Create temporary transcription job for WhisperX processing
+    tempJob := models.TranscriptionJob{
+        ID:         jobID,
+        AudioPath:  job.AudioPath,
+        Parameters: job.Parameters,
+        Status:     models.StatusProcessing,
 	}
 
 	// Process with WhisperX
@@ -285,11 +297,11 @@ func (qs *QuickTranscriptionService) buildWhisperXCommand(job *models.Transcript
 	fmt.Printf("DEBUG: Quick Job ID %s, Diarize parameter: %v\n", job.ID, p.Diarize)
 	
 	// Use standard WhisperX command for quick transcriptions
-	args := []string{
-		"run", "--native-tls", "--project", qs.config.WhisperXEnv, "python", "-m", "whisperx",
-		job.AudioPath,
-		"--output_dir", outputDir,
-	}
+    args := []string{
+        "run", "--native-tls", "--project", qs.whisperX.getEnvPath(), "python", "-m", "whisperx",
+        job.AudioPath,
+        "--output_dir", outputDir,
+    }
 
 	// Core parameters
 	args = append(args, "--model", p.Model)
@@ -388,7 +400,7 @@ func (qs *QuickTranscriptionService) buildWhisperXCommand(job *models.Transcript
 	}
 	args = append(args, "--print_progress", "False")
 
-	cmd := exec.Command(qs.config.UVPath, args...)
+    cmd := exec.Command(qs.whisperX.getUVPath(), args...)
 	cmd.Env = append(os.Environ(), "PYTHONUNBUFFERED=1")
 	
 	// Debug: log the command being executed

@@ -59,8 +59,13 @@ func main() {
 	// Initialize authentication service
 	authService := auth.NewAuthService(cfg.JWTSecret)
 
-	// Initialize WhisperX service
-	whisperXService := transcription.NewWhisperXService(cfg)
+    // Initialize WhisperX service
+    whisperXService := transcription.NewWhisperXService(cfg)
+    // Bootstrap embedded Python environment (pyproject + diarization script)
+    if err := whisperXService.InitEmbeddedPythonEnv(); err != nil {
+        log.Fatalf("Failed to initialize Python env: %v", err)
+    }
+    log.Println("Python env is ready")
 
 	// Initialize quick transcription service
 	quickTranscriptionService, err := transcription.NewQuickTranscriptionService(cfg, whisperXService)

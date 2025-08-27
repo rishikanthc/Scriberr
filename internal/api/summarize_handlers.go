@@ -22,6 +22,17 @@ type SummarizeRequest struct {
 }
 
 // Summarize streams LLM output for a given content prompt
+// @Summary Summarize content
+// @Description Stream an LLM-generated summary for provided content; persists latest summary for the transcription
+// @Tags summarize
+// @Accept json
+// @Produce text/event-stream
+// @Param request body SummarizeRequest true "Summarize request"
+// @Success 200 {string} string "Event stream"
+// @Failure 400 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Security ApiKeyAuth
+// @Router /api/v1/summarize [post]
 func (h *Handler) Summarize(c *gin.Context) {
     var req SummarizeRequest
     if err := c.ShouldBindJSON(&req); err != nil {
@@ -110,6 +121,17 @@ func (h *Handler) Summarize(c *gin.Context) {
 }
 
 // GetSummaryForTranscription returns the latest summary for a transcription
+// @Summary Get latest summary for transcription
+// @Description Get the most recent saved summary for the given transcription
+// @Tags summarize
+// @Produce json
+// @Param id path string true "Transcription ID"
+// @Success 200 {object} models.Summary
+// @Failure 404 {object} map[string]string
+// @Failure 400 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Security ApiKeyAuth
+// @Router /api/v1/transcription/{id}/summary [get]
 func (h *Handler) GetSummaryForTranscription(c *gin.Context) {
     tid := c.Param("id")
     if tid == "" {

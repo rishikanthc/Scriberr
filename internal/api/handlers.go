@@ -1563,6 +1563,17 @@ func (h *Handler) DeleteProfile(c *gin.Context) {
 }
 
 // SetDefaultProfile sets a profile as the default profile
+// @Summary Set default transcription profile
+// @Description Mark the specified profile as the default profile
+// @Tags profiles
+// @Produce json
+// @Param id path string true "Profile ID"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} map[string]string
+// @Failure 404 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Security ApiKeyAuth
+// @Router /api/v1/profiles/{id}/set-default [post]
 func (h *Handler) SetDefaultProfile(c *gin.Context) {
 	profileID := c.Param("id")
 	if profileID == "" {

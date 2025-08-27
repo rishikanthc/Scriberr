@@ -8,15 +8,17 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	"scriberr/internal/config"
 	"scriberr/internal/database"
 	"scriberr/internal/models"
+	assets "scriberr/internal/transcription/assets"
 )
 
 // WhisperXService handles WhisperX transcription
 type WhisperXService struct {
-	config *config.Config
+    config *config.Config
 }
 
 // NewWhisperXService creates a new WhisperX service
@@ -105,56 +107,105 @@ func (ws *WhisperXService) ProcessJob(ctx context.Context, jobID string) error {
 
 // ensurePythonEnv ensures the Python environment is set up
 func (ws *WhisperXService) ensurePythonEnv() error {
-	envPath := ws.config.WhisperXEnv
-	
-	// Check if environment exists
-	if _, err := os.Stat(envPath); os.IsNotExist(err) {
-		return ws.createPythonEnv()
-	}
-	
-	// Check if WhisperX is installed
-	cmd := exec.Command(ws.config.UVPath, "run", "--native-tls", "--project", envPath, "python", "-c", "import whisperx")
-	if err := cmd.Run(); err != nil {
-		return ws.installWhisperX()
-	}
-	
-	return nil
+    envPath := ws.getEnvPath()
+    // Ensure base directory exists
+    if err := os.MkdirAll(envPath, 0755); err != nil {
+        return fmt.Errorf("failed to create environment directory: %v", err)
+    }
+
+    // Always write embedded assets (pyproject + script) to keep them in sync
+    _ = ws.writeEmbeddedFile("pyproject.toml", filepath.Join(envPath, "pyproject.toml"))
+    _ = ws.writeEmbeddedFile("diarize_transcript.py", filepath.Join(envPath, "diarize_transcript.py"))
+
+    // If we have a pyproject, prefer syncing via uv
+    if _, err := os.Stat(filepath.Join(envPath, "pyproject.toml")); err == nil {
+        if err := ws.uvSync(envPath); err == nil {
+            return nil
+        }
+        // fall through to import check if sync failed
+    }
+
+    // Check if WhisperX import works; if not, try to install via fallback
+    cmd := exec.Command(ws.getUVPath(), "run", "--native-tls", "--project", envPath, "python", "-c", "import whisperx")
+    if err := cmd.Run(); err != nil {
+        return ws.installWhisperX()
+    }
+    return nil
 }
 
 // createPythonEnv creates a new Python environment
 func (ws *WhisperXService) createPythonEnv() error {
-	envPath := ws.config.WhisperXEnv
-	
-	// Create directory
-	if err := os.MkdirAll(envPath, 0755); err != nil {
-		return fmt.Errorf("failed to create environment directory: %v", err)
-	}
-	
-	// Initialize uv project
-	cmd := exec.Command(ws.config.UVPath, "init", "--python", "3.9", envPath)
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("failed to initialize uv project: %v", err)
-	}
-	
-	return ws.installWhisperX()
+    envPath := ws.getEnvPath()
+    
+    // Create directory
+    if err := os.MkdirAll(envPath, 0755); err != nil {
+        return fmt.Errorf("failed to create environment directory: %v", err)
+    }
+    
+    // Write embedded pyproject and script
+    if err := ws.writeEmbeddedFile("pyproject.toml", filepath.Join(envPath, "pyproject.toml")); err != nil {
+        return err
+    }
+    if err := ws.writeEmbeddedFile("diarize_transcript.py", filepath.Join(envPath, "diarize_transcript.py")); err != nil {
+        return err
+    }
+
+    // Sync dependencies using uv
+    if err := ws.uvSync(envPath); err != nil {
+        return fmt.Errorf("failed to sync uv project: %v", err)
+    }
+    return nil
 }
 
 // installWhisperX installs WhisperX and dependencies
 func (ws *WhisperXService) installWhisperX() error {
-	envPath := ws.config.WhisperXEnv
-	
-	// Install WhisperX and diarization dependencies
-	cmd := exec.Command(ws.config.UVPath, "add", "--native-tls", "--project", envPath, 
-		"git+https://github.com/m-bain/whisperX.git", 
-		"torch", "torchaudio", "numpy", "pandas", 
-		"pyannote.audio", "faster-whisper")
-	cmd.Dir = envPath
-	
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("failed to install WhisperX: %v", err)
-	}
-	
-	return nil
+    envPath := ws.getEnvPath()
+    
+    // Install WhisperX and diarization dependencies
+    cmd := exec.Command(ws.getUVPath(), "add", "--native-tls", "--project", envPath, 
+        "git+https://github.com/m-bain/whisperX.git", 
+        "torch", "torchaudio", "numpy", "pandas", 
+        "pyannote.audio", "faster-whisper")
+    cmd.Dir = envPath
+    
+    if err := cmd.Run(); err != nil {
+        return fmt.Errorf("failed to install WhisperX: %v", err)
+    }
+    
+    return nil
+}
+
+// uvSync runs `uv sync` for the given project path
+func (ws *WhisperXService) uvSync(projectPath string) error {
+    cmd := exec.Command(ws.getUVPath(), "sync", "--native-tls", "--project", projectPath)
+    cmd.Dir = projectPath
+    out, err := cmd.CombinedOutput()
+    if err != nil {
+        return fmt.Errorf("uv sync failed: %v: %s", err, strings.TrimSpace(string(out)))
+    }
+    return nil
+}
+
+// writeEmbeddedFile writes an embedded asset to disk
+func (ws *WhisperXService) writeEmbeddedFile(name, dest string) error {
+    data, err := assets.FS.ReadFile(name)
+    if err != nil {
+        // asset missing in the binary; not fatal
+        return nil
+    }
+    if err := os.MkdirAll(filepath.Dir(dest), 0755); err != nil {
+        return err
+    }
+    return os.WriteFile(dest, data, 0644)
+}
+
+// InitEmbeddedPythonEnv initializes the Python env on app start (blocking).
+// Assumes uv is installed and accessible via config.UVPath.
+func (ws *WhisperXService) InitEmbeddedPythonEnv() error {
+    if err := ws.ensurePythonEnv(); err != nil {
+        return err
+    }
+    return nil
 }
 
 // buildWhisperXCommand builds the WhisperX command
@@ -276,7 +327,7 @@ func (ws *WhisperXService) buildWhisperXCommand(job *models.TranscriptionJob, ou
 	// Hard-coded: disable print progress for cleaner output
 	args = append(args, "--print_progress", "False")
 
-	cmd := exec.Command(ws.config.UVPath, args...)
+    cmd := exec.Command(ws.getUVPath(), args...)
 	cmd.Env = append(os.Environ(), "PYTHONUNBUFFERED=1")
 	
 	// Debug: log the command being executed
@@ -292,12 +343,13 @@ func (ws *WhisperXService) buildDiarizationCommand(job *models.TranscriptionJob,
 	// Prepare output file path
 	outputFile := filepath.Join(outputDir, "result.json")
 	
-	args := []string{
-		"run", "--native-tls", "--project", ws.config.WhisperXEnv, "python", 
-		filepath.Join(ws.config.WhisperXEnv, "diarize_transcript.py"),
-		job.AudioPath,
-		outputFile,
-	}
+    envPath := ws.getEnvPath()
+    args := []string{
+        "run", "--native-tls", "--project", envPath, "python", 
+        filepath.Join(envPath, "diarize_transcript.py"),
+        job.AudioPath,
+        outputFile,
+    }
 	
 	// Core parameters
 	args = append(args, "--model", p.Model)
@@ -325,11 +377,11 @@ func (ws *WhisperXService) buildDiarizationCommand(job *models.TranscriptionJob,
 		args = append(args, "--hf_token", *p.HfToken)
 	}
 	
-	cmd := exec.Command(ws.config.UVPath, args...)
+    cmd := exec.Command(ws.getUVPath(), args...)
 	cmd.Env = append(os.Environ(), "PYTHONUNBUFFERED=1")
 	
 	// Debug: log the command being executed
-	fmt.Printf("DEBUG: Diarization command: %s %v\n", ws.config.UVPath, args)
+    fmt.Printf("DEBUG: Diarization command: %s %v\n", ws.getUVPath(), args)
 	
 	return cmd, nil
 }
@@ -382,8 +434,18 @@ func (ws *WhisperXService) parseAndSaveResult(jobID, resultPath string) error {
 		return fmt.Errorf("failed to update job transcript: %v", err)
 	}
 
-	return nil
+    return nil
 }
+
+// getEnvPath returns the path used for the WhisperX environment, defaulting
+// to data/whisperx-env when not configured.
+func (ws *WhisperXService) getEnvPath() string {
+    // Always use a stable default under the app's data directory.
+    return filepath.Join("data", "whisperx-env")
+}
+
+// getUVPath returns the uv binary path, defaulting to "uv".
+func (ws *WhisperXService) getUVPath() string { return "uv" }
 
 // GetSupportedModels returns a list of supported WhisperX models
 func (ws *WhisperXService) GetSupportedModels() []string {
