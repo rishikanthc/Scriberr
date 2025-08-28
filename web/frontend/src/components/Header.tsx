@@ -15,7 +15,7 @@ import { useRouter } from "../contexts/RouterContext";
 import { useAuth } from "../contexts/AuthContext";
 
 interface HeaderProps {
-	onFileSelect: (file: File) => void;
+	onFileSelect: (files: File | File[]) => void;
 }
 
 export function Header({ onFileSelect }: HeaderProps) {
@@ -50,11 +50,15 @@ export function Header({ onFileSelect }: HeaderProps) {
 	};
 
 	const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-		const file = event.target.files?.[0];
-		if (file && file.type.startsWith("audio/")) {
-			onFileSelect(file);
-			// Reset the input so the same file can be selected again
-			event.target.value = "";
+		const files = event.target.files;
+		if (files && files.length > 0) {
+			// Filter to only audio files
+			const audioFiles = Array.from(files).filter(file => file.type.startsWith("audio/"));
+			if (audioFiles.length > 0) {
+				onFileSelect(audioFiles.length === 1 ? audioFiles[0] : audioFiles);
+				// Reset the input so the same files can be selected again
+				event.target.value = "";
+			}
 		}
 	};
 
@@ -106,9 +110,9 @@ export function Header({ onFileSelect }: HeaderProps) {
 							>
 								<Upload className="h-4 w-4 text-blue-500" />
 								<div>
-									<div className="font-medium">Upload File</div>
+									<div className="font-medium">Upload Files</div>
 									<div className="text-xs text-gray-500 dark:text-gray-400">
-										Choose audio from device
+										Choose one or more audio files
 									</div>
 								</div>
 							</DropdownMenuItem>
@@ -163,6 +167,7 @@ export function Header({ onFileSelect }: HeaderProps) {
 						ref={fileInputRef}
 						type="file"
 						accept="audio/*"
+						multiple
 						onChange={handleFileChange}
 						className="hidden"
 					/>
