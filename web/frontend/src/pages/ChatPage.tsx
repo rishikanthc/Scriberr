@@ -119,10 +119,11 @@ export function ChatPage() {
 						activeSessionId={sessionId}
 						hideSidebar
 						onSessionChange={(newSessionId) => {
-							if (!newSessionId) {
-								navigate({ path: "audio-detail", params: { id: audioId } });
-							} else {
+							if (newSessionId) {
 								navigate({ path: "chat", params: { audioId, sessionId: newSessionId } });
+							} else {
+								// Stay on chat page but remove sessionId from URL
+								navigate({ path: "chat", params: { audioId } });
 							}
 						}}
 					/>

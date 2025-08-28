@@ -104,8 +104,21 @@ export function ChatSessionsSidebar({
     try {
       const res = await fetch(`/api/v1/chat/sessions/${id}`, { method: 'DELETE', headers: getAuthHeaders() })
       if (!res.ok) return
-      setSessions(prev => prev.filter(s => s.id !== id))
-      if (activeSessionId === id) onSessionChange(null)
+      
+      // Update sessions list first
+      const updatedSessions = sessions.filter(s => s.id !== id)
+      setSessions(updatedSessions)
+      
+      // If we deleted the active session, switch to the next available one
+      if (activeSessionId === id) {
+        if (updatedSessions.length > 0) {
+          // Switch to the first available session (topmost)
+          onSessionChange(updatedSessions[0].id)
+        } else {
+          // No sessions left, stay on chat page but with null session
+          onSessionChange(null)
+        }
+      }
     } catch {}
   }
 
