@@ -4,6 +4,7 @@ import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card";
 import { ScriberrLogo } from "../components/ScriberrLogo";
+import { useRouter } from "../contexts/RouterContext";
 import { ThemeSwitcher } from "../components/ThemeSwitcher";
 import { Eye, EyeOff, Check, X } from "lucide-react";
 
@@ -20,6 +21,7 @@ interface PasswordStrength {
 }
 
 export function Register({ onRegister }: RegisterProps) {
+    const { navigate } = useRouter();
 	const [username, setUsername] = useState("");
 	const [password, setPassword] = useState("");
 	const [confirmPassword, setConfirmPassword] = useState("");
@@ -100,9 +102,9 @@ export function Register({ onRegister }: RegisterProps) {
 			
 			<div className="w-full max-w-md space-y-8">
 				<div className="text-center">
-					<div className="flex justify-center mb-6">
-						<ScriberrLogo />
-					</div>
+                <div className="flex justify-center mb-6">
+                    <ScriberrLogo onClick={() => navigate({ path: 'home' })} />
+                </div>
 					<h2 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
 						Welcome to Scriberr
 					</h2>

@@ -67,8 +67,8 @@ export function Header({ onFileSelect }: HeaderProps) {
 	return (
 		<header className="bg-white dark:bg-gray-800 rounded-xl p-4 sm:p-6 mb-4 sm:mb-6">
 			<div className="flex items-center justify-between">
-				{/* Left side - Logo and variants */}
-				<ScriberrLogo />
+				{/* Left side - Logo navigates home */}
+				<ScriberrLogo onClick={handleHomeClick} />
 
 				{/* Right side - Plus (Add Audio), Grip Menu, Theme Switcher */}
 				<div className="flex items-center gap-2 sm:gap-3">
