@@ -1,5 +1,197 @@
 basePath: /api/v1
 definitions:
+  api.APIKeyListResponse:
+    properties:
+      created_at:
+        type: string
+      description:
+        type: string
+      id:
+        type: integer
+      is_active:
+        type: boolean
+      key_preview:
+        type: string
+      last_used:
+        type: string
+      name:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  api.ChangePasswordRequest:
+    properties:
+      confirmPassword:
+        type: string
+      currentPassword:
+        type: string
+      newPassword:
+        minLength: 6
+        type: string
+    required:
+    - confirmPassword
+    - currentPassword
+    - newPassword
+    type: object
+  api.ChangeUsernameRequest:
+    properties:
+      newUsername:
+        maxLength: 50
+        minLength: 3
+        type: string
+      password:
+        type: string
+    required:
+    - newUsername
+    - password
+    type: object
+  api.ChatCreateRequest:
+    properties:
+      model:
+        type: string
+      title:
+        type: string
+      transcription_id:
+        type: string
+    required:
+    - model
+    - transcription_id
+    type: object
+  api.ChatMessageRequest:
+    properties:
+      content:
+        type: string
+    required:
+    - content
+    type: object
+  api.ChatMessageResponse:
+    properties:
+      content:
+        type: string
+      created_at:
+        type: string
+      id:
+        type: integer
+      role:
+        type: string
+    type: object
+  api.ChatModelsResponse:
+    properties:
+      models:
+        items:
+          type: string
+        type: array
+    type: object
+  api.ChatSessionResponse:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: string
+      is_active:
+        type: boolean
+      last_activity_at:
+        type: string
+      last_message:
+        $ref: '#/definitions/api.ChatMessageResponse'
+      message_count:
+        type: integer
+      model:
+        type: string
+      provider:
+        type: string
+      title:
+        type: string
+      transcription_id:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  api.ChatSessionWithMessages:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: string
+      is_active:
+        type: boolean
+      last_activity_at:
+        type: string
+      last_message:
+        $ref: '#/definitions/api.ChatMessageResponse'
+      message_count:
+        type: integer
+      messages:
+        items:
+          $ref: '#/definitions/api.ChatMessageResponse'
+        type: array
+      model:
+        type: string
+      provider:
+        type: string
+      title:
+        type: string
+      transcription_id:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  api.CreateAPIKeyRequest:
+    properties:
+      description:
+        type: string
+      name:
+        maxLength: 100
+        minLength: 1
+        type: string
+    required:
+    - name
+    type: object
+  api.CreateAPIKeyResponse:
+    properties:
+      description:
+        type: string
+      id:
+        type: integer
+      key:
+        type: string
+      name:
+        type: string
+    type: object
+  api.LLMConfigRequest:
+    properties:
+      api_key:
+        type: string
+      base_url:
+        type: string
+      is_active:
+        type: boolean
+      provider:
+        enum:
+        - ollama
+        - openai
+        type: string
+    required:
+    - provider
+    type: object
+  api.LLMConfigResponse:
+    properties:
+      base_url:
+        type: string
+      created_at:
+        type: string
+      has_api_key:
+        description: Don't return actual API key
+        type: boolean
+      id:
+        type: integer
+      is_active:
+        type: boolean
+      provider:
+        type: string
+      updated_at:
+        type: string
+    type: object
   api.LoginRequest:
     properties:
       password:
@@ -22,18 +214,182 @@ definitions:
             type: string
         type: object
     type: object
+  api.NoteCreateRequest:
+    properties:
+      content:
+        minLength: 1
+        type: string
+      end_time:
+        minimum: 0
+        type: number
+      end_word_index:
+        minimum: 0
+        type: integer
+      quote:
+        minLength: 1
+        type: string
+      start_time:
+        minimum: 0
+        type: number
+      start_word_index:
+        description: Use gte=0 so 0 is valid (first word/time); avoid 'required' which
+          fails for zero values
+        minimum: 0
+        type: integer
+    required:
+    - content
+    - quote
+    type: object
+  api.NoteUpdateRequest:
+    properties:
+      content:
+        minLength: 1
+        type: string
+    required:
+    - content
+    type: object
+  api.RegisterRequest:
+    properties:
+      confirmPassword:
+        type: string
+      password:
+        minLength: 6
+        type: string
+      username:
+        maxLength: 50
+        minLength: 3
+        type: string
+    required:
+    - confirmPassword
+    - password
+    - username
+    type: object
+  api.RegistrationStatusResponse:
+    properties:
+      requiresRegistration:
+        type: boolean
+    type: object
+  api.SummarizeRequest:
+    properties:
+      content:
+        type: string
+      model:
+        type: string
+      template_id:
+        type: string
+      transcription_id:
+        type: string
+    required:
+    - content
+    - model
+    - transcription_id
+    type: object
+  api.SummarySettingsRequest:
+    properties:
+      default_model:
+        minLength: 1
+        type: string
+    required:
+    - default_model
+    type: object
+  api.SummarySettingsResponse:
+    properties:
+      default_model:
+        type: string
+    type: object
+  api.SummaryTemplateRequest:
+    properties:
+      description:
+        type: string
+      model:
+        minLength: 1
+        type: string
+      name:
+        minLength: 1
+        type: string
+      prompt:
+        minLength: 1
+        type: string
+    required:
+    - model
+    - name
+    - prompt
+    type: object
   models.JobStatus:
     enum:
+    - uploaded
     - pending
     - processing
     - completed
     - failed
     type: string
     x-enum-varnames:
+    - StatusUploaded
     - StatusPending
     - StatusProcessing
     - StatusCompleted
     - StatusFailed
+  models.Note:
+    properties:
+      content:
+        description: The user's note content (markdown/plain)
+        type: string
+      created_at:
+        type: string
+      end_time:
+        type: number
+      end_word_index:
+        type: integer
+      id:
+        type: string
+      quote:
+        description: The exact quoted text chosen by the user
+        type: string
+      start_time:
+        description: Time bounds for the selection (in seconds)
+        type: number
+      start_word_index:
+        description: Indexed selection into transcript by word positions
+        type: integer
+      transcription_id:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  models.Summary:
+    properties:
+      content:
+        type: string
+      created_at:
+        type: string
+      id:
+        type: string
+      model:
+        type: string
+      template_id:
+        type: string
+      transcription_id:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  models.SummaryTemplate:
+    properties:
+      created_at:
+        type: string
+      description:
+        type: string
+      id:
+        type: string
+      model:
+        type: string
+      name:
+        type: string
+      prompt:
+        type: string
+      updated_at:
+        type: string
+    type: object
   models.TranscriptionJob:
     properties:
       audio_path:
@@ -61,28 +417,144 @@ definitions:
       updated_at:
         type: string
     type: object
+  models.TranscriptionProfile:
+    properties:
+      created_at:
+        type: string
+      description:
+        type: string
+      id:
+        type: string
+      is_default:
+        type: boolean
+      name:
+        type: string
+      parameters:
+        $ref: '#/definitions/models.WhisperXParams'
+      updated_at:
+        type: string
+    type: object
   models.WhisperXParams:
     properties:
+      align_model:
+        description: Alignment settings
+        type: string
       batch_size:
         type: integer
+      beam_size:
+        type: integer
+      best_of:
+        type: integer
+      chunk_size:
+        type: integer
+      compression_ratio_threshold:
+        type: number
       compute_type:
         type: string
+      condition_on_previous_text:
+        type: boolean
       device:
+        description: Device and computation
+        type: string
+      device_index:
+        type: integer
+      diarize:
+        description: Diarization settings
+        type: boolean
+      diarize_model:
+        type: string
+      fp16:
+        type: boolean
+      hf_token:
+        description: Token and progress
+        type: string
+      highlight_words:
+        type: boolean
+      initial_prompt:
+        type: string
+      interpolate_method:
         type: string
       language:
         type: string
+      length_penalty:
+        type: number
+      logprob_threshold:
+        type: number
+      max_line_count:
+        type: integer
+      max_line_width:
+        description: Output formatting
+        type: integer
       max_speakers:
         type: integer
       min_speakers:
         type: integer
       model:
+        description: Model parameters
         type: string
-      vad_filter:
+      model_cache_only:
         type: boolean
+      model_dir:
+        type: string
+      no_align:
+        type: boolean
+      no_speech_threshold:
+        type: number
+      output_format:
+        description: Output settings
+        type: string
+      patience:
+        type: number
+      print_progress:
+        type: boolean
+      return_char_alignments:
+        type: boolean
+      segment_resolution:
+        type: string
+      speaker_embeddings:
+        type: boolean
+      suppress_numerals:
+        type: boolean
+      suppress_tokens:
+        type: string
+      task:
+        description: Task and language
+        type: string
+      temperature:
+        description: Transcription quality settings
+        type: number
+      temperature_increment_on_fallback:
+        type: number
+      threads:
+        type: integer
+      vad_method:
+        description: VAD (Voice Activity Detection) settings
+        type: string
       vad_offset:
         type: number
       vad_onset:
         type: number
+      verbose:
+        type: boolean
+    type: object
+  transcription.QuickTranscriptionJob:
+    properties:
+      audio_path:
+        type: string
+      created_at:
+        type: string
+      error_message:
+        type: string
+      expires_at:
+        type: string
+      id:
+        type: string
+      parameters:
+        $ref: '#/definitions/models.WhisperXParams'
+      status:
+        $ref: '#/definitions/models.JobStatus'
+      transcript:
+        type: string
     type: object
 host: localhost:8080
 info:
@@ -114,6 +586,168 @@ paths:
       summary: Get queue statistics
       tags:
       - admin
+  /api/v1/api-keys:
+    get:
+      description: Get all API keys for the current user (without exposing the actual
+        keys)
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/api.APIKeyListResponse'
+            type: array
+      security:
+      - BearerAuth: []
+      summary: List API keys
+      tags:
+      - api-keys
+    post:
+      consumes:
+      - application/json
+      description: Create a new API key for external API access
+      parameters:
+      - description: API key creation details
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/api.CreateAPIKeyRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/api.CreateAPIKeyResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Create API key
+      tags:
+      - api-keys
+  /api/v1/api-keys/{id}:
+    delete:
+      description: Delete an API key
+      parameters:
+      - description: API Key ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Delete API key
+      tags:
+      - api-keys
+  /api/v1/auth/change-password:
+    post:
+      consumes:
+      - application/json
+      description: Change the current user's password
+      parameters:
+      - description: Password change details
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/api.ChangePasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Change user password
+      tags:
+      - auth
+  /api/v1/auth/change-username:
+    post:
+      consumes:
+      - application/json
+      description: Change the current user's username
+      parameters:
+      - description: Username change details
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/api.ChangeUsernameRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "409":
+          description: Conflict
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Change username
+      tags:
+      - auth
   /api/v1/auth/login:
     post:
       consumes:
@@ -148,7 +782,981 @@ paths:
       summary: Login
       tags:
       - auth
+  /api/v1/auth/logout:
+    post:
+      description: Logout user and invalidate token (client-side action)
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Logout user
+      tags:
+      - auth
+  /api/v1/auth/register:
+    post:
+      consumes:
+      - application/json
+      description: Register the initial admin user (only allowed when no users exist)
+      parameters:
+      - description: Registration details
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/api.RegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/api.LoginResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "409":
+          description: Conflict
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Register initial admin user
+      tags:
+      - auth
+  /api/v1/auth/registration-status:
+    get:
+      description: Check if the application requires initial user registration
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.RegistrationStatusResponse'
+      summary: Check registration status
+      tags:
+      - auth
+  /api/v1/chat/models:
+    get:
+      description: Get list of available OpenAI chat models
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.ChatModelsResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Get available chat models
+      tags:
+      - chat
+  /api/v1/chat/sessions:
+    post:
+      consumes:
+      - application/json
+      description: Create a new chat session for a transcription
+      parameters:
+      - description: Chat session creation request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/api.ChatCreateRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/api.ChatSessionResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Create a new chat session
+      tags:
+      - chat
+  /api/v1/chat/sessions/{session_id}:
+    delete:
+      description: Delete a chat session and all its messages
+      parameters:
+      - description: Chat Session ID
+        in: path
+        name: session_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Delete a chat session
+      tags:
+      - chat
+    get:
+      description: Get a specific chat session with all its messages
+      parameters:
+      - description: Chat Session ID
+        in: path
+        name: session_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.ChatSessionWithMessages'
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Get a chat session with messages
+      tags:
+      - chat
+  /api/v1/chat/sessions/{session_id}/messages:
+    post:
+      consumes:
+      - application/json
+      description: Send a message to a chat session and get streaming response
+      parameters:
+      - description: Chat Session ID
+        in: path
+        name: session_id
+        required: true
+        type: string
+      - description: Message content
+        in: body
+        name: message
+        required: true
+        schema:
+          $ref: '#/definitions/api.ChatMessageRequest'
+      produces:
+      - text/plain
+      responses:
+        "200":
+          description: Streaming response
+          schema:
+            type: string
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Send a message to a chat session
+      tags:
+      - chat
+  /api/v1/chat/sessions/{session_id}/title:
+    put:
+      consumes:
+      - application/json
+      description: Update the title of a chat session
+      parameters:
+      - description: Chat Session ID
+        in: path
+        name: session_id
+        required: true
+        type: string
+      - description: Title update request
+        in: body
+        name: request
+        required: true
+        schema:
+          additionalProperties:
+            type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.ChatSessionResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Update chat session title
+      tags:
+      - chat
+  /api/v1/chat/sessions/{session_id}/title/auto:
+    post:
+      description: Uses the configured LLM to summarize the first exchange into a
+        concise title. Only updates if the current title appears default/user-unset.
+      parameters:
+      - description: Chat Session ID
+        in: path
+        name: session_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.ChatSessionResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Auto-generate chat session title
+      tags:
+      - chat
+  /api/v1/chat/transcriptions/{transcription_id}/sessions:
+    get:
+      description: Get all chat sessions for a specific transcription
+      parameters:
+      - description: Transcription ID
+        in: path
+        name: transcription_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/api.ChatSessionResponse'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Get chat sessions for a transcription
+      tags:
+      - chat
+  /api/v1/llm/config:
+    get:
+      description: Get the current active LLM configuration
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.LLMConfigResponse'
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get LLM configuration
+      tags:
+      - llm
+    post:
+      consumes:
+      - application/json
+      description: Create or update LLM configuration settings
+      parameters:
+      - description: LLM configuration details
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/api.LLMConfigRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.LLMConfigResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Create or update LLM configuration
+      tags:
+      - llm
+  /api/v1/notes/{note_id}:
+    delete:
+      description: Delete a note by its ID
+      parameters:
+      - description: Note ID
+        in: path
+        name: note_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Delete a note
+      tags:
+      - notes
+    get:
+      description: Get a note by its ID
+      parameters:
+      - description: Note ID
+        in: path
+        name: note_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Note'
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Get a note
+      tags:
+      - notes
+    put:
+      consumes:
+      - application/json
+      description: Update the content of a note
+      parameters:
+      - description: Note ID
+        in: path
+        name: note_id
+        required: true
+        type: string
+      - description: Note update payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/api.NoteUpdateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Note'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Update a note
+      tags:
+      - notes
+  /api/v1/profiles:
+    get:
+      description: Get list of all transcription profiles
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.TranscriptionProfile'
+            type: array
+      security:
+      - ApiKeyAuth: []
+      summary: List transcription profiles
+      tags:
+      - profiles
+    post:
+      consumes:
+      - application/json
+      description: Create a new transcription profile
+      parameters:
+      - description: Profile data
+        in: body
+        name: profile
+        required: true
+        schema:
+          $ref: '#/definitions/models.TranscriptionProfile'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/models.TranscriptionProfile'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Create transcription profile
+      tags:
+      - profiles
+  /api/v1/profiles/{id}:
+    delete:
+      description: Delete a transcription profile
+      parameters:
+      - description: Profile ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Delete transcription profile
+      tags:
+      - profiles
+    get:
+      description: Get a transcription profile by ID
+      parameters:
+      - description: Profile ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.TranscriptionProfile'
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Get transcription profile
+      tags:
+      - profiles
+    put:
+      consumes:
+      - application/json
+      description: Update a transcription profile
+      parameters:
+      - description: Profile ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Updated profile data
+        in: body
+        name: profile
+        required: true
+        schema:
+          $ref: '#/definitions/models.TranscriptionProfile'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.TranscriptionProfile'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Update transcription profile
+      tags:
+      - profiles
+  /api/v1/profiles/{id}/set-default:
+    post:
+      description: Mark the specified profile as the default profile
+      parameters:
+      - description: Profile ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Set default transcription profile
+      tags:
+      - profiles
+  /api/v1/summaries:
+    get:
+      description: Get all summarization templates
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.SummaryTemplate'
+            type: array
+      security:
+      - ApiKeyAuth: []
+      - BearerAuth: []
+      summary: List summarization templates
+      tags:
+      - summaries
+    post:
+      consumes:
+      - application/json
+      description: Create a new summarization template
+      parameters:
+      - description: Template payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/api.SummaryTemplateRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/models.SummaryTemplate'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - ApiKeyAuth: []
+      - BearerAuth: []
+      summary: Create summarization template
+      tags:
+      - summaries
+  /api/v1/summaries/{id}:
+    delete:
+      description: Delete a summarization template by ID
+      parameters:
+      - description: Template ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Delete summarization template
+      tags:
+      - summaries
+    get:
+      description: Get a summarization template by ID
+      parameters:
+      - description: Template ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.SummaryTemplate'
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - ApiKeyAuth: []
+      - BearerAuth: []
+      summary: Get summarization template
+      tags:
+      - summaries
+    put:
+      consumes:
+      - application/json
+      description: Update a summarization template by ID
+      parameters:
+      - description: Template ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Template payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/api.SummaryTemplateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.SummaryTemplate'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - ApiKeyAuth: []
+      - BearerAuth: []
+      summary: Update summarization template
+      tags:
+      - summaries
+  /api/v1/summaries/settings:
+    get:
+      description: Get global summarization settings
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.SummarySettingsResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Get summary settings
+      tags:
+      - summaries
+    post:
+      consumes:
+      - application/json
+      description: Create or update global summarization settings
+      parameters:
+      - description: Settings payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/api.SummarySettingsRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.SummarySettingsResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Save summary settings
+      tags:
+      - summaries
+  /api/v1/summarize:
+    post:
+      consumes:
+      - application/json
+      description: Stream an LLM-generated summary for provided content; persists
+        latest summary for the transcription
+      parameters:
+      - description: Summarize request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/api.SummarizeRequest'
+      produces:
+      - text/event-stream
+      responses:
+        "200":
+          description: Event stream
+          schema:
+            type: string
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - ApiKeyAuth: []
+      - BearerAuth: []
+      summary: Summarize content
+      tags:
+      - summarize
   /api/v1/transcription/{id}:
+    delete:
+      description: Delete a transcription job and its associated files
+      parameters:
+      - description: Job ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Delete transcription job
+      tags:
+      - transcription
     get:
       description: Get a specific transcription record by its ID
       parameters:
@@ -172,7 +1780,191 @@ paths:
             type: object
       security:
       - ApiKeyAuth: []
+      - BearerAuth: []
       summary: Get transcription record by ID
+      tags:
+      - transcription
+  /api/v1/transcription/{id}/audio:
+    get:
+      description: Serve the audio file for a transcription job
+      parameters:
+      - description: Job ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - audio/mpeg
+      - audio/wav
+      - audio/mp4
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: file
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Get audio file
+      tags:
+      - transcription
+  /api/v1/transcription/{id}/kill:
+    post:
+      description: Cancel a currently running transcription job
+      parameters:
+      - description: Job ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - ApiKeyAuth: []
+      - BearerAuth: []
+      summary: Kill running transcription job
+      tags:
+      - transcription
+  /api/v1/transcription/{id}/notes:
+    get:
+      description: Get all notes attached to a transcription, ordered by time and
+        creation
+      parameters:
+      - description: Transcription ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.Note'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: List notes for a transcription
+      tags:
+      - notes
+    post:
+      consumes:
+      - application/json
+      description: Create a new note attached to the specified transcription
+      parameters:
+      - description: Transcription ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Note create payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/api.NoteCreateRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/models.Note'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Create a note for a transcription
+      tags:
+      - notes
+  /api/v1/transcription/{id}/start:
+    post:
+      consumes:
+      - application/json
+      description: Start transcription for an already uploaded audio file
+      parameters:
+      - description: Job ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Transcription parameters
+        in: body
+        name: parameters
+        required: true
+        schema:
+          $ref: '#/definitions/models.WhisperXParams'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.TranscriptionJob'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - ApiKeyAuth: []
+      - BearerAuth: []
+      summary: Start transcription for uploaded file
       tags:
       - transcription
   /api/v1/transcription/{id}/status:
@@ -199,7 +1991,92 @@ paths:
             type: object
       security:
       - ApiKeyAuth: []
+      - BearerAuth: []
       summary: Get job status
+      tags:
+      - transcription
+  /api/v1/transcription/{id}/summary:
+    get:
+      description: Get the most recent saved summary for the given transcription
+      parameters:
+      - description: Transcription ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Summary'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - ApiKeyAuth: []
+      - BearerAuth: []
+      summary: Get latest summary for transcription
+      tags:
+      - summarize
+  /api/v1/transcription/{id}/title:
+    put:
+      consumes:
+      - application/json
+      description: Update the title of an audio file / transcription
+      parameters:
+      - description: Job ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Title update request
+        in: body
+        name: request
+        required: true
+        schema:
+          additionalProperties:
+            type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Update transcription title
       tags:
       - transcription
   /api/v1/transcription/{id}/transcript:
@@ -233,12 +2110,13 @@ paths:
             type: object
       security:
       - ApiKeyAuth: []
+      - BearerAuth: []
       summary: Get transcript
       tags:
       - transcription
   /api/v1/transcription/list:
     get:
-      description: Get a list of all transcription jobs
+      description: Get a list of all transcription jobs with optional search and filtering
       parameters:
       - default: 1
         description: Page number
@@ -254,6 +2132,10 @@ paths:
         in: query
         name: status
         type: string
+      - description: Search in title and audio filename
+        in: query
+        name: q
+        type: string
       produces:
       - application/json
       responses:
@@ -264,6 +2146,7 @@ paths:
             type: object
       security:
       - ApiKeyAuth: []
+      - BearerAuth: []
       summary: List all transcription records
       tags:
       - transcription
@@ -281,6 +2164,77 @@ paths:
       security:
       - ApiKeyAuth: []
       summary: Get supported models
+      tags:
+      - transcription
+  /api/v1/transcription/quick:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Submit an audio file for temporary transcription (data discarded
+        after 6 hours)
+      parameters:
+      - description: Audio file
+        in: formData
+        name: audio
+        required: true
+        type: file
+      - description: JSON string of transcription parameters
+        in: formData
+        name: parameters
+        type: string
+      - description: Profile name to use for transcription
+        in: formData
+        name: profile_name
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/transcription.QuickTranscriptionJob'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Submit quick transcription job
+      tags:
+      - transcription
+  /api/v1/transcription/quick/{id}:
+    get:
+      description: Get the current status of a quick transcription job
+      parameters:
+      - description: Job ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/transcription.QuickTranscriptionJob'
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Get quick transcription status
       tags:
       - transcription
   /api/v1/transcription/submit:
@@ -369,7 +2323,48 @@ paths:
             type: object
       security:
       - ApiKeyAuth: []
+      - BearerAuth: []
       summary: Submit a transcription job
+      tags:
+      - transcription
+  /api/v1/transcription/upload:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Upload an audio file without starting transcription
+      parameters:
+      - description: Audio file
+        in: formData
+        name: audio
+        required: true
+        type: file
+      - description: Job title
+        in: formData
+        name: title
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.TranscriptionJob'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - ApiKeyAuth: []
+      - BearerAuth: []
+      summary: Upload audio file
       tags:
       - transcription
   /health:

@@ -146,6 +146,7 @@ type APIKeyListResponse struct {
 // @Failure 500 {object} map[string]string
 // @Router /api/v1/transcription/upload [post]
 // @Security ApiKeyAuth
+// @Security BearerAuth
 func (h *Handler) UploadAudio(c *gin.Context) {
 	// Parse multipart form
 	file, header, err := c.Request.FormFile("audio")
@@ -225,6 +226,7 @@ func (h *Handler) UploadAudio(c *gin.Context) {
 // @Failure 500 {object} map[string]string
 // @Router /api/v1/transcription/submit [post]
 // @Security ApiKeyAuth
+// @Security BearerAuth
 func (h *Handler) SubmitJob(c *gin.Context) {
 	// Parse multipart form
 	file, header, err := c.Request.FormFile("audio")
@@ -330,6 +332,7 @@ func (h *Handler) SubmitJob(c *gin.Context) {
 // @Failure 404 {object} map[string]string
 // @Router /api/v1/transcription/{id}/status [get]
 // @Security ApiKeyAuth
+// @Security BearerAuth
 func (h *Handler) GetJobStatus(c *gin.Context) {
 	jobID := c.Param("id")
 	
@@ -356,6 +359,7 @@ func (h *Handler) GetJobStatus(c *gin.Context) {
 // @Failure 400 {object} map[string]string
 // @Router /api/v1/transcription/{id}/transcript [get]
 // @Security ApiKeyAuth
+// @Security BearerAuth
 func (h *Handler) GetTranscript(c *gin.Context) {
 	jobID := c.Param("id")
 	
@@ -407,6 +411,7 @@ func (h *Handler) GetTranscript(c *gin.Context) {
 // @Success 200 {object} map[string]interface{}
 // @Router /api/v1/transcription/list [get]
 // @Security ApiKeyAuth
+// @Security BearerAuth
 func (h *Handler) ListJobs(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
@@ -471,6 +476,7 @@ func (h *Handler) ListJobs(c *gin.Context) {
 // @Failure 404 {object} map[string]string
 // @Router /api/v1/transcription/{id}/start [post]
 // @Security ApiKeyAuth
+// @Security BearerAuth
 func (h *Handler) StartTranscription(c *gin.Context) {
 	jobID := c.Param("id")
 	
@@ -576,6 +582,7 @@ func (h *Handler) StartTranscription(c *gin.Context) {
 // @Failure 400 {object} map[string]string
 // @Router /api/v1/transcription/{id}/kill [post]
 // @Security ApiKeyAuth
+// @Security BearerAuth
 func (h *Handler) KillJob(c *gin.Context) {
 	jobID := c.Param("id")
 	
@@ -721,6 +728,7 @@ func (h *Handler) DeleteJob(c *gin.Context) {
 // @Failure 404 {object} map[string]string
 // @Router /api/v1/transcription/{id} [get]
 // @Security ApiKeyAuth
+// @Security BearerAuth
 func (h *Handler) GetJobByID(c *gin.Context) {
 	jobID := c.Param("id")
 	
@@ -795,10 +803,10 @@ func (h *Handler) GetAudioFile(c *gin.Context) {
 		c.Header("Content-Type", "audio/mpeg")
 	}
 
-	// Add CORS headers for audio
-	c.Header("Access-Control-Allow-Origin", "*")
-	c.Header("Access-Control-Allow-Methods", "GET")
-	c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, X-API-Key")
+    // Add CORS headers for audio
+    c.Header("Access-Control-Allow-Origin", "*")
+    c.Header("Access-Control-Allow-Methods", "GET")
+    c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Authorization, X-API-Key")
 
 	// Serve the audio file
 	c.File(job.AudioPath)

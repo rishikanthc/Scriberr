@@ -32,6 +32,7 @@ type SummarizeRequest struct {
 // @Failure 400 {object} map[string]string
 // @Failure 500 {object} map[string]string
 // @Security ApiKeyAuth
+// @Security BearerAuth
 // @Router /api/v1/summarize [post]
 func (h *Handler) Summarize(c *gin.Context) {
     var req SummarizeRequest
@@ -131,6 +132,7 @@ func (h *Handler) Summarize(c *gin.Context) {
 // @Failure 400 {object} map[string]string
 // @Failure 500 {object} map[string]string
 // @Security ApiKeyAuth
+// @Security BearerAuth
 // @Router /api/v1/transcription/{id}/summary [get]
 func (h *Handler) GetSummaryForTranscription(c *gin.Context) {
     tid := c.Param("id")
