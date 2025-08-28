@@ -352,11 +352,11 @@ export function ChatInterface({ transcriptionId, activeSessionId, onSessionChang
                         <div className="w-full flex justify-end">
                           <div className="flex space-x-3 max-w-3xl">
                             <div className="flex-1 overflow-hidden">
-                              <div className="bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white rounded-2xl px-4 py-3 relative">
+                              <div className="bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white rounded-2xl px-4 py-3 relative">
                                 {/* Copy button */}
                                 <button
                                   onClick={async () => { try { await navigator.clipboard.writeText(message.content || ''); } catch {} }}
-                                  className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-gray-300 dark:hover:bg-gray-600"
+                                  className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-600"
                                   title="Copy message"
                                 >
                                   <Copy className="h-3 w-3" />
@@ -366,8 +366,8 @@ export function ChatInterface({ transcriptionId, activeSessionId, onSessionChang
                                 </div>
                               </div>
                             </div>
-                            <div className="h-8 w-8 rounded-full bg-gray-400 dark:bg-gray-700 flex items-center justify-center flex-shrink-0">
-                              <User className="h-4 w-4 text-white" />
+                            <div className="h-8 w-8 rounded-full bg-gray-300 dark:bg-gray-700 flex items-center justify-center flex-shrink-0">
+                              <User className="h-4 w-4 text-gray-700 dark:text-white" />
                             </div>
                           </div>
                         </div>
