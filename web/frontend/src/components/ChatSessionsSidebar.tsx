@@ -156,7 +156,7 @@ export function ChatSessionsSidebar({
                 <Plus className="h-4 w-4" />
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[425px] bg-white dark:bg-gray-850 shadow-2xl">
+            <DialogContent className="sm:max-w-[425px] bg-white dark:bg-gray-800 shadow-2xl">
               <DialogHeader><DialogTitle>New Chat Session</DialogTitle></DialogHeader>
               <div className="space-y-4">
                 <div className="space-y-2">

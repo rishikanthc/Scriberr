@@ -724,7 +724,7 @@ export function AudioFilesTable({
 														)}
 													</Button>
 												</AlertDialogTrigger>
-												<AlertDialogContent className="bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700">
+                            <AlertDialogContent className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
 													<AlertDialogHeader>
 														<AlertDialogTitle className="text-gray-900 dark:text-gray-100">
 															Stop Transcription
@@ -761,7 +761,7 @@ export function AudioFilesTable({
 													Delete
 												</Button>
 											</AlertDialogTrigger>
-											<AlertDialogContent className="bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700">
+                        <AlertDialogContent className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
 												<AlertDialogHeader>
 													<AlertDialogTitle className="text-gray-900 dark:text-gray-100">
 														Delete Audio File

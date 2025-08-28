@@ -338,7 +338,7 @@ export function TranscriptionConfigDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-full sm:max-w-4xl w-[calc(100vw-1rem)] sm:w-auto max-h-[85vh] overflow-y-auto bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700 p-3 sm:p-8">
+      <DialogContent className="max-w-full sm:max-w-4xl w-[calc(100vw-1rem)] sm:w-auto max-h-[85vh] overflow-y-auto bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 p-3 sm:p-8">
         <DialogHeader className="mb-3 sm:mb-6">
           <DialogTitle className="text-gray-900 dark:text-gray-100">
             {isProfileMode 

@@ -1304,7 +1304,7 @@ useEffect(() => {
 
 			{/* Download Options Dialog */}
 			<Dialog open={downloadDialogOpen} onOpenChange={setDownloadDialogOpen}>
-				<DialogContent className="sm:max-w-md bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700">
+				<DialogContent className="sm:max-w-md bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
 					<DialogHeader>
 						<DialogTitle className="text-gray-900 dark:text-gray-100">
 							Download as {downloadFormat.toUpperCase()}
@@ -1379,7 +1379,7 @@ useEffect(() => {
 
             {/* Summarization template selector dialog */}
             <UIDialog open={summarizeOpen} onOpenChange={(o) => { setSummarizeOpen(o); if (!o) { setTplPopoverOpen(false); } }}>
-                <UIDialogContent className="sm:max-w-lg bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700">
+                <UIDialogContent className="sm:max-w-lg bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
                     <UIDialogHeader>
                         <UIDialogTitle className="text-gray-900 dark:text-gray-100">Summarize Transcript</UIDialogTitle>
                         <UIDialogDescription className="text-gray-600 dark:text-gray-400">Choose a summarization template</UIDialogDescription>
@@ -1437,7 +1437,7 @@ useEffect(() => {
 
             {/* Summary output dialog */}
             <UIDialog open={summaryOpen} onOpenChange={setSummaryOpen}>
-                <UIDialogContent className="sm:max-w-3xl bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700 max-h-[85vh] overflow-y-auto">
+                <UIDialogContent className="sm:max-w-3xl bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 max-h-[85vh] overflow-y-auto">
                     <UIDialogHeader>
                         <UIDialogTitle className="text-gray-900 dark:text-gray-100">Summary</UIDialogTitle>
                         <UIDialogDescription className="text-gray-600 dark:text-gray-400">{isSummarizing ? 'Generating summary...' : 'Summary ready'}</UIDialogDescription>
