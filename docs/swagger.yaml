@@ -583,6 +583,7 @@ paths:
             type: object
       security:
       - ApiKeyAuth: []
+      - BearerAuth: []
       summary: Get queue statistics
       tags:
       - admin
@@ -870,6 +871,7 @@ paths:
             type: object
       security:
       - ApiKeyAuth: []
+      - BearerAuth: []
       summary: Get available chat models
       tags:
       - chat
@@ -912,6 +914,7 @@ paths:
             type: object
       security:
       - ApiKeyAuth: []
+      - BearerAuth: []
       summary: Create a new chat session
       tags:
       - chat
@@ -943,6 +946,7 @@ paths:
             type: object
       security:
       - ApiKeyAuth: []
+      - BearerAuth: []
       summary: Delete a chat session
       tags:
       - chat
@@ -975,6 +979,7 @@ paths:
             type: object
       security:
       - ApiKeyAuth: []
+      - BearerAuth: []
       summary: Get a chat session with messages
       tags:
       - chat
@@ -1022,6 +1027,7 @@ paths:
             type: object
       security:
       - ApiKeyAuth: []
+      - BearerAuth: []
       summary: Send a message to a chat session
       tags:
       - chat
@@ -1071,6 +1077,7 @@ paths:
             type: object
       security:
       - ApiKeyAuth: []
+      - BearerAuth: []
       summary: Update chat session title
       tags:
       - chat
@@ -1105,6 +1112,7 @@ paths:
             type: object
       security:
       - ApiKeyAuth: []
+      - BearerAuth: []
       summary: Auto-generate chat session title
       tags:
       - chat
@@ -1140,6 +1148,7 @@ paths:
             type: object
       security:
       - ApiKeyAuth: []
+      - BearerAuth: []
       summary: Get chat sessions for a transcription
       tags:
       - chat
@@ -1243,6 +1252,7 @@ paths:
             type: object
       security:
       - ApiKeyAuth: []
+      - BearerAuth: []
       summary: Get a note
       tags:
       - notes
@@ -1283,6 +1293,7 @@ paths:
             type: object
       security:
       - ApiKeyAuth: []
+      - BearerAuth: []
       summary: Update a note
       tags:
       - notes
@@ -1300,6 +1311,7 @@ paths:
             type: array
       security:
       - ApiKeyAuth: []
+      - BearerAuth: []
       summary: List transcription profiles
       tags:
       - profiles
@@ -1329,6 +1341,7 @@ paths:
             type: object
       security:
       - ApiKeyAuth: []
+      - BearerAuth: []
       summary: Create transcription profile
       tags:
       - profiles
@@ -1358,6 +1371,7 @@ paths:
             type: object
       security:
       - ApiKeyAuth: []
+      - BearerAuth: []
       summary: Delete transcription profile
       tags:
       - profiles
@@ -1384,6 +1398,7 @@ paths:
             type: object
       security:
       - ApiKeyAuth: []
+      - BearerAuth: []
       summary: Get transcription profile
       tags:
       - profiles
@@ -1424,6 +1439,7 @@ paths:
             type: object
       security:
       - ApiKeyAuth: []
+      - BearerAuth: []
       summary: Update transcription profile
       tags:
       - profiles
@@ -1464,6 +1480,7 @@ paths:
             type: object
       security:
       - ApiKeyAuth: []
+      - BearerAuth: []
       summary: Set default transcription profile
       tags:
       - profiles
@@ -1481,6 +1498,7 @@ paths:
             type: array
       security:
       - ApiKeyAuth: []
+      - BearerAuth: []
       - BearerAuth: []
       summary: List summarization templates
       tags:
@@ -1517,6 +1535,7 @@ paths:
             type: object
       security:
       - ApiKeyAuth: []
+      - BearerAuth: []
       - BearerAuth: []
       summary: Create summarization template
       tags:
@@ -1578,6 +1597,7 @@ paths:
       security:
       - ApiKeyAuth: []
       - BearerAuth: []
+      - BearerAuth: []
       summary: Get summarization template
       tags:
       - summaries
@@ -1624,6 +1644,7 @@ paths:
             type: object
       security:
       - ApiKeyAuth: []
+      - BearerAuth: []
       - BearerAuth: []
       summary: Update summarization template
       tags:
@@ -1754,6 +1775,7 @@ paths:
             type: object
       security:
       - ApiKeyAuth: []
+      - BearerAuth: []
       summary: Delete transcription job
       tags:
       - transcription
@@ -1780,6 +1802,7 @@ paths:
             type: object
       security:
       - ApiKeyAuth: []
+      - BearerAuth: []
       - BearerAuth: []
       summary: Get transcription record by ID
       tags:
@@ -1882,6 +1905,7 @@ paths:
             type: object
       security:
       - ApiKeyAuth: []
+      - BearerAuth: []
       summary: List notes for a transcription
       tags:
       - notes
@@ -1922,6 +1946,7 @@ paths:
             type: object
       security:
       - ApiKeyAuth: []
+      - BearerAuth: []
       summary: Create a note for a transcription
       tags:
       - notes
@@ -2076,6 +2101,7 @@ paths:
             type: object
       security:
       - ApiKeyAuth: []
+      - BearerAuth: []
       summary: Update transcription title
       tags:
       - transcription
@@ -2163,6 +2189,7 @@ paths:
             type: object
       security:
       - ApiKeyAuth: []
+      - BearerAuth: []
       summary: Get supported models
       tags:
       - transcription
@@ -2207,6 +2234,7 @@ paths:
             type: object
       security:
       - ApiKeyAuth: []
+      - BearerAuth: []
       summary: Submit quick transcription job
       tags:
       - transcription
@@ -2234,6 +2262,7 @@ paths:
             type: object
       security:
       - ApiKeyAuth: []
+      - BearerAuth: []
       summary: Get quick transcription status
       tags:
       - transcription

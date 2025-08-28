@@ -39,6 +39,7 @@ type NoteUpdateRequest struct {
 // @Failure 400 {object} map[string]string
 // @Failure 404 {object} map[string]string
 // @Security ApiKeyAuth
+// @Security BearerAuth
 // @Router /api/v1/transcription/{id}/notes [get]
 func (h *Handler) ListNotes(c *gin.Context) {
     transcriptionID := c.Param("id")
@@ -80,6 +81,7 @@ func (h *Handler) ListNotes(c *gin.Context) {
 // @Failure 400 {object} map[string]string
 // @Failure 404 {object} map[string]string
 // @Security ApiKeyAuth
+// @Security BearerAuth
 // @Router /api/v1/transcription/{id}/notes [post]
 func (h *Handler) CreateNote(c *gin.Context) {
     transcriptionID := c.Param("id")
@@ -152,6 +154,7 @@ func (h *Handler) CreateNote(c *gin.Context) {
 // @Success 200 {object} models.Note
 // @Failure 404 {object} map[string]string
 // @Security ApiKeyAuth
+// @Security BearerAuth
 // @Router /api/v1/notes/{note_id} [get]
 func (h *Handler) GetNote(c *gin.Context) {
     noteID := c.Param("note_id")
@@ -179,6 +182,7 @@ func (h *Handler) GetNote(c *gin.Context) {
 // @Failure 400 {object} map[string]string
 // @Failure 404 {object} map[string]string
 // @Security ApiKeyAuth
+// @Security BearerAuth
 // @Router /api/v1/notes/{note_id} [put]
 func (h *Handler) UpdateNote(c *gin.Context) {
     noteID := c.Param("note_id")

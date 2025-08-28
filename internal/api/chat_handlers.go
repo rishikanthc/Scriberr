@@ -87,6 +87,7 @@ func (h *Handler) getOpenAIService() (*llm.OpenAIService, error) {
 // @Failure 500 {object} map[string]string
 // @Router /api/v1/chat/models [get]
 // @Security ApiKeyAuth
+// @Security BearerAuth
 func (h *Handler) GetChatModels(c *gin.Context) {
 	openaiService, err := h.getOpenAIService()
 	if err != nil {
@@ -118,6 +119,7 @@ func (h *Handler) GetChatModels(c *gin.Context) {
 // @Failure 500 {object} map[string]string
 // @Router /api/v1/chat/sessions [post]
 // @Security ApiKeyAuth
+// @Security BearerAuth
 func (h *Handler) CreateChatSession(c *gin.Context) {
 	var req ChatCreateRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -197,6 +199,7 @@ func (h *Handler) CreateChatSession(c *gin.Context) {
 // @Failure 500 {object} map[string]string
 // @Router /api/v1/chat/transcriptions/{transcription_id}/sessions [get]
 // @Security ApiKeyAuth
+// @Security BearerAuth
 func (h *Handler) GetChatSessions(c *gin.Context) {
 	transcriptionID := c.Param("transcription_id")
 	if transcriptionID == "" {
@@ -258,6 +261,7 @@ func (h *Handler) GetChatSessions(c *gin.Context) {
 // @Failure 500 {object} map[string]string
 // @Router /api/v1/chat/sessions/{session_id} [get]
 // @Security ApiKeyAuth
+// @Security BearerAuth
 func (h *Handler) GetChatSession(c *gin.Context) {
 	sessionID := c.Param("session_id")
 	if sessionID == "" {
@@ -324,6 +328,7 @@ func (h *Handler) GetChatSession(c *gin.Context) {
 // @Failure 500 {object} map[string]string
 // @Router /api/v1/chat/sessions/{session_id}/messages [post]
 // @Security ApiKeyAuth
+// @Security BearerAuth
 func (h *Handler) SendChatMessage(c *gin.Context) {
 	sessionID := c.Param("session_id")
 	if sessionID == "" {
@@ -472,6 +477,7 @@ func (h *Handler) SendChatMessage(c *gin.Context) {
 // @Failure 500 {object} map[string]string
 // @Router /api/v1/chat/sessions/{session_id}/title [put]
 // @Security ApiKeyAuth
+// @Security BearerAuth
 func (h *Handler) UpdateChatSessionTitle(c *gin.Context) {
 	sessionID := c.Param("session_id")
 	if sessionID == "" {
@@ -529,6 +535,7 @@ func (h *Handler) UpdateChatSessionTitle(c *gin.Context) {
 // @Failure 500 {object} map[string]string
 // @Router /api/v1/chat/sessions/{session_id} [delete]
 // @Security ApiKeyAuth
+// @Security BearerAuth
 func (h *Handler) DeleteChatSession(c *gin.Context) {
 	sessionID := c.Param("session_id")
 	if sessionID == "" {
@@ -588,6 +595,7 @@ func generateChatTitle(message string) string {
 // @Failure 404 {object} map[string]string
 // @Router /api/v1/chat/sessions/{session_id}/title/auto [post]
 // @Security ApiKeyAuth
+// @Security BearerAuth
 func (h *Handler) AutoGenerateChatTitle(c *gin.Context) {
     sessionID := c.Param("session_id")
     if sessionID == "" {

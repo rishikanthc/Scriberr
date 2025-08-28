@@ -624,6 +624,7 @@ func (h *Handler) KillJob(c *gin.Context) {
 // @Failure 404 {object} map[string]string
 // @Router /api/v1/transcription/{id}/title [put]
 // @Security ApiKeyAuth
+// @Security BearerAuth
 func (h *Handler) UpdateTranscriptionTitle(c *gin.Context) {
     jobID := c.Param("id")
     if jobID == "" {
@@ -674,6 +675,7 @@ func (h *Handler) UpdateTranscriptionTitle(c *gin.Context) {
 // @Failure 400 {object} map[string]string
 // @Router /api/v1/transcription/{id} [delete]
 // @Security ApiKeyAuth
+// @Security BearerAuth
 func (h *Handler) DeleteJob(c *gin.Context) {
 	jobID := c.Param("id")
 	
@@ -728,6 +730,7 @@ func (h *Handler) DeleteJob(c *gin.Context) {
 // @Failure 404 {object} map[string]string
 // @Router /api/v1/transcription/{id} [get]
 // @Security ApiKeyAuth
+// @Security BearerAuth
 // @Security BearerAuth
 func (h *Handler) GetJobByID(c *gin.Context) {
 	jobID := c.Param("id")
@@ -1334,6 +1337,7 @@ func generateSecureAPIKey(length int) string {
 // @Success 200 {object} map[string]interface{}
 // @Router /api/v1/admin/queue/stats [get]
 // @Security ApiKeyAuth
+// @Security BearerAuth
 func (h *Handler) GetQueueStats(c *gin.Context) {
 	stats := h.taskQueue.GetQueueStats()
 	c.JSON(http.StatusOK, stats)
@@ -1346,6 +1350,7 @@ func (h *Handler) GetQueueStats(c *gin.Context) {
 // @Success 200 {object} map[string]interface{}
 // @Router /api/v1/transcription/models [get]
 // @Security ApiKeyAuth
+// @Security BearerAuth
 func (h *Handler) GetSupportedModels(c *gin.Context) {
 	models := h.whisperXService.GetSupportedModels()
 	languages := h.whisperXService.GetSupportedLanguages()
@@ -1414,6 +1419,7 @@ func getFormBoolWithDefault(c *gin.Context, key string, defaultValue bool) bool 
 // @Success 200 {array} models.TranscriptionProfile
 // @Router /api/v1/profiles [get]
 // @Security ApiKeyAuth
+// @Security BearerAuth
 func (h *Handler) ListProfiles(c *gin.Context) {
 	var profiles []models.TranscriptionProfile
 	if err := database.DB.Order("created_at DESC").Find(&profiles).Error; err != nil {
@@ -1433,6 +1439,7 @@ func (h *Handler) ListProfiles(c *gin.Context) {
 // @Failure 400 {object} map[string]string
 // @Router /api/v1/profiles [post]
 // @Security ApiKeyAuth
+// @Security BearerAuth
 func (h *Handler) CreateProfile(c *gin.Context) {
 	var profile models.TranscriptionProfile
 	if err := c.ShouldBindJSON(&profile); err != nil {
@@ -1470,6 +1477,7 @@ func (h *Handler) CreateProfile(c *gin.Context) {
 // @Failure 404 {object} map[string]string
 // @Router /api/v1/profiles/{id} [get]
 // @Security ApiKeyAuth
+// @Security BearerAuth
 func (h *Handler) GetProfile(c *gin.Context) {
 	profileID := c.Param("id")
 	
@@ -1498,6 +1506,7 @@ func (h *Handler) GetProfile(c *gin.Context) {
 // @Failure 404 {object} map[string]string
 // @Router /api/v1/profiles/{id} [put]
 // @Security ApiKeyAuth
+// @Security BearerAuth
 func (h *Handler) UpdateProfile(c *gin.Context) {
 	profileID := c.Param("id")
 	
@@ -1549,6 +1558,7 @@ func (h *Handler) UpdateProfile(c *gin.Context) {
 // @Failure 404 {object} map[string]string
 // @Router /api/v1/profiles/{id} [delete]
 // @Security ApiKeyAuth
+// @Security BearerAuth
 func (h *Handler) DeleteProfile(c *gin.Context) {
 	profileID := c.Param("id")
 	
@@ -1581,6 +1591,7 @@ func (h *Handler) DeleteProfile(c *gin.Context) {
 // @Failure 404 {object} map[string]string
 // @Failure 500 {object} map[string]string
 // @Security ApiKeyAuth
+// @Security BearerAuth
 // @Router /api/v1/profiles/{id}/set-default [post]
 func (h *Handler) SetDefaultProfile(c *gin.Context) {
 	profileID := c.Param("id")
@@ -1629,6 +1640,7 @@ type QuickTranscriptionRequest struct {
 // @Failure 500 {object} map[string]string
 // @Router /api/v1/transcription/quick [post]
 // @Security ApiKeyAuth
+// @Security BearerAuth
 func (h *Handler) SubmitQuickTranscription(c *gin.Context) {
 	// Parse multipart form
 	file, header, err := c.Request.FormFile("audio")
@@ -1736,6 +1748,7 @@ func (h *Handler) SubmitQuickTranscription(c *gin.Context) {
 // @Failure 404 {object} map[string]string
 // @Router /api/v1/transcription/quick/{id} [get]
 // @Security ApiKeyAuth
+// @Security BearerAuth
 func (h *Handler) GetQuickTranscriptionStatus(c *gin.Context) {
 	jobID := c.Param("id")
 	

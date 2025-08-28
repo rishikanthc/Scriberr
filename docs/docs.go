@@ -29,6 +29,9 @@ const docTemplate = `{
                 "security": [
                     {
                         "ApiKeyAuth": []
+                    },
+                    {
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Get current queue statistics",
@@ -462,6 +465,9 @@ const docTemplate = `{
                 "security": [
                     {
                         "ApiKeyAuth": []
+                    },
+                    {
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Get list of available OpenAI chat models",
@@ -505,6 +511,9 @@ const docTemplate = `{
                 "security": [
                     {
                         "ApiKeyAuth": []
+                    },
+                    {
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Create a new chat session for a transcription",
@@ -571,6 +580,9 @@ const docTemplate = `{
                 "security": [
                     {
                         "ApiKeyAuth": []
+                    },
+                    {
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Get a specific chat session with all its messages",
@@ -621,6 +633,9 @@ const docTemplate = `{
                 "security": [
                     {
                         "ApiKeyAuth": []
+                    },
+                    {
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Delete a chat session and all its messages",
@@ -670,6 +685,9 @@ const docTemplate = `{
                 "security": [
                     {
                         "ApiKeyAuth": []
+                    },
+                    {
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Send a message to a chat session and get streaming response",
@@ -743,6 +761,9 @@ const docTemplate = `{
                 "security": [
                     {
                         "ApiKeyAuth": []
+                    },
+                    {
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Update the title of a chat session",
@@ -819,6 +840,9 @@ const docTemplate = `{
                 "security": [
                     {
                         "ApiKeyAuth": []
+                    },
+                    {
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Uses the configured LLM to summarize the first exchange into a concise title. Only updates if the current title appears default/user-unset.",
@@ -871,6 +895,9 @@ const docTemplate = `{
                 "security": [
                     {
                         "ApiKeyAuth": []
+                    },
+                    {
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Get all chat sessions for a specific transcription",
@@ -1006,6 +1033,9 @@ const docTemplate = `{
                 "security": [
                     {
                         "ApiKeyAuth": []
+                    },
+                    {
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Get a note by its ID",
@@ -1047,6 +1077,9 @@ const docTemplate = `{
                 "security": [
                     {
                         "ApiKeyAuth": []
+                    },
+                    {
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Update the content of a note",
@@ -1152,6 +1185,9 @@ const docTemplate = `{
                 "security": [
                     {
                         "ApiKeyAuth": []
+                    },
+                    {
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Get list of all transcription profiles",
@@ -1178,6 +1214,9 @@ const docTemplate = `{
                 "security": [
                     {
                         "ApiKeyAuth": []
+                    },
+                    {
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Create a new transcription profile",
@@ -1226,6 +1265,9 @@ const docTemplate = `{
                 "security": [
                     {
                         "ApiKeyAuth": []
+                    },
+                    {
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Get a transcription profile by ID",
@@ -1267,6 +1309,9 @@ const docTemplate = `{
                 "security": [
                     {
                         "ApiKeyAuth": []
+                    },
+                    {
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Update a transcription profile",
@@ -1329,6 +1374,9 @@ const docTemplate = `{
                 "security": [
                     {
                         "ApiKeyAuth": []
+                    },
+                    {
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Delete a transcription profile",
@@ -1375,6 +1423,9 @@ const docTemplate = `{
                 "security": [
                     {
                         "ApiKeyAuth": []
+                    },
+                    {
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Mark the specified profile as the default profile",
@@ -1440,6 +1491,9 @@ const docTemplate = `{
                     },
                     {
                         "BearerAuth": []
+                    },
+                    {
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Get all summarization templates",
@@ -1466,6 +1520,9 @@ const docTemplate = `{
                 "security": [
                     {
                         "ApiKeyAuth": []
+                    },
+                    {
+                        "BearerAuth": []
                     },
                     {
                         "BearerAuth": []
@@ -1618,6 +1675,9 @@ const docTemplate = `{
                     },
                     {
                         "BearerAuth": []
+                    },
+                    {
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Get a summarization template by ID",
@@ -1668,6 +1728,9 @@ const docTemplate = `{
                 "security": [
                     {
                         "ApiKeyAuth": []
+                    },
+                    {
+                        "BearerAuth": []
                     },
                     {
                         "BearerAuth": []
@@ -1902,6 +1965,9 @@ const docTemplate = `{
                 "security": [
                     {
                         "ApiKeyAuth": []
+                    },
+                    {
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Get list of supported WhisperX models",
@@ -1928,6 +1994,9 @@ const docTemplate = `{
                 "security": [
                     {
                         "ApiKeyAuth": []
+                    },
+                    {
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Submit an audio file for temporary transcription (data discarded after 6 hours)",
@@ -1995,6 +2064,9 @@ const docTemplate = `{
                 "security": [
                     {
                         "ApiKeyAuth": []
+                    },
+                    {
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Get the current status of a quick transcription job",
@@ -2241,6 +2313,9 @@ const docTemplate = `{
                     },
                     {
                         "BearerAuth": []
+                    },
+                    {
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Get a specific transcription record by its ID",
@@ -2282,6 +2357,9 @@ const docTemplate = `{
                 "security": [
                     {
                         "ApiKeyAuth": []
+                    },
+                    {
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Delete a transcription job and its associated files",
@@ -2440,6 +2518,9 @@ const docTemplate = `{
                 "security": [
                     {
                         "ApiKeyAuth": []
+                    },
+                    {
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Get all notes attached to a transcription, ordered by time and creation",
@@ -2493,6 +2574,9 @@ const docTemplate = `{
                 "security": [
                     {
                         "ApiKeyAuth": []
+                    },
+                    {
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Create a new note attached to the specified transcription",
@@ -2734,6 +2818,9 @@ const docTemplate = `{
                 "security": [
                     {
                         "ApiKeyAuth": []
+                    },
+                    {
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Update the title of an audio file / transcription",

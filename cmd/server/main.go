@@ -13,7 +13,6 @@ import (
 	"scriberr/internal/auth"
 	"scriberr/internal/config"
 	"scriberr/internal/database"
-	"scriberr/internal/models"
 	"scriberr/internal/queue"
 	"scriberr/internal/transcription"
 
@@ -93,11 +92,6 @@ func main() {
 		Handler: router,
 	}
 
-	// Initialize default data
-	if err := initializeDefaultData(cfg); err != nil {
-		log.Printf("Warning: Failed to initialize default data: %v", err)
-	}
-
 	// Start server in a goroutine
 	go func() {
 		log.Printf("Starting server on %s:%s", cfg.Host, cfg.Port)
@@ -124,32 +118,4 @@ func main() {
 
 	log.Println("Server exited")
 }
-
-// initializeDefaultData creates default API key for development (user registration handled separately)
-func initializeDefaultData(cfg *config.Config) error {
-	// Create default API key for backward compatibility
-	var apiKeyCount int64
-	database.DB.Model(&models.APIKey{}).Count(&apiKeyCount)
-	
-	if apiKeyCount == 0 {
-		defaultAPIKey := models.APIKey{
-			Key:         cfg.DefaultAPIKey,
-			Name:        "Default Development Key",
-			Description: strPtr("Default API key for development and testing"),
-			IsActive:    true,
-		}
-
-		if err := database.DB.Create(&defaultAPIKey).Error; err != nil {
-			return err
-		}
-
-		log.Printf("Created default API key: %s", cfg.DefaultAPIKey)
-	}
-
-	return nil
-}
-
-// Helper function to create string pointer
-func strPtr(s string) *string {
-	return &s
-}
+ 

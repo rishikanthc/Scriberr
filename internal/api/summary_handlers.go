@@ -34,6 +34,7 @@ type SummarySettingsResponse struct {
 // @Success 200 {array} models.SummaryTemplate
 // @Security ApiKeyAuth
 // @Security BearerAuth
+// @Security BearerAuth
 // @Router /api/v1/summaries [get]
 func (h *Handler) ListSummaryTemplates(c *gin.Context) {
     var items []models.SummaryTemplate
@@ -55,6 +56,7 @@ func (h *Handler) ListSummaryTemplates(c *gin.Context) {
 // @Failure 400 {object} map[string]string
 // @Failure 500 {object} map[string]string
 // @Security ApiKeyAuth
+// @Security BearerAuth
 // @Security BearerAuth
 // @Router /api/v1/summaries [post]
 func (h *Handler) CreateSummaryTemplate(c *gin.Context) {
@@ -89,6 +91,7 @@ func (h *Handler) CreateSummaryTemplate(c *gin.Context) {
 // @Failure 500 {object} map[string]string
 // @Security ApiKeyAuth
 // @Security BearerAuth
+// @Security BearerAuth
 // @Router /api/v1/summaries/{id} [get]
 func (h *Handler) GetSummaryTemplate(c *gin.Context) {
     id := c.Param("id")
@@ -117,6 +120,7 @@ func (h *Handler) GetSummaryTemplate(c *gin.Context) {
 // @Failure 404 {object} map[string]string
 // @Failure 500 {object} map[string]string
 // @Security ApiKeyAuth
+// @Security BearerAuth
 // @Security BearerAuth
 // @Router /api/v1/summaries/{id} [put]
 func (h *Handler) UpdateSummaryTemplate(c *gin.Context) {

@@ -47,8 +47,9 @@ func SetupRoutes(handler *Handler, authService *auth.AuthService) *gin.Engine {
 			auth.POST("/logout", handler.Logout)
 			
 			// Account management routes (require authentication)
-			authProtected := auth.Group("")
-			authProtected.Use(middleware.AuthMiddleware(authService))
+        authProtected := auth.Group("")
+        // Account management must require JWT (API keys do not represent a user)
+        authProtected.Use(middleware.JWTOnlyMiddleware(authService))
 			{
 				authProtected.POST("/change-password", handler.ChangePassword)
 				authProtected.POST("/change-username", handler.ChangeUsername)
@@ -56,8 +57,9 @@ func SetupRoutes(handler *Handler, authService *auth.AuthService) *gin.Engine {
 		}
 
 		// API Key management routes (require authentication)
-		apiKeys := v1.Group("/api-keys")
-		apiKeys.Use(middleware.AuthMiddleware(authService))
+        apiKeys := v1.Group("/api-keys")
+        // API key management restricted to JWT-authenticated users
+        apiKeys.Use(middleware.JWTOnlyMiddleware(authService))
 		{
 			apiKeys.GET("/", handler.ListAPIKeys)
 			apiKeys.POST("/", handler.CreateAPIKey)
