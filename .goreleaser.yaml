@@ -121,7 +121,6 @@ brews:
     homepage: https://github.com/rishikanthc/Scriberr
     description: "Audio transcription service using WhisperX with speaker diarization"
     license: MIT
-    folder: Formula
     dependencies:
       - name: python@3.11
         type: optional
