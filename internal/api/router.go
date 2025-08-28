@@ -1,9 +1,9 @@
 package api
 
 import (
-	"scriberr/internal/auth"
-	"scriberr/internal/web"
-	"scriberr/pkg/middleware"
+    "scriberr/internal/auth"
+    "scriberr/internal/web"
+    "scriberr/pkg/middleware"
 
 	"github.com/gin-gonic/gin"
 	swaggerFiles "github.com/swaggo/files"

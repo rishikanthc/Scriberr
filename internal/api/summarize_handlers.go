@@ -41,7 +41,7 @@ func (h *Handler) Summarize(c *gin.Context) {
         return
     }
 
-    openaiService, err := h.getOpenAIService()
+    svc, _, err := h.getLLMService()
     if err != nil {
         c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
         return
@@ -58,7 +58,7 @@ func (h *Handler) Summarize(c *gin.Context) {
     ctx, cancel := context.WithTimeout(c.Request.Context(), 2*time.Minute)
     defer cancel()
 
-    contentChan, errChan := openaiService.ChatCompletionStream(ctx, req.Model, messages, 0.0)
+    contentChan, errChan := svc.ChatCompletionStream(ctx, req.Model, messages, 0.0)
     flusher, _ := c.Writer.(http.Flusher)
     writer := bufio.NewWriter(c.Writer)
 

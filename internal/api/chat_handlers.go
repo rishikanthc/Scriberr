@@ -61,21 +61,29 @@ type ChatSessionWithMessages struct {
 	Messages []ChatMessageResponse `json:"messages"`
 }
 
-// getOpenAIService creates an OpenAI service from the active LLM config
-func (h *Handler) getOpenAIService() (*llm.OpenAIService, error) {
-	var llmConfig models.LLMConfig
-	if err := database.DB.Where("is_active = ? AND provider = ?", true, "openai").First(&llmConfig).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, fmt.Errorf("no active OpenAI configuration found")
-		}
-		return nil, fmt.Errorf("failed to get LLM config: %w", err)
-	}
-
-	if llmConfig.APIKey == nil || *llmConfig.APIKey == "" {
-		return nil, fmt.Errorf("OpenAI API key not configured")
-	}
-
-	return llm.NewOpenAIService(*llmConfig.APIKey), nil
+// getLLMService returns a provider-agnostic LLM service based on active config
+func (h *Handler) getLLMService() (llm.Service, string, error) {
+    var cfg models.LLMConfig
+    if err := database.DB.Where("is_active = ?", true).First(&cfg).Error; err != nil {
+        if err == gorm.ErrRecordNotFound {
+            return nil, "", fmt.Errorf("no active LLM configuration found")
+        }
+        return nil, "", fmt.Errorf("failed to get LLM config: %w", err)
+    }
+    switch strings.ToLower(cfg.Provider) {
+    case "openai":
+        if cfg.APIKey == nil || *cfg.APIKey == "" {
+            return nil, cfg.Provider, fmt.Errorf("OpenAI API key not configured")
+        }
+        return llm.NewOpenAIService(*cfg.APIKey), cfg.Provider, nil
+    case "ollama":
+        if cfg.BaseURL == nil || *cfg.BaseURL == "" {
+            return nil, cfg.Provider, fmt.Errorf("Ollama base URL not configured")
+        }
+        return llm.NewOllamaService(*cfg.BaseURL), cfg.Provider, nil
+    default:
+        return nil, cfg.Provider, fmt.Errorf("unsupported LLM provider: %s", cfg.Provider)
+    }
 }
 
 // @Summary Get available chat models
@@ -89,20 +97,20 @@ func (h *Handler) getOpenAIService() (*llm.OpenAIService, error) {
 // @Security ApiKeyAuth
 // @Security BearerAuth
 func (h *Handler) GetChatModels(c *gin.Context) {
-	openaiService, err := h.getOpenAIService()
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
+    svc, _, err := h.getLLMService()
+    if err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+        return
+    }
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	models, err := openaiService.GetModels(ctx)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch models: " + err.Error()})
-		return
-	}
+    models, err := svc.GetModels(ctx)
+    if err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch models: " + err.Error()})
+        return
+    }
 
 	c.JSON(http.StatusOK, ChatModelsResponse{Models: models})
 }
@@ -143,12 +151,12 @@ func (h *Handler) CreateChatSession(c *gin.Context) {
 		return
 	}
 
-	// Verify OpenAI service is available
-	_, err := h.getOpenAIService()
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
+    // Verify LLM service is available
+    _, _, err := h.getLLMService()
+    if err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+        return
+    }
 
 	// Create chat session
 	title := req.Title
@@ -353,12 +361,12 @@ func (h *Handler) SendChatMessage(c *gin.Context) {
 		return
 	}
 
-	// Get OpenAI service
-	openaiService, err := h.getOpenAIService()
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
+    // Get LLM service
+    svc, _, err := h.getLLMService()
+    if err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+        return
+    }
 
 	// Save user message
 	userMessage := models.ChatMessage{
@@ -387,7 +395,7 @@ func (h *Handler) SendChatMessage(c *gin.Context) {
 	database.DB.Where("chat_session_id = ?", sessionID).Order("created_at ASC").Find(&messages)
 
 	// Build OpenAI messages including transcript context
-	var openaiMessages []llm.ChatMessage
+    var openaiMessages []llm.ChatMessage
 	
 	// Add system message with transcript context
 	if session.Transcription.Transcript != nil {
@@ -416,7 +424,7 @@ func (h *Handler) SendChatMessage(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
-	contentChan, errorChan := openaiService.ChatCompletionStream(ctx, session.Model, openaiMessages, 0.7)
+    contentChan, errorChan := svc.ChatCompletionStream(ctx, session.Model, openaiMessages, 0.7)
 
 	var assistantResponse strings.Builder
 	for {
@@ -679,8 +687,8 @@ Return ONLY the title string.`
         chatMsgs = append(chatMsgs, llm.ChatMessage{Role: role, Content: msgs[i].Content})
     }
 
-    // Use configured OpenAI service
-    openaiService, err := h.getOpenAIService()
+    // Use configured LLM service
+    svc, _, err := h.getLLMService()
     if err != nil {
         c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
         return
@@ -688,7 +696,7 @@ Return ONLY the title string.`
 
     ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
     defer cancel()
-    resp, err := openaiService.ChatCompletion(ctx, session.Model, chatMsgs, 0.2)
+    resp, err := svc.ChatCompletion(ctx, session.Model, chatMsgs, 0.2)
     if err != nil || resp == nil || len(resp.Choices) == 0 || resp.Choices[0].Message.Content == "" {
         c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate title"})
         return
