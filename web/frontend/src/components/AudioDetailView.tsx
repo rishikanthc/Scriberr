@@ -90,6 +90,7 @@ export function AudioDetailView({ audioId }: AudioDetailViewProps) {
 	const wavesurferRef = useRef<WaveSurfer | null>(null);
 	const transcriptRef = useRef<HTMLDivElement>(null);
 	const highlightedWordRef = useRef<HTMLSpanElement>(null);
+    const audioSectionRef = useRef<HTMLDivElement>(null);
 
     // Notes state
     const [notes, setNotes] = useState<Note[]>([]);
@@ -161,6 +162,8 @@ useEffect(() => {
             } catch { setLlmReady(false); }
         })();
 }, [audioId]);
+
+    // Former floating-controls visibility logic removed: controls are always fixed.
 
 	// Initialize WaveSurfer when audioFile is available - with proper DOM timing
     useEffect(() => {
@@ -951,7 +954,7 @@ useEffect(() => {
 				</div>
 
 				{/* Audio Player Section */}
-				<div className={`bg-white dark:bg-gray-800 rounded-xl ${audioCollapsed ? 'p-3 sm:p-4' : 'p-3 sm:p-6'} mb-3 sm:mb-6`}>
+				<div ref={audioSectionRef} className={`bg-white dark:bg-gray-800 rounded-xl ${audioCollapsed ? 'p-3 sm:p-4' : 'p-3 sm:p-6'} mb-3 sm:mb-6`}>
 					<div className="mb-6">
 						<div className="mb-2 flex items-center gap-2 justify-between">
 							{editingTitle ? (
@@ -1235,6 +1238,69 @@ useEffect(() => {
 						</div>
 					</div>
 				)}
+
+                {/* Fixed bottom-left compact circular control with progress ring */}
+                <div className="fixed bottom-4 left-4 z-[9999]">
+                    {(() => {
+                        const duration = wavesurferRef.current?.getDuration() ?? 0
+                        const progress = duration > 0 ? Math.min(1, Math.max(0, currentTime / duration)) : 0
+                        const size = 64 // outer box size
+                        const strokeWidth = 5
+                        const center = size / 2
+                        const radius = center - strokeWidth - 2
+                        const circumference = 2 * Math.PI * radius
+                        const dashOffset = circumference * (1 - progress)
+                        return (
+                            <div
+                                className="relative"
+                                style={{ width: size, height: size }}
+                                aria-label="Audio playback controls"
+                            >
+                                <svg
+                                    width={size}
+                                    height={size}
+                                    className="block -rotate-90 drop-shadow-sm"
+                                    role="img"
+                                    aria-hidden
+                                >
+                                    <circle
+                                        cx={center}
+                                        cy={center}
+                                        r={radius}
+                                        fill="none"
+                                        stroke="currentColor"
+                                        className="text-white"
+                                        strokeWidth={strokeWidth}
+                                    />
+                                    <circle
+                                        cx={center}
+                                        cy={center}
+                                        r={radius}
+                                        fill="none"
+                                        stroke="currentColor"
+                                        className="text-indigo-500 dark:text-indigo-400"
+                                        strokeWidth={strokeWidth}
+                                        strokeLinecap="round"
+                                        strokeDasharray={circumference}
+                                        strokeDashoffset={dashOffset}
+                                    />
+                                </svg>
+                                <button
+                                    onClick={togglePlayPause}
+                                    aria-label={isPlaying ? 'Pause audio' : 'Play audio'}
+                                    title={isPlaying ? 'Pause' : 'Play'}
+                                    className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow-lg transition-colors flex items-center justify-center cursor-pointer"
+                                >
+                                    {isPlaying ? (
+                                        <Pause className="h-5 w-5" />
+                                    ) : (
+                                        <Play className="h-5 w-5 ml-0.5" />
+                                    )}
+                                </button>
+                            </div>
+                        )
+                    })()}
+                </div>
 
 			{/* Download Options Dialog */}
 			<Dialog open={downloadDialogOpen} onOpenChange={setDownloadDialogOpen}>

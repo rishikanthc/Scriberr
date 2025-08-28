@@ -30,3 +30,5 @@ data/scriberr.db
 data/transcripts
 data/uploads
 data/whisperx-env/test
+data_bak
+web/landing_bak
