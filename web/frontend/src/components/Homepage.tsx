@@ -108,7 +108,7 @@ export function Homepage() {
 				
 				{/* Upload Progress */}
 				{uploadProgress.length > 0 && (
-					<div className="mb-4 sm:mb-6 bg-white dark:bg-gray-800 rounded-xl p-4 sm:p-6 border border-gray-200 dark:border-gray-700">
+					<div className="mb-4 sm:mb-6 bg-white dark:bg-gray-800 rounded-xl p-4 sm:p-6">
 						<div className="flex items-center justify-between mb-4">
 							<h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
 								Uploading Files ({uploadProgress.filter(p => p.status === 'success').length}/{uploadProgress.length})
