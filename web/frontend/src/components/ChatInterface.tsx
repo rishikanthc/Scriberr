@@ -250,28 +250,55 @@ export function ChatInterface({ transcriptionId, activeSessionId, onSessionChang
         ));
       }
 
-      // Auto-generate a better session title using LLM (server decides whether to update)
-      try {
-        const sid = activeSession?.id || activeSessionId
-        if (sid) {
-          const res = await fetch(`/api/v1/chat/sessions/${sid}/title/auto`, {
-            method: 'POST',
-            headers: { ...getAuthHeaders() },
-          })
-          if (res.ok) {
-            const updated = await res.json()
-            setSessions(prev => prev.map(s => s.id === updated.id ? { ...s, title: updated.title } : s))
-            if ((activeSession && activeSession.id === updated.id) || (!activeSession && sid === updated.id)) {
-              setActiveSession(prev => prev ? { ...prev, title: updated.title } as any : prev)
+      // Store the complete response before any potential session updates
+      const finalAssistantContent = assistantContent;
+      const finalMessages = [...messages, userMessage, { ...assistantMessage, content: finalAssistantContent }];
+      
+      // Auto-generate title after 2nd exchange (when we have 2 user messages and 2 assistant responses)
+      const userMessageCount = finalMessages.filter(msg => msg.role === 'user').length;
+      const assistantMessageCount = finalMessages.filter(msg => msg.role === 'assistant').length;
+      
+      // Only generate title after the 2nd complete exchange
+      if (userMessageCount === 2 && assistantMessageCount === 2) {
+        // Wait a moment to ensure UI is updated, then generate title
+        setTimeout(async () => {
+          try {
+            const sid = activeSession?.id || activeSessionId;
+            if (sid) {
+              const res = await fetch(`/api/v1/chat/sessions/${sid}/title/auto`, {
+                method: 'POST',
+                headers: { ...getAuthHeaders() }
+              });
+              
+              if (res.ok) {
+                const updated = await res.json();
+                setSessions(prev => prev.map(s => s.id === updated.id ? { ...s, title: updated.title } : s));
+                if ((activeSession && activeSession.id === updated.id) || (!activeSession && sid === updated.id)) {
+                  setActiveSession(prev => prev ? { ...prev, title: updated.title } as any : prev);
+                }
+                toast({ title: 'Chat Renamed', description: updated.title });
+                emitSessionTitleUpdated({ sessionId: updated.id, title: updated.title });
+              }
             }
-            toast({ title: 'Chat Renamed', description: updated.title })
-            emitSessionTitleUpdated({ sessionId: updated.id, title: updated.title })
+          } catch (error) {
+            console.error('Error generating title:', error);
           }
-        }
-      } catch {}
+        }, 500); // Small delay to ensure message is fully processed
+      }
 
-      // Reload sessions to update message count and last message
-      loadChatSessions();
+      // Update session metadata without full reload to prevent message loss
+      try {
+        const sid = activeSession?.id || activeSessionId;
+        if (sid) {
+          setSessions(prev => prev.map(s => 
+            s.id === sid 
+              ? { ...s, message_count: finalMessages.length, updated_at: new Date().toISOString() }
+              : s
+          ));
+        }
+      } catch (error) {
+        console.error('Error updating session metadata:', error);
+      }
     } catch (err: any) {
       console.error("Error sending message:", err);
       setError(err.message);
