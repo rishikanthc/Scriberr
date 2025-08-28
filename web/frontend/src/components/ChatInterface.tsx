@@ -214,7 +214,7 @@ export function ChatInterface({ transcriptionId, activeSessionId, onSessionChang
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          content: `${messageContent}\n\nTypeset all your answers in markdown and provide the markdown formatted string (Make sure not to wrap the markdown string within fenced codeblocks)-write equations in latex.`,
+          content: `${messageContent}\n\nTypeset all your answers in markdown and provide the markdown formatted string. Write equations in latex. Your response should contain only the markdown formatted string - nothing else. DO NOT wrap your response in code blocks, backticks, or any other formatting - return the raw markdown content directly.`,
         }),
       });
 
@@ -438,6 +438,37 @@ export function ChatInterface({ transcriptionId, activeSessionId, onSessionChang
                   )}
                 </div>
               ))}
+              
+              {/* Loading Indicator */}
+              {isLoading && (
+                <div className="group w-full">
+                  <div className="flex justify-start">
+                    <div className="flex w-full max-w-5xl px-6 mx-auto">
+                      <div className="w-full flex justify-start">
+                        <div className="flex space-x-3 max-w-5xl w-full">
+                          <div className="h-8 w-8 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center flex-shrink-0">
+                            <Bot className="h-4 w-4 text-gray-700 dark:text-gray-200" />
+                          </div>
+                          <div className="flex-1 space-y-2 overflow-hidden">
+                            <div className="flex items-center space-x-2">
+                              <div className="font-medium text-gray-800 dark:text-gray-100 text-sm">Assistant</div>
+                            </div>
+                            <div className="flex items-center space-x-2 text-gray-500 dark:text-gray-400">
+                              <div className="flex space-x-1">
+                                <div className="w-2 h-2 bg-current rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                                <div className="w-2 h-2 bg-current rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                                <div className="w-2 h-2 bg-current rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                              </div>
+                              <span className="text-sm">Generating response...</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
               <div ref={messagesEndRef} />
             </div>
           </div>
