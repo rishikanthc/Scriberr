@@ -32,3 +32,6 @@ data/uploads
 data/whisperx-env/test
 data_bak
 web/landing_bak
+CLAUDE.md
+AGENTS.md
+.env.example
