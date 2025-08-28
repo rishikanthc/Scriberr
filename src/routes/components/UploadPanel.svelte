@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { _ } from 'svelte-i18n';
 	import * as Card from '$lib/components/ui/card';
 	import { audioFiles } from '$lib/stores/audioFiles';
 	import { Progress } from '$lib/components/ui/progress';
@@ -182,7 +183,7 @@
 		>
 			<Card.Content class="p-2">
 				<div class="flex items-center justify-between">
-					<h3 class="font-bold text-gray-50">Upload Audio</h3>
+					<h3 class="font-bold text-gray-50">{$_('upload_panel.title')}</h3>
 					<Button
 						variant="ghost"
 						size="icon"
@@ -213,10 +214,10 @@
 														<p class="font-medium text-gray-50">{fileName}</p>
 														<p class="text-sm text-gray-400">
 															{status.uploadStatus === 'uploading'
-																? 'Uploading...'
+																? $_('upload_panel.status.uploading')
 																: status.uploadStatus === 'success'
-																	? 'Upload complete'
-																	: 'Upload failed'}
+																	? $_('upload_panel.status.success')
+																	: $_('upload_panel.status.failed')}
 														</p>
 													</div>
 												</div>
@@ -254,8 +255,8 @@
 						>
 							<Upload class="h-8 w-8" />
 							<div>
-								<p class="text-lg font-medium">Drop audio files here</p>
-								<p class="text-sm text-gray-500">or click to select files</p>
+								<p class="text-lg font-medium">{$_('upload_panel.dropzone.prompt')}</p>
+								<p class="text-sm text-gray-500">{$_('upload_panel.dropzone.prompt_alt')}</p>
 							</div>
 						</div>
 					</Dropzone>

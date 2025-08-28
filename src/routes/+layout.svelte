@@ -4,6 +4,7 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { goto } from '$app/navigation';
 	import ConfigWizard from './ConfigWizard.svelte';
+	import LanguageSwitcher from '$lib/components/LanguageSwitcher.svelte';
 	import { browser } from '$app/environment';
 	import { Preferences } from '@capacitor/preferences';
 	import { apiFetch, checkAndRefreshToken } from '$lib/api';
@@ -101,8 +102,13 @@
 	});
 </script>
 
-{#if !check?.isConfigured}
-	<ConfigWizard />
-{:else}
-	{@render children()}
-{/if}
+<main>
+	{#if !check?.isConfigured}
+		<ConfigWizard />
+	{:else}
+		<div class="absolute top-4 right-4 z-50">
+			<LanguageSwitcher />
+		</div>
+		{@render children()}
+	{/if}
+</main>

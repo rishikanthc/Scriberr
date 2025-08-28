@@ -1,0 +1,103 @@
+{
+  "test": {
+    "greeting": "哈囉，世界！"
+  },
+  "home": {
+    "nav": {
+      "record": "錄音",
+      "files": "檔案",
+      "upload": "上傳",
+      "status": "狀態",
+      "templates": "範本",
+      "account": "帳戶"
+    },
+    "nav_aria": {
+      "record": "錄製音訊",
+      "files": "檔案",
+      "upload": "上傳檔案",
+      "status": "處理狀態",
+      "templates": "範本",
+      "account": "使用者選單"
+    },
+    "account_menu": {
+      "my_account": "我的帳戶",
+      "logout": "登出"
+    },
+    "files": {
+      "back": "回到檔案列表",
+      "select_prompt": "從列表中選擇一個錄音以查看詳細資訊"
+    }
+  },
+  "upload_panel": {
+    "title": "上傳音訊",
+    "status": {
+      "uploading": "上傳中...",
+      "success": "上傳成功",
+      "failed": "上傳失敗"
+    },
+    "dropzone": {
+      "prompt": "將音訊檔案拖放到此處",
+      "prompt_alt": "或點擊以選擇檔案"
+    }
+  },
+  "settings_panel": {
+    "model_size": {
+      "label": "模型大小",
+      "tiny": "微型 (最快)",
+      "base": "基礎 (平衡)",
+      "small": "小型 (較佳)",
+      "medium": "中型 (良好)",
+      "large": "大型 (最佳)",
+      "large_v2": "大型 v2 (增強)",
+      "large_v3": "大型 v3 (最新)"
+    },
+    "language": {
+      "label": "語言",
+      "auto_detect": "自動偵測"
+    },
+    "cpu_threads": {
+      "label": "CPU 執行緒",
+      "suffix": "執行緒"
+    },
+    "cpu_processors": {
+      "label": "CPU 處理器",
+      "suffix": "處理器"
+    },
+    "speaker_detection": {
+      "label": "說話者偵測",
+      "enable": "啟用說話者識別",
+      "note_title": "注意：",
+      "note_body": "說話者偵測需要一個有權存取 `pyannote` 模型的 HuggingFace API 金鑰。請確保您已將金鑰新增至 `.env` 檔案中的 `HUGGINGFACE_TOKEN` 環境變數。"
+    }
+  },
+  "status_panel": {
+    "title": "進行中的轉錄工作",
+    "progress": {
+      "analyzing": "分析中",
+      "transcribed": "轉錄完成"
+    },
+    "errors": {
+      "connection_lost": "與伺服器連線中斷"
+    },
+    "no_active_jobs": "沒有進行中的轉錄工作"
+  },
+  "templates_list": {
+    "title": "摘要範本",
+    "new_button": "新增",
+    "new_dialog": {
+      "title": "新增範本"
+    },
+    "edit_dialog": {
+      "title": "編輯範本"
+    },
+    "form": {
+      "title_placeholder": "範本標題",
+      "prompt_placeholder": "摘要提示",
+      "save_button": "儲存範本",
+      "update_button": "更新範本"
+    },
+    "toasts": {
+      "created": "範本已建立"
+    }
+  }
+}

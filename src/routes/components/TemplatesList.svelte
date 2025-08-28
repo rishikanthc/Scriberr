@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { _ } from 'svelte-i18n';
+	import { get } from 'svelte/store';
 	import * as Card from '$lib/components/ui/card';
 	import { Button } from '$lib/components/ui/button';
 	import { ScrollArea } from '$lib/components/ui/scroll-area';
@@ -23,7 +25,7 @@
 		dialogOpen = false;
 		title = '';
 		prompt = '';
-		toast.success('Template created');
+		toast.success(get(_)('templates_list.toasts.created'));
 	}
 
 	let editingTitle = $state('');
@@ -72,9 +74,9 @@
 	<Card.Content class="p-2">
 		<div class="mb-4 text-lg font-bold text-white">
 			<div class="flex items-center justify-between">
-				<h3>Summary Templates</h3>
+				<h3>{$_('templates_list.title')}</h3>
 				<Button variant="secondary" size="sm" onclick={() => (dialogOpen = true)}>
-					<div>New</div>
+					<div>{$_('templates_list.new_button')}</div>
 					<CirclePlus size={16} class="text-blue-500" />
 				</Button>
 			</div>
@@ -142,25 +144,25 @@
 <Dialog.Root bind:open={dialogOpen}>
 	<Dialog.Content class="sm:max-w-[425px]">
 		<Dialog.Header>
-			<Dialog.Title>New Template</Dialog.Title>
+			<Dialog.Title>{$_('templates_list.new_dialog.title')}</Dialog.Title>
 		</Dialog.Header>
 
 		<form class="grid gap-4 py-4" onsubmit={(e) => { e.preventDefault(); handleSubmit(); }}>
 			<Input
-				placeholder="Template Title"
+				placeholder={$_('templates_list.form.title_placeholder')}
 				bind:value={title}
 				required
 				class="text-gray-100 placeholder:text-gray-200"
 			/>
 			<Textarea
-				placeholder="Summarization Prompt"
+				placeholder={$_('templates_list.form.prompt_placeholder')}
 				bind:value={prompt}
 				required
 				class="min-h-[100px] text-gray-100 placeholder:text-gray-200"
 			/>
 			<Dialog.Footer>
 				<Button type="submit" class="bg-gray-300 text-gray-700 hover:bg-gray-400"
-					>Save Template</Button
+					>{$_('templates_list.form.save_button')}</Button
 				>
 			</Dialog.Footer>
 		</form>
@@ -170,25 +172,25 @@
 <Dialog.Root bind:open={editDialogOpen}>
 	<Dialog.Content class="sm:max-w-[425px]">
 		<Dialog.Header>
-			<Dialog.Title>Edit Template</Dialog.Title>
+			<Dialog.Title>{$_('templates_list.edit_dialog.title')}</Dialog.Title>
 		</Dialog.Header>
 
 		<form class="grid gap-4 py-4" onsubmit={(e) => { e.preventDefault(); handleEdit(); }}>
 			<Input
-				placeholder="Template Title"
+				placeholder={$_('templates_list.form.title_placeholder')}
 				bind:value={editingTitle}
 				required
 				class="text-gray-100"
 			/>
 			<Textarea
-				placeholder="Summarization Prompt"
+				placeholder={$_('templates_list.form.prompt_placeholder')}
 				bind:value={editingPrompt}
 				required
 				class="min-h-[100px] text-gray-100"
 			/>
 			<Dialog.Footer>
 				<Button type="submit" class="bg-gray-300 text-gray-700 hover:bg-gray-400 "
-					>Update Template</Button
+					>{$_('templates_list.form.update_button')}</Button
 				>
 			</Dialog.Footer>
 		</form>

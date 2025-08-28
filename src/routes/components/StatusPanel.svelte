@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { _ } from 'svelte-i18n';
+	import { get } from 'svelte/store';
 	import { onMount, onDestroy } from 'svelte';
 	import * as Card from '$lib/components/ui/card';
 	import { Progress } from '$lib/components/ui/progress';
@@ -91,7 +93,7 @@
 			activeJobs[id] = {
 				...activeJobs[id],
 				status: 'failed',
-				error: 'Lost connection to server'
+				error: get(_)('status_panel.errors.connection_lost')
 			};
 		};
 	}
@@ -121,7 +123,7 @@
 	class="mx-auto rounded-xl border border-neutral-300/30 bg-neutral-400/15 p-4 shadow-lg backdrop-blur-xl 2xl:w-[500px]"
 >
 	<Card.Content class="p-2">
-		<h2 class="prose-md prose text-gray-50">Active Transcription Jobs</h2>
+		<h2 class="prose-md prose text-gray-50">{$_('status_panel.title')}</h2>
 		<ScrollArea class="h-[300px] pt-4">
 			<div class="space-y-4">
 				{#each Object.entries(activeJobs) as [id, job]}
@@ -147,7 +149,7 @@
 								<div class="mt-4 space-y-1">
 									<Progress value={job.progress} class="h-2" />
 									<p class="text-right text-sm text-gray-300">
-										{job.progress}% {job.status === 'diarizing' ? 'analyzing' : 'transcribed'}
+										{job.progress}% {job.status === 'diarizing' ? $_('status_panel.progress.analyzing') : $_('status_panel.progress.transcribed')}
 									</p>
 								</div>
 							{/if}
@@ -162,7 +164,7 @@
 				{/each}
 
 				{#if Object.keys(activeJobs).length === 0}
-					<div class="text-center text-gray-500">No active transcription jobs</div>
+					<div class="text-center text-gray-500">{$_('status_panel.no_active_jobs')}</div>
 				{/if}
 			</div>
 		</ScrollArea>

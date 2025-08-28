@@ -1,0 +1,103 @@
+{
+  "test": {
+    "greeting": "Hello, World!"
+  },
+  "home": {
+    "nav": {
+      "record": "Record",
+      "files": "Files",
+      "upload": "Upload",
+      "status": "Status",
+      "templates": "Templates",
+      "account": "Account"
+    },
+    "nav_aria": {
+      "record": "Record Audio",
+      "files": "Files",
+      "upload": "Upload Files",
+      "status": "Processing Status",
+      "templates": "Templates",
+      "account": "User Menu"
+    },
+    "account_menu": {
+      "my_account": "My Account",
+      "logout": "Log out"
+    },
+    "files": {
+      "back": "Back to Files",
+      "select_prompt": "Select a recording from the list to view details"
+    }
+  },
+  "upload_panel": {
+    "title": "Upload Audio",
+    "status": {
+      "uploading": "Uploading...",
+      "success": "Upload complete",
+      "failed": "Upload failed"
+    },
+    "dropzone": {
+      "prompt": "Drop audio files here",
+      "prompt_alt": "or click to select files"
+    }
+  },
+  "settings_panel": {
+    "model_size": {
+      "label": "Model Size",
+      "tiny": "Tiny (Fast)",
+      "base": "Base (Balanced)",
+      "small": "Small (Better)",
+      "medium": "Medium (Good)",
+      "large": "Large (Best)",
+      "large_v2": "Large v2 (Enhanced)",
+      "large_v3": "Large v3 (Latest)"
+    },
+    "language": {
+      "label": "Language",
+      "auto_detect": "Auto Detect"
+    },
+    "cpu_threads": {
+      "label": "CPU Threads",
+      "suffix": "Threads"
+    },
+    "cpu_processors": {
+      "label": "CPU Processors",
+      "suffix": "Processors"
+    },
+    "speaker_detection": {
+      "label": "Speaker Detection",
+      "enable": "Enable speaker identification",
+      "note_title": "Note:",
+      "note_body": "Speaker detection requires a HuggingFace API token with access to `pyannote` models. Make sure to add your token to the `HUGGINGFACE_TOKEN` environment variable in your `.env` file."
+    }
+  },
+  "status_panel": {
+    "title": "Active Transcription Jobs",
+    "progress": {
+      "analyzing": "analyzing",
+      "transcribed": "transcribed"
+    },
+    "errors": {
+      "connection_lost": "Lost connection to server"
+    },
+    "no_active_jobs": "No active transcription jobs"
+  },
+  "templates_list": {
+    "title": "Summary Templates",
+    "new_button": "New",
+    "new_dialog": {
+      "title": "New Template"
+    },
+    "edit_dialog": {
+      "title": "Edit Template"
+    },
+    "form": {
+      "title_placeholder": "Template Title",
+      "prompt_placeholder": "Summarization Prompt",
+      "save_button": "Save Template",
+      "update_button": "Update Template"
+    },
+    "toasts": {
+      "created": "Template created"
+    }
+  }
+}

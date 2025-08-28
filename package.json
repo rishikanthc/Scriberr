@@ -70,6 +70,7 @@
 		"postgres": "",
 		"speech-recognition": "",
 		"svelte-file-dropzone": "",
-		"wavesurfer.js": ""
+		"wavesurfer.js": "",
+		"svelte-i18n": "4.0.1"
 	}
 }

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { _ } from 'svelte-i18n';
 	import { Switch } from '$lib/components/ui/switch';
 	import { Label } from '$lib/components/ui/label';
 	import * as Select from '$lib/components/ui/select';
@@ -112,20 +113,20 @@
 	<!-- Model Size -->
 	<div class="space-y-2">
 		<Label class="text-sm text-gray-100"
-			>Model Size
+			>{$_('settings_panel.model_size.label')}
 			<Select.Root bind:value={transcriptionOptions.modelSize} type="single">
 				<Select.Trigger
 					class="border border-neutral-500/40 bg-neutral-900/40 shadow-lg backdrop-blur-md"
-					>{transcriptionOptions.modelSize}</Select.Trigger
+					>{$_(`settings_panel.model_size.${transcriptionOptions.modelSize}`)}</Select.Trigger
 				>
 				<Select.Content>
-					<Select.Item value="tiny">Tiny (Fast)</Select.Item>
-					<Select.Item value="base">Base (Balanced)</Select.Item>
-					<Select.Item value="small">Small (Better)</Select.Item>
-					<Select.Item value="medium">Medium (Good)</Select.Item>
-					<Select.Item value="large">Large (Best)</Select.Item>
-					<Select.Item value="large-v2">Large v2 (Enhanced)</Select.Item>
-					<Select.Item value="large-v3">Large v3 (Latest)</Select.Item>
+					<Select.Item value="tiny">{$_('settings_panel.model_size.tiny')}</Select.Item>
+					<Select.Item value="base">{$_('settings_panel.model_size.base')}</Select.Item>
+					<Select.Item value="small">{$_('settings_panel.model_size.small')}</Select.Item>
+					<Select.Item value="medium">{$_('settings_panel.model_size.medium')}</Select.Item>
+					<Select.Item value="large">{$_('settings_panel.model_size.large')}</Select.Item>
+					<Select.Item value="large-v2">{$_('settings_panel.model_size.large_v2')}</Select.Item>
+					<Select.Item value="large-v3">{$_('settings_panel.model_size.large_v3')}</Select.Item>
 				</Select.Content>
 			</Select.Root>
 		</Label>
@@ -134,16 +135,16 @@
 	<!-- Language -->
 	<div class="space-y-2">
 		<Label class="text-sm text-gray-100"
-			>Language
+			>{$_('settings_panel.language.label')}
 			<Select.Root bind:value={transcriptionOptions.language} type="single">
 				<Select.Trigger
 					class="border border-neutral-500/40 bg-neutral-900/40 shadow-lg backdrop-blur-md"
 				>
-					{WHISPER_LANGUAGES[transcriptionOptions.language]}
+					{transcriptionOptions.language === 'auto' ? $_('settings_panel.language.auto_detect') : WHISPER_LANGUAGES[transcriptionOptions.language]}
 				</Select.Trigger>
 				<Select.Content>
 					{#each Object.entries(WHISPER_LANGUAGES) as [code, name]}
-						<Select.Item value={code}>{name}</Select.Item>
+						<Select.Item value={code}>{code === 'auto' ? $_('settings_panel.language.auto_detect') : name}</Select.Item>
 					{/each}
 				</Select.Content>
 			</Select.Root>
@@ -153,15 +154,15 @@
 	<!-- CPU Threads -->
 	<div class="space-y-2">
 		<Label class="text-sm text-gray-100"
-			>CPU Threads
+			>{$_('settings_panel.cpu_threads.label')}
 			<Select.Root bind:value={transcriptionOptions.threads} type="single">
 				<Select.Trigger
 					class="border border-neutral-500/40 bg-neutral-900/40 shadow-lg backdrop-blur-md"
-					>{transcriptionOptions.threads} Threads</Select.Trigger
+					>{transcriptionOptions.threads} {$_('settings_panel.cpu_threads.suffix')}</Select.Trigger
 				>
 				<Select.Content>
 					{#each [1, 2, 4, 6, 8] as n}
-						<Select.Item value={n}>{n} Threads</Select.Item>
+						<Select.Item value={n}>{n} {$_('settings_panel.cpu_threads.suffix')}</Select.Item>
 					{/each}
 				</Select.Content>
 			</Select.Root>
@@ -171,15 +172,15 @@
 	<!-- CPU Processors -->
 	<div class="space-y-2">
 		<Label class="text-sm text-gray-100"
-			>CPU Processors
+			>{$_('settings_panel.cpu_processors.label')}
 			<Select.Root bind:value={transcriptionOptions.processors} type="single">
 				<Select.Trigger
 					class="border border-neutral-500/40 bg-neutral-900/40 shadow-lg backdrop-blur-md"
-					>{transcriptionOptions.processors} Processors</Select.Trigger
+					>{transcriptionOptions.processors} {$_('settings_panel.cpu_processors.suffix')}</Select.Trigger
 				>
 				<Select.Content>
 					{#each [1, 2, 3, 4] as n}
-						<Select.Item value={n}>{n} Processors</Select.Item>
+						<Select.Item value={n}>{n} {$_('settings_panel.cpu_processors.suffix')}</Select.Item>
 					{/each}
 				</Select.Content>
 			</Select.Root>
@@ -187,9 +188,8 @@
 	</div>
 
 	<!-- Diarization -->
-	<!-- Diarization -->
 	<div class="space-y-2">
-		<Label class="text-sm font-bold text-gray-50">Speaker Detection</Label>
+		<Label class="text-sm font-bold text-gray-50">{$_('settings_panel.speaker_detection.label')}</Label>
 		<div class="flex items-center space-x-2">
 			<Switch
 				id="diarization"
@@ -197,14 +197,13 @@
 				checked={transcriptionOptions.diarization}
 				onCheckedChange={(checked) => (transcriptionOptions.diarization = checked)}
 			/>
-			<Label for="diarization" class="text-sm text-gray-100">Enable speaker identification</Label>
+			<Label for="diarization" class="text-sm text-gray-100">{$_('settings_panel.speaker_detection.enable')}</Label>
 		</div>
 		{#if transcriptionOptions.diarization}
 			<div class="mt-2 rounded-md bg-amber-800/20 p-2 text-xs text-amber-400">
 				<p>
-					<strong>Note:</strong> Speaker detection requires a HuggingFace API token with access to 
-					<code>pyannote</code> models. Make sure to add your token to the <code>HUGGINGFACE_TOKEN</code>
-					environment variable in your <code>.env</code> file.
+					<strong>{$_('settings_panel.speaker_detection.note_title')}</strong>
+					{$_('settings_panel.speaker_detection.note_body')}
 				</p>
 			</div>
 		{/if}
