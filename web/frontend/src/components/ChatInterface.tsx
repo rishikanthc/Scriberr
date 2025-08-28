@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Send, Bot, User, MessageCircle, Plus, Trash2, Edit2, Copy, Check } from "lucide-react";
+import { Send, Bot, User, MessageCircle, Copy, Check } from "lucide-react";
 import ReactMarkdown from 'react-markdown'
 import remarkMath from 'remark-math'
 import rehypeKatex from 'rehype-katex'
@@ -9,9 +9,6 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { useAuth } from "../contexts/AuthContext";
 import { useChatEvents } from "../contexts/ChatEventsContext";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "./ui/dialog";
-import { Label } from "./ui/label";
 import { useToast } from "./ui/toast";
 
 interface ChatSession {
@@ -46,7 +43,7 @@ interface ChatInterfaceProps {
   hideSidebar?: boolean;
 }
 
-export function ChatInterface({ transcriptionId, activeSessionId, onSessionChange, hideSidebar = false }: ChatInterfaceProps) {
+export function ChatInterface({ transcriptionId, activeSessionId, onSessionChange }: ChatInterfaceProps) {
   const { getAuthHeaders } = useAuth();
   const { emitSessionTitleUpdated } = useChatEvents();
   const { toast } = useToast();
@@ -56,12 +53,7 @@ export function ChatInterface({ transcriptionId, activeSessionId, onSessionChang
   const [inputMessage, setInputMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [streamingMessage, setStreamingMessage] = useState("");
-  const [availableModels, setAvailableModels] = useState<string[]>([]);
   const [selectedModel, setSelectedModel] = useState("gpt-3.5-turbo");
-  const [showNewSessionDialog, setShowNewSessionDialog] = useState(false);
-  const [newSessionTitle, setNewSessionTitle] = useState("");
-  const [editingTitle, setEditingTitle] = useState<string | null>(null);
-  const [editTitle, setEditTitle] = useState("");
   const [error, setError] = useState<string | null>(null);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -123,7 +115,6 @@ export function ChatInterface({ transcriptionId, activeSessionId, onSessionChang
       }
       
       const data = await response.json();
-      setAvailableModels(data.models || []);
       if (data.models && data.models.length > 0 && !selectedModel) {
         setSelectedModel(data.models[0]);
       }
@@ -134,7 +125,6 @@ export function ChatInterface({ transcriptionId, activeSessionId, onSessionChang
     } catch (err: any) {
       console.error("Error loading chat models:", err);
       setError(err.message);
-      setAvailableModels([]);
       setSessions([]);
     }
   };
@@ -196,108 +186,6 @@ export function ChatInterface({ transcriptionId, activeSessionId, onSessionChang
       console.error("Error loading chat session:", err);
       setError(err.message);
       setMessages([]);
-    }
-  };
-
-  const createNewSession = async () => {
-    if (!selectedModel || !availableModels || availableModels.length === 0) {
-      setError("Please wait for models to load or configure OpenAI API key");
-      return;
-    }
-
-    try {
-      const response = await fetch("/api/v1/chat/sessions", {
-        method: "POST",
-        headers: {
-          ...getAuthHeaders(),
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          transcription_id: transcriptionId,
-          model: selectedModel,
-          title: newSessionTitle.trim() || undefined,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to create chat session");
-      }
-
-      const newSession = await response.json();
-      setSessions(prev => [newSession, ...prev]);
-      setActiveSession(newSession);
-      setMessages([]);
-      setShowNewSessionDialog(false);
-      setNewSessionTitle("");
-      setError(null);
-      onSessionChange?.(newSession.id);
-    } catch (err: any) {
-      console.error("Error creating chat session:", err);
-      setError(err.message);
-    }
-  };
-
-  const updateSessionTitle = async (sessionId: string, newTitle: string) => {
-    try {
-      const response = await fetch(`/api/v1/chat/sessions/${sessionId}/title`, {
-        method: "PUT",
-        headers: {
-          ...getAuthHeaders(),
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ title: newTitle }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to update title");
-      }
-
-      const updatedSession = await response.json();
-      setSessions(prev => prev.map(s => s.id === sessionId ? updatedSession : s));
-      if (activeSession?.id === sessionId) {
-        setActiveSession(updatedSession);
-      }
-      setEditingTitle(null);
-      setError(null);
-    } catch (err: any) {
-      console.error("Error updating session title:", err);
-      setError(err.message);
-    }
-  };
-
-  const deleteSession = async (sessionId: string) => {
-    if (!confirm("Are you sure you want to delete this chat session?")) return;
-
-    try {
-      const response = await fetch(`/api/v1/chat/sessions/${sessionId}`, {
-        method: "DELETE",
-        headers: getAuthHeaders(),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to delete session");
-      }
-
-      setSessions(prev => prev.filter(s => s.id !== sessionId));
-      if (activeSession?.id === sessionId) {
-        const remainingSessions = sessions.filter(s => s.id !== sessionId);
-        if (remainingSessions.length > 0) {
-          setActiveSession(remainingSessions[0]);
-          loadChatSession(remainingSessions[0].id);
-          onSessionChange?.(remainingSessions[0].id);
-        } else {
-          setActiveSession(null);
-          setMessages([]);
-          onSessionChange?.(null);
-        }
-      }
-      setError(null);
-    } catch (err: any) {
-      console.error("Error deleting session:", err);
-      setError(err.message);
     }
   };
 
@@ -402,8 +290,6 @@ export function ChatInterface({ transcriptionId, activeSessionId, onSessionChang
     }
   };
 
-  // Removed timestamp formatting helper as timestamps are no longer displayed in the sidebar
-
   // Code block with copy button
   const PreBlock = (props: any) => {
     const preRef = useRef<HTMLPreElement>(null)
@@ -447,242 +333,141 @@ export function ChatInterface({ transcriptionId, activeSessionId, onSessionChang
   }
 
   return (
-      <div className="h-full flex chat-shell overflow-hidden bg-white dark:bg-gray-950">
-        {/* Session Sidebar (optional) */}
-      {!hideSidebar && (
-      <div className="w-80 bg-gray-50 dark:bg-gray-800 flex flex-col shadow-sm chat-sidebar shrink-0 overflow-hidden">
-        <div className="p-4">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="font-medium">Chat Sessions</h3>
-            <Dialog open={showNewSessionDialog} onOpenChange={setShowNewSessionDialog}>
-              <DialogTrigger asChild>
-                <Button size="sm" variant="outline">
-                  <Plus className="h-4 w-4" />
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-[425px] bg-background shadow-lg">
-                <DialogHeader className="pb-4">
-                  <DialogTitle className="text-lg font-semibold text-foreground">New Chat Session</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="model" className="text-sm font-medium text-foreground">Model</Label>
-                    <Select value={selectedModel} onValueChange={setSelectedModel}>
-                      <SelectTrigger className="w-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-foreground">
-                        <SelectValue placeholder="Select a model" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700">
-                        {(availableModels || []).map(model => (
-                          <SelectItem key={model} value={model}>{model}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="title" className="text-sm font-medium text-foreground">Title (optional)</Label>
-                    <Input
-                      id="title"
-                      value={newSessionTitle}
-                      onChange={(e) => setNewSessionTitle(e.target.value)}
-                      placeholder="Enter a title for this session"
-                      className="w-full"
-                    />
-                  </div>
-                  <Button onClick={createNewSession} className="w-full">
-                    Create Session
-                  </Button>
-                </div>
-              </DialogContent>
-            </Dialog>
-          </div>
-        </div>
-
-        {/* Sessions List */}
-        <div className="flex-1 overflow-y-auto chat-scroll">
-          {!sessions || sessions.length === 0 ? (
-            <div className="p-4 text-center text-sm text-muted-foreground">
-              No chat sessions yet. Create your first one!
-            </div>
-          ) : (
-            <div className="space-y-1 p-2">
-              {(sessions || []).map(session => (
-                <div
-                  key={session.id}
-                  className={`p-3 rounded-lg cursor-pointer transition-colors group ${
-                    activeSession?.id === session.id
-                      ? "bg-gray-100 dark:bg-gray-700 shadow-sm"
-                      : "hover:bg-gray-100 dark:hover:bg-gray-700"
-                  }`}
-                  onClick={() => {
-                    setActiveSession(session);
-                    loadChatSession(session.id);
-                    onSessionChange?.(session.id);
-                  }}
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1 min-w-0">
-                      {editingTitle === session.id ? (
-                        <Input
-                          value={editTitle}
-                          onChange={(e) => setEditTitle(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") {
-                              updateSessionTitle(session.id, editTitle);
-                            } else if (e.key === "Escape") {
-                              setEditingTitle(null);
-                            }
-                          }}
-                          onBlur={() => updateSessionTitle(session.id, editTitle)}
-                          className="h-6 text-sm"
-                          autoFocus
-                        />
-                      ) : (
-                        <h4 className="text-sm font-medium truncate">{session.title}</h4>
-                      )}
-                      <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
-                        <span>{session.model}</span>
-                        <span>•</span>
-                        <span>{session.message_count} messages</span>
-                      </div>
-                      {/* Removed timestamp per design */}
-                    </div>
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-6 w-6 p-0"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setEditingTitle(session.id);
-                          setEditTitle(session.title);
-                        }}
-                      >
-                        <Edit2 className="h-3 w-3" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-6 w-6 p-0 text-destructive hover:text-destructive"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          deleteSession(session.id);
-                        }}
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-      )}
-
-      {/* Chat Area */}
-      <div className="flex-1 flex flex-col overflow-hidden relative">
-        {activeSession || activeSessionId ? (
-          <>
-            {/* Chat Header */}
-            <div className="p-4 bg-background shadow-sm">
-              <h2 className="font-medium">{activeSession?.title || 'New Chat'}</h2>
-              <p className="text-sm text-muted-foreground">
-                Model: {activeSession?.model || '—'}
-              </p>
-            </div>
-
-            {/* Messages: only scrollable area; padded for bottom input */}
-            <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-4 pt-6 pb-28 md:pb-32 space-y-4 chat-scroll">
+    <div className="h-full flex flex-col bg-white dark:bg-gray-900">
+      {activeSession || activeSessionId ? (
+        <>
+          {/* Messages Container */}
+          <div 
+            ref={messagesContainerRef} 
+            className="flex-1 overflow-y-auto pb-2.5 flex flex-col justify-between w-full flex-auto max-w-full z-10"
+            id="messages-container"
+          >
+            <div className="h-full w-full flex flex-col px-6 py-6 space-y-6">
               {(messages || []).map(message => (
-                <div
-                  key={message.id}
-                  className={`flex gap-3 ${
-                    message.role === "user" ? "justify-end" : "justify-start"
-                  }`}
-                >
-                  {message.role === "assistant" && (
-                    <div className="h-8 w-8 rounded-full bg-purple-100 dark:bg-purple-900/40 flex items-center justify-center flex-shrink-0">
-                      <Bot className="h-4 w-4 text-purple-700 dark:text-purple-300" />
+                <div key={message.id} className="group w-full">
+                  {message.role === "user" ? (
+                    /* User Message */
+                    <div className="flex justify-end">
+                      <div className="flex w-full max-w-5xl px-6 mx-auto">
+                        <div className="w-full flex justify-end">
+                          <div className="flex space-x-3 max-w-3xl">
+                            <div className="flex-1 overflow-hidden">
+                              <div className="bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white rounded-2xl px-4 py-3 relative">
+                                {/* Copy button */}
+                                <button
+                                  onClick={async () => { try { await navigator.clipboard.writeText(message.content || ''); } catch {} }}
+                                  className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-gray-300 dark:hover:bg-gray-600"
+                                  title="Copy message"
+                                >
+                                  <Copy className="h-3 w-3" />
+                                </button>
+                                <div className="text-sm leading-relaxed pr-6">
+                                  {message.content}
+                                </div>
+                              </div>
+                            </div>
+                            <div className="h-8 w-8 rounded-full bg-gray-400 dark:bg-gray-700 flex items-center justify-center flex-shrink-0">
+                              <User className="h-4 w-4 text-white" />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                  )}
-                  <div
-                    className={`relative group max-w-[70%] rounded-lg p-3 ${
-                      message.role === "user"
-                        ? "bg-gray-100 dark:bg-gray-700"
-                        : "bg-muted"
-                    }`}
-                  >
-                    {/* Copy whole message button */}
-                    <button
-                      onClick={async () => { try { await navigator.clipboard.writeText(message.content || ''); } catch {} }}
-                      className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-md px-2 py-1 text-[10px] bg-black/60 dark:bg-white/10 text-white dark:text-gray-200 hover:bg-black/70 dark:hover:bg-white/20 transition-opacity opacity-0 group-hover:opacity-100"
-                      aria-label="Copy message"
-                      title="Copy message"
-                    >
-                      <Copy className="h-3 w-3" /> Copy
-                    </button>
-                    <div className="prose prose-gray dark:prose-invert max-w-none text-base">
-                      <ReactMarkdown
-                        remarkPlugins={[remarkMath]}
-                        rehypePlugins={[rehypeRaw as any, rehypeKatex as any, rehypeHighlight as any]}
-                        components={{ pre: PreBlock as any }}
-                      >
-                        {message.content}
-                      </ReactMarkdown>
-                    </div>
-                  </div>
-                  {message.role === "user" && (
-                    <div className="h-8 w-8 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center flex-shrink-0">
-                      <User className="h-4 w-4 text-emerald-700 dark:text-emerald-300" />
+                  ) : (
+                    /* Assistant Message */
+                    <div className="flex justify-start">
+                      <div className="flex w-full max-w-5xl px-6 mx-auto">
+                        <div className="w-full flex justify-start">
+                          <div className="flex space-x-3 max-w-5xl w-full">
+                            <div className="h-8 w-8 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center flex-shrink-0">
+                              <Bot className="h-4 w-4 text-gray-700 dark:text-gray-200" />
+                            </div>
+                            <div className="flex-1 space-y-2 overflow-hidden">
+                              <div className="flex items-center space-x-2">
+                                <div className="font-medium text-gray-800 dark:text-gray-100 text-sm">Assistant</div>
+                              </div>
+                              <div className="prose prose-sm dark:prose-invert max-w-none text-gray-700 dark:text-gray-200 leading-relaxed">
+                                {/* Copy button for assistant message */}
+                                <button
+                                  onClick={async () => { try { await navigator.clipboard.writeText(message.content || ''); } catch {} }}
+                                  className="float-right opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 ml-2"
+                                  title="Copy message"
+                                >
+                                  <Copy className="h-3 w-3" />
+                                </button>
+                                <ReactMarkdown
+                                  remarkPlugins={[remarkMath]}
+                                  rehypePlugins={[rehypeRaw as any, rehypeKatex as any, rehypeHighlight as any]}
+                                  components={{ pre: PreBlock as any }}
+                                >
+                                  {message.content}
+                                </ReactMarkdown>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>
               ))}
               <div ref={messagesEndRef} />
             </div>
+          </div>
 
-            {/* Input: absolute at bottom with solid background and spacing */}
-            <div className="absolute bottom-0 left-0 right-0 p-4 bg-white dark:bg-gray-950">
-              <div className="flex gap-2 rounded-lg bg-gray-100 dark:bg-gray-900 p-2 shadow-md">
-                <Input
-                  ref={inputRef}
-                  value={inputMessage}
-                  onChange={(e) => setInputMessage(e.target.value)}
-                  onKeyDown={handleKeyPress}
-                  placeholder="Type your message..."
-                  disabled={isLoading}
-                  className="flex-1 border-0 bg-transparent focus-visible:ring-0"
-                />
-                <Button
-                  onClick={sendMessage}
-                  disabled={isLoading || !inputMessage.trim()}
-                  size="sm"
-                >
-                  <Send className="h-4 w-4" />
-                </Button>
+          {/* Input Area */}
+          <div className="pb-2">
+            <div className="flex w-full max-w-5xl px-6 mx-auto">
+              <div className="w-full">
+                <div className="flex items-end gap-3 bg-gray-50 dark:bg-gray-800 rounded-2xl p-3 mx-auto">
+                  <Input
+                    ref={inputRef}
+                    value={inputMessage}
+                    onChange={(e) => setInputMessage(e.target.value)}
+                    onKeyDown={handleKeyPress}
+                    placeholder="Send a message..."
+                    disabled={isLoading}
+                    className="flex-1 border-0 bg-transparent focus-visible:ring-0 focus:ring-0 outline-none resize-none text-sm placeholder:text-gray-500 dark:placeholder:text-gray-400"
+                  />
+                  <Button
+                    onClick={sendMessage}
+                    disabled={isLoading || !inputMessage.trim()}
+                    size="sm"
+                    className="h-8 w-8 p-0 rounded-full bg-gray-900 hover:bg-gray-800 dark:bg-gray-100 dark:hover:bg-gray-200 text-white dark:text-gray-900"
+                  >
+                    <Send className="h-4 w-4" />
+                  </Button>
+                </div>
+                {/* Bottom disclaimer */}
+                <div className="text-xs text-gray-500 text-center mt-2 px-2">
+                  AI can make mistakes. Verify important information.
+                </div>
               </div>
             </div>
-          </>
-        ) : (
-          <div className="flex-1 flex flex-col items-center justify-center p-6">
-            <MessageCircle className="h-16 w-16 text-muted-foreground mb-4" />
-            <h3 className="text-lg font-medium mb-2">No Chat Session Selected</h3>
-            <p className="text-sm text-muted-foreground text-center">
-              Create a new chat session to start discussing this transcript with AI.
+          </div>
+        </>
+      ) : (
+        <div className="flex items-center h-full">
+          <div className="flex flex-col items-center justify-center w-full max-w-md mx-auto p-6 text-center">
+            <div className="h-16 w-16 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mb-4">
+              <MessageCircle className="h-8 w-8 text-gray-400" />
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">How can I help you today?</h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400 max-w-sm">
+              Start a conversation about this transcript or ask any questions you have.
             </p>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {error && (
-        <div className="absolute bottom-4 right-4 bg-destructive text-destructive-foreground p-3 rounded-lg shadow-lg">
+        <div className="absolute bottom-4 right-4 bg-red-500 text-white p-3 rounded-lg shadow-lg max-w-sm">
           <p className="text-sm">{error}</p>
           <Button
             size="sm"
             variant="ghost"
             onClick={() => setError(null)}
-            className="mt-2 text-destructive-foreground hover:bg-destructive/20"
+            className="mt-2 text-white hover:bg-red-600"
           >
             Dismiss
           </Button>

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Plus, Trash2, Edit2 } from 'lucide-react'
+import { Plus, Trash2, Edit2, MessageSquare, Search } from 'lucide-react'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog'
@@ -110,75 +110,129 @@ export function ChatSessionsSidebar({
   }
 
   return (
-    <div className="h-full w-full flex flex-col bg-gray-100 dark:bg-gray-900 chat-sidebar">
-      <div className="p-2 sm:p-4 bg-gray-100 dark:bg-gray-900 shadow-sm">
-        <div className="flex items-center justify-between">
-          <h3 className="font-medium">Chat Sessions</h3>
+    <div className="h-full flex flex-col bg-gray-50 dark:bg-gray-850">
+      {/* Header */}
+      <div className="flex-shrink-0 p-4">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Chats</h2>
           <Dialog open={showNewSessionDialog} onOpenChange={setShowNewSessionDialog}>
             <DialogTrigger asChild>
-              <Button size="sm" variant="outline"><Plus className="h-4 w-4" /></Button>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="h-8 w-8 p-0 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-200 dark:hover:bg-gray-800"
+                title="New Chat"
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[425px] bg-white dark:bg-gray-900 shadow-2xl">
+            <DialogContent className="sm:max-w-[425px] bg-white dark:bg-gray-850 shadow-2xl">
               <DialogHeader><DialogTitle>New Chat Session</DialogTitle></DialogHeader>
               <div className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="model">Model</Label>
                   <Select value={selectedModel} onValueChange={setSelectedModel}>
-                    <SelectTrigger className="w-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-foreground">
+                    <SelectTrigger className="w-full bg-white dark:bg-gray-800 border-0 text-foreground">
                       <SelectValue placeholder="Select a model" />
                     </SelectTrigger>
-                    <SelectContent className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700">
+                    <SelectContent className="bg-white dark:bg-gray-850 border-0">
                       {(availableModels || []).map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="title">Title (optional)</Label>
-                  <Input id="title" value={newSessionTitle} onChange={e => setNewSessionTitle(e.target.value)} />
+                  <Input id="title" value={newSessionTitle} onChange={e => setNewSessionTitle(e.target.value)} placeholder="Enter a title..." />
                 </div>
-                <Button onClick={createSession} className="w-full">Create</Button>
+                <Button onClick={createSession} className="w-full">Create Session</Button>
               </div>
             </DialogContent>
           </Dialog>
         </div>
+        
+        {/* Search bar placeholder - similar to Open-webui */}
+        <div className="relative mb-4">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Input 
+            placeholder="Search conversations..." 
+            className="pl-10 bg-white dark:bg-gray-800 border-0 text-sm"
+            disabled
+          />
+        </div>
       </div>
-      <div className="flex-1 overflow-y-auto chat-scroll p-1 sm:p-2 space-y-1">
-        {(sessions || []).map(s => (
-          <div
-            key={s.id}
-            className={`p-3 rounded-lg cursor-pointer group ${activeSessionId === s.id ? 'bg-gray-100 dark:bg-gray-700' : 'hover:bg-gray-100 dark:hover:bg-gray-700'}`}
-            onClick={() => onSessionChange(s.id)}
-          >
-            <div className="flex items-start justify-between gap-2">
-              <div className="min-w-0 flex-1">
-                {editingId === s.id ? (
-                  <Input
-                    value={editTitle}
-                    onChange={e => setEditTitle(e.target.value)}
-                    onKeyDown={e => {
-                      if (e.key === 'Enter') updateTitle(s.id, editTitle)
-                      if (e.key === 'Escape') setEditingId(null)
-                    }}
-                    onBlur={() => updateTitle(s.id, editTitle)}
-                    className="h-7 text-sm"
-                    autoFocus
-                  />
-                ) : (
-                  <h4 className="text-sm font-medium truncate">{s.title}</h4>
-                )}
-                <div className="text-xs text-muted-foreground mt-1">{s.model} • {s.message_count} messages</div>
-              </div>
-              <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
-                <Button size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={(e) => { e.stopPropagation(); setEditingId(s.id); setEditTitle(s.title) }}>
-                  <Edit2 className="h-3 w-3" />
-                </Button>
-                <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-destructive" onClick={(e) => { e.stopPropagation(); deleteSession(s.id) }}>
-                  <Trash2 className="h-3 w-3" />
-                </Button>
-              </div>
+
+      {/* Chat Sessions List */}
+      <div className="flex-1 overflow-y-auto px-2 pb-4">
+        {sessions.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-12 text-gray-500 dark:text-gray-400">
+            <MessageSquare className="h-12 w-12 mb-4 text-gray-300 dark:text-gray-600" />
+            <div className="text-sm text-center">
+              <p className="font-medium">No conversations yet</p>
+              <p className="mt-1 text-xs">Start a new chat to begin!</p>
             </div>
           </div>
-        ))}
+        ) : (
+          <div className="space-y-1">
+            {sessions.map(s => (
+              <div
+                key={s.id}
+                className={`group relative flex items-center p-2 mx-2 rounded-lg cursor-pointer transition-all duration-150 ${
+                  activeSessionId === s.id 
+                    ? 'bg-gray-200 dark:bg-gray-800' 
+                    : 'hover:bg-gray-100 dark:hover:bg-gray-800'
+                }`}
+                onClick={() => onSessionChange(s.id)}
+              >
+                {/* Chat icon */}
+                <div className="flex-shrink-0 mr-3">
+                  <MessageSquare className="h-4 w-4 text-gray-400 dark:text-gray-500" />
+                </div>
+                
+                <div className="flex-1 min-w-0">
+                  {editingId === s.id ? (
+                    <Input
+                      value={editTitle}
+                      onChange={e => setEditTitle(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') updateTitle(s.id, editTitle)
+                        if (e.key === 'Escape') setEditingId(null)
+                      }}
+                      onBlur={() => updateTitle(s.id, editTitle)}
+                      className="h-6 text-sm bg-white dark:bg-gray-900 border-0 p-0 focus-visible:ring-0"
+                      autoFocus
+                    />
+                  ) : (
+                    <div className="truncate text-sm text-gray-900 dark:text-gray-100 font-medium">
+                      {s.title || 'New Chat'}
+                    </div>
+                  )}
+                </div>
+                
+                {/* Action buttons */}
+                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <Button 
+                    size="sm" 
+                    variant="ghost" 
+                    className="h-6 w-6 p-0 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded" 
+                    onClick={(e) => { e.stopPropagation(); setEditingId(s.id); setEditTitle(s.title) }}
+                    title="Rename chat"
+                  >
+                    <Edit2 className="h-3 w-3" />
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    variant="ghost" 
+                    className="h-6 w-6 p-0 text-gray-400 hover:text-red-500 rounded" 
+                    onClick={(e) => { e.stopPropagation(); deleteSession(s.id) }}
+                    title="Delete chat"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   )
