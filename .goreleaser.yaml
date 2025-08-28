@@ -55,8 +55,7 @@ archives:
       {{- if .Arm }}v{{ .Arm }}{{ end }}
     files:
       - README.md
-      - LICENSE*
-      - CHANGELOG*
+      - LICENSE
 
 # Checksum configuration
 checksum:
@@ -118,8 +117,6 @@ brews:
       owner: rishikanthc
       name: homebrew-scriberr
       branch: main
-    ids:
-      - scriberr
     homepage: https://github.com/rishikanthc/Scriberr
     description: "Audio transcription service using WhisperX with speaker diarization"
     license: MIT
