@@ -45,7 +45,7 @@ interface ChatInterfaceProps {
 
 export function ChatInterface({ transcriptionId, activeSessionId, onSessionChange }: ChatInterfaceProps) {
   const { getAuthHeaders } = useAuth();
-  const { emitSessionTitleUpdated } = useChatEvents();
+  const { emitSessionTitleUpdated, emitTitleGenerating } = useChatEvents();
   const { toast } = useToast();
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [activeSession, setActiveSession] = useState<ChatSession | null>(null);
@@ -262,9 +262,10 @@ export function ChatInterface({ transcriptionId, activeSessionId, onSessionChang
       if (userMessageCount === 2 && assistantMessageCount === 2) {
         // Wait a moment to ensure UI is updated, then generate title
         setTimeout(async () => {
-          try {
-            const sid = activeSession?.id || activeSessionId;
-            if (sid) {
+          const sid = activeSession?.id || activeSessionId;
+          if (sid) {
+            emitTitleGenerating({ sessionId: sid, isGenerating: true });
+            try {
               const res = await fetch(`/api/v1/chat/sessions/${sid}/title/auto`, {
                 method: 'POST',
                 headers: { ...getAuthHeaders() }
@@ -276,12 +277,21 @@ export function ChatInterface({ transcriptionId, activeSessionId, onSessionChang
                 if ((activeSession && activeSession.id === updated.id) || (!activeSession && sid === updated.id)) {
                   setActiveSession(prev => prev ? { ...prev, title: updated.title } as any : prev);
                 }
-                toast({ title: 'Chat Renamed', description: updated.title });
+                toast({ 
+                  title: '✨ Chat Renamed', 
+                  description: `Renamed to "${updated.title}"`
+                });
                 emitSessionTitleUpdated({ sessionId: updated.id, title: updated.title });
               }
+            } catch (error) {
+              console.error('Error generating title:', error);
+              toast({
+                title: 'Failed to generate title',
+                description: 'Could not auto-generate chat title'
+              });
+            } finally {
+              emitTitleGenerating({ sessionId: sid, isGenerating: false });
             }
-          } catch (error) {
-            console.error('Error generating title:', error);
           }
         }, 500); // Small delay to ensure message is fully processed
       }

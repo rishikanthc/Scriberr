@@ -664,27 +664,45 @@ func (h *Handler) AutoGenerateChatTitle(c *gin.Context) {
     }
 
     // Prepare LLM messages
-    prompt := `You are an expert at titling conversations concisely.
-Given the following early conversation messages between a user and an assistant, produce a short, specific title (max 8 words) in Title Case.
-- Do NOT wrap the title in quotes of any kind.
-- No trailing punctuation, no emojis.
-- Avoid generic words like Chat, Conversation, or model names.
-- Capture the main topic or task.
-Return ONLY the title string.`
+    prompt := `You are an expert at creating concise, meaningful titles for conversations. Based on the conversation below, generate a short, descriptive title (3-8 words) that captures the main topic or purpose.
+
+Guidelines:
+- Use Title Case formatting (Every Important Word Capitalized)
+- Be specific and descriptive, not generic
+- Focus on the core subject matter or task being discussed
+- Avoid generic terms like "Chat", "Discussion", "Question", "Conversation"
+- Avoid mentioning AI, Assistant, or model names
+- No quotation marks, brackets, or punctuation at the end
+- No emojis or special characters
+- Make it something a user would easily recognize and remember
+
+Examples of good titles:
+- "Python Data Analysis Tutorial"
+- "Marketing Strategy Planning Session"
+- "JavaScript Debugging Help"
+- "Recipe for Chocolate Cake"
+- "React Component Architecture"
+
+Return only the title, nothing else.`
 
     var chatMsgs []llm.ChatMessage
     chatMsgs = append(chatMsgs, llm.ChatMessage{Role: "system", Content: prompt})
-    // Include up to first 2-4 messages for context
+    // Include up to first 4-6 messages for better context
     maxCtx := len(msgs)
-    if maxCtx > 4 {
-        maxCtx = 4
+    if maxCtx > 6 {
+        maxCtx = 6
     }
     for i := 0; i < maxCtx; i++ {
         role := msgs[i].Role
         if role != "user" && role != "assistant" {
             role = "user"
         }
-        chatMsgs = append(chatMsgs, llm.ChatMessage{Role: role, Content: msgs[i].Content})
+        // Truncate very long messages to keep within token limits
+        content := msgs[i].Content
+        if len(content) > 500 {
+            content = content[:497] + "..."
+        }
+        chatMsgs = append(chatMsgs, llm.ChatMessage{Role: role, Content: content})
     }
 
     // Use configured LLM service
@@ -696,7 +714,8 @@ Return ONLY the title string.`
 
     ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
     defer cancel()
-    resp, err := svc.ChatCompletion(ctx, session.Model, chatMsgs, 0.2)
+    // Use slightly higher temperature for more creative titles
+    resp, err := svc.ChatCompletion(ctx, session.Model, chatMsgs, 0.7)
     if err != nil || resp == nil || len(resp.Choices) == 0 || resp.Choices[0].Message.Content == "" {
         c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate title"})
         return

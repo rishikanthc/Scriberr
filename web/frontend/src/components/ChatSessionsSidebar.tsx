@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Plus, Trash2, Edit2, MessageSquare, Search } from 'lucide-react'
+import { Plus, Trash2, Edit2, MessageSquare, Search, Sparkles } from 'lucide-react'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog'
@@ -26,7 +26,7 @@ export function ChatSessionsSidebar({
   onSessionChange: (id: string | null) => void
 }) {
   const { getAuthHeaders } = useAuth()
-  const { subscribeSessionTitleUpdated } = useChatEvents()
+  const { subscribeSessionTitleUpdated, subscribeTitleGenerating } = useChatEvents()
   const [sessions, setSessions] = useState<ChatSession[]>([])
   const [availableModels, setAvailableModels] = useState<string[]>([])
   const [selectedModel, setSelectedModel] = useState<string>('')
@@ -34,6 +34,7 @@ export function ChatSessionsSidebar({
   const [newSessionTitle, setNewSessionTitle] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editTitle, setEditTitle] = useState('')
+  const [generatingTitleIds, setGeneratingTitleIds] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     loadModels()
@@ -48,6 +49,22 @@ export function ChatSessionsSidebar({
     })
     return unsubscribe
   }, [subscribeSessionTitleUpdated])
+
+  // Listen for title generation status
+  useEffect(() => {
+    const unsubscribe = subscribeTitleGenerating(({ sessionId, isGenerating }) => {
+      setGeneratingTitleIds(prev => {
+        const newSet = new Set(prev)
+        if (isGenerating) {
+          newSet.add(sessionId)
+        } else {
+          newSet.delete(sessionId)
+        }
+        return newSet
+      })
+    })
+    return unsubscribe
+  }, [subscribeTitleGenerating])
 
   async function loadModels() {
     try {
@@ -201,7 +218,7 @@ export function ChatSessionsSidebar({
                   <MessageSquare className="h-4 w-4 text-gray-400 dark:text-gray-500" />
                 </div>
                 
-                <div className="flex-1 min-w-0">
+                <div className="flex-1 min-w-0 flex items-center">
                   {editingId === s.id ? (
                     <Input
                       value={editTitle}
@@ -215,8 +232,15 @@ export function ChatSessionsSidebar({
                       autoFocus
                     />
                   ) : (
-                    <div className="truncate text-sm text-gray-900 dark:text-gray-100 font-medium">
-                      {s.title || 'New Chat'}
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      <div className="truncate text-sm text-gray-900 dark:text-gray-100 font-medium">
+                        {s.title || 'New Chat'}
+                      </div>
+                      {generatingTitleIds.has(s.id) && (
+                        <div className="flex-shrink-0 text-blue-500 dark:text-blue-400" title="Generating title...">
+                          <Sparkles className="h-3 w-3 animate-pulse" />
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
