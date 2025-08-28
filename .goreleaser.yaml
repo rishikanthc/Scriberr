@@ -10,7 +10,7 @@ git:
 before:
   hooks:
     # Build the frontend first (similar to your build.sh)
-    - cd web/frontend && npm ci && npm run build
+    - sh -c "cd web/frontend && npm ci && npm run build"
     # Copy frontend dist to internal/web for embedding
     - rm -rf internal/web/dist
     - cp -r web/frontend/dist internal/web/
@@ -39,11 +39,13 @@ builds:
 # Archive configuration
 archives:
   - id: default
-    format: tar.gz
-    # Use zip for windows
     format_overrides:
       - goos: windows
         format: zip
+      - goos: linux
+        format: tar.gz
+      - goos: darwin
+        format: tar.gz
     name_template: >-
       {{ .ProjectName }}_
       {{- title .Os }}_
@@ -62,7 +64,7 @@ checksum:
 
 # Snapshot configuration
 snapshot:
-  name_template: "{{ incpatch .Version }}-next"
+  version_template: "{{ incpatch .Version }}-next"
 
 # Changelog configuration
 changelog:
