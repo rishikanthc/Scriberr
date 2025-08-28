@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"flag"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -19,6 +21,13 @@ import (
 	_ "scriberr/docs" // Import generated docs
 
 	"github.com/gin-gonic/gin"
+)
+
+// Version information (set by GoReleaser)
+var (
+	version = "dev"
+	commit  = "none"
+	date    = "unknown"
 )
 
 // @title Scriberr API
@@ -46,6 +55,17 @@ import (
 // @description JWT token with Bearer prefix
 
 func main() {
+	// Handle version flag
+	var showVersion = flag.Bool("version", false, "Show version information")
+	flag.Parse()
+
+	if *showVersion {
+		fmt.Printf("Scriberr %s\n", version)
+		fmt.Printf("Commit: %s\n", commit)
+		fmt.Printf("Built: %s\n", date)
+		os.Exit(0)
+	}
+
 	// Load configuration
 	cfg := config.Load()
 

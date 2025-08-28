@@ -1,0 +1,156 @@
+version: 2
+
+# Git configuration
+git:
+  # What should be used to sort tags when gathering the current and previous
+  # tags if there are more than one tag in the same commit.
+  tag_sort: -version:refname
+
+# Before hooks - run before building
+before:
+  hooks:
+    # Build the frontend first (similar to your build.sh)
+    - cd web/frontend && npm ci && npm run build
+    # Copy frontend dist to internal/web for embedding
+    - rm -rf internal/web/dist
+    - cp -r web/frontend/dist internal/web/
+
+# Build configuration
+builds:
+  - id: scriberr
+    main: ./cmd/server/main.go
+    binary: scriberr
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    # Build flags
+    ldflags:
+      - -s -w
+      - -X main.version={{ .Version }}
+      - -X main.commit={{ .Commit }}
+      - -X main.date={{ .Date }}
+
+# Archive configuration
+archives:
+  - id: default
+    format: tar.gz
+    # Use zip for windows
+    format_overrides:
+      - goos: windows
+        format: zip
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- title .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+      {{- if .Arm }}v{{ .Arm }}{{ end }}
+    files:
+      - README.md
+      - LICENSE*
+      - CHANGELOG*
+
+# Checksum configuration
+checksum:
+  name_template: 'checksums.txt'
+
+# Snapshot configuration
+snapshot:
+  name_template: "{{ incpatch .Version }}-next"
+
+# Changelog configuration
+changelog:
+  sort: asc
+  use: github
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^ci:"
+      - "^chore:"
+      - "^style:"
+      - "^refactor:"
+  groups:
+    - title: Features
+      regexp: '^.*?feat(\([[:word:]]+\))??!?:.+$'
+      order: 0
+    - title: Bug Fixes
+      regexp: '^.*?fix(\([[:word:]]+\))??!?:.+$'
+      order: 1
+    - title: Others
+      order: 999
+
+# GitHub Release configuration
+release:
+  github:
+    owner: rishikanthc
+    name: Scriberr
+  draft: false
+  prerelease: auto
+  mode: replace
+  header: |
+    ## Scriberr {{ .Tag }}
+    
+    Welcome to this new release of Scriberr!
+    
+    ### Installation
+    
+    #### Homebrew (macOS/Linux)
+    ```bash
+    brew tap rishikanthc/scriberr
+    brew install scriberr
+    ```
+    
+    #### Manual Installation
+    Download the appropriate archive for your platform below, extract it, and place the binary in your PATH.
+
+# Homebrew Tap configuration
+brews:
+  - repository:
+      owner: rishikanthc
+      name: homebrew-scriberr
+      branch: main
+    ids:
+      - scriberr
+    homepage: https://github.com/rishikanthc/Scriberr
+    description: "Audio transcription service using WhisperX with speaker diarization"
+    license: MIT
+    folder: Formula
+    dependencies:
+      - name: python@3.11
+        type: optional
+    install: |
+      bin.install "scriberr"
+      
+      # Create example config
+      (etc/"scriberr").mkpath
+      (etc/"scriberr/.env.example").write <<~EOS
+        # Scriberr Configuration
+        HOST=localhost
+        PORT=8080
+        JWT_SECRET=change-this-in-production
+        DATABASE_PATH=./data/scriberr.db
+        UPLOAD_DIR=./data/uploads
+        TRANSCRIPT_DIR=./data/transcripts
+        PYTHON_PATH=/opt/homebrew/bin/python3
+        UV_PATH=/opt/homebrew/bin/uv
+        WHISPERX_ENV=./data/whisperx-env
+        DEFAULT_API_KEY=scriberr-dev-key
+      EOS
+    test: |
+      system "#{bin}/scriberr", "--version"
+    caveats: |
+      Scriberr requires Python 3.11+ for transcription features.
+      
+      To get started:
+      1. Copy the example config: cp #{etc}/scriberr/.env.example .env
+      2. Edit .env to configure your settings
+      3. Run: scriberr
+      
+      The web interface will be available at http://localhost:8080
