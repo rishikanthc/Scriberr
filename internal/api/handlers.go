@@ -7,8 +7,10 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	"scriberr/internal/auth"
 	"scriberr/internal/config"
@@ -101,6 +103,21 @@ type CreateAPIKeyResponse struct {
 	Key         string `json:"key"`
 	Name        string `json:"name"`
 	Description string `json:"description,omitempty"`
+}
+
+// YouTubeDownloadRequest represents the YouTube download request
+type YouTubeDownloadRequest struct {
+	URL   string  `json:"url" binding:"required"`
+	Title *string `json:"title,omitempty"`
+}
+
+// YouTubeDownloadResponse represents the YouTube download response
+type YouTubeDownloadResponse struct {
+	JobID     string `json:"job_id"`
+	Status    string `json:"status"`
+	Message   string `json:"message,omitempty"`
+	Title     string `json:"title,omitempty"`
+	Progress  int    `json:"progress,omitempty"`
 }
 
 // LLMConfigRequest represents the LLM configuration request
@@ -1759,6 +1776,107 @@ func (h *Handler) GetQuickTranscriptionStatus(c *gin.Context) {
 			return
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get job status"})
+		return
+	}
+
+	c.JSON(http.StatusOK, job)
+}
+
+// @Summary Download audio from YouTube URL
+// @Description Download audio from a YouTube video URL and prepare it for transcription
+// @Tags transcription
+// @Accept json
+// @Produce json
+// @Param request body YouTubeDownloadRequest true "YouTube download request"
+// @Success 200 {object} models.Transcription
+// @Failure 400 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /api/v1/transcription/youtube [post]
+// @Security ApiKeyAuth
+// @Security BearerAuth
+func (h *Handler) DownloadFromYouTube(c *gin.Context) {
+	var req YouTubeDownloadRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Validate YouTube URL
+	if !strings.Contains(req.URL, "youtube.com") && !strings.Contains(req.URL, "youtu.be") {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid YouTube URL"})
+		return
+	}
+
+	// Create upload directory
+	uploadDir := h.config.UploadDir
+	if err := os.MkdirAll(uploadDir, 0755); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create upload directory"})
+		return
+	}
+
+	// Generate unique job ID and filename
+	jobID := uuid.New().String()
+	filename := fmt.Sprintf("%s.%%(ext)s", jobID)
+	filePath := filepath.Join(uploadDir, filename)
+
+	// Get video title if not provided
+	var title string
+	if req.Title != nil && *req.Title != "" {
+		title = *req.Title
+	} else {
+		// Get title from yt-dlp
+		cmd := exec.Command(h.config.UVPath, "run", "--native-tls", "--project", h.config.WhisperXEnv, "python", "-m", "yt_dlp", "--get-title", req.URL)
+		titleBytes, err := cmd.Output()
+		if err != nil {
+			title = "YouTube Audio"
+		} else {
+			title = strings.TrimSpace(string(titleBytes))
+		}
+	}
+
+	// Download audio using yt-dlp in Python environment
+	ytDlpCmd := exec.Command(h.config.UVPath, "run", "--native-tls", "--project", h.config.WhisperXEnv, "python", "-m", "yt_dlp",
+		"--extract-audio",
+		"--audio-format", "mp3",
+		"--audio-quality", "0", // best quality
+		"--output", filePath,
+		"--no-playlist",
+		req.URL,
+	)
+
+	// Execute download
+	if err := ytDlpCmd.Run(); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to download YouTube audio: %v", err)})
+		return
+	}
+
+	// Find the actual downloaded file (yt-dlp changes the extension)
+	pattern := fmt.Sprintf("%s.*", jobID)
+	matches, err := filepath.Glob(filepath.Join(uploadDir, pattern))
+	if err != nil || len(matches) == 0 {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Downloaded file not found"})
+		return
+	}
+
+	actualFilePath := matches[0]
+
+	// Create transcription record
+	job := models.TranscriptionJob{
+		ID:        jobID,
+		AudioPath: actualFilePath,
+		Status:    models.StatusUploaded,
+	}
+
+	// Set title
+	if title != "" {
+		job.Title = &title
+	}
+
+	// Save to database
+	if err := database.DB.Create(&job).Error; err != nil {
+		// Clean up downloaded file on database error
+		os.Remove(actualFilePath)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save transcription record"})
 		return
 	}
 

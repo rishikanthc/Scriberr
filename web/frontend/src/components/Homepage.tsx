@@ -104,7 +104,10 @@ export function Homepage() {
 	return (
 		<div className="min-h-screen bg-gray-50 dark:bg-gray-900">
 			<div className="mx-auto w-full max-w-6xl px-2 sm:px-6 md:px-8 py-3 sm:py-6">
-				<Header onFileSelect={handleFileSelect} />
+				<Header 
+					onFileSelect={handleFileSelect} 
+					onDownloadComplete={() => setRefreshTrigger((prev) => prev + 1)}
+				/>
 				
 				{/* Upload Progress */}
 				{uploadProgress.length > 0 && (

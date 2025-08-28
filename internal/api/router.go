@@ -71,6 +71,7 @@ func SetupRoutes(handler *Handler, authService *auth.AuthService) *gin.Engine {
 		transcription.Use(middleware.AuthMiddleware(authService))
 		{
 			transcription.POST("/upload", handler.UploadAudio)
+			transcription.POST("/youtube", handler.DownloadFromYouTube)
 			transcription.POST("/submit", handler.SubmitJob)
 			transcription.POST("/:id/start", handler.StartTranscription)
 			transcription.POST("/:id/kill", handler.KillJob)
