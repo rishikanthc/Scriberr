@@ -4,6 +4,10 @@ import GithubBadge from './GithubBadge';
 type SwaggerDoc = {
   openapi?: string;
   swagger?: string;
+  // Swagger 2.0 additional fields
+  host?: string;
+  basePath?: string;
+  schemes?: string[];
   info?: { title?: string; version?: string; description?: string };
   tags?: { name: string; description?: string }[];
   paths?: Record<string, Record<string, any>>;
