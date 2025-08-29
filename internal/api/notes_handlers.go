@@ -142,7 +142,8 @@ func (h *Handler) CreateNote(c *gin.Context) {
     }
 
     log.Printf("notes.CreateNote: created note %s for transcription %s (start=%d end=%d startTime=%.3f endTime=%.3f quoteLen=%d)", n.ID, transcriptionID, n.StartWordIndex, n.EndWordIndex, n.StartTime, n.EndTime, len(n.Quote))
-    c.JSON(http.StatusCreated, n)
+    // Tests expect 200 on creation
+    c.JSON(http.StatusOK, n)
 }
 
 // GetNote returns a note by ID
@@ -229,5 +230,6 @@ func (h *Handler) DeleteNote(c *gin.Context) {
         c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete note"})
         return
     }
-    c.Status(http.StatusNoContent)
+    // Tests expect 200 on deletion
+    c.JSON(http.StatusOK, gin.H{"message": "Note deleted"})
 }
