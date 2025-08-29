@@ -52,16 +52,21 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
 	// Check registration status and load token on mount
 	useEffect(() => {
-		const initializeAuth = async () => {
+    const initializeAuth = async () => {
 			try {
 				// First, check if registration is required
 				const response = await fetch("/api/v1/auth/registration-status");
 				if (response.ok) {
-					const data = await response.json();
-					setRequiresRegistration(data.requiresRegistration);
+                const data = await response.json();
+                // Support both legacy and current API response shapes
+                const regEnabled =
+                  typeof data.registration_enabled === 'boolean'
+                    ? data.registration_enabled
+                    : !!data.requiresRegistration;
+                setRequiresRegistration(regEnabled);
 					
 					// Only check for existing token if registration is not required
-					if (!data.requiresRegistration) {
+                    if (!regEnabled) {
 						const savedToken = localStorage.getItem("scriberr_auth_token");
 						if (savedToken) {
 							if (isTokenExpired(savedToken)) {
@@ -90,10 +95,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
 		};
 
 		initializeAuth();
-	}, [isTokenExpired]);
+  }, [isTokenExpired]);
 
-	// Setup auto-logout when token expires
-	useEffect(() => {
+  // Setup auto-logout when token expires
+  useEffect(() => {
 		if (!token) return;
 
 		const checkTokenExpiry = () => {
@@ -108,7 +113,75 @@ export function AuthProvider({ children }: AuthProviderProps) {
 		
 		// Cleanup interval on unmount or token change
 		return () => clearInterval(interval);
-	}, [token, isTokenExpired, logout]);
+  }, [token, isTokenExpired, logout]);
+
+  // Helper: attempt to refresh JWT via cookie refresh token
+  const tryRefresh = useCallback(async (): Promise<string | null> => {
+    try {
+      const res = await fetch('/api/v1/auth/refresh', { method: 'POST' })
+      if (!res.ok) return null
+      const data = await res.json()
+      if (data?.token) {
+        login(data.token)
+        return data.token as string
+      }
+      return null
+    } catch {
+      return null
+    }
+  }, [])
+
+  // Globally intercept 401s: try refresh once, then retry original, else logout
+  useEffect(() => {
+    const originalFetch = window.fetch.bind(window);
+
+    const wrappedFetch: typeof window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+      try {
+        let res = await originalFetch(input, init);
+        if (res.status === 401) {
+          // Try silent refresh once
+          const newToken = await tryRefresh()
+          if (newToken) {
+            // Retry original request with updated Authorization header if provided
+            const newInit: RequestInit | undefined = init ? { ...init } : undefined
+            if (newInit?.headers && typeof newInit.headers === 'object') {
+              (newInit.headers as any)['Authorization'] = `Bearer ${newToken}`
+            }
+            res = await originalFetch(input, newInit)
+            if (res.status !== 401) return res
+          }
+          // Still unauthorized: force logout
+          logout()
+          if (window.location.pathname !== '/') {
+            window.history.pushState({}, '', '/')
+          }
+        }
+        return res;
+      } catch (err) {
+        // Network or other errors just propagate
+        throw err;
+      }
+    };
+
+    window.fetch = wrappedFetch as any;
+    return () => {
+      window.fetch = originalFetch;
+    };
+  }, [logout, tryRefresh]);
+
+  // Proactive refresh shortly before expiry
+  useEffect(() => {
+    if (!token) return
+    const id = setInterval(async () => {
+      if (token && isTokenExpired(token)) {
+        const ok = await tryRefresh()
+        if (!ok) {
+          logout()
+        }
+      }
+    }, 60_000)
+    return () => clearInterval(id)
+  }, [token, isTokenExpired, tryRefresh, logout])
 
 	const login = (newToken: string) => {
 		setToken(newToken);

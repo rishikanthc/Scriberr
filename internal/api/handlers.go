@@ -11,6 +11,9 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+    "time"
+    "crypto/sha256"
+    "encoding/hex"
 
 	"scriberr/internal/auth"
 	"scriberr/internal/config"
@@ -866,15 +869,19 @@ func (h *Handler) Login(c *gin.Context) {
 		return
 	}
 
-	token, err := h.authService.GenerateToken(&user)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
-		return
-	}
+    token, err := h.authService.GenerateToken(&user)
+    if err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
+        return
+    }
 
-	response := LoginResponse{
-		Token: token,
-	}
+    // Set refresh token cookie
+    if err := h.issueRefreshToken(c, user.ID); err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create session"})
+        return
+    }
+
+    response := LoginResponse{ Token: token }
 	response.User.ID = user.ID
 	response.User.Username = user.Username
 
@@ -889,10 +896,21 @@ func (h *Handler) Login(c *gin.Context) {
 // @Security BearerAuth
 // @Router /api/v1/auth/logout [post]
 func (h *Handler) Logout(c *gin.Context) {
-	// In a JWT-based system, logout is typically handled client-side
-	// by removing the token. For more security, you could maintain
-	// a blacklist of tokens on the server side.
-	c.JSON(http.StatusOK, gin.H{"message": "Logged out successfully"})
+    // Best-effort refresh token revocation and cookie clear
+    if cookie, err := c.Cookie("scriberr_refresh_token"); err == nil {
+        h.revokeRefreshToken(cookie)
+    }
+    http.SetCookie(c.Writer, &http.Cookie{
+        Name:     "scriberr_refresh_token",
+        Value:    "",
+        Path:     "/",
+        Expires:  time.Unix(0, 0),
+        MaxAge:   -1,
+        HttpOnly: true,
+        SameSite: http.SameSiteLaxMode,
+        Secure:   false,
+    })
+    c.JSON(http.StatusOK, gin.H{"message": "Logged out successfully"})
 }
 
 // @Summary Check registration status
@@ -973,19 +991,112 @@ func (h *Handler) Register(c *gin.Context) {
 	}
 
 	// Generate token for immediate login
-	token, err := h.authService.GenerateToken(&user)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate login token"})
-		return
-	}
+    token, err := h.authService.GenerateToken(&user)
+    if err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate login token"})
+        return
+    }
+    // Set refresh token cookie
+    if err := h.issueRefreshToken(c, user.ID); err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create session"})
+        return
+    }
+    response := LoginResponse{ Token: token }
+    response.User.ID = user.ID
+    response.User.Username = user.Username
 
-	response := LoginResponse{
-		Token: token,
-	}
-	response.User.ID = user.ID
-	response.User.Username = user.Username
+    c.JSON(http.StatusCreated, response)
+}
 
-	c.JSON(http.StatusCreated, response)
+// RefreshTokenResponse represents the refresh response
+type RefreshTokenResponse struct {
+    Token string `json:"token"`
+}
+
+// @Summary Refresh access token
+// @Description Rotate refresh token and return new access token
+// @Tags auth
+// @Produce json
+// @Success 200 {object} RefreshTokenResponse
+// @Failure 401 {object} map[string]string
+// @Router /api/v1/auth/refresh [post]
+func (h *Handler) Refresh(c *gin.Context) {
+    cookie, err := c.Cookie("scriberr_refresh_token")
+    if err != nil || cookie == "" {
+        c.JSON(http.StatusUnauthorized, gin.H{"error": "Missing refresh token"})
+        return
+    }
+    userID, err := h.validateAndRotateRefreshToken(c, cookie)
+    if err != nil {
+        c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid refresh token"})
+        return
+    }
+    var user models.User
+    if err := database.DB.First(&user, userID).Error; err != nil {
+        c.JSON(http.StatusUnauthorized, gin.H{"error": "User not found"})
+        return
+    }
+    token, err := h.authService.GenerateToken(&user)
+    if err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
+        return
+    }
+    c.JSON(http.StatusOK, RefreshTokenResponse{ Token: token })
+}
+
+// issueRefreshToken creates a refresh token and sets cookie
+func (h *Handler) issueRefreshToken(c *gin.Context, userID uint) error {
+    tokenValue := generateSecureAPIKey(64)
+    hashed := sha256Hex(tokenValue)
+    rt := models.RefreshToken{
+        UserID:    userID,
+        Hashed:    hashed,
+        ExpiresAt: time.Now().Add(14 * 24 * time.Hour),
+        Revoked:   false,
+    }
+    if err := database.DB.Create(&rt).Error; err != nil {
+        return err
+    }
+    http.SetCookie(c.Writer, &http.Cookie{
+        Name:     "scriberr_refresh_token",
+        Value:    tokenValue,
+        Path:     "/",
+        Expires:  rt.ExpiresAt,
+        MaxAge:   int((14 * 24 * time.Hour).Seconds()),
+        HttpOnly: true,
+        SameSite: http.SameSiteLaxMode,
+        Secure:   false,
+    })
+    return nil
+}
+
+// validateAndRotateRefreshToken validates refresh token, revokes old, and issues new
+func (h *Handler) validateAndRotateRefreshToken(c *gin.Context, tokenValue string) (uint, error) {
+    hashed := sha256Hex(tokenValue)
+    var rt models.RefreshToken
+    if err := database.DB.Where("hashed = ?", hashed).First(&rt).Error; err != nil {
+        return 0, err
+    }
+    if rt.Revoked || time.Now().After(rt.ExpiresAt) {
+        return 0, fmt.Errorf("expired or revoked")
+    }
+    // Revoke current
+    _ = database.DB.Model(&rt).Update("revoked", true).Error
+    // Issue new
+    if err := h.issueRefreshToken(c, rt.UserID); err != nil {
+        return 0, err
+    }
+    return rt.UserID, nil
+}
+
+func (h *Handler) revokeRefreshToken(tokenValue string) {
+    hashed := sha256Hex(tokenValue)
+    _ = database.DB.Model(&models.RefreshToken{}).Where("hashed = ?", hashed).Update("revoked", true).Error
+}
+
+func sha256Hex(s string) string {
+    sum := sha256.Sum256([]byte(s))
+    return hex.EncodeToString(sum[:])
 }
 
 // @Summary Change user password

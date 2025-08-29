@@ -1,14 +1,16 @@
 package config
 
 import (
-	"crypto/rand"
-	"encoding/hex"
-	"log"
-	"os"
-	"os/exec"
-	"strconv"
+    "crypto/rand"
+    "encoding/hex"
+    "log"
+    "os"
+    "os/exec"
+    "strconv"
+    "path/filepath"
+    "strings"
 
-	"github.com/joho/godotenv"
+    "github.com/joho/godotenv"
 )
 
 // Config holds all configuration values
@@ -79,20 +81,26 @@ func getEnvAsBool(key string, defaultValue bool) bool {
 
 // getJWTSecret gets JWT secret from env or generates a secure random one
 func getJWTSecret() string {
-	if secret := os.Getenv("JWT_SECRET"); secret != "" {
-		return secret
-	}
-	
-	// Generate a secure random JWT secret
-	bytes := make([]byte, 32)
-	if _, err := rand.Read(bytes); err != nil {
-		log.Printf("Warning: Could not generate secure JWT secret, using fallback: %v", err)
-		return "fallback-jwt-secret-please-set-JWT_SECRET-env-var"
-	}
-	
-	secret := hex.EncodeToString(bytes)
-	log.Println("Generated secure JWT secret for this session")
-	return secret
+    if secret := os.Getenv("JWT_SECRET"); secret != "" {
+        return secret
+    }
+    // Persist a dev secret across restarts to avoid invalidating tokens
+    secretFile := getEnv("JWT_SECRET_FILE", "data/jwt_secret")
+    if data, err := os.ReadFile(secretFile); err == nil && len(data) > 0 {
+        return strings.TrimSpace(string(data))
+    }
+    // Generate a secure random JWT secret and persist it
+    bytes := make([]byte, 32)
+    if _, err := rand.Read(bytes); err != nil {
+        log.Printf("Warning: Could not generate secure JWT secret, using fallback: %v", err)
+        return "fallback-jwt-secret-please-set-JWT_SECRET-env-var"
+    }
+    secret := hex.EncodeToString(bytes)
+    // Ensure dir exists and write file (best-effort)
+    _ = os.MkdirAll(filepath.Dir(secretFile), 0755)
+    _ = os.WriteFile(secretFile, []byte(secret), 0600)
+    log.Println("Generated persistent JWT secret at", secretFile)
+    return secret
 }
 
 // findUVPath finds UV package manager in common locations
