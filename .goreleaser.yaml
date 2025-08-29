@@ -122,34 +122,17 @@ brews:
     description: "Audio transcription service using WhisperX with speaker diarization"
     license: MIT
     dependencies:
-      - name: python@3.11
-        type: optional
+      - name: uv
     install: |
       bin.install "scriberr"
-      
-      # Create example config
-      (etc/"scriberr").mkpath
-      (etc/"scriberr/.env.example").write <<~EOS
-        # Scriberr Configuration
-        HOST=localhost
-        PORT=8080
-        JWT_SECRET=change-this-in-production
-        DATABASE_PATH=./data/scriberr.db
-        UPLOAD_DIR=./data/uploads
-        TRANSCRIPT_DIR=./data/transcripts
-        PYTHON_PATH=/opt/homebrew/bin/python3
-        UV_PATH=/opt/homebrew/bin/uv
-        WHISPERX_ENV=./data/whisperx-env
-        DEFAULT_API_KEY=scriberr-dev-key
-      EOS
     test: |
       system "#{bin}/scriberr", "--version"
     caveats: |
       Scriberr requires Python 3.11+ for transcription features.
+      Install with: brew install python@3.11
       
       To get started:
-      1. Copy the example config: cp #{etc}/scriberr/.env.example .env
-      2. Edit .env to configure your settings
-      3. Run: scriberr
+      1. Run: scriberr
+      2. Open: http://localhost:8080
       
-      The web interface will be available at http://localhost:8080
+      The app will auto-configure itself on first run.

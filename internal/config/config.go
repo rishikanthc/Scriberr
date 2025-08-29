@@ -1,8 +1,11 @@
 package config
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"log"
 	"os"
+	"os/exec"
 	"strconv"
 
 	"github.com/joho/godotenv"
@@ -24,12 +27,8 @@ type Config struct {
 	UploadDir string
 	
 	// Python/WhisperX configuration
-	PythonPath  string
 	UVPath      string
 	WhisperXEnv string
-	
-	// Default API key for testing
-	DefaultAPIKey string
 }
 
 // Load loads configuration from environment variables and .env file
@@ -43,12 +42,10 @@ func Load() *Config {
 		Port:         getEnv("PORT", "8080"),
 		Host:         getEnv("HOST", "localhost"),
 		DatabasePath: getEnv("DATABASE_PATH", "data/scriberr.db"),
-		JWTSecret:    getEnv("JWT_SECRET", "your-secret-key-change-in-production"),
+		JWTSecret:    getJWTSecret(),
 		UploadDir:    getEnv("UPLOAD_DIR", "data/uploads"),
-		PythonPath:   getEnv("PYTHON_PATH", "python3"),
-		UVPath:       getEnv("UV_PATH", "uv"),
+		UVPath:       findUVPath(),
 		WhisperXEnv:  getEnv("WHISPERX_ENV", "data/whisperx-env"),
-		DefaultAPIKey: getEnv("DEFAULT_API_KEY", "dev-api-key-123"),
 	}
 }
 
@@ -78,4 +75,37 @@ func getEnvAsBool(key string, defaultValue bool) bool {
 		}
 	}
 	return defaultValue
+}
+
+// getJWTSecret gets JWT secret from env or generates a secure random one
+func getJWTSecret() string {
+	if secret := os.Getenv("JWT_SECRET"); secret != "" {
+		return secret
+	}
+	
+	// Generate a secure random JWT secret
+	bytes := make([]byte, 32)
+	if _, err := rand.Read(bytes); err != nil {
+		log.Printf("Warning: Could not generate secure JWT secret, using fallback: %v", err)
+		return "fallback-jwt-secret-please-set-JWT_SECRET-env-var"
+	}
+	
+	secret := hex.EncodeToString(bytes)
+	log.Println("Generated secure JWT secret for this session")
+	return secret
+}
+
+// findUVPath finds UV package manager in common locations
+func findUVPath() string {
+	if uvPath := os.Getenv("UV_PATH"); uvPath != "" {
+		return uvPath
+	}
+	
+	if path, err := exec.LookPath("uv"); err == nil {
+		log.Printf("Found UV at: %s", path)
+		return path
+	}
+	
+	log.Println("Warning: UV package manager not found in PATH, using 'uv' as fallback")
+	return "uv"
 }
