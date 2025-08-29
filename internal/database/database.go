@@ -53,9 +53,14 @@ func Initialize(dbPath string) error {
 
 // Close closes the database connection
 func Close() error {
+	if DB == nil {
+		return nil
+	}
 	sqlDB, err := DB.DB()
 	if err != nil {
 		return err
 	}
-	return sqlDB.Close()
+	err = sqlDB.Close()
+	DB = nil // Set to nil after closing
+	return err
 }
