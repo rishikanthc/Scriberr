@@ -483,6 +483,7 @@ useEffect(() => {
     }, [transcript, transcriptMode]);
 
     // Cmd/Ctrl + click to seek to word start (without breaking selection or follow-along)
+    // Attach the handler when the transcript DOM content is present (not on ref.current changes)
     useEffect(() => {
         const el = transcriptRef.current;
         if (!el) return;
@@ -498,16 +499,18 @@ useEffect(() => {
             if (isNaN(start)) return;
             e.preventDefault();
             e.stopPropagation();
-            if (wavesurferRef.current) {
-                const dur = wavesurferRef.current.getDuration() || 1;
+            // Use the latest wavesurferRef at click time
+            const ws = wavesurferRef.current;
+            if (ws) {
+                const dur = ws.getDuration() || 1;
                 const ratio = Math.min(0.999, Math.max(0, start / dur));
-                wavesurferRef.current.seekTo(ratio);
+                ws.seekTo(ratio);
                 setCurrentTime(start);
             }
         };
         el.addEventListener('click', onClick);
         return () => el.removeEventListener('click', onClick);
-    }, [wavesurferRef.current]);
+    }, [transcript, transcriptMode]);
 
     // Hide selection bubble when selection collapses (and not editing)
     useEffect(() => {

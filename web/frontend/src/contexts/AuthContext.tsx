@@ -36,19 +36,24 @@ export function AuthProvider({ children }: AuthProviderProps) {
 	}, []);
 
 	// Logout function
-	const logout = useCallback(() => {
-		setToken(null);
-		localStorage.removeItem("scriberr_auth_token");
-		// Call logout endpoint to invalidate token server-side (optional)
-		fetch("/api/v1/auth/logout", {
-			method: "POST",
-			headers: {
-				"Authorization": token ? `Bearer ${token}` : "",
-			},
-		}).catch(() => {
-			// Ignore errors in logout call
-		});
-	}, [token]);
+  const logout = useCallback(() => {
+    setToken(null);
+    localStorage.removeItem("scriberr_auth_token");
+    // Call logout endpoint to invalidate token server-side (optional)
+    fetch("/api/v1/auth/logout", {
+      method: "POST",
+      headers: {
+        "Authorization": token ? `Bearer ${token}` : "",
+      },
+    }).catch(() => {
+      // Ignore errors in logout call
+    });
+    // Force navigate to login (home) for any unauthorized state
+    if (window.location.pathname !== "/") {
+      window.history.pushState({ route: { path: 'home' } }, "", "/");
+      window.dispatchEvent(new PopStateEvent('popstate', { state: { route: { path: 'home' } } as any }));
+    }
+  }, [token]);
 
 	// Check registration status and load token on mount
 	useEffect(() => {
@@ -152,9 +157,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
           }
           // Still unauthorized: force logout
           logout()
-          if (window.location.pathname !== '/') {
-            window.history.pushState({}, '', '/')
-          }
         }
         return res;
       } catch (err) {
