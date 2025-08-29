@@ -1,7 +1,7 @@
 {
   "name": "scriberr-landing",
   "private": true,
-  "version": "0.0.1",
+  "version": "0.0.2",
   "type": "module",
   "scripts": {
     "sync:spec": "cp -f ../../docs/swagger.json public/api/swagger.json",
