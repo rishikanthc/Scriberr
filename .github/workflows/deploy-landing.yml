@@ -39,6 +39,9 @@ jobs:
           mv docs/docs-diarization.html docs/docs/diarization.html
           mv docs/docs-contributing.html docs/docs/contributing.html
           
+          # Fix asset paths for docs subdirectory (Linux sed syntax)
+          sed -i 's|"/assets/|"../assets/|g' docs/docs/*.html
+          
       - name: Commit and push
         run: |
           git config --local user.email "action@github.com"
