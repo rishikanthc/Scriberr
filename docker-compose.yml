@@ -1,0 +1,23 @@
+version: "3.9"
+
+services:
+  scriberr:
+    # Build from local Dockerfile; replace with `image: ghcr.io/rishikanthc/scriberr:latest`
+    # if you prefer pulling a prebuilt image.
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: scriberr:local
+    container_name: scriberr
+    ports:
+      - "8080:8080"
+    environment:
+      - HOST=0.0.0.0
+      - PORT=8080
+      - DATABASE_PATH=/app/data/scriberr.db
+      - UPLOAD_DIR=/app/data/uploads
+      - WHISPERX_ENV=/app/data/whisperx-env
+      # - UV_PATH=/usr/local/bin/uv # override if needed
+    volumes:
+      - ./scriberr-data:/app/data
+    restart: unless-stopped
