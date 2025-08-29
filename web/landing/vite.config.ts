@@ -11,13 +11,13 @@ export default defineConfig({
   build: {
     rollupOptions: {
       input: {
-        main: resolve(__dirname, 'index.html'),
-        api: resolve(__dirname, 'api.html'),
-        changelog: resolve(__dirname, 'changelog.html'),
-        intro: resolve(__dirname, 'docs/intro.html'),
-        installation: resolve(__dirname, 'docs/installation.html'),
-        diarization: resolve(__dirname, 'docs/diarization.html'),
-        contributing: resolve(__dirname, 'docs/contributing.html'),
+        'index': resolve(__dirname, 'index.html'),
+        'api': resolve(__dirname, 'api.html'),
+        'changelog': resolve(__dirname, 'changelog.html'),
+        'docs/intro': resolve(__dirname, 'docs-intro.html'),
+        'docs/installation': resolve(__dirname, 'docs-installation.html'),
+        'docs/diarization': resolve(__dirname, 'docs-diarization.html'),
+        'docs/contributing': resolve(__dirname, 'docs-contributing.html'),
       }
     }
   }
