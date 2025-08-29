@@ -14,6 +14,8 @@ export default defineConfig({
         'index': resolve(__dirname, 'index.html'),
         'api': resolve(__dirname, 'api.html'),
         'changelog': resolve(__dirname, 'changelog.html'),
+        // Docs section: add index redirect so /docs resolves
+        'docs/index': resolve(__dirname, 'docs-index.html'),
         'docs/intro': resolve(__dirname, 'docs-intro.html'),
         'docs/installation': resolve(__dirname, 'docs-installation.html'),
         'docs/diarization': resolve(__dirname, 'docs-diarization.html'),
@@ -22,4 +24,3 @@ export default defineConfig({
     }
   }
 });
-
