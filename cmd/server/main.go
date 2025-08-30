@@ -18,7 +18,7 @@ import (
 	"scriberr/internal/queue"
 	"scriberr/internal/transcription"
 
-	_ "scriberr/docs" // Import generated docs
+	_ "scriberr/api-docs" // Import generated Swagger docs
 
 	"github.com/gin-gonic/gin"
 )
