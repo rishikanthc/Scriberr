@@ -2,8 +2,8 @@
 set -e
 
 # Default values
-PUID=${PUID:-10001}
-PGID=${PGID:-10001}
+PUID=${PUID:-1000}
+PGID=${PGID:-1000}
 
 echo "=== Scriberr Container Setup ==="
 echo "Requested UID: $PUID, GID: $PGID"
@@ -14,7 +14,7 @@ setup_user() {
     local target_gid=$2
     
     # Check if we need to modify the user
-    if [ "$target_uid" != "10001" ] || [ "$target_gid" != "10001" ]; then
+    if [ "$target_uid" != "1000" ] || [ "$target_gid" != "1000" ]; then
         echo "Setting up custom user with UID=$target_uid, GID=$target_gid..."
         
         # Check if group already exists with different GID
@@ -36,7 +36,7 @@ setup_user() {
         # Update ownership of app directory
         chown -R "$target_uid:$target_gid" /app 2>/dev/null || true
     else
-        echo "Using default user (UID=10001, GID=10001)"
+        echo "Using default user (UID=1000, GID=1000)"
     fi
 }
 

@@ -49,8 +49,8 @@ ENV PYTHONUNBUFFERED=1 \
     PORT=8080 \
     DATABASE_PATH=/app/data/scriberr.db \
     UPLOAD_DIR=/app/data/uploads \
-    PUID=10001 \
-    PGID=10001
+    PUID=1000 \
+    PGID=1000
 
 WORKDIR /app
 
@@ -67,8 +67,8 @@ RUN curl -LsSf https://astral.sh/uv/install.sh | sh \
   && uv --version
 
 # Create default user (will be modified at runtime if needed)
-RUN groupadd -g 10001 appuser \
-  && useradd -m -u 10001 -g 10001 appuser \
+RUN groupadd -g 1000 appuser \
+  && useradd -m -u 1000 -g 1000 appuser \
   && mkdir -p /app/data/uploads /app/data/transcripts \
   && chown -R appuser:appuser /app
 
