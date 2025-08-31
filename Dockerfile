@@ -45,13 +45,10 @@ RUN CGO_ENABLED=0 \
 FROM python:3.11-slim AS runtime
 
 ENV PYTHONUNBUFFERED=1 \
-    UV_INSTALL_DIR=/usr/local/bin \
-    UV_PATH=/usr/local/bin/uv \
     HOST=0.0.0.0 \
     PORT=8080 \
     DATABASE_PATH=/app/data/scriberr.db \
-    UPLOAD_DIR=/app/data/uploads \
-    WHISPERX_ENV=/app/data/whisperx-env
+    UPLOAD_DIR=/app/data/uploads
 
 WORKDIR /app
 
@@ -61,14 +58,15 @@ RUN apt-get update \
        curl ca-certificates ffmpeg git \
   && rm -rf /var/lib/apt/lists/*
 
-# Install uv (fast Python package manager). The script installs under
-# /root/.local/bin by default; ensure it's available at /usr/local/bin/uv.
+# Install uv (fast Python package manager) directly to system PATH
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh \
-  && if [ -x /root/.local/bin/uv ]; then ln -sf /root/.local/bin/uv ${UV_INSTALL_DIR}/uv; fi
+  && cp /root/.local/bin/uv /usr/local/bin/uv \
+  && chmod 755 /usr/local/bin/uv \
+  && uv --version
 
 # Add non-root user and data directory
 RUN useradd -m -u 10001 appuser \
-  && mkdir -p /app/data/uploads /app/data/transcripts /app/data/whisperx-env \
+  && mkdir -p /app/data/uploads /app/data/transcripts \
   && chown -R appuser:appuser /app
 
 # Copy binary
@@ -79,6 +77,9 @@ EXPOSE 8080
 VOLUME ["/app/data"]
 
 USER appuser
+
+# Verify uv is available for appuser
+RUN uv --version
 
 # Default command
 ENTRYPOINT ["/app/scriberr"]

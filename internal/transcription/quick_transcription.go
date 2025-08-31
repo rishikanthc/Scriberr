@@ -298,7 +298,7 @@ func (qs *QuickTranscriptionService) buildWhisperXCommand(job *models.Transcript
 	
 	// Use standard WhisperX command for quick transcriptions
     args := []string{
-        "run", "--native-tls", "--project", qs.whisperX.getEnvPath(), "python", "-m", "whisperx",
+        "run", "--native-tls", "--project", "whisperx-env", "python", "-m", "whisperx",
         job.AudioPath,
         "--output_dir", outputDir,
     }
@@ -400,11 +400,11 @@ func (qs *QuickTranscriptionService) buildWhisperXCommand(job *models.Transcript
 	}
 	args = append(args, "--print_progress", "False")
 
-    cmd := exec.Command(qs.whisperX.getUVPath(), args...)
+    cmd := exec.Command("uv", args...)
 	cmd.Env = append(os.Environ(), "PYTHONUNBUFFERED=1")
 	
 	// Debug: log the command being executed
-	fmt.Printf("DEBUG: Quick WhisperX command: %s %v\n", qs.config.UVPath, args)
+	fmt.Printf("DEBUG: Quick WhisperX command: uv %v\n", args)
 	
 	return cmd, nil
 }
