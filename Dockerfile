@@ -54,10 +54,10 @@ ENV PYTHONUNBUFFERED=1 \
 
 WORKDIR /app
 
-# System deps: curl for uv install, ca-certs, ffmpeg for yt-dlp, git for git+ installs
+# System deps: curl for uv install, ca-certs, ffmpeg for yt-dlp, git for git+ installs, gosu for user switching
 RUN apt-get update \
   && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-       curl ca-certificates ffmpeg git \
+       curl ca-certificates ffmpeg git gosu \
   && rm -rf /var/lib/apt/lists/*
 
 # Install uv (fast Python package manager) directly to system PATH
@@ -66,9 +66,9 @@ RUN curl -LsSf https://astral.sh/uv/install.sh | sh \
   && chmod 755 /usr/local/bin/uv \
   && uv --version
 
-# Add non-root user and data directory using configurable UID/GID
-RUN groupadd -g ${PGID} appuser \
-  && useradd -m -u ${PUID} -g ${PGID} appuser \
+# Create default user (will be modified at runtime if needed)
+RUN groupadd -g 10001 appuser \
+  && useradd -m -u 10001 -g 10001 appuser \
   && mkdir -p /app/data/uploads /app/data/transcripts \
   && chown -R appuser:appuser /app
 
@@ -84,11 +84,10 @@ RUN chmod +x /usr/local/bin/docker-entrypoint.sh \
 EXPOSE 8080
 VOLUME ["/app/data"]
 
-USER appuser
-
-# Verify uv is available for appuser
+# Start as root to allow user ID changes, entrypoint script will switch users
+# Verify uv is available
 RUN uv --version
 
-# Use entrypoint script that handles permissions
+# Use entrypoint script that handles user switching and permissions
 ENTRYPOINT ["docker-entrypoint.sh"]
 CMD ["/app/scriberr"]

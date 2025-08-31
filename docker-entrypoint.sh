@@ -1,57 +1,68 @@
 #!/bin/bash
 set -e
 
-# Function to safely create directory
-ensure_dir() {
-    local dir="$1"
-    
-    # Try to create directory if it doesn't exist
-    if [ ! -d "$dir" ]; then
-        if ! mkdir -p "$dir" 2>/dev/null; then
-            echo "Warning: Could not create directory $dir"
-            return 1
-        fi
-    fi
-    
-    # Check if we can write to the directory
-    if [ ! -w "$dir" ]; then
-        echo "Error: No write permission to $dir"
-        echo "For bind mounts, please ensure the host directory has correct permissions:"
-        echo "  sudo chown -R $(id -u):$(id -g) /path/to/host/directory"
-        echo "Or set container user ID to match your host user:"
-        echo "  docker run -e PUID=\$(id -u) -e PGID=\$(id -g) ..."
-        echo "Or run container with --user root to auto-fix permissions"
-        return 1
-    fi
-    
-    echo "✓ Directory $dir is writable"
-    return 0
-}
+# Default values
+PUID=${PUID:-10001}
+PGID=${PGID:-10001}
 
 echo "=== Scriberr Container Setup ==="
-echo "Running as UID=$(id -u), GID=$(id -g)"
+echo "Requested UID: $PUID, GID: $PGID"
 
-# Ensure required directories exist and are writable
-echo "Setting up data directories..."
+# Function to setup user if needed
+setup_user() {
+    local target_uid=$1
+    local target_gid=$2
+    
+    # Check if we need to modify the user
+    if [ "$target_uid" != "10001" ] || [ "$target_gid" != "10001" ]; then
+        echo "Setting up custom user with UID=$target_uid, GID=$target_gid..."
+        
+        # Check if group already exists with different GID
+        if getent group "$target_gid" >/dev/null 2>&1; then
+            echo "Group with GID $target_gid already exists, using it"
+        else
+            # Modify existing group or create new one
+            groupmod -g "$target_gid" appuser 2>/dev/null || {
+                groupadd -g "$target_gid" appgroup
+                usermod -g "$target_gid" appuser
+            }
+        fi
+        
+        # Modify user UID
+        usermod -u "$target_uid" appuser 2>/dev/null || {
+            echo "Warning: Could not change user ID, continuing with existing user"
+        }
+        
+        # Update ownership of app directory
+        chown -R "$target_uid:$target_gid" /app 2>/dev/null || true
+    else
+        echo "Using default user (UID=10001, GID=10001)"
+    fi
+}
 
-if ! ensure_dir "/app/data"; then
-    echo "Failed to set up /app/data directory"
-    exit 1
+# Setup the user (only if running as root)
+if [ "$(id -u)" = "0" ]; then
+    setup_user "$PUID" "$PGID"
+    
+    # Set up directories with proper ownership
+    echo "Setting up data directories..."
+    mkdir -p /app/data/uploads /app/data/transcripts /app/whisperx-env
+    chown -R "$PUID:$PGID" /app/data /app/whisperx-env
+    
+    echo "=== Setup Complete ==="
+    echo "Switching to user appuser (UID=$PUID, GID=$PGID) and starting application..."
+    
+    # Switch to the appuser and execute the command
+    exec gosu appuser "$@"
+else
+    echo "Running as non-root user UID=$(id -u), GID=$(id -g)"
+    
+    # Just ensure directories exist
+    mkdir -p /app/data/uploads /app/data/transcripts /app/whisperx-env 2>/dev/null || true
+    
+    echo "=== Setup Complete ==="
+    echo "Starting Scriberr application..."
+    
+    # Execute directly
+    exec "$@"
 fi
-
-ensure_dir "/app/data/uploads" || true
-ensure_dir "/app/data/transcripts" || true
-
-# Create whisperx-env in working directory (not under mounted volume)
-# This avoids permission issues with bind mounts
-echo "Setting up Python environment directory..."
-if ! ensure_dir "/app/whisperx-env"; then
-    echo "Failed to set up Python environment directory"
-    exit 1
-fi
-
-echo "=== Setup Complete ==="
-echo "Starting Scriberr application..."
-
-# Execute the main command
-exec "$@"
