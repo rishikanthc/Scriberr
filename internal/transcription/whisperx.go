@@ -76,7 +76,7 @@ func (ws *WhisperXService) ProcessJob(ctx context.Context, jobID string) error {
 		return fmt.Errorf("failed to create output directory: %v", err)
 	}
 
-	// Build WhisperX command
+	// Build WhisperX command (handles both regular transcription and diarization)
 	cmd, err := ws.buildWhisperXCommand(&job, outputDir)
 	if err != nil {
 		return fmt.Errorf("failed to build command: %v", err)
@@ -113,9 +113,8 @@ func (ws *WhisperXService) ensurePythonEnv() error {
         return fmt.Errorf("failed to create environment directory: %v", err)
     }
 
-    // Always write embedded assets (pyproject + script) to keep them in sync
+    // Always write embedded assets (pyproject) to keep them in sync
     _ = ws.writeEmbeddedFile("pyproject.toml", filepath.Join(envPath, "pyproject.toml"))
-    _ = ws.writeEmbeddedFile("diarize_transcript.py", filepath.Join(envPath, "diarize_transcript.py"))
 
     // If we have a pyproject, prefer syncing via uv
     if _, err := os.Stat(filepath.Join(envPath, "pyproject.toml")); err == nil {
@@ -215,13 +214,7 @@ func (ws *WhisperXService) buildWhisperXCommand(job *models.TranscriptionJob, ou
 	// Debug: log diarization status
 	fmt.Printf("DEBUG: Job ID %s, Diarize parameter: %v, Job Diarization field: %v\n", job.ID, p.Diarize, job.Diarization)
 	
-	// If diarization is enabled, use our custom diarization script
-	if p.Diarize {
-		fmt.Printf("DEBUG: Using diarization script for job %s\n", job.ID)
-		return ws.buildDiarizationCommand(job, outputDir)
-	}
-	
-	// Otherwise use standard WhisperX command
+	// Use WhisperX CLI for both regular transcription and diarization
 	args := []string{
 		"run", "--native-tls", "--project", ws.config.WhisperXEnv, "python", "-m", "whisperx",
 		job.AudioPath,
@@ -320,6 +313,21 @@ func (ws *WhisperXService) buildWhisperXCommand(job *models.TranscriptionJob, ou
 	args = append(args, "--highlight_words", "False")
 	args = append(args, "--segment_resolution", "sentence")
 
+	// Diarization settings
+	if p.Diarize {
+		args = append(args, "--diarize")
+		if p.MinSpeakers != nil {
+			args = append(args, "--min_speakers", strconv.Itoa(*p.MinSpeakers))
+		}
+		if p.MaxSpeakers != nil {
+			args = append(args, "--max_speakers", strconv.Itoa(*p.MaxSpeakers))
+		}
+		args = append(args, "--diarize_model", p.DiarizeModel)
+		if p.SpeakerEmbeddings {
+			args = append(args, "--speaker_embeddings")
+		}
+	}
+
 	// Token and progress
 	if p.HfToken != nil {
 		args = append(args, "--hf_token", *p.HfToken)
@@ -332,56 +340,6 @@ func (ws *WhisperXService) buildWhisperXCommand(job *models.TranscriptionJob, ou
 	
 	// Debug: log the command being executed
 	fmt.Printf("DEBUG: WhisperX command: %s %v\n", ws.config.UVPath, args)
-	
-	return cmd, nil
-}
-
-// buildDiarizationCommand builds command for our custom diarization script
-func (ws *WhisperXService) buildDiarizationCommand(job *models.TranscriptionJob, outputDir string) (*exec.Cmd, error) {
-	p := job.Parameters
-	
-	// Prepare output file path
-	outputFile := filepath.Join(outputDir, "result.json")
-	
-    envPath := ws.getEnvPath()
-    args := []string{
-        "run", "--native-tls", "--project", envPath, "python", 
-        filepath.Join(envPath, "diarize_transcript.py"),
-        job.AudioPath,
-        outputFile,
-    }
-	
-	// Core parameters
-	args = append(args, "--model", p.Model)
-	args = append(args, "--device", p.Device)
-	args = append(args, "--compute_type", p.ComputeType)
-	args = append(args, "--batch_size", strconv.Itoa(p.BatchSize))
-	
-	// Language
-	if p.Language != nil {
-		args = append(args, "--language", *p.Language)
-	}
-	
-	// Enable diarization
-	args = append(args, "--diarize")
-	
-	// Diarization parameters
-	args = append(args, "--diarize_model", p.DiarizeModel)
-	if p.MinSpeakers != nil {
-		args = append(args, "--min_speakers", strconv.Itoa(*p.MinSpeakers))
-	}
-	if p.MaxSpeakers != nil {
-		args = append(args, "--max_speakers", strconv.Itoa(*p.MaxSpeakers))
-	}
-	if p.HfToken != nil {
-		args = append(args, "--hf_token", *p.HfToken)
-	}
-	
-    cmd := exec.Command(ws.getUVPath(), args...)
-	cmd.Env = append(os.Environ(), "PYTHONUNBUFFERED=1")
-	
-	// Debug: log the command being executed
-    fmt.Printf("DEBUG: Diarization command: %s %v\n", ws.getUVPath(), args)
 	
 	return cmd, nil
 }
