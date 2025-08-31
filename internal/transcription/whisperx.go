@@ -141,11 +141,8 @@ func (ws *WhisperXService) createPythonEnv() error {
         return fmt.Errorf("failed to create environment directory: %v", err)
     }
     
-    // Write embedded pyproject and script
+    // Write embedded pyproject file
     if err := ws.writeEmbeddedFile("pyproject.toml", filepath.Join(envPath, "pyproject.toml")); err != nil {
-        return err
-    }
-    if err := ws.writeEmbeddedFile("diarize_transcript.py", filepath.Join(envPath, "diarize_transcript.py")); err != nil {
         return err
     }
 
