@@ -13,7 +13,6 @@ import (
 	"scriberr/internal/config"
 	"scriberr/internal/database"
 	"scriberr/internal/models"
-	assets "scriberr/internal/transcription/assets"
 )
 
 // WhisperXService handles WhisperX transcription
@@ -102,69 +101,118 @@ func (ws *WhisperXService) ProcessJob(ctx context.Context, jobID string) error {
 	return nil
 }
 
-// ensurePythonEnv ensures the Python environment is set up
+// ensurePythonEnv ensures the Python environment is set up by cloning WhisperX from git
 func (ws *WhisperXService) ensurePythonEnv() error {
     envPath := ws.getEnvPath()
+    whisperxPath := filepath.Join(envPath, "WhisperX")
+    
+    // Get absolute paths for debugging
+    absEnvPath, _ := filepath.Abs(envPath)
+    absWhisperxPath, _ := filepath.Abs(whisperxPath)
+    workingDir, _ := os.Getwd()
+    
+    fmt.Printf("DEBUG: Current working directory: %s\n", workingDir)
+    fmt.Printf("DEBUG: Relative WhisperX path: %s\n", whisperxPath)
+    fmt.Printf("DEBUG: Absolute WhisperX path: %s\n", absWhisperxPath)
+    fmt.Printf("DEBUG: Absolute env path: %s\n", absEnvPath)
+    
+    // Check if WhisperX is already installed and working
+    cmd := exec.Command("uv", "run", "--native-tls", "--project", whisperxPath, "python", "-c", "import whisperx")
+    if err := cmd.Run(); err == nil {
+        fmt.Printf("DEBUG: WhisperX already installed and working\n")
+        return nil // Already set up and working
+    }
+
+    fmt.Printf("DEBUG: WhisperX not found, setting up environment at: %s\n", envPath)
+
+    // Remove existing directory if it exists
+    if err := os.RemoveAll(envPath); err != nil {
+        return fmt.Errorf("failed to remove existing environment: %v", err)
+    }
+
     // Ensure base directory exists
     if err := os.MkdirAll(envPath, 0755); err != nil {
         return fmt.Errorf("failed to create environment directory: %v", err)
     }
 
-    // Always write embedded assets (pyproject) to keep them in sync
-    _ = ws.writeEmbeddedFile("pyproject.toml", filepath.Join(envPath, "pyproject.toml"))
+    fmt.Printf("DEBUG: Cloning WhisperX repository to: %s\n", envPath)
 
-    // If we have a pyproject, prefer syncing via uv
-    if _, err := os.Stat(filepath.Join(envPath, "pyproject.toml")); err == nil {
-        if err := ws.uvSync(envPath); err == nil {
-            return nil
-        }
-        // fall through to import check if sync failed
+    // Clone WhisperX repository
+    if err := ws.cloneWhisperX(envPath); err != nil {
+        return fmt.Errorf("failed to clone WhisperX: %v", err)
     }
 
-    // Check if WhisperX import works; if not, try to install via fallback
-    cmd := exec.Command("uv", "run", "--native-tls", "--project", envPath, "python", "-c", "import whisperx")
-    if err := cmd.Run(); err != nil {
-        return ws.installWhisperX()
+    fmt.Printf("DEBUG: Updating dependencies in: %s\n", whisperxPath)
+
+    // Modify pyproject.toml to update dependencies
+    if err := ws.updateWhisperXDependencies(whisperxPath); err != nil {
+        return fmt.Errorf("failed to update dependencies: %v", err)
     }
+
+    fmt.Printf("DEBUG: Running uv sync in: %s\n", whisperxPath)
+
+    // Install with uv sync
+    if err := ws.uvSyncWhisperX(whisperxPath); err != nil {
+        return fmt.Errorf("failed to sync WhisperX: %v", err)
+    }
+
+    fmt.Printf("DEBUG: WhisperX setup completed successfully\n")
+
     return nil
 }
 
-// createPythonEnv creates a new Python environment
-func (ws *WhisperXService) createPythonEnv() error {
-    envPath := ws.getEnvPath()
-    
-    // Create directory
-    if err := os.MkdirAll(envPath, 0755); err != nil {
-        return fmt.Errorf("failed to create environment directory: %v", err)
-    }
-    
-    // Write embedded pyproject file
-    if err := ws.writeEmbeddedFile("pyproject.toml", filepath.Join(envPath, "pyproject.toml")); err != nil {
-        return err
-    }
 
-    // Sync dependencies using uv
-    if err := ws.uvSync(envPath); err != nil {
-        return fmt.Errorf("failed to sync uv project: %v", err)
-    }
-    return nil
-}
-
-// installWhisperX installs WhisperX and dependencies
-func (ws *WhisperXService) installWhisperX() error {
-    envPath := ws.getEnvPath()
-    
-    // Install WhisperX and diarization dependencies
-    cmd := exec.Command("uv", "add", "--native-tls", "--project", envPath, 
-        "git+https://github.com/m-bain/whisperX.git", 
-        "torch", "torchaudio", "numpy", "pandas", 
-        "pyannote.audio", "faster-whisper")
+// cloneWhisperX clones the WhisperX repository
+func (ws *WhisperXService) cloneWhisperX(envPath string) error {
+    cmd := exec.Command("git", "clone", "https://github.com/m-bain/WhisperX.git")
     cmd.Dir = envPath
+    out, err := cmd.CombinedOutput()
+    if err != nil {
+        return fmt.Errorf("git clone failed: %v: %s", err, strings.TrimSpace(string(out)))
+    }
+    return nil
+}
+
+// updateWhisperXDependencies modifies WhisperX pyproject.toml to update ctranslate2 and add yt-dlp
+func (ws *WhisperXService) updateWhisperXDependencies(whisperxPath string) error {
+    pyprojectPath := filepath.Join(whisperxPath, "pyproject.toml")
     
-    if err := cmd.Run(); err != nil {
-        return fmt.Errorf("failed to install WhisperX: %v", err)
+    // Read the existing pyproject.toml
+    data, err := os.ReadFile(pyprojectPath)
+    if err != nil {
+        return fmt.Errorf("failed to read pyproject.toml: %v", err)
     }
     
+    content := string(data)
+    
+    // Replace ctranslate2 dependency
+    content = strings.ReplaceAll(content, "ctranslate2<4.5.0", "ctranslate2==4.6.0")
+    
+    // Add yt-dlp if not already present
+    if !strings.Contains(content, "yt-dlp") {
+        // Find the dependencies section and add yt-dlp
+        content = strings.ReplaceAll(content, 
+            `"transformers>=4.48.0",`,
+            `"transformers>=4.48.0",
+    "yt-dlp",`)
+    }
+    
+    // Write back the modified content
+    if err := os.WriteFile(pyprojectPath, []byte(content), 0644); err != nil {
+        return fmt.Errorf("failed to write pyproject.toml: %v", err)
+    }
+    
+    return nil
+}
+
+// uvSyncWhisperX runs `uv sync --all-extras --dev` for WhisperX
+func (ws *WhisperXService) uvSyncWhisperX(whisperxPath string) error {
+    cmd := exec.Command("uv", "sync", "--all-extras", "--dev", "--native-tls")
+    cmd.Dir = whisperxPath
+    out, err := cmd.CombinedOutput()
+    if err != nil {
+        return fmt.Errorf("uv sync failed: %v: %s", err, strings.TrimSpace(string(out)))
+    }
     return nil
 }
 
@@ -179,18 +227,6 @@ func (ws *WhisperXService) uvSync(projectPath string) error {
     return nil
 }
 
-// writeEmbeddedFile writes an embedded asset to disk
-func (ws *WhisperXService) writeEmbeddedFile(name, dest string) error {
-    data, err := assets.FS.ReadFile(name)
-    if err != nil {
-        // asset missing in the binary; not fatal
-        return nil
-    }
-    if err := os.MkdirAll(filepath.Dir(dest), 0755); err != nil {
-        return err
-    }
-    return os.WriteFile(dest, data, 0644)
-}
 
 // InitEmbeddedPythonEnv initializes the Python env on app start (blocking).
 // Assumes uv is installed and accessible in system PATH.
@@ -209,8 +245,9 @@ func (ws *WhisperXService) buildWhisperXCommand(job *models.TranscriptionJob, ou
 	fmt.Printf("DEBUG: Job ID %s, Diarize parameter: %v, Job Diarization field: %v\n", job.ID, p.Diarize, job.Diarization)
 	
 	// Use WhisperX CLI for both regular transcription and diarization
+	whisperxPath := filepath.Join(ws.getEnvPath(), "WhisperX")
 	args := []string{
-		"run", "--native-tls", "--project", ws.getEnvPath(), "python", "-m", "whisperx",
+		"run", "--native-tls", "--project", whisperxPath, "python", "-m", "whisperx",
 		job.AudioPath,
 		"--output_dir", outputDir,
 	}

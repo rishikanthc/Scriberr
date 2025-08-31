@@ -3,6 +3,13 @@ docker-compose.ollama.yaml
 Dockerfile
 Dockerfile-cuda128
 install_audiowaveform.sh
+data
+data_bak
+CLAUDE.md
+CNAME
+main
+scriberr-data
+whisperx-env
 samples
 scriberr_files
 scriberr
