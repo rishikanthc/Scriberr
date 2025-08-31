@@ -64,12 +64,21 @@ def main():
     # Optional diarization
     if args.diarize:
         try:
-            diarize_kwargs = {}
-            if args.hf_token:
-                diarize_kwargs["use_auth_token"] = args.hf_token
-            diarize_kwargs["device"] = device
-            pipe = whisperx.DiarizationPipeline(**diarize_kwargs)
-            diarize_segments = pipe(audio, min_speakers=args.min_speakers, max_speakers=args.max_speakers)
+            # Use the correct WhisperX diarization API
+            diarize_model = whisperx.diarize.DiarizationPipeline(
+                model_name=args.diarize_model,
+                use_auth_token=args.hf_token,
+                device=device
+            )
+            
+            # Run diarization with speaker constraints
+            diarize_segments = diarize_model(
+                audio, 
+                min_speakers=args.min_speakers, 
+                max_speakers=args.max_speakers
+            )
+            
+            # Assign speakers to transcript segments and words
             result = whisperx.assign_word_speakers(diarize_segments, result)
         except Exception as e:
             print(f"Diarization failed: {e}", file=sys.stderr)
