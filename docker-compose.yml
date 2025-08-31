@@ -8,6 +8,7 @@ services:
       context: .
       dockerfile: Dockerfile
     image: scriberr:local
+    # image: ghcr.io/rishikanthc/scriberr:v1.0.0
     container_name: scriberr
     ports:
       - "8080:8080"
@@ -16,8 +17,11 @@ services:
       - PORT=8080
       - DATABASE_PATH=/app/data/scriberr.db
       - UPLOAD_DIR=/app/data/uploads
-      - WHISPERX_ENV=/app/data/whisperx-env
-      # - UV_PATH=/usr/local/bin/uv # override if needed
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
     volumes:
       - ./scriberr-data:/app/data
     restart: unless-stopped
+
+volumes:
+  scriberr-data:

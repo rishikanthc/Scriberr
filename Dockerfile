@@ -48,7 +48,9 @@ ENV PYTHONUNBUFFERED=1 \
     HOST=0.0.0.0 \
     PORT=8080 \
     DATABASE_PATH=/app/data/scriberr.db \
-    UPLOAD_DIR=/app/data/uploads
+    UPLOAD_DIR=/app/data/uploads \
+    PUID=10001 \
+    PGID=10001
 
 WORKDIR /app
 
@@ -64,13 +66,19 @@ RUN curl -LsSf https://astral.sh/uv/install.sh | sh \
   && chmod 755 /usr/local/bin/uv \
   && uv --version
 
-# Add non-root user and data directory
-RUN useradd -m -u 10001 appuser \
+# Add non-root user and data directory using configurable UID/GID
+RUN groupadd -g ${PGID} appuser \
+  && useradd -m -u ${PUID} -g ${PGID} appuser \
   && mkdir -p /app/data/uploads /app/data/transcripts \
   && chown -R appuser:appuser /app
 
-# Copy binary
+# Copy binary and entrypoint script
 COPY --from=go-builder /out/scriberr /app/scriberr
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+
+# Make entrypoint script executable and set up basic permissions
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh \
+  && chown appuser:appuser /app/scriberr
 
 # Expose port and declare volume for persistence
 EXPOSE 8080
@@ -81,5 +89,6 @@ USER appuser
 # Verify uv is available for appuser
 RUN uv --version
 
-# Default command
-ENTRYPOINT ["/app/scriberr"]
+# Use entrypoint script that handles permissions
+ENTRYPOINT ["docker-entrypoint.sh"]
+CMD ["/app/scriberr"]
