@@ -101,7 +101,7 @@ export function AudioRecorder({
 					const recordPlugin = ws.registerPlugin(
 						RecordPlugin.create({
 							renderRecordedAudio: false,
-							scrollingWaveform: false,
+							scrollingWaveform: true,
 							continuousWaveform: true,
 							continuousWaveformDuration: 30,
 						}),
