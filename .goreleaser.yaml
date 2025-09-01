@@ -119,8 +119,8 @@ brews:
       name: homebrew-scriberr
       branch: main
       token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
-    # Ensure the formula is placed under the conventional Formula/ folder
-    folder: Formula
+    # Ensure the formula is placed under the conventional Formula/ directory
+    directory: Formula
     homepage: https://github.com/rishikanthc/Scriberr
     description: "Audio transcription service using WhisperX with speaker diarization"
     license: MIT
