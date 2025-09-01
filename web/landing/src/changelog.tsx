@@ -8,9 +8,41 @@ type Release = { version: string; date: string; tag?: 'Latest' | 'Beta'; notes: 
 
 const RELEASES: Release[] = [
   {
+    version: '1.0.4',
+    date: '2025-09-01',
+    tag: 'Latest',
+    notes: [
+      { type: 'Fixed', text: 'Fix Homebrew package.' },
+    ],
+  },
+  {
+    version: '1.0.3',
+    date: '2025-08-31',
+    notes: [
+      { type: 'Fixed', text: 'Fixes #163.' },
+    ],
+  },
+  {
+    version: '1.0.2',
+    date: '2025-08-31',
+    notes: [
+      { type: 'Fixed', text: 'Fix translate issues on Arch Linux and Ubuntu.' },
+    ],
+  },
+  {
+    version: '1.0.1',
+    date: '2025-08-30',
+    notes: [
+      { type: 'Changed', text: 'Default container UID/GID to 1000.' },
+      { type: 'Fixed', text: 'Docker now respects environment-provided UID/GID.' },
+      { type: 'Fixed', text: 'Resolve permission errors for Docker bind mounts.' },
+      { type: 'Changed', text: 'Diarization uses whisperX-cli instead of Python script (fixes #158, #160).' },
+      { type: 'Removed', text: 'Remove Python scripts no longer used (fixes #161).' },
+    ],
+  },
+  {
     version: '1.0.0',
     date: '2025-08-29',
-    tag: 'Latest',
     notes: [
       // Changed
       { type: 'Changed', text: 'Migrated to React for the frontend and Go for the backend — improves responsiveness and enables simple single-binary packaging.' },
