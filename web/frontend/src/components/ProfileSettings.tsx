@@ -4,6 +4,8 @@ import { ProfilesTable } from "./ProfilesTable";
 import { TranscriptionConfigDialog, type WhisperXParams } from "./TranscriptionConfigDialog";
 import { useAuth } from "../contexts/AuthContext";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
+import { Switch } from "./ui/switch";
+import { Label } from "./ui/label";
 
 interface TranscriptionProfile {
 	id: string;
@@ -22,7 +24,54 @@ export function ProfileSettings() {
 	const [profiles, setProfiles] = useState<TranscriptionProfile[]>([]);
 	const [defaultProfile, setDefaultProfile] = useState<TranscriptionProfile | null>(null);
 	const [isLoadingProfiles, setIsLoadingProfiles] = useState(true);
+	const [autoTranscriptionEnabled, setAutoTranscriptionEnabled] = useState(false);
+	const [isLoadingSettings, setIsLoadingSettings] = useState(true);
     const { getAuthHeaders } = useAuth();
+
+	// Load user settings
+	const loadSettings = useCallback(async () => {
+		try {
+			setIsLoadingSettings(true);
+			
+			const res = await fetch('/api/v1/user/settings', {
+				headers: getAuthHeaders()
+			});
+			
+			if (res.ok) {
+				const data = await res.json();
+				setAutoTranscriptionEnabled(data.auto_transcription_enabled || false);
+			}
+		} catch (error) {
+			console.error('Failed to load settings:', error);
+		} finally {
+			setIsLoadingSettings(false);
+		}
+	}, [getAuthHeaders]);
+
+	// Handle auto transcription toggle
+	const handleAutoTranscriptionToggle = useCallback(async (enabled: boolean) => {
+		try {
+			const res = await fetch('/api/v1/user/settings', {
+				method: 'PUT',
+				headers: {
+					'Content-Type': 'application/json',
+					...getAuthHeaders()
+				},
+				body: JSON.stringify({ auto_transcription_enabled: enabled })
+			});
+			
+			if (res.ok) {
+				setAutoTranscriptionEnabled(enabled);
+			} else {
+				const error = await res.text();
+				console.error('Failed to update auto transcription setting:', error);
+				alert('Failed to update setting');
+			}
+		} catch (error) {
+			console.error('Failed to update auto transcription setting:', error);
+			alert('Failed to update setting');
+		}
+	}, [getAuthHeaders]);
 
 	// Load profiles and default profile
 	const loadProfiles = useCallback(async () => {
@@ -87,6 +136,11 @@ export function ProfileSettings() {
 	useEffect(() => {
 		loadProfiles();
 	}, [loadProfiles, refreshTrigger]);
+
+	// Load settings on component mount
+	useEffect(() => {
+		loadSettings();
+	}, [loadSettings]);
 
 	const handleCreateProfile = useCallback(() => {
 		setEditingProfile(null);
@@ -171,6 +225,31 @@ export function ProfileSettings() {
 					>
 						Create New Profile
 					</Button>
+				</div>
+
+				{/* Auto Transcription Setting */}
+				<div className="mb-6 p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+					<div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+						<div className="flex-1">
+							<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+								Automatic Transcription
+							</label>
+							<p className="text-xs text-gray-500 dark:text-gray-400">
+								Automatically start transcription when audio files are uploaded using the default profile.
+							</p>
+						</div>
+						<div className="flex items-center space-x-2">
+							<Switch
+								id="auto-transcription"
+								checked={autoTranscriptionEnabled}
+								onCheckedChange={handleAutoTranscriptionToggle}
+								disabled={isLoadingSettings}
+							/>
+							<Label htmlFor="auto-transcription" className="text-sm text-gray-600 dark:text-gray-400">
+								{autoTranscriptionEnabled ? "Enabled" : "Disabled"}
+							</Label>
+						</div>
+					</div>
 				</div>
 
 				{/* Default Profile Selection */}

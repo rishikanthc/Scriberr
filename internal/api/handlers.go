@@ -156,7 +156,7 @@ type APIKeyListResponse struct {
 }
 
 // @Summary Upload audio file
-// @Description Upload an audio file without starting transcription
+// @Description Upload an audio file, optionally auto-starting transcription if enabled
 // @Tags transcription
 // @Accept multipart/form-data
 // @Produce json
@@ -203,15 +203,50 @@ func (h *Handler) UploadAudio(c *gin.Context) {
 		return
 	}
 
-	// Create job record with "uploaded" status (not queued for transcription)
+	// Create initial job record
 	job := models.TranscriptionJob{
 		ID:        jobID,
 		AudioPath: filePath,
-		Status:    models.StatusUploaded, // New status for uploaded but not transcribed
+		Status:    models.StatusUploaded,
 	}
 
 	if title := c.PostForm("title"); title != "" {
 		job.Title = &title
+	}
+
+	// Check for auto transcription if authenticated as a user (not API key only)
+	var shouldAutoTranscribe bool
+	var defaultProfile *models.TranscriptionProfile
+	
+	if userID, exists := c.Get("user_id"); exists {
+		// Get user settings
+		var user models.User
+		if err := database.DB.First(&user, userID).Error; err == nil && user.AutoTranscriptionEnabled {
+			shouldAutoTranscribe = true
+			
+			// Get user's default profile
+			if user.DefaultProfileID != nil {
+				var profile models.TranscriptionProfile
+				if err := database.DB.Where("id = ?", *user.DefaultProfileID).First(&profile).Error; err == nil {
+					defaultProfile = &profile
+				}
+			}
+			
+			// If no default profile set, use first available profile
+			if defaultProfile == nil {
+				var profile models.TranscriptionProfile
+				if err := database.DB.Order("created_at ASC").First(&profile).Error; err == nil {
+					defaultProfile = &profile
+				}
+			}
+		}
+	}
+
+	// If auto transcription is enabled and we have a default profile, set up for transcription
+	if shouldAutoTranscribe && defaultProfile != nil {
+		job.Status = models.StatusPending
+		job.Parameters = defaultProfile.Parameters
+		job.Diarization = defaultProfile.Parameters.Diarize
 	}
 
 	// Save to database
@@ -219,6 +254,14 @@ func (h *Handler) UploadAudio(c *gin.Context) {
 		os.Remove(filePath) // Clean up file
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create job"})
 		return
+	}
+
+	// If auto transcription is enabled, enqueue the job
+	if shouldAutoTranscribe && defaultProfile != nil {
+		if err := h.taskQueue.EnqueueJob(jobID); err != nil {
+			// Log error but don't fail the upload - job is still saved
+			fmt.Printf("Warning: Failed to auto-enqueue job %s: %v\n", jobID, err)
+		}
 	}
 
 	c.JSON(http.StatusOK, job)
@@ -1971,7 +2014,7 @@ func (h *Handler) DownloadFromYouTube(c *gin.Context) {
 
 	actualFilePath := matches[0]
 
-	// Create transcription record
+	// Create initial job record
 	job := models.TranscriptionJob{
 		ID:        jobID,
 		AudioPath: actualFilePath,
@@ -1983,12 +2026,55 @@ func (h *Handler) DownloadFromYouTube(c *gin.Context) {
 		job.Title = &title
 	}
 
+	// Check for auto transcription if authenticated as a user (not API key only)
+	var shouldAutoTranscribe bool
+	var defaultProfile *models.TranscriptionProfile
+	
+	if userID, exists := c.Get("user_id"); exists {
+		// Get user settings
+		var user models.User
+		if err := database.DB.First(&user, userID).Error; err == nil && user.AutoTranscriptionEnabled {
+			shouldAutoTranscribe = true
+			
+			// Get user's default profile
+			if user.DefaultProfileID != nil {
+				var profile models.TranscriptionProfile
+				if err := database.DB.Where("id = ?", *user.DefaultProfileID).First(&profile).Error; err == nil {
+					defaultProfile = &profile
+				}
+			}
+			
+			// If no default profile set, use first available profile
+			if defaultProfile == nil {
+				var profile models.TranscriptionProfile
+				if err := database.DB.Order("created_at ASC").First(&profile).Error; err == nil {
+					defaultProfile = &profile
+				}
+			}
+		}
+	}
+
+	// If auto transcription is enabled and we have a default profile, set up for transcription
+	if shouldAutoTranscribe && defaultProfile != nil {
+		job.Status = models.StatusPending
+		job.Parameters = defaultProfile.Parameters
+		job.Diarization = defaultProfile.Parameters.Diarize
+	}
+
 	// Save to database
 	if err := database.DB.Create(&job).Error; err != nil {
 		// Clean up downloaded file on database error
 		os.Remove(actualFilePath)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save transcription record"})
 		return
+	}
+
+	// If auto transcription is enabled, enqueue the job
+	if shouldAutoTranscribe && defaultProfile != nil {
+		if err := h.taskQueue.EnqueueJob(jobID); err != nil {
+			// Log error but don't fail the upload - job is still saved
+			fmt.Printf("Warning: Failed to auto-enqueue YouTube job %s: %v\n", jobID, err)
+		}
 	}
 
 	c.JSON(http.StatusOK, job)
@@ -2102,4 +2188,91 @@ func (h *Handler) SetUserDefaultProfile(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Default profile set successfully", "profile_id": req.ProfileID})
+}
+
+// @Summary Get user settings
+// @Description Get user settings including auto transcription and default profile
+// @Tags user
+// @Produce json
+// @Success 200 {object} map[string]interface{}
+// @Security BearerAuth
+// @Router /api/v1/user/settings [get]
+func (h *Handler) GetUserSettings(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		return
+	}
+
+	var user models.User
+	if err := database.DB.First(&user, userID).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get user"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"auto_transcription_enabled": user.AutoTranscriptionEnabled,
+		"default_profile_id":        user.DefaultProfileID,
+	})
+}
+
+// UpdateUserSettingsRequest represents the request to update user settings
+type UpdateUserSettingsRequest struct {
+	AutoTranscriptionEnabled *bool   `json:"auto_transcription_enabled,omitempty"`
+	DefaultProfileID        *string `json:"default_profile_id,omitempty"`
+}
+
+// @Summary Update user settings
+// @Description Update user settings like auto transcription and default profile
+// @Tags user
+// @Accept json
+// @Produce json
+// @Param request body UpdateUserSettingsRequest true "Settings update request"
+// @Success 200 {object} map[string]string
+// @Failure 400 {object} map[string]string
+// @Security BearerAuth
+// @Router /api/v1/user/settings [put]
+func (h *Handler) UpdateUserSettings(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		return
+	}
+
+	var req UpdateUserSettingsRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request: " + err.Error()})
+		return
+	}
+
+	// Build update map
+	updateMap := make(map[string]interface{})
+	if req.AutoTranscriptionEnabled != nil {
+		updateMap["auto_transcription_enabled"] = *req.AutoTranscriptionEnabled
+	}
+	if req.DefaultProfileID != nil {
+		// Verify the profile exists if setting it
+		if *req.DefaultProfileID != "" {
+			var profile models.TranscriptionProfile
+			if err := database.DB.Where("id = ?", *req.DefaultProfileID).First(&profile).Error; err != nil {
+				if err == gorm.ErrRecordNotFound {
+					c.JSON(http.StatusNotFound, gin.H{"error": "Profile not found"})
+					return
+				}
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to verify profile"})
+				return
+			}
+		}
+		updateMap["default_profile_id"] = req.DefaultProfileID
+	}
+
+	// Update user settings
+	if len(updateMap) > 0 {
+		if err := database.DB.Model(&models.User{}).Where("id = ?", userID).Updates(updateMap).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update settings"})
+			return
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Settings updated successfully"})
 }
