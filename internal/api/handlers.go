@@ -221,6 +221,50 @@ func (h *Handler) UploadAudio(c *gin.Context) {
 		return
 	}
 
+	// Check for auto-transcription if user is authenticated via JWT
+	if userID, exists := c.Get("user_id"); exists {
+		var user models.User
+		if err := database.DB.First(&user, userID).Error; err == nil && user.AutoTranscriptionEnabled {
+			// Get user's default profile or use system default
+			var profile models.TranscriptionProfile
+			var profileFound bool
+			
+			if user.DefaultProfileID != nil {
+				err = database.DB.Where("id = ?", *user.DefaultProfileID).First(&profile).Error
+				profileFound = (err == nil)
+			}
+			
+			// If no user default or user default not found, try to find a system default
+			if !profileFound {
+				err = database.DB.Where("is_default = ?", true).First(&profile).Error
+				profileFound = (err == nil)
+			}
+			
+			// If still no profile found, use the first available profile
+			if !profileFound {
+				err = database.DB.Order("created_at ASC").First(&profile).Error
+				profileFound = (err == nil)
+			}
+			
+			// If we found a profile, update the job and queue it
+			if profileFound {
+				job.Parameters = profile.Parameters
+				job.Diarization = profile.Parameters.Diarize
+				job.Status = models.StatusPending
+				
+				// Update the job in database
+				if err := database.DB.Save(&job).Error; err == nil {
+					// Enqueue the job for transcription
+					if err := h.taskQueue.EnqueueJob(jobID); err != nil {
+						// If enqueueing fails, revert status but don't fail the upload
+						job.Status = models.StatusUploaded
+						database.DB.Save(&job)
+					}
+				}
+			}
+		}
+	}
+
 	c.JSON(http.StatusOK, job)
 }
 
@@ -2102,4 +2146,95 @@ func (h *Handler) SetUserDefaultProfile(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Default profile set successfully", "profile_id": req.ProfileID})
+}
+
+// UserSettingsResponse represents the user's settings
+type UserSettingsResponse struct {
+	AutoTranscriptionEnabled bool    `json:"auto_transcription_enabled"`
+	DefaultProfileID         *string `json:"default_profile_id,omitempty"`
+}
+
+// UpdateUserSettingsRequest represents the request to update user settings
+type UpdateUserSettingsRequest struct {
+	AutoTranscriptionEnabled *bool `json:"auto_transcription_enabled,omitempty"`
+}
+
+// @Summary Get user settings
+// @Description Get the current user's settings including auto-transcription preference
+// @Tags user
+// @Produce json
+// @Success 200 {object} UserSettingsResponse
+// @Failure 401 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Security BearerAuth
+// @Router /api/v1/user/settings [get]
+func (h *Handler) GetUserSettings(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		return
+	}
+
+	var user models.User
+	if err := database.DB.First(&user, userID).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get user"})
+		return
+	}
+
+	response := UserSettingsResponse{
+		AutoTranscriptionEnabled: user.AutoTranscriptionEnabled,
+		DefaultProfileID:         user.DefaultProfileID,
+	}
+
+	c.JSON(http.StatusOK, response)
+}
+
+// @Summary Update user settings
+// @Description Update the current user's settings
+// @Tags user
+// @Accept json
+// @Produce json
+// @Param request body UpdateUserSettingsRequest true "Settings update request"
+// @Success 200 {object} UserSettingsResponse
+// @Failure 400 {object} map[string]string
+// @Failure 401 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Security BearerAuth
+// @Router /api/v1/user/settings [put]
+func (h *Handler) UpdateUserSettings(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		return
+	}
+
+	var req UpdateUserSettingsRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request: " + err.Error()})
+		return
+	}
+
+	var user models.User
+	if err := database.DB.First(&user, userID).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get user"})
+		return
+	}
+
+	// Update fields if provided
+	if req.AutoTranscriptionEnabled != nil {
+		user.AutoTranscriptionEnabled = *req.AutoTranscriptionEnabled
+	}
+
+	// Save updated user
+	if err := database.DB.Save(&user).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update settings"})
+		return
+	}
+
+	response := UserSettingsResponse{
+		AutoTranscriptionEnabled: user.AutoTranscriptionEnabled,
+		DefaultProfileID:         user.DefaultProfileID,
+	}
+
+	c.JSON(http.StatusOK, response)
 }
