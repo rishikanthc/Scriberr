@@ -128,6 +128,13 @@
     },
     {
       "method": "GET",
+      "path": "/api/v1/transcription/{id}/execution",
+      "summary": "Get transcription job execution data",
+      "description": "Get execution parameters and timing for a transcription job",
+      "tag": "transcription"
+    },
+    {
+      "method": "GET",
       "path": "/api/v1/transcription/{id}/audio",
       "summary": "Get audio file",
       "description": "Serve the audio file for a transcription job",
@@ -300,6 +307,34 @@
       "summary": "Download audio from YouTube URL",
       "description": "Download audio from a YouTube video URL and prepare it for transcription",
       "tag": "transcription"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/user/default-profile",
+      "summary": "Get user's default profile",
+      "description": "Get the default transcription profile for the current user",
+      "tag": "profiles"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/user/default-profile",
+      "summary": "Set user's default profile",
+      "description": "Set the default transcription profile for the current user",
+      "tag": "profiles"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/user/settings",
+      "summary": "Get user settings",
+      "description": "Get the current user's settings including auto-transcription preference",
+      "tag": "user"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/user/settings",
+      "summary": "Update user settings",
+      "description": "Update the current user's settings",
+      "tag": "user"
     },
     {
       "method": "GET",
