@@ -1602,27 +1602,45 @@ useEffect(() => {
                                     🎛️ WhisperX Parameters
                                 </h3>
                                 <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
                                         {/* Model Settings */}
                                         <div>
                                             <h4 className="font-semibold text-gray-700 dark:text-gray-300 mb-2">Model & Device</h4>
                                             <div className="space-y-1">
                                                 <div className="flex justify-between">
                                                     <span className="text-gray-600 dark:text-gray-400">Model:</span>
-                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.actual_model || 'N/A'}</span>
+                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.model || 'N/A'}</span>
                                                 </div>
                                                 <div className="flex justify-between">
                                                     <span className="text-gray-600 dark:text-gray-400">Device:</span>
-                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.actual_device || 'N/A'}</span>
+                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.device || 'N/A'}</span>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                    <span className="text-gray-600 dark:text-gray-400">Device Index:</span>
+                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.device_index ?? 'N/A'}</span>
                                                 </div>
                                                 <div className="flex justify-between">
                                                     <span className="text-gray-600 dark:text-gray-400">Compute Type:</span>
-                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.actual_compute_type || 'N/A'}</span>
+                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.compute_type || 'N/A'}</span>
                                                 </div>
                                                 <div className="flex justify-between">
                                                     <span className="text-gray-600 dark:text-gray-400">Batch Size:</span>
-                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.actual_batch_size || 'N/A'}</span>
+                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.batch_size || 'N/A'}</span>
                                                 </div>
+                                                <div className="flex justify-between">
+                                                    <span className="text-gray-600 dark:text-gray-400">Threads:</span>
+                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.threads || 0}</span>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                    <span className="text-gray-600 dark:text-gray-400">Model Cache Only:</span>
+                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.model_cache_only ? 'Yes' : 'No'}</span>
+                                                </div>
+                                                {executionData.actual_parameters?.model_dir && (
+                                                    <div className="flex justify-between">
+                                                        <span className="text-gray-600 dark:text-gray-400">Model Dir:</span>
+                                                        <span className="font-mono text-gray-900 dark:text-gray-100 text-xs truncate">{executionData.actual_parameters.model_dir}</span>
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
 
@@ -1632,66 +1650,200 @@ useEffect(() => {
                                             <div className="space-y-1">
                                                 <div className="flex justify-between">
                                                     <span className="text-gray-600 dark:text-gray-400">Task:</span>
-                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.actual_task || 'transcribe'}</span>
+                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.task || 'transcribe'}</span>
                                                 </div>
                                                 <div className="flex justify-between">
                                                     <span className="text-gray-600 dark:text-gray-400">Language:</span>
-                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.actual_language || 'auto'}</span>
+                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.language || 'auto'}</span>
                                                 </div>
                                                 <div className="flex justify-between">
                                                     <span className="text-gray-600 dark:text-gray-400">Diarization:</span>
-                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.actual_diarize ? 'Yes' : 'No'}</span>
+                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.diarize ? 'Yes' : 'No'}</span>
                                                 </div>
                                                 <div className="flex justify-between">
                                                     <span className="text-gray-600 dark:text-gray-400">VAD Method:</span>
-                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.actual_vad_method || 'pyannote'}</span>
+                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.vad_method || 'pyannote'}</span>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                    <span className="text-gray-600 dark:text-gray-400">VAD Onset:</span>
+                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.vad_onset ?? 0.5}</span>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                    <span className="text-gray-600 dark:text-gray-400">VAD Offset:</span>
+                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.vad_offset ?? 0.363}</span>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                    <span className="text-gray-600 dark:text-gray-400">Chunk Size:</span>
+                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.chunk_size || 30}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Diarization Settings */}
+                                        <div>
+                                            <h4 className="font-semibold text-gray-700 dark:text-gray-300 mb-2">Speaker Diarization</h4>
+                                            <div className="space-y-1">
+                                                <div className="flex justify-between">
+                                                    <span className="text-gray-600 dark:text-gray-400">Enabled:</span>
+                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.diarize ? 'Yes' : 'No'}</span>
+                                                </div>
+                                                {executionData.actual_parameters?.min_speakers && (
+                                                    <div className="flex justify-between">
+                                                        <span className="text-gray-600 dark:text-gray-400">Min Speakers:</span>
+                                                        <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters.min_speakers}</span>
+                                                    </div>
+                                                )}
+                                                {executionData.actual_parameters?.max_speakers && (
+                                                    <div className="flex justify-between">
+                                                        <span className="text-gray-600 dark:text-gray-400">Max Speakers:</span>
+                                                        <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters.max_speakers}</span>
+                                                    </div>
+                                                )}
+                                                <div className="flex justify-between">
+                                                    <span className="text-gray-600 dark:text-gray-400">Model:</span>
+                                                    <span className="font-mono text-gray-900 dark:text-gray-100 text-xs">{executionData.actual_parameters?.diarize_model || 'pyannote/speaker-diarization-3.1'}</span>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                    <span className="text-gray-600 dark:text-gray-400">Speaker Embeddings:</span>
+                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.speaker_embeddings ? 'Yes' : 'No'}</span>
                                                 </div>
                                             </div>
                                         </div>
 
                                         {/* Quality Settings */}
                                         <div>
-                                            <h4 className="font-semibold text-gray-700 dark:text-gray-300 mb-2">Quality</h4>
+                                            <h4 className="font-semibold text-gray-700 dark:text-gray-300 mb-2">Quality Settings</h4>
                                             <div className="space-y-1">
                                                 <div className="flex justify-between">
                                                     <span className="text-gray-600 dark:text-gray-400">Temperature:</span>
-                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.actual_temperature ?? 0}</span>
+                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.temperature ?? 0}</span>
                                                 </div>
                                                 <div className="flex justify-between">
                                                     <span className="text-gray-600 dark:text-gray-400">Beam Size:</span>
-                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.actual_beam_size || 5}</span>
+                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.beam_size || 5}</span>
                                                 </div>
                                                 <div className="flex justify-between">
                                                     <span className="text-gray-600 dark:text-gray-400">Best Of:</span>
-                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.actual_best_of || 5}</span>
+                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.best_of || 5}</span>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                    <span className="text-gray-600 dark:text-gray-400">Patience:</span>
+                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.patience ?? 1.0}</span>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                    <span className="text-gray-600 dark:text-gray-400">Length Penalty:</span>
+                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.length_penalty ?? 1.0}</span>
                                                 </div>
                                                 <div className="flex justify-between">
                                                     <span className="text-gray-600 dark:text-gray-400">FP16:</span>
-                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.actual_fp16 ? 'Yes' : 'No'}</span>
+                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.fp16 ? 'Yes' : 'No'}</span>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                    <span className="text-gray-600 dark:text-gray-400">Suppress Numerals:</span>
+                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.suppress_numerals ? 'Yes' : 'No'}</span>
                                                 </div>
                                             </div>
                                         </div>
 
-                                        {/* Output Settings */}
+                                        {/* Advanced Quality Settings */}
                                         <div>
-                                            <h4 className="font-semibold text-gray-700 dark:text-gray-300 mb-2">Output</h4>
+                                            <h4 className="font-semibold text-gray-700 dark:text-gray-300 mb-2">Advanced Quality</h4>
                                             <div className="space-y-1">
                                                 <div className="flex justify-between">
-                                                    <span className="text-gray-600 dark:text-gray-400">Format:</span>
-                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.actual_output_format || 'all'}</span>
+                                                    <span className="text-gray-600 dark:text-gray-400">Temp Increment Fallback:</span>
+                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.temperature_increment_on_fallback ?? 0.2}</span>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                    <span className="text-gray-600 dark:text-gray-400">Compression Ratio Threshold:</span>
+                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.compression_ratio_threshold ?? 2.4}</span>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                    <span className="text-gray-600 dark:text-gray-400">Logprob Threshold:</span>
+                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.logprob_threshold ?? -1.0}</span>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                    <span className="text-gray-600 dark:text-gray-400">No Speech Threshold:</span>
+                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.no_speech_threshold ?? 0.6}</span>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                    <span className="text-gray-600 dark:text-gray-400">Condition on Previous Text:</span>
+                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.condition_on_previous_text ? 'Yes' : 'No'}</span>
+                                                </div>
+                                                {executionData.actual_parameters?.suppress_tokens && (
+                                                    <div className="flex justify-between">
+                                                        <span className="text-gray-600 dark:text-gray-400">Suppress Tokens:</span>
+                                                        <span className="font-mono text-gray-900 dark:text-gray-100 text-xs">{executionData.actual_parameters.suppress_tokens}</span>
+                                                    </div>
+                                                )}
+                                                {executionData.actual_parameters?.initial_prompt && (
+                                                    <div className="flex justify-between">
+                                                        <span className="text-gray-600 dark:text-gray-400">Initial Prompt:</span>
+                                                        <span className="font-mono text-gray-900 dark:text-gray-100 text-xs truncate">{executionData.actual_parameters.initial_prompt}</span>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        {/* Alignment & Output Settings */}
+                                        <div>
+                                            <h4 className="font-semibold text-gray-700 dark:text-gray-300 mb-2">Alignment & Output</h4>
+                                            <div className="space-y-1">
+                                                <div className="flex justify-between">
+                                                    <span className="text-gray-600 dark:text-gray-400">Output Format:</span>
+                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.output_format || 'all'}</span>
                                                 </div>
                                                 <div className="flex justify-between">
                                                     <span className="text-gray-600 dark:text-gray-400">Segment Resolution:</span>
-                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.actual_segment_resolution || 'sentence'}</span>
+                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.segment_resolution || 'sentence'}</span>
                                                 </div>
                                                 <div className="flex justify-between">
                                                     <span className="text-gray-600 dark:text-gray-400">Highlight Words:</span>
-                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.actual_highlight_words ? 'Yes' : 'No'}</span>
+                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.highlight_words ? 'Yes' : 'No'}</span>
                                                 </div>
                                                 <div className="flex justify-between">
                                                     <span className="text-gray-600 dark:text-gray-400">Verbose:</span>
-                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.actual_verbose ? 'Yes' : 'No'}</span>
+                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.verbose ? 'Yes' : 'No'}</span>
                                                 </div>
+                                                <div className="flex justify-between">
+                                                    <span className="text-gray-600 dark:text-gray-400">No Align:</span>
+                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.no_align ? 'Yes' : 'No'}</span>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                    <span className="text-gray-600 dark:text-gray-400">Return Char Alignments:</span>
+                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.return_char_alignments ? 'Yes' : 'No'}</span>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                    <span className="text-gray-600 dark:text-gray-400">Interpolate Method:</span>
+                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.interpolate_method || 'nearest'}</span>
+                                                </div>
+                                                {executionData.actual_parameters?.align_model && (
+                                                    <div className="flex justify-between">
+                                                        <span className="text-gray-600 dark:text-gray-400">Align Model:</span>
+                                                        <span className="font-mono text-gray-900 dark:text-gray-100 text-xs">{executionData.actual_parameters.align_model}</span>
+                                                    </div>
+                                                )}
+                                                {executionData.actual_parameters?.max_line_width && (
+                                                    <div className="flex justify-between">
+                                                        <span className="text-gray-600 dark:text-gray-400">Max Line Width:</span>
+                                                        <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters.max_line_width}</span>
+                                                    </div>
+                                                )}
+                                                {executionData.actual_parameters?.max_line_count && (
+                                                    <div className="flex justify-between">
+                                                        <span className="text-gray-600 dark:text-gray-400">Max Line Count:</span>
+                                                        <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters.max_line_count}</span>
+                                                    </div>
+                                                )}
+                                                <div className="flex justify-between">
+                                                    <span className="text-gray-600 dark:text-gray-400">Print Progress:</span>
+                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.print_progress ? 'Yes' : 'No'}</span>
+                                                </div>
+                                                {executionData.actual_parameters?.hf_token && (
+                                                    <div className="flex justify-between">
+                                                        <span className="text-gray-600 dark:text-gray-400">HF Token:</span>
+                                                        <span className="font-mono text-gray-900 dark:text-gray-100">***</span>
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
                                     </div>
