@@ -47,6 +47,7 @@ export function TranscribeDDialog({
   const [profiles, setProfiles] = useState<TranscriptionProfile[]>([]);
   const [selectedProfileId, setSelectedProfileId] = useState<string>("");
   const [profilesLoading, setProfilesLoading] = useState(false);
+  const [defaultProfile, setDefaultProfile] = useState<TranscriptionProfile | null>(null);
 
   // Fetch profiles when dialog opens
   useEffect(() => {
@@ -58,22 +59,35 @@ export function TranscribeDDialog({
   const fetchProfiles = async () => {
     try {
       setProfilesLoading(true);
-      const response = await fetch("/api/v1/profiles", {
+      
+      // Fetch all profiles
+      const profilesResponse = await fetch("/api/v1/profiles", {
         headers: {
           ...getAuthHeaders(),
         },
       });
 
-      if (response.ok) {
-        const data: TranscriptionProfile[] = await response.json();
-        setProfiles(data);
+      if (profilesResponse.ok) {
+        const profilesData: TranscriptionProfile[] = await profilesResponse.json();
+        setProfiles(profilesData);
         
-        // Select the default profile by default, or first profile if no default
-        const defaultProfile = data.find(p => p.is_default);
-        if (defaultProfile) {
-          setSelectedProfileId("default");
-        } else if (data.length > 0) {
-          setSelectedProfileId(data[0].id);
+        // Fetch user's default profile
+        const defaultResponse = await fetch("/api/v1/user/default-profile", {
+          headers: {
+            ...getAuthHeaders(),
+          },
+        });
+        
+        if (defaultResponse.ok) {
+          const defaultData: TranscriptionProfile = await defaultResponse.json();
+          setDefaultProfile(defaultData);
+          setSelectedProfileId(defaultData.id);
+        } else if (defaultResponse.status === 404) {
+          // No default profile set, use the first available profile
+          setDefaultProfile(null);
+          if (profilesData.length > 0) {
+            setSelectedProfileId(profilesData[0].id);
+          }
         }
       } else {
         console.error("Failed to fetch profiles");
@@ -88,17 +102,9 @@ export function TranscribeDDialog({
   const handleStartTranscription = () => {
     if (!selectedProfileId) return;
 
-    if (selectedProfileId === "default") {
-      // Find the default profile
-      const defaultProfile = profiles.find(p => p.is_default);
-      if (defaultProfile) {
-        onStartTranscription(defaultProfile.parameters, defaultProfile.id);
-      }
-    } else {
-      const selectedProfile = profiles.find(p => p.id === selectedProfileId);
-      if (selectedProfile) {
-        onStartTranscription(selectedProfile.parameters, selectedProfile.id);
-      }
+    const selectedProfile = profiles.find(p => p.id === selectedProfileId);
+    if (selectedProfile) {
+      onStartTranscription(selectedProfile.parameters, selectedProfile.id);
     }
   };
 
@@ -107,11 +113,10 @@ export function TranscribeDDialog({
   };
 
   const getSelectedProfileName = () => {
-    if (selectedProfileId === "default") {
-      const defaultProfile = profiles.find(p => p.is_default);
-      return defaultProfile ? `${defaultProfile.name} (Default)` : "Default";
-    }
     const profile = profiles.find(p => p.id === selectedProfileId);
+    if (profile && defaultProfile && profile.id === defaultProfile.id) {
+      return `${profile.name} (Default)`;
+    }
     return profile?.name || "";
   };
 
@@ -151,21 +156,6 @@ export function TranscribeDDialog({
                   <SelectValue placeholder="Choose a profile..." />
                 </SelectTrigger>
                 <SelectContent className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 max-h-60">
-                  {/* Default profile option */}
-                  {profiles.find(p => p.is_default) && (
-                    <SelectItem 
-                      value="default" 
-                      className="text-gray-900 dark:text-gray-100 focus:bg-gray-100 dark:focus:bg-gray-700"
-                    >
-                      <div className="flex items-center space-x-2">
-                        <span>Default</span>
-                        <span className="text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-1.5 py-0.5 rounded">
-                          {profiles.find(p => p.is_default)?.name}
-                        </span>
-                      </div>
-                    </SelectItem>
-                  )}
-                  
                   {/* All profiles */}
                   {profiles.map((profile) => (
                     <SelectItem 
@@ -176,7 +166,7 @@ export function TranscribeDDialog({
                       <div className="flex flex-col space-y-1">
                         <div className="flex items-center space-x-2">
                           <span>{profile.name}</span>
-                          {profile.is_default && (
+                          {defaultProfile && profile.id === defaultProfile.id && (
                             <span className="text-xs text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/30 px-1.5 py-0.5 rounded">
                               Default
                             </span>
@@ -203,9 +193,7 @@ export function TranscribeDDialog({
                 <span className="text-gray-600 dark:text-gray-400">{getSelectedProfileName()}</span>
               </div>
               {(() => {
-                const profile = selectedProfileId === "default" 
-                  ? profiles.find(p => p.is_default)
-                  : profiles.find(p => p.id === selectedProfileId);
+                const profile = profiles.find(p => p.id === selectedProfileId);
                 return profile?.description ? (
                   <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                     {profile.description}

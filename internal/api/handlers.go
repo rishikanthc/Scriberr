@@ -1993,3 +1993,113 @@ func (h *Handler) DownloadFromYouTube(c *gin.Context) {
 
 	c.JSON(http.StatusOK, job)
 }
+
+// @Summary Get user's default profile
+// @Description Get the default transcription profile for the current user
+// @Tags profiles
+// @Produce json
+// @Success 200 {object} models.TranscriptionProfile
+// @Failure 404 {object} map[string]string
+// @Security BearerAuth
+// @Router /api/v1/user/default-profile [get]
+func (h *Handler) GetUserDefaultProfile(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		return
+	}
+
+	// Get user with default profile ID
+	var user models.User
+	if err := database.DB.First(&user, userID).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get user"})
+		return
+	}
+
+	// If user has no default profile set, return the first available profile or no profile
+	if user.DefaultProfileID == nil {
+		var firstProfile models.TranscriptionProfile
+		if err := database.DB.Order("created_at ASC").First(&firstProfile).Error; err != nil {
+			if err == gorm.ErrRecordNotFound {
+				c.JSON(http.StatusNotFound, gin.H{"error": "No profiles available"})
+				return
+			}
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get profiles"})
+			return
+		}
+		c.JSON(http.StatusOK, firstProfile)
+		return
+	}
+
+	// Get the user's default profile
+	var profile models.TranscriptionProfile
+	if err := database.DB.Where("id = ?", *user.DefaultProfileID).First(&profile).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			// Default profile no longer exists, fall back to first available
+			var firstProfile models.TranscriptionProfile
+			if err := database.DB.Order("created_at ASC").First(&firstProfile).Error; err != nil {
+				if err == gorm.ErrRecordNotFound {
+					c.JSON(http.StatusNotFound, gin.H{"error": "No profiles available"})
+					return
+				}
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get profiles"})
+				return
+			}
+			c.JSON(http.StatusOK, firstProfile)
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get default profile"})
+		return
+	}
+
+	c.JSON(http.StatusOK, profile)
+}
+
+// SetUserDefaultProfileRequest represents the request to set user's default profile
+type SetUserDefaultProfileRequest struct {
+	ProfileID string `json:"profile_id" binding:"required"`
+}
+
+// @Summary Set user's default profile
+// @Description Set the default transcription profile for the current user
+// @Tags profiles
+// @Accept json
+// @Produce json
+// @Param request body SetUserDefaultProfileRequest true "Default profile request"
+// @Success 200 {object} map[string]string
+// @Failure 400 {object} map[string]string
+// @Failure 404 {object} map[string]string
+// @Security BearerAuth
+// @Router /api/v1/user/default-profile [post]
+func (h *Handler) SetUserDefaultProfile(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		return
+	}
+
+	var req SetUserDefaultProfileRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request: " + err.Error()})
+		return
+	}
+
+	// Verify the profile exists
+	var profile models.TranscriptionProfile
+	if err := database.DB.Where("id = ?", req.ProfileID).First(&profile).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Profile not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to verify profile"})
+		return
+	}
+
+	// Update user's default profile
+	if err := database.DB.Model(&models.User{}).Where("id = ?", userID).Update("default_profile_id", req.ProfileID).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to set default profile"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Default profile set successfully", "profile_id": req.ProfileID})
+}
