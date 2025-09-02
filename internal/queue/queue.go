@@ -4,12 +4,20 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os/exec"
 	"sync"
+	"syscall"
 	"time"
 
 	"scriberr/internal/database"
 	"scriberr/internal/models"
 )
+
+// RunningJob tracks both context cancellation and OS process
+type RunningJob struct {
+	Cancel  context.CancelFunc
+	Process *exec.Cmd
+}
 
 // TaskQueue manages transcription job processing
 type TaskQueue struct {
@@ -19,13 +27,14 @@ type TaskQueue struct {
 	cancel       context.CancelFunc
 	wg           sync.WaitGroup
 	processor    JobProcessor
-	runningJobs  map[string]context.CancelFunc
+	runningJobs  map[string]*RunningJob
 	jobsMutex    sync.RWMutex
 }
 
 // JobProcessor defines the interface for processing jobs
 type JobProcessor interface {
 	ProcessJob(ctx context.Context, jobID string) error
+	ProcessJobWithProcess(ctx context.Context, jobID string, registerProcess func(*exec.Cmd)) error
 }
 
 // NewTaskQueue creates a new task queue
@@ -38,7 +47,7 @@ func NewTaskQueue(workers int, processor JobProcessor) *TaskQueue {
 		ctx:         ctx,
 		cancel:      cancel,
 		processor:   processor,
-		runningJobs: make(map[string]context.CancelFunc),
+		runningJobs: make(map[string]*RunningJob),
 	}
 }
 
@@ -101,12 +110,26 @@ func (tq *TaskQueue) worker(id int) {
 			
 			// Create context for this job and track it
 			jobCtx, jobCancel := context.WithCancel(tq.ctx)
+			runningJob := &RunningJob{
+				Cancel:  jobCancel,
+				Process: nil, // Will be set by registerProcess callback
+			}
+			
 			tq.jobsMutex.Lock()
-			tq.runningJobs[jobID] = jobCancel
+			tq.runningJobs[jobID] = runningJob
 			tq.jobsMutex.Unlock()
 			
-			// Process the job
-			err := tq.processor.ProcessJob(jobCtx, jobID)
+			// Register process callback
+			registerProcess := func(cmd *exec.Cmd) {
+				tq.jobsMutex.Lock()
+				if job, exists := tq.runningJobs[jobID]; exists {
+					job.Process = cmd
+				}
+				tq.jobsMutex.Unlock()
+			}
+			
+			// Process the job with process registration
+			err := tq.processor.ProcessJobWithProcess(jobCtx, jobID, registerProcess)
 			
 			// Remove job from running jobs
 			tq.jobsMutex.Lock()
@@ -176,18 +199,41 @@ func (tq *TaskQueue) scanPendingJobs() {
 	}
 }
 
-// KillJob cancels a running job
+// KillJob aggressively terminates a running job
 func (tq *TaskQueue) KillJob(jobID string) error {
 	tq.jobsMutex.Lock()
 	defer tq.jobsMutex.Unlock()
 	
-	if cancel, exists := tq.runningJobs[jobID]; exists {
-		log.Printf("Killing job %s", jobID)
-		cancel()
-		return nil
+	runningJob, exists := tq.runningJobs[jobID]
+	if !exists {
+		return fmt.Errorf("job %s is not currently running", jobID)
 	}
 	
-	return fmt.Errorf("job %s is not currently running", jobID)
+	log.Printf("Aggressively killing job %s", jobID)
+	
+	// First, try to kill the OS process immediately with SIGKILL
+	if runningJob.Process != nil && runningJob.Process.Process != nil {
+		log.Printf("Sending SIGKILL to process %d for job %s", runningJob.Process.Process.Pid, jobID)
+		
+		// Kill the entire process group to ensure all child processes are terminated
+		err := syscall.Kill(-runningJob.Process.Process.Pid, syscall.SIGKILL)
+		if err != nil {
+			log.Printf("Failed to kill process group for job %s: %v, trying individual process", jobID, err)
+			// Fallback to killing just the main process
+			runningJob.Process.Process.Kill()
+		}
+	}
+	
+	// Also cancel the context for cleanup
+	runningJob.Cancel()
+	
+	// Immediately update job status without waiting for process to finish
+	go func() {
+		tq.updateJobStatus(jobID, models.StatusFailed)
+		tq.updateJobError(jobID, "Job was forcefully terminated by user")
+	}()
+	
+	return nil
 }
 
 // IsJobRunning checks if a job is currently being processed

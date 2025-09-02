@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"syscall"
 
 	"scriberr/internal/config"
 	"scriberr/internal/database"
@@ -50,6 +51,12 @@ type Word struct {
 
 // ProcessJob implements the JobProcessor interface
 func (ws *WhisperXService) ProcessJob(ctx context.Context, jobID string) error {
+	// Call the enhanced version with a no-op register function
+	return ws.ProcessJobWithProcess(ctx, jobID, func(*exec.Cmd) {})
+}
+
+// ProcessJobWithProcess implements the enhanced JobProcessor interface
+func (ws *WhisperXService) ProcessJobWithProcess(ctx context.Context, jobID string, registerProcess func(*exec.Cmd)) error {
 	// Get the job from database
 	var job models.TranscriptionJob
 	if err := database.DB.Where("id = ?", jobID).First(&job).Error; err != nil {
@@ -73,17 +80,23 @@ func (ws *WhisperXService) ProcessJob(ctx context.Context, jobID string) error {
 	}
 
 	// Build WhisperX command (handles both regular transcription and diarization)
-	cmd, err := ws.buildWhisperXCommand(&job, outputDir)
+	args, err := ws.buildWhisperXArgs(&job, outputDir)
 	if err != nil {
 		return fmt.Errorf("failed to build command: %v", err)
 	}
 
-	// Set context for cancellation support
-	cmdWithCtx := exec.CommandContext(ctx, cmd.Path, cmd.Args[1:]...)
-	cmdWithCtx.Env = cmd.Env
+	// Create command with context for proper cancellation support
+	cmd := exec.CommandContext(ctx, "uv", args...)
+	cmd.Env = append(os.Environ(), "PYTHONUNBUFFERED=1")
+	
+	// Set process group ID so we can kill the entire process tree
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	
+	// Register the process for immediate termination capability
+	registerProcess(cmd)
 
 	// Execute WhisperX
-	output, err := cmdWithCtx.CombinedOutput()
+	output, err := cmd.CombinedOutput()
 	if ctx.Err() == context.Canceled {
 		return fmt.Errorf("job was cancelled")
 	}
@@ -237,8 +250,8 @@ func (ws *WhisperXService) InitEmbeddedPythonEnv() error {
     return nil
 }
 
-// buildWhisperXCommand builds the WhisperX command
-func (ws *WhisperXService) buildWhisperXCommand(job *models.TranscriptionJob, outputDir string) (*exec.Cmd, error) {
+// buildWhisperXArgs builds the WhisperX command arguments
+func (ws *WhisperXService) buildWhisperXArgs(job *models.TranscriptionJob, outputDir string) ([]string, error) {
 	p := job.Parameters
 	
 	// Debug: log diarization status
@@ -366,13 +379,10 @@ func (ws *WhisperXService) buildWhisperXCommand(job *models.TranscriptionJob, ou
 	// Hard-coded: disable print progress for cleaner output
 	args = append(args, "--print_progress", "False")
 
-    cmd := exec.Command("uv", args...)
-	cmd.Env = append(os.Environ(), "PYTHONUNBUFFERED=1")
-	
 	// Debug: log the command being executed
 	fmt.Printf("DEBUG: WhisperX command: uv %v\n", args)
 	
-	return cmd, nil
+	return args, nil
 }
 
 // parseAndSaveResult parses WhisperX output and saves to database
