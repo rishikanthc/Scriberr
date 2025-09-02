@@ -228,7 +228,7 @@ export function ProfileSettings() {
 				</div>
 
 				{/* Auto Transcription Setting */}
-				<div className="mb-6 p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+				<div className="mb-6 p-4 bg-white dark:bg-gray-800 rounded-lg">
 					<div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
 						<div className="flex-1">
 							<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -253,7 +253,7 @@ export function ProfileSettings() {
 				</div>
 
 				{/* Default Profile Selection */}
-				<div className="mb-6 p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+				<div className="mb-6 p-4 bg-white dark:bg-gray-800 rounded-lg">
 					<div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
 						<div className="flex-1">
 							<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
