@@ -26,6 +26,7 @@ vite.config.ts.timestamp-*
 .env
 samples
 scriberr
+data
 data/scriberr.db
 data/transcripts
 data/uploads
