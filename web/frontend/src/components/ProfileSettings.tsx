@@ -1,8 +1,9 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { Button } from "./ui/button";
 import { ProfilesTable } from "./ProfilesTable";
 import { TranscriptionConfigDialog, type WhisperXParams } from "./TranscriptionConfigDialog";
 import { useAuth } from "../contexts/AuthContext";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 
 interface TranscriptionProfile {
 	id: string;
@@ -18,7 +19,74 @@ export function ProfileSettings() {
 	const [profileDialogOpen, setProfileDialogOpen] = useState(false);
 	const [editingProfile, setEditingProfile] = useState<TranscriptionProfile | null>(null);
 	const [refreshTrigger, setRefreshTrigger] = useState(0);
+	const [profiles, setProfiles] = useState<TranscriptionProfile[]>([]);
+	const [defaultProfile, setDefaultProfile] = useState<TranscriptionProfile | null>(null);
+	const [isLoadingProfiles, setIsLoadingProfiles] = useState(true);
     const { getAuthHeaders } = useAuth();
+
+	// Load profiles and default profile
+	const loadProfiles = useCallback(async () => {
+		try {
+			setIsLoadingProfiles(true);
+			
+			// Load all profiles
+			const profilesRes = await fetch('/api/v1/profiles', {
+				headers: getAuthHeaders()
+			});
+			if (profilesRes.ok) {
+				const profilesData = await profilesRes.json();
+				setProfiles(profilesData);
+			}
+			
+			// Load user's default profile
+			const defaultRes = await fetch('/api/v1/user/default-profile', {
+				headers: getAuthHeaders()
+			});
+			if (defaultRes.ok) {
+				const defaultData = await defaultRes.json();
+				setDefaultProfile(defaultData);
+			} else if (defaultRes.status === 404) {
+				// No default profile set, that's okay
+				setDefaultProfile(null);
+			}
+		} catch (error) {
+			console.error('Failed to load profiles:', error);
+		} finally {
+			setIsLoadingProfiles(false);
+		}
+	}, [getAuthHeaders]);
+
+	// Handle default profile change
+	const handleDefaultProfileChange = useCallback(async (profileId: string) => {
+		try {
+			const res = await fetch('/api/v1/user/default-profile', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					...getAuthHeaders()
+				},
+				body: JSON.stringify({ profile_id: profileId })
+			});
+			
+			if (res.ok) {
+				// Update local state
+				const selectedProfile = profiles.find(p => p.id === profileId);
+				setDefaultProfile(selectedProfile || null);
+			} else {
+				const error = await res.text();
+				console.error('Failed to set default profile:', error);
+				alert('Failed to set default profile');
+			}
+		} catch (error) {
+			console.error('Failed to set default profile:', error);
+			alert('Failed to set default profile');
+		}
+	}, [profiles, getAuthHeaders]);
+
+	// Load profiles on component mount and when refresh trigger changes
+	useEffect(() => {
+		loadProfiles();
+	}, [loadProfiles, refreshTrigger]);
 
 	const handleCreateProfile = useCallback(() => {
 		setEditingProfile(null);
@@ -103,6 +171,46 @@ export function ProfileSettings() {
 					>
 						Create New Profile
 					</Button>
+				</div>
+
+				{/* Default Profile Selection */}
+				<div className="mb-6 p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+					<div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+						<div className="flex-1">
+							<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+								Default Profile
+							</label>
+							<p className="text-xs text-gray-500 dark:text-gray-400">
+								The profile to use by default when starting new transcriptions.
+							</p>
+						</div>
+						<div className="w-full sm:w-64">
+							<Select
+								value={defaultProfile?.id || ""}
+								onValueChange={handleDefaultProfileChange}
+								disabled={isLoadingProfiles || profiles.length === 0}
+							>
+								<SelectTrigger>
+									<SelectValue 
+										placeholder={
+											isLoadingProfiles 
+												? "Loading..." 
+												: profiles.length === 0 
+												? "No profiles available" 
+												: "Select default profile"
+										}
+									/>
+								</SelectTrigger>
+								<SelectContent>
+									{profiles.map((profile) => (
+										<SelectItem key={profile.id} value={profile.id}>
+											{profile.name}
+										</SelectItem>
+									))}
+								</SelectContent>
+							</Select>
+						</div>
+					</div>
 				</div>
 
 				<ProfilesTable

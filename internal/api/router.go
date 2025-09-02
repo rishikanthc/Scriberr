@@ -107,6 +107,14 @@ func SetupRoutes(handler *Handler, authService *auth.AuthService) *gin.Engine {
 			profiles.POST("/:id/set-default", handler.SetDefaultProfile)
 		}
 
+		// User routes (require authentication)
+		user := v1.Group("/user")
+		user.Use(middleware.JWTOnlyMiddleware(authService))
+		{
+			user.GET("/default-profile", handler.GetUserDefaultProfile)
+			user.POST("/default-profile", handler.SetUserDefaultProfile)
+		}
+
 		// Admin routes (require authentication)
 		admin := v1.Group("/admin")
 		admin.Use(middleware.AuthMiddleware(authService))
