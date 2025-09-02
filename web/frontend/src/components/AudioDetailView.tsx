@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import { ArrowLeft, Play, Pause, List, AlignLeft, MessageCircle, Download, FileText, FileJson, FileImage, Check, StickyNote, Plus, X, Sparkles, Pencil, ChevronUp, ChevronDown, Info } from "lucide-react";
+import { ArrowLeft, Play, Pause, List, AlignLeft, MessageCircle, Download, FileText, FileJson, FileImage, Check, StickyNote, Plus, X, Sparkles, Pencil, ChevronUp, ChevronDown, Info, Clock, Settings, CheckCircle2, AlertTriangle } from "lucide-react";
 import WaveSurfer from "wavesurfer.js";
 import { Button } from "./ui/button";
 import {
@@ -1546,9 +1546,12 @@ useEffect(() => {
 
             {/* Execution info dialog */}
             <UIDialog open={executionInfoOpen} onOpenChange={setExecutionInfoOpen}>
-                <UIDialogContent className="sm:max-w-2xl bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 max-h-[90vh] overflow-y-auto">
+                <UIDialogContent className="sm:max-w-4xl w-[95vw] bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 max-h-[90vh] overflow-y-auto">
                     <UIDialogHeader>
-                        <UIDialogTitle className="text-gray-900 dark:text-gray-100">Transcription Execution Details</UIDialogTitle>
+                        <UIDialogTitle className="text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                            <Info className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                            Transcription Execution Details
+                        </UIDialogTitle>
                         <UIDialogDescription className="text-gray-600 dark:text-gray-400">
                             Parameters used and processing time for this transcription
                         </UIDialogDescription>
@@ -1562,31 +1565,32 @@ useEffect(() => {
                             </div>
                         </div>
                     ) : executionData ? (
-                        <div className="space-y-6 py-4">
+                        <div className="space-y-4 sm:space-y-6 py-2 sm:py-4">
                             {/* Processing Time */}
-                            <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
-                                <h3 className="text-lg font-semibold text-blue-900 dark:text-blue-100 mb-3">
-                                    ⏱️ Processing Time
+                            <div className="bg-gradient-to-br from-indigo-50 via-blue-50 to-cyan-50 dark:from-indigo-950/30 dark:via-blue-950/30 dark:to-cyan-950/30 border border-blue-100 dark:border-blue-800/30 rounded-lg p-4 sm:p-6">
+                                <h3 className="text-lg font-semibold text-indigo-900 dark:text-indigo-100 mb-3 sm:mb-4 flex items-center gap-2">
+                                    <Clock className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+                                    Processing Time
                                 </h3>
-                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
-                                    <div>
-                                        <span className="text-gray-600 dark:text-gray-400">Started:</span>
-                                        <p className="font-mono text-gray-900 dark:text-gray-100">
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 text-sm">
+                                    <div className="bg-white/60 dark:bg-gray-800/30 rounded-md p-3 border border-indigo-100/50 dark:border-indigo-800/50">
+                                        <span className="text-indigo-700 dark:text-indigo-300 font-medium">Started:</span>
+                                        <p className="font-mono text-gray-900 dark:text-gray-100 mt-1 text-xs sm:text-sm">
                                             {new Date(executionData.started_at).toLocaleString()}
                                         </p>
                                     </div>
-                                    <div>
-                                        <span className="text-gray-600 dark:text-gray-400">Completed:</span>
-                                        <p className="font-mono text-gray-900 dark:text-gray-100">
+                                    <div className="bg-white/60 dark:bg-gray-800/30 rounded-md p-3 border border-indigo-100/50 dark:border-indigo-800/50">
+                                        <span className="text-indigo-700 dark:text-indigo-300 font-medium">Completed:</span>
+                                        <p className="font-mono text-gray-900 dark:text-gray-100 mt-1 text-xs sm:text-sm">
                                             {executionData.completed_at 
                                                 ? new Date(executionData.completed_at).toLocaleString()
                                                 : 'N/A'
                                             }
                                         </p>
                                     </div>
-                                    <div>
-                                        <span className="text-gray-600 dark:text-gray-400">Duration:</span>
-                                        <p className="font-mono text-lg font-bold text-blue-600 dark:text-blue-400">
+                                    <div className="bg-white/60 dark:bg-gray-800/30 rounded-md p-3 border border-indigo-100/50 dark:border-indigo-800/50">
+                                        <span className="text-indigo-700 dark:text-indigo-300 font-medium">Duration:</span>
+                                        <p className="font-mono text-xl sm:text-2xl font-bold text-indigo-600 dark:text-indigo-400 mt-1">
                                             {executionData.processing_duration 
                                                 ? `${(executionData.processing_duration / 1000).toFixed(1)}s`
                                                 : 'N/A'
@@ -1598,55 +1602,42 @@ useEffect(() => {
 
                             {/* WhisperX Parameters */}
                             <div>
-                                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">
-                                    🎛️ WhisperX Parameters
+                                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3 sm:mb-4 flex items-center gap-2">
+                                    <Settings className="h-5 w-5 text-slate-600 dark:text-slate-400" />
+                                    WhisperX Parameters
                                 </h3>
-                                <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
+                                <div className="bg-slate-50/50 dark:bg-slate-800/30 border border-slate-200/50 dark:border-slate-700/50 rounded-lg p-3 sm:p-4">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 text-sm">
                                         {/* Model Settings */}
-                                        <div>
-                                            <h4 className="font-semibold text-gray-700 dark:text-gray-300 mb-2">Model & Device</h4>
-                                            <div className="space-y-1">
-                                                <div className="flex justify-between">
-                                                    <span className="text-gray-600 dark:text-gray-400">Model:</span>
-                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.model || 'N/A'}</span>
+                                        <div className="bg-white/40 dark:bg-slate-700/20 rounded-md p-3 border border-slate-200/30 dark:border-slate-600/30">
+                                            <h4 className="font-semibold text-slate-800 dark:text-slate-200 mb-2 text-sm sm:text-base">Model & Device</h4>
+                                            <div className="space-y-2">
+                                                <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
+                                                    <span className="text-slate-600 dark:text-slate-400 text-xs sm:text-sm font-medium">Model:</span>
+                                                    <span className="font-mono text-slate-900 dark:text-slate-100 text-xs sm:text-sm break-all">{executionData.actual_parameters?.model || 'N/A'}</span>
                                                 </div>
-                                                <div className="flex justify-between">
-                                                    <span className="text-gray-600 dark:text-gray-400">Device:</span>
-                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.device || 'N/A'}</span>
+                                                <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
+                                                    <span className="text-slate-600 dark:text-slate-400 text-xs sm:text-sm font-medium">Device:</span>
+                                                    <span className="font-mono text-slate-900 dark:text-slate-100 text-xs sm:text-sm">{executionData.actual_parameters?.device || 'N/A'}</span>
                                                 </div>
-                                                <div className="flex justify-between">
-                                                    <span className="text-gray-600 dark:text-gray-400">Device Index:</span>
-                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.device_index ?? 'N/A'}</span>
+                                                <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
+                                                    <span className="text-slate-600 dark:text-slate-400 text-xs sm:text-sm font-medium">Compute Type:</span>
+                                                    <span className="font-mono text-slate-900 dark:text-slate-100 text-xs sm:text-sm">{executionData.actual_parameters?.compute_type || 'N/A'}</span>
                                                 </div>
-                                                <div className="flex justify-between">
-                                                    <span className="text-gray-600 dark:text-gray-400">Compute Type:</span>
-                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.compute_type || 'N/A'}</span>
+                                                <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
+                                                    <span className="text-slate-600 dark:text-slate-400 text-xs sm:text-sm font-medium">Batch Size:</span>
+                                                    <span className="font-mono text-slate-900 dark:text-slate-100 text-xs sm:text-sm">{executionData.actual_parameters?.batch_size || 'N/A'}</span>
                                                 </div>
-                                                <div className="flex justify-between">
-                                                    <span className="text-gray-600 dark:text-gray-400">Batch Size:</span>
-                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.batch_size || 'N/A'}</span>
+                                                <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
+                                                    <span className="text-slate-600 dark:text-slate-400 text-xs sm:text-sm font-medium">Threads:</span>
+                                                    <span className="font-mono text-slate-900 dark:text-slate-100 text-xs sm:text-sm">{executionData.actual_parameters?.threads || 0}</span>
                                                 </div>
-                                                <div className="flex justify-between">
-                                                    <span className="text-gray-600 dark:text-gray-400">Threads:</span>
-                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.threads || 0}</span>
-                                                </div>
-                                                <div className="flex justify-between">
-                                                    <span className="text-gray-600 dark:text-gray-400">Model Cache Only:</span>
-                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.model_cache_only ? 'Yes' : 'No'}</span>
-                                                </div>
-                                                {executionData.actual_parameters?.model_dir && (
-                                                    <div className="flex justify-between">
-                                                        <span className="text-gray-600 dark:text-gray-400">Model Dir:</span>
-                                                        <span className="font-mono text-gray-900 dark:text-gray-100 text-xs truncate">{executionData.actual_parameters.model_dir}</span>
-                                                    </div>
-                                                )}
                                             </div>
                                         </div>
 
                                         {/* Processing Settings */}
-                                        <div>
-                                            <h4 className="font-semibold text-gray-700 dark:text-gray-300 mb-2">Processing</h4>
+                                        <div className="bg-white/40 dark:bg-slate-700/20 rounded-md p-3 border border-slate-200/30 dark:border-slate-600/30">
+                                            <h4 className="font-semibold text-slate-800 dark:text-slate-200 mb-2 text-sm sm:text-base">Processing</h4>
                                             <div className="space-y-1">
                                                 <div className="flex justify-between">
                                                     <span className="text-gray-600 dark:text-gray-400">Task:</span>
@@ -1851,18 +1842,39 @@ useEffect(() => {
                             </div>
 
                             {/* Status */}
-                            <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-4">
-                                <h3 className="text-lg font-semibold text-green-900 dark:text-green-100 mb-2">
-                                    ✅ Status
+                            <div className={`rounded-lg p-4 sm:p-6 border ${
+                                executionData.status === 'completed' 
+                                    ? 'bg-gradient-to-br from-emerald-50 via-green-50 to-teal-50 dark:from-emerald-950/30 dark:via-green-950/30 dark:to-teal-950/30 border-emerald-200 dark:border-emerald-800/30'
+                                    : 'bg-gradient-to-br from-amber-50 via-orange-50 to-red-50 dark:from-amber-950/30 dark:via-orange-950/30 dark:to-red-950/30 border-amber-200 dark:border-amber-800/30'
+                            }`}>
+                                <h3 className={`text-lg font-semibold mb-3 flex items-center gap-2 ${
+                                    executionData.status === 'completed'
+                                        ? 'text-emerald-900 dark:text-emerald-100'
+                                        : 'text-amber-900 dark:text-amber-100'
+                                }`}>
+                                    {executionData.status === 'completed' ? (
+                                        <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                                    ) : (
+                                        <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                                    )}
+                                    Execution Status
                                 </h3>
-                                <p className="text-green-800 dark:text-green-200">
-                                    Execution Status: <span className="font-mono font-bold">{executionData.status}</span>
-                                </p>
-                                {executionData.error_message && (
-                                    <p className="text-red-800 dark:text-red-200 mt-2">
-                                        Error: {executionData.error_message}
+                                <div className="bg-white/60 dark:bg-gray-800/30 rounded-md p-3 border border-emerald-100/50 dark:border-emerald-800/50">
+                                    <p className={`text-sm sm:text-base ${
+                                        executionData.status === 'completed'
+                                            ? 'text-emerald-800 dark:text-emerald-200'
+                                            : 'text-amber-800 dark:text-amber-200'
+                                    }`}>
+                                        Status: <span className="font-mono font-bold text-base sm:text-lg">{executionData.status}</span>
                                     </p>
-                                )}
+                                    {executionData.error_message && (
+                                        <div className="mt-3 p-2 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800/30 rounded">
+                                            <p className="text-red-800 dark:text-red-200 text-sm">
+                                                <span className="font-medium">Error:</span> {executionData.error_message}
+                                            </p>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         </div>
                     ) : (
