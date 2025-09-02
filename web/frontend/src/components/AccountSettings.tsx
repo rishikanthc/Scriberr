@@ -1,10 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Separator } from "./ui/separator";
-import { Switch } from "./ui/switch";
-import { Eye, EyeOff, User, Lock, Check, X, Settings } from "lucide-react";
+import { Eye, EyeOff, User, Lock, Check, X } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 
 interface PasswordStrength {
@@ -15,20 +14,11 @@ interface PasswordStrength {
 	hasSpecialChar: boolean;
 }
 
-interface UserSettings {
-	auto_transcription_enabled: boolean;
-	default_profile_id?: string;
-}
-
 export function AccountSettings() {
 	const { getAuthHeaders, logout } = useAuth();
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState("");
 	const [success, setSuccess] = useState("");
-	
-	// User settings state
-	const [userSettings, setUserSettings] = useState<UserSettings | null>(null);
-	const [settingsLoading, setSettingsLoading] = useState(true);
 
 	// Username change state
 	const [newUsername, setNewUsername] = useState("");
@@ -56,60 +46,6 @@ export function AccountSettings() {
 	const isPasswordValid = Object.values(passwordStrength).every(Boolean);
 	const passwordsMatch = newPassword === confirmPassword && confirmPassword.length > 0;
 
-	// Load user settings on component mount
-	useEffect(() => {
-		const loadUserSettings = async () => {
-			try {
-				const response = await fetch("/api/v1/user/settings", {
-					headers: getAuthHeaders(),
-				});
-				
-				if (response.ok) {
-					const settings = await response.json();
-					setUserSettings(settings);
-				} else {
-					console.error("Failed to load user settings");
-				}
-			} catch (error) {
-				console.error("Error loading user settings:", error);
-			} finally {
-				setSettingsLoading(false);
-			}
-		};
-
-		loadUserSettings();
-	}, [getAuthHeaders]);
-
-	// Handle auto-transcription toggle
-	const handleAutoTranscriptionToggle = async (enabled: boolean) => {
-		setError("");
-		setSuccess("");
-		
-		try {
-			const response = await fetch("/api/v1/user/settings", {
-				method: "PUT",
-				headers: {
-					"Content-Type": "application/json",
-					...getAuthHeaders(),
-				},
-				body: JSON.stringify({
-					auto_transcription_enabled: enabled,
-				}),
-			});
-
-			if (response.ok) {
-				const updatedSettings = await response.json();
-				setUserSettings(updatedSettings);
-				setSuccess(`Auto-transcription ${enabled ? "enabled" : "disabled"} successfully!`);
-			} else {
-				const errorData = await response.json();
-				setError(errorData.error || "Failed to update setting");
-			}
-		} catch (error) {
-			console.error("Error updating auto-transcription setting:", error);
-			setError("Network error. Please try again.");
-		}
-	};
 
 	const handleUsernameChange = async (e: React.FormEvent) => {
 		e.preventDefault();
@@ -220,45 +156,6 @@ export function AccountSettings() {
 					<p className="text-green-700 dark:text-green-300 text-sm">{success}</p>
 				</div>
 			)}
-
-			{/* Auto-Transcription Settings */}
-			<div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 sm:p-6">
-				<div className="mb-4">
-					<div className="flex items-center space-x-2 mb-2">
-						<Settings className="h-5 w-5 text-green-600 dark:text-green-400" />
-						<h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">Transcription Settings</h3>
-					</div>
-					<p className="text-sm text-gray-600 dark:text-gray-400">
-						Configure automatic transcription behavior for uploaded files.
-					</p>
-				</div>
-				
-				{settingsLoading ? (
-					<div className="flex items-center space-x-2 py-4">
-						<div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-						<span className="text-sm text-gray-600 dark:text-gray-400">Loading settings...</span>
-					</div>
-				) : (
-					<div className="flex items-center justify-between py-2">
-						<div>
-							<Label htmlFor="auto-transcription" className="text-gray-700 dark:text-gray-300 font-medium">
-								Automatic Transcription on Upload
-							</Label>
-							<p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-								When enabled, uploaded audio files will automatically be queued for transcription using your default profile.
-							</p>
-						</div>
-						<Switch
-							id="auto-transcription"
-							checked={userSettings?.auto_transcription_enabled || false}
-							onCheckedChange={handleAutoTranscriptionToggle}
-							disabled={loading}
-						/>
-					</div>
-				)}
-			</div>
-
-			<Separator className="bg-gray-200 dark:bg-gray-700" />
 
 			{/* Username Change Section */}
 			<div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 sm:p-6">

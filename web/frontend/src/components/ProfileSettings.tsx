@@ -1,9 +1,12 @@
 import { useState, useCallback, useEffect } from "react";
 import { Button } from "./ui/button";
+import { Label } from "./ui/label";
+import { Switch } from "./ui/switch";
 import { ProfilesTable } from "./ProfilesTable";
 import { TranscriptionConfigDialog, type WhisperXParams } from "./TranscriptionConfigDialog";
 import { useAuth } from "../contexts/AuthContext";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
+import { Settings } from "lucide-react";
 
 interface TranscriptionProfile {
 	id: string;
@@ -15,6 +18,11 @@ interface TranscriptionProfile {
 	updated_at: string;
 }
 
+interface UserSettings {
+	auto_transcription_enabled: boolean;
+	default_profile_id?: string;
+}
+
 export function ProfileSettings() {
 	const [profileDialogOpen, setProfileDialogOpen] = useState(false);
 	const [editingProfile, setEditingProfile] = useState<TranscriptionProfile | null>(null);
@@ -23,6 +31,12 @@ export function ProfileSettings() {
 	const [defaultProfile, setDefaultProfile] = useState<TranscriptionProfile | null>(null);
 	const [isLoadingProfiles, setIsLoadingProfiles] = useState(true);
     const { getAuthHeaders } = useAuth();
+	
+	// User settings state
+	const [userSettings, setUserSettings] = useState<UserSettings | null>(null);
+	const [settingsLoading, setSettingsLoading] = useState(true);
+	const [error, setError] = useState("");
+	const [success, setSuccess] = useState("");
 
 	// Load profiles and default profile
 	const loadProfiles = useCallback(async () => {
@@ -87,6 +101,61 @@ export function ProfileSettings() {
 	useEffect(() => {
 		loadProfiles();
 	}, [loadProfiles, refreshTrigger]);
+
+	// Load user settings on component mount
+	useEffect(() => {
+		const loadUserSettings = async () => {
+			try {
+				const response = await fetch("/api/v1/user/settings", {
+					headers: getAuthHeaders(),
+				});
+				
+				if (response.ok) {
+					const settings = await response.json();
+					setUserSettings(settings);
+				} else {
+					console.error("Failed to load user settings");
+				}
+			} catch (error) {
+				console.error("Error loading user settings:", error);
+			} finally {
+				setSettingsLoading(false);
+			}
+		};
+
+		loadUserSettings();
+	}, [getAuthHeaders]);
+
+	// Handle auto-transcription toggle
+	const handleAutoTranscriptionToggle = async (enabled: boolean) => {
+		setError("");
+		setSuccess("");
+		
+		try {
+			const response = await fetch("/api/v1/user/settings", {
+				method: "PUT",
+				headers: {
+					"Content-Type": "application/json",
+					...getAuthHeaders(),
+				},
+				body: JSON.stringify({
+					auto_transcription_enabled: enabled,
+				}),
+			});
+
+			if (response.ok) {
+				const updatedSettings = await response.json();
+				setUserSettings(updatedSettings);
+				setSuccess(`Auto-transcription ${enabled ? "enabled" : "disabled"} successfully!`);
+			} else {
+				const errorData = await response.json();
+				setError(errorData.error || "Failed to update setting");
+			}
+		} catch (error) {
+			console.error("Error updating auto-transcription setting:", error);
+			setError("Network error. Please try again.");
+		}
+	};
 
 	const handleCreateProfile = useCallback(() => {
 		setEditingProfile(null);
@@ -155,6 +224,57 @@ export function ProfileSettings() {
 
 	return (
 		<div className="space-y-6">
+			{/* Error/Success Messages */}
+			{error && (
+				<div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3">
+					<p className="text-red-700 dark:text-red-300 text-sm">{error}</p>
+				</div>
+			)}
+			
+			{success && (
+				<div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-3">
+					<p className="text-green-700 dark:text-green-300 text-sm">{success}</p>
+				</div>
+			)}
+
+			{/* Auto-Transcription Settings */}
+			<div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 sm:p-6">
+				<div className="mb-4">
+					<div className="flex items-center space-x-2 mb-2">
+						<Settings className="h-5 w-5 text-green-600 dark:text-green-400" />
+						<h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">Auto-Transcription</h3>
+					</div>
+					<p className="text-sm text-gray-600 dark:text-gray-400">
+						Configure automatic transcription behavior for uploaded files.
+					</p>
+				</div>
+				
+				{settingsLoading ? (
+					<div className="flex items-center space-x-2 py-4">
+						<div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+						<span className="text-sm text-gray-600 dark:text-gray-400">Loading settings...</span>
+					</div>
+				) : (
+					<div className="flex items-center justify-between py-2">
+						<div>
+							<Label htmlFor="auto-transcription" className="text-gray-700 dark:text-gray-300 font-medium">
+								Automatic Transcription on Upload
+							</Label>
+							<p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+								When enabled, uploaded audio files will automatically be queued for transcription using your default profile.
+							</p>
+						</div>
+						<Switch
+							id="auto-transcription"
+							checked={userSettings?.auto_transcription_enabled || false}
+							onCheckedChange={handleAutoTranscriptionToggle}
+							disabled={settingsLoading}
+						/>
+					</div>
+				)}
+			</div>
+
+			{/* Transcription Profiles */}
 			<div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 sm:p-6">
 				<div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0 mb-4">
 					<div>

@@ -16,7 +16,7 @@ import { SummaryTemplatesTable } from "../components/SummaryTemplatesTable";
 import { useAuth } from "../contexts/AuthContext";
 
 export function Settings() {
-  const [activeTab, setActiveTab] = useState("profiles");
+  const [activeTab, setActiveTab] = useState("transcription");
   const { getAuthHeaders } = useAuth();
   const [summaryDialogOpen, setSummaryDialogOpen] = useState(false);
   const [editingSummary, setEditingSummary] = useState<SummaryTemplate | null>(null);
@@ -73,12 +73,12 @@ export function Settings() {
 						>
             <TabsList className="grid w-full grid-cols-5 items-center h-auto bg-gray-100 dark:bg-gray-800 p-1 rounded-xl">
                             <TabsTrigger
-                                value="profiles"
-                                aria-label="Profiles"
+                                value="transcription"
+                                aria-label="Transcription"
                                 className="flex items-center justify-center gap-2 h-9 py-1.5 data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-gray-900 dark:data-[state=active]:text-gray-100 text-gray-600 dark:text-gray-400 font-medium rounded-lg text-xs sm:text-sm"
                             >
 									<SettingsIcon className="h-4 w-4" />
-									<span className="hidden sm:inline">Profiles</span>
+									<span className="hidden sm:inline">Transcription</span>
 								</TabsTrigger>
                             <TabsTrigger
                                 value="account"
@@ -114,8 +114,8 @@ export function Settings() {
             </TabsTrigger>
 							</TabsList>
 
-						{/* Profiles Tab */}
-						<TabsContent value="profiles" className="space-y-6">
+						{/* Transcription Tab */}
+						<TabsContent value="transcription" className="space-y-6">
 							<ProfileSettings />
 						</TabsContent>
 
