@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import { ArrowLeft, Play, Pause, List, AlignLeft, MessageCircle, Download, FileText, FileJson, FileImage, Check, StickyNote, Plus, X, Sparkles, Pencil, ChevronUp, ChevronDown } from "lucide-react";
+import { ArrowLeft, Play, Pause, List, AlignLeft, MessageCircle, Download, FileText, FileJson, FileImage, Check, StickyNote, Plus, X, Sparkles, Pencil, ChevronUp, ChevronDown, Info } from "lucide-react";
 import WaveSurfer from "wavesurfer.js";
 import { Button } from "./ui/button";
 import {
@@ -127,6 +127,11 @@ export function AudioDetailView({ audioId }: AudioDetailViewProps) {
     const [titleInput, setTitleInput] = useState("");
     const [savingTitle, setSavingTitle] = useState(false);
     const [audioCollapsed, setAudioCollapsed] = useState(false);
+
+    // Execution info state
+    const [executionInfoOpen, setExecutionInfoOpen] = useState(false);
+    const [executionData, setExecutionData] = useState<any>(null);
+    const [executionDataLoading, setExecutionDataLoading] = useState(false);
 
     // Persist collapsed state per transcription
     useEffect(() => {
@@ -340,6 +345,31 @@ useEffect(() => {
                 setNotes(sortNotes(data));
             }
         } catch (e) { console.error("Failed to fetch notes", e); }
+    };
+
+    const fetchExecutionData = async () => {
+        if (executionData) return; // Already loaded
+        setExecutionDataLoading(true);
+        try {
+            const res = await fetch(`/api/v1/transcription/${audioId}/execution`, { 
+                headers: { ...getAuthHeaders() }
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setExecutionData(data);
+            } else {
+                console.log("No execution data available");
+            }
+        } catch (e) { 
+            console.error("Failed to fetch execution data", e); 
+        } finally {
+            setExecutionDataLoading(false);
+        }
+    };
+
+    const openExecutionInfo = () => {
+        setExecutionInfoOpen(true);
+        fetchExecutionData();
     };
 
 	const initializeWaveSurfer = async () => {
@@ -1085,6 +1115,18 @@ useEffect(() => {
 
                                 <div className="mx-1 h-5 w-px bg-gray-300 dark:bg-gray-700" />
 
+                                {/* Execution Info */}
+                                <button
+                                  type="button"
+                                  onClick={openExecutionInfo}
+                                  className="h-6 w-6 sm:h-7 sm:w-7 inline-flex items-center justify-center rounded-md cursor-pointer text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                                  title="View execution parameters and timing"
+                                >
+                                  <Info className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                                </button>
+
+                                <div className="mx-1 h-5 w-px bg-gray-300 dark:bg-gray-700" />
+
                                 {/* Summarize */}
                                 <button
                                   type="button"
@@ -1499,6 +1541,185 @@ useEffect(() => {
                             <p className="text-sm text-gray-500">{isSummarizing ? 'Generating summary...' : 'No content'}</p>
                         )}
                     </div>
+                </UIDialogContent>
+            </UIDialog>
+
+            {/* Execution info dialog */}
+            <UIDialog open={executionInfoOpen} onOpenChange={setExecutionInfoOpen}>
+                <UIDialogContent className="sm:max-w-2xl bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 max-h-[90vh] overflow-y-auto">
+                    <UIDialogHeader>
+                        <UIDialogTitle className="text-gray-900 dark:text-gray-100">Transcription Execution Details</UIDialogTitle>
+                        <UIDialogDescription className="text-gray-600 dark:text-gray-400">
+                            Parameters used and processing time for this transcription
+                        </UIDialogDescription>
+                    </UIDialogHeader>
+                    
+                    {executionDataLoading ? (
+                        <div className="py-8 text-center">
+                            <div className="animate-pulse">
+                                <div className="h-4 bg-gray-200 dark:bg-gray-600 rounded w-3/4 mx-auto mb-4"></div>
+                                <div className="h-4 bg-gray-200 dark:bg-gray-600 rounded w-1/2 mx-auto"></div>
+                            </div>
+                        </div>
+                    ) : executionData ? (
+                        <div className="space-y-6 py-4">
+                            {/* Processing Time */}
+                            <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
+                                <h3 className="text-lg font-semibold text-blue-900 dark:text-blue-100 mb-3">
+                                    ⏱️ Processing Time
+                                </h3>
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
+                                    <div>
+                                        <span className="text-gray-600 dark:text-gray-400">Started:</span>
+                                        <p className="font-mono text-gray-900 dark:text-gray-100">
+                                            {new Date(executionData.started_at).toLocaleString()}
+                                        </p>
+                                    </div>
+                                    <div>
+                                        <span className="text-gray-600 dark:text-gray-400">Completed:</span>
+                                        <p className="font-mono text-gray-900 dark:text-gray-100">
+                                            {executionData.completed_at 
+                                                ? new Date(executionData.completed_at).toLocaleString()
+                                                : 'N/A'
+                                            }
+                                        </p>
+                                    </div>
+                                    <div>
+                                        <span className="text-gray-600 dark:text-gray-400">Duration:</span>
+                                        <p className="font-mono text-lg font-bold text-blue-600 dark:text-blue-400">
+                                            {executionData.processing_duration 
+                                                ? `${(executionData.processing_duration / 1000).toFixed(1)}s`
+                                                : 'N/A'
+                                            }
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* WhisperX Parameters */}
+                            <div>
+                                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">
+                                    🎛️ WhisperX Parameters
+                                </h3>
+                                <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                                        {/* Model Settings */}
+                                        <div>
+                                            <h4 className="font-semibold text-gray-700 dark:text-gray-300 mb-2">Model & Device</h4>
+                                            <div className="space-y-1">
+                                                <div className="flex justify-between">
+                                                    <span className="text-gray-600 dark:text-gray-400">Model:</span>
+                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.actual_model || 'N/A'}</span>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                    <span className="text-gray-600 dark:text-gray-400">Device:</span>
+                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.actual_device || 'N/A'}</span>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                    <span className="text-gray-600 dark:text-gray-400">Compute Type:</span>
+                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.actual_compute_type || 'N/A'}</span>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                    <span className="text-gray-600 dark:text-gray-400">Batch Size:</span>
+                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.actual_batch_size || 'N/A'}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Processing Settings */}
+                                        <div>
+                                            <h4 className="font-semibold text-gray-700 dark:text-gray-300 mb-2">Processing</h4>
+                                            <div className="space-y-1">
+                                                <div className="flex justify-between">
+                                                    <span className="text-gray-600 dark:text-gray-400">Task:</span>
+                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.actual_task || 'transcribe'}</span>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                    <span className="text-gray-600 dark:text-gray-400">Language:</span>
+                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.actual_language || 'auto'}</span>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                    <span className="text-gray-600 dark:text-gray-400">Diarization:</span>
+                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.actual_diarize ? 'Yes' : 'No'}</span>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                    <span className="text-gray-600 dark:text-gray-400">VAD Method:</span>
+                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.actual_vad_method || 'pyannote'}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Quality Settings */}
+                                        <div>
+                                            <h4 className="font-semibold text-gray-700 dark:text-gray-300 mb-2">Quality</h4>
+                                            <div className="space-y-1">
+                                                <div className="flex justify-between">
+                                                    <span className="text-gray-600 dark:text-gray-400">Temperature:</span>
+                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.actual_temperature ?? 0}</span>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                    <span className="text-gray-600 dark:text-gray-400">Beam Size:</span>
+                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.actual_beam_size || 5}</span>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                    <span className="text-gray-600 dark:text-gray-400">Best Of:</span>
+                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.actual_best_of || 5}</span>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                    <span className="text-gray-600 dark:text-gray-400">FP16:</span>
+                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.actual_fp16 ? 'Yes' : 'No'}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Output Settings */}
+                                        <div>
+                                            <h4 className="font-semibold text-gray-700 dark:text-gray-300 mb-2">Output</h4>
+                                            <div className="space-y-1">
+                                                <div className="flex justify-between">
+                                                    <span className="text-gray-600 dark:text-gray-400">Format:</span>
+                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.actual_output_format || 'all'}</span>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                    <span className="text-gray-600 dark:text-gray-400">Segment Resolution:</span>
+                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.actual_segment_resolution || 'sentence'}</span>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                    <span className="text-gray-600 dark:text-gray-400">Highlight Words:</span>
+                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.actual_highlight_words ? 'Yes' : 'No'}</span>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                    <span className="text-gray-600 dark:text-gray-400">Verbose:</span>
+                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.actual_verbose ? 'Yes' : 'No'}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Status */}
+                            <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-4">
+                                <h3 className="text-lg font-semibold text-green-900 dark:text-green-100 mb-2">
+                                    ✅ Status
+                                </h3>
+                                <p className="text-green-800 dark:text-green-200">
+                                    Execution Status: <span className="font-mono font-bold">{executionData.status}</span>
+                                </p>
+                                {executionData.error_message && (
+                                    <p className="text-red-800 dark:text-red-200 mt-2">
+                                        Error: {executionData.error_message}
+                                    </p>
+                                )}
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="py-8 text-center">
+                            <p className="text-gray-500 dark:text-gray-400">
+                                No execution data available for this transcription.
+                            </p>
+                        </div>
+                    )}
                 </UIDialogContent>
             </UIDialog>
 

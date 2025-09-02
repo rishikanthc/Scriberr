@@ -774,6 +774,34 @@ func (h *Handler) GetJobByID(c *gin.Context) {
 	c.JSON(http.StatusOK, job)
 }
 
+// @Summary Get transcription job execution data
+// @Description Get execution parameters and timing for a transcription job
+// @Tags transcription
+// @Produce json
+// @Param id path string true "Job ID"
+// @Success 200 {object} models.TranscriptionJobExecution
+// @Failure 404 {object} map[string]string
+// @Router /api/v1/transcription/{id}/execution [get]
+// @Security ApiKeyAuth
+// @Security BearerAuth
+func (h *Handler) GetJobExecutionData(c *gin.Context) {
+	jobID := c.Param("id")
+	
+	var execution models.TranscriptionJobExecution
+	if err := database.DB.Where("transcription_job_id = ? AND status = ?", jobID, models.StatusCompleted).
+		Order("completed_at DESC").
+		First(&execution).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			c.JSON(http.StatusNotFound, gin.H{"error": "No completed execution found for this job"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get execution data"})
+		return
+	}
+
+	c.JSON(http.StatusOK, execution)
+}
+
 // @Summary Get audio file
 // @Description Serve the audio file for a transcription job
 // @Tags transcription
