@@ -113,6 +113,8 @@ func SetupRoutes(handler *Handler, authService *auth.AuthService) *gin.Engine {
 		{
 			user.GET("/default-profile", handler.GetUserDefaultProfile)
 			user.POST("/default-profile", handler.SetUserDefaultProfile)
+			user.GET("/settings", handler.GetUserSettings)
+			user.PUT("/settings", handler.UpdateUserSettings)
 		}
 
 		// Admin routes (require authentication)
