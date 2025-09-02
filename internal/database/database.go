@@ -34,6 +34,7 @@ func Initialize(dbPath string) error {
 	// Auto migrate the schema
 	if err := DB.AutoMigrate(
 		&models.TranscriptionJob{},
+		&models.TranscriptionJobExecution{},
 		&models.User{},
 		&models.APIKey{},
 		&models.TranscriptionProfile{},

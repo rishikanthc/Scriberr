@@ -249,3 +249,45 @@ func (cm *ChatMessage) BeforeCreate(tx *gorm.DB) error {
 	}
 	return nil
 }
+
+// TranscriptionJobExecution represents execution metadata for completed transcription jobs
+type TranscriptionJobExecution struct {
+	ID                 string          `json:"id" gorm:"primaryKey;type:varchar(36)"`
+	TranscriptionJobID string          `json:"transcription_job_id" gorm:"type:varchar(36);not null;index"`
+	
+	// Execution timing
+	StartedAt          time.Time       `json:"started_at" gorm:"not null"`
+	CompletedAt        *time.Time      `json:"completed_at,omitempty"`
+	ProcessingDuration *int64          `json:"processing_duration,omitempty"` // Duration in milliseconds
+	
+	// Parameters used for this execution (may differ from job parameters due to profiles)
+	ActualParameters   WhisperXParams  `json:"actual_parameters" gorm:"embedded;embeddedPrefix:actual_"`
+	
+	// Execution results
+	Status             JobStatus       `json:"status" gorm:"type:varchar(20);not null"`
+	ErrorMessage       *string         `json:"error_message,omitempty" gorm:"type:text"`
+	
+	// Metadata
+	CreatedAt          time.Time       `json:"created_at" gorm:"autoCreateTime"`
+	UpdatedAt          time.Time       `json:"updated_at" gorm:"autoUpdateTime"`
+	
+	// Relationship
+	TranscriptionJob   TranscriptionJob `json:"transcription_job,omitempty" gorm:"foreignKey:TranscriptionJobID"`
+}
+
+// BeforeCreate sets the ID if not already set
+func (tje *TranscriptionJobExecution) BeforeCreate(tx *gorm.DB) error {
+	if tje.ID == "" {
+		tje.ID = uuid.New().String()
+	}
+	return nil
+}
+
+// CalculateProcessingDuration calculates and sets the processing duration
+func (tje *TranscriptionJobExecution) CalculateProcessingDuration() {
+	if tje.CompletedAt != nil {
+		duration := tje.CompletedAt.Sub(tje.StartedAt)
+		durationMs := duration.Milliseconds()
+		tje.ProcessingDuration = &durationMs
+	}
+}

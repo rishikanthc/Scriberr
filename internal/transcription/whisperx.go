@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+	"time"
 
 	"scriberr/internal/config"
 	"scriberr/internal/database"
@@ -57,32 +58,68 @@ func (ws *WhisperXService) ProcessJob(ctx context.Context, jobID string) error {
 
 // ProcessJobWithProcess implements the enhanced JobProcessor interface
 func (ws *WhisperXService) ProcessJobWithProcess(ctx context.Context, jobID string, registerProcess func(*exec.Cmd)) error {
+	startTime := time.Now()
+	
 	// Get the job from database
 	var job models.TranscriptionJob
 	if err := database.DB.Where("id = ?", jobID).First(&job).Error; err != nil {
 		return fmt.Errorf("failed to get job: %v", err)
 	}
 
+	// Create execution record to track this processing attempt
+	execution := &models.TranscriptionJobExecution{
+		TranscriptionJobID: jobID,
+		StartedAt:          startTime,
+		ActualParameters:   job.Parameters, // Copy the parameters used
+		Status:            models.StatusProcessing,
+	}
+	
+	if err := database.DB.Create(execution).Error; err != nil {
+		return fmt.Errorf("failed to create execution record: %v", err)
+	}
+
+	// Helper function to update execution status
+	updateExecutionStatus := func(status models.JobStatus, errorMsg string) {
+		completedAt := time.Now()
+		execution.CompletedAt = &completedAt
+		execution.Status = status
+		execution.CalculateProcessingDuration()
+		
+		if errorMsg != "" {
+			execution.ErrorMessage = &errorMsg
+		}
+		
+		database.DB.Save(execution)
+	}
+
 	// Ensure Python environment is set up
 	if err := ws.ensurePythonEnv(); err != nil {
-		return fmt.Errorf("failed to setup Python environment: %v", err)
+		errMsg := fmt.Sprintf("failed to setup Python environment: %v", err)
+		updateExecutionStatus(models.StatusFailed, errMsg)
+		return fmt.Errorf(errMsg)
 	}
 
 	// Check if audio file exists
 	if _, err := os.Stat(job.AudioPath); os.IsNotExist(err) {
-		return fmt.Errorf("audio file not found: %s", job.AudioPath)
+		errMsg := fmt.Sprintf("audio file not found: %s", job.AudioPath)
+		updateExecutionStatus(models.StatusFailed, errMsg)
+		return fmt.Errorf(errMsg)
 	}
 
 	// Prepare output directory
 	outputDir := filepath.Join("data", "transcripts", jobID)
 	if err := os.MkdirAll(outputDir, 0755); err != nil {
-		return fmt.Errorf("failed to create output directory: %v", err)
+		errMsg := fmt.Sprintf("failed to create output directory: %v", err)
+		updateExecutionStatus(models.StatusFailed, errMsg)
+		return fmt.Errorf(errMsg)
 	}
 
 	// Build WhisperX command (handles both regular transcription and diarization)
 	args, err := ws.buildWhisperXArgs(&job, outputDir)
 	if err != nil {
-		return fmt.Errorf("failed to build command: %v", err)
+		errMsg := fmt.Sprintf("failed to build command: %v", err)
+		updateExecutionStatus(models.StatusFailed, errMsg)
+		return fmt.Errorf(errMsg)
 	}
 
 	// Create command with context for proper cancellation support
@@ -98,18 +135,27 @@ func (ws *WhisperXService) ProcessJobWithProcess(ctx context.Context, jobID stri
 	// Execute WhisperX
 	output, err := cmd.CombinedOutput()
 	if ctx.Err() == context.Canceled {
-		return fmt.Errorf("job was cancelled")
+		errMsg := "job was cancelled"
+		updateExecutionStatus(models.StatusFailed, errMsg)
+		return fmt.Errorf(errMsg)
 	}
 	if err != nil {
 		fmt.Printf("DEBUG: WhisperX stderr/stdout: %s\n", string(output))
-		return fmt.Errorf("WhisperX execution failed: %v", err)
+		errMsg := fmt.Sprintf("WhisperX execution failed: %v", err)
+		updateExecutionStatus(models.StatusFailed, errMsg)
+		return fmt.Errorf(errMsg)
 	}
 
 	// Load and parse the result
 	resultPath := filepath.Join(outputDir, "result.json")
 	if err := ws.parseAndSaveResult(jobID, resultPath); err != nil {
-		return fmt.Errorf("failed to parse result: %v", err)
+		errMsg := fmt.Sprintf("failed to parse result: %v", err)
+		updateExecutionStatus(models.StatusFailed, errMsg)
+		return fmt.Errorf(errMsg)
 	}
+
+	// Success! Update execution status
+	updateExecutionStatus(models.StatusCompleted, "")
 
 	return nil
 }
