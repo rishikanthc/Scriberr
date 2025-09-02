@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"sync"
+	"syscall"
 	"time"
 
 	"scriberr/internal/config"
@@ -193,13 +194,23 @@ func (qs *QuickTranscriptionService) processWithWhisperX(ctx context.Context, jo
 	}
 
 	// Build WhisperX command using the existing service
-	cmd, err := qs.buildWhisperXCommand(job, outputDir)
+	args, err := qs.buildWhisperXArgs(job, outputDir)
 	if err != nil {
 		return fmt.Errorf("failed to build command: %v", err)
 	}
 
+	// Create command with context for cancellation support
+	cmd := exec.CommandContext(ctx, "uv", args...)
+	cmd.Env = append(os.Environ(), "PYTHONUNBUFFERED=1")
+	
+	// Set process group ID so we can kill the entire process tree if needed
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+
 	// Execute WhisperX
 	output, err := cmd.CombinedOutput()
+	if ctx.Err() == context.Canceled {
+		return fmt.Errorf("job was cancelled")
+	}
 	if err != nil {
 		fmt.Printf("DEBUG: WhisperX stderr/stdout: %s\n", string(output))
 		return fmt.Errorf("WhisperX execution failed: %v", err)
@@ -289,8 +300,8 @@ func (qs *QuickTranscriptionService) cleanupExpiredJobs() {
 	}
 }
 
-// buildWhisperXCommand builds the WhisperX command for quick transcription
-func (qs *QuickTranscriptionService) buildWhisperXCommand(job *models.TranscriptionJob, outputDir string) (*exec.Cmd, error) {
+// buildWhisperXArgs builds the WhisperX command arguments for quick transcription
+func (qs *QuickTranscriptionService) buildWhisperXArgs(job *models.TranscriptionJob, outputDir string) ([]string, error) {
 	p := job.Parameters
 	
 	// Debug: log diarization status
@@ -400,13 +411,10 @@ func (qs *QuickTranscriptionService) buildWhisperXCommand(job *models.Transcript
 	}
 	args = append(args, "--print_progress", "False")
 
-    cmd := exec.Command("uv", args...)
-	cmd.Env = append(os.Environ(), "PYTHONUNBUFFERED=1")
-	
 	// Debug: log the command being executed
 	fmt.Printf("DEBUG: Quick WhisperX command: uv %v\n", args)
 	
-	return cmd, nil
+	return args, nil
 }
 
 // Close stops the cleanup routine

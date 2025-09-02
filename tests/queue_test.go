@@ -3,6 +3,7 @@ package tests
 import (
 	"context"
 	"fmt"
+	"os/exec"
 	"sync"
 	"testing"
 	"time"
@@ -23,7 +24,16 @@ type MockJobProcessor struct {
 }
 
 func (m *MockJobProcessor) ProcessJob(ctx context.Context, jobID string) error {
+	return m.ProcessJobWithProcess(ctx, jobID, func(*exec.Cmd) {})
+}
+
+func (m *MockJobProcessor) ProcessJobWithProcess(ctx context.Context, jobID string, registerProcess func(*exec.Cmd)) error {
 	args := m.Called(ctx, jobID)
+	
+	// Call registerProcess with a mock command to simulate real behavior
+	if registerProcess != nil {
+		registerProcess(&exec.Cmd{})
+	}
 	
 	// Simulate processing time if delay is set
 	if m.processDelay > 0 {
@@ -85,7 +95,7 @@ func (suite *QueueTestSuite) TestJobProcessing() {
 	job := suite.helper.CreateTestTranscriptionJob(suite.T(), "Test Job Processing")
 	
 	mockProcessor := &MockJobProcessor{}
-	mockProcessor.On("ProcessJob", mock.Anything, job.ID).Return(nil)
+	mockProcessor.On("ProcessJobWithProcess", mock.Anything, job.ID).Return(nil)
 	
 	tq := queue.NewTaskQueue(1, mockProcessor)
 	
@@ -112,7 +122,7 @@ func (suite *QueueTestSuite) TestJobProcessing() {
 // Test job processing failure
 func (suite *QueueTestSuite) TestJobProcessingFailure() {
 	mockProcessor := &MockJobProcessor{}
-	mockProcessor.On("ProcessJob", mock.Anything, mock.Anything).Return(assert.AnError)
+	mockProcessor.On("ProcessJobWithProcess", mock.Anything, mock.Anything).Return(assert.AnError)
 	
 	// Create test job in database
 	job := suite.helper.CreateTestTranscriptionJob(suite.T(), "Test Job Failure")
@@ -145,7 +155,7 @@ func (suite *QueueTestSuite) TestJobCancellation() {
 	mockProcessor := &MockJobProcessor{}
 	// Set a delay so we have time to cancel
 	mockProcessor.processDelay = 500 * time.Millisecond
-	mockProcessor.On("ProcessJob", mock.Anything, mock.Anything).Return(context.Canceled)
+	mockProcessor.On("ProcessJobWithProcess", mock.Anything, mock.Anything).Return(context.Canceled)
 	
 	// Create test job in database
 	job := suite.helper.CreateTestTranscriptionJob(suite.T(), "Test Job Cancellation")
@@ -228,7 +238,7 @@ func (suite *QueueTestSuite) TestMultipleWorkers() {
 	mockProcessor := &MockJobProcessor{}
 	// Add some delay to see concurrent processing
 	mockProcessor.processDelay = 100 * time.Millisecond
-	mockProcessor.On("ProcessJob", mock.Anything, mock.Anything).Return(nil)
+	mockProcessor.On("ProcessJobWithProcess", mock.Anything, mock.Anything).Return(nil)
 	
 	// Create multiple test jobs
 	jobs := make([]*models.TranscriptionJob, 5)
@@ -260,7 +270,7 @@ func (suite *QueueTestSuite) TestMultipleWorkers() {
 // Test queue shutdown
 func (suite *QueueTestSuite) TestQueueShutdown() {
 	mockProcessor := &MockJobProcessor{}
-	mockProcessor.On("ProcessJob", mock.Anything, mock.Anything).Return(nil)
+	mockProcessor.On("ProcessJobWithProcess", mock.Anything, mock.Anything).Return(nil)
 	
 	tq := queue.NewTaskQueue(2, mockProcessor)
 	
@@ -286,7 +296,7 @@ func (suite *QueueTestSuite) TestQueueOverflow() {
 	mockProcessor := &MockJobProcessor{}
 	// Make jobs take a long time so they don't get processed
 	mockProcessor.processDelay = 5 * time.Second
-	mockProcessor.On("ProcessJob", mock.Anything, mock.Anything).Return(nil)
+	mockProcessor.On("ProcessJobWithProcess", mock.Anything, mock.Anything).Return(nil)
 	
 	tq := queue.NewTaskQueue(1, mockProcessor)
 	
@@ -325,7 +335,7 @@ func (suite *QueueTestSuite) TestGetJobStatus() {
 func (suite *QueueTestSuite) TestIsJobRunning() {
 	mockProcessor := &MockJobProcessor{}
 	mockProcessor.processDelay = 200 * time.Millisecond
-	mockProcessor.On("ProcessJob", mock.Anything, mock.Anything).Return(nil)
+	mockProcessor.On("ProcessJobWithProcess", mock.Anything, mock.Anything).Return(nil)
 	
 	job := suite.helper.CreateTestTranscriptionJob(suite.T(), "Running Check Job")
 	
@@ -356,7 +366,7 @@ func (suite *QueueTestSuite) TestIsJobRunning() {
 // Test concurrent access safety
 func (suite *QueueTestSuite) TestConcurrentAccess() {
 	mockProcessor := &MockJobProcessor{}
-	mockProcessor.On("ProcessJob", mock.Anything, mock.Anything).Return(nil)
+	mockProcessor.On("ProcessJobWithProcess", mock.Anything, mock.Anything).Return(nil)
 	
 	tq := queue.NewTaskQueue(5, mockProcessor)
 	tq.Start()
