@@ -2190,6 +2190,7 @@ func (h *Handler) SetUserDefaultProfile(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Default profile set successfully", "profile_id": req.ProfileID})
 }
 
+
 // @Summary Get user settings
 // @Description Get user settings including auto transcription and default profile
 // @Tags user
@@ -2276,3 +2277,4 @@ func (h *Handler) UpdateUserSettings(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"message": "Settings updated successfully"})
 }
+

@@ -4,8 +4,10 @@ import { ProfilesTable } from "./ProfilesTable";
 import { TranscriptionConfigDialog, type WhisperXParams } from "./TranscriptionConfigDialog";
 import { useAuth } from "../contexts/AuthContext";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
+
 import { Switch } from "./ui/switch";
 import { Label } from "./ui/label";
+
 
 interface TranscriptionProfile {
 	id: string;
@@ -24,6 +26,7 @@ export function ProfileSettings() {
 	const [profiles, setProfiles] = useState<TranscriptionProfile[]>([]);
 	const [defaultProfile, setDefaultProfile] = useState<TranscriptionProfile | null>(null);
 	const [isLoadingProfiles, setIsLoadingProfiles] = useState(true);
+
 	const [autoTranscriptionEnabled, setAutoTranscriptionEnabled] = useState(false);
 	const [isLoadingSettings, setIsLoadingSettings] = useState(true);
     const { getAuthHeaders } = useAuth();
@@ -72,6 +75,7 @@ export function ProfileSettings() {
 			alert('Failed to update setting');
 		}
 	}, [getAuthHeaders]);
+
 
 	// Load profiles and default profile
 	const loadProfiles = useCallback(async () => {
@@ -136,6 +140,7 @@ export function ProfileSettings() {
 	useEffect(() => {
 		loadProfiles();
 	}, [loadProfiles, refreshTrigger]);
+
 
 	// Load settings on component mount
 	useEffect(() => {
@@ -227,6 +232,7 @@ export function ProfileSettings() {
 					</Button>
 				</div>
 
+
 				{/* Auto Transcription Setting */}
 				<div className="mb-6 p-4 bg-white dark:bg-gray-800 rounded-lg">
 					<div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
@@ -254,6 +260,7 @@ export function ProfileSettings() {
 
 				{/* Default Profile Selection */}
 				<div className="mb-6 p-4 bg-white dark:bg-gray-800 rounded-lg">
+
 					<div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
 						<div className="flex-1">
 							<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">

@@ -25,7 +25,7 @@ func NewOpenAIService(apiKey string) *OpenAIService {
 		apiKey:  apiKey,
 		baseURL: "https://api.openai.com/v1",
 		client: &http.Client{
-			Timeout: 30 * time.Second,
+			Timeout: 300 * time.Second,
 		},
 	}
 }
