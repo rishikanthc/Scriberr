@@ -6,6 +6,7 @@ on:
     paths:
       - 'web/landing/**'
       - '.github/workflows/deploy-landing.yml'
+      - 'api-docs/**'  # Include API docs changes that might affect the API page
   workflow_dispatch:
 
 permissions:
@@ -34,13 +35,28 @@ jobs:
           rm -rf docs
           mkdir -p docs/docs
           mv web/landing/dist/* docs/
+          
+          # Move and rename docs files
           mv docs/docs-intro.html docs/docs/intro.html
           mv docs/docs-installation.html docs/docs/installation.html
           mv docs/docs-diarization.html docs/docs/diarization.html
           mv docs/docs-contributing.html docs/docs/contributing.html
           
+          # Move API and changelog files to top level (they should already be built by Vite)
+          # Note: api.html and changelog.html should already be in the correct location from dist
+          
           # Fix asset paths for docs subdirectory (Linux sed syntax)
           sed -i 's|"/assets/|"../assets/|g' docs/docs/*.html
+          
+      - name: Verify deployment
+        run: |
+          echo "Verifying deployed files:"
+          ls -la docs/
+          echo "Checking for API and changelog files:"
+          test -f docs/api.html && echo "✓ api.html found" || echo "✗ api.html missing"
+          test -f docs/changelog.html && echo "✓ changelog.html found" || echo "✗ changelog.html missing"
+          echo "Docs subdirectory contents:"
+          ls -la docs/docs/
           
       - name: Commit and push
         run: |
