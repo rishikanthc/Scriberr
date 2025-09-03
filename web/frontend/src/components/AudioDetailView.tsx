@@ -120,6 +120,7 @@ export function AudioDetailView({ audioId }: AudioDetailViewProps) {
     const [summaryOpen, setSummaryOpen] = useState(false);
     const [summaryStream, setSummaryStream] = useState("");
     const [isSummarizing, setIsSummarizing] = useState(false);
+    const [summaryError, setSummaryError] = useState<string | null>(null);
     const [llmReady, setLlmReady] = useState<boolean | null>(null);
     const [selectionViewportPos, setSelectionViewportPos] = useState<{x:number,y:number}>({x:0,y:0});
     const { toast } = useToast();
@@ -751,6 +752,7 @@ useEffect(() => {
         const combined = `Transcript:\n${transcriptText}\n\nInstructions:\n${tpl.prompt}`;
         setSummaryOpen(true);
         setSummaryStream("");
+        setSummaryError(null);
         setIsSummarizing(true);
         try {
             const res = await fetch('/api/v1/summarize', {
@@ -758,23 +760,34 @@ useEffect(() => {
                 headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
                 body: JSON.stringify({ model: tpl.model, content: combined, transcription_id: audioId, template_id: tpl.id }),
             });
-            if (!res.body) { setIsSummarizing(false); return; }
+            if (!res.body) {
+                setIsSummarizing(false);
+                setSummaryError('Failed to start summary stream.');
+                toast({ title: 'Summary failed', description: 'Failed to start summary stream.' });
+                return;
+            }
             const reader = res.body.getReader();
             // Use streaming decode to avoid dropping multi-byte characters across chunks
             const decoder = new TextDecoder();
+            let receivedAny = false;
             while (true) {
                 const { done, value } = await reader.read();
                 if (done) {
                     // Flush any remaining bytes in the decoder
                     const tail = decoder.decode();
-                    if (tail) setSummaryStream(prev => prev + tail);
+                    if (tail) { setSummaryStream(prev => prev + tail); receivedAny = true; }
                     break;
                 }
                 const chunk = decoder.decode(value, { stream: true });
-                if (chunk) setSummaryStream(prev => prev + chunk);
+                if (chunk) { setSummaryStream(prev => prev + chunk); receivedAny = true; }
+            }
+            if (!receivedAny) {
+                setSummaryError('No content returned by the model.');
+                toast({ title: 'Summary failed', description: 'No content returned by the model.' });
             }
         } catch (e) {
-            // ignore for now
+            setSummaryError('Summary generation failed. Please try again.');
+            toast({ title: 'Summary failed', description: 'Summary generation failed. Please try again.' });
         } finally {
             setIsSummarizing(false);
         }
@@ -1491,7 +1504,16 @@ useEffect(() => {
                 <UIDialogContent className="sm:max-w-3xl bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 max-h-[85vh] overflow-y-auto">
                     <UIDialogHeader>
                         <UIDialogTitle className="text-gray-900 dark:text-gray-100">Summary</UIDialogTitle>
-                        <UIDialogDescription className="text-gray-600 dark:text-gray-400">{isSummarizing ? 'Generating summary...' : 'Summary ready'}</UIDialogDescription>
+                        <UIDialogDescription className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+                            {isSummarizing ? (
+                                <>
+                                    <span>Generating summary...</span>
+                                    <span className="inline-block h-3.5 w-3.5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" aria-label="Loading" />
+                                </>
+                            ) : (
+                                <span>Summary {summaryError ? 'failed' : 'ready'}</span>
+                            )}
+                        </UIDialogDescription>
                     </UIDialogHeader>
                     <div className="flex items-center justify-end gap-2 mb-2">
                         <button
@@ -1541,7 +1563,9 @@ useEffect(() => {
                         </button>
                     </div>
                     <div className="prose prose-gray dark:prose-invert max-w-none min-h-[200px]">
-                        {summaryStream ? (
+                        {summaryError ? (
+                            <p className="text-sm text-red-600 dark:text-red-400">{summaryError}</p>
+                        ) : summaryStream ? (
                             <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeRaw as any, rehypeKatex as any, rehypeHighlight as any]}>
                                 {summaryStream}
                             </ReactMarkdown>
