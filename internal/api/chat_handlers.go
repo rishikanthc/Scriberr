@@ -424,7 +424,8 @@ func (h *Handler) SendChatMessage(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
-    contentChan, errorChan := svc.ChatCompletionStream(ctx, session.Model, openaiMessages, 0.7)
+    // Use model defaults: do not set temperature explicitly
+    contentChan, errorChan := svc.ChatCompletionStream(ctx, session.Model, openaiMessages, 0.0)
 
 	var assistantResponse strings.Builder
 	for {
@@ -715,7 +716,8 @@ Return only the title, nothing else.`
     ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
     defer cancel()
     // Use slightly higher temperature for more creative titles
-    resp, err := svc.ChatCompletion(ctx, session.Model, chatMsgs, 0.7)
+    // Use model defaults: do not set temperature explicitly
+    resp, err := svc.ChatCompletion(ctx, session.Model, chatMsgs, 0.0)
     if err != nil || resp == nil || len(resp.Choices) == 0 || resp.Choices[0].Message.Content == "" {
         c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate title"})
         return

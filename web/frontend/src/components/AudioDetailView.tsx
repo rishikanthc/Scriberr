@@ -760,12 +760,18 @@ useEffect(() => {
             });
             if (!res.body) { setIsSummarizing(false); return; }
             const reader = res.body.getReader();
+            // Use streaming decode to avoid dropping multi-byte characters across chunks
             const decoder = new TextDecoder();
             while (true) {
                 const { done, value } = await reader.read();
-                if (done) break;
-                const chunk = decoder.decode(value);
-                setSummaryStream(prev => prev + chunk);
+                if (done) {
+                    // Flush any remaining bytes in the decoder
+                    const tail = decoder.decode();
+                    if (tail) setSummaryStream(prev => prev + tail);
+                    break;
+                }
+                const chunk = decoder.decode(value, { stream: true });
+                if (chunk) setSummaryStream(prev => prev + chunk);
             }
         } catch (e) {
             // ignore for now
@@ -1491,8 +1497,10 @@ useEffect(() => {
                         <button
                             className="px-2.5 py-1.5 rounded-md bg-blue-600 text-white text-sm"
                             onClick={async () => {
-                                setSummaryOpen(false);
+                                // Keep summary dialog open; open template picker on top
                                 setSummarizeOpen(true);
+                                // Reset selection so user explicitly chooses a template
+                                setSelectedTemplateId('');
                                 if (templates.length === 0) {
                                     try {
                                         setTemplatesLoading(true);

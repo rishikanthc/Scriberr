@@ -1,15 +1,16 @@
 package llm
 
 import (
-	"bufio"
-	"bytes"
-	"context"
-	"encoding/json"
-	"fmt"
-	"io"
-	"net/http"
-	"strings"
-	"time"
+    "bufio"
+    "bytes"
+    "context"
+    "encoding/json"
+    "fmt"
+    "io"
+    "log"
+    "net/http"
+    "strings"
+    "time"
 )
 
 // OpenAIService handles OpenAI API interactions
@@ -131,43 +132,50 @@ func (s *OpenAIService) GetModels(ctx context.Context) ([]string, error) {
 
 // ChatCompletion performs a non-streaming chat completion
 func (s *OpenAIService) ChatCompletion(ctx context.Context, model string, messages []ChatMessage, temperature float64) (*ChatResponse, error) {
-	reqBody := ChatRequest{
-		Model:       model,
-		Messages:    messages,
-		Stream:      false,
-		Temperature: temperature,
-	}
+    // Build request without temperature to use model defaults.
+    reqBody := ChatRequest{
+        Model:    model,
+        Messages: messages,
+        Stream:   false,
+    }
+    // Only set temperature if caller provided a non-zero value.
+    if temperature != 0 {
+        reqBody.Temperature = temperature
+    }
 
 	jsonData, err := json.Marshal(reqBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "POST", s.baseURL+"/chat/completions", bytes.NewBuffer(jsonData))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
-	}
+    req, err := http.NewRequestWithContext(ctx, "POST", s.baseURL+"/chat/completions", bytes.NewBuffer(jsonData))
+    if err != nil {
+        return nil, fmt.Errorf("failed to create request: %w", err)
+    }
 
 	req.Header.Set("Authorization", "Bearer "+s.apiKey)
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := s.client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("failed to make request: %w", err)
-	}
-	defer resp.Body.Close()
+    log.Printf("[openai] chat completion request model=%s messages=%d stream=%v", model, len(messages), false)
+    resp, err := s.client.Do(req)
+    if err != nil {
+        return nil, fmt.Errorf("failed to make request: %w", err)
+    }
+    defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("API error: %d - %s", resp.StatusCode, string(body))
-	}
+    if resp.StatusCode != http.StatusOK {
+        body, _ := io.ReadAll(resp.Body)
+        log.Printf("[openai] chat completion error status=%d body=%s", resp.StatusCode, truncate(string(body), 500))
+        return nil, fmt.Errorf("API error: %d - %s", resp.StatusCode, string(body))
+    }
 
 	var chatResp ChatResponse
 	if err := json.NewDecoder(resp.Body).Decode(&chatResp); err != nil {
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
 
-	return &chatResp, nil
+    log.Printf("[openai] chat completion ok model=%s choices=%d", model, len(chatResp.Choices))
+    return &chatResp, nil
 }
 
 // ChatCompletionStream performs a streaming chat completion
@@ -179,12 +187,16 @@ func (s *OpenAIService) ChatCompletionStream(ctx context.Context, model string, 
 		defer close(contentChan)
 		defer close(errorChan)
 
-		reqBody := ChatRequest{
-			Model:       model,
-			Messages:    messages,
-			Stream:      true,
-			Temperature: temperature,
-		}
+        // Build request without temperature to use model defaults.
+        reqBody := ChatRequest{
+            Model:    model,
+            Messages: messages,
+            Stream:   true,
+        }
+        // Only set temperature if caller provided a non-zero value.
+        if temperature != 0 {
+            reqBody.Temperature = temperature
+        }
 
 		jsonData, err := json.Marshal(reqBody)
 		if err != nil {
@@ -192,69 +204,85 @@ func (s *OpenAIService) ChatCompletionStream(ctx context.Context, model string, 
 			return
 		}
 
-		req, err := http.NewRequestWithContext(ctx, "POST", s.baseURL+"/chat/completions", bytes.NewBuffer(jsonData))
-		if err != nil {
-			errorChan <- fmt.Errorf("failed to create request: %w", err)
-			return
-		}
+        req, err := http.NewRequestWithContext(ctx, "POST", s.baseURL+"/chat/completions", bytes.NewBuffer(jsonData))
+        if err != nil {
+            errorChan <- fmt.Errorf("failed to create request: %w", err)
+            return
+        }
 
 		req.Header.Set("Authorization", "Bearer "+s.apiKey)
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("Accept", "text/event-stream")
 
-		resp, err := s.client.Do(req)
-		if err != nil {
-			errorChan <- fmt.Errorf("failed to make request: %w", err)
-			return
-		}
-		defer resp.Body.Close()
+        log.Printf("[openai] chat stream request model=%s messages=%d stream=%v", model, len(messages), true)
+        resp, err := s.client.Do(req)
+        if err != nil {
+            errorChan <- fmt.Errorf("failed to make request: %w", err)
+            return
+        }
+        defer resp.Body.Close()
 
-		if resp.StatusCode != http.StatusOK {
-			body, _ := io.ReadAll(resp.Body)
-			errorChan <- fmt.Errorf("API error: %d - %s", resp.StatusCode, string(body))
-			return
-		}
+        if resp.StatusCode != http.StatusOK {
+            body, _ := io.ReadAll(resp.Body)
+            log.Printf("[openai] chat stream error status=%d body=%s", resp.StatusCode, truncate(string(body), 500))
+            errorChan <- fmt.Errorf("API error: %d - %s", resp.StatusCode, string(body))
+            return
+        }
 
-		scanner := bufio.NewScanner(resp.Body)
-		for scanner.Scan() {
-			line := scanner.Text()
-			
-			// Skip empty lines and comments
-			if line == "" || !strings.HasPrefix(line, "data: ") {
-				continue
-			}
+        scanner := bufio.NewScanner(resp.Body)
+        loggedFirst := false
+        for scanner.Scan() {
+            line := scanner.Text()
+            
+            // Skip empty lines and comments
+            if line == "" || !strings.HasPrefix(line, "data: ") {
+                continue
+            }
 
 			// Remove "data: " prefix
 			data := strings.TrimPrefix(line, "data: ")
 			
 			// Check for end of stream
-			if data == "[DONE]" {
-				return
-			}
+            if data == "[DONE]" {
+                log.Printf("[openai] chat stream done model=%s", model)
+                return
+            }
 
 			// Parse the JSON chunk
 			var chunk ChatStreamResponse
-			if err := json.Unmarshal([]byte(data), &chunk); err != nil {
-				// Skip invalid JSON chunks
-				continue
-			}
+            if err := json.Unmarshal([]byte(data), &chunk); err != nil {
+                // Skip invalid JSON chunks
+                continue
+            }
 
-			// Extract content from the chunk
-			if len(chunk.Choices) > 0 && chunk.Choices[0].Delta.Content != "" {
-				select {
-				case contentChan <- chunk.Choices[0].Delta.Content:
-				case <-ctx.Done():
-					return
-				}
-			}
-		}
+            // Extract content from the chunk
+            if len(chunk.Choices) > 0 && chunk.Choices[0].Delta.Content != "" {
+                select {
+                case contentChan <- chunk.Choices[0].Delta.Content:
+                case <-ctx.Done():
+                    return
+                }
+                if !loggedFirst {
+                    loggedFirst = true
+                    log.Printf("[openai] chat stream first content model=%s", model)
+                }
+            }
+        }
 
-		if err := scanner.Err(); err != nil {
-			errorChan <- fmt.Errorf("error reading stream: %w", err)
-		}
-	}()
+        if err := scanner.Err(); err != nil {
+            errorChan <- fmt.Errorf("error reading stream: %w", err)
+        }
+    }()
 
 	return contentChan, errorChan
+}
+
+// truncate returns s trimmed to at most n runes.
+func truncate(s string, n int) string {
+    if len(s) <= n {
+        return s
+    }
+    return s[:n] + "..."
 }
 
 // ValidateAPIKey validates the provided API key by making a test request

@@ -3,7 +3,9 @@ package api
 import (
     "bufio"
     "context"
+    "log"
     "net/http"
+    "strings"
     "time"
 
     "scriberr/internal/database"
@@ -41,7 +43,7 @@ func (h *Handler) Summarize(c *gin.Context) {
         return
     }
 
-    svc, _, err := h.getLLMService()
+    svc, provider, err := h.getLLMService()
     if err != nil {
         c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
         return
@@ -50,12 +52,16 @@ func (h *Handler) Summarize(c *gin.Context) {
     // Prepare chat messages: simple single-user message with full content
     messages := []llm.ChatMessage{{Role: "user", Content: req.Content}}
 
+    start := time.Now()
+    log.Printf("[summarize] start transcription_id=%s provider=%s model=%s content_len=%d", req.TranscriptionID, provider, req.Model, len(req.Content))
+
     // Stream response
     c.Header("Content-Type", "text/event-stream")
     c.Header("Cache-Control", "no-cache")
     c.Header("Connection", "keep-alive")
 
-    ctx, cancel := context.WithTimeout(c.Request.Context(), 2*time.Minute)
+    // Allow longer generation time for large transcripts and smaller models
+    ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Minute)
     defer cancel()
 
     contentChan, errChan := svc.ChatCompletionStream(ctx, req.Model, messages, 0.0)
@@ -63,6 +69,7 @@ func (h *Handler) Summarize(c *gin.Context) {
     writer := bufio.NewWriter(c.Writer)
 
     finalText := ""
+    gotFirstChunk := false
 
     // helper to persist any accumulated content
     persistIfAny := func() {
@@ -93,6 +100,7 @@ func (h *Handler) Summarize(c *gin.Context) {
                 }
                 // Persist summary once streaming completes
                 persistIfAny()
+                log.Printf("[summarize] complete transcription_id=%s model=%s bytes=%d duration_ms=%d", req.TranscriptionID, req.Model, len(finalText), time.Since(start).Milliseconds())
                 return
             }
             finalText += chunk
@@ -101,13 +109,43 @@ func (h *Handler) Summarize(c *gin.Context) {
             if flusher != nil {
                 flusher.Flush()
             }
+            if !gotFirstChunk && len(chunk) > 0 {
+                gotFirstChunk = true
+                log.Printf("[summarize] first_chunk transcription_id=%s model=%s at_ms=%d", req.TranscriptionID, req.Model, time.Since(start).Milliseconds())
+            }
         case err := <-errChan:
             if err != nil {
                 // Best-effort error signal
-                c.Writer.Write([]byte("\n"))
-                writer.Flush()
-                if flusher != nil {
-                    flusher.Flush()
+                // If streaming is unsupported for this model/org, fall back to non-streaming
+                errStr := err.Error()
+                if strings.Contains(errStr, "\"param\": \"stream\"") || strings.Contains(errStr, "unsupported_value") || strings.Contains(errStr, "must be verified to stream") {
+                    log.Printf("[summarize] falling back to non-streaming transcription_id=%s model=%s due to: %v", req.TranscriptionID, req.Model, err)
+                    resp, err2 := svc.ChatCompletion(ctx, req.Model, messages, 0.0)
+                    if err2 != nil || resp == nil || len(resp.Choices) == 0 {
+                        log.Printf("[summarize] fallback failed transcription_id=%s model=%s err=%v", req.TranscriptionID, req.Model, err2)
+                        c.Writer.Write([]byte("\n"))
+                        writer.Flush()
+                        if flusher != nil { flusher.Flush() }
+                        // Persist any partial content on error
+                        persistIfAny()
+                        return
+                    }
+                    content := resp.Choices[0].Message.Content
+                    finalText += content
+                    writer.WriteString(content)
+                    writer.Flush()
+                    if flusher != nil { flusher.Flush() }
+                    // Persist final summary and exit
+                    persistIfAny()
+                    log.Printf("[summarize] fallback complete transcription_id=%s model=%s bytes=%d duration_ms=%d", req.TranscriptionID, req.Model, len(finalText), time.Since(start).Milliseconds())
+                    return
+                } else {
+                    c.Writer.Write([]byte("\n"))
+                    writer.Flush()
+                    if flusher != nil {
+                        flusher.Flush()
+                    }
+                    log.Printf("[summarize] error transcription_id=%s model=%s err=%v duration_ms=%d", req.TranscriptionID, req.Model, err, time.Since(start).Milliseconds())
                 }
             }
             // Persist any partial content on error
@@ -116,6 +154,7 @@ func (h *Handler) Summarize(c *gin.Context) {
         case <-ctx.Done():
             // Persist any partial content on timeout/cancel
             persistIfAny()
+            log.Printf("[summarize] timeout/cancel transcription_id=%s model=%s bytes=%d duration_ms=%d", req.TranscriptionID, req.Model, len(finalText), time.Since(start).Milliseconds())
             return
         }
     }
