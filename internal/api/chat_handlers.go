@@ -460,6 +460,41 @@ func (h *Handler) SendChatMessage(c *gin.Context) {
 
 		case err := <-errorChan:
 			if err != nil {
+				// If streaming is not supported for this model/org, fall back to non-streaming
+				errStr := err.Error()
+				if strings.Contains(errStr, "\"param\": \"stream\"") || strings.Contains(errStr, "unsupported_value") || strings.Contains(errStr, "must be verified to stream") {
+					resp, err2 := svc.ChatCompletion(ctx, session.Model, openaiMessages, 0.0)
+					if err2 != nil || resp == nil || len(resp.Choices) == 0 {
+						c.Writer.WriteString("\nError: " + err2.Error())
+						c.Writer.Flush()
+						return
+					}
+					content := resp.Choices[0].Message.Content
+					c.Writer.WriteString(content)
+					c.Writer.Flush()
+					assistantResponse.WriteString(content)
+
+					if assistantResponse.Len() > 0 {
+						assistantMessage := models.ChatMessage{
+							SessionID:     sessionID,
+							ChatSessionID: sessionID,
+							Role:          "assistant",
+							Content:       assistantResponse.String(),
+						}
+						database.DB.Create(&assistantMessage)
+
+						// Update session updated_at, message count, and last activity
+						now := time.Now()
+						database.DB.Model(&session).Updates(map[string]interface{}{
+							"updated_at": now,
+							"last_activity_at": now,
+							"message_count": gorm.Expr("message_count + ?", 2), // +2 for user + assistant message
+						})
+					}
+					return
+				}
+
+				// Otherwise, return the error to the client
 				c.Writer.WriteString("\nError: " + err.Error())
 				c.Writer.Flush()
 				return
