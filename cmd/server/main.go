@@ -99,7 +99,7 @@ func main() {
 	defer taskQueue.Stop()
 
 	// Initialize dropzone service
-	dropzoneService := dropzone.NewService(cfg)
+	dropzoneService := dropzone.NewService(cfg, taskQueue)
 	if err := dropzoneService.Start(); err != nil {
 		log.Fatal("Failed to start dropzone service:", err)
 	}

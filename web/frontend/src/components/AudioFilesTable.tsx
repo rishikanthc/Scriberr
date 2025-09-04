@@ -17,6 +17,7 @@ import {
     ChevronsLeft,
     ChevronsRight,
     MessageCircle,
+    RefreshCw,
 } from "lucide-react";
 
 // Custom SVG icons for transcription actions
@@ -442,6 +443,13 @@ export function AudioFilesTable({
 		return () => clearInterval(interval);
 	}, [data, fetchAudioFiles]);
 
+	const handleRefresh = useCallback(() => {
+		// Reset to first page and clear search to refresh entire list
+		setPagination({ pageIndex: 0, pageSize: pagination.pageSize });
+		setGlobalFilter("");
+		fetchAudioFiles(0, pagination.pageSize, "", false);
+	}, [fetchAudioFiles, pagination.pageSize]);
+
 	const getStatusIcon = useCallback((file: AudioFile) => {
 		const iconSize = 16;
 		const status = file.status;
@@ -856,15 +864,25 @@ export function AudioFilesTable({
 						</p>
 					</div>
 					
-					{/* Global Search */}
-					<div className="relative w-full sm:w-72">
-						<Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4 z-10" />
-						<DebouncedSearchInput
-							placeholder="Search audio files..."
-							value={globalFilter ?? ""}
-							onChange={setGlobalFilter}
-							className="pl-10 bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600"
-						/>
+					{/* Global Search and Refresh */}
+					<div className="flex items-center gap-2">
+						<div className="relative w-full sm:w-72">
+							<Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4 z-10" />
+							<DebouncedSearchInput
+								placeholder="Search audio files..."
+								value={globalFilter ?? ""}
+								onChange={setGlobalFilter}
+								className="pl-10 bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600"
+							/>
+						</div>
+						<button
+							onClick={handleRefresh}
+							disabled={loading}
+							className="p-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+							title="Refresh audio files"
+						>
+							<RefreshCw className={`h-4 w-4 text-gray-500 dark:text-gray-400 ${loading ? 'animate-spin' : ''}`} />
+						</button>
 					</div>
 				</div>
 
