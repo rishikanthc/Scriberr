@@ -1192,19 +1192,19 @@ useEffect(() => {
 
 				{audioFile.status === "completed" && transcript && (
 					<div className="bg-white dark:bg-gray-800 rounded-xl p-3 sm:p-6">
-						<div className="flex items-center justify-between mb-3 sm:mb-6">
-							<h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-gray-50">
-								{viewMode === "transcript" ? "Transcript" : "Chat with Transcript"}
-							</h2>
+						{/* Header Section */}
+						<div className="mb-3 sm:mb-6">
+							{/* Title Row */}
+							<div className="flex items-center justify-between mb-3 sm:mb-0">
+								<h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-gray-50">
+									{viewMode === "transcript" ? "Transcript" : "Chat with Transcript"}
+								</h2>
 
-							<div className="flex items-center gap-2">
-
-
-                                {/* Transcript view mode toggle moved into sleek toolbar below */}
-
-                            {/* Sleek toolbar (transcript view only) */}
-                            {viewMode === 'transcript' && (
-                            <div className="flex items-center gap-1 sm:gap-1.5 rounded-md sm:rounded-lg bg-gray-100/80 dark:bg-gray-800/80 px-1.5 py-0.5 sm:px-2 sm:py-1 border border-gray-200 dark:border-gray-700 shadow-sm">
+								{/* Desktop: Show toolbar inline, Mobile: Hide here (shown below) */}
+								<div className="hidden sm:flex items-center gap-2">
+									{/* Sleek toolbar (desktop only) */}
+									{viewMode === 'transcript' && (
+									<div className="flex items-center gap-1 sm:gap-1.5 rounded-md sm:rounded-lg bg-gray-100/80 dark:bg-gray-800/80 px-1.5 py-0.5 sm:px-2 sm:py-1 border border-gray-200 dark:border-gray-700 shadow-sm">
                                 {/* View toggle */}
                                 <button
                                   type="button"
@@ -1318,7 +1318,127 @@ useEffect(() => {
                                 </button>
                             </div>
                             )}
+								</div>
 							</div>
+
+							{/* Mobile: Centered toolbar below title */}
+							{viewMode === 'transcript' && (
+								<div className="flex sm:hidden justify-center">
+									<div className="flex items-center gap-1 rounded-md bg-gray-100/80 dark:bg-gray-800/80 px-1.5 py-0.5 border border-gray-200 dark:border-gray-700 shadow-sm">
+										{/* View toggle */}
+										<button
+											type="button"
+											onClick={() => setTranscriptMode(m => m === 'compact' ? 'expanded' : 'compact')}
+											className={`h-6 w-6 inline-flex items-center justify-center rounded-md cursor-pointer text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors ${transcriptMode === 'compact' ? 'bg-white dark:bg-gray-700 shadow-sm' : ''}`}
+											title={transcriptMode === 'compact' ? 'Switch to Timeline view' : 'Switch to Compact view'}
+										>
+											{transcriptMode === 'compact' ? (
+												<List className="h-3.5 w-3.5" />
+											) : (
+												<AlignLeft className="h-3.5 w-3.5" />
+											)}
+										</button>
+
+										<div className="mx-1 h-5 w-px bg-gray-300 dark:bg-gray-700" />
+
+										{/* Notes toggle */}
+										<button
+											type="button"
+											onClick={() => setNotesOpen(v => !v)}
+											className={`relative h-6 w-6 inline-flex items-center justify-center rounded-md cursor-pointer text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors ${notesOpen ? 'bg-white dark:bg-gray-700 shadow-sm' : ''}`}
+											title="Toggle notes"
+										>
+											<StickyNote className="h-3.5 w-3.5" />
+											{notes.length > 0 && (
+												<span className="absolute -top-1 -right-0.5 min-w-[15px] h-[15px] px-1 rounded-full bg-blue-600 text-white text-[10px] leading-[15px] text-center">
+													{notes.length > 99 ? '99+' : notes.length}
+												</span>
+											)}
+										</button>
+
+										<div className="mx-1 h-5 w-px bg-gray-300 dark:bg-gray-700" />
+
+										{/* Execution Info */}
+										<button
+											type="button"
+											onClick={openExecutionInfo}
+											className="h-6 w-6 inline-flex items-center justify-center rounded-md cursor-pointer text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+											title="View execution parameters and timing"
+										>
+											<Info className="h-3.5 w-3.5" />
+										</button>
+
+										{/* Speaker Renaming - only show if diarization is enabled */}
+										{hasDiarizationEnabled() && getDetectedSpeakers().length > 0 && (
+											<>
+												<div className="mx-1 h-5 w-px bg-gray-300 dark:bg-gray-700" />
+												<button
+													type="button"
+													onClick={() => setSpeakerRenameDialogOpen(true)}
+													className="h-6 w-6 inline-flex items-center justify-center rounded-md cursor-pointer text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+													title="Rename speakers"
+												>
+													<Users className="h-3.5 w-3.5" />
+												</button>
+											</>
+										)}
+
+										<div className="mx-1 h-5 w-px bg-gray-300 dark:bg-gray-700" />
+
+										{/* Summarize */}
+										<button
+											type="button"
+											onClick={openSummarizeDialog}
+											className="h-6 w-6 inline-flex items-center justify-center rounded-md cursor-pointer text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
+											title={llmReady === false ? 'Configure LLM in Settings' : 'Summarize transcript'}
+											disabled={llmReady === false}
+										>
+											<Sparkles className="h-3.5 w-3.5" />
+										</button>
+
+										<div className="mx-1 h-5 w-px bg-gray-300 dark:bg-gray-700" />
+
+										{/* Download dropdown */}
+										<DropdownMenu>
+											<DropdownMenuTrigger asChild>
+												<button
+													type="button"
+													className="h-6 w-6 inline-flex items-center justify-center rounded-md cursor-pointer text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+													title="Download transcript"
+												>
+													<Download className="h-3.5 w-3.5" />
+												</button>
+											</DropdownMenuTrigger>
+											<DropdownMenuContent className="w-44 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+												<DropdownMenuItem onClick={downloadSRT} className="flex items-center gap-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-gray-100">
+													<FileImage className="h-4 w-4" />
+													Download as SRT
+												</DropdownMenuItem>
+												<DropdownMenuItem onClick={() => handleDownloadWithDialog('txt')} className="flex items-center gap-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-gray-100">
+													<FileText className="h-4 w-4" />
+													Download as TXT
+												</DropdownMenuItem>
+												<DropdownMenuItem onClick={() => handleDownloadWithDialog('json')} className="flex items-center gap-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-gray-100">
+													<FileJson className="h-4 w-4" />
+													Download as JSON
+												</DropdownMenuItem>
+											</DropdownMenuContent>
+										</DropdownMenu>
+
+										<div className="mx-1 h-5 w-px bg-gray-300 dark:bg-gray-700" />
+
+										{/* Open Chat Page */}
+										<button
+											type="button"
+											onClick={() => navigate({ path: 'chat', params: { audioId } })}
+											className="h-6 w-6 inline-flex items-center justify-center rounded-md cursor-pointer text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+											title="Open chat"
+										>
+											<MessageCircle className="h-3.5 w-3.5" />
+										</button>
+									</div>
+								</div>
+							)}
 						</div>
 
 						{/* Content Area - Show transcript or chat based on view mode */}
