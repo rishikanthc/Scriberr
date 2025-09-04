@@ -43,6 +43,7 @@ Scriberr is a self‑hosted offline transcription app for converting audio into 
 - Quick transcribe (ephemeral) and batch upload
 - REST API coverage for all major features + API key management
 - Download transcripts as JSON/SRT/TXT (and more)
+- Support for Nvidia GPUs [New - Experimental]
 
 ## Screenshots
 
@@ -105,7 +106,7 @@ UV_PATH=/custom/path/to/uv
 
 ### Docker
 
-Multiline example:
+Run the command below in a shell:
 
 ```bash
 docker run -d \
@@ -116,7 +117,7 @@ docker run -d \
   ghcr.io/rishikanthc/scriberr:latest
 ```
 
-Docker Compose:
+#### Docker Compose:
 
 ```yaml
 version: '3.9'
@@ -132,6 +133,33 @@ services:
 
 volumes:
   scriberr_data:
+```
+
+#### With GPU (CUDA)
+```yaml
+version: "3.9"
+services:
+  scriberr:
+    image: ghcr.io/rishikanthc/scriberr:v1.0.4-cuda
+    ports:
+      - "8080:8080"
+    volumes:
+      - scriberr_data:/app/data
+    restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities:
+                - gpu
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+
+volumes:
+  scriberr_data: {}
 ```
 
 Then open http://localhost:8080.
