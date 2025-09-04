@@ -188,6 +188,6 @@ npm run dev
 
 Coding style: `go fmt ./...`, `go vet ./...`, and `cd web/frontend && npm run lint`.
 
-## License
+## Donating
 
-Licensed under the [MIT License](LICENSE).
+<a href='https://ko-fi.com/H2H41KQZA3' target='_blank'><img height='36' style='border:0px;height:36px;' src='https://storage.ko-fi.com/cdn/kofi6.png?v=6' border='0' alt='Buy Me a Coffee at ko-fi.com' /></a>
