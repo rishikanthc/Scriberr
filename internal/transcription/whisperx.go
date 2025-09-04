@@ -472,6 +472,11 @@ func (ws *WhisperXService) parseAndSaveResult(jobID, resultPath string) error {
 	}
 	transcriptStr := string(transcriptJSON)
 
+	// Clear any existing speaker mappings since we're retranscribing
+	if err := database.DB.Where("transcription_job_id = ?", jobID).Delete(&models.SpeakerMapping{}).Error; err != nil {
+		return fmt.Errorf("failed to clear old speaker mappings: %v", err)
+	}
+
 	// Update the job in the database
 	if err := database.DB.Model(&models.TranscriptionJob{}).
 		Where("id = ?", jobID).

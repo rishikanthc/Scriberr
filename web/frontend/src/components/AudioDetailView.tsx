@@ -182,10 +182,21 @@ useEffect(() => {
 // Fetch speaker mappings when audio file is loaded and has diarization enabled
 useEffect(() => {
 	if (audioFile) {
+		// Clear existing mappings first (in case of retranscription)
+		setSpeakerMappings({});
 		fetchSpeakerMappings();
 	}
 	// eslint-disable-next-line react-hooks/exhaustive-deps
 }, [audioFile]);
+
+// Also clear and refetch speaker mappings when transcript changes (handles retranscription)
+useEffect(() => {
+	if (transcript && audioFile) {
+		setSpeakerMappings({});
+		fetchSpeakerMappings();
+	}
+	// eslint-disable-next-line react-hooks/exhaustive-deps
+}, [transcript]);
 
     // Former floating-controls visibility logic removed: controls are always fixed.
 
