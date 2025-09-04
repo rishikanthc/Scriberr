@@ -1,0 +1,27 @@
+version: "3.9"
+
+services:
+  scriberr:
+    # Build from local Dockerfile; replace with `image: ghcr.io/rishikanthc/scriberr:latest`
+    # if you prefer pulling a prebuilt image.
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: scriberr:local
+    # image: ghcr.io/rishikanthc/scriberr:v1.0.0
+    container_name: scriberr
+    ports:
+      - "8080:8080"
+    environment:
+      - HOST=0.0.0.0
+      - PORT=8080
+      - DATABASE_PATH=/app/data/scriberr.db
+      - UPLOAD_DIR=/app/data/uploads
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+    volumes:
+      - ./scriberr-data:/app/data
+    restart: unless-stopped
+
+volumes:
+  scriberr-data:

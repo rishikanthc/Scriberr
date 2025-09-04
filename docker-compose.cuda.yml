@@ -1,0 +1,23 @@
+version: "3.9"
+services:
+  scriberr:
+    image: ghcr.io/rishikanthc/scriberr:v1.0.4-cuda
+    ports:
+      - "8080:8080"
+    volumes:
+      - scriberr_data:/app/data
+    restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities:
+                - gpu
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+
+volumes:
+  scriberr_data: {}
