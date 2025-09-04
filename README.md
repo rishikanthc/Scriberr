@@ -6,6 +6,9 @@ Self‑hostable, secure & private offline transcription. Drop in a recording, ge
 
 [Website](https://scriberr.app) • [Docs](https://scriberr.app/docs/intro.html) • [API Reference](https://scriberr.app/api.html) • [Changelog](https://scriberr.app/changelog.html)
 
+<p align="center">
+<a href='https://ko-fi.com/H2H41KQZA3' target='_blank'><img height='36' style='border:0px;height:36px;' src='https://storage.ko-fi.com/cdn/kofi6.png?v=6' border='0' alt='Buy Me a Coffee at ko-fi.com' /></a>
+</p>
 </div>
 
 ---
