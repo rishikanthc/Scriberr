@@ -2238,3 +2238,177 @@ func (h *Handler) UpdateUserSettings(c *gin.Context) {
 
 	c.JSON(http.StatusOK, response)
 }
+
+// SpeakerMappingRequest represents a speaker mapping update request
+type SpeakerMappingRequest struct {
+	OriginalSpeaker string `json:"original_speaker" binding:"required"`
+	CustomName      string `json:"custom_name" binding:"required"`
+}
+
+// SpeakerMappingsUpdateRequest represents a bulk speaker mappings update
+type SpeakerMappingsUpdateRequest struct {
+	Mappings []SpeakerMappingRequest `json:"mappings" binding:"required"`
+}
+
+// SpeakerMappingResponse represents a speaker mapping response
+type SpeakerMappingResponse struct {
+	ID              uint   `json:"id"`
+	OriginalSpeaker string `json:"original_speaker"`
+	CustomName      string `json:"custom_name"`
+}
+
+// GetSpeakerMappings retrieves all speaker mappings for a transcription
+// @Summary Get speaker mappings for a transcription
+// @Description Retrieves all custom speaker names for a transcription job
+// @Tags transcription
+// @Accept json
+// @Produce json
+// @Param id path string true "Transcription Job ID"
+// @Success 200 {array} SpeakerMappingResponse
+// @Failure 400 {object} map[string]string
+// @Failure 404 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Security BearerAuth
+// @Security ApiKeyAuth
+// @Router /api/v1/transcription/{id}/speakers [get]
+func (h *Handler) GetSpeakerMappings(c *gin.Context) {
+	jobID := c.Param("id")
+	
+	// Verify the transcription job exists and has diarization enabled
+	var job models.TranscriptionJob
+	if err := database.DB.Where("id = ?", jobID).First(&job).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Transcription job not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get transcription job"})
+		return
+	}
+	
+	// Check if diarization was enabled for this job
+	if !job.Diarization && !job.Parameters.Diarize {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Diarization was not enabled for this transcription"})
+		return
+	}
+	
+	// Get speaker mappings
+	var mappings []models.SpeakerMapping
+	if err := database.DB.Where("transcription_job_id = ?", jobID).Find(&mappings).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get speaker mappings"})
+		return
+	}
+	
+	// Convert to response format
+	response := make([]SpeakerMappingResponse, len(mappings))
+	for i, mapping := range mappings {
+		response[i] = SpeakerMappingResponse{
+			ID:              mapping.ID,
+			OriginalSpeaker: mapping.OriginalSpeaker,
+			CustomName:      mapping.CustomName,
+		}
+	}
+	
+	c.JSON(http.StatusOK, response)
+}
+
+// UpdateSpeakerMappings updates speaker mappings for a transcription
+// @Summary Update speaker mappings for a transcription
+// @Description Updates or creates custom speaker names for a transcription job
+// @Tags transcription
+// @Accept json
+// @Produce json
+// @Param id path string true "Transcription Job ID"
+// @Param request body SpeakerMappingsUpdateRequest true "Speaker mappings to update"
+// @Success 200 {array} SpeakerMappingResponse
+// @Failure 400 {object} map[string]string
+// @Failure 404 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Security BearerAuth
+// @Security ApiKeyAuth
+// @Router /api/v1/transcription/{id}/speakers [post]
+func (h *Handler) UpdateSpeakerMappings(c *gin.Context) {
+	jobID := c.Param("id")
+	
+	var req SpeakerMappingsUpdateRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request: " + err.Error()})
+		return
+	}
+	
+	// Verify the transcription job exists and has diarization enabled
+	var job models.TranscriptionJob
+	if err := database.DB.Where("id = ?", jobID).First(&job).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Transcription job not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get transcription job"})
+		return
+	}
+	
+	// Check if diarization was enabled for this job
+	if !job.Diarization && !job.Parameters.Diarize {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Diarization was not enabled for this transcription"})
+		return
+	}
+	
+	// Update or create speaker mappings within a transaction
+	tx := database.DB.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+	
+	var updatedMappings []models.SpeakerMapping
+	
+	for _, mapping := range req.Mappings {
+		var speakerMapping models.SpeakerMapping
+		
+		// Try to find existing mapping
+		err := tx.Where("transcription_job_id = ? AND original_speaker = ?", jobID, mapping.OriginalSpeaker).
+			First(&speakerMapping).Error
+		
+		if err == gorm.ErrRecordNotFound {
+			// Create new mapping
+			speakerMapping = models.SpeakerMapping{
+				TranscriptionJobID: jobID,
+				OriginalSpeaker:    mapping.OriginalSpeaker,
+				CustomName:         mapping.CustomName,
+			}
+			if err := tx.Create(&speakerMapping).Error; err != nil {
+				tx.Rollback()
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create speaker mapping"})
+				return
+			}
+		} else if err != nil {
+			tx.Rollback()
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to query speaker mapping"})
+			return
+		} else {
+			// Update existing mapping
+			speakerMapping.CustomName = mapping.CustomName
+			if err := tx.Save(&speakerMapping).Error; err != nil {
+				tx.Rollback()
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update speaker mapping"})
+				return
+			}
+		}
+		
+		updatedMappings = append(updatedMappings, speakerMapping)
+	}
+	
+	tx.Commit()
+	
+	// Convert to response format
+	response := make([]SpeakerMappingResponse, len(updatedMappings))
+	for i, mapping := range updatedMappings {
+		response[i] = SpeakerMappingResponse{
+			ID:              mapping.ID,
+			OriginalSpeaker: mapping.OriginalSpeaker,
+			CustomName:      mapping.CustomName,
+		}
+	}
+	
+	c.JSON(http.StatusOK, response)
+}

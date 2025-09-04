@@ -35,6 +35,7 @@ func Initialize(dbPath string) error {
 	if err := DB.AutoMigrate(
 		&models.TranscriptionJob{},
 		&models.TranscriptionJobExecution{},
+		&models.SpeakerMapping{},
 		&models.User{},
 		&models.APIKey{},
 		&models.TranscriptionProfile{},
@@ -48,6 +49,11 @@ func Initialize(dbPath string) error {
 		&models.RefreshToken{},
 	); err != nil {
 		return fmt.Errorf("failed to auto migrate: %v", err)
+	}
+
+	// Add unique constraint for speaker mappings (transcription_job_id + original_speaker)
+	if err := DB.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_speaker_mappings_unique ON speaker_mappings(transcription_job_id, original_speaker)").Error; err != nil {
+		return fmt.Errorf("failed to create unique constraint for speaker mappings: %v", err)
 	}
 
     return nil

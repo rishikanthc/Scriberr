@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import { ArrowLeft, Play, Pause, List, AlignLeft, MessageCircle, Download, FileText, FileJson, FileImage, Check, StickyNote, Plus, X, Sparkles, Pencil, ChevronUp, ChevronDown, Info, Clock, Settings, CheckCircle2, AlertTriangle } from "lucide-react";
+import { ArrowLeft, Play, Pause, List, AlignLeft, MessageCircle, Download, FileText, FileJson, FileImage, Check, StickyNote, Plus, X, Sparkles, Pencil, ChevronUp, ChevronDown, Info, Clock, Settings, CheckCircle2, AlertTriangle, Users } from "lucide-react";
 import WaveSurfer from "wavesurfer.js";
 import { Button } from "./ui/button";
 import {
@@ -26,6 +26,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { ChatInterface } from "./ChatInterface";
 import type { Note } from "../types/note";
 import { NotesSidebar } from "./NotesSidebar";
+import SpeakerRenameDialog from "./SpeakerRenameDialog";
 import ReactMarkdown from 'react-markdown';
 import rehypeRaw from 'rehype-raw';
 import rehypeHighlight from 'rehype-highlight';
@@ -43,6 +44,11 @@ interface AudioFile {
 	status: "uploaded" | "pending" | "processing" | "completed" | "failed";
 	created_at: string;
 	audio_path: string;
+	diarization?: boolean;
+	parameters?: {
+		diarize?: boolean;
+		[key: string]: any;
+	};
 }
 
 interface WordSegment {
@@ -86,6 +92,10 @@ export function AudioDetailView({ audioId }: AudioDetailViewProps) {
 	const [downloadFormat, setDownloadFormat] = useState<'txt' | 'json'>('txt');
 	const [includeSpeakerLabels, setIncludeSpeakerLabels] = useState(true);
 	const [includeTimestamps, setIncludeTimestamps] = useState(true);
+	
+	// Speaker renaming state
+	const [speakerRenameDialogOpen, setSpeakerRenameDialogOpen] = useState(false);
+	const [speakerMappings, setSpeakerMappings] = useState<Record<string, string>>({});
 	const waveformRef = useRef<HTMLDivElement>(null);
 	const wavesurferRef = useRef<WaveSurfer | null>(null);
 	const transcriptRef = useRef<HTMLDivElement>(null);
@@ -168,6 +178,14 @@ useEffect(() => {
             } catch { setLlmReady(false); }
         })();
 }, [audioId]);
+
+// Fetch speaker mappings when audio file is loaded and has diarization enabled
+useEffect(() => {
+	if (audioFile) {
+		fetchSpeakerMappings();
+	}
+	// eslint-disable-next-line react-hooks/exhaustive-deps
+}, [audioFile]);
 
     // Former floating-controls visibility logic removed: controls are always fixed.
 
@@ -821,7 +839,14 @@ useEffect(() => {
 			transcript.segments.forEach((segment) => {
 				const startTime = formatSRTTime(segment.start);
 				const endTime = formatSRTTime(segment.end);
-				srtContent += `${counter}\n${startTime} --> ${endTime}\n${segment.text.trim()}\n\n`;
+				let text = segment.text.trim();
+				
+				// Add speaker label if available (common practice in SRT files)
+				if (segment.speaker) {
+					text = `${getDisplaySpeakerName(segment.speaker)}: ${text}`;
+				}
+				
+				srtContent += `${counter}\n${startTime} --> ${endTime}\n${text}\n\n`;
 				counter++;
 			});
 		} else {
@@ -852,7 +877,7 @@ useEffect(() => {
 
 				// Add speaker if enabled and available
 				if (includeSpeakerLabels && segment.speaker) {
-					content += `${segment.speaker}: `;
+					content += `${getDisplaySpeakerName(segment.speaker)}: `;
 				}
 
 				content += segment.text.trim();
@@ -893,7 +918,7 @@ useEffect(() => {
 					}
 
 					if (includeSpeakerLabels && segment.speaker) {
-						segmentData.speaker = segment.speaker;
+						segmentData.speaker = getDisplaySpeakerName(segment.speaker);
 					}
 
 					return segmentData;
@@ -948,6 +973,74 @@ useEffect(() => {
 			downloadJSON();
 		}
 		setDownloadDialogOpen(false);
+	};
+
+	// Speaker helper functions
+	const getDetectedSpeakers = (): string[] => {
+		if (!transcript?.segments) return [];
+		const speakers = new Set<string>();
+		transcript.segments.forEach(segment => {
+			if (segment.speaker) {
+				speakers.add(segment.speaker);
+			}
+		});
+		return Array.from(speakers).sort();
+	};
+
+	const hasDiarizationEnabled = (): boolean => {
+		return audioFile?.diarization || audioFile?.parameters?.diarize || false;
+	};
+
+	const handleSpeakerMappingsUpdate = (mappings: { id?: number; original_speaker: string; custom_name: string }[]) => {
+		// Convert the array of mappings to a lookup object
+		const mappingObj: Record<string, string> = {};
+		mappings.forEach(mapping => {
+			mappingObj[mapping.original_speaker] = mapping.custom_name;
+		});
+		setSpeakerMappings(mappingObj);
+	};
+
+	const getDisplaySpeakerName = (originalSpeaker: string): string => {
+		return speakerMappings[originalSpeaker] || originalSpeaker;
+	};
+
+	const fetchSpeakerMappings = async () => {
+		// Only fetch if diarization is enabled
+		if (!audioFile || !hasDiarizationEnabled()) {
+			return;
+		}
+
+		try {
+			const token = localStorage.getItem('token');
+			const apiKey = localStorage.getItem('apiKey');
+			const headers: Record<string, string> = {
+				'Content-Type': 'application/json',
+			};
+
+			if (token) {
+				headers['Authorization'] = `Bearer ${token}`;
+			} else if (apiKey) {
+				headers['X-API-Key'] = apiKey;
+			}
+
+			const response = await fetch(`/api/v1/transcription/${audioId}/speakers`, {
+				headers,
+			});
+
+			if (response.ok) {
+				const mappings: { id?: number; original_speaker: string; custom_name: string }[] = await response.json();
+				
+				// Convert to lookup object
+				const mappingObj: Record<string, string> = {};
+				mappings.forEach(mapping => {
+					mappingObj[mapping.original_speaker] = mapping.custom_name;
+				});
+				
+				setSpeakerMappings(mappingObj);
+			}
+		} catch (err) {
+			console.error('Error fetching speaker mappings:', err);
+		}
 	};
 
 	if (loading) {
@@ -1144,6 +1237,21 @@ useEffect(() => {
                                   <Info className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                                 </button>
 
+                                {/* Speaker Renaming - only show if diarization is enabled */}
+                                {hasDiarizationEnabled() && getDetectedSpeakers().length > 0 && (
+                                  <>
+                                    <div className="mx-1 h-5 w-px bg-gray-300 dark:bg-gray-700" />
+                                    <button
+                                      type="button"
+                                      onClick={() => setSpeakerRenameDialogOpen(true)}
+                                      className="h-6 w-6 sm:h-7 sm:w-7 inline-flex items-center justify-center rounded-md cursor-pointer text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                                      title="Rename speakers"
+                                    >
+                                      <Users className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                                    </button>
+                                  </>
+                                )}
+
                                 <div className="mx-1 h-5 w-px bg-gray-300 dark:bg-gray-700" />
 
                                 {/* Summarize */}
@@ -1248,8 +1356,8 @@ useEffect(() => {
 															{formatTimestamp(segment.start)}
 														</span>
 														{segment.speaker && (
-															<span className="inline-block px-2 py-1 text-xs font-medium bg-green-100 dark:bg-green-700 text-green-800 dark:text-green-200 rounded">
-																{segment.speaker}
+															<span className="inline-block px-2 py-1 text-xs font-medium bg-green-100 dark:bg-green-700 text-green-800 dark:text-green-200 rounded transition-all duration-200">
+																{getDisplaySpeakerName(segment.speaker)}
 															</span>
 														)}
 													</div>
@@ -1440,6 +1548,15 @@ useEffect(() => {
 					</DialogFooter>
 				</DialogContent>
             </Dialog>
+
+            {/* Speaker Rename Dialog */}
+            <SpeakerRenameDialog
+                open={speakerRenameDialogOpen}
+                onOpenChange={setSpeakerRenameDialogOpen}
+                transcriptionId={audioId}
+                onSpeakerMappingsUpdate={handleSpeakerMappingsUpdate}
+                initialSpeakers={getDetectedSpeakers()}
+            />
 
             {/* Summarization template selector dialog */}
             <UIDialog open={summarizeOpen} onOpenChange={(o) => { setSummarizeOpen(o); if (!o) { setTplPopoverOpen(false); } }}>
