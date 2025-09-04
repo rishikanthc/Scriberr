@@ -15,6 +15,7 @@ import (
 	"scriberr/internal/auth"
 	"scriberr/internal/config"
 	"scriberr/internal/database"
+	"scriberr/internal/dropzone"
 	"scriberr/internal/queue"
 	"scriberr/internal/transcription"
 
@@ -96,6 +97,13 @@ func main() {
 	taskQueue := queue.NewTaskQueue(2, whisperXService) // 2 workers
 	taskQueue.Start()
 	defer taskQueue.Stop()
+
+	// Initialize dropzone service
+	dropzoneService := dropzone.NewService(cfg)
+	if err := dropzoneService.Start(); err != nil {
+		log.Fatal("Failed to start dropzone service:", err)
+	}
+	defer dropzoneService.Stop()
 
 	// Initialize API handlers
 	handler := api.NewHandler(cfg, authService, taskQueue, whisperXService, quickTranscriptionService)
