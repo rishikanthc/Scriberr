@@ -293,3 +293,21 @@ func (tje *TranscriptionJobExecution) CalculateProcessingDuration() {
 		tje.ProcessingDuration = &durationMs
 	}
 }
+
+// SpeakerMapping represents custom speaker names for a transcription job
+type SpeakerMapping struct {
+	ID                 uint      `json:"id" gorm:"primaryKey;autoIncrement"`
+	TranscriptionJobID string    `json:"transcription_job_id" gorm:"type:varchar(36);not null;index"`
+	OriginalSpeaker    string    `json:"original_speaker" gorm:"type:varchar(50);not null"` // e.g., "speaker_00"
+	CustomName         string    `json:"custom_name" gorm:"type:varchar(100);not null"`     // e.g., "John Doe"
+	CreatedAt          time.Time `json:"created_at" gorm:"autoCreateTime"`
+	UpdatedAt          time.Time `json:"updated_at" gorm:"autoUpdateTime"`
+	
+	// Relationships
+	TranscriptionJob   TranscriptionJob `json:"transcription_job,omitempty" gorm:"foreignKey:TranscriptionJobID"`
+}
+
+// Ensure unique constraint on job_id + original_speaker combination
+func (SpeakerMapping) TableName() string {
+	return "speaker_mappings"
+}

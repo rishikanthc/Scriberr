@@ -90,6 +90,10 @@ func SetupRoutes(handler *Handler, authService *auth.AuthService) *gin.Engine {
 			transcription.GET("/:id/notes", handler.ListNotes)
 			transcription.POST("/:id/notes", handler.CreateNote)
 			
+			// Speaker mappings for a transcription
+			transcription.GET("/:id/speakers", handler.GetSpeakerMappings)
+			transcription.POST("/:id/speakers", handler.UpdateSpeakerMappings)
+			
 			// Quick transcription endpoints
 			transcription.POST("/quick", handler.SubmitQuickTranscription)
 			transcription.GET("/quick/:id", handler.GetQuickTranscriptionStatus)
