@@ -19,7 +19,7 @@ Self‑hostable, secure & private offline transcription. Drop in a recording, ge
 If you're looking for a transcription API for meetings, consider checking out [Recall.ai](https://www.recall.ai), an API that works with Zoom, Google Meet, Microsoft Teams, and more.
 Recall.ai diarizes by pulling the speaker data and seperate audio streams from the meeting platforms, which means 100% accurate speaker diarization with actual speaker names.
 
-## Introduction
+# Introduction
 
 Scriberr is a self‑hosted offline transcription app for converting audio into text. Record or upload audio, get it transcribed, and quickly summarize or chat using your preferred LLM provider. Scriberr runs on modern CPUs (no GPU required, though GPUs can accelerate processing) and offers a range of trade‑offs between speed and transcription quality.
 
