@@ -2,13 +2,19 @@
 
 <img alt="Scriberr" src="assets/scriberr-logo.svg" width="480" />
 
-Self‑hosted, offline transcription — transcribe audio, summarize, annotate, and build on a clean REST API.
+Self‑hostable, secure & private offline transcription. Drop in a recording, get clean transcripts, highlight key moments, take notes or chat with your audio using your favorite LLM — all without sending your data to the cloud.
 
 [Website](https://scriberr.app) • [Docs](https://scriberr.app/docs/intro.html) • [API Reference](https://scriberr.app/api.html) • [Changelog](https://scriberr.app/changelog.html)
 
 </div>
 
 ---
+
+## Sponsors
+
+![recall.ai-logo](https://cdn.prod.website-files.com/620d732b1f1f7b244ac89f0e/66b294e51ee15f18dd2b171e_recall-logo.svg) Meeting Transcription API   
+If you're looking for a transcription API for meetings, consider checking out [Recall.ai](https://www.recall.ai), an API that works with Zoom, Google Meet, Microsoft Teams, and more.
+Recall.ai diarizes by pulling the speaker data and seperate audio streams from the meeting platforms, which means 100% accurate speaker diarization with actual speaker names.
 
 ## Introduction
 
