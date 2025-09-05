@@ -38,4 +38,5 @@ AGENTS.md
 .env.example
 scriberr-data
 whisperx-env
-internal
+
+internal/web
