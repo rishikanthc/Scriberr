@@ -338,6 +338,20 @@
     },
     {
       "method": "GET",
+      "path": "/api/v1/transcription/{id}/speakers",
+      "summary": "Get speaker mappings for a transcription",
+      "description": "Retrieves all custom speaker names for a transcription job",
+      "tag": "transcription"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/transcription/{id}/speakers",
+      "summary": "Update speaker mappings for a transcription",
+      "description": "Updates or creates custom speaker names for a transcription job",
+      "tag": "transcription"
+    },
+    {
+      "method": "GET",
       "path": "/api/v1/transcription/{id}/notes",
       "summary": "List notes for a transcription",
       "description": "Get all notes attached to a transcription, ordered by time and creation",
