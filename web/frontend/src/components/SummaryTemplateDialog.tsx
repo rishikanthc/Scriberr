@@ -68,7 +68,7 @@ export function SummaryTemplateDialog({ open, onOpenChange, onSave, initial }: S
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+      <DialogContent className="sm:max-w-xl md:max-w-2xl lg:max-w-3xl xl:max-w-4xl max-h-[90vh] md:max-h-[92vh] overflow-y-auto bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
         <DialogHeader>
           <DialogTitle className="text-gray-900 dark:text-gray-100">{initial ? 'Edit Summary Template' : 'New Summary Template'}</DialogTitle>
           <DialogDescription className="text-gray-600 dark:text-gray-400">
@@ -101,8 +101,8 @@ export function SummaryTemplateDialog({ open, onOpenChange, onSave, initial }: S
           <div className="space-y-2">
             <Label className="text-gray-700 dark:text-gray-300">Prompt</Label>
             <Textarea
-              rows={8}
-              className="resize-y max-h-[50vh]"
+              rows={10}
+              className="resize-y min-h-40 sm:min-h-60 md:min-h-72 lg:min-h-[50vh] max-h-[65vh]"
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
               placeholder="Write the summarization instructions..."
