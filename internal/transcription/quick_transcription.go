@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"sync"
-	"syscall"
 	"time"
 
 	"scriberr/internal/config"
@@ -203,8 +202,8 @@ func (qs *QuickTranscriptionService) processWithWhisperX(ctx context.Context, jo
 	cmd := exec.CommandContext(ctx, "uv", args...)
 	cmd.Env = append(os.Environ(), "PYTHONUNBUFFERED=1")
 	
-	// Set process group ID so we can kill the entire process tree if needed
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+    // Configure process attributes for cross-platform kill behavior
+    configureCmdSysProcAttr(cmd)
 
 	// Execute WhisperX
 	output, err := cmd.CombinedOutput()

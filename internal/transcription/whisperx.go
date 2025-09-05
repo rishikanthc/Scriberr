@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
 
 	"scriberr/internal/config"
@@ -126,8 +125,8 @@ func (ws *WhisperXService) ProcessJobWithProcess(ctx context.Context, jobID stri
 	cmd := exec.CommandContext(ctx, "uv", args...)
 	cmd.Env = append(os.Environ(), "PYTHONUNBUFFERED=1")
 	
-	// Set process group ID so we can kill the entire process tree
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+    // Configure process attributes for cross-platform kill behavior
+    configureCmdSysProcAttr(cmd)
 	
 	// Register the process for immediate termination capability
 	registerProcess(cmd)

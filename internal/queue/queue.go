@@ -6,7 +6,6 @@ import (
 	"log"
 	"os/exec"
 	"sync"
-	"syscall"
 	"time"
 
 	"scriberr/internal/database"
@@ -211,16 +210,12 @@ func (tq *TaskQueue) KillJob(jobID string) error {
 	
 	log.Printf("Aggressively killing job %s", jobID)
 	
-	// First, try to kill the OS process immediately with SIGKILL
+	// First, try to kill the OS process group (or process on non-Unix)
 	if runningJob.Process != nil && runningJob.Process.Process != nil {
-		log.Printf("Sending SIGKILL to process %d for job %s", runningJob.Process.Process.Pid, jobID)
-		
-		// Kill the entire process group to ensure all child processes are terminated
-		err := syscall.Kill(-runningJob.Process.Process.Pid, syscall.SIGKILL)
-		if err != nil {
-			log.Printf("Failed to kill process group for job %s: %v, trying individual process", jobID, err)
-			// Fallback to killing just the main process
-			runningJob.Process.Process.Kill()
+		log.Printf("Attempting to terminate process tree for PID %d (job %s)", runningJob.Process.Process.Pid, jobID)
+		if err := killProcessTree(runningJob.Process.Process); err != nil {
+			log.Printf("Failed to terminate process tree for job %s: %v, trying direct kill()", jobID, err)
+			_ = runningJob.Process.Process.Kill()
 		}
 	}
 	
