@@ -8,9 +8,47 @@ type Release = { version: string; date: string; tag?: 'Latest' | 'Beta'; notes: 
 
 const RELEASES: Release[] = [
   {
+    version: '1.1.0',
+    date: '2025-09-05',
+    tag: 'Latest',
+    notes: [
+      // Added
+      { type: 'Added', text: 'Donation link to README and ko-fi badge for project support.' },
+      { type: 'Added', text: 'Table for storing transcription statistics.' },
+      { type: 'Added', text: 'Animation during summary generation to indicate processing.' },
+      { type: 'Added', text: 'Default transcription profiles.' },
+      { type: 'Added', text: 'Info to transcripts to view parameters and stats.' },
+      { type: 'Added', text: 'Optional auto-transcription on upload.' },
+      { type: 'Added', text: 'Support for renaming speakers.' },
+      { type: 'Added', text: 'Transcription report in transcript section.' },
+      { type: 'Added', text: 'Sponsors section.' },
+      
+      // Changed
+      { type: 'Changed', text: 'Increase timeout to query OpenAI from 30 to 300 seconds.' },
+      { type: 'Changed', text: 'Makes summary template dialogue larger to provide more space for text input.' },
+      { type: 'Changed', text: 'Makes summary template text input scrollable.' },
+      { type: 'Changed', text: 'Moves auto transcription settings to transcription tab.' },
+      { type: 'Changed', text: 'Update README with Nvidia GPU support and Docker example.' },
+      { type: 'Changed', text: 'Updates Dockerfile for CUDA and compose files.' },
+      
+      // Fixed
+      { type: 'Fixed', text: 'Chat with GPT-5 models support (fixes #173).' },
+      { type: 'Fixed', text: 'Mobile transcript view toolbar for better visibility and UX.' },
+      { type: 'Fixed', text: 'CI/CD for project website - API and changelog pages not being updated.' },
+      { type: 'Fixed', text: 'Go releaser syscall related errors during packaging.' },
+      { type: 'Fixed', text: 'Incorrect persistence of old speaker data when re-transcribed.' },
+      { type: 'Fixed', text: 'Job termination issues.' },
+      { type: 'Fixed', text: 'Missing parameters in transcription info.' },
+      { type: 'Fixed', text: 'Project page issues.' },
+      
+      // Removed
+      { type: 'Removed', text: 'Build files from git repository.' },
+      { type: 'Removed', text: 'Data tracking files.' },
+    ],
+  },
+  {
     version: '1.0.4',
     date: '2025-09-01',
-    tag: 'Latest',
     notes: [
       { type: 'Fixed', text: 'Fix Homebrew package.' },
     ],
