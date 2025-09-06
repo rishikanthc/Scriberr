@@ -40,3 +40,66 @@ scriberr-data
 whisperx-env
 
 internal/web
+# Additional common ignores for Go, React, and Python projects
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.log
+*.tmp
+*.temp
+.vscode/
+.idea/
+*.swp
+*.swo
+dist/
+*.exe
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Audio files
+*.mp3
+*.wav
+*.flac
+*.aac
+*.ogg
+*.m4a
+*.wma
+
+# Video files
+*.mp4
+*.avi
+*.mkv
+*.mov
+*.wmv
+*.flv
+*.webm
+
+# Additional IDE files
+*.iml
+*.ipr
+*.iws
+.history/
+*.sublime-project
+*.sublime-workspace
+.atom/
+.classpath
+.project
+.settings/
+*.pbxuser
+*.mode1v3
+*.mode2v3
+*.perspectivev3
+*.xcuserstate
+xcuserdata/
+*~
+#*#
+/.emacs.desktop
+/.emacs.desktop.lock
+/.netrwhist

@@ -33,9 +33,6 @@ install_aw.sh
 # Documentation and misc
 CLAUDE.md
 CNAME
-README.md
-docs/
-screenshots/
 
 # Version control
 .git
@@ -52,7 +49,6 @@ screenshots/
 Thumbs.db
 
 # Testing and samples
-tests/
 samples/
 
 # Prettier config

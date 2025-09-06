@@ -32,6 +32,9 @@ func SetupRoutes(handler *Handler, authService *auth.AuthService) *gin.Engine {
 	// Health check endpoint (no auth required)
 	router.GET("/health", handler.HealthCheck)
 
+	// System endpoints (no auth required)
+	router.GET("/api/system/devices", handler.GetAvailableDevices)
+
 	// Swagger documentation
 	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 

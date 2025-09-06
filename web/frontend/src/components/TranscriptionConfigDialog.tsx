@@ -102,7 +102,7 @@ const PARAM_DESCRIPTIONS = {
   model: "Size of the Whisper model to use. Larger models are more accurate but slower and require more memory.",
   language: "Source language of the audio. Leave as auto-detect for automatic language detection.",
   task: "Whether to transcribe the audio or translate it to English.",
-  device: "Processing device: CPU (slower, universal), GPU (faster, requires CUDA), or Auto (automatic selection).",
+  device: "Processing device: CPU (slower, universal), GPU (CUDA for Nvidia, ROCm for AMD), or Auto (automatic selection).",
   compute_type: "Precision type: Float16 (faster, less memory), Float32 (more accurate), Int8 (fastest, least accurate).",
   batch_size: "Number of audio segments processed simultaneously. Higher values are faster but use more memory.",
   diarize: "Enable speaker diarization to identify and separate different speakers in the audio.",
@@ -311,6 +311,25 @@ export function TranscriptionConfigDialog({
   const [params, setParams] = useState<WhisperXParams>(DEFAULT_PARAMS);
   const [profileName, setProfileName] = useState("");
   const [profileDescription, setProfileDescription] = useState("");
+  const [availableDevices, setAvailableDevices] = useState<string[]>(["cpu", "cuda", "auto"]);
+
+  // Fetch available devices when dialog opens
+  useEffect(() => {
+    if (open) {
+      fetch('/api/system/devices')
+        .then(response => response.json())
+        .then(data => {
+          if (data.devices) {
+            setAvailableDevices(data.devices);
+          }
+        })
+        .catch(error => {
+          console.warn('Failed to fetch available devices:', error);
+          // Fallback to basic detection
+          setAvailableDevices(["cpu", "cuda", "auto"]);
+        });
+    }
+  }, [open]);
 
   // Reset to defaults or initial values when dialog opens
   useEffect(() => {
@@ -502,9 +521,18 @@ export function TranscriptionConfigDialog({
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
-                      <SelectItem value="cpu" className="text-gray-900 dark:text-gray-100 focus:bg-gray-100 dark:focus:bg-gray-700">CPU</SelectItem>
-                      <SelectItem value="cuda" className="text-gray-900 dark:text-gray-100 focus:bg-gray-100 dark:focus:bg-gray-700">GPU (CUDA)</SelectItem>
-                      <SelectItem value="auto" className="text-gray-900 dark:text-gray-100 focus:bg-gray-100 dark:focus:bg-gray-700">Auto</SelectItem>
+                      {availableDevices.includes("cpu") && (
+                        <SelectItem value="cpu" className="text-gray-900 dark:text-gray-100 focus:bg-gray-100 dark:focus:bg-gray-700">CPU</SelectItem>
+                      )}
+                      {availableDevices.includes("cuda") && (
+                        <SelectItem value="cuda" className="text-gray-900 dark:text-gray-100 focus:bg-gray-100 dark:focus:bg-gray-700">GPU (CUDA)</SelectItem>
+                      )}
+                      {availableDevices.includes("rocm") && (
+                        <SelectItem value="rocm" className="text-gray-900 dark:text-gray-100 focus:bg-gray-100 dark:focus:bg-gray-700">GPU (ROCm)</SelectItem>
+                      )}
+                      {availableDevices.includes("auto") && (
+                        <SelectItem value="auto" className="text-gray-900 dark:text-gray-100 focus:bg-gray-100 dark:focus:bg-gray-700">Auto</SelectItem>
+                      )}
                     </SelectContent>
                   </Select>
                 </div>
