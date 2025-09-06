@@ -42,8 +42,8 @@ type QuickTranscriptionService struct {
 
 // NewQuickTranscriptionService creates a new quick transcription service
 func NewQuickTranscriptionService(cfg *config.Config, whisperX *WhisperXService) (*QuickTranscriptionService, error) {
-	// Create temporary directory for quick transcriptions
-	tempDir := filepath.Join(cfg.UploadDir, "quick_transcriptions")
+	// Create temporary directory for quick transcriptions in /tmp
+	tempDir := "/tmp/quick_transcriptions"
 	if err := os.MkdirAll(tempDir, 0755); err != nil {
 		return nil, fmt.Errorf("failed to create temp directory: %v", err)
 	}

@@ -3,6 +3,7 @@ package database
 import (
     "fmt"
     "os"
+    "path/filepath"
 
     "scriberr/internal/models"
 
@@ -19,8 +20,9 @@ func Initialize(dbPath string) error {
 	var err error
 	
 	// Create database directory if it doesn't exist
-	if err := os.MkdirAll("data", 0755); err != nil {
-		return fmt.Errorf("failed to create data directory: %v", err)
+	dbDir := filepath.Dir(dbPath)
+	if err := os.MkdirAll(dbDir, 0755); err != nil {
+		return fmt.Errorf("failed to create database directory: %v", err)
 	}
 	
 	// Open database connection

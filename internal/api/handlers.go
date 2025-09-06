@@ -1546,6 +1546,55 @@ func (h *Handler) HealthCheck(c *gin.Context) {
 	})
 }
 
+// GetAvailableDevices returns the list of available devices for transcription
+// @Summary Get available devices
+// @Description Get the list of available devices (CPU, CUDA, ROCm) for transcription
+// @Tags system
+// @Produce json
+// @Success 200 {object} map[string]interface{}
+// @Router /api/system/devices [get]
+func (h *Handler) GetAvailableDevices(c *gin.Context) {
+	devices := []string{"cpu", "auto"} // CPU and auto are always available
+
+	// Check for CUDA availability
+	if h.isCudaAvailable() {
+		devices = append(devices, "cuda")
+	}
+
+	// Check for ROCm availability
+	if h.isRocmAvailable() {
+		devices = append(devices, "rocm")
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"devices": devices,
+	})
+}
+
+// isCudaAvailable checks if CUDA is available on the system
+func (h *Handler) isCudaAvailable() bool {
+	// Try to run a simple PyTorch command to check CUDA availability
+	whisperXPath := filepath.Join(h.config.WhisperXEnv, "WhisperX")
+	cmd := exec.Command(h.config.UVPath, "run", "--native-tls", "--project", whisperXPath, "python", "-c", "import torch; print(torch.cuda.is_available())")
+	output, err := cmd.Output()
+	if err != nil {
+		return false
+	}
+	return strings.TrimSpace(string(output)) == "True"
+}
+
+// isRocmAvailable checks if ROCm is available on the system
+func (h *Handler) isRocmAvailable() bool {
+	// Try to run a simple PyTorch command to check ROCm availability
+	whisperXPath := filepath.Join(h.config.WhisperXEnv, "WhisperX")
+	cmd := exec.Command(h.config.UVPath, "run", "--native-tls", "--project", whisperXPath, "python", "-c", "import torch; print(torch.version.hip is not None)")
+	output, err := cmd.Output()
+	if err != nil {
+		return false
+	}
+	return strings.TrimSpace(string(output)) == "True"
+}
+
 // Helper functions
 func getFormValueWithDefault(c *gin.Context, key, defaultValue string) string {
 	if value := c.PostForm(key); value != "" {

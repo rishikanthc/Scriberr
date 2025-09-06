@@ -1,23 +1,63 @@
+# Python virtual environments
+.venv
+venv
+
+# Node.js dependencies
+node_modules
+
+# Environment files
+*.env
+
+# Build artifacts and binaries
+main
+scriberr
+scriberr-data
+whisperx-env
+
+# Data directories
+data
+data_bak
+scriberr_files
+
+# Docker-related files
 .dockerdata
 docker-compose.ollama.yaml
 Dockerfile
 Dockerfile-cuda128
 Dockerfile.rocm
+
+# Installation scripts
 install_audiowaveform.sh
-data
-data_bak
+install_aw.sh
+
+# Documentation and misc
 CLAUDE.md
 CNAME
-main
-scriberr-data
-whisperx-env
-samples
-scriberr_files
-scriberr
-install_aw.sh
+README.md
+docs/
+screenshots/
+
+# Version control
+.git
+.gitignore
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# Testing and samples
+tests/
+samples/
+
+# Prettier config
 .prettier*
-venv
-node_modules
-*.env
-.venv
+
+# Aider files
+.aider.*
 .aider.*

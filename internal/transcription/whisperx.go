@@ -121,9 +121,41 @@ func (ws *WhisperXService) ProcessJobWithProcess(ctx context.Context, jobID stri
 		return fmt.Errorf(errMsg)
 	}
 
+	// Get device from job parameters for environment variable setup
+	device := job.Parameters.Device
+	if device == "auto" {
+		availableDevices := ws.detectAvailableDevices()
+		if len(availableDevices) > 1 {
+			// Prefer CUDA over ROCm, then GPU over CPU
+			for _, d := range []string{"cuda", "rocm"} {
+				for _, available := range availableDevices {
+					if available == d {
+						device = d
+						break
+					}
+				}
+				if device != "auto" {
+					break
+				}
+			}
+		}
+		if device == "auto" {
+			device = "cpu"
+		}
+	}
+
 	// Create command with context for proper cancellation support
 	cmd := exec.CommandContext(ctx, "uv", args...)
 	cmd.Env = append(os.Environ(), "PYTHONUNBUFFERED=1")
+	
+	// Set ROCm environment variables if ROCm device is selected
+	if device == "rocm" {
+		cmd.Env = append(cmd.Env,
+			"PYTORCH_ROCM_ARCH=gfx1030",
+			"HSA_OVERRIDE_GFX_VERSION=10.3.0",
+			"CUDA_VISIBLE_DEVICES=", // Disable CUDA when using ROCm
+		)
+	}
 	
     // Configure process attributes for cross-platform kill behavior
     configureCmdSysProcAttr(cmd)
@@ -358,8 +390,8 @@ func (ws *WhisperXService) buildWhisperXArgs(job *models.TranscriptionJob, outpu
 	case "cuda":
 		whisperxDevice = "cuda"
 	case "rocm":
-		// For ROCm, try different device strings that WhisperX might support
-		whisperxDevice = "cuda" // Many ROCm setups work with 'cuda' device string
+		// For ROCm, use the hip device string that PyTorch recognizes
+		whisperxDevice = "cuda" // PyTorch with ROCm still uses 'cuda' device string
 	default:
 		whisperxDevice = "cpu"
 	}
@@ -590,6 +622,11 @@ func (ws *WhisperXService) isCudaAvailable() bool {
 
 // isRocmAvailable checks if ROCm is available
 func (ws *WhisperXService) isRocmAvailable() bool {
+    // Check for test mode environment variable
+    if os.Getenv("SCRIBERR_TEST_ROCM") == "true" {
+        return true
+    }
+    
     cmd := exec.Command("python3", "-c", "import torch; print(hasattr(torch, 'hip') and torch.hip.is_available())")
     output, err := cmd.Output()
     if err != nil {

@@ -42,7 +42,7 @@ RUN CGO_ENABLED=0 \
 ########################
 # ROCm Runtime stage
 ########################
-FROM rocm/pytorch:rocm6.2_ubuntu22.04_py3.10_pytorch_2.1.2 AS runtime
+FROM rocm/pytorch:latest AS runtime
 
 ENV PYTHONUNBUFFERED=1 \
     HOST=0.0.0.0 \
