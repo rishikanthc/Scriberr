@@ -44,6 +44,7 @@ Scriberr is a self‑hosted offline transcription app for converting audio into 
 - REST API coverage for all major features + API key management
 - Download transcripts as JSON/SRT/TXT (and more)
 - Support for Nvidia GPUs [New - Experimental]
+- Support for AMD GPUs with ROCm [New - Experimental]
 
 ## Screenshots
 
@@ -135,32 +136,41 @@ volumes:
   scriberr_data:
 ```
 
-#### With GPU (CUDA)
+#### With AMD GPU (ROCm)
 ```yaml
 version: "3.9"
 services:
   scriberr:
-    image: ghcr.io/rishikanthc/scriberr:v1.0.4-cuda
+    image: ghcr.io/rishikanthc/scriberr:v1.0.4-rocm
     ports:
       - "8080:8080"
     volumes:
       - scriberr_data:/app/data
     restart: unless-stopped
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities:
-                - gpu
+    devices:
+      - /dev/kfd
+      - /dev/dri
     environment:
-      - NVIDIA_VISIBLE_DEVICES=all
-      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+      - HSA_OVERRIDE_GFX_VERSION=10.3.0
+      - PYTORCH_ROCM_ARCH=gfx1030
 
 volumes:
   scriberr_data: {}
 ```
+
+**AMD GPU Setup Requirements:**
+1. Install ROCm drivers for your AMD GPU
+2. Ensure `/dev/kfd` and `/dev/dri` devices are accessible
+3. Set appropriate `HSA_OVERRIDE_GFX_VERSION` for your GPU architecture
+4. Use `PYTORCH_ROCM_ARCH` matching your GPU (common values: gfx1030, gfx1100, etc.)
+
+**Supported AMD GPUs:**
+- Radeon RX 6000 series (RDNA 2)
+- Radeon RX 7000 series (RDNA 3) 
+- Radeon Pro W6000 series
+- Some older GCN 5.0+ GPUs
+
+**Note:** AMD GPU support is experimental and may require additional configuration based on your specific GPU model and drivers.
 
 Then open http://localhost:8080.
 

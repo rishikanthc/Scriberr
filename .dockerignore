@@ -2,6 +2,7 @@
 docker-compose.ollama.yaml
 Dockerfile
 Dockerfile-cuda128
+Dockerfile.rocm
 install_audiowaveform.sh
 data
 data_bak

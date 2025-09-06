@@ -275,7 +275,7 @@ func (suite *TranscriptionServiceTestSuite) TestModelParameters() {
 
 // Test device configuration
 func (suite *TranscriptionServiceTestSuite) TestDeviceConfiguration() {
-	devices := []string{"cpu", "cuda", "auto"}
+	devices := []string{"cpu", "cuda", "rocm", "auto"}
 	
 	for _, device := range devices {
 		params := models.WhisperXParams{

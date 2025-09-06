@@ -234,32 +234,32 @@ func (ws *WhisperXService) cloneWhisperX(envPath string) error {
 // updateWhisperXDependencies modifies WhisperX pyproject.toml to update ctranslate2 and add yt-dlp
 func (ws *WhisperXService) updateWhisperXDependencies(whisperxPath string) error {
     pyprojectPath := filepath.Join(whisperxPath, "pyproject.toml")
-    
+
     // Read the existing pyproject.toml
     data, err := os.ReadFile(pyprojectPath)
     if err != nil {
         return fmt.Errorf("failed to read pyproject.toml: %v", err)
     }
-    
+
     content := string(data)
-    
+
     // Replace ctranslate2 dependency
     content = strings.ReplaceAll(content, "ctranslate2<4.5.0", "ctranslate2==4.6.0")
-    
+
     // Add yt-dlp if not already present
     if !strings.Contains(content, "yt-dlp") {
         // Find the dependencies section and add yt-dlp
-        content = strings.ReplaceAll(content, 
+        content = strings.ReplaceAll(content,
             `"transformers>=4.48.0",`,
             `"transformers>=4.48.0",
     "yt-dlp",`)
     }
-    
+
     // Write back the modified content
     if err := os.WriteFile(pyprojectPath, []byte(content), 0644); err != nil {
         return fmt.Errorf("failed to write pyproject.toml: %v", err)
     }
-    
+
     return nil
 }
 
@@ -267,6 +267,15 @@ func (ws *WhisperXService) updateWhisperXDependencies(whisperxPath string) error
 func (ws *WhisperXService) uvSyncWhisperX(whisperxPath string) error {
     cmd := exec.Command("uv", "sync", "--all-extras", "--dev", "--native-tls")
     cmd.Dir = whisperxPath
+    
+    // Set environment variables for ROCm if available
+    if ws.isRocmAvailable() {
+        cmd.Env = append(os.Environ(),
+            "PYTORCH_ROCM_ARCH=gfx1030",
+            "HSA_OVERRIDE_GFX_VERSION=10.3.0",
+        )
+    }
+    
     out, err := cmd.CombinedOutput()
     if err != nil {
         return fmt.Errorf("uv sync failed: %v: %s", err, strings.TrimSpace(string(out)))
@@ -320,7 +329,42 @@ func (ws *WhisperXService) buildWhisperXArgs(job *models.TranscriptionJob, outpu
 	}
 
 	// Device and computation
-	args = append(args, "--device", p.Device)
+	device := p.Device
+	// Handle auto device selection
+	if device == "auto" {
+		availableDevices := ws.detectAvailableDevices()
+		if len(availableDevices) > 1 {
+			// Prefer CUDA over ROCm, then GPU over CPU
+			for _, d := range []string{"cuda", "rocm"} {
+				for _, available := range availableDevices {
+					if available == d {
+						device = d
+						break
+					}
+				}
+				if device != "auto" {
+					break
+				}
+			}
+		}
+		if device == "auto" {
+			device = "cpu"
+		}
+	}
+
+	// Map device names to WhisperX expected format
+	var whisperxDevice string
+	switch device {
+	case "cuda":
+		whisperxDevice = "cuda"
+	case "rocm":
+		// For ROCm, try different device strings that WhisperX might support
+		whisperxDevice = "cuda" // Many ROCm setups work with 'cuda' device string
+	default:
+		whisperxDevice = "cpu"
+	}
+
+	args = append(args, "--device", whisperxDevice)
 	args = append(args, "--device_index", strconv.Itoa(p.DeviceIndex))
 	args = append(args, "--batch_size", strconv.Itoa(p.BatchSize))
 	args = append(args, "--compute_type", p.ComputeType)
@@ -515,4 +559,41 @@ func (ws *WhisperXService) GetSupportedLanguages() []string {
 		"uz", "fo", "ht", "ps", "tk", "nn", "mt", "sa", "lb", "my", "bo", "tl", "mg",
 		"as", "tt", "haw", "ln", "ha", "ba", "jw", "su",
 	}
+}
+
+// detectAvailableDevices detects available GPU devices (CUDA, ROCm, or CPU fallback)
+func (ws *WhisperXService) detectAvailableDevices() []string {
+    devices := []string{"cpu"}
+
+    // Check for CUDA
+    if ws.isCudaAvailable() {
+        devices = append(devices, "cuda")
+    }
+
+    // Check for ROCm
+    if ws.isRocmAvailable() {
+        devices = append(devices, "rocm")
+    }
+
+    return devices
+}
+
+// isCudaAvailable checks if CUDA is available
+func (ws *WhisperXService) isCudaAvailable() bool {
+    cmd := exec.Command("python3", "-c", "import torch; print(torch.cuda.is_available())")
+    output, err := cmd.Output()
+    if err != nil {
+        return false
+    }
+    return strings.TrimSpace(string(output)) == "True"
+}
+
+// isRocmAvailable checks if ROCm is available
+func (ws *WhisperXService) isRocmAvailable() bool {
+    cmd := exec.Command("python3", "-c", "import torch; print(hasattr(torch, 'hip') and torch.hip.is_available())")
+    output, err := cmd.Output()
+    if err != nil {
+        return false
+    }
+    return strings.TrimSpace(string(output)) == "True"
 }

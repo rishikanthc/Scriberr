@@ -2,10 +2,13 @@
 
 # Scriberr Build Script
 # This script builds the React frontend and embeds it in the Go binary
+# Usage: ./build.sh [cuda|rocm]
 
 set -e  # Exit on any error
 
-echo "🚀 Starting Scriberr build process..."
+BUILD_TYPE=${1:-"standard"}  # Default to standard build
+
+echo "🚀 Starting Scriberr build process ($BUILD_TYPE)..."
 
 # Step 1: Clean up old files
 echo "🧹 Cleaning up old build files..."
