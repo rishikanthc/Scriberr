@@ -21,9 +21,6 @@ services:
     environment:
       - NVIDIA_VISIBLE_DEVICES=all
       - NVIDIA_DRIVER_CAPABILITIES=compute,utility
-      - SQLITE_TMPDIR=/tmp
-    tmpfs:
-      - /tmp
 
 volumes:
   scriberr_data: {}

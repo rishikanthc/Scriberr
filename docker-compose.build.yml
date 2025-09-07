@@ -25,9 +25,6 @@ services:
       - UPLOAD_DIR=/app/data/uploads
       - PUID=${PUID:-1000}
       - PGID=${PGID:-1000}
-      - SQLITE_TMPDIR=/tmp
-    tmpfs:
-      - /tmp
     volumes:
       - ./scriberr-data:/app/data
     restart: unless-stopped
