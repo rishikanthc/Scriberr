@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import { ArrowLeft, Play, Pause, List, AlignLeft, MessageCircle, Download, FileText, FileJson, FileImage, Check, StickyNote, Plus, X, Sparkles, Pencil, ChevronUp, ChevronDown, Info, Clock, Settings, CheckCircle2, AlertTriangle, Users } from "lucide-react";
+import { ArrowLeft, Play, Pause, List, AlignLeft, MessageCircle, Download, FileText, FileJson, FileImage, Check, StickyNote, Plus, X, Sparkles, Pencil, ChevronUp, ChevronDown, Info, Clock, Settings, Users } from "lucide-react";
 import WaveSurfer from "wavesurfer.js";
 import { Button } from "./ui/button";
 import {
@@ -1883,44 +1883,79 @@ useEffect(() => {
                                 </div>
                             </div>
 
-                            {/* WhisperX Parameters */}
+                            {/* Model Parameters */}
                             <div>
                                 <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3 sm:mb-4 flex items-center gap-2">
                                     <Settings className="h-5 w-5 text-slate-600 dark:text-slate-400" />
-                                    WhisperX Parameters
+                                    {(() => {
+                                        const modelFamily = executionData.actual_parameters?.model_family;
+                                        if (modelFamily === 'nvidia_parakeet') return 'NVIDIA Parakeet Parameters';
+                                        if (modelFamily === 'nvidia_canary') return 'NVIDIA Canary Parameters';
+                                        if (modelFamily === 'whisper') return 'WhisperX Parameters';
+                                        return 'Model Parameters';
+                                    })()}
                                 </h3>
                                 <div className="bg-slate-50/50 dark:bg-slate-800/30 border border-slate-200/50 dark:border-slate-700/50 rounded-lg p-3 sm:p-4">
                                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 text-sm">
                                         {/* Model Settings */}
                                         <div className="bg-white/40 dark:bg-slate-700/20 rounded-md p-3 border border-slate-200/30 dark:border-slate-600/30">
-                                            <h4 className="font-semibold text-slate-800 dark:text-slate-200 mb-2 text-sm sm:text-base">Model & Device</h4>
+                                            <h4 className="font-semibold text-slate-800 dark:text-slate-200 mb-2 text-sm sm:text-base">Model & Configuration</h4>
                                             <div className="space-y-2">
+                                                <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
+                                                    <span className="text-slate-600 dark:text-slate-400 text-xs sm:text-sm font-medium">Model Family:</span>
+                                                    <span className="font-mono text-slate-900 dark:text-slate-100 text-xs sm:text-sm">
+                                                        {(() => {
+                                                            const family = executionData.actual_parameters?.model_family;
+                                                            if (family === 'nvidia_parakeet') return 'NVIDIA Parakeet';
+                                                            if (family === 'nvidia_canary') return 'NVIDIA Canary';
+                                                            if (family === 'whisper') return 'WhisperX';
+                                                            return family || 'N/A';
+                                                        })()}
+                                                    </span>
+                                                </div>
                                                 <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
                                                     <span className="text-slate-600 dark:text-slate-400 text-xs sm:text-sm font-medium">Model:</span>
                                                     <span className="font-mono text-slate-900 dark:text-slate-100 text-xs sm:text-sm break-all">{executionData.actual_parameters?.model || 'N/A'}</span>
                                                 </div>
-                                                <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
-                                                    <span className="text-slate-600 dark:text-slate-400 text-xs sm:text-sm font-medium">Device:</span>
-                                                    <span className="font-mono text-slate-900 dark:text-slate-100 text-xs sm:text-sm">{executionData.actual_parameters?.device || 'N/A'}</span>
-                                                </div>
-                                                <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
-                                                    <span className="text-slate-600 dark:text-slate-400 text-xs sm:text-sm font-medium">Compute Type:</span>
-                                                    <span className="font-mono text-slate-900 dark:text-slate-100 text-xs sm:text-sm">{executionData.actual_parameters?.compute_type || 'N/A'}</span>
-                                                </div>
-                                                <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
-                                                    <span className="text-slate-600 dark:text-slate-400 text-xs sm:text-sm font-medium">Batch Size:</span>
-                                                    <span className="font-mono text-slate-900 dark:text-slate-100 text-xs sm:text-sm">{executionData.actual_parameters?.batch_size || 'N/A'}</span>
-                                                </div>
-                                                <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
-                                                    <span className="text-slate-600 dark:text-slate-400 text-xs sm:text-sm font-medium">Threads:</span>
-                                                    <span className="font-mono text-slate-900 dark:text-slate-100 text-xs sm:text-sm">{executionData.actual_parameters?.threads || 0}</span>
-                                                </div>
+                                                {executionData.actual_parameters?.model_family === 'whisper' && (
+                                                    <>
+                                                        <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
+                                                            <span className="text-slate-600 dark:text-slate-400 text-xs sm:text-sm font-medium">Device:</span>
+                                                            <span className="font-mono text-slate-900 dark:text-slate-100 text-xs sm:text-sm">{executionData.actual_parameters?.device || 'N/A'}</span>
+                                                        </div>
+                                                        <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
+                                                            <span className="text-slate-600 dark:text-slate-400 text-xs sm:text-sm font-medium">Compute Type:</span>
+                                                            <span className="font-mono text-slate-900 dark:text-slate-100 text-xs sm:text-sm">{executionData.actual_parameters?.compute_type || 'N/A'}</span>
+                                                        </div>
+                                                        <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
+                                                            <span className="text-slate-600 dark:text-slate-400 text-xs sm:text-sm font-medium">Batch Size:</span>
+                                                            <span className="font-mono text-slate-900 dark:text-slate-100 text-xs sm:text-sm">{executionData.actual_parameters?.batch_size || 'N/A'}</span>
+                                                        </div>
+                                                        <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
+                                                            <span className="text-slate-600 dark:text-slate-400 text-xs sm:text-sm font-medium">Threads:</span>
+                                                            <span className="font-mono text-slate-900 dark:text-slate-100 text-xs sm:text-sm">{executionData.actual_parameters?.threads || 0}</span>
+                                                        </div>
+                                                    </>
+                                                )}
+                                                {(executionData.actual_parameters?.model_family === 'nvidia_parakeet' || executionData.actual_parameters?.model_family === 'nvidia_canary') && (
+                                                    <>
+                                                        <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
+                                                            <span className="text-slate-600 dark:text-slate-400 text-xs sm:text-sm font-medium">Context Left:</span>
+                                                            <span className="font-mono text-slate-900 dark:text-slate-100 text-xs sm:text-sm">{executionData.actual_parameters?.attention_context_left || 256}</span>
+                                                        </div>
+                                                        <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
+                                                            <span className="text-slate-600 dark:text-slate-400 text-xs sm:text-sm font-medium">Context Right:</span>
+                                                            <span className="font-mono text-slate-900 dark:text-slate-100 text-xs sm:text-sm">{executionData.actual_parameters?.attention_context_right || 256}</span>
+                                                        </div>
+                                                    </>
+                                                )}
                                             </div>
                                         </div>
 
-                                        {/* Processing Settings */}
-                                        <div className="bg-white/40 dark:bg-slate-700/20 rounded-md p-3 border border-slate-200/30 dark:border-slate-600/30">
-                                            <h4 className="font-semibold text-slate-800 dark:text-slate-200 mb-2 text-sm sm:text-base">Processing</h4>
+                                        {/* Processing Settings - Only for WhisperX */}
+                                        {executionData.actual_parameters?.model_family === 'whisper' && (
+                                            <div className="bg-white/40 dark:bg-slate-700/20 rounded-md p-3 border border-slate-200/30 dark:border-slate-600/30">
+                                                <h4 className="font-semibold text-slate-800 dark:text-slate-200 mb-2 text-sm sm:text-base">Processing</h4>
                                             <div className="space-y-1">
                                                 <div className="flex justify-between">
                                                     <span className="text-gray-600 dark:text-gray-400">Task:</span>
@@ -1951,9 +1986,11 @@ useEffect(() => {
                                                     <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.chunk_size || 30}</span>
                                                 </div>
                                             </div>
-                                        </div>
+                                            </div>
+                                        )}
 
-                                        {/* Diarization Settings */}
+                                        {/* Diarization Settings - Only for WhisperX */}
+                                        {executionData.actual_parameters?.model_family === 'whisper' && (
                                         <div>
                                             <h4 className="font-semibold text-gray-700 dark:text-gray-300 mb-2">Speaker Diarization</h4>
                                             <div className="space-y-1">
@@ -1983,8 +2020,10 @@ useEffect(() => {
                                                 </div>
                                             </div>
                                         </div>
+                                        )}
 
-                                        {/* Quality Settings */}
+                                        {/* Quality Settings - Only for WhisperX */}
+                                        {executionData.actual_parameters?.model_family === 'whisper' && (
                                         <div>
                                             <h4 className="font-semibold text-gray-700 dark:text-gray-300 mb-2">Quality Settings</h4>
                                             <div className="space-y-1">
@@ -2018,8 +2057,10 @@ useEffect(() => {
                                                 </div>
                                             </div>
                                         </div>
+                                        )}
 
-                                        {/* Advanced Quality Settings */}
+                                        {/* Advanced Quality Settings - Only for WhisperX */}
+                                        {executionData.actual_parameters?.model_family === 'whisper' && (
                                         <div>
                                             <h4 className="font-semibold text-gray-700 dark:text-gray-300 mb-2">Advanced Quality</h4>
                                             <div className="space-y-1">
@@ -2057,8 +2098,10 @@ useEffect(() => {
                                                 )}
                                             </div>
                                         </div>
+                                        )}
 
-                                        {/* Alignment & Output Settings */}
+                                        {/* Alignment & Output Settings - Only for WhisperX */}
+                                        {executionData.actual_parameters?.model_family === 'whisper' && (
                                         <div>
                                             <h4 className="font-semibold text-gray-700 dark:text-gray-300 mb-2">Alignment & Output</h4>
                                             <div className="space-y-1">
@@ -2120,45 +2163,11 @@ useEffect(() => {
                                                 )}
                                             </div>
                                         </div>
+                                        )}
                                     </div>
                                 </div>
                             </div>
 
-                            {/* Status */}
-                            <div className={`rounded-lg p-4 sm:p-6 border ${
-                                executionData.status === 'completed' 
-                                    ? 'bg-gradient-to-br from-emerald-50 via-green-50 to-teal-50 dark:from-emerald-950/30 dark:via-green-950/30 dark:to-teal-950/30 border-emerald-200 dark:border-emerald-800/30'
-                                    : 'bg-gradient-to-br from-amber-50 via-orange-50 to-red-50 dark:from-amber-950/30 dark:via-orange-950/30 dark:to-red-950/30 border-amber-200 dark:border-amber-800/30'
-                            }`}>
-                                <h3 className={`text-lg font-semibold mb-3 flex items-center gap-2 ${
-                                    executionData.status === 'completed'
-                                        ? 'text-emerald-900 dark:text-emerald-100'
-                                        : 'text-amber-900 dark:text-amber-100'
-                                }`}>
-                                    {executionData.status === 'completed' ? (
-                                        <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
-                                    ) : (
-                                        <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400" />
-                                    )}
-                                    Execution Status
-                                </h3>
-                                <div className="bg-white/60 dark:bg-gray-800/30 rounded-md p-3 border border-emerald-100/50 dark:border-emerald-800/50">
-                                    <p className={`text-sm sm:text-base ${
-                                        executionData.status === 'completed'
-                                            ? 'text-emerald-800 dark:text-emerald-200'
-                                            : 'text-amber-800 dark:text-amber-200'
-                                    }`}>
-                                        Status: <span className="font-mono font-bold text-base sm:text-lg">{executionData.status}</span>
-                                    </p>
-                                    {executionData.error_message && (
-                                        <div className="mt-3 p-2 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800/30 rounded">
-                                            <p className="text-red-800 dark:text-red-200 text-sm">
-                                                <span className="font-medium">Error:</span> {executionData.error_message}
-                                            </p>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
                         </div>
                     ) : (
                         <div className="py-8 text-center">
