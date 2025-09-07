@@ -159,29 +159,37 @@ func (ws *WhisperXService) ProcessJobWithProcess(ctx context.Context, jobID stri
 	return nil
 }
 
-// ensurePythonEnv ensures the Python environment is set up by cloning WhisperX from git
+// ensurePythonEnv ensures the Python environment is set up by cloning WhisperX from git and setting up Parakeet
 func (ws *WhisperXService) ensurePythonEnv() error {
     envPath := ws.getEnvPath()
     whisperxPath := filepath.Join(envPath, "WhisperX")
+    parakeetPath := filepath.Join(envPath, "parakeet")
     
     // Get absolute paths for debugging
     absEnvPath, _ := filepath.Abs(envPath)
     absWhisperxPath, _ := filepath.Abs(whisperxPath)
+    absParakeetPath, _ := filepath.Abs(parakeetPath)
     workingDir, _ := os.Getwd()
     
     fmt.Printf("DEBUG: Current working directory: %s\n", workingDir)
     fmt.Printf("DEBUG: Relative WhisperX path: %s\n", whisperxPath)
     fmt.Printf("DEBUG: Absolute WhisperX path: %s\n", absWhisperxPath)
+    fmt.Printf("DEBUG: Absolute Parakeet path: %s\n", absParakeetPath)
     fmt.Printf("DEBUG: Absolute env path: %s\n", absEnvPath)
     
-    // Check if WhisperX is already installed and working
-    cmd := exec.Command("uv", "run", "--native-tls", "--project", whisperxPath, "python", "-c", "import whisperx")
-    if err := cmd.Run(); err == nil {
-        fmt.Printf("DEBUG: WhisperX already installed and working\n")
-        return nil // Already set up and working
+    // Check if both WhisperX and Parakeet are already installed and working
+    whisperxCmd := exec.Command("uv", "run", "--native-tls", "--project", whisperxPath, "python", "-c", "import whisperx")
+    parakeetCmd := exec.Command("uv", "run", "--native-tls", "--project", parakeetPath, "python", "-c", "import nemo.collections.asr")
+    
+    whisperxWorking := whisperxCmd.Run() == nil
+    parakeetWorking := parakeetCmd.Run() == nil
+    
+    if whisperxWorking && parakeetWorking {
+        fmt.Printf("DEBUG: WhisperX and Parakeet already installed and working\n")
+        return nil // Both are set up and working
     }
 
-    fmt.Printf("DEBUG: WhisperX not found, setting up environment at: %s\n", envPath)
+    fmt.Printf("DEBUG: Setting up environment at: %s (WhisperX: %v, Parakeet: %v)\n", envPath, whisperxWorking, parakeetWorking)
 
     // Remove existing directory if it exists
     if err := os.RemoveAll(envPath); err != nil {
@@ -193,28 +201,29 @@ func (ws *WhisperXService) ensurePythonEnv() error {
         return fmt.Errorf("failed to create environment directory: %v", err)
     }
 
+    // Setup WhisperX
     fmt.Printf("DEBUG: Cloning WhisperX repository to: %s\n", envPath)
-
-    // Clone WhisperX repository
     if err := ws.cloneWhisperX(envPath); err != nil {
         return fmt.Errorf("failed to clone WhisperX: %v", err)
     }
 
-    fmt.Printf("DEBUG: Updating dependencies in: %s\n", whisperxPath)
-
-    // Modify pyproject.toml to update dependencies
+    fmt.Printf("DEBUG: Updating WhisperX dependencies in: %s\n", whisperxPath)
     if err := ws.updateWhisperXDependencies(whisperxPath); err != nil {
-        return fmt.Errorf("failed to update dependencies: %v", err)
+        return fmt.Errorf("failed to update WhisperX dependencies: %v", err)
     }
 
-    fmt.Printf("DEBUG: Running uv sync in: %s\n", whisperxPath)
-
-    // Install with uv sync
+    fmt.Printf("DEBUG: Running uv sync for WhisperX in: %s\n", whisperxPath)
     if err := ws.uvSyncWhisperX(whisperxPath); err != nil {
         return fmt.Errorf("failed to sync WhisperX: %v", err)
     }
 
-    fmt.Printf("DEBUG: WhisperX setup completed successfully\n")
+    // Setup Parakeet
+    fmt.Printf("DEBUG: Setting up Parakeet environment at: %s\n", parakeetPath)
+    if err := ws.setupParakeet(parakeetPath); err != nil {
+        return fmt.Errorf("failed to setup Parakeet: %v", err)
+    }
+
+    fmt.Printf("DEBUG: Environment setup completed successfully\n")
 
     return nil
 }
@@ -282,6 +291,191 @@ func (ws *WhisperXService) uvSync(projectPath string) error {
     if err != nil {
         return fmt.Errorf("uv sync failed: %v: %s", err, strings.TrimSpace(string(out)))
     }
+    return nil
+}
+
+// setupParakeet sets up the Parakeet environment with NVIDIA ASR dependencies
+func (ws *WhisperXService) setupParakeet(parakeetPath string) error {
+    // Create the parakeet directory
+    if err := os.MkdirAll(parakeetPath, 0755); err != nil {
+        return fmt.Errorf("failed to create parakeet directory: %v", err)
+    }
+
+    // Create pyproject.toml for Parakeet dependencies
+    pyprojectContent := `[project]
+name = "parakeet-transcription"
+version = "0.1.0"
+description = "Audio transcription using NVIDIA Parakeet models"
+requires-python = ">=3.11"
+dependencies = [
+    "nemo_toolkit[asr]",
+    "torch",
+    "torchaudio",
+    "librosa",
+    "soundfile",
+    "ml_dtypes>=0.3.1,<0.5.0",
+    "onnx>=1.15.0,<1.18.0",
+]
+`
+    pyprojectPath := filepath.Join(parakeetPath, "pyproject.toml")
+    if err := os.WriteFile(pyprojectPath, []byte(pyprojectContent), 0644); err != nil {
+        return fmt.Errorf("failed to write parakeet pyproject.toml: %v", err)
+    }
+
+    // Create the transcription script
+    transcribeScript := `#!/usr/bin/env python3
+"""
+Audio transcription script using NVIDIA Parakeet TDT 0.6B v3 model.
+Supports 25 European languages with automatic language detection.
+"""
+
+import argparse
+import json
+import sys
+from pathlib import Path
+import nemo.collections.asr as nemo_asr
+
+
+def transcribe_audio(
+    audio_path: str, timestamps: bool = False, output_file: str = None, model_path: str = None
+):
+    """
+    Transcribe audio file using NVIDIA Parakeet model.
+
+    Args:
+        audio_path: Path to audio file (.wav or .flac)
+        timestamps: Whether to include timestamps in output
+        output_file: Optional output file path for results
+        model_path: Path to the Parakeet model file
+    """
+    if not model_path:
+        model_path = "./parakeet-tdt-0.6b-v3/parakeet-tdt-0.6b-v3.nemo"
+    
+    print(f"Loading NVIDIA Parakeet model from: {model_path}")
+    asr_model = nemo_asr.models.ASRModel.restore_from(model_path)
+
+    print(f"Transcribing: {audio_path}")
+
+    if timestamps:
+        output = asr_model.transcribe([audio_path], timestamps=True)
+
+        # Extract text and timestamps
+        text = output[0].text
+        word_timestamps = output[0].timestamp["word"]
+        segment_timestamps = output[0].timestamp["segment"]
+
+        print(f"\nTranscription: {text}")
+        print("\nSegment timestamps:")
+        for stamp in segment_timestamps:
+            print(f"{stamp['start']:.2f}s - {stamp['end']:.2f}s : {stamp['segment']}")
+
+        # Save detailed output if requested
+        if output_file:
+            result_data = {
+                "transcription": text,
+                "word_timestamps": word_timestamps,
+                "segment_timestamps": segment_timestamps,
+                "audio_file": audio_path
+            }
+            
+            if output_file.endswith('.json'):
+                with open(output_file, 'w', encoding='utf-8') as f:
+                    json.dump(result_data, f, indent=2, ensure_ascii=False)
+                print(f"\nResults saved to JSON: {output_file}")
+            else:
+                with open(output_file, "w", encoding="utf-8") as f:
+                    f.write(f"Transcription: {text}\n\n")
+                    f.write("Segment timestamps:\n")
+                    for stamp in segment_timestamps:
+                        f.write(
+                            f"{stamp['start']:.2f}s - {stamp['end']:.2f}s : {stamp['segment']}\n"
+                        )
+                    f.write("\nWord timestamps:\n")
+                    for stamp in word_timestamps:
+                        f.write(
+                            f"{stamp['start']:.2f}s - {stamp['end']:.2f}s : {stamp['word']}\n"
+                        )
+                print(f"\nResults saved to: {output_file}")
+
+    else:
+        output = asr_model.transcribe([audio_path])
+        text = output[0].text
+        print(f"\nTranscription: {text}")
+
+        if output_file:
+            if output_file.endswith('.json'):
+                result_data = {
+                    "transcription": text,
+                    "audio_file": audio_path
+                }
+                with open(output_file, 'w', encoding='utf-8') as f:
+                    json.dump(result_data, f, indent=2, ensure_ascii=False)
+                print(f"\nResults saved to JSON: {output_file}")
+            else:
+                with open(output_file, "w", encoding="utf-8") as f:
+                    f.write(text)
+                print(f"\nResults saved to: {output_file}")
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Transcribe audio using NVIDIA Parakeet TDT 0.6B v3 model"
+    )
+    parser.add_argument("audio_file", help="Path to audio file (.wav or .flac format)")
+    parser.add_argument(
+        "--timestamps",
+        action="store_true",
+        help="Include word and segment level timestamps",
+    )
+    parser.add_argument(
+        "--output", "-o", help="Output file path to save transcription results"
+    )
+    parser.add_argument(
+        "--model-path", help="Path to the Parakeet model file"
+    )
+
+    args = parser.parse_args()
+
+    # Validate input file
+    audio_path = Path(args.audio_file)
+    if not audio_path.exists():
+        print(f"Error: Audio file not found: {args.audio_file}")
+        sys.exit(1)
+
+    if audio_path.suffix.lower() not in [".wav", ".flac"]:
+        print(f"Warning: File extension '{audio_path.suffix}' may not be supported.")
+        print("Recommended formats: .wav, .flac")
+
+    try:
+        transcribe_audio(
+            audio_path=str(audio_path),
+            timestamps=args.timestamps,
+            output_file=args.output,
+            model_path=args.model_path,
+        )
+    except Exception as e:
+        print(f"Error during transcription: {e}")
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()
+`
+    transcriptPath := filepath.Join(parakeetPath, "transcribe.py")
+    if err := os.WriteFile(transcriptPath, []byte(transcribeScript), 0755); err != nil {
+        return fmt.Errorf("failed to write parakeet transcription script: %v", err)
+    }
+
+    // Run uv sync to install dependencies
+    fmt.Printf("DEBUG: Installing Parakeet dependencies in: %s\n", parakeetPath)
+    cmd := exec.Command("uv", "sync", "--native-tls")
+    cmd.Dir = parakeetPath
+    out, err := cmd.CombinedOutput()
+    if err != nil {
+        return fmt.Errorf("uv sync failed for parakeet: %v: %s", err, strings.TrimSpace(string(out)))
+    }
+
+    fmt.Printf("DEBUG: Parakeet setup completed successfully\n")
     return nil
 }
 
