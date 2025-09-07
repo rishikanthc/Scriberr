@@ -1937,7 +1937,7 @@ useEffect(() => {
                                                         </div>
                                                     </>
                                                 )}
-                                                {(executionData.actual_parameters?.model_family === 'nvidia_parakeet' || executionData.actual_parameters?.model_family === 'nvidia_canary') && (
+                                                {executionData.actual_parameters?.model_family === 'nvidia_parakeet' && (
                                                     <>
                                                         <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
                                                             <span className="text-slate-600 dark:text-slate-400 text-xs sm:text-sm font-medium">Context Left:</span>
@@ -1948,6 +1948,12 @@ useEffect(() => {
                                                             <span className="font-mono text-slate-900 dark:text-slate-100 text-xs sm:text-sm">{executionData.actual_parameters?.attention_context_right || 256}</span>
                                                         </div>
                                                     </>
+                                                )}
+                                                {executionData.actual_parameters?.model_family === 'nvidia_canary' && (
+                                                    <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
+                                                        <span className="text-slate-600 dark:text-slate-400 text-xs sm:text-sm font-medium">Source Language:</span>
+                                                        <span className="font-mono text-slate-900 dark:text-slate-100 text-xs sm:text-sm">{executionData.actual_parameters?.language || 'auto'}</span>
+                                                    </div>
                                                 )}
                                             </div>
                                         </div>
