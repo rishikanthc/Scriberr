@@ -379,21 +379,24 @@ func (ws *WhisperXService) setupParakeetEnv(parakeetPath string) error {
         return fmt.Errorf("failed to create parakeet directory: %v", err)
     }
 
-    // Create pyproject.toml for Parakeet dependencies
+    // Create pyproject.toml for NVIDIA models (Parakeet & Canary) with NeMo from main branch for timestamps support
     pyprojectContent := `[project]
 name = "parakeet-transcription"
 version = "0.1.0"
 description = "Audio transcription using NVIDIA Parakeet models"
 requires-python = ">=3.11"
 dependencies = [
-    "nemo_toolkit[asr]",
+    "nemo-toolkit[asr]",
     "torch",
     "torchaudio",
     "librosa",
     "soundfile",
-    "ml_dtypes>=0.3.1,<0.5.0",
+    "ml-dtypes>=0.3.1,<0.5.0",
     "onnx>=1.15.0,<1.18.0",
 ]
+
+[tool.uv.sources]
+nemo-toolkit = { git = "https://github.com/NVIDIA/NeMo.git" }
 `
     pyprojectPath := filepath.Join(parakeetPath, "pyproject.toml")
     if err := os.WriteFile(pyprojectPath, []byte(pyprojectContent), 0644); err != nil {
