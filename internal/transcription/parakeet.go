@@ -100,14 +100,14 @@ func (ps *ParakeetService) ProcessJobWithProcess(ctx context.Context, jobID stri
 		return fmt.Errorf(errMsg)
 	}
 
-	// Check if audio file exists
+	// Check if original audio file exists
 	if _, err := os.Stat(job.AudioPath); os.IsNotExist(err) {
 		errMsg := fmt.Sprintf("audio file not found: %s", job.AudioPath)
 		updateExecutionStatus(models.StatusFailed, errMsg)
 		return fmt.Errorf(errMsg)
 	}
 
-	// Prepare output directory
+	// Prepare output directory first
 	outputDir := filepath.Join("data", "transcripts", jobID)
 	if err := os.MkdirAll(outputDir, 0755); err != nil {
 		errMsg := fmt.Sprintf("failed to create output directory: %v", err)
@@ -115,9 +115,28 @@ func (ps *ParakeetService) ProcessJobWithProcess(ctx context.Context, jobID stri
 		return fmt.Errorf(errMsg)
 	}
 
-	// Build Parakeet command
+	// Preprocess audio for NVIDIA Parakeet (convert to 16kHz mono WAV)
+	preprocessedAudioPath, err := ps.preprocessAudioForParakeet(job.AudioPath, outputDir)
+	if err != nil {
+		errMsg := fmt.Sprintf("failed to preprocess audio: %v", err)
+		updateExecutionStatus(models.StatusFailed, errMsg)
+		return fmt.Errorf(errMsg)
+	}
+	
+	// Ensure cleanup of temporary file on function exit
+	defer func() {
+		if preprocessedAudioPath != "" {
+			if err := os.Remove(preprocessedAudioPath); err != nil {
+				fmt.Printf("DEBUG: Warning - failed to cleanup temporary audio file %s: %v\n", preprocessedAudioPath, err)
+			} else {
+				fmt.Printf("DEBUG: Cleaned up temporary audio file: %s\n", preprocessedAudioPath)
+			}
+		}
+	}()
+
+	// Build Parakeet command using the preprocessed audio
 	resultPath := filepath.Join(outputDir, "result.json")
-	args, err := ps.buildParakeetArgs(&job, resultPath)
+	args, err := ps.buildParakeetArgs(preprocessedAudioPath, resultPath)
 	if err != nil {
 		errMsg := fmt.Sprintf("failed to build command: %v", err)
 		updateExecutionStatus(models.StatusFailed, errMsg)
@@ -196,9 +215,9 @@ func (ps *ParakeetService) ProcessJobWithProcess(ctx context.Context, jobID stri
 }
 
 // buildParakeetArgs builds the Parakeet command arguments
-func (ps *ParakeetService) buildParakeetArgs(job *models.TranscriptionJob, outputFile string) ([]string, error) {
+func (ps *ParakeetService) buildParakeetArgs(audioPath, outputFile string) ([]string, error) {
 	// Convert audio path to absolute path since we'll be running from parakeet directory
-	absAudioPath, err := filepath.Abs(job.AudioPath)
+	absAudioPath, err := filepath.Abs(audioPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get absolute audio path: %v", err)
 	}
@@ -226,6 +245,46 @@ func (ps *ParakeetService) buildParakeetArgs(job *models.TranscriptionJob, outpu
 	fmt.Printf("DEBUG: Output path (abs): %s\n", absOutputFile)
 	
 	return args, nil
+}
+
+// preprocessAudioForParakeet converts audio to Parakeet-compatible format using ffmpeg
+func (ps *ParakeetService) preprocessAudioForParakeet(inputPath, outputDir string) (string, error) {
+	// Generate a unique temporary filename in the output directory
+	baseName := filepath.Base(inputPath)
+	nameWithoutExt := strings.TrimSuffix(baseName, filepath.Ext(baseName))
+	tempFileName := fmt.Sprintf("%s_parakeet_temp.wav", nameWithoutExt)
+	tempPath := filepath.Join(outputDir, tempFileName)
+	
+	fmt.Printf("DEBUG: Preprocessing audio for Parakeet\n")
+	fmt.Printf("DEBUG: Input: %s\n", inputPath)
+	fmt.Printf("DEBUG: Output: %s\n", tempPath)
+	
+	// Build ffmpeg command: ffmpeg -i input.mp3 -ar 16000 -ac 1 -c:a pcm_s16le output.wav
+	cmd := exec.Command("ffmpeg", 
+		"-i", inputPath,           // Input file
+		"-ar", "16000",            // Sample rate 16kHz
+		"-ac", "1",                // Mono (1 channel)
+		"-c:a", "pcm_s16le",       // PCM 16-bit little-endian codec
+		"-y",                      // Overwrite output file if it exists
+		tempPath,                  // Output file
+	)
+	
+	// Capture ffmpeg output for debugging
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		fmt.Printf("DEBUG: ffmpeg failed: %v\n", err)
+		fmt.Printf("DEBUG: ffmpeg output:\n%s\n", string(output))
+		return "", fmt.Errorf("ffmpeg preprocessing failed: %v - %s", err, string(output))
+	}
+	
+	// Verify the output file was created
+	if stat, err := os.Stat(tempPath); err != nil {
+		return "", fmt.Errorf("preprocessed audio file not created: %v", err)
+	} else {
+		fmt.Printf("DEBUG: Preprocessed audio created successfully (size: %d bytes)\n", stat.Size())
+	}
+	
+	return tempPath, nil
 }
 
 // parseAndSaveResult parses Parakeet output and saves to database
