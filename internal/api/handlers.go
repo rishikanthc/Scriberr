@@ -607,6 +607,8 @@ func (h *Handler) StartTranscription(c *gin.Context) {
 		HighlightWords:                      false,
 		SegmentResolution:                   "sentence",
 		PrintProgress:                       false,
+		AttentionContextLeft:                256,
+		AttentionContextRight:               256,
 	}
 
 	// Parse request body parameters, overriding defaults
@@ -620,14 +622,8 @@ func (h *Handler) StartTranscription(c *gin.Context) {
 
 	// Validate NVIDIA-specific constraints
 	if requestParams.ModelFamily == "nvidia" {
-		// NVIDIA Parakeet only supports English
-		if requestParams.Language != nil && *requestParams.Language != "en" && *requestParams.Language != "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "NVIDIA Parakeet model only supports English. Remove language parameter or set to 'en'."})
-			return
-		}
-		// Force English for NVIDIA
-		english := "en"
-		requestParams.Language = &english
+		// NVIDIA Parakeet supports 25 European languages with auto-detection
+		// No language restriction needed - model auto-detects
 
 		// NVIDIA Parakeet doesn't support diarization
 		if requestParams.Diarize {

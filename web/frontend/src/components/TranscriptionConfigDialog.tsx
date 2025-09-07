@@ -98,6 +98,10 @@ export interface WhisperXParams {
   // Token and progress
   hf_token?: string;
   print_progress: boolean;
+  
+  // NVIDIA Parakeet-specific parameters for long-form audio
+  attention_context_left: number;
+  attention_context_right: number;
 }
 
 // Parameter descriptions for hover cards
@@ -189,6 +193,8 @@ const DEFAULT_PARAMS: WhisperXParams = {
   highlight_words: false,
   segment_resolution: "sentence",
   print_progress: false,
+  attention_context_left: 256,
+  attention_context_right: 256,
 };
 
 const WHISPER_MODELS = [
@@ -414,21 +420,126 @@ export function TranscriptionConfigDialog({
         </div>
 
         {params.model_family === "nvidia" ? (
-          <div className="p-6 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
-            <div className="flex items-start space-x-3">
-              <div className="flex-shrink-0">
-                <Info className="h-5 w-5 text-yellow-600 dark:text-yellow-400" />
+          <div className="space-y-6">
+            {/* Info Banner */}
+            <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+              <div className="flex items-start space-x-3">
+                <div className="flex-shrink-0">
+                  <Info className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                    NVIDIA Parakeet TDT 0.6B v3
+                  </h3>
+                  <div className="mt-2 text-sm text-blue-700 dark:text-blue-300">
+                    <ul className="list-disc list-inside space-y-1">
+                      <li>Supports 25 European languages with automatic detection</li>
+                      <li>Optimized for long-form audio up to 3 hours</li>
+                      <li>Speaker diarization is not available</li>
+                      <li>Includes automatic punctuation and capitalization</li>
+                    </ul>
+                  </div>
+                </div>
               </div>
-              <div className="flex-1">
-                <h3 className="text-sm font-medium text-yellow-800 dark:text-yellow-200">
-                  NVIDIA Parakeet Model
-                </h3>
-                <div className="mt-2 text-sm text-yellow-700 dark:text-yellow-300">
-                  <ul className="list-disc list-inside space-y-1">
-                    <li>Supports English language only</li>
-                    <li>Speaker diarization is not available</li>
-                    <li>Optimized for high-quality English transcription</li>
-                  </ul>
+            </div>
+
+            {/* Long-form Audio Settings */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">Long-form Audio Settings</h3>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                {/* Left Context Size */}
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="attention_context_left" className="text-gray-700 dark:text-gray-300">
+                      Left Context Size
+                    </Label>
+                    <HoverCard>
+                      <HoverCardTrigger asChild>
+                        <Info className="h-4 w-4 text-gray-400 cursor-help" />
+                      </HoverCardTrigger>
+                      <HoverCardContent className="w-80 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                        <div className="space-y-2">
+                          <p className="text-sm font-medium text-gray-900 dark:text-gray-100">Left Attention Context</p>
+                          <p className="text-sm text-gray-700 dark:text-gray-300">
+                            Controls how much past audio context the model considers when processing. Higher values (up to 512) improve accuracy for long audio but increase memory usage.
+                          </p>
+                          <p className="text-xs text-gray-600 dark:text-gray-400">
+                            • Default: 256 (good balance)
+                            • Low (64-128): Faster, less memory, may reduce accuracy
+                            • High (384-512): Better context, more memory needed
+                          </p>
+                        </div>
+                      </HoverCardContent>
+                    </HoverCard>
+                  </div>
+                  <div className="space-y-2">
+                    <Slider
+                      value={[params.attention_context_left]}
+                      onValueChange={(value) => updateParam('attention_context_left', value[0])}
+                      max={512}
+                      min={64}
+                      step={64}
+                      className="w-full"
+                    />
+                    <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400">
+                      <span>64 (Fast)</span>
+                      <span className="font-medium">{params.attention_context_left}</span>
+                      <span>512 (Max Context)</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right Context Size */}
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="attention_context_right" className="text-gray-700 dark:text-gray-300">
+                      Right Context Size
+                    </Label>
+                    <HoverCard>
+                      <HoverCardTrigger asChild>
+                        <Info className="h-4 w-4 text-gray-400 cursor-help" />
+                      </HoverCardTrigger>
+                      <HoverCardContent className="w-80 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                        <div className="space-y-2">
+                          <p className="text-sm font-medium text-gray-900 dark:text-gray-100">Right Attention Context</p>
+                          <p className="text-sm text-gray-700 dark:text-gray-300">
+                            Controls how much future audio context the model considers. Higher values improve accuracy but increase processing latency and memory usage.
+                          </p>
+                          <p className="text-xs text-gray-600 dark:text-gray-400">
+                            • Default: 256 (recommended)
+                            • Low (64-128): Real-time processing, may reduce accuracy
+                            • High (384-512): Better accuracy, higher latency
+                          </p>
+                        </div>
+                      </HoverCardContent>
+                    </HoverCard>
+                  </div>
+                  <div className="space-y-2">
+                    <Slider
+                      value={[params.attention_context_right]}
+                      onValueChange={(value) => updateParam('attention_context_right', value[0])}
+                      max={512}
+                      min={64}
+                      step={64}
+                      className="w-full"
+                    />
+                    <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400">
+                      <span>64 (Fast)</span>
+                      <span className="font-medium">{params.attention_context_right}</span>
+                      <span>512 (Max Context)</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Usage Recommendations */}
+              <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">Recommended Settings:</h4>
+                <div className="space-y-1 text-xs text-gray-600 dark:text-gray-400">
+                  <p><span className="font-medium">Short audio ({"<"}10 min):</span> 128/128 - Faster processing</p>
+                  <p><span className="font-medium">Medium audio (10-60 min):</span> 256/256 - Balanced (default)</p>
+                  <p><span className="font-medium">Long audio ({">"}1 hour):</span> 384/384 or 512/512 - Best accuracy</p>
                 </div>
               </div>
             </div>

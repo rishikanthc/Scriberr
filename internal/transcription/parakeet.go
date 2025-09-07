@@ -136,7 +136,7 @@ func (ps *ParakeetService) ProcessJobWithProcess(ctx context.Context, jobID stri
 
 	// Build Parakeet command using the preprocessed audio
 	resultPath := filepath.Join(outputDir, "result.json")
-	args, err := ps.buildParakeetArgs(preprocessedAudioPath, resultPath)
+	args, err := ps.buildParakeetArgs(preprocessedAudioPath, resultPath, &job.Parameters)
 	if err != nil {
 		errMsg := fmt.Sprintf("failed to build command: %v", err)
 		updateExecutionStatus(models.StatusFailed, errMsg)
@@ -215,7 +215,7 @@ func (ps *ParakeetService) ProcessJobWithProcess(ctx context.Context, jobID stri
 }
 
 // buildParakeetArgs builds the Parakeet command arguments
-func (ps *ParakeetService) buildParakeetArgs(audioPath, outputFile string) ([]string, error) {
+func (ps *ParakeetService) buildParakeetArgs(audioPath, outputFile string, params *models.WhisperXParams) ([]string, error) {
 	// Convert audio path to absolute path since we'll be running from parakeet directory
 	absAudioPath, err := filepath.Abs(audioPath)
 	if err != nil {
@@ -235,6 +235,14 @@ func (ps *ParakeetService) buildParakeetArgs(audioPath, outputFile string) ([]st
 		absAudioPath,
 		"--timestamps",  // Always include timestamps for consistency
 		"--output", absOutputFile,
+	}
+	
+	// Add context size parameters for long-form audio
+	if params.AttentionContextLeft != 256 {
+		args = append(args, "--context-left", fmt.Sprintf("%d", params.AttentionContextLeft))
+	}
+	if params.AttentionContextRight != 256 {
+		args = append(args, "--context-right", fmt.Sprintf("%d", params.AttentionContextRight))
 	}
 
 	// Add model path if we want to specify a custom model location

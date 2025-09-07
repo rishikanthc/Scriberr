@@ -393,7 +393,8 @@ import nemo.collections.asr as nemo_asr
 
 
 def transcribe_audio(
-    audio_path: str, timestamps: bool = False, output_file: str = None, model_path: str = None
+    audio_path: str, timestamps: bool = False, output_file: str = None, model_path: str = None,
+    context_left: int = 256, context_right: int = 256
 ):
     """
     Transcribe audio file using NVIDIA Parakeet model.
@@ -403,12 +404,27 @@ def transcribe_audio(
         timestamps: Whether to include timestamps in output
         output_file: Optional output file path for results
         model_path: Path to the Parakeet model file
+        context_left: Left attention context size for long-form audio
+        context_right: Right attention context size for long-form audio
     """
     if not model_path:
         model_path = "./parakeet-tdt-0.6b-v3.nemo"
     
     print(f"Loading NVIDIA Parakeet model from: {model_path}")
     asr_model = nemo_asr.models.ASRModel.restore_from(model_path)
+    
+    # Configure for long-form audio if context sizes are not default
+    if context_left != 256 or context_right != 256:
+        print(f"Configuring attention context: left={context_left}, right={context_right}")
+        try:
+            asr_model.change_attention_model(
+                self_attention_model="rel_pos_local_attn", 
+                att_context_size=[context_left, context_right]
+            )
+            print("Long-form audio mode enabled")
+        except Exception as e:
+            print(f"Warning: Failed to configure attention model: {e}")
+            print("Continuing with default attention settings")
 
     print(f"Transcribing: {audio_path}")
 
@@ -489,6 +505,14 @@ def main():
     parser.add_argument(
         "--model-path", help="Path to the Parakeet model file"
     )
+    parser.add_argument(
+        "--context-left", type=int, default=256,
+        help="Left attention context size for long-form audio (default: 256)"
+    )
+    parser.add_argument(
+        "--context-right", type=int, default=256, 
+        help="Right attention context size for long-form audio (default: 256)"
+    )
 
     args = parser.parse_args()
 
@@ -508,6 +532,8 @@ def main():
             timestamps=args.timestamps,
             output_file=args.output,
             model_path=args.model_path,
+            context_left=args.context_left,
+            context_right=args.context_right,
         )
     except Exception as e:
         print(f"Error during transcription: {e}")

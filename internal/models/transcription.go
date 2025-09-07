@@ -104,6 +104,10 @@ type WhisperXParams struct {
 	// Token and progress
 	HfToken                              *string  `json:"hf_token,omitempty" gorm:"type:text"`
 	PrintProgress                        bool     `json:"print_progress" gorm:"type:boolean;default:false"`
+	
+	// NVIDIA Parakeet-specific parameters for long-form audio
+	AttentionContextLeft                 int      `json:"attention_context_left" gorm:"type:int;default:256"`
+	AttentionContextRight                int      `json:"attention_context_right" gorm:"type:int;default:256"`
 }
 
 // BeforeCreate sets the ID if not already set
