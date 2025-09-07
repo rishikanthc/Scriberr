@@ -359,6 +359,12 @@ func (ps *ParakeetService) convertToWhisperXFormat(parakeetResult *ParakeetResul
 			// No speaker information
 		}
 	}
+	
+	// DEBUG: Check word conversion
+	fmt.Printf("DEBUG: Parakeet converting %d word timestamps\n", len(parakeetResult.WordTimestamps))
+	if len(words) > 0 {
+		fmt.Printf("DEBUG: First word: '%s' [%.2fs - %.2fs]\n", words[0].Word, words[0].Start, words[0].End)
+	}
 
 	// Generate full text from segments
 	fullText := ""

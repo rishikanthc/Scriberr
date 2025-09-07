@@ -631,6 +631,22 @@ useEffect(() => {
         setNotes(prev => prev.filter(n => n.id !== id));
     };
 
+	// Handle word click for seeking (Cmd/Ctrl+click)
+	const handleWordClick = (e: React.MouseEvent<HTMLSpanElement>, wordStart: number) => {
+		// Only seek if Cmd (Mac) or Ctrl (PC) is pressed
+		if (e.metaKey || e.ctrlKey) {
+			e.preventDefault();
+			e.stopPropagation();
+			
+			if (wavesurferRef.current) {
+				const duration = wavesurferRef.current.getDuration() || 1;
+				const ratio = Math.min(0.999, Math.max(0, wordStart / duration));
+				wavesurferRef.current.seekTo(ratio);
+				setCurrentTime(wordStart);
+			}
+		}
+	};
+
 	// Render transcript with word-level highlighting
 	const renderHighlightedTranscript = () => {
 		if (!transcript?.word_segments) {
@@ -648,7 +664,9 @@ useEffect(() => {
                     data-word={word.word}
                     data-start={word.start}
                     data-end={word.end}
-                    className={`cursor-text transition-colors duration-150 hover:bg-blue-100 dark:hover:bg-blue-800 inline ${
+                    onClick={(e) => handleWordClick(e, word.start)}
+                    title="Cmd/Ctrl+click to seek to this word"
+                    className={`cursor-pointer transition-colors duration-150 hover:bg-blue-100 dark:hover:bg-blue-800 inline ${
                         isHighlighted
                             ? 'bg-yellow-300 dark:bg-yellow-500 dark:text-black px-1 rounded'
                             : isAnnotated ? 'bg-amber-100/70 dark:bg-amber-800/40 px-0.5 rounded' : 'px-0.5'
@@ -687,7 +705,9 @@ useEffect(() => {
                     data-word={word.word}
                     data-start={word.start}
                     data-end={word.end}
-                    className={`cursor-text transition-colors duration-150 hover:bg-blue-100 dark:hover:bg-blue-800 inline ${
+                    onClick={(e) => handleWordClick(e, word.start)}
+                    title="Cmd/Ctrl+click to seek to this word"
+                    className={`cursor-pointer transition-colors duration-150 hover:bg-blue-100 dark:hover:bg-blue-800 inline ${
                         isHighlighted
                             ? 'bg-yellow-300 dark:bg-yellow-500 dark:text-black px-1 rounded'
                             : isAnnotated ? 'bg-amber-100/70 dark:bg-amber-800/40 px-0.5 rounded' : 'px-0.5'

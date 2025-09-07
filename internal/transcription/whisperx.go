@@ -898,23 +898,37 @@ func (ws *WhisperXService) buildWhisperXArgs(job *models.TranscriptionJob, outpu
 func (ws *WhisperXService) parseAndSaveResult(jobID, resultPath string) error {
 	var resultFile string
 	
-	// Check if result.json exists (from diarization script)
-	if _, err := os.Stat(resultPath); err == nil {
-		resultFile = resultPath
-	} else {
-		// Find the actual result file (WhisperX creates files based on input filename)
-		files, err := filepath.Glob(filepath.Join(filepath.Dir(resultPath), "*.json"))
-		if err != nil {
-			return fmt.Errorf("failed to find result files: %v", err)
-		}
-		
-		if len(files) == 0 {
-			return fmt.Errorf("no result files found")
-		}
-		
-		// Use the first JSON file found
-		resultFile = files[0]
+	// WhisperX creates files based on input filename, not result.json
+	// Look for JSON files that match the expected WhisperX output pattern
+	files, err := filepath.Glob(filepath.Join(filepath.Dir(resultPath), "*.json"))
+	if err != nil {
+		return fmt.Errorf("failed to find result files: %v", err)
 	}
+	
+	if len(files) == 0 {
+		return fmt.Errorf("no result files found")
+	}
+	
+	// Filter out result.json (which is Parakeet/Canary format) and find WhisperX format
+	var whisperxFile string
+	for _, file := range files {
+		if filepath.Base(file) != "result.json" {
+			whisperxFile = file
+			break
+		}
+	}
+	
+	if whisperxFile == "" {
+		// Fall back to result.json if no other files found
+		if _, err := os.Stat(resultPath); err == nil {
+			whisperxFile = resultPath
+		} else {
+			return fmt.Errorf("no WhisperX result files found")
+		}
+	}
+	
+	resultFile = whisperxFile
+	fmt.Printf("DEBUG: Using WhisperX result file: %s\n", resultFile)
 	
 	// Read the result file
 	data, err := os.ReadFile(resultFile)
@@ -924,8 +938,15 @@ func (ws *WhisperXService) parseAndSaveResult(jobID, resultPath string) error {
 
 	// Parse the result
 	var result TranscriptResult
+	fmt.Printf("DEBUG: Raw JSON data: %s\n", string(data))
 	if err := json.Unmarshal(data, &result); err != nil {
 		return fmt.Errorf("failed to parse JSON result: %v", err)
+	}
+	fmt.Printf("DEBUG: Parsed result - Segments: %d, Words: %d, Language: '%s', Text: '%s'\n", 
+		len(result.Segments), len(result.Word), result.Language, result.Text)
+	if len(result.Segments) > 0 {
+		fmt.Printf("DEBUG: First segment: start=%.2f, end=%.2f, text='%s'\n", 
+			result.Segments[0].Start, result.Segments[0].End, result.Segments[0].Text)
 	}
 	
 	// Ensure Text field is populated for WhisperX results
@@ -935,6 +956,7 @@ func (ws *WhisperXService) parseAndSaveResult(jobID, resultPath string) error {
 			texts = append(texts, segment.Text)
 		}
 		result.Text = strings.Join(texts, " ")
+		fmt.Printf("DEBUG: Generated text from segments: '%s'\n", result.Text)
 	}
 
 	// Convert to JSON string for database storage
