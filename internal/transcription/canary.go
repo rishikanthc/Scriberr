@@ -123,16 +123,29 @@ func (cs *CanaryService) ProcessJobWithProcess(ctx context.Context, jobID string
 	}
 
 	// Preprocess audio for NVIDIA Canary (convert to 16kHz mono WAV)
+	// In Docker environments, we may encounter permission issues, so we'll try preprocessing
+	// but fall back to using the original file if preprocessing fails
 	preprocessedAudioPath, err := cs.preprocessAudioForCanary(job.AudioPath, outputDir)
 	if err != nil {
-		errMsg := fmt.Sprintf("failed to preprocess audio: %v", err)
-		updateExecutionStatus(models.StatusFailed, errMsg)
-		return fmt.Errorf(errMsg)
+		fmt.Printf("WARNING: Audio preprocessing failed: %v\n", err)
+		fmt.Printf("WARNING: Attempting to use original audio file directly\n")
+		
+		// Check if original file is in a format that Canary might accept
+		ext := strings.ToLower(filepath.Ext(job.AudioPath))
+		if ext == ".wav" || ext == ".flac" {
+			fmt.Printf("DEBUG: Original file is %s format, trying direct processing\n", ext)
+			preprocessedAudioPath = job.AudioPath // Use original file
+		} else {
+			// For non-WAV/FLAC files, we really need preprocessing
+			errMsg := fmt.Sprintf("failed to preprocess audio and original format (%s) may not be supported: %v", ext, err)
+			updateExecutionStatus(models.StatusFailed, errMsg)
+			return fmt.Errorf(errMsg)
+		}
 	}
 	
-	// Ensure cleanup of temporary file on function exit
+	// Ensure cleanup of temporary file on function exit (only if we created a temp file)
 	defer func() {
-		if preprocessedAudioPath != "" {
+		if preprocessedAudioPath != "" && preprocessedAudioPath != job.AudioPath {
 			if err := os.Remove(preprocessedAudioPath); err != nil {
 				fmt.Printf("DEBUG: Warning - failed to cleanup temporary audio file %s: %v\n", preprocessedAudioPath, err)
 			} else {
@@ -162,6 +175,11 @@ func (cs *CanaryService) ProcessJobWithProcess(ctx context.Context, jobID string
 	
 	// Register the process for immediate termination capability
 	registerProcess(cmd)
+
+	// Check available memory before running Canary (which requires ~8-12GB)
+	if err := cs.checkMemoryAvailability(); err != nil {
+		fmt.Printf("WARNING: %v\n", err)
+	}
 
 	// Execute Canary with enhanced debugging
 	fmt.Printf("DEBUG: Running Canary command: uv %v\n", args)
@@ -203,6 +221,12 @@ func (cs *CanaryService) ProcessJobWithProcess(ctx context.Context, jobID string
 	}
 	if err != nil {
 		errMsg := fmt.Sprintf("Canary execution failed: %v - Output: %s", err, string(output))
+		
+		// Check for OOM kill (exit status 137 = SIGKILL, usually due to out of memory)
+		if strings.Contains(err.Error(), "exit status 137") {
+			errMsg = fmt.Sprintf("Canary model was killed due to insufficient memory (OOM). Exit status 137 indicates the container needs more RAM. Current recommendation: 32GB. Error: %v - Output: %s", err, string(output))
+		}
+		
 		updateExecutionStatus(models.StatusFailed, errMsg)
 		return fmt.Errorf(errMsg)
 	}
@@ -238,16 +262,42 @@ func (cs *CanaryService) ProcessJobWithProcess(ctx context.Context, jobID string
 
 // buildCanaryArgs builds the Canary command arguments
 func (cs *CanaryService) buildCanaryArgs(audioPath, outputFile string, params *models.WhisperXParams) ([]string, error) {
+	// Enhanced debugging for Docker path resolution
+	workingDir, _ := os.Getwd()
+	fmt.Printf("DEBUG: Current working directory: %s\n", workingDir)
+	fmt.Printf("DEBUG: Input audio path: %s\n", audioPath)
+	fmt.Printf("DEBUG: Input output file: %s\n", outputFile)
+	
+	// Check if input audio file exists before processing
+	if stat, err := os.Stat(audioPath); err != nil {
+		fmt.Printf("DEBUG: Audio file stat failed: %v\n", err)
+		return nil, fmt.Errorf("audio file not accessible: %s - %v", audioPath, err)
+	} else {
+		fmt.Printf("DEBUG: Audio file exists, size: %d bytes\n", stat.Size())
+	}
+	
 	// Convert audio path to absolute path since we'll be running from canary directory
 	absAudioPath, err := filepath.Abs(audioPath)
 	if err != nil {
+		fmt.Printf("DEBUG: Failed to convert audio path to absolute: %v\n", err)
 		return nil, fmt.Errorf("failed to get absolute audio path: %v", err)
 	}
 	
 	// Convert output file to absolute path
 	absOutputFile, err := filepath.Abs(outputFile)
 	if err != nil {
+		fmt.Printf("DEBUG: Failed to convert output path to absolute: %v\n", err)
 		return nil, fmt.Errorf("failed to get absolute output path: %v", err)
+	}
+	
+	// Verify absolute paths are accessible
+	fmt.Printf("DEBUG: Absolute audio path: %s\n", absAudioPath)
+	fmt.Printf("DEBUG: Absolute output path: %s\n", absOutputFile)
+	
+	// Check that the absolute audio path is still accessible
+	if _, err := os.Stat(absAudioPath); err != nil {
+		fmt.Printf("DEBUG: Absolute audio path not accessible: %v\n", err)
+		return nil, fmt.Errorf("absolute audio path not accessible: %s - %v", absAudioPath, err)
 	}
 	
 	// Build command to run the transcription script with Canary model
@@ -592,15 +642,55 @@ func (cs *CanaryService) findBestSpeaker(start, end float64, speakers []CanarySp
 
 // preprocessAudioForCanary converts audio to Canary-compatible format using ffmpeg
 func (cs *CanaryService) preprocessAudioForCanary(inputPath, outputDir string) (string, error) {
+	// Enhanced debugging for Docker preprocessing
+	fmt.Printf("DEBUG: Starting Canary audio preprocessing\n")
+	workingDir, _ := os.Getwd()
+	fmt.Printf("DEBUG: Current working directory: %s\n", workingDir)
+	fmt.Printf("DEBUG: Input path: %s\n", inputPath)
+	fmt.Printf("DEBUG: Output directory: %s\n", outputDir)
+	
+	// Verify input file exists and is accessible
+	if stat, err := os.Stat(inputPath); err != nil {
+		fmt.Printf("DEBUG: Input file not accessible: %v\n", err)
+		return "", fmt.Errorf("input audio file not accessible: %s - %v", inputPath, err)
+	} else {
+		fmt.Printf("DEBUG: Input file exists, size: %d bytes, mode: %s\n", stat.Size(), stat.Mode())
+	}
+	
+	// Verify output directory exists and is writable
+	if stat, err := os.Stat(outputDir); err != nil {
+		fmt.Printf("DEBUG: Output directory not accessible: %v\n", err)
+		return "", fmt.Errorf("output directory not accessible: %s - %v", outputDir, err)
+	} else {
+		fmt.Printf("DEBUG: Output directory exists, mode: %s\n", stat.Mode())
+	}
+	
 	// Generate a unique temporary filename in the output directory
 	baseName := filepath.Base(inputPath)
 	nameWithoutExt := strings.TrimSuffix(baseName, filepath.Ext(baseName))
 	tempFileName := fmt.Sprintf("%s_canary_temp.wav", nameWithoutExt)
 	tempPath := filepath.Join(outputDir, tempFileName)
 	
-	fmt.Printf("DEBUG: Preprocessing audio for Canary\n")
-	fmt.Printf("DEBUG: Input: %s\n", inputPath)
-	fmt.Printf("DEBUG: Output: %s\n", tempPath)
+	fmt.Printf("DEBUG: Temp file path: %s\n", tempPath)
+	
+	// Test if we can create a file in the output directory
+	testFile := filepath.Join(outputDir, "test_write.tmp")
+	if file, err := os.Create(testFile); err != nil {
+		fmt.Printf("DEBUG: Cannot create test file in output directory: %v\n", err)
+		return "", fmt.Errorf("output directory not writable: %s - %v", outputDir, err)
+	} else {
+		file.Close()
+		os.Remove(testFile)
+		fmt.Printf("DEBUG: Output directory is writable\n")
+	}
+	
+	// Check ffmpeg availability
+	if _, err := exec.LookPath("ffmpeg"); err != nil {
+		fmt.Printf("DEBUG: ffmpeg not found in PATH: %v\n", err)
+		return "", fmt.Errorf("ffmpeg not available: %v", err)
+	} else {
+		fmt.Printf("DEBUG: ffmpeg found in PATH\n")
+	}
 	
 	// Build ffmpeg command: ffmpeg -i input.mp3 -ar 16000 -ac 1 -c:a pcm_s16le output.wav
 	cmd := exec.Command("ffmpeg", 
@@ -612,11 +702,14 @@ func (cs *CanaryService) preprocessAudioForCanary(inputPath, outputDir string) (
 		tempPath,                  // Output file
 	)
 	
+	fmt.Printf("DEBUG: ffmpeg command: %v\n", cmd.Args)
+	
 	// Capture ffmpeg output for debugging
 	output, err := cmd.CombinedOutput()
+	fmt.Printf("DEBUG: ffmpeg exit code: %v\n", err)
+	fmt.Printf("DEBUG: ffmpeg output:\n%s\n", string(output))
+	
 	if err != nil {
-		fmt.Printf("DEBUG: ffmpeg failed: %v\n", err)
-		fmt.Printf("DEBUG: ffmpeg output:\n%s\n", string(output))
 		return "", fmt.Errorf("ffmpeg preprocessing failed: %v - %s", err, string(output))
 	}
 	
@@ -628,4 +721,55 @@ func (cs *CanaryService) preprocessAudioForCanary(inputPath, outputDir string) (
 	}
 	
 	return tempPath, nil
+}
+
+// checkMemoryAvailability checks if sufficient memory is available for Canary model
+func (cs *CanaryService) checkMemoryAvailability() error {
+	// Try to read memory info from /proc/meminfo (Linux containers)
+	data, err := os.ReadFile("/proc/meminfo")
+	if err != nil {
+		// Not on Linux or can't read meminfo, skip check
+		fmt.Printf("DEBUG: Cannot read memory info: %v\n", err)
+		return nil
+	}
+	
+	lines := strings.Split(string(data), "\n")
+	var memTotal, memAvailable int64
+	
+	for _, line := range lines {
+		fields := strings.Fields(line)
+		if len(fields) < 2 {
+			continue
+		}
+		
+		switch fields[0] {
+		case "MemTotal:":
+			if val, err := strconv.ParseInt(fields[1], 10, 64); err == nil {
+				memTotal = val * 1024 // Convert from KB to bytes
+			}
+		case "MemAvailable:":
+			if val, err := strconv.ParseInt(fields[1], 10, 64); err == nil {
+				memAvailable = val * 1024 // Convert from KB to bytes
+			}
+		}
+	}
+	
+	// Convert to GB for logging
+	totalGB := float64(memTotal) / (1024 * 1024 * 1024)
+	availableGB := float64(memAvailable) / (1024 * 1024 * 1024)
+	
+	fmt.Printf("DEBUG: System memory - Total: %.1fGB, Available: %.1fGB\n", totalGB, availableGB)
+	
+	// Canary model requires approximately 8-12GB of RAM
+	const requiredGB = 8.0
+	
+	if availableGB < requiredGB {
+		return fmt.Errorf("insufficient memory for Canary model: %.1fGB available, %vGB recommended (model size: 6.3GB + overhead)", availableGB, requiredGB)
+	}
+	
+	if availableGB < requiredGB*1.5 {
+		fmt.Printf("WARNING: Low available memory (%.1fGB) for Canary model. Consider increasing Docker memory allocation.\n", availableGB)
+	}
+	
+	return nil
 }
