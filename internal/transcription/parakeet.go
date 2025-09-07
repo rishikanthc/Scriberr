@@ -121,16 +121,29 @@ func (ps *ParakeetService) ProcessJobWithProcess(ctx context.Context, jobID stri
 	}
 
 	// Preprocess audio for NVIDIA Parakeet (convert to 16kHz mono WAV)
+	// In Docker environments, we may encounter permission issues, so we'll try preprocessing
+	// but fall back to using the original file if preprocessing fails
 	preprocessedAudioPath, err := ps.preprocessAudioForParakeet(job.AudioPath, outputDir)
 	if err != nil {
-		errMsg := fmt.Sprintf("failed to preprocess audio: %v", err)
-		updateExecutionStatus(models.StatusFailed, errMsg)
-		return fmt.Errorf(errMsg)
+		fmt.Printf("WARNING: Audio preprocessing failed: %v\n", err)
+		fmt.Printf("WARNING: Attempting to use original audio file directly\n")
+		
+		// Check if original file is in a format that Parakeet might accept
+		ext := strings.ToLower(filepath.Ext(job.AudioPath))
+		if ext == ".wav" || ext == ".flac" {
+			fmt.Printf("DEBUG: Original file is %s format, trying direct processing\n", ext)
+			preprocessedAudioPath = job.AudioPath // Use original file
+		} else {
+			// For non-WAV/FLAC files, we really need preprocessing
+			errMsg := fmt.Sprintf("failed to preprocess audio and original format (%s) may not be supported: %v", ext, err)
+			updateExecutionStatus(models.StatusFailed, errMsg)
+			return fmt.Errorf(errMsg)
+		}
 	}
 	
-	// Ensure cleanup of temporary file on function exit
+	// Ensure cleanup of temporary file on function exit (only if we created a temp file)
 	defer func() {
-		if preprocessedAudioPath != "" {
+		if preprocessedAudioPath != "" && preprocessedAudioPath != job.AudioPath {
 			if err := os.Remove(preprocessedAudioPath); err != nil {
 				fmt.Printf("DEBUG: Warning - failed to cleanup temporary audio file %s: %v\n", preprocessedAudioPath, err)
 			} else {

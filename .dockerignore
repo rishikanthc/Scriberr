@@ -1,4 +1,5 @@
 .dockerdata
+env-data
 docker-compose.ollama.yaml
 Dockerfile
 Dockerfile-cuda128
