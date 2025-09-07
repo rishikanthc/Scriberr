@@ -621,13 +621,17 @@ func (h *Handler) StartTranscription(c *gin.Context) {
 	fmt.Printf("DEBUG: Parsed parameters for job %s: ModelFamily=%s, Diarize=%v, DiarizeModel=%s\n", jobID, requestParams.ModelFamily, requestParams.Diarize, requestParams.DiarizeModel)
 
 	// Validate NVIDIA-specific constraints
-	if requestParams.ModelFamily == "nvidia" {
-		// NVIDIA Parakeet supports 25 European languages with auto-detection
-		// No language restriction needed - model auto-detects
+	if requestParams.ModelFamily == "nvidia_parakeet" || requestParams.ModelFamily == "nvidia_canary" {
+		// Both NVIDIA models support multiple European languages
+		// No language restriction needed - models support auto-detection
 
-		// NVIDIA Parakeet doesn't support diarization
+		// Neither NVIDIA model supports diarization
 		if requestParams.Diarize {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "NVIDIA Parakeet model does not support speaker diarization. Set diarize to false."})
+			modelName := "NVIDIA Parakeet"
+			if requestParams.ModelFamily == "nvidia_canary" {
+				modelName = "NVIDIA Canary"
+			}
+			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("%s model does not support speaker diarization. Set diarize to false.", modelName)})
 			return
 		}
 	}
