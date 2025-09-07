@@ -30,6 +30,7 @@ type TranscriptResult struct {
 	Segments []Segment `json:"segments"`
 	Word     []Word    `json:"word_segments,omitempty"`
 	Language string    `json:"language"`
+	Text     string    `json:"text,omitempty"`
 }
 
 // Segment represents a transcript segment
@@ -925,6 +926,15 @@ func (ws *WhisperXService) parseAndSaveResult(jobID, resultPath string) error {
 	var result TranscriptResult
 	if err := json.Unmarshal(data, &result); err != nil {
 		return fmt.Errorf("failed to parse JSON result: %v", err)
+	}
+	
+	// Ensure Text field is populated for WhisperX results
+	if result.Text == "" && len(result.Segments) > 0 {
+		var texts []string
+		for _, segment := range result.Segments {
+			texts = append(texts, segment.Text)
+		}
+		result.Text = strings.Join(texts, " ")
 	}
 
 	// Convert to JSON string for database storage

@@ -341,10 +341,21 @@ func (cs *CanaryService) convertToWhisperXFormat(canaryResult *CanaryResult) *Tr
 		language = "en" // Default fallback
 	}
 
+	// Generate full text from segments
+	fullText := ""
+	if len(segments) > 0 {
+		var texts []string
+		for _, segment := range segments {
+			texts = append(texts, segment.Text)
+		}
+		fullText = strings.Join(texts, " ")
+	}
+
 	return &TranscriptResult{
 		Segments: segments,
 		Word:     words,
 		Language: language,
+		Text:     fullText,
 	}
 }
 

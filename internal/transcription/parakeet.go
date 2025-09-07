@@ -360,9 +360,20 @@ func (ps *ParakeetService) convertToWhisperXFormat(parakeetResult *ParakeetResul
 		}
 	}
 
+	// Generate full text from segments
+	fullText := ""
+	if len(segments) > 0 {
+		var texts []string
+		for _, segment := range segments {
+			texts = append(texts, segment.Text)
+		}
+		fullText = strings.Join(texts, " ")
+	}
+
 	return &TranscriptResult{
 		Segments: segments,
 		Word:     words,
 		Language: "en", // Parakeet only supports English
+		Text:     fullText,
 	}
 }
