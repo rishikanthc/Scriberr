@@ -466,7 +466,7 @@ export function TranscriptionConfigDialog({
                     <ul className="list-disc list-inside space-y-1">
                       <li>Supports 25 European languages with automatic detection</li>
                       <li>Optimized for long-form audio up to 3 hours</li>
-                      <li>Speaker diarization is not available</li>
+                      <li>Speaker diarization available via Pyannote integration</li>
                       <li>Includes automatic punctuation and capitalization</li>
                     </ul>
                   </div>
@@ -574,6 +574,117 @@ export function TranscriptionConfigDialog({
                 </div>
               </div>
             </div>
+
+            {/* Diarization Settings for Parakeet */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">Speaker Diarization</h3>
+              
+              <div className="flex items-center space-x-2 mb-4">
+                <Switch
+                  id="parakeet_diarize"
+                  checked={params.diarize}
+                  onCheckedChange={(checked) => updateParam('diarize', checked)}
+                />
+                <Label htmlFor="parakeet_diarize" className="text-gray-700 dark:text-gray-300">Enable Speaker Diarization</Label>
+                <HoverCard>
+                  <HoverCardTrigger asChild>
+                    <Info className="h-4 w-4 text-gray-400 cursor-help" />
+                  </HoverCardTrigger>
+                  <HoverCardContent className="w-80 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium text-gray-900 dark:text-gray-100">Pyannote Speaker Diarization</p>
+                      <p className="text-sm text-gray-700 dark:text-gray-300">
+                        Uses Pyannote to identify and separate different speakers in the audio after transcription. Requires a Hugging Face token for model access.
+                      </p>
+                    </div>
+                  </HoverCardContent>
+                </HoverCard>
+              </div>
+
+              {params.diarize && (
+                <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <Label htmlFor="parakeet_min_speakers" className="text-gray-700 dark:text-gray-300">Min Speakers</Label>
+                        <HoverCard>
+                          <HoverCardTrigger asChild>
+                            <Info className="h-4 w-4 text-gray-400 cursor-help" />
+                          </HoverCardTrigger>
+                          <HoverCardContent className="w-64 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                            <p className="text-sm text-gray-700 dark:text-gray-300">Minimum number of speakers expected in the audio (leave empty for automatic detection).</p>
+                          </HoverCardContent>
+                        </HoverCard>
+                      </div>
+                      <Input
+                        type="number"
+                        min="1"
+                        max="20"
+                        placeholder="Auto-detect"
+                        value={params.min_speakers || ""}
+                        onChange={(e) => updateParam('min_speakers', e.target.value ? parseInt(e.target.value) : undefined)}
+                        className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100"
+                      />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <Label htmlFor="parakeet_max_speakers" className="text-gray-700 dark:text-gray-300">Max Speakers</Label>
+                        <HoverCard>
+                          <HoverCardTrigger asChild>
+                            <Info className="h-4 w-4 text-gray-400 cursor-help" />
+                          </HoverCardTrigger>
+                          <HoverCardContent className="w-64 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                            <p className="text-sm text-gray-700 dark:text-gray-300">Maximum number of speakers expected in the audio (leave empty for automatic detection).</p>
+                          </HoverCardContent>
+                        </HoverCard>
+                      </div>
+                      <Input
+                        type="number"
+                        min="1"
+                        max="20"
+                        placeholder="Auto-detect"
+                        value={params.max_speakers || ""}
+                        onChange={(e) => updateParam('max_speakers', e.target.value ? parseInt(e.target.value) : undefined)}
+                        className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <Label htmlFor="parakeet_hf_token" className="text-gray-700 dark:text-gray-300">Hugging Face Token</Label>
+                      <HoverCard>
+                        <HoverCardTrigger asChild>
+                          <Info className="h-4 w-4 text-gray-400 cursor-help" />
+                        </HoverCardTrigger>
+                        <HoverCardContent className="w-80 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                          <p className="text-sm text-gray-700 dark:text-gray-300">Hugging Face API token required for accessing Pyannote diarization models. Get one at https://huggingface.co/settings/tokens</p>
+                        </HoverCardContent>
+                      </HoverCard>
+                    </div>
+                    <Input
+                      type="password"
+                      placeholder="Required for diarization models"
+                      value={params.hf_token || ""}
+                      onChange={(e) => updateParam('hf_token', e.target.value || undefined)}
+                      className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {!params.diarize && (
+                <div className="p-4 text-center border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800">
+                  <div className="text-4xl mb-3 opacity-50">🎤</div>
+                  <h4 className="text-lg font-medium text-gray-600 dark:text-gray-300 mb-2">
+                    Speaker Diarization Disabled
+                  </h4>
+                  <p className="text-gray-500 dark:text-gray-400 text-sm">
+                    Enable speaker diarization to identify and separate different speakers using Pyannote.
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
         ) : params.model_family === "nvidia_canary" ? (
           <div className="space-y-6">
@@ -592,7 +703,7 @@ export function TranscriptionConfigDialog({
                       <li>Supports 25 European languages with automatic detection</li>
                       <li>Advanced multilingual transcription and translation capabilities</li>
                       <li>Optimized for high-quality audio processing</li>
-                      <li>Speaker diarization is not available</li>
+                      <li>Speaker diarization available via Pyannote integration</li>
                       <li>Includes punctuation and capitalization</li>
                     </ul>
                   </div>
@@ -632,6 +743,117 @@ export function TranscriptionConfigDialog({
                   <p><span className="font-medium">Eastern European:</span> Russian, Ukrainian</p>
                 </div>
               </div>
+            </div>
+
+            {/* Diarization Settings for Canary */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">Speaker Diarization</h3>
+              
+              <div className="flex items-center space-x-2 mb-4">
+                <Switch
+                  id="canary_diarize"
+                  checked={params.diarize}
+                  onCheckedChange={(checked) => updateParam('diarize', checked)}
+                />
+                <Label htmlFor="canary_diarize" className="text-gray-700 dark:text-gray-300">Enable Speaker Diarization</Label>
+                <HoverCard>
+                  <HoverCardTrigger asChild>
+                    <Info className="h-4 w-4 text-gray-400 cursor-help" />
+                  </HoverCardTrigger>
+                  <HoverCardContent className="w-80 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium text-gray-900 dark:text-gray-100">Pyannote Speaker Diarization</p>
+                      <p className="text-sm text-gray-700 dark:text-gray-300">
+                        Uses Pyannote to identify and separate different speakers in the audio after transcription. Requires a Hugging Face token for model access.
+                      </p>
+                    </div>
+                  </HoverCardContent>
+                </HoverCard>
+              </div>
+
+              {params.diarize && (
+                <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <Label htmlFor="canary_min_speakers" className="text-gray-700 dark:text-gray-300">Min Speakers</Label>
+                        <HoverCard>
+                          <HoverCardTrigger asChild>
+                            <Info className="h-4 w-4 text-gray-400 cursor-help" />
+                          </HoverCardTrigger>
+                          <HoverCardContent className="w-64 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                            <p className="text-sm text-gray-700 dark:text-gray-300">Minimum number of speakers expected in the audio (leave empty for automatic detection).</p>
+                          </HoverCardContent>
+                        </HoverCard>
+                      </div>
+                      <Input
+                        type="number"
+                        min="1"
+                        max="20"
+                        placeholder="Auto-detect"
+                        value={params.min_speakers || ""}
+                        onChange={(e) => updateParam('min_speakers', e.target.value ? parseInt(e.target.value) : undefined)}
+                        className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100"
+                      />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <Label htmlFor="canary_max_speakers" className="text-gray-700 dark:text-gray-300">Max Speakers</Label>
+                        <HoverCard>
+                          <HoverCardTrigger asChild>
+                            <Info className="h-4 w-4 text-gray-400 cursor-help" />
+                          </HoverCardTrigger>
+                          <HoverCardContent className="w-64 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                            <p className="text-sm text-gray-700 dark:text-gray-300">Maximum number of speakers expected in the audio (leave empty for automatic detection).</p>
+                          </HoverCardContent>
+                        </HoverCard>
+                      </div>
+                      <Input
+                        type="number"
+                        min="1"
+                        max="20"
+                        placeholder="Auto-detect"
+                        value={params.max_speakers || ""}
+                        onChange={(e) => updateParam('max_speakers', e.target.value ? parseInt(e.target.value) : undefined)}
+                        className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <Label htmlFor="canary_hf_token" className="text-gray-700 dark:text-gray-300">Hugging Face Token</Label>
+                      <HoverCard>
+                        <HoverCardTrigger asChild>
+                          <Info className="h-4 w-4 text-gray-400 cursor-help" />
+                        </HoverCardTrigger>
+                        <HoverCardContent className="w-80 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                          <p className="text-sm text-gray-700 dark:text-gray-300">Hugging Face API token required for accessing Pyannote diarization models. Get one at https://huggingface.co/settings/tokens</p>
+                        </HoverCardContent>
+                      </HoverCard>
+                    </div>
+                    <Input
+                      type="password"
+                      placeholder="Required for diarization models"
+                      value={params.hf_token || ""}
+                      onChange={(e) => updateParam('hf_token', e.target.value || undefined)}
+                      className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {!params.diarize && (
+                <div className="p-4 text-center border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800">
+                  <div className="text-4xl mb-3 opacity-50">🎤</div>
+                  <h4 className="text-lg font-medium text-gray-600 dark:text-gray-300 mb-2">
+                    Speaker Diarization Disabled
+                  </h4>
+                  <p className="text-gray-500 dark:text-gray-400 text-sm">
+                    Enable speaker diarization to identify and separate different speakers using Pyannote.
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         ) : (

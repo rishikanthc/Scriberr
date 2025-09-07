@@ -625,13 +625,9 @@ func (h *Handler) StartTranscription(c *gin.Context) {
 		// Both NVIDIA models support multiple European languages
 		// No language restriction needed - models support auto-detection
 
-		// Neither NVIDIA model supports diarization
-		if requestParams.Diarize {
-			modelName := "NVIDIA Parakeet"
-			if requestParams.ModelFamily == "nvidia_canary" {
-				modelName = "NVIDIA Canary"
-			}
-			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("%s model does not support speaker diarization. Set diarize to false.", modelName)})
+		// NVIDIA models support diarization via Pyannote integration
+		if requestParams.Diarize && (requestParams.HfToken == nil || *requestParams.HfToken == "") {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Hugging Face token (hf_token) is required for diarization with NVIDIA models"})
 			return
 		}
 	}
