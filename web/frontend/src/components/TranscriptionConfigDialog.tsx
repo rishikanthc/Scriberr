@@ -308,6 +308,34 @@ const LANGUAGES = [
   { value: "su", label: "Sundanese" },
 ];
 
+const CANARY_LANGUAGES = [
+  { value: "bg", label: "Bulgarian" },
+  { value: "hr", label: "Croatian" },
+  { value: "cs", label: "Czech" },
+  { value: "da", label: "Danish" },
+  { value: "nl", label: "Dutch" },
+  { value: "en", label: "English" },
+  { value: "et", label: "Estonian" },
+  { value: "fi", label: "Finnish" },
+  { value: "fr", label: "French" },
+  { value: "de", label: "German" },
+  { value: "el", label: "Greek" },
+  { value: "hu", label: "Hungarian" },
+  { value: "it", label: "Italian" },
+  { value: "lv", label: "Latvian" },
+  { value: "lt", label: "Lithuanian" },
+  { value: "mt", label: "Maltese" },
+  { value: "pl", label: "Polish" },
+  { value: "pt", label: "Portuguese" },
+  { value: "ro", label: "Romanian" },
+  { value: "sk", label: "Slovak" },
+  { value: "sl", label: "Slovenian" },
+  { value: "es", label: "Spanish" },
+  { value: "sv", label: "Swedish" },
+  { value: "ru", label: "Russian" },
+  { value: "uk", label: "Ukrainian" },
+];
+
 export function TranscriptionConfigDialog({
   open,
   onOpenChange,
@@ -411,15 +439,18 @@ export function TranscriptionConfigDialog({
                 <SelectItem value="whisper" className="text-gray-900 dark:text-gray-100 focus:bg-gray-100 dark:focus:bg-gray-700">
                   Whisper (OpenAI)
                 </SelectItem>
-                <SelectItem value="nvidia" className="text-gray-900 dark:text-gray-100 focus:bg-gray-100 dark:focus:bg-gray-700">
+                <SelectItem value="nvidia_parakeet" className="text-gray-900 dark:text-gray-100 focus:bg-gray-100 dark:focus:bg-gray-700">
                   NVIDIA Parakeet
+                </SelectItem>
+                <SelectItem value="nvidia_canary" className="text-gray-900 dark:text-gray-100 focus:bg-gray-100 dark:focus:bg-gray-700">
+                  NVIDIA Canary
                 </SelectItem>
               </SelectContent>
             </Select>
           </div>
         </div>
 
-        {params.model_family === "nvidia" ? (
+        {params.model_family === "nvidia_parakeet" ? (
           <div className="space-y-6">
             {/* Info Banner */}
             <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
@@ -540,6 +571,65 @@ export function TranscriptionConfigDialog({
                   <p><span className="font-medium">Short audio ({"<"}10 min):</span> 128/128 - Faster processing</p>
                   <p><span className="font-medium">Medium audio (10-60 min):</span> 256/256 - Balanced (default)</p>
                   <p><span className="font-medium">Long audio ({">"}1 hour):</span> 384/384 or 512/512 - Best accuracy</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : params.model_family === "nvidia_canary" ? (
+          <div className="space-y-6">
+            {/* Info Banner */}
+            <div className="p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+              <div className="flex items-start space-x-3">
+                <div className="flex-shrink-0">
+                  <Info className="h-5 w-5 text-green-600 dark:text-green-400" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-sm font-medium text-green-800 dark:text-green-200">
+                    NVIDIA Canary 1B v2
+                  </h3>
+                  <div className="mt-2 text-sm text-green-700 dark:text-green-300">
+                    <ul className="list-disc list-inside space-y-1">
+                      <li>Supports 25 European languages with automatic detection</li>
+                      <li>Advanced multilingual transcription and translation capabilities</li>
+                      <li>Optimized for high-quality audio processing</li>
+                      <li>Speaker diarization is not available</li>
+                      <li>Includes punctuation and capitalization</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Language Selection */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">Language Settings</h3>
+              
+              <div className="space-y-2">
+                <Label htmlFor="canary_language" className="text-gray-700 dark:text-gray-300 font-medium">
+                  Source Language
+                </Label>
+                <Select
+                  value={params.language || "en"}
+                  onValueChange={(value) => updateParam('language', value)}
+                >
+                  <SelectTrigger className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 max-h-60">
+                    {CANARY_LANGUAGES.map((lang) => (
+                      <SelectItem key={lang.value} value={lang.value} className="text-gray-900 dark:text-gray-100 focus:bg-gray-100 dark:focus:bg-gray-700">
+                        {lang.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">Supported Languages:</h4>
+                <div className="text-xs text-gray-600 dark:text-gray-400">
+                  <p className="mb-1"><span className="font-medium">European Languages:</span> Bulgarian, Croatian, Czech, Danish, Dutch, English, Estonian, Finnish, French, German, Greek, Hungarian, Italian, Latvian, Lithuanian, Maltese, Polish, Portuguese, Romanian, Slovak, Slovenian, Spanish, Swedish</p>
+                  <p><span className="font-medium">Eastern European:</span> Russian, Ukrainian</p>
                 </div>
               </div>
             </div>

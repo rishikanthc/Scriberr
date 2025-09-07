@@ -64,10 +64,14 @@ func (ws *WhisperXService) ProcessJobWithProcess(ctx context.Context, jobID stri
 	}
 
 	// Route to appropriate service based on model family
-	if job.Parameters.ModelFamily == "nvidia" {
+	if job.Parameters.ModelFamily == "nvidia_parakeet" {
 		fmt.Printf("DEBUG: Routing job %s to Parakeet service\n", jobID)
 		parakeetService := NewParakeetService(nil)
 		return parakeetService.ProcessJobWithProcess(ctx, jobID, registerProcess)
+	} else if job.Parameters.ModelFamily == "nvidia_canary" {
+		fmt.Printf("DEBUG: Routing job %s to Canary service\n", jobID)
+		canaryService := NewCanaryService(nil)
+		return canaryService.ProcessJobWithProcess(ctx, jobID, registerProcess)
 	}
 
 	// Default to WhisperX processing
@@ -179,44 +183,51 @@ func (ws *WhisperXService) processWhisperXJob(ctx context.Context, jobID string,
 	return nil
 }
 
-// ensurePythonEnv ensures the Python environment is set up by cloning WhisperX from git and setting up Parakeet
+// ensurePythonEnv ensures the Python environment is set up by cloning WhisperX from git and setting up NVidia models (Parakeet and Canary)
 func (ws *WhisperXService) ensurePythonEnv() error {
     envPath := ws.getEnvPath()
     whisperxPath := filepath.Join(envPath, "WhisperX")
-    parakeetPath := filepath.Join(envPath, "parakeet")
+    nvidiaPath := filepath.Join(envPath, "parakeet") // Using parakeet directory for both models
     
     // Get absolute paths for debugging
     absEnvPath, _ := filepath.Abs(envPath)
     absWhisperxPath, _ := filepath.Abs(whisperxPath)
-    absParakeetPath, _ := filepath.Abs(parakeetPath)
+    absNvidiaPath, _ := filepath.Abs(nvidiaPath)
     workingDir, _ := os.Getwd()
     
     fmt.Printf("DEBUG: Current working directory: %s\n", workingDir)
     fmt.Printf("DEBUG: Relative WhisperX path: %s\n", whisperxPath)
     fmt.Printf("DEBUG: Absolute WhisperX path: %s\n", absWhisperxPath)
-    fmt.Printf("DEBUG: Absolute Parakeet path: %s\n", absParakeetPath)
+    fmt.Printf("DEBUG: Absolute NVIDIA path: %s\n", absNvidiaPath)
     fmt.Printf("DEBUG: Absolute env path: %s\n", absEnvPath)
     
-    // Check WhisperX and Parakeet environments independently
+    // Check WhisperX and NVIDIA environments independently
     whisperxCmd := exec.Command("uv", "run", "--native-tls", "--project", whisperxPath, "python", "-c", "import whisperx")
-    parakeetCmd := exec.Command("uv", "run", "--native-tls", "--project", parakeetPath, "python", "-c", "import nemo.collections.asr")
+    nvidiaCmd := exec.Command("uv", "run", "--native-tls", "--project", nvidiaPath, "python", "-c", "import nemo.collections.asr")
     
     whisperxWorking := whisperxCmd.Run() == nil
-    parakeetEnvWorking := parakeetCmd.Run() == nil
+    nvidiaEnvWorking := nvidiaCmd.Run() == nil
     
-    // Check if Parakeet model exists
-    modelPath := filepath.Join(parakeetPath, "parakeet-tdt-0.6b-v3.nemo")
+    // Check if both models exist
+    parakeetModelPath := filepath.Join(nvidiaPath, "parakeet-tdt-0.6b-v3.nemo")
+    canaryModelPath := filepath.Join(nvidiaPath, "canary-1b-v2.nemo")
+    
     parakeetModelExists := false
-    if stat, err := os.Stat(modelPath); err == nil && stat.Size() > 1024*1024 {
+    if stat, err := os.Stat(parakeetModelPath); err == nil && stat.Size() > 1024*1024 {
         parakeetModelExists = true
     }
+    
+    canaryModelExists := false
+    if stat, err := os.Stat(canaryModelPath); err == nil && stat.Size() > 1024*1024 {
+        canaryModelExists = true
+    }
 
-    fmt.Printf("DEBUG: Environment status - WhisperX: %v, Parakeet Env: %v, Parakeet Model: %v\n", 
-        whisperxWorking, parakeetEnvWorking, parakeetModelExists)
+    fmt.Printf("DEBUG: Environment status - WhisperX: %v, NVIDIA Env: %v, Parakeet Model: %v, Canary Model: %v\n", 
+        whisperxWorking, nvidiaEnvWorking, parakeetModelExists, canaryModelExists)
 
     // If everything is working, we're done
-    if whisperxWorking && parakeetEnvWorking && parakeetModelExists {
-        fmt.Printf("DEBUG: WhisperX and Parakeet fully set up and working\n")
+    if whisperxWorking && nvidiaEnvWorking && parakeetModelExists && canaryModelExists {
+        fmt.Printf("DEBUG: WhisperX and NVIDIA models fully set up and working\n")
         return nil
     }
 
@@ -251,33 +262,44 @@ func (ws *WhisperXService) ensurePythonEnv() error {
         fmt.Printf("DEBUG: WhisperX already working, skipping setup\n")
     }
 
-    // Setup Parakeet environment if needed
-    if !parakeetEnvWorking {
-        fmt.Printf("DEBUG: Setting up Parakeet environment at: %s\n", parakeetPath)
+    // Setup NVIDIA environment if needed (used for both Parakeet and Canary)
+    if !nvidiaEnvWorking {
+        fmt.Printf("DEBUG: Setting up NVIDIA environment at: %s\n", nvidiaPath)
         
-        // Remove existing Parakeet directory if it exists
-        if err := os.RemoveAll(parakeetPath); err != nil {
-            return fmt.Errorf("failed to remove existing Parakeet environment: %v", err)
+        // Remove existing NVIDIA directory if it exists
+        if err := os.RemoveAll(nvidiaPath); err != nil {
+            return fmt.Errorf("failed to remove existing NVIDIA environment: %v", err)
         }
 
-        if err := ws.setupParakeetEnv(parakeetPath); err != nil {
-            return fmt.Errorf("failed to setup Parakeet environment: %v", err)
+        if err := ws.setupParakeetEnv(nvidiaPath); err != nil {
+            return fmt.Errorf("failed to setup NVIDIA environment: %v", err)
         }
         
-        fmt.Printf("DEBUG: Parakeet environment setup completed\n")
+        fmt.Printf("DEBUG: NVIDIA environment setup completed\n")
     } else {
-        fmt.Printf("DEBUG: Parakeet environment already working, skipping setup\n")
+        fmt.Printf("DEBUG: NVIDIA environment already working, skipping setup\n")
     }
 
-    // Download Parakeet model if needed (independent of environment setup)
+    // Download Parakeet model if needed
     if !parakeetModelExists {
         fmt.Printf("DEBUG: Downloading Parakeet model\n")
-        if err := ws.downloadParakeetModel(parakeetPath); err != nil {
+        if err := ws.downloadParakeetModel(nvidiaPath); err != nil {
             return fmt.Errorf("failed to download Parakeet model: %v", err)
         }
         fmt.Printf("DEBUG: Parakeet model download completed\n")
     } else {
         fmt.Printf("DEBUG: Parakeet model already exists, skipping download\n")
+    }
+
+    // Download Canary model if needed
+    if !canaryModelExists {
+        fmt.Printf("DEBUG: Downloading Canary model\n")
+        if err := ws.downloadCanaryModel(nvidiaPath); err != nil {
+            return fmt.Errorf("failed to download Canary model: %v", err)
+        }
+        fmt.Printf("DEBUG: Canary model download completed\n")
+    } else {
+        fmt.Printf("DEBUG: Canary model already exists, skipping download\n")
     }
 
     fmt.Printf("DEBUG: Environment setup completed successfully\n")
@@ -381,8 +403,8 @@ dependencies = [
     // Create the transcription script
     transcribeScript := `#!/usr/bin/env python3
 """
-Audio transcription script using NVIDIA Parakeet TDT 0.6B v3 model.
-Supports 25 European languages with automatic language detection.
+Audio transcription script using NVIDIA models (Parakeet TDT 0.6B v3 or Canary 1B v2).
+Supports multiple European languages with automatic language detection.
 """
 
 import argparse
@@ -393,28 +415,34 @@ import nemo.collections.asr as nemo_asr
 
 
 def transcribe_audio(
-    audio_path: str, timestamps: bool = False, output_file: str = None, model_path: str = None,
+    audio_path: str, timestamps: bool = False, output_file: str = None, 
+    model_type: str = "parakeet", source_lang: str = "en", target_lang: str = "en",
     context_left: int = 256, context_right: int = 256
 ):
     """
-    Transcribe audio file using NVIDIA Parakeet model.
+    Transcribe audio file using NVIDIA models.
 
     Args:
         audio_path: Path to audio file (.wav or .flac)
         timestamps: Whether to include timestamps in output
         output_file: Optional output file path for results
-        model_path: Path to the Parakeet model file
-        context_left: Left attention context size for long-form audio
-        context_right: Right attention context size for long-form audio
+        model_type: Type of model to use ("parakeet" or "canary")
+        source_lang: Source language for Canary model
+        target_lang: Target language for Canary model
+        context_left: Left attention context size for long-form audio (Parakeet only)
+        context_right: Right attention context size for long-form audio (Parakeet only)
     """
-    if not model_path:
+    if model_type == "canary":
+        model_path = "./canary-1b-v2.nemo"
+        print(f"Loading NVIDIA Canary model from: {model_path}")
+    else:
         model_path = "./parakeet-tdt-0.6b-v3.nemo"
+        print(f"Loading NVIDIA Parakeet model from: {model_path}")
     
-    print(f"Loading NVIDIA Parakeet model from: {model_path}")
     asr_model = nemo_asr.models.ASRModel.restore_from(model_path)
     
-    # Configure for long-form audio if context sizes are not default
-    if context_left != 256 or context_right != 256:
+    # Configure for long-form audio if context sizes are not default (Parakeet only)
+    if model_type == "parakeet" and (context_left != 256 or context_right != 256):
         print(f"Configuring attention context: left={context_left}, right={context_right}")
         try:
             asr_model.change_attention_model(
@@ -429,12 +457,17 @@ def transcribe_audio(
     print(f"Transcribing: {audio_path}")
 
     if timestamps:
-        output = asr_model.transcribe([audio_path], timestamps=True)
+        if model_type == "canary":
+            # Canary model supports both transcription and translation
+            output = asr_model.transcribe([audio_path], source_lang=source_lang, target_lang=target_lang, timestamps=True)
+        else:
+            # Parakeet model
+            output = asr_model.transcribe([audio_path], timestamps=True)
 
         # Extract text and timestamps
         text = output[0].text
-        word_timestamps = output[0].timestamp["word"]
-        segment_timestamps = output[0].timestamp["segment"]
+        word_timestamps = output[0].timestamp.get("word", [])
+        segment_timestamps = output[0].timestamp.get("segment", [])
 
         print(f"\nTranscription: {text}")
         print("\nSegment timestamps:")
@@ -447,7 +480,9 @@ def transcribe_audio(
                 "transcription": text,
                 "word_timestamps": word_timestamps,
                 "segment_timestamps": segment_timestamps,
-                "audio_file": audio_path
+                "audio_file": audio_path,
+                "source_language": source_lang,
+                "target_language": target_lang
             }
             
             if output_file.endswith('.json'):
@@ -470,7 +505,13 @@ def transcribe_audio(
                 print(f"\nResults saved to: {output_file}")
 
     else:
-        output = asr_model.transcribe([audio_path])
+        if model_type == "canary":
+            # Canary model supports both transcription and translation
+            output = asr_model.transcribe([audio_path], source_lang=source_lang, target_lang=target_lang)
+        else:
+            # Parakeet model
+            output = asr_model.transcribe([audio_path])
+        
         text = output[0].text
         print(f"\nTranscription: {text}")
 
@@ -478,7 +519,9 @@ def transcribe_audio(
             if output_file.endswith('.json'):
                 result_data = {
                     "transcription": text,
-                    "audio_file": audio_path
+                    "audio_file": audio_path,
+                    "source_language": source_lang,
+                    "target_language": target_lang
                 }
                 with open(output_file, 'w', encoding='utf-8') as f:
                     json.dump(result_data, f, indent=2, ensure_ascii=False)
@@ -491,7 +534,7 @@ def transcribe_audio(
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Transcribe audio using NVIDIA Parakeet TDT 0.6B v3 model"
+        description="Transcribe audio using NVIDIA models (Parakeet or Canary)"
     )
     parser.add_argument("audio_file", help="Path to audio file (.wav or .flac format)")
     parser.add_argument(
@@ -503,15 +546,24 @@ def main():
         "--output", "-o", help="Output file path to save transcription results"
     )
     parser.add_argument(
-        "--model-path", help="Path to the Parakeet model file"
+        "--model", choices=["parakeet", "canary"], default="parakeet",
+        help="Model type to use (default: parakeet)"
+    )
+    parser.add_argument(
+        "--source-lang", default="en",
+        help="Source language (for Canary model, default: en)"
+    )
+    parser.add_argument(
+        "--target-lang", default="en", 
+        help="Target language (for Canary model, default: en)"
     )
     parser.add_argument(
         "--context-left", type=int, default=256,
-        help="Left attention context size for long-form audio (default: 256)"
+        help="Left attention context size for long-form audio - Parakeet only (default: 256)"
     )
     parser.add_argument(
         "--context-right", type=int, default=256, 
-        help="Right attention context size for long-form audio (default: 256)"
+        help="Right attention context size for long-form audio - Parakeet only (default: 256)"
     )
 
     args = parser.parse_args()
@@ -531,7 +583,9 @@ def main():
             audio_path=str(audio_path),
             timestamps=args.timestamps,
             output_file=args.output,
-            model_path=args.model_path,
+            model_type=args.model,
+            source_lang=args.source_lang,
+            target_lang=args.target_lang,
             context_left=args.context_left,
             context_right=args.context_right,
         )
@@ -623,6 +677,71 @@ func (ws *WhisperXService) downloadParakeetModel(parakeetPath string) error {
     }
 
     fmt.Printf("DEBUG: Successfully downloaded Parakeet model (size: %d bytes)\n", stat.Size())
+    return nil
+}
+
+// downloadCanaryModel downloads the Canary 1B v2 model
+func (ws *WhisperXService) downloadCanaryModel(nvidiaPath string) error {
+    modelURL := "https://huggingface.co/nvidia/canary-1b-v2/resolve/main/canary-1b-v2.nemo?download=true"
+    modelFileName := "canary-1b-v2.nemo"
+    modelPath := filepath.Join(nvidiaPath, modelFileName)
+
+    // Ensure the nvidia directory exists before downloading
+    if err := os.MkdirAll(nvidiaPath, 0755); err != nil {
+        return fmt.Errorf("failed to create nvidia directory for model download: %v", err)
+    }
+
+    // Check if model already exists
+    if stat, err := os.Stat(modelPath); err == nil && stat.Size() > 1024*1024 {
+        fmt.Printf("DEBUG: Canary model already exists at: %s (size: %d bytes)\n", modelPath, stat.Size())
+        return nil
+    }
+
+    fmt.Printf("DEBUG: Downloading Canary model from: %s\n", modelURL)
+    fmt.Printf("DEBUG: Saving to: %s\n", modelPath)
+
+    // Use curl to download the model with timeout and progress indicator
+    ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
+    defer cancel()
+    
+    // Create temporary file for safer download
+    tempPath := modelPath + ".tmp"
+    
+    // Remove any existing temp file
+    os.Remove(tempPath)
+    
+    cmd := exec.CommandContext(ctx, "curl", 
+        "-L",                    // Follow redirects
+        "--progress-bar",        // Show progress bar
+        "--create-dirs",         // Create directories if needed
+        "-o", tempPath,          // Output to temp file
+        modelURL)
+    
+    fmt.Printf("DEBUG: Running curl command: %v\n", cmd.Args)
+    
+    out, err := cmd.CombinedOutput()
+    if err != nil {
+        // Clean up temp file on error
+        os.Remove(tempPath)
+        return fmt.Errorf("failed to download Canary model: %v: %s", err, strings.TrimSpace(string(out)))
+    }
+    
+    // Move temp file to final location
+    if err := os.Rename(tempPath, modelPath); err != nil {
+        os.Remove(tempPath)
+        return fmt.Errorf("failed to move downloaded model to final location: %v", err)
+    }
+
+    // Verify the downloaded file exists and has reasonable size
+    stat, err := os.Stat(modelPath)
+    if err != nil {
+        return fmt.Errorf("downloaded model file not found: %v", err)
+    }
+    if stat.Size() < 1024*1024 { // Less than 1MB suggests download failed
+        return fmt.Errorf("downloaded model file appears incomplete (size: %d bytes)", stat.Size())
+    }
+
+    fmt.Printf("DEBUG: Successfully downloaded Canary model (size: %d bytes)\n", stat.Size())
     return nil
 }
 
