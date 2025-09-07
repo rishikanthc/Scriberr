@@ -177,23 +177,27 @@ func (ws *WhisperXService) ensurePythonEnv() error {
     fmt.Printf("DEBUG: Absolute Parakeet path: %s\n", absParakeetPath)
     fmt.Printf("DEBUG: Absolute env path: %s\n", absEnvPath)
     
-    // Check if both WhisperX and Parakeet are already installed and working
+    // Check WhisperX and Parakeet environments independently
     whisperxCmd := exec.Command("uv", "run", "--native-tls", "--project", whisperxPath, "python", "-c", "import whisperx")
     parakeetCmd := exec.Command("uv", "run", "--native-tls", "--project", parakeetPath, "python", "-c", "import nemo.collections.asr")
     
     whisperxWorking := whisperxCmd.Run() == nil
-    parakeetWorking := parakeetCmd.Run() == nil
+    parakeetEnvWorking := parakeetCmd.Run() == nil
     
-    if whisperxWorking && parakeetWorking {
-        fmt.Printf("DEBUG: WhisperX and Parakeet already installed and working\n")
-        return nil // Both are set up and working
+    // Check if Parakeet model exists
+    modelPath := filepath.Join(parakeetPath, "parakeet-tdt-0.6b-v3.nemo")
+    parakeetModelExists := false
+    if stat, err := os.Stat(modelPath); err == nil && stat.Size() > 1024*1024 {
+        parakeetModelExists = true
     }
 
-    fmt.Printf("DEBUG: Setting up environment at: %s (WhisperX: %v, Parakeet: %v)\n", envPath, whisperxWorking, parakeetWorking)
+    fmt.Printf("DEBUG: Environment status - WhisperX: %v, Parakeet Env: %v, Parakeet Model: %v\n", 
+        whisperxWorking, parakeetEnvWorking, parakeetModelExists)
 
-    // Remove existing directory if it exists
-    if err := os.RemoveAll(envPath); err != nil {
-        return fmt.Errorf("failed to remove existing environment: %v", err)
+    // If everything is working, we're done
+    if whisperxWorking && parakeetEnvWorking && parakeetModelExists {
+        fmt.Printf("DEBUG: WhisperX and Parakeet fully set up and working\n")
+        return nil
     }
 
     // Ensure base directory exists
@@ -201,30 +205,62 @@ func (ws *WhisperXService) ensurePythonEnv() error {
         return fmt.Errorf("failed to create environment directory: %v", err)
     }
 
-    // Setup WhisperX
-    fmt.Printf("DEBUG: Cloning WhisperX repository to: %s\n", envPath)
-    if err := ws.cloneWhisperX(envPath); err != nil {
-        return fmt.Errorf("failed to clone WhisperX: %v", err)
+    // Setup WhisperX if needed
+    if !whisperxWorking {
+        fmt.Printf("DEBUG: Setting up WhisperX at: %s\n", whisperxPath)
+        
+        // Remove existing WhisperX directory if it exists
+        if err := os.RemoveAll(whisperxPath); err != nil {
+            return fmt.Errorf("failed to remove existing WhisperX environment: %v", err)
+        }
+
+        if err := ws.cloneWhisperX(envPath); err != nil {
+            return fmt.Errorf("failed to clone WhisperX: %v", err)
+        }
+
+        if err := ws.updateWhisperXDependencies(whisperxPath); err != nil {
+            return fmt.Errorf("failed to update WhisperX dependencies: %v", err)
+        }
+
+        if err := ws.uvSyncWhisperX(whisperxPath); err != nil {
+            return fmt.Errorf("failed to sync WhisperX: %v", err)
+        }
+        
+        fmt.Printf("DEBUG: WhisperX setup completed\n")
+    } else {
+        fmt.Printf("DEBUG: WhisperX already working, skipping setup\n")
     }
 
-    fmt.Printf("DEBUG: Updating WhisperX dependencies in: %s\n", whisperxPath)
-    if err := ws.updateWhisperXDependencies(whisperxPath); err != nil {
-        return fmt.Errorf("failed to update WhisperX dependencies: %v", err)
+    // Setup Parakeet environment if needed
+    if !parakeetEnvWorking {
+        fmt.Printf("DEBUG: Setting up Parakeet environment at: %s\n", parakeetPath)
+        
+        // Remove existing Parakeet directory if it exists
+        if err := os.RemoveAll(parakeetPath); err != nil {
+            return fmt.Errorf("failed to remove existing Parakeet environment: %v", err)
+        }
+
+        if err := ws.setupParakeetEnv(parakeetPath); err != nil {
+            return fmt.Errorf("failed to setup Parakeet environment: %v", err)
+        }
+        
+        fmt.Printf("DEBUG: Parakeet environment setup completed\n")
+    } else {
+        fmt.Printf("DEBUG: Parakeet environment already working, skipping setup\n")
     }
 
-    fmt.Printf("DEBUG: Running uv sync for WhisperX in: %s\n", whisperxPath)
-    if err := ws.uvSyncWhisperX(whisperxPath); err != nil {
-        return fmt.Errorf("failed to sync WhisperX: %v", err)
-    }
-
-    // Setup Parakeet
-    fmt.Printf("DEBUG: Setting up Parakeet environment at: %s\n", parakeetPath)
-    if err := ws.setupParakeet(parakeetPath); err != nil {
-        return fmt.Errorf("failed to setup Parakeet: %v", err)
+    // Download Parakeet model if needed (independent of environment setup)
+    if !parakeetModelExists {
+        fmt.Printf("DEBUG: Downloading Parakeet model\n")
+        if err := ws.downloadParakeetModel(parakeetPath); err != nil {
+            return fmt.Errorf("failed to download Parakeet model: %v", err)
+        }
+        fmt.Printf("DEBUG: Parakeet model download completed\n")
+    } else {
+        fmt.Printf("DEBUG: Parakeet model already exists, skipping download\n")
     }
 
     fmt.Printf("DEBUG: Environment setup completed successfully\n")
-
     return nil
 }
 
@@ -294,8 +330,8 @@ func (ws *WhisperXService) uvSync(projectPath string) error {
     return nil
 }
 
-// setupParakeet sets up the Parakeet environment with NVIDIA ASR dependencies
-func (ws *WhisperXService) setupParakeet(parakeetPath string) error {
+// setupParakeetEnv sets up the Parakeet environment with NVIDIA ASR dependencies (without model download)
+func (ws *WhisperXService) setupParakeetEnv(parakeetPath string) error {
     // Create the parakeet directory
     if err := os.MkdirAll(parakeetPath, 0755); err != nil {
         return fmt.Errorf("failed to create parakeet directory: %v", err)
@@ -349,7 +385,7 @@ def transcribe_audio(
         model_path: Path to the Parakeet model file
     """
     if not model_path:
-        model_path = "./parakeet-tdt-0.6b-v3/parakeet-tdt-0.6b-v3.nemo"
+        model_path = "./parakeet-tdt-0.6b-v3.nemo"
     
     print(f"Loading NVIDIA Parakeet model from: {model_path}")
     asr_model = nemo_asr.models.ASRModel.restore_from(model_path)
@@ -475,7 +511,72 @@ if __name__ == "__main__":
         return fmt.Errorf("uv sync failed for parakeet: %v: %s", err, strings.TrimSpace(string(out)))
     }
 
-    fmt.Printf("DEBUG: Parakeet setup completed successfully\n")
+    fmt.Printf("DEBUG: Parakeet environment setup completed successfully\n")
+    return nil
+}
+
+// downloadParakeetModel downloads the Parakeet TDT 0.6B v3 model
+func (ws *WhisperXService) downloadParakeetModel(parakeetPath string) error {
+    modelURL := "https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3/resolve/main/parakeet-tdt-0.6b-v3.nemo?download=true"
+    modelFileName := "parakeet-tdt-0.6b-v3.nemo"
+    modelPath := filepath.Join(parakeetPath, modelFileName)
+
+    // Ensure the parakeet directory exists before downloading
+    if err := os.MkdirAll(parakeetPath, 0755); err != nil {
+        return fmt.Errorf("failed to create parakeet directory for model download: %v", err)
+    }
+
+    // Check if model already exists
+    if stat, err := os.Stat(modelPath); err == nil && stat.Size() > 1024*1024 {
+        fmt.Printf("DEBUG: Parakeet model already exists at: %s (size: %d bytes)\n", modelPath, stat.Size())
+        return nil
+    }
+
+    fmt.Printf("DEBUG: Downloading Parakeet model from: %s\n", modelURL)
+    fmt.Printf("DEBUG: Saving to: %s\n", modelPath)
+
+    // Use curl to download the model with timeout and progress indicator
+    ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
+    defer cancel()
+    
+    // Create temporary file for safer download
+    tempPath := modelPath + ".tmp"
+    
+    // Remove any existing temp file
+    os.Remove(tempPath)
+    
+    cmd := exec.CommandContext(ctx, "curl", 
+        "-L",                    // Follow redirects
+        "--progress-bar",        // Show progress bar
+        "--create-dirs",         // Create directories if needed
+        "-o", tempPath,          // Output to temp file
+        modelURL)
+    
+    fmt.Printf("DEBUG: Running curl command: %v\n", cmd.Args)
+    
+    out, err := cmd.CombinedOutput()
+    if err != nil {
+        // Clean up temp file on error
+        os.Remove(tempPath)
+        return fmt.Errorf("failed to download Parakeet model: %v: %s", err, strings.TrimSpace(string(out)))
+    }
+    
+    // Move temp file to final location
+    if err := os.Rename(tempPath, modelPath); err != nil {
+        os.Remove(tempPath)
+        return fmt.Errorf("failed to move downloaded model to final location: %v", err)
+    }
+
+    // Verify the downloaded file exists and has reasonable size
+    stat, err := os.Stat(modelPath)
+    if err != nil {
+        return fmt.Errorf("downloaded model file not found: %v", err)
+    }
+    if stat.Size() < 1024*1024 { // Less than 1MB suggests download failed
+        return fmt.Errorf("downloaded model file appears incomplete (size: %d bytes)", stat.Size())
+    }
+
+    fmt.Printf("DEBUG: Successfully downloaded Parakeet model (size: %d bytes)\n", stat.Size())
     return nil
 }
 
