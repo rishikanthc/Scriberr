@@ -46,3 +46,5 @@ results.json
 server
 test_word_conversion.go
 web
+debug_whisperx_parsing.go
+debug_parsing.go
