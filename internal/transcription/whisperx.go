@@ -390,8 +390,8 @@ func (ws *WhisperXService) buildWhisperXArgs(job *models.TranscriptionJob, outpu
 	case "cuda":
 		whisperxDevice = "cuda"
 	case "rocm":
-		// For ROCm, use the hip device string that PyTorch recognizes
-		whisperxDevice = "cuda" // PyTorch with ROCm still uses 'cuda' device string
+		// Pass ROCm as-is to WhisperX, which handles ROCm-specific initialization
+		whisperxDevice = "rocm"
 	default:
 		whisperxDevice = "cpu"
 	}
