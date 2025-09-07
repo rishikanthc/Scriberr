@@ -35,10 +35,10 @@ type TranscriptResult struct {
 
 // Segment represents a transcript segment
 type Segment struct {
-	Start    float64 `json:"start"`
-	End      float64 `json:"end"`
-	Text     string  `json:"text"`
-	Speaker  *string `json:"speaker,omitempty"`
+	Start   float64 `json:"start"`
+	End     float64 `json:"end"`
+	Text    string  `json:"text"`
+	Speaker *string `json:"speaker,omitempty"`
 }
 
 // Word represents a word-level transcript
@@ -65,6 +65,7 @@ func (ws *WhisperXService) ProcessJobWithProcess(ctx context.Context, jobID stri
 	}
 
 	// Route to appropriate service based on model family
+	fmt.Printf("DEBUG: Job %s has ModelFamily: '%s'\n", jobID, job.Parameters.ModelFamily)
 	if job.Parameters.ModelFamily == "nvidia_parakeet" {
 		fmt.Printf("DEBUG: Routing job %s to Parakeet service\n", jobID)
 		parakeetService := NewParakeetService(nil)
@@ -83,7 +84,7 @@ func (ws *WhisperXService) ProcessJobWithProcess(ctx context.Context, jobID stri
 // processWhisperXJob handles the original WhisperX processing logic
 func (ws *WhisperXService) processWhisperXJob(ctx context.Context, jobID string, registerProcess func(*exec.Cmd)) error {
 	startTime := time.Now()
-	
+
 	// Get the job from database
 	var job models.TranscriptionJob
 	if err := database.DB.Where("id = ?", jobID).First(&job).Error; err != nil {
@@ -95,9 +96,9 @@ func (ws *WhisperXService) processWhisperXJob(ctx context.Context, jobID string,
 		TranscriptionJobID: jobID,
 		StartedAt:          startTime,
 		ActualParameters:   job.Parameters, // Copy the parameters used
-		Status:            models.StatusProcessing,
+		Status:             models.StatusProcessing,
 	}
-	
+
 	if err := database.DB.Create(execution).Error; err != nil {
 		return fmt.Errorf("failed to create execution record: %v", err)
 	}
@@ -108,11 +109,11 @@ func (ws *WhisperXService) processWhisperXJob(ctx context.Context, jobID string,
 		execution.CompletedAt = &completedAt
 		execution.Status = status
 		execution.CalculateProcessingDuration()
-		
+
 		if errorMsg != "" {
 			execution.ErrorMessage = &errorMsg
 		}
-		
+
 		database.DB.Save(execution)
 	}
 
@@ -149,10 +150,10 @@ func (ws *WhisperXService) processWhisperXJob(ctx context.Context, jobID string,
 	// Create command with context for proper cancellation support
 	cmd := exec.CommandContext(ctx, "uv", args...)
 	cmd.Env = append(os.Environ(), "PYTHONUNBUFFERED=1")
-	
-    // Configure process attributes for cross-platform kill behavior
-    configureCmdSysProcAttr(cmd)
-	
+
+	// Configure process attributes for cross-platform kill behavior
+	configureCmdSysProcAttr(cmd)
+
 	// Register the process for immediate termination capability
 	registerProcess(cmd)
 
@@ -186,202 +187,201 @@ func (ws *WhisperXService) processWhisperXJob(ctx context.Context, jobID string,
 
 // ensurePythonEnv ensures the Python environment is set up by cloning WhisperX from git and setting up NVidia models (Parakeet and Canary)
 func (ws *WhisperXService) ensurePythonEnv() error {
-    envPath := ws.getEnvPath()
-    whisperxPath := filepath.Join(envPath, "WhisperX")
-    nvidiaPath := filepath.Join(envPath, "parakeet") // Using parakeet directory for both models
-    
-    // Get absolute paths for debugging
-    absEnvPath, _ := filepath.Abs(envPath)
-    absWhisperxPath, _ := filepath.Abs(whisperxPath)
-    absNvidiaPath, _ := filepath.Abs(nvidiaPath)
-    workingDir, _ := os.Getwd()
-    
-    fmt.Printf("DEBUG: Current working directory: %s\n", workingDir)
-    fmt.Printf("DEBUG: Relative WhisperX path: %s\n", whisperxPath)
-    fmt.Printf("DEBUG: Absolute WhisperX path: %s\n", absWhisperxPath)
-    fmt.Printf("DEBUG: Absolute NVIDIA path: %s\n", absNvidiaPath)
-    fmt.Printf("DEBUG: Absolute env path: %s\n", absEnvPath)
-    
-    // Check WhisperX and NVIDIA environments independently
-    whisperxCmd := exec.Command("uv", "run", "--native-tls", "--project", whisperxPath, "python", "-c", "import whisperx")
-    nvidiaCmd := exec.Command("uv", "run", "--native-tls", "--project", nvidiaPath, "python", "-c", "import nemo.collections.asr")
-    
-    whisperxWorking := whisperxCmd.Run() == nil
-    nvidiaEnvWorking := nvidiaCmd.Run() == nil
-    
-    // Check if both models exist
-    parakeetModelPath := filepath.Join(nvidiaPath, "parakeet-tdt-0.6b-v3.nemo")
-    canaryModelPath := filepath.Join(nvidiaPath, "canary-1b-v2.nemo")
-    
-    parakeetModelExists := false
-    if stat, err := os.Stat(parakeetModelPath); err == nil && stat.Size() > 1024*1024 {
-        parakeetModelExists = true
-    }
-    
-    canaryModelExists := false
-    if stat, err := os.Stat(canaryModelPath); err == nil && stat.Size() > 1024*1024 {
-        canaryModelExists = true
-    }
+	envPath := ws.getEnvPath()
+	whisperxPath := filepath.Join(envPath, "WhisperX")
+	nvidiaPath := filepath.Join(envPath, "parakeet") // Using parakeet directory for both models
 
-    fmt.Printf("DEBUG: Environment status - WhisperX: %v, NVIDIA Env: %v, Parakeet Model: %v, Canary Model: %v\n", 
-        whisperxWorking, nvidiaEnvWorking, parakeetModelExists, canaryModelExists)
+	// Get absolute paths for debugging
+	absEnvPath, _ := filepath.Abs(envPath)
+	absWhisperxPath, _ := filepath.Abs(whisperxPath)
+	absNvidiaPath, _ := filepath.Abs(nvidiaPath)
+	workingDir, _ := os.Getwd()
 
-    // If everything is working, we're done
-    if whisperxWorking && nvidiaEnvWorking && parakeetModelExists && canaryModelExists {
-        fmt.Printf("DEBUG: WhisperX and NVIDIA models fully set up and working\n")
-        return nil
-    }
+	fmt.Printf("DEBUG: Current working directory: %s\n", workingDir)
+	fmt.Printf("DEBUG: Relative WhisperX path: %s\n", whisperxPath)
+	fmt.Printf("DEBUG: Absolute WhisperX path: %s\n", absWhisperxPath)
+	fmt.Printf("DEBUG: Absolute NVIDIA path: %s\n", absNvidiaPath)
+	fmt.Printf("DEBUG: Absolute env path: %s\n", absEnvPath)
 
-    // Ensure base directory exists
-    if err := os.MkdirAll(envPath, 0755); err != nil {
-        return fmt.Errorf("failed to create environment directory: %v", err)
-    }
+	// Check WhisperX and NVIDIA environments independently
+	whisperxCmd := exec.Command("uv", "run", "--native-tls", "--project", whisperxPath, "python", "-c", "import whisperx")
+	nvidiaCmd := exec.Command("uv", "run", "--native-tls", "--project", nvidiaPath, "python", "-c", "import nemo.collections.asr")
 
-    // Setup WhisperX if needed
-    if !whisperxWorking {
-        fmt.Printf("DEBUG: Setting up WhisperX at: %s\n", whisperxPath)
-        
-        // Remove existing WhisperX directory if it exists
-        if err := os.RemoveAll(whisperxPath); err != nil {
-            return fmt.Errorf("failed to remove existing WhisperX environment: %v", err)
-        }
+	whisperxWorking := whisperxCmd.Run() == nil
+	nvidiaEnvWorking := nvidiaCmd.Run() == nil
 
-        if err := ws.cloneWhisperX(envPath); err != nil {
-            return fmt.Errorf("failed to clone WhisperX: %v", err)
-        }
+	// Check if both models exist
+	parakeetModelPath := filepath.Join(nvidiaPath, "parakeet-tdt-0.6b-v3.nemo")
+	canaryModelPath := filepath.Join(nvidiaPath, "canary-1b-v2.nemo")
 
-        if err := ws.updateWhisperXDependencies(whisperxPath); err != nil {
-            return fmt.Errorf("failed to update WhisperX dependencies: %v", err)
-        }
+	parakeetModelExists := false
+	if stat, err := os.Stat(parakeetModelPath); err == nil && stat.Size() > 1024*1024 {
+		parakeetModelExists = true
+	}
 
-        if err := ws.uvSyncWhisperX(whisperxPath); err != nil {
-            return fmt.Errorf("failed to sync WhisperX: %v", err)
-        }
-        
-        fmt.Printf("DEBUG: WhisperX setup completed\n")
-    } else {
-        fmt.Printf("DEBUG: WhisperX already working, skipping setup\n")
-    }
+	canaryModelExists := false
+	if stat, err := os.Stat(canaryModelPath); err == nil && stat.Size() > 1024*1024 {
+		canaryModelExists = true
+	}
 
-    // Setup NVIDIA environment if needed (used for both Parakeet and Canary)
-    if !nvidiaEnvWorking {
-        fmt.Printf("DEBUG: Setting up NVIDIA environment at: %s\n", nvidiaPath)
-        
-        // Remove existing NVIDIA directory if it exists
-        if err := os.RemoveAll(nvidiaPath); err != nil {
-            return fmt.Errorf("failed to remove existing NVIDIA environment: %v", err)
-        }
+	fmt.Printf("DEBUG: Environment status - WhisperX: %v, NVIDIA Env: %v, Parakeet Model: %v, Canary Model: %v\n",
+		whisperxWorking, nvidiaEnvWorking, parakeetModelExists, canaryModelExists)
 
-        if err := ws.setupParakeetEnv(nvidiaPath); err != nil {
-            return fmt.Errorf("failed to setup NVIDIA environment: %v", err)
-        }
-        
-        fmt.Printf("DEBUG: NVIDIA environment setup completed\n")
-    } else {
-        fmt.Printf("DEBUG: NVIDIA environment already working, skipping setup\n")
-    }
+	// If everything is working, we're done
+	if whisperxWorking && nvidiaEnvWorking && parakeetModelExists && canaryModelExists {
+		fmt.Printf("DEBUG: WhisperX and NVIDIA models fully set up and working\n")
+		return nil
+	}
 
-    // Download Parakeet model if needed
-    if !parakeetModelExists {
-        fmt.Printf("DEBUG: Downloading Parakeet model\n")
-        if err := ws.downloadParakeetModel(nvidiaPath); err != nil {
-            return fmt.Errorf("failed to download Parakeet model: %v", err)
-        }
-        fmt.Printf("DEBUG: Parakeet model download completed\n")
-    } else {
-        fmt.Printf("DEBUG: Parakeet model already exists, skipping download\n")
-    }
+	// Ensure base directory exists
+	if err := os.MkdirAll(envPath, 0755); err != nil {
+		return fmt.Errorf("failed to create environment directory: %v", err)
+	}
 
-    // Download Canary model if needed
-    if !canaryModelExists {
-        fmt.Printf("DEBUG: Downloading Canary model\n")
-        if err := ws.downloadCanaryModel(nvidiaPath); err != nil {
-            return fmt.Errorf("failed to download Canary model: %v", err)
-        }
-        fmt.Printf("DEBUG: Canary model download completed\n")
-    } else {
-        fmt.Printf("DEBUG: Canary model already exists, skipping download\n")
-    }
+	// Setup WhisperX if needed
+	if !whisperxWorking {
+		fmt.Printf("DEBUG: Setting up WhisperX at: %s\n", whisperxPath)
 
-    fmt.Printf("DEBUG: Environment setup completed successfully\n")
-    return nil
+		// Remove existing WhisperX directory if it exists
+		if err := os.RemoveAll(whisperxPath); err != nil {
+			return fmt.Errorf("failed to remove existing WhisperX environment: %v", err)
+		}
+
+		if err := ws.cloneWhisperX(envPath); err != nil {
+			return fmt.Errorf("failed to clone WhisperX: %v", err)
+		}
+
+		if err := ws.updateWhisperXDependencies(whisperxPath); err != nil {
+			return fmt.Errorf("failed to update WhisperX dependencies: %v", err)
+		}
+
+		if err := ws.uvSyncWhisperX(whisperxPath); err != nil {
+			return fmt.Errorf("failed to sync WhisperX: %v", err)
+		}
+
+		fmt.Printf("DEBUG: WhisperX setup completed\n")
+	} else {
+		fmt.Printf("DEBUG: WhisperX already working, skipping setup\n")
+	}
+
+	// Setup NVIDIA environment if needed (used for both Parakeet and Canary)
+	if !nvidiaEnvWorking {
+		fmt.Printf("DEBUG: Setting up NVIDIA environment at: %s\n", nvidiaPath)
+
+		// Remove existing NVIDIA directory if it exists
+		if err := os.RemoveAll(nvidiaPath); err != nil {
+			return fmt.Errorf("failed to remove existing NVIDIA environment: %v", err)
+		}
+
+		if err := ws.setupParakeetEnv(nvidiaPath); err != nil {
+			return fmt.Errorf("failed to setup NVIDIA environment: %v", err)
+		}
+
+		fmt.Printf("DEBUG: NVIDIA environment setup completed\n")
+	} else {
+		fmt.Printf("DEBUG: NVIDIA environment already working, skipping setup\n")
+	}
+
+	// Download Parakeet model if needed
+	if !parakeetModelExists {
+		fmt.Printf("DEBUG: Downloading Parakeet model\n")
+		if err := ws.downloadParakeetModel(nvidiaPath); err != nil {
+			return fmt.Errorf("failed to download Parakeet model: %v", err)
+		}
+		fmt.Printf("DEBUG: Parakeet model download completed\n")
+	} else {
+		fmt.Printf("DEBUG: Parakeet model already exists, skipping download\n")
+	}
+
+	// Download Canary model if needed
+	if !canaryModelExists {
+		fmt.Printf("DEBUG: Downloading Canary model\n")
+		if err := ws.downloadCanaryModel(nvidiaPath); err != nil {
+			return fmt.Errorf("failed to download Canary model: %v", err)
+		}
+		fmt.Printf("DEBUG: Canary model download completed\n")
+	} else {
+		fmt.Printf("DEBUG: Canary model already exists, skipping download\n")
+	}
+
+	fmt.Printf("DEBUG: Environment setup completed successfully\n")
+	return nil
 }
-
 
 // cloneWhisperX clones the WhisperX repository
 func (ws *WhisperXService) cloneWhisperX(envPath string) error {
-    cmd := exec.Command("git", "clone", "https://github.com/m-bain/WhisperX.git")
-    cmd.Dir = envPath
-    out, err := cmd.CombinedOutput()
-    if err != nil {
-        return fmt.Errorf("git clone failed: %v: %s", err, strings.TrimSpace(string(out)))
-    }
-    return nil
+	cmd := exec.Command("git", "clone", "https://github.com/m-bain/WhisperX.git")
+	cmd.Dir = envPath
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("git clone failed: %v: %s", err, strings.TrimSpace(string(out)))
+	}
+	return nil
 }
 
 // updateWhisperXDependencies modifies WhisperX pyproject.toml to update ctranslate2 and add yt-dlp
 func (ws *WhisperXService) updateWhisperXDependencies(whisperxPath string) error {
-    pyprojectPath := filepath.Join(whisperxPath, "pyproject.toml")
-    
-    // Read the existing pyproject.toml
-    data, err := os.ReadFile(pyprojectPath)
-    if err != nil {
-        return fmt.Errorf("failed to read pyproject.toml: %v", err)
-    }
-    
-    content := string(data)
-    
-    // Replace ctranslate2 dependency
-    content = strings.ReplaceAll(content, "ctranslate2<4.5.0", "ctranslate2==4.6.0")
-    
-    // Add yt-dlp if not already present
-    if !strings.Contains(content, "yt-dlp") {
-        // Find the dependencies section and add yt-dlp
-        content = strings.ReplaceAll(content, 
-            `"transformers>=4.48.0",`,
-            `"transformers>=4.48.0",
+	pyprojectPath := filepath.Join(whisperxPath, "pyproject.toml")
+
+	// Read the existing pyproject.toml
+	data, err := os.ReadFile(pyprojectPath)
+	if err != nil {
+		return fmt.Errorf("failed to read pyproject.toml: %v", err)
+	}
+
+	content := string(data)
+
+	// Replace ctranslate2 dependency
+	content = strings.ReplaceAll(content, "ctranslate2<4.5.0", "ctranslate2==4.6.0")
+
+	// Add yt-dlp if not already present
+	if !strings.Contains(content, "yt-dlp") {
+		// Find the dependencies section and add yt-dlp
+		content = strings.ReplaceAll(content,
+			`"transformers>=4.48.0",`,
+			`"transformers>=4.48.0",
     "yt-dlp",`)
-    }
-    
-    // Write back the modified content
-    if err := os.WriteFile(pyprojectPath, []byte(content), 0644); err != nil {
-        return fmt.Errorf("failed to write pyproject.toml: %v", err)
-    }
-    
-    return nil
+	}
+
+	// Write back the modified content
+	if err := os.WriteFile(pyprojectPath, []byte(content), 0644); err != nil {
+		return fmt.Errorf("failed to write pyproject.toml: %v", err)
+	}
+
+	return nil
 }
 
 // uvSyncWhisperX runs `uv sync --all-extras --dev` for WhisperX
 func (ws *WhisperXService) uvSyncWhisperX(whisperxPath string) error {
-    cmd := exec.Command("uv", "sync", "--all-extras", "--dev", "--native-tls")
-    cmd.Dir = whisperxPath
-    out, err := cmd.CombinedOutput()
-    if err != nil {
-        return fmt.Errorf("uv sync failed: %v: %s", err, strings.TrimSpace(string(out)))
-    }
-    return nil
+	cmd := exec.Command("uv", "sync", "--all-extras", "--dev", "--native-tls")
+	cmd.Dir = whisperxPath
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("uv sync failed: %v: %s", err, strings.TrimSpace(string(out)))
+	}
+	return nil
 }
 
 // uvSync runs `uv sync` for the given project path
 func (ws *WhisperXService) uvSync(projectPath string) error {
-    cmd := exec.Command("uv", "sync", "--native-tls", "--project", projectPath)
-    cmd.Dir = projectPath
-    out, err := cmd.CombinedOutput()
-    if err != nil {
-        return fmt.Errorf("uv sync failed: %v: %s", err, strings.TrimSpace(string(out)))
-    }
-    return nil
+	cmd := exec.Command("uv", "sync", "--native-tls", "--project", projectPath)
+	cmd.Dir = projectPath
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("uv sync failed: %v: %s", err, strings.TrimSpace(string(out)))
+	}
+	return nil
 }
 
 // setupParakeetEnv sets up the Parakeet environment with NVIDIA ASR dependencies (without model download)
 func (ws *WhisperXService) setupParakeetEnv(parakeetPath string) error {
-    // Create the parakeet directory
-    if err := os.MkdirAll(parakeetPath, 0755); err != nil {
-        return fmt.Errorf("failed to create parakeet directory: %v", err)
-    }
+	// Create the parakeet directory
+	if err := os.MkdirAll(parakeetPath, 0755); err != nil {
+		return fmt.Errorf("failed to create parakeet directory: %v", err)
+	}
 
-    // Create pyproject.toml for NVIDIA models (Parakeet & Canary) with NeMo from main branch for timestamps support
-    pyprojectContent := `[project]
+	// Create pyproject.toml for NVIDIA models (Parakeet & Canary) with NeMo from main branch for timestamps support
+	pyprojectContent := `[project]
 name = "parakeet-transcription"
 version = "0.1.0"
 description = "Audio transcription using NVIDIA Parakeet models"
@@ -394,18 +394,19 @@ dependencies = [
     "soundfile",
     "ml-dtypes>=0.3.1,<0.5.0",
     "onnx>=1.15.0,<1.18.0",
+    "pyannote.audio"
 ]
 
 [tool.uv.sources]
 nemo-toolkit = { git = "https://github.com/NVIDIA/NeMo.git" }
 `
-    pyprojectPath := filepath.Join(parakeetPath, "pyproject.toml")
-    if err := os.WriteFile(pyprojectPath, []byte(pyprojectContent), 0644); err != nil {
-        return fmt.Errorf("failed to write parakeet pyproject.toml: %v", err)
-    }
+	pyprojectPath := filepath.Join(parakeetPath, "pyproject.toml")
+	if err := os.WriteFile(pyprojectPath, []byte(pyprojectContent), 0644); err != nil {
+		return fmt.Errorf("failed to write parakeet pyproject.toml: %v", err)
+	}
 
-    // Create the transcription script
-    transcribeScript := `#!/usr/bin/env python3
+	// Create the transcription script
+	transcribeScript := `#!/usr/bin/env python3
 """
 Audio transcription script using NVIDIA models (Parakeet TDT 0.6B v3 or Canary 1B v2).
 Supports multiple European languages with automatic language detection.
@@ -601,171 +602,339 @@ def main():
 if __name__ == "__main__":
     main()
 `
-    transcriptPath := filepath.Join(parakeetPath, "transcribe.py")
-    if err := os.WriteFile(transcriptPath, []byte(transcribeScript), 0755); err != nil {
-        return fmt.Errorf("failed to write parakeet transcription script: %v", err)
-    }
+	transcriptPath := filepath.Join(parakeetPath, "transcribe.py")
+	if err := os.WriteFile(transcriptPath, []byte(transcribeScript), 0755); err != nil {
+		return fmt.Errorf("failed to write parakeet transcription script: %v", err)
+	}
 
-    // Run uv sync to install dependencies
-    fmt.Printf("DEBUG: Installing Parakeet dependencies in: %s\n", parakeetPath)
-    cmd := exec.Command("uv", "sync", "--native-tls")
-    cmd.Dir = parakeetPath
-    out, err := cmd.CombinedOutput()
-    if err != nil {
-        return fmt.Errorf("uv sync failed for parakeet: %v: %s", err, strings.TrimSpace(string(out)))
-    }
+	// Create the diarization script
+	diarizeScript := `#!/usr/bin/env python3
+"""
+Speaker diarization script using Pyannote.audio.
+Processes audio files to identify and separate different speakers.
+"""
 
-    fmt.Printf("DEBUG: Parakeet environment setup completed successfully\n")
-    return nil
+import argparse
+import sys
+import os
+from pathlib import Path
+from pyannote.audio import Pipeline
+
+
+def diarize_audio(
+    audio_path: str, 
+    output_file: str, 
+    hf_token: str, 
+    min_speakers: int = None, 
+    max_speakers: int = None
+):
+    """
+    Perform speaker diarization on audio file using Pyannote.
+
+    Args:
+        audio_path: Path to audio file
+        output_file: Path to save RTTM output file
+        hf_token: Hugging Face token for model access
+        min_speakers: Minimum number of speakers (optional)
+        max_speakers: Maximum number of speakers (optional)
+    """
+    print(f"Loading Pyannote speaker diarization pipeline...")
+    
+    try:
+        # Initialize the diarization pipeline
+        pipeline = Pipeline.from_pretrained(
+            "pyannote/speaker-diarization-3.1",
+            use_auth_token=hf_token
+        )
+        print("Pipeline loaded successfully")
+    except Exception as e:
+        print(f"Error loading pipeline: {e}")
+        print("Make sure you have a valid Hugging Face token and have accepted the model's license")
+        sys.exit(1)
+
+    print(f"Processing audio file: {audio_path}")
+    
+    try:
+        # Run diarization
+        diarization_params = {}
+        if min_speakers is not None:
+            diarization_params["min_speakers"] = min_speakers
+        if max_speakers is not None:
+            diarization_params["max_speakers"] = max_speakers
+            
+        if diarization_params:
+            print(f"Using speaker constraints: {diarization_params}")
+            diarization = pipeline(audio_path, **diarization_params)
+        else:
+            print("Using automatic speaker detection")
+            diarization = pipeline(audio_path)
+        
+        print(f"Diarization completed. Saving results to: {output_file}")
+        
+        # Save the diarization output to RTTM format
+        with open(output_file, "w") as rttm:
+            diarization.write_rttm(rttm)
+        
+        # Print summary
+        speakers = set()
+        total_speech_time = 0.0
+        
+        with open(output_file, "r") as f:
+            for line in f:
+                if line.startswith("SPEAKER"):
+                    parts = line.strip().split()
+                    if len(parts) >= 8:
+                        speaker = parts[7]
+                        duration = float(parts[4])
+                        speakers.add(speaker)
+                        total_speech_time += duration
+        
+        print(f"\nDiarization Summary:")
+        print(f"  Speakers detected: {len(speakers)}")
+        print(f"  Speaker labels: {sorted(speakers)}")
+        print(f"  Total speech time: {total_speech_time:.2f} seconds")
+        print(f"  RTTM file saved: {output_file}")
+        
+    except Exception as e:
+        print(f"Error during diarization: {e}")
+        sys.exit(1)
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Perform speaker diarization using Pyannote.audio"
+    )
+    parser.add_argument(
+        "audio_file", 
+        help="Path to audio file"
+    )
+    parser.add_argument(
+        "--output", "-o", 
+        required=True,
+        help="Output RTTM file path"
+    )
+    parser.add_argument(
+        "--hf-token", 
+        required=True,
+        help="Hugging Face access token"
+    )
+    parser.add_argument(
+        "--min-speakers", 
+        type=int, 
+        help="Minimum number of speakers"
+    )
+    parser.add_argument(
+        "--max-speakers", 
+        type=int, 
+        help="Maximum number of speakers"
+    )
+
+    args = parser.parse_args()
+
+    # Validate input file
+    audio_path = Path(args.audio_file)
+    if not audio_path.exists():
+        print(f"Error: Audio file not found: {args.audio_file}")
+        sys.exit(1)
+
+    # Validate speaker constraints
+    if args.min_speakers is not None and args.min_speakers < 1:
+        print("Error: min_speakers must be at least 1")
+        sys.exit(1)
+        
+    if args.max_speakers is not None and args.max_speakers < 1:
+        print("Error: max_speakers must be at least 1")
+        sys.exit(1)
+        
+    if (args.min_speakers is not None and args.max_speakers is not None and 
+        args.min_speakers > args.max_speakers):
+        print("Error: min_speakers cannot be greater than max_speakers")
+        sys.exit(1)
+
+    # Create output directory if it doesn't exist
+    output_path = Path(args.output)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    try:
+        diarize_audio(
+            audio_path=str(audio_path),
+            output_file=args.output,
+            hf_token=args.hf_token,
+            min_speakers=args.min_speakers,
+            max_speakers=args.max_speakers
+        )
+    except Exception as e:
+        print(f"Error during diarization: {e}")
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()
+`
+	diarizePath := filepath.Join(parakeetPath, "diarize.py")
+	if err := os.WriteFile(diarizePath, []byte(diarizeScript), 0755); err != nil {
+		return fmt.Errorf("failed to write parakeet diarization script: %v", err)
+	}
+
+	// Run uv sync to install dependencies
+	fmt.Printf("DEBUG: Installing Parakeet dependencies in: %s\n", parakeetPath)
+	cmd := exec.Command("uv", "sync", "--native-tls")
+	cmd.Dir = parakeetPath
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("uv sync failed for parakeet: %v: %s", err, strings.TrimSpace(string(out)))
+	}
+
+	fmt.Printf("DEBUG: Parakeet environment setup completed successfully\n")
+	return nil
 }
 
 // downloadParakeetModel downloads the Parakeet TDT 0.6B v3 model
 func (ws *WhisperXService) downloadParakeetModel(parakeetPath string) error {
-    modelURL := "https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3/resolve/main/parakeet-tdt-0.6b-v3.nemo?download=true"
-    modelFileName := "parakeet-tdt-0.6b-v3.nemo"
-    modelPath := filepath.Join(parakeetPath, modelFileName)
+	modelURL := "https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3/resolve/main/parakeet-tdt-0.6b-v3.nemo?download=true"
+	modelFileName := "parakeet-tdt-0.6b-v3.nemo"
+	modelPath := filepath.Join(parakeetPath, modelFileName)
 
-    // Ensure the parakeet directory exists before downloading
-    if err := os.MkdirAll(parakeetPath, 0755); err != nil {
-        return fmt.Errorf("failed to create parakeet directory for model download: %v", err)
-    }
+	// Ensure the parakeet directory exists before downloading
+	if err := os.MkdirAll(parakeetPath, 0755); err != nil {
+		return fmt.Errorf("failed to create parakeet directory for model download: %v", err)
+	}
 
-    // Check if model already exists
-    if stat, err := os.Stat(modelPath); err == nil && stat.Size() > 1024*1024 {
-        fmt.Printf("DEBUG: Parakeet model already exists at: %s (size: %d bytes)\n", modelPath, stat.Size())
-        return nil
-    }
+	// Check if model already exists
+	if stat, err := os.Stat(modelPath); err == nil && stat.Size() > 1024*1024 {
+		fmt.Printf("DEBUG: Parakeet model already exists at: %s (size: %d bytes)\n", modelPath, stat.Size())
+		return nil
+	}
 
-    fmt.Printf("DEBUG: Downloading Parakeet model from: %s\n", modelURL)
-    fmt.Printf("DEBUG: Saving to: %s\n", modelPath)
+	fmt.Printf("DEBUG: Downloading Parakeet model from: %s\n", modelURL)
+	fmt.Printf("DEBUG: Saving to: %s\n", modelPath)
 
-    // Use curl to download the model with timeout and progress indicator
-    ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
-    defer cancel()
-    
-    // Create temporary file for safer download
-    tempPath := modelPath + ".tmp"
-    
-    // Remove any existing temp file
-    os.Remove(tempPath)
-    
-    cmd := exec.CommandContext(ctx, "curl", 
-        "-L",                    // Follow redirects
-        "--progress-bar",        // Show progress bar
-        "--create-dirs",         // Create directories if needed
-        "-o", tempPath,          // Output to temp file
-        modelURL)
-    
-    fmt.Printf("DEBUG: Running curl command: %v\n", cmd.Args)
-    
-    out, err := cmd.CombinedOutput()
-    if err != nil {
-        // Clean up temp file on error
-        os.Remove(tempPath)
-        return fmt.Errorf("failed to download Parakeet model: %v: %s", err, strings.TrimSpace(string(out)))
-    }
-    
-    // Move temp file to final location
-    if err := os.Rename(tempPath, modelPath); err != nil {
-        os.Remove(tempPath)
-        return fmt.Errorf("failed to move downloaded model to final location: %v", err)
-    }
+	// Use curl to download the model with timeout and progress indicator
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
+	defer cancel()
 
-    // Verify the downloaded file exists and has reasonable size
-    stat, err := os.Stat(modelPath)
-    if err != nil {
-        return fmt.Errorf("downloaded model file not found: %v", err)
-    }
-    if stat.Size() < 1024*1024 { // Less than 1MB suggests download failed
-        return fmt.Errorf("downloaded model file appears incomplete (size: %d bytes)", stat.Size())
-    }
+	// Create temporary file for safer download
+	tempPath := modelPath + ".tmp"
 
-    fmt.Printf("DEBUG: Successfully downloaded Parakeet model (size: %d bytes)\n", stat.Size())
-    return nil
+	// Remove any existing temp file
+	os.Remove(tempPath)
+
+	cmd := exec.CommandContext(ctx, "curl",
+		"-L",             // Follow redirects
+		"--progress-bar", // Show progress bar
+		"--create-dirs",  // Create directories if needed
+		"-o", tempPath,   // Output to temp file
+		modelURL)
+
+	fmt.Printf("DEBUG: Running curl command: %v\n", cmd.Args)
+
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		// Clean up temp file on error
+		os.Remove(tempPath)
+		return fmt.Errorf("failed to download Parakeet model: %v: %s", err, strings.TrimSpace(string(out)))
+	}
+
+	// Move temp file to final location
+	if err := os.Rename(tempPath, modelPath); err != nil {
+		os.Remove(tempPath)
+		return fmt.Errorf("failed to move downloaded model to final location: %v", err)
+	}
+
+	// Verify the downloaded file exists and has reasonable size
+	stat, err := os.Stat(modelPath)
+	if err != nil {
+		return fmt.Errorf("downloaded model file not found: %v", err)
+	}
+	if stat.Size() < 1024*1024 { // Less than 1MB suggests download failed
+		return fmt.Errorf("downloaded model file appears incomplete (size: %d bytes)", stat.Size())
+	}
+
+	fmt.Printf("DEBUG: Successfully downloaded Parakeet model (size: %d bytes)\n", stat.Size())
+	return nil
 }
 
 // downloadCanaryModel downloads the Canary 1B v2 model
 func (ws *WhisperXService) downloadCanaryModel(nvidiaPath string) error {
-    modelURL := "https://huggingface.co/nvidia/canary-1b-v2/resolve/main/canary-1b-v2.nemo?download=true"
-    modelFileName := "canary-1b-v2.nemo"
-    modelPath := filepath.Join(nvidiaPath, modelFileName)
+	modelURL := "https://huggingface.co/nvidia/canary-1b-v2/resolve/main/canary-1b-v2.nemo?download=true"
+	modelFileName := "canary-1b-v2.nemo"
+	modelPath := filepath.Join(nvidiaPath, modelFileName)
 
-    // Ensure the nvidia directory exists before downloading
-    if err := os.MkdirAll(nvidiaPath, 0755); err != nil {
-        return fmt.Errorf("failed to create nvidia directory for model download: %v", err)
-    }
+	// Ensure the nvidia directory exists before downloading
+	if err := os.MkdirAll(nvidiaPath, 0755); err != nil {
+		return fmt.Errorf("failed to create nvidia directory for model download: %v", err)
+	}
 
-    // Check if model already exists
-    if stat, err := os.Stat(modelPath); err == nil && stat.Size() > 1024*1024 {
-        fmt.Printf("DEBUG: Canary model already exists at: %s (size: %d bytes)\n", modelPath, stat.Size())
-        return nil
-    }
+	// Check if model already exists
+	if stat, err := os.Stat(modelPath); err == nil && stat.Size() > 1024*1024 {
+		fmt.Printf("DEBUG: Canary model already exists at: %s (size: %d bytes)\n", modelPath, stat.Size())
+		return nil
+	}
 
-    fmt.Printf("DEBUG: Downloading Canary model from: %s\n", modelURL)
-    fmt.Printf("DEBUG: Saving to: %s\n", modelPath)
+	fmt.Printf("DEBUG: Downloading Canary model from: %s\n", modelURL)
+	fmt.Printf("DEBUG: Saving to: %s\n", modelPath)
 
-    // Use curl to download the model with timeout and progress indicator
-    ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
-    defer cancel()
-    
-    // Create temporary file for safer download
-    tempPath := modelPath + ".tmp"
-    
-    // Remove any existing temp file
-    os.Remove(tempPath)
-    
-    cmd := exec.CommandContext(ctx, "curl", 
-        "-L",                    // Follow redirects
-        "--progress-bar",        // Show progress bar
-        "--create-dirs",         // Create directories if needed
-        "-o", tempPath,          // Output to temp file
-        modelURL)
-    
-    fmt.Printf("DEBUG: Running curl command: %v\n", cmd.Args)
-    
-    out, err := cmd.CombinedOutput()
-    if err != nil {
-        // Clean up temp file on error
-        os.Remove(tempPath)
-        return fmt.Errorf("failed to download Canary model: %v: %s", err, strings.TrimSpace(string(out)))
-    }
-    
-    // Move temp file to final location
-    if err := os.Rename(tempPath, modelPath); err != nil {
-        os.Remove(tempPath)
-        return fmt.Errorf("failed to move downloaded model to final location: %v", err)
-    }
+	// Use curl to download the model with timeout and progress indicator
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
+	defer cancel()
 
-    // Verify the downloaded file exists and has reasonable size
-    stat, err := os.Stat(modelPath)
-    if err != nil {
-        return fmt.Errorf("downloaded model file not found: %v", err)
-    }
-    if stat.Size() < 1024*1024 { // Less than 1MB suggests download failed
-        return fmt.Errorf("downloaded model file appears incomplete (size: %d bytes)", stat.Size())
-    }
+	// Create temporary file for safer download
+	tempPath := modelPath + ".tmp"
 
-    fmt.Printf("DEBUG: Successfully downloaded Canary model (size: %d bytes)\n", stat.Size())
-    return nil
+	// Remove any existing temp file
+	os.Remove(tempPath)
+
+	cmd := exec.CommandContext(ctx, "curl",
+		"-L",             // Follow redirects
+		"--progress-bar", // Show progress bar
+		"--create-dirs",  // Create directories if needed
+		"-o", tempPath,   // Output to temp file
+		modelURL)
+
+	fmt.Printf("DEBUG: Running curl command: %v\n", cmd.Args)
+
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		// Clean up temp file on error
+		os.Remove(tempPath)
+		return fmt.Errorf("failed to download Canary model: %v: %s", err, strings.TrimSpace(string(out)))
+	}
+
+	// Move temp file to final location
+	if err := os.Rename(tempPath, modelPath); err != nil {
+		os.Remove(tempPath)
+		return fmt.Errorf("failed to move downloaded model to final location: %v", err)
+	}
+
+	// Verify the downloaded file exists and has reasonable size
+	stat, err := os.Stat(modelPath)
+	if err != nil {
+		return fmt.Errorf("downloaded model file not found: %v", err)
+	}
+	if stat.Size() < 1024*1024 { // Less than 1MB suggests download failed
+		return fmt.Errorf("downloaded model file appears incomplete (size: %d bytes)", stat.Size())
+	}
+
+	fmt.Printf("DEBUG: Successfully downloaded Canary model (size: %d bytes)\n", stat.Size())
+	return nil
 }
-
 
 // InitEmbeddedPythonEnv initializes the Python env on app start (blocking).
 // Assumes uv is installed and accessible in system PATH.
 func (ws *WhisperXService) InitEmbeddedPythonEnv() error {
-    if err := ws.ensurePythonEnv(); err != nil {
-        return err
-    }
-    return nil
+	if err := ws.ensurePythonEnv(); err != nil {
+		return err
+	}
+	return nil
 }
 
 // buildWhisperXArgs builds the WhisperX command arguments
 func (ws *WhisperXService) buildWhisperXArgs(job *models.TranscriptionJob, outputDir string) ([]string, error) {
 	p := job.Parameters
-	
+
 	// Debug: log diarization status
 	fmt.Printf("DEBUG: Job ID %s, Diarize parameter: %v, Job Diarization field: %v\n", job.ID, p.Diarize, job.Diarization)
-	
+
 	// Use WhisperX CLI for both regular transcription and diarization
 	whisperxPath := filepath.Join(ws.getEnvPath(), "WhisperX")
 	args := []string{
@@ -890,25 +1059,25 @@ func (ws *WhisperXService) buildWhisperXArgs(job *models.TranscriptionJob, outpu
 
 	// Debug: log the command being executed
 	fmt.Printf("DEBUG: WhisperX command: uv %v\n", args)
-	
+
 	return args, nil
 }
 
 // parseAndSaveResult parses WhisperX output and saves to database
 func (ws *WhisperXService) parseAndSaveResult(jobID, resultPath string) error {
 	var resultFile string
-	
+
 	// WhisperX creates files based on input filename, not result.json
 	// Look for JSON files that match the expected WhisperX output pattern
 	files, err := filepath.Glob(filepath.Join(filepath.Dir(resultPath), "*.json"))
 	if err != nil {
 		return fmt.Errorf("failed to find result files: %v", err)
 	}
-	
+
 	if len(files) == 0 {
 		return fmt.Errorf("no result files found")
 	}
-	
+
 	// Filter out result.json (which is Parakeet/Canary format) and find WhisperX format
 	var whisperxFile string
 	for _, file := range files {
@@ -917,7 +1086,7 @@ func (ws *WhisperXService) parseAndSaveResult(jobID, resultPath string) error {
 			break
 		}
 	}
-	
+
 	if whisperxFile == "" {
 		// Fall back to result.json if no other files found
 		if _, err := os.Stat(resultPath); err == nil {
@@ -926,10 +1095,10 @@ func (ws *WhisperXService) parseAndSaveResult(jobID, resultPath string) error {
 			return fmt.Errorf("no WhisperX result files found")
 		}
 	}
-	
+
 	resultFile = whisperxFile
 	fmt.Printf("DEBUG: Using WhisperX result file: %s\n", resultFile)
-	
+
 	// Read the result file
 	data, err := os.ReadFile(resultFile)
 	if err != nil {
@@ -942,13 +1111,13 @@ func (ws *WhisperXService) parseAndSaveResult(jobID, resultPath string) error {
 	if err := json.Unmarshal(data, &result); err != nil {
 		return fmt.Errorf("failed to parse JSON result: %v", err)
 	}
-	fmt.Printf("DEBUG: Parsed result - Segments: %d, Words: %d, Language: '%s', Text: '%s'\n", 
+	fmt.Printf("DEBUG: Parsed result - Segments: %d, Words: %d, Language: '%s', Text: '%s'\n",
 		len(result.Segments), len(result.Word), result.Language, result.Text)
 	if len(result.Segments) > 0 {
-		fmt.Printf("DEBUG: First segment: start=%.2f, end=%.2f, text='%s'\n", 
+		fmt.Printf("DEBUG: First segment: start=%.2f, end=%.2f, text='%s'\n",
 			result.Segments[0].Start, result.Segments[0].End, result.Segments[0].Text)
 	}
-	
+
 	// Ensure Text field is populated for WhisperX results
 	if result.Text == "" && len(result.Segments) > 0 {
 		var texts []string
@@ -978,20 +1147,20 @@ func (ws *WhisperXService) parseAndSaveResult(jobID, resultPath string) error {
 		return fmt.Errorf("failed to update job transcript: %v", err)
 	}
 
-    return nil
+	return nil
 }
 
 // getEnvPath returns the hardcoded path for the WhisperX environment.
 // Creates the environment in a local "whisperx-env" directory.
 func (ws *WhisperXService) getEnvPath() string {
-    return "whisperx-env"
+	return "whisperx-env"
 }
 
 // GetSupportedModels returns a list of supported WhisperX models
 func (ws *WhisperXService) GetSupportedModels() []string {
 	return []string{
 		"tiny", "tiny.en",
-		"base", "base.en", 
+		"base", "base.en",
 		"small", "small.en",
 		"medium", "medium.en",
 		"large", "large-v1", "large-v2", "large-v3",

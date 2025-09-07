@@ -4,9 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -32,6 +34,7 @@ type CanaryResult struct {
 	AudioFile          string             `json:"audio_file"`
 	SourceLanguage     string             `json:"source_language"`
 	TargetLanguage     string             `json:"target_language"`
+	Diarized          bool               `json:"diarized"`
 }
 
 // CanaryWord represents word-level timestamps from Canary
@@ -41,6 +44,7 @@ type CanaryWord struct {
 	EndOffset   int     `json:"end_offset"`
 	Start       float64 `json:"start"`
 	End         float64 `json:"end"`
+	Speaker     string  `json:"speaker,omitempty"`
 }
 
 // CanarySegment represents segment-level timestamps from Canary
@@ -50,6 +54,7 @@ type CanarySegment struct {
 	EndOffset   int     `json:"end_offset"`
 	Start       float64 `json:"start"`
 	End         float64 `json:"end"`
+	Speaker     string  `json:"speaker,omitempty"`
 }
 
 // ProcessJob implements the JobProcessor interface
@@ -202,6 +207,22 @@ func (cs *CanaryService) ProcessJobWithProcess(ctx context.Context, jobID string
 		return fmt.Errorf(errMsg)
 	}
 
+	// Run diarization if enabled
+	fmt.Printf("DEBUG: Checking diarization conditions - Diarize: %v, HfToken != nil: %v\n", job.Parameters.Diarize, job.Parameters.HfToken != nil)
+	if job.Parameters.HfToken != nil {
+		fmt.Printf("DEBUG: HfToken value: %s\n", *job.Parameters.HfToken)
+	}
+	
+	if job.Parameters.Diarize && job.Parameters.HfToken != nil && *job.Parameters.HfToken != "" {
+		fmt.Printf("DEBUG: Running diarization for Canary job %s\n", jobID)
+		if err := cs.runDiarization(job.AudioPath, resultPath, job.Parameters); err != nil {
+			fmt.Printf("WARNING: Diarization failed: %v. Continuing with transcript without speaker information.\n", err)
+			// Don't fail the job, just continue without diarization
+		}
+	} else {
+		fmt.Printf("DEBUG: Diarization conditions not met - skipping diarization\n")
+	}
+
 	// Load and parse the result
 	if err := cs.parseAndSaveResult(jobID, resultPath); err != nil {
 		errMsg := fmt.Sprintf("failed to parse result: %v", err)
@@ -249,6 +270,8 @@ func (cs *CanaryService) buildCanaryArgs(audioPath, outputFile string, params *m
 	// For now, we only support transcription (not translation)
 	// Target language same as source language for transcription
 	args = append(args, "--target-lang", sourceLang)
+
+	// Note: Diarization will be handled separately after transcription
 	
 	fmt.Printf("DEBUG: Canary command: uv %v\n", args)
 	fmt.Printf("DEBUG: Audio path (abs): %s\n", absAudioPath)
@@ -286,6 +309,30 @@ func (cs *CanaryService) parseAndSaveResult(jobID, resultPath string) error {
 		return fmt.Errorf("failed to clear old speaker mappings: %v", err)
 	}
 
+	// Create speaker mappings if diarization was performed
+	if canaryResult.Diarized {
+		speakerLabels := make(map[string]bool)
+		// Collect unique speaker labels from segments
+		for _, segment := range canaryResult.SegmentTimestamps {
+			if segment.Speaker != "" {
+				speakerLabels[segment.Speaker] = true
+			}
+		}
+		
+		// Create speaker mapping records
+		for speaker := range speakerLabels {
+			speakerMapping := &models.SpeakerMapping{
+				TranscriptionJobID: jobID,
+				OriginalSpeaker:    speaker,
+				CustomName:         speaker, // Default to original label
+			}
+			if err := database.DB.Create(speakerMapping).Error; err != nil {
+				return fmt.Errorf("failed to create speaker mapping: %v", err)
+			}
+		}
+		fmt.Printf("DEBUG: Created speaker mappings for %d speakers\n", len(speakerLabels))
+	}
+
 	// Update the job in the database
 	if err := database.DB.Model(&models.TranscriptionJob{}).
 		Where("id = ?", jobID).
@@ -308,6 +355,7 @@ func (cs *CanaryService) convertToWhisperXFormat(canaryResult *CanaryResult) *Tr
 				Start: seg.Start,
 				End:   seg.End,
 				Text:  strings.TrimSpace(seg.Segment),
+				Speaker: stringPtr(seg.Speaker), // Speaker information from diarization
 			}
 		}
 	} else {
@@ -331,7 +379,7 @@ func (cs *CanaryService) convertToWhisperXFormat(canaryResult *CanaryResult) *Tr
 			End:   word.End,
 			Word:  word.Word,
 			Score: 1.0, // Canary doesn't provide confidence scores
-			// No speaker information
+			Speaker: stringPtr(word.Speaker), // Speaker information from diarization
 		}
 	}
 
@@ -359,6 +407,188 @@ func (cs *CanaryService) convertToWhisperXFormat(canaryResult *CanaryResult) *Tr
 	}
 }
 
+// runDiarization performs speaker diarization on the audio file and merges with transcript
+func (cs *CanaryService) runDiarization(audioPath string, transcriptPath string, params models.WhisperXParams) error {
+	// Create temporary RTTM file path
+	rttmPath := transcriptPath + ".rttm"
+	
+	// Build diarization command
+	nvidiaPath := filepath.Join("whisperx-env", "parakeet")
+	absAudioPath, err := filepath.Abs(audioPath)
+	if err != nil {
+		return fmt.Errorf("failed to get absolute audio path: %v", err)
+	}
+	
+	// Convert RTTM path to absolute path since we're running from parakeet directory
+	absRttmPath, err := filepath.Abs(rttmPath)
+	if err != nil {
+		return fmt.Errorf("failed to get absolute RTTM path: %v", err)
+	}
+	
+	args := []string{
+		"run", "--native-tls", "--project", ".", "python", "diarize.py",
+		absAudioPath,
+		"--output", absRttmPath,
+	}
+	
+	if params.HfToken != nil && *params.HfToken != "" {
+		args = append(args, "--hf-token", *params.HfToken)
+	} else {
+		return fmt.Errorf("HuggingFace token is required for diarization")
+	}
+	
+	if params.MinSpeakers != nil {
+		args = append(args, "--min-speakers", fmt.Sprintf("%d", *params.MinSpeakers))
+	}
+	if params.MaxSpeakers != nil {
+		args = append(args, "--max-speakers", fmt.Sprintf("%d", *params.MaxSpeakers))
+	}
+	
+	fmt.Printf("DEBUG: Running diarization command: uv %v\n", args)
+	
+	// Execute diarization
+	cmd := exec.Command("uv", args...)
+	cmd.Dir = nvidiaPath
+	cmd.Env = append(os.Environ(), "PYTHONUNBUFFERED=1")
+	
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		fmt.Printf("DEBUG: Diarization failed: %v\nOutput: %s\n", err, string(output))
+		return fmt.Errorf("diarization failed: %v", err)
+	}
+	
+	fmt.Printf("DEBUG: Diarization completed successfully\n")
+	
+	// Now merge the diarization results with the transcript
+	return cs.mergeDiarizationWithTranscript(transcriptPath, rttmPath)
+}
+
+// mergeDiarizationWithTranscript reads the transcript and RTTM files, merges them, and updates the transcript
+func (cs *CanaryService) mergeDiarizationWithTranscript(transcriptPath, rttmPath string) error {
+	// Read the original transcript
+	transcriptData, err := os.ReadFile(transcriptPath)
+	if err != nil {
+		return fmt.Errorf("failed to read transcript file: %v", err)
+	}
+	
+	var result CanaryResult
+	if err := json.Unmarshal(transcriptData, &result); err != nil {
+		return fmt.Errorf("failed to unmarshal transcript: %v", err)
+	}
+	
+	// Parse RTTM file
+	speakers, err := cs.parseRTTMFile(rttmPath)
+	if err != nil {
+		return fmt.Errorf("failed to parse RTTM file: %v", err)
+	}
+	
+	// Assign speakers to segments and words
+	cs.assignSpeakersToSegments(&result.SegmentTimestamps, speakers)
+	cs.assignSpeakersToWords(&result.WordTimestamps, speakers)
+	
+	// Mark as diarized
+	result.Diarized = true
+	
+	// Save the updated transcript
+	updatedData, err := json.Marshal(result)
+	if err != nil {
+		return fmt.Errorf("failed to marshal updated transcript: %v", err)
+	}
+	
+	if err := os.WriteFile(transcriptPath, updatedData, 0644); err != nil {
+		return fmt.Errorf("failed to save updated transcript: %v", err)
+	}
+	
+	// Clean up RTTM file
+	os.Remove(rttmPath)
+	
+	return nil
+}
+
+// parseRTTMFile parses the RTTM file and returns speaker segments (shared with Parakeet)
+func (cs *CanaryService) parseRTTMFile(rttmPath string) ([]CanarySpeakerSegment, error) {
+	data, err := os.ReadFile(rttmPath)
+	if err != nil {
+		return nil, err
+	}
+	
+	var speakers []CanarySpeakerSegment
+	lines := strings.Split(string(data), "\n")
+	
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if !strings.HasPrefix(line, "SPEAKER") {
+			continue
+		}
+		
+		parts := strings.Fields(line)
+		if len(parts) < 8 {
+			continue
+		}
+		
+		start, err1 := strconv.ParseFloat(parts[3], 64)
+		duration, err2 := strconv.ParseFloat(parts[4], 64)
+		speaker := parts[7]
+		
+		if err1 != nil || err2 != nil {
+			continue
+		}
+		
+		speakers = append(speakers, CanarySpeakerSegment{
+			Start:   start,
+			End:     start + duration,
+			Speaker: speaker,
+		})
+	}
+	
+	return speakers, nil
+}
+
+// CanarySpeakerSegment represents a speaker segment from RTTM for Canary
+type CanarySpeakerSegment struct {
+	Start   float64
+	End     float64
+	Speaker string
+}
+
+// assignSpeakersToSegments assigns speaker labels to transcript segments
+func (cs *CanaryService) assignSpeakersToSegments(segments *[]CanarySegment, speakers []CanarySpeakerSegment) {
+	for i := range *segments {
+		segment := &(*segments)[i]
+		bestSpeaker := cs.findBestSpeaker(segment.Start, segment.End, speakers)
+		segment.Speaker = bestSpeaker
+	}
+}
+
+// assignSpeakersToWords assigns speaker labels to words
+func (cs *CanaryService) assignSpeakersToWords(words *[]CanaryWord, speakers []CanarySpeakerSegment) {
+	for i := range *words {
+		word := &(*words)[i]
+		bestSpeaker := cs.findBestSpeaker(word.Start, word.End, speakers)
+		word.Speaker = bestSpeaker
+	}
+}
+
+// findBestSpeaker finds the speaker with the maximum overlap for the given time range
+func (cs *CanaryService) findBestSpeaker(start, end float64, speakers []CanarySpeakerSegment) string {
+	maxOverlap := 0.0
+	bestSpeaker := "SPEAKER_00" // Default speaker
+	
+	for _, speaker := range speakers {
+		overlapStart := math.Max(start, speaker.Start)
+		overlapEnd := math.Min(end, speaker.End)
+		
+		if overlapStart < overlapEnd {
+			overlap := overlapEnd - overlapStart
+			if overlap > maxOverlap {
+				maxOverlap = overlap
+				bestSpeaker = speaker.Speaker
+			}
+		}
+	}
+	
+	return bestSpeaker
+}
 
 // preprocessAudioForCanary converts audio to Canary-compatible format using ffmpeg
 func (cs *CanaryService) preprocessAudioForCanary(inputPath, outputDir string) (string, error) {
