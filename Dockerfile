@@ -55,9 +55,11 @@ ENV PYTHONUNBUFFERED=1 \
 WORKDIR /app
 
 # System deps: curl for uv install, ca-certs, ffmpeg for yt-dlp, git for git+ installs, gosu for user switching
+# Build tools: gcc, g++, make for compiling Python C extensions (needed for NeMo dependencies like texterrors)
 RUN apt-get update \
   && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
        curl ca-certificates ffmpeg git gosu \
+       build-essential gcc g++ make python3-dev \
   && rm -rf /var/lib/apt/lists/*
 
 # Install uv (fast Python package manager) directly to system PATH
