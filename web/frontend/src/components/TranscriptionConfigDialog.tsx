@@ -31,6 +31,9 @@ import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/h
 import { Info } from "lucide-react";
 
 export interface WhisperXParams {
+  // Model family (whisper or nvidia)
+  model_family: string;
+  
   // Model parameters
   model: string;
   model_cache_only: boolean;
@@ -150,6 +153,7 @@ interface TranscriptionConfigDialogProps {
 }
 
 const DEFAULT_PARAMS: WhisperXParams = {
+  model_family: "whisper",
   model: "small",
   model_cache_only: false,
   device: "cpu",
@@ -385,7 +389,52 @@ export function TranscriptionConfigDialog({
           </div>
         )}
 
-        <Tabs defaultValue="basic" className="w-full">
+        <div className="mb-6 space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="modelFamily" className="text-gray-700 dark:text-gray-300 font-medium">
+              Model Family
+            </Label>
+            <Select
+              value={params.model_family}
+              onValueChange={(value) => updateParam('model_family', value)}
+            >
+              <SelectTrigger className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                <SelectItem value="whisper" className="text-gray-900 dark:text-gray-100 focus:bg-gray-100 dark:focus:bg-gray-700">
+                  Whisper (OpenAI)
+                </SelectItem>
+                <SelectItem value="nvidia" className="text-gray-900 dark:text-gray-100 focus:bg-gray-100 dark:focus:bg-gray-700">
+                  NVIDIA Parakeet
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        {params.model_family === "nvidia" ? (
+          <div className="p-6 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+            <div className="flex items-start space-x-3">
+              <div className="flex-shrink-0">
+                <Info className="h-5 w-5 text-yellow-600 dark:text-yellow-400" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-sm font-medium text-yellow-800 dark:text-yellow-200">
+                  NVIDIA Parakeet Model
+                </h3>
+                <div className="mt-2 text-sm text-yellow-700 dark:text-yellow-300">
+                  <ul className="list-disc list-inside space-y-1">
+                    <li>Supports English language only</li>
+                    <li>Speaker diarization is not available</li>
+                    <li>Optimized for high-quality English transcription</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <Tabs defaultValue="basic" className="w-full">
           <TabsList className="grid w-full grid-cols-4 items-center h-auto bg-gray-100 dark:bg-gray-800 p-1 rounded-lg">
             <TabsTrigger value="basic" className="h-9 py-1.5 data-[state=active]:bg-white data-[state=active]:dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs sm:text-sm">Basic</TabsTrigger>
             <TabsTrigger value="quality" className="h-9 py-1.5 data-[state=active]:bg-white data-[state=active]:dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs sm:text-sm">Quality</TabsTrigger>
@@ -1169,6 +1218,7 @@ export function TranscriptionConfigDialog({
             </div>
           </TabsContent>
         </Tabs>
+        )}
 
         <DialogFooter className="gap-2 border-t border-gray-200 dark:border-gray-700 pt-3 sm:pt-6 mt-4 sm:mt-8">
           <Button variant="outline" onClick={() => onOpenChange(false)} className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer">

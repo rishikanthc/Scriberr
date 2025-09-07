@@ -571,6 +571,7 @@ func (h *Handler) StartTranscription(c *gin.Context) {
 
 	// Set defaults
 	requestParams = models.WhisperXParams{
+		ModelFamily:                         "whisper", // Default to whisper for backward compatibility
 		Model:                               "small",
 		ModelCacheOnly:                      false,
 		Device:                              "cpu",
@@ -615,7 +616,25 @@ func (h *Handler) StartTranscription(c *gin.Context) {
 	}
 	
 	// Debug: log what we received
-	fmt.Printf("DEBUG: Parsed parameters for job %s: Diarize=%v, DiarizeModel=%s\n", jobID, requestParams.Diarize, requestParams.DiarizeModel)
+	fmt.Printf("DEBUG: Parsed parameters for job %s: ModelFamily=%s, Diarize=%v, DiarizeModel=%s\n", jobID, requestParams.ModelFamily, requestParams.Diarize, requestParams.DiarizeModel)
+
+	// Validate NVIDIA-specific constraints
+	if requestParams.ModelFamily == "nvidia" {
+		// NVIDIA Parakeet only supports English
+		if requestParams.Language != nil && *requestParams.Language != "en" && *requestParams.Language != "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "NVIDIA Parakeet model only supports English. Remove language parameter or set to 'en'."})
+			return
+		}
+		// Force English for NVIDIA
+		english := "en"
+		requestParams.Language = &english
+
+		// NVIDIA Parakeet doesn't support diarization
+		if requestParams.Diarize {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "NVIDIA Parakeet model does not support speaker diarization. Set diarize to false."})
+			return
+		}
+	}
 
 	// Update job with parameters
 	job.Parameters = requestParams

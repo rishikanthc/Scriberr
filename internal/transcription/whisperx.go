@@ -57,6 +57,26 @@ func (ws *WhisperXService) ProcessJob(ctx context.Context, jobID string) error {
 
 // ProcessJobWithProcess implements the enhanced JobProcessor interface
 func (ws *WhisperXService) ProcessJobWithProcess(ctx context.Context, jobID string, registerProcess func(*exec.Cmd)) error {
+	// Get the job from database to check model family
+	var job models.TranscriptionJob
+	if err := database.DB.Where("id = ?", jobID).First(&job).Error; err != nil {
+		return fmt.Errorf("failed to get job: %v", err)
+	}
+
+	// Route to appropriate service based on model family
+	if job.Parameters.ModelFamily == "nvidia" {
+		fmt.Printf("DEBUG: Routing job %s to Parakeet service\n", jobID)
+		parakeetService := NewParakeetService(nil)
+		return parakeetService.ProcessJobWithProcess(ctx, jobID, registerProcess)
+	}
+
+	// Default to WhisperX processing
+	fmt.Printf("DEBUG: Processing job %s with WhisperX\n", jobID)
+	return ws.processWhisperXJob(ctx, jobID, registerProcess)
+}
+
+// processWhisperXJob handles the original WhisperX processing logic
+func (ws *WhisperXService) processWhisperXJob(ctx context.Context, jobID string, registerProcess func(*exec.Cmd)) error {
 	startTime := time.Now()
 	
 	// Get the job from database

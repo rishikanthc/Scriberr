@@ -37,6 +37,9 @@ const (
 
 // WhisperXParams contains parameters for WhisperX transcription
 type WhisperXParams struct {
+	// Model family (whisper or nvidia)
+	ModelFamily          string  `json:"model_family" gorm:"type:varchar(20);default:'whisper'"`
+	
 	// Model parameters
 	Model                string  `json:"model" gorm:"type:varchar(50);default:'small'"`
 	ModelCacheOnly       bool    `json:"model_cache_only" gorm:"type:boolean;default:false"`
