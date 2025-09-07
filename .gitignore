@@ -40,3 +40,9 @@ scriberr-data
 whisperx-env
 
 internal/web
+env-data
+main
+results.json
+server
+test_word_conversion.go
+web
