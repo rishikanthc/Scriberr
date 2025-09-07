@@ -300,7 +300,7 @@ func (cs *CanaryService) parseAndSaveResult(jobID, resultPath string) error {
 func (cs *CanaryService) convertToWhisperXFormat(canaryResult *CanaryResult) *TranscriptResult {
 	var segments []Segment
 	
-	// Convert segments if available
+	// Use Canary's segment timestamps directly as they come from the model
 	if len(canaryResult.SegmentTimestamps) > 0 {
 		segments = make([]Segment, len(canaryResult.SegmentTimestamps))
 		for i, seg := range canaryResult.SegmentTimestamps {
@@ -308,11 +308,10 @@ func (cs *CanaryService) convertToWhisperXFormat(canaryResult *CanaryResult) *Tr
 				Start: seg.Start,
 				End:   seg.End,
 				Text:  strings.TrimSpace(seg.Segment),
-				// No speaker information from Canary (diarization not supported)
 			}
 		}
 	} else {
-		// Fallback: create a single segment with the full transcription if no segment timestamps
+		// Fallback: create a single segment with the full transcription
 		if canaryResult.Transcription != "" {
 			segments = []Segment{
 				{
@@ -348,6 +347,7 @@ func (cs *CanaryService) convertToWhisperXFormat(canaryResult *CanaryResult) *Tr
 		Language: language,
 	}
 }
+
 
 // preprocessAudioForCanary converts audio to Canary-compatible format using ffmpeg
 func (cs *CanaryService) preprocessAudioForCanary(inputPath, outputDir string) (string, error) {
