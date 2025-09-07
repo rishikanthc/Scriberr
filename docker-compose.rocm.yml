@@ -7,12 +7,21 @@ services:
     volumes:
       - scriberr_data:/app/data
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 512M
     devices:
       - /dev/kfd
       - /dev/dri
     environment:
       - HSA_OVERRIDE_GFX_VERSION=10.3.0
       - PYTORCH_ROCM_ARCH=gfx1030
+      - SQLITE_TMPDIR=/tmp
+    tmpfs:
+      - /tmp
 
 volumes:
   scriberr_data: {}

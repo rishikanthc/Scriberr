@@ -1,11 +1,21 @@
 services:
   scriberr:
-    image: ghcr.io/rishikanthc/scriberr:latest
+    build: .
     ports:
       - "8080:8080"
     volumes:
       - scriberr_data:/app/data
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 512M
+    environment:
+      - SQLITE_TMPDIR=/tmp
+    tmpfs:
+      - /tmp
 
 volumes:
   scriberr_data:
