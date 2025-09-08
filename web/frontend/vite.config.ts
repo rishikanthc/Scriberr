@@ -17,6 +17,20 @@ export default defineConfig({
   build: {
     outDir: "dist",
     assetsDir: "assets",
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // Separate vendor chunks for better caching
+          'react-vendor': ['react', 'react-dom'],
+          'ui-vendor': ['@radix-ui/react-dialog', '@radix-ui/react-popover', '@radix-ui/react-tooltip'],
+          'markdown-vendor': ['react-markdown', 'remark-math', 'rehype-katex', 'rehype-raw', 'rehype-highlight'],
+          'table-vendor': ['@tanstack/react-table'],
+          'lucide-vendor': ['lucide-react'],
+        },
+      },
+    },
+    // Improve performance by optimizing chunk sizes
+    chunkSizeWarningLimit: 1000,
   },
   base: "/",
 })

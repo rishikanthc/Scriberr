@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback, memo } from "react";
 import { Send, Bot, User, MessageCircle, Copy, Check } from "lucide-react";
 import ReactMarkdown from 'react-markdown'
 import remarkMath from 'remark-math'
@@ -43,7 +43,7 @@ interface ChatInterfaceProps {
   hideSidebar?: boolean;
 }
 
-export function ChatInterface({ transcriptionId, activeSessionId, onSessionChange }: ChatInterfaceProps) {
+export const ChatInterface = memo(function ChatInterface({ transcriptionId, activeSessionId, onSessionChange }: ChatInterfaceProps) {
   const { getAuthHeaders } = useAuth();
   const { emitSessionTitleUpdated, emitTitleGenerating } = useChatEvents();
   const { toast } = useToast();
@@ -60,14 +60,14 @@ export function ChatInterface({ transcriptionId, activeSessionId, onSessionChang
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const scrollToBottom = () => {
+  const scrollToBottom = useCallback(() => {
     const el = messagesContainerRef.current
     if (el) {
       el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
     } else {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
     }
-  };
+  }, []);
 
   useEffect(() => {
     const el = messagesContainerRef.current
@@ -85,51 +85,29 @@ export function ChatInterface({ transcriptionId, activeSessionId, onSessionChang
     }
   }, [transcriptionId]);
 
-  // Respond to external sessionId changes (via router)
-  useEffect(() => {
-    if (!activeSessionId) return;
-    if (activeSession?.id === activeSessionId) return;
-
-    const found = sessions.find(s => s.id === activeSessionId);
-    if (found) {
-      setActiveSession(found);
-      loadChatSession(found.id);
-    } else {
-      // Fallback: load the session directly and refresh sessions list
-      setActiveSession(null);
-      setMessages([]);
-      loadChatSession(activeSessionId);
-      loadChatSessions();
-    }
-  }, [activeSessionId, sessions]);
-
-  const loadChatModels = async () => {
+  // Memoize load functions to prevent recreating on every render
+  const loadChatSession = useCallback(async (sessionId: string) => {
     try {
-      const response = await fetch("/api/v1/chat/models", {
+      setMessages([])
+      const response = await fetch(`/api/v1/chat/sessions/${sessionId}`, {
         headers: getAuthHeaders(),
       });
       
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to load models");
+        throw new Error(errorData.error || "Failed to load chat session");
       }
       
       const data = await response.json();
-      if (data.models && data.models.length > 0 && !selectedModel) {
-        setSelectedModel(data.models[0]);
-      }
-      setError(null);
-      
-      // Only load chat sessions if models loaded successfully
-      loadChatSessions();
+      setMessages(data.messages || []);
     } catch (err: any) {
-      console.error("Error loading chat models:", err);
+      console.error("Error loading chat session:", err);
       setError(err.message);
-      setSessions([]);
+      setMessages([]);
     }
-  };
+  }, [getAuthHeaders]);
 
-  const loadChatSessions = async () => {
+  const loadChatSessions = useCallback(async () => {
     try {
       const response = await fetch(`/api/v1/chat/transcriptions/${transcriptionId}/sessions`, {
         headers: getAuthHeaders(),
@@ -166,28 +144,52 @@ export function ChatInterface({ transcriptionId, activeSessionId, onSessionChang
       }
       setSessions([]);
     }
-  };
+  }, [transcriptionId, getAuthHeaders, activeSessionId, activeSession, onSessionChange]);
 
-  const loadChatSession = async (sessionId: string) => {
+  // Respond to external sessionId changes (via router) - optimize to avoid unnecessary re-runs
+  useEffect(() => {
+    if (!activeSessionId) return;
+    if (activeSession?.id === activeSessionId) return;
+
+    const found = sessions.find(s => s.id === activeSessionId);
+    if (found) {
+      setActiveSession(found);
+      loadChatSession(found.id);
+    } else {
+      // Fallback: load the session directly and refresh sessions list
+      setActiveSession(null);
+      setMessages([]);
+      loadChatSession(activeSessionId);
+      loadChatSessions();
+    }
+  }, [activeSessionId, activeSession?.id]);
+
+  const loadChatModels = async () => {
     try {
-      setMessages([])
-      const response = await fetch(`/api/v1/chat/sessions/${sessionId}`, {
+      const response = await fetch("/api/v1/chat/models", {
         headers: getAuthHeaders(),
       });
       
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to load chat session");
+        throw new Error(errorData.error || "Failed to load models");
       }
       
       const data = await response.json();
-      setMessages(data.messages || []);
+      if (data.models && data.models.length > 0 && !selectedModel) {
+        setSelectedModel(data.models[0]);
+      }
+      setError(null);
+      
+      // Only load chat sessions if models loaded successfully
+      loadChatSessions();
     } catch (err: any) {
-      console.error("Error loading chat session:", err);
+      console.error("Error loading chat models:", err);
       setError(err.message);
-      setMessages([]);
+      setSessions([]);
     }
   };
+
 
   const sendMessage = async () => {
     if (!activeSession || !inputMessage.trim() || isLoading) return;
@@ -236,7 +238,13 @@ export function ChatInterface({ transcriptionId, activeSessionId, onSessionChang
         content: "",
         created_at: new Date().toISOString(),
       };
-      setMessages(prev => [...prev, assistantMessage]);
+      
+      // Use ref to track assistant message index to avoid recreating array
+      let assistantMessageIndex = -1;
+      setMessages(prev => {
+        assistantMessageIndex = prev.length;
+        return [...prev, assistantMessage];
+      });
 
       while (true) {
         const { done, value } = await reader.read();
@@ -245,9 +253,14 @@ export function ChatInterface({ transcriptionId, activeSessionId, onSessionChang
         const chunk = new TextDecoder().decode(value);
         assistantContent += chunk;
         
-        setMessages(prev => prev.map((msg, index) => 
-          index === prev.length - 1 ? { ...msg, content: assistantContent } : msg
-        ));
+        // Optimize by only updating the specific message index instead of mapping entire array
+        setMessages(prev => {
+          const newMessages = [...prev];
+          if (assistantMessageIndex >= 0 && assistantMessageIndex < newMessages.length) {
+            newMessages[assistantMessageIndex] = { ...newMessages[assistantMessageIndex], content: assistantContent };
+          }
+          return newMessages;
+        });
       }
 
       // Store the complete response before any potential session updates
@@ -543,4 +556,4 @@ export function ChatInterface({ transcriptionId, activeSessionId, onSessionChang
       )}
     </div>
   );
-}
+});

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, memo } from "react";
 import { createPortal } from "react-dom";
 import { ArrowLeft, Play, Pause, List, AlignLeft, MessageCircle, Download, FileText, FileJson, FileImage, Check, StickyNote, Plus, X, Sparkles, Pencil, ChevronUp, ChevronDown, Info, Clock, Settings, Users } from "lucide-react";
 import WaveSurfer from "wavesurfer.js";
@@ -74,7 +74,7 @@ interface AudioDetailViewProps {
 	audioId: string;
 }
 
-export function AudioDetailView({ audioId }: AudioDetailViewProps) {
+export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioDetailViewProps) {
 	const { navigate } = useRouter();
 	const { theme } = useTheme();
 	const { getAuthHeaders } = useAuth();
@@ -2270,4 +2270,4 @@ useEffect(() => {
 				</div>
 		</div>
 	);
-}
+});
