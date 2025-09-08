@@ -59,21 +59,17 @@ export function AudioRecorder({
 
 		const initializeWaveSurfer = () => {
 			if (!micContainerRef.current) {
-				console.log("Container ref not ready");
 				return;
 			}
 
 			// Destroy previous instance
 			if (wavesurfer) {
-				console.log("Destroying previous instance");
 				wavesurfer.destroy();
 				setWavesurfer(null);
 				setRecord(null);
 			}
 
 			try {
-				console.log("Creating WaveSurfer instance...");
-				console.log("Container element:", micContainerRef.current);
 
 				// Create new WaveSurfer instance
 				const ws = WaveSurfer.create({
@@ -85,19 +81,13 @@ export function AudioRecorder({
 					interact: false,
 				});
 
-				console.log("WaveSurfer created successfully:", ws);
 
 				// Set WaveSurfer first
 				setWavesurfer(ws);
 
-				// Wait for wavesurfer to be ready before adding record plugin
-				ws.on("ready", () => {
-					console.log("WaveSurfer ready event fired");
-				});
 
 				// Initialize Record plugin in a separate try-catch
 				try {
-					console.log("Creating RecordPlugin...");
 					const recordPlugin = ws.registerPlugin(
 						RecordPlugin.create({
 							renderRecordedAudio: false,
@@ -107,11 +97,9 @@ export function AudioRecorder({
 						}),
 					);
 
-					console.log("RecordPlugin created successfully:", recordPlugin);
 
 					// Handle recording end and progress events
 					recordPlugin.on("record-end", (blob: Blob) => {
-						console.log("Recording ended, blob:", blob);
 						setRecordedBlob(blob);
 						setIsRecording(false);
 						setIsPaused(false);
@@ -123,7 +111,6 @@ export function AudioRecorder({
 					});
 
 					setRecord(recordPlugin);
-					console.log("WaveSurfer and RecordPlugin initialized successfully");
 				} catch (recordError) {
 					console.error("Failed to create RecordPlugin:", recordError);
 					// At least WaveSurfer is working, so we can show that
@@ -178,9 +165,6 @@ export function AudioRecorder({
 
 		const handleVisibilityChange = () => {
 			// Continue recording even when tab is not visible
-			if (document.hidden && isRecording) {
-				console.log("Tab hidden but recording continues in background");
-			}
 		};
 
 		if (isRecording) {
@@ -208,13 +192,11 @@ export function AudioRecorder({
 		}
 
 		try {
-			console.log("Starting recording with device:", selectedDevice);
 			await record.startRecording({ deviceId: selectedDevice });
 			setIsRecording(true);
 			setIsPaused(false);
 			setRecordingTime(0);
 			setRecordedBlob(null);
-			console.log("Recording started successfully");
 		} catch (error) {
 			console.error("Failed to start recording:", error);
 			alert(
