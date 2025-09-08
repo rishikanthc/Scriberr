@@ -35,12 +35,12 @@ export function Settings() {
         if (cfg && cfg.is_active) {
           setLlmConfigured(true);
         }
-      } catch (e) {
+      } catch {
         setLlmConfigured(false);
       }
     };
     fetchLLM();
-  }, []);
+  }, [activeTab, getAuthHeaders]);
 
 
 	// Dummy function for file select (Settings page doesn't upload files)
