@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useCallback } from "react";
+import { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from "react";
 import type { ReactNode } from "react";
 
 interface AuthContextType {
@@ -21,11 +21,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
 	const [token, setToken] = useState<string | null>(null);
 	const [isInitialized, setIsInitialized] = useState(false);
 	const [requiresRegistration, setRequiresRegistration] = useState(false);
+	
+	// Use refs to avoid re-creating intervals on every render
+	const tokenCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
+	const fetchWrapperSetupRef = useRef(false);
 
-	// Check if token is expired
-	const isTokenExpired = useCallback((token: string): boolean => {
+	// Memoize expensive token expiry check
+	const isTokenExpired = useCallback((tokenToCheck: string): boolean => {
 		try {
-			const payload = JSON.parse(atob(token.split(".")[1]));
+			const payload = JSON.parse(atob(tokenToCheck.split(".")[1]));
 			const currentTime = Date.now() / 1000;
 			// Check if token will expire in the next 5 minutes
 			return payload.exp && payload.exp <= (currentTime + 300);
@@ -102,103 +106,111 @@ export function AuthProvider({ children }: AuthProviderProps) {
 		initializeAuth();
   }, [isTokenExpired]);
 
-  // Setup auto-logout when token expires
-  useEffect(() => {
-		if (!token) return;
-
-		const checkTokenExpiry = () => {
-			if (isTokenExpired(token)) {
-				console.log("Token expired, logging out...");
-				logout();
-			}
-		};
-
-		// Check token expiry every minute
-		const interval = setInterval(checkTokenExpiry, 60000);
-		
-		// Cleanup interval on unmount or token change
-		return () => clearInterval(interval);
-  }, [token, isTokenExpired, logout]);
-
-  // Helper: attempt to refresh JWT via cookie refresh token
-  const tryRefresh = useCallback(async (): Promise<string | null> => {
-    try {
-      const res = await fetch('/api/v1/auth/refresh', { method: 'POST' })
-      if (!res.ok) return null
-      const data = await res.json()
-      if (data?.token) {
-        login(data.token)
-        return data.token as string
-      }
-      return null
-    } catch {
-      return null
-    }
-  }, [])
-
-  // Globally intercept 401s: try refresh once, then retry original, else logout
-  useEffect(() => {
-    const originalFetch = window.fetch.bind(window);
-
-    const wrappedFetch: typeof window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
-      try {
-        let res = await originalFetch(input, init);
-        if (res.status === 401) {
-          // Try silent refresh once
-          const newToken = await tryRefresh()
-          if (newToken) {
-            // Retry original request with updated Authorization header if provided
-            const newInit: RequestInit | undefined = init ? { ...init } : undefined
-            if (newInit?.headers && typeof newInit.headers === 'object') {
-              (newInit.headers as any)['Authorization'] = `Bearer ${newToken}`
-            }
-            res = await originalFetch(input, newInit)
-            if (res.status !== 401) return res
-          }
-          // Still unauthorized: force logout
-          logout()
-        }
-        return res;
-      } catch (err) {
-        // Network or other errors just propagate
-        throw err;
-      }
-    };
-
-    window.fetch = wrappedFetch as any;
-    return () => {
-      window.fetch = originalFetch;
-    };
-  }, [logout, tryRefresh]);
-
-  // Proactive refresh shortly before expiry
-  useEffect(() => {
-    if (!token) return
-    const id = setInterval(async () => {
-      if (token && isTokenExpired(token)) {
-        const ok = await tryRefresh()
-        if (!ok) {
-          logout()
-        }
-      }
-    }, 60_000)
-    return () => clearInterval(id)
-  }, [token, isTokenExpired, tryRefresh, logout])
-
-	const login = (newToken: string) => {
+	const login = useCallback((newToken: string) => {
 		setToken(newToken);
 		localStorage.setItem("scriberr_auth_token", newToken);
 		setRequiresRegistration(false); // Clear registration requirement after successful login/registration
-	};
+	}, []);
 
-	const getAuthHeaders = () => {
+	// Helper: attempt to refresh JWT via cookie refresh token
+	const tryRefresh = useCallback(async (): Promise<string | null> => {
+		try {
+			const res = await fetch('/api/v1/auth/refresh', { method: 'POST' })
+			if (!res.ok) return null
+			const data = await res.json()
+			if (data?.token) {
+				login(data.token)
+				return data.token as string
+			}
+			return null
+		} catch {
+			return null
+		}
+	}, [login])
+
+	// Consolidated token management: setup fetch wrapper once and handle token expiry
+	useEffect(() => {
+		// Setup fetch wrapper only once
+		if (!fetchWrapperSetupRef.current) {
+			const originalFetch = window.fetch.bind(window);
+
+			const wrappedFetch: typeof window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+				try {
+					let res = await originalFetch(input, init);
+					if (res.status === 401) {
+						// Try silent refresh once
+						const newToken = await tryRefresh()
+						if (newToken) {
+							// Retry original request with updated Authorization header if provided
+							const newInit: RequestInit | undefined = init ? { ...init } : undefined
+							if (newInit?.headers && typeof newInit.headers === 'object') {
+								(newInit.headers as any)['Authorization'] = `Bearer ${newToken}`
+							}
+							res = await originalFetch(input, newInit)
+							if (res.status !== 401) return res
+						}
+						// Still unauthorized: force logout
+						logout()
+					}
+					return res;
+				} catch (err) {
+					// Network or other errors just propagate
+					throw err;
+				}
+			};
+
+			window.fetch = wrappedFetch as any;
+			fetchWrapperSetupRef.current = true;
+			
+			// Cleanup function stored in ref for unmount
+			return () => {
+				window.fetch = originalFetch;
+			};
+		}
+
+		// Clear any existing token check interval
+		if (tokenCheckIntervalRef.current) {
+			clearInterval(tokenCheckIntervalRef.current);
+		}
+
+		// Setup token expiry checking if we have a token
+		if (token) {
+			const checkTokenExpiry = async () => {
+				if (!token) return;
+				
+				if (isTokenExpired(token)) {
+					console.log("Token expired, attempting refresh...");
+					const newToken = await tryRefresh();
+					if (!newToken) {
+						console.log("Refresh failed, logging out...");
+						logout();
+					}
+				}
+			};
+
+			// Check token expiry every minute
+			tokenCheckIntervalRef.current = setInterval(checkTokenExpiry, 60000);
+			
+			// Also check immediately if token is already expired
+			checkTokenExpiry();
+		}
+
+		return () => {
+			if (tokenCheckIntervalRef.current) {
+				clearInterval(tokenCheckIntervalRef.current);
+			}
+		};
+	}, [token, isTokenExpired, logout, tryRefresh])
+
+	const getAuthHeaders = useCallback(() => {
 		if (token) {
 			return { Authorization: `Bearer ${token}` };
 		}
 		return {};
-	};
+	}, [token]);
 
-	const value = {
+	// Memoize context value to prevent unnecessary re-renders
+	const value = useMemo(() => ({
 		token,
 		isAuthenticated: !!token && isInitialized,
 		requiresRegistration,
@@ -206,7 +218,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 		login,
 		logout,
 		getAuthHeaders,
-	};
+	}), [token, isInitialized, requiresRegistration, login, logout, getAuthHeaders]);
 
 
 	return (

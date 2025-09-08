@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, memo, useRef } from "react";
 import {
     CheckCircle,
     Clock,
@@ -145,7 +145,7 @@ interface PaginationResponse {
 }
 
 
-export function AudioFilesTable({
+export const AudioFilesTable = memo(function AudioFilesTable({
 	refreshTrigger,
 	onTranscribe,
 }: AudioFilesTableProps) {
@@ -426,20 +426,38 @@ export function AudioFilesTable({
 		}
 	}, [globalFilter]);
 
-	// Poll for status updates every 3 seconds for active jobs
+	// Smart polling: only poll when there are active jobs and increase interval when idle
+	const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+	
 	useEffect(() => {
 		const activeJobs = data.filter(
 			(job) => job.status === "pending" || job.status === "processing",
 		);
 
-		if (activeJobs.length === 0) return;
+		// Clear any existing polling interval
+		if (pollingIntervalRef.current) {
+			clearInterval(pollingIntervalRef.current);
+			pollingIntervalRef.current = null;
+		}
 
-		const interval = setInterval(() => {
-			// Keep current pagination when polling
-			fetchAudioFiles();
-		}, 3000);
+		// Only poll if there are active jobs
+		if (activeJobs.length > 0) {
+			// Use shorter interval for processing jobs, longer for pending jobs
+			const hasProcessingJobs = activeJobs.some(job => job.status === "processing");
+			const pollingInterval = hasProcessingJobs ? 2000 : 5000; // 2s for processing, 5s for pending
+			
+			pollingIntervalRef.current = setInterval(() => {
+				// Keep current pagination when polling, but don't show loading indicators
+				fetchAudioFiles(undefined, undefined, undefined, false);
+			}, pollingInterval);
+		}
 
-		return () => clearInterval(interval);
+		return () => {
+			if (pollingIntervalRef.current) {
+				clearInterval(pollingIntervalRef.current);
+				pollingIntervalRef.current = null;
+			}
+		};
 	}, [data, fetchAudioFiles]);
 
 	const getStatusIcon = useCallback((file: AudioFile) => {
@@ -542,7 +560,7 @@ export function AudioFilesTable({
 		navigate({ path: 'audio-detail', params: { id: audioId } });
 	}, [navigate]);
 
-	// Define table columns
+	// Memoize column definitions to prevent recreation on every render
 	const columns = useMemo<ColumnDef<AudioFile>[]>(
 		() => [
 			{
@@ -1036,4 +1054,4 @@ export function AudioFilesTable({
 			/>
 		</div>
 	);
-}
+});

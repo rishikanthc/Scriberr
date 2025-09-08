@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, memo } from "react";
 import {
   Dialog,
   DialogContent,
@@ -336,7 +336,7 @@ const CANARY_LANGUAGES = [
   { value: "uk", label: "Ukrainian" },
 ];
 
-export function TranscriptionConfigDialog({
+export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog({
   open,
   onOpenChange,
   onStartTranscription,
@@ -1661,4 +1661,4 @@ export function TranscriptionConfigDialog({
       </DialogContent>
     </Dialog>
   );
-}
+});
