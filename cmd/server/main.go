@@ -17,6 +17,7 @@ import (
 	"scriberr/internal/database"
 	"scriberr/internal/queue"
 	"scriberr/internal/transcription"
+	"scriberr/pkg/logger"
 
 	_ "scriberr/api-docs" // Import generated Swagger docs
 
@@ -68,6 +69,10 @@ func main() {
 
 	// Load configuration
 	cfg := config.Load()
+
+	// Initialize structured logging
+	logger.Init(os.Getenv("LOG_LEVEL"))
+	logger.Info("Starting Scriberr", "version", version, "commit", commit)
 
 	// Initialize database
 	if err := database.Initialize(cfg.DatabasePath); err != nil {

@@ -15,6 +15,9 @@ func SetupRoutes(handler *Handler, authService *auth.AuthService) *gin.Engine {
 	// Create Gin router
 	router := gin.Default()
 
+	// Add compression middleware first for maximum benefit
+	router.Use(middleware.CompressionMiddleware())
+
 	// Add CORS middleware
 	router.Use(func(c *gin.Context) {
 		c.Header("Access-Control-Allow-Origin", "*")
@@ -71,15 +74,22 @@ func SetupRoutes(handler *Handler, authService *auth.AuthService) *gin.Engine {
 		transcription := v1.Group("/transcription")
 		transcription.Use(middleware.AuthMiddleware(authService))
 		{
-			transcription.POST("/upload", handler.UploadAudio)
-			transcription.POST("/upload-video", handler.UploadVideo)
+			// File upload routes - disable compression for these
+			uploadRoutes := transcription.Group("")
+			uploadRoutes.Use(middleware.NoCompressionMiddleware())
+			{
+				uploadRoutes.POST("/upload", handler.UploadAudio)
+				uploadRoutes.POST("/upload-video", handler.UploadVideo)
+				uploadRoutes.GET("/:id/audio", handler.GetAudioFile) // Audio streaming shouldn't be compressed
+			}
+			
+			// Regular API routes with compression
 			transcription.POST("/youtube", handler.DownloadFromYouTube)
 			transcription.POST("/submit", handler.SubmitJob)
 			transcription.POST("/:id/start", handler.StartTranscription)
 			transcription.POST("/:id/kill", handler.KillJob)
 			transcription.GET("/:id/status", handler.GetJobStatus)
 			transcription.GET("/:id/transcript", handler.GetTranscript)
-			transcription.GET("/:id/audio", handler.GetAudioFile)
 			transcription.GET("/:id/execution", handler.GetJobExecutionData)
 			transcription.PUT("/:id/title", handler.UpdateTranscriptionTitle)
 			transcription.GET("/:id/summary", handler.GetSummaryForTranscription)

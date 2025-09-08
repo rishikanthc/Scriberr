@@ -1,8 +1,10 @@
 package database
 
 import (
+	"database/sql"
 	"fmt"
 	"os"
+	"time"
 
 	"scriberr/internal/models"
 
@@ -14,7 +16,7 @@ import (
 // DB is the global database instance
 var DB *gorm.DB
 
-// Initialize initializes the database connection
+// Initialize initializes the database connection with optimized settings
 func Initialize(dbPath string) error {
 	var err error
 
@@ -23,13 +25,37 @@ func Initialize(dbPath string) error {
 		return fmt.Errorf("failed to create data directory: %v", err)
 	}
 
-	// Open database connection
-	DB, err = gorm.Open(sqlite.Open(dbPath), &gorm.Config{
-		Logger: logger.Default.LogMode(logger.Info),
+	// SQLite connection string with performance optimizations
+	dsn := fmt.Sprintf("%s?"+
+		"_pragma=foreign_keys(1)&"+          // Enable foreign keys
+		"_pragma=journal_mode(WAL)&"+        // Use WAL mode for better concurrency
+		"_pragma=synchronous(NORMAL)&"+      // Balance between safety and performance
+		"_pragma=cache_size(-64000)&"+       // 64MB cache size
+		"_pragma=temp_store(MEMORY)&"+       // Store temp tables in memory
+		"_pragma=mmap_size(268435456)&"+     // 256MB mmap size
+		"_timeout=30000",                     // 30 second timeout
+		dbPath)
+
+	// Open database connection with optimized config
+	DB, err = gorm.Open(sqlite.Open(dsn), &gorm.Config{
+		Logger:          logger.Default.LogMode(logger.Warn), // Reduce logging overhead
+		CreateBatchSize: 100,                                 // Optimize batch inserts
 	})
 	if err != nil {
 		return fmt.Errorf("failed to connect to database: %v", err)
 	}
+
+	// Get underlying sql.DB for connection pool configuration
+	sqlDB, err := DB.DB()
+	if err != nil {
+		return fmt.Errorf("failed to get underlying sql.DB: %v", err)
+	}
+
+	// Configure connection pool for optimal performance
+	sqlDB.SetMaxOpenConns(10)                // SQLite generally works well with lower connection counts
+	sqlDB.SetMaxIdleConns(5)                 // Keep some connections idle
+	sqlDB.SetConnMaxLifetime(30 * time.Minute) // Reset connections every 30 minutes
+	sqlDB.SetConnMaxIdleTime(5 * time.Minute)  // Close idle connections after 5 minutes
 
 	// Auto migrate the schema
 	if err := DB.AutoMigrate(
@@ -59,7 +85,7 @@ func Initialize(dbPath string) error {
 	return nil
 }
 
-// Close closes the database connection
+// Close closes the database connection gracefully
 func Close() error {
 	if DB == nil {
 		return nil
@@ -71,4 +97,37 @@ func Close() error {
 	err = sqlDB.Close()
 	DB = nil // Set to nil after closing
 	return err
+}
+
+// HealthCheck performs a health check on the database connection
+func HealthCheck() error {
+	if DB == nil {
+		return fmt.Errorf("database connection is nil")
+	}
+	
+	sqlDB, err := DB.DB()
+	if err != nil {
+		return fmt.Errorf("failed to get underlying sql.DB: %v", err)
+	}
+	
+	// Test the connection with a ping
+	if err := sqlDB.Ping(); err != nil {
+		return fmt.Errorf("database ping failed: %v", err)
+	}
+	
+	return nil
+}
+
+// GetConnectionStats returns database connection pool statistics
+func GetConnectionStats() sql.DBStats {
+	if DB == nil {
+		return sql.DBStats{}
+	}
+	
+	sqlDB, err := DB.DB()
+	if err != nil {
+		return sql.DBStats{}
+	}
+	
+	return sqlDB.Stats()
 }

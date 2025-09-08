@@ -222,25 +222,55 @@ func (h *Handler) GetChatSessions(c *gin.Context) {
 		return
 	}
 
+	// Extract session IDs for batch queries
+	sessionIDs := make([]string, len(sessions))
+	for i, session := range sessions {
+		sessionIDs[i] = session.ID
+	}
+
+	// Batch query for message counts - eliminates N+1 problem
+	type MessageCount struct {
+		SessionID string `json:"session_id"`
+		Count     int64  `json:"count"`
+	}
+	var messageCounts []MessageCount
+	database.DB.Model(&models.ChatMessage{}).
+		Select("chat_session_id as session_id, COUNT(*) as count").
+		Where("chat_session_id IN ?", sessionIDs).
+		Group("chat_session_id").
+		Scan(&messageCounts)
+
+	// Create message count lookup map
+	messageCountMap := make(map[string]int64)
+	for _, mc := range messageCounts {
+		messageCountMap[mc.SessionID] = mc.Count
+	}
+
+	// Batch query for last messages - eliminates N+1 problem
+	var lastMessages []models.ChatMessage
+	database.DB.Where(`id IN (
+		SELECT id FROM chat_messages cm1
+		WHERE cm1.chat_session_id IN ? 
+		AND cm1.created_at = (
+			SELECT MAX(cm2.created_at) 
+			FROM chat_messages cm2 
+			WHERE cm2.chat_session_id = cm1.chat_session_id
+		)
+	)`, sessionIDs).Find(&lastMessages)
+
+	// Create last message lookup map
+	lastMessageMap := make(map[string]*ChatMessageResponse)
+	for _, msg := range lastMessages {
+		lastMessageMap[msg.ChatSessionID] = &ChatMessageResponse{
+			ID:        msg.ID,
+			Role:      msg.Role,
+			Content:   msg.Content,
+			CreatedAt: msg.CreatedAt,
+		}
+	}
+
 	var responses []ChatSessionResponse
 	for _, session := range sessions {
-		// Count messages
-		var messageCount int64
-		database.DB.Model(&models.ChatMessage{}).Where("chat_session_id = ?", session.ID).Count(&messageCount)
-
-		// Get last message
-		var lastMessage models.ChatMessage
-		var lastMessageResponse *ChatMessageResponse
-		if err := database.DB.Where("chat_session_id = ?", session.ID).
-			Order("created_at DESC").First(&lastMessage).Error; err == nil {
-			lastMessageResponse = &ChatMessageResponse{
-				ID:        lastMessage.ID,
-				Role:      lastMessage.Role,
-				Content:   lastMessage.Content,
-				CreatedAt: lastMessage.CreatedAt,
-			}
-		}
-
 		responses = append(responses, ChatSessionResponse{
 			ID:              session.ID,
 			TranscriptionID: session.TranscriptionID,
@@ -250,9 +280,9 @@ func (h *Handler) GetChatSessions(c *gin.Context) {
 			IsActive:        session.IsActive,
 			CreatedAt:       session.CreatedAt,
 			UpdatedAt:       session.UpdatedAt,
-			MessageCount:    session.MessageCount,
+			MessageCount:    int(messageCountMap[session.ID]), // Use batch-loaded count
 			LastActivityAt:  session.LastActivityAt,
-			LastMessage:     lastMessageResponse,
+			LastMessage:     lastMessageMap[session.ID], // Use batch-loaded last message
 		})
 	}
 
