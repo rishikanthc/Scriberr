@@ -65,6 +65,13 @@
     },
     {
       "method": "POST",
+      "path": "/api/v1/transcription/upload-video",
+      "summary": "Upload video file for transcription",
+      "description": "Upload a video file, extract audio from it using ffmpeg, and create a transcription job",
+      "tag": "transcription"
+    },
+    {
+      "method": "POST",
       "path": "/api/v1/transcription/submit",
       "summary": "Submit a transcription job",
       "description": "Submit an audio file for transcription with WhisperX",
