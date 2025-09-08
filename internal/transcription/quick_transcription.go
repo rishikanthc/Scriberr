@@ -19,25 +19,25 @@ import (
 
 // QuickTranscriptionJob represents a temporary transcription job
 type QuickTranscriptionJob struct {
-	ID          string                  `json:"id"`
-	Status      models.JobStatus        `json:"status"`
-	AudioPath   string                  `json:"audio_path"`
-	Transcript  *string                 `json:"transcript,omitempty"`
-	Parameters  models.WhisperXParams   `json:"parameters"`
-	CreatedAt   time.Time              `json:"created_at"`
-	ExpiresAt   time.Time              `json:"expires_at"`
+	ID           string                `json:"id"`
+	Status       models.JobStatus      `json:"status"`
+	AudioPath    string                `json:"audio_path"`
+	Transcript   *string               `json:"transcript,omitempty"`
+	Parameters   models.WhisperXParams `json:"parameters"`
+	CreatedAt    time.Time             `json:"created_at"`
+	ExpiresAt    time.Time             `json:"expires_at"`
 	ErrorMessage *string               `json:"error_message,omitempty"`
 }
 
 // QuickTranscriptionService handles temporary transcriptions without database persistence
 type QuickTranscriptionService struct {
-	config       *config.Config
-	whisperX     *WhisperXService
-	jobs         map[string]*QuickTranscriptionJob
-	jobsMutex    sync.RWMutex
-	tempDir      string
+	config        *config.Config
+	whisperX      *WhisperXService
+	jobs          map[string]*QuickTranscriptionJob
+	jobsMutex     sync.RWMutex
+	tempDir       string
 	cleanupTicker *time.Ticker
-	stopCleanup  chan bool
+	stopCleanup   chan bool
 }
 
 // NewQuickTranscriptionService creates a new quick transcription service
@@ -49,11 +49,11 @@ func NewQuickTranscriptionService(cfg *config.Config, whisperX *WhisperXService)
 	}
 
 	service := &QuickTranscriptionService{
-		config:       cfg,
-		whisperX:     whisperX,
-		jobs:         make(map[string]*QuickTranscriptionJob),
-		tempDir:      tempDir,
-		stopCleanup:  make(chan bool),
+		config:      cfg,
+		whisperX:    whisperX,
+		jobs:        make(map[string]*QuickTranscriptionJob),
+		tempDir:     tempDir,
+		stopCleanup: make(chan bool),
 	}
 
 	// Start cleanup routine (run every hour)
@@ -66,19 +66,19 @@ func NewQuickTranscriptionService(cfg *config.Config, whisperX *WhisperXService)
 func (qs *QuickTranscriptionService) SubmitQuickJob(audioData io.Reader, filename string, params models.WhisperXParams) (*QuickTranscriptionJob, error) {
 	// Generate unique job ID
 	jobID := uuid.New().String()
-	
+
 	// Create temporary file for audio
 	ext := filepath.Ext(filename)
 	audioFilename := fmt.Sprintf("%s%s", jobID, ext)
 	audioPath := filepath.Join(qs.tempDir, audioFilename)
-	
+
 	// Save audio file
 	audioFile, err := os.Create(audioPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create audio file: %v", err)
 	}
 	defer audioFile.Close()
-	
+
 	if _, err := io.Copy(audioFile, audioData); err != nil {
 		os.Remove(audioPath)
 		return nil, fmt.Errorf("failed to save audio file: %v", err)
@@ -110,17 +110,17 @@ func (qs *QuickTranscriptionService) SubmitQuickJob(audioData io.Reader, filenam
 func (qs *QuickTranscriptionService) GetQuickJob(jobID string) (*QuickTranscriptionJob, error) {
 	qs.jobsMutex.RLock()
 	defer qs.jobsMutex.RUnlock()
-	
+
 	job, exists := qs.jobs[jobID]
 	if !exists {
 		return nil, fmt.Errorf("job not found")
 	}
-	
+
 	// Check if expired
 	if time.Now().After(job.ExpiresAt) {
 		return nil, fmt.Errorf("job expired")
 	}
-	
+
 	return job, nil
 }
 
@@ -136,34 +136,34 @@ func (qs *QuickTranscriptionService) processQuickJob(jobID string) {
 	job.Status = models.StatusProcessing
 	qs.jobsMutex.Unlock()
 
-    // Ensure Python environment and embedded assets are ready
-    if err := qs.whisperX.ensurePythonEnv(); err != nil {
-        qs.jobsMutex.Lock()
-        if job, exists := qs.jobs[jobID]; exists {
-            job.Status = models.StatusFailed
-            msg := fmt.Sprintf("env setup failed: %v", err)
-            job.ErrorMessage = &msg
-        }
-        qs.jobsMutex.Unlock()
-        return
-    }
+	// Ensure Python environment and embedded assets are ready
+	if err := qs.whisperX.ensurePythonEnv(); err != nil {
+		qs.jobsMutex.Lock()
+		if job, exists := qs.jobs[jobID]; exists {
+			job.Status = models.StatusFailed
+			msg := fmt.Sprintf("env setup failed: %v", err)
+			job.ErrorMessage = &msg
+		}
+		qs.jobsMutex.Unlock()
+		return
+	}
 
-    // Create temporary transcription job for WhisperX processing
-    tempJob := models.TranscriptionJob{
-        ID:         jobID,
-        AudioPath:  job.AudioPath,
-        Parameters: job.Parameters,
-        Status:     models.StatusProcessing,
+	// Create temporary transcription job for WhisperX processing
+	tempJob := models.TranscriptionJob{
+		ID:         jobID,
+		AudioPath:  job.AudioPath,
+		Parameters: job.Parameters,
+		Status:     models.StatusProcessing,
 	}
 
 	// Process with WhisperX
 	ctx := context.Background()
 	err := qs.processWithWhisperX(ctx, &tempJob)
-	
+
 	// Update job with results
 	qs.jobsMutex.Lock()
 	defer qs.jobsMutex.Unlock()
-	
+
 	if job, exists := qs.jobs[jobID]; exists {
 		if err != nil {
 			job.Status = models.StatusFailed
@@ -201,9 +201,9 @@ func (qs *QuickTranscriptionService) processWithWhisperX(ctx context.Context, jo
 	// Create command with context for cancellation support
 	cmd := exec.CommandContext(ctx, "uv", args...)
 	cmd.Env = append(os.Environ(), "PYTHONUNBUFFERED=1")
-	
-    // Configure process attributes for cross-platform kill behavior
-    configureCmdSysProcAttr(cmd)
+
+	// Configure process attributes for cross-platform kill behavior
+	configureCmdSysProcAttr(cmd)
 
 	// Execute WhisperX
 	output, err := cmd.CombinedOutput()
@@ -223,7 +223,7 @@ func (qs *QuickTranscriptionService) processWithWhisperX(ctx context.Context, jo
 // saveTranscriptToTemp saves transcript to temporary file
 func (qs *QuickTranscriptionService) saveTranscriptToTemp(jobID, resultPath, outputDir string) error {
 	var resultFile string
-	
+
 	// Check if result.json exists (from diarization script)
 	if _, err := os.Stat(resultPath); err == nil {
 		resultFile = resultPath
@@ -233,14 +233,14 @@ func (qs *QuickTranscriptionService) saveTranscriptToTemp(jobID, resultPath, out
 		if err != nil {
 			return fmt.Errorf("failed to find result files: %v", err)
 		}
-		
+
 		if len(files) == 0 {
 			return fmt.Errorf("no result files found")
 		}
-		
+
 		resultFile = files[0]
 	}
-	
+
 	// Read the result file
 	data, err := os.ReadFile(resultFile)
 	if err != nil {
@@ -282,7 +282,7 @@ func (qs *QuickTranscriptionService) startCleanupRoutine() {
 func (qs *QuickTranscriptionService) cleanupExpiredJobs() {
 	qs.jobsMutex.Lock()
 	defer qs.jobsMutex.Unlock()
-	
+
 	now := time.Now()
 	for jobID, job := range qs.jobs {
 		if now.After(job.ExpiresAt) {
@@ -290,10 +290,10 @@ func (qs *QuickTranscriptionService) cleanupExpiredJobs() {
 			os.Remove(job.AudioPath)
 			os.Remove(filepath.Join(qs.tempDir, jobID+"_transcript.json"))
 			os.RemoveAll(filepath.Join(qs.tempDir, jobID+"_output"))
-			
+
 			// Remove from memory
 			delete(qs.jobs, jobID)
-			
+
 			fmt.Printf("DEBUG: Cleaned up expired quick transcription job: %s\n", jobID)
 		}
 	}
@@ -302,16 +302,16 @@ func (qs *QuickTranscriptionService) cleanupExpiredJobs() {
 // buildWhisperXArgs builds the WhisperX command arguments for quick transcription
 func (qs *QuickTranscriptionService) buildWhisperXArgs(job *models.TranscriptionJob, outputDir string) ([]string, error) {
 	p := job.Parameters
-	
+
 	// Debug: log diarization status
 	fmt.Printf("DEBUG: Quick Job ID %s, Diarize parameter: %v\n", job.ID, p.Diarize)
-	
+
 	// Use standard WhisperX command for quick transcriptions
-    args := []string{
-        "run", "--native-tls", "--project", "whisperx-env", "python", "-m", "whisperx",
-        job.AudioPath,
-        "--output_dir", outputDir,
-    }
+	args := []string{
+		"run", "--native-tls", "--project", "whisperx-env", "python", "-m", "whisperx",
+		job.AudioPath,
+		"--output_dir", outputDir,
+	}
 
 	// Core parameters
 	args = append(args, "--model", p.Model)
@@ -412,7 +412,7 @@ func (qs *QuickTranscriptionService) buildWhisperXArgs(job *models.Transcription
 
 	// Debug: log the command being executed
 	fmt.Printf("DEBUG: Quick WhisperX command: uv %v\n", args)
-	
+
 	return args, nil
 }
 

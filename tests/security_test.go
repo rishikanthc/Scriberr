@@ -26,13 +26,13 @@ import (
 
 type SecurityTestSuite struct {
 	suite.Suite
-	router                 *gin.Engine
-	config                 *config.Config
-	authService            *auth.AuthService
-	taskQueue              *queue.TaskQueue
-	whisperXService        *transcription.WhisperXService
+	router                    *gin.Engine
+	config                    *config.Config
+	authService               *auth.AuthService
+	taskQueue                 *queue.TaskQueue
+	whisperXService           *transcription.WhisperXService
 	quickTranscriptionService *transcription.QuickTranscriptionService
-	handler                *api.Handler
+	handler                   *api.Handler
 }
 
 func (suite *SecurityTestSuite) SetupSuite() {
@@ -251,9 +251,9 @@ func (suite *SecurityTestSuite) TestProfileEndpointsUnauthorized() {
 		{"POST", "/api/v1/profiles/", map[string]interface{}{
 			"name": "Test Profile",
 			"parameters": map[string]interface{}{
-				"model":       "base",
-				"batch_size":  16,
-				"device":      "auto",
+				"model":      "base",
+				"batch_size": 16,
+				"device":     "auto",
 			},
 		}},
 		{"GET", "/api/v1/profiles/123", nil},
@@ -409,15 +409,15 @@ func (suite *SecurityTestSuite) TestSummarizeEndpointUnauthorized() {
 // Test that public endpoints still work without authentication
 func (suite *SecurityTestSuite) TestPublicEndpointsAccessible() {
 	publicEndpoints := []struct {
-		method     string
-		path       string
+		method       string
+		path         string
 		allowedCodes []int // codes that are acceptable (anything except 401)
 	}{
 		{"GET", "/health", []int{200}},
 		{"GET", "/swagger/index.html", []int{200, 301, 302, 404}}, // swagger might redirect or not exist
 		{"GET", "/api/v1/auth/registration-status", []int{200}},
 		{"POST", "/api/v1/auth/register", []int{200, 400, 409}}, // 400 for validation errors, 409 for user exists
-		{"POST", "/api/v1/auth/login", []int{200, 400, 401}}, // 401 for invalid creds is OK for login endpoint
+		{"POST", "/api/v1/auth/login", []int{200, 400, 401}},    // 401 for invalid creds is OK for login endpoint
 		{"POST", "/api/v1/auth/logout", []int{200}},
 	}
 
@@ -437,7 +437,7 @@ func (suite *SecurityTestSuite) TestPublicEndpointsAccessible() {
 			}
 
 			w := suite.makeUnauthenticatedRequest(endpoint.method, endpoint.path, body)
-			
+
 			// Check if response code is in allowed codes list
 			codeAllowed := false
 			for _, allowedCode := range endpoint.allowedCodes {
@@ -446,7 +446,7 @@ func (suite *SecurityTestSuite) TestPublicEndpointsAccessible() {
 					break
 				}
 			}
-			
+
 			assert.True(t, codeAllowed, "Public endpoint %s %s returned %d, expected one of %v", endpoint.method, endpoint.path, w.Code, endpoint.allowedCodes)
 		})
 	}
@@ -455,7 +455,7 @@ func (suite *SecurityTestSuite) TestPublicEndpointsAccessible() {
 // Test with invalid/malformed authorization headers
 func (suite *SecurityTestSuite) TestMalformedAuthHeaders() {
 	testEndpoint := "/api/v1/transcription/list"
-	
+
 	malformedHeaders := []struct {
 		name   string
 		header string
@@ -472,10 +472,10 @@ func (suite *SecurityTestSuite) TestMalformedAuthHeaders() {
 		suite.T().Run(tc.name, func(t *testing.T) {
 			req, _ := http.NewRequest("GET", testEndpoint, nil)
 			req.Header.Set(tc.header, tc.value)
-			
+
 			w := httptest.NewRecorder()
 			suite.router.ServeHTTP(w, req)
-			
+
 			assert.Equal(t, 401, w.Code, "Should return 401 for malformed auth header: %s", tc.name)
 		})
 	}
@@ -484,17 +484,17 @@ func (suite *SecurityTestSuite) TestMalformedAuthHeaders() {
 // Test CORS preflight requests don't bypass authentication
 func (suite *SecurityTestSuite) TestCORSPreflightDoesNotBypassAuth() {
 	protectedEndpoint := "/api/v1/transcription/list"
-	
+
 	// OPTIONS request should return 204 (handled by CORS middleware)
 	req, _ := http.NewRequest("OPTIONS", protectedEndpoint, nil)
 	req.Header.Set("Access-Control-Request-Method", "GET")
 	req.Header.Set("Origin", "https://evil.example.com")
-	
+
 	w := httptest.NewRecorder()
 	suite.router.ServeHTTP(w, req)
-	
+
 	assert.Equal(suite.T(), 204, w.Code, "OPTIONS request should return 204")
-	
+
 	// But actual GET request should still require authentication
 	w2 := suite.makeUnauthenticatedRequest("GET", protectedEndpoint, nil)
 	assert.Equal(suite.T(), 401, w2.Code, "GET request after CORS preflight should still require authentication")
@@ -503,7 +503,7 @@ func (suite *SecurityTestSuite) TestCORSPreflightDoesNotBypassAuth() {
 // Test security headers are properly set
 func (suite *SecurityTestSuite) TestSecurityHeaders() {
 	w := suite.makeUnauthenticatedRequest("GET", "/health", nil)
-	
+
 	// Check CORS headers are present
 	assert.NotEmpty(suite.T(), w.Header().Get("Access-Control-Allow-Origin"))
 	assert.NotEmpty(suite.T(), w.Header().Get("Access-Control-Allow-Methods"))

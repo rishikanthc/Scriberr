@@ -28,13 +28,13 @@ func NewCanaryService(cfg *config.Config) *CanaryService {
 
 // CanaryResult represents the Canary output format
 type CanaryResult struct {
-	Transcription      string             `json:"transcription"`
-	WordTimestamps     []CanaryWord       `json:"word_timestamps"`
-	SegmentTimestamps  []CanarySegment    `json:"segment_timestamps"`
-	AudioFile          string             `json:"audio_file"`
-	SourceLanguage     string             `json:"source_language"`
-	TargetLanguage     string             `json:"target_language"`
-	Diarized          bool               `json:"diarized"`
+	Transcription     string          `json:"transcription"`
+	WordTimestamps    []CanaryWord    `json:"word_timestamps"`
+	SegmentTimestamps []CanarySegment `json:"segment_timestamps"`
+	AudioFile         string          `json:"audio_file"`
+	SourceLanguage    string          `json:"source_language"`
+	TargetLanguage    string          `json:"target_language"`
+	Diarized          bool            `json:"diarized"`
 }
 
 // CanaryWord represents word-level timestamps from Canary
@@ -66,7 +66,7 @@ func (cs *CanaryService) ProcessJob(ctx context.Context, jobID string) error {
 // ProcessJobWithProcess implements the enhanced JobProcessor interface
 func (cs *CanaryService) ProcessJobWithProcess(ctx context.Context, jobID string, registerProcess func(*exec.Cmd)) error {
 	startTime := time.Now()
-	
+
 	// Get the job from database
 	var job models.TranscriptionJob
 	if err := database.DB.Where("id = ?", jobID).First(&job).Error; err != nil {
@@ -78,9 +78,9 @@ func (cs *CanaryService) ProcessJobWithProcess(ctx context.Context, jobID string
 		TranscriptionJobID: jobID,
 		StartedAt:          startTime,
 		ActualParameters:   job.Parameters,
-		Status:            models.StatusProcessing,
+		Status:             models.StatusProcessing,
 	}
-	
+
 	if err := database.DB.Create(execution).Error; err != nil {
 		return fmt.Errorf("failed to create execution record: %v", err)
 	}
@@ -91,11 +91,11 @@ func (cs *CanaryService) ProcessJobWithProcess(ctx context.Context, jobID string
 		execution.CompletedAt = &completedAt
 		execution.Status = status
 		execution.CalculateProcessingDuration()
-		
+
 		if errorMsg != "" {
 			execution.ErrorMessage = &errorMsg
 		}
-		
+
 		database.DB.Save(execution)
 	}
 
@@ -129,7 +129,7 @@ func (cs *CanaryService) ProcessJobWithProcess(ctx context.Context, jobID string
 	if err != nil {
 		fmt.Printf("WARNING: Audio preprocessing failed: %v\n", err)
 		fmt.Printf("WARNING: Attempting to use original audio file directly\n")
-		
+
 		// Check if original file is in a format that Canary might accept
 		ext := strings.ToLower(filepath.Ext(job.AudioPath))
 		if ext == ".wav" || ext == ".flac" {
@@ -142,7 +142,7 @@ func (cs *CanaryService) ProcessJobWithProcess(ctx context.Context, jobID string
 			return fmt.Errorf(errMsg)
 		}
 	}
-	
+
 	// Ensure cleanup of temporary file on function exit (only if we created a temp file)
 	defer func() {
 		if preprocessedAudioPath != "" && preprocessedAudioPath != job.AudioPath {
@@ -169,10 +169,10 @@ func (cs *CanaryService) ProcessJobWithProcess(ctx context.Context, jobID string
 	// Set working directory to the nvidia project directory (shared with parakeet)
 	nvidiaPath := filepath.Join("whisperx-env", "parakeet")
 	cmd.Dir = nvidiaPath
-	
+
 	// Configure process attributes for cross-platform kill behavior
 	configureCmdSysProcAttr(cmd)
-	
+
 	// Register the process for immediate termination capability
 	registerProcess(cmd)
 
@@ -187,21 +187,21 @@ func (cs *CanaryService) ProcessJobWithProcess(ctx context.Context, jobID string
 	fmt.Printf("DEBUG: Audio file path: %s\n", job.AudioPath)
 	fmt.Printf("DEBUG: Output path: %s\n", resultPath)
 	fmt.Printf("DEBUG: Job parameters: %+v\n", job.Parameters)
-	
+
 	// Check if audio file is accessible
 	if stat, err := os.Stat(job.AudioPath); err != nil {
 		fmt.Printf("DEBUG: Audio file stat error: %v\n", err)
 	} else {
 		fmt.Printf("DEBUG: Audio file size: %d bytes\n", stat.Size())
 	}
-	
+
 	// Check if nvidia environment exists
 	if stat, err := os.Stat(nvidiaPath); err != nil {
 		fmt.Printf("DEBUG: NVIDIA env error: %v\n", err)
 	} else {
 		fmt.Printf("DEBUG: NVIDIA env exists, is dir: %v\n", stat.IsDir())
 	}
-	
+
 	// Check if transcription script exists
 	scriptPath := filepath.Join(nvidiaPath, "transcribe.py")
 	if stat, err := os.Stat(scriptPath); err != nil {
@@ -209,11 +209,11 @@ func (cs *CanaryService) ProcessJobWithProcess(ctx context.Context, jobID string
 	} else {
 		fmt.Printf("DEBUG: Transcription script size: %d bytes\n", stat.Size())
 	}
-	
+
 	output, err := cmd.CombinedOutput()
 	fmt.Printf("DEBUG: Command exit code: %v\n", err)
 	fmt.Printf("DEBUG: Command output:\n%s\n", string(output))
-	
+
 	if ctx.Err() == context.Canceled {
 		errMsg := "job was cancelled"
 		updateExecutionStatus(models.StatusFailed, errMsg)
@@ -221,12 +221,12 @@ func (cs *CanaryService) ProcessJobWithProcess(ctx context.Context, jobID string
 	}
 	if err != nil {
 		errMsg := fmt.Sprintf("Canary execution failed: %v - Output: %s", err, string(output))
-		
+
 		// Check for OOM kill (exit status 137 = SIGKILL, usually due to out of memory)
 		if strings.Contains(err.Error(), "exit status 137") {
 			errMsg = fmt.Sprintf("Canary model was killed due to insufficient memory (OOM). Exit status 137 indicates the container needs more RAM. Current recommendation: 32GB. Error: %v - Output: %s", err, string(output))
 		}
-		
+
 		updateExecutionStatus(models.StatusFailed, errMsg)
 		return fmt.Errorf(errMsg)
 	}
@@ -236,7 +236,7 @@ func (cs *CanaryService) ProcessJobWithProcess(ctx context.Context, jobID string
 	if job.Parameters.HfToken != nil {
 		fmt.Printf("DEBUG: HfToken value: %s\n", *job.Parameters.HfToken)
 	}
-	
+
 	if job.Parameters.Diarize && job.Parameters.HfToken != nil && *job.Parameters.HfToken != "" {
 		fmt.Printf("DEBUG: Running diarization for Canary job %s\n", jobID)
 		if err := cs.runDiarization(job.AudioPath, resultPath, job.Parameters); err != nil {
@@ -267,7 +267,7 @@ func (cs *CanaryService) buildCanaryArgs(audioPath, outputFile string, params *m
 	fmt.Printf("DEBUG: Current working directory: %s\n", workingDir)
 	fmt.Printf("DEBUG: Input audio path: %s\n", audioPath)
 	fmt.Printf("DEBUG: Input output file: %s\n", outputFile)
-	
+
 	// Check if input audio file exists before processing
 	if stat, err := os.Stat(audioPath); err != nil {
 		fmt.Printf("DEBUG: Audio file stat failed: %v\n", err)
@@ -275,58 +275,58 @@ func (cs *CanaryService) buildCanaryArgs(audioPath, outputFile string, params *m
 	} else {
 		fmt.Printf("DEBUG: Audio file exists, size: %d bytes\n", stat.Size())
 	}
-	
+
 	// Convert audio path to absolute path since we'll be running from canary directory
 	absAudioPath, err := filepath.Abs(audioPath)
 	if err != nil {
 		fmt.Printf("DEBUG: Failed to convert audio path to absolute: %v\n", err)
 		return nil, fmt.Errorf("failed to get absolute audio path: %v", err)
 	}
-	
+
 	// Convert output file to absolute path
 	absOutputFile, err := filepath.Abs(outputFile)
 	if err != nil {
 		fmt.Printf("DEBUG: Failed to convert output path to absolute: %v\n", err)
 		return nil, fmt.Errorf("failed to get absolute output path: %v", err)
 	}
-	
+
 	// Verify absolute paths are accessible
 	fmt.Printf("DEBUG: Absolute audio path: %s\n", absAudioPath)
 	fmt.Printf("DEBUG: Absolute output path: %s\n", absOutputFile)
-	
+
 	// Check that the absolute audio path is still accessible
 	if _, err := os.Stat(absAudioPath); err != nil {
 		fmt.Printf("DEBUG: Absolute audio path not accessible: %v\n", err)
 		return nil, fmt.Errorf("absolute audio path not accessible: %s - %v", absAudioPath, err)
 	}
-	
+
 	// Build command to run the transcription script with Canary model
 	// Since cmd.Dir is set to nvidia directory, we use "." as project path
 	args := []string{
 		"run", "--native-tls", "--project", ".", "python", "transcribe.py",
 		absAudioPath,
-		"--model", "canary",  // Specify to use Canary model
-		"--timestamps",       // Always include timestamps for consistency
+		"--model", "canary", // Specify to use Canary model
+		"--timestamps", // Always include timestamps for consistency
 		"--output", absOutputFile,
 	}
-	
+
 	// Add source language parameter
 	sourceLang := "en" // Default to English
 	if params.Language != nil && *params.Language != "" {
 		sourceLang = *params.Language
 	}
 	args = append(args, "--source-lang", sourceLang)
-	
+
 	// For now, we only support transcription (not translation)
 	// Target language same as source language for transcription
 	args = append(args, "--target-lang", sourceLang)
 
 	// Note: Diarization will be handled separately after transcription
-	
+
 	fmt.Printf("DEBUG: Canary command: uv %v\n", args)
 	fmt.Printf("DEBUG: Audio path (abs): %s\n", absAudioPath)
 	fmt.Printf("DEBUG: Output path (abs): %s\n", absOutputFile)
-	
+
 	return args, nil
 }
 
@@ -368,7 +368,7 @@ func (cs *CanaryService) parseAndSaveResult(jobID, resultPath string) error {
 				speakerLabels[segment.Speaker] = true
 			}
 		}
-		
+
 		// Create speaker mapping records
 		for speaker := range speakerLabels {
 			speakerMapping := &models.SpeakerMapping{
@@ -396,15 +396,15 @@ func (cs *CanaryService) parseAndSaveResult(jobID, resultPath string) error {
 // convertToWhisperXFormat converts Canary output to WhisperX format
 func (cs *CanaryService) convertToWhisperXFormat(canaryResult *CanaryResult) *TranscriptResult {
 	var segments []Segment
-	
+
 	// Use Canary's segment timestamps directly as they come from the model
 	if len(canaryResult.SegmentTimestamps) > 0 {
 		segments = make([]Segment, len(canaryResult.SegmentTimestamps))
 		for i, seg := range canaryResult.SegmentTimestamps {
 			segments[i] = Segment{
-				Start: seg.Start,
-				End:   seg.End,
-				Text:  strings.TrimSpace(seg.Segment),
+				Start:   seg.Start,
+				End:     seg.End,
+				Text:    strings.TrimSpace(seg.Segment),
 				Speaker: stringPtr(seg.Speaker), // Speaker information from diarization
 			}
 		}
@@ -425,10 +425,10 @@ func (cs *CanaryService) convertToWhisperXFormat(canaryResult *CanaryResult) *Tr
 	words := make([]Word, len(canaryResult.WordTimestamps))
 	for i, word := range canaryResult.WordTimestamps {
 		words[i] = Word{
-			Start: word.Start,
-			End:   word.End,
-			Word:  word.Word,
-			Score: 1.0, // Canary doesn't provide confidence scores
+			Start:   word.Start,
+			End:     word.End,
+			Word:    word.Word,
+			Score:   1.0,                     // Canary doesn't provide confidence scores
 			Speaker: stringPtr(word.Speaker), // Speaker information from diarization
 		}
 	}
@@ -461,54 +461,54 @@ func (cs *CanaryService) convertToWhisperXFormat(canaryResult *CanaryResult) *Tr
 func (cs *CanaryService) runDiarization(audioPath string, transcriptPath string, params models.WhisperXParams) error {
 	// Create temporary RTTM file path
 	rttmPath := transcriptPath + ".rttm"
-	
+
 	// Build diarization command
 	nvidiaPath := filepath.Join("whisperx-env", "parakeet")
 	absAudioPath, err := filepath.Abs(audioPath)
 	if err != nil {
 		return fmt.Errorf("failed to get absolute audio path: %v", err)
 	}
-	
+
 	// Convert RTTM path to absolute path since we're running from parakeet directory
 	absRttmPath, err := filepath.Abs(rttmPath)
 	if err != nil {
 		return fmt.Errorf("failed to get absolute RTTM path: %v", err)
 	}
-	
+
 	args := []string{
 		"run", "--native-tls", "--project", ".", "python", "diarize.py",
 		absAudioPath,
 		"--output", absRttmPath,
 	}
-	
+
 	if params.HfToken != nil && *params.HfToken != "" {
 		args = append(args, "--hf-token", *params.HfToken)
 	} else {
 		return fmt.Errorf("HuggingFace token is required for diarization")
 	}
-	
+
 	if params.MinSpeakers != nil {
 		args = append(args, "--min-speakers", fmt.Sprintf("%d", *params.MinSpeakers))
 	}
 	if params.MaxSpeakers != nil {
 		args = append(args, "--max-speakers", fmt.Sprintf("%d", *params.MaxSpeakers))
 	}
-	
+
 	fmt.Printf("DEBUG: Running diarization command: uv %v\n", args)
-	
+
 	// Execute diarization
 	cmd := exec.Command("uv", args...)
 	cmd.Dir = nvidiaPath
 	cmd.Env = append(os.Environ(), "PYTHONUNBUFFERED=1")
-	
+
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		fmt.Printf("DEBUG: Diarization failed: %v\nOutput: %s\n", err, string(output))
 		return fmt.Errorf("diarization failed: %v", err)
 	}
-	
+
 	fmt.Printf("DEBUG: Diarization completed successfully\n")
-	
+
 	// Now merge the diarization results with the transcript
 	return cs.mergeDiarizationWithTranscript(transcriptPath, rttmPath)
 }
@@ -520,38 +520,38 @@ func (cs *CanaryService) mergeDiarizationWithTranscript(transcriptPath, rttmPath
 	if err != nil {
 		return fmt.Errorf("failed to read transcript file: %v", err)
 	}
-	
+
 	var result CanaryResult
 	if err := json.Unmarshal(transcriptData, &result); err != nil {
 		return fmt.Errorf("failed to unmarshal transcript: %v", err)
 	}
-	
+
 	// Parse RTTM file
 	speakers, err := cs.parseRTTMFile(rttmPath)
 	if err != nil {
 		return fmt.Errorf("failed to parse RTTM file: %v", err)
 	}
-	
+
 	// Assign speakers to segments and words
 	cs.assignSpeakersToSegments(&result.SegmentTimestamps, speakers)
 	cs.assignSpeakersToWords(&result.WordTimestamps, speakers)
-	
+
 	// Mark as diarized
 	result.Diarized = true
-	
+
 	// Save the updated transcript
 	updatedData, err := json.Marshal(result)
 	if err != nil {
 		return fmt.Errorf("failed to marshal updated transcript: %v", err)
 	}
-	
+
 	if err := os.WriteFile(transcriptPath, updatedData, 0644); err != nil {
 		return fmt.Errorf("failed to save updated transcript: %v", err)
 	}
-	
+
 	// Clean up RTTM file
 	os.Remove(rttmPath)
-	
+
 	return nil
 }
 
@@ -561,36 +561,36 @@ func (cs *CanaryService) parseRTTMFile(rttmPath string) ([]CanarySpeakerSegment,
 	if err != nil {
 		return nil, err
 	}
-	
+
 	var speakers []CanarySpeakerSegment
 	lines := strings.Split(string(data), "\n")
-	
+
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
 		if !strings.HasPrefix(line, "SPEAKER") {
 			continue
 		}
-		
+
 		parts := strings.Fields(line)
 		if len(parts) < 8 {
 			continue
 		}
-		
+
 		start, err1 := strconv.ParseFloat(parts[3], 64)
 		duration, err2 := strconv.ParseFloat(parts[4], 64)
 		speaker := parts[7]
-		
+
 		if err1 != nil || err2 != nil {
 			continue
 		}
-		
+
 		speakers = append(speakers, CanarySpeakerSegment{
 			Start:   start,
 			End:     start + duration,
 			Speaker: speaker,
 		})
 	}
-	
+
 	return speakers, nil
 }
 
@@ -623,11 +623,11 @@ func (cs *CanaryService) assignSpeakersToWords(words *[]CanaryWord, speakers []C
 func (cs *CanaryService) findBestSpeaker(start, end float64, speakers []CanarySpeakerSegment) string {
 	maxOverlap := 0.0
 	bestSpeaker := "SPEAKER_00" // Default speaker
-	
+
 	for _, speaker := range speakers {
 		overlapStart := math.Max(start, speaker.Start)
 		overlapEnd := math.Min(end, speaker.End)
-		
+
 		if overlapStart < overlapEnd {
 			overlap := overlapEnd - overlapStart
 			if overlap > maxOverlap {
@@ -636,7 +636,7 @@ func (cs *CanaryService) findBestSpeaker(start, end float64, speakers []CanarySp
 			}
 		}
 	}
-	
+
 	return bestSpeaker
 }
 
@@ -648,7 +648,7 @@ func (cs *CanaryService) preprocessAudioForCanary(inputPath, outputDir string) (
 	fmt.Printf("DEBUG: Current working directory: %s\n", workingDir)
 	fmt.Printf("DEBUG: Input path: %s\n", inputPath)
 	fmt.Printf("DEBUG: Output directory: %s\n", outputDir)
-	
+
 	// Verify input file exists and is accessible
 	if stat, err := os.Stat(inputPath); err != nil {
 		fmt.Printf("DEBUG: Input file not accessible: %v\n", err)
@@ -656,7 +656,7 @@ func (cs *CanaryService) preprocessAudioForCanary(inputPath, outputDir string) (
 	} else {
 		fmt.Printf("DEBUG: Input file exists, size: %d bytes, mode: %s\n", stat.Size(), stat.Mode())
 	}
-	
+
 	// Verify output directory exists and is writable
 	if stat, err := os.Stat(outputDir); err != nil {
 		fmt.Printf("DEBUG: Output directory not accessible: %v\n", err)
@@ -664,15 +664,15 @@ func (cs *CanaryService) preprocessAudioForCanary(inputPath, outputDir string) (
 	} else {
 		fmt.Printf("DEBUG: Output directory exists, mode: %s\n", stat.Mode())
 	}
-	
+
 	// Generate a unique temporary filename in the output directory
 	baseName := filepath.Base(inputPath)
 	nameWithoutExt := strings.TrimSuffix(baseName, filepath.Ext(baseName))
 	tempFileName := fmt.Sprintf("%s_canary_temp.wav", nameWithoutExt)
 	tempPath := filepath.Join(outputDir, tempFileName)
-	
+
 	fmt.Printf("DEBUG: Temp file path: %s\n", tempPath)
-	
+
 	// Test if we can create a file in the output directory
 	testFile := filepath.Join(outputDir, "test_write.tmp")
 	if file, err := os.Create(testFile); err != nil {
@@ -683,7 +683,7 @@ func (cs *CanaryService) preprocessAudioForCanary(inputPath, outputDir string) (
 		os.Remove(testFile)
 		fmt.Printf("DEBUG: Output directory is writable\n")
 	}
-	
+
 	// Check ffmpeg availability
 	if _, err := exec.LookPath("ffmpeg"); err != nil {
 		fmt.Printf("DEBUG: ffmpeg not found in PATH: %v\n", err)
@@ -691,35 +691,35 @@ func (cs *CanaryService) preprocessAudioForCanary(inputPath, outputDir string) (
 	} else {
 		fmt.Printf("DEBUG: ffmpeg found in PATH\n")
 	}
-	
+
 	// Build ffmpeg command: ffmpeg -i input.mp3 -ar 16000 -ac 1 -c:a pcm_s16le output.wav
-	cmd := exec.Command("ffmpeg", 
-		"-i", inputPath,           // Input file
-		"-ar", "16000",            // Sample rate 16kHz
-		"-ac", "1",                // Mono (1 channel)
-		"-c:a", "pcm_s16le",       // PCM 16-bit little-endian codec
-		"-y",                      // Overwrite output file if it exists
-		tempPath,                  // Output file
+	cmd := exec.Command("ffmpeg",
+		"-i", inputPath, // Input file
+		"-ar", "16000", // Sample rate 16kHz
+		"-ac", "1", // Mono (1 channel)
+		"-c:a", "pcm_s16le", // PCM 16-bit little-endian codec
+		"-y",     // Overwrite output file if it exists
+		tempPath, // Output file
 	)
-	
+
 	fmt.Printf("DEBUG: ffmpeg command: %v\n", cmd.Args)
-	
+
 	// Capture ffmpeg output for debugging
 	output, err := cmd.CombinedOutput()
 	fmt.Printf("DEBUG: ffmpeg exit code: %v\n", err)
 	fmt.Printf("DEBUG: ffmpeg output:\n%s\n", string(output))
-	
+
 	if err != nil {
 		return "", fmt.Errorf("ffmpeg preprocessing failed: %v - %s", err, string(output))
 	}
-	
+
 	// Verify the output file was created
 	if stat, err := os.Stat(tempPath); err != nil {
 		return "", fmt.Errorf("preprocessed audio file not created: %v", err)
 	} else {
 		fmt.Printf("DEBUG: Preprocessed audio created successfully (size: %d bytes)\n", stat.Size())
 	}
-	
+
 	return tempPath, nil
 }
 
@@ -732,16 +732,16 @@ func (cs *CanaryService) checkMemoryAvailability() error {
 		fmt.Printf("DEBUG: Cannot read memory info: %v\n", err)
 		return nil
 	}
-	
+
 	lines := strings.Split(string(data), "\n")
 	var memTotal, memAvailable int64
-	
+
 	for _, line := range lines {
 		fields := strings.Fields(line)
 		if len(fields) < 2 {
 			continue
 		}
-		
+
 		switch fields[0] {
 		case "MemTotal:":
 			if val, err := strconv.ParseInt(fields[1], 10, 64); err == nil {
@@ -753,23 +753,23 @@ func (cs *CanaryService) checkMemoryAvailability() error {
 			}
 		}
 	}
-	
+
 	// Convert to GB for logging
 	totalGB := float64(memTotal) / (1024 * 1024 * 1024)
 	availableGB := float64(memAvailable) / (1024 * 1024 * 1024)
-	
+
 	fmt.Printf("DEBUG: System memory - Total: %.1fGB, Available: %.1fGB\n", totalGB, availableGB)
-	
+
 	// Canary model requires approximately 8-12GB of RAM
 	const requiredGB = 8.0
-	
+
 	if availableGB < requiredGB {
 		return fmt.Errorf("insufficient memory for Canary model: %.1fGB available, %vGB recommended (model size: 6.3GB + overhead)", availableGB, requiredGB)
 	}
-	
+
 	if availableGB < requiredGB*1.5 {
 		fmt.Printf("WARNING: Low available memory (%.1fGB) for Canary model. Consider increasing Docker memory allocation.\n", availableGB)
 	}
-	
+
 	return nil
 }

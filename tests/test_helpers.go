@@ -45,7 +45,7 @@ func NewTestHelper(t *testing.T, dbName string) *TestHelper {
 	if err := database.Initialize(cfg.DatabasePath); err != nil {
 		t.Fatal("Failed to initialize test database:", err)
 	}
-	
+
 	// Store the database instance in our helper
 	testDB := database.DB
 
@@ -89,7 +89,7 @@ func (h *TestHelper) createTestCredentials(t *testing.T) {
 		Username: "testuser",
 		Password: hashedPassword,
 	}
-	
+
 	result := h.DB.Create(&user)
 	assert.NoError(t, result.Error)
 	h.TestUser = &user
@@ -105,7 +105,7 @@ func (h *TestHelper) createTestCredentials(t *testing.T) {
 		Name:     "Test API Key for " + strings.ReplaceAll(t.Name(), "/", "_"),
 		IsActive: true,
 	}
-	
+
 	result = h.DB.Create(&apiKey)
 	assert.NoError(t, result.Error)
 	h.TestAPIKey = apiKey.Key
@@ -113,19 +113,19 @@ func (h *TestHelper) createTestCredentials(t *testing.T) {
 
 // CreateTestTranscriptionJob creates a test transcription job
 func (h *TestHelper) CreateTestTranscriptionJob(t *testing.T, title string) *models.TranscriptionJob {
-    // Let GORM assign a unique UUID via model hook to avoid ID collisions
-    job := &models.TranscriptionJob{
-        Title:     &title,
-        Status:    models.StatusPending,
-        AudioPath: "test/path/audio.mp3",
-        Parameters: models.WhisperXParams{
-            Model:       "base",
-            BatchSize:   16,
-            ComputeType: "float16",
-            Device:      "auto",
-        },
-    }
-	
+	// Let GORM assign a unique UUID via model hook to avoid ID collisions
+	job := &models.TranscriptionJob{
+		Title:     &title,
+		Status:    models.StatusPending,
+		AudioPath: "test/path/audio.mp3",
+		Parameters: models.WhisperXParams{
+			Model:       "base",
+			BatchSize:   16,
+			ComputeType: "float16",
+			Device:      "auto",
+		},
+	}
+
 	result := h.DB.Create(job)
 	assert.NoError(t, result.Error)
 	return job
@@ -145,7 +145,7 @@ func (h *TestHelper) CreateTestProfile(t *testing.T, name string, isDefault bool
 			Device:      "cpu",
 		},
 	}
-	
+
 	result := h.DB.Create(profile)
 	assert.NoError(t, result.Error)
 	return profile
@@ -154,16 +154,16 @@ func (h *TestHelper) CreateTestProfile(t *testing.T, name string, isDefault bool
 // CreateTestNote creates a test note for a transcription
 func (h *TestHelper) CreateTestNote(t *testing.T, transcriptionID string) *models.Note {
 	note := &models.Note{
-		ID:             "test-note-" + strings.ReplaceAll(t.Name(), "/", "_"),
+		ID:              "test-note-" + strings.ReplaceAll(t.Name(), "/", "_"),
 		TranscriptionID: transcriptionID,
-		StartWordIndex: 0,
-		EndWordIndex:   5,
-		StartTime:      0.0,
-		EndTime:        2.5,
-		Quote:          "Test quote text",
-		Content:        "Test note content",
+		StartWordIndex:  0,
+		EndWordIndex:    5,
+		StartTime:       0.0,
+		EndTime:         2.5,
+		Quote:           "Test quote text",
+		Content:         "Test note content",
 	}
-	
+
 	result := h.DB.Create(note)
 	assert.NoError(t, result.Error)
 	return note
@@ -178,7 +178,7 @@ func (h *TestHelper) CreateTestSummaryTemplate(t *testing.T, name string) *model
 		Model:       "gpt-4",
 		Prompt:      "Summarize this: {{content}}",
 	}
-	
+
 	result := h.DB.Create(template)
 	assert.NoError(t, result.Error)
 	return template
@@ -196,7 +196,7 @@ func (h *TestHelper) CreateTestChatSession(t *testing.T, transcriptionID string)
 		MessageCount:    0,
 		IsActive:        true,
 	}
-	
+
 	result := h.DB.Create(session)
 	assert.NoError(t, result.Error)
 	return session
@@ -210,7 +210,7 @@ func (h *TestHelper) CreateTestLLMConfig(t *testing.T, provider string) *models.
 		APIKey:   stringPtr("test-llm-api-key"),
 		IsActive: true,
 	}
-	
+
 	result := h.DB.Create(config)
 	assert.NoError(t, result.Error)
 	return config

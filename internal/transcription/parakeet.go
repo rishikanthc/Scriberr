@@ -28,11 +28,11 @@ func NewParakeetService(cfg *config.Config) *ParakeetService {
 
 // ParakeetResult represents the Parakeet output format
 type ParakeetResult struct {
-	Transcription      string             `json:"transcription"`
-	WordTimestamps     []ParakeetWord     `json:"word_timestamps"`
-	SegmentTimestamps  []ParakeetSegment  `json:"segment_timestamps"`
-	AudioFile          string             `json:"audio_file"`
-	Diarized          bool               `json:"diarized"`
+	Transcription     string            `json:"transcription"`
+	WordTimestamps    []ParakeetWord    `json:"word_timestamps"`
+	SegmentTimestamps []ParakeetSegment `json:"segment_timestamps"`
+	AudioFile         string            `json:"audio_file"`
+	Diarized          bool              `json:"diarized"`
 }
 
 // ParakeetWord represents word-level timestamps from Parakeet
@@ -64,7 +64,7 @@ func (ps *ParakeetService) ProcessJob(ctx context.Context, jobID string) error {
 // ProcessJobWithProcess implements the enhanced JobProcessor interface
 func (ps *ParakeetService) ProcessJobWithProcess(ctx context.Context, jobID string, registerProcess func(*exec.Cmd)) error {
 	startTime := time.Now()
-	
+
 	// Get the job from database
 	var job models.TranscriptionJob
 	if err := database.DB.Where("id = ?", jobID).First(&job).Error; err != nil {
@@ -76,9 +76,9 @@ func (ps *ParakeetService) ProcessJobWithProcess(ctx context.Context, jobID stri
 		TranscriptionJobID: jobID,
 		StartedAt:          startTime,
 		ActualParameters:   job.Parameters,
-		Status:            models.StatusProcessing,
+		Status:             models.StatusProcessing,
 	}
-	
+
 	if err := database.DB.Create(execution).Error; err != nil {
 		return fmt.Errorf("failed to create execution record: %v", err)
 	}
@@ -89,11 +89,11 @@ func (ps *ParakeetService) ProcessJobWithProcess(ctx context.Context, jobID stri
 		execution.CompletedAt = &completedAt
 		execution.Status = status
 		execution.CalculateProcessingDuration()
-		
+
 		if errorMsg != "" {
 			execution.ErrorMessage = &errorMsg
 		}
-		
+
 		database.DB.Save(execution)
 	}
 
@@ -127,7 +127,7 @@ func (ps *ParakeetService) ProcessJobWithProcess(ctx context.Context, jobID stri
 	if err != nil {
 		fmt.Printf("WARNING: Audio preprocessing failed: %v\n", err)
 		fmt.Printf("WARNING: Attempting to use original audio file directly\n")
-		
+
 		// Check if original file is in a format that Parakeet might accept
 		ext := strings.ToLower(filepath.Ext(job.AudioPath))
 		if ext == ".wav" || ext == ".flac" {
@@ -140,7 +140,7 @@ func (ps *ParakeetService) ProcessJobWithProcess(ctx context.Context, jobID stri
 			return fmt.Errorf(errMsg)
 		}
 	}
-	
+
 	// Ensure cleanup of temporary file on function exit (only if we created a temp file)
 	defer func() {
 		if preprocessedAudioPath != "" && preprocessedAudioPath != job.AudioPath {
@@ -167,10 +167,10 @@ func (ps *ParakeetService) ProcessJobWithProcess(ctx context.Context, jobID stri
 	// Set working directory to the parakeet project directory
 	parakeetPath := filepath.Join("whisperx-env", "parakeet")
 	cmd.Dir = parakeetPath
-	
+
 	// Configure process attributes for cross-platform kill behavior
 	configureCmdSysProcAttr(cmd)
-	
+
 	// Register the process for immediate termination capability
 	registerProcess(cmd)
 
@@ -180,14 +180,14 @@ func (ps *ParakeetService) ProcessJobWithProcess(ctx context.Context, jobID stri
 	fmt.Printf("DEBUG: Audio file path: %s\n", job.AudioPath)
 	fmt.Printf("DEBUG: Output path: %s\n", resultPath)
 	fmt.Printf("DEBUG: Job parameters: %+v\n", job.Parameters)
-	
+
 	// Check if audio file is accessible
 	if stat, err := os.Stat(job.AudioPath); err != nil {
 		fmt.Printf("DEBUG: Audio file stat error: %v\n", err)
 	} else {
 		fmt.Printf("DEBUG: Audio file size: %d bytes\n", stat.Size())
 	}
-	
+
 	// Check if parakeet environment exists
 	parakeetPath = filepath.Join("whisperx-env", "parakeet")
 	if stat, err := os.Stat(parakeetPath); err != nil {
@@ -195,7 +195,7 @@ func (ps *ParakeetService) ProcessJobWithProcess(ctx context.Context, jobID stri
 	} else {
 		fmt.Printf("DEBUG: Parakeet env exists, is dir: %v\n", stat.IsDir())
 	}
-	
+
 	// Check if transcription script exists
 	scriptPath := filepath.Join(parakeetPath, "transcribe.py")
 	if stat, err := os.Stat(scriptPath); err != nil {
@@ -203,11 +203,11 @@ func (ps *ParakeetService) ProcessJobWithProcess(ctx context.Context, jobID stri
 	} else {
 		fmt.Printf("DEBUG: Transcription script size: %d bytes\n", stat.Size())
 	}
-	
+
 	output, err := cmd.CombinedOutput()
 	fmt.Printf("DEBUG: Command exit code: %v\n", err)
 	fmt.Printf("DEBUG: Command output:\n%s\n", string(output))
-	
+
 	if ctx.Err() == context.Canceled {
 		errMsg := "job was cancelled"
 		updateExecutionStatus(models.StatusFailed, errMsg)
@@ -224,7 +224,7 @@ func (ps *ParakeetService) ProcessJobWithProcess(ctx context.Context, jobID stri
 	if job.Parameters.HfToken != nil {
 		fmt.Printf("DEBUG: HfToken value: %s\n", *job.Parameters.HfToken)
 	}
-	
+
 	if job.Parameters.Diarize && job.Parameters.HfToken != nil && *job.Parameters.HfToken != "" {
 		fmt.Printf("DEBUG: Running diarization for Parakeet job %s\n", jobID)
 		if err := ps.runDiarization(job.AudioPath, resultPath, job.Parameters); err != nil {
@@ -255,23 +255,23 @@ func (ps *ParakeetService) buildParakeetArgs(audioPath, outputFile string, param
 	if err != nil {
 		return nil, fmt.Errorf("failed to get absolute audio path: %v", err)
 	}
-	
+
 	// Convert output file to absolute path
 	absOutputFile, err := filepath.Abs(outputFile)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get absolute output path: %v", err)
 	}
-	
+
 	// Build command to run the transcription script with Parakeet model
 	// Since cmd.Dir is set to nvidia directory, we use "." as project path
 	args := []string{
 		"run", "--native-tls", "--project", ".", "python", "transcribe.py",
 		absAudioPath,
 		"--model", "parakeet", // Specify to use Parakeet model
-		"--timestamps",        // Always include timestamps for consistency
+		"--timestamps", // Always include timestamps for consistency
 		"--output", absOutputFile,
 	}
-	
+
 	// Add context size parameters for long-form audio
 	if params.AttentionContextLeft != 256 {
 		args = append(args, "--context-left", fmt.Sprintf("%d", params.AttentionContextLeft))
@@ -284,11 +284,11 @@ func (ps *ParakeetService) buildParakeetArgs(audioPath, outputFile string, param
 
 	// Add model path if we want to specify a custom model location
 	// The script will use the default downloaded model if not specified
-	
+
 	fmt.Printf("DEBUG: Fixed Parakeet command: uv %v\n", args)
 	fmt.Printf("DEBUG: Audio path (abs): %s\n", absAudioPath)
 	fmt.Printf("DEBUG: Output path (abs): %s\n", absOutputFile)
-	
+
 	return args, nil
 }
 
@@ -299,21 +299,21 @@ func (ps *ParakeetService) preprocessAudioForParakeet(inputPath, outputDir strin
 	nameWithoutExt := strings.TrimSuffix(baseName, filepath.Ext(baseName))
 	tempFileName := fmt.Sprintf("%s_parakeet_temp.wav", nameWithoutExt)
 	tempPath := filepath.Join(outputDir, tempFileName)
-	
+
 	fmt.Printf("DEBUG: Preprocessing audio for Parakeet\n")
 	fmt.Printf("DEBUG: Input: %s\n", inputPath)
 	fmt.Printf("DEBUG: Output: %s\n", tempPath)
-	
+
 	// Build ffmpeg command: ffmpeg -i input.mp3 -ar 16000 -ac 1 -c:a pcm_s16le output.wav
-	cmd := exec.Command("ffmpeg", 
-		"-i", inputPath,           // Input file
-		"-ar", "16000",            // Sample rate 16kHz
-		"-ac", "1",                // Mono (1 channel)
-		"-c:a", "pcm_s16le",       // PCM 16-bit little-endian codec
-		"-y",                      // Overwrite output file if it exists
-		tempPath,                  // Output file
+	cmd := exec.Command("ffmpeg",
+		"-i", inputPath, // Input file
+		"-ar", "16000", // Sample rate 16kHz
+		"-ac", "1", // Mono (1 channel)
+		"-c:a", "pcm_s16le", // PCM 16-bit little-endian codec
+		"-y",     // Overwrite output file if it exists
+		tempPath, // Output file
 	)
-	
+
 	// Capture ffmpeg output for debugging
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -321,14 +321,14 @@ func (ps *ParakeetService) preprocessAudioForParakeet(inputPath, outputDir strin
 		fmt.Printf("DEBUG: ffmpeg output:\n%s\n", string(output))
 		return "", fmt.Errorf("ffmpeg preprocessing failed: %v - %s", err, string(output))
 	}
-	
+
 	// Verify the output file was created
 	if stat, err := os.Stat(tempPath); err != nil {
 		return "", fmt.Errorf("preprocessed audio file not created: %v", err)
 	} else {
 		fmt.Printf("DEBUG: Preprocessed audio created successfully (size: %d bytes)\n", stat.Size())
 	}
-	
+
 	return tempPath, nil
 }
 
@@ -370,7 +370,7 @@ func (ps *ParakeetService) parseAndSaveResult(jobID, resultPath string) error {
 				speakerLabels[segment.Speaker] = true
 			}
 		}
-		
+
 		// Create speaker mapping records
 		for speaker := range speakerLabels {
 			speakerMapping := &models.SpeakerMapping{
@@ -401,9 +401,9 @@ func (ps *ParakeetService) convertToWhisperXFormat(parakeetResult *ParakeetResul
 	segments := make([]Segment, len(parakeetResult.SegmentTimestamps))
 	for i, seg := range parakeetResult.SegmentTimestamps {
 		segments[i] = Segment{
-			Start: seg.Start,
-			End:   seg.End,
-			Text:  strings.TrimSpace(seg.Segment),
+			Start:   seg.Start,
+			End:     seg.End,
+			Text:    strings.TrimSpace(seg.Segment),
 			Speaker: stringPtr(seg.Speaker), // Speaker information from diarization
 		}
 	}
@@ -412,14 +412,14 @@ func (ps *ParakeetService) convertToWhisperXFormat(parakeetResult *ParakeetResul
 	words := make([]Word, len(parakeetResult.WordTimestamps))
 	for i, word := range parakeetResult.WordTimestamps {
 		words[i] = Word{
-			Start: word.Start,
-			End:   word.End,
-			Word:  word.Word,
-			Score: 1.0, // Parakeet doesn't provide confidence scores
+			Start:   word.Start,
+			End:     word.End,
+			Word:    word.Word,
+			Score:   1.0,                     // Parakeet doesn't provide confidence scores
 			Speaker: stringPtr(word.Speaker), // Speaker information from diarization
 		}
 	}
-	
+
 	// DEBUG: Check word conversion
 	fmt.Printf("DEBUG: Parakeet converting %d word timestamps\n", len(parakeetResult.WordTimestamps))
 	if len(words) > 0 {
@@ -456,54 +456,54 @@ func stringPtr(s string) *string {
 func (ps *ParakeetService) runDiarization(audioPath string, transcriptPath string, params models.WhisperXParams) error {
 	// Create temporary RTTM file path
 	rttmPath := transcriptPath + ".rttm"
-	
+
 	// Build diarization command
 	nvidiaPath := filepath.Join("whisperx-env", "parakeet")
 	absAudioPath, err := filepath.Abs(audioPath)
 	if err != nil {
 		return fmt.Errorf("failed to get absolute audio path: %v", err)
 	}
-	
+
 	// Convert RTTM path to absolute path since we're running from parakeet directory
 	absRttmPath, err := filepath.Abs(rttmPath)
 	if err != nil {
 		return fmt.Errorf("failed to get absolute RTTM path: %v", err)
 	}
-	
+
 	args := []string{
 		"run", "--native-tls", "--project", ".", "python", "diarize.py",
 		absAudioPath,
 		"--output", absRttmPath,
 	}
-	
+
 	if params.HfToken != nil && *params.HfToken != "" {
 		args = append(args, "--hf-token", *params.HfToken)
 	} else {
 		return fmt.Errorf("HuggingFace token is required for diarization")
 	}
-	
+
 	if params.MinSpeakers != nil {
 		args = append(args, "--min-speakers", fmt.Sprintf("%d", *params.MinSpeakers))
 	}
 	if params.MaxSpeakers != nil {
 		args = append(args, "--max-speakers", fmt.Sprintf("%d", *params.MaxSpeakers))
 	}
-	
+
 	fmt.Printf("DEBUG: Running diarization command: uv %v\n", args)
-	
+
 	// Execute diarization
 	cmd := exec.Command("uv", args...)
 	cmd.Dir = nvidiaPath
 	cmd.Env = append(os.Environ(), "PYTHONUNBUFFERED=1")
-	
+
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		fmt.Printf("DEBUG: Diarization failed: %v\nOutput: %s\n", err, string(output))
 		return fmt.Errorf("diarization failed: %v", err)
 	}
-	
+
 	fmt.Printf("DEBUG: Diarization completed successfully\n")
-	
+
 	// Now merge the diarization results with the transcript
 	return ps.mergeDiarizationWithTranscript(transcriptPath, rttmPath)
 }
@@ -515,38 +515,38 @@ func (ps *ParakeetService) mergeDiarizationWithTranscript(transcriptPath, rttmPa
 	if err != nil {
 		return fmt.Errorf("failed to read transcript file: %v", err)
 	}
-	
+
 	var result ParakeetResult
 	if err := json.Unmarshal(transcriptData, &result); err != nil {
 		return fmt.Errorf("failed to unmarshal transcript: %v", err)
 	}
-	
+
 	// Parse RTTM file
 	speakers, err := ps.parseRTTMFile(rttmPath)
 	if err != nil {
 		return fmt.Errorf("failed to parse RTTM file: %v", err)
 	}
-	
+
 	// Assign speakers to segments and words
 	ps.assignSpeakersToSegments(&result.SegmentTimestamps, speakers)
 	ps.assignSpeakersToWords(&result.WordTimestamps, speakers)
-	
+
 	// Mark as diarized
 	result.Diarized = true
-	
+
 	// Save the updated transcript
 	updatedData, err := json.Marshal(result)
 	if err != nil {
 		return fmt.Errorf("failed to marshal updated transcript: %v", err)
 	}
-	
+
 	if err := os.WriteFile(transcriptPath, updatedData, 0644); err != nil {
 		return fmt.Errorf("failed to save updated transcript: %v", err)
 	}
-	
+
 	// Clean up RTTM file
 	os.Remove(rttmPath)
-	
+
 	return nil
 }
 
@@ -556,36 +556,36 @@ func (ps *ParakeetService) parseRTTMFile(rttmPath string) ([]SpeakerSegment, err
 	if err != nil {
 		return nil, err
 	}
-	
+
 	var speakers []SpeakerSegment
 	lines := strings.Split(string(data), "\n")
-	
+
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
 		if !strings.HasPrefix(line, "SPEAKER") {
 			continue
 		}
-		
+
 		parts := strings.Fields(line)
 		if len(parts) < 8 {
 			continue
 		}
-		
+
 		start, err1 := strconv.ParseFloat(parts[3], 64)
 		duration, err2 := strconv.ParseFloat(parts[4], 64)
 		speaker := parts[7]
-		
+
 		if err1 != nil || err2 != nil {
 			continue
 		}
-		
+
 		speakers = append(speakers, SpeakerSegment{
 			Start:   start,
 			End:     start + duration,
 			Speaker: speaker,
 		})
 	}
-	
+
 	return speakers, nil
 }
 
@@ -618,11 +618,11 @@ func (ps *ParakeetService) assignSpeakersToWords(words *[]ParakeetWord, speakers
 func (ps *ParakeetService) findBestSpeaker(start, end float64, speakers []SpeakerSegment) string {
 	maxOverlap := 0.0
 	bestSpeaker := "SPEAKER_00" // Default speaker
-	
+
 	for _, speaker := range speakers {
 		overlapStart := math.Max(start, speaker.Start)
 		overlapEnd := math.Min(end, speaker.End)
-		
+
 		if overlapStart < overlapEnd {
 			overlap := overlapEnd - overlapStart
 			if overlap > maxOverlap {
@@ -631,6 +631,6 @@ func (ps *ParakeetService) findBestSpeaker(start, end float64, speakers []Speake
 			}
 		}
 	}
-	
+
 	return bestSpeaker
 }

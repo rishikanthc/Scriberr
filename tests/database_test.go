@@ -51,7 +51,7 @@ func (suite *DatabaseTestSuite) TestDatabaseInitialization() {
 func (suite *DatabaseTestSuite) TestDatabaseInitializationInvalidPath() {
 	// Try to initialize with an invalid path (directory doesn't exist and can't be created)
 	invalidPath := "/root/nonexistent/database.db"
-	
+
 	// This might fail depending on permissions, but we'll test what we can
 	err := database.Initialize(invalidPath)
 	// The error might be from directory creation or database connection
@@ -63,13 +63,13 @@ func (suite *DatabaseTestSuite) TestDatabaseInitializationInvalidPath() {
 // Test User model CRUD operations
 func (suite *DatabaseTestSuite) TestUserCRUD() {
 	db := suite.helper.GetDB()
-	
+
 	// Create
 	user := models.User{
 		Username: "testuser-crud",
 		Password: "hashedpassword123",
 	}
-	
+
 	result := db.Create(&user)
 	assert.NoError(suite.T(), result.Error)
 	assert.NotZero(suite.T(), user.ID)
@@ -107,7 +107,7 @@ func (suite *DatabaseTestSuite) TestUserCRUD() {
 // Test APIKey model CRUD operations
 func (suite *DatabaseTestSuite) TestAPIKeyCRUD() {
 	db := suite.helper.GetDB()
-	
+
 	// Create
 	apiKey := models.APIKey{
 		Key:         "test-api-key-crud-12345",
@@ -115,7 +115,7 @@ func (suite *DatabaseTestSuite) TestAPIKeyCRUD() {
 		Description: stringPtr("Test description"),
 		IsActive:    true,
 	}
-	
+
 	result := db.Create(&apiKey)
 	assert.NoError(suite.T(), result.Error)
 	assert.NotZero(suite.T(), apiKey.ID)
@@ -168,7 +168,7 @@ func (suite *DatabaseTestSuite) TestTranscriptionJobCRUD() {
 			Device:      "auto",
 		},
 	}
-	
+
 	result := db.Create(&job)
 	assert.NoError(suite.T(), result.Error)
 	assert.NotZero(suite.T(), job.CreatedAt)
@@ -189,9 +189,9 @@ func (suite *DatabaseTestSuite) TestTranscriptionJobCRUD() {
 	result = db.Save(&foundJob)
 	assert.NoError(suite.T(), result.Error)
 
-    var updatedJob models.TranscriptionJob
-    // For string primary keys, query explicitly by id
-    result = db.Where("id = ?", foundJob.ID).First(&updatedJob)
+	var updatedJob models.TranscriptionJob
+	// For string primary keys, query explicitly by id
+	result = db.Where("id = ?", foundJob.ID).First(&updatedJob)
 	assert.NoError(suite.T(), result.Error)
 	assert.Equal(suite.T(), models.StatusCompleted, updatedJob.Status)
 	assert.NotNil(suite.T(), updatedJob.Transcript)
@@ -202,8 +202,8 @@ func (suite *DatabaseTestSuite) TestTranscriptionJobCRUD() {
 	assert.NoError(suite.T(), result.Error)
 
 	// Verify deletion
-    var deletedJob models.TranscriptionJob
-    result = db.Where("id = ?", updatedJob.ID).First(&deletedJob)
+	var deletedJob models.TranscriptionJob
+	result = db.Where("id = ?", updatedJob.ID).First(&deletedJob)
 	assert.Error(suite.T(), result.Error)
 	assert.Equal(suite.T(), gorm.ErrRecordNotFound, result.Error)
 }
@@ -224,7 +224,7 @@ func (suite *DatabaseTestSuite) TestTranscriptionProfileCRUD() {
 			Device:      "cpu",
 		},
 	}
-	
+
 	result := db.Create(&profile)
 	assert.NoError(suite.T(), result.Error)
 	assert.NotZero(suite.T(), profile.CreatedAt)
@@ -242,9 +242,9 @@ func (suite *DatabaseTestSuite) TestTranscriptionProfileCRUD() {
 	result = db.Save(&foundProfile)
 	assert.NoError(suite.T(), result.Error)
 
-    var updatedProfile models.TranscriptionProfile
-    // For string primary keys, query explicitly by id
-    result = db.Where("id = ?", foundProfile.ID).First(&updatedProfile)
+	var updatedProfile models.TranscriptionProfile
+	// For string primary keys, query explicitly by id
+	result = db.Where("id = ?", foundProfile.ID).First(&updatedProfile)
 	assert.NoError(suite.T(), result.Error)
 	assert.True(suite.T(), updatedProfile.IsDefault)
 	assert.Equal(suite.T(), "Updated Profile", updatedProfile.Name)
@@ -271,7 +271,7 @@ func (suite *DatabaseTestSuite) TestNoteCRUD() {
 		Quote:           "Test quote text",
 		Content:         "Test note content",
 	}
-	
+
 	result := db.Create(&note)
 	assert.NoError(suite.T(), result.Error)
 	assert.NotZero(suite.T(), note.CreatedAt)
@@ -291,9 +291,9 @@ func (suite *DatabaseTestSuite) TestNoteCRUD() {
 	result = db.Save(&foundNote)
 	assert.NoError(suite.T(), result.Error)
 
-    var updatedNote models.Note
-    // For string primary keys, query explicitly by id
-    result = db.Where("id = ?", foundNote.ID).First(&updatedNote)
+	var updatedNote models.Note
+	// For string primary keys, query explicitly by id
+	result = db.Where("id = ?", foundNote.ID).First(&updatedNote)
 	assert.NoError(suite.T(), result.Error)
 	assert.Equal(suite.T(), "Updated note content", updatedNote.Content)
 	assert.Equal(suite.T(), "Updated quote", updatedNote.Quote)
@@ -417,7 +417,7 @@ func (suite *DatabaseTestSuite) TestDatabaseQueries() {
 	var activeKeys []models.APIKey
 	result := db.Where("is_active = ?", true).Find(&activeKeys)
 	assert.NoError(suite.T(), result.Error)
-	
+
 	// Should include at least our test active key
 	found := false
 	for _, key := range activeKeys {
@@ -432,7 +432,7 @@ func (suite *DatabaseTestSuite) TestDatabaseQueries() {
 	var inactiveKeys []models.APIKey
 	result = db.Where("is_active = ?", false).Find(&inactiveKeys)
 	assert.NoError(suite.T(), result.Error)
-	
+
 	// Should include our inactive key
 	found = false
 	for _, key := range inactiveKeys {

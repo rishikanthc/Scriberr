@@ -34,7 +34,7 @@ func (suite *AuthServiceTestSuite) TestGenerateToken() {
 	}
 
 	token, err := suite.helper.AuthService.GenerateToken(user)
-	
+
 	assert.NoError(suite.T(), err)
 	assert.NotEmpty(suite.T(), token)
 	assert.True(suite.T(), len(token) > 50, "JWT token should be reasonably long")
@@ -52,7 +52,7 @@ func (suite *AuthServiceTestSuite) TestValidateTokenValid() {
 	assert.NoError(suite.T(), err)
 
 	claims, err := suite.helper.AuthService.ValidateToken(token)
-	
+
 	assert.NoError(suite.T(), err)
 	assert.NotNil(suite.T(), claims)
 	assert.Equal(suite.T(), user.ID, claims.UserID)
@@ -72,7 +72,7 @@ func (suite *AuthServiceTestSuite) TestValidateTokenInvalid() {
 
 	for _, invalidToken := range invalidTokens {
 		claims, err := suite.helper.AuthService.ValidateToken(invalidToken)
-		
+
 		assert.Error(suite.T(), err, "Token should be invalid: %s", invalidToken)
 		assert.Nil(suite.T(), claims)
 	}
@@ -82,7 +82,7 @@ func (suite *AuthServiceTestSuite) TestValidateTokenInvalid() {
 func (suite *AuthServiceTestSuite) TestValidateTokenExpired() {
 	// Create a custom auth service with short-lived tokens for testing
 	authService := auth.NewAuthService("test-secret")
-	
+
 	// Manually create an expired token
 	claims := &auth.Claims{
 		UserID:   1,
@@ -99,7 +99,7 @@ func (suite *AuthServiceTestSuite) TestValidateTokenExpired() {
 
 	// Try to validate the expired token
 	validClaims, err := authService.ValidateToken(tokenString)
-	
+
 	assert.Error(suite.T(), err)
 	assert.Nil(suite.T(), validClaims)
 	assert.Contains(suite.T(), err.Error(), "expired")
@@ -110,14 +110,14 @@ func (suite *AuthServiceTestSuite) TestValidateTokenWrongSecret() {
 	// Generate token with one secret
 	authService1 := auth.NewAuthService("secret1")
 	user := &models.User{ID: 1, Username: "testuser"}
-	
+
 	token, err := authService1.GenerateToken(user)
 	assert.NoError(suite.T(), err)
 
 	// Try to validate with different secret
 	authService2 := auth.NewAuthService("secret2")
 	claims, err := authService2.ValidateToken(token)
-	
+
 	assert.Error(suite.T(), err)
 	assert.Nil(suite.T(), claims)
 }
@@ -134,7 +134,7 @@ func (suite *AuthServiceTestSuite) TestHashPassword() {
 
 	for _, password := range passwords {
 		hash, err := auth.HashPassword(password)
-		
+
 		assert.NoError(suite.T(), err, "Password hashing should succeed for: %s", password)
 		assert.NotEmpty(suite.T(), hash)
 		assert.NotEqual(suite.T(), password, hash, "Hash should not equal original password")
@@ -152,7 +152,7 @@ func (suite *AuthServiceTestSuite) TestCheckPassword() {
 		{"correctpassword", true},
 		{"wrongpassword", false},
 		{"", false},
-		{"CORRECTPASSWORD", false}, // Case sensitive
+		{"CORRECTPASSWORD", false},  // Case sensitive
 		{"correct password", false}, // Different password
 	}
 
@@ -162,7 +162,7 @@ func (suite *AuthServiceTestSuite) TestCheckPassword() {
 
 	for _, tc := range testCases {
 		result := auth.CheckPassword(tc.password, hash)
-		assert.Equal(suite.T(), tc.correct, result, 
+		assert.Equal(suite.T(), tc.correct, result,
 			"Password check failed for password: %s (expected %v)", tc.password, tc.correct)
 	}
 }
@@ -185,14 +185,14 @@ func (suite *AuthServiceTestSuite) TestCheckPasswordInvalidHash() {
 // Test hash consistency (same password should produce different hashes due to salt)
 func (suite *AuthServiceTestSuite) TestHashConsistency() {
 	password := "testpassword123"
-	
+
 	hash1, err1 := auth.HashPassword(password)
 	hash2, err2 := auth.HashPassword(password)
-	
+
 	assert.NoError(suite.T(), err1)
 	assert.NoError(suite.T(), err2)
 	assert.NotEqual(suite.T(), hash1, hash2, "Same password should produce different hashes due to salt")
-	
+
 	// But both hashes should verify the original password
 	assert.True(suite.T(), auth.CheckPassword(password, hash1))
 	assert.True(suite.T(), auth.CheckPassword(password, hash2))
@@ -207,23 +207,23 @@ func (suite *AuthServiceTestSuite) TestTokenGenerationDifferentUsers() {
 	}
 
 	tokens := make([]string, len(users))
-	
+
 	for i, user := range users {
 		token, err := suite.helper.AuthService.GenerateToken(user)
 		assert.NoError(suite.T(), err)
 		tokens[i] = token
-		
+
 		// Validate each token
 		claims, err := suite.helper.AuthService.ValidateToken(token)
 		assert.NoError(suite.T(), err)
 		assert.Equal(suite.T(), user.ID, claims.UserID)
 		assert.Equal(suite.T(), user.Username, claims.Username)
 	}
-	
+
 	// All tokens should be different
 	for i := 0; i < len(tokens); i++ {
 		for j := i + 1; j < len(tokens); j++ {
-			assert.NotEqual(suite.T(), tokens[i], tokens[j], 
+			assert.NotEqual(suite.T(), tokens[i], tokens[j],
 				"Tokens for different users should be different")
 		}
 	}
@@ -232,24 +232,24 @@ func (suite *AuthServiceTestSuite) TestTokenGenerationDifferentUsers() {
 // Test token expiry time
 func (suite *AuthServiceTestSuite) TestTokenExpiryTime() {
 	user := &models.User{ID: 1, Username: "testuser"}
-	
+
 	beforeGeneration := time.Now()
 	token, err := suite.helper.AuthService.GenerateToken(user)
 	afterGeneration := time.Now()
-	
+
 	assert.NoError(suite.T(), err)
-	
+
 	claims, err := suite.helper.AuthService.ValidateToken(token)
 	assert.NoError(suite.T(), err)
-	
+
 	// Token should expire 24 hours from generation
 	expectedExpiry := beforeGeneration.Add(24 * time.Hour)
 	actualExpiry := claims.ExpiresAt.Time
-	
+
 	// Allow some tolerance for processing time
 	assert.True(suite.T(), actualExpiry.After(expectedExpiry.Add(-1*time.Minute)))
 	assert.True(suite.T(), actualExpiry.Before(afterGeneration.Add(24*time.Hour).Add(1*time.Minute)))
-	
+
 	// Issue time should be around now
 	assert.True(suite.T(), claims.IssuedAt.Time.After(beforeGeneration.Add(-1*time.Minute)))
 	assert.True(suite.T(), claims.IssuedAt.Time.Before(afterGeneration.Add(1*time.Minute)))
@@ -267,13 +267,13 @@ func (suite *AuthServiceTestSuite) TestNewAuthService() {
 	for _, secret := range secrets {
 		authService := auth.NewAuthService(secret)
 		assert.NotNil(suite.T(), authService)
-		
+
 		// Test that the service works with a user
 		user := &models.User{ID: 1, Username: "testuser"}
 		token, err := authService.GenerateToken(user)
 		assert.NoError(suite.T(), err)
 		assert.NotEmpty(suite.T(), token)
-		
+
 		claims, err := authService.ValidateToken(token)
 		assert.NoError(suite.T(), err)
 		assert.Equal(suite.T(), user.ID, claims.UserID)

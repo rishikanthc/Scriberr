@@ -2,6 +2,8 @@ package api
 
 import (
 	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -11,9 +13,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-    "time"
-    "crypto/sha256"
-    "encoding/hex"
+	"time"
 
 	"scriberr/internal/auth"
 	"scriberr/internal/config"
@@ -49,9 +49,9 @@ func NewHandler(cfg *config.Config, authService *auth.AuthService, taskQueue *qu
 
 // SubmitJobRequest represents the submit job request
 type SubmitJobRequest struct {
-	Title       *string                   `json:"title,omitempty"`
-	Diarization bool                      `json:"diarization"`
-	Parameters  models.WhisperXParams     `json:"parameters"`
+	Title       *string               `json:"title,omitempty"`
+	Diarization bool                  `json:"diarization"`
+	Parameters  models.WhisperXParams `json:"parameters"`
 }
 
 // LoginRequest represents the login request
@@ -78,8 +78,8 @@ type RegisterRequest struct {
 
 // RegistrationStatusResponse represents the registration status
 type RegistrationStatusResponse struct {
-    // Match tests expecting snake_case key
-    RegistrationEnabled bool `json:"registration_enabled"`
+	// Match tests expecting snake_case key
+	RegistrationEnabled bool `json:"registration_enabled"`
 }
 
 // ChangePasswordRequest represents the change password request
@@ -117,11 +117,11 @@ type YouTubeDownloadRequest struct {
 
 // YouTubeDownloadResponse represents the YouTube download response
 type YouTubeDownloadResponse struct {
-	JobID     string `json:"job_id"`
-	Status    string `json:"status"`
-	Message   string `json:"message,omitempty"`
-	Title     string `json:"title,omitempty"`
-	Progress  int    `json:"progress,omitempty"`
+	JobID    string `json:"job_id"`
+	Status   string `json:"status"`
+	Message  string `json:"message,omitempty"`
+	Title    string `json:"title,omitempty"`
+	Progress int    `json:"progress,omitempty"`
 }
 
 // LLMConfigRequest represents the LLM configuration request
@@ -228,30 +228,171 @@ func (h *Handler) UploadAudio(c *gin.Context) {
 			// Get user's default profile or use system default
 			var profile models.TranscriptionProfile
 			var profileFound bool
-			
+
 			if user.DefaultProfileID != nil {
 				err = database.DB.Where("id = ?", *user.DefaultProfileID).First(&profile).Error
 				profileFound = (err == nil)
 			}
-			
+
 			// If no user default or user default not found, try to find a system default
 			if !profileFound {
 				err = database.DB.Where("is_default = ?", true).First(&profile).Error
 				profileFound = (err == nil)
 			}
-			
+
 			// If still no profile found, use the first available profile
 			if !profileFound {
 				err = database.DB.Order("created_at ASC").First(&profile).Error
 				profileFound = (err == nil)
 			}
-			
+
 			// If we found a profile, update the job and queue it
 			if profileFound {
 				job.Parameters = profile.Parameters
 				job.Diarization = profile.Parameters.Diarize
 				job.Status = models.StatusPending
-				
+
+				// Update the job in database
+				if err := database.DB.Save(&job).Error; err == nil {
+					// Enqueue the job for transcription
+					if err := h.taskQueue.EnqueueJob(jobID); err != nil {
+						// If enqueueing fails, revert status but don't fail the upload
+						job.Status = models.StatusUploaded
+						database.DB.Save(&job)
+					}
+				}
+			}
+		}
+	}
+
+	c.JSON(http.StatusOK, job)
+}
+
+// @Summary Upload video file for transcription
+// @Description Upload a video file, extract audio from it using ffmpeg, and create a transcription job
+// @Tags transcription
+// @Accept multipart/form-data
+// @Produce json
+// @Param video formData file true "Video file"
+// @Param title formData string false "Job title"
+// @Success 200 {object} models.TranscriptionJob
+// @Failure 400 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /api/v1/transcription/upload-video [post]
+// @Security ApiKeyAuth
+// @Security BearerAuth
+func (h *Handler) UploadVideo(c *gin.Context) {
+	// Parse multipart form
+	file, header, err := c.Request.FormFile("video")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Video file is required"})
+		return
+	}
+	defer file.Close()
+
+	// Create upload directory
+	uploadDir := h.config.UploadDir
+	if err := os.MkdirAll(uploadDir, 0755); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create upload directory"})
+		return
+	}
+
+	// Generate unique job ID and temporary video filename
+	jobID := uuid.New().String()
+	ext := filepath.Ext(header.Filename)
+	tempVideoFilename := fmt.Sprintf("%s_temp%s", jobID, ext)
+	tempVideoPath := filepath.Join(uploadDir, tempVideoFilename)
+
+	// Save temporary video file
+	dst, err := os.Create(tempVideoPath)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save video file"})
+		return
+	}
+	defer func() {
+		dst.Close()
+		// Clean up temporary video file
+		os.Remove(tempVideoPath)
+	}()
+
+	if _, err = io.Copy(dst, file); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save video file"})
+		return
+	}
+	dst.Close() // Close before ffmpeg processing
+
+	// Generate audio filename
+	audioFilename := fmt.Sprintf("%s.mp3", jobID)
+	audioPath := filepath.Join(uploadDir, audioFilename)
+
+	// Extract audio using ffmpeg
+	cmd := exec.Command("ffmpeg",
+		"-i", tempVideoPath,
+		"-vn",            // no video
+		"-acodec", "mp3", // audio codec
+		"-ab", "192k", // audio bitrate
+		"-y", // overwrite output
+		audioPath)
+
+	// Execute ffmpeg command
+	if output, err := cmd.CombinedOutput(); err != nil {
+		// Clean up audio file if created
+		os.Remove(audioPath)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": fmt.Sprintf("Failed to extract audio from video: %v - %s", err, string(output)),
+		})
+		return
+	}
+
+	// Create job record with "uploaded" status (not queued for transcription)
+	job := models.TranscriptionJob{
+		ID:        jobID,
+		AudioPath: audioPath,
+		Status:    models.StatusUploaded, // Same status as audio uploads
+	}
+
+	if title := c.PostForm("title"); title != "" {
+		job.Title = &title
+	}
+
+	// Save to database
+	if err := database.DB.Create(&job).Error; err != nil {
+		os.Remove(audioPath) // Clean up audio file
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create job"})
+		return
+	}
+
+	// Check for auto-transcription if user is authenticated via JWT (same logic as audio upload)
+	if userID, exists := c.Get("user_id"); exists {
+		var user models.User
+		if err := database.DB.First(&user, userID).Error; err == nil && user.AutoTranscriptionEnabled {
+			// Get user's default profile or use system default
+			var profile models.TranscriptionProfile
+			var profileFound bool
+
+			if user.DefaultProfileID != nil {
+				err = database.DB.Where("id = ?", *user.DefaultProfileID).First(&profile).Error
+				profileFound = (err == nil)
+			}
+
+			// If no user default or user default not found, try to find a system default
+			if !profileFound {
+				err = database.DB.Where("is_default = ?", true).First(&profile).Error
+				profileFound = (err == nil)
+			}
+
+			// If still no profile found, use the first available profile
+			if !profileFound {
+				err = database.DB.Order("created_at ASC").First(&profile).Error
+				profileFound = (err == nil)
+			}
+
+			// If we found a profile, update the job and queue it
+			if profileFound {
+				job.Parameters = profile.Parameters
+				job.Diarization = profile.Parameters.Diarize
+				job.Status = models.StatusPending
+
 				// Update the job in database
 				if err := database.DB.Save(&job).Error; err == nil {
 					// Enqueue the job for transcription
@@ -327,13 +468,13 @@ func (h *Handler) SubmitJob(c *gin.Context) {
 		return
 	}
 
-    // Parse parameters (accept both 'diarization' and 'diarize')
-    diarize := false
-    if v := c.PostForm("diarization"); v != "" {
-        diarize = strings.EqualFold(v, "true") || v == "1"
-    } else {
-        diarize = getFormBoolWithDefault(c, "diarize", false)
-    }
+	// Parse parameters (accept both 'diarization' and 'diarize')
+	diarize := false
+	if v := c.PostForm("diarization"); v != "" {
+		diarize = strings.EqualFold(v, "true") || v == "1"
+	} else {
+		diarize = getFormBoolWithDefault(c, "diarize", false)
+	}
 	params := models.WhisperXParams{
 		Model:       getFormValueWithDefault(c, "model", "base"),
 		BatchSize:   getFormIntWithDefault(c, "batch_size", 16),
@@ -405,7 +546,7 @@ func (h *Handler) SubmitJob(c *gin.Context) {
 // @Security BearerAuth
 func (h *Handler) GetJobStatus(c *gin.Context) {
 	jobID := c.Param("id")
-	
+
 	job, err := h.taskQueue.GetJobStatus(jobID)
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
@@ -432,7 +573,7 @@ func (h *Handler) GetJobStatus(c *gin.Context) {
 // @Security BearerAuth
 func (h *Handler) GetTranscript(c *gin.Context) {
 	jobID := c.Param("id")
-	
+
 	var job models.TranscriptionJob
 	if err := database.DB.Where("id = ?", jobID).First(&job).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
@@ -462,8 +603,8 @@ func (h *Handler) GetTranscript(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"job_id": job.ID,
-		"title": job.Title,
+		"job_id":     job.ID,
+		"title":      job.Title,
 		"transcript": transcript,
 		"created_at": job.CreatedAt,
 		"updated_at": job.UpdatedAt,
@@ -487,7 +628,7 @@ func (h *Handler) ListJobs(c *gin.Context) {
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
 	status := c.Query("status")
 	search := c.Query("q") // Add search parameter
-	
+
 	if page < 1 {
 		page = 1
 	}
@@ -498,12 +639,12 @@ func (h *Handler) ListJobs(c *gin.Context) {
 	offset := (page - 1) * limit
 
 	query := database.DB.Model(&models.TranscriptionJob{})
-	
+
 	// Apply status filter
 	if status != "" {
 		query = query.Where("status = ?", status)
 	}
-	
+
 	// Apply search filter - search in title and audio_path
 	if search != "" {
 		searchPattern := "%" + search + "%"
@@ -512,10 +653,10 @@ func (h *Handler) ListJobs(c *gin.Context) {
 
 	var jobs []models.TranscriptionJob
 	var total int64
-	
+
 	// Count total matching records
 	query.Count(&total)
-	
+
 	// Apply pagination and ordering
 	if err := query.Offset(offset).Limit(limit).Order("created_at DESC").Find(&jobs).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to list jobs"})
@@ -549,7 +690,7 @@ func (h *Handler) ListJobs(c *gin.Context) {
 // @Security BearerAuth
 func (h *Handler) StartTranscription(c *gin.Context) {
 	jobID := c.Param("id")
-	
+
 	var job models.TranscriptionJob
 	if err := database.DB.Where("id = ?", jobID).First(&job).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
@@ -571,44 +712,44 @@ func (h *Handler) StartTranscription(c *gin.Context) {
 
 	// Set defaults
 	requestParams = models.WhisperXParams{
-		ModelFamily:                         "whisper", // Default to whisper for backward compatibility
-		Model:                               "small",
-		ModelCacheOnly:                      false,
-		Device:                              "cpu",
-		DeviceIndex:                         0,
-		BatchSize:                           8,
-		ComputeType:                         "float32",
-		Threads:                             0,
-		OutputFormat:                        "all",
-		Verbose:                             true,
-		Task:                                "transcribe",
-		InterpolateMethod:                   "nearest",
-		NoAlign:                             false,
-		ReturnCharAlignments:                false,
-		VadMethod:                           "pyannote",
-		VadOnset:                            0.5,
-		VadOffset:                           0.363,
-		ChunkSize:                           30,
-		Diarize:                             false,
-		DiarizeModel:                        "pyannote/speaker-diarization-3.1",
-		SpeakerEmbeddings:                   false,
-		Temperature:                         0,
-		BestOf:                              5,
-		BeamSize:                            5,
-		Patience:                            1.0,
-		LengthPenalty:                       1.0,
-		SuppressNumerals:                    false,
-		ConditionOnPreviousText:             false,
-		Fp16:                                true,
-		TemperatureIncrementOnFallback:      0.2,
-		CompressionRatioThreshold:           2.4,
-		LogprobThreshold:                    -1.0,
-		NoSpeechThreshold:                   0.6,
-		HighlightWords:                      false,
-		SegmentResolution:                   "sentence",
-		PrintProgress:                       false,
-		AttentionContextLeft:                256,
-		AttentionContextRight:               256,
+		ModelFamily:                    "whisper", // Default to whisper for backward compatibility
+		Model:                          "small",
+		ModelCacheOnly:                 false,
+		Device:                         "cpu",
+		DeviceIndex:                    0,
+		BatchSize:                      8,
+		ComputeType:                    "float32",
+		Threads:                        0,
+		OutputFormat:                   "all",
+		Verbose:                        true,
+		Task:                           "transcribe",
+		InterpolateMethod:              "nearest",
+		NoAlign:                        false,
+		ReturnCharAlignments:           false,
+		VadMethod:                      "pyannote",
+		VadOnset:                       0.5,
+		VadOffset:                      0.363,
+		ChunkSize:                      30,
+		Diarize:                        false,
+		DiarizeModel:                   "pyannote/speaker-diarization-3.1",
+		SpeakerEmbeddings:              false,
+		Temperature:                    0,
+		BestOf:                         5,
+		BeamSize:                       5,
+		Patience:                       1.0,
+		LengthPenalty:                  1.0,
+		SuppressNumerals:               false,
+		ConditionOnPreviousText:        false,
+		Fp16:                           true,
+		TemperatureIncrementOnFallback: 0.2,
+		CompressionRatioThreshold:      2.4,
+		LogprobThreshold:               -1.0,
+		NoSpeechThreshold:              0.6,
+		HighlightWords:                 false,
+		SegmentResolution:              "sentence",
+		PrintProgress:                  false,
+		AttentionContextLeft:           256,
+		AttentionContextRight:          256,
 	}
 
 	// Parse request body parameters, overriding defaults
@@ -616,7 +757,7 @@ func (h *Handler) StartTranscription(c *gin.Context) {
 		// Use defaults if JSON parsing fails
 		fmt.Printf("DEBUG: Failed to parse JSON parameters: %v\n", err)
 	}
-	
+
 	// Debug: log what we received
 	fmt.Printf("DEBUG: Parsed parameters for job %s: ModelFamily=%s, Diarize=%v, DiarizeModel=%s\n", jobID, requestParams.ModelFamily, requestParams.Diarize, requestParams.DiarizeModel)
 
@@ -636,7 +777,7 @@ func (h *Handler) StartTranscription(c *gin.Context) {
 	job.Parameters = requestParams
 	job.Diarization = requestParams.Diarize
 	job.Status = models.StatusPending
-	
+
 	// Clear previous results for re-transcription
 	job.Transcript = nil
 	job.Summary = nil
@@ -670,7 +811,7 @@ func (h *Handler) StartTranscription(c *gin.Context) {
 // @Security BearerAuth
 func (h *Handler) KillJob(c *gin.Context) {
 	jobID := c.Param("id")
-	
+
 	var job models.TranscriptionJob
 	if err := database.DB.Where("id = ?", jobID).First(&job).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
@@ -680,19 +821,19 @@ func (h *Handler) KillJob(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get job"})
 		return
 	}
-	
+
 	// Check if job is currently processing
 	if job.Status != models.StatusProcessing {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Job is not currently running"})
 		return
 	}
-	
+
 	// Attempt to kill the job
 	if err := h.taskQueue.KillJob(jobID); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	
+
 	c.JSON(http.StatusOK, gin.H{"message": "Job cancellation requested"})
 }
 
@@ -711,43 +852,43 @@ func (h *Handler) KillJob(c *gin.Context) {
 // @Security ApiKeyAuth
 // @Security BearerAuth
 func (h *Handler) UpdateTranscriptionTitle(c *gin.Context) {
-    jobID := c.Param("id")
-    if jobID == "" {
-        c.JSON(http.StatusBadRequest, gin.H{"error": "Job ID required"})
-        return
-    }
+	jobID := c.Param("id")
+	if jobID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Job ID required"})
+		return
+	}
 
-    var body struct {
-        Title string `json:"title" binding:"required,min=1,max=255"`
-    }
-    if err := c.ShouldBindJSON(&body); err != nil {
-        c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-        return
-    }
+	var body struct {
+		Title string `json:"title" binding:"required,min=1,max=255"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
 
-    var job models.TranscriptionJob
-    if err := database.DB.Where("id = ?", jobID).First(&job).Error; err != nil {
-        if err == gorm.ErrRecordNotFound {
-            c.JSON(http.StatusNotFound, gin.H{"error": "Job not found"})
-            return
-        }
-        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get job"})
-        return
-    }
+	var job models.TranscriptionJob
+	if err := database.DB.Where("id = ?", jobID).First(&job).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Job not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get job"})
+		return
+	}
 
-    job.Title = &body.Title
-    if err := database.DB.Model(&job).Update("title", body.Title).Error; err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update title"})
-        return
-    }
+	job.Title = &body.Title
+	if err := database.DB.Model(&job).Update("title", body.Title).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update title"})
+		return
+	}
 
-    c.JSON(http.StatusOK, gin.H{
-        "id":          job.ID,
-        "title":       job.Title,
-        "status":      job.Status,
-        "created_at":  job.CreatedAt,
-        "audio_path":  job.AudioPath,
-    })
+	c.JSON(http.StatusOK, gin.H{
+		"id":         job.ID,
+		"title":      job.Title,
+		"status":     job.Status,
+		"created_at": job.CreatedAt,
+		"audio_path": job.AudioPath,
+	})
 }
 
 // @Summary Delete transcription job
@@ -763,7 +904,7 @@ func (h *Handler) UpdateTranscriptionTitle(c *gin.Context) {
 // @Security BearerAuth
 func (h *Handler) DeleteJob(c *gin.Context) {
 	jobID := c.Param("id")
-	
+
 	var job models.TranscriptionJob
 	if err := database.DB.Where("id = ?", jobID).First(&job).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
@@ -819,7 +960,7 @@ func (h *Handler) DeleteJob(c *gin.Context) {
 // @Security BearerAuth
 func (h *Handler) GetJobByID(c *gin.Context) {
 	jobID := c.Param("id")
-	
+
 	var job models.TranscriptionJob
 	if err := database.DB.Where("id = ?", jobID).First(&job).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
@@ -845,7 +986,7 @@ func (h *Handler) GetJobByID(c *gin.Context) {
 // @Security BearerAuth
 func (h *Handler) GetJobExecutionData(c *gin.Context) {
 	jobID := c.Param("id")
-	
+
 	var execution models.TranscriptionJobExecution
 	if err := database.DB.Where("transcription_job_id = ? AND status = ?", jobID, models.StatusCompleted).
 		Order("completed_at DESC").
@@ -872,7 +1013,7 @@ func (h *Handler) GetJobExecutionData(c *gin.Context) {
 // @Security ApiKeyAuth
 func (h *Handler) GetAudioFile(c *gin.Context) {
 	jobID := c.Param("id")
-	
+
 	var job models.TranscriptionJob
 	if err := database.DB.Where("id = ?", jobID).First(&job).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
@@ -919,10 +1060,10 @@ func (h *Handler) GetAudioFile(c *gin.Context) {
 		c.Header("Content-Type", "audio/mpeg")
 	}
 
-    // Add CORS headers for audio
-    c.Header("Access-Control-Allow-Origin", "*")
-    c.Header("Access-Control-Allow-Methods", "GET")
-    c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Authorization, X-API-Key")
+	// Add CORS headers for audio
+	c.Header("Access-Control-Allow-Origin", "*")
+	c.Header("Access-Control-Allow-Methods", "GET")
+	c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Authorization, X-API-Key")
 
 	// Serve the audio file
 	c.File(job.AudioPath)
@@ -956,19 +1097,19 @@ func (h *Handler) Login(c *gin.Context) {
 		return
 	}
 
-    token, err := h.authService.GenerateToken(&user)
-    if err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
-        return
-    }
+	token, err := h.authService.GenerateToken(&user)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
+		return
+	}
 
-    // Set refresh token cookie
-    if err := h.issueRefreshToken(c, user.ID); err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create session"})
-        return
-    }
+	// Set refresh token cookie
+	if err := h.issueRefreshToken(c, user.ID); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create session"})
+		return
+	}
 
-    response := LoginResponse{ Token: token }
+	response := LoginResponse{Token: token}
 	response.User.ID = user.ID
 	response.User.Username = user.Username
 
@@ -983,21 +1124,21 @@ func (h *Handler) Login(c *gin.Context) {
 // @Security BearerAuth
 // @Router /api/v1/auth/logout [post]
 func (h *Handler) Logout(c *gin.Context) {
-    // Best-effort refresh token revocation and cookie clear
-    if cookie, err := c.Cookie("scriberr_refresh_token"); err == nil {
-        h.revokeRefreshToken(cookie)
-    }
-    http.SetCookie(c.Writer, &http.Cookie{
-        Name:     "scriberr_refresh_token",
-        Value:    "",
-        Path:     "/",
-        Expires:  time.Unix(0, 0),
-        MaxAge:   -1,
-        HttpOnly: true,
-        SameSite: http.SameSiteLaxMode,
-        Secure:   false,
-    })
-    c.JSON(http.StatusOK, gin.H{"message": "Logged out successfully"})
+	// Best-effort refresh token revocation and cookie clear
+	if cookie, err := c.Cookie("scriberr_refresh_token"); err == nil {
+		h.revokeRefreshToken(cookie)
+	}
+	http.SetCookie(c.Writer, &http.Cookie{
+		Name:     "scriberr_refresh_token",
+		Value:    "",
+		Path:     "/",
+		Expires:  time.Unix(0, 0),
+		MaxAge:   -1,
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+		Secure:   false,
+	})
+	c.JSON(http.StatusOK, gin.H{"message": "Logged out successfully"})
 }
 
 // @Summary Check registration status
@@ -1013,9 +1154,9 @@ func (h *Handler) GetRegistrationStatus(c *gin.Context) {
 		return
 	}
 
-    response := RegistrationStatusResponse{
-        RegistrationEnabled: userCount == 0,
-    }
+	response := RegistrationStatusResponse{
+		RegistrationEnabled: userCount == 0,
+	}
 
 	c.JSON(http.StatusOK, response)
 }
@@ -1078,26 +1219,26 @@ func (h *Handler) Register(c *gin.Context) {
 	}
 
 	// Generate token for immediate login
-    token, err := h.authService.GenerateToken(&user)
-    if err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate login token"})
-        return
-    }
-    // Set refresh token cookie
-    if err := h.issueRefreshToken(c, user.ID); err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create session"})
-        return
-    }
-    response := LoginResponse{ Token: token }
-    response.User.ID = user.ID
-    response.User.Username = user.Username
+	token, err := h.authService.GenerateToken(&user)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate login token"})
+		return
+	}
+	// Set refresh token cookie
+	if err := h.issueRefreshToken(c, user.ID); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create session"})
+		return
+	}
+	response := LoginResponse{Token: token}
+	response.User.ID = user.ID
+	response.User.Username = user.Username
 
-    c.JSON(http.StatusCreated, response)
+	c.JSON(http.StatusCreated, response)
 }
 
 // RefreshTokenResponse represents the refresh response
 type RefreshTokenResponse struct {
-    Token string `json:"token"`
+	Token string `json:"token"`
 }
 
 // @Summary Refresh access token
@@ -1108,82 +1249,82 @@ type RefreshTokenResponse struct {
 // @Failure 401 {object} map[string]string
 // @Router /api/v1/auth/refresh [post]
 func (h *Handler) Refresh(c *gin.Context) {
-    cookie, err := c.Cookie("scriberr_refresh_token")
-    if err != nil || cookie == "" {
-        c.JSON(http.StatusUnauthorized, gin.H{"error": "Missing refresh token"})
-        return
-    }
-    userID, err := h.validateAndRotateRefreshToken(c, cookie)
-    if err != nil {
-        c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid refresh token"})
-        return
-    }
-    var user models.User
-    if err := database.DB.First(&user, userID).Error; err != nil {
-        c.JSON(http.StatusUnauthorized, gin.H{"error": "User not found"})
-        return
-    }
-    token, err := h.authService.GenerateToken(&user)
-    if err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
-        return
-    }
-    c.JSON(http.StatusOK, RefreshTokenResponse{ Token: token })
+	cookie, err := c.Cookie("scriberr_refresh_token")
+	if err != nil || cookie == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Missing refresh token"})
+		return
+	}
+	userID, err := h.validateAndRotateRefreshToken(c, cookie)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid refresh token"})
+		return
+	}
+	var user models.User
+	if err := database.DB.First(&user, userID).Error; err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not found"})
+		return
+	}
+	token, err := h.authService.GenerateToken(&user)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
+		return
+	}
+	c.JSON(http.StatusOK, RefreshTokenResponse{Token: token})
 }
 
 // issueRefreshToken creates a refresh token and sets cookie
 func (h *Handler) issueRefreshToken(c *gin.Context, userID uint) error {
-    tokenValue := generateSecureAPIKey(64)
-    hashed := sha256Hex(tokenValue)
-    rt := models.RefreshToken{
-        UserID:    userID,
-        Hashed:    hashed,
-        ExpiresAt: time.Now().Add(14 * 24 * time.Hour),
-        Revoked:   false,
-    }
-    if err := database.DB.Create(&rt).Error; err != nil {
-        return err
-    }
-    http.SetCookie(c.Writer, &http.Cookie{
-        Name:     "scriberr_refresh_token",
-        Value:    tokenValue,
-        Path:     "/",
-        Expires:  rt.ExpiresAt,
-        MaxAge:   int((14 * 24 * time.Hour).Seconds()),
-        HttpOnly: true,
-        SameSite: http.SameSiteLaxMode,
-        Secure:   false,
-    })
-    return nil
+	tokenValue := generateSecureAPIKey(64)
+	hashed := sha256Hex(tokenValue)
+	rt := models.RefreshToken{
+		UserID:    userID,
+		Hashed:    hashed,
+		ExpiresAt: time.Now().Add(14 * 24 * time.Hour),
+		Revoked:   false,
+	}
+	if err := database.DB.Create(&rt).Error; err != nil {
+		return err
+	}
+	http.SetCookie(c.Writer, &http.Cookie{
+		Name:     "scriberr_refresh_token",
+		Value:    tokenValue,
+		Path:     "/",
+		Expires:  rt.ExpiresAt,
+		MaxAge:   int((14 * 24 * time.Hour).Seconds()),
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+		Secure:   false,
+	})
+	return nil
 }
 
 // validateAndRotateRefreshToken validates refresh token, revokes old, and issues new
 func (h *Handler) validateAndRotateRefreshToken(c *gin.Context, tokenValue string) (uint, error) {
-    hashed := sha256Hex(tokenValue)
-    var rt models.RefreshToken
-    if err := database.DB.Where("hashed = ?", hashed).First(&rt).Error; err != nil {
-        return 0, err
-    }
-    if rt.Revoked || time.Now().After(rt.ExpiresAt) {
-        return 0, fmt.Errorf("expired or revoked")
-    }
-    // Revoke current
-    _ = database.DB.Model(&rt).Update("revoked", true).Error
-    // Issue new
-    if err := h.issueRefreshToken(c, rt.UserID); err != nil {
-        return 0, err
-    }
-    return rt.UserID, nil
+	hashed := sha256Hex(tokenValue)
+	var rt models.RefreshToken
+	if err := database.DB.Where("hashed = ?", hashed).First(&rt).Error; err != nil {
+		return 0, err
+	}
+	if rt.Revoked || time.Now().After(rt.ExpiresAt) {
+		return 0, fmt.Errorf("expired or revoked")
+	}
+	// Revoke current
+	_ = database.DB.Model(&rt).Update("revoked", true).Error
+	// Issue new
+	if err := h.issueRefreshToken(c, rt.UserID); err != nil {
+		return 0, err
+	}
+	return rt.UserID, nil
 }
 
 func (h *Handler) revokeRefreshToken(tokenValue string) {
-    hashed := sha256Hex(tokenValue)
-    _ = database.DB.Model(&models.RefreshToken{}).Where("hashed = ?", hashed).Update("revoked", true).Error
+	hashed := sha256Hex(tokenValue)
+	_ = database.DB.Model(&models.RefreshToken{}).Where("hashed = ?", hashed).Update("revoked", true).Error
 }
 
 func sha256Hex(s string) string {
-    sum := sha256.Sum256([]byte(s))
-    return hex.EncodeToString(sum[:])
+	sum := sha256.Sum256([]byte(s))
+	return hex.EncodeToString(sum[:])
 }
 
 // @Summary Change user password
@@ -1310,13 +1451,13 @@ func (h *Handler) ChangeUsername(c *gin.Context) {
 // @Security BearerAuth
 // @Router /api/v1/api-keys [get]
 func (h *Handler) ListAPIKeys(c *gin.Context) {
-    var apiKeys []models.APIKey
-    if err := database.DB.Where("is_active = ?", true).Find(&apiKeys).Error; err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch API keys"})
-        return
-    }
-    // Tests expect a raw array of models.APIKey including the Key field
-    c.JSON(http.StatusOK, apiKeys)
+	var apiKeys []models.APIKey
+	if err := database.DB.Where("is_active = ?", true).Find(&apiKeys).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch API keys"})
+		return
+	}
+	// Tests expect a raw array of models.APIKey including the Key field
+	c.JSON(http.StatusOK, apiKeys)
 }
 
 // @Summary Create API key
@@ -1330,11 +1471,11 @@ func (h *Handler) ListAPIKeys(c *gin.Context) {
 // @Security BearerAuth
 // @Router /api/v1/api-keys [post]
 func (h *Handler) CreateAPIKey(c *gin.Context) {
-    var req CreateAPIKeyRequest
-    if err := c.ShouldBindJSON(&req); err != nil {
-        c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request: " + err.Error()})
-        return
-    }
+	var req CreateAPIKeyRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request: " + err.Error()})
+		return
+	}
 
 	// Generate a secure API key
 	apiKey := generateSecureAPIKey(32)
@@ -1352,8 +1493,8 @@ func (h *Handler) CreateAPIKey(c *gin.Context) {
 		return
 	}
 
-    // Return full model with 200 to match tests
-    c.JSON(http.StatusOK, newKey)
+	// Return full model with 200 to match tests
+	c.JSON(http.StatusOK, newKey)
 }
 
 // @Summary Delete API key
@@ -1451,14 +1592,14 @@ func (h *Handler) SaveLLMConfig(c *gin.Context) {
 	// Check if there's an existing active configuration
 	var existingConfig models.LLMConfig
 	err := database.DB.Where("is_active = ?", true).First(&existingConfig).Error
-	
+
 	if err != nil && err != gorm.ErrRecordNotFound {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to check existing configuration"})
 		return
 	}
 
 	var config models.LLMConfig
-	
+
 	if err == gorm.ErrRecordNotFound {
 		// No existing active config, create new one
 		config = models.LLMConfig{
@@ -1467,7 +1608,7 @@ func (h *Handler) SaveLLMConfig(c *gin.Context) {
 			APIKey:   req.APIKey,
 			IsActive: req.IsActive,
 		}
-		
+
 		if err := database.DB.Create(&config).Error; err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create LLM configuration"})
 			return
@@ -1478,7 +1619,7 @@ func (h *Handler) SaveLLMConfig(c *gin.Context) {
 		existingConfig.BaseURL = req.BaseURL
 		existingConfig.APIKey = req.APIKey
 		existingConfig.IsActive = req.IsActive
-		
+
 		if err := database.DB.Save(&existingConfig).Error; err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update LLM configuration"})
 			return
@@ -1504,12 +1645,12 @@ func generateSecureAPIKey(length int) string {
 	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 	b := make([]byte, length)
 	randomBytes := make([]byte, length)
-	
+
 	if _, err := rand.Read(randomBytes); err != nil {
 		// Fallback to a UUID if crypto/rand fails
 		return uuid.New().String()
 	}
-	
+
 	for i := range b {
 		b[i] = charset[randomBytes[i]%byte(len(charset))]
 	}
@@ -1540,9 +1681,9 @@ func (h *Handler) GetQueueStats(c *gin.Context) {
 func (h *Handler) GetSupportedModels(c *gin.Context) {
 	models := h.whisperXService.GetSupportedModels()
 	languages := h.whisperXService.GetSupportedLanguages()
-	
+
 	c.JSON(http.StatusOK, gin.H{
-		"models": models,
+		"models":    models,
 		"languages": languages,
 	})
 }
@@ -1651,8 +1792,8 @@ func (h *Handler) CreateProfile(c *gin.Context) {
 		return
 	}
 
-    // Tests expect 200 on create
-    c.JSON(http.StatusOK, profile)
+	// Tests expect 200 on create
+	c.JSON(http.StatusOK, profile)
 }
 
 // @Summary Get transcription profile
@@ -1667,7 +1808,7 @@ func (h *Handler) CreateProfile(c *gin.Context) {
 // @Security BearerAuth
 func (h *Handler) GetProfile(c *gin.Context) {
 	profileID := c.Param("id")
-	
+
 	var profile models.TranscriptionProfile
 	if err := database.DB.Where("id = ?", profileID).First(&profile).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
@@ -1696,7 +1837,7 @@ func (h *Handler) GetProfile(c *gin.Context) {
 // @Security BearerAuth
 func (h *Handler) UpdateProfile(c *gin.Context) {
 	profileID := c.Param("id")
-	
+
 	var existingProfile models.TranscriptionProfile
 	if err := database.DB.Where("id = ?", profileID).First(&existingProfile).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
@@ -1748,7 +1889,7 @@ func (h *Handler) UpdateProfile(c *gin.Context) {
 // @Security BearerAuth
 func (h *Handler) DeleteProfile(c *gin.Context) {
 	profileID := c.Param("id")
-	
+
 	var profile models.TranscriptionProfile
 	if err := database.DB.Where("id = ?", profileID).First(&profile).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
@@ -1811,7 +1952,7 @@ func (h *Handler) SetDefaultProfile(c *gin.Context) {
 // QuickTranscriptionRequest represents the quick transcription request
 type QuickTranscriptionRequest struct {
 	Parameters  *models.WhisperXParams `json:"parameters,omitempty"`
-	ProfileName *string               `json:"profile_name,omitempty"`
+	ProfileName *string                `json:"profile_name,omitempty"`
 }
 
 // @Summary Submit quick transcription job
@@ -1862,57 +2003,57 @@ func (h *Handler) SubmitQuickTranscription(c *gin.Context) {
 		// Use default parameters with all required fields
 		params = models.WhisperXParams{
 			// Model parameters
-			Model:                               "small",
-			ModelCacheOnly:                      false,
-			
+			Model:          "small",
+			ModelCacheOnly: false,
+
 			// Device and computation
-			Device:                              "cpu",
-			DeviceIndex:                         0,
-			BatchSize:                           8,
-			ComputeType:                         "float32",
-			Threads:                             0,
-			
+			Device:      "cpu",
+			DeviceIndex: 0,
+			BatchSize:   8,
+			ComputeType: "float32",
+			Threads:     0,
+
 			// Output settings
-			OutputFormat:                        "all",
-			Verbose:                             true,
-			
+			OutputFormat: "all",
+			Verbose:      true,
+
 			// Task and language
-			Task:                                "transcribe",
-			
+			Task: "transcribe",
+
 			// Alignment settings
-			InterpolateMethod:                   "nearest",
-			NoAlign:                             false,
-			ReturnCharAlignments:                false,
-			
+			InterpolateMethod:    "nearest",
+			NoAlign:              false,
+			ReturnCharAlignments: false,
+
 			// VAD (Voice Activity Detection) settings
-			VadMethod:                           "pyannote",
-			VadOnset:                            0.5,
-			VadOffset:                           0.363,
-			ChunkSize:                           30,
-			
+			VadMethod: "pyannote",
+			VadOnset:  0.5,
+			VadOffset: 0.363,
+			ChunkSize: 30,
+
 			// Diarization settings
-			Diarize:                             false,
-			DiarizeModel:                        "pyannote/speaker-diarization-3.1",
-			SpeakerEmbeddings:                   false,
-			
+			Diarize:           false,
+			DiarizeModel:      "pyannote/speaker-diarization-3.1",
+			SpeakerEmbeddings: false,
+
 			// Transcription quality settings
-			Temperature:                         0,
-			BestOf:                              5,
-			BeamSize:                            5,
-			Patience:                            1.0,
-			LengthPenalty:                       1.0,
-			SuppressNumerals:                    false,
-			ConditionOnPreviousText:             false,
-			Fp16:                                true,
-			TemperatureIncrementOnFallback:      0.2,
-			CompressionRatioThreshold:           2.4,
-			LogprobThreshold:                    -1.0,
-			NoSpeechThreshold:                   0.6,
-			
+			Temperature:                    0,
+			BestOf:                         5,
+			BeamSize:                       5,
+			Patience:                       1.0,
+			LengthPenalty:                  1.0,
+			SuppressNumerals:               false,
+			ConditionOnPreviousText:        false,
+			Fp16:                           true,
+			TemperatureIncrementOnFallback: 0.2,
+			CompressionRatioThreshold:      2.4,
+			LogprobThreshold:               -1.0,
+			NoSpeechThreshold:              0.6,
+
 			// Output formatting
-			HighlightWords:                      false,
-			SegmentResolution:                   "sentence",
-			PrintProgress:                       false,
+			HighlightWords:    false,
+			SegmentResolution: "sentence",
+			PrintProgress:     false,
 		}
 	}
 
@@ -1938,7 +2079,7 @@ func (h *Handler) SubmitQuickTranscription(c *gin.Context) {
 // @Security BearerAuth
 func (h *Handler) GetQuickTranscriptionStatus(c *gin.Context) {
 	jobID := c.Param("id")
-	
+
 	job, err := h.quickTranscription.GetQuickJob(jobID)
 	if err != nil {
 		if err.Error() == "job not found" || err.Error() == "job expired" {
@@ -2288,7 +2429,7 @@ type SpeakerMappingResponse struct {
 // @Router /api/v1/transcription/{id}/speakers [get]
 func (h *Handler) GetSpeakerMappings(c *gin.Context) {
 	jobID := c.Param("id")
-	
+
 	// Verify the transcription job exists and has diarization enabled
 	var job models.TranscriptionJob
 	if err := database.DB.Where("id = ?", jobID).First(&job).Error; err != nil {
@@ -2299,20 +2440,20 @@ func (h *Handler) GetSpeakerMappings(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get transcription job"})
 		return
 	}
-	
+
 	// Check if diarization was enabled for this job
 	if !job.Diarization && !job.Parameters.Diarize {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Diarization was not enabled for this transcription"})
 		return
 	}
-	
+
 	// Get speaker mappings
 	var mappings []models.SpeakerMapping
 	if err := database.DB.Where("transcription_job_id = ?", jobID).Find(&mappings).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get speaker mappings"})
 		return
 	}
-	
+
 	// Convert to response format
 	response := make([]SpeakerMappingResponse, len(mappings))
 	for i, mapping := range mappings {
@@ -2322,7 +2463,7 @@ func (h *Handler) GetSpeakerMappings(c *gin.Context) {
 			CustomName:      mapping.CustomName,
 		}
 	}
-	
+
 	c.JSON(http.StatusOK, response)
 }
 
@@ -2343,13 +2484,13 @@ func (h *Handler) GetSpeakerMappings(c *gin.Context) {
 // @Router /api/v1/transcription/{id}/speakers [post]
 func (h *Handler) UpdateSpeakerMappings(c *gin.Context) {
 	jobID := c.Param("id")
-	
+
 	var req SpeakerMappingsUpdateRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request: " + err.Error()})
 		return
 	}
-	
+
 	// Verify the transcription job exists and has diarization enabled
 	var job models.TranscriptionJob
 	if err := database.DB.Where("id = ?", jobID).First(&job).Error; err != nil {
@@ -2360,13 +2501,13 @@ func (h *Handler) UpdateSpeakerMappings(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get transcription job"})
 		return
 	}
-	
+
 	// Check if diarization was enabled for this job
 	if !job.Diarization && !job.Parameters.Diarize {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Diarization was not enabled for this transcription"})
 		return
 	}
-	
+
 	// Update or create speaker mappings within a transaction
 	tx := database.DB.Begin()
 	defer func() {
@@ -2374,16 +2515,16 @@ func (h *Handler) UpdateSpeakerMappings(c *gin.Context) {
 			tx.Rollback()
 		}
 	}()
-	
+
 	var updatedMappings []models.SpeakerMapping
-	
+
 	for _, mapping := range req.Mappings {
 		var speakerMapping models.SpeakerMapping
-		
+
 		// Try to find existing mapping
 		err := tx.Where("transcription_job_id = ? AND original_speaker = ?", jobID, mapping.OriginalSpeaker).
 			First(&speakerMapping).Error
-		
+
 		if err == gorm.ErrRecordNotFound {
 			// Create new mapping
 			speakerMapping = models.SpeakerMapping{
@@ -2409,12 +2550,12 @@ func (h *Handler) UpdateSpeakerMappings(c *gin.Context) {
 				return
 			}
 		}
-		
+
 		updatedMappings = append(updatedMappings, speakerMapping)
 	}
-	
+
 	tx.Commit()
-	
+
 	// Convert to response format
 	response := make([]SpeakerMappingResponse, len(updatedMappings))
 	for i, mapping := range updatedMappings {
@@ -2424,6 +2565,6 @@ func (h *Handler) UpdateSpeakerMappings(c *gin.Context) {
 			CustomName:      mapping.CustomName,
 		}
 	}
-	
+
 	c.JSON(http.StatusOK, response)
 }

@@ -42,12 +42,12 @@ func NewService(cfg *config.Config, taskQueue TaskQueue) *Service {
 // Start initializes the dropzone directory and starts file monitoring
 func (s *Service) Start() error {
 	log.Printf("Starting dropzone service...")
-	
+
 	// Create dropzone directory if it doesn't exist
 	if err := os.MkdirAll(s.dropzonePath, 0755); err != nil {
 		return fmt.Errorf("failed to create dropzone directory: %v", err)
 	}
-	
+
 	log.Printf("Dropzone directory created/verified at: %s", s.dropzonePath)
 
 	// Initialize file watcher
@@ -70,7 +70,7 @@ func (s *Service) Start() error {
 
 	// Start monitoring in a goroutine
 	go s.watchFiles()
-	
+
 	log.Printf("Dropzone service started, monitoring recursively: %s", s.dropzonePath)
 	return nil
 }
@@ -91,7 +91,7 @@ func (s *Service) addDirectoryRecursively(root string) error {
 			log.Printf("Warning: error accessing path %s: %v", path, err)
 			return nil // Continue walking despite errors
 		}
-		
+
 		// Only add directories to the watcher
 		if info.IsDir() {
 			if err := s.watcher.Add(path); err != nil {
@@ -100,7 +100,7 @@ func (s *Service) addDirectoryRecursively(root string) error {
 			}
 			log.Printf("Added directory to watcher: %s", path)
 		}
-		
+
 		return nil
 	})
 }
@@ -112,7 +112,7 @@ func (s *Service) processExistingFiles() error {
 			log.Printf("Warning: error accessing path %s: %v", path, err)
 			return nil // Continue walking despite errors
 		}
-		
+
 		// Only process files, not directories
 		if !info.IsDir() {
 			filename := filepath.Base(path)
@@ -121,7 +121,7 @@ func (s *Service) processExistingFiles() error {
 				s.processFile(path)
 			}
 		}
-		
+
 		return nil
 	})
 }
@@ -134,7 +134,7 @@ func (s *Service) watchFiles() {
 			if !ok {
 				return
 			}
-			
+
 			// Handle creation events for both files and directories
 			if event.Op&fsnotify.Create == fsnotify.Create {
 				// Check if the created item is a directory
@@ -163,10 +163,10 @@ func (s *Service) watchFiles() {
 func (s *Service) isAudioFile(filename string) bool {
 	ext := strings.ToLower(filepath.Ext(filename))
 	audioExtensions := []string{
-		".mp3", ".wav", ".flac", ".m4a", ".aac", ".ogg", 
+		".mp3", ".wav", ".flac", ".m4a", ".aac", ".ogg",
 		".wma", ".mp4", ".avi", ".mov", ".mkv", ".webm",
 	}
-	
+
 	for _, validExt := range audioExtensions {
 		if ext == validExt {
 			return true
@@ -179,35 +179,35 @@ func (s *Service) isAudioFile(filename string) bool {
 func (s *Service) processFile(filePath string) {
 	// Small delay to ensure file is fully written
 	time.Sleep(500 * time.Millisecond)
-	
+
 	filename := filepath.Base(filePath)
-	
+
 	// Check if it's an audio file
 	if !s.isAudioFile(filename) {
 		log.Printf("Skipping non-audio file: %s", filename)
 		return
 	}
-	
+
 	// Check if file exists and is accessible
 	fileInfo, err := os.Stat(filePath)
 	if err != nil {
 		log.Printf("Error accessing file %s: %v", filePath, err)
 		return
 	}
-	
+
 	// Skip if it's a directory
 	if fileInfo.IsDir() {
 		return
 	}
-	
+
 	log.Printf("Processing audio file: %s", filename)
-	
+
 	// Upload the file using the same logic as the API handler
 	if err := s.uploadFile(filePath, filename); err != nil {
 		log.Printf("Failed to upload file %s: %v", filename, err)
 		return
 	}
-	
+
 	// Delete the original file from dropzone after successful upload
 	if err := os.Remove(filePath); err != nil {
 		log.Printf("Warning: Failed to delete file from dropzone %s: %v", filePath, err)
@@ -252,12 +252,12 @@ func (s *Service) uploadFile(sourcePath, originalFilename string) error {
 	// Check if auto-transcription is enabled
 	if s.isAutoTranscriptionEnabled() {
 		log.Printf("Auto-transcription enabled, enqueueing job %s", jobID)
-		
+
 		// Update job status to pending before enqueueing
 		if err := database.DB.Model(&job).Update("status", models.StatusPending).Error; err != nil {
 			log.Printf("Warning: Failed to update job status to pending: %v", err)
 		}
-		
+
 		// Enqueue the job for transcription
 		if err := s.taskQueue.EnqueueJob(jobID); err != nil {
 			log.Printf("Failed to enqueue job %s for transcription: %v", jobID, err)
@@ -273,17 +273,17 @@ func (s *Service) uploadFile(sourcePath, originalFilename string) error {
 // isAutoTranscriptionEnabled checks if auto-transcription is enabled for any user
 func (s *Service) isAutoTranscriptionEnabled() bool {
 	var count int64
-	
+
 	// Check if there are any users with auto-transcription enabled
 	err := database.DB.Model(&models.User{}).
 		Where("auto_transcription_enabled = ?", true).
 		Count(&count).Error
-	
+
 	if err != nil {
 		log.Printf("Error checking auto-transcription settings: %v", err)
 		return false
 	}
-	
+
 	return count > 0
 }
 

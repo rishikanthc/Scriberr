@@ -4,12 +4,11 @@
 package queue
 
 import (
-    "os"
-    "syscall"
+	"os"
+	"syscall"
 )
 
 // killProcessTree sends SIGKILL to the entire process group on Linux.
 func killProcessTree(p *os.Process) error {
-    return syscall.Kill(-p.Pid, syscall.SIGKILL)
+	return syscall.Kill(-p.Pid, syscall.SIGKILL)
 }
-

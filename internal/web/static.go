@@ -42,14 +42,14 @@ func SetupStaticRoutes(router *gin.Engine, authService *auth.AuthService) {
 			filepath = filepath[1:]
 		}
 		fullPath := "assets/" + filepath
-		
+
 		// Try to read the file from embedded filesystem
 		fileContent, err := staticFiles.ReadFile("dist/" + fullPath)
 		if err != nil {
 			c.Status(http.StatusNotFound)
 			return
 		}
-		
+
 		// Set appropriate content type based on file extension
 		if strings.Contains(fullPath, ".css") {
 			c.Data(http.StatusOK, "text/css", fileContent)
@@ -69,7 +69,6 @@ func SetupStaticRoutes(router *gin.Engine, authService *auth.AuthService) {
 		}
 		c.Data(http.StatusOK, "image/svg+xml", fileContent)
 	})
-
 
 	// Serve index.html for root and any unmatched routes (SPA behavior)
 	router.NoRoute(func(c *gin.Context) {
