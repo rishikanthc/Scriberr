@@ -7,7 +7,8 @@
     "sync:spec": "cp -f ../../api-docs/swagger.json public/api/swagger.json",
     "sync:undoc": "node ./scripts/gen-endpoints.mjs",
     "dev": "npm run sync:spec && npm run sync:undoc && vite",
-    "build": "npm run sync:spec && npm run sync:undoc && tsc -b && vite build",
+    "build": "npm run sync:spec && npm run sync:undoc && tsc -b && vite build && npm run postbuild",
+    "postbuild": "node ./scripts/postbuild.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

@@ -1,11 +1,12 @@
-name: Deploy Project website to GitHub Pages
+name: Deploy Project Website to GitHub Pages
 
 on:
   push:
     branches: [ main ]
     paths:
       - 'web/landing/**'
-      - '.github/workflows/deploy-landing.yml'
+      - 'api-docs/**'
+      - '.github/workflows/project-website.yml'
   workflow_dispatch:
 
 permissions:
@@ -18,35 +19,47 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build:
+  build-and-deploy:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: web/landing/package-lock.json
+
+      - name: Install dependencies
+        working-directory: web/landing
+        run: npm ci
 
       - name: Build landing site
         working-directory: web/landing
-        run: |
-          npm ci
-          npm run build
+        run: npm run build
 
-      - name: Upload artifact
+      - name: Verify build
+        working-directory: web/landing
+        run: |
+          echo "Build verification:"
+          ls -la dist/
+          echo "Checking docs structure:"
+          ls -la dist/docs/ || echo "No docs directory found"
+          echo "Verifying key files:"
+          test -f dist/index.html && echo "✓ index.html" || echo "✗ index.html missing"
+          test -f dist/api.html && echo "✓ api.html" || echo "✗ api.html missing"
+          test -f dist/docs/intro.html && echo "✓ docs/intro.html" || echo "✗ docs/intro.html missing"
+
+      - name: Setup GitHub Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload to GitHub Pages
         uses: actions/upload-pages-artifact@v3
         with:
           path: web/landing/dist
 
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
-    needs: build
-    steps:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
