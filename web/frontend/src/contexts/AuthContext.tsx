@@ -179,10 +179,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
 				if (!token) return;
 				
 				if (isTokenExpired(token)) {
-					console.log("Token expired, attempting refresh...");
 					const newToken = await tryRefresh();
 					if (!newToken) {
-						console.log("Refresh failed, logging out...");
 						logout();
 					}
 				}

@@ -202,11 +202,6 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 
 			if (response.ok) {
 				const result: PaginationResponse = await response.json();
-				console.log("Fetched data:", result.jobs?.length, "items");
-				console.log("Total from API:", result.pagination.total);
-				console.log("Current page:", result.pagination.page);
-				console.log("Total pages:", result.pagination.pages);
-				console.log("Search query:", currentSearch);
 				
 				setData(result.jobs || []);
 				setTotalItems(result.pagination.total);

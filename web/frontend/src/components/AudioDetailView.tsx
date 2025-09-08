@@ -162,7 +162,6 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
     }, [audioId, audioCollapsed]);
 
 useEffect(() => {
-    console.log("AudioDetailView mounted, audioId:", audioId);
     fetchAudioDetails();
         fetchNotes();
         // Check LLM configured status for gating
@@ -203,30 +202,17 @@ useEffect(() => {
 	// Initialize WaveSurfer when audioFile is available - with proper DOM timing
     useEffect(() => {
         if (!audioFile) {
-            console.log("No audioFile yet, skipping WaveSurfer initialization");
             return;
         }
 
-		console.log("AudioFile available, checking DOM readiness...");
 
 		// Use a longer timeout and multiple checks to ensure DOM is ready
 		const checkAndInitialize = () => {
-			console.log("Checking DOM and WaveSurfer state:", {
-				audioFile: !!audioFile,
-				waveformRefElement: !!waveformRef.current,
-				wavesurferInstance: !!wavesurferRef.current,
-				waveformRefType: waveformRef.current?.tagName,
-			});
-
 			if (waveformRef.current && !wavesurferRef.current) {
-				console.log("✅ All conditions met! Initializing WaveSurfer...");
 				initializeWaveSurfer();
 			} else if (!waveformRef.current) {
-				console.log("❌ Waveform DOM element not ready yet, will retry...");
 				// Retry after a bit more time
 				setTimeout(checkAndInitialize, 200);
-			} else if (wavesurferRef.current) {
-				console.log("WaveSurfer already initialized");
 			}
 		};
 
@@ -236,7 +222,6 @@ useEffect(() => {
 		return () => {
 			clearTimeout(timer);
 			if (wavesurferRef.current) {
-				console.log("Cleaning up WaveSurfer");
 				wavesurferRef.current.destroy();
 				wavesurferRef.current = null;
 			}
@@ -299,7 +284,6 @@ useEffect(() => {
 	}, [currentWordIndex]);
 
 	const fetchAudioDetails = async () => {
-		console.log("Fetching audio details for ID:", audioId);
 		try {
 			// Fetch audio file details
 			const audioResponse = await fetch(`/api/v1/transcription/${audioId}`, {
@@ -308,11 +292,9 @@ useEffect(() => {
 				},
 			});
 
-			console.log("Audio response status:", audioResponse.status);
 
 			if (audioResponse.ok) {
 				const audioData = await audioResponse.json();
-				console.log("Audio data received:", audioData);
 				setAudioFile(audioData);
 
 				// Fetch transcript if completed
@@ -390,7 +372,6 @@ useEffect(() => {
                 const data = await res.json();
                 setExecutionData(data);
             } else {
-                console.log("No execution data available");
             }
         } catch (e) { 
             console.error("Failed to fetch execution data", e); 
@@ -410,7 +391,6 @@ useEffect(() => {
 		try {
 			// First, try to load the audio file manually to check if it's accessible
 			const audioUrl = `/api/v1/transcription/${audioId}/audio`;
-			console.log("Testing audio URL:", audioUrl);
 
 			const response = await fetch(audioUrl, {
 				headers: {
@@ -429,7 +409,6 @@ useEffect(() => {
 				return;
 			}
 
-			console.log("Audio file accessible, creating WaveSurfer...");
 
 			// Theme-aware colors
 			const isDark = theme === "dark";
@@ -453,16 +432,8 @@ useEffect(() => {
 			const audioBlob = await response.blob();
 			const audioObjectURL = URL.createObjectURL(audioBlob);
 
-			console.log("Loading audio blob into WaveSurfer...");
 			await wavesurferRef.current.load(audioObjectURL);
 
-			wavesurferRef.current.on("ready", () => {
-				console.log("WaveSurfer is ready");
-			});
-
-			wavesurferRef.current.on("load", (url) => {
-				console.log("WaveSurfer loading:", url);
-			});
 
 			wavesurferRef.current.on("error", (error) => {
 				console.error("WaveSurfer error:", error);
