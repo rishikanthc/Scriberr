@@ -6,7 +6,7 @@ import {
 	DropdownMenuItem,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Upload, Mic, Settings, LogOut, Home, Plus, Grip, Zap, Youtube } from "lucide-react";
+import { Upload, Mic, Settings, LogOut, Home, Plus, Grip, Zap, Youtube, Video } from "lucide-react";
 import { ScriberrLogo } from "./ScriberrLogo";
 import { ThemeSwitcher } from "./ThemeSwitcher";
 import { AudioRecorder } from "./AudioRecorder";
@@ -15,8 +15,13 @@ import { YouTubeDownloadDialog } from "./YouTubeDownloadDialog";
 import { useRouter } from "../contexts/RouterContext";
 import { useAuth } from "../contexts/AuthContext";
 
+interface FileWithType {
+	file: File;
+	isVideo: boolean;
+}
+
 interface HeaderProps {
-	onFileSelect: (files: File | File[]) => void;
+	onFileSelect: (files: File | File[] | FileWithType | FileWithType[]) => void;
 	onDownloadComplete?: () => void;
 }
 
@@ -24,12 +29,17 @@ export function Header({ onFileSelect, onDownloadComplete }: HeaderProps) {
 	const { navigate } = useRouter();
 	const { logout } = useAuth();
 	const fileInputRef = useRef<HTMLInputElement>(null);
+	const videoFileInputRef = useRef<HTMLInputElement>(null);
 	const [isRecorderOpen, setIsRecorderOpen] = useState(false);
 	const [isQuickTranscriptionOpen, setIsQuickTranscriptionOpen] = useState(false);
 	const [isYouTubeDialogOpen, setIsYouTubeDialogOpen] = useState(false);
 
 	const handleUploadClick = () => {
 		fileInputRef.current?.click();
+	};
+
+	const handleVideoUploadClick = () => {
+		videoFileInputRef.current?.click();
 	};
 
 	const handleRecordClick = () => {
@@ -63,6 +73,21 @@ export function Header({ onFileSelect, onDownloadComplete }: HeaderProps) {
 			const audioFiles = Array.from(files).filter(file => file.type.startsWith("audio/"));
 			if (audioFiles.length > 0) {
 				onFileSelect(audioFiles.length === 1 ? audioFiles[0] : audioFiles);
+				// Reset the input so the same files can be selected again
+				event.target.value = "";
+			}
+		}
+	};
+
+	const handleVideoFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+		const files = event.target.files;
+		if (files && files.length > 0) {
+			// Filter to only video files
+			const videoFiles = Array.from(files).filter(file => file.type.startsWith("video/"));
+			if (videoFiles.length > 0) {
+				// Pass video files with type marker
+				const filesWithType: FileWithType[] = videoFiles.map(file => ({ file, isVideo: true }));
+				onFileSelect(filesWithType.length === 1 ? filesWithType[0] : filesWithType);
 				// Reset the input so the same files can be selected again
 				event.target.value = "";
 			}
@@ -136,6 +161,18 @@ export function Header({ onFileSelect, onDownloadComplete }: HeaderProps) {
 								</div>
 							</DropdownMenuItem>
 							<DropdownMenuItem
+								onClick={handleVideoUploadClick}
+								className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
+							>
+								<Video className="h-4 w-4 text-purple-500" />
+								<div>
+									<div className="font-medium">Upload Videos</div>
+									<div className="text-xs text-gray-500 dark:text-gray-400">
+										Extract audio from video files
+									</div>
+								</div>
+							</DropdownMenuItem>
+							<DropdownMenuItem
 								onClick={handleRecordClick}
 								className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
 							>
@@ -188,6 +225,16 @@ export function Header({ onFileSelect, onDownloadComplete }: HeaderProps) {
 						accept="audio/*"
 						multiple
 						onChange={handleFileChange}
+						className="hidden"
+					/>
+					
+					{/* Hidden video file input */}
+					<input
+						ref={videoFileInputRef}
+						type="file"
+						accept="video/*"
+						multiple
+						onChange={handleVideoFileChange}
 						className="hidden"
 					/>
 				</div>

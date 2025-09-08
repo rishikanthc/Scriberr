@@ -1,9 +1,9 @@
 package api
 
 import (
-    "scriberr/internal/auth"
-    "scriberr/internal/web"
-    "scriberr/pkg/middleware"
+	"scriberr/internal/auth"
+	"scriberr/internal/web"
+	"scriberr/pkg/middleware"
 
 	"github.com/gin-gonic/gin"
 	swaggerFiles "github.com/swaggo/files"
@@ -20,12 +20,12 @@ func SetupRoutes(handler *Handler, authService *auth.AuthService) *gin.Engine {
 		c.Header("Access-Control-Allow-Origin", "*")
 		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 		c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, X-API-Key")
-		
+
 		if c.Request.Method == "OPTIONS" {
 			c.AbortWithStatus(204)
 			return
 		}
-		
+
 		c.Next()
 	})
 
@@ -40,17 +40,17 @@ func SetupRoutes(handler *Handler, authService *auth.AuthService) *gin.Engine {
 	{
 		// Authentication routes (no auth required)
 		auth := v1.Group("/auth")
-        {
-            auth.GET("/registration-status", handler.GetRegistrationStatus)
-            auth.POST("/register", handler.Register)
-            auth.POST("/login", handler.Login)
-            auth.POST("/refresh", handler.Refresh)
-            auth.POST("/logout", handler.Logout)
-			
+		{
+			auth.GET("/registration-status", handler.GetRegistrationStatus)
+			auth.POST("/register", handler.Register)
+			auth.POST("/login", handler.Login)
+			auth.POST("/refresh", handler.Refresh)
+			auth.POST("/logout", handler.Logout)
+
 			// Account management routes (require authentication)
-        authProtected := auth.Group("")
-        // Account management must require JWT (API keys do not represent a user)
-        authProtected.Use(middleware.JWTOnlyMiddleware(authService))
+			authProtected := auth.Group("")
+			// Account management must require JWT (API keys do not represent a user)
+			authProtected.Use(middleware.JWTOnlyMiddleware(authService))
 			{
 				authProtected.POST("/change-password", handler.ChangePassword)
 				authProtected.POST("/change-username", handler.ChangeUsername)
@@ -58,9 +58,9 @@ func SetupRoutes(handler *Handler, authService *auth.AuthService) *gin.Engine {
 		}
 
 		// API Key management routes (require authentication)
-        apiKeys := v1.Group("/api-keys")
-        // API key management restricted to JWT-authenticated users
-        apiKeys.Use(middleware.JWTOnlyMiddleware(authService))
+		apiKeys := v1.Group("/api-keys")
+		// API key management restricted to JWT-authenticated users
+		apiKeys.Use(middleware.JWTOnlyMiddleware(authService))
 		{
 			apiKeys.GET("/", handler.ListAPIKeys)
 			apiKeys.POST("/", handler.CreateAPIKey)
@@ -72,6 +72,7 @@ func SetupRoutes(handler *Handler, authService *auth.AuthService) *gin.Engine {
 		transcription.Use(middleware.AuthMiddleware(authService))
 		{
 			transcription.POST("/upload", handler.UploadAudio)
+			transcription.POST("/upload-video", handler.UploadVideo)
 			transcription.POST("/youtube", handler.DownloadFromYouTube)
 			transcription.POST("/submit", handler.SubmitJob)
 			transcription.POST("/:id/start", handler.StartTranscription)
@@ -89,11 +90,11 @@ func SetupRoutes(handler *Handler, authService *auth.AuthService) *gin.Engine {
 			// Notes for a transcription
 			transcription.GET("/:id/notes", handler.ListNotes)
 			transcription.POST("/:id/notes", handler.CreateNote)
-			
+
 			// Speaker mappings for a transcription
 			transcription.GET("/:id/speakers", handler.GetSpeakerMappings)
 			transcription.POST("/:id/speakers", handler.UpdateSpeakerMappings)
-			
+
 			// Quick transcription endpoints
 			transcription.POST("/quick", handler.SubmitQuickTranscription)
 			transcription.GET("/quick/:id", handler.GetQuickTranscriptionStatus)

@@ -20,14 +20,14 @@ type RunningJob struct {
 
 // TaskQueue manages transcription job processing
 type TaskQueue struct {
-	workers      int
-	jobChannel   chan string
-	ctx          context.Context
-	cancel       context.CancelFunc
-	wg           sync.WaitGroup
-	processor    JobProcessor
-	runningJobs  map[string]*RunningJob
-	jobsMutex    sync.RWMutex
+	workers     int
+	jobChannel  chan string
+	ctx         context.Context
+	cancel      context.CancelFunc
+	wg          sync.WaitGroup
+	processor   JobProcessor
+	runningJobs map[string]*RunningJob
+	jobsMutex   sync.RWMutex
 }
 
 // JobProcessor defines the interface for processing jobs
@@ -39,7 +39,7 @@ type JobProcessor interface {
 // NewTaskQueue creates a new task queue
 func NewTaskQueue(workers int, processor JobProcessor) *TaskQueue {
 	ctx, cancel := context.WithCancel(context.Background())
-	
+
 	return &TaskQueue{
 		workers:     workers,
 		jobChannel:  make(chan string, 100), // Buffer for 100 jobs
@@ -53,7 +53,7 @@ func NewTaskQueue(workers int, processor JobProcessor) *TaskQueue {
 // Start starts the task queue workers
 func (tq *TaskQueue) Start() {
 	log.Printf("Starting task queue with %d workers", tq.workers)
-	
+
 	for i := 0; i < tq.workers; i++ {
 		tq.wg.Add(1)
 		go tq.worker(i)
@@ -88,9 +88,9 @@ func (tq *TaskQueue) EnqueueJob(jobID string) error {
 // worker processes jobs from the channel
 func (tq *TaskQueue) worker(id int) {
 	defer tq.wg.Done()
-	
+
 	log.Printf("Worker %d started", id)
-	
+
 	for {
 		select {
 		case jobID, ok := <-tq.jobChannel:
@@ -98,26 +98,26 @@ func (tq *TaskQueue) worker(id int) {
 				log.Printf("Worker %d stopped", id)
 				return
 			}
-			
+
 			log.Printf("Worker %d processing job %s", id, jobID)
-			
+
 			// Update job status to processing
 			if err := tq.updateJobStatus(jobID, models.StatusProcessing); err != nil {
 				log.Printf("Worker %d: Failed to update job %s status to processing: %v", id, jobID, err)
 				continue
 			}
-			
+
 			// Create context for this job and track it
 			jobCtx, jobCancel := context.WithCancel(tq.ctx)
 			runningJob := &RunningJob{
 				Cancel:  jobCancel,
 				Process: nil, // Will be set by registerProcess callback
 			}
-			
+
 			tq.jobsMutex.Lock()
 			tq.runningJobs[jobID] = runningJob
 			tq.jobsMutex.Unlock()
-			
+
 			// Register process callback
 			registerProcess := func(cmd *exec.Cmd) {
 				tq.jobsMutex.Lock()
@@ -126,15 +126,15 @@ func (tq *TaskQueue) worker(id int) {
 				}
 				tq.jobsMutex.Unlock()
 			}
-			
+
 			// Process the job with process registration
 			err := tq.processor.ProcessJobWithProcess(jobCtx, jobID, registerProcess)
-			
+
 			// Remove job from running jobs
 			tq.jobsMutex.Lock()
 			delete(tq.runningJobs, jobID)
 			tq.jobsMutex.Unlock()
-			
+
 			// Handle result
 			if err != nil {
 				if jobCtx.Err() == context.Canceled {
@@ -150,7 +150,7 @@ func (tq *TaskQueue) worker(id int) {
 				log.Printf("Worker %d: Successfully processed job %s", id, jobID)
 				tq.updateJobStatus(jobID, models.StatusCompleted)
 			}
-			
+
 		case <-tq.ctx.Done():
 			log.Printf("Worker %d stopped due to context cancellation", id)
 			return
@@ -161,12 +161,12 @@ func (tq *TaskQueue) worker(id int) {
 // jobScanner scans for pending jobs and adds them to the queue
 func (tq *TaskQueue) jobScanner() {
 	defer tq.wg.Done()
-	
+
 	ticker := time.NewTicker(10 * time.Second) // Scan every 10 seconds
 	defer ticker.Stop()
-	
+
 	log.Println("Job scanner started")
-	
+
 	for {
 		select {
 		case <-ticker.C:
@@ -181,12 +181,12 @@ func (tq *TaskQueue) jobScanner() {
 // scanPendingJobs finds pending jobs and enqueues them
 func (tq *TaskQueue) scanPendingJobs() {
 	var jobs []models.TranscriptionJob
-	
+
 	if err := database.DB.Where("status = ?", models.StatusPending).Find(&jobs).Error; err != nil {
 		log.Printf("Failed to scan pending jobs: %v", err)
 		return
 	}
-	
+
 	for _, job := range jobs {
 		select {
 		case tq.jobChannel <- job.ID:
@@ -202,14 +202,14 @@ func (tq *TaskQueue) scanPendingJobs() {
 func (tq *TaskQueue) KillJob(jobID string) error {
 	tq.jobsMutex.Lock()
 	defer tq.jobsMutex.Unlock()
-	
+
 	runningJob, exists := tq.runningJobs[jobID]
 	if !exists {
 		return fmt.Errorf("job %s is not currently running", jobID)
 	}
-	
+
 	log.Printf("Aggressively killing job %s", jobID)
-	
+
 	// First, try to kill the OS process group (or process on non-Unix)
 	if runningJob.Process != nil && runningJob.Process.Process != nil {
 		log.Printf("Attempting to terminate process tree for PID %d (job %s)", runningJob.Process.Process.Pid, jobID)
@@ -218,16 +218,16 @@ func (tq *TaskQueue) KillJob(jobID string) error {
 			_ = runningJob.Process.Process.Kill()
 		}
 	}
-	
+
 	// Also cancel the context for cleanup
 	runningJob.Cancel()
-	
+
 	// Immediately update job status without waiting for process to finish
 	go func() {
 		tq.updateJobStatus(jobID, models.StatusFailed)
 		tq.updateJobError(jobID, "Job was forcefully terminated by user")
 	}()
-	
+
 	return nil
 }
 
@@ -235,7 +235,7 @@ func (tq *TaskQueue) KillJob(jobID string) error {
 func (tq *TaskQueue) IsJobRunning(jobID string) bool {
 	tq.jobsMutex.RLock()
 	defer tq.jobsMutex.RUnlock()
-	
+
 	_, exists := tq.runningJobs[jobID]
 	return exists
 }
@@ -267,19 +267,19 @@ func (tq *TaskQueue) GetJobStatus(jobID string) (*models.TranscriptionJob, error
 // GetQueueStats returns queue statistics
 func (tq *TaskQueue) GetQueueStats() map[string]interface{} {
 	var pendingCount, processingCount, completedCount, failedCount int64
-	
+
 	database.DB.Model(&models.TranscriptionJob{}).Where("status = ?", models.StatusPending).Count(&pendingCount)
 	database.DB.Model(&models.TranscriptionJob{}).Where("status = ?", models.StatusProcessing).Count(&processingCount)
 	database.DB.Model(&models.TranscriptionJob{}).Where("status = ?", models.StatusCompleted).Count(&completedCount)
 	database.DB.Model(&models.TranscriptionJob{}).Where("status = ?", models.StatusFailed).Count(&failedCount)
-	
+
 	return map[string]interface{}{
-		"queue_size":       len(tq.jobChannel),
-		"queue_capacity":   cap(tq.jobChannel),
-		"workers":          tq.workers,
-		"pending_jobs":     pendingCount,
-		"processing_jobs":  processingCount,
-		"completed_jobs":   completedCount,
-		"failed_jobs":      failedCount,
+		"queue_size":      len(tq.jobChannel),
+		"queue_capacity":  cap(tq.jobChannel),
+		"workers":         tq.workers,
+		"pending_jobs":    pendingCount,
+		"processing_jobs": processingCount,
+		"completed_jobs":  completedCount,
+		"failed_jobs":     failedCount,
 	}
 }

@@ -5,6 +5,11 @@ import { useAuth } from "../contexts/AuthContext";
 import { Progress } from "./ui/progress";
 import { X, CheckCircle, AlertCircle } from "lucide-react";
 
+interface FileWithType {
+	file: File;
+	isVideo: boolean;
+}
+
 interface UploadProgress {
 	fileName: string;
 	status: 'uploading' | 'success' | 'error';
@@ -37,31 +42,63 @@ export function Homepage() {
 		}
 	};
 
-	const handleFileSelect = async (files: File | File[]) => {
+	const uploadSingleVideo = async (file: File): Promise<boolean> => {
+		const formData = new FormData();
+		formData.append("video", file);
+		formData.append("title", file.name.replace(/\.[^/.]+$/, ""));
+
+		try {
+			const response = await fetch("/api/v1/transcription/upload-video", {
+				method: "POST",
+				headers: {
+					...getAuthHeaders(),
+				},
+				body: formData,
+			});
+
+			return response.ok;
+		} catch {
+			return false;
+		}
+	};
+
+	const handleFileSelect = async (files: File | File[] | FileWithType | FileWithType[]) => {
+		// Normalize input to an array of FileWithType objects
 		const fileArray = Array.isArray(files) ? files : [files];
+		const processedFiles = fileArray.map(item => {
+			if ('file' in item && 'isVideo' in item) {
+				// It's already a FileWithType
+				return item;
+			} else {
+				// It's a regular File, treat as audio
+				return { file: item as File, isVideo: false };
+			}
+		});
 		
-		if (fileArray.length === 0) return;
+		if (processedFiles.length === 0) return;
 		
 		setIsUploading(true);
-		setUploadProgress(fileArray.map(file => ({
-			fileName: file.name,
+		setUploadProgress(processedFiles.map(item => ({
+			fileName: item.file.name,
 			status: 'uploading'
 		})));
 
 		let successCount = 0;
 		
 		// Upload files sequentially to avoid overwhelming the server
-		for (let i = 0; i < fileArray.length; i++) {
-			const file = fileArray[i];
+		for (let i = 0; i < processedFiles.length; i++) {
+			const fileItem = processedFiles[i];
+			const file = fileItem.file;
+			const isVideo = fileItem.isVideo;
 			
 			try {
-				const success = await uploadSingleFile(file);
+				const success = isVideo ? await uploadSingleVideo(file) : await uploadSingleFile(file);
 				
 				setUploadProgress(prev => prev.map((item, index) => 
 					index === i ? {
 						...item,
 						status: success ? 'success' : 'error',
-						error: success ? undefined : 'Upload failed'
+						error: success ? undefined : (isVideo ? 'Video upload failed' : 'Upload failed')
 					} : item
 				));
 				

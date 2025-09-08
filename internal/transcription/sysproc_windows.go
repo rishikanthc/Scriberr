@@ -9,5 +9,5 @@ import "os/exec"
 // If full process tree termination is required, implement Windows-specific
 // logic (e.g., using job objects) in the future.
 func configureCmdSysProcAttr(cmd *exec.Cmd) {
-    // No special attributes set on Windows here
+	// No special attributes set on Windows here
 }

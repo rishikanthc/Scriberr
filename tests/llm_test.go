@@ -152,7 +152,7 @@ func (suite *LLMTestSuite) handleStreamingResponse(w http.ResponseWriter, chatRe
 
 	// Send streaming chunks
 	chunks := []string{"This ", "is ", "a ", "test ", "streaming ", "response."}
-	
+
 	for _, chunk := range chunks {
 		streamChunk := llm.ChatStreamResponse{
 			ID:      "chatcmpl-stream-test123",
@@ -197,7 +197,7 @@ func (suite *LLMTestSuite) handleStreamingResponse(w http.ResponseWriter, chatRe
 // Test OpenAI service creation
 func (suite *LLMTestSuite) TestNewOpenAIService() {
 	service := llm.NewOpenAIService("test-api-key-123")
-	
+
 	assert.NotNil(suite.T(), service)
 }
 
@@ -207,10 +207,10 @@ func (suite *LLMTestSuite) TestChatMessageStructure() {
 		Role:    "user",
 		Content: "Hello, how are you?",
 	}
-	
+
 	assert.Equal(suite.T(), "user", message.Role)
 	assert.Equal(suite.T(), "Hello, how are you?", message.Content)
-	
+
 	// Test JSON marshaling
 	jsonData, err := json.Marshal(message)
 	assert.NoError(suite.T(), err)
@@ -224,7 +224,7 @@ func (suite *LLMTestSuite) TestChatRequestStructure() {
 		{Role: "system", Content: "You are a helpful assistant."},
 		{Role: "user", Content: "Hello!"},
 	}
-	
+
 	request := llm.ChatRequest{
 		Model:       "gpt-3.5-turbo",
 		Messages:    messages,
@@ -232,13 +232,13 @@ func (suite *LLMTestSuite) TestChatRequestStructure() {
 		Temperature: 0.7,
 		MaxTokens:   150,
 	}
-	
+
 	assert.Equal(suite.T(), "gpt-3.5-turbo", request.Model)
 	assert.Len(suite.T(), request.Messages, 2)
 	assert.False(suite.T(), request.Stream)
 	assert.Equal(suite.T(), 0.7, request.Temperature)
 	assert.Equal(suite.T(), 150, request.MaxTokens)
-	
+
 	// Test JSON marshaling
 	jsonData, err := json.Marshal(request)
 	assert.NoError(suite.T(), err)
@@ -250,13 +250,13 @@ func (suite *LLMTestSuite) TestChatRequestStructure() {
 func (suite *LLMTestSuite) TestGetModelsSuccess() {
 	// Since we can't easily override the baseURL without modifying the service,
 	// we'll test the structure and error handling instead
-	
+
 	ctx := context.Background()
-	
+
 	// This will call the real OpenAI API, which will likely fail with our test key
 	// But we can test that the method doesn't panic and returns appropriate errors
 	models, err := suite.service.GetModels(ctx)
-	
+
 	// With a fake API key, we expect an error
 	assert.Error(suite.T(), err)
 	assert.Nil(suite.T(), models)
@@ -266,9 +266,9 @@ func (suite *LLMTestSuite) TestGetModelsSuccess() {
 func (suite *LLMTestSuite) TestGetModelsTimeout() {
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Nanosecond)
 	defer cancel()
-	
+
 	models, err := suite.service.GetModels(ctx)
-	
+
 	assert.Error(suite.T(), err)
 	assert.Nil(suite.T(), models)
 	assert.Contains(suite.T(), err.Error(), "context deadline exceeded")
@@ -280,12 +280,12 @@ func (suite *LLMTestSuite) TestChatCompletionStructure() {
 		{Role: "system", Content: "You are a helpful assistant."},
 		{Role: "user", Content: "Say hello"},
 	}
-	
+
 	ctx := context.Background()
-	
+
 	// This will fail with the real API, but we test the error handling
 	response, err := suite.service.ChatCompletion(ctx, "gpt-3.5-turbo", messages, 0.7)
-	
+
 	assert.Error(suite.T(), err) // Expected to fail with test API key
 	assert.Nil(suite.T(), response)
 }
@@ -293,13 +293,13 @@ func (suite *LLMTestSuite) TestChatCompletionStructure() {
 // Test ChatCompletion with invalid inputs
 func (suite *LLMTestSuite) TestChatCompletionInvalidInputs() {
 	ctx := context.Background()
-	
+
 	// Test with empty messages
 	emptyMessages := []llm.ChatMessage{}
 	response, err := suite.service.ChatCompletion(ctx, "gpt-3.5-turbo", emptyMessages, 0.7)
 	assert.Error(suite.T(), err)
 	assert.Nil(suite.T(), response)
-	
+
 	// Test with invalid model
 	validMessages := []llm.ChatMessage{
 		{Role: "user", Content: "Hello"},
@@ -314,16 +314,16 @@ func (suite *LLMTestSuite) TestChatCompletionStreamChannels() {
 	messages := []llm.ChatMessage{
 		{Role: "user", Content: "Stream test"},
 	}
-	
+
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	
+
 	contentChan, errorChan := suite.service.ChatCompletionStream(ctx, "gpt-3.5-turbo", messages, 0.7)
-	
+
 	// Channels should not be nil
 	assert.NotNil(suite.T(), contentChan)
 	assert.NotNil(suite.T(), errorChan)
-	
+
 	// Should receive an error (with test API key)
 	select {
 	case err := <-errorChan:
@@ -340,19 +340,19 @@ func (suite *LLMTestSuite) TestContextCancellation() {
 	messages := []llm.ChatMessage{
 		{Role: "user", Content: "This should be cancelled"},
 	}
-	
+
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // Cancel immediately
-	
+
 	// Test non-streaming
 	response, err := suite.service.ChatCompletion(ctx, "gpt-3.5-turbo", messages, 0.7)
 	assert.Error(suite.T(), err)
 	assert.Nil(suite.T(), response)
 	assert.Contains(suite.T(), err.Error(), "context canceled")
-	
+
 	// Test streaming
 	contentChan, errorChan := suite.service.ChatCompletionStream(ctx, "gpt-3.5-turbo", messages, 0.7)
-	
+
 	// Should receive an error due to cancelled context
 	select {
 	case err := <-errorChan:
@@ -367,7 +367,7 @@ func (suite *LLMTestSuite) TestContextCancellation() {
 // Test ValidateAPIKey functionality
 func (suite *LLMTestSuite) TestValidateAPIKey() {
 	ctx := context.Background()
-	
+
 	// With a test API key, this should fail
 	err := suite.service.ValidateAPIKey(ctx)
 	assert.Error(suite.T(), err)
@@ -378,10 +378,10 @@ func (suite *LLMTestSuite) TestTemperatureParameters() {
 	messages := []llm.ChatMessage{
 		{Role: "user", Content: "Test temperature"},
 	}
-	
+
 	ctx := context.Background()
 	temperatures := []float64{0.0, 0.5, 1.0, 2.0}
-	
+
 	for _, temp := range temperatures {
 		// These will fail with our test API key, but we test that they don't panic
 		response, err := suite.service.ChatCompletion(ctx, "gpt-3.5-turbo", messages, temp)
@@ -393,14 +393,14 @@ func (suite *LLMTestSuite) TestTemperatureParameters() {
 // Test message role validation
 func (suite *LLMTestSuite) TestMessageRoles() {
 	ctx := context.Background()
-	
+
 	validRoles := []string{"system", "user", "assistant"}
-	
+
 	for _, role := range validRoles {
 		messages := []llm.ChatMessage{
 			{Role: role, Content: "Test message with role " + role},
 		}
-		
+
 		// Test that different roles don't cause panics
 		response, err := suite.service.ChatCompletion(ctx, "gpt-3.5-turbo", messages, 0.7)
 		assert.Error(suite.T(), err) // Expected to fail with test key
@@ -430,10 +430,10 @@ func (suite *LLMTestSuite) TestResponseParsing() {
 			"total_tokens": 21
 		}
 	}`
-	
+
 	var response llm.ChatResponse
 	err := json.Unmarshal([]byte(responseJSON), &response)
-	
+
 	assert.NoError(suite.T(), err)
 	assert.Equal(suite.T(), "chatcmpl-test123", response.ID)
 	assert.Equal(suite.T(), "chat.completion", response.Object)
@@ -460,10 +460,10 @@ func (suite *LLMTestSuite) TestStreamResponseParsing() {
 			"finish_reason": null
 		}]
 	}`
-	
+
 	var streamResponse llm.ChatStreamResponse
 	err := json.Unmarshal([]byte(streamJSON), &streamResponse)
-	
+
 	assert.NoError(suite.T(), err)
 	assert.Equal(suite.T(), "chatcmpl-test123", streamResponse.ID)
 	assert.Equal(suite.T(), "chat.completion.chunk", streamResponse.Object)
@@ -490,10 +490,10 @@ func (suite *LLMTestSuite) TestModelsResponseParsing() {
 			}
 		]
 	}`
-	
+
 	var modelsResponse llm.ModelsResponse
 	err := json.Unmarshal([]byte(modelsJSON), &modelsResponse)
-	
+
 	assert.NoError(suite.T(), err)
 	assert.Len(suite.T(), modelsResponse.Data, 2)
 	assert.Equal(suite.T(), "gpt-3.5-turbo", modelsResponse.Data[0].ID)
@@ -504,15 +504,15 @@ func (suite *LLMTestSuite) TestModelsResponseParsing() {
 // Test error response handling
 func (suite *LLMTestSuite) TestErrorResponseHandling() {
 	// Test various error conditions that the service should handle gracefully
-	
+
 	ctx := context.Background()
-	
+
 	// Test with very long content (might cause API errors)
 	longContent := strings.Repeat("a", 100000)
 	longMessages := []llm.ChatMessage{
 		{Role: "user", Content: longContent},
 	}
-	
+
 	response, err := suite.service.ChatCompletion(ctx, "gpt-3.5-turbo", longMessages, 0.7)
 	assert.Error(suite.T(), err) // Expected to fail
 	assert.Nil(suite.T(), response)

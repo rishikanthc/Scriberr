@@ -17,24 +17,24 @@ import (
 
 type TranscriptionServiceTestSuite struct {
 	suite.Suite
-	helper              *TestHelper
-	whisperXService     *transcription.WhisperXService
-	quickTranscription  *transcription.QuickTranscriptionService
-	sampleAudioPath     string
+	helper             *TestHelper
+	whisperXService    *transcription.WhisperXService
+	quickTranscription *transcription.QuickTranscriptionService
+	sampleAudioPath    string
 }
 
 func (suite *TranscriptionServiceTestSuite) SetupSuite() {
 	suite.helper = NewTestHelper(suite.T(), "transcription_test.db")
-	
+
 	// Initialize transcription services
 	suite.whisperXService = transcription.NewWhisperXService(suite.helper.Config)
 	var err error
 	suite.quickTranscription, err = transcription.NewQuickTranscriptionService(suite.helper.Config, suite.whisperXService)
 	assert.NoError(suite.T(), err)
-	
+
 	// Set path to sample audio file
 	suite.sampleAudioPath = "/Users/richandrasekaran/Code/machy/Scriberr/samples/jfk.wav"
-	
+
 	// Verify sample file exists
 	_, err = os.Stat(suite.sampleAudioPath)
 	assert.NoError(suite.T(), err, "Sample audio file jfk.wav should exist")
@@ -59,7 +59,7 @@ func (suite *TranscriptionServiceTestSuite) TestTranscriptResultStructure() {
 		Text:    "This is a test segment",
 		Speaker: stringPtr("SPEAKER_01"),
 	}
-	
+
 	word := transcription.Word{
 		Start:   0.0,
 		End:     1.0,
@@ -67,19 +67,19 @@ func (suite *TranscriptionServiceTestSuite) TestTranscriptResultStructure() {
 		Score:   0.95,
 		Speaker: stringPtr("SPEAKER_01"),
 	}
-	
+
 	result := transcription.TranscriptResult{
 		Segments: []transcription.Segment{segment},
 		Word:     []transcription.Word{word},
 		Language: "en",
 	}
-	
+
 	// Test JSON marshaling
 	jsonData, err := json.Marshal(result)
 	assert.NoError(suite.T(), err)
 	assert.Contains(suite.T(), string(jsonData), "This is a test segment")
 	assert.Contains(suite.T(), string(jsonData), "SPEAKER_01")
-	
+
 	// Test JSON unmarshaling
 	var unmarshaled transcription.TranscriptResult
 	err = json.Unmarshal(jsonData, &unmarshaled)
@@ -93,19 +93,19 @@ func (suite *TranscriptionServiceTestSuite) TestTranscriptResultStructure() {
 func (suite *TranscriptionServiceTestSuite) TestCreateJobWithSampleAudio() {
 	// Copy sample audio to test upload directory
 	testAudioPath := filepath.Join(suite.helper.Config.UploadDir, "jfk_test.wav")
-	
+
 	// Copy the sample file
 	input, err := os.Open(suite.sampleAudioPath)
 	assert.NoError(suite.T(), err)
 	defer input.Close()
-	
+
 	output, err := os.Create(testAudioPath)
 	assert.NoError(suite.T(), err)
 	defer output.Close()
-	
+
 	_, err = output.ReadFrom(input)
 	assert.NoError(suite.T(), err)
-	
+
 	// Create transcription job
 	title := "JFK Test Transcription"
 	job := &models.TranscriptionJob{
@@ -121,7 +121,7 @@ func (suite *TranscriptionServiceTestSuite) TestCreateJobWithSampleAudio() {
 			Language:    stringPtr("en"),
 		},
 	}
-	
+
 	// For testing, we verify the job structure is valid
 	assert.Equal(suite.T(), "JFK Test Transcription", *job.Title)
 	assert.Equal(suite.T(), models.StatusPending, job.Status)
@@ -132,57 +132,57 @@ func (suite *TranscriptionServiceTestSuite) TestCreateJobWithSampleAudio() {
 // Test WhisperX parameters structure
 func (suite *TranscriptionServiceTestSuite) TestWhisperXParameters() {
 	params := models.WhisperXParams{
-		Model:                         "base",
-		ModelCacheOnly:                false,
-		ModelDir:                      stringPtr("/custom/models"),
-		Device:                        "auto",
-		DeviceIndex:                   0,
-		BatchSize:                     16,
-		ComputeType:                   "float16",
-		Threads:                       4,
-		OutputFormat:                  "all",
-		Verbose:                       true,
-		Task:                          "transcribe",
-		Language:                      stringPtr("en"),
-		AlignModel:                    stringPtr("WAV2VEC2_ASR_BASE_960H"),
-		InterpolateMethod:             "nearest",
-		NoAlign:                       false,
-		ReturnCharAlignments:          false,
-		VadMethod:                     "pyannote",
-		VadOnset:                      0.5,
-		VadOffset:                     0.363,
-		ChunkSize:                     30,
-		Diarize:                       true,
-		MinSpeakers:                   intPtr(1),
-		MaxSpeakers:                   intPtr(10),
-		DiarizeModel:                  "pyannote/speaker-diarization-3.1",
-		SpeakerEmbeddings:             false,
-		Temperature:                   0.0,
-		BestOf:                        5,
-		BeamSize:                      5,
-		Patience:                      1.0,
-		LengthPenalty:                 1.0,
-		SuppressTokens:                stringPtr("-1"),
-		SuppressNumerals:              false,
-		InitialPrompt:                 stringPtr(""),
-		ConditionOnPreviousText:       false,
-		Fp16:                          true,
+		Model:                          "base",
+		ModelCacheOnly:                 false,
+		ModelDir:                       stringPtr("/custom/models"),
+		Device:                         "auto",
+		DeviceIndex:                    0,
+		BatchSize:                      16,
+		ComputeType:                    "float16",
+		Threads:                        4,
+		OutputFormat:                   "all",
+		Verbose:                        true,
+		Task:                           "transcribe",
+		Language:                       stringPtr("en"),
+		AlignModel:                     stringPtr("WAV2VEC2_ASR_BASE_960H"),
+		InterpolateMethod:              "nearest",
+		NoAlign:                        false,
+		ReturnCharAlignments:           false,
+		VadMethod:                      "pyannote",
+		VadOnset:                       0.5,
+		VadOffset:                      0.363,
+		ChunkSize:                      30,
+		Diarize:                        true,
+		MinSpeakers:                    intPtr(1),
+		MaxSpeakers:                    intPtr(10),
+		DiarizeModel:                   "pyannote/speaker-diarization-3.1",
+		SpeakerEmbeddings:              false,
+		Temperature:                    0.0,
+		BestOf:                         5,
+		BeamSize:                       5,
+		Patience:                       1.0,
+		LengthPenalty:                  1.0,
+		SuppressTokens:                 stringPtr("-1"),
+		SuppressNumerals:               false,
+		InitialPrompt:                  stringPtr(""),
+		ConditionOnPreviousText:        false,
+		Fp16:                           true,
 		TemperatureIncrementOnFallback: 0.2,
-		CompressionRatioThreshold:     2.4,
-		LogprobThreshold:              -1.0,
-		NoSpeechThreshold:             0.6,
-		MaxLineWidth:                  intPtr(80),
-		MaxLineCount:                  intPtr(3),
-		HighlightWords:                false,
-		SegmentResolution:             "sentence",
+		CompressionRatioThreshold:      2.4,
+		LogprobThreshold:               -1.0,
+		NoSpeechThreshold:              0.6,
+		MaxLineWidth:                   intPtr(80),
+		MaxLineCount:                   intPtr(3),
+		HighlightWords:                 false,
+		SegmentResolution:              "sentence",
 	}
-	
+
 	// Test JSON marshaling
 	jsonData, err := json.Marshal(params)
 	assert.NoError(suite.T(), err)
 	assert.Contains(suite.T(), string(jsonData), "base")
 	assert.Contains(suite.T(), string(jsonData), "float16")
-	
+
 	// Test JSON unmarshaling
 	var unmarshaledParams models.WhisperXParams
 	err = json.Unmarshal(jsonData, &unmarshaledParams)
@@ -197,12 +197,12 @@ func (suite *TranscriptionServiceTestSuite) TestAudioFileValidation() {
 	// Test with existing file
 	_, err := os.Stat(suite.sampleAudioPath)
 	assert.NoError(suite.T(), err, "Sample audio file should exist and be accessible")
-	
+
 	// Test file size
 	fileInfo, err := os.Stat(suite.sampleAudioPath)
 	assert.NoError(suite.T(), err)
 	assert.Greater(suite.T(), fileInfo.Size(), int64(1000), "Audio file should have reasonable size")
-	
+
 	// Test with non-existent file
 	nonExistentPath := "/path/to/nonexistent/audio.wav"
 	_, err = os.Stat(nonExistentPath)
@@ -212,11 +212,11 @@ func (suite *TranscriptionServiceTestSuite) TestAudioFileValidation() {
 // Test different audio formats (structure test - not actual processing)
 func (suite *TranscriptionServiceTestSuite) TestAudioFormatSupport() {
 	supportedFormats := []string{".wav", ".mp3", ".m4a", ".flac", ".ogg"}
-	
+
 	for _, format := range supportedFormats {
 		// Test that we can create job with different formats
 		testPath := filepath.Join(suite.helper.Config.UploadDir, "test"+format)
-		
+
 		job := &models.TranscriptionJob{
 			ID:        "format-test-" + format[1:], // Remove the dot
 			AudioPath: testPath,
@@ -225,7 +225,7 @@ func (suite *TranscriptionServiceTestSuite) TestAudioFormatSupport() {
 				Device: "cpu",
 			},
 		}
-		
+
 		assert.Contains(suite.T(), job.AudioPath, format)
 	}
 }
@@ -238,16 +238,16 @@ func (suite *TranscriptionServiceTestSuite) TestJobStatusTransitions() {
 		models.StatusCompleted,
 		models.StatusFailed,
 	}
-	
+
 	for _, status := range validStatuses {
 		job := &models.TranscriptionJob{
 			ID:        "status-test-" + string(status),
 			Status:    status,
 			AudioPath: suite.sampleAudioPath,
 		}
-		
+
 		assert.Equal(suite.T(), status, job.Status)
-		
+
 		// Test status string conversion
 		statusStr := string(status)
 		assert.NotEmpty(suite.T(), statusStr)
@@ -257,7 +257,7 @@ func (suite *TranscriptionServiceTestSuite) TestJobStatusTransitions() {
 // Test model parameters validation
 func (suite *TranscriptionServiceTestSuite) TestModelParameters() {
 	supportedModels := []string{"tiny", "base", "small", "medium", "large", "large-v2", "large-v3"}
-	
+
 	for _, model := range supportedModels {
 		params := models.WhisperXParams{
 			Model:       model,
@@ -265,7 +265,7 @@ func (suite *TranscriptionServiceTestSuite) TestModelParameters() {
 			ComputeType: "float32",
 			Device:      "cpu",
 		}
-		
+
 		assert.Equal(suite.T(), model, params.Model)
 		assert.True(suite.T(), params.BatchSize > 0)
 		assert.NotEmpty(suite.T(), params.ComputeType)
@@ -276,13 +276,13 @@ func (suite *TranscriptionServiceTestSuite) TestModelParameters() {
 // Test device configuration
 func (suite *TranscriptionServiceTestSuite) TestDeviceConfiguration() {
 	devices := []string{"cpu", "cuda", "auto"}
-	
+
 	for _, device := range devices {
 		params := models.WhisperXParams{
 			Model:  "tiny",
 			Device: device,
 		}
-		
+
 		assert.Equal(suite.T(), device, params.Device)
 	}
 }
@@ -290,13 +290,13 @@ func (suite *TranscriptionServiceTestSuite) TestDeviceConfiguration() {
 // Test batch size validation
 func (suite *TranscriptionServiceTestSuite) TestBatchSizeValidation() {
 	validBatchSizes := []int{1, 4, 8, 16, 32}
-	
+
 	for _, batchSize := range validBatchSizes {
 		params := models.WhisperXParams{
 			Model:     "tiny",
 			BatchSize: batchSize,
 		}
-		
+
 		assert.Equal(suite.T(), batchSize, params.BatchSize)
 		assert.True(suite.T(), params.BatchSize > 0)
 		assert.True(suite.T(), params.BatchSize <= 32)
@@ -306,13 +306,13 @@ func (suite *TranscriptionServiceTestSuite) TestBatchSizeValidation() {
 // Test compute type options
 func (suite *TranscriptionServiceTestSuite) TestComputeTypes() {
 	computeTypes := []string{"float16", "float32", "int8"}
-	
+
 	for _, computeType := range computeTypes {
 		params := models.WhisperXParams{
 			Model:       "tiny",
 			ComputeType: computeType,
 		}
-		
+
 		assert.Equal(suite.T(), computeType, params.ComputeType)
 	}
 }
@@ -320,17 +320,17 @@ func (suite *TranscriptionServiceTestSuite) TestComputeTypes() {
 // Test language parameter
 func (suite *TranscriptionServiceTestSuite) TestLanguageParameter() {
 	languages := []string{"en", "es", "fr", "de", "it", "pt", "ru", "ja", "ko", "zh"}
-	
+
 	for _, lang := range languages {
 		params := models.WhisperXParams{
 			Model:    "tiny",
 			Language: stringPtr(lang),
 		}
-		
+
 		assert.NotNil(suite.T(), params.Language)
 		assert.Equal(suite.T(), lang, *params.Language)
 	}
-	
+
 	// Test auto-detection (nil language)
 	params := models.WhisperXParams{
 		Model:    "tiny",
@@ -342,13 +342,13 @@ func (suite *TranscriptionServiceTestSuite) TestLanguageParameter() {
 // Test diarization parameters
 func (suite *TranscriptionServiceTestSuite) TestDiarizationParameters() {
 	params := models.WhisperXParams{
-		Model:         "tiny",
-		Diarize:       true,
-		MinSpeakers:   intPtr(1),
-		MaxSpeakers:   intPtr(5),
-		DiarizeModel:  "pyannote/speaker-diarization-3.1",
+		Model:        "tiny",
+		Diarize:      true,
+		MinSpeakers:  intPtr(1),
+		MaxSpeakers:  intPtr(5),
+		DiarizeModel: "pyannote/speaker-diarization-3.1",
 	}
-	
+
 	assert.True(suite.T(), params.Diarize)
 	assert.NotNil(suite.T(), params.MinSpeakers)
 	assert.Equal(suite.T(), 1, *params.MinSpeakers)
@@ -361,7 +361,7 @@ func (suite *TranscriptionServiceTestSuite) TestDiarizationParameters() {
 // Test quick transcription service
 func (suite *TranscriptionServiceTestSuite) TestQuickTranscriptionService() {
 	assert.NotNil(suite.T(), suite.quickTranscription)
-	
+
 	// Test that quick transcription service was created successfully
 	// (The actual transcription would require WhisperX installation)
 }
@@ -371,10 +371,10 @@ func (suite *TranscriptionServiceTestSuite) TestContextCancellation() {
 	// Create a context that will be cancelled
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // Cancel immediately
-	
+
 	// Test that cancelled context is handled properly
 	assert.Equal(suite.T(), context.Canceled, ctx.Err())
-	
+
 	// In real implementation, ProcessJob should respect context cancellation
 	// Here we test the context handling structure
 	select {
@@ -390,10 +390,10 @@ func (suite *TranscriptionServiceTestSuite) TestTimeoutHandling() {
 	// Create a context with very short timeout
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Nanosecond)
 	defer cancel()
-	
+
 	// Wait for timeout
 	<-ctx.Done()
-	
+
 	assert.Equal(suite.T(), context.DeadlineExceeded, ctx.Err())
 }
 
@@ -433,21 +433,21 @@ func (suite *TranscriptionServiceTestSuite) TestTranscriptParsing() {
 		],
 		"language": "en"
 	}`
-	
+
 	var result transcription.TranscriptResult
 	err := json.Unmarshal([]byte(mockResult), &result)
 	assert.NoError(suite.T(), err)
-	
+
 	assert.Equal(suite.T(), "en", result.Language)
 	assert.Len(suite.T(), result.Segments, 2)
 	assert.Len(suite.T(), result.Word, 2)
-	
+
 	// Verify first segment
 	assert.Equal(suite.T(), 0.0, result.Segments[0].Start)
 	assert.Equal(suite.T(), 5.2, result.Segments[0].End)
 	assert.Contains(suite.T(), result.Segments[0].Text, "fellow Americans")
 	assert.Equal(suite.T(), "SPEAKER_00", *result.Segments[0].Speaker)
-	
+
 	// Verify word-level timing
 	assert.Equal(suite.T(), "And", result.Word[0].Word)
 	assert.Equal(suite.T(), 0.95, result.Word[0].Score)
@@ -461,18 +461,18 @@ func (suite *TranscriptionServiceTestSuite) TestInvalidAudioHandling() {
 	assert.NoError(suite.T(), err)
 	file.Close()
 	defer os.Remove(emptyFile)
-	
+
 	// Verify empty file exists but has zero size
 	fileInfo, err := os.Stat(emptyFile)
 	assert.NoError(suite.T(), err)
 	assert.Equal(suite.T(), int64(0), fileInfo.Size())
-	
+
 	// Test with non-audio file (text file)
 	textFile := filepath.Join(suite.helper.Config.UploadDir, "not_audio.txt")
 	err = os.WriteFile(textFile, []byte("This is not an audio file"), 0644)
 	assert.NoError(suite.T(), err)
 	defer os.Remove(textFile)
-	
+
 	// Verify text file exists
 	_, err = os.Stat(textFile)
 	assert.NoError(suite.T(), err)
@@ -482,17 +482,17 @@ func (suite *TranscriptionServiceTestSuite) TestInvalidAudioHandling() {
 func (suite *TranscriptionServiceTestSuite) TestOutputDirectoryCreation() {
 	testJobID := "output-dir-test-123"
 	outputDir := filepath.Join("data", "transcripts", testJobID)
-	
+
 	// Create the directory structure that would be used
 	err := os.MkdirAll(outputDir, 0755)
 	assert.NoError(suite.T(), err)
 	defer os.RemoveAll(filepath.Join("data", "transcripts"))
-	
+
 	// Verify directory was created
 	fileInfo, err := os.Stat(outputDir)
 	assert.NoError(suite.T(), err)
 	assert.True(suite.T(), fileInfo.IsDir())
-	
+
 	// Test permissions
 	assert.Equal(suite.T(), os.FileMode(0755), fileInfo.Mode().Perm())
 }
