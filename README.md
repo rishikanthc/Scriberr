@@ -1,6 +1,6 @@
 <div align="center">
 
-<img alt="Scriberr" src="assets/scriberr-logo.svg" width="480" />
+<img alt="Scriberr" src="cropped-main-logo.png" width="480" />
 
 Self‑hostable, secure & private offline transcription. Drop in a recording, get clean transcripts, highlight key moments, take notes or chat with your audio using your favorite LLM — all without sending your data to the cloud.
 

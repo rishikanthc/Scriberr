@@ -70,6 +70,26 @@ func SetupStaticRoutes(router *gin.Engine, authService *auth.AuthService) {
 		c.Data(http.StatusOK, "image/svg+xml", fileContent)
 	})
 
+	// Serve scriberr-logo.png
+	router.GET("/scriberr-logo.png", func(c *gin.Context) {
+		fileContent, err := staticFiles.ReadFile("dist/scriberr-logo.png")
+		if err != nil {
+			c.Status(http.StatusNotFound)
+			return
+		}
+		c.Data(http.StatusOK, "image/png", fileContent)
+	})
+
+	// Serve scriberr-thumb.png
+	router.GET("/scriberr-thumb.png", func(c *gin.Context) {
+		fileContent, err := staticFiles.ReadFile("dist/scriberr-thumb.png")
+		if err != nil {
+			c.Status(http.StatusNotFound)
+			return
+		}
+		c.Data(http.StatusOK, "image/png", fileContent)
+	})
+
 	// Serve index.html for root and any unmatched routes (SPA behavior)
 	router.NoRoute(func(c *gin.Context) {
 		// For API routes, return 404

@@ -7,8 +7,8 @@ export default function Hero() {
 				<span className="eyebrow mb-3 inline-block">
 					Self-hosted offline audio transcription
 				</span>
-				<h1 className="headline">
-					<ScriberrLogo className="text-5xl sm:text-6xl md:text-7xl font-normal" />
+				<h1 className="headline flex justify-center mb-4">
+					<ScriberrLogo className="h-16 sm:h-20 md:h-24 lg:h-28 xl:h-32" />
 				</h1>
 				<p className="subcopy mt-3 mx-auto max-w-2xl">
 					Transcribe audio locally into text - Summarize and Chat with your
