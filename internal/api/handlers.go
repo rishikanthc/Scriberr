@@ -836,7 +836,7 @@ func (h *Handler) ListJobs(c *gin.Context) {
 	query.Count(&total)
 
 	// Apply pagination and ordering
-	if err := query.Offset(offset).Limit(limit).Order("created_at DESC").Find(&jobs).Error; err != nil {
+	if err := query.Preload("MultiTrackFiles").Offset(offset).Limit(limit).Order("created_at DESC").Find(&jobs).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to list jobs"})
 		return
 	}
@@ -1140,7 +1140,7 @@ func (h *Handler) GetJobByID(c *gin.Context) {
 	jobID := c.Param("id")
 
 	var job models.TranscriptionJob
-	if err := database.DB.Where("id = ?", jobID).First(&job).Error; err != nil {
+	if err := database.DB.Preload("MultiTrackFiles").Where("id = ?", jobID).First(&job).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Job not found"})
 			return

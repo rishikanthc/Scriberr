@@ -23,10 +23,11 @@ interface FileWithType {
 
 interface HeaderProps {
 	onFileSelect: (files: File | File[] | FileWithType | FileWithType[]) => void;
+	onMultiTrackUpload?: (files: File[], aupFile: File, title: string) => void;
 	onDownloadComplete?: () => void;
 }
 
-export function Header({ onFileSelect, onDownloadComplete }: HeaderProps) {
+export function Header({ onFileSelect, onMultiTrackUpload, onDownloadComplete }: HeaderProps) {
 	const { navigate } = useRouter();
 	const { logout } = useAuth();
 	const fileInputRef = useRef<HTMLInputElement>(null);
@@ -282,7 +283,7 @@ export function Header({ onFileSelect, onDownloadComplete }: HeaderProps) {
 			<MultiTrackUploadDialog
 				open={isMultiTrackDialogOpen}
 				onOpenChange={setIsMultiTrackDialogOpen}
-				onUploadComplete={onDownloadComplete}
+				onMultiTrackUpload={onMultiTrackUpload}
 			/>
 		</header>
 	);

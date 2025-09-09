@@ -138,11 +138,70 @@ export function Homepage() {
 		setUploadProgress([]);
 	};
 
+	const handleMultiTrackUpload = async (files: File[], aupFile: File, title: string) => {
+		setIsUploading(true);
+		
+		// Create progress entry for multi-track upload
+		const multiTrackProgress = {
+			fileName: `${title} (${files.length} tracks)`,
+			status: 'uploading' as const
+		};
+		
+		setUploadProgress([multiTrackProgress]);
+
+		try {
+			const formData = new FormData();
+			formData.append('title', title);
+			formData.append('aup', aupFile);
+			
+			files.forEach(file => {
+				formData.append('tracks', file);
+			});
+
+			const response = await fetch("/api/v1/transcription/upload-multitrack", {
+				method: "POST",
+				headers: {
+					...getAuthHeaders(),
+				},
+				body: formData,
+			});
+
+			if (response.ok) {
+				setUploadProgress([{
+					...multiTrackProgress,
+					status: 'success'
+				}]);
+				
+				// Refresh table
+				setRefreshTrigger((prev) => prev + 1);
+				
+				// Auto-hide progress after 3 seconds
+				setTimeout(() => setUploadProgress([]), 3000);
+			} else {
+				const errorData = await response.json();
+				setUploadProgress([{
+					...multiTrackProgress,
+					status: 'error',
+					error: errorData.error || 'Upload failed'
+				}]);
+			}
+		} catch (error) {
+			setUploadProgress([{
+				...multiTrackProgress,
+				status: 'error',
+				error: 'Upload failed: Network error'
+			}]);
+		} finally {
+			setIsUploading(false);
+		}
+	};
+
 	return (
 		<div className="min-h-screen bg-gray-50 dark:bg-gray-900">
 			<div className="mx-auto w-full max-w-6xl px-2 sm:px-6 md:px-8 py-3 sm:py-6">
 				<Header 
 					onFileSelect={handleFileSelect} 
+					onMultiTrackUpload={handleMultiTrackUpload}
 					onDownloadComplete={() => setRefreshTrigger((prev) => prev + 1)}
 				/>
 				

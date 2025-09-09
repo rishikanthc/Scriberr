@@ -10,13 +10,12 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useAuth } from "../contexts/AuthContext";
-import { Upload, X, FileAudio, File, AlertCircle, Check } from "lucide-react";
+import { Upload, X, FileAudio, File, AlertCircle } from "lucide-react";
 
 interface MultiTrackUploadDialogProps {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
-	onUploadComplete?: () => void;
+	onMultiTrackUpload?: (files: File[], aupFile: File, title: string) => void;
 }
 
 interface FileWithPreview {
@@ -25,20 +24,14 @@ interface FileWithPreview {
 	isApu: boolean;
 }
 
-interface UploadProgress {
-	status: 'idle' | 'uploading' | 'success' | 'error';
-	error?: string;
-}
 
 export function MultiTrackUploadDialog({
 	open,
 	onOpenChange,
-	onUploadComplete,
+	onMultiTrackUpload,
 }: MultiTrackUploadDialogProps) {
-	const { getAuthHeaders } = useAuth();
 	const [title, setTitle] = useState("");
 	const [files, setFiles] = useState<FileWithPreview[]>([]);
-	const [uploadProgress, setUploadProgress] = useState<UploadProgress>({ status: 'idle' });
 
 	const handleDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
 		e.preventDefault();
@@ -72,56 +65,22 @@ export function MultiTrackUploadDialog({
 	const hasAupFile = aupFiles.length > 0;
 	const hasAudioFiles = audioFiles.length > 0;
 
-	const canUpload = title.trim() !== "" && hasAupFile && hasAudioFiles && uploadProgress.status !== 'uploading';
+	const canUpload = title.trim() !== "" && hasAupFile && hasAudioFiles;
 
 	const handleUpload = async () => {
 		if (!canUpload) return;
 
-		setUploadProgress({ status: 'uploading' });
-
-		try {
-			const formData = new FormData();
-			formData.append('title', title.trim());
-			formData.append('aup', aupFiles[0].file);
-			
-			audioFiles.forEach(fileItem => {
-				formData.append('tracks', fileItem.file);
-			});
-
-			const response = await fetch("/api/v1/transcription/upload-multitrack", {
-				method: "POST",
-				headers: {
-					...getAuthHeaders(),
-				},
-				body: formData,
-			});
-
-			if (response.ok) {
-				setUploadProgress({ status: 'success' });
-				
-				// Reset form
-				setTitle("");
-				setFiles([]);
-				
-				// Close dialog and notify parent
-				setTimeout(() => {
-					onOpenChange(false);
-					onUploadComplete?.();
-					setUploadProgress({ status: 'idle' });
-				}, 1500);
-			} else {
-				const errorData = await response.json();
-				setUploadProgress({
-					status: 'error',
-					error: errorData.error || 'Upload failed'
-				});
-			}
-		} catch (error) {
-			setUploadProgress({
-				status: 'error',
-				error: 'Upload failed: Network error'
-			});
-		}
+		// Extract audio files and aup file
+		const trackFiles = audioFiles.map(fileItem => fileItem.file);
+		const aupFileToUpload = aupFiles[0].file;
+		
+		// Call the callback with the files and title
+		onMultiTrackUpload?.(trackFiles, aupFileToUpload, title.trim());
+		
+		// Reset form and close dialog
+		setTitle("");
+		setFiles([]);
+		onOpenChange(false);
 	};
 
 	const getSpeakerName = (fileName: string) => {
@@ -148,7 +107,6 @@ export function MultiTrackUploadDialog({
 							placeholder="Enter a title for this recording..."
 							value={title}
 							onChange={(e) => setTitle(e.target.value)}
-							disabled={uploadProgress.status === 'uploading'}
 						/>
 					</div>
 
@@ -158,11 +116,7 @@ export function MultiTrackUploadDialog({
 						
 						{/* Drop Zone */}
 						<div
-							className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
-								uploadProgress.status === 'uploading' 
-									? 'border-gray-200 bg-gray-50' 
-									: 'border-gray-300 hover:border-gray-400 hover:bg-gray-50'
-							}`}
+							className="border-2 border-dashed rounded-lg p-8 text-center transition-colors border-gray-300 hover:border-gray-400 hover:bg-gray-50"
 							onDrop={handleDrop}
 							onDragOver={(e) => e.preventDefault()}
 						>
@@ -179,13 +133,10 @@ export function MultiTrackUploadDialog({
 									onChange={handleFileSelect}
 									className="hidden"
 									id="file-upload"
-									disabled={uploadProgress.status === 'uploading'}
 								/>
 								<label
 									htmlFor="file-upload"
-									className={`inline-block px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 cursor-pointer transition-colors ${
-										uploadProgress.status === 'uploading' ? 'opacity-50 cursor-not-allowed' : ''
-									}`}
+									className="inline-block px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 cursor-pointer transition-colors"
 								>
 									Choose Files
 								</label>
@@ -211,7 +162,6 @@ export function MultiTrackUploadDialog({
 											variant="ghost"
 											size="sm"
 											onClick={() => removeFile(fileItem.id)}
-											disabled={uploadProgress.status === 'uploading'}
 										>
 											<X className="h-4 w-4" />
 										</Button>
@@ -234,7 +184,6 @@ export function MultiTrackUploadDialog({
 											variant="ghost"
 											size="sm"
 											onClick={() => removeFile(fileItem.id)}
-											disabled={uploadProgress.status === 'uploading'}
 										>
 											<X className="h-4 w-4" />
 										</Button>
@@ -268,52 +217,20 @@ export function MultiTrackUploadDialog({
 						)}
 					</div>
 
-					{/* Upload Progress */}
-					{uploadProgress.status !== 'idle' && (
-						<div className="space-y-2">
-							{uploadProgress.status === 'uploading' && (
-								<div className="flex items-center gap-2 text-blue-600">
-									<div className="animate-spin h-4 w-4 border-2 border-blue-600 border-t-transparent rounded-full"></div>
-									<span>Uploading files...</span>
-								</div>
-							)}
-							{uploadProgress.status === 'success' && (
-								<div className="flex items-center gap-2 text-green-600">
-									<Check className="h-4 w-4" />
-									<span>Upload successful!</span>
-								</div>
-							)}
-							{uploadProgress.status === 'error' && (
-								<div className="flex items-center gap-2 text-red-600">
-									<AlertCircle className="h-4 w-4" />
-									<span>{uploadProgress.error}</span>
-								</div>
-							)}
-						</div>
-					)}
 				</div>
 
 				<DialogFooter>
 					<Button 
 						variant="outline" 
 						onClick={() => onOpenChange(false)}
-						disabled={uploadProgress.status === 'uploading'}
 					>
 						Cancel
 					</Button>
 					<Button 
 						onClick={handleUpload}
 						disabled={!canUpload}
-						className="min-w-[100px]"
 					>
-						{uploadProgress.status === 'uploading' ? (
-							<div className="flex items-center gap-2">
-								<div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></div>
-								Uploading...
-							</div>
-						) : (
-							'Upload'
-						)}
+						Upload
 					</Button>
 				</DialogFooter>
 			</DialogContent>
