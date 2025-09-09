@@ -20,6 +20,9 @@ type TranscriptionJob struct {
 	IsMultiTrack     bool      `json:"is_multi_track" gorm:"type:boolean;default:false"`
 	AupFilePath      *string   `json:"aup_file_path,omitempty" gorm:"type:text"`
 	MultiTrackFolder *string   `json:"multi_track_folder,omitempty" gorm:"type:text"`
+	MergedAudioPath  *string   `json:"merged_audio_path,omitempty" gorm:"type:text"`
+	MergeStatus      string    `json:"merge_status" gorm:"type:varchar(20);default:'none'"` // none, pending, processing, completed, failed
+	MergeError       *string   `json:"merge_error,omitempty" gorm:"type:text"`
 	CreatedAt        time.Time `json:"created_at" gorm:"autoCreateTime"`
 	UpdatedAt        time.Time `json:"updated_at" gorm:"autoUpdateTime"`
 
@@ -332,6 +335,10 @@ type MultiTrackFile struct {
 	FileName           string    `json:"file_name" gorm:"type:varchar(255);not null"` // Original filename (used as speaker name)
 	FilePath           string    `json:"file_path" gorm:"type:text;not null"`         // Full path to audio file
 	TrackIndex         int       `json:"track_index" gorm:"type:int;not null"`        // Order of the track
+	Offset             float64   `json:"offset" gorm:"type:real;default:0"`           // Offset in seconds from .aup file
+	Gain               float64   `json:"gain" gorm:"type:real;default:1.0"`           // Gain value from .aup file
+	Pan                float64   `json:"pan" gorm:"type:real;default:0.0"`            // Pan value from .aup file (-1.0 to 1.0)
+	Mute               bool      `json:"mute" gorm:"type:boolean;default:false"`      // Whether track is muted
 	CreatedAt          time.Time `json:"created_at" gorm:"autoCreateTime"`
 	UpdatedAt          time.Time `json:"updated_at" gorm:"autoUpdateTime"`
 

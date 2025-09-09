@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
@@ -19,6 +20,7 @@ import (
 	"scriberr/internal/config"
 	"scriberr/internal/database"
 	"scriberr/internal/models"
+	"scriberr/internal/processing"
 	"scriberr/internal/queue"
 	"scriberr/internal/transcription"
 
@@ -29,21 +31,23 @@ import (
 
 // Handler contains all the API handlers
 type Handler struct {
-	config             *config.Config
-	authService        *auth.AuthService
-	taskQueue          *queue.TaskQueue
-	whisperXService    *transcription.WhisperXService
-	quickTranscription *transcription.QuickTranscriptionService
+	config               *config.Config
+	authService          *auth.AuthService
+	taskQueue            *queue.TaskQueue
+	whisperXService      *transcription.WhisperXService
+	quickTranscription   *transcription.QuickTranscriptionService
+	multiTrackProcessor  *processing.MultiTrackProcessor
 }
 
 // NewHandler creates a new handler
 func NewHandler(cfg *config.Config, authService *auth.AuthService, taskQueue *queue.TaskQueue, whisperXService *transcription.WhisperXService, quickTranscription *transcription.QuickTranscriptionService) *Handler {
 	return &Handler{
-		config:             cfg,
-		authService:        authService,
-		taskQueue:          taskQueue,
-		whisperXService:    whisperXService,
-		quickTranscription: quickTranscription,
+		config:              cfg,
+		authService:         authService,
+		taskQueue:           taskQueue,
+		whisperXService:     whisperXService,
+		quickTranscription:  quickTranscription,
+		multiTrackProcessor: processing.NewMultiTrackProcessor(),
 	}
 }
 
@@ -553,11 +557,12 @@ func (h *Handler) UploadMultiTrack(c *gin.Context) {
 	job := models.TranscriptionJob{
 		ID:               jobID,
 		Title:            &title,
-		AudioPath:        firstTrackPath, // Point to first track for compatibility
+		AudioPath:        firstTrackPath, // Point to first track initially
 		Status:           models.StatusUploaded,
 		IsMultiTrack:     true,
 		AupFilePath:      &aupFilePath,
 		MultiTrackFolder: &multiTrackFolder,
+		MergeStatus:      "pending", // Set merge status to pending
 	}
 
 	// Save job to database
@@ -584,7 +589,46 @@ func (h *Handler) UploadMultiTrack(c *gin.Context) {
 		return
 	}
 
+	// Start async merge processing
+	go func() {
+		ctx := context.Background()
+		if err := h.multiTrackProcessor.ProcessMultiTrackJob(ctx, jobID); err != nil {
+			// Log error but don't fail the upload response
+			fmt.Printf("ERROR: Multi-track processing failed for job %s: %v\n", jobID, err)
+		}
+	}()
+
 	c.JSON(http.StatusOK, job)
+}
+
+// @Summary Get multi-track merge status
+// @Description Get the current merge status for a multi-track job
+// @Tags transcription
+// @Produce json
+// @Param id path string true "Job ID"
+// @Success 200 {object} map[string]interface{}
+// @Failure 404 {object} map[string]string
+// @Router /api/v1/transcription/{id}/merge-status [get]
+// @Security ApiKeyAuth
+// @Security BearerAuth
+func (h *Handler) GetMergeStatus(c *gin.Context) {
+	jobID := c.Param("id")
+	
+	status, errorMsg, err := h.multiTrackProcessor.GetMergeStatus(jobID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Job not found"})
+		return
+	}
+
+	response := gin.H{
+		"merge_status": status,
+	}
+	
+	if errorMsg != nil {
+		response["merge_error"] = *errorMsg
+	}
+
+	c.JSON(http.StatusOK, response)
 }
 
 // @Summary Submit a transcription job
@@ -1207,21 +1251,33 @@ func (h *Handler) GetAudioFile(c *gin.Context) {
 	fmt.Printf("DEBUG: Job status: %s\n", job.Status)
 	fmt.Printf("DEBUG: Audio path: '%s'\n", job.AudioPath)
 
+	// For multi-track jobs, prefer merged audio if available
+	audioPath := job.AudioPath
+	if job.IsMultiTrack && job.MergedAudioPath != nil && *job.MergedAudioPath != "" {
+		// Check if merged audio file exists
+		if _, err := os.Stat(*job.MergedAudioPath); err == nil {
+			audioPath = *job.MergedAudioPath
+			fmt.Printf("DEBUG: Using merged audio: %s\n", audioPath)
+		} else {
+			fmt.Printf("DEBUG: Merged audio not found, falling back to original: %s\n", job.AudioPath)
+		}
+	}
+
 	// Check if audio file exists
-	if job.AudioPath == "" {
+	if audioPath == "" {
 		fmt.Printf("DEBUG: Audio path is empty\n")
 		c.JSON(http.StatusNotFound, gin.H{"error": "Audio file path not found"})
 		return
 	}
 
 	// Check if file exists on filesystem
-	if _, err := os.Stat(job.AudioPath); os.IsNotExist(err) {
-		fmt.Printf("DEBUG: Audio file does not exist on disk: %s\n", job.AudioPath)
+	if _, err := os.Stat(audioPath); os.IsNotExist(err) {
+		fmt.Printf("DEBUG: Audio file does not exist on disk: %s\n", audioPath)
 		c.JSON(http.StatusNotFound, gin.H{"error": "Audio file not found on disk"})
 		return
 	}
 
-	fmt.Printf("DEBUG: Audio file exists, serving: %s\n", job.AudioPath)
+	fmt.Printf("DEBUG: Audio file exists, serving: %s\n", audioPath)
 
 	// Set appropriate content type based on file extension
 	ext := filepath.Ext(job.AudioPath)
