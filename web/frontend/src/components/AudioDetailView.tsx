@@ -37,6 +37,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { Label as UILabel } from "./ui/label";
 import { useToast } from "./ui/toast";
+import { MergeStatusBadge } from "./MergeStatusBadge";
 
 interface MultiTrackFile {
 	id: number;
@@ -54,6 +55,9 @@ interface AudioFile {
 	diarization?: boolean;
 	is_multi_track?: boolean;
 	multi_track_files?: MultiTrackFile[];
+	merged_audio_path?: string;
+	merge_status?: string;
+	merge_error?: string;
 	parameters?: {
 		diarize?: boolean;
 		[key: string]: any;
@@ -1115,10 +1119,17 @@ useEffect(() => {
 										{audioFile.title || getFileName(audioFile.audio_path)}
 									</h1>
 									{audioFile.is_multi_track && (
-										<span className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 text-xs font-medium rounded-md">
-											<Users className="h-3 w-3" />
-											Multi-Track ({audioFile.multi_track_files?.length || 0} speakers)
-										</span>
+										<>
+											<span className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 text-xs font-medium rounded-md">
+												<Users className="h-3 w-3" />
+												Multi-Track ({audioFile.multi_track_files?.length || 0} speakers)
+											</span>
+											<MergeStatusBadge 
+												jobId={audioFile.id}
+												mergeStatus={audioFile.merge_status}
+												mergeError={audioFile.merge_error}
+											/>
+										</>
 									)}
 									<button
 										className="h-7 w-7 inline-flex items-center justify-center rounded-md cursor-pointer text-gray-500 hover:text-gray-700 hover:bg-gray-200/60 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-gray-700/60 transition-colors"
