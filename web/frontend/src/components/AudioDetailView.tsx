@@ -38,6 +38,13 @@ import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { Label as UILabel } from "./ui/label";
 import { useToast } from "./ui/toast";
 
+interface MultiTrackFile {
+	id: number;
+	file_name: string;
+	file_path: string;
+	track_index: number;
+}
+
 interface AudioFile {
 	id: string;
 	title?: string;
@@ -45,6 +52,8 @@ interface AudioFile {
 	created_at: string;
 	audio_path: string;
 	diarization?: boolean;
+	is_multi_track?: boolean;
+	multi_track_files?: MultiTrackFile[];
 	parameters?: {
 		diarize?: boolean;
 		[key: string]: any;
@@ -1105,6 +1114,12 @@ useEffect(() => {
 									<h1 className="text-2xl font-bold text-gray-900 dark:text-gray-50">
 										{audioFile.title || getFileName(audioFile.audio_path)}
 									</h1>
+									{audioFile.is_multi_track && (
+										<span className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 text-xs font-medium rounded-md">
+											<Users className="h-3 w-3" />
+											Multi-Track ({audioFile.multi_track_files?.length || 0} speakers)
+										</span>
+									)}
 									<button
 										className="h-7 w-7 inline-flex items-center justify-center rounded-md cursor-pointer text-gray-500 hover:text-gray-700 hover:bg-gray-200/60 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-gray-700/60 transition-colors"
 										aria-label="Edit title"

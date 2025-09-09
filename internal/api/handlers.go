@@ -409,6 +409,184 @@ func (h *Handler) UploadVideo(c *gin.Context) {
 	c.JSON(http.StatusOK, job)
 }
 
+// @Summary Upload multi-track audio files
+// @Description Upload multiple audio files with an .aup file for multi-track transcription
+// @Tags transcription
+// @Accept multipart/form-data
+// @Produce json
+// @Param title formData string true "Job title (required)"
+// @Param aup formData file true ".aup Audacity project file"
+// @Param tracks formData file true "Audio track files" multiple
+// @Success 200 {object} models.TranscriptionJob
+// @Failure 400 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /api/v1/transcription/upload-multitrack [post]
+// @Security ApiKeyAuth
+// @Security BearerAuth
+func (h *Handler) UploadMultiTrack(c *gin.Context) {
+	// Check for required title
+	title := c.PostForm("title")
+	if title == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Title is required for multi-track uploads"})
+		return
+	}
+
+	// Parse multipart form for .aup file
+	aupFile, aupHeader, err := c.Request.FormFile("aup")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": ".aup Audacity project file is required"})
+		return
+	}
+	defer aupFile.Close()
+
+	// Validate .aup file extension
+	if !strings.HasSuffix(strings.ToLower(aupHeader.Filename), ".aup") {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Project file must have .aup extension"})
+		return
+	}
+
+	// Parse multipart form for audio tracks
+	form, err := c.MultipartForm()
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Failed to parse multipart form"})
+		return
+	}
+
+	tracks := form.File["tracks"]
+	if len(tracks) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "At least one audio track is required"})
+		return
+	}
+
+	// Generate unique job ID
+	jobID := uuid.New().String()
+	
+	// Create job-specific directory structure
+	uploadDir := h.config.UploadDir
+	multiTrackFolder := filepath.Join(uploadDir, jobID)
+	tracksFolder := filepath.Join(multiTrackFolder, "tracks")
+	
+	if err := os.MkdirAll(tracksFolder, 0755); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create upload directory"})
+		return
+	}
+
+	// Save .aup file
+	aupFilePath := filepath.Join(multiTrackFolder, "project.aup")
+	aupDst, err := os.Create(aupFilePath)
+	if err != nil {
+		os.RemoveAll(multiTrackFolder) // Clean up on error
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save .aup file"})
+		return
+	}
+	defer aupDst.Close()
+
+	if _, err = io.Copy(aupDst, aupFile); err != nil {
+		os.RemoveAll(multiTrackFolder) // Clean up on error
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save .aup file"})
+		return
+	}
+	aupDst.Close()
+
+	// Process and save track files
+	var multiTrackFiles []models.MultiTrackFile
+	var firstTrackPath string
+
+	for i, trackFileHeader := range tracks {
+		// Open track file
+		trackFile, err := trackFileHeader.Open()
+		if err != nil {
+			os.RemoveAll(multiTrackFolder) // Clean up on error
+			c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to open track file: %s", trackFileHeader.Filename)})
+			return
+		}
+		defer trackFile.Close()
+
+		// Validate it's an audio file (basic check)
+		if !strings.HasPrefix(trackFileHeader.Header.Get("Content-Type"), "audio/") {
+			trackFile.Close()
+			os.RemoveAll(multiTrackFolder) // Clean up on error
+			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("File %s is not an audio file", trackFileHeader.Filename)})
+			return
+		}
+
+		// Save track file with original filename
+		trackPath := filepath.Join(tracksFolder, trackFileHeader.Filename)
+		trackDst, err := os.Create(trackPath)
+		if err != nil {
+			trackFile.Close()
+			os.RemoveAll(multiTrackFolder) // Clean up on error
+			c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to save track file: %s", trackFileHeader.Filename)})
+			return
+		}
+
+		if _, err = io.Copy(trackDst, trackFile); err != nil {
+			trackDst.Close()
+			trackFile.Close()
+			os.RemoveAll(multiTrackFolder) // Clean up on error
+			c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to save track file: %s", trackFileHeader.Filename)})
+			return
+		}
+		
+		trackDst.Close()
+		trackFile.Close()
+
+		// Store first track path for main audio_path field (for backward compatibility)
+		if i == 0 {
+			firstTrackPath = trackPath
+		}
+
+		// Create MultiTrackFile record (will be saved after job creation)
+		// Remove file extension for speaker name
+		fileName := trackFileHeader.Filename
+		speakerName := strings.TrimSuffix(fileName, filepath.Ext(fileName))
+		
+		multiTrackFiles = append(multiTrackFiles, models.MultiTrackFile{
+			TranscriptionJobID: jobID,
+			FileName:           speakerName,
+			FilePath:           trackPath,
+			TrackIndex:         i,
+		})
+	}
+
+	// Create transcription job record
+	job := models.TranscriptionJob{
+		ID:               jobID,
+		Title:            &title,
+		AudioPath:        firstTrackPath, // Point to first track for compatibility
+		Status:           models.StatusUploaded,
+		IsMultiTrack:     true,
+		AupFilePath:      &aupFilePath,
+		MultiTrackFolder: &multiTrackFolder,
+	}
+
+	// Save job to database
+	if err := database.DB.Create(&job).Error; err != nil {
+		os.RemoveAll(multiTrackFolder) // Clean up on error
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create job"})
+		return
+	}
+
+	// Save multi-track files to database
+	for i := range multiTrackFiles {
+		if err := database.DB.Create(&multiTrackFiles[i]).Error; err != nil {
+			// Clean up job and files on error
+			database.DB.Delete(&job)
+			os.RemoveAll(multiTrackFolder)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create track file records"})
+			return
+		}
+	}
+
+	// Load the complete job with multi-track files for response
+	if err := database.DB.Preload("MultiTrackFiles").First(&job, "id = ?", jobID).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to load complete job"})
+		return
+	}
+
+	c.JSON(http.StatusOK, job)
+}
+
 // @Summary Submit a transcription job
 // @Description Submit an audio file for transcription with WhisperX
 // @Tags transcription

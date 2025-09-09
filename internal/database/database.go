@@ -62,6 +62,7 @@ func Initialize(dbPath string) error {
 		&models.TranscriptionJob{},
 		&models.TranscriptionJobExecution{},
 		&models.SpeakerMapping{},
+		&models.MultiTrackFile{},
 		&models.User{},
 		&models.APIKey{},
 		&models.TranscriptionProfile{},

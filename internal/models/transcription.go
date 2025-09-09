@@ -9,19 +9,25 @@ import (
 
 // TranscriptionJob represents a transcription job record
 type TranscriptionJob struct {
-	ID           string    `json:"id" gorm:"primaryKey;type:varchar(36)"`
-	Title        *string   `json:"title,omitempty" gorm:"type:text"`
-	Status       JobStatus `json:"status" gorm:"type:varchar(20);not null;default:'pending'"`
-	AudioPath    string    `json:"audio_path" gorm:"type:text;not null"`
-	Transcript   *string   `json:"transcript,omitempty" gorm:"type:text"`
-	Diarization  bool      `json:"diarization" gorm:"type:boolean;default:false"`
-	Summary      *string   `json:"summary,omitempty" gorm:"type:text"`
-	ErrorMessage *string   `json:"error_message,omitempty" gorm:"type:text"`
-	CreatedAt    time.Time `json:"created_at" gorm:"autoCreateTime"`
-	UpdatedAt    time.Time `json:"updated_at" gorm:"autoUpdateTime"`
+	ID               string    `json:"id" gorm:"primaryKey;type:varchar(36)"`
+	Title            *string   `json:"title,omitempty" gorm:"type:text"`
+	Status           JobStatus `json:"status" gorm:"type:varchar(20);not null;default:'pending'"`
+	AudioPath        string    `json:"audio_path" gorm:"type:text;not null"`
+	Transcript       *string   `json:"transcript,omitempty" gorm:"type:text"`
+	Diarization      bool      `json:"diarization" gorm:"type:boolean;default:false"`
+	Summary          *string   `json:"summary,omitempty" gorm:"type:text"`
+	ErrorMessage     *string   `json:"error_message,omitempty" gorm:"type:text"`
+	IsMultiTrack     bool      `json:"is_multi_track" gorm:"type:boolean;default:false"`
+	AupFilePath      *string   `json:"aup_file_path,omitempty" gorm:"type:text"`
+	MultiTrackFolder *string   `json:"multi_track_folder,omitempty" gorm:"type:text"`
+	CreatedAt        time.Time `json:"created_at" gorm:"autoCreateTime"`
+	UpdatedAt        time.Time `json:"updated_at" gorm:"autoUpdateTime"`
 
 	// WhisperX parameters
 	Parameters WhisperXParams `json:"parameters" gorm:"embedded"`
+
+	// Relationships
+	MultiTrackFiles []MultiTrackFile `json:"multi_track_files,omitempty" gorm:"foreignKey:TranscriptionJobID"`
 }
 
 // JobStatus represents the status of a transcription job
@@ -317,4 +323,18 @@ type SpeakerMapping struct {
 // Ensure unique constraint on job_id + original_speaker combination
 func (SpeakerMapping) TableName() string {
 	return "speaker_mappings"
+}
+
+// MultiTrackFile represents an individual audio track in a multi-track recording
+type MultiTrackFile struct {
+	ID                 uint      `json:"id" gorm:"primaryKey;autoIncrement"`
+	TranscriptionJobID string    `json:"transcription_job_id" gorm:"type:varchar(36);not null;index"`
+	FileName           string    `json:"file_name" gorm:"type:varchar(255);not null"` // Original filename (used as speaker name)
+	FilePath           string    `json:"file_path" gorm:"type:text;not null"`         // Full path to audio file
+	TrackIndex         int       `json:"track_index" gorm:"type:int;not null"`        // Order of the track
+	CreatedAt          time.Time `json:"created_at" gorm:"autoCreateTime"`
+	UpdatedAt          time.Time `json:"updated_at" gorm:"autoUpdateTime"`
+
+	// Relationships
+	TranscriptionJob TranscriptionJob `json:"transcription_job,omitempty" gorm:"foreignKey:TranscriptionJobID"`
 }

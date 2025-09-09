@@ -6,12 +6,13 @@ import {
 	DropdownMenuItem,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Upload, Mic, Settings, LogOut, Home, Plus, Grip, Zap, Youtube, Video } from "lucide-react";
+import { Upload, Mic, Settings, LogOut, Home, Plus, Grip, Zap, Youtube, Video, Users } from "lucide-react";
 import { ScriberrLogo } from "./ScriberrLogo";
 import { ThemeSwitcher } from "./ThemeSwitcher";
 import { AudioRecorder } from "./AudioRecorder";
 import { QuickTranscriptionDialog } from "./QuickTranscriptionDialog";
 import { YouTubeDownloadDialog } from "./YouTubeDownloadDialog";
+import { MultiTrackUploadDialog } from "./MultiTrackUploadDialog";
 import { useRouter } from "../contexts/RouterContext";
 import { useAuth } from "../contexts/AuthContext";
 
@@ -33,6 +34,7 @@ export function Header({ onFileSelect, onDownloadComplete }: HeaderProps) {
 	const [isRecorderOpen, setIsRecorderOpen] = useState(false);
 	const [isQuickTranscriptionOpen, setIsQuickTranscriptionOpen] = useState(false);
 	const [isYouTubeDialogOpen, setIsYouTubeDialogOpen] = useState(false);
+	const [isMultiTrackDialogOpen, setIsMultiTrackDialogOpen] = useState(false);
 
 	const handleUploadClick = () => {
 		fileInputRef.current?.click();
@@ -52,6 +54,10 @@ export function Header({ onFileSelect, onDownloadComplete }: HeaderProps) {
 
 	const handleYouTubeClick = () => {
 		setIsYouTubeDialogOpen(true);
+	};
+
+	const handleMultiTrackClick = () => {
+		setIsMultiTrackDialogOpen(true);
 	};
 
 	const handleSettingsClick = () => {
@@ -184,6 +190,18 @@ export function Header({ onFileSelect, onDownloadComplete }: HeaderProps) {
 									</div>
 								</div>
 							</DropdownMenuItem>
+							<DropdownMenuItem
+								onClick={handleMultiTrackClick}
+								className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
+							>
+								<Users className="h-4 w-4 text-green-500" />
+								<div>
+									<div className="font-medium">Multi-Track Audio</div>
+									<div className="text-xs text-gray-500 dark:text-gray-400">
+										Upload multiple speaker tracks
+									</div>
+								</div>
+							</DropdownMenuItem>
 						</DropdownMenuContent>
 					</DropdownMenu>
 
@@ -258,6 +276,13 @@ export function Header({ onFileSelect, onDownloadComplete }: HeaderProps) {
 				isOpen={isYouTubeDialogOpen}
 				onClose={() => setIsYouTubeDialogOpen(false)}
 				onDownloadComplete={onDownloadComplete}
+			/>
+
+			{/* Multi-Track Upload Dialog */}
+			<MultiTrackUploadDialog
+				open={isMultiTrackDialogOpen}
+				onOpenChange={setIsMultiTrackDialogOpen}
+				onUploadComplete={onDownloadComplete}
 			/>
 		</header>
 	);
