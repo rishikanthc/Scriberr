@@ -260,6 +260,105 @@ func (cs *CanaryService) ProcessJobWithProcess(ctx context.Context, jobID string
 	return nil
 }
 
+// TranscribeAudioFile transcribes an audio file directly without database operations
+// This is used for multi-track transcription where each track is processed individually
+func (cs *CanaryService) TranscribeAudioFile(ctx context.Context, audioPath string, params models.WhisperXParams) (*TranscriptResult, error) {
+	// Ensure Python environment is set up
+	ws := &WhisperXService{}
+	if err := ws.ensurePythonEnv(); err != nil {
+		return nil, fmt.Errorf("failed to setup Python environment: %v", err)
+	}
+
+	// Check if audio file exists
+	if _, err := os.Stat(audioPath); os.IsNotExist(err) {
+		return nil, fmt.Errorf("audio file not found: %s", audioPath)
+	}
+
+	// Create temporary directory for this transcription
+	tempDir := filepath.Join("data", "temp", fmt.Sprintf("track_%d", time.Now().UnixNano()))
+	if err := os.MkdirAll(tempDir, 0755); err != nil {
+		return nil, fmt.Errorf("failed to create temp directory: %v", err)
+	}
+	defer os.RemoveAll(tempDir) // Clean up temp directory
+
+	// Preprocess audio for Canary
+	preprocessedAudioPath, err := cs.preprocessAudioForCanary(audioPath, tempDir)
+	if err != nil {
+		// Fall back to original audio if preprocessing fails
+		fmt.Printf("WARNING: Audio preprocessing failed: %v\n", err)
+		ext := strings.ToLower(filepath.Ext(audioPath))
+		if ext == ".wav" || ext == ".flac" {
+			preprocessedAudioPath = audioPath
+		} else {
+			return nil, fmt.Errorf("failed to preprocess audio and original format (%s) may not be supported: %v", ext, err)
+		}
+	}
+
+	// Ensure cleanup of temporary file (only if we created a temp file)
+	defer func() {
+		if preprocessedAudioPath != "" && preprocessedAudioPath != audioPath {
+			os.Remove(preprocessedAudioPath)
+		}
+	}()
+
+	// Build Canary command
+	resultPath := filepath.Join(tempDir, "result.json")
+	args, err := cs.buildCanaryArgs(preprocessedAudioPath, resultPath, &params)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build command: %v", err)
+	}
+
+	// Create command with context
+	cmd := exec.CommandContext(ctx, "uv", args...)
+	cmd.Env = append(os.Environ(), "PYTHONUNBUFFERED=1")
+	nvidiaPath := filepath.Join("whisperx-env", "parakeet")
+	cmd.Dir = nvidiaPath
+
+	// Configure process attributes
+	configureCmdSysProcAttr(cmd)
+
+	// Check memory availability for Canary
+	if err := cs.checkMemoryAvailability(); err != nil {
+		fmt.Printf("WARNING: %v\n", err)
+	}
+
+	// Execute Canary
+	fmt.Printf("DEBUG: Running Canary for track: uv %v\n", args)
+	output, err := cmd.CombinedOutput()
+	if ctx.Err() == context.Canceled {
+		return nil, fmt.Errorf("transcription was cancelled")
+	}
+	if err != nil {
+		errMsg := fmt.Sprintf("Canary execution failed: %v - Output: %s", err, string(output))
+		// Check for OOM kill specifically for Canary
+		if strings.Contains(err.Error(), "exit status 137") {
+			errMsg = fmt.Sprintf("Canary model was killed due to insufficient memory (OOM). Exit status 137 indicates the container needs more RAM. Current recommendation: 32GB. Error: %v - Output: %s", err, string(output))
+		}
+		return nil, fmt.Errorf(errMsg)
+	}
+
+	// Parse the result file
+	return cs.parseResultFile(resultPath)
+}
+
+// parseResultFile parses the Canary result file and returns TranscriptResult
+func (cs *CanaryService) parseResultFile(resultPath string) (*TranscriptResult, error) {
+	// Read the result file
+	data, err := os.ReadFile(resultPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read result file: %v", err)
+	}
+
+	// Parse the Canary result
+	var canaryResult CanaryResult
+	if err := json.Unmarshal(data, &canaryResult); err != nil {
+		return nil, fmt.Errorf("failed to parse JSON result: %v", err)
+	}
+
+	// Convert to standard TranscriptResult format
+	return cs.convertToWhisperXFormat(&canaryResult), nil
+}
+
 // buildCanaryArgs builds the Canary command arguments
 func (cs *CanaryService) buildCanaryArgs(audioPath, outputFile string, params *models.WhisperXParams) ([]string, error) {
 	// Enhanced debugging for Docker path resolution

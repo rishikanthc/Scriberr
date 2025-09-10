@@ -69,10 +69,16 @@ func (ws *WhisperXService) ProcessJobWithProcess(ctx context.Context, jobID stri
 		return fmt.Errorf("failed to get job: %v", err)
 	}
 
+	// Validate single-track job doesn't have multi-track parameters enabled
+	if !job.IsMultiTrack && job.Parameters.IsMultiTrackEnabled {
+		return fmt.Errorf("single-track job cannot have multi-track transcription enabled")
+	}
+
 	// Check if this is a multi-track job with multi-track enabled parameters
+	// This check now happens BEFORE model family routing
 	if job.IsMultiTrack && job.Parameters.IsMultiTrackEnabled {
-		logger.Info("Processing multi-track job", "job_id", jobID, "merge_status", job.MergeStatus)
-		
+		logger.Info("Processing multi-track job", "job_id", jobID, "model_family", job.Parameters.ModelFamily, "merge_status", job.MergeStatus)
+
 		// First, ensure audio files are merged if not already done
 		if job.MergeStatus != "completed" {
 			logger.Info("Starting merge processing for multi-track job", "job_id", jobID)
@@ -84,19 +90,15 @@ func (ws *WhisperXService) ProcessJobWithProcess(ctx context.Context, jobID stri
 				logger.Warn("MultiTrackProcessor not available, skipping merge", "job_id", jobID)
 			}
 		}
-		
+
 		// Then transcribe each track individually and merge transcripts
-		logger.Info("Starting multi-track transcription", "job_id", jobID)
+		// MultiTrackTranscriber will handle model family routing internally
+		logger.Info("Starting multi-track transcription", "job_id", jobID, "model_family", job.Parameters.ModelFamily)
 		multiTrackTranscriber := NewMultiTrackTranscriber(ws)
 		return multiTrackTranscriber.ProcessMultiTrackTranscription(ctx, jobID)
 	}
 
-	// Validate single-track job doesn't have multi-track parameters enabled
-	if !job.IsMultiTrack && job.Parameters.IsMultiTrackEnabled {
-		return fmt.Errorf("single-track job cannot have multi-track transcription enabled")
-	}
-
-	// Route to appropriate service based on model family
+	// Route single-track jobs to appropriate service based on model family
 	logger.Info("Job routing", "job_id", jobID, "model_family", job.Parameters.ModelFamily, "is_multi_track", job.IsMultiTrack)
 	if job.Parameters.ModelFamily == "nvidia_parakeet" {
 		logger.Info("Routing job to Parakeet service", "job_id", jobID)
@@ -1217,7 +1219,7 @@ func (ws *WhisperXService) GetSupportedLanguages() []string {
 // This is a cleaner approach for multi-track processing that avoids temporary database records
 func (ws *WhisperXService) TranscribeAudioFile(ctx context.Context, audioPath string, params models.WhisperXParams) (*TranscriptResult, error) {
 	fmt.Printf("DEBUG: TranscribeAudioFile starting for: %s\n", audioPath)
-	
+
 	// Ensure Python environment is set up
 	if err := ws.ensurePythonEnv(); err != nil {
 		return nil, fmt.Errorf("failed to setup Python environment: %v", err)
