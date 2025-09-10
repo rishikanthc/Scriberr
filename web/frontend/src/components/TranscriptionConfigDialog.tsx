@@ -102,6 +102,9 @@ export interface WhisperXParams {
   // NVIDIA Parakeet-specific parameters for long-form audio
   attention_context_left: number;
   attention_context_right: number;
+  
+  // Multi-track transcription settings
+  is_multi_track_enabled: boolean;
 }
 
 // Parameter descriptions for hover cards
@@ -142,7 +145,8 @@ const PARAM_DESCRIPTIONS = {
   highlight_words: "Add word-level timing highlights in SRT/VTT formats (underlines words as spoken).",
   verbose: "Show detailed progress and debug messages during transcription.",
   print_progress: "Display processing progress information in the console output.",
-  hf_token: "Hugging Face API token required for accessing private or gated models."
+  hf_token: "Hugging Face API token required for accessing private or gated models.",
+  is_multi_track_enabled: "Enable multi-track transcription mode for processing individual speaker tracks. When enabled, diarization is automatically disabled as each track represents a single speaker."
 };
 
 interface TranscriptionConfigDialogProps {
@@ -195,6 +199,7 @@ const DEFAULT_PARAMS: WhisperXParams = {
   print_progress: false,
   attention_context_left: 256,
   attention_context_right: 256,
+  is_multi_track_enabled: false,
 };
 
 const WHISPER_MODELS = [
@@ -584,6 +589,7 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
                   id="parakeet_diarize"
                   checked={params.diarize}
                   onCheckedChange={(checked) => updateParam('diarize', checked)}
+                  disabled={params.is_multi_track_enabled}
                 />
                 <Label htmlFor="parakeet_diarize" className="text-gray-700 dark:text-gray-300">Enable Speaker Diarization</Label>
                 <HoverCard>
@@ -754,6 +760,7 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
                   id="canary_diarize"
                   checked={params.diarize}
                   onCheckedChange={(checked) => updateParam('diarize', checked)}
+                  disabled={params.is_multi_track_enabled}
                 />
                 <Label htmlFor="canary_diarize" className="text-gray-700 dark:text-gray-300">Enable Speaker Diarization</Label>
                 <HoverCard>
@@ -868,6 +875,40 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
           <TabsContent value="basic" className="space-y-6 sm:space-y-8 mt-4 sm:mt-6">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-8">
               <div className="space-y-4 sm:space-y-6">
+                {/* Multi-track transcription toggle */}
+                <div>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Label htmlFor="is_multi_track_enabled" className="text-gray-700 dark:text-gray-300">Multi-track transcription</Label>
+                      <HoverCard>
+                        <HoverCardTrigger asChild>
+                          <Info className="h-4 w-4 text-gray-400 cursor-help" />
+                        </HoverCardTrigger>
+                        <HoverCardContent className="w-80 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                          <p className="text-sm text-gray-700 dark:text-gray-300">{PARAM_DESCRIPTIONS.is_multi_track_enabled}</p>
+                        </HoverCardContent>
+                      </HoverCard>
+                    </div>
+                    <Switch
+                      id="is_multi_track_enabled"
+                      checked={params.is_multi_track_enabled}
+                      onCheckedChange={(checked) => {
+                        updateParam('is_multi_track_enabled', checked);
+                        // Automatically disable diarization when multi-track is enabled
+                        if (checked) {
+                          updateParam('diarize', false);
+                        }
+                      }}
+                      className="data-[state=checked]:bg-blue-600"
+                    />
+                  </div>
+                  {params.is_multi_track_enabled && (
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+                      Diarization will be automatically disabled as each track represents a single speaker.
+                    </p>
+                  )}
+                </div>
+                
                 <div>
                   <div className="flex items-center gap-2 mb-2">
                     <Label htmlFor="model" className="text-gray-700 dark:text-gray-300">Model Size</Label>
@@ -1511,6 +1552,7 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
                   id="diarize"
                   checked={params.diarize}
                   onCheckedChange={(checked) => updateParam('diarize', checked)}
+                  disabled={params.is_multi_track_enabled}
                 />
                 <Label htmlFor="diarize" className="text-gray-700 dark:text-gray-300">Enable Speaker Diarization</Label>
                 <HoverCard>
@@ -1634,7 +1676,10 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
                     Speaker Diarization Disabled
                   </h3>
                   <p className="text-gray-500 dark:text-gray-400 text-sm">
-                    Enable speaker diarization to identify and separate different speakers in your audio.
+                    {params.is_multi_track_enabled 
+                      ? "Diarization is disabled for multi-track transcription as each track represents a single speaker."
+                      : "Enable speaker diarization to identify and separate different speakers in your audio."
+                    }
                   </p>
                 </div>
               )}

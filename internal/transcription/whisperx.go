@@ -14,15 +14,20 @@ import (
 	"scriberr/internal/config"
 	"scriberr/internal/database"
 	"scriberr/internal/models"
+	"scriberr/internal/processing"
+	"scriberr/pkg/logger"
 )
 
 // WhisperXService handles WhisperX transcription
 type WhisperXService struct {
+	multiTrackProcessor *processing.MultiTrackProcessor
 }
 
 // NewWhisperXService creates a new WhisperX service
 func NewWhisperXService(cfg *config.Config) *WhisperXService {
-	return &WhisperXService{}
+	return &WhisperXService{
+		multiTrackProcessor: processing.NewMultiTrackProcessor(),
+	}
 }
 
 // TranscriptResult represents the WhisperX output format
@@ -58,26 +63,53 @@ func (ws *WhisperXService) ProcessJob(ctx context.Context, jobID string) error {
 
 // ProcessJobWithProcess implements the enhanced JobProcessor interface
 func (ws *WhisperXService) ProcessJobWithProcess(ctx context.Context, jobID string, registerProcess func(*exec.Cmd)) error {
-	// Get the job from database to check model family
+	// Get the job from database to check model family and multi-track status
 	var job models.TranscriptionJob
-	if err := database.DB.Where("id = ?", jobID).First(&job).Error; err != nil {
+	if err := database.DB.Preload("MultiTrackFiles").Where("id = ?", jobID).First(&job).Error; err != nil {
 		return fmt.Errorf("failed to get job: %v", err)
 	}
 
+	// Check if this is a multi-track job with multi-track enabled parameters
+	if job.IsMultiTrack && job.Parameters.IsMultiTrackEnabled {
+		logger.Info("Processing multi-track job", "job_id", jobID, "merge_status", job.MergeStatus)
+		
+		// First, ensure audio files are merged if not already done
+		if job.MergeStatus != "completed" {
+			logger.Info("Starting merge processing for multi-track job", "job_id", jobID)
+			if ws.multiTrackProcessor != nil {
+				if err := ws.multiTrackProcessor.ProcessMultiTrackJob(ctx, jobID); err != nil {
+					return fmt.Errorf("failed to merge multi-track audio: %w", err)
+				}
+			} else {
+				logger.Warn("MultiTrackProcessor not available, skipping merge", "job_id", jobID)
+			}
+		}
+		
+		// Then transcribe each track individually and merge transcripts
+		logger.Info("Starting multi-track transcription", "job_id", jobID)
+		multiTrackTranscriber := NewMultiTrackTranscriber(ws)
+		return multiTrackTranscriber.ProcessMultiTrackTranscription(ctx, jobID)
+	}
+
+	// Validate single-track job doesn't have multi-track parameters enabled
+	if !job.IsMultiTrack && job.Parameters.IsMultiTrackEnabled {
+		return fmt.Errorf("single-track job cannot have multi-track transcription enabled")
+	}
+
 	// Route to appropriate service based on model family
-	fmt.Printf("DEBUG: Job %s has ModelFamily: '%s'\n", jobID, job.Parameters.ModelFamily)
+	logger.Info("Job routing", "job_id", jobID, "model_family", job.Parameters.ModelFamily, "is_multi_track", job.IsMultiTrack)
 	if job.Parameters.ModelFamily == "nvidia_parakeet" {
-		fmt.Printf("DEBUG: Routing job %s to Parakeet service\n", jobID)
+		logger.Info("Routing job to Parakeet service", "job_id", jobID)
 		parakeetService := NewParakeetService(nil)
 		return parakeetService.ProcessJobWithProcess(ctx, jobID, registerProcess)
 	} else if job.Parameters.ModelFamily == "nvidia_canary" {
-		fmt.Printf("DEBUG: Routing job %s to Canary service\n", jobID)
+		logger.Info("Routing job to Canary service", "job_id", jobID)
 		canaryService := NewCanaryService(nil)
 		return canaryService.ProcessJobWithProcess(ctx, jobID, registerProcess)
 	}
 
 	// Default to WhisperX processing
-	fmt.Printf("DEBUG: Processing job %s with WhisperX\n", jobID)
+	logger.Info("Processing job with WhisperX", "job_id", jobID)
 	return ws.processWhisperXJob(ctx, jobID, registerProcess)
 }
 
@@ -1179,4 +1211,123 @@ func (ws *WhisperXService) GetSupportedLanguages() []string {
 		"uz", "fo", "ht", "ps", "tk", "nn", "mt", "sa", "lb", "my", "bo", "tl", "mg",
 		"as", "tt", "haw", "ln", "ha", "ba", "jw", "su",
 	}
+}
+
+// TranscribeAudioFile transcribes a single audio file directly without requiring a database job
+// This is a cleaner approach for multi-track processing that avoids temporary database records
+func (ws *WhisperXService) TranscribeAudioFile(ctx context.Context, audioPath string, params models.WhisperXParams) (*TranscriptResult, error) {
+	fmt.Printf("DEBUG: TranscribeAudioFile starting for: %s\n", audioPath)
+	
+	// Ensure Python environment is set up
+	if err := ws.ensurePythonEnv(); err != nil {
+		return nil, fmt.Errorf("failed to setup Python environment: %v", err)
+	}
+
+	// Check if audio file exists
+	if _, err := os.Stat(audioPath); os.IsNotExist(err) {
+		return nil, fmt.Errorf("audio file not found: %s", audioPath)
+	}
+
+	// Create temporary output directory for this transcription
+	tempDir := filepath.Join("data", "temp", fmt.Sprintf("track_%d", time.Now().UnixNano()))
+	if err := os.MkdirAll(tempDir, 0755); err != nil {
+		return nil, fmt.Errorf("failed to create temporary output directory: %v", err)
+	}
+	defer os.RemoveAll(tempDir) // Clean up temp directory
+
+	fmt.Printf("DEBUG: Using temporary directory: %s\n", tempDir)
+
+	// Create a temporary job-like structure for building args
+	tempJob := &models.TranscriptionJob{
+		ID:         "temp", // Give it a temporary ID for logging
+		AudioPath:  audioPath,
+		Parameters: params,
+	}
+
+	// Build WhisperX command
+	args, err := ws.buildWhisperXArgs(tempJob, tempDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build command: %v", err)
+	}
+
+	// Create command with context for proper cancellation support
+	cmd := exec.CommandContext(ctx, "uv", args...)
+	cmd.Env = append(os.Environ(), "PYTHONUNBUFFERED=1")
+
+	// Configure process attributes for cross-platform kill behavior
+	configureCmdSysProcAttr(cmd)
+
+	fmt.Printf("DEBUG: Executing WhisperX command for track\n")
+
+	// Execute WhisperX
+	output, err := cmd.CombinedOutput()
+	if ctx.Err() == context.Canceled {
+		return nil, fmt.Errorf("transcription was cancelled")
+	}
+	if err != nil {
+		fmt.Printf("DEBUG: WhisperX stderr/stdout: %s\n", string(output))
+		return nil, fmt.Errorf("WhisperX execution failed: %v", err)
+	}
+
+	fmt.Printf("DEBUG: WhisperX completed successfully, parsing results from: %s\n", tempDir)
+
+	// Parse the result from the temporary output
+	resultPath := filepath.Join(tempDir, "result.json")
+	result, err := ws.parseResultFile(resultPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse result: %v", err)
+	}
+
+	fmt.Printf("DEBUG: Successfully parsed track result with %d segments\n", len(result.Segments))
+	return result, nil
+}
+
+// parseResultFile parses a WhisperX result JSON file and returns the transcript result
+// This is extracted from parseAndSaveResult to avoid database operations
+func (ws *WhisperXService) parseResultFile(expectedResultPath string) (*TranscriptResult, error) {
+	// WhisperX creates files based on input filename, not result.json
+	// Look for JSON files that match the expected WhisperX output pattern
+	outputDir := filepath.Dir(expectedResultPath)
+	files, err := filepath.Glob(filepath.Join(outputDir, "*.json"))
+	if err != nil {
+		return nil, fmt.Errorf("failed to find result files: %v", err)
+	}
+
+	if len(files) == 0 {
+		return nil, fmt.Errorf("no result files found in %s", outputDir)
+	}
+
+	// Filter out result.json (which is Parakeet/Canary format) and find WhisperX format
+	var whisperxFile string
+	for _, file := range files {
+		if filepath.Base(file) != "result.json" {
+			whisperxFile = file
+			break
+		}
+	}
+
+	if whisperxFile == "" {
+		// Fall back to result.json if no other files found
+		if _, err := os.Stat(expectedResultPath); err == nil {
+			whisperxFile = expectedResultPath
+		} else {
+			return nil, fmt.Errorf("no WhisperX result files found in %s", outputDir)
+		}
+	}
+
+	fmt.Printf("DEBUG: Using WhisperX result file: %s\n", whisperxFile)
+
+	// Read result file
+	resultData, err := os.ReadFile(whisperxFile)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read result file: %v", err)
+	}
+
+	// Parse JSON
+	var result TranscriptResult
+	if err := json.Unmarshal(resultData, &result); err != nil {
+		return nil, fmt.Errorf("failed to parse JSON result: %v", err)
+	}
+
+	return &result, nil
 }
