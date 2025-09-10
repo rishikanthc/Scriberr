@@ -479,6 +479,44 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
               </div>
             </div>
 
+            {/* Multi-track transcription toggle for Parakeet */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">Transcription Mode</h3>
+              
+              <div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="parakeet_is_multi_track_enabled" className="text-gray-700 dark:text-gray-300">Multi-track transcription</Label>
+                    <HoverCard>
+                      <HoverCardTrigger asChild>
+                        <Info className="h-4 w-4 text-gray-400 cursor-help" />
+                      </HoverCardTrigger>
+                      <HoverCardContent className="w-80 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                        <p className="text-sm text-gray-700 dark:text-gray-300">{PARAM_DESCRIPTIONS.is_multi_track_enabled}</p>
+                      </HoverCardContent>
+                    </HoverCard>
+                  </div>
+                  <Switch
+                    id="parakeet_is_multi_track_enabled"
+                    checked={params.is_multi_track_enabled}
+                    onCheckedChange={(checked) => {
+                      updateParam('is_multi_track_enabled', checked);
+                      // Automatically disable diarization when multi-track is enabled
+                      if (checked) {
+                        updateParam('diarize', false);
+                      }
+                    }}
+                    className="data-[state=checked]:bg-blue-600"
+                  />
+                </div>
+                {params.is_multi_track_enabled && (
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+                    Diarization will be automatically disabled as each track represents a single speaker.
+                  </p>
+                )}
+              </div>
+            </div>
+
             {/* Long-form Audio Settings */}
             <div className="space-y-4">
               <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">Long-form Audio Settings</h3>
@@ -714,6 +752,44 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
                     </ul>
                   </div>
                 </div>
+              </div>
+            </div>
+
+            {/* Multi-track transcription toggle for Canary */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">Transcription Mode</h3>
+              
+              <div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="canary_is_multi_track_enabled" className="text-gray-700 dark:text-gray-300">Multi-track transcription</Label>
+                    <HoverCard>
+                      <HoverCardTrigger asChild>
+                        <Info className="h-4 w-4 text-gray-400 cursor-help" />
+                      </HoverCardTrigger>
+                      <HoverCardContent className="w-80 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                        <p className="text-sm text-gray-700 dark:text-gray-300">{PARAM_DESCRIPTIONS.is_multi_track_enabled}</p>
+                      </HoverCardContent>
+                    </HoverCard>
+                  </div>
+                  <Switch
+                    id="canary_is_multi_track_enabled"
+                    checked={params.is_multi_track_enabled}
+                    onCheckedChange={(checked) => {
+                      updateParam('is_multi_track_enabled', checked);
+                      // Automatically disable diarization when multi-track is enabled
+                      if (checked) {
+                        updateParam('diarize', false);
+                      }
+                    }}
+                    className="data-[state=checked]:bg-green-600"
+                  />
+                </div>
+                {params.is_multi_track_enabled && (
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+                    Diarization will be automatically disabled as each track represents a single speaker.
+                  </p>
+                )}
               </div>
             </div>
 

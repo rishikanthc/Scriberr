@@ -248,6 +248,95 @@ func (ps *ParakeetService) ProcessJobWithProcess(ctx context.Context, jobID stri
 	return nil
 }
 
+// TranscribeAudioFile transcribes an audio file directly without database operations
+// This is used for multi-track transcription where each track is processed individually
+func (ps *ParakeetService) TranscribeAudioFile(ctx context.Context, audioPath string, params models.WhisperXParams) (*TranscriptResult, error) {
+	// Ensure Python environment is set up
+	ws := &WhisperXService{}
+	if err := ws.ensurePythonEnv(); err != nil {
+		return nil, fmt.Errorf("failed to setup Python environment: %v", err)
+	}
+
+	// Check if audio file exists
+	if _, err := os.Stat(audioPath); os.IsNotExist(err) {
+		return nil, fmt.Errorf("audio file not found: %s", audioPath)
+	}
+
+	// Create temporary directory for this transcription
+	tempDir := filepath.Join("data", "temp", fmt.Sprintf("track_%d", time.Now().UnixNano()))
+	if err := os.MkdirAll(tempDir, 0755); err != nil {
+		return nil, fmt.Errorf("failed to create temp directory: %v", err)
+	}
+	defer os.RemoveAll(tempDir) // Clean up temp directory
+
+	// Preprocess audio for Parakeet
+	preprocessedAudioPath, err := ps.preprocessAudioForParakeet(audioPath, tempDir)
+	if err != nil {
+		// Fall back to original audio if preprocessing fails
+		fmt.Printf("WARNING: Audio preprocessing failed: %v\n", err)
+		ext := strings.ToLower(filepath.Ext(audioPath))
+		if ext == ".wav" || ext == ".flac" {
+			preprocessedAudioPath = audioPath
+		} else {
+			return nil, fmt.Errorf("failed to preprocess audio and original format (%s) may not be supported: %v", ext, err)
+		}
+	}
+
+	// Ensure cleanup of temporary file (only if we created a temp file)
+	defer func() {
+		if preprocessedAudioPath != "" && preprocessedAudioPath != audioPath {
+			os.Remove(preprocessedAudioPath)
+		}
+	}()
+
+	// Build Parakeet command
+	resultPath := filepath.Join(tempDir, "result.json")
+	args, err := ps.buildParakeetArgs(preprocessedAudioPath, resultPath, &params)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build command: %v", err)
+	}
+
+	// Create command with context
+	cmd := exec.CommandContext(ctx, "uv", args...)
+	cmd.Env = append(os.Environ(), "PYTHONUNBUFFERED=1")
+	parakeetPath := filepath.Join("whisperx-env", "parakeet")
+	cmd.Dir = parakeetPath
+
+	// Configure process attributes
+	configureCmdSysProcAttr(cmd)
+
+	// Execute Parakeet
+	fmt.Printf("DEBUG: Running Parakeet for track: uv %v\n", args)
+	output, err := cmd.CombinedOutput()
+	if ctx.Err() == context.Canceled {
+		return nil, fmt.Errorf("transcription was cancelled")
+	}
+	if err != nil {
+		return nil, fmt.Errorf("Parakeet execution failed: %v - Output: %s", err, string(output))
+	}
+
+	// Parse the result file
+	return ps.parseResultFile(resultPath)
+}
+
+// parseResultFile parses the Parakeet result file and returns TranscriptResult
+func (ps *ParakeetService) parseResultFile(resultPath string) (*TranscriptResult, error) {
+	// Read the result file
+	data, err := os.ReadFile(resultPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read result file: %v", err)
+	}
+
+	// Parse the Parakeet result
+	var parakeetResult ParakeetResult
+	if err := json.Unmarshal(data, &parakeetResult); err != nil {
+		return nil, fmt.Errorf("failed to parse JSON result: %v", err)
+	}
+
+	// Convert to standard TranscriptResult format
+	return ps.convertToWhisperXFormat(&parakeetResult), nil
+}
+
 // buildParakeetArgs builds the Parakeet command arguments
 func (ps *ParakeetService) buildParakeetArgs(audioPath, outputFile string, params *models.WhisperXParams) ([]string, error) {
 	// Convert audio path to absolute path since we'll be running from parakeet directory
