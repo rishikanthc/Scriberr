@@ -272,6 +272,14 @@ func (cm *ChatMessage) BeforeCreate(tx *gorm.DB) error {
 	return nil
 }
 
+// MultiTrackTiming represents timing data for individual track processing
+type MultiTrackTiming struct {
+	TrackName string    `json:"track_name"`
+	StartTime time.Time `json:"start_time"`
+	EndTime   time.Time `json:"end_time"`
+	Duration  int64     `json:"duration"` // Duration in milliseconds
+}
+
 // TranscriptionJobExecution represents execution metadata for completed transcription jobs
 type TranscriptionJobExecution struct {
 	ID                 string `json:"id" gorm:"primaryKey;type:varchar(36)"`
@@ -281,6 +289,12 @@ type TranscriptionJobExecution struct {
 	StartedAt          time.Time  `json:"started_at" gorm:"not null"`
 	CompletedAt        *time.Time `json:"completed_at,omitempty"`
 	ProcessingDuration *int64     `json:"processing_duration,omitempty"` // Duration in milliseconds
+
+	// Multi-track specific timing data
+	MultiTrackTimings *string    `json:"multi_track_timings,omitempty" gorm:"type:text"` // JSON-serialized []MultiTrackTiming
+	MergeStartTime    *time.Time `json:"merge_start_time,omitempty" gorm:"type:datetime"`
+	MergeEndTime      *time.Time `json:"merge_end_time,omitempty" gorm:"type:datetime"`
+	MergeDuration     *int64     `json:"merge_duration,omitempty"` // Merge phase duration in milliseconds
 
 	// Parameters used for this execution (may differ from job parameters due to profiles)
 	ActualParameters WhisperXParams `json:"actual_parameters" gorm:"embedded;embeddedPrefix:actual_"`

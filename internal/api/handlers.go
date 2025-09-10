@@ -1305,6 +1305,17 @@ func (h *Handler) GetJobByID(c *gin.Context) {
 func (h *Handler) GetJobExecutionData(c *gin.Context) {
 	jobID := c.Param("id")
 
+	// Get the transcription job to check if it's multi-track
+	var job models.TranscriptionJob
+	if err := database.DB.Preload("MultiTrackFiles").Where("id = ?", jobID).First(&job).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Transcription job not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get transcription job"})
+		return
+	}
+
 	var execution models.TranscriptionJobExecution
 	if err := database.DB.Where("transcription_job_id = ? AND status = ?", jobID, models.StatusCompleted).
 		Order("completed_at DESC").
@@ -1317,7 +1328,39 @@ func (h *Handler) GetJobExecutionData(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, execution)
+	// Create enhanced response with multi-track data
+	response := gin.H{
+		"id":                   execution.ID,
+		"transcription_job_id": execution.TranscriptionJobID,
+		"started_at":           execution.StartedAt,
+		"completed_at":         execution.CompletedAt,
+		"processing_duration":  execution.ProcessingDuration,
+		"actual_parameters":    execution.ActualParameters,
+		"status":               execution.Status,
+		"error_message":        execution.ErrorMessage,
+		"created_at":           execution.CreatedAt,
+		"updated_at":           execution.UpdatedAt,
+		"is_multi_track":       job.IsMultiTrack,
+	}
+
+	// Add multi-track specific data if available
+	if job.IsMultiTrack && execution.MultiTrackTimings != nil {
+		// Deserialize track timings
+		var trackTimings []models.MultiTrackTiming
+		if err := json.Unmarshal([]byte(*execution.MultiTrackTimings), &trackTimings); err == nil {
+			response["multi_track_timings"] = trackTimings
+		}
+
+		// Add merge timing data
+		response["merge_start_time"] = execution.MergeStartTime
+		response["merge_end_time"] = execution.MergeEndTime
+		response["merge_duration"] = execution.MergeDuration
+
+		// Add multi-track files information
+		response["multi_track_files"] = job.MultiTrackFiles
+	}
+
+	c.JSON(http.StatusOK, response)
 }
 
 // @Summary Get audio file
