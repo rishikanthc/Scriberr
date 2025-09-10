@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
 import { Loader2, Users, Save, X } from 'lucide-react';
+import { useAuth } from "../contexts/AuthContext";
 // Note: Install framer-motion for enhanced animations
 // import { motion, AnimatePresence } from 'framer-motion';
 
@@ -29,6 +30,7 @@ const SpeakerRenameDialog: React.FC<SpeakerRenameDialogProps> = ({
   onSpeakerMappingsUpdate,
   initialSpeakers = [],
 }) => {
+  const { getAuthHeaders } = useAuth();
   const [speakerMappings, setSpeakerMappings] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -46,20 +48,8 @@ const SpeakerRenameDialog: React.FC<SpeakerRenameDialogProps> = ({
     setError(null);
 
     try {
-      const token = localStorage.getItem('token');
-      const apiKey = localStorage.getItem('apiKey');
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-      };
-
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-      } else if (apiKey) {
-        headers['X-API-Key'] = apiKey;
-      }
-
       const response = await fetch(`/api/v1/transcription/${transcriptionId}/speakers`, {
-        headers,
+        headers: { ...getAuthHeaders() },
       });
 
       if (!response.ok) {
@@ -111,18 +101,6 @@ const SpeakerRenameDialog: React.FC<SpeakerRenameDialogProps> = ({
     setError(null);
 
     try {
-      const token = localStorage.getItem('token');
-      const apiKey = localStorage.getItem('apiKey');
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-      };
-
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-      } else if (apiKey) {
-        headers['X-API-Key'] = apiKey;
-      }
-
       // Convert mappings to API format
       const mappingsArray = Object.entries(speakerMappings).map(([original_speaker, custom_name]) => ({
         original_speaker,
@@ -131,7 +109,7 @@ const SpeakerRenameDialog: React.FC<SpeakerRenameDialogProps> = ({
 
       const response = await fetch(`/api/v1/transcription/${transcriptionId}/speakers`, {
         method: 'POST',
-        headers,
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
         body: JSON.stringify({
           mappings: mappingsArray,
         }),
