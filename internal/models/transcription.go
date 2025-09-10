@@ -144,15 +144,16 @@ type User struct {
 
 // APIKey represents an API key for external authentication
 type APIKey struct {
-	ID          uint    `json:"id" gorm:"primaryKey"`
-	Key         string  `json:"key" gorm:"uniqueIndex;not null;type:varchar(255)"`
-	Name        string  `json:"name" gorm:"not null;type:varchar(100)"`
-	Description *string `json:"description,omitempty" gorm:"type:text"`
+	ID          uint       `json:"id" gorm:"primaryKey"`
+	Key         string     `json:"key" gorm:"uniqueIndex;not null;type:varchar(255)"`
+	Name        string     `json:"name" gorm:"not null;type:varchar(100)"`
+	Description *string    `json:"description,omitempty" gorm:"type:text"`
 	// IsActive should persist explicit false values; avoid default tag to prevent
 	// GORM from overriding false with DB defaults during inserts.
-	IsActive  bool      `json:"is_active" gorm:"type:boolean;not null"`
-	CreatedAt time.Time `json:"created_at" gorm:"autoCreateTime"`
-	UpdatedAt time.Time `json:"updated_at" gorm:"autoUpdateTime"`
+	IsActive  bool       `json:"is_active" gorm:"type:boolean;not null"`
+	LastUsed  *time.Time `json:"last_used,omitempty"`
+	CreatedAt time.Time  `json:"created_at" gorm:"autoCreateTime"`
+	UpdatedAt time.Time  `json:"updated_at" gorm:"autoUpdateTime"`
 }
 
 // BeforeCreate sets the API key if not already set

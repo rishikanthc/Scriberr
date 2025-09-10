@@ -3,6 +3,7 @@ package middleware
 import (
 	"net/http"
 	"strings"
+	"time"
 
 	"scriberr/internal/auth"
 	"scriberr/internal/database"
@@ -56,11 +57,20 @@ func AuthMiddleware(authService *auth.AuthService) gin.HandlerFunc {
 	}
 }
 
-// validateAPIKey validates an API key against the database
+// validateAPIKey validates an API key against the database and updates last used timestamp
 func validateAPIKey(key string) bool {
 	var apiKey models.APIKey
 	result := database.DB.Where("key = ? AND is_active = ?", key, true).First(&apiKey)
-	return result.Error == nil
+	if result.Error != nil {
+		return false
+	}
+
+	// Update last used timestamp
+	now := time.Now()
+	apiKey.LastUsed = &now
+	database.DB.Save(&apiKey)
+
+	return true
 }
 
 // APIKeyOnlyMiddleware only allows API key authentication
