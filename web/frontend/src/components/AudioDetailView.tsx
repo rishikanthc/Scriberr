@@ -985,8 +985,9 @@ useEffect(() => {
 		return Array.from(speakers).sort();
 	};
 
-	const hasDiarizationEnabled = (): boolean => {
-		return audioFile?.diarization || audioFile?.parameters?.diarize || false;
+	const hasSpeakers = (): boolean => {
+		// Return true if diarization is enabled OR if this is a multi-track job (which also has speakers)
+		return audioFile?.diarization || audioFile?.parameters?.diarize || audioFile?.is_multi_track || false;
 	};
 
 	const handleSpeakerMappingsUpdate = (mappings: { id?: number; original_speaker: string; custom_name: string }[]) => {
@@ -1003,26 +1004,14 @@ useEffect(() => {
 	};
 
 	const fetchSpeakerMappings = async () => {
-		// Only fetch if diarization is enabled
-		if (!audioFile || !hasDiarizationEnabled()) {
+		// Only fetch if there are speakers (from diarization or multi-track)
+		if (!audioFile || !hasSpeakers()) {
 			return;
 		}
 
 		try {
-			const token = localStorage.getItem('token');
-			const apiKey = localStorage.getItem('apiKey');
-			const headers: Record<string, string> = {
-				'Content-Type': 'application/json',
-			};
-
-			if (token) {
-				headers['Authorization'] = `Bearer ${token}`;
-			} else if (apiKey) {
-				headers['X-API-Key'] = apiKey;
-			}
-
 			const response = await fetch(`/api/v1/transcription/${audioId}/speakers`, {
-				headers,
+				headers: { ...getAuthHeaders() },
 			});
 
 			if (response.ok) {
@@ -1248,8 +1237,8 @@ useEffect(() => {
                                   <Info className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                                 </button>
 
-                                {/* Speaker Renaming - only show if diarization is enabled */}
-                                {hasDiarizationEnabled() && getDetectedSpeakers().length > 0 && (
+                                {/* Speaker Renaming - only show if there are speakers (from diarization or multi-track) */}
+                                {hasSpeakers() && getDetectedSpeakers().length > 0 && (
                                   <>
                                     <div className="mx-1 h-5 w-px bg-gray-300 dark:bg-gray-700" />
                                     <button
@@ -1368,8 +1357,8 @@ useEffect(() => {
 											<Info className="h-3.5 w-3.5" />
 										</button>
 
-										{/* Speaker Renaming - only show if diarization is enabled */}
-										{hasDiarizationEnabled() && getDetectedSpeakers().length > 0 && (
+										{/* Speaker Renaming - only show if there are speakers (from diarization or multi-track) */}
+										{hasSpeakers() && getDetectedSpeakers().length > 0 && (
 											<>
 												<div className="mx-1 h-5 w-px bg-gray-300 dark:bg-gray-700" />
 												<button

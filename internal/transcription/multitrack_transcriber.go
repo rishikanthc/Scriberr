@@ -119,6 +119,12 @@ func (mt *MultiTrackTranscriber) ProcessMultiTrackTranscription(ctx context.Cont
 	}
 	individualTranscriptsStr := string(individualTranscriptsJSON)
 
+	// Create speaker mappings for multi-track transcription (so speakers can be renamed in UI)
+	if err := mt.createSpeakerMappings(jobID, trackTranscripts); err != nil {
+		logger.Warn("Failed to create speaker mappings", "job_id", jobID, "error", err)
+		// Don't fail the entire job for speaker mapping issues, just log the warning
+	}
+
 	// Save results to database
 	updates := map[string]interface{}{
 		"transcript":             &mergedTranscriptStr,
@@ -525,4 +531,37 @@ func (mt *MultiTrackTranscriber) logIndividualTranscript(fileName string, result
 		"text", result.Text)
 
 	logger.Info("=== END INDIVIDUAL TRANSCRIPT ===", "file", fileName)
+}
+
+// createSpeakerMappings creates speaker mappings for multi-track transcription
+// This allows users to rename speakers in the UI
+func (mt *MultiTrackTranscriber) createSpeakerMappings(jobID string, trackTranscripts []TrackTranscript) error {
+	// Clear any existing speaker mappings for this job
+	if err := mt.db.Where("transcription_job_id = ?", jobID).Delete(&models.SpeakerMapping{}).Error; err != nil {
+		return fmt.Errorf("failed to clear existing speaker mappings: %w", err)
+	}
+
+	// Create speaker mappings for each track
+	for _, trackTranscript := range trackTranscripts {
+		speakerMapping := &models.SpeakerMapping{
+			TranscriptionJobID: jobID,
+			OriginalSpeaker:    trackTranscript.Speaker,
+			CustomName:         trackTranscript.Speaker, // Default to using the filename as the speaker name
+		}
+
+		if err := mt.db.Create(speakerMapping).Error; err != nil {
+			return fmt.Errorf("failed to create speaker mapping for %s: %w", trackTranscript.Speaker, err)
+		}
+
+		logger.Info("Created speaker mapping",
+			"job_id", jobID,
+			"original_speaker", trackTranscript.Speaker,
+			"custom_name", trackTranscript.Speaker)
+	}
+
+	logger.Info("Successfully created speaker mappings for multi-track job",
+		"job_id", jobID,
+		"speaker_count", len(trackTranscripts))
+
+	return nil
 }

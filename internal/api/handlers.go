@@ -31,12 +31,12 @@ import (
 
 // Handler contains all the API handlers
 type Handler struct {
-	config               *config.Config
-	authService          *auth.AuthService
-	taskQueue            *queue.TaskQueue
-	whisperXService      *transcription.WhisperXService
-	quickTranscription   *transcription.QuickTranscriptionService
-	multiTrackProcessor  *processing.MultiTrackProcessor
+	config              *config.Config
+	authService         *auth.AuthService
+	taskQueue           *queue.TaskQueue
+	whisperXService     *transcription.WhisperXService
+	quickTranscription  *transcription.QuickTranscriptionService
+	multiTrackProcessor *processing.MultiTrackProcessor
 }
 
 // NewHandler creates a new handler
@@ -464,12 +464,12 @@ func (h *Handler) UploadMultiTrack(c *gin.Context) {
 
 	// Generate unique job ID
 	jobID := uuid.New().String()
-	
+
 	// Create job-specific directory structure
 	uploadDir := h.config.UploadDir
 	multiTrackFolder := filepath.Join(uploadDir, jobID)
 	tracksFolder := filepath.Join(multiTrackFolder, "tracks")
-	
+
 	if err := os.MkdirAll(tracksFolder, 0755); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create upload directory"})
 		return
@@ -531,7 +531,7 @@ func (h *Handler) UploadMultiTrack(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to save track file: %s", trackFileHeader.Filename)})
 			return
 		}
-		
+
 		trackDst.Close()
 		trackFile.Close()
 
@@ -544,7 +544,7 @@ func (h *Handler) UploadMultiTrack(c *gin.Context) {
 		// Remove file extension for speaker name
 		fileName := trackFileHeader.Filename
 		speakerName := strings.TrimSuffix(fileName, filepath.Ext(fileName))
-		
+
 		multiTrackFiles = append(multiTrackFiles, models.MultiTrackFile{
 			TranscriptionJobID: jobID,
 			FileName:           speakerName,
@@ -614,7 +614,7 @@ func (h *Handler) UploadMultiTrack(c *gin.Context) {
 // @Security BearerAuth
 func (h *Handler) GetMergeStatus(c *gin.Context) {
 	jobID := c.Param("id")
-	
+
 	status, errorMsg, err := h.multiTrackProcessor.GetMergeStatus(jobID)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Job not found"})
@@ -624,7 +624,7 @@ func (h *Handler) GetMergeStatus(c *gin.Context) {
 	response := gin.H{
 		"merge_status": status,
 	}
-	
+
 	if errorMsg != nil {
 		response["merge_error"] = *errorMsg
 	}
@@ -2771,9 +2771,9 @@ func (h *Handler) GetSpeakerMappings(c *gin.Context) {
 		return
 	}
 
-	// Check if diarization was enabled for this job
-	if !job.Diarization && !job.Parameters.Diarize {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Diarization was not enabled for this transcription"})
+	// Check if diarization was enabled or if this is a multi-track job (which also has speakers)
+	if !job.Diarization && !job.Parameters.Diarize && !job.IsMultiTrack {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "No speaker information available for this transcription"})
 		return
 	}
 
@@ -2832,9 +2832,9 @@ func (h *Handler) UpdateSpeakerMappings(c *gin.Context) {
 		return
 	}
 
-	// Check if diarization was enabled for this job
-	if !job.Diarization && !job.Parameters.Diarize {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Diarization was not enabled for this transcription"})
+	// Check if diarization was enabled or if this is a multi-track job (which also has speakers)
+	if !job.Diarization && !job.Parameters.Diarize && !job.IsMultiTrack {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "No speaker information available for this transcription"})
 		return
 	}
 
