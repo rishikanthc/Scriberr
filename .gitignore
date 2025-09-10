@@ -48,3 +48,5 @@ test_word_conversion.go
 debug_whisperx_parsing.go
 debug_parsing.go
 scriberr-optimized
+tests/database_test.db-shm
+tests
