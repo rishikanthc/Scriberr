@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -205,6 +206,16 @@ func (ws *WhisperXService) processWhisperXJob(ctx context.Context, jobID string,
 		return fmt.Errorf(errMsg)
 	}
 
+	// Run separate diarization if nvidia_sortformer is selected
+	if job.Parameters.Diarize && job.Parameters.DiarizeModel == "nvidia_sortformer" {
+		fmt.Printf("DEBUG: Running separate NVIDIA Sortformer diarization for job %s\n", jobID)
+		if err := ws.runSortformerDiarization(ctx, &job, outputDir); err != nil {
+			errMsg := fmt.Sprintf("failed to run Sortformer diarization: %v", err)
+			updateExecutionStatus(models.StatusFailed, errMsg)
+			return fmt.Errorf(errMsg)
+		}
+	}
+
 	// Load and parse the result
 	resultPath := filepath.Join(outputDir, "result.json")
 	if err := ws.parseAndSaveResult(jobID, resultPath); err != nil {
@@ -247,6 +258,7 @@ func (ws *WhisperXService) ensurePythonEnv() error {
 	// Check if both models exist
 	parakeetModelPath := filepath.Join(nvidiaPath, "parakeet-tdt-0.6b-v3.nemo")
 	canaryModelPath := filepath.Join(nvidiaPath, "canary-1b-v2.nemo")
+	sortformerModelPath := filepath.Join(nvidiaPath, "diar_streaming_sortformer_4spk-v2.nemo")
 
 	parakeetModelExists := false
 	if stat, err := os.Stat(parakeetModelPath); err == nil && stat.Size() > 1024*1024 {
@@ -258,11 +270,23 @@ func (ws *WhisperXService) ensurePythonEnv() error {
 		canaryModelExists = true
 	}
 
-	fmt.Printf("DEBUG: Environment status - WhisperX: %v, NVIDIA Env: %v, Parakeet Model: %v, Canary Model: %v\n",
-		whisperxWorking, nvidiaEnvWorking, parakeetModelExists, canaryModelExists)
+	sortformerModelExists := false
+	if stat, err := os.Stat(sortformerModelPath); err == nil && stat.Size() > 1024*1024 {
+		sortformerModelExists = true
+	}
+
+	// Check if nemo_diarize.py script exists
+	nemoScriptPath := filepath.Join(nvidiaPath, "nemo_diarize.py")
+	nemoScriptExists := false
+	if _, err := os.Stat(nemoScriptPath); err == nil {
+		nemoScriptExists = true
+	}
+
+	fmt.Printf("DEBUG: Environment status - WhisperX: %v, NVIDIA Env: %v, Parakeet Model: %v, Canary Model: %v, Sortformer Model: %v, NeMo Script: %v\n",
+		whisperxWorking, nvidiaEnvWorking, parakeetModelExists, canaryModelExists, sortformerModelExists, nemoScriptExists)
 
 	// If everything is working, we're done
-	if whisperxWorking && nvidiaEnvWorking && parakeetModelExists && canaryModelExists {
+	if whisperxWorking && nvidiaEnvWorking && parakeetModelExists && canaryModelExists && sortformerModelExists && nemoScriptExists {
 		fmt.Printf("DEBUG: WhisperX and NVIDIA models fully set up and working\n")
 		return nil
 	}
@@ -336,6 +360,28 @@ func (ws *WhisperXService) ensurePythonEnv() error {
 		fmt.Printf("DEBUG: Canary model download completed\n")
 	} else {
 		fmt.Printf("DEBUG: Canary model already exists, skipping download\n")
+	}
+
+	// Download Sortformer model if needed
+	if !sortformerModelExists {
+		fmt.Printf("DEBUG: Downloading Sortformer diarization model\n")
+		if err := ws.downloadSortformerModel(nvidiaPath); err != nil {
+			return fmt.Errorf("failed to download Sortformer model: %v", err)
+		}
+		fmt.Printf("DEBUG: Sortformer model download completed\n")
+	} else {
+		fmt.Printf("DEBUG: Sortformer model already exists, skipping download\n")
+	}
+
+	// Create nemo_diarize.py script if needed
+	if !nemoScriptExists {
+		fmt.Printf("DEBUG: Creating nemo_diarize.py script\n")
+		if err := ws.createNemoDiarizeScript(nvidiaPath); err != nil {
+			return fmt.Errorf("failed to create nemo_diarize.py script: %v", err)
+		}
+		fmt.Printf("DEBUG: nemo_diarize.py script created\n")
+	} else {
+		fmt.Printf("DEBUG: nemo_diarize.py script already exists, skipping creation\n")
 	}
 
 	fmt.Printf("DEBUG: Environment setup completed successfully\n")
@@ -953,6 +999,413 @@ func (ws *WhisperXService) downloadCanaryModel(nvidiaPath string) error {
 	return nil
 }
 
+// downloadSortformerModel downloads the NVIDIA Sortformer diarization model
+func (ws *WhisperXService) downloadSortformerModel(nvidiaPath string) error {
+	modelURL := "https://huggingface.co/nvidia/diar_streaming_sortformer_4spk-v2/resolve/main/diar_streaming_sortformer_4spk-v2.nemo?download=true"
+	modelFileName := "diar_streaming_sortformer_4spk-v2.nemo"
+	modelPath := filepath.Join(nvidiaPath, modelFileName)
+
+	// Ensure the nvidia directory exists before downloading
+	if err := os.MkdirAll(nvidiaPath, 0755); err != nil {
+		return fmt.Errorf("failed to create nvidia directory for model download: %v", err)
+	}
+
+	// Check if model already exists
+	if stat, err := os.Stat(modelPath); err == nil && stat.Size() > 1024*1024 {
+		fmt.Printf("DEBUG: Sortformer model already exists at: %s (size: %d bytes)\n", modelPath, stat.Size())
+		return nil
+	}
+
+	fmt.Printf("DEBUG: Downloading Sortformer model from: %s\n", modelURL)
+	fmt.Printf("DEBUG: Saving to: %s\n", modelPath)
+
+	// Use curl to download the model with timeout and progress indicator
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
+	defer cancel()
+
+	// Create temporary file for safer download
+	tempPath := modelPath + ".tmp"
+
+	// Remove any existing temp file
+	os.Remove(tempPath)
+
+	cmd := exec.CommandContext(ctx, "curl",
+		"-L",             // Follow redirects
+		"-#",             // Progress bar
+		"--max-time", "1800", // 30 minutes timeout
+		"-o", tempPath,   // Output file
+		modelURL,
+	)
+
+	// Run the download command
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		os.Remove(tempPath) // Clean up on failure
+		return fmt.Errorf("curl download failed: %v: %s", err, strings.TrimSpace(string(out)))
+	}
+
+	// Move temp file to final location
+	if err := os.Rename(tempPath, modelPath); err != nil {
+		os.Remove(tempPath) // Clean up on failure
+		return fmt.Errorf("failed to move downloaded file: %v", err)
+	}
+
+	// Verify the downloaded file
+	stat, err := os.Stat(modelPath)
+	if err != nil {
+		return fmt.Errorf("downloaded model file not found: %v", err)
+	}
+	if stat.Size() < 1024*1024 { // Less than 1MB suggests download failed
+		return fmt.Errorf("downloaded model file appears incomplete (size: %d bytes)", stat.Size())
+	}
+
+	fmt.Printf("DEBUG: Successfully downloaded Sortformer model (size: %d bytes)\n", stat.Size())
+	return nil
+}
+
+// createNemoDiarizeScript creates the nemo_diarize.py script in the nvidia path
+func (ws *WhisperXService) createNemoDiarizeScript(nvidiaPath string) error {
+	scriptPath := filepath.Join(nvidiaPath, "nemo_diarize.py")
+
+	scriptContent := `#!/usr/bin/env python3
+"""
+Speaker diarization script using NVIDIA's Sortformer model.
+Uses diar_streaming_sortformer_4spk-v2 for optimized 4-speaker diarization.
+"""
+
+import argparse
+import json
+import sys
+import os
+from pathlib import Path
+import torch
+
+try:
+    from nemo.collections.asr.models import SortformerEncLabelModel
+except ImportError:
+    print("Error: NeMo not found. Please install nemo_toolkit[asr]")
+    sys.exit(1)
+
+
+def diarize_audio(
+    audio_path: str,
+    output_file: str,
+    batch_size: int = 1,
+    device: str = None,
+    max_speakers: int = 4,
+):
+    """
+    Perform speaker diarization using NVIDIA's Sortformer model.
+
+    Args:
+        audio_path: Path to audio file
+        output_file: Path to save output file (JSON or RTTM format)
+        batch_size: Batch size for processing
+        device: Device to use (cuda/cpu, auto-detected if None)
+        max_speakers: Maximum number of speakers (4 optimized for this model)
+    """
+    if device is None:
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+
+    print(f"Using device: {device}")
+    print(f"Loading NVIDIA Sortformer diarization model...")
+
+    # Get the directory where this script is located
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    model_path = os.path.join(script_dir, "diar_streaming_sortformer_4spk-v2.nemo")
+
+    try:
+        if not os.path.exists(model_path):
+            print(f"Error: Model file not found: {model_path}")
+            print("Please ensure diar_streaming_sortformer_4spk-v2.nemo is in the same directory as this script")
+            sys.exit(1)
+
+        # Load from local file
+        print(f"Loading model from local path: {model_path}")
+        diar_model = SortformerEncLabelModel.restore_from(
+            restore_path=model_path,
+            map_location=device,
+            strict=False,
+        )
+
+        # Switch to inference mode
+        diar_model.eval()
+        print("Model loaded successfully")
+
+    except Exception as e:
+        print(f"Error loading model: {e}")
+        sys.exit(1)
+
+    print(f"Processing audio file: {audio_path}")
+
+    # Verify audio file exists
+    if not os.path.exists(audio_path):
+        print(f"Error: Audio file not found: {audio_path}")
+        sys.exit(1)
+
+    try:
+        # Run diarization
+        print(
+            f"Running diarization with batch_size={batch_size}, max_speakers={max_speakers}"
+        )
+        predicted_segments = diar_model.diarize(audio=audio_path, batch_size=batch_size)
+
+        print(f"Diarization completed. Found segments: {len(predicted_segments)}")
+
+        # Process and save results
+        save_results(predicted_segments, output_file, audio_path)
+
+    except Exception as e:
+        print(f"Error during diarization: {e}")
+        sys.exit(1)
+
+
+def save_results(segments, output_file: str, audio_path: str):
+    """
+    Save diarization results to output file.
+    Supports both JSON and RTTM formats based on file extension.
+    """
+    output_path = Path(output_file)
+
+    # Determine output format based on extension
+    if output_path.suffix.lower() == ".rttm":
+        save_rttm_format(segments, output_file, audio_path)
+    else:
+        save_json_format(segments, output_file, audio_path)
+
+
+def save_json_format(segments, output_file: str, audio_path: str):
+    """Save results in JSON format."""
+    results = {
+        "audio_file": audio_path,
+        "model": "nvidia/diar_streaming_sortformer_4spk-v2",
+        "segments": [],
+    }
+
+    # Handle the case where segments is a list containing a single list of string entries
+    if len(segments) == 1 and isinstance(segments[0], list):
+        segments = segments[0]
+
+    # Convert segments to JSON format
+    for i, segment in enumerate(segments):
+        try:
+            # Handle different possible segment formats
+            if isinstance(segment, str):
+                # String format: "start end speaker_id"
+                parts = segment.strip().split()
+                if len(parts) >= 3:
+                    segment_data = {
+                        "start": float(parts[0]),
+                        "end": float(parts[1]),
+                        "speaker": str(parts[2]),
+                        "duration": float(parts[1]) - float(parts[0]),
+                    }
+                else:
+                    print(f"Warning: Invalid string segment format: {segment}")
+                    continue
+            elif hasattr(segment, 'start') and hasattr(segment, 'end') and hasattr(segment, 'label'):
+                # Standard pyannote-like format
+                segment_data = {
+                    "start": float(segment.start),
+                    "end": float(segment.end),
+                    "speaker": str(segment.label),
+                    "duration": float(segment.end - segment.start),
+                }
+            elif isinstance(segment, (list, tuple)) and len(segment) >= 3:
+                # List/tuple format: [start, end, speaker]
+                segment_data = {
+                    "start": float(segment[0]),
+                    "end": float(segment[1]),
+                    "speaker": str(segment[2]),
+                    "duration": float(segment[1] - segment[0]),
+                }
+            elif isinstance(segment, dict):
+                # Dictionary format
+                segment_data = {
+                    "start": float(segment.get('start', 0)),
+                    "end": float(segment.get('end', 0)),
+                    "speaker": str(segment.get('speaker', segment.get('label', f'speaker_{i}'))),
+                    "duration": float(segment.get('end', 0) - segment.get('start', 0)),
+                }
+            else:
+                # Fallback: try to extract attributes dynamically
+                segment_data = {
+                    "start": float(getattr(segment, 'start', 0)),
+                    "end": float(getattr(segment, 'end', 0)),
+                    "speaker": str(getattr(segment, 'label', getattr(segment, 'speaker', f'speaker_{i}'))),
+                    "duration": float(getattr(segment, 'end', 0) - getattr(segment, 'start', 0)),
+                }
+
+            results["segments"].append(segment_data)
+
+        except Exception as e:
+            print(f"Warning: Could not process segment {i}: {e}")
+            print(f"Segment: {segment}")
+
+    # Sort by start time
+    if results["segments"]:
+        results["segments"].sort(key=lambda x: x["start"])
+
+    # Add summary statistics
+    speakers = set(seg["speaker"] for seg in results["segments"])
+    results["summary"] = {
+        "total_segments": len(results["segments"]),
+        "speakers": list(speakers),
+        "speaker_count": len(speakers),
+        "total_duration": max(seg["end"] for seg in results["segments"])
+        if results["segments"]
+        else 0,
+    }
+
+    with open(output_file, "w") as f:
+        json.dump(results, f, indent=2)
+
+    print(f"Results saved to: {output_file}")
+    print(f"Found {len(speakers)} speakers: {', '.join(speakers)}")
+
+
+def save_rttm_format(segments, output_file: str, audio_path: str):
+    """Save results in RTTM (Rich Transcription Time Marked) format."""
+    audio_filename = Path(audio_path).stem
+    speakers = set()
+
+    # Handle the case where segments is a list containing a single list of string entries
+    if len(segments) == 1 and isinstance(segments[0], list):
+        segments = segments[0]
+
+    with open(output_file, "w") as f:
+        for i, segment in enumerate(segments):
+            try:
+                # Handle different possible segment formats
+                if isinstance(segment, str):
+                    # String format: "start end speaker_id"
+                    parts = segment.strip().split()
+                    if len(parts) >= 3:
+                        start = float(parts[0])
+                        end = float(parts[1])
+                        speaker = str(parts[2])
+                    else:
+                        print(f"Warning: Invalid string segment format: {segment}")
+                        continue
+                elif hasattr(segment, 'start') and hasattr(segment, 'end') and hasattr(segment, 'label'):
+                    # Standard pyannote-like format
+                    start = float(segment.start)
+                    end = float(segment.end)
+                    speaker = str(segment.label)
+                elif isinstance(segment, (list, tuple)) and len(segment) >= 3:
+                    # List/tuple format: [start, end, speaker]
+                    start = float(segment[0])
+                    end = float(segment[1])
+                    speaker = str(segment[2])
+                elif isinstance(segment, dict):
+                    # Dictionary format
+                    start = float(segment.get('start', 0))
+                    end = float(segment.get('end', 0))
+                    speaker = str(segment.get('speaker', segment.get('label', f'speaker_{i}')))
+                else:
+                    # Fallback: try to extract attributes dynamically
+                    start = float(getattr(segment, 'start', 0))
+                    end = float(getattr(segment, 'end', 0))
+                    speaker = str(getattr(segment, 'label', getattr(segment, 'speaker', f'speaker_{i}')))
+
+                duration = end - start
+                speakers.add(speaker)
+
+                # RTTM format: SPEAKER <filename> <channel> <start> <duration> <NA> <NA> <speaker_id> <NA> <NA>
+                line = f"SPEAKER {audio_filename} 1 {start:.3f} {duration:.3f} <NA> <NA> {speaker} <NA> <NA>\n"
+                f.write(line)
+
+            except Exception as e:
+                print(f"Warning: Could not process segment {i} for RTTM: {e}")
+                print(f"Segment: {segment}")
+
+    print(f"RTTM results saved to: {output_file}")
+    print(f"Found {len(speakers)} speakers: {', '.join(speakers)}")
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Speaker diarization using NVIDIA Sortformer model (local model only)",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+    # Basic diarization with JSON output
+    python nemo_diarize.py samples/sample.wav output.json
+    
+    # Generate RTTM format output
+    python nemo_diarize.py samples/sample.wav output.rttm
+    
+    # Specify device and batch size
+    python nemo_diarize.py --device cuda --batch-size 2 samples/sample.wav output.json
+
+Note: This script requires diar_streaming_sortformer_4spk-v2.nemo to be in the same directory.
+        """,
+    )
+
+    parser.add_argument("audio_file", help="Path to input audio file (WAV, FLAC, etc.)")
+
+    parser.add_argument(
+        "output_file",
+        help="Path to output file (.json for JSON format, .rttm for RTTM format)",
+    )
+
+    parser.add_argument(
+        "--batch-size",
+        type=int,
+        default=1,
+        help="Batch size for processing (default: 1)",
+    )
+
+    parser.add_argument(
+        "--device",
+        choices=["cuda", "cpu", "auto"],
+        default="auto",
+        help="Device to use for inference (default: auto-detect)",
+    )
+
+    parser.add_argument(
+        "--max-speakers",
+        type=int,
+        default=4,
+        help="Maximum number of speakers (default: 4, optimized for this model)",
+    )
+
+    args = parser.parse_args()
+
+    # Validate inputs
+    if not os.path.exists(args.audio_file):
+        print(f"Error: Audio file not found: {args.audio_file}")
+        sys.exit(1)
+
+    # Create output directory if it doesn't exist
+    output_dir = Path(args.output_file).parent
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    device = None if args.device == "auto" else args.device
+
+    # Run diarization
+    diarize_audio(
+        audio_path=args.audio_file,
+        output_file=args.output_file,
+        batch_size=args.batch_size,
+        device=device,
+        max_speakers=args.max_speakers,
+    )
+
+
+if __name__ == "__main__":
+    main()
+`
+
+	// Write the script to file
+	if err := os.WriteFile(scriptPath, []byte(scriptContent), 0755); err != nil {
+		return fmt.Errorf("failed to write nemo_diarize.py script: %v", err)
+	}
+
+	fmt.Printf("DEBUG: Successfully created nemo_diarize.py script at: %s\n", scriptPath)
+	return nil
+}
+
 // InitEmbeddedPythonEnv initializes the Python env on app start (blocking).
 // Assumes uv is installed and accessible in system PATH.
 func (ws *WhisperXService) InitEmbeddedPythonEnv() error {
@@ -1024,7 +1477,8 @@ func (ws *WhisperXService) buildWhisperXArgs(job *models.TranscriptionJob, outpu
 	args = append(args, "--chunk_size", strconv.Itoa(p.ChunkSize))
 
 	// Diarization settings
-	if p.Diarize {
+	if p.Diarize && p.DiarizeModel != "nvidia_sortformer" {
+		// Use WhisperX built-in diarization for pyannote
 		args = append(args, "--diarize")
 		if p.MinSpeakers != nil {
 			args = append(args, "--min_speakers", strconv.Itoa(*p.MinSpeakers))
@@ -1032,11 +1486,17 @@ func (ws *WhisperXService) buildWhisperXArgs(job *models.TranscriptionJob, outpu
 		if p.MaxSpeakers != nil {
 			args = append(args, "--max_speakers", strconv.Itoa(*p.MaxSpeakers))
 		}
-		args = append(args, "--diarize_model", p.DiarizeModel)
+		// Map simple model name to full model path for WhisperX
+		diarizeModel := p.DiarizeModel
+		if diarizeModel == "pyannote" {
+			diarizeModel = "pyannote/speaker-diarization-3.1"
+		}
+		args = append(args, "--diarize_model", diarizeModel)
 		if p.SpeakerEmbeddings {
 			args = append(args, "--speaker_embeddings")
 		}
 	}
+	// Note: If nvidia_sortformer is selected, diarization will be done separately after transcription
 
 	// Transcription quality settings
 	args = append(args, "--temperature", fmt.Sprintf("%.2f", p.Temperature))
@@ -1068,21 +1528,6 @@ func (ws *WhisperXService) buildWhisperXArgs(job *models.TranscriptionJob, outpu
 	// Hard-coded: no max line width/count restrictions
 	args = append(args, "--highlight_words", "False")
 	args = append(args, "--segment_resolution", "sentence")
-
-	// Diarization settings
-	if p.Diarize {
-		args = append(args, "--diarize")
-		if p.MinSpeakers != nil {
-			args = append(args, "--min_speakers", strconv.Itoa(*p.MinSpeakers))
-		}
-		if p.MaxSpeakers != nil {
-			args = append(args, "--max_speakers", strconv.Itoa(*p.MaxSpeakers))
-		}
-		args = append(args, "--diarize_model", p.DiarizeModel)
-		if p.SpeakerEmbeddings {
-			args = append(args, "--speaker_embeddings")
-		}
-	}
 
 	// Token and progress
 	if p.HfToken != nil {
@@ -1148,8 +1593,12 @@ func (ws *WhisperXService) parseAndSaveResult(jobID, resultPath string) error {
 	fmt.Printf("DEBUG: Parsed result - Segments: %d, Words: %d, Language: '%s', Text: '%s'\n",
 		len(result.Segments), len(result.Word), result.Language, result.Text)
 	if len(result.Segments) > 0 {
-		fmt.Printf("DEBUG: First segment: start=%.2f, end=%.2f, text='%s'\n",
-			result.Segments[0].Start, result.Segments[0].End, result.Segments[0].Text)
+		speaker := "nil"
+		if result.Segments[0].Speaker != nil {
+			speaker = *result.Segments[0].Speaker
+		}
+		fmt.Printf("DEBUG: First segment: start=%.2f, end=%.2f, text='%s', speaker='%s'\n",
+			result.Segments[0].Start, result.Segments[0].End, result.Segments[0].Text, speaker)
 	}
 
 	// Ensure Text field is populated for WhisperX results
@@ -1332,4 +1781,216 @@ func (ws *WhisperXService) parseResultFile(expectedResultPath string) (*Transcri
 	}
 
 	return &result, nil
+}
+
+// runSortformerDiarization runs NVIDIA Sortformer diarization on the audio file
+// and merges the diarization results with the existing WhisperX transcription
+func (ws *WhisperXService) runSortformerDiarization(ctx context.Context, job *models.TranscriptionJob, outputDir string) error {
+	fmt.Printf("DEBUG: Starting Sortformer diarization for job %s\n", job.ID)
+
+	// Build diarization command
+	parakeetDir := filepath.Join(ws.getEnvPath(), "parakeet")
+	nemoDiarizeScript := filepath.Join(parakeetDir, "nemo_diarize.py")
+	rttmOutputPath := filepath.Join(outputDir, "diarization.rttm")
+
+	args := []string{
+		"run", "--native-tls", "--project", parakeetDir, "python", nemoDiarizeScript,
+	}
+
+	// Add speaker constraints if specified
+	if job.Parameters.MinSpeakers != nil {
+		args = append(args, "--min-speakers", strconv.Itoa(*job.Parameters.MinSpeakers))
+	}
+	if job.Parameters.MaxSpeakers != nil {
+		args = append(args, "--max-speakers", strconv.Itoa(*job.Parameters.MaxSpeakers))
+	}
+
+	// Add positional arguments: audio_file and output_file
+	args = append(args, job.AudioPath, rttmOutputPath)
+
+	fmt.Printf("DEBUG: Running diarization command: uv %v\n", args)
+
+	// Execute diarization
+	cmd := exec.CommandContext(ctx, "uv", args...)
+	cmd.Env = append(os.Environ(), "PYTHONUNBUFFERED=1")
+	configureCmdSysProcAttr(cmd)
+
+	output, err := cmd.CombinedOutput()
+	if ctx.Err() == context.Canceled {
+		return fmt.Errorf("diarization was cancelled")
+	}
+	if err != nil {
+		fmt.Printf("DEBUG: Diarization stderr/stdout: %s\n", string(output))
+		return fmt.Errorf("diarization execution failed: %v", err)
+	}
+
+	fmt.Printf("DEBUG: Diarization completed successfully\n")
+
+	// Now merge the diarization results with WhisperX transcription
+	return ws.mergeDiarizationWithTranscription(outputDir, rttmOutputPath)
+}
+
+// mergeDiarizationWithTranscription merges RTTM diarization results with WhisperX transcription
+func (ws *WhisperXService) mergeDiarizationWithTranscription(outputDir, rttmPath string) error {
+	fmt.Printf("DEBUG: Merging diarization results with transcription\n")
+
+	// Find the WhisperX result file
+	files, err := filepath.Glob(filepath.Join(outputDir, "*.json"))
+	if err != nil {
+		return fmt.Errorf("failed to find result files: %v", err)
+	}
+
+	var whisperxFile string
+	for _, file := range files {
+		if filepath.Base(file) != "result.json" {
+			whisperxFile = file
+			break
+		}
+	}
+
+	if whisperxFile == "" {
+		return fmt.Errorf("no WhisperX result file found for merging")
+	}
+
+	// Read WhisperX transcription
+	transcriptData, err := os.ReadFile(whisperxFile)
+	if err != nil {
+		return fmt.Errorf("failed to read transcription file: %v", err)
+	}
+
+	var transcript TranscriptResult
+	if err := json.Unmarshal(transcriptData, &transcript); err != nil {
+		return fmt.Errorf("failed to parse transcription JSON: %v", err)
+	}
+
+	// Read RTTM diarization results
+	rttmData, err := os.ReadFile(rttmPath)
+	if err != nil {
+		return fmt.Errorf("failed to read RTTM file: %v", err)
+	}
+
+	// Parse RTTM format: SPEAKER <filename> 1 <start> <duration> <U> <U> <speaker_id> <U>
+	type RTTMSegment struct {
+		Start    float64
+		End      float64
+		Speaker  string
+	}
+
+	var rttmSegments []RTTMSegment
+	lines := strings.Split(string(rttmData), "\n")
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" || !strings.HasPrefix(line, "SPEAKER") {
+			continue
+		}
+
+		parts := strings.Fields(line)
+		if len(parts) < 8 {
+			continue
+		}
+
+		start, err := strconv.ParseFloat(parts[3], 64)
+		if err != nil {
+			continue
+		}
+
+		duration, err := strconv.ParseFloat(parts[4], 64)
+		if err != nil {
+			continue
+		}
+
+		end := start + duration
+		speaker := parts[7]
+
+		rttmSegments = append(rttmSegments, RTTMSegment{
+			Start:   start,
+			End:     end,
+			Speaker: speaker,
+		})
+	}
+
+	fmt.Printf("DEBUG: Found %d RTTM segments\n", len(rttmSegments))
+	
+	// Debug: Show first few RTTM segments
+	for i, rttm := range rttmSegments {
+		if i >= 3 { // Show first 3 segments
+			break
+		}
+		fmt.Printf("DEBUG: RTTM segment %d: start=%.2f, end=%.2f, speaker='%s'\n", i, rttm.Start, rttm.End, rttm.Speaker)
+	}
+
+	// Assign speakers to transcript segments based on timing overlap
+	for i := range transcript.Segments {
+		segment := &transcript.Segments[i]
+		
+		// Find the RTTM segment with maximum overlap
+		maxOverlap := 0.0
+		bestSpeaker := ""
+
+		for _, rttm := range rttmSegments {
+			// Calculate overlap between transcript segment and RTTM segment
+			overlapStart := math.Max(segment.Start, rttm.Start)
+			overlapEnd := math.Min(segment.End, rttm.End)
+			overlap := math.Max(0, overlapEnd - overlapStart)
+
+			if overlap > maxOverlap {
+				maxOverlap = overlap
+				bestSpeaker = rttm.Speaker
+			}
+		}
+
+		if bestSpeaker != "" {
+			segment.Speaker = &bestSpeaker
+			fmt.Printf("DEBUG: Assigned speaker '%s' to segment %d (%.2f-%.2f)\n", bestSpeaker, i, segment.Start, segment.End)
+		} else {
+			// Assign a default speaker if no overlap found
+			defaultSpeaker := "SPEAKER_00"
+			segment.Speaker = &defaultSpeaker
+			fmt.Printf("DEBUG: Assigned default speaker '%s' to segment %d (%.2f-%.2f) - no overlap found\n", defaultSpeaker, i, segment.Start, segment.End)
+		}
+	}
+
+	// Also assign speakers to word-level segments if they exist
+	for i := range transcript.Word {
+		word := &transcript.Word[i]
+		
+		// Find the RTTM segment with maximum overlap
+		maxOverlap := 0.0
+		bestSpeaker := ""
+
+		for _, rttm := range rttmSegments {
+			// Calculate overlap between word and RTTM segment
+			overlapStart := math.Max(word.Start, rttm.Start)
+			overlapEnd := math.Min(word.End, rttm.End)
+			overlap := math.Max(0, overlapEnd - overlapStart)
+
+			if overlap > maxOverlap {
+				maxOverlap = overlap
+				bestSpeaker = rttm.Speaker
+			}
+		}
+
+		if bestSpeaker != "" {
+			word.Speaker = &bestSpeaker
+		} else {
+			// Assign a default speaker if no overlap found
+			defaultSpeaker := "SPEAKER_00"
+			word.Speaker = &defaultSpeaker
+		}
+	}
+
+	fmt.Printf("DEBUG: Successfully merged diarization with transcription\n")
+
+	// Write the merged result back to the file
+	mergedData, err := json.MarshalIndent(transcript, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal merged transcript: %v", err)
+	}
+
+	if err := os.WriteFile(whisperxFile, mergedData, 0644); err != nil {
+		return fmt.Errorf("failed to write merged transcript: %v", err)
+	}
+
+	fmt.Printf("DEBUG: Merged transcription saved to %s\n", whisperxFile)
+	return nil
 }

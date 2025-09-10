@@ -232,19 +232,40 @@ func (cs *CanaryService) ProcessJobWithProcess(ctx context.Context, jobID string
 	}
 
 	// Run diarization if enabled
-	fmt.Printf("DEBUG: Checking diarization conditions - Diarize: %v, HfToken != nil: %v\n", job.Parameters.Diarize, job.Parameters.HfToken != nil)
+	fmt.Printf("DEBUG: Checking diarization conditions - Diarize: %v, DiarizeModel: %s\n", job.Parameters.Diarize, job.Parameters.DiarizeModel)
 	if job.Parameters.HfToken != nil {
 		fmt.Printf("DEBUG: HfToken value: %s\n", *job.Parameters.HfToken)
 	}
 
-	if job.Parameters.Diarize && job.Parameters.HfToken != nil && *job.Parameters.HfToken != "" {
-		fmt.Printf("DEBUG: Running diarization for Canary job %s\n", jobID)
-		if err := cs.runDiarization(job.AudioPath, resultPath, job.Parameters); err != nil {
-			fmt.Printf("WARNING: Diarization failed: %v. Continuing with transcript without speaker information.\n", err)
-			// Don't fail the job, just continue without diarization
+	if job.Parameters.Diarize {
+		// Check if we have the required tokens/credentials for the chosen model
+		canRunDiarization := false
+		
+		if job.Parameters.DiarizeModel == "nvidia_sortformer" {
+			// NVIDIA Sortformer doesn't need HF token, can always run
+			canRunDiarization = true
+			fmt.Printf("DEBUG: NVIDIA Sortformer selected, no token required\n")
+		} else {
+			// Pyannote (default) requires HF token
+			if job.Parameters.HfToken != nil && *job.Parameters.HfToken != "" {
+				canRunDiarization = true
+				fmt.Printf("DEBUG: Pyannote selected, HF token available\n")
+			} else {
+				fmt.Printf("DEBUG: Pyannote selected but no HF token available\n")
+			}
+		}
+		
+		if canRunDiarization {
+			fmt.Printf("DEBUG: Running diarization for Canary job %s with model: %s\n", jobID, job.Parameters.DiarizeModel)
+			if err := cs.runDiarization(job.AudioPath, resultPath, job.Parameters); err != nil {
+				fmt.Printf("WARNING: Diarization failed: %v. Continuing with transcript without speaker information.\n", err)
+				// Don't fail the job, just continue without diarization
+			}
+		} else {
+			fmt.Printf("DEBUG: Diarization enabled but credentials not available for model %s\n", job.Parameters.DiarizeModel)
 		}
 	} else {
-		fmt.Printf("DEBUG: Diarization conditions not met - skipping diarization\n")
+		fmt.Printf("DEBUG: Diarization disabled - skipping diarization\n")
 	}
 
 	// Load and parse the result
@@ -561,7 +582,7 @@ func (cs *CanaryService) runDiarization(audioPath string, transcriptPath string,
 	// Create temporary RTTM file path
 	rttmPath := transcriptPath + ".rttm"
 
-	// Build diarization command
+	// Build diarization command based on selected model
 	nvidiaPath := filepath.Join("whisperx-env", "parakeet")
 	absAudioPath, err := filepath.Abs(audioPath)
 	if err != nil {
@@ -574,26 +595,53 @@ func (cs *CanaryService) runDiarization(audioPath string, transcriptPath string,
 		return fmt.Errorf("failed to get absolute RTTM path: %v", err)
 	}
 
-	args := []string{
-		"run", "--native-tls", "--project", ".", "python", "diarize.py",
-		absAudioPath,
-		"--output", absRttmPath,
-	}
+	var args []string
+	var scriptName string
 
-	if params.HfToken != nil && *params.HfToken != "" {
-		args = append(args, "--hf-token", *params.HfToken)
+	// Choose the appropriate diarization script based on the model
+	if params.DiarizeModel == "nvidia_sortformer" {
+		fmt.Printf("DEBUG: Using NVIDIA Sortformer diarization for Canary job\n")
+		scriptName = "nemo_diarize.py"
+		args = []string{
+			"run", "--native-tls", "--project", ".", "python", scriptName,
+		}
+		
+		// Add speaker constraints for NVIDIA Sortformer (no HF token needed)
+		if params.MinSpeakers != nil {
+			args = append(args, "--min-speakers", fmt.Sprintf("%d", *params.MinSpeakers))
+		}
+		if params.MaxSpeakers != nil {
+			args = append(args, "--max-speakers", fmt.Sprintf("%d", *params.MaxSpeakers))
+		}
+		
+		// Add positional arguments: audio_file and output_file
+		args = append(args, absAudioPath, absRttmPath)
 	} else {
-		return fmt.Errorf("HuggingFace token is required for diarization")
+		// Default to Pyannote diarization
+		fmt.Printf("DEBUG: Using Pyannote diarization for Canary job\n")
+		scriptName = "diarize.py"
+		args = []string{
+			"run", "--native-tls", "--project", ".", "python", scriptName,
+			absAudioPath,
+			"--output", absRttmPath,
+		}
+
+		// Pyannote requires HuggingFace token
+		if params.HfToken != nil && *params.HfToken != "" {
+			args = append(args, "--hf-token", *params.HfToken)
+		} else {
+			return fmt.Errorf("HuggingFace token is required for Pyannote diarization")
+		}
+
+		if params.MinSpeakers != nil {
+			args = append(args, "--min-speakers", fmt.Sprintf("%d", *params.MinSpeakers))
+		}
+		if params.MaxSpeakers != nil {
+			args = append(args, "--max-speakers", fmt.Sprintf("%d", *params.MaxSpeakers))
+		}
 	}
 
-	if params.MinSpeakers != nil {
-		args = append(args, "--min-speakers", fmt.Sprintf("%d", *params.MinSpeakers))
-	}
-	if params.MaxSpeakers != nil {
-		args = append(args, "--max-speakers", fmt.Sprintf("%d", *params.MaxSpeakers))
-	}
-
-	fmt.Printf("DEBUG: Running diarization command: uv %v\n", args)
+	fmt.Printf("DEBUG: Running diarization command with %s: uv %v\n", scriptName, args)
 
 	// Execute diarization
 	cmd := exec.Command("uv", args...)

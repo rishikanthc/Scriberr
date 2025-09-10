@@ -118,7 +118,7 @@ const PARAM_DESCRIPTIONS = {
   diarize: "Enable speaker diarization to identify and separate different speakers in the audio.",
   min_speakers: "Minimum number of speakers expected in the audio (leave empty for automatic detection).",
   max_speakers: "Maximum number of speakers expected in the audio (leave empty for automatic detection).",
-  diarize_model: "Diarization model to use. Version 3.1 is newer and more accurate, while 3.0 is more stable and faster.",
+  diarize_model: "Choose diarization model: Pyannote models require a HuggingFace token and support unlimited speakers. NVIDIA Sortformer is optimized for 4-speaker scenarios and doesn't require a token.",
   temperature: "Controls randomness in output. 0 = deterministic, higher values = more creative but less accurate.",
   beam_size: "Number of beams for beam search decoding. Higher values improve quality but are slower.",
   best_of: "Number of candidate sequences when sampling. Higher values improve quality but are slower.",
@@ -180,7 +180,7 @@ const DEFAULT_PARAMS: WhisperXParams = {
   vad_offset: 0.363,
   chunk_size: 30,
   diarize: false,
-  diarize_model: "pyannote/speaker-diarization-3.1",
+  diarize_model: "pyannote",
   speaker_embeddings: false,
   temperature: 0,
   best_of: 5,
@@ -696,24 +696,72 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
 
                   <div>
                     <div className="flex items-center gap-2 mb-2">
-                      <Label htmlFor="parakeet_hf_token" className="text-gray-700 dark:text-gray-300">Hugging Face Token</Label>
+                      <Label htmlFor="parakeet_diarize_model" className="text-gray-700 dark:text-gray-300">Diarization Model</Label>
                       <HoverCard>
                         <HoverCardTrigger asChild>
                           <Info className="h-4 w-4 text-gray-400 cursor-help" />
                         </HoverCardTrigger>
                         <HoverCardContent className="w-80 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
-                          <p className="text-sm text-gray-700 dark:text-gray-300">Hugging Face API token required for accessing Pyannote diarization models. Get one at https://huggingface.co/settings/tokens</p>
+                          <p className="text-sm text-gray-700 dark:text-gray-300">{PARAM_DESCRIPTIONS.diarize_model}</p>
                         </HoverCardContent>
                       </HoverCard>
                     </div>
-                    <Input
-                      type="password"
-                      placeholder="Required for diarization models"
-                      value={params.hf_token || ""}
-                      onChange={(e) => updateParam('hf_token', e.target.value || undefined)}
-                      className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100"
-                    />
+                    <Select
+                      value={params.diarize_model}
+                      onValueChange={(value) => updateParam('diarize_model', value)}
+                    >
+                      <SelectTrigger className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                        <SelectItem value="pyannote" className="text-gray-900 dark:text-gray-100 focus:bg-gray-100 dark:focus:bg-gray-700">
+                          Pyannote (Recommended) - Requires HF Token
+                        </SelectItem>
+                        <SelectItem value="nvidia_sortformer" className="text-gray-900 dark:text-gray-100 focus:bg-gray-100 dark:focus:bg-gray-700">
+                          NVIDIA Sortformer - 4 Speakers Max, No Token
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
+
+                  {params.diarize_model === "pyannote" && (
+                    <div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <Label htmlFor="parakeet_hf_token" className="text-gray-700 dark:text-gray-300">Hugging Face Token</Label>
+                        <HoverCard>
+                          <HoverCardTrigger asChild>
+                            <Info className="h-4 w-4 text-gray-400 cursor-help" />
+                          </HoverCardTrigger>
+                          <HoverCardContent className="w-80 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                            <p className="text-sm text-gray-700 dark:text-gray-300">Hugging Face API token required for accessing Pyannote diarization models. Get one at https://huggingface.co/settings/tokens</p>
+                          </HoverCardContent>
+                        </HoverCard>
+                      </div>
+                      <Input
+                        type="password"
+                        placeholder="Required for Pyannote diarization models"
+                        value={params.hf_token || ""}
+                        onChange={(e) => updateParam('hf_token', e.target.value || undefined)}
+                        className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100"
+                      />
+                    </div>
+                  )}
+
+                  {params.diarize_model === "nvidia_sortformer" && (
+                    <div className="p-4 border border-orange-200 dark:border-orange-700 rounded-lg bg-orange-50 dark:bg-orange-900/20">
+                      <div className="flex items-start gap-3">
+                        <div className="text-orange-500 dark:text-orange-400 mt-0.5">⚠️</div>
+                        <div>
+                          <h4 className="text-sm font-medium text-orange-800 dark:text-orange-200 mb-1">
+                            NVIDIA Sortformer Limitations
+                          </h4>
+                          <p className="text-sm text-orange-700 dark:text-orange-300">
+                            This model is optimized for up to 4 speakers. For better accuracy with more speakers, use Pyannote instead.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -905,24 +953,72 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
 
                   <div>
                     <div className="flex items-center gap-2 mb-2">
-                      <Label htmlFor="canary_hf_token" className="text-gray-700 dark:text-gray-300">Hugging Face Token</Label>
+                      <Label htmlFor="canary_diarize_model" className="text-gray-700 dark:text-gray-300">Diarization Model</Label>
                       <HoverCard>
                         <HoverCardTrigger asChild>
                           <Info className="h-4 w-4 text-gray-400 cursor-help" />
                         </HoverCardTrigger>
                         <HoverCardContent className="w-80 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
-                          <p className="text-sm text-gray-700 dark:text-gray-300">Hugging Face API token required for accessing Pyannote diarization models. Get one at https://huggingface.co/settings/tokens</p>
+                          <p className="text-sm text-gray-700 dark:text-gray-300">{PARAM_DESCRIPTIONS.diarize_model}</p>
                         </HoverCardContent>
                       </HoverCard>
                     </div>
-                    <Input
-                      type="password"
-                      placeholder="Required for diarization models"
-                      value={params.hf_token || ""}
-                      onChange={(e) => updateParam('hf_token', e.target.value || undefined)}
-                      className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100"
-                    />
+                    <Select
+                      value={params.diarize_model}
+                      onValueChange={(value) => updateParam('diarize_model', value)}
+                    >
+                      <SelectTrigger className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                        <SelectItem value="pyannote" className="text-gray-900 dark:text-gray-100 focus:bg-gray-100 dark:focus:bg-gray-700">
+                          Pyannote (Recommended) - Requires HF Token
+                        </SelectItem>
+                        <SelectItem value="nvidia_sortformer" className="text-gray-900 dark:text-gray-100 focus:bg-gray-100 dark:focus:bg-gray-700">
+                          NVIDIA Sortformer - 4 Speakers Max, No Token
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
+
+                  {params.diarize_model === "pyannote" && (
+                    <div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <Label htmlFor="canary_hf_token" className="text-gray-700 dark:text-gray-300">Hugging Face Token</Label>
+                        <HoverCard>
+                          <HoverCardTrigger asChild>
+                            <Info className="h-4 w-4 text-gray-400 cursor-help" />
+                          </HoverCardTrigger>
+                          <HoverCardContent className="w-80 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                            <p className="text-sm text-gray-700 dark:text-gray-300">Hugging Face API token required for accessing Pyannote diarization models. Get one at https://huggingface.co/settings/tokens</p>
+                          </HoverCardContent>
+                        </HoverCard>
+                      </div>
+                      <Input
+                        type="password"
+                        placeholder="Required for Pyannote diarization models"
+                        value={params.hf_token || ""}
+                        onChange={(e) => updateParam('hf_token', e.target.value || undefined)}
+                        className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100"
+                      />
+                    </div>
+                  )}
+
+                  {params.diarize_model === "nvidia_sortformer" && (
+                    <div className="p-4 border border-orange-200 dark:border-orange-700 rounded-lg bg-orange-50 dark:bg-orange-900/20">
+                      <div className="flex items-start gap-3">
+                        <div className="text-orange-500 dark:text-orange-400 mt-0.5">⚠️</div>
+                        <div>
+                          <h4 className="text-sm font-medium text-orange-800 dark:text-orange-200 mb-1">
+                            NVIDIA Sortformer Limitations
+                          </h4>
+                          <p className="text-sm text-orange-700 dark:text-orange-300">
+                            This model is optimized for up to 4 speakers. For better accuracy with more speakers, use Pyannote instead.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -1663,11 +1759,11 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
-                        <SelectItem value="pyannote/speaker-diarization-3.1" className="text-gray-900 dark:text-gray-100 focus:bg-gray-100 dark:focus:bg-gray-700">
-                          pyannote/speaker-diarization-3.1 (Recommended)
+                        <SelectItem value="pyannote" className="text-gray-900 dark:text-gray-100 focus:bg-gray-100 dark:focus:bg-gray-700">
+                          Pyannote (Recommended) - Requires HF Token
                         </SelectItem>
-                        <SelectItem value="pyannote/speaker-diarization-3.0" className="text-gray-900 dark:text-gray-100 focus:bg-gray-100 dark:focus:bg-gray-700">
-                          pyannote/speaker-diarization-3.0 (Stable)
+                        <SelectItem value="nvidia_sortformer" className="text-gray-900 dark:text-gray-100 focus:bg-gray-100 dark:focus:bg-gray-700">
+                          NVIDIA Sortformer - 4 Speakers Max, No Token
                         </SelectItem>
                       </SelectContent>
                     </Select>
@@ -1722,26 +1818,44 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
 
                   <Separator className="my-4 sm:my-6" />
 
-                  <div>
-                    <div className="flex items-center gap-2 mb-2">
-                      <Label htmlFor="hf_token" className="text-gray-700 dark:text-gray-300">Hugging Face Token</Label>
-                      <HoverCard>
-                        <HoverCardTrigger asChild>
-                          <Info className="h-4 w-4 text-gray-400 cursor-help" />
-                        </HoverCardTrigger>
-                        <HoverCardContent className="w-80 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
-                          <p className="text-sm text-gray-700 dark:text-gray-300">{PARAM_DESCRIPTIONS.hf_token}</p>
-                        </HoverCardContent>
-                      </HoverCard>
+                  {params.diarize_model === "pyannote" && (
+                    <div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <Label htmlFor="hf_token" className="text-gray-700 dark:text-gray-300">Hugging Face Token</Label>
+                        <HoverCard>
+                          <HoverCardTrigger asChild>
+                            <Info className="h-4 w-4 text-gray-400 cursor-help" />
+                          </HoverCardTrigger>
+                          <HoverCardContent className="w-80 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                            <p className="text-sm text-gray-700 dark:text-gray-300">{PARAM_DESCRIPTIONS.hf_token}</p>
+                          </HoverCardContent>
+                        </HoverCard>
+                      </div>
+                      <Input
+                        type="password"
+                        placeholder="Required for Pyannote diarization models"
+                        value={params.hf_token || ""}
+                        onChange={(e) => updateParam('hf_token', e.target.value || undefined)}
+                        className="mt-3 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100"
+                      />
                     </div>
-                    <Input
-                      type="password"
-                      placeholder="Required for diarization models"
-                      value={params.hf_token || ""}
-                      onChange={(e) => updateParam('hf_token', e.target.value || undefined)}
-                      className="mt-3 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100"
-                    />
-                  </div>
+                  )}
+
+                  {params.diarize_model === "nvidia_sortformer" && (
+                    <div className="p-4 border border-orange-200 dark:border-orange-700 rounded-lg bg-orange-50 dark:bg-orange-900/20">
+                      <div className="flex items-start gap-3">
+                        <div className="text-orange-500 dark:text-orange-400 mt-0.5">⚠️</div>
+                        <div>
+                          <h4 className="text-sm font-medium text-orange-800 dark:text-orange-200 mb-1">
+                            NVIDIA Sortformer Limitations
+                          </h4>
+                          <p className="text-sm text-orange-700 dark:text-orange-300">
+                            This model is optimized for up to 4 speakers. For better accuracy with more speakers, use Pyannote instead.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 

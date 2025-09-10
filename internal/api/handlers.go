@@ -764,6 +764,14 @@ func (h *Handler) SubmitJob(c *gin.Context) {
 		params.HfToken = &hfToken
 	}
 
+	// Parse and validate diarization model
+	diarizeModel := getFormValueWithDefault(c, "diarize_model", "pyannote")
+	if diarizeModel != "pyannote" && diarizeModel != "nvidia_sortformer" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid diarize_model. Must be 'pyannote' or 'nvidia_sortformer'"})
+		return
+	}
+	params.DiarizeModel = diarizeModel
+
 	// Create job
 	job := models.TranscriptionJob{
 		ID:          jobID,
@@ -1026,9 +1034,9 @@ func (h *Handler) StartTranscription(c *gin.Context) {
 		// Both NVIDIA models support multiple European languages
 		// No language restriction needed - models support auto-detection
 
-		// NVIDIA models support diarization via Pyannote integration
-		if requestParams.Diarize && (requestParams.HfToken == nil || *requestParams.HfToken == "") {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Hugging Face token (hf_token) is required for diarization with NVIDIA models"})
+		// NVIDIA models support diarization via Pyannote integration or NVIDIA Sortformer
+		if requestParams.Diarize && requestParams.DiarizeModel == "pyannote" && (requestParams.HfToken == nil || *requestParams.HfToken == "") {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Hugging Face token (hf_token) is required for Pyannote diarization"})
 			return
 		}
 	}
