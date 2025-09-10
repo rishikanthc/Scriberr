@@ -562,7 +562,7 @@ func (h *Handler) UploadMultiTrack(c *gin.Context) {
 		IsMultiTrack:     true,
 		AupFilePath:      &aupFilePath,
 		MultiTrackFolder: &multiTrackFolder,
-		MergeStatus:      "pending", // Set merge status to pending
+		MergeStatus:      "none", // No merge processing yet
 	}
 
 	// Save job to database
@@ -589,14 +589,15 @@ func (h *Handler) UploadMultiTrack(c *gin.Context) {
 		return
 	}
 
-	// Start async merge processing
+	// Start async merge processing immediately after upload
 	go func() {
 		ctx := context.Background()
 		if err := h.multiTrackProcessor.ProcessMultiTrackJob(ctx, jobID); err != nil {
-			// Log error but don't fail the upload response
-			fmt.Printf("ERROR: Multi-track processing failed for job %s: %v\n", jobID, err)
+			fmt.Printf("ERROR: Multi-track merge processing failed for job %s: %v\n", jobID, err)
 		}
 	}()
+
+	fmt.Printf("INFO: Multi-track upload completed for job %s, merge processing started\n", jobID)
 
 	c.JSON(http.StatusOK, job)
 }
@@ -972,6 +973,7 @@ func (h *Handler) StartTranscription(c *gin.Context) {
 		PrintProgress:                  false,
 		AttentionContextLeft:           256,
 		AttentionContextRight:          256,
+		IsMultiTrackEnabled:            false,
 	}
 
 	// Parse request body parameters, overriding defaults
@@ -993,6 +995,23 @@ func (h *Handler) StartTranscription(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Hugging Face token (hf_token) is required for diarization with NVIDIA models"})
 			return
 		}
+	}
+
+	// Validate multi-track compatibility
+	if job.IsMultiTrack && !requestParams.IsMultiTrackEnabled {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Multi-track audio requires multi-track transcription to be enabled in the parameters"})
+		return
+	}
+
+	if !job.IsMultiTrack && requestParams.IsMultiTrackEnabled {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Multi-track transcription cannot be used with single-track audio files"})
+		return
+	}
+
+	// Multi-track transcription should automatically disable diarization
+	if requestParams.IsMultiTrackEnabled && requestParams.Diarize {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Diarization must be disabled when using multi-track transcription"})
+		return
 	}
 
 	// Update job with parameters
@@ -1151,6 +1170,20 @@ func (h *Handler) DeleteJob(c *gin.Context) {
 		}
 	}
 
+	// Delete multi-track files and folders if this is a multi-track job
+	if job.IsMultiTrack && job.MultiTrackFolder != nil {
+		if err := os.RemoveAll(*job.MultiTrackFolder); err != nil && !os.IsNotExist(err) {
+			fmt.Printf("Warning: Failed to delete multi-track folder %s: %v\n", *job.MultiTrackFolder, err)
+		}
+	}
+
+	// Delete merged audio file if it exists
+	if job.MergedAudioPath != nil && *job.MergedAudioPath != "" {
+		if err := os.Remove(*job.MergedAudioPath); err != nil && !os.IsNotExist(err) {
+			fmt.Printf("Warning: Failed to delete merged audio file %s: %v\n", *job.MergedAudioPath, err)
+		}
+	}
+
 	// Delete any transcript files
 	if job.Transcript != nil {
 		// Remove transcript directory if it exists (assume it's in data/transcripts)
@@ -1160,9 +1193,72 @@ func (h *Handler) DeleteJob(c *gin.Context) {
 		}
 	}
 
-	// Delete the job from database
-	if err := database.DB.Delete(&job).Error; err != nil {
+	// Delete all related records first to avoid foreign key constraint failures
+	// Start a transaction to ensure atomicity
+	tx := database.DB.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
+	// Delete related records in order (children first)
+	if err := tx.Where("transcription_job_id = ?", jobID).Delete(&models.TranscriptionJobExecution{}).Error; err != nil {
+		tx.Rollback()
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete job execution records"})
+		return
+	}
+
+	if err := tx.Where("transcription_job_id = ?", jobID).Delete(&models.SpeakerMapping{}).Error; err != nil {
+		tx.Rollback()
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete speaker mappings"})
+		return
+	}
+
+	if err := tx.Where("transcription_job_id = ?", jobID).Delete(&models.MultiTrackFile{}).Error; err != nil {
+		tx.Rollback()
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete multi-track files"})
+		return
+	}
+
+	if err := tx.Where("transcription_id = ?", jobID).Delete(&models.Note{}).Error; err != nil {
+		tx.Rollback()
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete notes"})
+		return
+	}
+
+	// Delete chat sessions and their messages
+	var chatSessions []models.ChatSession
+	if err := tx.Where("transcription_id = ?", jobID).Find(&chatSessions).Error; err != nil {
+		tx.Rollback()
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to find chat sessions"})
+		return
+	}
+
+	for _, session := range chatSessions {
+		if err := tx.Where("chat_session_id = ?", session.ID).Delete(&models.ChatMessage{}).Error; err != nil {
+			tx.Rollback()
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete chat messages"})
+			return
+		}
+	}
+
+	if err := tx.Where("transcription_id = ?", jobID).Delete(&models.ChatSession{}).Error; err != nil {
+		tx.Rollback()
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete chat sessions"})
+		return
+	}
+
+	// Finally delete the main job record
+	if err := tx.Delete(&job).Error; err != nil {
+		tx.Rollback()
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete job from database"})
+		return
+	}
+
+	// Commit the transaction
+	if err := tx.Commit().Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit deletion transaction"})
 		return
 	}
 

@@ -127,6 +127,8 @@ interface AudioFile {
 	status: "uploaded" | "pending" | "processing" | "completed" | "failed";
 	created_at: string;
 	audio_path: string;
+	diarization?: boolean;
+	is_multi_track?: boolean;
 }
 
 interface AudioFilesTableProps {
@@ -272,6 +274,18 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 	const handleStartTranscription = useCallback(async (params: WhisperXParams) => {
 		if (!selectedJobId) return;
 
+		// Validate multi-track compatibility
+		const selectedJob = data.find(job => job.id === selectedJobId);
+		if (selectedJob?.is_multi_track && !params.is_multi_track_enabled) {
+			alert("Multi-track audio requires a profile with multi-track transcription enabled. Please select or create a profile with multi-track support.");
+			return;
+		}
+		
+		if (!selectedJob?.is_multi_track && params.is_multi_track_enabled) {
+			alert("Multi-track transcription cannot be used with single-track audio files.");
+			return;
+		}
+
 		try {
 			setTranscriptionLoading(true);
 
@@ -305,6 +319,18 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 	// Handle actual transcription start with profile parameters
 	const handleStartTranscriptionWithProfile = useCallback(async (params: WhisperXParams, _profileId?: string) => {
 		if (!selectedJobId) return;
+
+		// Validate multi-track compatibility
+		const selectedJob = data.find(job => job.id === selectedJobId);
+		if (selectedJob?.is_multi_track && !params.is_multi_track_enabled) {
+			alert("Multi-track audio requires a profile with multi-track transcription enabled. Please select a different profile with multi-track support.");
+			return;
+		}
+		
+		if (!selectedJob?.is_multi_track && params.is_multi_track_enabled) {
+			alert("Multi-track transcription cannot be used with single-track audio files. Please select a different profile.");
+			return;
+		}
 
 		try {
 			setTranscriptionLoading(true);

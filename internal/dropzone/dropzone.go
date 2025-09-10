@@ -251,18 +251,23 @@ func (s *Service) uploadFile(sourcePath, originalFilename string) error {
 
 	// Check if auto-transcription is enabled
 	if s.isAutoTranscriptionEnabled() {
-		log.Printf("Auto-transcription enabled, enqueueing job %s", jobID)
-
-		// Update job status to pending before enqueueing
-		if err := database.DB.Model(&job).Update("status", models.StatusPending).Error; err != nil {
-			log.Printf("Warning: Failed to update job status to pending: %v", err)
-		}
-
-		// Enqueue the job for transcription
-		if err := s.taskQueue.EnqueueJob(jobID); err != nil {
-			log.Printf("Failed to enqueue job %s for transcription: %v", jobID, err)
+		// Multi-track files should never be auto-transcribed
+		if job.IsMultiTrack {
+			log.Printf("Skipping auto-transcription for multi-track job %s", jobID)
 		} else {
-			log.Printf("Job %s enqueued for auto-transcription", jobID)
+			log.Printf("Auto-transcription enabled, enqueueing job %s", jobID)
+
+			// Update job status to pending before enqueueing
+			if err := database.DB.Model(&job).Update("status", models.StatusPending).Error; err != nil {
+				log.Printf("Warning: Failed to update job status to pending: %v", err)
+			}
+
+			// Enqueue the job for transcription
+			if err := s.taskQueue.EnqueueJob(jobID); err != nil {
+				log.Printf("Failed to enqueue job %s for transcription: %v", jobID, err)
+			} else {
+				log.Printf("Job %s enqueued for auto-transcription", jobID)
+			}
 		}
 	}
 
