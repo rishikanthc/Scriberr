@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
 	Dialog,
@@ -16,6 +16,9 @@ interface MultiTrackUploadDialogProps {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
 	onMultiTrackUpload?: (files: File[], aupFile: File, title: string) => void;
+	prePopulatedFiles?: File[];
+	prePopulatedAupFile?: File;
+	prePopulatedTitle?: string;
 }
 
 interface FileWithPreview {
@@ -29,9 +32,36 @@ export function MultiTrackUploadDialog({
 	open,
 	onOpenChange,
 	onMultiTrackUpload,
+	prePopulatedFiles,
+	prePopulatedAupFile,
+	prePopulatedTitle,
 }: MultiTrackUploadDialogProps) {
 	const [title, setTitle] = useState("");
 	const [files, setFiles] = useState<FileWithPreview[]>([]);
+
+	// Effect to populate dialog with pre-populated data from drag-and-drop
+	useEffect(() => {
+		if (open && prePopulatedFiles && prePopulatedAupFile) {
+			// Set title
+			if (prePopulatedTitle) {
+				setTitle(prePopulatedTitle);
+			}
+			
+			// Prepare all files (audio + aup)
+			const allFiles = [...prePopulatedFiles, prePopulatedAupFile];
+			const fileItems: FileWithPreview[] = allFiles.map(file => ({
+				file,
+				id: Math.random().toString(36),
+				isApu: file.name.toLowerCase().endsWith('.aup')
+			}));
+			
+			setFiles(fileItems);
+		} else if (!open) {
+			// Reset when dialog closes
+			setTitle("");
+			setFiles([]);
+		}
+	}, [open, prePopulatedFiles, prePopulatedAupFile, prePopulatedTitle]);
 
 	const handleDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
 		e.preventDefault();
@@ -94,7 +124,10 @@ export function MultiTrackUploadDialog({
 				<DialogHeader>
 					<DialogTitle>Upload Multi-Track Audio</DialogTitle>
 					<DialogDescription>
-						Upload multiple audio tracks with an .aup Audacity project file for multi-speaker transcription.
+						{prePopulatedFiles && prePopulatedAupFile
+							? `Auto-detected multi-track project with ${prePopulatedFiles.length} audio tracks. Review and upload when ready.`
+							: "Upload multiple audio tracks with an .aup Audacity project file for multi-speaker transcription."
+						}
 					</DialogDescription>
 				</DialogHeader>
 

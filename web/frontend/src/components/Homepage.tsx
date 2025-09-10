@@ -1,9 +1,19 @@
-import { useState } from "react";
+import { useState, useCallback, useRef } from "react";
 import { Header } from "./Header";
 import { AudioFilesTable } from "./AudioFilesTable";
+import { DragDropOverlay } from "./DragDropOverlay";
+import { MultiTrackUploadDialog } from "./MultiTrackUploadDialog";
 import { useAuth } from "../contexts/AuthContext";
 import { Progress } from "./ui/progress";
 import { X, CheckCircle, AlertCircle } from "lucide-react";
+import { 
+	groupFiles, 
+	convertToFileWithType, 
+	prepareMultiTrackFiles, 
+	hasValidFiles, 
+	getFileDescription, 
+	validateMultiTrackFiles 
+} from "../utils/fileProcessor";
 
 interface FileWithType {
 	file: File;
@@ -21,6 +31,14 @@ export function Homepage() {
 	const [refreshTrigger, setRefreshTrigger] = useState(0);
 	const [uploadProgress, setUploadProgress] = useState<UploadProgress[]>([]);
 	const [isUploading, setIsUploading] = useState(false);
+	
+	// Drag and drop state
+	const [isDragging, setIsDragging] = useState(false);
+	const [dragCount, setDragCount] = useState(0);
+	const [draggedFileGroup, setDraggedFileGroup] = useState<ReturnType<typeof groupFiles> | null>(null);
+	const [isMultiTrackDialogOpen, setIsMultiTrackDialogOpen] = useState(false);
+	const [multiTrackPreview, setMultiTrackPreview] = useState<{audioFiles: File[], aupFile: File, title: string} | null>(null);
+	const dragCounter = useRef(0);
 
 	const uploadSingleFile = async (file: File): Promise<boolean> => {
 		const formData = new FormData();
@@ -196,8 +214,106 @@ export function Homepage() {
 		}
 	};
 
+	// Drag and drop handlers
+	const handleDragEnter = useCallback((e: React.DragEvent) => {
+		e.preventDefault();
+		e.stopPropagation();
+		
+		dragCounter.current++;
+		
+		if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
+			setIsDragging(true);
+			setDragCount(dragCounter.current);
+			
+			// Preview files being dragged
+			const files = Array.from(e.dataTransfer.items)
+				.filter(item => item.kind === 'file')
+				.map(item => item.getAsFile())
+				.filter((file): file is File => file !== null);
+			
+			if (files.length > 0) {
+				const fileGroup = groupFiles(files);
+				setDraggedFileGroup(fileGroup);
+			}
+		}
+	}, []);
+
+	const handleDragLeave = useCallback((e: React.DragEvent) => {
+		e.preventDefault();
+		e.stopPropagation();
+		
+		dragCounter.current--;
+		
+		if (dragCounter.current === 0) {
+			setIsDragging(false);
+			setDragCount(0);
+			setDraggedFileGroup(null);
+		}
+	}, []);
+
+	const handleDragOver = useCallback((e: React.DragEvent) => {
+		e.preventDefault();
+		e.stopPropagation();
+	}, []);
+
+	const handleDrop = useCallback(async (e: React.DragEvent) => {
+		e.preventDefault();
+		e.stopPropagation();
+		
+		// Reset drag state
+		dragCounter.current = 0;
+		setIsDragging(false);
+		setDragCount(0);
+		setDraggedFileGroup(null);
+		
+		const files = Array.from(e.dataTransfer.files);
+		if (files.length === 0) return;
+		
+		const fileGroup = groupFiles(files);
+		
+		// Validate files
+		if (!hasValidFiles(fileGroup)) {
+			// Show error - could add toast notification here
+			console.error('Invalid files dropped');
+			return;
+		}
+		
+		// Handle different file types
+		if (fileGroup.type === 'multitrack') {
+			const multiTrackFiles = prepareMultiTrackFiles(fileGroup);
+			if (multiTrackFiles) {
+				// Open multi-track dialog with pre-populated data
+				setMultiTrackPreview(multiTrackFiles);
+				setIsMultiTrackDialogOpen(true);
+			}
+		} else if (fileGroup.type === 'video') {
+			// Handle video files
+			const filesWithType = convertToFileWithType(fileGroup.files, true);
+			await handleFileSelect(filesWithType);
+		} else {
+			// Handle regular audio files
+			await handleFileSelect(fileGroup.files);
+		}
+	}, []);
+
+	const handleMultiTrackDialogClose = useCallback(() => {
+		setIsMultiTrackDialogOpen(false);
+		setMultiTrackPreview(null);
+	}, []);
+
+	const handleMultiTrackConfirm = useCallback(async (files: File[], aupFile: File, title: string) => {
+		await handleMultiTrackUpload(files, aupFile, title);
+		handleMultiTrackDialogClose();
+	}, []);
+
 	return (
-		<div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+		<div 
+			className="min-h-screen bg-gray-50 dark:bg-gray-900"
+			onDragEnter={handleDragEnter}
+			onDragLeave={handleDragLeave}
+			onDragOver={handleDragOver}
+			onDrop={handleDrop}
+		>
 			<div className="mx-auto w-full max-w-6xl px-2 sm:px-6 md:px-8 py-3 sm:py-6">
 				<Header 
 					onFileSelect={handleFileSelect} 
@@ -271,6 +387,29 @@ export function Homepage() {
 					onTranscribe={handleTranscribe}
 				/>
 			</div>
+			
+			{/* Drag and Drop Overlay */}
+			<DragDropOverlay
+				isDragging={isDragging}
+				dragCount={dragCount}
+				fileType={draggedFileGroup?.type}
+				fileDescription={draggedFileGroup ? getFileDescription(draggedFileGroup) : undefined}
+				errorMessage={draggedFileGroup && !hasValidFiles(draggedFileGroup) 
+					? (draggedFileGroup.type === 'multitrack' 
+						? validateMultiTrackFiles([...draggedFileGroup.files, draggedFileGroup.aupFile!]).error
+						: "No supported files found")
+					: undefined}
+			/>
+			
+			{/* Multi-track Upload Dialog with pre-populated data */}
+			<MultiTrackUploadDialog
+				open={isMultiTrackDialogOpen}
+				onOpenChange={handleMultiTrackDialogClose}
+				onMultiTrackUpload={handleMultiTrackConfirm}
+				prePopulatedFiles={multiTrackPreview?.audioFiles}
+				prePopulatedAupFile={multiTrackPreview?.aupFile}
+				prePopulatedTitle={multiTrackPreview?.title}
+			/>
 		</div>
 	);
 }
