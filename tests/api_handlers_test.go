@@ -161,14 +161,26 @@ func (suite *APIHandlerTestSuite) TestAPIKeyManagement() {
 	w := suite.makeAuthenticatedRequest("GET", "/api/v1/api-keys/", nil, true)
 	assert.Equal(suite.T(), 200, w.Code)
 
-	var listResponse []models.APIKey
-	err := json.Unmarshal(w.Body.Bytes(), &listResponse)
+	var wrappedResponse struct {
+		APIKeys []struct {
+			ID          uint   `json:"id"`
+			Name        string `json:"name"`
+			Description string `json:"description"`
+			KeyPreview  string `json:"key_preview"`
+			IsActive    bool   `json:"is_active"`
+			CreatedAt   string `json:"created_at"`
+			UpdatedAt   string `json:"updated_at"`
+			LastUsed    string `json:"last_used"`
+		} `json:"api_keys"`
+	}
+	err := json.Unmarshal(w.Body.Bytes(), &wrappedResponse)
 	assert.NoError(suite.T(), err)
 
-	// Should contain at least our test API key
+	// Should contain at least our test API key (check by key preview)
 	found := false
-	for _, key := range listResponse {
-		if key.Key == suite.helper.TestAPIKey {
+	testKeyPreview := suite.helper.TestAPIKey[:8] + "..."
+	for _, key := range wrappedResponse.APIKeys {
+		if key.KeyPreview == testKeyPreview {
 			found = true
 			break
 		}

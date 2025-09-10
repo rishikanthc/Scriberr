@@ -159,6 +159,42 @@ type APIKeyListResponse struct {
 	LastUsed    string `json:"last_used,omitempty"`
 }
 
+// APIKeysWrapper wraps the API keys list response
+type APIKeysWrapper struct {
+	APIKeys []APIKeyListResponse `json:"api_keys"`
+}
+
+// transformAPIKeyForList converts a models.APIKey to APIKeyListResponse
+func transformAPIKeyForList(apiKey models.APIKey) APIKeyListResponse {
+	keyPreview := ""
+	if len(apiKey.Key) > 8 {
+		keyPreview = apiKey.Key[:8] + "..."
+	} else if apiKey.Key != "" {
+		keyPreview = apiKey.Key + "..."
+	}
+
+	lastUsed := ""
+	if apiKey.LastUsed != nil {
+		lastUsed = apiKey.LastUsed.Format(time.RFC3339)
+	}
+
+	description := ""
+	if apiKey.Description != nil {
+		description = *apiKey.Description
+	}
+
+	return APIKeyListResponse{
+		ID:          apiKey.ID,
+		Name:        apiKey.Name,
+		Description: description,
+		KeyPreview:  keyPreview,
+		IsActive:    apiKey.IsActive,
+		CreatedAt:   apiKey.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:   apiKey.UpdatedAt.Format(time.RFC3339),
+		LastUsed:    lastUsed,
+	}
+}
+
 // @Summary Upload audio file
 // @Description Upload an audio file without starting transcription
 // @Tags transcription
@@ -1820,7 +1856,7 @@ func (h *Handler) ChangeUsername(c *gin.Context) {
 // @Description Get all API keys for the current user (without exposing the actual keys)
 // @Tags api-keys
 // @Produce json
-// @Success 200 {array} APIKeyListResponse
+// @Success 200 {object} APIKeysWrapper
 // @Security BearerAuth
 // @Router /api/v1/api-keys [get]
 func (h *Handler) ListAPIKeys(c *gin.Context) {
@@ -1829,8 +1865,14 @@ func (h *Handler) ListAPIKeys(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch API keys"})
 		return
 	}
-	// Tests expect a raw array of models.APIKey including the Key field
-	c.JSON(http.StatusOK, apiKeys)
+
+	// Transform API keys to list response format
+	var responseKeys []APIKeyListResponse
+	for _, apiKey := range apiKeys {
+		responseKeys = append(responseKeys, transformAPIKeyForList(apiKey))
+	}
+
+	c.JSON(http.StatusOK, APIKeysWrapper{APIKeys: responseKeys})
 }
 
 // @Summary Create API key
