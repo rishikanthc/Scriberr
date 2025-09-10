@@ -11,6 +11,8 @@ Self‑hostable, secure & private offline transcription. Drop in a recording, ge
 </p>
 </div>
 
+**Collecting feedback on new feature. Drop by https://github.com/rishikanthc/Scriberr/discussions/200 to share your opinions.**
+
 ---
 
 ## Sponsors
