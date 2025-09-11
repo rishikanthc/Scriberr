@@ -34,18 +34,18 @@ type Handler struct {
 	config              *config.Config
 	authService         *auth.AuthService
 	taskQueue           *queue.TaskQueue
-	whisperXService     *transcription.WhisperXService
+	unifiedProcessor    *transcription.UnifiedJobProcessor
 	quickTranscription  *transcription.QuickTranscriptionService
 	multiTrackProcessor *processing.MultiTrackProcessor
 }
 
 // NewHandler creates a new handler
-func NewHandler(cfg *config.Config, authService *auth.AuthService, taskQueue *queue.TaskQueue, whisperXService *transcription.WhisperXService, quickTranscription *transcription.QuickTranscriptionService) *Handler {
+func NewHandler(cfg *config.Config, authService *auth.AuthService, taskQueue *queue.TaskQueue, unifiedProcessor *transcription.UnifiedJobProcessor, quickTranscription *transcription.QuickTranscriptionService) *Handler {
 	return &Handler{
 		config:              cfg,
 		authService:         authService,
 		taskQueue:           taskQueue,
-		whisperXService:     whisperXService,
+		unifiedProcessor:    unifiedProcessor,
 		quickTranscription:  quickTranscription,
 		multiTrackProcessor: processing.NewMultiTrackProcessor(),
 	}
@@ -2102,8 +2102,8 @@ func (h *Handler) GetQueueStats(c *gin.Context) {
 // @Security ApiKeyAuth
 // @Security BearerAuth
 func (h *Handler) GetSupportedModels(c *gin.Context) {
-	models := h.whisperXService.GetSupportedModels()
-	languages := h.whisperXService.GetSupportedLanguages()
+	models := h.unifiedProcessor.GetSupportedModels()
+	languages := h.unifiedProcessor.GetSupportedLanguages()
 
 	c.JSON(http.StatusOK, gin.H{
 		"models":    models,
