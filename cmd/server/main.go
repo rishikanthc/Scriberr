@@ -20,6 +20,7 @@ import (
 	"scriberr/pkg/logger"
 
 	_ "scriberr/api-docs" // Import generated Swagger docs
+	_ "scriberr/internal/transcription/adapters" // Import adapters for auto-registration
 
 	"github.com/gin-gonic/gin"
 )
@@ -91,20 +92,20 @@ func main() {
 	authService := auth.NewAuthService(cfg.JWTSecret)
 	log.Println("✅ Authentication service ready")
 
-	// Initialize WhisperX service
-	log.Println("🎤 Initializing WhisperX transcription service...")
-	whisperXService := transcription.NewWhisperXService(cfg)
+	// Initialize unified transcription processor
+	log.Println("🎤 Initializing unified transcription service...")
+	unifiedProcessor := transcription.NewUnifiedJobProcessor()
 	
-	// Bootstrap embedded Python environment (pyproject + diarization script)
+	// Bootstrap embedded Python environment (for all adapters)
 	log.Println("🐍 Setting up Python environment and dependencies...")
-	if err := whisperXService.InitEmbeddedPythonEnv(); err != nil {
+	if err := unifiedProcessor.InitEmbeddedPythonEnv(); err != nil {
 		log.Fatalf("Failed to initialize Python env: %v", err)
 	}
 	log.Println("✅ Python environment ready")
 
 	// Initialize quick transcription service
 	log.Println("⚡ Initializing quick transcription service...")
-	quickTranscriptionService, err := transcription.NewQuickTranscriptionService(cfg, whisperXService)
+	quickTranscriptionService, err := transcription.NewQuickTranscriptionService(cfg, unifiedProcessor)
 	if err != nil {
 		log.Fatal("Failed to initialize quick transcription service:", err)
 	}
@@ -112,14 +113,14 @@ func main() {
 
 	// Initialize task queue
 	log.Println("📋 Starting background task queue...")
-	taskQueue := queue.NewTaskQueue(2, whisperXService) // 2 workers
+	taskQueue := queue.NewTaskQueue(2, unifiedProcessor) // 2 workers
 	taskQueue.Start()
 	defer taskQueue.Stop()
 	log.Println("✅ Task queue started with 2 workers")
 
 	// Initialize API handlers
 	log.Println("🔧 Setting up API handlers...")
-	handler := api.NewHandler(cfg, authService, taskQueue, whisperXService, quickTranscriptionService)
+	handler := api.NewHandler(cfg, authService, taskQueue, unifiedProcessor, quickTranscriptionService)
 
 	// Set up router
 	log.Println("🛤️  Configuring routes...")

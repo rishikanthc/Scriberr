@@ -11,6 +11,7 @@ import (
 
 	"scriberr/internal/database"
 	"scriberr/internal/models"
+	"scriberr/internal/transcription/interfaces"
 	"scriberr/pkg/logger"
 
 	"gorm.io/gorm"
@@ -20,24 +21,24 @@ import (
 
 // MultiTrackTranscriber handles transcription of multi-track audio jobs
 type MultiTrackTranscriber struct {
-	whisperX *WhisperXService
-	db       *gorm.DB
+	unifiedProcessor *UnifiedJobProcessor
+	db               *gorm.DB
 }
 
 // NewMultiTrackTranscriber creates a new multi-track transcriber
-func NewMultiTrackTranscriber(whisperX *WhisperXService) *MultiTrackTranscriber {
+func NewMultiTrackTranscriber(unifiedProcessor *UnifiedJobProcessor) *MultiTrackTranscriber {
 	return &MultiTrackTranscriber{
-		whisperX: whisperX,
-		db:       database.DB,
+		unifiedProcessor: unifiedProcessor,
+		db:               database.DB,
 	}
 }
 
 // TrackTranscript represents a transcript for a single track with metadata
 type TrackTranscript struct {
-	FileName string            `json:"file_name"`
-	Speaker  string            `json:"speaker"`
-	Offset   float64           `json:"offset"`
-	Result   *TranscriptResult `json:"result"`
+	FileName string                       `json:"file_name"`
+	Speaker  string                       `json:"speaker"`
+	Offset   float64                      `json:"offset"`
+	Result   *interfaces.TranscriptResult `json:"result"`
 }
 
 // ProcessMultiTrackTranscription processes a multi-track transcription job
@@ -186,7 +187,7 @@ func (mt *MultiTrackTranscriber) ProcessMultiTrackTranscription(ctx context.Cont
 }
 
 // transcribeIndividualTrack transcribes a single track file using the direct transcription method
-func (mt *MultiTrackTranscriber) transcribeIndividualTrack(ctx context.Context, job *models.TranscriptionJob, trackFile *models.MultiTrackFile) (*TranscriptResult, error) {
+func (mt *MultiTrackTranscriber) transcribeIndividualTrack(ctx context.Context, job *models.TranscriptionJob, trackFile *models.MultiTrackFile) (*interfaces.TranscriptResult, error) {
 	// Create a proper copy of parameters for this track (disable diarization, enable word timestamps)
 	trackParams := job.Parameters
 
@@ -221,45 +222,70 @@ func (mt *MultiTrackTranscriber) transcribeIndividualTrack(ctx context.Context, 
 		trackParams.DiarizeModel = "pyannote/speaker-diarization-3.1"
 	}
 
-	// Route to appropriate service based on model family
-	logger.Info("Transcribing individual track",
+	// Create a temporary database job for unified processing
+	logger.Info("Transcribing individual track using unified service",
 		"track_name", trackFile.FileName,
 		"model_family", trackParams.ModelFamily,
 		"file_path", trackFile.FilePath)
 
-	var result *TranscriptResult
-	var err error
-
-	switch trackParams.ModelFamily {
-	case "nvidia_parakeet":
-		logger.Info("Using Parakeet service for track", "track_name", trackFile.FileName)
-		parakeetService := NewParakeetService(nil)
-		result, err = parakeetService.TranscribeAudioFile(ctx, trackFile.FilePath, trackParams)
-	case "nvidia_canary":
-		logger.Info("Using Canary service for track", "track_name", trackFile.FileName)
-		canaryService := NewCanaryService(nil)
-		result, err = canaryService.TranscribeAudioFile(ctx, trackFile.FilePath, trackParams)
-	default:
-		// Default to WhisperX (includes "whisper" and any unspecified model family)
-		logger.Info("Using WhisperX service for track", "track_name", trackFile.FileName)
-		result, err = mt.whisperX.TranscribeAudioFile(ctx, trackFile.FilePath, trackParams)
+	// Create temporary job ID for this track
+	trackJobID := fmt.Sprintf("track_%s_%s", job.ID, trackFile.FileName)
+	
+	// Create temporary job for unified processing
+	tempJob := models.TranscriptionJob{
+		ID:         trackJobID,
+		AudioPath:  trackFile.FilePath,
+		Parameters: trackParams,
+		Status:     models.StatusPending,
 	}
-
+	
+	// Save temporary job to database for processing
+	if err := mt.db.Create(&tempJob).Error; err != nil {
+		return nil, fmt.Errorf("failed to create temp database entry for track: %w", err)
+	}
+	
+	// Process with unified service
+	err := mt.unifiedProcessor.ProcessJob(ctx, trackJobID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to transcribe track file %s with %s: %w", trackFile.FilePath, trackParams.ModelFamily, err)
+		// Clean up temp job
+		mt.db.Delete(&models.TranscriptionJob{}, "id = ?", trackJobID)
+		return nil, fmt.Errorf("failed to transcribe track file %s: %w", trackFile.FilePath, err)
 	}
+	
+	// Load the processed result
+	var processedJob models.TranscriptionJob
+	if err := mt.db.Where("id = ?", trackJobID).First(&processedJob).Error; err != nil {
+		mt.db.Delete(&models.TranscriptionJob{}, "id = ?", trackJobID)
+		return nil, fmt.Errorf("failed to load processed track result: %w", err)
+	}
+	
+	// Parse the transcript result
+	var result *interfaces.TranscriptResult
+	if processedJob.Transcript != nil {
+		result = &interfaces.TranscriptResult{}
+		if err := json.Unmarshal([]byte(*processedJob.Transcript), result); err != nil {
+			mt.db.Delete(&models.TranscriptionJob{}, "id = ?", trackJobID)
+			return nil, fmt.Errorf("failed to parse track transcript: %w", err)
+		}
+	} else {
+		mt.db.Delete(&models.TranscriptionJob{}, "id = ?", trackJobID)
+		return nil, fmt.Errorf("no transcript found for track")
+	}
+	
+	// Clean up temporary database entry
+	mt.db.Delete(&models.TranscriptionJob{}, "id = ?", trackJobID)
 
 	logger.Info("Successfully transcribed track",
 		"track_name", trackFile.FileName,
 		"model_family", trackParams.ModelFamily,
-		"word_count", len(result.Word),
+		"word_count", len(result.Words),
 		"segment_count", len(result.Segments))
 
 	return result, nil
 }
 
 // mergeTrackTranscripts merges multiple track transcripts using sort-and-group algorithm
-func (mt *MultiTrackTranscriber) mergeTrackTranscripts(trackTranscripts []TrackTranscript) (*TranscriptResult, error) {
+func (mt *MultiTrackTranscriber) mergeTrackTranscripts(trackTranscripts []TrackTranscript) (*interfaces.TranscriptResult, error) {
 	if len(trackTranscripts) == 0 {
 		return nil, fmt.Errorf("no track transcripts to merge")
 	}
@@ -267,7 +293,7 @@ func (mt *MultiTrackTranscriber) mergeTrackTranscripts(trackTranscripts []TrackT
 	logger.Info("Starting sort-and-group transcript merging", "track_count", len(trackTranscripts))
 
 	// Phase 1: Collect ALL words from all tracks with offset adjustment
-	var allWords []Word
+	var allWords []interfaces.Word
 
 	for _, trackTranscript := range trackTranscripts {
 		if trackTranscript.Result == nil {
@@ -280,11 +306,11 @@ func (mt *MultiTrackTranscriber) mergeTrackTranscripts(trackTranscripts []TrackT
 		logger.Info("Collecting words from track",
 			"speaker", speaker,
 			"offset", offset,
-			"word_count", len(trackTranscript.Result.Word))
+			"word_count", len(trackTranscript.Result.Words))
 
 		// Collect words with offset adjustment and speaker assignment
-		for _, word := range trackTranscript.Result.Word {
-			adjustedWord := Word{
+		for _, word := range trackTranscript.Result.Words {
+			adjustedWord := interfaces.Word{
 				Start:   word.Start + offset,
 				End:     word.End + offset,
 				Word:    word.Word,
@@ -351,9 +377,9 @@ func (mt *MultiTrackTranscriber) mergeTrackTranscripts(trackTranscripts []TrackT
 		}
 	}
 
-	mergedResult := &TranscriptResult{
+	mergedResult := &interfaces.TranscriptResult{
 		Segments: speakerTurns,
-		Word:     allWords,
+		Words:    allWords,
 		Language: language,
 		Text:     mergedText.String(),
 	}
@@ -400,13 +426,13 @@ func (mt *MultiTrackTranscriber) GetIndividualTranscripts(jobID string) (map[str
 }
 
 // createSpeakerTurns groups consecutive words from the same speaker into turns
-func (mt *MultiTrackTranscriber) createSpeakerTurns(sortedWords []Word) []Segment {
+func (mt *MultiTrackTranscriber) createSpeakerTurns(sortedWords []interfaces.Word) []interfaces.Segment {
 	if len(sortedWords) == 0 {
-		return []Segment{}
+		return []interfaces.Segment{}
 	}
 
-	var turns []Segment
-	var currentTurnWords []Word
+	var turns []interfaces.Segment
+	var currentTurnWords []interfaces.Word
 	var currentSpeaker *string
 
 	logger.Info("Creating speaker turns from sorted words", "total_words", len(sortedWords))
@@ -430,7 +456,7 @@ func (mt *MultiTrackTranscriber) createSpeakerTurns(sortedWords []Word) []Segmen
 			}
 
 			// Start new turn
-			currentTurnWords = []Word{word}
+			currentTurnWords = []interfaces.Word{word}
 			currentSpeaker = word.Speaker
 
 			if word.Speaker != nil {
@@ -467,9 +493,9 @@ func (mt *MultiTrackTranscriber) createSpeakerTurns(sortedWords []Word) []Segmen
 }
 
 // createTurnFromWords creates a single segment/turn from a group of consecutive words
-func (mt *MultiTrackTranscriber) createTurnFromWords(words []Word, speaker *string) Segment {
+func (mt *MultiTrackTranscriber) createTurnFromWords(words []interfaces.Word, speaker *string) interfaces.Segment {
 	if len(words) == 0 {
-		return Segment{}
+		return interfaces.Segment{}
 	}
 
 	// Calculate turn timing from first and last word
@@ -485,7 +511,7 @@ func (mt *MultiTrackTranscriber) createTurnFromWords(words []Word, speaker *stri
 		textBuilder.WriteString(strings.TrimSpace(word.Word))
 	}
 
-	turn := Segment{
+	turn := interfaces.Segment{
 		Start:   start,
 		End:     end,
 		Text:    textBuilder.String(),
@@ -496,7 +522,7 @@ func (mt *MultiTrackTranscriber) createTurnFromWords(words []Word, speaker *stri
 }
 
 // logIndividualTranscript provides detailed logging of individual track transcripts
-func (mt *MultiTrackTranscriber) logIndividualTranscript(fileName string, result *TranscriptResult, offset float64) {
+func (mt *MultiTrackTranscriber) logIndividualTranscript(fileName string, result *interfaces.TranscriptResult, offset float64) {
 	speaker := getBaseFileName(fileName)
 
 	logger.Info("=== INDIVIDUAL TRANSCRIPT DETAILS ===",
@@ -505,7 +531,7 @@ func (mt *MultiTrackTranscriber) logIndividualTranscript(fileName string, result
 		"offset", offset,
 		"language", result.Language,
 		"total_segments", len(result.Segments),
-		"total_words", len(result.Word))
+		"total_words", len(result.Words))
 
 	// Log segment-level data
 	logger.Info("--- SEGMENTS (Original Timestamps) ---", "file", fileName)
@@ -537,7 +563,7 @@ func (mt *MultiTrackTranscriber) logIndividualTranscript(fileName string, result
 
 	// Log word-level data (original timestamps)
 	logger.Info("--- WORDS (Original Timestamps) ---", "file", fileName)
-	for i, word := range result.Word {
+	for i, word := range result.Words {
 		logger.Debug("Word",
 			"file", fileName,
 			"index", i+1,
@@ -550,7 +576,7 @@ func (mt *MultiTrackTranscriber) logIndividualTranscript(fileName string, result
 
 	// Log word-level data with offset applied
 	logger.Info("--- WORDS (With Offset Applied) ---", "file", fileName, "offset", offset)
-	for i, word := range result.Word {
+	for i, word := range result.Words {
 		adjustedStart := word.Start + offset
 		adjustedEnd := word.End + offset
 		logger.Info("Adjusted Word",
