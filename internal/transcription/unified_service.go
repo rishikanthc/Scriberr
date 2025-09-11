@@ -5,13 +5,16 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
 	"scriberr/internal/database"
 	"scriberr/internal/models"
 	"scriberr/internal/transcription/interfaces"
+	"scriberr/internal/transcription/pipeline"
 	"scriberr/internal/transcription/registry"
 	"scriberr/pkg/logger"
 )
@@ -19,6 +22,7 @@ import (
 // UnifiedTranscriptionService provides a unified interface for all transcription and diarization models
 type UnifiedTranscriptionService struct {
 	registry          *registry.ModelRegistry
+	pipeline          *pipeline.ProcessingPipeline
 	preprocessors     map[string]interfaces.Preprocessor
 	postprocessors    map[string]interfaces.Postprocessor
 	tempDirectory     string
@@ -30,6 +34,7 @@ type UnifiedTranscriptionService struct {
 func NewUnifiedTranscriptionService() *UnifiedTranscriptionService {
 	return &UnifiedTranscriptionService{
 		registry:        registry.GetRegistry(),
+		pipeline:        pipeline.NewProcessingPipeline(),
 		preprocessors:   make(map[string]interfaces.Preprocessor),
 		postprocessors:  make(map[string]interfaces.Postprocessor),
 		tempDirectory:   "data/temp",
@@ -151,10 +156,56 @@ func (u *UnifiedTranscriptionService) processSingleTrackJob(ctx context.Context,
 		return fmt.Errorf("failed to select models: %w", err)
 	}
 
+	// Apply preprocessing to ensure audio is in correct format (mono 16kHz)
+	var preprocessedInput interfaces.AudioInput
+	var tempFilesToCleanup []string
+
+	// Get model capabilities for preprocessing decisions
+	var capabilities interfaces.ModelCapabilities
+	if transcriptionModelID != "" {
+		if adapter, err := u.registry.GetTranscriptionAdapter(transcriptionModelID); err == nil {
+			capabilities = adapter.GetCapabilities()
+		}
+	} else if diarizationModelID != "" {
+		if adapter, err := u.registry.GetDiarizationAdapter(diarizationModelID); err == nil {
+			capabilities = adapter.GetCapabilities()
+		}
+	}
+
+	// Apply preprocessing
+	preprocessedInput, err = u.pipeline.ProcessAudio(ctx, audioInput, capabilities)
+	if err != nil {
+		logger.Warn("Audio preprocessing failed, using original", "error", err)
+		preprocessedInput = audioInput
+	} else {
+		// Track temporary file for cleanup if preprocessing created one
+		if preprocessedInput.TempFilePath != "" && preprocessedInput.TempFilePath != audioInput.FilePath {
+			tempFilesToCleanup = append(tempFilesToCleanup, preprocessedInput.TempFilePath)
+			logger.Info("Audio preprocessing completed", 
+				"original", audioInput.FilePath,
+				"converted", preprocessedInput.TempFilePath,
+				"original_sr", audioInput.SampleRate,
+				"converted_sr", preprocessedInput.SampleRate,
+				"original_channels", audioInput.Channels,
+				"converted_channels", preprocessedInput.Channels)
+		}
+	}
+
+	// Ensure cleanup of temporary files when function exits
+	defer func() {
+		for _, tempFile := range tempFilesToCleanup {
+			if err := os.Remove(tempFile); err != nil {
+				logger.Warn("Failed to clean up temporary file", "file", tempFile, "error", err)
+			} else {
+				logger.Info("Cleaned up temporary file", "file", tempFile)
+			}
+		}
+	}()
+
 	var transcriptResult *interfaces.TranscriptResult
 	var diarizationResult *interfaces.DiarizationResult
 
-	// Perform transcription
+	// Perform transcription using the preprocessed audio
 	if transcriptionModelID != "" {
 		logger.Info("Running transcription", "model_id", transcriptionModelID)
 		transcriptionAdapter, err := u.registry.GetTranscriptionAdapter(transcriptionModelID)
@@ -165,7 +216,7 @@ func (u *UnifiedTranscriptionService) processSingleTrackJob(ctx context.Context,
 		// Convert parameters for this specific model
 		params := u.convertParametersForModel(job.Parameters, transcriptionModelID)
 
-		transcriptResult, err = transcriptionAdapter.Transcribe(ctx, audioInput, params, procCtx)
+		transcriptResult, err = transcriptionAdapter.Transcribe(ctx, preprocessedInput, params, procCtx)
 		if err != nil {
 			return fmt.Errorf("transcription failed: %w", err)
 		}
@@ -183,7 +234,8 @@ func (u *UnifiedTranscriptionService) processSingleTrackJob(ctx context.Context,
 				return fmt.Errorf("failed to get diarization adapter: %w", err)
 			}
 
-			diarizationResult, err = diarizationAdapter.Diarize(ctx, audioInput, diarizationParams, procCtx)
+			// Use the same preprocessed audio for diarization
+			diarizationResult, err = diarizationAdapter.Diarize(ctx, preprocessedInput, diarizationParams, procCtx)
 			if err != nil {
 				return fmt.Errorf("diarization failed: %w", err)
 			}
@@ -272,7 +324,23 @@ func (u *UnifiedTranscriptionService) transcriptionIncludesDiarization(modelID s
 	return false
 }
 
-// createAudioInput creates an AudioInput from a file path
+// ffprobeOutput represents the JSON output from ffprobe
+type ffprobeOutput struct {
+	Streams []struct {
+		CodecType    string `json:"codec_type"`
+		SampleRate   string `json:"sample_rate"`
+		Channels     int    `json:"channels"`
+		Duration     string `json:"duration"`
+		CodecName    string `json:"codec_name"`
+		BitRate      string `json:"bit_rate"`
+	} `json:"streams"`
+	Format struct {
+		Duration string `json:"duration"`
+		Size     string `json:"size"`
+	} `json:"format"`
+}
+
+// createAudioInput creates an AudioInput from a file path with real metadata
 func (u *UnifiedTranscriptionService) createAudioInput(audioPath string) (interfaces.AudioInput, error) {
 	// Get file info
 	fileInfo, err := os.Stat(audioPath)
@@ -284,7 +352,7 @@ func (u *UnifiedTranscriptionService) createAudioInput(audioPath string) (interf
 	ext := strings.ToLower(filepath.Ext(audioPath))
 	format := strings.TrimPrefix(ext, ".")
 
-	// Create audio input (basic implementation)
+	// Use ffprobe to get actual audio metadata
 	audioInput := interfaces.AudioInput{
 		FilePath: audioPath,
 		Format:   format,
@@ -292,11 +360,84 @@ func (u *UnifiedTranscriptionService) createAudioInput(audioPath string) (interf
 		Metadata: map[string]string{},
 	}
 
-	// TODO: Extract actual audio metadata (sample rate, channels, duration)
-	// For now, use defaults
-	audioInput.SampleRate = 16000
-	audioInput.Channels = 1
-	audioInput.Duration = time.Duration(float64(fileInfo.Size()/32000)) * time.Second // Rough estimate
+	// Run ffprobe to get audio metadata
+	cmd := exec.Command("ffprobe", 
+		"-v", "quiet",
+		"-print_format", "json",
+		"-show_format",
+		"-show_streams",
+		audioPath)
+	
+	output, err := cmd.Output()
+	if err != nil {
+		logger.Warn("Failed to run ffprobe, using defaults", "error", err, "file", audioPath)
+		// Fallback to defaults
+		audioInput.SampleRate = 16000
+		audioInput.Channels = 1
+		audioInput.Duration = time.Duration(float64(fileInfo.Size()/32000)) * time.Second
+		return audioInput, nil
+	}
+
+	// Parse ffprobe output
+	var probeData ffprobeOutput
+	if err := json.Unmarshal(output, &probeData); err != nil {
+		logger.Warn("Failed to parse ffprobe output, using defaults", "error", err)
+		audioInput.SampleRate = 16000
+		audioInput.Channels = 1
+		audioInput.Duration = time.Duration(float64(fileInfo.Size()/32000)) * time.Second
+		return audioInput, nil
+	}
+
+	// Find the audio stream
+	for _, stream := range probeData.Streams {
+		if stream.CodecType == "audio" {
+			// Parse sample rate
+			if sampleRate, err := strconv.Atoi(stream.SampleRate); err == nil {
+				audioInput.SampleRate = sampleRate
+			} else {
+				audioInput.SampleRate = 16000 // Default
+			}
+
+			// Set channels
+			audioInput.Channels = stream.Channels
+			if audioInput.Channels == 0 {
+				audioInput.Channels = 1 // Default to mono
+			}
+
+			// Parse duration
+			if duration, err := strconv.ParseFloat(stream.Duration, 64); err == nil {
+				audioInput.Duration = time.Duration(duration * float64(time.Second))
+			} else if duration, err := strconv.ParseFloat(probeData.Format.Duration, 64); err == nil {
+				audioInput.Duration = time.Duration(duration * float64(time.Second))
+			} else {
+				// Fallback calculation
+				audioInput.Duration = time.Duration(float64(fileInfo.Size()/32000)) * time.Second
+			}
+
+			// Store additional metadata
+			audioInput.Metadata["codec"] = stream.CodecName
+			if stream.BitRate != "" {
+				audioInput.Metadata["bitrate"] = stream.BitRate
+			}
+			
+			break
+		}
+	}
+
+	// Set defaults if no audio stream found
+	if audioInput.SampleRate == 0 {
+		audioInput.SampleRate = 16000
+	}
+	if audioInput.Channels == 0 {
+		audioInput.Channels = 1
+	}
+
+	logger.Info("Audio metadata extracted", 
+		"file", audioPath,
+		"sample_rate", audioInput.SampleRate,
+		"channels", audioInput.Channels,
+		"duration", audioInput.Duration,
+		"size", audioInput.Size)
 
 	return audioInput, nil
 }

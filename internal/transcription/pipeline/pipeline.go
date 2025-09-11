@@ -66,10 +66,8 @@ type AudioFormatPreprocessor struct{}
 
 // AppliesTo checks if this preprocessor should be used for the given model
 func (a *AudioFormatPreprocessor) AppliesTo(capabilities interfaces.ModelCapabilities) bool {
-	// Apply to NVIDIA models that require specific formats
-	return capabilities.ModelFamily == "nvidia_parakeet" || 
-		   capabilities.ModelFamily == "nvidia_canary" ||
-		   capabilities.ModelFamily == "nvidia_sortformer"
+	// Apply to all models for consistent audio format (mono 16kHz)
+	return true
 }
 
 // GetRequiredFormats returns the output formats this preprocessor can produce
