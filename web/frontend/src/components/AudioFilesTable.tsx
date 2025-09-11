@@ -56,7 +56,6 @@ import {
 	AlertDialogFooter,
 	AlertDialogHeader,
 	AlertDialogTitle,
-	AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import {
 	Table,
@@ -129,6 +128,8 @@ interface AudioFile {
 	audio_path: string;
 	diarization?: boolean;
 	is_multi_track?: boolean;
+	error_message?: string;
+	individual_transcripts?: any;
 }
 
 interface AudioFilesTableProps {
@@ -173,13 +174,19 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 	const [killingJobs, setKillingJobs] = useState<Set<string>>(new Set());
 	const [transcribeDDialogOpen, setTranscribeDDialogOpen] = useState(false);
 	const [trackProgress, setTrackProgress] = useState<Record<string, any>>({});
+	
+	// Dialog state management (moved outside table to prevent re-renders)
+	const [stopDialogOpen, setStopDialogOpen] = useState(false);
+	const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+	const [selectedFile, setSelectedFile] = useState<AudioFile | null>(null);
 
-	const fetchAudioFiles = useCallback(async (page?: number, limit?: number, searchQuery?: string, isInitialLoad = false) => {
+	const fetchAudioFiles = useCallback(async (page?: number, limit?: number, searchQuery?: string, isInitialLoad = false, isPolling = false) => {
 		try {
 			// Only show loading skeleton on initial load, use page changing indicator for pagination
 			if (isInitialLoad) {
 				setLoading(true);
-			} else {
+			} else if (!isPolling) {
+				// Only show loading indicator for user-triggered actions, not polling
 				setIsPageChanging(true);
 			}
 			
@@ -206,7 +213,39 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 			if (response.ok) {
 				const result: PaginationResponse = await response.json();
 				
-				setData(result.jobs || []);
+				// Smart update: Only update status fields during polling to preserve UI state
+				if (isPolling) {
+					setData(prevData => {
+						const newJobs = result.jobs || [];
+						
+						// Update existing jobs if their status changed
+						const updatedData = prevData.map(existingJob => {
+							const updatedJob = newJobs.find(j => j.id === existingJob.id);
+							if (updatedJob) {
+								// Only update if anything actually changed (mainly status)
+								const hasChanges = 
+									updatedJob.status !== existingJob.status ||
+									updatedJob.error_message !== existingJob.error_message ||
+									JSON.stringify(updatedJob.individual_transcripts) !== JSON.stringify(existingJob.individual_transcripts);
+								
+								if (hasChanges) {
+									return { ...existingJob, ...updatedJob };
+								}
+							}
+							return existingJob; // Keep existing reference if no change
+						});
+						
+						// Add any new jobs that appeared
+						const existingIds = new Set(prevData.map(job => job.id));
+						const newJobsToAdd = newJobs.filter(job => !existingIds.has(job.id));
+						
+						return [...updatedData, ...newJobsToAdd];
+					});
+				} else {
+					// Full replacement for user-triggered actions
+					setData(result.jobs || []);
+				}
+				
 				setTotalItems(result.pagination.total);
 				setPageCount(result.pagination.pages);
 				// Fetch queue positions for pending jobs
@@ -505,7 +544,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 			
 			pollingIntervalRef.current = setInterval(() => {
 				// Keep current pagination when polling, but don't show loading indicators
-				fetchAudioFiles(undefined, undefined, undefined, false);
+				fetchAudioFiles(undefined, undefined, undefined, false, true);
 			}, pollingInterval);
 		}
 
@@ -822,90 +861,42 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 										</Button>
 										
 										{file.status === "processing" && (
-											<AlertDialog>
-												<AlertDialogTrigger asChild>
-													<Button
-														variant="ghost"
-														size="sm"
-														className="w-full justify-start h-8 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 text-orange-500 dark:text-orange-400 hover:text-orange-600 dark:hover:text-orange-300 cursor-pointer"
-														disabled={killingJobs.has(file.id)}
-													>
-														{killingJobs.has(file.id) ? (
-															<>
-																<Loader2 className="mr-2 h-4 w-4 animate-spin" />
-																Stopping...
-															</>
-														) : (
-															<>
-																<StopCircle className="mr-2 h-4 w-4" />
-																Stop
-															</>
-														)}
-													</Button>
-												</AlertDialogTrigger>
-                            <AlertDialogContent className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
-													<AlertDialogHeader>
-														<AlertDialogTitle className="text-gray-900 dark:text-gray-100">
-															Stop Transcription
-														</AlertDialogTitle>
-														<AlertDialogDescription className="text-gray-600 dark:text-gray-400">
-															Are you sure you want to stop the transcription of "
-															{file.title || getFileName(file.audio_path)}
-															"? This will cancel the current transcription process.
-														</AlertDialogDescription>
-													</AlertDialogHeader>
-													<AlertDialogFooter>
-														<AlertDialogCancel className="bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700">
-															Cancel
-														</AlertDialogCancel>
-														<AlertDialogAction
-															className="bg-orange-600 text-white hover:bg-orange-700"
-															onClick={() => handleKillJob(file.id)}
-														>
-															Stop Transcription
-														</AlertDialogAction>
-													</AlertDialogFooter>
-												</AlertDialogContent>
-											</AlertDialog>
+											<Button
+												variant="ghost"
+												size="sm"
+												className="w-full justify-start h-8 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 text-orange-500 dark:text-orange-400 hover:text-orange-600 dark:hover:text-orange-300 cursor-pointer"
+												disabled={killingJobs.has(file.id)}
+												onClick={() => {
+													setSelectedFile(file);
+													setStopDialogOpen(true);
+												}}
+											>
+												{killingJobs.has(file.id) ? (
+													<>
+														<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+														Stopping...
+													</>
+												) : (
+													<>
+														<StopCircle className="mr-2 h-4 w-4" />
+														Stop
+													</>
+												)}
+											</Button>
 										)}
 										
-										<AlertDialog>
-											<AlertDialogTrigger asChild>
-												<Button
-													variant="ghost"
-													size="sm"
-													className="w-full justify-start h-8 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 text-red-500 dark:text-red-400 hover:text-red-600 dark:hover:text-red-300 cursor-pointer"
-												>
-													<Trash2 className="mr-2 h-4 w-4" />
-													Delete
-												</Button>
-											</AlertDialogTrigger>
-                        <AlertDialogContent className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
-												<AlertDialogHeader>
-													<AlertDialogTitle className="text-gray-900 dark:text-gray-100">
-														Delete Audio File
-													</AlertDialogTitle>
-													<AlertDialogDescription className="text-gray-600 dark:text-gray-400">
-														Are you sure you want to delete "
-														{file.title || getFileName(file.audio_path)}
-														"? This action cannot be undone and will
-														permanently remove the audio file and any
-														transcription data.
-													</AlertDialogDescription>
-												</AlertDialogHeader>
-												<AlertDialogFooter>
-													<AlertDialogCancel className="bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700">
-														Cancel
-													</AlertDialogCancel>
-													<AlertDialogAction
-														className="bg-red-600 text-white hover:bg-red-700"
-														onClick={() => handleDelete(file.id)}
-													>
-														Delete
-													</AlertDialogAction>
-												</AlertDialogFooter>
-											</AlertDialogContent>
-										</AlertDialog>
+										<Button
+											variant="ghost"
+											size="sm"
+											className="w-full justify-start h-8 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 text-red-500 dark:text-red-400 hover:text-red-600 dark:hover:text-red-300 cursor-pointer"
+											onClick={() => {
+												setSelectedFile(file);
+												setDeleteDialogOpen(true);
+											}}
+										>
+											<Trash2 className="mr-2 h-4 w-4" />
+											Delete
+										</Button>
 									</div>
 								</PopoverContent>
 							</Popover>
@@ -916,7 +907,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 				enableGlobalFilter: false,
 			},
 		],
-		[openPopovers, queuePositions, trackProgress, getStatusIcon, handleAudioClick, handleTranscribe, handleTranscribeD, handleDelete, canTranscribe, getFileName, killingJobs, handleKillJob]
+		[openPopovers, queuePositions, trackProgress, getStatusIcon, handleAudioClick, handleTranscribe, handleTranscribeD, canTranscribe, getFileName, killingJobs, setSelectedFile, setStopDialogOpen, setDeleteDialogOpen]
 	);
 
 	// Create the table instance with server-side pagination and search
@@ -1153,6 +1144,72 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 				onStartTranscription={handleStartTranscriptionWithProfile}
 				loading={transcriptionLoading}
 			/>
+
+			{/* Stop Transcription Dialog */}
+			<AlertDialog open={stopDialogOpen} onOpenChange={setStopDialogOpen}>
+				<AlertDialogContent className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+					<AlertDialogHeader>
+						<AlertDialogTitle className="text-gray-900 dark:text-gray-100">
+							Stop Transcription
+						</AlertDialogTitle>
+						<AlertDialogDescription className="text-gray-600 dark:text-gray-400">
+							Are you sure you want to stop the transcription of "
+							{selectedFile?.title || (selectedFile ? getFileName(selectedFile.audio_path) : "")}
+							"? This will cancel the current transcription process.
+						</AlertDialogDescription>
+					</AlertDialogHeader>
+					<AlertDialogFooter>
+						<AlertDialogCancel className="bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700">
+							Cancel
+						</AlertDialogCancel>
+						<AlertDialogAction
+							className="bg-orange-600 text-white hover:bg-orange-700"
+							onClick={() => {
+								if (selectedFile) {
+									handleKillJob(selectedFile.id);
+								}
+								setStopDialogOpen(false);
+							}}
+						>
+							Stop Transcription
+						</AlertDialogAction>
+					</AlertDialogFooter>
+				</AlertDialogContent>
+			</AlertDialog>
+
+			{/* Delete Audio File Dialog */}
+			<AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+				<AlertDialogContent className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+					<AlertDialogHeader>
+						<AlertDialogTitle className="text-gray-900 dark:text-gray-100">
+							Delete Audio File
+						</AlertDialogTitle>
+						<AlertDialogDescription className="text-gray-600 dark:text-gray-400">
+							Are you sure you want to delete "
+							{selectedFile?.title || (selectedFile ? getFileName(selectedFile.audio_path) : "")}
+							"? This action cannot be undone and will
+							permanently remove the audio file and any
+							transcription data.
+						</AlertDialogDescription>
+					</AlertDialogHeader>
+					<AlertDialogFooter>
+						<AlertDialogCancel className="bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700">
+							Cancel
+						</AlertDialogCancel>
+						<AlertDialogAction
+							className="bg-red-600 text-white hover:bg-red-700"
+							onClick={() => {
+								if (selectedFile) {
+									handleDelete(selectedFile.id);
+								}
+								setDeleteDialogOpen(false);
+							}}
+						>
+							Delete
+						</AlertDialogAction>
+					</AlertDialogFooter>
+				</AlertDialogContent>
+			</AlertDialog>
 		</div>
 	);
 });
