@@ -1,0 +1,37 @@
+services:
+  scriberr:
+    # Build from local Dockerfile; replace with `image: ghcr.io/rishikanthc/scriberr:latest`
+    # if you prefer pulling a prebuilt image.
+    build:
+      context: .
+      dockerfile: Dockerfile.cuda
+    image: scriberr:local-cuda
+    container_name: scriberr
+    ports:
+      - "8080:8080"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities:
+                - gpu
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+    # environment:
+    #   - HOST=0.0.0.0
+    #   - PORT=8080
+    #   - DATABASE_PATH=/app/data/scriberr.db
+    #   - UPLOAD_DIR=/app/data/uploads
+      - PUID=${PUID:-10001}
+      - PGID=${PGID:-10001}
+    volumes:
+      - ./scriberr_data:/app/data
+      - ./env-data:/app/whisperx-env
+    restart: unless-stopped
+
+volumes:
+  scriberr_data:
+  env-data:
