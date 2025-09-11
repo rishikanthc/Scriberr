@@ -15,7 +15,7 @@ import { Upload, X, FileAudio, File, AlertCircle } from "lucide-react";
 interface MultiTrackUploadDialogProps {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
-	onMultiTrackUpload?: (files: File[], aupFile: File, title: string) => void;
+	onMultiTrackUpload?: (files: File[], aupFile: File, title: string) => Promise<void>;
 	prePopulatedFiles?: File[];
 	prePopulatedAupFile?: File;
 	prePopulatedTitle?: string;
@@ -105,9 +105,9 @@ export function MultiTrackUploadDialog({
 		const aupFileToUpload = aupFiles[0].file;
 		
 		// Call the callback with the files and title
-		onMultiTrackUpload?.(trackFiles, aupFileToUpload, title.trim());
+		await onMultiTrackUpload?.(trackFiles, aupFileToUpload, title.trim());
 		
-		// Reset form and close dialog
+		// Reset form and close dialog (Note: this may not be called if callback handles closing)
 		setTitle("");
 		setFiles([]);
 		onOpenChange(false);

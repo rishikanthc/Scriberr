@@ -12,7 +12,6 @@ import { ThemeSwitcher } from "./ThemeSwitcher";
 import { AudioRecorder } from "./AudioRecorder";
 import { QuickTranscriptionDialog } from "./QuickTranscriptionDialog";
 import { YouTubeDownloadDialog } from "./YouTubeDownloadDialog";
-import { MultiTrackUploadDialog } from "./MultiTrackUploadDialog";
 import { useRouter } from "../contexts/RouterContext";
 import { useAuth } from "../contexts/AuthContext";
 
@@ -23,11 +22,11 @@ interface FileWithType {
 
 interface HeaderProps {
 	onFileSelect: (files: File | File[] | FileWithType | FileWithType[]) => void;
-	onMultiTrackUpload?: (files: File[], aupFile: File, title: string) => void;
+	onMultiTrackClick?: () => void;
 	onDownloadComplete?: () => void;
 }
 
-export function Header({ onFileSelect, onMultiTrackUpload, onDownloadComplete }: HeaderProps) {
+export function Header({ onFileSelect, onMultiTrackClick, onDownloadComplete }: HeaderProps) {
 	const { navigate } = useRouter();
 	const { logout } = useAuth();
 	const fileInputRef = useRef<HTMLInputElement>(null);
@@ -35,7 +34,6 @@ export function Header({ onFileSelect, onMultiTrackUpload, onDownloadComplete }:
 	const [isRecorderOpen, setIsRecorderOpen] = useState(false);
 	const [isQuickTranscriptionOpen, setIsQuickTranscriptionOpen] = useState(false);
 	const [isYouTubeDialogOpen, setIsYouTubeDialogOpen] = useState(false);
-	const [isMultiTrackDialogOpen, setIsMultiTrackDialogOpen] = useState(false);
 
 	const handleUploadClick = () => {
 		fileInputRef.current?.click();
@@ -58,7 +56,7 @@ export function Header({ onFileSelect, onMultiTrackUpload, onDownloadComplete }:
 	};
 
 	const handleMultiTrackClick = () => {
-		setIsMultiTrackDialogOpen(true);
+		onMultiTrackClick?.();
 	};
 
 	const handleSettingsClick = () => {
@@ -279,12 +277,6 @@ export function Header({ onFileSelect, onMultiTrackUpload, onDownloadComplete }:
 				onDownloadComplete={onDownloadComplete}
 			/>
 
-			{/* Multi-Track Upload Dialog */}
-			<MultiTrackUploadDialog
-				open={isMultiTrackDialogOpen}
-				onOpenChange={setIsMultiTrackDialogOpen}
-				onMultiTrackUpload={onMultiTrackUpload}
-			/>
 		</header>
 	);
 }

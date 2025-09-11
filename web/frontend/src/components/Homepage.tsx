@@ -317,7 +317,7 @@ export function Homepage() {
 			<div className="mx-auto w-full max-w-6xl px-2 sm:px-6 md:px-8 py-3 sm:py-6">
 				<Header 
 					onFileSelect={handleFileSelect} 
-					onMultiTrackUpload={handleMultiTrackUpload}
+					onMultiTrackClick={() => setIsMultiTrackDialogOpen(true)}
 					onDownloadComplete={() => setRefreshTrigger((prev) => prev + 1)}
 				/>
 				
