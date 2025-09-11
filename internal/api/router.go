@@ -3,6 +3,7 @@ package api
 import (
 	"scriberr/internal/auth"
 	"scriberr/internal/web"
+	"scriberr/pkg/logger"
 	"scriberr/pkg/middleware"
 
 	"github.com/gin-gonic/gin"
@@ -12,8 +13,18 @@ import (
 
 // SetupRoutes sets up all API routes
 func SetupRoutes(handler *Handler, authService *auth.AuthService) *gin.Engine {
-	// Create Gin router
-	router := gin.Default()
+	// Suppress all GIN debug output
+	gin.SetMode(gin.ReleaseMode)
+	logger.SetGinOutput()
+	
+	// Create Gin router without default middleware
+	router := gin.New()
+	
+	// Add recovery middleware
+	router.Use(gin.Recovery())
+	
+	// Add custom logger middleware
+	router.Use(logger.GinLogger())
 
 	// Add compression middleware first for maximum benefit
 	router.Use(middleware.CompressionMiddleware())

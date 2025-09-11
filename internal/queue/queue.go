@@ -111,7 +111,7 @@ func NewTaskQueue(legacyWorkers int, processor JobProcessor) *TaskQueue {
 // Start starts the task queue workers
 func (tq *TaskQueue) Start() {
 	workers := int(atomic.LoadInt64(&tq.currentWorkers))
-	logger.Info("Starting task queue", 
+	logger.Debug("Starting task queue", 
 		"workers", workers, 
 		"min_workers", tq.minWorkers, 
 		"max_workers", tq.maxWorkers, 
@@ -136,11 +136,11 @@ func (tq *TaskQueue) Start() {
 
 // Stop stops the task queue
 func (tq *TaskQueue) Stop() {
-	log.Println("Stopping task queue...")
+	logger.Debug("Stopping task queue")
 	tq.cancel()
 	close(tq.jobChannel)
 	tq.wg.Wait()
-	log.Println("Task queue stopped")
+	logger.Debug("Task queue stopped")
 }
 
 // EnqueueJob adds a job to the queue
@@ -159,17 +159,17 @@ func (tq *TaskQueue) EnqueueJob(jobID string) error {
 func (tq *TaskQueue) worker(id int) {
 	defer tq.wg.Done()
 
-	logger.Info("Worker started", "worker_id", id)
+	logger.Debug("Worker started", "worker_id", id)
 
 	for {
 		select {
 		case jobID, ok := <-tq.jobChannel:
 			if !ok {
-				logger.Info("Worker stopped", "worker_id", id)
+				logger.Debug("Worker stopped", "worker_id", id)
 				return
 			}
 
-			logger.WorkerInfo(id, jobID, "start")
+			logger.WorkerOperation(id, jobID, "start")
 
 			// Update job status to processing
 			if err := tq.updateJobStatus(jobID, models.StatusProcessing); err != nil {
@@ -208,21 +208,21 @@ func (tq *TaskQueue) worker(id int) {
 			// Handle result
 			if err != nil {
 				if jobCtx.Err() == context.Canceled {
-					log.Printf("Worker %d: Job %s was cancelled", id, jobID)
+					logger.Info("Job cancelled", "worker_id", id, "job_id", jobID)
 					tq.updateJobStatus(jobID, models.StatusFailed)
 					tq.updateJobError(jobID, "Job was cancelled by user")
 				} else {
-					log.Printf("Worker %d: Failed to process job %s: %v", id, jobID, err)
+					logger.Error("Job processing failed", "worker_id", id, "job_id", jobID, "error", err)
 					tq.updateJobStatus(jobID, models.StatusFailed)
 					tq.updateJobError(jobID, err.Error())
 				}
 			} else {
-				log.Printf("Worker %d: Successfully processed job %s", id, jobID)
+				logger.Debug("Job processed successfully", "worker_id", id, "job_id", jobID)
 				tq.updateJobStatus(jobID, models.StatusCompleted)
 			}
 
 		case <-tq.ctx.Done():
-			log.Printf("Worker %d stopped due to context cancellation", id)
+			logger.Debug("Worker stopped", "worker_id", id, "reason", "context_cancelled")
 			return
 		}
 	}
@@ -235,14 +235,14 @@ func (tq *TaskQueue) jobScanner() {
 	ticker := time.NewTicker(10 * time.Second) // Scan every 10 seconds
 	defer ticker.Stop()
 
-	log.Println("Job scanner started")
+	logger.Debug("Job scanner started")
 
 	for {
 		select {
 		case <-ticker.C:
 			tq.scanPendingJobs()
 		case <-tq.ctx.Done():
-			log.Println("Job scanner stopped")
+			logger.Debug("Job scanner stopped")
 			return
 		}
 	}
@@ -253,16 +253,16 @@ func (tq *TaskQueue) scanPendingJobs() {
 	var jobs []models.TranscriptionJob
 
 	if err := database.DB.Where("status = ?", models.StatusPending).Find(&jobs).Error; err != nil {
-		log.Printf("Failed to scan pending jobs: %v", err)
+		logger.Error("Failed to scan pending jobs", "error", err)
 		return
 	}
 
 	for _, job := range jobs {
 		select {
 		case tq.jobChannel <- job.ID:
-			log.Printf("Enqueued pending job %s", job.ID)
+			logger.Debug("Enqueued pending job", "job_id", job.ID)
 		default:
-			log.Printf("Queue is full, skipping job %s", job.ID)
+			logger.Warn("Queue full, skipping job", "job_id", job.ID)
 			break
 		}
 	}
@@ -278,21 +278,21 @@ func (tq *TaskQueue) KillJob(jobID string) error {
 		return fmt.Errorf("job %s is not currently running", jobID)
 	}
 
-	log.Printf("Aggressively killing job %s", jobID)
+	logger.Info("Killing job", "job_id", jobID)
 
 	// Check if this is a multi-track job and handle accordingly
 	if mtProcessor, ok := tq.processor.(MultiTrackJobProcessor); ok && mtProcessor.IsMultiTrackJob(jobID) {
-		log.Printf("Terminating multi-track job %s", jobID)
+		logger.Debug("Terminating multi-track job", "job_id", jobID)
 		
 		// Terminate all individual track jobs
 		if err := mtProcessor.TerminateMultiTrackJob(jobID); err != nil {
-			log.Printf("Failed to terminate multi-track job %s: %v", jobID, err)
+			logger.Error("Failed to terminate multi-track job", "job_id", jobID, "error", err)
 		}
 	}
 
 	// First, try to kill the OS process group (or process on non-Unix)
 	if runningJob.Process != nil && runningJob.Process.Process != nil {
-		log.Printf("Attempting to terminate process tree for PID %d (job %s)", runningJob.Process.Process.Pid, jobID)
+		logger.Debug("Terminating process tree", "pid", runningJob.Process.Process.Pid, "job_id", jobID)
 		if err := killProcessTree(runningJob.Process.Process); err != nil {
 			log.Printf("Failed to terminate process tree for job %s: %v, trying direct kill()", jobID, err)
 			_ = runningJob.Process.Process.Kill()

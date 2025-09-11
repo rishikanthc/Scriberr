@@ -1,9 +1,14 @@
 package logger
 
 import (
+	"fmt"
+	"io"
 	"log/slog"
 	"os"
 	"strings"
+	"time"
+
+	"github.com/gin-gonic/gin"
 )
 
 // Logger wraps slog.Logger with convenience methods
@@ -60,20 +65,34 @@ func Init(level string) {
 	// Create handler with optimized settings
 	opts := &slog.HandlerOptions{
 		Level:     slogLevel,
-		AddSource: currentLevel == LevelDebug, // Only add source in debug mode
+		AddSource: false, // Clean logs without source info
 		ReplaceAttr: func(groups []string, a slog.Attr) slog.Attr {
-			// Optimize timestamp format
+			// Clean timestamp format
 			if a.Key == slog.TimeKey {
 				return slog.Attr{
 					Key:   a.Key,
-					Value: slog.StringValue(a.Value.Time().Format("15:04:05.000")),
+					Value: slog.StringValue(a.Value.Time().Format("15:04:05")),
+				}
+			}
+			// Clean level names
+			if a.Key == slog.LevelKey {
+				level := a.Value.Any().(slog.Level)
+				switch level {
+				case slog.LevelDebug:
+					a.Value = slog.StringValue("DEBUG")
+				case slog.LevelInfo:
+					a.Value = slog.StringValue("INFO ")
+				case slog.LevelWarn:
+					a.Value = slog.StringValue("WARN ")
+				case slog.LevelError:
+					a.Value = slog.StringValue("ERROR")
 				}
 			}
 			return a
 		},
 	}
 
-	// Use text handler for better performance than JSON in most cases
+	// Use text handler for clean, readable output
 	handler := slog.NewTextHandler(os.Stdout, opts)
 	defaultLogger = &Logger{slog.New(handler)}
 }
@@ -84,6 +103,11 @@ func Get() *Logger {
 		Init(os.Getenv("LOG_LEVEL"))
 	}
 	return defaultLogger
+}
+
+// GetLevel returns the current log level
+func GetLevel() LogLevel {
+	return currentLevel
 }
 
 // Convenience methods for common logging patterns
@@ -117,44 +141,169 @@ func WithContext(key string, value any) *Logger {
 	return &Logger{Get().With(key, value)}
 }
 
-// Performance optimized logging for hot paths
-func DebugIf(condition bool, msg string, args ...any) {
-	if condition && currentLevel <= LevelDebug {
-		Get().Debug(msg, args...)
-	}
-}
-
-func InfoIf(condition bool, msg string, args ...any) {
-	if condition && currentLevel <= LevelInfo {
-		Get().Info(msg, args...)
-	}
-}
-
-// Database query logger for development
-func QueryDebug(query string, duration float64, args ...any) {
-	if currentLevel <= LevelDebug {
-		Get().Debug("database query",
-			"query", query,
-			"duration_ms", duration,
-			"args", args)
-	}
-}
-
-// HTTP request logger
-func HTTPInfo(method, path string, status int, duration float64) {
+// Startup logging for key initialization steps
+func Startup(step, message string, args ...any) {
+	// Simple message at INFO level, technical details at DEBUG
 	if currentLevel <= LevelInfo {
-		Get().Info("http request",
+		Info(message)
+	}
+	if currentLevel <= LevelDebug {
+		Debug("Startup step", append([]any{"step", step, "message", message}, args...)...)
+	}
+}
+
+// Job logging for transcription operations
+func JobStarted(jobID, filename, model string, params map[string]any) {
+	// Simple message at INFO, details at DEBUG
+	Info("Transcription started", "file", filename)
+	Debug("Job started with details", 
+		"job_id", jobID, 
+		"file", filename, 
+		"model", model,
+		"params", params)
+}
+
+func JobCompleted(jobID string, duration time.Duration, result any) {
+	Info("Transcription completed", "duration", duration.String())
+	Debug("Job completed with details", 
+		"job_id", jobID, 
+		"duration", duration.String(),
+		"result", result)
+}
+
+func JobFailed(jobID string, duration time.Duration, err error) {
+	Error("Transcription failed", "error", err.Error())
+	Debug("Job failed with details", 
+		"job_id", jobID, 
+		"duration", duration.String(),
+		"error", err.Error())
+}
+
+// HTTP request logging - filtered for INFO level
+func HTTPRequest(method, path string, status int, duration time.Duration, userAgent string) {
+	// Skip noisy endpoints at INFO level
+	if currentLevel <= LevelInfo {
+		switch path {
+		case "/api/v1/transcription/list", "/health":
+			// Skip logging frequent status checks at INFO level
+			return
+		}
+		if strings.HasSuffix(path, "/status") || strings.HasSuffix(path, "/track-progress") {
+			// Skip job status polling at INFO level
+			return
+		}
+	}
+	
+	// Log all requests at DEBUG level
+	if currentLevel <= LevelDebug {
+		Debug("API request", 
 			"method", method,
 			"path", path,
 			"status", status,
-			"duration_ms", duration)
+			"duration", fmt.Sprintf("%.2fms", float64(duration.Nanoseconds())/1e6),
+			"user_agent", userAgent)
+	}
+}
+
+// Authentication logging
+func AuthEvent(event, username, ip string, success bool, details ...any) {
+	if success {
+		Info("User login successful", "username", username)
+		Debug("Auth event details", 
+			append([]any{"event", event, "username", username, "ip", ip, "success", success}, details...)...)
+	} else {
+		Info("User login failed", "username", username, "reason", "invalid_credentials")
+		Debug("Auth event details", 
+			append([]any{"event", event, "username", username, "ip", ip, "success", success}, details...)...)
 	}
 }
 
 // Worker operation logger
-func WorkerInfo(workerID int, jobID string, operation string, args ...any) {
-	if currentLevel <= LevelInfo {
-		logger := Get().With("worker_id", workerID, "job_id", jobID, "operation", operation)
-		logger.Info("worker operation", args...)
+func WorkerOperation(workerID int, jobID string, operation string, args ...any) {
+	Debug("Worker operation", 
+		append([]any{"worker_id", workerID, "job_id", jobID, "operation", operation}, args...)...)
+}
+
+// Performance logging for debugging
+func Performance(operation string, duration time.Duration, details ...any) {
+	Debug("Performance", 
+		append([]any{"operation", operation, "duration", duration.String()}, details...)...)
+}
+
+// GIN middleware for clean HTTP logging
+func GinLogger() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		start := time.Now()
+		path := c.Request.URL.Path
+		raw := c.Request.URL.RawQuery
+
+		// Process request
+		c.Next()
+
+		// Calculate request duration
+		duration := time.Since(start)
+
+		// Build path with query string
+		if raw != "" {
+			path = path + "?" + raw
+		}
+
+		// Format log message based on level
+		if currentLevel <= LevelInfo {
+			// Clean format for INFO level, skip noisy endpoints
+			switch {
+			case strings.Contains(path, "/status") || strings.Contains(path, "/track-progress"):
+				return // Skip status polling
+			case path == "/api/v1/transcription/list" || path == "/health":
+				return // Skip frequent list calls
+			}
+		}
+
+		// Log request
+		status := c.Writer.Status()
+		statusColor := getStatusColor(status)
+		
+		if currentLevel <= LevelDebug {
+			// Detailed logging for DEBUG
+			Debug("API request",
+				"method", c.Request.Method,
+				"path", path,
+				"status", status,
+				"duration", fmt.Sprintf("%.2fms", float64(duration.Nanoseconds())/1e6),
+				"ip", c.ClientIP(),
+				"user_agent", c.Request.UserAgent())
+		} else {
+			// Clean format for INFO: "INFO  15:04:05 GET /api/v1/transcription/submit 200 5.13ms"
+			fmt.Printf("INFO  %s %s %s %s%d%s %s\n",
+				time.Now().Format("15:04:05"),
+				c.Request.Method,
+				path,
+				statusColor,
+				status,
+				"\033[0m", // Reset color
+				fmt.Sprintf("%.2fms", float64(duration.Nanoseconds())/1e6))
+		}
 	}
+}
+
+// getStatusColor returns ANSI color codes for HTTP status codes
+func getStatusColor(status int) string {
+	switch {
+	case status >= 200 && status < 300:
+		return "\033[32m" // Green
+	case status >= 300 && status < 400:
+		return "\033[33m" // Yellow
+	case status >= 400 && status < 500:
+		return "\033[31m" // Red
+	case status >= 500:
+		return "\033[35m" // Magenta
+	default:
+		return "\033[37m" // White
+	}
+}
+
+// SetGinOutput configures GIN to use a custom writer that suppresses default logs
+func SetGinOutput() {
+	// Set GIN to use a discard writer to suppress default logging
+	gin.DefaultWriter = io.Discard
 }

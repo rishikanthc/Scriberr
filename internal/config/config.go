@@ -3,7 +3,6 @@ package config
 import (
 	"crypto/rand"
 	"encoding/hex"
-	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -11,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/joho/godotenv"
+	"scriberr/pkg/logger"
 )
 
 // Config holds all configuration values
@@ -37,7 +37,7 @@ type Config struct {
 func Load() *Config {
 	// Load .env file if it exists
 	if err := godotenv.Load(); err != nil {
-		log.Println("No .env file found, using system environment variables")
+		logger.Debug("No .env file found, using system environment variables")
 	}
 
 	return &Config{
@@ -92,14 +92,14 @@ func getJWTSecret() string {
 	// Generate a secure random JWT secret and persist it
 	bytes := make([]byte, 32)
 	if _, err := rand.Read(bytes); err != nil {
-		log.Printf("Warning: Could not generate secure JWT secret, using fallback: %v", err)
+		logger.Warn("Could not generate secure JWT secret, using fallback", "error", err)
 		return "fallback-jwt-secret-please-set-JWT_SECRET-env-var"
 	}
 	secret := hex.EncodeToString(bytes)
 	// Ensure dir exists and write file (best-effort)
 	_ = os.MkdirAll(filepath.Dir(secretFile), 0755)
 	_ = os.WriteFile(secretFile, []byte(secret), 0600)
-	log.Println("Generated persistent JWT secret at", secretFile)
+	logger.Debug("Generated persistent JWT secret", "path", secretFile)
 	return secret
 }
 
@@ -110,10 +110,10 @@ func findUVPath() string {
 	}
 
 	if path, err := exec.LookPath("uv"); err == nil {
-		log.Printf("Found UV at: %s", path)
+		logger.Debug("Found UV package manager", "path", path)
 		return path
 	}
 
-	log.Println("Warning: UV package manager not found in PATH, using 'uv' as fallback")
+	logger.Warn("UV package manager not found in PATH, using fallback", "fallback", "uv")
 	return "uv"
 }

@@ -23,6 +23,7 @@ import (
 	"scriberr/internal/processing"
 	"scriberr/internal/queue"
 	"scriberr/internal/transcription"
+	"scriberr/pkg/logger"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -1123,11 +1124,17 @@ func (h *Handler) StartTranscription(c *gin.Context) {
 	// Parse request body parameters, overriding defaults
 	if err := c.ShouldBindJSON(&requestParams); err != nil {
 		// Use defaults if JSON parsing fails
-		fmt.Printf("DEBUG: Failed to parse JSON parameters: %v\n", err)
+		logger.Debug("Failed to parse JSON parameters, using defaults", "error", err)
 	}
 
 	// Debug: log what we received
-	fmt.Printf("DEBUG: Parsed parameters for job %s: ModelFamily=%s, Diarize=%v, DiarizeModel=%s\n", jobID, requestParams.ModelFamily, requestParams.Diarize, requestParams.DiarizeModel)
+	logger.Debug("Parsed transcription parameters", 
+		"job_id", jobID,
+		"model_family", requestParams.ModelFamily,
+		"model", requestParams.Model,
+		"diarization", requestParams.Diarize,
+		"diarize_model", requestParams.DiarizeModel,
+		"language", requestParams.Language)
 
 	// Validate NVIDIA-specific constraints
 	if requestParams.ModelFamily == "nvidia_parakeet" || requestParams.ModelFamily == "nvidia_canary" {
@@ -1176,9 +1183,24 @@ func (h *Handler) StartTranscription(c *gin.Context) {
 
 	// Enqueue job for transcription
 	if err := h.taskQueue.EnqueueJob(jobID); err != nil {
+		logger.Error("Failed to enqueue job", "job_id", jobID, "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to enqueue job"})
 		return
 	}
+
+	// Log job started
+	params := make(map[string]any)
+	params["model"] = requestParams.Model
+	params["model_family"] = requestParams.ModelFamily
+	params["diarization"] = requestParams.Diarize
+	if requestParams.Diarize && requestParams.DiarizeModel != "" {
+		params["diarize_model"] = requestParams.DiarizeModel
+	}
+	params["language"] = requestParams.Language
+	params["device"] = requestParams.Device
+	
+	filename := filepath.Base(job.AudioPath)
+	logger.JobStarted(jobID, filename, requestParams.ModelFamily, params)
 
 	c.JSON(http.StatusOK, job)
 }
@@ -1605,11 +1627,13 @@ func (h *Handler) Login(c *gin.Context) {
 
 	var user models.User
 	if err := database.DB.Where("username = ?", req.Username).First(&user).Error; err != nil {
+		logger.AuthEvent("login", req.Username, c.ClientIP(), false, "user_not_found")
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
 		return
 	}
 
 	if !auth.CheckPassword(req.Password, user.Password) {
+		logger.AuthEvent("login", req.Username, c.ClientIP(), false, "invalid_password")
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
 		return
 	}
@@ -1630,6 +1654,7 @@ func (h *Handler) Login(c *gin.Context) {
 	response.User.ID = user.ID
 	response.User.Username = user.Username
 
+	logger.AuthEvent("login", req.Username, c.ClientIP(), true)
 	c.JSON(http.StatusOK, response)
 }
 
