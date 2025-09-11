@@ -481,12 +481,8 @@ func (mt *MultiTrackTranscriber) mergeTrackTranscripts(trackTranscripts []TrackT
 		if i > 0 {
 			mergedText.WriteString(" ")
 		}
-		// Include speaker label in merged text
-		if turn.Speaker != nil && *turn.Speaker != "" {
-			mergedText.WriteString(fmt.Sprintf("[%s]: %s", *turn.Speaker, strings.TrimSpace(turn.Text)))
-		} else {
-			mergedText.WriteString(strings.TrimSpace(turn.Text))
-		}
+		// Include only text without speaker labels (speaker info preserved in segments)
+		mergedText.WriteString(strings.TrimSpace(turn.Text))
 	}
 
 	mergedResult := &interfaces.TranscriptResult{
