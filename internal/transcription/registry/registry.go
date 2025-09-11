@@ -48,7 +48,7 @@ func RegisterTranscriptionAdapter(modelID string, adapter interfaces.Transcripti
 	registry.transcriptionAdapters[modelID] = adapter
 	registry.capabilities[modelID] = adapter.GetCapabilities()
 	
-	logger.Info("Registered transcription adapter", 
+	logger.Debug("Registered transcription adapter", 
 		"model_id", modelID, 
 		"family", adapter.GetCapabilities().ModelFamily,
 		"display_name", adapter.GetCapabilities().DisplayName)
@@ -63,7 +63,7 @@ func RegisterDiarizationAdapter(modelID string, adapter interfaces.DiarizationAd
 	registry.diarizationAdapters[modelID] = adapter
 	registry.capabilities[modelID] = adapter.GetCapabilities()
 	
-	logger.Info("Registered diarization adapter", 
+	logger.Debug("Registered diarization adapter", 
 		"model_id", modelID, 
 		"family", adapter.GetCapabilities().ModelFamily,
 		"display_name", adapter.GetCapabilities().DisplayName)
@@ -78,7 +78,7 @@ func RegisterCompositeAdapter(modelID string, adapter interfaces.CompositeAdapte
 	registry.compositeAdapters[modelID] = adapter
 	registry.capabilities[modelID] = adapter.GetCapabilities()
 	
-	logger.Info("Registered composite adapter", 
+	logger.Debug("Registered composite adapter", 
 		"model_id", modelID, 
 		"family", adapter.GetCapabilities().ModelFamily,
 		"display_name", adapter.GetCapabilities().DisplayName)
@@ -405,7 +405,7 @@ func (r *ModelRegistry) InitializeModels(ctx context.Context) error {
 		wg.Add(1)
 		go func(id string, adp interfaces.TranscriptionAdapter) {
 			defer wg.Done()
-			logger.Info("Initializing transcription model", "model_id", id)
+			logger.Debug("Initializing transcription model", "model_id", id)
 			if err := adp.PrepareEnvironment(ctx); err != nil {
 				logger.Error("Failed to initialize transcription model", 
 					"model_id", id, "error", err)
@@ -424,7 +424,7 @@ func (r *ModelRegistry) InitializeModels(ctx context.Context) error {
 		wg.Add(1)
 		go func(id string, adp interfaces.DiarizationAdapter) {
 			defer wg.Done()
-			logger.Info("Initializing diarization model", "model_id", id)
+			logger.Debug("Initializing diarization model", "model_id", id)
 			if err := adp.PrepareEnvironment(ctx); err != nil {
 				logger.Error("Failed to initialize diarization model", 
 					"model_id", id, "error", err)
@@ -443,7 +443,7 @@ func (r *ModelRegistry) InitializeModels(ctx context.Context) error {
 		wg.Add(1)
 		go func(id string, adp interfaces.CompositeAdapter) {
 			defer wg.Done()
-			logger.Info("Initializing composite model", "model_id", id)
+			logger.Debug("Initializing composite model", "model_id", id)
 			if err := adp.PrepareEnvironment(ctx); err != nil {
 				logger.Error("Failed to initialize composite model", 
 					"model_id", id, "error", err)

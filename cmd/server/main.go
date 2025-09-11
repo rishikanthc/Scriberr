@@ -4,7 +4,6 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 	"os/signal"
@@ -21,8 +20,6 @@ import (
 
 	_ "scriberr/api-docs" // Import generated Swagger docs
 	_ "scriberr/internal/transcription/adapters" // Import adapters for auto-registration
-
-	"github.com/gin-gonic/gin"
 )
 
 // Version information (set by GoReleaser)
@@ -68,67 +65,56 @@ func main() {
 		os.Exit(0)
 	}
 
-	log.Println("🚀 Scriberr starting up...")
+	// Initialize structured logging first
+	logger.Init(os.Getenv("LOG_LEVEL"))
+	logger.Info("Starting Scriberr", "version", version)
 	
 	// Load configuration
-	log.Println("📋 Loading configuration...")
+	logger.Startup("config", "Loading configuration")
 	cfg := config.Load()
 
-	// Initialize structured logging
-	log.Println("📝 Initializing logging system...")
-	logger.Init(os.Getenv("LOG_LEVEL"))
-	logger.Info("Starting Scriberr", "version", version, "commit", commit)
-
 	// Initialize database
-	log.Println("🗄️  Initializing database connection...")
+	logger.Startup("database", "Connecting to database")
 	if err := database.Initialize(cfg.DatabasePath); err != nil {
-		log.Fatal("Failed to initialize database:", err)
+		logger.Error("Failed to connect to database", "error", err)
+		os.Exit(1)
 	}
 	defer database.Close()
-	log.Println("✅ Database connection established")
 
 	// Initialize authentication service
-	log.Println("🔐 Setting up authentication service...")
+	logger.Startup("auth", "Setting up authentication")
 	authService := auth.NewAuthService(cfg.JWTSecret)
-	log.Println("✅ Authentication service ready")
 
 	// Initialize unified transcription processor
-	log.Println("🎤 Initializing unified transcription service...")
+	logger.Startup("transcription", "Initializing transcription service")
 	unifiedProcessor := transcription.NewUnifiedJobProcessor()
 	
 	// Bootstrap embedded Python environment (for all adapters)
-	log.Println("🐍 Setting up Python environment and dependencies...")
+	logger.Startup("python", "Preparing Python environment")
 	if err := unifiedProcessor.InitEmbeddedPythonEnv(); err != nil {
-		log.Fatalf("Failed to initialize Python env: %v", err)
+		logger.Error("Failed to prepare Python environment", "error", err)
+		os.Exit(1)
 	}
-	log.Println("✅ Python environment ready")
 
 	// Initialize quick transcription service
-	log.Println("⚡ Initializing quick transcription service...")
+	logger.Startup("quick-transcription", "Initializing quick transcription service")
 	quickTranscriptionService, err := transcription.NewQuickTranscriptionService(cfg, unifiedProcessor)
 	if err != nil {
-		log.Fatal("Failed to initialize quick transcription service:", err)
+		logger.Error("Failed to initialize quick transcription service", "error", err)
+		os.Exit(1)
 	}
-	log.Println("✅ Quick transcription service ready")
 
 	// Initialize task queue
-	log.Println("📋 Starting background task queue...")
+	logger.Startup("queue", "Starting background processing")
 	taskQueue := queue.NewTaskQueue(2, unifiedProcessor) // 2 workers
 	taskQueue.Start()
 	defer taskQueue.Stop()
-	log.Println("✅ Task queue started with 2 workers")
 
 	// Initialize API handlers
-	log.Println("🔧 Setting up API handlers...")
 	handler := api.NewHandler(cfg, authService, taskQueue, unifiedProcessor, quickTranscriptionService)
 
 	// Set up router
-	log.Println("🛤️  Configuring routes...")
-	if cfg.Host != "localhost" {
-		gin.SetMode(gin.ReleaseMode)
-	}
 	router := api.SetupRoutes(handler, authService)
-	log.Println("✅ Routes configured")
 
 	// Create server
 	srv := &http.Server{
@@ -138,24 +124,25 @@ func main() {
 
 	// Start server in a goroutine
 	go func() {
-		log.Printf("🌐 Starting HTTP server on %s:%s", cfg.Host, cfg.Port)
+		logger.Debug("Starting HTTP server", "host", cfg.Host, "port", cfg.Port)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatal("Failed to start server:", err)
+			logger.Error("Failed to start server", "error", err)
+			os.Exit(1)
 		}
 	}()
 	
 	// Give the server a moment to start
 	time.Sleep(100 * time.Millisecond)
-	log.Printf("🎉 Scriberr is now running! Server listening on http://%s:%s", cfg.Host, cfg.Port)
-	log.Println("💡 Visit /swagger/index.html for API documentation")
-	log.Println("🛑 Press Ctrl+C to stop the server")
+	logger.Info("Scriberr is ready", 
+		"url", fmt.Sprintf("http://%s:%s", cfg.Host, cfg.Port))
+	logger.Debug("API documentation available at /swagger/index.html")
 
 	// Wait for interrupt signal to gracefully shutdown the server
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 
-	log.Println("Shutting down server...")
+	logger.Info("Shutting down server")
 
 	// Create a deadline for shutdown
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -163,8 +150,9 @@ func main() {
 
 	// Gracefully shutdown the server
 	if err := srv.Shutdown(ctx); err != nil {
-		log.Fatal("Server forced to shutdown:", err)
+		logger.Error("Server forced to shutdown", "error", err)
+		os.Exit(1)
 	}
 
-	log.Println("Server exited")
+	logger.Info("Server stopped")
 }
