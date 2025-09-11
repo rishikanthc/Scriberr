@@ -114,6 +114,19 @@ interface AudioDetailViewProps {
 	audioId: string;
 }
 
+// Helper function to get display name for diarization model
+const getDiarizationModelDisplayName = (model: string): string => {
+    switch (model) {
+        case 'pyannote':
+            return 'PyAnnote Speaker Diarization 3.1';
+        case 'nvidia_sortformer':
+            return 'NVIDIA Sortformer 4-Speaker v2';
+        default:
+            // Fallback to the raw value if unknown
+            return model || 'Unknown';
+    }
+};
+
 export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioDetailViewProps) {
 	const { navigate } = useRouter();
 	const { theme } = useTheme();
@@ -2122,35 +2135,50 @@ useEffect(() => {
                                             </div>
                                         )}
 
-                                        {/* Diarization Settings - Only for WhisperX */}
-                                        {executionData.actual_parameters?.model_family === 'whisper' && (
-                                        <div>
-                                            <h4 className="font-semibold text-gray-700 dark:text-gray-300 mb-2">Speaker Diarization</h4>
+                                        {/* Speaker Diarization Settings - For all model families and multi-track jobs */}
+                                        {(executionData.actual_parameters?.diarize || executionData.is_multi_track) && (
+                                        <div className="bg-white/40 dark:bg-slate-700/20 rounded-md p-3 border border-slate-200/30 dark:border-slate-600/30">
+                                            <h4 className="font-semibold text-slate-800 dark:text-slate-200 mb-2 text-sm sm:text-base flex items-center gap-2">
+                                                <Users className="h-4 w-4 text-slate-600 dark:text-slate-400" />
+                                                Speaker Diarization
+                                            </h4>
                                             <div className="space-y-1">
-                                                <div className="flex justify-between">
-                                                    <span className="text-gray-600 dark:text-gray-400">Enabled:</span>
-                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.diarize ? 'Yes' : 'No'}</span>
+                                                <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
+                                                    <span className="text-slate-600 dark:text-slate-400 text-xs sm:text-sm font-medium">Enabled:</span>
+                                                    <span className="font-mono text-slate-900 dark:text-slate-100 text-xs sm:text-sm">
+                                                        {executionData.is_multi_track ? 'Yes (Multi-Track)' : (executionData.actual_parameters?.diarize ? 'Yes' : 'No')}
+                                                    </span>
                                                 </div>
-                                                {executionData.actual_parameters?.min_speakers && (
-                                                    <div className="flex justify-between">
-                                                        <span className="text-gray-600 dark:text-gray-400">Min Speakers:</span>
-                                                        <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters.min_speakers}</span>
+                                                {executionData.is_multi_track && (
+                                                    <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
+                                                        <span className="text-slate-600 dark:text-slate-400 text-xs sm:text-sm font-medium">Number of Tracks:</span>
+                                                        <span className="font-mono text-slate-900 dark:text-slate-100 text-xs sm:text-sm">{executionData.multi_track_files?.length || 0}</span>
                                                     </div>
                                                 )}
-                                                {executionData.actual_parameters?.max_speakers && (
-                                                    <div className="flex justify-between">
-                                                        <span className="text-gray-600 dark:text-gray-400">Max Speakers:</span>
-                                                        <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters.max_speakers}</span>
+                                                {!executionData.is_multi_track && executionData.actual_parameters?.min_speakers && (
+                                                    <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
+                                                        <span className="text-slate-600 dark:text-slate-400 text-xs sm:text-sm font-medium">Min Speakers:</span>
+                                                        <span className="font-mono text-slate-900 dark:text-slate-100 text-xs sm:text-sm">{executionData.actual_parameters.min_speakers}</span>
                                                     </div>
                                                 )}
-                                                <div className="flex justify-between">
-                                                    <span className="text-gray-600 dark:text-gray-400">Model:</span>
-                                                    <span className="font-mono text-gray-900 dark:text-gray-100 text-xs">{executionData.actual_parameters?.diarize_model || 'pyannote/speaker-diarization-3.1'}</span>
-                                                </div>
-                                                <div className="flex justify-between">
-                                                    <span className="text-gray-600 dark:text-gray-400">Speaker Embeddings:</span>
-                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.speaker_embeddings ? 'Yes' : 'No'}</span>
-                                                </div>
+                                                {!executionData.is_multi_track && executionData.actual_parameters?.max_speakers && (
+                                                    <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
+                                                        <span className="text-slate-600 dark:text-slate-400 text-xs sm:text-sm font-medium">Max Speakers:</span>
+                                                        <span className="font-mono text-slate-900 dark:text-slate-100 text-xs sm:text-sm">{executionData.actual_parameters.max_speakers}</span>
+                                                    </div>
+                                                )}
+                                                {executionData.actual_parameters?.diarize_model && (
+                                                    <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
+                                                        <span className="text-slate-600 dark:text-slate-400 text-xs sm:text-sm font-medium">Diarization Model:</span>
+                                                        <span className="font-mono text-slate-900 dark:text-slate-100 text-xs sm:text-sm">{getDiarizationModelDisplayName(executionData.actual_parameters.diarize_model)}</span>
+                                                    </div>
+                                                )}
+                                                {executionData.actual_parameters?.speaker_embeddings !== undefined && (
+                                                    <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
+                                                        <span className="text-slate-600 dark:text-slate-400 text-xs sm:text-sm font-medium">Speaker Embeddings:</span>
+                                                        <span className="font-mono text-slate-900 dark:text-slate-100 text-xs sm:text-sm">{executionData.actual_parameters.speaker_embeddings ? 'Yes' : 'No'}</span>
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
                                         )}
