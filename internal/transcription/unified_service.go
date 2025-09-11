@@ -28,6 +28,7 @@ type UnifiedTranscriptionService struct {
 	tempDirectory     string
 	outputDirectory   string
 	defaultModelIDs   map[string]string // Default model IDs for each task type
+	multiTrackTranscriber *MultiTrackTranscriber // For termination support
 }
 
 // NewUnifiedTranscriptionService creates a new unified transcription service
@@ -266,11 +267,29 @@ func (u *UnifiedTranscriptionService) processMultiTrackJob(ctx context.Context, 
 		unifiedService: u,
 	}
 	
-	// Create multi-track transcriber with unified processor
+	// Create multi-track transcriber with unified processor and store reference for termination
 	transcriber := NewMultiTrackTranscriber(unifiedProcessor)
+	u.multiTrackTranscriber = transcriber
 	
 	// Process the multi-track transcription
 	return transcriber.ProcessMultiTrackTranscription(ctx, job.ID)
+}
+
+// TerminateMultiTrackJob terminates a multi-track job and all its individual track jobs
+func (u *UnifiedTranscriptionService) TerminateMultiTrackJob(jobID string) error {
+	if u.multiTrackTranscriber == nil {
+		return fmt.Errorf("no multi-track transcriber available")
+	}
+	return u.multiTrackTranscriber.TerminateMultiTrackJob(jobID)
+}
+
+// IsMultiTrackJob checks if a job is a multi-track job
+func (u *UnifiedTranscriptionService) IsMultiTrackJob(jobID string) bool {
+	var job models.TranscriptionJob
+	if err := database.DB.Where("id = ?", jobID).First(&job).Error; err != nil {
+		return false
+	}
+	return job.IsMultiTrack
 }
 
 // selectModels determines which models to use based on job parameters
@@ -754,7 +773,7 @@ func (u *UnifiedTranscriptionService) convertTranscriptResultToJSON(result *inte
 			Word    string  `json:"word"`
 			Score   float64 `json:"score"`
 			Speaker *string `json:"speaker,omitempty"`
-		} `json:"word_segments,omitempty"`
+		} `json:"words,omitempty"`
 		Language string `json:"language"`
 		Text     string `json:"text"`
 	}{

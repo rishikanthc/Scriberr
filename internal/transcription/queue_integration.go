@@ -127,3 +127,13 @@ func (u *UnifiedJobProcessor) ensurePythonEnv() error {
 	ctx := context.Background()
 	return u.unifiedService.Initialize(ctx)
 }
+
+// TerminateMultiTrackJob terminates a multi-track job and all its individual track jobs
+func (u *UnifiedJobProcessor) TerminateMultiTrackJob(jobID string) error {
+	return u.unifiedService.TerminateMultiTrackJob(jobID)
+}
+
+// IsMultiTrackJob checks if a job is a multi-track job
+func (u *UnifiedJobProcessor) IsMultiTrackJob(jobID string) bool {
+	return u.unifiedService.IsMultiTrackJob(jobID)
+}

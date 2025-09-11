@@ -2,11 +2,14 @@ package transcription
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"scriberr/internal/database"
@@ -23,6 +26,9 @@ import (
 type MultiTrackTranscriber struct {
 	unifiedProcessor *UnifiedJobProcessor
 	db               *gorm.DB
+	// Track active temporary jobs for termination support
+	activeTrackJobs  map[string][]string // main job ID -> list of track job IDs
+	trackJobsMutex   sync.RWMutex
 }
 
 // NewMultiTrackTranscriber creates a new multi-track transcriber
@@ -30,6 +36,7 @@ func NewMultiTrackTranscriber(unifiedProcessor *UnifiedJobProcessor) *MultiTrack
 	return &MultiTrackTranscriber{
 		unifiedProcessor: unifiedProcessor,
 		db:               database.DB,
+		activeTrackJobs:  make(map[string][]string),
 	}
 }
 
@@ -62,6 +69,18 @@ func (mt *MultiTrackTranscriber) ProcessMultiTrackTranscription(ctx context.Cont
 	logger.Info("Starting multi-track transcription",
 		"job_id", jobID,
 		"tracks_count", len(job.MultiTrackFiles))
+
+	// Initialize tracking for this multi-track job
+	mt.trackJobsMutex.Lock()
+	mt.activeTrackJobs[jobID] = make([]string, 0, len(job.MultiTrackFiles))
+	mt.trackJobsMutex.Unlock()
+	
+	// Ensure cleanup of tracking on exit
+	defer func() {
+		mt.trackJobsMutex.Lock()
+		delete(mt.activeTrackJobs, jobID)
+		mt.trackJobsMutex.Unlock()
+	}()
 
 	// Process each track individually and track timing
 	trackTranscripts := make([]TrackTranscript, 0, len(job.MultiTrackFiles))
@@ -228,15 +247,26 @@ func (mt *MultiTrackTranscriber) transcribeIndividualTrack(ctx context.Context, 
 		"model_family", trackParams.ModelFamily,
 		"file_path", trackFile.FilePath)
 
-	// Create temporary job ID for this track
-	trackJobID := fmt.Sprintf("track_%s_%s", job.ID, trackFile.FileName)
+	// Create temporary job ID for this track with unique suffix to avoid conflicts
+	uniqueBytes := make([]byte, 4)
+	rand.Read(uniqueBytes)
+	uniqueID := hex.EncodeToString(uniqueBytes)
+	trackJobID := fmt.Sprintf("track_%s_%s_%s", job.ID, trackFile.FileName, uniqueID)
+	
+	// Add this track job to the active list for termination support
+	mt.trackJobsMutex.Lock()
+	if trackJobs, exists := mt.activeTrackJobs[job.ID]; exists {
+		mt.activeTrackJobs[job.ID] = append(trackJobs, trackJobID)
+	}
+	mt.trackJobsMutex.Unlock()
 	
 	// Create temporary job for unified processing
+	// Use StatusProcessing to prevent the main queue scanner from picking it up
 	tempJob := models.TranscriptionJob{
 		ID:         trackJobID,
 		AudioPath:  trackFile.FilePath,
 		Parameters: trackParams,
-		Status:     models.StatusPending,
+		Status:     models.StatusProcessing, // Prevent queue scanner from picking this up
 	}
 	
 	// Save temporary job to database for processing
@@ -244,18 +274,25 @@ func (mt *MultiTrackTranscriber) transcribeIndividualTrack(ctx context.Context, 
 		return nil, fmt.Errorf("failed to create temp database entry for track: %w", err)
 	}
 	
-	// Process with unified service
+	// Process with unified service - check for cancellation first
+	select {
+	case <-ctx.Done():
+		mt.cleanupTempJob(trackJobID)
+		return nil, fmt.Errorf("track transcription was cancelled")
+	default:
+	}
+	
 	err := mt.unifiedProcessor.ProcessJob(ctx, trackJobID)
 	if err != nil {
-		// Clean up temp job
-		mt.db.Delete(&models.TranscriptionJob{}, "id = ?", trackJobID)
+		// Clean up temp job and associated records
+		mt.cleanupTempJob(trackJobID)
 		return nil, fmt.Errorf("failed to transcribe track file %s: %w", trackFile.FilePath, err)
 	}
 	
 	// Load the processed result
 	var processedJob models.TranscriptionJob
 	if err := mt.db.Where("id = ?", trackJobID).First(&processedJob).Error; err != nil {
-		mt.db.Delete(&models.TranscriptionJob{}, "id = ?", trackJobID)
+		mt.cleanupTempJob(trackJobID)
 		return nil, fmt.Errorf("failed to load processed track result: %w", err)
 	}
 	
@@ -264,16 +301,16 @@ func (mt *MultiTrackTranscriber) transcribeIndividualTrack(ctx context.Context, 
 	if processedJob.Transcript != nil {
 		result = &interfaces.TranscriptResult{}
 		if err := json.Unmarshal([]byte(*processedJob.Transcript), result); err != nil {
-			mt.db.Delete(&models.TranscriptionJob{}, "id = ?", trackJobID)
+			mt.cleanupTempJob(trackJobID)
 			return nil, fmt.Errorf("failed to parse track transcript: %w", err)
 		}
 	} else {
-		mt.db.Delete(&models.TranscriptionJob{}, "id = ?", trackJobID)
+		mt.cleanupTempJob(trackJobID)
 		return nil, fmt.Errorf("no transcript found for track")
 	}
 	
-	// Clean up temporary database entry
-	mt.db.Delete(&models.TranscriptionJob{}, "id = ?", trackJobID)
+	// Clean up temporary database entry and associated records
+	mt.cleanupTempJob(trackJobID)
 
 	logger.Info("Successfully transcribed track",
 		"track_name", trackFile.FileName,
@@ -282,6 +319,81 @@ func (mt *MultiTrackTranscriber) transcribeIndividualTrack(ctx context.Context, 
 		"segment_count", len(result.Segments))
 
 	return result, nil
+}
+
+// cleanupTempJob properly deletes a temporary job and all associated records
+func (mt *MultiTrackTranscriber) cleanupTempJob(jobID string) {
+	// Delete execution records first (foreign key constraint)
+	if err := mt.db.Where("transcription_job_id = ?", jobID).Delete(&models.TranscriptionJobExecution{}).Error; err != nil {
+		logger.Warn("Failed to delete temp job execution records", "job_id", jobID, "error", err)
+	}
+	
+	// Delete speaker mappings if any
+	if err := mt.db.Where("transcription_job_id = ?", jobID).Delete(&models.SpeakerMapping{}).Error; err != nil {
+		logger.Warn("Failed to delete temp job speaker mappings", "job_id", jobID, "error", err)
+	}
+	
+	// Delete the job itself
+	if err := mt.db.Delete(&models.TranscriptionJob{}, "id = ?", jobID).Error; err != nil {
+		logger.Warn("Failed to delete temp job", "job_id", jobID, "error", err)
+	}
+	
+	logger.Info("Cleaned up temporary job", "job_id", jobID)
+}
+
+// TerminateMultiTrackJob terminates a multi-track job and all its active track jobs
+func (mt *MultiTrackTranscriber) TerminateMultiTrackJob(jobID string) error {
+	mt.trackJobsMutex.RLock()
+	trackJobs, exists := mt.activeTrackJobs[jobID]
+	if !exists {
+		mt.trackJobsMutex.RUnlock()
+		return fmt.Errorf("multi-track job %s not found or not active", jobID)
+	}
+	
+	// Make a copy of the track job IDs to avoid holding the lock during cleanup
+	trackJobsCopy := make([]string, len(trackJobs))
+	copy(trackJobsCopy, trackJobs)
+	mt.trackJobsMutex.RUnlock()
+	
+	logger.Info("Terminating multi-track job", "job_id", jobID, "track_count", len(trackJobsCopy))
+	
+	// Clean up all temporary track jobs
+	for _, trackJobID := range trackJobsCopy {
+		logger.Info("Cleaning up track job", "main_job_id", jobID, "track_job_id", trackJobID)
+		mt.cleanupTempJob(trackJobID)
+	}
+	
+	// Remove from active tracking
+	mt.trackJobsMutex.Lock()
+	delete(mt.activeTrackJobs, jobID)
+	mt.trackJobsMutex.Unlock()
+	
+	// Update main job status to failed
+	if err := mt.db.Model(&models.TranscriptionJob{}).
+		Where("id = ?", jobID).
+		Updates(map[string]interface{}{
+			"status": models.StatusFailed,
+			"error_message": "Job was terminated by user",
+		}).Error; err != nil {
+		logger.Warn("Failed to update main job status after termination", "job_id", jobID, "error", err)
+	}
+	
+	logger.Info("Multi-track job terminated successfully", "job_id", jobID)
+	return nil
+}
+
+// GetActiveTrackJobs returns the list of active track jobs for a multi-track job
+func (mt *MultiTrackTranscriber) GetActiveTrackJobs(jobID string) []string {
+	mt.trackJobsMutex.RLock()
+	defer mt.trackJobsMutex.RUnlock()
+	
+	if trackJobs, exists := mt.activeTrackJobs[jobID]; exists {
+		result := make([]string, len(trackJobs))
+		copy(result, trackJobs)
+		return result
+	}
+	
+	return nil
 }
 
 // mergeTrackTranscripts merges multiple track transcripts using sort-and-group algorithm
