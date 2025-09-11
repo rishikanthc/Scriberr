@@ -290,9 +290,8 @@ func (w *WhisperXAdapter) PrepareEnvironment(ctx context.Context) error {
 
 	whisperxPath := filepath.Join(w.envPath, "WhisperX")
 	
-	// Check if WhisperX is already set up and working
-	cmd := exec.Command("uv", "run", "--native-tls", "--project", whisperxPath, "python", "-c", "import whisperx")
-	if cmd.Run() == nil {
+	// Check if WhisperX is already set up and working (using cache to speed up repeated checks)
+	if CheckEnvironmentReady(whisperxPath, "import whisperx") {
 		logger.Info("WhisperX environment already ready")
 		w.initialized = true
 		return nil

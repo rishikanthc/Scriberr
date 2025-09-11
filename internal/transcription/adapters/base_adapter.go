@@ -4,15 +4,47 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"reflect"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"scriberr/internal/transcription/interfaces"
 	"scriberr/pkg/logger"
 )
+
+// Environment readiness cache to avoid repeated expensive UV checks
+var (
+	envCacheMutex sync.RWMutex
+	envCache      = make(map[string]bool)
+)
+
+// CheckEnvironmentReady checks if a UV environment is ready with caching
+func CheckEnvironmentReady(envPath, importStatement string) bool {
+	cacheKey := fmt.Sprintf("%s:%s", envPath, importStatement)
+	
+	// Check cache first
+	envCacheMutex.RLock()
+	if ready, exists := envCache[cacheKey]; exists {
+		envCacheMutex.RUnlock()
+		return ready
+	}
+	envCacheMutex.RUnlock()
+	
+	// Run the actual check
+	testCmd := exec.Command("uv", "run", "--native-tls", "--project", envPath, "python", "-c", importStatement)
+	ready := testCmd.Run() == nil
+	
+	// Cache the result
+	envCacheMutex.Lock()
+	envCache[cacheKey] = ready
+	envCacheMutex.Unlock()
+	
+	return ready
+}
 
 // BaseAdapter provides common functionality for all model adapters
 type BaseAdapter struct {

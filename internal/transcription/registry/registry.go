@@ -386,7 +386,7 @@ func (r *ModelRegistry) scoreModel(capabilities interfaces.ModelCapabilities, re
 	return score, reasons
 }
 
-// InitializeModels ensures all registered models are ready to use
+// InitializeModels ensures all registered models are ready to use (parallel)
 func (r *ModelRegistry) InitializeModels(ctx context.Context) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -395,35 +395,82 @@ func (r *ModelRegistry) InitializeModels(ctx context.Context) error {
 		return nil
 	}
 
-	logger.Info("Initializing registered models...")
-
-	// Initialize transcription adapters
+	logger.Info("Initializing registered models in parallel...")
+	
+	var wg sync.WaitGroup
+	initErrors := make(chan error, 10) // Buffer for potential errors
+	
+	// Initialize transcription adapters in parallel
 	for modelID, adapter := range r.transcriptionAdapters {
-		logger.Info("Initializing transcription model", "model_id", modelID)
-		if err := adapter.PrepareEnvironment(ctx); err != nil {
-			logger.Error("Failed to initialize transcription model", 
-				"model_id", modelID, "error", err)
-			// Continue with other models - don't fail completely
-		}
+		wg.Add(1)
+		go func(id string, adp interfaces.TranscriptionAdapter) {
+			defer wg.Done()
+			logger.Info("Initializing transcription model", "model_id", id)
+			if err := adp.PrepareEnvironment(ctx); err != nil {
+				logger.Error("Failed to initialize transcription model", 
+					"model_id", id, "error", err)
+				select {
+				case initErrors <- fmt.Errorf("transcription model %s: %w", id, err):
+				default:
+				}
+			} else {
+				logger.Info("Transcription model initialized", "model_id", id)
+			}
+		}(modelID, adapter)
 	}
 
-	// Initialize diarization adapters
+	// Initialize diarization adapters in parallel
 	for modelID, adapter := range r.diarizationAdapters {
-		logger.Info("Initializing diarization model", "model_id", modelID)
-		if err := adapter.PrepareEnvironment(ctx); err != nil {
-			logger.Error("Failed to initialize diarization model", 
-				"model_id", modelID, "error", err)
-			// Continue with other models - don't fail completely
-		}
+		wg.Add(1)
+		go func(id string, adp interfaces.DiarizationAdapter) {
+			defer wg.Done()
+			logger.Info("Initializing diarization model", "model_id", id)
+			if err := adp.PrepareEnvironment(ctx); err != nil {
+				logger.Error("Failed to initialize diarization model", 
+					"model_id", id, "error", err)
+				select {
+				case initErrors <- fmt.Errorf("diarization model %s: %w", id, err):
+				default:
+				}
+			} else {
+				logger.Info("Diarization model initialized", "model_id", id)
+			}
+		}(modelID, adapter)
 	}
 
-	// Initialize composite adapters
+	// Initialize composite adapters in parallel
 	for modelID, adapter := range r.compositeAdapters {
-		logger.Info("Initializing composite model", "model_id", modelID)
-		if err := adapter.PrepareEnvironment(ctx); err != nil {
-			logger.Error("Failed to initialize composite model", 
-				"model_id", modelID, "error", err)
-			// Continue with other models - don't fail completely
+		wg.Add(1)
+		go func(id string, adp interfaces.CompositeAdapter) {
+			defer wg.Done()
+			logger.Info("Initializing composite model", "model_id", id)
+			if err := adp.PrepareEnvironment(ctx); err != nil {
+				logger.Error("Failed to initialize composite model", 
+					"model_id", id, "error", err)
+				select {
+				case initErrors <- fmt.Errorf("composite model %s: %w", id, err):
+				default:
+				}
+			} else {
+				logger.Info("Composite model initialized", "model_id", id)
+			}
+		}(modelID, adapter)
+	}
+
+	// Wait for all initializations to complete
+	wg.Wait()
+	close(initErrors)
+	
+	// Collect any errors (but don't fail completely)
+	var errorList []error
+	for err := range initErrors {
+		errorList = append(errorList, err)
+	}
+	
+	if len(errorList) > 0 {
+		logger.Warn("Some models failed to initialize", "error_count", len(errorList))
+		for _, err := range errorList {
+			logger.Warn("Model initialization error", "error", err)
 		}
 	}
 

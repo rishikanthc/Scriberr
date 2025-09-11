@@ -154,9 +154,8 @@ func (s *SortformerAdapter) GetMinSpeakers() int {
 func (s *SortformerAdapter) PrepareEnvironment(ctx context.Context) error {
 	logger.Info("Preparing NVIDIA Sortformer environment", "env_path", s.envPath)
 
-	// Check if environment is already ready
-	testCmd := exec.Command("uv", "run", "--native-tls", "--project", s.envPath, "python", "-c", "from nemo.collections.asr.models import SortformerEncLabelModel")
-	if testCmd.Run() == nil {
+	// Check if environment is already ready (using cache to speed up repeated checks)
+	if CheckEnvironmentReady(s.envPath, "from nemo.collections.asr.models import SortformerEncLabelModel") {
 		modelPath := filepath.Join(s.envPath, "diar_streaming_sortformer_4spk-v2.nemo")
 		if stat, err := os.Stat(modelPath); err == nil && stat.Size() > 1024*1024 {
 			scriptPath := filepath.Join(s.envPath, "sortformer_diarize.py")

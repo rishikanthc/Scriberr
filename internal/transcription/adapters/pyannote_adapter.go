@@ -171,9 +171,8 @@ func (p *PyAnnoteAdapter) GetMinSpeakers() int {
 func (p *PyAnnoteAdapter) PrepareEnvironment(ctx context.Context) error {
 	logger.Info("Preparing PyAnnote environment", "env_path", p.envPath)
 
-	// Check if PyAnnote is already available
-	testCmd := exec.Command("uv", "run", "--native-tls", "--project", p.envPath, "python", "-c", "from pyannote.audio import Pipeline")
-	if testCmd.Run() == nil {
+	// Check if PyAnnote is already available (using cache to speed up repeated checks)
+	if CheckEnvironmentReady(p.envPath, "from pyannote.audio import Pipeline") {
 		logger.Info("PyAnnote already available in environment")
 		// Still ensure script exists
 		if err := p.createDiarizationScript(); err != nil {
@@ -204,7 +203,7 @@ func (p *PyAnnoteAdapter) PrepareEnvironment(ctx context.Context) error {
 	}
 
 	// Verify PyAnnote is now available
-	testCmd = exec.Command("uv", "run", "--native-tls", "--project", p.envPath, "python", "-c", "from pyannote.audio import Pipeline")
+	testCmd := exec.Command("uv", "run", "--native-tls", "--project", p.envPath, "python", "-c", "from pyannote.audio import Pipeline")
 	if testCmd.Run() != nil {
 		logger.Warn("PyAnnote environment test still failed after setup")
 	}

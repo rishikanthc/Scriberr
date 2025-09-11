@@ -127,9 +127,8 @@ func (p *ParakeetAdapter) GetSupportedModels() []string {
 func (p *ParakeetAdapter) PrepareEnvironment(ctx context.Context) error {
 	logger.Info("Preparing NVIDIA Parakeet environment", "env_path", p.envPath)
 
-	// Check if environment is already ready
-	testCmd := exec.Command("uv", "run", "--native-tls", "--project", p.envPath, "python", "-c", "import nemo.collections.asr")
-	if testCmd.Run() == nil {
+	// Check if environment is already ready (using cache to speed up repeated checks)
+	if CheckEnvironmentReady(p.envPath, "import nemo.collections.asr") {
 		modelPath := filepath.Join(p.envPath, "parakeet-tdt-0.6b-v3.nemo")
 		scriptPath := filepath.Join(p.envPath, "transcribe.py")
 		

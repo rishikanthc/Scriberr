@@ -166,9 +166,8 @@ func (c *CanaryAdapter) GetSupportedModels() []string {
 func (c *CanaryAdapter) PrepareEnvironment(ctx context.Context) error {
 	logger.Info("Preparing NVIDIA Canary environment", "env_path", c.envPath)
 
-	// Check if environment is already ready
-	testCmd := exec.Command("uv", "run", "--native-tls", "--project", c.envPath, "python", "-c", "import nemo.collections.asr")
-	if testCmd.Run() == nil {
+	// Check if environment is already ready (using cache to speed up repeated checks)
+	if CheckEnvironmentReady(c.envPath, "import nemo.collections.asr") {
 		modelPath := filepath.Join(c.envPath, "canary-1b-v2.nemo")
 		if stat, err := os.Stat(modelPath); err == nil && stat.Size() > 1024*1024 {
 			logger.Info("Canary environment already ready")
