@@ -172,6 +172,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 	const [transcriptionLoading, setTranscriptionLoading] = useState(false);
 	const [killingJobs, setKillingJobs] = useState<Set<string>>(new Set());
 	const [transcribeDDialogOpen, setTranscribeDDialogOpen] = useState(false);
+	const [trackProgress, setTrackProgress] = useState<Record<string, any>>({});
 
 	const fetchAudioFiles = useCallback(async (page?: number, limit?: number, searchQuery?: string, isInitialLoad = false) => {
 		try {
@@ -210,6 +211,41 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 				setPageCount(result.pagination.pages);
 				// Fetch queue positions for pending jobs
 				fetchQueuePositions(result.jobs || []);
+				
+				// Fetch track progress for multi-track jobs that are processing
+				const processingMultiTrackJobs = (result.jobs || []).filter(job => 
+					job.is_multi_track && (job.status === "processing" || job.status === "pending")
+				);
+				
+				if (processingMultiTrackJobs.length > 0) {
+					try {
+						const progressPromises = processingMultiTrackJobs.map(async (job) => {
+							const response = await fetch(`/api/v1/transcription/${job.id}/track-progress`, {
+								headers: {
+									...getAuthHeaders(),
+								},
+							});
+							if (response.ok) {
+								const progress = await response.json();
+								return { jobId: job.id, progress };
+							}
+							return null;
+						});
+
+						const results = await Promise.all(progressPromises);
+						const progressData: Record<string, any> = {};
+
+						results.forEach(result => {
+							if (result) {
+								progressData[result.jobId] = result.progress;
+							}
+						});
+
+						setTrackProgress(progressData);
+					} catch (error) {
+						console.error("Failed to fetch track progress:", error);
+					}
+				}
 			}
 		} catch (error) {
 			console.error("Failed to fetch audio files:", error);
@@ -217,7 +253,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 			setLoading(false);
 			setIsPageChanging(false);
 		}
-	}, [pagination.pageIndex, pagination.pageSize, globalFilter]);
+	}, [pagination.pageIndex, pagination.pageSize, globalFilter, getAuthHeaders]);
 
 	// Fetch queue positions for pending jobs
 	const fetchQueuePositions = async (jobs: AudioFile[]) => {
@@ -485,6 +521,50 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 		const iconSize = 16;
 		const status = file.status;
 		const queuePosition = queuePositions[file.id];
+		const progress = trackProgress[file.id];
+
+		// Special handling for multi-track jobs that are processing
+		if (file.is_multi_track && status === "processing" && progress) {
+			const { progress: progressInfo, tracks } = progress;
+			const percentage = Math.round(progressInfo.percentage || 0);
+			const completedTracks = progressInfo.completed_tracks || 0;
+			const totalTracks = progressInfo.total_tracks || 0;
+
+			return (
+				<Tooltip>
+					<TooltipTrigger asChild>
+						<div className="cursor-help inline-flex items-center gap-1">
+							<div className="relative">
+								<Loader2 size={iconSize} className="text-blue-400 animate-spin" />
+							</div>
+							<span className="text-xs text-blue-400 font-medium">
+								{completedTracks}/{totalTracks}
+							</span>
+						</div>
+					</TooltipTrigger>
+					<TooltipContent className="bg-gray-900 border-gray-700 text-white">
+						<div className="space-y-1">
+							<p>Multi-Track Processing ({percentage}%)</p>
+							<div className="space-y-1">
+								{tracks && tracks.slice(0, 5).map((track: any, index: number) => (
+									<div key={index} className="flex items-center gap-2 text-xs">
+										<span className={`w-2 h-2 rounded-full ${
+											track.status === 'completed' ? 'bg-green-400' : 
+											track.status === 'processing' ? 'bg-blue-400' : 
+											'bg-gray-400'
+										}`}></span>
+										<span>{track.track_name}</span>
+									</div>
+								))}
+								{tracks && tracks.length > 5 && (
+									<p className="text-xs text-gray-400">...and {tracks.length - 5} more</p>
+								)}
+							</div>
+						</div>
+					</TooltipContent>
+				</Tooltip>
+			);
+		}
 
 		switch (status) {
 			case "completed":
@@ -560,7 +640,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 					</Tooltip>
 				);
 		}
-	}, [queuePositions]);
+	}, [queuePositions, trackProgress]);
 
 	const formatDate = useCallback((dateString: string) => {
 		return new Date(dateString).toLocaleDateString("en-US", {
@@ -836,7 +916,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 				enableGlobalFilter: false,
 			},
 		],
-		[openPopovers, queuePositions, getStatusIcon, handleAudioClick, handleTranscribe, handleTranscribeD, handleDelete, canTranscribe, getFileName, killingJobs, handleKillJob]
+		[openPopovers, queuePositions, trackProgress, getStatusIcon, handleAudioClick, handleTranscribe, handleTranscribeD, handleDelete, canTranscribe, getFileName, killingJobs, handleKillJob]
 	);
 
 	// Create the table instance with server-side pagination and search

@@ -668,6 +668,103 @@ func (h *Handler) GetMergeStatus(c *gin.Context) {
 	c.JSON(http.StatusOK, response)
 }
 
+// @Summary Get multi-track job progress
+// @Description Get real-time progress information for individual tracks in a multi-track job
+// @Tags transcription
+// @Produce json
+// @Param id path string true "Job ID"
+// @Success 200 {object} map[string]interface{}
+// @Failure 404 {object} map[string]string
+// @Router /api/v1/transcription/{id}/track-progress [get]
+// @Security ApiKeyAuth
+// @Security BearerAuth
+func (h *Handler) GetTrackProgress(c *gin.Context) {
+	jobID := c.Param("id")
+
+	// Get the main job details
+	var job models.TranscriptionJob
+	if err := database.DB.Preload("MultiTrackFiles").Where("id = ?", jobID).First(&job).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Job not found"})
+		return
+	}
+
+	// Only provide track progress for multi-track jobs
+	if !job.IsMultiTrack {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Not a multi-track job"})
+		return
+	}
+
+	// Get individual transcripts to see which tracks are completed
+	var individualTranscripts map[string]string
+	if job.IndividualTranscripts != nil {
+		if err := json.Unmarshal([]byte(*job.IndividualTranscripts), &individualTranscripts); err == nil {
+			// Successfully parsed individual transcripts
+		}
+	}
+
+	// Find active track jobs (temp jobs still in progress)
+	var activeTrackJobs []models.TranscriptionJob
+	database.DB.Where("id LIKE ? AND status IN (?)", "track_"+jobID+"_%", []string{"processing", "pending"}).Find(&activeTrackJobs)
+
+	// Build track progress information
+	trackProgress := make([]map[string]interface{}, 0)
+	totalTracks := len(job.MultiTrackFiles)
+	completedTracks := 0
+
+	for _, trackFile := range job.MultiTrackFiles {
+		trackInfo := map[string]interface{}{
+			"track_name": trackFile.FileName,
+			"track_index": trackFile.TrackIndex,
+		}
+
+		// Check if this track is completed (only count if actually in individualTranscripts)
+		if _, exists := individualTranscripts[trackFile.FileName]; exists {
+			trackInfo["status"] = "completed"
+			completedTracks++
+		} else {
+			// Check if there's an active job for this track
+			isActive := false
+			for _, activeJob := range activeTrackJobs {
+				if strings.Contains(activeJob.ID, trackFile.FileName) {
+					trackInfo["status"] = "processing"
+					isActive = true
+					break
+				}
+			}
+			if !isActive {
+				if job.Status == "processing" {
+					trackInfo["status"] = "pending"
+				} else {
+					trackInfo["status"] = "failed"
+				}
+			}
+		}
+
+		trackProgress = append(trackProgress, trackInfo)
+	}
+
+	// Calculate overall progress based on actual track status
+	progressPercentage := 0.0
+	if totalTracks > 0 {
+		progressPercentage = float64(completedTracks) / float64(totalTracks) * 100
+	}
+
+	response := gin.H{
+		"job_id": jobID,
+		"is_multi_track": true,
+		"overall_status": job.Status,
+		"merge_status": job.MergeStatus,
+		"tracks": trackProgress,
+		"progress": map[string]interface{}{
+			"completed_tracks": completedTracks,
+			"total_tracks": totalTracks,
+			"percentage": progressPercentage,
+		},
+	}
+
+	c.JSON(http.StatusOK, response)
+}
+
 // @Summary Submit a transcription job
 // @Description Submit an audio file for transcription with WhisperX
 // @Tags transcription
@@ -906,6 +1003,9 @@ func (h *Handler) ListJobs(c *gin.Context) {
 	offset := (page - 1) * limit
 
 	query := database.DB.Model(&models.TranscriptionJob{})
+
+	// Filter out temporary track jobs (they have IDs starting with "track_")
+	query = query.Where("id NOT LIKE 'track_%'")
 
 	// Apply status filter
 	if status != "" {

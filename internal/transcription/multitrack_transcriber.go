@@ -75,6 +75,11 @@ func (mt *MultiTrackTranscriber) ProcessMultiTrackTranscription(ctx context.Cont
 	mt.activeTrackJobs[jobID] = make([]string, 0, len(job.MultiTrackFiles))
 	mt.trackJobsMutex.Unlock()
 	
+	// Clear any existing individual transcripts to ensure clean progress tracking from 0/N
+	if err := mt.db.Model(&models.TranscriptionJob{}).Where("id = ?", jobID).Update("individual_transcripts", nil).Error; err != nil {
+		logger.Warn("Failed to clear individual transcripts at start", "job_id", jobID, "error", err)
+	}
+	
 	// Ensure cleanup of tracking on exit
 	defer func() {
 		mt.trackJobsMutex.Lock()
@@ -125,6 +130,17 @@ func (mt *MultiTrackTranscriber) ProcessMultiTrackTranscription(ctx context.Cont
 			return fmt.Errorf("failed to serialize track transcript: %w", err)
 		}
 		individualTranscripts[trackFile.FileName] = string(trackTranscriptJSON)
+
+		// Save current progress to database (so API can show real-time progress)
+		individualTranscriptsJSON, err := json.Marshal(individualTranscripts)
+		if err != nil {
+			logger.Warn("Failed to serialize individual transcripts for progress update", "error", err)
+		} else {
+			individualTranscriptsStr := string(individualTranscriptsJSON)
+			if err := mt.db.Model(&models.TranscriptionJob{}).Where("id = ?", jobID).Update("individual_transcripts", &individualTranscriptsStr).Error; err != nil {
+				logger.Warn("Failed to update individual transcripts progress", "job_id", jobID, "error", err)
+			}
+		}
 
 		// Log individual transcript details for debugging
 		mt.logIndividualTranscript(trackFile.FileName, trackResult, trackFile.Offset)
