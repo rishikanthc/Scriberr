@@ -1638,52 +1638,54 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
                     </Select>
                   </div>
                   
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
-                    <div>
-                      <div className="flex items-center gap-2 mb-2">
-                        <Label htmlFor="min_speakers" className="text-gray-700 dark:text-gray-300">Min Speakers</Label>
-                        <HoverCard>
-                          <HoverCardTrigger asChild>
-                            <Info className="h-4 w-4 text-gray-400 cursor-help" />
-                          </HoverCardTrigger>
-                          <HoverCardContent className="w-64 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
-                            <p className="text-sm text-gray-700 dark:text-gray-300">{PARAM_DESCRIPTIONS.min_speakers}</p>
-                          </HoverCardContent>
-                        </HoverCard>
+                  {params.diarize_model === "pyannote" && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+                      <div>
+                        <div className="flex items-center gap-2 mb-2">
+                          <Label htmlFor="min_speakers" className="text-gray-700 dark:text-gray-300">Min Speakers</Label>
+                          <HoverCard>
+                            <HoverCardTrigger asChild>
+                              <Info className="h-4 w-4 text-gray-400 cursor-help" />
+                            </HoverCardTrigger>
+                            <HoverCardContent className="w-64 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                              <p className="text-sm text-gray-700 dark:text-gray-300">{PARAM_DESCRIPTIONS.min_speakers}</p>
+                            </HoverCardContent>
+                          </HoverCard>
+                        </div>
+                        <Input
+                          type="number"
+                          min="1"
+                          max="20"
+                          placeholder="Auto-detect"
+                          value={params.min_speakers || ""}
+                          onChange={(e) => updateParam('min_speakers', e.target.value ? parseInt(e.target.value) : undefined)}
+                          className="mt-3 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100"
+                        />
                       </div>
-                      <Input
-                        type="number"
-                        min="1"
-                        max="20"
-                        placeholder="Auto-detect"
-                        value={params.min_speakers || ""}
-                        onChange={(e) => updateParam('min_speakers', e.target.value ? parseInt(e.target.value) : undefined)}
-                        className="mt-3 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100"
-                      />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2 mb-2">
-                        <Label htmlFor="max_speakers" className="text-gray-700 dark:text-gray-300">Max Speakers</Label>
-                        <HoverCard>
-                          <HoverCardTrigger asChild>
-                            <Info className="h-4 w-4 text-gray-400 cursor-help" />
-                          </HoverCardTrigger>
-                          <HoverCardContent className="w-64 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
-                            <p className="text-sm text-gray-700 dark:text-gray-300">{PARAM_DESCRIPTIONS.max_speakers}</p>
-                          </HoverCardContent>
-                        </HoverCard>
+                      <div>
+                        <div className="flex items-center gap-2 mb-2">
+                          <Label htmlFor="max_speakers" className="text-gray-700 dark:text-gray-300">Max Speakers</Label>
+                          <HoverCard>
+                            <HoverCardTrigger asChild>
+                              <Info className="h-4 w-4 text-gray-400 cursor-help" />
+                            </HoverCardTrigger>
+                            <HoverCardContent className="w-64 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                              <p className="text-sm text-gray-700 dark:text-gray-300">{PARAM_DESCRIPTIONS.max_speakers}</p>
+                            </HoverCardContent>
+                          </HoverCard>
+                        </div>
+                        <Input
+                          type="number"
+                          min="1"
+                          max="20"
+                          placeholder="Auto-detect"
+                          value={params.max_speakers || ""}
+                          onChange={(e) => updateParam('max_speakers', e.target.value ? parseInt(e.target.value) : undefined)}
+                          className="mt-3 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100"
+                        />
                       </div>
-                      <Input
-                        type="number"
-                        min="1"
-                        max="20"
-                        placeholder="Auto-detect"
-                        value={params.max_speakers || ""}
-                        onChange={(e) => updateParam('max_speakers', e.target.value ? parseInt(e.target.value) : undefined)}
-                        className="mt-3 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100"
-                      />
                     </div>
-                  </div>
+                  )}
 
                   <Separator className="my-4 sm:my-6" />
 
