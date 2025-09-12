@@ -722,17 +722,6 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
                 </div>
               )}
 
-              {!params.diarize && (
-                <div className="p-4 text-center border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800">
-                  <div className="text-4xl mb-3 opacity-50">🎤</div>
-                  <h4 className="text-lg font-medium text-gray-600 dark:text-gray-300 mb-2">
-                    Speaker Diarization Disabled
-                  </h4>
-                  <p className="text-gray-500 dark:text-gray-400 text-sm">
-                    Enable speaker diarization to identify and separate different speakers using Pyannote.
-                  </p>
-                </div>
-              )}
             </div>
             )}
           </div>
@@ -930,17 +919,6 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
                 </div>
               )}
 
-              {!params.diarize && (
-                <div className="p-4 text-center border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800">
-                  <div className="text-4xl mb-3 opacity-50">🎤</div>
-                  <h4 className="text-lg font-medium text-gray-600 dark:text-gray-300 mb-2">
-                    Speaker Diarization Disabled
-                  </h4>
-                  <p className="text-gray-500 dark:text-gray-400 text-sm">
-                    Enable speaker diarization to identify and separate different speakers using Pyannote.
-                  </p>
-                </div>
-              )}
             </div>
             )}
           </div>
@@ -1750,20 +1728,6 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
                 </div>
               )}
 
-              {!params.diarize && (
-                <div className="p-4 sm:p-8 text-center border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800">
-                  <div className="text-4xl mb-3 opacity-50">🎤</div>
-                  <h3 className="text-lg font-medium text-gray-600 dark:text-gray-300 mb-2">
-                    Speaker Diarization Disabled
-                  </h3>
-                  <p className="text-gray-500 dark:text-gray-400 text-sm">
-                    {params.is_multi_track_enabled 
-                      ? "Diarization is disabled for multi-track transcription as each track represents a single speaker."
-                      : "Enable speaker diarization to identify and separate different speakers in your audio."
-                    }
-                  </p>
-                </div>
-              )}
             </div>
           </TabsContent>
           )}
