@@ -158,6 +158,7 @@ interface TranscriptionConfigDialogProps {
   initialParams?: WhisperXParams;
   initialName?: string;
   initialDescription?: string;
+  isMultiTrack?: boolean;
 }
 
 const DEFAULT_PARAMS: WhisperXParams = {
@@ -350,6 +351,7 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
   initialParams,
   initialName = "",
   initialDescription = "",
+  isMultiTrack = false,
 }: TranscriptionConfigDialogProps) {
   const [params, setParams] = useState<WhisperXParams>(DEFAULT_PARAMS);
   const [profileName, setProfileName] = useState("");
@@ -358,11 +360,17 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
   // Reset to defaults or initial values when dialog opens
   useEffect(() => {
     if (open) {
-      setParams(initialParams || DEFAULT_PARAMS);
+      const baseParams = initialParams || DEFAULT_PARAMS;
+      // Auto-set multi-track and diarization based on file type
+      setParams({
+        ...baseParams,
+        is_multi_track_enabled: isMultiTrack,
+        diarize: isMultiTrack ? false : baseParams.diarize
+      });
       setProfileName(initialName);
       setProfileDescription(initialDescription);
     }
-  }, [open, initialParams, initialName, initialDescription]);
+  }, [open, initialParams, initialName, initialDescription, isMultiTrack]);
 
   const updateParam = <K extends keyof WhisperXParams>(
     key: K,
@@ -479,43 +487,21 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
               </div>
             </div>
 
-            {/* Multi-track transcription toggle for Parakeet */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">Transcription Mode</h3>
-              
-              <div>
-                <div className="flex items-center justify-between">
+            {/* Multi-track status for Parakeet */}
+            {isMultiTrack && (
+              <div className="space-y-4">
+                <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">Transcription Mode</h3>
+                <div className="p-4 border border-blue-200 dark:border-blue-700 rounded-lg bg-blue-50 dark:bg-blue-900/20">
                   <div className="flex items-center gap-2">
-                    <Label htmlFor="parakeet_is_multi_track_enabled" className="text-gray-700 dark:text-gray-300">Multi-track transcription</Label>
-                    <HoverCard>
-                      <HoverCardTrigger asChild>
-                        <Info className="h-4 w-4 text-gray-400 cursor-help" />
-                      </HoverCardTrigger>
-                      <HoverCardContent className="w-80 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
-                        <p className="text-sm text-gray-700 dark:text-gray-300">{PARAM_DESCRIPTIONS.is_multi_track_enabled}</p>
-                      </HoverCardContent>
-                    </HoverCard>
+                    <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                    <span className="text-sm font-medium text-blue-800 dark:text-blue-200">Multi-track audio detected</span>
                   </div>
-                  <Switch
-                    id="parakeet_is_multi_track_enabled"
-                    checked={params.is_multi_track_enabled}
-                    onCheckedChange={(checked) => {
-                      updateParam('is_multi_track_enabled', checked);
-                      // Automatically disable diarization when multi-track is enabled
-                      if (checked) {
-                        updateParam('diarize', false);
-                      }
-                    }}
-                    className="data-[state=checked]:bg-blue-600"
-                  />
-                </div>
-                {params.is_multi_track_enabled && (
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-                    Diarization will be automatically disabled as each track represents a single speaker.
+                  <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
+                    Multi-track transcription is automatically enabled for this audio file.
                   </p>
-                )}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Long-form Audio Settings */}
             <div className="space-y-4">
@@ -803,43 +789,21 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
               </div>
             </div>
 
-            {/* Multi-track transcription toggle for Canary */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">Transcription Mode</h3>
-              
-              <div>
-                <div className="flex items-center justify-between">
+            {/* Multi-track status for Canary */}
+            {isMultiTrack && (
+              <div className="space-y-4">
+                <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">Transcription Mode</h3>
+                <div className="p-4 border border-blue-200 dark:border-blue-700 rounded-lg bg-blue-50 dark:bg-blue-900/20">
                   <div className="flex items-center gap-2">
-                    <Label htmlFor="canary_is_multi_track_enabled" className="text-gray-700 dark:text-gray-300">Multi-track transcription</Label>
-                    <HoverCard>
-                      <HoverCardTrigger asChild>
-                        <Info className="h-4 w-4 text-gray-400 cursor-help" />
-                      </HoverCardTrigger>
-                      <HoverCardContent className="w-80 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
-                        <p className="text-sm text-gray-700 dark:text-gray-300">{PARAM_DESCRIPTIONS.is_multi_track_enabled}</p>
-                      </HoverCardContent>
-                    </HoverCard>
+                    <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                    <span className="text-sm font-medium text-blue-800 dark:text-blue-200">Multi-track audio detected</span>
                   </div>
-                  <Switch
-                    id="canary_is_multi_track_enabled"
-                    checked={params.is_multi_track_enabled}
-                    onCheckedChange={(checked) => {
-                      updateParam('is_multi_track_enabled', checked);
-                      // Automatically disable diarization when multi-track is enabled
-                      if (checked) {
-                        updateParam('diarize', false);
-                      }
-                    }}
-                    className="data-[state=checked]:bg-green-600"
-                  />
-                </div>
-                {params.is_multi_track_enabled && (
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-                    Diarization will be automatically disabled as each track represents a single speaker.
+                  <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
+                    Multi-track transcription is automatically enabled for this audio file.
                   </p>
-                )}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Language Selection */}
             <div className="space-y-4">
@@ -1037,49 +1001,30 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
           </div>
         ) : (
           <Tabs defaultValue="basic" className="w-full">
-          <TabsList className="grid w-full grid-cols-4 items-center h-auto bg-gray-100 dark:bg-gray-800 p-1 rounded-lg">
+          <TabsList className={`grid w-full items-center h-auto bg-gray-100 dark:bg-gray-800 p-1 rounded-lg ${isMultiTrack ? 'grid-cols-3' : 'grid-cols-4'}`}>
             <TabsTrigger value="basic" className="h-9 py-1.5 data-[state=active]:bg-white data-[state=active]:dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs sm:text-sm">Basic</TabsTrigger>
             <TabsTrigger value="quality" className="h-9 py-1.5 data-[state=active]:bg-white data-[state=active]:dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs sm:text-sm">Quality</TabsTrigger>
             <TabsTrigger value="advanced" className="h-9 py-1.5 data-[state=active]:bg-white data-[state=active]:dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs sm:text-sm">Advanced</TabsTrigger>
-            <TabsTrigger value="diarization" className="h-9 py-1.5 data-[state=active]:bg-white data-[state=active]:dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs sm:text-sm">Diarization</TabsTrigger>
+            {!isMultiTrack && (
+              <TabsTrigger value="diarization" className="h-9 py-1.5 data-[state=active]:bg-white data-[state=active]:dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs sm:text-sm">Diarization</TabsTrigger>
+            )}
           </TabsList>
 
           <TabsContent value="basic" className="space-y-6 sm:space-y-8 mt-4 sm:mt-6">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-8">
               <div className="space-y-4 sm:space-y-6">
-                {/* Multi-track transcription toggle */}
-                <div>
-                  <div className="flex items-center justify-between">
+                {/* Multi-track status display */}
+                {isMultiTrack && (
+                  <div className="p-4 border border-blue-200 dark:border-blue-700 rounded-lg bg-blue-50 dark:bg-blue-900/20">
                     <div className="flex items-center gap-2">
-                      <Label htmlFor="is_multi_track_enabled" className="text-gray-700 dark:text-gray-300">Multi-track transcription</Label>
-                      <HoverCard>
-                        <HoverCardTrigger asChild>
-                          <Info className="h-4 w-4 text-gray-400 cursor-help" />
-                        </HoverCardTrigger>
-                        <HoverCardContent className="w-80 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
-                          <p className="text-sm text-gray-700 dark:text-gray-300">{PARAM_DESCRIPTIONS.is_multi_track_enabled}</p>
-                        </HoverCardContent>
-                      </HoverCard>
+                      <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                      <span className="text-sm font-medium text-blue-800 dark:text-blue-200">Multi-track audio detected</span>
                     </div>
-                    <Switch
-                      id="is_multi_track_enabled"
-                      checked={params.is_multi_track_enabled}
-                      onCheckedChange={(checked) => {
-                        updateParam('is_multi_track_enabled', checked);
-                        // Automatically disable diarization when multi-track is enabled
-                        if (checked) {
-                          updateParam('diarize', false);
-                        }
-                      }}
-                      className="data-[state=checked]:bg-blue-600"
-                    />
-                  </div>
-                  {params.is_multi_track_enabled && (
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-                      Diarization will be automatically disabled as each track represents a single speaker.
+                    <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
+                      Multi-track transcription is automatically enabled. Diarization is disabled as each track represents a single speaker.
                     </p>
-                  )}
-                </div>
+                  </div>
+                )}
                 
                 <div>
                   <div className="flex items-center gap-2 mb-2">
@@ -1717,7 +1662,8 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
             </div>
           </TabsContent>
 
-          <TabsContent value="diarization" className="space-y-6 sm:space-y-8 mt-4 sm:mt-6">
+          {!isMultiTrack && (
+            <TabsContent value="diarization" className="space-y-6 sm:space-y-8 mt-4 sm:mt-6">
             <div>
               <div className="flex items-center space-x-2 mb-6">
                 <Switch
@@ -1875,6 +1821,7 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
               )}
             </div>
           </TabsContent>
+          )}
         </Tabs>
         )}
 

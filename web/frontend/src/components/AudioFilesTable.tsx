@@ -1135,6 +1135,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 				onOpenChange={setConfigDialogOpen}
 				onStartTranscription={handleStartTranscription}
 				loading={transcriptionLoading}
+				isMultiTrack={selectedJobId ? data.find(job => job.id === selectedJobId)?.is_multi_track || false : false}
 			/>
 
 			{/* Transcribe-D Dialog */}
