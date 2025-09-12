@@ -465,27 +465,6 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
 
         {params.model_family === "nvidia_parakeet" ? (
           <div className="space-y-6">
-            {/* Info Banner */}
-            <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-              <div className="flex items-start space-x-3">
-                <div className="flex-shrink-0">
-                  <Info className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                </div>
-                <div className="flex-1">
-                  <h3 className="text-sm font-medium text-blue-800 dark:text-blue-200">
-                    NVIDIA Parakeet TDT 0.6B v3
-                  </h3>
-                  <div className="mt-2 text-sm text-blue-700 dark:text-blue-300">
-                    <ul className="list-disc list-inside space-y-1">
-                      <li>Supports 25 European languages with automatic detection</li>
-                      <li>Optimized for long-form audio up to 3 hours</li>
-                      <li>Speaker diarization available via Pyannote integration</li>
-                      <li>Includes automatic punctuation and capitalization</li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
-            </div>
 
             {/* Multi-track status for Parakeet */}
             {isMultiTrack && (
@@ -593,15 +572,6 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
                 </div>
               </div>
 
-              {/* Usage Recommendations */}
-              <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
-                <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">Recommended Settings:</h4>
-                <div className="space-y-1 text-xs text-gray-600 dark:text-gray-400">
-                  <p><span className="font-medium">Short audio ({"<"}10 min):</span> 128/128 - Faster processing</p>
-                  <p><span className="font-medium">Medium audio (10-60 min):</span> 256/256 - Balanced (default)</p>
-                  <p><span className="font-medium">Long audio ({">"}1 hour):</span> 384/384 or 512/512 - Best accuracy</p>
-                </div>
-              </div>
             </div>
 
             {/* Diarization Settings for Parakeet */}
@@ -768,28 +738,6 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
           </div>
         ) : params.model_family === "nvidia_canary" ? (
           <div className="space-y-6">
-            {/* Info Banner */}
-            <div className="p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
-              <div className="flex items-start space-x-3">
-                <div className="flex-shrink-0">
-                  <Info className="h-5 w-5 text-green-600 dark:text-green-400" />
-                </div>
-                <div className="flex-1">
-                  <h3 className="text-sm font-medium text-green-800 dark:text-green-200">
-                    NVIDIA Canary 1B v2
-                  </h3>
-                  <div className="mt-2 text-sm text-green-700 dark:text-green-300">
-                    <ul className="list-disc list-inside space-y-1">
-                      <li>Supports 25 European languages with automatic detection</li>
-                      <li>Advanced multilingual transcription and translation capabilities</li>
-                      <li>Optimized for high-quality audio processing</li>
-                      <li>Speaker diarization available via Pyannote integration</li>
-                      <li>Includes punctuation and capitalization</li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
-            </div>
 
             {/* Multi-track status for Canary */}
             {isMultiTrack && (
@@ -832,13 +780,6 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
                 </Select>
               </div>
 
-              <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
-                <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">Supported Languages:</h4>
-                <div className="text-xs text-gray-600 dark:text-gray-400">
-                  <p className="mb-1"><span className="font-medium">European Languages:</span> Bulgarian, Croatian, Czech, Danish, Dutch, English, Estonian, Finnish, French, German, Greek, Hungarian, Italian, Latvian, Lithuanian, Maltese, Polish, Portuguese, Romanian, Slovak, Slovenian, Spanish, Swedish</p>
-                  <p><span className="font-medium">Eastern European:</span> Russian, Ukrainian</p>
-                </div>
-              </div>
             </div>
 
             {/* Diarization Settings for Canary */}
