@@ -24,7 +24,7 @@ func NewOllamaService(baseURL string) *OllamaService {
 	b := strings.TrimRight(baseURL, "/")
 	return &OllamaService{
 		baseURL: b,
-		client:  &http.Client{Timeout: 30 * time.Second},
+		client:  &http.Client{Timeout: 300 * time.Second},
 	}
 }
 
