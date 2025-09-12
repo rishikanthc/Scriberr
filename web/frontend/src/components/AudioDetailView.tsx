@@ -315,7 +315,8 @@ useEffect(() => {
 			setPollingInterval(null);
 		}
 		// Clear processing start time if completed or failed
-		if (audioFile && (audioFile.status === "completed" || audioFile.status === "failed")) {
+		const status = currentStatus || audioFile?.status;
+		if (status && (status === "completed" || status === "failed")) {
 			setProcessingStartTime(null);
 			setElapsedTime(0);
 		}
@@ -353,7 +354,7 @@ useEffect(() => {
 		fetchSpeakerMappings();
 	}
 	// eslint-disable-next-line react-hooks/exhaustive-deps
-}, [audioFile]);
+}, [audioFile?.id]);
 
 // Also clear and refetch speaker mappings when transcript changes (handles retranscription)
 useEffect(() => {
@@ -393,7 +394,7 @@ useEffect(() => {
 				wavesurferRef.current = null;
 			}
 		};
-    }, [audioFile]);
+    }, [audioFile?.id, audioFile?.audio_path]);
 
 	// Update current word index based on audio time
 	useEffect(() => {
@@ -450,6 +451,44 @@ useEffect(() => {
 		}
 	}, [currentWordIndex]);
 
+	const fetchTranscriptOnly = async () => {
+		try {
+			const transcriptResponse = await fetch(
+				`/api/v1/transcription/${audioId}/transcript`,
+				{
+					headers: {
+						...getAuthHeaders(),
+					},
+				},
+			);
+
+			if (transcriptResponse.ok) {
+				const transcriptData = await transcriptResponse.json();
+				
+				// The API returns transcript data in a nested structure
+				if (transcriptData.transcript) {
+					// Check if transcript has segments or text
+					if (typeof transcriptData.transcript === "string") {
+						setTranscript({ text: transcriptData.transcript });
+					} else if (transcriptData.transcript.text) {
+						setTranscript({
+							text: transcriptData.transcript.text,
+							segments: transcriptData.transcript.segments,
+							word_segments: transcriptData.transcript.word_segments,
+						});
+					} else if (transcriptData.transcript.segments) {
+						setTranscript({
+							text: "",
+							segments: transcriptData.transcript.segments,
+						});
+					}
+				}
+			}
+		} catch (error) {
+			console.error("Error fetching transcript:", error);
+		}
+	};
+
 	const fetchStatusOnly = async () => {
 		try {
 			const response = await fetch(`/api/v1/transcription/${audioId}`, {
@@ -465,9 +504,10 @@ useEffect(() => {
 				// Only update the status state, not the entire audioFile
 				setCurrentStatus(data.status);
 				
-				// If status changed to completed, fetch full details
+				// If status changed to completed, update audioFile status and fetch transcript
 				if (data.status === "completed" && previousStatus === "processing") {
-					await fetchAudioDetails();
+					setAudioFile(prev => prev ? { ...prev, status: "completed" } : null);
+					await fetchTranscriptOnly();
 				}
 			}
 		} catch (error) {
@@ -1359,7 +1399,7 @@ useEffect(() => {
 					</div>
 				</div>
 
-				{audioFile.status === "completed" && transcript && (
+				{(currentStatus || audioFile.status) === "completed" && transcript && (
 					<div className="bg-white dark:bg-gray-800 rounded-xl p-3 sm:p-6">
 						{/* Header Section */}
 						<div className="mb-3 sm:mb-6">
