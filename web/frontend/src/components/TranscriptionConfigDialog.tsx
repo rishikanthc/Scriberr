@@ -605,8 +605,9 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
             </div>
 
             {/* Diarization Settings for Parakeet */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">Speaker Diarization</h3>
+            {!isMultiTrack && (
+              <div className="space-y-4">
+                <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">Speaker Diarization</h3>
               
               <div className="flex items-center space-x-2 mb-4">
                 <Switch
@@ -763,6 +764,7 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
                 </div>
               )}
             </div>
+            )}
           </div>
         ) : params.model_family === "nvidia_canary" ? (
           <div className="space-y-6">
@@ -840,8 +842,9 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
             </div>
 
             {/* Diarization Settings for Canary */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">Speaker Diarization</h3>
+            {!isMultiTrack && (
+              <div className="space-y-4">
+                <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">Speaker Diarization</h3>
               
               <div className="flex items-center space-x-2 mb-4">
                 <Switch
@@ -998,6 +1001,7 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
                 </div>
               )}
             </div>
+            )}
           </div>
         ) : (
           <Tabs defaultValue="basic" className="w-full">
