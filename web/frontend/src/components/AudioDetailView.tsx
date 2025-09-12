@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, memo } from "react";
 import { createPortal } from "react-dom";
-import { ArrowLeft, Play, Pause, List, AlignLeft, MessageCircle, Download, FileText, FileJson, FileImage, Check, StickyNote, Plus, X, Sparkles, Pencil, ChevronUp, ChevronDown, Info, Clock, Settings, Users } from "lucide-react";
+import { ArrowLeft, Play, Pause, List, AlignLeft, MessageCircle, Download, FileText, FileJson, FileImage, Check, StickyNote, Plus, X, Sparkles, Pencil, ChevronUp, ChevronDown, Info, Clock, Settings, Users, Loader2 } from "lucide-react";
 import WaveSurfer from "wavesurfer.js";
 import { Button } from "./ui/button";
 import {
@@ -164,6 +164,12 @@ const formatDuration = (seconds: number): string => {
     return `${hours}h ${remainingMinutes}m ${remainingSeconds.toFixed(0)}s`;
 };
 
+const formatElapsedTime = (seconds: number): string => {
+	const minutes = Math.floor(seconds / 60);
+	const remainingSeconds = seconds % 60;
+	return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+};
+
 export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioDetailViewProps) {
 	const { navigate } = useRouter();
 	const { theme } = useTheme();
@@ -186,6 +192,12 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
 	// Speaker renaming state
 	const [speakerRenameDialogOpen, setSpeakerRenameDialogOpen] = useState(false);
 	const [speakerMappings, setSpeakerMappings] = useState<Record<string, string>>({});
+	
+	// Polling state
+	const [pollingInterval, setPollingInterval] = useState<NodeJS.Timeout | null>(null);
+	const [processingStartTime, setProcessingStartTime] = useState<Date | null>(null);
+	const [elapsedTime, setElapsedTime] = useState<number>(0);
+	const [currentStatus, setCurrentStatus] = useState<string | null>(null);
 	const waveformRef = useRef<HTMLDivElement>(null);
 	const wavesurferRef = useRef<WaveSurfer | null>(null);
 	const transcriptRef = useRef<HTMLDivElement>(null);
@@ -267,6 +279,71 @@ useEffect(() => {
             } catch { setLlmReady(false); }
         })();
 }, [audioId]);
+
+// Polling mechanism for status updates
+useEffect(() => {
+	// Start polling if job is processing or pending
+	const status = currentStatus || audioFile?.status;
+	if (audioFile && status && (status === "processing" || status === "pending")) {
+		// Set processing start time if not already set
+		if (!processingStartTime && status === "processing") {
+			setProcessingStartTime(new Date());
+		}
+		
+		// Clear any existing interval
+		if (pollingInterval) {
+			clearInterval(pollingInterval);
+		}
+		
+		// Start polling every 3 seconds
+		const interval = setInterval(async () => {
+			await fetchStatusOnly();
+		}, 3000);
+		
+		setPollingInterval(interval);
+		
+		// Cleanup interval on unmount or when status changes
+		return () => {
+			if (interval) {
+				clearInterval(interval);
+			}
+		};
+	} else {
+		// Stop polling if status is completed, failed, or uploaded
+		if (pollingInterval) {
+			clearInterval(pollingInterval);
+			setPollingInterval(null);
+		}
+		// Clear processing start time if completed or failed
+		if (audioFile && (audioFile.status === "completed" || audioFile.status === "failed")) {
+			setProcessingStartTime(null);
+			setElapsedTime(0);
+		}
+	}
+}, [currentStatus, audioFile?.status, audioId]); // Re-run when status or audioId changes
+
+// Update elapsed time counter
+useEffect(() => {
+	const status = currentStatus || audioFile?.status;
+	if (processingStartTime && status === "processing") {
+		const timer = setInterval(() => {
+			const now = new Date();
+			const elapsed = Math.floor((now.getTime() - processingStartTime.getTime()) / 1000);
+			setElapsedTime(elapsed);
+		}, 1000);
+		
+		return () => clearInterval(timer);
+	}
+}, [processingStartTime, currentStatus, audioFile?.status]);
+
+// Cleanup polling on unmount
+useEffect(() => {
+	return () => {
+		if (pollingInterval) {
+			clearInterval(pollingInterval);
+		}
+	};
+}, [pollingInterval]);
 
 // Fetch speaker mappings when audio file is loaded and has diarization enabled
 useEffect(() => {
@@ -373,6 +450,31 @@ useEffect(() => {
 		}
 	}, [currentWordIndex]);
 
+	const fetchStatusOnly = async () => {
+		try {
+			const response = await fetch(`/api/v1/transcription/${audioId}`, {
+				headers: {
+					...getAuthHeaders(),
+				},
+			});
+			
+			if (response.ok) {
+				const data = await response.json();
+				const previousStatus = currentStatus || audioFile?.status;
+				
+				// Only update the status state, not the entire audioFile
+				setCurrentStatus(data.status);
+				
+				// If status changed to completed, fetch full details
+				if (data.status === "completed" && previousStatus === "processing") {
+					await fetchAudioDetails();
+				}
+			}
+		} catch (error) {
+			console.error('Error fetching status:', error);
+		}
+	};
+
 	const fetchAudioDetails = async () => {
 		try {
 			// Fetch audio file details
@@ -386,6 +488,7 @@ useEffect(() => {
 			if (audioResponse.ok) {
 				const audioData = await audioResponse.json();
 				setAudioFile(audioData);
+				setCurrentStatus(audioData.status);
 
 				// Fetch transcript if completed
 				if (audioData.status === "completed") {
@@ -1584,26 +1687,54 @@ useEffect(() => {
 
 
 				{/* Status Messages */}
-				{audioFile.status !== "completed" && (
+				{(currentStatus || audioFile.status) !== "completed" && (
 					<div className="bg-white dark:bg-gray-700 rounded-xl p-6">
 						<div className="text-center">
-							<h2 className="text-xl font-semibold text-gray-900 dark:text-gray-50 mb-2">
-								{audioFile.status === "processing" &&
-									"Transcription in Progress"}
-								{audioFile.status === "pending" && "Transcription Queued"}
-								{audioFile.status === "uploaded" && "Ready for Transcription"}
-								{audioFile.status === "failed" && "Transcription Failed"}
-							</h2>
-							<p className="text-gray-600 dark:text-gray-400">
-								{audioFile.status === "processing" &&
-									"Please wait while we process your audio file..."}
-								{audioFile.status === "pending" &&
-									"Your audio file is in the transcription queue."}
-								{audioFile.status === "uploaded" &&
-									"Start transcription from the audio files list."}
-								{audioFile.status === "failed" &&
-									"There was an error processing your audio file."}
-							</p>
+							{/* Processing Status with Animation */}
+							{(currentStatus || audioFile.status) === "processing" && (
+								<div className="flex flex-col items-center space-y-4">
+									<div className="flex items-center space-x-3">
+										<Loader2 className="h-8 w-8 text-blue-500 animate-spin" />
+										<div>
+											<h2 className="text-xl font-semibold text-gray-900 dark:text-gray-50">
+												Transcription in Progress
+											</h2>
+											{elapsedTime > 0 && (
+												<p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+													Processing for {formatElapsedTime(elapsedTime)}
+												</p>
+											)}
+										</div>
+									</div>
+									<div className="w-full max-w-md">
+										<div className="bg-gray-200 dark:bg-gray-600 rounded-full h-2">
+											<div className="bg-blue-500 h-2 rounded-full transition-all duration-1000 ease-out animate-pulse" style={{ width: '60%' }}></div>
+										</div>
+									</div>
+									<p className="text-gray-600 dark:text-gray-400 text-sm">
+										Converting your audio to text... This may take a few minutes.
+									</p>
+								</div>
+							)}
+							
+							{/* Other Status Messages */}
+							{(currentStatus || audioFile.status) !== "processing" && (
+								<>
+									<h2 className="text-xl font-semibold text-gray-900 dark:text-gray-50 mb-2">
+										{(currentStatus || audioFile.status) === "pending" && "Transcription Queued"}
+										{(currentStatus || audioFile.status) === "uploaded" && "Ready for Transcription"}
+										{(currentStatus || audioFile.status) === "failed" && "Transcription Failed"}
+									</h2>
+									<p className="text-gray-600 dark:text-gray-400">
+										{(currentStatus || audioFile.status) === "pending" &&
+											"Your audio file is in the transcription queue."}
+										{(currentStatus || audioFile.status) === "uploaded" &&
+											"Start transcription from the audio files list."}
+										{(currentStatus || audioFile.status) === "failed" &&
+											"There was an error processing your audio file."}
+									</p>
+								</>
+							)}
 						</div>
 					</div>
 				)}
