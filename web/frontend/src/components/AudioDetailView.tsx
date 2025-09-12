@@ -127,6 +127,43 @@ const getDiarizationModelDisplayName = (model: string): string => {
     }
 };
 
+// Helper function to calculate audio duration from transcript segments
+const getAudioDurationFromTranscript = (transcript: Transcript | null): number | null => {
+    if (!transcript) return null;
+    
+    // Try word segments first (most accurate)
+    if (transcript.word_segments && transcript.word_segments.length > 0) {
+        const lastWord = transcript.word_segments[transcript.word_segments.length - 1];
+        return lastWord.end;
+    }
+    
+    // Fall back to segments
+    if (transcript.segments && transcript.segments.length > 0) {
+        const lastSegment = transcript.segments[transcript.segments.length - 1];
+        return lastSegment.end;
+    }
+    
+    return null;
+};
+
+// Helper function to format duration in seconds to a readable format
+const formatDuration = (seconds: number): string => {
+    if (seconds < 60) {
+        return `${seconds.toFixed(1)}s`;
+    }
+    
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    
+    if (minutes < 60) {
+        return `${minutes}m ${remainingSeconds.toFixed(0)}s`;
+    }
+    
+    const hours = Math.floor(minutes / 60);
+    const remainingMinutes = minutes % 60;
+    return `${hours}h ${remainingMinutes}m ${remainingSeconds.toFixed(0)}s`;
+};
+
 export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioDetailViewProps) {
 	const { navigate } = useRouter();
 	const { theme } = useTheme();
@@ -1958,7 +1995,7 @@ useEffect(() => {
                                                 </svg>
                                                 Transcript Merge Phase
                                             </h3>
-                                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-sm">
                                                 <div className="bg-white/60 dark:bg-gray-800/30 rounded-md p-3 border border-orange-100/50 dark:border-orange-800/50">
                                                     <span className="text-orange-700 dark:text-orange-300 font-medium">Started:</span>
                                                     <p className="font-mono text-gray-900 dark:text-gray-100 mt-1 text-xs">
@@ -1983,6 +2020,15 @@ useEffect(() => {
                                                         {(executionData.merge_duration / 1000).toFixed(1)}s
                                                     </p>
                                                 </div>
+                                                <div className="bg-white/60 dark:bg-gray-800/30 rounded-md p-3 border border-orange-100/50 dark:border-orange-800/50">
+                                                    <span className="text-orange-700 dark:text-orange-300 font-medium">Audio Length:</span>
+                                                    <p className="font-mono text-lg font-bold text-orange-600 dark:text-orange-400 mt-1">
+                                                        {(() => {
+                                                            const duration = getAudioDurationFromTranscript(transcript);
+                                                            return duration ? formatDuration(duration) : 'N/A';
+                                                        })()}
+                                                    </p>
+                                                </div>
                                             </div>
                                         </div>
                                     )}
@@ -1994,7 +2040,7 @@ useEffect(() => {
                                         <Clock className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
                                         Processing Time
                                     </h3>
-                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 text-sm">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 text-sm">
                                         <div className="bg-white/60 dark:bg-gray-800/30 rounded-md p-3 border border-indigo-100/50 dark:border-indigo-800/50">
                                             <span className="text-indigo-700 dark:text-indigo-300 font-medium">Started:</span>
                                             <p className="font-mono text-gray-900 dark:text-gray-100 mt-1 text-xs sm:text-sm">
@@ -2017,6 +2063,15 @@ useEffect(() => {
                                                     ? `${(executionData.processing_duration / 1000).toFixed(1)}s`
                                                     : 'N/A'
                                                 }
+                                            </p>
+                                        </div>
+                                        <div className="bg-white/60 dark:bg-gray-800/30 rounded-md p-3 border border-indigo-100/50 dark:border-indigo-800/50">
+                                            <span className="text-indigo-700 dark:text-indigo-300 font-medium">Audio Length:</span>
+                                            <p className="font-mono text-xl sm:text-2xl font-bold text-indigo-600 dark:text-indigo-400 mt-1">
+                                                {(() => {
+                                                    const duration = getAudioDurationFromTranscript(transcript);
+                                                    return duration ? formatDuration(duration) : 'N/A';
+                                                })()}
                                             </p>
                                         </div>
                                     </div>
