@@ -773,7 +773,7 @@ func (u *UnifiedTranscriptionService) convertTranscriptResultToJSON(result *inte
 			Word    string  `json:"word"`
 			Score   float64 `json:"score"`
 			Speaker *string `json:"speaker,omitempty"`
-		} `json:"words,omitempty"`
+		} `json:"word_segments,omitempty"`
 		Language string `json:"language"`
 		Text     string `json:"text"`
 	}{

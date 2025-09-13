@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, memo } from "react";
+import { useState, useEffect, useRef, memo, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { ArrowLeft, Play, Pause, List, AlignLeft, MessageCircle, Download, FileText, FileJson, FileImage, Check, StickyNote, Plus, X, Sparkles, Pencil, ChevronUp, ChevronDown, Info, Clock, Settings, Users, Loader2 } from "lucide-react";
 import WaveSurfer from "wavesurfer.js";
@@ -176,6 +176,15 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
 	const { getAuthHeaders } = useAuth();
 	const [audioFile, setAudioFile] = useState<AudioFile | null>(null);
 	const [transcript, setTranscript] = useState<Transcript | null>(null);
+	
+	// Debug transcript changes
+	useEffect(() => {
+		console.log("[DEBUG] *** TRANSCRIPT STATE CHANGED ***");
+		console.log("[DEBUG] transcript:", transcript);
+		console.log("[DEBUG] has word_segments:", !!transcript?.word_segments);
+		console.log("[DEBUG] word_segments length:", transcript?.word_segments?.length);
+		console.log("[DEBUG] transcript.text length:", transcript?.text?.length);
+	}, [transcript]);
 	const [loading, setLoading] = useState(true);
 	const [isPlaying, setIsPlaying] = useState(false);
 	const [transcriptMode, setTranscriptMode] = useState<"compact" | "expanded">(
@@ -367,258 +376,7 @@ useEffect(() => {
 
     // Former floating-controls visibility logic removed: controls are always fixed.
 
-	// Initialize WaveSurfer when audioFile is available - with proper DOM timing
-    useEffect(() => {
-        if (!audioFile) {
-            return;
-        }
-
-
-		// Use a longer timeout and multiple checks to ensure DOM is ready
-		const checkAndInitialize = () => {
-			if (waveformRef.current && !wavesurferRef.current) {
-				initializeWaveSurfer();
-			} else if (!waveformRef.current) {
-				// Retry after a bit more time
-				setTimeout(checkAndInitialize, 200);
-			}
-		};
-
-		// Initial check with a small delay
-        const timer = setTimeout(checkAndInitialize, 50);
-
-		return () => {
-			clearTimeout(timer);
-			if (wavesurferRef.current) {
-				wavesurferRef.current.destroy();
-				wavesurferRef.current = null;
-			}
-		};
-    }, [audioFile?.id, audioFile?.audio_path]);
-
-	// Update current word index based on audio time
-	useEffect(() => {
-		if (!transcript?.word_segments) {
-			return;
-		}
-
-		// Find the word that should be highlighted based on current time
-		const currentWordIdx = transcript.word_segments.findIndex(
-			(word) => {
-				// Use word's end time for more accurate highlighting
-				return currentTime >= word.start && currentTime <= word.end;
-			}
-		);
-
-		// If no exact match, find the closest upcoming word
-		const fallbackWordIdx = currentWordIdx === -1 
-			? transcript.word_segments.findIndex(word => word.start > currentTime) - 1
-			: currentWordIdx;
-
-		const finalWordIdx = Math.max(0, fallbackWordIdx);
-
-		if (finalWordIdx !== currentWordIndex && (isPlaying || currentTime > 0)) {
-			setCurrentWordIndex(finalWordIdx);
-		}
-
-		// Clear highlighting when audio is stopped and at the beginning
-		if (!isPlaying && currentTime === 0) {
-			setCurrentWordIndex(null);
-		}
-	}, [currentTime, transcript?.word_segments, isPlaying, currentWordIndex]);
-
-	// Auto-scroll to highlighted word
-	useEffect(() => {
-		if (currentWordIndex !== null && highlightedWordRef.current) {
-			const highlightedElement = highlightedWordRef.current;
-			
-			// Check if the highlighted word is outside the visible viewport
-			const highlightedRect = highlightedElement.getBoundingClientRect();
-			const viewportHeight = window.innerHeight;
-			
-			// Consider the word out of view if it's too close to the top or bottom edges
-			// This provides a buffer so the word isn't right at the edge
-			const buffer = viewportHeight * 0.2; // 20% buffer
-			const isAboveView = highlightedRect.top < buffer;
-			const isBelowView = highlightedRect.bottom > (viewportHeight - buffer);
-			
-			if (isAboveView || isBelowView) {
-				highlightedElement.scrollIntoView({
-					behavior: 'smooth',
-					block: 'center',
-				});
-			}
-		}
-	}, [currentWordIndex]);
-
-	const fetchTranscriptOnly = async () => {
-		try {
-			const transcriptResponse = await fetch(
-				`/api/v1/transcription/${audioId}/transcript`,
-				{
-					headers: {
-						...getAuthHeaders(),
-					},
-				},
-			);
-
-			if (transcriptResponse.ok) {
-				const transcriptData = await transcriptResponse.json();
-				
-				// The API returns transcript data in a nested structure
-				if (transcriptData.transcript) {
-					// Check if transcript has segments or text
-					if (typeof transcriptData.transcript === "string") {
-						setTranscript({ text: transcriptData.transcript });
-					} else if (transcriptData.transcript.text) {
-						setTranscript({
-							text: transcriptData.transcript.text,
-							segments: transcriptData.transcript.segments,
-							word_segments: transcriptData.transcript.word_segments,
-						});
-					} else if (transcriptData.transcript.segments) {
-						setTranscript({
-							text: "",
-							segments: transcriptData.transcript.segments,
-						});
-					}
-				}
-			}
-		} catch (error) {
-			console.error("Error fetching transcript:", error);
-		}
-	};
-
-	const fetchStatusOnly = async () => {
-		try {
-			const response = await fetch(`/api/v1/transcription/${audioId}`, {
-				headers: {
-					...getAuthHeaders(),
-				},
-			});
-			
-			if (response.ok) {
-				const data = await response.json();
-				const previousStatus = currentStatus || audioFile?.status;
-				
-				// Only update the status state, not the entire audioFile
-				setCurrentStatus(data.status);
-				
-				// If status changed to completed, update audioFile status and fetch transcript
-				if (data.status === "completed" && previousStatus === "processing") {
-					setAudioFile(prev => prev ? { ...prev, status: "completed" } : null);
-					await fetchTranscriptOnly();
-				}
-			}
-		} catch (error) {
-			console.error('Error fetching status:', error);
-		}
-	};
-
-	const fetchAudioDetails = async () => {
-		try {
-			// Fetch audio file details
-			const audioResponse = await fetch(`/api/v1/transcription/${audioId}`, {
-				headers: {
-					...getAuthHeaders(),
-				},
-			});
-
-
-			if (audioResponse.ok) {
-				const audioData = await audioResponse.json();
-				setAudioFile(audioData);
-				setCurrentStatus(audioData.status);
-
-				// Fetch transcript if completed
-				if (audioData.status === "completed") {
-					const transcriptResponse = await fetch(
-						`/api/v1/transcription/${audioId}/transcript`,
-						{
-							headers: {
-								...getAuthHeaders(),
-							},
-						},
-					);
-
-					if (transcriptResponse.ok) {
-						const transcriptData = await transcriptResponse.json();
-						
-						// The API returns transcript data in a nested structure
-						if (transcriptData.transcript) {
-							// Check if transcript has segments or text
-							if (typeof transcriptData.transcript === "string") {
-								setTranscript({ text: transcriptData.transcript });
-							} else if (transcriptData.transcript.text) {
-								setTranscript({
-									text: transcriptData.transcript.text,
-									segments: transcriptData.transcript.segments,
-									word_segments: transcriptData.transcript.word_segments,
-								});
-							} else if (transcriptData.transcript.segments) {
-								// If only segments, combine them into text
-								const fullText = transcriptData.transcript.segments
-									.map((segment: any) => segment.text)
-									.join(" ");
-								setTranscript({
-									text: fullText,
-									segments: transcriptData.transcript.segments,
-									word_segments: transcriptData.transcript.word_segments,
-								});
-							}
-						}
-					} else {
-						console.error(
-							"Failed to fetch transcript:",
-							transcriptResponse.status,
-						);
-					}
-				}
-			} else {
-				console.error("Failed to fetch audio details:", audioResponse.status);
-			}
-		} catch (error) {
-			console.error("Failed to fetch audio details:", error);
-		} finally {
-			setLoading(false);
-		}
-	};
-
-    const fetchNotes = async () => {
-        try {
-            const res = await fetch(`/api/v1/transcription/${audioId}/notes`, { headers: { ...getAuthHeaders() }});
-            if (res.ok) {
-                const data = await res.json();
-                setNotes(sortNotes(data));
-            }
-        } catch (e) { console.error("Failed to fetch notes", e); }
-    };
-
-    const fetchExecutionData = async () => {
-        if (executionData) return; // Already loaded
-        setExecutionDataLoading(true);
-        try {
-            const res = await fetch(`/api/v1/transcription/${audioId}/execution`, { 
-                headers: { ...getAuthHeaders() }
-            });
-            if (res.ok) {
-                const data = await res.json();
-                setExecutionData(data);
-            } else {
-            }
-        } catch (e) { 
-            console.error("Failed to fetch execution data", e); 
-        } finally {
-            setExecutionDataLoading(false);
-        }
-    };
-
-    const openExecutionInfo = () => {
-        setExecutionInfoOpen(true);
-        fetchExecutionData();
-    };
-
-	const initializeWaveSurfer = async () => {
+	const initializeWaveSurfer = useCallback(async () => {
 		if (!waveformRef.current || !audioFile) return;
 
 		try {
@@ -689,10 +447,285 @@ useEffect(() => {
 			wavesurferRef.current.on("audioprocess", (time) => {
 				setCurrentTime(time);
 			});
+
+			// Add ready event listener for immediate time updates when seeking
+			wavesurferRef.current.on("ready", () => {
+				// Set up additional event listeners after WaveSurfer is ready
+				wavesurferRef.current?.on("interaction", () => {
+					const currentTime = wavesurferRef.current?.getCurrentTime() || 0;
+					setCurrentTime(currentTime);
+				});
+			});
 		} catch (error) {
 			console.error("Failed to initialize WaveSurfer:", error);
 		}
+	}, [audioId, audioFile, theme, getAuthHeaders]);
+
+	// Initialize WaveSurfer when audioFile is available - with proper DOM timing
+    useEffect(() => {
+        if (!audioFile) {
+            return;
+        }
+
+
+		// Use a longer timeout and multiple checks to ensure DOM is ready
+		const checkAndInitialize = () => {
+			if (waveformRef.current && !wavesurferRef.current) {
+				initializeWaveSurfer();
+			} else if (!waveformRef.current) {
+				// Retry after a bit more time
+				setTimeout(checkAndInitialize, 200);
+			}
+		};
+
+		// Initial check with a small delay
+        const timer = setTimeout(checkAndInitialize, 50);
+
+		return () => {
+			clearTimeout(timer);
+			if (wavesurferRef.current) {
+				wavesurferRef.current.destroy();
+				wavesurferRef.current = null;
+			}
+		};
+    }, [audioFile?.id, audioFile?.audio_path, initializeWaveSurfer]);
+
+	// Update current word index based on audio time
+	useEffect(() => {
+		if (!transcript?.word_segments) {
+			return;
+		}
+
+		// Find the word that should be highlighted based on current time
+		const currentWordIdx = transcript.word_segments.findIndex(
+			(word) => {
+				// Use word's end time for more accurate highlighting
+				return currentTime >= word.start && currentTime <= word.end;
+			}
+		);
+
+		// If no exact match, find the closest upcoming word
+		const fallbackWordIdx = currentWordIdx === -1 
+			? transcript.word_segments.findIndex(word => word.start > currentTime) - 1
+			: currentWordIdx;
+
+		const finalWordIdx = Math.max(0, fallbackWordIdx);
+
+		if (finalWordIdx !== currentWordIndex && (isPlaying || currentTime > 0)) {
+			setCurrentWordIndex(finalWordIdx);
+		}
+
+		// Clear highlighting when audio is stopped and at the beginning
+		if (!isPlaying && currentTime === 0) {
+			setCurrentWordIndex(null);
+		}
+	}, [currentTime, transcript?.word_segments, isPlaying]);
+
+	// Auto-scroll to highlighted word
+	useEffect(() => {
+		if (currentWordIndex !== null && highlightedWordRef.current) {
+			const highlightedElement = highlightedWordRef.current;
+			
+			// Check if the highlighted word is outside the visible viewport
+			const highlightedRect = highlightedElement.getBoundingClientRect();
+			const viewportHeight = window.innerHeight;
+			
+			// Consider the word out of view if it's too close to the top or bottom edges
+			// This provides a buffer so the word isn't right at the edge
+			const buffer = viewportHeight * 0.2; // 20% buffer
+			const isAboveView = highlightedRect.top < buffer;
+			const isBelowView = highlightedRect.bottom > (viewportHeight - buffer);
+			
+			if (isAboveView || isBelowView) {
+				highlightedElement.scrollIntoView({
+					behavior: 'smooth',
+					block: 'center',
+				});
+			}
+		}
+	}, [currentWordIndex]);
+
+	const fetchTranscriptOnly = async () => {
+		console.log("[DEBUG] *** fetchTranscriptOnly CALLED ***");
+		try {
+			const transcriptResponse = await fetch(
+				`/api/v1/transcription/${audioId}/transcript`,
+				{
+					headers: {
+						...getAuthHeaders(),
+					},
+				},
+			);
+
+			if (transcriptResponse.ok) {
+				const transcriptData = await transcriptResponse.json();
+				console.log("[DEBUG] fetchTranscriptOnly - transcriptData:", transcriptData);
+				
+				// The API returns transcript data in a nested structure
+				if (transcriptData.transcript) {
+					console.log("[DEBUG] transcript has word_segments:", !!transcriptData.transcript.word_segments);
+					console.log("[DEBUG] word_segments length:", transcriptData.transcript.word_segments?.length);
+					// Check if transcript has segments or text
+					if (typeof transcriptData.transcript === "string") {
+						console.log("[DEBUG] Setting transcript as STRING");
+						setTranscript({ text: transcriptData.transcript });
+					} else if (transcriptData.transcript.text) {
+						console.log("[DEBUG] Setting transcript with TEXT and word_segments");
+						setTranscript({
+							text: transcriptData.transcript.text,
+							segments: transcriptData.transcript.segments,
+							word_segments: transcriptData.transcript.word_segments,
+						});
+					} else if (transcriptData.transcript.segments) {
+						console.log("[DEBUG] Setting transcript with SEGMENTS and word_segments");
+						setTranscript({
+							text: "",
+							segments: transcriptData.transcript.segments,
+							word_segments: transcriptData.transcript.word_segments,
+						});
+					}
+				}
+			}
+		} catch (error) {
+			console.error("Error fetching transcript:", error);
+		}
 	};
+
+	const fetchStatusOnly = async () => {
+		try {
+			const response = await fetch(`/api/v1/transcription/${audioId}`, {
+				headers: {
+					...getAuthHeaders(),
+				},
+			});
+			
+			if (response.ok) {
+				const data = await response.json();
+				const previousStatus = currentStatus || audioFile?.status;
+				
+				// Only update the status state, not the entire audioFile
+				setCurrentStatus(data.status);
+				
+				// If status changed to completed, update audioFile status and fetch transcript
+				if (data.status === "completed" && previousStatus === "processing") {
+					setAudioFile(prev => prev ? { ...prev, status: "completed" } : null);
+					await fetchTranscriptOnly();
+				}
+			}
+		} catch (error) {
+			console.error('Error fetching status:', error);
+		}
+	};
+
+	const fetchAudioDetails = async () => {
+		try {
+			// Fetch audio file details
+			const audioResponse = await fetch(`/api/v1/transcription/${audioId}`, {
+				headers: {
+					...getAuthHeaders(),
+				},
+			});
+
+
+			if (audioResponse.ok) {
+				const audioData = await audioResponse.json();
+				setAudioFile(audioData);
+				setCurrentStatus(audioData.status);
+
+				// Fetch transcript if completed
+				if (audioData.status === "completed") {
+					const transcriptResponse = await fetch(
+						`/api/v1/transcription/${audioId}/transcript`,
+						{
+							headers: {
+								...getAuthHeaders(),
+							},
+						},
+					);
+
+					if (transcriptResponse.ok) {
+						const transcriptData = await transcriptResponse.json();
+						console.log("[DEBUG] *** fetchAudioDetails TRANSCRIPT LOADING ***");
+						console.log("[DEBUG] initial transcriptData:", transcriptData);
+						
+						// The API returns transcript data in a nested structure
+						if (transcriptData.transcript) {
+							console.log("[DEBUG] initial transcript has word_segments:", !!transcriptData.transcript.word_segments);
+							console.log("[DEBUG] initial word_segments length:", transcriptData.transcript.word_segments?.length);
+							// Check if transcript has segments or text
+							if (typeof transcriptData.transcript === "string") {
+								console.log("[DEBUG] INITIAL: Setting transcript as STRING");
+								setTranscript({ text: transcriptData.transcript });
+							} else if (transcriptData.transcript.text) {
+								console.log("[DEBUG] INITIAL: Setting transcript with TEXT and word_segments");
+								setTranscript({
+									text: transcriptData.transcript.text,
+									segments: transcriptData.transcript.segments,
+									word_segments: transcriptData.transcript.word_segments,
+								});
+							} else if (transcriptData.transcript.segments) {
+								console.log("[DEBUG] INITIAL: Setting transcript with SEGMENTS only");
+								// If only segments, combine them into text
+								const fullText = transcriptData.transcript.segments
+									.map((segment: any) => segment.text)
+									.join(" ");
+								setTranscript({
+									text: fullText,
+									segments: transcriptData.transcript.segments,
+									word_segments: transcriptData.transcript.word_segments,
+								});
+							}
+						}
+					} else {
+						console.error(
+							"Failed to fetch transcript:",
+							transcriptResponse.status,
+						);
+					}
+				}
+			} else {
+				console.error("Failed to fetch audio details:", audioResponse.status);
+			}
+		} catch (error) {
+			console.error("Failed to fetch audio details:", error);
+		} finally {
+			setLoading(false);
+		}
+	};
+
+    const fetchNotes = async () => {
+        try {
+            const res = await fetch(`/api/v1/transcription/${audioId}/notes`, { headers: { ...getAuthHeaders() }});
+            if (res.ok) {
+                const data = await res.json();
+                setNotes(sortNotes(data));
+            }
+        } catch (e) { console.error("Failed to fetch notes", e); }
+    };
+
+    const fetchExecutionData = async () => {
+        if (executionData) return; // Already loaded
+        setExecutionDataLoading(true);
+        try {
+            const res = await fetch(`/api/v1/transcription/${audioId}/execution`, { 
+                headers: { ...getAuthHeaders() }
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setExecutionData(data);
+            } else {
+            }
+        } catch (e) { 
+            console.error("Failed to fetch execution data", e); 
+        } finally {
+            setExecutionDataLoading(false);
+        }
+    };
+
+    const openExecutionInfo = () => {
+        setExecutionInfoOpen(true);
+        fetchExecutionData();
+    };
 
     const togglePlayPause = () => {
         if (wavesurferRef.current) {
@@ -840,7 +873,12 @@ useEffect(() => {
 
 	// Render transcript with word-level highlighting
 	const renderHighlightedTranscript = () => {
+		console.log("[DEBUG] renderHighlightedTranscript - transcript:", transcript);
+		console.log("[DEBUG] has word_segments:", !!transcript?.word_segments);
+		console.log("[DEBUG] word_segments length:", transcript?.word_segments?.length);
+		
 		if (!transcript?.word_segments || transcript.word_segments.length === 0) {
+			console.log("[DEBUG] No word_segments, returning plain text:", transcript?.text?.substring(0, 100) + "...");
 			return transcript?.text || '';
 		}
 
@@ -1665,9 +1703,9 @@ useEffect(() => {
                                         ref={transcriptRef}
                                         className="prose prose-gray dark:prose-invert max-w-none relative select-text cursor-text"
                                     >
-                                    <p className="text-gray-700 dark:text-gray-300 leading-relaxed break-words select-text">
+                                    <div className="text-gray-700 dark:text-gray-300 leading-relaxed break-words select-text">
                                         {renderHighlightedTranscript()}
-                                    </p>
+                                    </div>
 
                                     {/* Selection bubble and editor moved to portal */}
 										</div>
