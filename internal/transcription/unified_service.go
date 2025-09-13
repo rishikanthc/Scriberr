@@ -702,12 +702,12 @@ func (u *UnifiedTranscriptionService) mergeDiarizationWithTranscription(transcri
 	}
 
 	// Also assign speakers to words if available
-	if len(transcript.Words) > 0 {
-		mergedTranscript.Words = make([]interfaces.TranscriptWord, len(transcript.Words))
-		copy(mergedTranscript.Words, transcript.Words)
-		
-		for i := range mergedTranscript.Words {
-			word := &mergedTranscript.Words[i]
+	if len(transcript.WordSegments) > 0 {
+		mergedTranscript.WordSegments = make([]interfaces.TranscriptWord, len(transcript.WordSegments))
+		copy(mergedTranscript.WordSegments, transcript.WordSegments)
+
+		for i := range mergedTranscript.WordSegments {
+			word := &mergedTranscript.WordSegments[i]
 			bestSpeaker := u.findBestSpeakerForSegment(word.Start, word.End, diarization.Segments)
 			if bestSpeaker != "" {
 				word.Speaker = &bestSpeaker
@@ -757,81 +757,10 @@ func (u *UnifiedTranscriptionService) saveTranscriptionResults(jobID string, res
 	return nil
 }
 
-// convertTranscriptResultToJSON converts the interface result to the expected JSON format
+// convertTranscriptResultToJSON converts the interface result to JSON format
 func (u *UnifiedTranscriptionService) convertTranscriptResultToJSON(result *interfaces.TranscriptResult) (string, error) {
-	// Convert to the format expected by the existing database schema
-	legacyFormat := struct {
-		Segments []struct {
-			Start   float64 `json:"start"`
-			End     float64 `json:"end"`
-			Text    string  `json:"text"`
-			Speaker *string `json:"speaker,omitempty"`
-		} `json:"segments"`
-		Word []struct {
-			Start   float64 `json:"start"`
-			End     float64 `json:"end"`
-			Word    string  `json:"word"`
-			Score   float64 `json:"score"`
-			Speaker *string `json:"speaker,omitempty"`
-		} `json:"word_segments,omitempty"`
-		Language string `json:"language"`
-		Text     string `json:"text"`
-	}{
-		Language: result.Language,
-		Text:     result.Text,
-	}
-
-	// Convert segments
-	legacyFormat.Segments = make([]struct {
-		Start   float64 `json:"start"`
-		End     float64 `json:"end"`
-		Text    string  `json:"text"`
-		Speaker *string `json:"speaker,omitempty"`
-	}, len(result.Segments))
-
-	for i, seg := range result.Segments {
-		legacyFormat.Segments[i] = struct {
-			Start   float64 `json:"start"`
-			End     float64 `json:"end"`
-			Text    string  `json:"text"`
-			Speaker *string `json:"speaker,omitempty"`
-		}{
-			Start:   seg.Start,
-			End:     seg.End,
-			Text:    seg.Text,
-			Speaker: seg.Speaker,
-		}
-	}
-
-	// Convert words
-	if len(result.Words) > 0 {
-		legacyFormat.Word = make([]struct {
-			Start   float64 `json:"start"`
-			End     float64 `json:"end"`
-			Word    string  `json:"word"`
-			Score   float64 `json:"score"`
-			Speaker *string `json:"speaker,omitempty"`
-		}, len(result.Words))
-
-		for i, word := range result.Words {
-			legacyFormat.Word[i] = struct {
-				Start   float64 `json:"start"`
-				End     float64 `json:"end"`
-				Word    string  `json:"word"`
-				Score   float64 `json:"score"`
-				Speaker *string `json:"speaker,omitempty"`
-			}{
-				Start:   word.Start,
-				End:     word.End,
-				Word:    word.Word,
-				Score:   word.Score,
-				Speaker: word.Speaker,
-			}
-		}
-	}
-
-	// Convert to JSON string
-	jsonBytes, err := json.Marshal(legacyFormat)
+	// Now that the struct fields match the JSON field names, we can directly marshal
+	jsonBytes, err := json.Marshal(result)
 	if err != nil {
 		return "", err
 	}

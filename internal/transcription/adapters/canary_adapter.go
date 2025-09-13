@@ -574,7 +574,7 @@ func (c *CanaryAdapter) Transcribe(ctx context.Context, input interfaces.AudioIn
 
 	logger.Info("Canary transcription completed", 
 		"segments", len(result.Segments),
-		"words", len(result.Words),
+		"words", len(result.WordSegments),
 		"processing_time", result.ProcessingTime,
 		"task", c.GetStringParameter(params, "task"))
 
@@ -665,7 +665,7 @@ func (c *CanaryAdapter) parseResult(tempDir string, input interfaces.AudioInput,
 		Text:       canaryResult.Transcription,
 		Language:   resultLanguage,
 		Segments:   make([]interfaces.TranscriptSegment, len(canaryResult.SegmentTimestamps)),
-		Words:      make([]interfaces.TranscriptWord, len(canaryResult.WordTimestamps)),
+		WordSegments: make([]interfaces.TranscriptWord, len(canaryResult.WordTimestamps)),
 		Confidence: 0.0, // Default confidence
 	}
 
@@ -681,7 +681,7 @@ func (c *CanaryAdapter) parseResult(tempDir string, input interfaces.AudioInput,
 
 	// Convert words
 	for i, word := range canaryResult.WordTimestamps {
-		result.Words[i] = interfaces.TranscriptWord{
+		result.WordSegments[i] = interfaces.TranscriptWord{
 			Start: word.Start,
 			End:   word.End,
 			Word:  word.Word,

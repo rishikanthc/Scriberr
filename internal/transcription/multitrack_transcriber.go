@@ -331,7 +331,7 @@ func (mt *MultiTrackTranscriber) transcribeIndividualTrack(ctx context.Context, 
 	logger.Info("Successfully transcribed track",
 		"track_name", trackFile.FileName,
 		"model_family", trackParams.ModelFamily,
-		"word_count", len(result.Words),
+		"word_count", len(result.WordSegments),
 		"segment_count", len(result.Segments))
 
 	return result, nil
@@ -434,10 +434,10 @@ func (mt *MultiTrackTranscriber) mergeTrackTranscripts(trackTranscripts []TrackT
 		logger.Info("Collecting words from track",
 			"speaker", speaker,
 			"offset", offset,
-			"word_count", len(trackTranscript.Result.Words))
+			"word_count", len(trackTranscript.Result.WordSegments))
 
 		// Collect words with offset adjustment and speaker assignment
-		for _, word := range trackTranscript.Result.Words {
+		for _, word := range trackTranscript.Result.WordSegments {
 			adjustedWord := interfaces.Word{
 				Start:   word.Start + offset,
 				End:     word.End + offset,
@@ -502,10 +502,10 @@ func (mt *MultiTrackTranscriber) mergeTrackTranscripts(trackTranscripts []TrackT
 	}
 
 	mergedResult := &interfaces.TranscriptResult{
-		Segments: speakerTurns,
-		Words:    allWords,
-		Language: language,
-		Text:     mergedText.String(),
+		Segments:     speakerTurns,
+		WordSegments: allWords,
+		Language:     language,
+		Text:         mergedText.String(),
 	}
 
 	logger.Info("Sort-and-group merging completed successfully",
@@ -655,7 +655,7 @@ func (mt *MultiTrackTranscriber) logIndividualTranscript(fileName string, result
 		"offset", offset,
 		"language", result.Language,
 		"total_segments", len(result.Segments),
-		"total_words", len(result.Words))
+		"total_words", len(result.WordSegments))
 
 	// Log segment-level data
 	logger.Info("--- SEGMENTS (Original Timestamps) ---", "file", fileName)
@@ -687,7 +687,7 @@ func (mt *MultiTrackTranscriber) logIndividualTranscript(fileName string, result
 
 	// Log word-level data (original timestamps)
 	logger.Info("--- WORDS (Original Timestamps) ---", "file", fileName)
-	for i, word := range result.Words {
+	for i, word := range result.WordSegments {
 		logger.Debug("Word",
 			"file", fileName,
 			"index", i+1,
@@ -700,7 +700,7 @@ func (mt *MultiTrackTranscriber) logIndividualTranscript(fileName string, result
 
 	// Log word-level data with offset applied
 	logger.Info("--- WORDS (With Offset Applied) ---", "file", fileName, "offset", offset)
-	for i, word := range result.Words {
+	for i, word := range result.WordSegments {
 		adjustedStart := word.Start + offset
 		adjustedEnd := word.End + offset
 		logger.Info("Adjusted Word",

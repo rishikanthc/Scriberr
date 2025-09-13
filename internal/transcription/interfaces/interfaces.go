@@ -78,7 +78,7 @@ type TranscriptResult struct {
 	Text         string             `json:"text"`
 	Language     string             `json:"language"`
 	Segments     []TranscriptSegment `json:"segments"`
-	Words        []TranscriptWord   `json:"words,omitempty"`
+	WordSegments []TranscriptWord   `json:"word_segments,omitempty"`
 	Confidence   float64            `json:"confidence"`
 	ProcessingTime time.Duration    `json:"processing_time"`
 	ModelUsed    string             `json:"model_used"`

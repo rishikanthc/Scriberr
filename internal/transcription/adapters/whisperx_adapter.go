@@ -428,7 +428,7 @@ func (w *WhisperXAdapter) Transcribe(ctx context.Context, input interfaces.Audio
 
 	logger.Info("WhisperX transcription completed", 
 		"segments", len(result.Segments),
-		"words", len(result.Words),
+		"words", len(result.WordSegments),
 		"processing_time", result.ProcessingTime)
 
 	return result, nil
@@ -552,7 +552,7 @@ func (w *WhisperXAdapter) parseResult(outputDir string, input interfaces.AudioIn
 	result := &interfaces.TranscriptResult{
 		Language:   whisperxResult.Language,
 		Segments:   make([]interfaces.TranscriptSegment, len(whisperxResult.Segments)),
-		Words:      make([]interfaces.TranscriptWord, len(whisperxResult.Word)),
+		WordSegments: make([]interfaces.TranscriptWord, len(whisperxResult.Word)),
 		Confidence: 0.0, // WhisperX doesn't provide overall confidence
 	}
 
@@ -570,7 +570,7 @@ func (w *WhisperXAdapter) parseResult(outputDir string, input interfaces.AudioIn
 
 	// Convert words
 	for i, word := range whisperxResult.Word {
-		result.Words[i] = interfaces.TranscriptWord{
+		result.WordSegments[i] = interfaces.TranscriptWord{
 			Start:   word.Start,
 			End:     word.End,
 			Word:    word.Word,

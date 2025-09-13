@@ -512,7 +512,7 @@ func (p *ParakeetAdapter) Transcribe(ctx context.Context, input interfaces.Audio
 
 	logger.Info("Parakeet transcription completed", 
 		"segments", len(result.Segments),
-		"words", len(result.Words),
+		"words", len(result.WordSegments),
 		"processing_time", result.ProcessingTime)
 
 	return result, nil
@@ -581,7 +581,7 @@ func (p *ParakeetAdapter) parseResult(tempDir string, input interfaces.AudioInpu
 		Text:       parakeetResult.Transcription,
 		Language:   parakeetResult.Language,
 		Segments:   make([]interfaces.TranscriptSegment, len(parakeetResult.SegmentTimestamps)),
-		Words:      make([]interfaces.TranscriptWord, len(parakeetResult.WordTimestamps)),
+		WordSegments: make([]interfaces.TranscriptWord, len(parakeetResult.WordTimestamps)),
 		Confidence: 0.0, // Default confidence
 	}
 
@@ -596,7 +596,7 @@ func (p *ParakeetAdapter) parseResult(tempDir string, input interfaces.AudioInpu
 
 	// Convert words
 	for i, word := range parakeetResult.WordTimestamps {
-		result.Words[i] = interfaces.TranscriptWord{
+		result.WordSegments[i] = interfaces.TranscriptWord{
 			Start: word.Start,
 			End:   word.End,
 			Word:  word.Word,
