@@ -713,7 +713,7 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
                             NVIDIA Sortformer Limitations
                           </h4>
                           <p className="text-sm text-orange-700 dark:text-orange-300">
-                            This model is optimized for up to 4 speakers. For better accuracy with more speakers, use Pyannote instead.
+                            This model is optimized for up to 4 speakers. Beyond 4 speakers accuracy might degrade.
                           </p>
                         </div>
                       </div>
@@ -910,7 +910,7 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
                             NVIDIA Sortformer Limitations
                           </h4>
                           <p className="text-sm text-orange-700 dark:text-orange-300">
-                            This model is optimized for up to 4 speakers. For better accuracy with more speakers, use Pyannote instead.
+                            This model is optimized for up to 4 speakers. Beyond 4 speakers accuracy might degrade.
                           </p>
                         </div>
                       </div>
@@ -1721,7 +1721,7 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
                             NVIDIA Sortformer Limitations
                           </h4>
                           <p className="text-sm text-orange-700 dark:text-orange-300">
-                            This model is optimized for up to 4 speakers. For better accuracy with more speakers, use Pyannote instead.
+                            This model is optimized for up to 4 speakers. Beyond 4 speakers accuracy might degrade.
                           </p>
                         </div>
                       </div>
