@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -151,8 +152,8 @@ func (ws *WhisperXService) ProcessJobWithProcess(ctx context.Context, jobID stri
 	// Set ROCm environment variables if ROCm device is selected
 	if device == "rocm" {
 		cmd.Env = append(cmd.Env,
-			"PYTORCH_ROCM_ARCH=gfx1030",
-			"HSA_OVERRIDE_GFX_VERSION=10.3.0",
+			fmt.Sprintf("PYTORCH_ROCM_ARCH=%s", ws.getRocmArch()),
+			fmt.Sprintf("HSA_OVERRIDE_GFX_VERSION=%s", ws.getRocmVersion()),
 			"ROCM_PATH=/opt/rocm",
 			"CUDA_VISIBLE_DEVICES=", // Disable CUDA when using ROCm
 		)
@@ -278,12 +279,15 @@ func (ws *WhisperXService) updateWhisperXDependencies(whisperxPath string) error
 
     // Check if ROCm is available and use ROCm-compatible ctranslate2 fork
     if ws.isRocmAvailable() {
-        // Replace ctranslate2 dependency with ROCm-compatible fork
-        content = strings.ReplaceAll(content, "ctranslate2<4.5.0", "ctranslate2 @ git+https://github.com/arlo-phoenix/CTranslate2.git@rocm")
-        content = strings.ReplaceAll(content, "ctranslate2==4.6.0", "ctranslate2 @ git+https://github.com/arlo-phoenix/CTranslate2.git@rocm")
+        fmt.Printf("DEBUG: ROCm detected, using ROCm-compatible ctranslate2 fork\n")
+        // Replace any ctranslate2 dependency with ROCm-compatible fork using regex
+        re := regexp.MustCompile(`ctranslate2[^,\]\n]*`)
+        content = re.ReplaceAllString(content, "ctranslate2 @ git+https://github.com/arlo-phoenix/CTranslate2.git@rocm")
     } else {
-        // Use standard ctranslate2 for CUDA/CPU
-        content = strings.ReplaceAll(content, "ctranslate2<4.5.0", "ctranslate2==4.6.0")
+        fmt.Printf("DEBUG: ROCm not detected, using standard ctranslate2\n")
+        // Replace any ctranslate2 dependency with standard version using regex
+        re := regexp.MustCompile(`ctranslate2[^,\]\n]*`)
+        content = re.ReplaceAllString(content, "ctranslate2==4.6.0")
     }
 
     // Add yt-dlp if not already present
@@ -311,8 +315,8 @@ func (ws *WhisperXService) uvSyncWhisperX(whisperxPath string) error {
     // Set environment variables for ROCm if available
     if ws.isRocmAvailable() {
         cmd.Env = append(os.Environ(),
-            "PYTORCH_ROCM_ARCH=gfx1030",
-            "HSA_OVERRIDE_GFX_VERSION=10.3.0",
+            fmt.Sprintf("PYTORCH_ROCM_ARCH=%s", ws.getRocmArch()),
+            fmt.Sprintf("HSA_OVERRIDE_GFX_VERSION=%s", ws.getRocmVersion()),
             "ROCM_PATH=/opt/rocm",
         )
     }
@@ -629,6 +633,48 @@ func (ws *WhisperXService) isCudaAvailable() bool {
     return strings.TrimSpace(string(output)) == "True"
 }
 
+// getRocmArch returns the appropriate ROCm architecture string
+func (ws *WhisperXService) getRocmArch() string {
+	// Check environment variable first
+	if arch := os.Getenv("PYTORCH_ROCM_ARCH"); arch != "" {
+		return arch
+	}
+	
+	// Try to detect GPU architecture
+	cmd := exec.Command("python3", "-c", "import torch; print(torch.hip.get_device_properties(0).gcnArchName if torch.hip.is_available() and torch.hip.device_count() > 0 else 'gfx1100')")
+	output, err := cmd.Output()
+	if err == nil {
+		arch := strings.TrimSpace(string(output))
+		// Map common architectures
+		switch arch {
+		case "gfx1100", "gfx1101", "gfx1102": // RDNA3
+			return "gfx1100"
+		case "gfx1030", "gfx1031", "gfx1032": // RDNA2
+			return "gfx1030"
+		default:
+			return arch
+		}
+	}
+	
+	// Default fallback to RDNA3
+	return "gfx1100"
+}
+
+// getRocmVersion returns the appropriate HSA override version
+func (ws *WhisperXService) getRocmVersion() string {
+	// Check environment variable first
+	if version := os.Getenv("HSA_OVERRIDE_GFX_VERSION"); version != "" {
+		return version
+	}
+	
+	// Default based on architecture
+	arch := ws.getRocmArch()
+	if strings.HasPrefix(arch, "gfx11") {
+		return "11.0.0" // RDNA3
+	}
+	return "10.3.0" // RDNA2
+}
+
 // isRocmAvailable checks if ROCm is available
 func (ws *WhisperXService) isRocmAvailable() bool {
     // Check for test mode environment variable
@@ -636,10 +682,23 @@ func (ws *WhisperXService) isRocmAvailable() bool {
         return true
     }
     
+    // Try system Python first (more reliable)
     cmd := exec.Command("python3", "-c", "import torch; print(hasattr(torch, 'hip') and torch.hip.is_available())")
     output, err := cmd.Output()
-    if err != nil {
-        return false
+    if err == nil && strings.TrimSpace(string(output)) == "True" {
+        return true
     }
-    return strings.TrimSpace(string(output)) == "True"
+    
+    // Fallback: try with uv if system Python fails
+    envPath := ws.getEnvPath()
+    whisperxPath := filepath.Join(envPath, "WhisperX")
+    if _, err := os.Stat(whisperxPath); err == nil {
+        cmd := exec.Command("uv", "run", "--native-tls", "--project", whisperxPath, "python", "-c", "import torch; print(hasattr(torch, 'hip') and torch.hip.is_available())")
+        output, err := cmd.Output()
+        if err == nil && strings.TrimSpace(string(output)) == "True" {
+            return true
+        }
+    }
+    
+    return false
 }

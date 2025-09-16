@@ -1585,14 +1585,29 @@ func (h *Handler) isCudaAvailable() bool {
 
 // isRocmAvailable checks if ROCm is available on the system
 func (h *Handler) isRocmAvailable() bool {
-	// Try to run a simple PyTorch command to check ROCm availability
+	// First try using the WhisperX environment if available
 	whisperXPath := filepath.Join(h.config.WhisperXEnv, "WhisperX")
-	cmd := exec.Command(h.config.UVPath, "run", "--native-tls", "--project", whisperXPath, "python", "-c", "import torch; print(hasattr(torch, 'hip') and torch.hip.is_available())")
-	output, err := cmd.Output()
-	if err != nil {
-		return false
+	if _, err := os.Stat(whisperXPath); err == nil {
+		cmd := exec.Command(h.config.UVPath, "run", "--native-tls", "--project", whisperXPath, "python", "-c", "import torch; print(hasattr(torch, 'hip') and torch.hip.is_available())")
+		output, err := cmd.Output()
+		if err == nil && strings.TrimSpace(string(output)) == "True" {
+			return true
+		}
 	}
-	return strings.TrimSpace(string(output)) == "True"
+	
+	// Fallback: try system Python
+	cmd := exec.Command("python3", "-c", "import torch; print(hasattr(torch, 'hip') and torch.hip.is_available())")
+	output, err := cmd.Output()
+	if err == nil && strings.TrimSpace(string(output)) == "True" {
+		return true
+	}
+	
+	// Check for test mode environment variable
+	if os.Getenv("SCRIBERR_TEST_ROCM") == "true" {
+		return true
+	}
+	
+	return false
 }
 
 // Helper functions
