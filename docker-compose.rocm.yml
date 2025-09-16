@@ -19,6 +19,7 @@ services:
     environment:
       - HSA_OVERRIDE_GFX_VERSION=10.3.0
       - PYTORCH_ROCM_ARCH=gfx1030
+      - ROCM_PATH=/opt/rocm
 
 volumes:
   scriberr_data: {}

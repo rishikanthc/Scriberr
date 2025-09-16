@@ -1587,7 +1587,7 @@ func (h *Handler) isCudaAvailable() bool {
 func (h *Handler) isRocmAvailable() bool {
 	// Try to run a simple PyTorch command to check ROCm availability
 	whisperXPath := filepath.Join(h.config.WhisperXEnv, "WhisperX")
-	cmd := exec.Command(h.config.UVPath, "run", "--native-tls", "--project", whisperXPath, "python", "-c", "import torch; print(torch.version.hip is not None)")
+	cmd := exec.Command(h.config.UVPath, "run", "--native-tls", "--project", whisperXPath, "python", "-c", "import torch; print(hasattr(torch, 'hip') and torch.hip.is_available())")
 	output, err := cmd.Output()
 	if err != nil {
 		return false

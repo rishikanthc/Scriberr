@@ -153,6 +153,7 @@ func (ws *WhisperXService) ProcessJobWithProcess(ctx context.Context, jobID stri
 		cmd.Env = append(cmd.Env,
 			"PYTORCH_ROCM_ARCH=gfx1030",
 			"HSA_OVERRIDE_GFX_VERSION=10.3.0",
+			"ROCM_PATH=/opt/rocm",
 			"CUDA_VISIBLE_DEVICES=", // Disable CUDA when using ROCm
 		)
 	}
@@ -275,8 +276,15 @@ func (ws *WhisperXService) updateWhisperXDependencies(whisperxPath string) error
 
     content := string(data)
 
-    // Replace ctranslate2 dependency
-    content = strings.ReplaceAll(content, "ctranslate2<4.5.0", "ctranslate2==4.6.0")
+    // Check if ROCm is available and use ROCm-compatible ctranslate2 fork
+    if ws.isRocmAvailable() {
+        // Replace ctranslate2 dependency with ROCm-compatible fork
+        content = strings.ReplaceAll(content, "ctranslate2<4.5.0", "ctranslate2 @ git+https://github.com/arlo-phoenix/CTranslate2.git@rocm")
+        content = strings.ReplaceAll(content, "ctranslate2==4.6.0", "ctranslate2 @ git+https://github.com/arlo-phoenix/CTranslate2.git@rocm")
+    } else {
+        // Use standard ctranslate2 for CUDA/CPU
+        content = strings.ReplaceAll(content, "ctranslate2<4.5.0", "ctranslate2==4.6.0")
+    }
 
     // Add yt-dlp if not already present
     if !strings.Contains(content, "yt-dlp") {
@@ -305,6 +313,7 @@ func (ws *WhisperXService) uvSyncWhisperX(whisperxPath string) error {
         cmd.Env = append(os.Environ(),
             "PYTORCH_ROCM_ARCH=gfx1030",
             "HSA_OVERRIDE_GFX_VERSION=10.3.0",
+            "ROCM_PATH=/opt/rocm",
         )
     }
     
@@ -390,8 +399,8 @@ func (ws *WhisperXService) buildWhisperXArgs(job *models.TranscriptionJob, outpu
 	case "cuda":
 		whisperxDevice = "cuda"
 	case "rocm":
-		// Pass ROCm as-is to WhisperX, which handles ROCm-specific initialization
-		whisperxDevice = "rocm"
+		// ROCm is CUDA-compatible, so use "cuda" device string
+		whisperxDevice = "cuda"
 	default:
 		whisperxDevice = "cpu"
 	}
