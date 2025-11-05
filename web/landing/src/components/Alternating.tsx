@@ -56,7 +56,7 @@ const items: Item[] = [
 	{
 		title: "Bring your own providers",
 		desc: "Use OpenAI or local models via Ollama for summaries and chat — your keys, your choice.",
-		img: "scriberr-Ollama:openAI llm providers for chat and summarization.png",
+		img: "scriberr-Ollama openAI llm providers for chat and summarization.png",
 		bullets: ["Works with OpenAI or Ollama"],
 	},
 	{
