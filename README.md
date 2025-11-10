@@ -190,6 +190,11 @@ See the full guide: https://scriberr.app/docs/diarization.html
   <img alt="Diarization setup" src="screenshots/scriberr-diarization-setup.png" width="420" />
 </p>
 
+## Summarization (Ollama)
+
+Scribber uses different models from Ollama (local, open-source and free) or OpenAi (online, propietary, paid) in order to automatically summarize the transcriptions. To connect, just go to settings and introduce either the Ollama port or the OpenAI API.
+A common error is that if Ollama has been installed through Docker, rather then connecting via "http://localhost:11434" you sohuld instead connect through "http://host.docker.internal:11434" (change the port to whichever you have used, automatically uses that one). That way Scriberr directly connects to the Docker, avoiding a "Failed to fetch model" error and alike.
+
 ## API
 
 Scriberr exposes a clean REST API for most features (transcription, chat, notes, summaries, admin, and more). Authentication supports JWT or API keys depending on endpoint.
