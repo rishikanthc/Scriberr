@@ -572,3 +572,46 @@ func (r *ModelRegistry) GetParameterSchema(modelID string) ([]interfaces.Paramet
 
 	return nil, fmt.Errorf("model not found: %s", modelID)
 }
+
+// Test helper functions
+
+// ClearRegistry clears all registered adapters (for testing only)
+func ClearRegistry() {
+	registry := GetRegistry()
+	registry.mu.Lock()
+	defer registry.mu.Unlock()
+
+	registry.transcriptionAdapters = make(map[string]interfaces.TranscriptionAdapter)
+	registry.diarizationAdapters = make(map[string]interfaces.DiarizationAdapter)
+	registry.compositeAdapters = make(map[string]interfaces.CompositeAdapter)
+	registry.capabilities = make(map[string]interfaces.ModelCapabilities)
+	registry.initialized = false
+}
+
+// GetTranscriptionAdapters returns all registered transcription adapters (for testing)
+func GetTranscriptionAdapters() map[string]interfaces.TranscriptionAdapter {
+	registry := GetRegistry()
+	registry.mu.RLock()
+	defer registry.mu.RUnlock()
+
+	// Return a copy to avoid concurrent access issues
+	result := make(map[string]interfaces.TranscriptionAdapter)
+	for id, adapter := range registry.transcriptionAdapters {
+		result[id] = adapter
+	}
+	return result
+}
+
+// GetDiarizationAdapters returns all registered diarization adapters (for testing)
+func GetDiarizationAdapters() map[string]interfaces.DiarizationAdapter {
+	registry := GetRegistry()
+	registry.mu.RLock()
+	defer registry.mu.RUnlock()
+
+	// Return a copy to avoid concurrent access issues
+	result := make(map[string]interfaces.DiarizationAdapter)
+	for id, adapter := range registry.diarizationAdapters {
+		result[id] = adapter
+	}
+	return result
+}

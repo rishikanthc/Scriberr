@@ -70,9 +70,9 @@ func (suite *QueueTestSuite) TestNewTaskQueue() {
 
 	// Test queue stats before starting
 	stats := tq.GetQueueStats()
-	assert.Equal(suite.T(), 2, stats["workers"])
+	assert.Equal(suite.T(), 2, stats["current_workers"])
 	assert.Equal(suite.T(), 0, stats["queue_size"])
-	assert.Equal(suite.T(), 100, stats["queue_capacity"])
+	assert.Equal(suite.T(), 200, stats["queue_capacity"])
 }
 
 // Test enqueuing jobs
@@ -111,7 +111,7 @@ func (suite *QueueTestSuite) TestJobProcessing() {
 	time.Sleep(100 * time.Millisecond)
 
 	// Verify the job was processed
-	mockProcessor.AssertCalled(suite.T(), "ProcessJob", mock.Anything, job.ID)
+	mockProcessor.AssertCalled(suite.T(), "ProcessJobWithProcess", mock.Anything, job.ID, mock.Anything)
 
 	// Check job status in database
 	updatedJob, err := tq.GetJobStatus(job.ID)
@@ -141,7 +141,7 @@ func (suite *QueueTestSuite) TestJobProcessingFailure() {
 	time.Sleep(100 * time.Millisecond)
 
 	// Verify the job was processed
-	mockProcessor.AssertCalled(suite.T(), "ProcessJob", mock.Anything, job.ID)
+	mockProcessor.AssertCalled(suite.T(), "ProcessJobWithProcess", mock.Anything, job.ID, mock.Anything)
 
 	// Check job status in database
 	updatedJob, err := tq.GetJobStatus(job.ID)
@@ -222,9 +222,9 @@ func (suite *QueueTestSuite) TestGetQueueStats() {
 
 	stats := tq.GetQueueStats()
 
-	assert.Equal(suite.T(), 3, stats["workers"])
+	assert.Equal(suite.T(), 3, stats["current_workers"])
 	assert.Equal(suite.T(), 0, stats["queue_size"]) // No jobs in queue buffer
-	assert.Equal(suite.T(), 100, stats["queue_capacity"])
+	assert.Equal(suite.T(), 200, stats["queue_capacity"])
 
 	// Note: The actual counts depend on what's in the database
 	assert.Contains(suite.T(), stats, "pending_jobs")
@@ -263,7 +263,7 @@ func (suite *QueueTestSuite) TestMultipleWorkers() {
 
 	// Verify all jobs were processed
 	for _, job := range jobs {
-		mockProcessor.AssertCalled(suite.T(), "ProcessJob", mock.Anything, job.ID)
+		mockProcessor.AssertCalled(suite.T(), "ProcessJobWithProcess", mock.Anything, job.ID, mock.Anything)
 	}
 }
 
@@ -300,16 +300,17 @@ func (suite *QueueTestSuite) TestQueueOverflow() {
 
 	tq := queue.NewTaskQueue(1, mockProcessor)
 
-	// Fill up the queue (capacity is 100)
-	for i := 0; i < 100; i++ {
+	// Fill up the queue (capacity is 200)
+	for i := 0; i < 200; i++ {
 		err := tq.EnqueueJob(fmt.Sprintf("job-%d", i))
 		assert.NoError(suite.T(), err)
 	}
 
-	// The 101st job should fail
+	// The 201st job should fail
 	err := tq.EnqueueJob("overflow-job")
-	assert.Error(suite.T(), err)
-	assert.Contains(suite.T(), err.Error(), "queue is full")
+	if assert.Error(suite.T(), err, "Expected error for queue overflow") {
+		assert.Contains(suite.T(), err.Error(), "queue is full")
+	}
 }
 
 // Test job status retrieval
