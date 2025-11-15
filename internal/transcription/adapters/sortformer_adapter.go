@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"scriberr/internal/transcription/interfaces"
-	"scriberr/internal/transcription/registry"
 	"scriberr/pkg/logger"
 )
 
@@ -23,9 +22,7 @@ type SortformerAdapter struct {
 }
 
 // NewSortformerAdapter creates a new NVIDIA Sortformer diarization adapter
-func NewSortformerAdapter() *SortformerAdapter {
-	envPath := "whisperx-env/parakeet" // Shares environment with NVIDIA models
-	
+func NewSortformerAdapter(envPath string) *SortformerAdapter {
 	capabilities := interfaces.ModelCapabilities{
 		ModelID:            "sortformer",
 		ModelFamily:        "nvidia_sortformer",
@@ -871,9 +868,4 @@ func (s *SortformerAdapter) GetEstimatedProcessingTime(input interfaces.AudioInp
 	
 	// Sortformer typically processes at about 5-10% of audio duration
 	return time.Duration(float64(baseTime) * 0.3)
-}
-
-// init registers the Sortformer adapter
-func init() {
-	registry.RegisterDiarizationAdapter("sortformer", NewSortformerAdapter())
 }

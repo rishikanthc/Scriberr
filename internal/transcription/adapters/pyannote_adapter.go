@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"scriberr/internal/transcription/interfaces"
-	"scriberr/internal/transcription/registry"
 	"scriberr/pkg/logger"
 )
 
@@ -23,9 +22,7 @@ type PyAnnoteAdapter struct {
 }
 
 // NewPyAnnoteAdapter creates a new PyAnnote diarization adapter
-func NewPyAnnoteAdapter() *PyAnnoteAdapter {
-	envPath := "whisperx-env/parakeet" // Shares environment with NVIDIA models
-	
+func NewPyAnnoteAdapter(envPath string) *PyAnnoteAdapter {
 	capabilities := interfaces.ModelCapabilities{
 		ModelID:            "pyannote",
 		ModelFamily:        "pyannote",
@@ -792,12 +789,7 @@ func (p *PyAnnoteAdapter) parseRTTMResult(tempDir string, input interfaces.Audio
 func (p *PyAnnoteAdapter) GetEstimatedProcessingTime(input interfaces.AudioInput) time.Duration {
 	// PyAnnote is typically faster than real-time for diarization
 	baseTime := p.BaseAdapter.GetEstimatedProcessingTime(input)
-	
+
 	// PyAnnote typically processes at about 10-15% of audio duration
 	return time.Duration(float64(baseTime) * 0.5)
-}
-
-// init registers the PyAnnote adapter
-func init() {
-	registry.RegisterDiarizationAdapter("pyannote", NewPyAnnoteAdapter())
 }
