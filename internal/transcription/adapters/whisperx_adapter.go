@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"scriberr/internal/transcription/interfaces"
-	"scriberr/internal/transcription/registry"
 	"scriberr/pkg/logger"
 )
 
@@ -23,9 +22,7 @@ type WhisperXAdapter struct {
 }
 
 // NewWhisperXAdapter creates a new WhisperX adapter
-func NewWhisperXAdapter() *WhisperXAdapter {
-	envPath := "whisperx-env"
-	
+func NewWhisperXAdapter(envPath string) *WhisperXAdapter {
 	capabilities := interfaces.ModelCapabilities{
 		ModelID:     "whisperx",
 		ModelFamily: "whisper",
@@ -349,7 +346,7 @@ func (w *WhisperXAdapter) updateWhisperXDependencies(whisperxPath string) error 
 		content = strings.ReplaceAll(content,
 			`"transformers>=4.48.0",`,
 			`"transformers>=4.48.0",
-    "yt-dlp",`)
+    "yt-dlp[default]",`)
 	}
 
 	if err := os.WriteFile(pyprojectPath, []byte(content), 0644); err != nil {
@@ -593,14 +590,9 @@ func (w *WhisperXAdapter) parseResult(outputDir string, input interfaces.AudioIn
 func (w *WhisperXAdapter) GetEstimatedProcessingTime(input interfaces.AudioInput) time.Duration {
 	// WhisperX processing time varies by model size
 	baseTime := w.BaseAdapter.GetEstimatedProcessingTime(input)
-	
+
 	// Adjust based on model size (if we can determine it)
 	// This would need model size information from parameters
 	// For now, use base estimation
 	return baseTime
-}
-
-// init registers the WhisperX adapter
-func init() {
-	registry.RegisterTranscriptionAdapter("whisperx", NewWhisperXAdapter())
 }

@@ -68,6 +68,14 @@ RUN curl -LsSf https://astral.sh/uv/install.sh | sh \
   && chmod 755 /usr/local/bin/uv \
   && uv --version
 
+# Install Deno (JavaScript runtime required for yt-dlp YouTube downloads)
+# YouTube now requires JS execution for video cipher decryption
+# See: https://github.com/yt-dlp/yt-dlp/issues/14404
+RUN curl -fsSL https://deno.land/install.sh | sh \
+  && cp /root/.deno/bin/deno /usr/local/bin/deno \
+  && chmod 755 /usr/local/bin/deno \
+  && deno --version
+
 # Create default user (will be modified at runtime if needed)
 RUN groupadd -g 1000 appuser \
   && useradd -m -u 1000 -g 1000 appuser \
