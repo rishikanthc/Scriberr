@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 
@@ -16,10 +17,11 @@ import (
 	"scriberr/internal/database"
 	"scriberr/internal/queue"
 	"scriberr/internal/transcription"
+	"scriberr/internal/transcription/adapters"
+	"scriberr/internal/transcription/registry"
 	"scriberr/pkg/logger"
 
 	_ "scriberr/api-docs" // Import generated Swagger docs
-	_ "scriberr/internal/transcription/adapters" // Import adapters for auto-registration
 )
 
 // Version information (set by GoReleaser)
@@ -72,6 +74,9 @@ func main() {
 	// Load configuration
 	logger.Startup("config", "Loading configuration")
 	cfg := config.Load()
+
+	// Register adapters with config-based paths
+	registerAdapters(cfg)
 
 	// Initialize database
 	logger.Startup("database", "Connecting to database")
@@ -155,4 +160,28 @@ func main() {
 	}
 
 	logger.Info("Server stopped")
+}
+
+// registerAdapters registers all transcription and diarization adapters with config-based paths
+func registerAdapters(cfg *config.Config) {
+	logger.Info("Registering adapters with environment path", "whisperx_env", cfg.WhisperXEnv)
+
+	// Shared environment path for NVIDIA models (NeMo-based)
+	nvidiaEnvPath := filepath.Join(cfg.WhisperXEnv, "parakeet")
+
+	// Register transcription adapters
+	registry.RegisterTranscriptionAdapter("whisperx",
+		adapters.NewWhisperXAdapter(cfg.WhisperXEnv))
+	registry.RegisterTranscriptionAdapter("parakeet",
+		adapters.NewParakeetAdapter(nvidiaEnvPath))
+	registry.RegisterTranscriptionAdapter("canary",
+		adapters.NewCanaryAdapter(nvidiaEnvPath)) // Shares with Parakeet
+
+	// Register diarization adapters
+	registry.RegisterDiarizationAdapter("pyannote",
+		adapters.NewPyAnnoteAdapter(nvidiaEnvPath)) // Shares with Parakeet
+	registry.RegisterDiarizationAdapter("sortformer",
+		adapters.NewSortformerAdapter(nvidiaEnvPath)) // Shares with Parakeet
+
+	logger.Info("Adapter registration complete")
 }
