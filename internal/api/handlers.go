@@ -1,6 +1,7 @@
 package api
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
@@ -2684,16 +2685,22 @@ func (h *Handler) DownloadFromYouTube(c *gin.Context) {
 		title = *req.Title
 	} else {
 		// Get title from yt-dlp
+		titleStart := time.Now()
 		cmd := exec.Command(h.config.UVPath, "run", "--native-tls", "--project", h.config.WhisperXEnv, "python", "-m", "yt_dlp", "--get-title", req.URL)
 		titleBytes, err := cmd.Output()
 		if err != nil {
 			title = "YouTube Audio"
+			logger.Warn("Failed to get YouTube title", "url", req.URL, "error", err.Error(), "duration", time.Since(titleStart))
 		} else {
 			title = strings.TrimSpace(string(titleBytes))
+			logger.Info("YouTube title retrieved", "title", title, "duration", time.Since(titleStart))
 		}
 	}
 
 	// Download audio using yt-dlp in Python environment
+	logger.Info("Starting YouTube download", "url", req.URL, "job_id", jobID)
+	downloadStart := time.Now()
+
 	ytDlpCmd := exec.Command(h.config.UVPath, "run", "--native-tls", "--project", h.config.WhisperXEnv, "python", "-m", "yt_dlp",
 		"--extract-audio",
 		"--audio-format", "mp3",
@@ -2703,9 +2710,23 @@ func (h *Handler) DownloadFromYouTube(c *gin.Context) {
 		req.URL,
 	)
 
-	// Execute download
+	// Execute download and capture stderr for better error messages
+	var stderr bytes.Buffer
+	ytDlpCmd.Stderr = &stderr
+
 	if err := ytDlpCmd.Run(); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to download YouTube audio: %v", err)})
+		stderrOutput := stderr.String()
+		logger.Error("YouTube download failed",
+			"url", req.URL,
+			"job_id", jobID,
+			"error", err.Error(),
+			"stderr", stderrOutput,
+			"duration", time.Since(downloadStart))
+
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   fmt.Sprintf("Failed to download YouTube audio: %v", err),
+			"details": stderrOutput,
+		})
 		return
 	}
 
@@ -2718,6 +2739,18 @@ func (h *Handler) DownloadFromYouTube(c *gin.Context) {
 	}
 
 	actualFilePath := matches[0]
+
+	// Get file size for performance logging
+	fileInfo, err := os.Stat(actualFilePath)
+	if err == nil {
+		fileSizeMB := float64(fileInfo.Size()) / 1024 / 1024
+		logger.Info("YouTube download completed",
+			"url", req.URL,
+			"job_id", jobID,
+			"file_path", actualFilePath,
+			"file_size_mb", fmt.Sprintf("%.2f", fileSizeMB),
+			"duration", time.Since(downloadStart))
+	}
 
 	// Create transcription record
 	job := models.TranscriptionJob{
