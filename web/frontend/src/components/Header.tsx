@@ -14,6 +14,7 @@ import { QuickTranscriptionDialog } from "./QuickTranscriptionDialog";
 import { YouTubeDownloadDialog } from "./YouTubeDownloadDialog";
 import { useRouter } from "../contexts/RouterContext";
 import { useAuth } from "../contexts/AuthContext";
+import { isVideoFile, isAudioFile } from "../utils/fileProcessor";
 
 interface FileWithType {
 	file: File;
@@ -74,11 +75,25 @@ export function Header({ onFileSelect, onMultiTrackClick, onDownloadComplete }: 
 	const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
 		const files = event.target.files;
 		if (files && files.length > 0) {
+			const fileArray = Array.from(files);
+
+			// Check for video files that were incorrectly uploaded via audio upload
+			const videoFiles = fileArray.filter(file => isVideoFile(file));
+			if (videoFiles.length > 0) {
+				alert(`Video files detected. Please use "Upload Videos" instead of "Upload Files" to upload ${videoFiles.map(f => f.name).join(', ')}`);
+				event.target.value = "";
+				return;
+			}
+
 			// Filter to only audio files
-			const audioFiles = Array.from(files).filter(file => file.type.startsWith("audio/"));
+			const audioFiles = fileArray.filter(file => isAudioFile(file));
 			if (audioFiles.length > 0) {
 				onFileSelect(audioFiles.length === 1 ? audioFiles[0] : audioFiles);
 				// Reset the input so the same files can be selected again
+				event.target.value = "";
+			} else {
+				// No valid audio files found
+				alert("No valid audio files found. Please select audio files (.mp3, .wav, .flac, .m4a, .aac, .ogg)");
 				event.target.value = "";
 			}
 		}
