@@ -112,7 +112,7 @@ const PARAM_DESCRIPTIONS = {
   model: "Size of the Whisper model to use. Larger models are more accurate but slower and require more memory.",
   language: "Source language of the audio. Leave as auto-detect for automatic language detection.",
   task: "Whether to transcribe the audio or translate it to English.",
-  device: "Processing device: CPU (slower, universal), GPU (faster, requires CUDA), or Auto (automatic selection).",
+  device: "Processing device: CPU (slower, universal), GPU (faster, requires CUDA), MPS (Apple Silicon GPU), or AUTO (automatic selection).",
   compute_type: "Precision type: Float16 (faster, less memory), Float32 (more accurate), Int8 (fastest, least accurate).",
   batch_size: "Number of audio segments processed simultaneously. Higher values are faster but use more memory.",
   diarize: "Enable speaker diarization to identify and separate different speakers in the audio.",
@@ -1057,7 +1057,7 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
                     <SelectContent className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
                       <SelectItem value="cpu" className="text-gray-900 dark:text-gray-100 focus:bg-gray-100 dark:focus:bg-gray-700">CPU</SelectItem>
                       <SelectItem value="cuda" className="text-gray-900 dark:text-gray-100 focus:bg-gray-100 dark:focus:bg-gray-700">GPU (CUDA)</SelectItem>
-                      <SelectItem value="auto" className="text-gray-900 dark:text-gray-100 focus:bg-gray-100 dark:focus:bg-gray-700">Auto</SelectItem>
+                      <SelectItem value="mps" className="text-gray-900 dark:text-gray-100 focus:bg-gray-100 dark:focus:bg-gray-700">GPU (MPS)</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
