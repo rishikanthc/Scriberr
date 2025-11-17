@@ -116,8 +116,8 @@ func NewPyAnnoteAdapter(envPath string) *PyAnnoteAdapter {
 			Type:        "string",
 			Required:    false,
 			Default:     "cpu",
-			Options:     []string{"cpu", "cuda"},
-			Description: "Device to use for computation",
+			Options:     []string{"cpu", "cuda", "mps"},
+			Description: "Device to use for computation (cpu, cuda for NVIDIA GPUs, mps for Apple Silicon)",
 			Group:       "advanced",
 		},
 
@@ -368,6 +368,16 @@ def diarize_audio(
                     print("CUDA not available, falling back to CPU")
             except ImportError:
                 print("PyTorch not available for CUDA, using CPU")
+        elif device == "mps":
+            try:
+                import torch
+                if torch.backends.mps.is_available():
+                    pipeline = pipeline.to(torch.device("mps"))
+                    print("Using MPS (Apple Silicon) for diarization")
+                else:
+                    print("MPS not available, falling back to CPU")
+            except (ImportError, AttributeError):
+                print("PyTorch MPS not available, using CPU")
         
         print("Pipeline loaded successfully")
     except Exception as e:
@@ -497,7 +507,7 @@ def main():
     )
     parser.add_argument(
         "--device",
-        choices=["cpu", "cuda"],
+        choices=["cpu", "cuda", "mps"],
         default="cpu",
         help="Device to use for computation"
     )
