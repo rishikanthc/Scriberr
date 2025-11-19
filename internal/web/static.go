@@ -4,9 +4,11 @@ import (
 	"embed"
 	"io/fs"
 	"net/http"
+	"os"
 	"strings"
 
 	"scriberr/internal/auth"
+	"scriberr/internal/config"
 
 	"github.com/gin-gonic/gin"
 )
@@ -72,6 +74,22 @@ func SetupStaticRoutes(router *gin.Engine, authService *auth.AuthService) {
 
 	// Serve scriberr-logo.png
 	router.GET("/scriberr-logo.png", func(c *gin.Context) {
+		// Prevent aggressive browser caching so logo changes are visible immediately
+		c.Header("Cache-Control", "no-cache, no-store, must-revalidate")
+
+		// First try to load a custom uploaded logo from the data directory
+		if fileContent, err := os.ReadFile(config.CustomLogoPath); err == nil {
+			c.Data(http.StatusOK, "image/png", fileContent)
+			return
+		}
+
+		// Then try to load a custom logo from the local filesystem (Transferordner/Logo-Diakovere.png)
+		if fileContent, err := os.ReadFile("Transferordner/Logo-Diakovere.png"); err == nil {
+			c.Data(http.StatusOK, "image/png", fileContent)
+			return
+		}
+
+		// Fallback to embedded default logo
 		fileContent, err := staticFiles.ReadFile("dist/scriberr-logo.png")
 		if err != nil {
 			c.Status(http.StatusNotFound)

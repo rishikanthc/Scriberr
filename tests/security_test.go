@@ -30,7 +30,7 @@ type SecurityTestSuite struct {
 	config                    *config.Config
 	authService               *auth.AuthService
 	taskQueue                 *queue.TaskQueue
-	unifiedProcessor          *transcription.UnifiedJobProcessor
+	whisperXService           *transcription.WhisperXService
 	quickTranscriptionService *transcription.QuickTranscriptionService
 	handler                   *api.Handler
 }
@@ -57,14 +57,14 @@ func (suite *SecurityTestSuite) SetupSuite() {
 
 	// Initialize services
 	suite.authService = auth.NewAuthService(suite.config.JWTSecret)
-	suite.unifiedProcessor = transcription.NewUnifiedJobProcessor()
+	suite.whisperXService = transcription.NewWhisperXService(suite.config)
 	var err error
-	suite.quickTranscriptionService, err = transcription.NewQuickTranscriptionService(suite.config, suite.unifiedProcessor)
+	suite.quickTranscriptionService, err = transcription.NewQuickTranscriptionService(suite.config, suite.whisperXService)
 	if err != nil {
 		suite.T().Fatal("Failed to initialize quick transcription service:", err)
 	}
-	suite.taskQueue = queue.NewTaskQueue(1, suite.unifiedProcessor)
-	suite.handler = api.NewHandler(suite.config, suite.authService, suite.taskQueue, suite.unifiedProcessor, suite.quickTranscriptionService)
+	suite.taskQueue = queue.NewTaskQueue(1, suite.whisperXService)
+	suite.handler = api.NewHandler(suite.config, suite.authService, suite.taskQueue, suite.whisperXService, suite.quickTranscriptionService)
 
 	// Set up router
 	suite.router = api.SetupRoutes(suite.handler, suite.authService)

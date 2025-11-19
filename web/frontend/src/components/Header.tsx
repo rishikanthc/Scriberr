@@ -6,7 +6,7 @@ import {
 	DropdownMenuItem,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Upload, Mic, Settings, LogOut, Home, Plus, Grip, Zap, Youtube, Video, Users } from "lucide-react";
+import { Upload, Mic, Settings, LogOut, Home, Plus, Grip, Zap, Youtube, Video, Users, Shield } from "lucide-react";
 import { ScriberrLogo } from "./ScriberrLogo";
 import { ThemeSwitcher } from "./ThemeSwitcher";
 import { AudioRecorder } from "./AudioRecorder";
@@ -14,7 +14,6 @@ import { QuickTranscriptionDialog } from "./QuickTranscriptionDialog";
 import { YouTubeDownloadDialog } from "./YouTubeDownloadDialog";
 import { useRouter } from "../contexts/RouterContext";
 import { useAuth } from "../contexts/AuthContext";
-import { isVideoFile, isAudioFile } from "../utils/fileProcessor";
 
 interface FileWithType {
 	file: File;
@@ -28,8 +27,8 @@ interface HeaderProps {
 }
 
 export function Header({ onFileSelect, onMultiTrackClick, onDownloadComplete }: HeaderProps) {
-	const { navigate } = useRouter();
-	const { logout } = useAuth();
+    const { navigate } = useRouter();
+    const { logout, isAdmin } = useAuth();
 	const fileInputRef = useRef<HTMLInputElement>(null);
 	const videoFileInputRef = useRef<HTMLInputElement>(null);
 	const [isRecorderOpen, setIsRecorderOpen] = useState(false);
@@ -64,9 +63,9 @@ export function Header({ onFileSelect, onMultiTrackClick, onDownloadComplete }: 
 		navigate({ path: "settings" });
 	};
 
-	const handleLogout = () => {
-		logout();
-	};
+    const handleLogout = () => {
+        logout();
+    };
 
 	const handleHomeClick = () => {
 		navigate({ path: "home" });
@@ -75,25 +74,11 @@ export function Header({ onFileSelect, onMultiTrackClick, onDownloadComplete }: 
 	const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
 		const files = event.target.files;
 		if (files && files.length > 0) {
-			const fileArray = Array.from(files);
-
-			// Check for video files that were incorrectly uploaded via audio upload
-			const videoFiles = fileArray.filter(file => isVideoFile(file));
-			if (videoFiles.length > 0) {
-				alert(`Video files detected. Please use "Upload Videos" instead of "Upload Files" to upload ${videoFiles.map(f => f.name).join(', ')}`);
-				event.target.value = "";
-				return;
-			}
-
 			// Filter to only audio files
-			const audioFiles = fileArray.filter(file => isAudioFile(file));
+			const audioFiles = Array.from(files).filter(file => file.type.startsWith("audio/"));
 			if (audioFiles.length > 0) {
 				onFileSelect(audioFiles.length === 1 ? audioFiles[0] : audioFiles);
 				// Reset the input so the same files can be selected again
-				event.target.value = "";
-			} else {
-				// No valid audio files found
-				alert("No valid audio files found. Please select audio files (.mp3, .wav, .flac, .m4a, .aac, .ogg)");
 				event.target.value = "";
 			}
 		}
@@ -236,10 +221,16 @@ export function Header({ onFileSelect, onMultiTrackClick, onDownloadComplete }: 
 								<Home className="h-4 w-4" />
 								Home
 							</DropdownMenuItem>
-							<DropdownMenuItem onClick={handleSettingsClick} className="cursor-pointer">
-								<Settings className="h-4 w-4" />
-								Settings
-							</DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleSettingsClick} className="cursor-pointer">
+                        <Settings className="h-4 w-4" />
+                        Settings
+                    </DropdownMenuItem>
+                    {isAdmin && (
+                      <DropdownMenuItem onClick={() => navigate({ path: 'admin' })} className="cursor-pointer">
+                        <Shield className="h-4 w-4" />
+                        Admin
+                      </DropdownMenuItem>
+                    )}
 							<DropdownMenuItem onClick={handleLogout} className="cursor-pointer" variant="destructive">
 								<LogOut className="h-4 w-4" />
 								Logout

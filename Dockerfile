@@ -23,12 +23,15 @@ RUN cd frontend \
 FROM golang:1.24-bookworm AS go-builder
 WORKDIR /src
 
-# Pre-cache modules
+# Pre-cache modules for better build caching
 COPY go.mod go.sum ./
 RUN go mod download
 
 # Copy source
 COPY . .
+
+# Ensure go.sum is up-to-date if go.mod changed later in the build cache chain and download sums
+RUN go mod tidy && go mod download
 
 # Copy built UI into embed path
 RUN rm -rf internal/web/dist && mkdir -p internal/web
@@ -36,7 +39,7 @@ COPY --from=ui-builder /web/frontend/dist internal/web/dist
 
 # Build binary (arch matches builder platform)
 RUN CGO_ENABLED=0 \
-  go build -o /out/scriberr cmd/server/main.go
+  go build -mod=mod -o /out/scriberr cmd/server/main.go
 
 
 ########################
@@ -67,14 +70,6 @@ RUN curl -LsSf https://astral.sh/uv/install.sh | sh \
   && cp /root/.local/bin/uv /usr/local/bin/uv \
   && chmod 755 /usr/local/bin/uv \
   && uv --version
-
-# Install Deno (JavaScript runtime required for yt-dlp YouTube downloads)
-# YouTube now requires JS execution for video cipher decryption
-# See: https://github.com/yt-dlp/yt-dlp/issues/14404
-RUN curl -fsSL https://deno.land/install.sh | sh \
-  && cp /root/.deno/bin/deno /usr/local/bin/deno \
-  && chmod 755 /usr/local/bin/deno \
-  && deno --version
 
 # Create default user (will be modified at runtime if needed)
 RUN groupadd -g 1000 appuser \

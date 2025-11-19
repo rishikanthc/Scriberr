@@ -22,6 +22,7 @@ services:
     volumes:
       - ./scriberr-data:/app/data
       - ./env-data:/app/whisperx-env
+      - ./Transferordner:/app/Transferordner:ro
     restart: unless-stopped
 
 volumes:

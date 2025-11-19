@@ -105,6 +105,17 @@ func (qs *QuickTranscriptionService) SubmitQuickJob(audioData io.Reader, filenam
 	return job, nil
 }
 
+// SubmitQuickJobForUser creates and processes a temporary transcription job and associates DB temp record with a user
+func (qs *QuickTranscriptionService) SubmitQuickJobForUser(audioData io.Reader, filename string, params models.WhisperXParams, userID uint) (*QuickTranscriptionJob, error) {
+    job, err := qs.SubmitQuickJob(audioData, filename, params)
+    if err != nil {
+        return nil, err
+    }
+    // Best-effort: set user on the temp DB job if present
+    _ = database.DB.Model(&models.TranscriptionJob{}).Where("id = ?", job.ID).Update("user_id", userID).Error
+    return job, nil
+}
+
 // GetQuickJob retrieves a quick transcription job by ID
 func (qs *QuickTranscriptionService) GetQuickJob(jobID string) (*QuickTranscriptionJob, error) {
 	qs.jobsMutex.RLock()

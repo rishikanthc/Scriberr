@@ -15,6 +15,7 @@ require (
 	github.com/swaggo/swag v1.16.6
 	golang.org/x/crypto v0.32.0
 	gorm.io/gorm v1.30.1
+	gorm.io/driver/postgres v1.5.7
 )
 
 require (

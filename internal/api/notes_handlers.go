@@ -42,22 +42,31 @@ type NoteUpdateRequest struct {
 // @Security BearerAuth
 // @Router /api/v1/transcription/{id}/notes [get]
 func (h *Handler) ListNotes(c *gin.Context) {
-	transcriptionID := c.Param("id")
-	if transcriptionID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Transcription ID is required"})
-		return
-	}
+    transcriptionID := c.Param("id")
+    if transcriptionID == "" {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "Transcription ID is required"})
+        return
+    }
 
-	// Ensure transcription exists
-	var job models.TranscriptionJob
-	if err := database.DB.Where("id = ?", transcriptionID).First(&job).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Transcription not found"})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch transcription"})
-		return
-	}
+    // Ensure transcription exists
+    var job models.TranscriptionJob
+    if uid, ok := c.Get("user_id"); ok {
+        if err := database.DB.Where("id = ? AND user_id = ?", transcriptionID, uid).First(&job).Error; err != nil {
+            if err == gorm.ErrRecordNotFound {
+                c.JSON(http.StatusNotFound, gin.H{"error": "Transcription not found"})
+                return
+            }
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch transcription"})
+            return
+        }
+    } else if err := database.DB.Where("id = ?", transcriptionID).First(&job).Error; err != nil {
+        if err == gorm.ErrRecordNotFound {
+            c.JSON(http.StatusNotFound, gin.H{"error": "Transcription not found"})
+            return
+        }
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch transcription"})
+        return
+    }
 
 	var notes []models.Note
 	if err := database.DB.Where("transcription_id = ?", transcriptionID).
@@ -111,16 +120,27 @@ func (h *Handler) CreateNote(c *gin.Context) {
 
 	// Ensure transcription exists
 	var job models.TranscriptionJob
-	if err := database.DB.Where("id = ?", transcriptionID).First(&job).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			log.Printf("notes.CreateNote: transcription %s not found", transcriptionID)
-			c.JSON(http.StatusNotFound, gin.H{"error": "Transcription not found"})
-			return
-		}
-		log.Printf("notes.CreateNote: failed to fetch transcription %s: %v", transcriptionID, err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch transcription"})
-		return
-	}
+    if uid, ok := c.Get("user_id"); ok {
+        if err := database.DB.Where("id = ? AND user_id = ?", transcriptionID, uid).First(&job).Error; err != nil {
+            if err == gorm.ErrRecordNotFound {
+                log.Printf("notes.CreateNote: transcription %s not found", transcriptionID)
+                c.JSON(http.StatusNotFound, gin.H{"error": "Transcription not found"})
+                return
+            }
+            log.Printf("notes.CreateNote: failed to fetch transcription %s: %v", transcriptionID, err)
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch transcription"})
+            return
+        }
+    } else if err := database.DB.Where("id = ?", transcriptionID).First(&job).Error; err != nil {
+        if err == gorm.ErrRecordNotFound {
+            log.Printf("notes.CreateNote: transcription %s not found", transcriptionID)
+            c.JSON(http.StatusNotFound, gin.H{"error": "Transcription not found"})
+            return
+        }
+        log.Printf("notes.CreateNote: failed to fetch transcription %s: %v", transcriptionID, err)
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch transcription"})
+        return
+    }
 
 	n := models.Note{
 		ID:              uuid.New().String(),
@@ -158,17 +178,25 @@ func (h *Handler) CreateNote(c *gin.Context) {
 // @Security BearerAuth
 // @Router /api/v1/notes/{note_id} [get]
 func (h *Handler) GetNote(c *gin.Context) {
-	noteID := c.Param("note_id")
-	var n models.Note
-	if err := database.DB.Where("id = ?", noteID).First(&n).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Note not found"})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch note"})
-		return
-	}
-	c.JSON(http.StatusOK, n)
+    noteID := c.Param("note_id")
+    var n models.Note
+    if err := database.DB.Where("id = ?", noteID).First(&n).Error; err != nil {
+        if err == gorm.ErrRecordNotFound {
+            c.JSON(http.StatusNotFound, gin.H{"error": "Note not found"})
+            return
+        }
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch note"})
+        return
+    }
+    // Ownership check via transcription
+    if uid, ok := c.Get("user_id"); ok {
+        var job models.TranscriptionJob
+        if err := database.DB.Select("id").Where("id = ? AND user_id = ?", n.TranscriptionID, uid).First(&job).Error; err != nil {
+            c.JSON(http.StatusNotFound, gin.H{"error": "Note not found"})
+            return
+        }
+    }
+    c.JSON(http.StatusOK, n)
 }
 
 // UpdateNote updates the content of an existing note
@@ -186,22 +214,29 @@ func (h *Handler) GetNote(c *gin.Context) {
 // @Security BearerAuth
 // @Router /api/v1/notes/{note_id} [put]
 func (h *Handler) UpdateNote(c *gin.Context) {
-	noteID := c.Param("note_id")
-	var req NoteUpdateRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
+    noteID := c.Param("note_id")
+    var req NoteUpdateRequest
+    if err := c.ShouldBindJSON(&req); err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+        return
+    }
 
-	var n models.Note
-	if err := database.DB.Where("id = ?", noteID).First(&n).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Note not found"})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch note"})
-		return
-	}
+    var n models.Note
+    if err := database.DB.Where("id = ?", noteID).First(&n).Error; err != nil {
+        if err == gorm.ErrRecordNotFound {
+            c.JSON(http.StatusNotFound, gin.H{"error": "Note not found"})
+            return
+        }
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch note"})
+        return
+    }
+    if uid, ok := c.Get("user_id"); ok {
+        var job models.TranscriptionJob
+        if err := database.DB.Select("id").Where("id = ? AND user_id = ?", n.TranscriptionID, uid).First(&job).Error; err != nil {
+            c.JSON(http.StatusNotFound, gin.H{"error": "Note not found"})
+            return
+        }
+    }
 
 	n.Content = req.Content
 	n.UpdatedAt = time.Now()
@@ -225,11 +260,24 @@ func (h *Handler) UpdateNote(c *gin.Context) {
 // @Security ApiKeyAuth
 // @Router /api/v1/notes/{note_id} [delete]
 func (h *Handler) DeleteNote(c *gin.Context) {
-	noteID := c.Param("note_id")
-	if err := database.DB.Delete(&models.Note{}, "id = ?", noteID).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete note"})
-		return
-	}
-	// Tests expect 200 on deletion
-	c.JSON(http.StatusOK, gin.H{"message": "Note deleted"})
+    noteID := c.Param("note_id")
+    // Ownership check: ensure note's transcription belongs to user
+    var n models.Note
+    if err := database.DB.Where("id = ?", noteID).First(&n).Error; err != nil {
+        c.JSON(http.StatusNotFound, gin.H{"error": "Note not found"})
+        return
+    }
+    if uid, ok := c.Get("user_id"); ok {
+        var job models.TranscriptionJob
+        if err := database.DB.Select("id").Where("id = ? AND user_id = ?", n.TranscriptionID, uid).First(&job).Error; err != nil {
+            c.JSON(http.StatusNotFound, gin.H{"error": "Note not found"})
+            return
+        }
+    }
+    if err := database.DB.Delete(&models.Note{}, "id = ?", noteID).Error; err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete note"})
+        return
+    }
+    // Tests expect 200 on deletion
+    c.JSON(http.StatusOK, gin.H{"message": "Note deleted"})
 }

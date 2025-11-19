@@ -2,13 +2,14 @@ import { createContext, useContext, useState, useEffect, useCallback, useMemo, u
 import type { ReactNode } from "react";
 
 interface AuthContextType {
-	token: string | null;
-	isAuthenticated: boolean;
-	requiresRegistration: boolean;
-	isInitialized: boolean;
-	login: (token: string) => void;
-	logout: () => void;
-	getAuthHeaders: () => { Authorization?: string };
+    token: string | null;
+    isAuthenticated: boolean;
+    requiresRegistration: boolean;
+    isInitialized: boolean;
+    isAdmin: boolean;
+    login: (token: string) => void;
+    logout: () => void;
+    getAuthHeaders: () => { Authorization?: string };
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -18,9 +19,10 @@ interface AuthProviderProps {
 }
 
 export function AuthProvider({ children }: AuthProviderProps) {
-	const [token, setToken] = useState<string | null>(null);
-	const [isInitialized, setIsInitialized] = useState(false);
-	const [requiresRegistration, setRequiresRegistration] = useState(false);
+    const [token, setToken] = useState<string | null>(null);
+    const [isInitialized, setIsInitialized] = useState(false);
+    const [requiresRegistration, setRequiresRegistration] = useState(false);
+    const [isAdmin, setIsAdmin] = useState(false);
 	
 	// Use refs to avoid re-creating intervals on every render
 	const tokenCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -42,6 +44,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 	// Logout function
   const logout = useCallback(() => {
     setToken(null);
+    setIsAdmin(false);
     localStorage.removeItem("scriberr_auth_token");
     // Call logout endpoint to invalidate token server-side (optional)
     fetch("/api/v1/auth/logout", {
@@ -76,18 +79,26 @@ export function AuthProvider({ children }: AuthProviderProps) {
 					
 					// Only check for existing token if registration is not required
                     if (!regEnabled) {
-						const savedToken = localStorage.getItem("scriberr_auth_token");
-						if (savedToken) {
-							if (isTokenExpired(savedToken)) {
-								// Token expired, remove it
-								localStorage.removeItem("scriberr_auth_token");
-							} else {
-								setToken(savedToken);
-							}
-						}
-					}
-				}
-			} catch (error) {
+                        const savedToken = localStorage.getItem("scriberr_auth_token");
+                        if (savedToken) {
+                            if (isTokenExpired(savedToken)) {
+                                // Token expired, remove it
+                                localStorage.removeItem("scriberr_auth_token");
+                            } else {
+                                setToken(savedToken);
+                                // Try to fetch user settings to determine admin
+                                try {
+                                  const us = await fetch('/api/v1/user/settings', { headers: { Authorization: `Bearer ${savedToken}` } });
+                                  if (us.ok) {
+                                    const data = await us.json();
+                                    if (typeof data.is_admin === 'boolean') setIsAdmin(!!data.is_admin);
+                                  }
+                                } catch {}
+                            }
+                        }
+                    }
+                }
+            } catch (error) {
 				console.error("Failed to check registration status:", error);
 				// If we can't check status, assume no registration needed and check token
 				const savedToken = localStorage.getItem("scriberr_auth_token");
@@ -106,11 +117,18 @@ export function AuthProvider({ children }: AuthProviderProps) {
 		initializeAuth();
   }, [isTokenExpired]);
 
-	const login = useCallback((newToken: string) => {
-		setToken(newToken);
-		localStorage.setItem("scriberr_auth_token", newToken);
-		setRequiresRegistration(false); // Clear registration requirement after successful login/registration
-	}, []);
+    const login = useCallback((newToken: string) => {
+        setToken(newToken);
+        localStorage.setItem("scriberr_auth_token", newToken);
+        setRequiresRegistration(false); // Clear registration requirement after successful login/registration
+        // Fetch user settings to set admin
+        fetch('/api/v1/user/settings', { headers: { Authorization: `Bearer ${newToken}` }}).then(async (res) => {
+          if (res.ok) {
+            const data = await res.json();
+            setIsAdmin(!!data.is_admin);
+          }
+        }).catch(() => {});
+    }, []);
 
 	// Helper: attempt to refresh JWT via cookie refresh token
 	const tryRefresh = useCallback(async (): Promise<string | null> => {
@@ -173,8 +191,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
 			clearInterval(tokenCheckIntervalRef.current);
 		}
 
-		// Setup token expiry checking if we have a token
-		if (token) {
+    // Setup token expiry checking if we have a token
+    if (token) {
 			const checkTokenExpiry = async () => {
 				if (!token) return;
 				
@@ -208,15 +226,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
 	}, [token]);
 
 	// Memoize context value to prevent unnecessary re-renders
-	const value = useMemo(() => ({
-		token,
-		isAuthenticated: !!token && isInitialized,
-		requiresRegistration,
-		isInitialized,
-		login,
-		logout,
-		getAuthHeaders,
-	}), [token, isInitialized, requiresRegistration, login, logout, getAuthHeaders]);
+    const value = useMemo(() => ({
+        token,
+        isAuthenticated: !!token && isInitialized,
+        requiresRegistration,
+        isInitialized,
+        isAdmin,
+        login,
+        logout,
+        getAuthHeaders,
+    }), [token, isInitialized, requiresRegistration, isAdmin, login, logout, getAuthHeaders]);
 
 
 	return (

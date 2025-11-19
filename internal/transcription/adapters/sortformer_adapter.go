@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"scriberr/internal/transcription/interfaces"
+	"scriberr/internal/transcription/registry"
 	"scriberr/pkg/logger"
 )
 
@@ -22,7 +23,9 @@ type SortformerAdapter struct {
 }
 
 // NewSortformerAdapter creates a new NVIDIA Sortformer diarization adapter
-func NewSortformerAdapter(envPath string) *SortformerAdapter {
+func NewSortformerAdapter() *SortformerAdapter {
+	envPath := "whisperx-env/parakeet" // Shares environment with NVIDIA models
+	
 	capabilities := interfaces.ModelCapabilities{
 		ModelID:            "sortformer",
 		ModelFamily:        "nvidia_sortformer",
@@ -91,8 +94,8 @@ func NewSortformerAdapter(envPath string) *SortformerAdapter {
 			Type:        "string",
 			Required:    false,
 			Default:     "auto",
-			Options:     []string{"cpu", "cuda", "mps", "auto"},
-			Description: "Device to use for computation (cpu, cuda for NVIDIA GPUs, mps for Apple Silicon, auto for automatic detection)",
+			Options:     []string{"cpu", "cuda", "auto"},
+			Description: "Device to use for computation",
 			Group:       "advanced",
 		},
 
@@ -322,12 +325,7 @@ def diarize_audio(
     Perform speaker diarization using NVIDIA's Sortformer model.
     """
     if device is None or device == "auto":
-        if torch.cuda.is_available():
-            device = "cuda"
-        elif hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
-            device = "mps"
-        else:
-            device = "cpu"
+        device = "cuda" if torch.cuda.is_available() else "cpu"
 
     print(f"Using device: {device}")
     print(f"Loading NVIDIA Sortformer diarization model...")
@@ -573,7 +571,7 @@ Note: This script requires diar_streaming_sortformer_4spk-v2.nemo to be in the s
     parser.add_argument("audio_file", help="Path to input audio file (WAV, FLAC, etc.)")
     parser.add_argument("output_file", help="Path to output file (.json for JSON format, .rttm for RTTM format)")
     parser.add_argument("--batch-size", type=int, default=1, help="Batch size for processing (default: 1)")
-    parser.add_argument("--device", choices=["cuda", "mps", "cpu", "auto"], default="auto", help="Device to use for inference (default: auto-detect)")
+    parser.add_argument("--device", choices=["cuda", "cpu", "auto"], default="auto", help="Device to use for inference (default: auto-detect)")
     parser.add_argument("--max-speakers", type=int, default=4, help="Maximum number of speakers (default: 4, optimized for this model)")
     parser.add_argument("--output-format", choices=["json", "rttm"], help="Output format (auto-detected from file extension if not specified)")
     parser.add_argument("--streaming", action="store_true", help="Enable streaming mode")
@@ -873,4 +871,9 @@ func (s *SortformerAdapter) GetEstimatedProcessingTime(input interfaces.AudioInp
 	
 	// Sortformer typically processes at about 5-10% of audio duration
 	return time.Duration(float64(baseTime) * 0.3)
+}
+
+// init registers the Sortformer adapter
+func init() {
+	registry.RegisterDiarizationAdapter("sortformer", NewSortformerAdapter())
 }

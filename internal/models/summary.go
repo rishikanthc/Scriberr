@@ -8,13 +8,16 @@ import (
 
 // SummaryTemplate represents a saved summarization prompt/template
 type SummaryTemplate struct {
-	ID          string    `json:"id" gorm:"primaryKey;type:varchar(36)"`
-	Name        string    `json:"name" gorm:"type:varchar(255);not null"`
-	Description *string   `json:"description,omitempty" gorm:"type:text"`
-	Model       string    `json:"model" gorm:"type:varchar(255);not null;default:''"`
-	Prompt      string    `json:"prompt" gorm:"type:text;not null"`
-	CreatedAt   time.Time `json:"created_at" gorm:"autoCreateTime"`
-	UpdatedAt   time.Time `json:"updated_at" gorm:"autoUpdateTime"`
+    ID          string    `json:"id" gorm:"primaryKey;type:varchar(36)"`
+    Name        string    `json:"name" gorm:"type:varchar(255);not null"`
+    Description *string   `json:"description,omitempty" gorm:"type:text"`
+    Model       string    `json:"model" gorm:"type:varchar(255);not null;default:''"`
+    Prompt      string    `json:"prompt" gorm:"type:text;not null"`
+    CreatedAt   time.Time `json:"created_at" gorm:"autoCreateTime"`
+    UpdatedAt   time.Time `json:"updated_at" gorm:"autoUpdateTime"`
+
+    // Owner
+    UserID uint `json:"user_id" gorm:"index"`
 }
 
 func (st *SummaryTemplate) BeforeCreate(tx *gorm.DB) error {

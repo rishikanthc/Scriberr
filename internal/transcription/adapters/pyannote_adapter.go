@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"scriberr/internal/transcription/interfaces"
+	"scriberr/internal/transcription/registry"
 	"scriberr/pkg/logger"
 )
 
@@ -22,7 +23,9 @@ type PyAnnoteAdapter struct {
 }
 
 // NewPyAnnoteAdapter creates a new PyAnnote diarization adapter
-func NewPyAnnoteAdapter(envPath string) *PyAnnoteAdapter {
+func NewPyAnnoteAdapter() *PyAnnoteAdapter {
+	envPath := "whisperx-env/parakeet" // Shares environment with NVIDIA models
+	
 	capabilities := interfaces.ModelCapabilities{
 		ModelID:            "pyannote",
 		ModelFamily:        "pyannote",
@@ -116,8 +119,8 @@ func NewPyAnnoteAdapter(envPath string) *PyAnnoteAdapter {
 			Type:        "string",
 			Required:    false,
 			Default:     "cpu",
-			Options:     []string{"cpu", "cuda", "mps"},
-			Description: "Device to use for computation (cpu, cuda for NVIDIA GPUs, mps for Apple Silicon)",
+			Options:     []string{"cpu", "cuda"},
+			Description: "Device to use for computation",
 			Group:       "advanced",
 		},
 
@@ -368,16 +371,6 @@ def diarize_audio(
                     print("CUDA not available, falling back to CPU")
             except ImportError:
                 print("PyTorch not available for CUDA, using CPU")
-        elif device == "mps":
-            try:
-                import torch
-                if torch.backends.mps.is_available():
-                    pipeline = pipeline.to(torch.device("mps"))
-                    print("Using MPS (Apple Silicon) for diarization")
-                else:
-                    print("MPS not available, falling back to CPU")
-            except (ImportError, AttributeError):
-                print("PyTorch MPS not available, using CPU")
         
         print("Pipeline loaded successfully")
     except Exception as e:
@@ -507,7 +500,7 @@ def main():
     )
     parser.add_argument(
         "--device",
-        choices=["cpu", "cuda", "mps"],
+        choices=["cpu", "cuda"],
         default="cpu",
         help="Device to use for computation"
     )
@@ -799,7 +792,12 @@ func (p *PyAnnoteAdapter) parseRTTMResult(tempDir string, input interfaces.Audio
 func (p *PyAnnoteAdapter) GetEstimatedProcessingTime(input interfaces.AudioInput) time.Duration {
 	// PyAnnote is typically faster than real-time for diarization
 	baseTime := p.BaseAdapter.GetEstimatedProcessingTime(input)
-
+	
 	// PyAnnote typically processes at about 10-15% of audio duration
 	return time.Duration(float64(baseTime) * 0.5)
+}
+
+// init registers the PyAnnote adapter
+func init() {
+	registry.RegisterDiarizationAdapter("pyannote", NewPyAnnoteAdapter())
 }

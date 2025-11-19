@@ -62,14 +62,27 @@ type ChatSessionWithMessages struct {
 }
 
 // getLLMService returns a provider-agnostic LLM service based on active config
-func (h *Handler) getLLMService() (llm.Service, string, error) {
-	var cfg models.LLMConfig
-	if err := database.DB.Where("is_active = ?", true).First(&cfg).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, "", fmt.Errorf("no active LLM configuration found")
-		}
-		return nil, "", fmt.Errorf("failed to get LLM config: %w", err)
-	}
+func (h *Handler) getLLMService(c *gin.Context) (llm.Service, string, error) {
+    var cfg models.LLMConfig
+    // Prefer user-scoped config; fallback to global
+    if uid, ok := c.Get("user_id"); ok {
+        if err := database.DB.Where("is_active = ? AND user_id = ?", true, uid).First(&cfg).Error; err != nil {
+            if err != gorm.ErrRecordNotFound {
+                return nil, "", fmt.Errorf("failed to get LLM config: %w", err)
+            }
+            if err := database.DB.Where("is_active = ? AND user_id = 0", true).First(&cfg).Error; err != nil {
+                if err == gorm.ErrRecordNotFound {
+                    return nil, "", fmt.Errorf("no active LLM configuration found")
+                }
+                return nil, "", fmt.Errorf("failed to get LLM config: %w", err)
+            }
+        }
+    } else if err := database.DB.Where("is_active = ?", true).First(&cfg).Error; err != nil {
+        if err == gorm.ErrRecordNotFound {
+            return nil, "", fmt.Errorf("no active LLM configuration found")
+        }
+        return nil, "", fmt.Errorf("failed to get LLM config: %w", err)
+    }
 	switch strings.ToLower(cfg.Provider) {
 	case "openai":
 		if cfg.APIKey == nil || *cfg.APIKey == "" {
@@ -97,7 +110,7 @@ func (h *Handler) getLLMService() (llm.Service, string, error) {
 // @Security ApiKeyAuth
 // @Security BearerAuth
 func (h *Handler) GetChatModels(c *gin.Context) {
-	svc, _, err := h.getLLMService()
+    svc, _, err := h.getLLMService(c)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -136,15 +149,24 @@ func (h *Handler) CreateChatSession(c *gin.Context) {
 	}
 
 	// Verify transcription exists and has completed transcript
-	var transcription models.TranscriptionJob
-	if err := database.DB.Where("id = ?", req.TranscriptionID).First(&transcription).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Transcription not found"})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get transcription"})
-		return
-	}
+    var transcription models.TranscriptionJob
+    if uid, ok := getContextUserID(c); ok {
+        if err := database.DB.Where("id = ? AND user_id = ?", req.TranscriptionID, uid).First(&transcription).Error; err != nil {
+            if err == gorm.ErrRecordNotFound {
+                c.JSON(http.StatusNotFound, gin.H{"error": "Transcription not found"})
+                return
+            }
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get transcription"})
+            return
+        }
+    } else if err := database.DB.Where("id = ?", req.TranscriptionID).First(&transcription).Error; err != nil {
+        if err == gorm.ErrRecordNotFound {
+            c.JSON(http.StatusNotFound, gin.H{"error": "Transcription not found"})
+            return
+        }
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get transcription"})
+        return
+    }
 
 	if transcription.Status != models.StatusCompleted || transcription.Transcript == nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Transcription must be completed to create a chat session"})
@@ -152,7 +174,7 @@ func (h *Handler) CreateChatSession(c *gin.Context) {
 	}
 
 	// Verify LLM service is available
-	_, _, err := h.getLLMService()
+    _, _, err := h.getLLMService(c)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -165,16 +187,19 @@ func (h *Handler) CreateChatSession(c *gin.Context) {
 	}
 
 	now := time.Now()
-	chatSession := models.ChatSession{
-		JobID:           req.TranscriptionID, // Use same ID for JobID as TranscriptionID
-		TranscriptionID: req.TranscriptionID,
-		Title:           title,
-		Model:           req.Model,
-		Provider:        "openai",
-		MessageCount:    0,
-		LastActivityAt:  &now,
-		IsActive:        true,
-	}
+    chatSession := models.ChatSession{
+        JobID:           req.TranscriptionID, // Use same ID for JobID as TranscriptionID
+        TranscriptionID: req.TranscriptionID,
+        Title:           title,
+        Model:           req.Model,
+        Provider:        "openai",
+        MessageCount:    0,
+        LastActivityAt:  &now,
+        IsActive:        true,
+    }
+    if uid, ok := getContextUserID(c); ok {
+        chatSession.UserID = uid
+    }
 
 	if err := database.DB.Create(&chatSession).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create chat session"})
@@ -209,18 +234,31 @@ func (h *Handler) CreateChatSession(c *gin.Context) {
 // @Security ApiKeyAuth
 // @Security BearerAuth
 func (h *Handler) GetChatSessions(c *gin.Context) {
-	transcriptionID := c.Param("transcription_id")
-	if transcriptionID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Transcription ID is required"})
-		return
-	}
+    transcriptionID := c.Param("transcription_id")
+    if transcriptionID == "" {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "Transcription ID is required"})
+        return
+    }
 
-	var sessions []models.ChatSession
-	if err := database.DB.Where("transcription_id = ?", transcriptionID).
-		Order("updated_at DESC").Find(&sessions).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get chat sessions"})
-		return
-	}
+    // Verify transcription ownership
+    if uid, ok := getContextUserID(c); ok {
+        var t models.TranscriptionJob
+        if err := database.DB.Select("id").Where("id = ? AND user_id = ?", transcriptionID, uid).First(&t).Error; err != nil {
+            c.JSON(http.StatusNotFound, gin.H{"error": "Transcription not found"})
+            return
+        }
+    }
+
+    var sessions []models.ChatSession
+    query := database.DB.Where("transcription_id = ?", transcriptionID)
+    if uid, ok := getContextUserID(c); ok {
+        query = query.Where("user_id = ?", uid)
+    }
+    if err := query.
+        Order("updated_at DESC").Find(&sessions).Error; err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get chat sessions"})
+        return
+    }
 
 	// Extract session IDs for batch queries
 	sessionIDs := make([]string, len(sessions))
@@ -301,21 +339,30 @@ func (h *Handler) GetChatSessions(c *gin.Context) {
 // @Security ApiKeyAuth
 // @Security BearerAuth
 func (h *Handler) GetChatSession(c *gin.Context) {
-	sessionID := c.Param("session_id")
-	if sessionID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Session ID is required"})
-		return
-	}
+    sessionID := c.Param("session_id")
+    if sessionID == "" {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "Session ID is required"})
+        return
+    }
 
-	var session models.ChatSession
-	if err := database.DB.Where("id = ?", sessionID).First(&session).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Chat session not found"})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get chat session"})
-		return
-	}
+    var session models.ChatSession
+    if uid, ok := getContextUserID(c); ok {
+        if err := database.DB.Where("id = ? AND user_id = ?", sessionID, uid).First(&session).Error; err != nil {
+            if err == gorm.ErrRecordNotFound {
+                c.JSON(http.StatusNotFound, gin.H{"error": "Chat session not found"})
+                return
+            }
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get chat session"})
+            return
+        }
+    } else if err := database.DB.Where("id = ?", sessionID).First(&session).Error; err != nil {
+        if err == gorm.ErrRecordNotFound {
+            c.JSON(http.StatusNotFound, gin.H{"error": "Chat session not found"})
+            return
+        }
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get chat session"})
+        return
+    }
 
 	var messages []models.ChatMessage
 	if err := database.DB.Where("chat_session_id = ?", sessionID).
@@ -382,17 +429,26 @@ func (h *Handler) SendChatMessage(c *gin.Context) {
 
 	// Get chat session
 	var session models.ChatSession
-	if err := database.DB.Preload("Transcription").Where("id = ?", sessionID).First(&session).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Chat session not found"})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get chat session"})
-		return
-	}
+    if uid, ok := getContextUserID(c); ok {
+        if err := database.DB.Preload("Transcription").Where("id = ? AND user_id = ?", sessionID, uid).First(&session).Error; err != nil {
+            if err == gorm.ErrRecordNotFound {
+                c.JSON(http.StatusNotFound, gin.H{"error": "Chat session not found"})
+                return
+            }
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get chat session"})
+            return
+        }
+    } else if err := database.DB.Preload("Transcription").Where("id = ?", sessionID).First(&session).Error; err != nil {
+        if err == gorm.ErrRecordNotFound {
+            c.JSON(http.StatusNotFound, gin.H{"error": "Chat session not found"})
+            return
+        }
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get chat session"})
+        return
+    }
 
 	// Get LLM service
-	svc, _, err := h.getLLMService()
+    svc, _, err := h.getLLMService(c)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -567,15 +623,24 @@ func (h *Handler) UpdateChatSessionTitle(c *gin.Context) {
 		return
 	}
 
-	var session models.ChatSession
-	if err := database.DB.Where("id = ?", sessionID).First(&session).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Chat session not found"})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get chat session"})
-		return
-	}
+    var session models.ChatSession
+    if uid, ok := getContextUserID(c); ok {
+        if err := database.DB.Where("id = ? AND user_id = ?", sessionID, uid).First(&session).Error; err != nil {
+            if err == gorm.ErrRecordNotFound {
+                c.JSON(http.StatusNotFound, gin.H{"error": "Chat session not found"})
+                return
+            }
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get chat session"})
+            return
+        }
+    } else if err := database.DB.Where("id = ?", sessionID).First(&session).Error; err != nil {
+        if err == gorm.ErrRecordNotFound {
+            c.JSON(http.StatusNotFound, gin.H{"error": "Chat session not found"})
+            return
+        }
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get chat session"})
+        return
+    }
 
 	session.Title = req.Title
 	if err := database.DB.Save(&session).Error; err != nil {
@@ -617,18 +682,31 @@ func (h *Handler) DeleteChatSession(c *gin.Context) {
 		return
 	}
 
-	// Delete messages first (due to foreign key constraint)
-	if err := database.DB.Where("chat_session_id = ?", sessionID).Delete(&models.ChatMessage{}).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete messages"})
-		return
-	}
+    // Delete messages first (due to foreign key constraint)
+    if err := database.DB.Where("chat_session_id = ?", sessionID).Delete(&models.ChatMessage{}).Error; err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete messages"})
+        return
+    }
 
-	// Delete session
-	result := database.DB.Where("id = ?", sessionID).Delete(&models.ChatSession{})
-	if result.Error != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete chat session"})
-		return
-	}
+    // Delete session
+    if uid, ok := getContextUserID(c); ok {
+        result := database.DB.Where("id = ? AND user_id = ?", sessionID, uid).Delete(&models.ChatSession{})
+        if result.Error != nil {
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete chat session"})
+            return
+        }
+        if result.RowsAffected == 0 {
+            c.JSON(http.StatusNotFound, gin.H{"error": "Chat session not found"})
+            return
+        }
+        c.Status(http.StatusNoContent)
+        return
+    }
+    result := database.DB.Where("id = ?", sessionID).Delete(&models.ChatSession{})
+    if result.Error != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete chat session"})
+        return
+    }
 
 	if result.RowsAffected == 0 {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Chat session not found"})
@@ -772,7 +850,7 @@ Return only the title, nothing else.`
 	}
 
 	// Use configured LLM service
-	svc, _, err := h.getLLMService()
+    svc, _, err := h.getLLMService(c)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return

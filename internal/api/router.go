@@ -146,15 +146,34 @@ func SetupRoutes(handler *Handler, authService *auth.AuthService) *gin.Engine {
 			user.PUT("/settings", handler.UpdateUserSettings)
 		}
 
-		// Admin routes (require authentication)
-		admin := v1.Group("/admin")
-		admin.Use(middleware.AuthMiddleware(authService))
-		{
-			queue := admin.Group("/queue")
-			{
-				queue.GET("/stats", handler.GetQueueStats)
-			}
-		}
+    // Admin routes (base group)
+    admin := v1.Group("/admin")
+    admin.Use(middleware.AuthMiddleware(authService))
+    {
+        queue := admin.Group("/queue")
+        {
+            queue.GET("/stats", handler.GetQueueStats)
+        }
+
+        // User management routes - JWT only and admin-only
+        adminUsers := admin.Group("/users")
+        adminUsers.Use(middleware.JWTOnlyMiddleware(authService), middleware.AdminOnlyMiddleware())
+        {
+            adminUsers.GET("/", handler.AdminListUsers)
+            adminUsers.POST("/", handler.AdminCreateUser)
+            adminUsers.PUT("/:id", handler.AdminUpdateUser)
+            adminUsers.PUT("/:id/password", handler.AdminUpdateUserPassword)
+            adminUsers.DELETE("/:id", handler.AdminDeleteUser)
+        }
+
+        // Instance branding/logo routes - JWT only and admin-only
+        adminBranding := admin.Group("")
+        adminBranding.Use(middleware.JWTOnlyMiddleware(authService), middleware.AdminOnlyMiddleware())
+        {
+            adminBranding.POST("/logo", handler.AdminUploadLogo)
+            adminBranding.DELETE("/logo", handler.AdminDeleteLogo)
+        }
+    }
 
 		// LLM configuration routes (require authentication)
 		llm := v1.Group("/llm")
