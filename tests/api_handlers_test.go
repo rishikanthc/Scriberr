@@ -28,7 +28,7 @@ type APIHandlerTestSuite struct {
 	router             *gin.Engine
 	handler            *api.Handler
 	taskQueue          *queue.TaskQueue
-	unifiedProcessor   *transcription.UnifiedJobProcessor
+	whisperXService    *transcription.WhisperXService
 	quickTranscription *transcription.QuickTranscriptionService
 }
 
@@ -36,13 +36,13 @@ func (suite *APIHandlerTestSuite) SetupSuite() {
 	suite.helper = NewTestHelper(suite.T(), "api_handlers_test.db")
 
 	// Initialize services
-	suite.unifiedProcessor = transcription.NewUnifiedJobProcessor()
+	suite.whisperXService = transcription.NewWhisperXService(suite.helper.Config)
 	var err error
-	suite.quickTranscription, err = transcription.NewQuickTranscriptionService(suite.helper.Config, suite.unifiedProcessor)
+	suite.quickTranscription, err = transcription.NewQuickTranscriptionService(suite.helper.Config, suite.whisperXService)
 	assert.NoError(suite.T(), err)
 
-	suite.taskQueue = queue.NewTaskQueue(1, suite.unifiedProcessor)
-	suite.handler = api.NewHandler(suite.helper.Config, suite.helper.AuthService, suite.taskQueue, suite.unifiedProcessor, suite.quickTranscription)
+	suite.taskQueue = queue.NewTaskQueue(1, suite.whisperXService)
+	suite.handler = api.NewHandler(suite.helper.Config, suite.helper.AuthService, suite.taskQueue, suite.whisperXService, suite.quickTranscription)
 
 	// Set up router
 	suite.router = api.SetupRoutes(suite.handler, suite.helper.AuthService)
@@ -310,14 +310,11 @@ func (suite *APIHandlerTestSuite) TestGetSupportedModels() {
 	assert.Contains(suite.T(), response, "models")
 	assert.Contains(suite.T(), response, "languages")
 
-	// Models is now a map (model_id -> capabilities), languages is still an array
-	// In test environment, these may be empty since no adapters are registered
-	models := response["models"].(map[string]interface{})
+	models := response["models"].([]interface{})
 	languages := response["languages"].([]interface{})
 
-	// Just verify they have the correct types (may be empty in test environment)
-	assert.NotNil(suite.T(), models)
-	assert.NotNil(suite.T(), languages)
+	assert.Greater(suite.T(), len(models), 0)
+	assert.Greater(suite.T(), len(languages), 0)
 }
 
 // Test profile management
@@ -427,7 +424,7 @@ func (suite *APIHandlerTestSuite) TestGetQueueStats() {
 	assert.NoError(suite.T(), err)
 
 	assert.Contains(suite.T(), response, "queue_size")
-	assert.Contains(suite.T(), response, "current_workers")
+	assert.Contains(suite.T(), response, "workers")
 	assert.Contains(suite.T(), response, "pending_jobs")
 	assert.Contains(suite.T(), response, "processing_jobs")
 	assert.Contains(suite.T(), response, "completed_jobs")

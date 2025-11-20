@@ -9,37 +9,14 @@ RED='\033[0;31m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
-# Check and build frontend if needed
-echo -e "\n${YELLOW}🔍 Checking frontend build...${NC}"
-if [ ! -d "web/frontend/dist" ]; then
-    echo -e "${YELLOW}Frontend not built. Building now...${NC}"
-    cd web/frontend
-    npm install
-    npm run build
-    cd ../..
-    echo -e "${GREEN}✅ Frontend build complete${NC}"
-else
-    echo -e "${GREEN}✅ Frontend already built${NC}"
-fi
-
 # Function to run tests and capture results
 run_test() {
     local test_name=$1
     local test_files=$2
-
+    
     echo -e "\n${YELLOW}🔄 Running $test_name...${NC}"
-
-    # Clean up any test databases before running
-    find . -maxdepth 1 -name "*_test.db" -delete 2>/dev/null || true
-
-    # Run the test and capture the exit code
-    go test $test_files -v
-    local test_result=$?
-
-    # Clean up test databases after running
-    find . -maxdepth 1 -name "*_test.db" -delete 2>/dev/null || true
-
-    if [ $test_result -eq 0 ]; then
+    
+    if go test $test_files -v; then
         echo -e "${GREEN}✅ $test_name PASSED${NC}"
         return 0
     else
@@ -104,8 +81,8 @@ else
 fi
 ((total++))
 
-# Adapter Registration Tests (tests our model storage fix)
-if run_test "Adapter Registration Tests" "./tests/test_helpers.go ./tests/adapter_registration_test.go"; then
+# Transcription Tests (may have issues)
+if run_test "Transcription Service Tests" "./tests/test_helpers.go ./tests/transcription_service_test.go"; then
     ((passed++))
 else
     ((failed++))

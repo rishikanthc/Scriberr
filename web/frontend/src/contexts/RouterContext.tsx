@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 
 export type Route = {
-  path: 'home' | 'audio-detail' | 'settings' | 'chat'
+  path: 'home' | 'audio-detail' | 'settings' | 'chat' | 'admin'
   params?: Record<string, string | undefined>
 }
 
@@ -35,6 +35,8 @@ export function RouterProvider({ children }: { children: React.ReactNode }) {
       return { path: 'audio-detail', params: { id: audioId } }
     } else if (path === '/settings') {
       return { path: 'settings' }
+    } else if (path === '/admin') {
+      return { path: 'admin' }
     }
 
     return { path: 'home' }
@@ -53,6 +55,8 @@ export function RouterProvider({ children }: { children: React.ReactNode }) {
       url = `/audio/${route.params.audioId}/chat`
     } else if (route.path === 'settings') {
       url = '/settings'
+    } else if (route.path === 'admin') {
+      url = '/admin'
     }
     
     window.history.pushState({ route }, '', url)

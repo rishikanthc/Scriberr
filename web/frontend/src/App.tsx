@@ -5,6 +5,7 @@ import { useRouter } from './contexts/RouterContext'
 const Homepage = lazy(() => import('./components/Homepage').then(module => ({ default: module.Homepage })))
 const AudioDetailView = lazy(() => import('./components/AudioDetailView').then(module => ({ default: module.AudioDetailView })))
 const Settings = lazy(() => import('./pages/Settings').then(module => ({ default: module.Settings })))
+const Admin = lazy(() => import('./pages/Admin').then(module => ({ default: module.Admin })))
 const ChatPage = lazy(() => import('./pages/ChatPage').then(module => ({ default: module.ChatPage })))
 
 // Loading component
@@ -25,6 +26,8 @@ function App() {
         <Settings />
       ) : currentRoute.path === 'chat' ? (
         <ChatPage />
+      ) : currentRoute.path === 'admin' ? (
+        <Admin />
       ) : (
         <Homepage />
       )}

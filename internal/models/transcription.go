@@ -9,6 +9,8 @@ import (
 
 // TranscriptionJob represents a transcription job record
 type TranscriptionJob struct {
+    // Owner (empty for legacy/quick temp jobs)
+    UserID          uint      `json:"user_id" gorm:"index"`
 	ID               string    `json:"id" gorm:"primaryKey;type:varchar(36)"`
 	Title            *string   `json:"title,omitempty" gorm:"type:text"`
 	Status           JobStatus `json:"status" gorm:"type:varchar(20);not null;default:'pending'"`
@@ -133,27 +135,31 @@ func (tj *TranscriptionJob) BeforeCreate(tx *gorm.DB) error {
 
 // User represents a user for authentication
 type User struct {
-	ID                       uint      `json:"id" gorm:"primaryKey"`
-	Username                 string    `json:"username" gorm:"uniqueIndex;not null;type:varchar(50)"`
-	Password                 string    `json:"-" gorm:"not null;type:varchar(255)"`
-	DefaultProfileID         *string   `json:"default_profile_id,omitempty" gorm:"type:varchar(36)"`
-	AutoTranscriptionEnabled bool      `json:"auto_transcription_enabled" gorm:"not null;default:false"`
-	CreatedAt                time.Time `json:"created_at" gorm:"autoCreateTime"`
-	UpdatedAt                time.Time `json:"updated_at" gorm:"autoUpdateTime"`
+    ID                       uint      `json:"id" gorm:"primaryKey"`
+    Username                 string    `json:"username" gorm:"uniqueIndex;not null;type:varchar(50)"`
+    Password                 string    `json:"-" gorm:"not null;type:varchar(255)"`
+    IsAdmin                  bool      `json:"is_admin" gorm:"not null;default:false"`
+    DefaultProfileID         *string   `json:"default_profile_id,omitempty" gorm:"type:varchar(36)"`
+    AutoTranscriptionEnabled bool      `json:"auto_transcription_enabled" gorm:"not null;default:false"`
+    CreatedAt                time.Time `json:"created_at" gorm:"autoCreateTime"`
+    UpdatedAt                time.Time `json:"updated_at" gorm:"autoUpdateTime"`
 }
 
 // APIKey represents an API key for external authentication
 type APIKey struct {
-	ID          uint       `json:"id" gorm:"primaryKey"`
-	Key         string     `json:"key" gorm:"uniqueIndex;not null;type:varchar(255)"`
-	Name        string     `json:"name" gorm:"not null;type:varchar(100)"`
-	Description *string    `json:"description,omitempty" gorm:"type:text"`
+    ID          uint       `json:"id" gorm:"primaryKey"`
+    Key         string     `json:"key" gorm:"uniqueIndex;not null;type:varchar(255)"`
+    Name        string     `json:"name" gorm:"not null;type:varchar(100)"`
+    Description *string    `json:"description,omitempty" gorm:"type:text"`
 	// IsActive should persist explicit false values; avoid default tag to prevent
 	// GORM from overriding false with DB defaults during inserts.
-	IsActive  bool       `json:"is_active" gorm:"type:boolean;not null"`
-	LastUsed  *time.Time `json:"last_used,omitempty"`
-	CreatedAt time.Time  `json:"created_at" gorm:"autoCreateTime"`
-	UpdatedAt time.Time  `json:"updated_at" gorm:"autoUpdateTime"`
+    IsActive  bool       `json:"is_active" gorm:"type:boolean;not null"`
+    LastUsed  *time.Time `json:"last_used,omitempty"`
+    CreatedAt time.Time  `json:"created_at" gorm:"autoCreateTime"`
+    UpdatedAt time.Time  `json:"updated_at" gorm:"autoUpdateTime"`
+
+    // Owner
+    UserID uint `json:"user_id" gorm:"index"`
 }
 
 // BeforeCreate sets the API key if not already set
@@ -166,13 +172,16 @@ func (ak *APIKey) BeforeCreate(tx *gorm.DB) error {
 
 // TranscriptionProfile represents a saved transcription configuration profile
 type TranscriptionProfile struct {
-	ID          string         `json:"id" gorm:"primaryKey;type:varchar(36)"`
-	Name        string         `json:"name" gorm:"type:varchar(255);not null"`
-	Description *string        `json:"description,omitempty" gorm:"type:text"`
-	IsDefault   bool           `json:"is_default" gorm:"type:boolean;default:false"`
-	Parameters  WhisperXParams `json:"parameters" gorm:"embedded"`
-	CreatedAt   time.Time      `json:"created_at" gorm:"autoCreateTime"`
-	UpdatedAt   time.Time      `json:"updated_at" gorm:"autoUpdateTime"`
+    ID          string         `json:"id" gorm:"primaryKey;type:varchar(36)"`
+    Name        string         `json:"name" gorm:"type:varchar(255);not null"`
+    Description *string        `json:"description,omitempty" gorm:"type:text"`
+    IsDefault   bool           `json:"is_default" gorm:"type:boolean;default:false"`
+    Parameters  WhisperXParams `json:"parameters" gorm:"embedded"`
+    CreatedAt   time.Time      `json:"created_at" gorm:"autoCreateTime"`
+    UpdatedAt   time.Time      `json:"updated_at" gorm:"autoUpdateTime"`
+
+    // Owner
+    UserID uint `json:"user_id" gorm:"index"`
 }
 
 // BeforeCreate sets the ID if not already set
@@ -183,53 +192,59 @@ func (tp *TranscriptionProfile) BeforeCreate(tx *gorm.DB) error {
 	return nil
 }
 
-// BeforeSave ensures only one profile can be default
+// BeforeSave ensures only one profile can be default (per user)
 func (tp *TranscriptionProfile) BeforeSave(tx *gorm.DB) error {
-	if tp.IsDefault {
-		// Set all other profiles to not default
-		if err := tx.Model(&TranscriptionProfile{}).Where("id != ?", tp.ID).Update("is_default", false).Error; err != nil {
-			return err
-		}
-	}
-	return nil
+    if tp.IsDefault {
+        // Set all other profiles to not default
+        if err := tx.Model(&TranscriptionProfile{}).Where("id != ? AND user_id = ?", tp.ID, tp.UserID).Update("is_default", false).Error; err != nil {
+            return err
+        }
+    }
+    return nil
 }
 
 // LLMConfig represents LLM configuration settings
 type LLMConfig struct {
-	ID        uint      `json:"id" gorm:"primaryKey"`
-	Provider  string    `json:"provider" gorm:"not null;type:varchar(50)"` // "ollama" or "openai"
-	BaseURL   *string   `json:"base_url,omitempty" gorm:"type:text"`       // For Ollama
-	APIKey    *string   `json:"api_key,omitempty" gorm:"type:text"`        // For OpenAI (encrypted)
-	IsActive  bool      `json:"is_active" gorm:"type:boolean;default:false"`
-	CreatedAt time.Time `json:"created_at" gorm:"autoCreateTime"`
-	UpdatedAt time.Time `json:"updated_at" gorm:"autoUpdateTime"`
+    ID        uint      `json:"id" gorm:"primaryKey"`
+    Provider  string    `json:"provider" gorm:"not null;type:varchar(50)"` // "ollama" or "openai"
+    BaseURL   *string   `json:"base_url,omitempty" gorm:"type:text"`       // For Ollama
+    APIKey    *string   `json:"api_key,omitempty" gorm:"type:text"`        // For OpenAI (encrypted)
+    IsActive  bool      `json:"is_active" gorm:"type:boolean;default:false"`
+    CreatedAt time.Time `json:"created_at" gorm:"autoCreateTime"`
+    UpdatedAt time.Time `json:"updated_at" gorm:"autoUpdateTime"`
+
+    // Owner (0 = legacy/global)
+    UserID uint `json:"user_id" gorm:"index"`
 }
 
-// BeforeSave ensures only one LLM config can be active
+// BeforeSave ensures only one LLM config can be active (per user)
 func (lc *LLMConfig) BeforeSave(tx *gorm.DB) error {
-	if lc.IsActive {
-		// Set all other configs to not active
-		if err := tx.Model(&LLMConfig{}).Where("id != ?", lc.ID).Update("is_active", false).Error; err != nil {
-			return err
-		}
-	}
-	return nil
+    if lc.IsActive {
+        // Set all other configs to not active
+        if err := tx.Model(&LLMConfig{}).Where("id != ? AND user_id = ?", lc.ID, lc.UserID).Update("is_active", false).Error; err != nil {
+            return err
+        }
+    }
+    return nil
 }
 
 // ChatSession represents a chat session with a transcript
 type ChatSession struct {
-	ID              string     `json:"id" gorm:"primaryKey;type:varchar(36)"`
-	JobID           string     `json:"job_id" gorm:"type:varchar(36);not null"`
-	TranscriptionID string     `json:"transcription_id" gorm:"type:varchar(36);not null;index"`
-	Title           string     `json:"title" gorm:"type:varchar(255);not null"`
-	Model           string     `json:"model" gorm:"type:varchar(100);not null"`
-	Provider        string     `json:"provider" gorm:"type:varchar(50);not null;default:'openai'"`
-	SystemContext   *string    `json:"system_context,omitempty" gorm:"type:text"`
-	MessageCount    int        `json:"message_count" gorm:"type:integer;default:0"`
-	LastActivityAt  *time.Time `json:"last_activity_at,omitempty" gorm:"type:datetime"`
-	IsActive        bool       `json:"is_active" gorm:"type:boolean;default:true"`
-	CreatedAt       time.Time  `json:"created_at" gorm:"autoCreateTime"`
-	UpdatedAt       time.Time  `json:"updated_at" gorm:"autoUpdateTime"`
+    ID              string     `json:"id" gorm:"primaryKey;type:varchar(36)"`
+    JobID           string     `json:"job_id" gorm:"type:varchar(36);not null"`
+    TranscriptionID string     `json:"transcription_id" gorm:"type:varchar(36);not null;index"`
+    Title           string     `json:"title" gorm:"type:varchar(255);not null"`
+    Model           string     `json:"model" gorm:"type:varchar(100);not null"`
+    Provider        string     `json:"provider" gorm:"type:varchar(50);not null;default:'openai'"`
+    SystemContext   *string    `json:"system_context,omitempty" gorm:"type:text"`
+    MessageCount    int        `json:"message_count" gorm:"type:integer;default:0"`
+    LastActivityAt  *time.Time `json:"last_activity_at,omitempty" gorm:"type:datetime"`
+    IsActive        bool       `json:"is_active" gorm:"type:boolean;default:true"`
+    CreatedAt       time.Time  `json:"created_at" gorm:"autoCreateTime"`
+    UpdatedAt       time.Time  `json:"updated_at" gorm:"autoUpdateTime"`
+
+    // Owner
+    UserID uint `json:"user_id" gorm:"index"`
 
 	// Relationships
 	Transcription TranscriptionJob `json:"transcription,omitempty" gorm:"foreignKey:TranscriptionID"`

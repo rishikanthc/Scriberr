@@ -1,7 +1,6 @@
 package api
 
 import (
-	"bytes"
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
@@ -33,12 +32,36 @@ import (
 
 // Handler contains all the API handlers
 type Handler struct {
-	config              *config.Config
-	authService         *auth.AuthService
-	taskQueue           *queue.TaskQueue
-	unifiedProcessor    *transcription.UnifiedJobProcessor
-	quickTranscription  *transcription.QuickTranscriptionService
-	multiTrackProcessor *processing.MultiTrackProcessor
+    config              *config.Config
+    authService         *auth.AuthService
+    taskQueue           *queue.TaskQueue
+    unifiedProcessor    *transcription.UnifiedJobProcessor
+    quickTranscription  *transcription.QuickTranscriptionService
+    multiTrackProcessor *processing.MultiTrackProcessor
+}
+
+// getContextUserID extracts the user_id from Gin context and normalizes to uint
+func getContextUserID(c *gin.Context) (uint, bool) {
+    v, ok := c.Get("user_id")
+    if !ok {
+        return 0, false
+    }
+    switch id := v.(type) {
+    case uint:
+        return id, true
+    case int:
+        if id < 0 {
+            return 0, false
+        }
+        return uint(id), true
+    case int64:
+        if id < 0 {
+            return 0, false
+        }
+        return uint(id), true
+    default:
+        return 0, false
+    }
 }
 
 // NewHandler creates a new handler
@@ -219,8 +242,11 @@ func (h *Handler) UploadAudio(c *gin.Context) {
 	}
 	defer file.Close()
 
-	// Create upload directory
-	uploadDir := h.config.UploadDir
+    // Create upload directory (user scoped if available)
+    uploadDir := h.config.UploadDir
+    if uid, ok := getContextUserID(c); ok {
+        uploadDir = filepath.Join(uploadDir, fmt.Sprintf("user_%d", uid))
+    }
 	if err := os.MkdirAll(uploadDir, 0755); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create upload directory"})
 		return
@@ -246,11 +272,14 @@ func (h *Handler) UploadAudio(c *gin.Context) {
 	}
 
 	// Create job record with "uploaded" status (not queued for transcription)
-	job := models.TranscriptionJob{
-		ID:        jobID,
-		AudioPath: filePath,
-		Status:    models.StatusUploaded, // New status for uploaded but not transcribed
-	}
+    job := models.TranscriptionJob{
+        ID:        jobID,
+        AudioPath: filePath,
+        Status:    models.StatusUploaded, // New status for uploaded but not transcribed
+    }
+    if uid, ok := getContextUserID(c); ok {
+        job.UserID = uid
+    }
 
 	if title := c.PostForm("title"); title != "" {
 		job.Title = &title
@@ -271,22 +300,22 @@ func (h *Handler) UploadAudio(c *gin.Context) {
 			var profile models.TranscriptionProfile
 			var profileFound bool
 
-			if user.DefaultProfileID != nil {
-				err = database.DB.Where("id = ?", *user.DefaultProfileID).First(&profile).Error
-				profileFound = (err == nil)
-			}
+            if user.DefaultProfileID != nil {
+                err = database.DB.Where("id = ? AND user_id = ?", *user.DefaultProfileID, user.ID).First(&profile).Error
+                profileFound = (err == nil)
+            }
 
-			// If no user default or user default not found, try to find a system default
-			if !profileFound {
-				err = database.DB.Where("is_default = ?", true).First(&profile).Error
-				profileFound = (err == nil)
-			}
+            // If no user default or user default not found, try to find a system default
+            if !profileFound {
+                err = database.DB.Where("is_default = ? AND user_id = ?", true, user.ID).First(&profile).Error
+                profileFound = (err == nil)
+            }
 
-			// If still no profile found, use the first available profile
-			if !profileFound {
-				err = database.DB.Order("created_at ASC").First(&profile).Error
-				profileFound = (err == nil)
-			}
+            // If still no profile found, use the first available profile
+            if !profileFound {
+                err = database.DB.Where("user_id = ?", user.ID).Order("created_at ASC").First(&profile).Error
+                profileFound = (err == nil)
+            }
 
 			// If we found a profile, update the job and queue it
 			if profileFound {
@@ -332,8 +361,11 @@ func (h *Handler) UploadVideo(c *gin.Context) {
 	}
 	defer file.Close()
 
-	// Create upload directory
-	uploadDir := h.config.UploadDir
+    // Create upload directory (user scoped if available)
+    uploadDir := h.config.UploadDir
+    if uid, ok := getContextUserID(c); ok {
+        uploadDir = filepath.Join(uploadDir, fmt.Sprintf("user_%d", uid))
+    }
 	if err := os.MkdirAll(uploadDir, 0755); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create upload directory"})
 		return
@@ -387,11 +419,14 @@ func (h *Handler) UploadVideo(c *gin.Context) {
 	}
 
 	// Create job record with "uploaded" status (not queued for transcription)
-	job := models.TranscriptionJob{
-		ID:        jobID,
-		AudioPath: audioPath,
-		Status:    models.StatusUploaded, // Same status as audio uploads
-	}
+    job := models.TranscriptionJob{
+        ID:        jobID,
+        AudioPath: audioPath,
+        Status:    models.StatusUploaded, // Same status as audio uploads
+    }
+    if uid, ok := getContextUserID(c); ok {
+        job.UserID = uid
+    }
 
 	if title := c.PostForm("title"); title != "" {
 		job.Title = &title
@@ -412,22 +447,22 @@ func (h *Handler) UploadVideo(c *gin.Context) {
 			var profile models.TranscriptionProfile
 			var profileFound bool
 
-			if user.DefaultProfileID != nil {
-				err = database.DB.Where("id = ?", *user.DefaultProfileID).First(&profile).Error
-				profileFound = (err == nil)
-			}
+            if user.DefaultProfileID != nil {
+                err = database.DB.Where("id = ? AND user_id = ?", *user.DefaultProfileID, user.ID).First(&profile).Error
+                profileFound = (err == nil)
+            }
 
-			// If no user default or user default not found, try to find a system default
-			if !profileFound {
-				err = database.DB.Where("is_default = ?", true).First(&profile).Error
-				profileFound = (err == nil)
-			}
+            // If no user default or user default not found, try to find a system default
+            if !profileFound {
+                err = database.DB.Where("is_default = ? AND user_id = ?", true, user.ID).First(&profile).Error
+                profileFound = (err == nil)
+            }
 
-			// If still no profile found, use the first available profile
-			if !profileFound {
-				err = database.DB.Order("created_at ASC").First(&profile).Error
-				profileFound = (err == nil)
-			}
+            // If still no profile found, use the first available profile
+            if !profileFound {
+                err = database.DB.Where("user_id = ?", user.ID).Order("created_at ASC").First(&profile).Error
+                profileFound = (err == nil)
+            }
 
 			// If we found a profile, update the job and queue it
 			if profileFound {
@@ -503,9 +538,12 @@ func (h *Handler) UploadMultiTrack(c *gin.Context) {
 	// Generate unique job ID
 	jobID := uuid.New().String()
 
-	// Create job-specific directory structure
-	uploadDir := h.config.UploadDir
-	multiTrackFolder := filepath.Join(uploadDir, jobID)
+    // Create job-specific directory structure (user scoped if available)
+    uploadDir := h.config.UploadDir
+    if uid, ok := getContextUserID(c); ok {
+        uploadDir = filepath.Join(uploadDir, fmt.Sprintf("user_%d", uid))
+    }
+    multiTrackFolder := filepath.Join(uploadDir, jobID)
 	tracksFolder := filepath.Join(multiTrackFolder, "tracks")
 
 	if err := os.MkdirAll(tracksFolder, 0755); err != nil {
@@ -592,16 +630,19 @@ func (h *Handler) UploadMultiTrack(c *gin.Context) {
 	}
 
 	// Create transcription job record
-	job := models.TranscriptionJob{
-		ID:               jobID,
-		Title:            &title,
-		AudioPath:        firstTrackPath, // Point to first track initially
-		Status:           models.StatusUploaded,
-		IsMultiTrack:     true,
-		AupFilePath:      &aupFilePath,
-		MultiTrackFolder: &multiTrackFolder,
-		MergeStatus:      "none", // No merge processing yet
-	}
+    job := models.TranscriptionJob{
+        ID:               jobID,
+        Title:            &title,
+        AudioPath:        firstTrackPath, // Point to first track initially
+        Status:           models.StatusUploaded,
+        IsMultiTrack:     true,
+        AupFilePath:      &aupFilePath,
+        MultiTrackFolder: &multiTrackFolder,
+        MergeStatus:      "none", // No merge processing yet
+    }
+    if uid, ok := getContextUserID(c); ok {
+        job.UserID = uid
+    }
 
 	// Save job to database
 	if err := database.DB.Create(&job).Error; err != nil {
@@ -651,13 +692,27 @@ func (h *Handler) UploadMultiTrack(c *gin.Context) {
 // @Security ApiKeyAuth
 // @Security BearerAuth
 func (h *Handler) GetMergeStatus(c *gin.Context) {
-	jobID := c.Param("id")
+    jobID := c.Param("id")
 
-	status, errorMsg, err := h.multiTrackProcessor.GetMergeStatus(jobID)
-	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Job not found"})
-		return
-	}
+    // Verify ownership
+    var check models.TranscriptionJob
+    if uid, ok := getContextUserID(c); ok {
+        if err := database.DB.Select("id").Where("id = ? AND user_id = ?", jobID, uid).First(&check).Error; err != nil {
+            c.JSON(http.StatusNotFound, gin.H{"error": "Job not found"})
+            return
+        }
+    } else {
+        if err := database.DB.Select("id").Where("id = ?", jobID).First(&check).Error; err != nil {
+            c.JSON(http.StatusNotFound, gin.H{"error": "Job not found"})
+            return
+        }
+    }
+
+    status, errorMsg, err := h.multiTrackProcessor.GetMergeStatus(jobID)
+    if err != nil {
+        c.JSON(http.StatusNotFound, gin.H{"error": "Job not found"})
+        return
+    }
 
 	response := gin.H{
 		"merge_status": status,
@@ -685,10 +740,15 @@ func (h *Handler) GetTrackProgress(c *gin.Context) {
 
 	// Get the main job details
 	var job models.TranscriptionJob
-	if err := database.DB.Preload("MultiTrackFiles").Where("id = ?", jobID).First(&job).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Job not found"})
-		return
-	}
+    if uid, ok := getContextUserID(c); ok {
+        if err := database.DB.Preload("MultiTrackFiles").Where("id = ? AND user_id = ?", jobID, uid).First(&job).Error; err != nil {
+            c.JSON(http.StatusNotFound, gin.H{"error": "Job not found"})
+            return
+        }
+    } else if err := database.DB.Preload("MultiTrackFiles").Where("id = ?", jobID).First(&job).Error; err != nil {
+        c.JSON(http.StatusNotFound, gin.H{"error": "Job not found"})
+        return
+    }
 
 	// Only provide track progress for multi-track jobs
 	if !job.IsMultiTrack {
@@ -800,8 +860,11 @@ func (h *Handler) SubmitJob(c *gin.Context) {
 	}
 	defer file.Close()
 
-	// Create upload directory
-	uploadDir := h.config.UploadDir
+    // Create upload directory (user scoped if available)
+    uploadDir := h.config.UploadDir
+    if uid, ok := getContextUserID(c); ok {
+        uploadDir = filepath.Join(uploadDir, fmt.Sprintf("user_%d", uid))
+    }
 	if err := os.MkdirAll(uploadDir, 0755); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create upload directory"})
 		return
@@ -872,13 +935,16 @@ func (h *Handler) SubmitJob(c *gin.Context) {
 	params.DiarizeModel = diarizeModel
 
 	// Create job
-	job := models.TranscriptionJob{
-		ID:          jobID,
-		AudioPath:   filePath,
-		Status:      models.StatusPending,
-		Diarization: diarize,
-		Parameters:  params,
-	}
+    job := models.TranscriptionJob{
+        ID:          jobID,
+        AudioPath:   filePath,
+        Status:      models.StatusPending,
+        Diarization: diarize,
+        Parameters:  params,
+    }
+    if uid, ok := getContextUserID(c); ok {
+        job.UserID = uid
+    }
 
 	if title := c.PostForm("title"); title != "" {
 		job.Title = &title
@@ -911,12 +977,21 @@ func (h *Handler) SubmitJob(c *gin.Context) {
 // @Security ApiKeyAuth
 // @Security BearerAuth
 func (h *Handler) GetJobStatus(c *gin.Context) {
-	jobID := c.Param("id")
+    jobID := c.Param("id")
 
-	job, err := h.taskQueue.GetJobStatus(jobID)
-	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Job not found"})
+    // Verify ownership
+    if uid, ok := getContextUserID(c); ok {
+        var check models.TranscriptionJob
+        if err := database.DB.Select("id").Where("id = ? AND user_id = ?", jobID, uid).First(&check).Error; err != nil {
+            c.JSON(http.StatusNotFound, gin.H{"error": "Job not found"})
+            return
+        }
+    }
+
+    job, err := h.taskQueue.GetJobStatus(jobID)
+    if err != nil {
+        if err == gorm.ErrRecordNotFound {
+            c.JSON(http.StatusNotFound, gin.H{"error": "Job not found"})
 			return
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get job status"})
@@ -938,17 +1013,26 @@ func (h *Handler) GetJobStatus(c *gin.Context) {
 // @Security ApiKeyAuth
 // @Security BearerAuth
 func (h *Handler) GetTranscript(c *gin.Context) {
-	jobID := c.Param("id")
+    jobID := c.Param("id")
 
-	var job models.TranscriptionJob
-	if err := database.DB.Where("id = ?", jobID).First(&job).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Job not found"})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get job"})
-		return
-	}
+    var job models.TranscriptionJob
+    if uid, ok := getContextUserID(c); ok {
+        if err := database.DB.Where("id = ? AND user_id = ?", jobID, uid).First(&job).Error; err != nil {
+            if err == gorm.ErrRecordNotFound {
+                c.JSON(http.StatusNotFound, gin.H{"error": "Job not found"})
+                return
+            }
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get job"})
+            return
+        }
+    } else if err := database.DB.Where("id = ?", jobID).First(&job).Error; err != nil {
+        if err == gorm.ErrRecordNotFound {
+            c.JSON(http.StatusNotFound, gin.H{"error": "Job not found"})
+            return
+        }
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get job"})
+        return
+    }
 
 	if job.Status != models.StatusCompleted {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -1004,7 +1088,10 @@ func (h *Handler) ListJobs(c *gin.Context) {
 
 	offset := (page - 1) * limit
 
-	query := database.DB.Model(&models.TranscriptionJob{})
+    query := database.DB.Model(&models.TranscriptionJob{})
+    if uid, ok := getContextUserID(c); ok {
+        query = query.Where("user_id = ?", uid)
+    }
 
 	// Filter out temporary track jobs (they have IDs starting with "track_")
 	query = query.Where("id NOT LIKE 'track_%'")
@@ -1060,15 +1147,24 @@ func (h *Handler) ListJobs(c *gin.Context) {
 func (h *Handler) StartTranscription(c *gin.Context) {
 	jobID := c.Param("id")
 
-	var job models.TranscriptionJob
-	if err := database.DB.Where("id = ?", jobID).First(&job).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Job not found"})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get job"})
-		return
-	}
+    var job models.TranscriptionJob
+    if uid, ok := getContextUserID(c); ok {
+        if err := database.DB.Where("id = ? AND user_id = ?", jobID, uid).First(&job).Error; err != nil {
+            if err == gorm.ErrRecordNotFound {
+                c.JSON(http.StatusNotFound, gin.H{"error": "Job not found"})
+                return
+            }
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get job"})
+            return
+        }
+    } else if err := database.DB.Where("id = ?", jobID).First(&job).Error; err != nil {
+        if err == gorm.ErrRecordNotFound {
+            c.JSON(http.StatusNotFound, gin.H{"error": "Job not found"})
+            return
+        }
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get job"})
+        return
+    }
 
 	// Allow transcription for uploaded, completed, and failed jobs (re-transcription)
 	if job.Status != models.StatusUploaded && job.Status != models.StatusCompleted && job.Status != models.StatusFailed {
@@ -1220,15 +1316,24 @@ func (h *Handler) StartTranscription(c *gin.Context) {
 func (h *Handler) KillJob(c *gin.Context) {
 	jobID := c.Param("id")
 
-	var job models.TranscriptionJob
-	if err := database.DB.Where("id = ?", jobID).First(&job).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Job not found"})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get job"})
-		return
-	}
+    var job models.TranscriptionJob
+    if uid, ok := getContextUserID(c); ok {
+        if err := database.DB.Where("id = ? AND user_id = ?", jobID, uid).First(&job).Error; err != nil {
+            if err == gorm.ErrRecordNotFound {
+                c.JSON(http.StatusNotFound, gin.H{"error": "Job not found"})
+                return
+            }
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get job"})
+            return
+        }
+    } else if err := database.DB.Where("id = ?", jobID).First(&job).Error; err != nil {
+        if err == gorm.ErrRecordNotFound {
+            c.JSON(http.StatusNotFound, gin.H{"error": "Job not found"})
+            return
+        }
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get job"})
+        return
+    }
 
 	// Check if job is currently processing
 	if job.Status != models.StatusProcessing {
@@ -1274,15 +1379,24 @@ func (h *Handler) UpdateTranscriptionTitle(c *gin.Context) {
 		return
 	}
 
-	var job models.TranscriptionJob
-	if err := database.DB.Where("id = ?", jobID).First(&job).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Job not found"})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get job"})
-		return
-	}
+    var job models.TranscriptionJob
+    if uid, ok := getContextUserID(c); ok {
+        if err := database.DB.Where("id = ? AND user_id = ?", jobID, uid).First(&job).Error; err != nil {
+            if err == gorm.ErrRecordNotFound {
+                c.JSON(http.StatusNotFound, gin.H{"error": "Job not found"})
+                return
+            }
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get job"})
+            return
+        }
+    } else if err := database.DB.Where("id = ?", jobID).First(&job).Error; err != nil {
+        if err == gorm.ErrRecordNotFound {
+            c.JSON(http.StatusNotFound, gin.H{"error": "Job not found"})
+            return
+        }
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get job"})
+        return
+    }
 
 	job.Title = &body.Title
 	if err := database.DB.Model(&job).Update("title", body.Title).Error; err != nil {
@@ -1311,17 +1425,26 @@ func (h *Handler) UpdateTranscriptionTitle(c *gin.Context) {
 // @Security ApiKeyAuth
 // @Security BearerAuth
 func (h *Handler) DeleteJob(c *gin.Context) {
-	jobID := c.Param("id")
+    jobID := c.Param("id")
 
-	var job models.TranscriptionJob
-	if err := database.DB.Where("id = ?", jobID).First(&job).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Job not found"})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get job"})
-		return
-	}
+    var job models.TranscriptionJob
+    if uid, ok := getContextUserID(c); ok {
+        if err := database.DB.Where("id = ? AND user_id = ?", jobID, uid).First(&job).Error; err != nil {
+            if err == gorm.ErrRecordNotFound {
+                c.JSON(http.StatusNotFound, gin.H{"error": "Job not found"})
+                return
+            }
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get job"})
+            return
+        }
+    } else if err := database.DB.Where("id = ?", jobID).First(&job).Error; err != nil {
+        if err == gorm.ErrRecordNotFound {
+            c.JSON(http.StatusNotFound, gin.H{"error": "Job not found"})
+            return
+        }
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get job"})
+        return
+    }
 
 	// Prevent deletion of jobs that are currently processing
 	if job.Status == models.StatusProcessing {
@@ -1474,14 +1597,23 @@ func (h *Handler) GetJobExecutionData(c *gin.Context) {
 
 	// Get the transcription job to check if it's multi-track
 	var job models.TranscriptionJob
-	if err := database.DB.Preload("MultiTrackFiles").Where("id = ?", jobID).First(&job).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Transcription job not found"})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get transcription job"})
-		return
-	}
+    if uid, ok := getContextUserID(c); ok {
+        if err := database.DB.Preload("MultiTrackFiles").Where("id = ? AND user_id = ?", jobID, uid).First(&job).Error; err != nil {
+            if err == gorm.ErrRecordNotFound {
+                c.JSON(http.StatusNotFound, gin.H{"error": "Transcription job not found"})
+                return
+            }
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get transcription job"})
+            return
+        }
+    } else if err := database.DB.Preload("MultiTrackFiles").Where("id = ?", jobID).First(&job).Error; err != nil {
+        if err == gorm.ErrRecordNotFound {
+            c.JSON(http.StatusNotFound, gin.H{"error": "Transcription job not found"})
+            return
+        }
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get transcription job"})
+        return
+    }
 
 	var execution models.TranscriptionJobExecution
 	if err := database.DB.Where("transcription_job_id = ? AND status = ?", jobID, models.StatusCompleted).
@@ -1691,17 +1823,19 @@ func (h *Handler) Logout(c *gin.Context) {
 // @Success 200 {object} RegistrationStatusResponse
 // @Router /api/v1/auth/registration-status [get]
 func (h *Handler) GetRegistrationStatus(c *gin.Context) {
-	var userCount int64
-	if err := database.DB.Model(&models.User{}).Count(&userCount).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to check registration status"})
-		return
-	}
+    var userCount int64
+    if err := database.DB.Model(&models.User{}).Count(&userCount).Error; err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to check registration status"})
+        return
+    }
 
-	response := RegistrationStatusResponse{
-		RegistrationEnabled: userCount == 0,
-	}
+    response := RegistrationStatusResponse{
+        // Semantics for frontend: registration_enabled == true => initial admin registration required
+        // Keep this true only when there are no users yet. Open registration is controlled by backend in Register.
+        RegistrationEnabled: userCount == 0,
+    }
 
-	c.JSON(http.StatusOK, response)
+    c.JSON(http.StatusOK, response)
 }
 
 // @Summary Register initial admin user
@@ -1715,17 +1849,16 @@ func (h *Handler) GetRegistrationStatus(c *gin.Context) {
 // @Failure 409 {object} map[string]string
 // @Router /api/v1/auth/register [post]
 func (h *Handler) Register(c *gin.Context) {
-	// Check if any users already exist
-	var userCount int64
-	if err := database.DB.Model(&models.User{}).Count(&userCount).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to check existing users"})
-		return
-	}
-
-	if userCount > 0 {
-		c.JSON(http.StatusConflict, gin.H{"error": "Registration is not allowed. Admin user already exists"})
-		return
-	}
+    // Allow registration when enabled or when no users exist
+    var userCount int64
+    if err := database.DB.Model(&models.User{}).Count(&userCount).Error; err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to check existing users"})
+        return
+    }
+    if !h.config.AllowRegistration && userCount > 0 {
+        c.JSON(http.StatusConflict, gin.H{"error": "Registration is disabled"})
+        return
+    }
 
 	var req RegisterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -1746,20 +1879,34 @@ func (h *Handler) Register(c *gin.Context) {
 		return
 	}
 
-	// Create user
-	user := models.User{
-		Username: req.Username,
-		Password: hashedPassword,
-	}
+    // Ensure username is not already taken
+    {
+        var existing models.User
+        if err := database.DB.Where("username = ?", req.Username).First(&existing).Error; err == nil {
+            c.JSON(http.StatusConflict, gin.H{"error": "Username already exists"})
+            return
+        } else if err != nil && err != gorm.ErrRecordNotFound {
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to verify username"})
+            return
+        }
+    }
 
-	if err := database.DB.Create(&user).Error; err != nil {
-		if database.DB.Error.Error() == "UNIQUE constraint failed: users.username" {
-			c.JSON(http.StatusConflict, gin.H{"error": "Username already exists"})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user"})
-		return
-	}
+    // Create user; first user becomes admin
+    user := models.User{
+        Username: req.Username,
+        Password: hashedPassword,
+        IsAdmin:  userCount == 0,
+    }
+
+    if err := database.DB.Create(&user).Error; err != nil {
+        // Handle unique constraint across different drivers
+        if strings.Contains(strings.ToLower(err.Error()), "unique") && strings.Contains(err.Error(), "users.username") {
+            c.JSON(http.StatusConflict, gin.H{"error": "Username already exists"})
+            return
+        }
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user"})
+        return
+    }
 
 	// Generate token for immediate login
 	token, err := h.authService.GenerateToken(&user)
@@ -1994,11 +2141,17 @@ func (h *Handler) ChangeUsername(c *gin.Context) {
 // @Security BearerAuth
 // @Router /api/v1/api-keys [get]
 func (h *Handler) ListAPIKeys(c *gin.Context) {
-	var apiKeys []models.APIKey
-	if err := database.DB.Where("is_active = ?", true).Find(&apiKeys).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch API keys"})
-		return
-	}
+    var apiKeys []models.APIKey
+    // Scope to current user
+    uid, ok := getContextUserID(c)
+    if !ok {
+        c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+        return
+    }
+    if err := database.DB.Where("is_active = ? AND user_id = ?", true, uid).Find(&apiKeys).Error; err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch API keys"})
+        return
+    }
 
 	// Transform API keys to list response format
 	var responseKeys []APIKeyListResponse
@@ -2020,27 +2173,30 @@ func (h *Handler) ListAPIKeys(c *gin.Context) {
 // @Security BearerAuth
 // @Router /api/v1/api-keys [post]
 func (h *Handler) CreateAPIKey(c *gin.Context) {
-	var req CreateAPIKeyRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request: " + err.Error()})
-		return
-	}
+    var req CreateAPIKeyRequest
+    if err := c.ShouldBindJSON(&req); err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request: " + err.Error()})
+        return
+    }
 
-	// Generate a secure API key
-	apiKey := generateSecureAPIKey(32)
+    // Generate a secure API key
+    apiKey := generateSecureAPIKey(32)
 
-	// Create the API key record
-	newKey := models.APIKey{
-		Key:         apiKey,
-		Name:        req.Name,
-		Description: &req.Description,
-		IsActive:    true,
-	}
+    // Create the API key record
+    newKey := models.APIKey{
+        Key:         apiKey,
+        Name:        req.Name,
+        Description: &req.Description,
+        IsActive:    true,
+    }
+    if uid, ok := getContextUserID(c); ok {
+        newKey.UserID = uid
+    }
 
-	if err := database.DB.Create(&newKey).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create API key"})
-		return
-	}
+    if err := database.DB.Create(&newKey).Error; err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create API key"})
+        return
+    }
 
 	// Return full model with 200 to match tests
 	c.JSON(http.StatusOK, newKey)
@@ -2056,19 +2212,24 @@ func (h *Handler) CreateAPIKey(c *gin.Context) {
 // @Security BearerAuth
 // @Router /api/v1/api-keys/{id} [delete]
 func (h *Handler) DeleteAPIKey(c *gin.Context) {
-	idParam := c.Param("id")
-	id, err := strconv.ParseUint(idParam, 10, 32)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid API key ID"})
-		return
-	}
+    idParam := c.Param("id")
+    id, err := strconv.ParseUint(idParam, 10, 32)
+    if err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid API key ID"})
+        return
+    }
 
-	// Check if the API key exists
-	var apiKey models.APIKey
-	if err := database.DB.First(&apiKey, uint(id)).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "API key not found"})
-		return
-	}
+    // Check if the API key exists
+    var apiKey models.APIKey
+    uid, ok := getContextUserID(c)
+    if !ok {
+        c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+        return
+    }
+    if err := database.DB.Where("id = ? AND user_id = ?", uint(id), uid).First(&apiKey).Error; err != nil {
+        c.JSON(http.StatusNotFound, gin.H{"error": "API key not found"})
+        return
+    }
 
 	// Delete the API key (soft delete by setting is_active to false)
 	if err := database.DB.Model(&apiKey).Update("is_active", false).Error; err != nil {
@@ -2088,15 +2249,26 @@ func (h *Handler) DeleteAPIKey(c *gin.Context) {
 // @Security BearerAuth
 // @Router /api/v1/llm/config [get]
 func (h *Handler) GetLLMConfig(c *gin.Context) {
-	var config models.LLMConfig
-	if err := database.DB.Where("is_active = ?", true).First(&config).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			c.JSON(http.StatusNotFound, gin.H{"error": "No active LLM configuration found"})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch LLM configuration"})
-		return
-	}
+    var config models.LLMConfig
+    uid, has := getContextUserID(c)
+    var err error
+    if has {
+        err = database.DB.Where("is_active = ? AND user_id = ?", true, uid).First(&config).Error
+        if err == gorm.ErrRecordNotFound {
+            // Fallback to legacy global config (user_id = 0)
+            err = database.DB.Where("is_active = ? AND user_id = 0", true).First(&config).Error
+        }
+    } else {
+        err = database.DB.Where("is_active = ?", true).First(&config).Error
+    }
+    if err != nil {
+        if err == gorm.ErrRecordNotFound {
+            c.JSON(http.StatusNotFound, gin.H{"error": "No active LLM configuration found"})
+            return
+        }
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch LLM configuration"})
+        return
+    }
 
 	response := LLMConfigResponse{
 		ID:        config.ID,
@@ -2122,11 +2294,11 @@ func (h *Handler) GetLLMConfig(c *gin.Context) {
 // @Security BearerAuth
 // @Router /api/v1/llm/config [post]
 func (h *Handler) SaveLLMConfig(c *gin.Context) {
-	var req LLMConfigRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request: " + err.Error()})
-		return
-	}
+    var req LLMConfigRequest
+    if err := c.ShouldBindJSON(&req); err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request: " + err.Error()})
+        return
+    }
 
 	// Validate provider-specific requirements
 	if req.Provider == "ollama" && (req.BaseURL == nil || *req.BaseURL == "") {
@@ -2139,8 +2311,14 @@ func (h *Handler) SaveLLMConfig(c *gin.Context) {
 	}
 
 	// Check if there's an existing active configuration
-	var existingConfig models.LLMConfig
-	err := database.DB.Where("is_active = ?", true).First(&existingConfig).Error
+    var existingConfig models.LLMConfig
+    uid, has := getContextUserID(c)
+    var err error
+    if has {
+        err = database.DB.Where("is_active = ? AND user_id = ?", true, uid).First(&existingConfig).Error
+    } else {
+        err = database.DB.Where("is_active = ?", true).First(&existingConfig).Error
+    }
 
 	if err != nil && err != gorm.ErrRecordNotFound {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to check existing configuration"})
@@ -2149,32 +2327,33 @@ func (h *Handler) SaveLLMConfig(c *gin.Context) {
 
 	var config models.LLMConfig
 
-	if err == gorm.ErrRecordNotFound {
-		// No existing active config, create new one
-		config = models.LLMConfig{
-			Provider: req.Provider,
-			BaseURL:  req.BaseURL,
-			APIKey:   req.APIKey,
-			IsActive: req.IsActive,
-		}
+    if err == gorm.ErrRecordNotFound {
+        // No existing active config, create new one
+        config = models.LLMConfig{
+            Provider: req.Provider,
+            BaseURL:  req.BaseURL,
+            APIKey:   req.APIKey,
+            IsActive: req.IsActive,
+        }
+        if has { config.UserID = uid }
 
 		if err := database.DB.Create(&config).Error; err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create LLM configuration"})
 			return
 		}
-	} else {
-		// Update existing config
-		existingConfig.Provider = req.Provider
-		existingConfig.BaseURL = req.BaseURL
-		existingConfig.APIKey = req.APIKey
-		existingConfig.IsActive = req.IsActive
+    } else {
+        // Update existing config
+        existingConfig.Provider = req.Provider
+        existingConfig.BaseURL = req.BaseURL
+        existingConfig.APIKey = req.APIKey
+        existingConfig.IsActive = req.IsActive
 
-		if err := database.DB.Save(&existingConfig).Error; err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update LLM configuration"})
-			return
-		}
-		config = existingConfig
-	}
+        if err := database.DB.Save(&existingConfig).Error; err != nil {
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update LLM configuration"})
+            return
+        }
+        config = existingConfig
+    }
 
 	response := LLMConfigResponse{
 		ID:        config.ID,
@@ -2297,12 +2476,17 @@ func getFormBoolWithDefault(c *gin.Context, key string, defaultValue bool) bool 
 // @Security ApiKeyAuth
 // @Security BearerAuth
 func (h *Handler) ListProfiles(c *gin.Context) {
-	var profiles []models.TranscriptionProfile
-	if err := database.DB.Order("created_at DESC").Find(&profiles).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch profiles"})
-		return
-	}
-	c.JSON(http.StatusOK, profiles)
+    var profiles []models.TranscriptionProfile
+    if uid, ok := getContextUserID(c); ok {
+        if err := database.DB.Where("user_id = ?", uid).Order("created_at DESC").Find(&profiles).Error; err != nil {
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch profiles"})
+            return
+        }
+    } else if err := database.DB.Order("created_at DESC").Find(&profiles).Error; err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch profiles"})
+        return
+    }
+    c.JSON(http.StatusOK, profiles)
 }
 
 // @Summary Create transcription profile
@@ -2317,11 +2501,11 @@ func (h *Handler) ListProfiles(c *gin.Context) {
 // @Security ApiKeyAuth
 // @Security BearerAuth
 func (h *Handler) CreateProfile(c *gin.Context) {
-	var profile models.TranscriptionProfile
-	if err := c.ShouldBindJSON(&profile); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request data"})
-		return
-	}
+    var profile models.TranscriptionProfile
+    if err := c.ShouldBindJSON(&profile); err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request data"})
+        return
+    }
 
 	// Validate required fields
 	if profile.Name == "" {
@@ -2329,12 +2513,17 @@ func (h *Handler) CreateProfile(c *gin.Context) {
 		return
 	}
 
-	// Check if profile name already exists
-	var existingProfile models.TranscriptionProfile
-	if err := database.DB.Where("name = ?", profile.Name).First(&existingProfile).Error; err == nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Profile name already exists"})
-		return
-	}
+    // Attach owner
+    if uid, ok := getContextUserID(c); ok {
+        profile.UserID = uid
+    }
+
+    // Check if profile name already exists for this user
+    var existingProfile models.TranscriptionProfile
+    if err := database.DB.Where("name = ? AND user_id = ?", profile.Name, profile.UserID).First(&existingProfile).Error; err == nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "Profile name already exists"})
+        return
+    }
 
 	if err := database.DB.Create(&profile).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create profile"})
@@ -2356,17 +2545,26 @@ func (h *Handler) CreateProfile(c *gin.Context) {
 // @Security ApiKeyAuth
 // @Security BearerAuth
 func (h *Handler) GetProfile(c *gin.Context) {
-	profileID := c.Param("id")
+    profileID := c.Param("id")
 
-	var profile models.TranscriptionProfile
-	if err := database.DB.Where("id = ?", profileID).First(&profile).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Profile not found"})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get profile"})
-		return
-	}
+    var profile models.TranscriptionProfile
+    if uid, ok := getContextUserID(c); ok {
+        if err := database.DB.Where("id = ? AND user_id = ?", profileID, uid).First(&profile).Error; err != nil {
+            if err == gorm.ErrRecordNotFound {
+                c.JSON(http.StatusNotFound, gin.H{"error": "Profile not found"})
+                return
+            }
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get profile"})
+            return
+        }
+    } else if err := database.DB.Where("id = ?", profileID).First(&profile).Error; err != nil {
+        if err == gorm.ErrRecordNotFound {
+            c.JSON(http.StatusNotFound, gin.H{"error": "Profile not found"})
+            return
+        }
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get profile"})
+        return
+    }
 
 	c.JSON(http.StatusOK, profile)
 }
@@ -2388,14 +2586,23 @@ func (h *Handler) UpdateProfile(c *gin.Context) {
 	profileID := c.Param("id")
 
 	var existingProfile models.TranscriptionProfile
-	if err := database.DB.Where("id = ?", profileID).First(&existingProfile).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Profile not found"})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get profile"})
-		return
-	}
+    if uid, ok := getContextUserID(c); ok {
+        if err := database.DB.Where("id = ? AND user_id = ?", profileID, uid).First(&existingProfile).Error; err != nil {
+            if err == gorm.ErrRecordNotFound {
+                c.JSON(http.StatusNotFound, gin.H{"error": "Profile not found"})
+                return
+            }
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get profile"})
+            return
+        }
+    } else if err := database.DB.Where("id = ?", profileID).First(&existingProfile).Error; err != nil {
+        if err == gorm.ErrRecordNotFound {
+            c.JSON(http.StatusNotFound, gin.H{"error": "Profile not found"})
+            return
+        }
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get profile"})
+        return
+    }
 
 	var updatedProfile models.TranscriptionProfile
 	if err := c.ShouldBindJSON(&updatedProfile); err != nil {
@@ -2410,11 +2617,11 @@ func (h *Handler) UpdateProfile(c *gin.Context) {
 	}
 
 	// Check if profile name already exists (excluding current profile)
-	var nameCheck models.TranscriptionProfile
-	if err := database.DB.Where("name = ? AND id != ?", updatedProfile.Name, profileID).First(&nameCheck).Error; err == nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Profile name already exists"})
-		return
-	}
+    var nameCheck models.TranscriptionProfile
+    if err := database.DB.Where("name = ? AND id != ? AND user_id = ?", updatedProfile.Name, profileID, existingProfile.UserID).First(&nameCheck).Error; err == nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "Profile name already exists"})
+        return
+    }
 
 	// Update the profile
 	updatedProfile.ID = profileID // Ensure ID doesn't change
@@ -2440,14 +2647,23 @@ func (h *Handler) DeleteProfile(c *gin.Context) {
 	profileID := c.Param("id")
 
 	var profile models.TranscriptionProfile
-	if err := database.DB.Where("id = ?", profileID).First(&profile).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Profile not found"})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get profile"})
-		return
-	}
+    if uid, ok := getContextUserID(c); ok {
+        if err := database.DB.Where("id = ? AND user_id = ?", profileID, uid).First(&profile).Error; err != nil {
+            if err == gorm.ErrRecordNotFound {
+                c.JSON(http.StatusNotFound, gin.H{"error": "Profile not found"})
+                return
+            }
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get profile"})
+            return
+        }
+    } else if err := database.DB.Where("id = ?", profileID).First(&profile).Error; err != nil {
+        if err == gorm.ErrRecordNotFound {
+            c.JSON(http.StatusNotFound, gin.H{"error": "Profile not found"})
+            return
+        }
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get profile"})
+        return
+    }
 
 	if err := database.DB.Delete(&profile).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete profile"})
@@ -2479,14 +2695,23 @@ func (h *Handler) SetDefaultProfile(c *gin.Context) {
 
 	// Find the profile
 	var profile models.TranscriptionProfile
-	if err := database.DB.Where("id = ?", profileID).First(&profile).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Profile not found"})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get profile"})
-		return
-	}
+    if uid, ok := getContextUserID(c); ok {
+        if err := database.DB.Where("id = ? AND user_id = ?", profileID, uid).First(&profile).Error; err != nil {
+            if err == gorm.ErrRecordNotFound {
+                c.JSON(http.StatusNotFound, gin.H{"error": "Profile not found"})
+                return
+            }
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get profile"})
+            return
+        }
+    } else if err := database.DB.Where("id = ?", profileID).First(&profile).Error; err != nil {
+        if err == gorm.ErrRecordNotFound {
+            c.JSON(http.StatusNotFound, gin.H{"error": "Profile not found"})
+            return
+        }
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get profile"})
+        return
+    }
 
 	// Set this profile as default (the BeforeSave hook will handle unsetting other defaults)
 	profile.IsDefault = true
@@ -2533,15 +2758,24 @@ func (h *Handler) SubmitQuickTranscription(c *gin.Context) {
 	if profileName := c.PostForm("profile_name"); profileName != "" {
 		// Load parameters from profile
 		var profile models.TranscriptionProfile
-		if err := database.DB.Where("name = ?", profileName).First(&profile).Error; err != nil {
-			if err == gorm.ErrRecordNotFound {
-				c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Profile '%s' not found", profileName)})
-				return
-			}
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to load profile"})
-			return
-		}
-		params = profile.Parameters
+        if uid, ok := getContextUserID(c); ok {
+            if err := database.DB.Where("name = ? AND user_id = ?", profileName, uid).First(&profile).Error; err != nil {
+                if err == gorm.ErrRecordNotFound {
+                    c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Profile '%s' not found", profileName)})
+                    return
+                }
+                c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to load profile"})
+                return
+            }
+        } else if err := database.DB.Where("name = ?", profileName).First(&profile).Error; err != nil {
+            if err == gorm.ErrRecordNotFound {
+                c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Profile '%s' not found", profileName)})
+                return
+            }
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to load profile"})
+            return
+        }
+        params = profile.Parameters
 	} else if parametersJSON := c.PostForm("parameters"); parametersJSON != "" {
 		// Parse parameters from JSON string
 		if err := json.Unmarshal([]byte(parametersJSON), &params); err != nil {
@@ -2606,14 +2840,23 @@ func (h *Handler) SubmitQuickTranscription(c *gin.Context) {
 		}
 	}
 
-	// Submit quick transcription job
-	job, err := h.quickTranscription.SubmitQuickJob(file, header.Filename, params)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to submit quick transcription: %v", err)})
-		return
-	}
+    // Submit quick transcription job (associate with user if available)
+    if uid, ok := getContextUserID(c); ok {
+        job, err := h.quickTranscription.SubmitQuickJobForUser(file, header.Filename, params, uid)
+        if err != nil {
+            c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to submit quick transcription: %v", err)})
+            return
+        }
+        c.JSON(http.StatusOK, job)
+        return
+    }
+    job, err := h.quickTranscription.SubmitQuickJob(file, header.Filename, params)
+    if err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to submit quick transcription: %v", err)})
+        return
+    }
 
-	c.JSON(http.StatusOK, job)
+    c.JSON(http.StatusOK, job)
 }
 
 // @Summary Get quick transcription status
@@ -2667,8 +2910,11 @@ func (h *Handler) DownloadFromYouTube(c *gin.Context) {
 		return
 	}
 
-	// Create upload directory
-	uploadDir := h.config.UploadDir
+    // Create upload directory (user scoped if available)
+    uploadDir := h.config.UploadDir
+    if uid, ok := getContextUserID(c); ok {
+        uploadDir = filepath.Join(uploadDir, fmt.Sprintf("user_%d", uid))
+    }
 	if err := os.MkdirAll(uploadDir, 0755); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create upload directory"})
 		return
@@ -2685,22 +2931,16 @@ func (h *Handler) DownloadFromYouTube(c *gin.Context) {
 		title = *req.Title
 	} else {
 		// Get title from yt-dlp
-		titleStart := time.Now()
 		cmd := exec.Command(h.config.UVPath, "run", "--native-tls", "--project", h.config.WhisperXEnv, "python", "-m", "yt_dlp", "--get-title", req.URL)
 		titleBytes, err := cmd.Output()
 		if err != nil {
 			title = "YouTube Audio"
-			logger.Warn("Failed to get YouTube title", "url", req.URL, "error", err.Error(), "duration", time.Since(titleStart))
 		} else {
 			title = strings.TrimSpace(string(titleBytes))
-			logger.Info("YouTube title retrieved", "title", title, "duration", time.Since(titleStart))
 		}
 	}
 
 	// Download audio using yt-dlp in Python environment
-	logger.Info("Starting YouTube download", "url", req.URL, "job_id", jobID)
-	downloadStart := time.Now()
-
 	ytDlpCmd := exec.Command(h.config.UVPath, "run", "--native-tls", "--project", h.config.WhisperXEnv, "python", "-m", "yt_dlp",
 		"--extract-audio",
 		"--audio-format", "mp3",
@@ -2710,23 +2950,9 @@ func (h *Handler) DownloadFromYouTube(c *gin.Context) {
 		req.URL,
 	)
 
-	// Execute download and capture stderr for better error messages
-	var stderr bytes.Buffer
-	ytDlpCmd.Stderr = &stderr
-
+	// Execute download
 	if err := ytDlpCmd.Run(); err != nil {
-		stderrOutput := stderr.String()
-		logger.Error("YouTube download failed",
-			"url", req.URL,
-			"job_id", jobID,
-			"error", err.Error(),
-			"stderr", stderrOutput,
-			"duration", time.Since(downloadStart))
-
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error":   fmt.Sprintf("Failed to download YouTube audio: %v", err),
-			"details": stderrOutput,
-		})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to download YouTube audio: %v", err)})
 		return
 	}
 
@@ -2740,24 +2966,15 @@ func (h *Handler) DownloadFromYouTube(c *gin.Context) {
 
 	actualFilePath := matches[0]
 
-	// Get file size for performance logging
-	fileInfo, err := os.Stat(actualFilePath)
-	if err == nil {
-		fileSizeMB := float64(fileInfo.Size()) / 1024 / 1024
-		logger.Info("YouTube download completed",
-			"url", req.URL,
-			"job_id", jobID,
-			"file_path", actualFilePath,
-			"file_size_mb", fmt.Sprintf("%.2f", fileSizeMB),
-			"duration", time.Since(downloadStart))
-	}
-
 	// Create transcription record
-	job := models.TranscriptionJob{
-		ID:        jobID,
-		AudioPath: actualFilePath,
-		Status:    models.StatusUploaded,
-	}
+    job := models.TranscriptionJob{
+        ID:        jobID,
+        AudioPath: actualFilePath,
+        Status:    models.StatusUploaded,
+    }
+    if uid, ok := getContextUserID(c); ok {
+        job.UserID = uid
+    }
 
 	// Set title
 	if title != "" {
@@ -2798,40 +3015,40 @@ func (h *Handler) GetUserDefaultProfile(c *gin.Context) {
 	}
 
 	// If user has no default profile set, return the first available profile or no profile
-	if user.DefaultProfileID == nil {
-		var firstProfile models.TranscriptionProfile
-		if err := database.DB.Order("created_at ASC").First(&firstProfile).Error; err != nil {
-			if err == gorm.ErrRecordNotFound {
-				c.JSON(http.StatusNotFound, gin.H{"error": "No profiles available"})
-				return
-			}
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get profiles"})
-			return
-		}
-		c.JSON(http.StatusOK, firstProfile)
-		return
-	}
+    if user.DefaultProfileID == nil {
+        var firstProfile models.TranscriptionProfile
+        if err := database.DB.Where("user_id = ?", user.ID).Order("created_at ASC").First(&firstProfile).Error; err != nil {
+            if err == gorm.ErrRecordNotFound {
+                c.JSON(http.StatusNotFound, gin.H{"error": "No profiles available"})
+                return
+            }
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get profiles"})
+            return
+        }
+        c.JSON(http.StatusOK, firstProfile)
+        return
+    }
 
 	// Get the user's default profile
 	var profile models.TranscriptionProfile
-	if err := database.DB.Where("id = ?", *user.DefaultProfileID).First(&profile).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			// Default profile no longer exists, fall back to first available
-			var firstProfile models.TranscriptionProfile
-			if err := database.DB.Order("created_at ASC").First(&firstProfile).Error; err != nil {
-				if err == gorm.ErrRecordNotFound {
-					c.JSON(http.StatusNotFound, gin.H{"error": "No profiles available"})
-					return
-				}
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get profiles"})
-				return
-			}
-			c.JSON(http.StatusOK, firstProfile)
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get default profile"})
-		return
-	}
+    if err := database.DB.Where("id = ? AND user_id = ?", *user.DefaultProfileID, user.ID).First(&profile).Error; err != nil {
+        if err == gorm.ErrRecordNotFound {
+            // Default profile no longer exists, fall back to first available
+            var firstProfile models.TranscriptionProfile
+            if err := database.DB.Where("user_id = ?", user.ID).Order("created_at ASC").First(&firstProfile).Error; err != nil {
+                if err == gorm.ErrRecordNotFound {
+                    c.JSON(http.StatusNotFound, gin.H{"error": "No profiles available"})
+                    return
+                }
+                c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get profiles"})
+                return
+            }
+            c.JSON(http.StatusOK, firstProfile)
+            return
+        }
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get default profile"})
+        return
+    }
 
 	c.JSON(http.StatusOK, profile)
 }
@@ -2865,16 +3082,16 @@ func (h *Handler) SetUserDefaultProfile(c *gin.Context) {
 		return
 	}
 
-	// Verify the profile exists
-	var profile models.TranscriptionProfile
-	if err := database.DB.Where("id = ?", req.ProfileID).First(&profile).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Profile not found"})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to verify profile"})
-		return
-	}
+    // Verify the profile exists and belongs to the user
+    var profile models.TranscriptionProfile
+    if err := database.DB.Where("id = ? AND user_id = ?", req.ProfileID, userID).First(&profile).Error; err != nil {
+        if err == gorm.ErrRecordNotFound {
+            c.JSON(http.StatusNotFound, gin.H{"error": "Profile not found"})
+            return
+        }
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to verify profile"})
+        return
+    }
 
 	// Update user's default profile
 	if err := database.DB.Model(&models.User{}).Where("id = ?", userID).Update("default_profile_id", req.ProfileID).Error; err != nil {
@@ -2887,8 +3104,9 @@ func (h *Handler) SetUserDefaultProfile(c *gin.Context) {
 
 // UserSettingsResponse represents the user's settings
 type UserSettingsResponse struct {
-	AutoTranscriptionEnabled bool    `json:"auto_transcription_enabled"`
-	DefaultProfileID         *string `json:"default_profile_id,omitempty"`
+    AutoTranscriptionEnabled bool    `json:"auto_transcription_enabled"`
+    DefaultProfileID         *string `json:"default_profile_id,omitempty"`
+    IsAdmin                  bool    `json:"is_admin"`
 }
 
 // UpdateUserSettingsRequest represents the request to update user settings
@@ -2921,6 +3139,7 @@ func (h *Handler) GetUserSettings(c *gin.Context) {
 	response := UserSettingsResponse{
 		AutoTranscriptionEnabled: user.AutoTranscriptionEnabled,
 		DefaultProfileID:         user.DefaultProfileID,
+        IsAdmin:                  user.IsAdmin,
 	}
 
 	c.JSON(http.StatusOK, response)
@@ -3012,15 +3231,24 @@ func (h *Handler) GetSpeakerMappings(c *gin.Context) {
 	jobID := c.Param("id")
 
 	// Verify the transcription job exists and has diarization enabled
-	var job models.TranscriptionJob
-	if err := database.DB.Where("id = ?", jobID).First(&job).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Transcription job not found"})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get transcription job"})
-		return
-	}
+    var job models.TranscriptionJob
+    if uid, ok := getContextUserID(c); ok {
+        if err := database.DB.Where("id = ? AND user_id = ?", jobID, uid).First(&job).Error; err != nil {
+            if err == gorm.ErrRecordNotFound {
+                c.JSON(http.StatusNotFound, gin.H{"error": "Transcription job not found"})
+                return
+            }
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get transcription job"})
+            return
+        }
+    } else if err := database.DB.Where("id = ?", jobID).First(&job).Error; err != nil {
+        if err == gorm.ErrRecordNotFound {
+            c.JSON(http.StatusNotFound, gin.H{"error": "Transcription job not found"})
+            return
+        }
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get transcription job"})
+        return
+    }
 
 	// Check if diarization was enabled or if this is a multi-track job (which also has speakers)
 	if !job.Diarization && !job.Parameters.Diarize && !job.IsMultiTrack {
@@ -3073,15 +3301,24 @@ func (h *Handler) UpdateSpeakerMappings(c *gin.Context) {
 	}
 
 	// Verify the transcription job exists and has diarization enabled
-	var job models.TranscriptionJob
-	if err := database.DB.Where("id = ?", jobID).First(&job).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Transcription job not found"})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get transcription job"})
-		return
-	}
+    var job models.TranscriptionJob
+    if uid, ok := getContextUserID(c); ok {
+        if err := database.DB.Where("id = ? AND user_id = ?", jobID, uid).First(&job).Error; err != nil {
+            if err == gorm.ErrRecordNotFound {
+                c.JSON(http.StatusNotFound, gin.H{"error": "Transcription job not found"})
+                return
+            }
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get transcription job"})
+            return
+        }
+    } else if err := database.DB.Where("id = ?", jobID).First(&job).Error; err != nil {
+        if err == gorm.ErrRecordNotFound {
+            c.JSON(http.StatusNotFound, gin.H{"error": "Transcription job not found"})
+            return
+        }
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get transcription job"})
+        return
+    }
 
 	// Check if diarization was enabled or if this is a multi-track job (which also has speakers)
 	if !job.Diarization && !job.Parameters.Diarize && !job.IsMultiTrack {
@@ -3148,4 +3385,319 @@ func (h *Handler) UpdateSpeakerMappings(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, response)
+}
+
+// ===== Admin: User Management Handlers =====
+
+// AdminUserResponse represents a sanitized user for admin listings
+type AdminUserResponse struct {
+    ID        uint      `json:"id"`
+    Username  string    `json:"username"`
+    IsAdmin   bool      `json:"is_admin"`
+    CreatedAt time.Time `json:"created_at"`
+    UpdatedAt time.Time `json:"updated_at"`
+}
+
+// AdminCreateUserRequest represents payload to create a user
+type AdminCreateUserRequest struct {
+    Username        string `json:"username" binding:"required,min=3,max=50"`
+    Password        string `json:"password" binding:"required,min=6"`
+    ConfirmPassword string `json:"confirmPassword" binding:"required"`
+    IsAdmin         *bool  `json:"is_admin,omitempty"`
+}
+
+// AdminUpdateUserRequest represents payload to update a user
+type AdminUpdateUserRequest struct {
+    Username *string `json:"username,omitempty"`
+    IsAdmin  *bool   `json:"is_admin,omitempty"`
+}
+
+// AdminUpdatePasswordRequest represents payload to update a user's password
+type AdminUpdatePasswordRequest struct {
+    NewPassword     string `json:"newPassword" binding:"required,min=6"`
+    ConfirmPassword string `json:"confirmPassword" binding:"required"`
+}
+
+// @Summary List users
+// @Tags admin
+// @Produce json
+// @Success 200 {array} AdminUserResponse
+// @Failure 401 {object} map[string]string
+// @Failure 403 {object} map[string]string
+// @Router /api/v1/admin/users/ [get]
+// @Security BearerAuth
+func (h *Handler) AdminListUsers(c *gin.Context) {
+    var users []models.User
+    if err := database.DB.Order("id ASC").Find(&users).Error; err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to list users"})
+        return
+    }
+    resp := make([]AdminUserResponse, 0, len(users))
+    for _, u := range users {
+        resp = append(resp, AdminUserResponse{ID: u.ID, Username: u.Username, IsAdmin: u.IsAdmin, CreatedAt: u.CreatedAt, UpdatedAt: u.UpdatedAt})
+    }
+    c.JSON(http.StatusOK, resp)
+}
+
+// @Summary Create user
+// @Tags admin
+// @Accept json
+// @Produce json
+// @Param request body AdminCreateUserRequest true "User details"
+// @Success 201 {object} AdminUserResponse
+// @Failure 400 {object} map[string]string
+// @Failure 409 {object} map[string]string
+// @Router /api/v1/admin/users/ [post]
+// @Security BearerAuth
+func (h *Handler) AdminCreateUser(c *gin.Context) {
+    var req AdminCreateUserRequest
+    if err := c.ShouldBindJSON(&req); err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request: " + err.Error()})
+        return
+    }
+    if req.Password != req.ConfirmPassword {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "Passwords do not match"})
+        return
+    }
+    // Unique username check
+    {
+        var existing models.User
+        if err := database.DB.Where("username = ?", req.Username).First(&existing).Error; err == nil {
+            c.JSON(http.StatusConflict, gin.H{"error": "Username already exists"})
+            return
+        }
+    }
+    // Hash password
+    hashed, err := auth.HashPassword(req.Password)
+    if err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to secure password"})
+        return
+    }
+    isAdmin := false
+    if req.IsAdmin != nil {
+        isAdmin = *req.IsAdmin
+    }
+    user := models.User{Username: req.Username, Password: hashed, IsAdmin: isAdmin}
+    if err := database.DB.Create(&user).Error; err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user"})
+        return
+    }
+    c.JSON(http.StatusCreated, AdminUserResponse{ID: user.ID, Username: user.Username, IsAdmin: user.IsAdmin, CreatedAt: user.CreatedAt, UpdatedAt: user.UpdatedAt})
+}
+
+// @Summary Update user
+// @Tags admin
+// @Accept json
+// @Produce json
+// @Param id path string true "User ID"
+// @Param request body AdminUpdateUserRequest true "Update details"
+// @Success 200 {object} AdminUserResponse
+// @Failure 400 {object} map[string]string
+// @Failure 404 {object} map[string]string
+// @Failure 409 {object} map[string]string
+// @Router /api/v1/admin/users/{id} [put]
+// @Security BearerAuth
+func (h *Handler) AdminUpdateUser(c *gin.Context) {
+    idStr := c.Param("id")
+    id, err := strconv.Atoi(idStr)
+    if err != nil || id <= 0 {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user id"})
+        return
+    }
+    var req AdminUpdateUserRequest
+    if err := c.ShouldBindJSON(&req); err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request: " + err.Error()})
+        return
+    }
+    var user models.User
+    if err := database.DB.First(&user, uint(id)).Error; err != nil {
+        c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+        return
+    }
+    // Prevent demoting last admin
+    if req.IsAdmin != nil && user.IsAdmin && !*req.IsAdmin {
+        var adminCount int64
+        _ = database.DB.Model(&models.User{}).Where("is_admin = ?", true).Count(&adminCount).Error
+        if adminCount <= 1 {
+            c.JSON(http.StatusBadRequest, gin.H{"error": "Cannot remove admin from the last admin user"})
+            return
+        }
+    }
+    // Username uniqueness
+    if req.Username != nil && *req.Username != user.Username {
+        var existing models.User
+        if err := database.DB.Where("username = ?", *req.Username).First(&existing).Error; err == nil && existing.ID != user.ID {
+            c.JSON(http.StatusConflict, gin.H{"error": "Username already exists"})
+            return
+        }
+        user.Username = *req.Username
+    }
+    if req.IsAdmin != nil {
+        user.IsAdmin = *req.IsAdmin
+    }
+    if err := database.DB.Save(&user).Error; err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update user"})
+        return
+    }
+    c.JSON(http.StatusOK, AdminUserResponse{ID: user.ID, Username: user.Username, IsAdmin: user.IsAdmin, CreatedAt: user.CreatedAt, UpdatedAt: user.UpdatedAt})
+}
+
+// @Summary Update user password
+// @Tags admin
+// @Accept json
+// @Produce json
+// @Param id path string true "User ID"
+// @Param request body AdminUpdatePasswordRequest true "Password update"
+// @Success 200 {object} map[string]string
+// @Failure 400 {object} map[string]string
+// @Failure 404 {object} map[string]string
+// @Router /api/v1/admin/users/{id}/password [put]
+// @Security BearerAuth
+func (h *Handler) AdminUpdateUserPassword(c *gin.Context) {
+    idStr := c.Param("id")
+    id, err := strconv.Atoi(idStr)
+    if err != nil || id <= 0 {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user id"})
+        return
+    }
+    var req AdminUpdatePasswordRequest
+    if err := c.ShouldBindJSON(&req); err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request: " + err.Error()})
+        return
+    }
+    if req.NewPassword != req.ConfirmPassword {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "Passwords do not match"})
+        return
+    }
+    var user models.User
+    if err := database.DB.First(&user, uint(id)).Error; err != nil {
+        c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+        return
+    }
+    hashed, err := auth.HashPassword(req.NewPassword)
+    if err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to secure password"})
+        return
+    }
+    user.Password = hashed
+    if err := database.DB.Save(&user).Error; err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update password"})
+        return
+    }
+    c.JSON(http.StatusOK, gin.H{"message": "Password updated"})
+}
+
+// @Summary Delete user
+// @Tags admin
+// @Produce json
+// @Param id path string true "User ID"
+// @Success 200 {object} map[string]string
+// @Failure 400 {object} map[string]string
+// @Failure 404 {object} map[string]string
+// @Router /api/v1/admin/users/{id} [delete]
+// @Security BearerAuth
+func (h *Handler) AdminDeleteUser(c *gin.Context) {
+    idStr := c.Param("id")
+    id, err := strconv.Atoi(idStr)
+    if err != nil || id <= 0 {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user id"})
+        return
+    }
+    // Prevent deleting last admin
+    var user models.User
+    if err := database.DB.First(&user, uint(id)).Error; err != nil {
+        c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+        return
+    }
+    if user.IsAdmin {
+        var adminCount int64
+        _ = database.DB.Model(&models.User{}).Where("is_admin = ?", true).Count(&adminCount).Error
+        if adminCount <= 1 {
+            c.JSON(http.StatusBadRequest, gin.H{"error": "Cannot delete the last admin user"})
+            return
+        }
+    }
+    // Prevent deleting yourself to avoid lockout
+    if v, ok := c.Get("user_id"); ok {
+        var uid uint
+        switch vv := v.(type) {
+        case uint:
+            uid = vv
+        case int:
+            if vv > 0 { uid = uint(vv) }
+        case int64:
+            if vv > 0 { uid = uint(vv) }
+        }
+        if uid == uint(id) {
+            c.JSON(http.StatusBadRequest, gin.H{"error": "You cannot delete your own account"})
+            return
+        }
+    }
+    if err := database.DB.Delete(&models.User{}, uint(id)).Error; err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete user"})
+        return
+    }
+    c.JSON(http.StatusOK, gin.H{"message": "User deleted"})
+}
+
+// @Summary Upload custom instance logo
+// @Tags admin
+// @Accept multipart/form-data
+// @Produce json
+// @Param logo formData file true "PNG logo file"
+// @Success 200 {object} map[string]string
+// @Failure 400 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /api/v1/admin/logo [post]
+// @Security BearerAuth
+func (h *Handler) AdminUploadLogo(c *gin.Context) {
+	file, header, err := c.Request.FormFile("logo")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Logo file is required"})
+		return
+	}
+	defer file.Close()
+
+	ext := strings.ToLower(filepath.Ext(header.Filename))
+	if ext != ".png" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Only PNG logo files are supported"})
+		return
+	}
+
+	logoPath := config.CustomLogoPath
+	if err := os.MkdirAll(filepath.Dir(logoPath), 0755); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create logo directory"})
+		return
+	}
+
+	dst, err := os.Create(logoPath)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save logo"})
+		return
+	}
+	defer dst.Close()
+
+	if _, err := io.Copy(dst, file); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save logo"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Logo updated"})
+}
+
+// @Summary Delete custom instance logo (revert to default)
+// @Tags admin
+// @Produce json
+// @Success 200 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /api/v1/admin/logo [delete]
+// @Security BearerAuth
+func (h *Handler) AdminDeleteLogo(c *gin.Context) {
+	logoPath := config.CustomLogoPath
+	if err := os.Remove(logoPath); err != nil && !os.IsNotExist(err) {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to remove custom logo"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Custom logo removed; default will be used"})
 }

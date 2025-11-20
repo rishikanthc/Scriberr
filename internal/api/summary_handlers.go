@@ -37,12 +37,17 @@ type SummarySettingsResponse struct {
 // @Security BearerAuth
 // @Router /api/v1/summaries [get]
 func (h *Handler) ListSummaryTemplates(c *gin.Context) {
-	var items []models.SummaryTemplate
-	if err := database.DB.Order("created_at DESC").Find(&items).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch templates"})
-		return
-	}
-	c.JSON(http.StatusOK, items)
+    var items []models.SummaryTemplate
+    if uid, ok := c.Get("user_id"); ok {
+        if err := database.DB.Where("user_id = ?", uid).Order("created_at DESC").Find(&items).Error; err != nil {
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch templates"})
+            return
+        }
+    } else if err := database.DB.Order("created_at DESC").Find(&items).Error; err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch templates"})
+        return
+    }
+    c.JSON(http.StatusOK, items)
 }
 
 // CreateSummaryTemplate creates a new template
@@ -65,14 +70,17 @@ func (h *Handler) CreateSummaryTemplate(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	item := models.SummaryTemplate{
-		Name:        req.Name,
-		Description: req.Description,
-		Model:       req.Model,
-		Prompt:      req.Prompt,
-		CreatedAt:   time.Now(),
-		UpdatedAt:   time.Now(),
-	}
+    item := models.SummaryTemplate{
+        Name:        req.Name,
+        Description: req.Description,
+        Model:       req.Model,
+        Prompt:      req.Prompt,
+        CreatedAt:   time.Now(),
+        UpdatedAt:   time.Now(),
+    }
+    if uid, ok := c.Get("user_id"); ok {
+        item.UserID = uid.(uint)
+    }
 	if err := database.DB.Create(&item).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create template"})
 		return
@@ -94,17 +102,26 @@ func (h *Handler) CreateSummaryTemplate(c *gin.Context) {
 // @Security BearerAuth
 // @Router /api/v1/summaries/{id} [get]
 func (h *Handler) GetSummaryTemplate(c *gin.Context) {
-	id := c.Param("id")
-	var item models.SummaryTemplate
-	if err := database.DB.Where("id = ?", id).First(&item).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Template not found"})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch template"})
-		return
-	}
-	c.JSON(http.StatusOK, item)
+    id := c.Param("id")
+    var item models.SummaryTemplate
+    if uid, ok := c.Get("user_id"); ok {
+        if err := database.DB.Where("id = ? AND user_id = ?", id, uid).First(&item).Error; err != nil {
+            if err == gorm.ErrRecordNotFound {
+                c.JSON(http.StatusNotFound, gin.H{"error": "Template not found"})
+                return
+            }
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch template"})
+            return
+        }
+    } else if err := database.DB.Where("id = ?", id).First(&item).Error; err != nil {
+        if err == gorm.ErrRecordNotFound {
+            c.JSON(http.StatusNotFound, gin.H{"error": "Template not found"})
+            return
+        }
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch template"})
+        return
+    }
+    c.JSON(http.StatusOK, item)
 }
 
 // UpdateSummaryTemplate updates an existing template
@@ -130,15 +147,24 @@ func (h *Handler) UpdateSummaryTemplate(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	var item models.SummaryTemplate
-	if err := database.DB.Where("id = ?", id).First(&item).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Template not found"})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch template"})
-		return
-	}
+    var item models.SummaryTemplate
+    if uid, ok := c.Get("user_id"); ok {
+        if err := database.DB.Where("id = ? AND user_id = ?", id, uid).First(&item).Error; err != nil {
+            if err == gorm.ErrRecordNotFound {
+                c.JSON(http.StatusNotFound, gin.H{"error": "Template not found"})
+                return
+            }
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch template"})
+            return
+        }
+    } else if err := database.DB.Where("id = ?", id).First(&item).Error; err != nil {
+        if err == gorm.ErrRecordNotFound {
+            c.JSON(http.StatusNotFound, gin.H{"error": "Template not found"})
+            return
+        }
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch template"})
+        return
+    }
 	item.Name = req.Name
 	item.Description = req.Description
 	item.Model = req.Model
@@ -162,12 +188,20 @@ func (h *Handler) UpdateSummaryTemplate(c *gin.Context) {
 // @Security ApiKeyAuth
 // @Router /api/v1/summaries/{id} [delete]
 func (h *Handler) DeleteSummaryTemplate(c *gin.Context) {
-	id := c.Param("id")
-	if err := database.DB.Delete(&models.SummaryTemplate{}, "id = ?", id).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete template"})
-		return
-	}
-	c.Status(http.StatusNoContent)
+    id := c.Param("id")
+    if uid, ok := c.Get("user_id"); ok {
+        if err := database.DB.Where("id = ? AND user_id = ?", id, uid).Delete(&models.SummaryTemplate{}).Error; err != nil {
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete template"})
+            return
+        }
+        c.Status(http.StatusNoContent)
+        return
+    }
+    if err := database.DB.Delete(&models.SummaryTemplate{}, "id = ?", id).Error; err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete template"})
+        return
+    }
+    c.Status(http.StatusNoContent)
 }
 
 // GetSummarySettings returns the global summary settings (default model)

@@ -13,11 +13,15 @@ import (
 	"scriberr/pkg/logger"
 )
 
+// CustomLogoPath is the relative path (from the working directory) where
+// an uploaded instance logo will be stored and served from.
+const CustomLogoPath = "data/custom-logo.png"
+
 // Config holds all configuration values
 type Config struct {
-	// Server configuration
-	Port string
-	Host string
+    // Server configuration
+    Port string
+    Host string
 
 	// Database configuration
 	DatabasePath string
@@ -28,9 +32,12 @@ type Config struct {
 	// File storage
 	UploadDir string
 
-	// Python/WhisperX configuration
-	UVPath      string
-	WhisperXEnv string
+    // Python/WhisperX configuration
+    UVPath      string
+    WhisperXEnv string
+
+    // Registration
+    AllowRegistration bool
 }
 
 // Load loads configuration from environment variables and .env file
@@ -40,15 +47,16 @@ func Load() *Config {
 		logger.Debug("No .env file found, using system environment variables")
 	}
 
-	return &Config{
-		Port:         getEnv("PORT", "8080"),
-		Host:         getEnv("HOST", "localhost"),
-		DatabasePath: getEnv("DATABASE_PATH", "data/scriberr.db"),
-		JWTSecret:    getJWTSecret(),
-		UploadDir:    getEnv("UPLOAD_DIR", "data/uploads"),
-		UVPath:       findUVPath(),
-		WhisperXEnv:  getEnv("WHISPERX_ENV", "data/whisperx-env"),
-	}
+    return &Config{
+        Port:         getEnv("PORT", "8080"),
+        Host:         getEnv("HOST", "localhost"),
+        DatabasePath: getEnv("DATABASE_PATH", "data/scriberr.db"),
+        JWTSecret:    getJWTSecret(),
+        UploadDir:    getEnv("UPLOAD_DIR", "data/uploads"),
+        UVPath:       findUVPath(),
+        WhisperXEnv:  getEnv("WHISPERX_ENV", "data/whisperx-env"),
+        AllowRegistration: getEnvAsBool("ALLOW_REGISTRATION", true),
+    }
 }
 
 // getEnv gets an environment variable with a default value

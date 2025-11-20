@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"scriberr/internal/transcription/interfaces"
+	"scriberr/internal/transcription/registry"
 	"scriberr/pkg/logger"
 )
 
@@ -21,7 +22,9 @@ type CanaryAdapter struct {
 }
 
 // NewCanaryAdapter creates a new Canary adapter
-func NewCanaryAdapter(envPath string) *CanaryAdapter {
+func NewCanaryAdapter() *CanaryAdapter {
+	envPath := "whisperx-env/parakeet" // Shares environment with Parakeet
+	
 	capabilities := interfaces.ModelCapabilities{
 		ModelID:     "canary",
 		ModelFamily: "nvidia_canary",
@@ -546,9 +549,7 @@ func (c *CanaryAdapter) Transcribe(ctx context.Context, input interfaces.AudioIn
 
 	// Execute Canary
 	cmd := exec.CommandContext(ctx, "uv", args...)
-	cmd.Env = append(os.Environ(),
-		"PYTHONUNBUFFERED=1",
-		"PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True")
+	cmd.Env = append(os.Environ(), "PYTHONUNBUFFERED=1")
 
 	logger.Info("Executing Canary command", "args", strings.Join(args, " "))
 	
@@ -698,4 +699,9 @@ func (c *CanaryAdapter) GetEstimatedProcessingTime(input interfaces.AudioInput) 
 	
 	// Canary typically processes at about 40-50% of audio duration
 	return time.Duration(float64(baseTime) * 2.0)
+}
+
+// init registers the Canary adapter
+func init() {
+	registry.RegisterTranscriptionAdapter("canary", NewCanaryAdapter())
 }
