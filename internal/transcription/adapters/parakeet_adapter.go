@@ -308,7 +308,22 @@ def transcribe_audio(
     
     print(f"Loading NVIDIA Parakeet model from: {model_path}")
     asr_model = nemo_asr.models.ASRModel.restore_from(model_path)
-    
+
+    # Disable CUDA graphs to fix Error 35 on RTX 2000e Ada GPU
+    # Uses change_decoding_strategy() to properly reconfigure the TDT decoder
+    from omegaconf import OmegaConf, open_dict
+
+    print("Disabling CUDA graphs in TDT decoder...")
+    dec_cfg = asr_model.cfg.decoding
+
+    # Add use_cuda_graph_decoder parameter to greedy config
+    with open_dict(dec_cfg.greedy):
+        dec_cfg.greedy['use_cuda_graph_decoder'] = False
+
+    # Apply the new decoding strategy (this rebuilds the decoder with our config)
+    asr_model.change_decoding_strategy(dec_cfg)
+    print("✓ CUDA graphs disabled successfully")
+
     # Configure for long-form audio if context sizes are not default
     if context_left != 256 or context_right != 256:
         print(f"Configuring attention context: left={context_left}, right={context_right}")
