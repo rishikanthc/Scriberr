@@ -19,6 +19,13 @@ definitions:
       updated_at:
         type: string
     type: object
+  api.APIKeysWrapper:
+    properties:
+      api_keys:
+        items:
+          $ref: '#/definitions/api.APIKeyListResponse'
+        type: array
+    type: object
   api.ChangePasswordRequest:
     properties:
       confirmPassword:
@@ -248,6 +255,11 @@ definitions:
     required:
     - content
     type: object
+  api.RefreshTokenResponse:
+    properties:
+      token:
+        type: string
+    type: object
   api.RegisterRequest:
     properties:
       confirmPassword:
@@ -266,8 +278,44 @@ definitions:
     type: object
   api.RegistrationStatusResponse:
     properties:
-      requiresRegistration:
+      registration_enabled:
+        description: Match tests expecting snake_case key
         type: boolean
+    type: object
+  api.SetUserDefaultProfileRequest:
+    properties:
+      profile_id:
+        type: string
+    required:
+    - profile_id
+    type: object
+  api.SpeakerMappingRequest:
+    properties:
+      custom_name:
+        type: string
+      original_speaker:
+        type: string
+    required:
+    - custom_name
+    - original_speaker
+    type: object
+  api.SpeakerMappingResponse:
+    properties:
+      custom_name:
+        type: string
+      id:
+        type: integer
+      original_speaker:
+        type: string
+    type: object
+  api.SpeakerMappingsUpdateRequest:
+    properties:
+      mappings:
+        items:
+          $ref: '#/definitions/api.SpeakerMappingRequest'
+        type: array
+    required:
+    - mappings
     type: object
   api.SummarizeRequest:
     properties:
@@ -315,6 +363,27 @@ definitions:
     - name
     - prompt
     type: object
+  api.UpdateUserSettingsRequest:
+    properties:
+      auto_transcription_enabled:
+        type: boolean
+    type: object
+  api.UserSettingsResponse:
+    properties:
+      auto_transcription_enabled:
+        type: boolean
+      default_profile_id:
+        type: string
+    type: object
+  api.YouTubeDownloadRequest:
+    properties:
+      title:
+        type: string
+      url:
+        type: string
+    required:
+    - url
+    type: object
   models.JobStatus:
     enum:
     - uploaded
@@ -329,6 +398,42 @@ definitions:
     - StatusProcessing
     - StatusCompleted
     - StatusFailed
+  models.MultiTrackFile:
+    properties:
+      created_at:
+        type: string
+      file_name:
+        description: Original filename (used as speaker name)
+        type: string
+      file_path:
+        description: Full path to audio file
+        type: string
+      gain:
+        description: Gain value from .aup file
+        type: number
+      id:
+        type: integer
+      mute:
+        description: Whether track is muted
+        type: boolean
+      offset:
+        description: Offset in seconds from .aup file
+        type: number
+      pan:
+        description: Pan value from .aup file (-1.0 to 1.0)
+        type: number
+      track_index:
+        description: Order of the track
+        type: integer
+      transcription_job:
+        allOf:
+        - $ref: '#/definitions/models.TranscriptionJob'
+        description: Relationships
+      transcription_job_id:
+        type: string
+      updated_at:
+        type: string
+    type: object
   models.Note:
     properties:
       content:
@@ -394,6 +499,8 @@ definitions:
     properties:
       audio_path:
         type: string
+      aup_file_path:
+        type: string
       created_at:
         type: string
       diarization:
@@ -401,6 +508,25 @@ definitions:
       error_message:
         type: string
       id:
+        type: string
+      individual_transcripts:
+        description: JSON-serialized map[string]*string
+        type: string
+      is_multi_track:
+        type: boolean
+      merge_error:
+        type: string
+      merge_status:
+        description: none, pending, processing, completed, failed
+        type: string
+      merged_audio_path:
+        type: string
+      multi_track_files:
+        description: Relationships
+        items:
+          $ref: '#/definitions/models.MultiTrackFile'
+        type: array
+      multi_track_folder:
         type: string
       parameters:
         allOf:
@@ -413,6 +539,51 @@ definitions:
       title:
         type: string
       transcript:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  models.TranscriptionJobExecution:
+    properties:
+      actual_parameters:
+        allOf:
+        - $ref: '#/definitions/models.WhisperXParams'
+        description: Parameters used for this execution (may differ from job parameters
+          due to profiles)
+      completed_at:
+        type: string
+      created_at:
+        description: Metadata
+        type: string
+      error_message:
+        type: string
+      id:
+        type: string
+      merge_duration:
+        description: Merge phase duration in milliseconds
+        type: integer
+      merge_end_time:
+        type: string
+      merge_start_time:
+        type: string
+      multi_track_timings:
+        description: Multi-track specific timing data
+        type: string
+      processing_duration:
+        description: Duration in milliseconds
+        type: integer
+      started_at:
+        description: Execution timing
+        type: string
+      status:
+        allOf:
+        - $ref: '#/definitions/models.JobStatus'
+        description: Execution results
+      transcription_job:
+        allOf:
+        - $ref: '#/definitions/models.TranscriptionJob'
+        description: Relationship
+      transcription_job_id:
         type: string
       updated_at:
         type: string
@@ -439,6 +610,11 @@ definitions:
       align_model:
         description: Alignment settings
         type: string
+      attention_context_left:
+        description: NVIDIA Parakeet-specific parameters for long-form audio
+        type: integer
+      attention_context_right:
+        type: integer
       batch_size:
         type: integer
       beam_size:
@@ -462,6 +638,7 @@ definitions:
         description: Diarization settings
         type: boolean
       diarize_model:
+        description: 'Options: ''pyannote'', ''nvidia_sortformer'''
         type: string
       fp16:
         type: boolean
@@ -474,6 +651,9 @@ definitions:
         type: string
       interpolate_method:
         type: string
+      is_multi_track_enabled:
+        description: Multi-track transcription settings
+        type: boolean
       language:
         type: string
       length_penalty:
@@ -495,6 +675,9 @@ definitions:
       model_cache_only:
         type: boolean
       model_dir:
+        type: string
+      model_family:
+        description: Model family (whisper or nvidia)
         type: string
       no_align:
         type: boolean
@@ -597,9 +780,7 @@ paths:
         "200":
           description: OK
           schema:
-            items:
-              $ref: '#/definitions/api.APIKeyListResponse'
-            type: array
+            $ref: '#/definitions/api.APIKeysWrapper'
       security:
       - BearerAuth: []
       summary: List API keys
@@ -798,6 +979,25 @@ paths:
       security:
       - BearerAuth: []
       summary: Logout user
+      tags:
+      - auth
+  /api/v1/auth/refresh:
+    post:
+      description: Rotate refresh token and return new access token
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.RefreshTokenResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Refresh access token
       tags:
       - auth
   /api/v1/auth/register:
@@ -1836,6 +2036,34 @@ paths:
       summary: Get audio file
       tags:
       - transcription
+  /api/v1/transcription/{id}/execution:
+    get:
+      description: Get execution parameters and timing for a transcription job
+      parameters:
+      - description: Job ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.TranscriptionJobExecution'
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - ApiKeyAuth: []
+      - BearerAuth: []
+      summary: Get transcription job execution data
+      tags:
+      - transcription
   /api/v1/transcription/{id}/kill:
     post:
       description: Cancel a currently running transcription job
@@ -1870,6 +2098,35 @@ paths:
       - ApiKeyAuth: []
       - BearerAuth: []
       summary: Kill running transcription job
+      tags:
+      - transcription
+  /api/v1/transcription/{id}/merge-status:
+    get:
+      description: Get the current merge status for a multi-track job
+      parameters:
+      - description: Job ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - ApiKeyAuth: []
+      - BearerAuth: []
+      summary: Get multi-track merge status
       tags:
       - transcription
   /api/v1/transcription/{id}/notes:
@@ -1950,6 +2207,99 @@ paths:
       summary: Create a note for a transcription
       tags:
       - notes
+  /api/v1/transcription/{id}/speakers:
+    get:
+      consumes:
+      - application/json
+      description: Retrieves all custom speaker names for a transcription job
+      parameters:
+      - description: Transcription Job ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/api.SpeakerMappingResponse'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      - ApiKeyAuth: []
+      summary: Get speaker mappings for a transcription
+      tags:
+      - transcription
+    post:
+      consumes:
+      - application/json
+      description: Updates or creates custom speaker names for a transcription job
+      parameters:
+      - description: Transcription Job ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Speaker mappings to update
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/api.SpeakerMappingsUpdateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/api.SpeakerMappingResponse'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      - ApiKeyAuth: []
+      summary: Update speaker mappings for a transcription
+      tags:
+      - transcription
   /api/v1/transcription/{id}/start:
     post:
       consumes:
@@ -2103,6 +2453,36 @@ paths:
       - ApiKeyAuth: []
       - BearerAuth: []
       summary: Update transcription title
+      tags:
+      - transcription
+  /api/v1/transcription/{id}/track-progress:
+    get:
+      description: Get real-time progress information for individual tracks in a multi-track
+        job
+      parameters:
+      - description: Job ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - ApiKeyAuth: []
+      - BearerAuth: []
+      summary: Get multi-track job progress
       tags:
       - transcription
   /api/v1/transcription/{id}/transcript:
@@ -2396,6 +2776,256 @@ paths:
       summary: Upload audio file
       tags:
       - transcription
+  /api/v1/transcription/upload-multitrack:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Upload multiple audio files with an .aup file for multi-track transcription
+      parameters:
+      - description: Job title (required)
+        in: formData
+        name: title
+        required: true
+        type: string
+      - description: .aup Audacity project file
+        in: formData
+        name: aup
+        required: true
+        type: file
+      - description: Audio track files
+        in: formData
+        name: tracks
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.TranscriptionJob'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - ApiKeyAuth: []
+      - BearerAuth: []
+      summary: Upload multi-track audio files
+      tags:
+      - transcription
+  /api/v1/transcription/upload-video:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Upload a video file, extract audio from it using ffmpeg, and create
+        a transcription job
+      parameters:
+      - description: Video file
+        in: formData
+        name: video
+        required: true
+        type: file
+      - description: Job title
+        in: formData
+        name: title
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.TranscriptionJob'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - ApiKeyAuth: []
+      - BearerAuth: []
+      summary: Upload video file for transcription
+      tags:
+      - transcription
+  /api/v1/transcription/youtube:
+    post:
+      consumes:
+      - application/json
+      description: Download audio from a YouTube video URL and prepare it for transcription
+      parameters:
+      - description: YouTube download request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/api.YouTubeDownloadRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.TranscriptionJob'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - ApiKeyAuth: []
+      - BearerAuth: []
+      summary: Download audio from YouTube URL
+      tags:
+      - transcription
+  /api/v1/user/default-profile:
+    get:
+      description: Get the default transcription profile for the current user
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.TranscriptionProfile'
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get user's default profile
+      tags:
+      - profiles
+    post:
+      consumes:
+      - application/json
+      description: Set the default transcription profile for the current user
+      parameters:
+      - description: Default profile request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/api.SetUserDefaultProfileRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Set user's default profile
+      tags:
+      - profiles
+  /api/v1/user/settings:
+    get:
+      description: Get the current user's settings including auto-transcription preference
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.UserSettingsResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get user settings
+      tags:
+      - user
+    put:
+      consumes:
+      - application/json
+      description: Update the current user's settings
+      parameters:
+      - description: Settings update request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/api.UpdateUserSettingsRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.UserSettingsResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Update user settings
+      tags:
+      - user
   /health:
     get:
       description: Check if the API is healthy

@@ -16,6 +16,7 @@ type SwaggerDoc = {
     requestBodies?: Record<string, any>;
     securitySchemes?: Record<string, any>;
   };
+  definitions?: Record<string, any>; // Swagger 2.0 definitions
   securityDefinitions?: Record<string, any>; // Swagger 2.0
 };
 
@@ -46,7 +47,7 @@ export default function ApiReference() {
     fetch('/api/undocumented.json')
       .then((r) => (r.ok ? r.json() : null))
       .then((j) => j && setExtra(j))
-      .catch(() => {});
+      .catch(() => { });
   }, []);
 
   const grouped = useMemo(() => {
@@ -293,7 +294,7 @@ function EndpointCard({ ep, doc }: { ep: Endpoint; doc: SwaggerDoc }) {
 
   const exampleContentType = bodyResolved && Object.keys(bodyResolved.content || {})[0];
   const exampleSchema = exampleContentType ? bodyResolved!.content[exampleContentType]?.schema : undefined;
-  const examplePayload = exampleSchema ? makeExample(exampleSchema, doc.components) : undefined;
+  const examplePayload = exampleSchema ? makeExample(exampleSchema, doc.components, doc.definitions) : undefined;
 
   // Choose first acceptable security for curl example
   const preferredSec = endpointSecurity[0];
@@ -360,7 +361,7 @@ function EndpointCard({ ep, doc }: { ep: Endpoint; doc: SwaggerDoc }) {
                 const content = (r?.content || {}) as any;
                 const firstCT = Object.keys(content)[0];
                 const schema = firstCT ? content[firstCT]?.schema : r?.schema;
-                const ex = schema ? makeExample(schema, doc.components) : (r?.description || '');
+                const ex = schema ? makeExample(schema, doc.components, doc.definitions) : (r?.description || '');
                 return (
                   <>
                     <div className="rounded-md border border-gray-200 p-3">
@@ -381,7 +382,7 @@ function EndpointCard({ ep, doc }: { ep: Endpoint; doc: SwaggerDoc }) {
                           const ocContent = (or?.content || {}) as any;
                           const ocCT = Object.keys(ocContent)[0];
                           const ocSchema = ocCT ? ocContent[ocCT]?.schema : or?.schema;
-                          const ocEx = ocSchema ? makeExample(ocSchema, doc.components) : (or?.description || '');
+                          const ocEx = ocSchema ? makeExample(ocSchema, doc.components, doc.definitions) : (or?.description || '');
                           return (
                             <div key={oc} className="rounded-md border border-gray-200 p-3">
                               <div className="flex items-center gap-2 text-[11px] text-gray-600 mb-2">
@@ -500,19 +501,21 @@ function makeId(input: string) {
 }
 
 function refName(ref: string) {
-  const m = ref.match(/#\/components\/(schemas|requestBodies)\/(.+)$/);
-  return m ? m[2] : ref;
+  // Handle both OpenAPI 3.0 (#/components/schemas/) and Swagger 2.0 (#/definitions/)
+  const m = ref.match(/#\/(components\/(schemas|requestBodies)|definitions)\/(.+)$/);
+  return m ? m[m.length - 1] : ref;
 }
 
-function resolveRef(obj: any, components?: SwaggerDoc['components']): any {
+function resolveRef(obj: any, components?: SwaggerDoc['components'], definitions?: Record<string, any>): any {
   if (!obj || !obj.$ref) return obj;
   const name = refName(obj.$ref);
-  return components?.schemas?.[name] || components?.requestBodies?.[name] || obj;
+  // Try OpenAPI 3.0 components first, then Swagger 2.0 definitions
+  return components?.schemas?.[name] || components?.requestBodies?.[name] || definitions?.[name] || obj;
 }
 
 function resolveRequestBody(rb: any, doc: SwaggerDoc): any {
   if (!rb) return undefined;
-  if (rb.$ref) return resolveRef(rb, doc.components);
+  if (rb.$ref) return resolveRef(rb, doc.components, doc.definitions);
   return rb;
 }
 
@@ -531,6 +534,7 @@ function legacyBodyFromSwagger2(meta: any) {
 function makeExample(
   schema: any,
   components?: SwaggerDoc['components'],
+  definitions?: Record<string, any>,
   depth = 0,
   seen: Set<string> = new Set()
 ): any {
@@ -543,7 +547,7 @@ function makeExample(
     const name = refName(ref);
     if (seen.has(name)) return `{circular:${name}}`;
     seen.add(name);
-    return makeExample(resolveRef(schema, components), components, depth + 1, seen);
+    return makeExample(resolveRef(schema, components, definitions), components, definitions, depth + 1, seen);
   }
 
   const type = schema.type;
@@ -554,14 +558,14 @@ function makeExample(
     const props = schema.properties || {};
     let count = 0;
     for (const [k, v] of Object.entries<any>(props)) {
-      obj[k] = makeExample(v, components, depth + 1, new Set(seen));
+      obj[k] = makeExample(v, components, definitions, depth + 1, seen);
       if (++count > 15) break; // cap object size
     }
     return obj;
   }
 
   if (type === 'array') {
-    return [makeExample(schema.items || {}, components, depth + 1, new Set(seen))];
+    return [makeExample(schema.items || {}, components, definitions, depth + 1, seen)];
   }
 
   if (schema.enum && Array.isArray(schema.enum)) return schema.enum[0];
@@ -697,26 +701,26 @@ function SchemaTable({ schema, doc }: { schema: any; doc: SwaggerDoc }) {
   );
 }
 
-function schemaToRows(schema: any, components?: SwaggerDoc['components'], prefix = '', parentRequired: string[] = []): any[] {
+function schemaToRows(schema: any, components?: SwaggerDoc['components'], definitions?: Record<string, any>, prefix = '', parentRequired: string[] = []): any[] {
   const rows: any[] = [];
-  const resolved = resolveRef(schema, components);
+  const resolved = resolveRef(schema, components, definitions);
   const req: string[] = resolved.required || parentRequired || [];
   if (resolved.type === 'object' || resolved.properties) {
     const props = resolved.properties || {};
     for (const [k, v] of Object.entries<any>(props)) {
       const name = prefix ? `${prefix}.${k}` : k;
-      const sub = resolveRef(v, components);
+      const sub = resolveRef(v, components, definitions);
       const type = sub.type || (sub.$ref ? refName(sub.$ref) : (sub.items ? `${sub.type}[]` : 'object'));
       const description = sub.description || '';
       const required = req.includes(k);
       rows.push({ name, type, required, description });
       // nested
       if (sub.type === 'object' || sub.properties) {
-        rows.push(...schemaToRows(sub, components, name, sub.required || []));
+        rows.push(...schemaToRows(sub, components, definitions, name, sub.required || []));
       } else if (sub.type === 'array' && sub.items) {
-        const it = resolveRef(sub.items, components);
+        const it = resolveRef(sub.items, components, definitions);
         if (it.type === 'object' || it.properties || it.$ref) {
-          rows.push(...schemaToRows(it, components, `${name}[]`, it.required || []));
+          rows.push(...schemaToRows(it, components, definitions, `${name}[]`, it.required || []));
         }
       }
     }

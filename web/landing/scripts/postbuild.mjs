@@ -6,15 +6,16 @@ import { readFileSync, writeFileSync, mkdirSync, renameSync, existsSync } from '
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const distDir = join(__dirname, '..', 'dist');
-const docsDir = join(distDir, 'docs');
+// Output is now directly in /docs (two levels up from web/landing/scripts)
+const docsDir = join(__dirname, '..', '..', '..', 'docs');
+const docsSubDir = join(docsDir, 'docs');
 
 console.log('🔧 Post-build processing...');
 
-// Create docs directory
-if (!existsSync(docsDir)) {
-  mkdirSync(docsDir, { recursive: true });
-  console.log('✓ Created docs directory');
+// Create docs subdirectory if it doesn't exist
+if (!existsSync(docsSubDir)) {
+  mkdirSync(docsSubDir, { recursive: true });
+  console.log('✓ Created docs subdirectory');
 }
 
 // Files to move and rename
@@ -28,13 +29,13 @@ const docsFiles = [
 
 // Move and rename docs files
 for (const file of docsFiles) {
-  const fromPath = join(distDir, file.from);
-  const toPath = join(distDir, file.to);
-  
+  const fromPath = join(docsDir, file.from);
+  const toPath = join(docsDir, file.to);
+
   if (existsSync(fromPath)) {
     renameSync(fromPath, toPath);
     console.log(`✓ Moved ${file.from} -> ${file.to}`);
-    
+
     // Fix asset paths in docs files (they need to go up one directory)
     const content = readFileSync(toPath, 'utf8');
     const fixedContent = content.replace(/\/assets\//g, '../assets/');

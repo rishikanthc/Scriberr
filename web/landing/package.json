@@ -9,7 +9,9 @@
     "dev": "npm run sync:spec && npm run sync:undoc && vite",
     "build": "npm run sync:spec && npm run sync:undoc && tsc -b && vite build && npm run postbuild",
     "postbuild": "node ./scripts/postbuild.mjs",
-    "preview": "vite preview"
+    "preview": "vite preview --outDir ../../docs",
+    "docs:generate": "cd ../.. && swag init -g cmd/server/main.go -o api-docs && cd web/landing && npm run sync:spec",
+    "docs:serve": "npm run build && npm run preview"
   },
   "dependencies": {
     "react": "^18.2.0",

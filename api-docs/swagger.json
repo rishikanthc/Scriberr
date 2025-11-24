@@ -66,10 +66,7 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/api.APIKeyListResponse"
-                            }
+                            "$ref": "#/definitions/api.APIKeysWrapper"
                         }
                     }
                 }
@@ -372,6 +369,35 @@
                 "responses": {
                     "200": {
                         "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/auth/refresh": {
+            "post": {
+                "description": "Rotate refresh token and return new access token",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Refresh access token",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.RefreshTokenResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -2299,6 +2325,202 @@
                 }
             }
         },
+        "/api/v1/transcription/upload-multitrack": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Upload multiple audio files with an .aup file for multi-track transcription",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "transcription"
+                ],
+                "summary": "Upload multi-track audio files",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Job title (required)",
+                        "name": "title",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "file",
+                        "description": ".aup Audacity project file",
+                        "name": "aup",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "file",
+                        "description": "Audio track files",
+                        "name": "tracks",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.TranscriptionJob"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/transcription/upload-video": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Upload a video file, extract audio from it using ffmpeg, and create a transcription job",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "transcription"
+                ],
+                "summary": "Upload video file for transcription",
+                "parameters": [
+                    {
+                        "type": "file",
+                        "description": "Video file",
+                        "name": "video",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Job title",
+                        "name": "title",
+                        "in": "formData"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.TranscriptionJob"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/transcription/youtube": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Download audio from a YouTube video URL and prepare it for transcription",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "transcription"
+                ],
+                "summary": "Download audio from YouTube URL",
+                "parameters": [
+                    {
+                        "description": "YouTube download request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.YouTubeDownloadRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.TranscriptionJob"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/transcription/{id}": {
             "get": {
                 "security": [
@@ -2449,6 +2671,52 @@
                 }
             }
         },
+        "/api/v1/transcription/{id}/execution": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get execution parameters and timing for a transcription job",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "transcription"
+                ],
+                "summary": "Get transcription job execution data",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Job ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.TranscriptionJobExecution"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/transcription/{id}/kill": {
             "post": {
                 "security": [
@@ -2493,6 +2761,53 @@
                             "additionalProperties": {
                                 "type": "string"
                             }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/transcription/{id}/merge-status": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get the current merge status for a multi-track job",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "transcription"
+                ],
+                "summary": "Get multi-track merge status",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Job ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "404": {
@@ -2620,6 +2935,153 @@
                     },
                     "404": {
                         "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/transcription/{id}/speakers": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    },
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Retrieves all custom speaker names for a transcription job",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "transcription"
+                ],
+                "summary": "Get speaker mappings for a transcription",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Transcription Job ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/api.SpeakerMappingResponse"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    },
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Updates or creates custom speaker names for a transcription job",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "transcription"
+                ],
+                "summary": "Update speaker mappings for a transcription",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Transcription Job ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Speaker mappings to update",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.SpeakerMappingsUpdateRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/api.SpeakerMappingResponse"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -2878,6 +3340,53 @@
                 }
             }
         },
+        "/api/v1/transcription/{id}/track-progress": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get real-time progress information for individual tracks in a multi-track job",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "transcription"
+                ],
+                "summary": "Get multi-track job progress",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Job ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/transcription/{id}/transcript": {
             "get": {
                 "security": [
@@ -2924,6 +3433,205 @@
                     },
                     "404": {
                         "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/user/default-profile": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get the default transcription profile for the current user",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "profiles"
+                ],
+                "summary": "Get user's default profile",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.TranscriptionProfile"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Set the default transcription profile for the current user",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "profiles"
+                ],
+                "summary": "Set user's default profile",
+                "parameters": [
+                    {
+                        "description": "Default profile request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.SetUserDefaultProfileRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/user/settings": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get the current user's settings including auto-transcription preference",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "user"
+                ],
+                "summary": "Get user settings",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.UserSettingsResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Update the current user's settings",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "user"
+                ],
+                "summary": "Update user settings",
+                "parameters": [
+                    {
+                        "description": "Settings update request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.UpdateUserSettingsRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.UserSettingsResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -2985,6 +3693,17 @@
                 },
                 "updated_at": {
                     "type": "string"
+                }
+            }
+        },
+        "api.APIKeysWrapper": {
+            "type": "object",
+            "properties": {
+                "api_keys": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/api.APIKeyListResponse"
+                    }
                 }
             }
         },
@@ -3328,6 +4047,14 @@
                 }
             }
         },
+        "api.RefreshTokenResponse": {
+            "type": "object",
+            "properties": {
+                "token": {
+                    "type": "string"
+                }
+            }
+        },
         "api.RegisterRequest": {
             "type": "object",
             "required": [
@@ -3353,8 +4080,63 @@
         "api.RegistrationStatusResponse": {
             "type": "object",
             "properties": {
-                "requiresRegistration": {
+                "registration_enabled": {
+                    "description": "Match tests expecting snake_case key",
                     "type": "boolean"
+                }
+            }
+        },
+        "api.SetUserDefaultProfileRequest": {
+            "type": "object",
+            "required": [
+                "profile_id"
+            ],
+            "properties": {
+                "profile_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "api.SpeakerMappingRequest": {
+            "type": "object",
+            "required": [
+                "custom_name",
+                "original_speaker"
+            ],
+            "properties": {
+                "custom_name": {
+                    "type": "string"
+                },
+                "original_speaker": {
+                    "type": "string"
+                }
+            }
+        },
+        "api.SpeakerMappingResponse": {
+            "type": "object",
+            "properties": {
+                "custom_name": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "original_speaker": {
+                    "type": "string"
+                }
+            }
+        },
+        "api.SpeakerMappingsUpdateRequest": {
+            "type": "object",
+            "required": [
+                "mappings"
+            ],
+            "properties": {
+                "mappings": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/api.SpeakerMappingRequest"
+                    }
                 }
             }
         },
@@ -3425,6 +4207,39 @@
                 }
             }
         },
+        "api.UpdateUserSettingsRequest": {
+            "type": "object",
+            "properties": {
+                "auto_transcription_enabled": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "api.UserSettingsResponse": {
+            "type": "object",
+            "properties": {
+                "auto_transcription_enabled": {
+                    "type": "boolean"
+                },
+                "default_profile_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "api.YouTubeDownloadRequest": {
+            "type": "object",
+            "required": [
+                "url"
+            ],
+            "properties": {
+                "title": {
+                    "type": "string"
+                },
+                "url": {
+                    "type": "string"
+                }
+            }
+        },
         "models.JobStatus": {
             "type": "string",
             "enum": [
@@ -3441,6 +4256,59 @@
                 "StatusCompleted",
                 "StatusFailed"
             ]
+        },
+        "models.MultiTrackFile": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "file_name": {
+                    "description": "Original filename (used as speaker name)",
+                    "type": "string"
+                },
+                "file_path": {
+                    "description": "Full path to audio file",
+                    "type": "string"
+                },
+                "gain": {
+                    "description": "Gain value from .aup file",
+                    "type": "number"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "mute": {
+                    "description": "Whether track is muted",
+                    "type": "boolean"
+                },
+                "offset": {
+                    "description": "Offset in seconds from .aup file",
+                    "type": "number"
+                },
+                "pan": {
+                    "description": "Pan value from .aup file (-1.0 to 1.0)",
+                    "type": "number"
+                },
+                "track_index": {
+                    "description": "Order of the track",
+                    "type": "integer"
+                },
+                "transcription_job": {
+                    "description": "Relationships",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.TranscriptionJob"
+                        }
+                    ]
+                },
+                "transcription_job_id": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
         },
         "models.Note": {
             "type": "object",
@@ -3539,6 +4407,9 @@
                 "audio_path": {
                     "type": "string"
                 },
+                "aup_file_path": {
+                    "type": "string"
+                },
                 "created_at": {
                     "type": "string"
                 },
@@ -3549,6 +4420,33 @@
                     "type": "string"
                 },
                 "id": {
+                    "type": "string"
+                },
+                "individual_transcripts": {
+                    "description": "JSON-serialized map[string]*string",
+                    "type": "string"
+                },
+                "is_multi_track": {
+                    "type": "boolean"
+                },
+                "merge_error": {
+                    "type": "string"
+                },
+                "merge_status": {
+                    "description": "none, pending, processing, completed, failed",
+                    "type": "string"
+                },
+                "merged_audio_path": {
+                    "type": "string"
+                },
+                "multi_track_files": {
+                    "description": "Relationships",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.MultiTrackFile"
+                    }
+                },
+                "multi_track_folder": {
                     "type": "string"
                 },
                 "parameters": {
@@ -3569,6 +4467,76 @@
                     "type": "string"
                 },
                 "transcript": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.TranscriptionJobExecution": {
+            "type": "object",
+            "properties": {
+                "actual_parameters": {
+                    "description": "Parameters used for this execution (may differ from job parameters due to profiles)",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.WhisperXParams"
+                        }
+                    ]
+                },
+                "completed_at": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "description": "Metadata",
+                    "type": "string"
+                },
+                "error_message": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "merge_duration": {
+                    "description": "Merge phase duration in milliseconds",
+                    "type": "integer"
+                },
+                "merge_end_time": {
+                    "type": "string"
+                },
+                "merge_start_time": {
+                    "type": "string"
+                },
+                "multi_track_timings": {
+                    "description": "Multi-track specific timing data",
+                    "type": "string"
+                },
+                "processing_duration": {
+                    "description": "Duration in milliseconds",
+                    "type": "integer"
+                },
+                "started_at": {
+                    "description": "Execution timing",
+                    "type": "string"
+                },
+                "status": {
+                    "description": "Execution results",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.JobStatus"
+                        }
+                    ]
+                },
+                "transcription_job": {
+                    "description": "Relationship",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.TranscriptionJob"
+                        }
+                    ]
+                },
+                "transcription_job_id": {
                     "type": "string"
                 },
                 "updated_at": {
@@ -3609,6 +4577,13 @@
                     "description": "Alignment settings",
                     "type": "string"
                 },
+                "attention_context_left": {
+                    "description": "NVIDIA Parakeet-specific parameters for long-form audio",
+                    "type": "integer"
+                },
+                "attention_context_right": {
+                    "type": "integer"
+                },
                 "batch_size": {
                     "type": "integer"
                 },
@@ -3642,6 +4617,7 @@
                     "type": "boolean"
                 },
                 "diarize_model": {
+                    "description": "Options: 'pyannote', 'nvidia_sortformer'",
                     "type": "string"
                 },
                 "fp16": {
@@ -3659,6 +4635,10 @@
                 },
                 "interpolate_method": {
                     "type": "string"
+                },
+                "is_multi_track_enabled": {
+                    "description": "Multi-track transcription settings",
+                    "type": "boolean"
                 },
                 "language": {
                     "type": "string"
@@ -3690,6 +4670,10 @@
                     "type": "boolean"
                 },
                 "model_dir": {
+                    "type": "string"
+                },
+                "model_family": {
+                    "description": "Model family (whisper or nvidia)",
                     "type": "string"
                 },
                 "no_align": {

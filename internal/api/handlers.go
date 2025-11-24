@@ -715,7 +715,7 @@ func (h *Handler) GetTrackProgress(c *gin.Context) {
 
 	for _, trackFile := range job.MultiTrackFiles {
 		trackInfo := map[string]interface{}{
-			"track_name": trackFile.FileName,
+			"track_name":  trackFile.FileName,
 			"track_index": trackFile.TrackIndex,
 		}
 
@@ -752,15 +752,15 @@ func (h *Handler) GetTrackProgress(c *gin.Context) {
 	}
 
 	response := gin.H{
-		"job_id": jobID,
+		"job_id":         jobID,
 		"is_multi_track": true,
 		"overall_status": job.Status,
-		"merge_status": job.MergeStatus,
-		"tracks": trackProgress,
+		"merge_status":   job.MergeStatus,
+		"tracks":         trackProgress,
 		"progress": map[string]interface{}{
 			"completed_tracks": completedTracks,
-			"total_tracks": totalTracks,
-			"percentage": progressPercentage,
+			"total_tracks":     totalTracks,
+			"percentage":       progressPercentage,
 		},
 	}
 
@@ -1129,7 +1129,7 @@ func (h *Handler) StartTranscription(c *gin.Context) {
 	}
 
 	// Debug: log what we received
-	logger.Debug("Parsed transcription parameters", 
+	logger.Debug("Parsed transcription parameters",
 		"job_id", jobID,
 		"model_family", requestParams.ModelFamily,
 		"model", requestParams.Model,
@@ -1199,7 +1199,7 @@ func (h *Handler) StartTranscription(c *gin.Context) {
 	}
 	params["language"] = requestParams.Language
 	params["device"] = requestParams.Device
-	
+
 	filename := filepath.Base(job.AudioPath)
 	logger.JobStarted(jobID, filename, requestParams.ModelFamily, params)
 
@@ -2648,7 +2648,7 @@ func (h *Handler) GetQuickTranscriptionStatus(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param request body YouTubeDownloadRequest true "YouTube download request"
-// @Success 200 {object} models.Transcription
+// @Success 200 {object} models.TranscriptionJob
 // @Failure 400 {object} map[string]string
 // @Failure 500 {object} map[string]string
 // @Router /api/v1/transcription/youtube [post]

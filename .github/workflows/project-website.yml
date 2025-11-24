@@ -32,6 +32,17 @@ jobs:
           cache: 'npm'
           cache-dependency-path: web/landing/package-lock.json
 
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
+      - name: Install swag
+        run: go install github.com/swaggo/swag/cmd/swag@latest
+
+      - name: Generate API documentation
+        run: swag init -g cmd/server/main.go -o api-docs
+
       - name: Install dependencies
         working-directory: web/landing
         run: npm ci
@@ -41,16 +52,15 @@ jobs:
         run: npm run build
 
       - name: Verify build
-        working-directory: web/landing
         run: |
           echo "Build verification:"
-          ls -la dist/
+          ls -la docs/
           echo "Checking docs structure:"
-          ls -la dist/docs/ || echo "No docs directory found"
+          ls -la docs/docs/ || echo "No docs subdirectory found"
           echo "Verifying key files:"
-          test -f dist/index.html && echo "✓ index.html" || echo "✗ index.html missing"
-          test -f dist/api.html && echo "✓ api.html" || echo "✗ api.html missing"
-          test -f dist/docs/intro.html && echo "✓ docs/intro.html" || echo "✗ docs/intro.html missing"
+          test -f docs/index.html && echo "✓ index.html" || echo "✗ index.html missing"
+          test -f docs/api.html && echo "✓ api.html" || echo "✗ api.html missing"
+          test -f docs/docs/intro.html && echo "✓ docs/intro.html" || echo "✗ docs/intro.html missing"
 
       - name: Setup GitHub Pages
         uses: actions/configure-pages@v4
@@ -58,7 +68,7 @@ jobs:
       - name: Upload to GitHub Pages
         uses: actions/upload-pages-artifact@v3
         with:
-          path: web/landing/dist
+          path: docs
 
       - name: Deploy to GitHub Pages
         id: deployment

@@ -11,10 +11,10 @@ node_modules
 Thumbs.db
 
 # Env
-.env
-.env.*
-!.env.example
-!.env.test
+# .env
+# .env.*
+# !.env.example
+# !.env.test
 
 # Vite
 vite.config.js.timestamp-*
@@ -35,15 +35,15 @@ data_bak
 web/landing_bak
 CLAUDE.md
 AGENTS.md
-.env.example
+# .env.example
 scriberr-data
 whisperx-env
 
 internal/web
 env-data
-main
+# main
 results.json
-server
+# server
 test_word_conversion.go
 debug_whisperx_parsing.go
 debug_parsing.go

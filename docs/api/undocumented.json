@@ -72,6 +72,27 @@
     },
     {
       "method": "POST",
+      "path": "/api/v1/transcription/upload-multitrack",
+      "summary": "Upload multi-track audio files",
+      "description": "Upload multiple audio files with an .aup file for multi-track transcription",
+      "tag": "transcription"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/transcription/{id}/merge-status",
+      "summary": "Get multi-track merge status",
+      "description": "Get the current merge status for a multi-track job",
+      "tag": "transcription"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/transcription/{id}/track-progress",
+      "summary": "Get multi-track job progress",
+      "description": "Get real-time progress information for individual tracks in a multi-track job",
+      "tag": "transcription"
+    },
+    {
+      "method": "POST",
       "path": "/api/v1/transcription/submit",
       "summary": "Submit a transcription job",
       "description": "Submit an audio file for transcription with WhisperX",
