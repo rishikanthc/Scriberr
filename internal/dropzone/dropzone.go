@@ -209,8 +209,19 @@ func (s *Service) processFile(filePath string) {
 	}
 
 	// Delete the original file from dropzone after successful upload
-	if err := os.Remove(filePath); err != nil {
-		log.Printf("Warning: Failed to delete file from dropzone %s: %v", filePath, err)
+	// Retry a few times in case of file locks
+	var deleteErr error
+	for i := 0; i < 5; i++ {
+		deleteErr = os.Remove(filePath)
+		if deleteErr == nil {
+			break
+		}
+		// If it's a permission error or similar, wait and retry
+		time.Sleep(500 * time.Millisecond)
+	}
+
+	if deleteErr != nil {
+		log.Printf("Warning: Failed to delete file from dropzone %s after retries: %v", filePath, deleteErr)
 	} else {
 		log.Printf("Successfully processed and removed file: %s", filename)
 	}

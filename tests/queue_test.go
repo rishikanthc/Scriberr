@@ -199,7 +199,9 @@ func (suite *QueueTestSuite) TestKillNonRunningJob() {
 
 	err := tq.KillJob("non-existent-job")
 	assert.Error(suite.T(), err)
-	assert.Contains(suite.T(), err.Error(), "not currently running")
+	// The error message depends on whether it was found in DB or not
+	// Since we didn't create it in DB, it returns "not found"
+	assert.Contains(suite.T(), err.Error(), "not found")
 }
 
 // Test queue stats
@@ -408,4 +410,30 @@ func (suite *QueueTestSuite) TestConcurrentAccess() {
 
 func TestQueueTestSuite(t *testing.T) {
 	suite.Run(t, new(QueueTestSuite))
+}
+
+// Test ResetZombieJobs
+func (suite *QueueTestSuite) TestResetZombieJobs() {
+	mockProcessor := &MockJobProcessor{}
+	tq := queue.NewTaskQueue(1, mockProcessor)
+
+	// Create a "zombie" job (one that is processing in DB but not running)
+	job := suite.helper.CreateTestTranscriptionJob(suite.T(), "Zombie Job")
+	// Manually set status to processing
+	err := suite.helper.DB.Model(&models.TranscriptionJob{}).Where("id = ?", job.ID).Update("status", models.StatusProcessing).Error
+	assert.NoError(suite.T(), err)
+
+	// Verify it is processing
+	var checkJob models.TranscriptionJob
+	suite.helper.DB.First(&checkJob, "id = ?", job.ID)
+	assert.Equal(suite.T(), models.StatusProcessing, checkJob.Status)
+
+	// Run ResetZombieJobs
+	tq.ResetZombieJobs()
+
+	// Verify it is now failed
+	var updatedJob models.TranscriptionJob
+	suite.helper.DB.First(&updatedJob, "id = ?", job.ID)
+	assert.Equal(suite.T(), models.StatusFailed, updatedJob.Status)
+	assert.Contains(suite.T(), *updatedJob.ErrorMessage, "interrupted by server restart")
 }
