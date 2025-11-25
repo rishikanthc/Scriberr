@@ -39,7 +39,7 @@ AGENTS.md
 scriberr-data
 whisperx-env
 
-internal/web
+# internal/web
 env-data
 # main
 results.json
@@ -52,3 +52,4 @@ tests/database_test.db-shm
 
 # Project documentation (local only)
 project-docs
+!internal/web/static.go

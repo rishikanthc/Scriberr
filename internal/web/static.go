@@ -98,6 +98,43 @@ func SetupStaticRoutes(router *gin.Engine, authService *auth.AuthService) {
 			return
 		}
 
+		// Try to serve file from dist directly (for PWA assets like sw.js, manifest.webmanifest)
+		path := c.Request.URL.Path
+		if strings.HasPrefix(path, "/") {
+			path = path[1:]
+		}
+
+		// Prevent directory traversal (basic check, though embed.FS is safe)
+		if strings.Contains(path, "..") {
+			c.Status(http.StatusForbidden)
+			return
+		}
+
+		// Try to read the file from embedded filesystem
+		fileContent, err := staticFiles.ReadFile("dist/" + path)
+		if err == nil {
+			// File exists, serve it
+			contentType := "application/octet-stream"
+			if strings.HasSuffix(path, ".css") {
+				contentType = "text/css"
+			} else if strings.HasSuffix(path, ".js") {
+				contentType = "application/javascript"
+			} else if strings.HasSuffix(path, ".png") {
+				contentType = "image/png"
+			} else if strings.HasSuffix(path, ".svg") {
+				contentType = "image/svg+xml"
+			} else if strings.HasSuffix(path, ".ico") {
+				contentType = "image/x-icon"
+			} else if strings.HasSuffix(path, ".webmanifest") {
+				contentType = "application/manifest+json"
+			} else if strings.HasSuffix(path, ".html") {
+				contentType = "text/html; charset=utf-8"
+			}
+
+			c.Data(http.StatusOK, contentType, fileContent)
+			return
+		}
+
 		// For all other routes, serve the React app
 		// The React app will handle authentication client-side
 		indexHTML, err := GetIndexHTML()
