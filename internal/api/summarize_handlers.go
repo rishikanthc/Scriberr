@@ -61,7 +61,7 @@ func (h *Handler) Summarize(c *gin.Context) {
 	c.Header("Connection", "keep-alive")
 
 	// Allow longer generation time for large transcripts and smaller models
-	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Minute)
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 60*time.Minute)
 	defer cancel()
 
 	contentChan, errChan := svc.ChatCompletionStream(ctx, req.Model, messages, 0.0)
