@@ -224,7 +224,7 @@ dependencies = [
 ]
 
 [tool.uv.sources]
-nemo-toolkit = { git = "https://github.com/NVIDIA/NeMo.git" }
+nemo-toolkit = { git = "https://github.com/NVIDIA/NeMo.git", tag = "v2.5.3" }
 `
 	if err := os.WriteFile(pyprojectPath, []byte(pyprojectContent), 0644); err != nil {
 		return fmt.Errorf("failed to write pyproject.toml: %w", err)
