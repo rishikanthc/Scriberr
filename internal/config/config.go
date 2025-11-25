@@ -9,8 +9,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/joho/godotenv"
 	"scriberr/pkg/logger"
+
+	"github.com/joho/godotenv"
 )
 
 // Config holds all configuration values
@@ -42,7 +43,7 @@ func Load() *Config {
 
 	return &Config{
 		Port:         getEnv("PORT", "8080"),
-		Host:         getEnv("HOST", "localhost"),
+		Host:         getEnv("HOST", "0.0.0.0"),
 		DatabasePath: getEnv("DATABASE_PATH", "data/scriberr.db"),
 		JWTSecret:    getJWTSecret(),
 		UploadDir:    getEnv("UPLOAD_DIR", "data/uploads"),
