@@ -537,15 +537,32 @@ func (c *CanaryAdapter) Transcribe(ctx context.Context, input interfaces.AudioIn
 		"PYTHONUNBUFFERED=1",
 		"PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True")
 
+	// Setup log file
+	logFile, err := os.OpenFile(filepath.Join(procCtx.OutputDirectory, "transcription.log"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		logger.Warn("Failed to create log file", "error", err)
+	} else {
+		defer logFile.Close()
+		cmd.Stdout = logFile
+		cmd.Stderr = logFile
+	}
+
 	logger.Info("Executing Canary command", "args", strings.Join(args, " "))
 
-	output, err := cmd.CombinedOutput()
-	if ctx.Err() == context.Canceled {
-		return nil, fmt.Errorf("transcription was cancelled")
-	}
-	if err != nil {
-		logger.Error("Canary execution failed", "output", string(output), "error", err)
-		return nil, fmt.Errorf("Canary execution failed: %w", err)
+	if err := cmd.Run(); err != nil {
+		if ctx.Err() == context.Canceled {
+			return nil, fmt.Errorf("transcription was cancelled")
+		}
+
+		// Read tail of log file for context
+		logPath := filepath.Join(procCtx.OutputDirectory, "transcription.log")
+		logTail, readErr := c.ReadLogTail(logPath, 2048)
+		if readErr != nil {
+			logger.Warn("Failed to read log tail", "error", readErr)
+		}
+
+		logger.Error("Canary execution failed", "error", err)
+		return nil, fmt.Errorf("Canary execution failed: %w\nLogs:\n%s", err, logTail)
 	}
 
 	// Parse result

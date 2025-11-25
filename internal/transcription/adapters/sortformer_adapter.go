@@ -658,15 +658,32 @@ func (s *SortformerAdapter) Diarize(ctx context.Context, input interfaces.AudioI
 	cmd := exec.CommandContext(ctx, "uv", args...)
 	cmd.Env = append(os.Environ(), "PYTHONUNBUFFERED=1")
 
+	// Setup log file
+	logFile, err := os.OpenFile(filepath.Join(procCtx.OutputDirectory, "transcription.log"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		logger.Warn("Failed to create log file", "error", err)
+	} else {
+		defer logFile.Close()
+		cmd.Stdout = logFile
+		cmd.Stderr = logFile
+	}
+
 	logger.Info("Executing Sortformer command", "args", strings.Join(args, " "))
 
-	output, err := cmd.CombinedOutput()
-	if ctx.Err() == context.Canceled {
-		return nil, fmt.Errorf("diarization was cancelled")
-	}
-	if err != nil {
-		logger.Error("Sortformer execution failed", "output", string(output), "error", err)
-		return nil, fmt.Errorf("Sortformer execution failed: %w", err)
+	if err := cmd.Run(); err != nil {
+		if ctx.Err() == context.Canceled {
+			return nil, fmt.Errorf("diarization was cancelled")
+		}
+
+		// Read tail of log file for context
+		logPath := filepath.Join(procCtx.OutputDirectory, "transcription.log")
+		logTail, readErr := s.ReadLogTail(logPath, 2048)
+		if readErr != nil {
+			logger.Warn("Failed to read log tail", "error", readErr)
+		}
+
+		logger.Error("Sortformer execution failed", "error", err)
+		return nil, fmt.Errorf("Sortformer execution failed: %w\nLogs:\n%s", err, logTail)
 	}
 
 	// Parse result

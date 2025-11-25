@@ -16,13 +16,13 @@ func SetupRoutes(handler *Handler, authService *auth.AuthService) *gin.Engine {
 	// Suppress all GIN debug output
 	gin.SetMode(gin.ReleaseMode)
 	logger.SetGinOutput()
-	
+
 	// Create Gin router without default middleware
 	router := gin.New()
-	
+
 	// Add recovery middleware
 	router.Use(gin.Recovery())
-	
+
 	// Add custom logger middleware
 	router.Use(logger.GinLogger())
 
@@ -94,12 +94,13 @@ func SetupRoutes(handler *Handler, authService *auth.AuthService) *gin.Engine {
 				uploadRoutes.POST("/upload-multitrack", handler.UploadMultiTrack)
 				uploadRoutes.GET("/:id/audio", handler.GetAudioFile) // Audio streaming shouldn't be compressed
 			}
-			
+
 			// Regular API routes with compression
 			transcription.POST("/youtube", handler.DownloadFromYouTube)
 			transcription.POST("/submit", handler.SubmitJob)
 			transcription.POST("/:id/start", handler.StartTranscription)
 			transcription.POST("/:id/kill", handler.KillJob)
+			transcription.GET("/:id/logs", handler.GetJobLogs)
 			transcription.GET("/:id/status", handler.GetJobStatus)
 			transcription.GET("/:id/transcript", handler.GetTranscript)
 			transcription.GET("/:id/execution", handler.GetJobExecutionData)

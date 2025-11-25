@@ -514,12 +514,12 @@ func (p *ParakeetAdapter) Transcribe(ctx context.Context, input interfaces.Audio
 		logger.Info("Using buffered inference for long audio",
 			"duration_secs", audioDuration.Seconds(),
 			"threshold_secs", chunkThreshold)
-		result, err = p.transcribeBuffered(ctx, audioInput, params, tempDir)
+		result, err = p.transcribeBuffered(ctx, audioInput, params, tempDir, procCtx.OutputDirectory)
 	} else {
 		logger.Info("Using standard transcription for short audio",
 			"duration_secs", audioDuration.Seconds(),
 			"threshold_secs", chunkThreshold)
-		result, err = p.transcribeStandard(ctx, audioInput, params, tempDir)
+		result, err = p.transcribeStandard(ctx, audioInput, params, tempDir, procCtx.OutputDirectory)
 	}
 
 	if err != nil {
@@ -561,7 +561,7 @@ func (p *ParakeetAdapter) detectAudioDuration(audioPath string) (float64, error)
 }
 
 // transcribeStandard uses the standard Parakeet transcription (original method)
-func (p *ParakeetAdapter) transcribeStandard(ctx context.Context, input interfaces.AudioInput, params map[string]interface{}, tempDir string) (*interfaces.TranscriptResult, error) {
+func (p *ParakeetAdapter) transcribeStandard(ctx context.Context, input interfaces.AudioInput, params map[string]interface{}, tempDir, outputDir string) (*interfaces.TranscriptResult, error) {
 	// Build command arguments
 	args, err := p.buildParakeetArgs(input, params, tempDir)
 	if err != nil {
@@ -572,15 +572,32 @@ func (p *ParakeetAdapter) transcribeStandard(ctx context.Context, input interfac
 	cmd := exec.CommandContext(ctx, "uv", args...)
 	cmd.Env = append(os.Environ(), "PYTHONUNBUFFERED=1")
 
+	// Setup log file
+	logFile, err := os.OpenFile(filepath.Join(outputDir, "transcription.log"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		logger.Warn("Failed to create log file", "error", err)
+	} else {
+		defer logFile.Close()
+		cmd.Stdout = logFile
+		cmd.Stderr = logFile
+	}
+
 	logger.Info("Executing Parakeet command", "args", strings.Join(args, " "))
 
-	output, err := cmd.CombinedOutput()
-	if ctx.Err() == context.Canceled {
-		return nil, fmt.Errorf("transcription was cancelled")
-	}
-	if err != nil {
-		logger.Error("Parakeet execution failed", "output", string(output), "error", err)
-		return nil, fmt.Errorf("Parakeet execution failed: %w", err)
+	if err := cmd.Run(); err != nil {
+		if ctx.Err() == context.Canceled {
+			return nil, fmt.Errorf("transcription was cancelled")
+		}
+
+		// Read tail of log file for context
+		logPath := filepath.Join(outputDir, "transcription.log")
+		logTail, readErr := p.ReadLogTail(logPath, 2048)
+		if readErr != nil {
+			logger.Warn("Failed to read log tail", "error", readErr)
+		}
+
+		logger.Error("Parakeet execution failed", "error", err)
+		return nil, fmt.Errorf("Parakeet execution failed: %w\nLogs:\n%s", err, logTail)
 	}
 
 	// Parse result
@@ -593,7 +610,7 @@ func (p *ParakeetAdapter) transcribeStandard(ctx context.Context, input interfac
 }
 
 // transcribeBuffered uses NeMo's buffered inference for long audio
-func (p *ParakeetAdapter) transcribeBuffered(ctx context.Context, input interfaces.AudioInput, params map[string]interface{}, tempDir string) (*interfaces.TranscriptResult, error) {
+func (p *ParakeetAdapter) transcribeBuffered(ctx context.Context, input interfaces.AudioInput, params map[string]interface{}, tempDir, outputDir string) (*interfaces.TranscriptResult, error) {
 	// Build command arguments for buffered inference
 	args, err := p.buildBufferedArgs(input, params, tempDir)
 	if err != nil {
@@ -604,15 +621,32 @@ func (p *ParakeetAdapter) transcribeBuffered(ctx context.Context, input interfac
 	cmd := exec.CommandContext(ctx, "uv", args...)
 	cmd.Env = append(os.Environ(), "PYTHONUNBUFFERED=1")
 
+	// Setup log file
+	logFile, err := os.OpenFile(filepath.Join(outputDir, "transcription.log"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		logger.Warn("Failed to create log file", "error", err)
+	} else {
+		defer logFile.Close()
+		cmd.Stdout = logFile
+		cmd.Stderr = logFile
+	}
+
 	logger.Info("Executing Parakeet buffered inference", "args", strings.Join(args, " "))
 
-	output, err := cmd.CombinedOutput()
-	if ctx.Err() == context.Canceled {
-		return nil, fmt.Errorf("transcription was cancelled")
-	}
-	if err != nil {
-		logger.Error("Parakeet buffered execution failed", "output", string(output), "error", err)
-		return nil, fmt.Errorf("Parakeet buffered execution failed: %w", err)
+	if err := cmd.Run(); err != nil {
+		if ctx.Err() == context.Canceled {
+			return nil, fmt.Errorf("transcription was cancelled")
+		}
+
+		// Read tail of log file for context
+		logPath := filepath.Join(outputDir, "transcription.log")
+		logTail, readErr := p.ReadLogTail(logPath, 2048)
+		if readErr != nil {
+			logger.Warn("Failed to read log tail", "error", readErr)
+		}
+
+		logger.Error("Parakeet buffered execution failed", "error", err)
+		return nil, fmt.Errorf("Parakeet buffered execution failed: %w\nLogs:\n%s", err, logTail)
 	}
 
 	// Parse buffered result
