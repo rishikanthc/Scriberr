@@ -191,7 +191,7 @@ export function AudioRecorder({
 				deviceId: selectedDevice ? { exact: selectedDevice } : undefined,
 				echoCancellation: false,
 				noiseSuppression: false,
-				autoGainControl: false,
+				autoGainControl: true,
 				channelCount: 1,
 			};
 
