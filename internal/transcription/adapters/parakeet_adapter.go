@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"scriberr/internal/transcription/interfaces"
+	"scriberr/pkg/downloader"
 	"scriberr/pkg/logger"
 )
 
@@ -233,22 +234,8 @@ func (p *ParakeetAdapter) downloadParakeetModel() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
 	defer cancel()
 
-	tempPath := modelPath + ".tmp"
-	os.Remove(tempPath)
-
-	cmd := exec.CommandContext(ctx, "curl",
-		"-L", "--progress-bar", "--create-dirs",
-		"-o", tempPath, modelURL)
-
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		os.Remove(tempPath)
-		return fmt.Errorf("failed to download Parakeet model: %w: %s", err, strings.TrimSpace(string(out)))
-	}
-
-	if err := os.Rename(tempPath, modelPath); err != nil {
-		os.Remove(tempPath)
-		return fmt.Errorf("failed to move downloaded model: %w", err)
+	if err := downloader.DownloadFile(ctx, modelURL, modelPath); err != nil {
+		return fmt.Errorf("failed to download Parakeet model: %w", err)
 	}
 
 	stat, err := os.Stat(modelPath)

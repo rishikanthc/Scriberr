@@ -145,7 +145,9 @@ func WithContext(key string, value any) *Logger {
 func Startup(step, message string, args ...any) {
 	// Simple message at INFO level, technical details at DEBUG
 	if currentLevel <= LevelInfo {
-		Info(message)
+		// Clean, user-friendly startup message
+		// \033[36m is Cyan color for the [+] prefix
+		fmt.Printf("\033[36m[+]\033[0m %s\n", message)
 	}
 	if currentLevel <= LevelDebug {
 		Debug("Startup step", append([]any{"step", step, "message", message}, args...)...)
@@ -156,25 +158,25 @@ func Startup(step, message string, args ...any) {
 func JobStarted(jobID, filename, model string, params map[string]any) {
 	// Simple message at INFO, details at DEBUG
 	Info("Transcription started", "file", filename)
-	Debug("Job started with details", 
-		"job_id", jobID, 
-		"file", filename, 
+	Debug("Job started with details",
+		"job_id", jobID,
+		"file", filename,
 		"model", model,
 		"params", params)
 }
 
 func JobCompleted(jobID string, duration time.Duration, result any) {
 	Info("Transcription completed", "duration", duration.String())
-	Debug("Job completed with details", 
-		"job_id", jobID, 
+	Debug("Job completed with details",
+		"job_id", jobID,
 		"duration", duration.String(),
 		"result", result)
 }
 
 func JobFailed(jobID string, duration time.Duration, err error) {
 	Error("Transcription failed", "error", err.Error())
-	Debug("Job failed with details", 
-		"job_id", jobID, 
+	Debug("Job failed with details",
+		"job_id", jobID,
 		"duration", duration.String(),
 		"error", err.Error())
 }
@@ -193,10 +195,10 @@ func HTTPRequest(method, path string, status int, duration time.Duration, userAg
 			return
 		}
 	}
-	
+
 	// Log all requests at DEBUG level
 	if currentLevel <= LevelDebug {
-		Debug("API request", 
+		Debug("API request",
 			"method", method,
 			"path", path,
 			"status", status,
@@ -209,24 +211,24 @@ func HTTPRequest(method, path string, status int, duration time.Duration, userAg
 func AuthEvent(event, username, ip string, success bool, details ...any) {
 	if success {
 		Info("User login successful", "username", username)
-		Debug("Auth event details", 
+		Debug("Auth event details",
 			append([]any{"event", event, "username", username, "ip", ip, "success", success}, details...)...)
 	} else {
 		Info("User login failed", "username", username, "reason", "invalid_credentials")
-		Debug("Auth event details", 
+		Debug("Auth event details",
 			append([]any{"event", event, "username", username, "ip", ip, "success", success}, details...)...)
 	}
 }
 
 // Worker operation logger
 func WorkerOperation(workerID int, jobID string, operation string, args ...any) {
-	Debug("Worker operation", 
+	Debug("Worker operation",
 		append([]any{"worker_id", workerID, "job_id", jobID, "operation", operation}, args...)...)
 }
 
 // Performance logging for debugging
 func Performance(operation string, duration time.Duration, details ...any) {
-	Debug("Performance", 
+	Debug("Performance",
 		append([]any{"operation", operation, "duration", duration.String()}, details...)...)
 }
 
@@ -262,7 +264,7 @@ func GinLogger() gin.HandlerFunc {
 		// Log request
 		status := c.Writer.Status()
 		statusColor := getStatusColor(status)
-		
+
 		if currentLevel <= LevelDebug {
 			// Detailed logging for DEBUG
 			Debug("API request",

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"scriberr/internal/transcription/interfaces"
+	"scriberr/pkg/downloader"
 	"scriberr/pkg/logger"
 )
 
@@ -32,9 +33,9 @@ func NewCanaryAdapter(envPath string) *CanaryAdapter {
 			"en", "de", "es", "fr", "hi", "it", "ja", "ko", "pl", "pt", "ru", "zh",
 			// Canary supports many more languages
 		},
-		SupportedFormats:   []string{"wav", "flac"},
-		RequiresGPU:        false, // Can run on CPU but GPU strongly recommended
-		MemoryRequirement:  8192,  // 8GB+ recommended for Canary
+		SupportedFormats:  []string{"wav", "flac"},
+		RequiresGPU:       false, // Can run on CPU but GPU strongly recommended
+		MemoryRequirement: 8192,  // 8GB+ recommended for Canary
 		Features: map[string]bool{
 			"timestamps":     true,
 			"word_level":     true,
@@ -67,7 +68,7 @@ func NewCanaryAdapter(envPath string) *CanaryAdapter {
 		},
 		{
 			Name:        "target_lang",
-			Type:        "string", 
+			Type:        "string",
 			Required:    false,
 			Default:     "en",
 			Options:     []string{"en", "de", "es", "fr", "hi", "it", "ja", "ko", "pl", "pt", "ru", "zh"},
@@ -145,7 +146,7 @@ func NewCanaryAdapter(envPath string) *CanaryAdapter {
 	}
 
 	baseAdapter := NewBaseAdapter("canary", envPath, capabilities, schema)
-	
+
 	adapter := &CanaryAdapter{
 		BaseAdapter: baseAdapter,
 		envPath:     envPath,
@@ -253,28 +254,14 @@ func (c *CanaryAdapter) downloadCanaryModel() error {
 	}
 
 	logger.Info("Downloading Canary model", "path", modelPath)
-	
+
 	modelURL := "https://huggingface.co/nvidia/canary-1b-v2/resolve/main/canary-1b-v2.nemo?download=true"
-	
+
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
 	defer cancel()
 
-	tempPath := modelPath + ".tmp"
-	os.Remove(tempPath)
-
-	cmd := exec.CommandContext(ctx, "curl",
-		"-L", "--progress-bar", "--create-dirs",
-		"-o", tempPath, modelURL)
-
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		os.Remove(tempPath)
-		return fmt.Errorf("failed to download Canary model: %w: %s", err, strings.TrimSpace(string(out)))
-	}
-
-	if err := os.Rename(tempPath, modelPath); err != nil {
-		os.Remove(tempPath)
-		return fmt.Errorf("failed to move downloaded model: %w", err)
+	if err := downloader.DownloadFile(ctx, modelURL, modelPath); err != nil {
+		return fmt.Errorf("failed to download Canary model: %w", err)
 	}
 
 	stat, err := os.Stat(modelPath)
@@ -292,7 +279,7 @@ func (c *CanaryAdapter) downloadCanaryModel() error {
 // createTranscriptionScript creates the Python script for Canary transcription
 func (c *CanaryAdapter) createTranscriptionScript() error {
 	scriptPath := filepath.Join(c.envPath, "canary_transcribe.py")
-	
+
 	// Check if script already exists
 	if _, err := os.Stat(scriptPath); err == nil {
 		return nil
@@ -551,7 +538,7 @@ func (c *CanaryAdapter) Transcribe(ctx context.Context, input interfaces.AudioIn
 		"PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True")
 
 	logger.Info("Executing Canary command", "args", strings.Join(args, " "))
-	
+
 	output, err := cmd.CombinedOutput()
 	if ctx.Err() == context.Canceled {
 		return nil, fmt.Errorf("transcription was cancelled")
@@ -571,7 +558,7 @@ func (c *CanaryAdapter) Transcribe(ctx context.Context, input interfaces.AudioIn
 	result.ModelUsed = "canary-1b-v2"
 	result.Metadata = c.CreateDefaultMetadata(params)
 
-	logger.Info("Canary transcription completed", 
+	logger.Info("Canary transcription completed",
 		"segments", len(result.Segments),
 		"words", len(result.WordSegments),
 		"processing_time", result.ProcessingTime,
@@ -583,7 +570,7 @@ func (c *CanaryAdapter) Transcribe(ctx context.Context, input interfaces.AudioIn
 // buildCanaryArgs builds the command arguments for Canary
 func (c *CanaryAdapter) buildCanaryArgs(input interfaces.AudioInput, params map[string]interface{}, tempDir string) ([]string, error) {
 	outputFile := filepath.Join(tempDir, "result.json")
-	
+
 	scriptPath := filepath.Join(c.envPath, "canary_transcribe.py")
 	args := []string{
 		"run", "--native-tls", "--project", c.envPath, "python", scriptPath,
@@ -621,18 +608,18 @@ func (c *CanaryAdapter) buildCanaryArgs(input interfaces.AudioInput, params map[
 // parseResult parses the Canary output
 func (c *CanaryAdapter) parseResult(tempDir string, input interfaces.AudioInput, params map[string]interface{}) (*interfaces.TranscriptResult, error) {
 	resultFile := filepath.Join(tempDir, "result.json")
-	
+
 	data, err := os.ReadFile(resultFile)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read result file: %w", err)
 	}
 
 	var canaryResult struct {
-		Transcription     string `json:"transcription"`
-		SourceLanguage    string `json:"source_language"`
-		TargetLanguage    string `json:"target_language"`
-		Task              string `json:"task"`
-		WordTimestamps    []struct {
+		Transcription  string `json:"transcription"`
+		SourceLanguage string `json:"source_language"`
+		TargetLanguage string `json:"target_language"`
+		Task           string `json:"task"`
+		WordTimestamps []struct {
 			Word        string  `json:"word"`
 			StartOffset int     `json:"start_offset"`
 			EndOffset   int     `json:"end_offset"`
@@ -661,11 +648,11 @@ func (c *CanaryAdapter) parseResult(tempDir string, input interfaces.AudioInput,
 
 	// Convert to standard format
 	result := &interfaces.TranscriptResult{
-		Text:       canaryResult.Transcription,
-		Language:   resultLanguage,
-		Segments:   make([]interfaces.TranscriptSegment, len(canaryResult.SegmentTimestamps)),
+		Text:         canaryResult.Transcription,
+		Language:     resultLanguage,
+		Segments:     make([]interfaces.TranscriptSegment, len(canaryResult.SegmentTimestamps)),
 		WordSegments: make([]interfaces.TranscriptWord, len(canaryResult.WordTimestamps)),
-		Confidence: 0.0, // Default confidence
+		Confidence:   0.0, // Default confidence
 	}
 
 	// Convert segments
@@ -695,7 +682,7 @@ func (c *CanaryAdapter) parseResult(tempDir string, input interfaces.AudioInput,
 func (c *CanaryAdapter) GetEstimatedProcessingTime(input interfaces.AudioInput) time.Duration {
 	// Canary is typically slower than Parakeet due to its multilingual capabilities
 	baseTime := c.BaseAdapter.GetEstimatedProcessingTime(input)
-	
+
 	// Canary typically processes at about 40-50% of audio duration
 	return time.Duration(float64(baseTime) * 2.0)
 }

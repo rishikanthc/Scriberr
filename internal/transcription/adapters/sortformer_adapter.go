@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"scriberr/internal/transcription/interfaces"
+	"scriberr/pkg/downloader"
 	"scriberr/pkg/logger"
 )
 
@@ -41,13 +42,13 @@ func NewSortformerAdapter(envPath string) *SortformerAdapter {
 			"no_token_required":    true,
 		},
 		Metadata: map[string]string{
-			"engine":        "nvidia_nemo",
-			"framework":     "nemo_toolkit",
-			"license":       "CC-BY-4.0",
-			"optimization":  "4_speakers",
-			"sample_rate":   "16000",
-			"format":        "16khz_mono_wav",
-			"no_auth":       "true",
+			"engine":       "nvidia_nemo",
+			"framework":    "nemo_toolkit",
+			"license":      "CC-BY-4.0",
+			"optimization": "4_speakers",
+			"sample_rate":  "16000",
+			"format":       "16khz_mono_wav",
+			"no_auth":      "true",
 		},
 	}
 
@@ -128,7 +129,7 @@ func NewSortformerAdapter(envPath string) *SortformerAdapter {
 	}
 
 	baseAdapter := NewBaseAdapter("sortformer", envPath, capabilities, schema)
-	
+
 	adapter := &SortformerAdapter{
 		BaseAdapter: baseAdapter,
 		envPath:     envPath,
@@ -243,28 +244,14 @@ func (s *SortformerAdapter) downloadSortformerModel() error {
 	}
 
 	logger.Info("Downloading Sortformer model", "path", modelPath)
-	
+
 	modelURL := "https://huggingface.co/nvidia/diar_streaming_sortformer_4spk-v2/resolve/main/diar_streaming_sortformer_4spk-v2.nemo?download=true"
-	
+
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
 	defer cancel()
 
-	tempPath := modelPath + ".tmp"
-	os.Remove(tempPath)
-
-	cmd := exec.CommandContext(ctx, "curl",
-		"-L", "-#", "--max-time", "1800",
-		"-o", tempPath, modelURL)
-
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		os.Remove(tempPath)
-		return fmt.Errorf("failed to download Sortformer model: %w: %s", err, strings.TrimSpace(string(out)))
-	}
-
-	if err := os.Rename(tempPath, modelPath); err != nil {
-		os.Remove(tempPath)
-		return fmt.Errorf("failed to move downloaded model: %w", err)
+	if err := downloader.DownloadFile(ctx, modelURL, modelPath); err != nil {
+		return fmt.Errorf("failed to download Sortformer model: %w", err)
 	}
 
 	stat, err := os.Stat(modelPath)
@@ -282,7 +269,7 @@ func (s *SortformerAdapter) downloadSortformerModel() error {
 // createDiarizationScript creates the Python script for Sortformer diarization
 func (s *SortformerAdapter) createDiarizationScript() error {
 	scriptPath := filepath.Join(s.envPath, "sortformer_diarize.py")
-	
+
 	// Check if script already exists
 	if _, err := os.Stat(scriptPath); err == nil {
 		return nil
@@ -672,7 +659,7 @@ func (s *SortformerAdapter) Diarize(ctx context.Context, input interfaces.AudioI
 	cmd.Env = append(os.Environ(), "PYTHONUNBUFFERED=1")
 
 	logger.Info("Executing Sortformer command", "args", strings.Join(args, " "))
-	
+
 	output, err := cmd.CombinedOutput()
 	if ctx.Err() == context.Canceled {
 		return nil, fmt.Errorf("diarization was cancelled")
@@ -692,7 +679,7 @@ func (s *SortformerAdapter) Diarize(ctx context.Context, input interfaces.AudioI
 	result.ModelUsed = "diar_streaming_sortformer_4spk-v2"
 	result.Metadata = s.CreateDefaultMetadata(params)
 
-	logger.Info("Sortformer diarization completed", 
+	logger.Info("Sortformer diarization completed",
 		"segments", len(result.Segments),
 		"speakers", result.SpeakerCount,
 		"processing_time", result.ProcessingTime)
@@ -709,7 +696,7 @@ func (s *SortformerAdapter) buildSortformerArgs(input interfaces.AudioInput, par
 	} else {
 		outputFile = filepath.Join(tempDir, "result.rttm")
 	}
-	
+
 	scriptPath := filepath.Join(s.envPath, "sortformer_diarize.py")
 	args := []string{
 		"run", "--native-tls", "--project", s.envPath, "python", scriptPath,
@@ -749,7 +736,7 @@ func (s *SortformerAdapter) buildSortformerArgs(input interfaces.AudioInput, par
 // parseResult parses the Sortformer output
 func (s *SortformerAdapter) parseResult(tempDir string, input interfaces.AudioInput, params map[string]interface{}) (*interfaces.DiarizationResult, error) {
 	outputFormat := s.GetStringParameter(params, "output_format")
-	
+
 	if outputFormat == "json" {
 		return s.parseJSONResult(tempDir)
 	} else {
@@ -760,16 +747,16 @@ func (s *SortformerAdapter) parseResult(tempDir string, input interfaces.AudioIn
 // parseJSONResult parses JSON format output
 func (s *SortformerAdapter) parseJSONResult(tempDir string) (*interfaces.DiarizationResult, error) {
 	resultFile := filepath.Join(tempDir, "result.json")
-	
+
 	data, err := os.ReadFile(resultFile)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read result file: %w", err)
 	}
 
 	var sortformerResult struct {
-		AudioFile     string `json:"audio_file"`
-		Model         string `json:"model"`
-		Segments      []struct {
+		AudioFile string `json:"audio_file"`
+		Model     string `json:"model"`
+		Segments  []struct {
 			Start      float64 `json:"start"`
 			End        float64 `json:"end"`
 			Speaker    string  `json:"speaker"`
@@ -808,7 +795,7 @@ func (s *SortformerAdapter) parseJSONResult(tempDir string) (*interfaces.Diariza
 // parseRTTMResult parses RTTM format output
 func (s *SortformerAdapter) parseRTTMResult(tempDir string, input interfaces.AudioInput) (*interfaces.DiarizationResult, error) {
 	resultFile := filepath.Join(tempDir, "result.rttm")
-	
+
 	data, err := os.ReadFile(resultFile)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read result file: %w", err)
@@ -870,7 +857,7 @@ func (s *SortformerAdapter) parseRTTMResult(tempDir string, input interfaces.Aud
 func (s *SortformerAdapter) GetEstimatedProcessingTime(input interfaces.AudioInput) time.Duration {
 	// Sortformer is typically very fast, often faster than real-time
 	baseTime := s.BaseAdapter.GetEstimatedProcessingTime(input)
-	
+
 	// Sortformer typically processes at about 5-10% of audio duration
 	return time.Duration(float64(baseTime) * 0.3)
 }
