@@ -57,22 +57,32 @@ export function AudioRecorder({
 	useEffect(() => {
 		if (!isOpen) return;
 
-		const initializeWaveSurfer = () => {
-			if (!micContainerRef.current) {
-				return;
-			}
+		let activeStream: MediaStream | null = null;
+		let ws: WaveSurfer | null = null;
 
-			// Destroy previous instance
-			if (wavesurfer) {
-				wavesurfer.destroy();
-				setWavesurfer(null);
-				setRecord(null);
-			}
-
+		const init = async () => {
 			try {
+				// 1. Request permission first to ensure device labels are available (Safari/Firefox requirement)
+				// We stop this stream immediately after getting permission
+				activeStream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
-				// Create new WaveSurfer instance
-				const ws = WaveSurfer.create({
+				// 2. Get devices now that we have permission
+				const devices = await RecordPlugin.getAvailableAudioDevices();
+				setAvailableDevices(devices);
+
+				// Set default device if none selected
+				if (devices.length > 0) {
+					// Check if current selected device still exists
+					const deviceExists = devices.some(d => d.deviceId === selectedDevice);
+					if (!selectedDevice || !deviceExists) {
+						setSelectedDevice(devices[0].deviceId);
+					}
+				}
+
+				// 3. Initialize WaveSurfer
+				if (!micContainerRef.current) return;
+
+				ws = WaveSurfer.create({
 					container: micContainerRef.current,
 					waveColor: "rgb(168, 85, 247)", // purple-500
 					progressColor: "rgb(147, 51, 234)", // purple-600
@@ -81,71 +91,53 @@ export function AudioRecorder({
 					interact: false,
 				});
 
-
-				// Set WaveSurfer first
 				setWavesurfer(ws);
 
+				const recordPlugin = ws.registerPlugin(
+					RecordPlugin.create({
+						renderRecordedAudio: false,
+						scrollingWaveform: true,
+						continuousWaveform: true,
+						continuousWaveformDuration: 30,
+						// Let browser choose the best MIME type and bitrate
+						// Add timeslice for better Safari compatibility
+						mediaRecorderTimeslice: 1000,
+					}),
+				);
 
-				// Initialize Record plugin in a separate try-catch
-				try {
-					const recordPlugin = ws.registerPlugin(
-						RecordPlugin.create({
-							renderRecordedAudio: false,
-							scrollingWaveform: true,
-							continuousWaveform: true,
-							continuousWaveformDuration: 30,
-						}),
-					);
+				// Handle recording end and progress events
+				recordPlugin.on("record-end", (blob: Blob) => {
+					setRecordedBlob(blob);
+					setIsRecording(false);
+					setIsPaused(false);
+				});
 
+				recordPlugin.on("record-progress", (time: number) => {
+					setRecordingTime(time);
+				});
 
-					// Handle recording end and progress events
-					recordPlugin.on("record-end", (blob: Blob) => {
-						setRecordedBlob(blob);
-						setIsRecording(false);
-						setIsPaused(false);
-					});
+				setRecord(recordPlugin);
 
-					// Handle recording progress
-					recordPlugin.on("record-progress", (time: number) => {
-						setRecordingTime(time);
-					});
-
-					setRecord(recordPlugin);
-				} catch (recordError) {
-					console.error("Failed to create RecordPlugin:", recordError);
-					// At least WaveSurfer is working, so we can show that
-				}
 			} catch (error) {
-				console.error("Failed to initialize WaveSurfer:", error);
-				if (error instanceof Error) {
-					console.error("Error details:", {
-						name: error.name,
-						message: error.message,
-						stack: error.stack,
-					});
+				console.error("Failed to initialize recorder:", error);
+			} finally {
+				// Stop the temporary stream used for permissions
+				if (activeStream) {
+					activeStream.getTracks().forEach(track => track.stop());
 				}
 			}
 		};
 
 		// Use setTimeout to ensure the DOM element is ready
-		const timeoutId = setTimeout(initializeWaveSurfer, 100);
-
-		// Get available audio devices
-		RecordPlugin.getAvailableAudioDevices()
-			.then((devices) => {
-				setAvailableDevices(devices);
-				if (devices.length > 0 && !selectedDevice) {
-					setSelectedDevice(devices[0].deviceId);
-				}
-			})
-			.catch((error) => {
-				console.error("Failed to get audio devices:", error);
-			});
+		const timeoutId = setTimeout(init, 100);
 
 		return () => {
 			clearTimeout(timeoutId);
-			if (wavesurfer) {
-				wavesurfer.destroy();
+			if (ws) {
+				ws.destroy();
+			}
+			if (activeStream) {
+				activeStream.getTracks().forEach(track => track.stop());
 			}
 		};
 	}, [isOpen]); // Remove wavesurfer and selectedDevice dependencies to avoid recreation loop
@@ -192,7 +184,18 @@ export function AudioRecorder({
 		}
 
 		try {
-			await record.startRecording({ deviceId: selectedDevice });
+			// The Record plugin automatically wraps these options in { audio: ... }
+			// So we should pass MediaTrackConstraints directly, NOT MediaStreamConstraints
+			// Use 'exact' for deviceId to ensure the specific mic is used
+			const constraints: MediaTrackConstraints = {
+				deviceId: selectedDevice ? { exact: selectedDevice } : undefined,
+				echoCancellation: false,
+				noiseSuppression: false,
+				autoGainControl: false,
+				channelCount: 1,
+			};
+
+			await record.startRecording(constraints);
 			setIsRecording(true);
 			setIsPaused(false);
 			setRecordingTime(0);
