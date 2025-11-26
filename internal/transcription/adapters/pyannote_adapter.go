@@ -115,9 +115,9 @@ func NewPyAnnoteAdapter(envPath string) *PyAnnoteAdapter {
 			Name:        "device",
 			Type:        "string",
 			Required:    false,
-			Default:     "cpu",
-			Options:     []string{"cpu", "cuda"},
-			Description: "Device to use for computation (cpu or cuda for NVIDIA GPUs)",
+			Default:     "auto",
+			Options:     []string{"auto", "cpu", "cuda"},
+			Description: "Device to use for computation (auto, cpu, or cuda)",
 			Group:       "advanced",
 		},
 
