@@ -267,6 +267,7 @@ import sys
 import os
 from pathlib import Path
 from pyannote.audio import Pipeline
+import torch
 
 
 def diarize_audio(
@@ -293,25 +294,19 @@ def diarize_audio(
         )
         
         # Move to specified device
-        if device == "auto" or device == "cuda":
-            try:
-                import torch
-                if torch.cuda.is_available():
-                    pipeline = pipeline.to(torch.device("cuda"))
-                    print("Using CUDA for diarization")
-                elif device == "cuda":
-                    print("CUDA requested but not available, falling back to CPU")
-                else:
-                    # Auto mode, no CUDA
-                    if torch.backends.mps.is_available():
-                        pipeline = pipeline.to(torch.device("mps"))
-                        print("Using MPS (Apple Silicon) for diarization")
-                    else:
-                        print("CUDA/MPS not available, using CPU")
-            except ImportError:
-                print("PyTorch not available for CUDA, using CPU")
-            except Exception as e:
-                print(f"Error moving to device: {e}, using CPU")
+        # if device == "auto" or device == "cuda":
+		try:
+			if torch.cuda.is_available():
+				pipeline = pipeline.to(torch.device("cuda"))
+				print("Using CUDA for diarization")
+			elif device == "cuda":
+				print("CUDA requested but not available, falling back to CPU")
+			else:
+				print("CUDA not available, using CPU")
+		except ImportError:
+			print("PyTorch not available for CUDA, using CPU")
+		except Exception as e:
+			print(f"Error moving to device: {e}, using CPU")
         
         print("Pipeline loaded successfully")
     except Exception as e:
@@ -467,7 +462,7 @@ def main():
     )
     parser.add_argument(
         "--device",
-        choices=["cpu", "cuda"],
+        choices=["cpu", "cuda", "auto"],
         default="auto",
         help="Device to use for computation"
     )
@@ -645,13 +640,7 @@ func (p *PyAnnoteAdapter) buildPyAnnoteArgs(input interfaces.AudioInput, params 
 	// Add output format
 	args = append(args, "--output-format", outputFormat)
 
-	// Add device
-	if device := p.GetStringParameter(params, "device"); device != "" {
-		args = append(args, "--device", device)
-	} else {
-		// Default to auto if not specified
-		args = append(args, "--device", "auto")
-	}
+	// Device is handled automatically by the script
 
 	return args, nil
 }
