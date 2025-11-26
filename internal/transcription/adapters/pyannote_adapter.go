@@ -342,9 +342,22 @@ def diarize_audio(
         speakers = set()
         total_speech_time = 0.0
         
-        for segment, track, speaker in diarization.itertracks(yield_label=True):
-            speakers.add(speaker)
-            total_speech_time += segment.duration
+        # Iterate over speaker diarization
+        # PyAnnote 4.x returns a DiarizeOutput object with a speaker_diarization attribute
+        if hasattr(diarization, "speaker_diarization"):
+            for turn, speaker in diarization.speaker_diarization:
+                speakers.add(speaker)
+                total_speech_time += turn.duration
+        elif hasattr(diarization, "itertracks"):
+            # Fallback for older versions
+            for segment, track, speaker in diarization.itertracks(yield_label=True):
+                speakers.add(speaker)
+                total_speech_time += segment.duration
+        else:
+            # Try iterating directly (some versions return Annotation directly)
+            for segment, track, speaker in diarization.itertracks(yield_label=True):
+                speakers.add(speaker)
+                total_speech_time += segment.duration
         
         print(f"\nDiarization Summary:")
         print(f"  Speakers detected: {len(speakers)}")
@@ -362,15 +375,28 @@ def save_json_format(diarization, output_file: str, audio_path: str):
     segments = []
     speakers = set()
     
-    for segment, track, speaker in diarization.itertracks(yield_label=True):
-        segments.append({
-            "start": segment.start,
-            "end": segment.end,
-            "speaker": speaker,
-            "confidence": 1.0,  # PyAnnote doesn't provide per-segment confidence
-            "duration": segment.duration
-        })
-        speakers.add(speaker)
+    # PyAnnote 4.x
+    if hasattr(diarization, "speaker_diarization"):
+        for turn, speaker in diarization.speaker_diarization:
+            segments.append({
+                "start": turn.start,
+                "end": turn.end,
+                "speaker": speaker,
+                "confidence": 1.0,
+                "duration": turn.duration
+            })
+            speakers.add(speaker)
+    # Older versions
+    elif hasattr(diarization, "itertracks"):
+        for segment, track, speaker in diarization.itertracks(yield_label=True):
+            segments.append({
+                "start": segment.start,
+                "end": segment.end,
+                "speaker": speaker,
+                "confidence": 1.0,
+                "duration": segment.duration
+            })
+            speakers.add(speaker)
     
     # Sort segments by start time
     segments.sort(key=lambda x: x["start"])
