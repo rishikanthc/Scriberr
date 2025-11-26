@@ -76,7 +76,7 @@ func NewWhisperXAdapter(envPath string) *WhisperXAdapter {
 			Type:        "string",
 			Required:    false,
 			Default:     "cpu",
-			Options:     []string{"cpu", "cuda", "mps"},
+			Options:     []string{"cpu", "cuda"},
 			Description: "Device to use for computation",
 			Group:       "basic",
 		},
