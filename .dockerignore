@@ -35,6 +35,7 @@ build
 data
 data_bak
 scriberr-data
+scriberr_data
 .dockerdata
 *.log
 *.zip

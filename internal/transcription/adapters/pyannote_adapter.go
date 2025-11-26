@@ -215,10 +215,10 @@ version = "0.1.0"
 description = "Audio diarization using PyAnnote"
 requires-python = ">=3.10"
 dependencies = [
-    "torch==2.1.2",
-    "torchaudio==2.1.2",
-    "numpy<2.0",
-    "pyannote.audio"
+    "torch>=2.5.0",
+    "torchaudio>=2.5.0",
+    "huggingface-hub>=0.28.1",
+    "pyannote.audio==4.0.2"
 ]
 `
 	pyprojectPath := filepath.Join(p.envPath, "pyproject.toml")
