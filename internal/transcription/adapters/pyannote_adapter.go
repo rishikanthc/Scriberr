@@ -295,18 +295,18 @@ def diarize_audio(
         
         # Move to specified device
         # if device == "auto" or device == "cuda":
-		try:
-			if torch.cuda.is_available():
-				pipeline = pipeline.to(torch.device("cuda"))
-				print("Using CUDA for diarization")
-			elif device == "cuda":
-				print("CUDA requested but not available, falling back to CPU")
-			else:
-				print("CUDA not available, using CPU")
-		except ImportError:
-			print("PyTorch not available for CUDA, using CPU")
-		except Exception as e:
-			print(f"Error moving to device: {e}, using CPU")
+        try:
+            if torch.cuda.is_available():
+                pipeline = pipeline.to(torch.device("cuda"))
+                print("Using CUDA for diarization")
+            elif device == "cuda":
+                print("CUDA requested but not available, falling back to CPU")
+            else:
+                print("CUDA not available, using CPU")
+        except ImportError:
+            print("PyTorch not available for CUDA, using CPU")
+        except Exception as e:
+            print(f"Error moving to device: {e}, using CPU")
         
         print("Pipeline loaded successfully")
     except Exception as e:
