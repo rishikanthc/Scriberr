@@ -45,7 +45,6 @@ temp
 
 # Documentation and Assets (if not needed for build)
 docs
-api-docs
 assets
 manifest_and_icons
 manifest_and_icons.zip
