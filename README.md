@@ -42,6 +42,7 @@ Scriberr is a self‑hosted offline transcription app for converting audio into 
 - Summarize and chat over transcripts (OpenAI or local models via Ollama)
 - Transcription profiles for re‑usable configurations
 - YouTube video transcription (paste a link and transcribe)
+- **CSV Batch Import** - Import a CSV list of YouTube URLs for sequential batch transcription
 - Quick transcribe (ephemeral) and batch upload
 - REST API coverage for all major features + API key management
 - Download transcripts as JSON/SRT/TXT (and more)
@@ -194,6 +195,56 @@ See the full guide: https://scriberr.app/docs/diarization.html
 
 Scribber uses different models from Ollama (local, open-source and free) or OpenAi (online, propietary, paid) in order to automatically summarize the transcriptions. To connect, just go to settings and introduce either the Ollama port or the OpenAI API.
 A common error is that if Ollama has been installed through Docker, rather then connecting via "http://localhost:11434" you sohuld instead connect through "http://host.docker.internal:11434" (change the port to whichever you have used, automatically uses that one). That way Scriberr directly connects to the Docker, avoiding a "Failed to fetch model" error and alike.
+
+## CSV Batch Import
+
+Scriberr supports importing a CSV file containing YouTube URLs for batch transcription. This is useful for processing multiple videos sequentially.
+
+### CSV Format
+
+Create a CSV file with YouTube URLs (one per row):
+
+```csv
+url
+https://www.youtube.com/watch?v=VIDEO_ID_1
+https://www.youtube.com/watch?v=VIDEO_ID_2
+https://youtu.be/VIDEO_ID_3
+```
+
+### How It Works
+
+1. **Upload CSV** - POST your CSV file to `/api/v1/csv-batch/upload`
+2. **Start Processing** - POST to `/api/v1/csv-batch/{batchId}/start` with your transcription profile
+3. **Monitor Progress** - GET `/api/v1/csv-batch/{batchId}/status` to check progress
+4. **Get Results** - Each video produces a JSON file: `{rowId}-{videoFilename}.json`
+
+### Processing Flow
+
+For each row in the CSV:
+1. Download the YouTube video
+2. Extract and convert audio to compatible format
+3. Delete the video file (saves disk space)
+4. Transcribe the audio using configured settings
+5. Save JSON output as `{rowId}-{videoFilename}.json`
+6. Mark row as completed and proceed to next
+
+### API Example
+
+```bash
+# Upload CSV
+curl -X POST http://localhost:8080/api/v1/csv-batch/upload \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -F "file=@youtube_urls.csv"
+
+# Start processing with default profile
+curl -X POST http://localhost:8080/api/v1/csv-batch/{batchId}/start \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json"
+
+# Check status
+curl http://localhost:8080/api/v1/csv-batch/{batchId}/status \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
 
 ## API
 

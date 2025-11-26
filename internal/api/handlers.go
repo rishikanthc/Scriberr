@@ -19,6 +19,7 @@ import (
 
 	"scriberr/internal/auth"
 	"scriberr/internal/config"
+	"scriberr/internal/csvbatch"
 	"scriberr/internal/database"
 	"scriberr/internal/models"
 	"scriberr/internal/processing"
@@ -39,10 +40,14 @@ type Handler struct {
 	unifiedProcessor    *transcription.UnifiedJobProcessor
 	quickTranscription  *transcription.QuickTranscriptionService
 	multiTrackProcessor *processing.MultiTrackProcessor
+	csvBatchProcessor   *csvbatch.Processor
 }
 
 // NewHandler creates a new handler
 func NewHandler(cfg *config.Config, authService *auth.AuthService, taskQueue *queue.TaskQueue, unifiedProcessor *transcription.UnifiedJobProcessor, quickTranscription *transcription.QuickTranscriptionService) *Handler {
+	// Create CSV batch processor
+	csvProcessor := csvbatch.NewProcessor(cfg, nil) // Transcribe function can be nil, will use direct transcription
+
 	return &Handler{
 		config:              cfg,
 		authService:         authService,
@@ -50,7 +55,13 @@ func NewHandler(cfg *config.Config, authService *auth.AuthService, taskQueue *qu
 		unifiedProcessor:    unifiedProcessor,
 		quickTranscription:  quickTranscription,
 		multiTrackProcessor: processing.NewMultiTrackProcessor(),
+		csvBatchProcessor:   csvProcessor,
 	}
+}
+
+// GetCSVBatchProcessor returns the CSV batch processor for route registration
+func (h *Handler) GetCSVBatchProcessor() *csvbatch.Processor {
+	return h.csvBatchProcessor
 }
 
 // SubmitJobRequest represents the submit job request
