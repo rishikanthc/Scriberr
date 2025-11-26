@@ -581,6 +581,7 @@ func (u *UnifiedTranscriptionService) convertToPyannoteParams(params models.Whis
 	paramMap := map[string]interface{}{
 		"output_format":      "json",
 		"auto_convert_audio": true,
+		"device":             "auto",
 	}
 
 	if params.MinSpeakers != nil {

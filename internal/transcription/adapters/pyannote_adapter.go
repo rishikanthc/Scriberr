@@ -277,7 +277,7 @@ def diarize_audio(
     min_speakers: int = None,
     max_speakers: int = None,
     output_format: str = "rttm",
-    output_format: str = "rttm",
+
     device: str = "auto"
 ):
     """
@@ -310,10 +310,8 @@ def diarize_audio(
                         print("CUDA/MPS not available, using CPU")
             except ImportError:
                 print("PyTorch not available for CUDA, using CPU")
-                else:
-                    print("CUDA/MPS not available, using CPU")
-            except ImportError:
-                print("PyTorch not available for CUDA, using CPU")
+            except Exception as e:
+                print(f"Error moving to device: {e}, using CPU")
         
         print("Pipeline loaded successfully")
     except Exception as e:
