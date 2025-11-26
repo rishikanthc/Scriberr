@@ -53,3 +53,9 @@ tests/database_test.db-shm
 # Project documentation (local only)
 project-docs
 !internal/web/static.go
+feats.txt
+log.txt
+manifest_and_icons
+manifest_and_icons.zip
+server
+tests/database_test.db-wal
