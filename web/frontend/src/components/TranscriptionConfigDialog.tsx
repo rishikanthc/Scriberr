@@ -376,7 +376,16 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
     key: K,
     value: WhisperXParams[K]
   ) => {
-    setParams(prev => ({ ...prev, [key]: value }));
+    setParams(prev => {
+      const newParams = { ...prev, [key]: value };
+
+      // If switching to Whisper family, ensure diarize_model is pyannote
+      if (key === 'model_family' && value === 'whisper') {
+        newParams.diarize_model = 'pyannote';
+      }
+
+      return newParams;
+    });
   };
 
   const handleStartTranscription = () => {
@@ -1608,35 +1617,37 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
 
                   {params.diarize && (
                     <div className="p-4 sm:p-6 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800 space-y-4 sm:space-y-6">
-                      <div>
-                        <div className="flex items-center gap-2 mb-2">
-                          <Label htmlFor="diarize_model" className="text-gray-700 dark:text-gray-300">Diarization Model</Label>
-                          <HoverCard>
-                            <HoverCardTrigger asChild>
-                              <Info className="h-4 w-4 text-gray-400 cursor-help" />
-                            </HoverCardTrigger>
-                            <HoverCardContent className="w-80 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
-                              <p className="text-sm text-gray-700 dark:text-gray-300">{PARAM_DESCRIPTIONS.diarize_model}</p>
-                            </HoverCardContent>
-                          </HoverCard>
+                      {params.model_family !== 'whisper' && (
+                        <div>
+                          <div className="flex items-center gap-2 mb-2">
+                            <Label htmlFor="diarize_model" className="text-gray-700 dark:text-gray-300">Diarization Model</Label>
+                            <HoverCard>
+                              <HoverCardTrigger asChild>
+                                <Info className="h-4 w-4 text-gray-400 cursor-help" />
+                              </HoverCardTrigger>
+                              <HoverCardContent className="w-80 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                                <p className="text-sm text-gray-700 dark:text-gray-300">{PARAM_DESCRIPTIONS.diarize_model}</p>
+                              </HoverCardContent>
+                            </HoverCard>
+                          </div>
+                          <Select
+                            value={params.diarize_model}
+                            onValueChange={(value) => updateParam('diarize_model', value)}
+                          >
+                            <SelectTrigger className="mt-3 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                              <SelectItem value="pyannote" className="text-gray-900 dark:text-gray-100 focus:bg-gray-100 dark:focus:bg-gray-700">
+                                Pyannote (Recommended) - Requires HF Token
+                              </SelectItem>
+                              <SelectItem value="nvidia_sortformer" className="text-gray-900 dark:text-gray-100 focus:bg-gray-100 dark:focus:bg-gray-700">
+                                NVIDIA Sortformer - 4 Speakers Max, No Token
+                              </SelectItem>
+                            </SelectContent>
+                          </Select>
                         </div>
-                        <Select
-                          value={params.diarize_model}
-                          onValueChange={(value) => updateParam('diarize_model', value)}
-                        >
-                          <SelectTrigger className="mt-3 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
-                            <SelectItem value="pyannote" className="text-gray-900 dark:text-gray-100 focus:bg-gray-100 dark:focus:bg-gray-700">
-                              Pyannote (Recommended) - Requires HF Token
-                            </SelectItem>
-                            <SelectItem value="nvidia_sortformer" className="text-gray-900 dark:text-gray-100 focus:bg-gray-100 dark:focus:bg-gray-700">
-                              NVIDIA Sortformer - 4 Speakers Max, No Token
-                            </SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
+                      )}
 
                       {params.diarize_model === "pyannote" && (
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
