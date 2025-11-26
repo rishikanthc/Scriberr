@@ -26,9 +26,9 @@ func NewPyAnnoteAdapter(envPath string) *PyAnnoteAdapter {
 	capabilities := interfaces.ModelCapabilities{
 		ModelID:            "pyannote",
 		ModelFamily:        "pyannote",
-		DisplayName:        "PyAnnote Speaker Diarization 3.1",
-		Description:        "PyAnnote audio speaker diarization with configurable speaker constraints",
-		Version:            "3.1.0",
+		DisplayName:        "PyAnnote Speaker Diarization Community 1",
+		Description:        "PyAnnote community model for speaker diarization",
+		Version:            "1.0.0",
 		SupportedLanguages: []string{"*"}, // Language-agnostic
 		SupportedFormats:   []string{"wav", "mp3", "flac", "m4a", "ogg"},
 		RequiresGPU:        false, // Optional GPU support
@@ -63,8 +63,8 @@ func NewPyAnnoteAdapter(envPath string) *PyAnnoteAdapter {
 			Name:        "model",
 			Type:        "string",
 			Required:    false,
-			Default:     "pyannote/speaker-diarization-3.1",
-			Options:     []string{"pyannote/speaker-diarization-3.1", "pyannote/speaker-diarization-3.0"},
+			Default:     "pyannote/speaker-diarization-community-1",
+			Options:     []string{"pyannote/speaker-diarization-community-1"},
 			Description: "PyAnnote model to use",
 			Group:       "basic",
 		},
@@ -164,7 +164,7 @@ func (p *PyAnnoteAdapter) GetMinSpeakers() int {
 	return 1
 }
 
-// PrepareEnvironment sets up the PyAnnote environment (shared with NVIDIA models)
+// PrepareEnvironment sets up the dedicated PyAnnote environment
 func (p *PyAnnoteAdapter) PrepareEnvironment(ctx context.Context) error {
 	logger.Info("Preparing PyAnnote environment", "env_path", p.envPath)
 
@@ -179,19 +179,9 @@ func (p *PyAnnoteAdapter) PrepareEnvironment(ctx context.Context) error {
 		return nil
 	}
 
-	// Check if the shared environment exists (created by NVIDIA adapters)
-	pyprojectPath := filepath.Join(p.envPath, "pyproject.toml")
-	if _, err := os.Stat(pyprojectPath); err != nil {
-		// Create environment if it doesn't exist
-		if err := p.setupPyAnnoteEnvironment(); err != nil {
-			return fmt.Errorf("failed to setup PyAnnote environment: %w", err)
-		}
-	} else {
-		// Environment exists but PyAnnote not available - add PyAnnote to existing environment
-		logger.Info("Adding PyAnnote to existing environment")
-		if err := p.addPyAnnoteToEnvironment(); err != nil {
-			return fmt.Errorf("failed to add PyAnnote to environment: %w", err)
-		}
+	// Create environment if it doesn't exist or is incomplete
+	if err := p.setupPyAnnoteEnvironment(); err != nil {
+		return fmt.Errorf("failed to setup PyAnnote environment: %w", err)
 	}
 
 	// Always ensure diarization script exists
@@ -210,31 +200,26 @@ func (p *PyAnnoteAdapter) PrepareEnvironment(ctx context.Context) error {
 	return nil
 }
 
-// setupPyAnnoteEnvironment creates the Python environment if it doesn't exist
+// setupPyAnnoteEnvironment creates the Python environment
 func (p *PyAnnoteAdapter) setupPyAnnoteEnvironment() error {
 	if err := os.MkdirAll(p.envPath, 0755); err != nil {
 		return fmt.Errorf("failed to create pyannote directory: %w", err)
 	}
 
-	// Create pyproject.toml (same as NVIDIA models but with pyannote.audio added)
+	// Create pyproject.toml for PyAnnote
+	// Note: We explicitly pin torch and torchaudio to 2.1.2 to ensure compatibility with pyannote.audio 3.1
+	// Newer versions of torchaudio (2.2+) removed AudioMetaData which causes crashes
 	pyprojectContent := `[project]
-name = "parakeet-transcription"
+name = "pyannote-diarization"
 version = "0.1.0"
-description = "Audio transcription using NVIDIA Parakeet models"
-requires-python = ">=3.11"
+description = "Audio diarization using PyAnnote"
+requires-python = ">=3.10"
 dependencies = [
-    "nemo-toolkit[asr]",
-    "torch",
-    "torchaudio",
-    "librosa",
-    "soundfile",
-    "ml-dtypes>=0.3.1,<0.5.0",
-    "onnx>=1.15.0,<1.18.0",
+    "torch==2.1.2",
+    "torchaudio==2.1.2",
+    "numpy<2.0",
     "pyannote.audio"
 ]
-
-[tool.uv.sources]
-nemo-toolkit = { git = "https://github.com/NVIDIA/NeMo.git", tag = "v2.5.3" }
 `
 	pyprojectPath := filepath.Join(p.envPath, "pyproject.toml")
 	if err := os.WriteFile(pyprojectPath, []byte(pyprojectContent), 0644); err != nil {
@@ -242,65 +227,6 @@ nemo-toolkit = { git = "https://github.com/NVIDIA/NeMo.git", tag = "v2.5.3" }
 	}
 
 	// Run uv sync
-	logger.Info("Installing PyAnnote dependencies")
-	cmd := exec.Command("uv", "sync", "--native-tls")
-	cmd.Dir = p.envPath
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("uv sync failed: %w: %s", err, strings.TrimSpace(string(out)))
-	}
-
-	return nil
-}
-
-// addPyAnnoteToEnvironment adds pyannote.audio to an existing environment
-func (p *PyAnnoteAdapter) addPyAnnoteToEnvironment() error {
-	// Read existing pyproject.toml
-	pyprojectPath := filepath.Join(p.envPath, "pyproject.toml")
-	data, err := os.ReadFile(pyprojectPath)
-	if err != nil {
-		return fmt.Errorf("failed to read pyproject.toml: %w", err)
-	}
-
-	content := string(data)
-	logger.Info("Current pyproject.toml content", "content", content)
-
-	// Check if pyannote.audio is already in dependencies
-	if strings.Contains(content, "pyannote.audio") {
-		logger.Info("pyannote.audio already in dependencies, running sync")
-	} else {
-		// Instead of complex string manipulation, let's recreate the file with pyannote.audio
-		logger.Info("Adding pyannote.audio to dependencies by recreating pyproject.toml")
-
-		// Create updated pyproject.toml with pyannote.audio included
-		updatedContent := `[project]
-name = "parakeet-transcription"
-version = "0.1.0"
-description = "Audio transcription using NVIDIA Parakeet models"
-requires-python = ">=3.11"
-dependencies = [
-    "nemo-toolkit[asr]",
-    "torch",
-    "torchaudio",
-    "librosa",
-    "soundfile",
-    "ml-dtypes>=0.3.1,<0.5.0",
-    "onnx>=1.15.0,<1.18.0",
-    "pyannote.audio"
-]
-
-[tool.uv.sources]
-nemo-toolkit = { git = "https://github.com/NVIDIA/NeMo.git", tag = "v2.5.3" }
-`
-
-		// Write updated pyproject.toml
-		if err := os.WriteFile(pyprojectPath, []byte(updatedContent), 0644); err != nil {
-			return fmt.Errorf("failed to write updated pyproject.toml: %w", err)
-		}
-		logger.Info("Updated pyproject.toml with pyannote.audio")
-	}
-
-	// Run uv sync to install pyannote.audio
 	logger.Info("Installing PyAnnote dependencies")
 	cmd := exec.Command("uv", "sync", "--native-tls")
 	cmd.Dir = p.envPath
@@ -339,7 +265,7 @@ def diarize_audio(
     audio_path: str,
     output_file: str,
     hf_token: str,
-    model: str = "pyannote/speaker-diarization-3.1",
+    model: str = "pyannote/speaker-diarization-community-1",
     min_speakers: int = None,
     max_speakers: int = None,
     output_format: str = "rttm",
@@ -354,7 +280,7 @@ def diarize_audio(
         # Initialize the diarization pipeline
         pipeline = Pipeline.from_pretrained(
             model,
-            use_auth_token=hf_token
+            token=hf_token
         )
         
         # Move to specified device
@@ -451,7 +377,7 @@ def save_json_format(diarization, output_file: str, audio_path: str):
     
     results = {
         "audio_file": audio_path,
-        "model": "pyannote/speaker-diarization-3.1",
+        "model": "pyannote/speaker-diarization-community-1",
         "segments": segments,
         "speakers": sorted(speakers),
         "speaker_count": len(speakers),
@@ -486,7 +412,7 @@ def main():
     )
     parser.add_argument(
         "--model",
-        default="pyannote/speaker-diarization-3.1",
+        default="pyannote/speaker-diarization-community-1",
         help="PyAnnote model to use"
     )
     parser.add_argument(

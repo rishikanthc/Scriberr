@@ -21,13 +21,13 @@ import (
 
 // UnifiedTranscriptionService provides a unified interface for all transcription and diarization models
 type UnifiedTranscriptionService struct {
-	registry          *registry.ModelRegistry
-	pipeline          *pipeline.ProcessingPipeline
-	preprocessors     map[string]interfaces.Preprocessor
-	postprocessors    map[string]interfaces.Postprocessor
-	tempDirectory     string
-	outputDirectory   string
-	defaultModelIDs   map[string]string // Default model IDs for each task type
+	registry              *registry.ModelRegistry
+	pipeline              *pipeline.ProcessingPipeline
+	preprocessors         map[string]interfaces.Preprocessor
+	postprocessors        map[string]interfaces.Postprocessor
+	tempDirectory         string
+	outputDirectory       string
+	defaultModelIDs       map[string]string      // Default model IDs for each task type
 	multiTrackTranscriber *MultiTrackTranscriber // For termination support
 }
 
@@ -182,7 +182,7 @@ func (u *UnifiedTranscriptionService) processSingleTrackJob(ctx context.Context,
 		// Track temporary file for cleanup if preprocessing created one
 		if preprocessedInput.TempFilePath != "" && preprocessedInput.TempFilePath != audioInput.FilePath {
 			tempFilesToCleanup = append(tempFilesToCleanup, preprocessedInput.TempFilePath)
-			logger.Info("Audio preprocessing completed", 
+			logger.Info("Audio preprocessing completed",
 				"original", audioInput.FilePath,
 				"converted", preprocessedInput.TempFilePath,
 				"original_sr", audioInput.SampleRate,
@@ -227,8 +227,8 @@ func (u *UnifiedTranscriptionService) processSingleTrackJob(ctx context.Context,
 	if job.Parameters.Diarize && diarizationModelID != "" {
 		// Convert parameters for diarization model
 		diarizationParams := u.convertParametersForModel(job.Parameters, diarizationModelID)
-		
-		if !u.transcriptionIncludesDiarization(transcriptionModelID, diarizationParams) {
+
+		if !u.transcriptionIncludesDiarization(transcriptionModelID, job.Parameters) {
 			logger.Info("Running separate diarization", "model_id", diarizationModelID)
 			diarizationAdapter, err := u.registry.GetDiarizationAdapter(diarizationModelID)
 			if err != nil {
@@ -266,11 +266,11 @@ func (u *UnifiedTranscriptionService) processMultiTrackJob(ctx context.Context, 
 	unifiedProcessor := &UnifiedJobProcessor{
 		unifiedService: u,
 	}
-	
+
 	// Create multi-track transcriber with unified processor and store reference for termination
 	transcriber := NewMultiTrackTranscriber(unifiedProcessor)
 	u.multiTrackTranscriber = transcriber
-	
+
 	// Process the multi-track transcription
 	return transcriber.ProcessMultiTrackTranscription(ctx, job.ID)
 }
@@ -318,8 +318,8 @@ func (u *UnifiedTranscriptionService) selectModels(params models.WhisperXParams)
 		}
 	}
 
-	logger.Info("Selected models", 
-		"transcription", transcriptionModelID, 
+	logger.Info("Selected models",
+		"transcription", transcriptionModelID,
 		"diarization", diarizationModelID,
 		"original_family", params.ModelFamily,
 		"original_diarize_model", params.DiarizeModel)
@@ -328,30 +328,30 @@ func (u *UnifiedTranscriptionService) selectModels(params models.WhisperXParams)
 }
 
 // transcriptionIncludesDiarization checks if the transcription model already includes diarization
-func (u *UnifiedTranscriptionService) transcriptionIncludesDiarization(modelID string, params map[string]interface{}) bool {
+func (u *UnifiedTranscriptionService) transcriptionIncludesDiarization(modelID string, params models.WhisperXParams) bool {
 	// WhisperX includes diarization when enabled
 	if modelID == "whisperx" {
-		if diarize, ok := params["diarize"].(bool); ok && diarize {
+		if params.Diarize {
 			// Check if it's using nvidia_sortformer (which requires separate processing)
-			if diarizeModel, ok := params["diarize_model"].(string); ok {
-				return diarizeModel != "nvidia_sortformer"
+			if params.DiarizeModel == "nvidia_sortformer" {
+				return false
 			}
 			return true
 		}
 	}
-	
+
 	return false
 }
 
 // ffprobeOutput represents the JSON output from ffprobe
 type ffprobeOutput struct {
 	Streams []struct {
-		CodecType    string `json:"codec_type"`
-		SampleRate   string `json:"sample_rate"`
-		Channels     int    `json:"channels"`
-		Duration     string `json:"duration"`
-		CodecName    string `json:"codec_name"`
-		BitRate      string `json:"bit_rate"`
+		CodecType  string `json:"codec_type"`
+		SampleRate string `json:"sample_rate"`
+		Channels   int    `json:"channels"`
+		Duration   string `json:"duration"`
+		CodecName  string `json:"codec_name"`
+		BitRate    string `json:"bit_rate"`
 	} `json:"streams"`
 	Format struct {
 		Duration string `json:"duration"`
@@ -380,13 +380,13 @@ func (u *UnifiedTranscriptionService) createAudioInput(audioPath string) (interf
 	}
 
 	// Run ffprobe to get audio metadata
-	cmd := exec.Command("ffprobe", 
+	cmd := exec.Command("ffprobe",
 		"-v", "quiet",
 		"-print_format", "json",
 		"-show_format",
 		"-show_streams",
 		audioPath)
-	
+
 	output, err := cmd.Output()
 	if err != nil {
 		logger.Warn("Failed to run ffprobe, using defaults", "error", err, "file", audioPath)
@@ -438,7 +438,7 @@ func (u *UnifiedTranscriptionService) createAudioInput(audioPath string) (interf
 			if stream.BitRate != "" {
 				audioInput.Metadata["bitrate"] = stream.BitRate
 			}
-			
+
 			break
 		}
 	}
@@ -451,7 +451,7 @@ func (u *UnifiedTranscriptionService) createAudioInput(audioPath string) (interf
 		audioInput.Channels = 1
 	}
 
-	logger.Info("Audio metadata extracted", 
+	logger.Info("Audio metadata extracted",
 		"file", audioPath,
 		"sample_rate", audioInput.SampleRate,
 		"channels", audioInput.Channels,
@@ -484,10 +484,10 @@ func (u *UnifiedTranscriptionService) convertParametersForModel(params models.Wh
 // convertToParakeetParams converts to Parakeet-specific parameters
 func (u *UnifiedTranscriptionService) convertToParakeetParams(params models.WhisperXParams) map[string]interface{} {
 	return map[string]interface{}{
-		"timestamps":     true,
-		"context_left":   params.AttentionContextLeft,
-		"context_right":  params.AttentionContextRight,
-		"output_format":  "json",
+		"timestamps":         true,
+		"context_left":       params.AttentionContextLeft,
+		"context_right":      params.AttentionContextRight,
+		"output_format":      "json",
 		"auto_convert_audio": true,
 	}
 }
@@ -495,24 +495,24 @@ func (u *UnifiedTranscriptionService) convertToParakeetParams(params models.Whis
 // convertToCanaryParams converts to Canary-specific parameters
 func (u *UnifiedTranscriptionService) convertToCanaryParams(params models.WhisperXParams) map[string]interface{} {
 	paramMap := map[string]interface{}{
-		"timestamps":     true,
-		"output_format":  "json",
+		"timestamps":         true,
+		"output_format":      "json",
 		"auto_convert_audio": true,
-		"task":           params.Task,
+		"task":               params.Task,
 	}
-	
+
 	// Set source language
 	if params.Language != nil {
 		paramMap["source_lang"] = *params.Language
 	} else {
 		paramMap["source_lang"] = "en"
 	}
-	
+
 	// Set target language for translation
 	if params.Task == "translate" {
 		paramMap["target_lang"] = "en"
 	}
-	
+
 	return paramMap
 }
 
@@ -521,32 +521,32 @@ func (u *UnifiedTranscriptionService) convertToWhisperXParams(params models.Whis
 	// For WhisperX, we use the standard WhisperX parameters (no NVIDIA-specific ones)
 	paramMap := map[string]interface{}{
 		// Core parameters
-		"model":         params.Model,
-		"device":        params.Device,
-		"device_index":  params.DeviceIndex,
-		"batch_size":    params.BatchSize,
-		"compute_type":  params.ComputeType,
-		"threads":       params.Threads,
-		
+		"model":        params.Model,
+		"device":       params.Device,
+		"device_index": params.DeviceIndex,
+		"batch_size":   params.BatchSize,
+		"compute_type": params.ComputeType,
+		"threads":      params.Threads,
+
 		// Task and language
-		"task":          params.Task,
-		
+		"task": params.Task,
+
 		// Diarization
 		"diarize":       params.Diarize,
 		"diarize_model": params.DiarizeModel,
-		
+
 		// Quality settings
-		"temperature":    params.Temperature,
-		"best_of":        params.BestOf,
-		"beam_size":      params.BeamSize,
-		"patience":       params.Patience,
-		
+		"temperature": params.Temperature,
+		"best_of":     params.BestOf,
+		"beam_size":   params.BeamSize,
+		"patience":    params.Patience,
+
 		// VAD settings
-		"vad_method":     params.VadMethod,
-		"vad_onset":      params.VadOnset,
-		"vad_offset":     params.VadOffset,
+		"vad_method": params.VadMethod,
+		"vad_onset":  params.VadOnset,
+		"vad_offset": params.VadOffset,
 	}
-	
+
 	// Handle pointer fields - only add if not nil
 	if params.Language != nil {
 		paramMap["language"] = *params.Language
@@ -572,17 +572,17 @@ func (u *UnifiedTranscriptionService) convertToWhisperXParams(params models.Whis
 	if params.InitialPrompt != nil {
 		paramMap["initial_prompt"] = *params.InitialPrompt
 	}
-	
+
 	return paramMap
 }
 
 // convertToPyannoteParams converts to PyAnnote-specific parameters
 func (u *UnifiedTranscriptionService) convertToPyannoteParams(params models.WhisperXParams) map[string]interface{} {
 	paramMap := map[string]interface{}{
-		"output_format": "json",
+		"output_format":      "json",
 		"auto_convert_audio": true,
 	}
-	
+
 	if params.MinSpeakers != nil {
 		paramMap["min_speakers"] = *params.MinSpeakers
 	}
@@ -592,14 +592,14 @@ func (u *UnifiedTranscriptionService) convertToPyannoteParams(params models.Whis
 	if params.HfToken != nil {
 		paramMap["hf_token"] = *params.HfToken
 	}
-	
+
 	return paramMap
 }
 
 // convertToSortformerParams converts to Sortformer-specific parameters
 func (u *UnifiedTranscriptionService) convertToSortformerParams(params models.WhisperXParams) map[string]interface{} {
 	return map[string]interface{}{
-		"output_format": "json",
+		"output_format":      "json",
 		"auto_convert_audio": true,
 		// Sortformer is optimized for 4 speakers, no additional config needed
 	}
@@ -608,21 +608,21 @@ func (u *UnifiedTranscriptionService) convertToSortformerParams(params models.Wh
 func (u *UnifiedTranscriptionService) parametersToMap(params models.WhisperXParams) map[string]interface{} {
 	paramMap := map[string]interface{}{
 		// Core parameters
-		"model":         params.Model,
-		"device":        params.Device,
-		"device_index":  params.DeviceIndex,
-		"batch_size":    params.BatchSize,
-		"compute_type":  params.ComputeType,
-		"threads":       params.Threads,
-		
+		"model":        params.Model,
+		"device":       params.Device,
+		"device_index": params.DeviceIndex,
+		"batch_size":   params.BatchSize,
+		"compute_type": params.ComputeType,
+		"threads":      params.Threads,
+
 		// Language and task
-		"task":          params.Task,
-		
+		"task": params.Task,
+
 		// Diarization
 		"diarize":       params.Diarize,
 		"diarize_model": params.DiarizeModel,
 	}
-	
+
 	// Handle pointer fields - only add if not nil
 	if params.Language != nil {
 		paramMap["language"] = *params.Language
@@ -648,7 +648,7 @@ func (u *UnifiedTranscriptionService) parametersToMap(params models.WhisperXPara
 	if params.InitialPrompt != nil {
 		paramMap["initial_prompt"] = *params.InitialPrompt
 	}
-	
+
 	// Add remaining non-pointer fields
 	paramMap["temperature"] = params.Temperature
 	paramMap["best_of"] = params.BestOf
@@ -670,7 +670,7 @@ func (u *UnifiedTranscriptionService) parametersToMap(params models.WhisperXPara
 		} else {
 			paramMap["source_lang"] = "en"
 		}
-		
+
 		if params.Task == "translate" {
 			paramMap["target_lang"] = "en" // Default target for translation
 		} else {
@@ -683,7 +683,7 @@ func (u *UnifiedTranscriptionService) parametersToMap(params models.WhisperXPara
 
 // mergeDiarizationWithTranscription combines diarization results with transcription
 func (u *UnifiedTranscriptionService) mergeDiarizationWithTranscription(transcript *interfaces.TranscriptResult, diarization *interfaces.DiarizationResult) *interfaces.TranscriptResult {
-	logger.Info("Merging diarization with transcription", 
+	logger.Info("Merging diarization with transcription",
 		"transcript_segments", len(transcript.Segments),
 		"diarization_segments", len(diarization.Segments))
 
