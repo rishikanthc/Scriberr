@@ -116,8 +116,8 @@ func NewPyAnnoteAdapter(envPath string) *PyAnnoteAdapter {
 			Type:        "string",
 			Required:    false,
 			Default:     "cpu",
-			Options:     []string{"cpu", "cuda", "mps"},
-			Description: "Device to use for computation (cpu, cuda for NVIDIA GPUs, mps for Apple Silicon)",
+			Options:     []string{"cpu", "cuda"},
+			Description: "Device to use for computation (cpu or cuda for NVIDIA GPUs)",
 			Group:       "advanced",
 		},
 
@@ -140,6 +140,14 @@ func NewPyAnnoteAdapter(envPath string) *PyAnnoteAdapter {
 			Min:         &[]float64{0.0}[0],
 			Max:         &[]float64{1.0}[0],
 			Description: "Voice activity detection offset threshold",
+			Group:       "advanced",
+		},
+		{
+			Name:        "auto_convert_audio",
+			Type:        "bool",
+			Required:    false,
+			Default:     true,
+			Description: "Automatically convert audio to supported format",
 			Group:       "advanced",
 		},
 	}
@@ -242,10 +250,10 @@ dependencies = [
 func (p *PyAnnoteAdapter) createDiarizationScript() error {
 	scriptPath := filepath.Join(p.envPath, "pyannote_diarize.py")
 
-	// Check if script already exists
-	if _, err := os.Stat(scriptPath); err == nil {
-		return nil
-	}
+	// Always recreate the script to ensure it's up to date with the adapter code
+	// if _, err := os.Stat(scriptPath); err == nil {
+	// 	return nil
+	// }
 
 	scriptContent := `#!/usr/bin/env python3
 """
@@ -269,7 +277,8 @@ def diarize_audio(
     min_speakers: int = None,
     max_speakers: int = None,
     output_format: str = "rttm",
-    device: str = "cpu"
+    output_format: str = "rttm",
+    device: str = "auto"
 ):
     """
     Perform speaker diarization on audio file using PyAnnote.
@@ -284,26 +293,27 @@ def diarize_audio(
         )
         
         # Move to specified device
-        if device == "cuda":
+        if device == "auto" or device == "cuda":
             try:
                 import torch
                 if torch.cuda.is_available():
                     pipeline = pipeline.to(torch.device("cuda"))
                     print("Using CUDA for diarization")
+                elif device == "cuda":
+                    print("CUDA requested but not available, falling back to CPU")
                 else:
-                    print("CUDA not available, falling back to CPU")
+                    # Auto mode, no CUDA
+                    if torch.backends.mps.is_available():
+                        pipeline = pipeline.to(torch.device("mps"))
+                        print("Using MPS (Apple Silicon) for diarization")
+                    else:
+                        print("CUDA/MPS not available, using CPU")
             except ImportError:
                 print("PyTorch not available for CUDA, using CPU")
-        elif device == "mps":
-            try:
-                import torch
-                if torch.backends.mps.is_available():
-                    pipeline = pipeline.to(torch.device("mps"))
-                    print("Using MPS (Apple Silicon) for diarization")
                 else:
-                    print("MPS not available, falling back to CPU")
-            except (ImportError, AttributeError):
-                print("PyTorch MPS not available, using CPU")
+                    print("CUDA/MPS not available, using CPU")
+            except ImportError:
+                print("PyTorch not available for CUDA, using CPU")
         
         print("Pipeline loaded successfully")
     except Exception as e:
@@ -459,8 +469,8 @@ def main():
     )
     parser.add_argument(
         "--device",
-        choices=["cpu", "cuda", "mps"],
-        default="cpu",
+        choices=["cpu", "cuda"],
+        default="auto",
         help="Device to use for computation"
     )
 
@@ -640,6 +650,9 @@ func (p *PyAnnoteAdapter) buildPyAnnoteArgs(input interfaces.AudioInput, params 
 	// Add device
 	if device := p.GetStringParameter(params, "device"); device != "" {
 		args = append(args, "--device", device)
+	} else {
+		// Default to auto if not specified
+		args = append(args, "--device", "auto")
 	}
 
 	return args, nil
