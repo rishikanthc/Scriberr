@@ -4,6 +4,7 @@ import (
 	"context"
 	"os/exec"
 
+	"scriberr/internal/repository"
 	"scriberr/pkg/logger"
 )
 
@@ -13,9 +14,9 @@ type UnifiedJobProcessor struct {
 }
 
 // NewUnifiedJobProcessor creates a new job processor using the unified service
-func NewUnifiedJobProcessor() *UnifiedJobProcessor {
+func NewUnifiedJobProcessor(jobRepo repository.JobRepository) *UnifiedJobProcessor {
 	return &UnifiedJobProcessor{
-		unifiedService: NewUnifiedTranscriptionService(),
+		unifiedService: NewUnifiedTranscriptionService(jobRepo),
 	}
 }
 
@@ -35,12 +36,12 @@ func (u *UnifiedJobProcessor) ProcessJobWithProcess(ctx context.Context, jobID s
 	// Note: The new adapter architecture doesn't expose the underlying process in the same way
 	// For backward compatibility, we'll call the registerProcess function with nil
 	// In the future, we could modify adapters to support process registration if needed
-	
+
 	logger.Info("Processing job with unified processor (with process registration)", "job_id", jobID)
-	
+
 	// Register a nil process for backward compatibility
 	registerProcess(nil)
-	
+
 	return u.unifiedService.ProcessJob(ctx, jobID)
 }
 
@@ -52,24 +53,24 @@ func (u *UnifiedJobProcessor) GetUnifiedService() *UnifiedTranscriptionService {
 // GetSupportedModels returns all supported models through the new architecture
 func (u *UnifiedJobProcessor) GetSupportedModels() map[string]interface{} {
 	capabilities := u.unifiedService.GetSupportedModels()
-	
+
 	// Convert to the format expected by existing APIs
 	result := make(map[string]interface{})
 	for modelID, cap := range capabilities {
 		result[modelID] = map[string]interface{}{
-			"id":          cap.ModelID,
-			"family":      cap.ModelFamily,
-			"name":        cap.DisplayName,
-			"description": cap.Description,
-			"version":     cap.Version,
-			"languages":   cap.SupportedLanguages,
-			"formats":     cap.SupportedFormats,
-			"features":    cap.Features,
-			"memory_mb":   cap.MemoryRequirement,
+			"id":           cap.ModelID,
+			"family":       cap.ModelFamily,
+			"name":         cap.DisplayName,
+			"description":  cap.Description,
+			"version":      cap.Version,
+			"languages":    cap.SupportedLanguages,
+			"formats":      cap.SupportedFormats,
+			"features":     cap.Features,
+			"memory_mb":    cap.MemoryRequirement,
 			"requires_gpu": cap.RequiresGPU,
 		}
 	}
-	
+
 	return result
 }
 
@@ -93,20 +94,20 @@ func (u *UnifiedJobProcessor) InitEmbeddedPythonEnv() error {
 func (u *UnifiedJobProcessor) GetSupportedLanguages() []string {
 	// Aggregate unique languages from all models
 	languageSet := make(map[string]bool)
-	
+
 	capabilities := u.unifiedService.GetSupportedModels()
 	for _, cap := range capabilities {
 		for _, lang := range cap.SupportedLanguages {
 			languageSet[lang] = true
 		}
 	}
-	
+
 	// Convert to sorted slice
 	languages := make([]string, 0, len(languageSet))
 	for lang := range languageSet {
 		languages = append(languages, lang)
 	}
-	
+
 	// Sort for consistent output
 	sort := func(slice []string) {
 		for i := 0; i < len(slice)-1; i++ {
@@ -118,7 +119,7 @@ func (u *UnifiedJobProcessor) GetSupportedLanguages() []string {
 		}
 	}
 	sort(languages)
-	
+
 	return languages
 }
 

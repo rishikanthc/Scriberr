@@ -7,7 +7,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 
-	"scriberr/internal/database"
 	"scriberr/internal/models"
 )
 
@@ -37,8 +36,9 @@ type SummarySettingsResponse struct {
 // @Security BearerAuth
 // @Router /api/v1/summaries [get]
 func (h *Handler) ListSummaryTemplates(c *gin.Context) {
-	var items []models.SummaryTemplate
-	if err := database.DB.Order("created_at DESC").Find(&items).Error; err != nil {
+	// TODO: Add pagination support
+	items, _, err := h.summaryRepo.List(c.Request.Context(), 0, 1000)
+	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch templates"})
 		return
 	}
@@ -65,7 +65,7 @@ func (h *Handler) CreateSummaryTemplate(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	item := models.SummaryTemplate{
+	item := &models.SummaryTemplate{
 		Name:        req.Name,
 		Description: req.Description,
 		Model:       req.Model,
@@ -73,7 +73,7 @@ func (h *Handler) CreateSummaryTemplate(c *gin.Context) {
 		CreatedAt:   time.Now(),
 		UpdatedAt:   time.Now(),
 	}
-	if err := database.DB.Create(&item).Error; err != nil {
+	if err := h.summaryRepo.Create(c.Request.Context(), item); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create template"})
 		return
 	}
@@ -95,13 +95,9 @@ func (h *Handler) CreateSummaryTemplate(c *gin.Context) {
 // @Router /api/v1/summaries/{id} [get]
 func (h *Handler) GetSummaryTemplate(c *gin.Context) {
 	id := c.Param("id")
-	var item models.SummaryTemplate
-	if err := database.DB.Where("id = ?", id).First(&item).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Template not found"})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch template"})
+	item, err := h.summaryRepo.FindByID(c.Request.Context(), id)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Template not found"})
 		return
 	}
 	c.JSON(http.StatusOK, item)
@@ -130,13 +126,9 @@ func (h *Handler) UpdateSummaryTemplate(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	var item models.SummaryTemplate
-	if err := database.DB.Where("id = ?", id).First(&item).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Template not found"})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch template"})
+	item, err := h.summaryRepo.FindByID(c.Request.Context(), id)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Template not found"})
 		return
 	}
 	item.Name = req.Name
@@ -144,7 +136,7 @@ func (h *Handler) UpdateSummaryTemplate(c *gin.Context) {
 	item.Model = req.Model
 	item.Prompt = req.Prompt
 	item.UpdatedAt = time.Now()
-	if err := database.DB.Save(&item).Error; err != nil {
+	if err := h.summaryRepo.Update(c.Request.Context(), item); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update template"})
 		return
 	}
@@ -163,7 +155,7 @@ func (h *Handler) UpdateSummaryTemplate(c *gin.Context) {
 // @Router /api/v1/summaries/{id} [delete]
 func (h *Handler) DeleteSummaryTemplate(c *gin.Context) {
 	id := c.Param("id")
-	if err := database.DB.Delete(&models.SummaryTemplate{}, "id = ?", id).Error; err != nil {
+	if err := h.summaryRepo.Delete(c.Request.Context(), id); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete template"})
 		return
 	}
@@ -180,8 +172,8 @@ func (h *Handler) DeleteSummaryTemplate(c *gin.Context) {
 // @Security ApiKeyAuth
 // @Router /api/v1/summaries/settings [get]
 func (h *Handler) GetSummarySettings(c *gin.Context) {
-	var s models.SummarySetting
-	if err := database.DB.First(&s).Error; err != nil {
+	s, err := h.summaryRepo.GetSettings(c.Request.Context())
+	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			c.JSON(http.StatusOK, SummarySettingsResponse{DefaultModel: ""})
 			return
@@ -210,12 +202,23 @@ func (h *Handler) SaveSummarySettings(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	var s models.SummarySetting
-	if err := database.DB.First(&s).Error; err != nil {
+	s, err := h.summaryRepo.GetSettings(c.Request.Context())
+	if err != nil {
 		if err == gorm.ErrRecordNotFound {
-			s.DefaultModel = req.DefaultModel
-			s.UpdatedAt = time.Now()
-			if err := database.DB.Create(&s).Error; err != nil {
+			s = &models.SummarySetting{
+				DefaultModel: req.DefaultModel,
+				UpdatedAt:    time.Now(),
+			}
+			// We can't use Create from BaseRepository because it expects *T, but GetSettings returns *T.
+			// BaseRepository.Create expects *T.
+			// Actually BaseRepository[T] Create takes *T.
+			// But here T is models.SummaryTemplate, NOT models.SummarySetting.
+			// SummaryRepository handles SummaryTemplate.
+			// But GetSettings returns SummarySetting.
+			// So I can't use h.summaryRepo.Create(s) because s is SummarySetting, not SummaryTemplate.
+			// I need to add SaveSettings to SummaryRepository which handles creation too.
+			// I added SaveSettings(ctx, settings).
+			if err := h.summaryRepo.SaveSettings(c.Request.Context(), s); err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save settings"})
 				return
 			}
@@ -227,7 +230,7 @@ func (h *Handler) SaveSummarySettings(c *gin.Context) {
 	}
 	s.DefaultModel = req.DefaultModel
 	s.UpdatedAt = time.Now()
-	if err := database.DB.Save(&s).Error; err != nil {
+	if err := h.summaryRepo.SaveSettings(c.Request.Context(), s); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save settings"})
 		return
 	}

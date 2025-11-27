@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"scriberr/internal/database"
 	"scriberr/internal/models"
+	"scriberr/internal/repository"
 	"scriberr/internal/transcription/interfaces"
 	"scriberr/internal/transcription/pipeline"
 	"scriberr/internal/transcription/registry"
@@ -29,10 +29,11 @@ type UnifiedTranscriptionService struct {
 	outputDirectory       string
 	defaultModelIDs       map[string]string      // Default model IDs for each task type
 	multiTrackTranscriber *MultiTrackTranscriber // For termination support
+	jobRepo               repository.JobRepository
 }
 
 // NewUnifiedTranscriptionService creates a new unified transcription service
-func NewUnifiedTranscriptionService() *UnifiedTranscriptionService {
+func NewUnifiedTranscriptionService(jobRepo repository.JobRepository) *UnifiedTranscriptionService {
 	return &UnifiedTranscriptionService{
 		registry:        registry.GetRegistry(),
 		pipeline:        pipeline.NewProcessingPipeline(),
@@ -44,6 +45,7 @@ func NewUnifiedTranscriptionService() *UnifiedTranscriptionService {
 			"transcription": "whisperx",
 			"diarization":   "pyannote",
 		},
+		jobRepo: jobRepo,
 	}
 }
 
@@ -74,8 +76,9 @@ func (u *UnifiedTranscriptionService) ProcessJob(ctx context.Context, jobID stri
 	logger.Info("Processing job with unified service", "job_id", jobID)
 
 	// Get the job from database
-	var job models.TranscriptionJob
-	if err := database.DB.Preload("MultiTrackFiles").Where("id = ?", jobID).First(&job).Error; err != nil {
+	// Get the job from database
+	job, err := u.jobRepo.FindWithAssociations(ctx, jobID)
+	if err != nil {
 		return fmt.Errorf("failed to get job: %w", err)
 	}
 
@@ -87,7 +90,7 @@ func (u *UnifiedTranscriptionService) ProcessJob(ctx context.Context, jobID stri
 		Status:             models.StatusProcessing,
 	}
 
-	if err := database.DB.Create(execution).Error; err != nil {
+	if err := u.jobRepo.CreateExecution(ctx, execution); err != nil {
 		return fmt.Errorf("failed to create execution record: %w", err)
 	}
 
@@ -102,23 +105,23 @@ func (u *UnifiedTranscriptionService) ProcessJob(ctx context.Context, jobID stri
 			execution.ErrorMessage = &errorMsg
 		}
 
-		database.DB.Save(execution)
+		u.jobRepo.UpdateExecution(ctx, execution)
 	}
 
 	// Check for multi-track processing
 	if job.IsMultiTrack && job.Parameters.IsMultiTrackEnabled {
 		logger.Info("Processing multi-track job", "job_id", jobID)
-		if err := u.processMultiTrackJob(ctx, &job); err != nil {
+		if err := u.processMultiTrackJob(ctx, job); err != nil {
 			errMsg := fmt.Sprintf("multi-track processing failed: %v", err)
 			updateExecutionStatus(models.StatusFailed, errMsg)
-			return fmt.Errorf(errMsg)
+			return fmt.Errorf("%s", errMsg)
 		}
 	} else {
 		// Process single track
-		if err := u.processSingleTrackJob(ctx, &job); err != nil {
+		if err := u.processSingleTrackJob(ctx, job); err != nil {
 			errMsg := fmt.Sprintf("single-track processing failed: %v", err)
 			updateExecutionStatus(models.StatusFailed, errMsg)
-			return fmt.Errorf(errMsg)
+			return fmt.Errorf("%s", errMsg)
 		}
 	}
 
@@ -285,8 +288,8 @@ func (u *UnifiedTranscriptionService) TerminateMultiTrackJob(jobID string) error
 
 // IsMultiTrackJob checks if a job is a multi-track job
 func (u *UnifiedTranscriptionService) IsMultiTrackJob(jobID string) bool {
-	var job models.TranscriptionJob
-	if err := database.DB.Where("id = ?", jobID).First(&job).Error; err != nil {
+	job, err := u.jobRepo.FindByID(context.Background(), jobID)
+	if err != nil || job == nil {
 		return false
 	}
 	return job.IsMultiTrack
@@ -748,9 +751,7 @@ func (u *UnifiedTranscriptionService) saveTranscriptionResults(jobID string, res
 	}
 
 	// Update the job in the database
-	if err := database.DB.Model(&models.TranscriptionJob{}).
-		Where("id = ?", jobID).
-		Update("transcript", resultJSON).Error; err != nil {
+	if err := u.jobRepo.UpdateTranscript(context.Background(), jobID, resultJSON); err != nil {
 		return fmt.Errorf("failed to update job transcript: %w", err)
 	}
 

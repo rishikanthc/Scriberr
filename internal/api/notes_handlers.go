@@ -9,7 +9,6 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
-	"scriberr/internal/database"
 	"scriberr/internal/models"
 )
 
@@ -49,8 +48,8 @@ func (h *Handler) ListNotes(c *gin.Context) {
 	}
 
 	// Ensure transcription exists
-	var job models.TranscriptionJob
-	if err := database.DB.Where("id = ?", transcriptionID).First(&job).Error; err != nil {
+	_, err := h.jobRepo.FindByID(c.Request.Context(), transcriptionID)
+	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Transcription not found"})
 			return
@@ -59,9 +58,8 @@ func (h *Handler) ListNotes(c *gin.Context) {
 		return
 	}
 
-	var notes []models.Note
-	if err := database.DB.Where("transcription_id = ?", transcriptionID).
-		Order("start_time ASC, created_at ASC").Find(&notes).Error; err != nil {
+	notes, err := h.noteRepo.ListByJob(c.Request.Context(), transcriptionID)
+	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch notes"})
 		return
 	}
@@ -110,8 +108,8 @@ func (h *Handler) CreateNote(c *gin.Context) {
 	}
 
 	// Ensure transcription exists
-	var job models.TranscriptionJob
-	if err := database.DB.Where("id = ?", transcriptionID).First(&job).Error; err != nil {
+	_, err := h.jobRepo.FindByID(c.Request.Context(), transcriptionID)
+	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			log.Printf("notes.CreateNote: transcription %s not found", transcriptionID)
 			c.JSON(http.StatusNotFound, gin.H{"error": "Transcription not found"})
@@ -122,7 +120,7 @@ func (h *Handler) CreateNote(c *gin.Context) {
 		return
 	}
 
-	n := models.Note{
+	n := &models.Note{
 		ID:              uuid.New().String(),
 		TranscriptionID: transcriptionID,
 		StartWordIndex:  req.StartWordIndex,
@@ -135,7 +133,7 @@ func (h *Handler) CreateNote(c *gin.Context) {
 		UpdatedAt:       time.Now(),
 	}
 
-	if err := database.DB.Create(&n).Error; err != nil {
+	if err := h.noteRepo.Create(c.Request.Context(), n); err != nil {
 		log.Printf("notes.CreateNote: DB error creating note for transcription %s (start=%d end=%d startTime=%.3f endTime=%.3f): %v", transcriptionID, n.StartWordIndex, n.EndWordIndex, n.StartTime, n.EndTime, err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create note"})
 		return
@@ -159,8 +157,8 @@ func (h *Handler) CreateNote(c *gin.Context) {
 // @Router /api/v1/notes/{note_id} [get]
 func (h *Handler) GetNote(c *gin.Context) {
 	noteID := c.Param("note_id")
-	var n models.Note
-	if err := database.DB.Where("id = ?", noteID).First(&n).Error; err != nil {
+	n, err := h.noteRepo.FindByID(c.Request.Context(), noteID)
+	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Note not found"})
 			return
@@ -193,8 +191,8 @@ func (h *Handler) UpdateNote(c *gin.Context) {
 		return
 	}
 
-	var n models.Note
-	if err := database.DB.Where("id = ?", noteID).First(&n).Error; err != nil {
+	n, err := h.noteRepo.FindByID(c.Request.Context(), noteID)
+	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Note not found"})
 			return
@@ -206,7 +204,7 @@ func (h *Handler) UpdateNote(c *gin.Context) {
 	n.Content = req.Content
 	n.UpdatedAt = time.Now()
 
-	if err := database.DB.Save(&n).Error; err != nil {
+	if err := h.noteRepo.Update(c.Request.Context(), n); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update note"})
 		return
 	}
@@ -226,7 +224,7 @@ func (h *Handler) UpdateNote(c *gin.Context) {
 // @Router /api/v1/notes/{note_id} [delete]
 func (h *Handler) DeleteNote(c *gin.Context) {
 	noteID := c.Param("note_id")
-	if err := database.DB.Delete(&models.Note{}, "id = ?", noteID).Error; err != nil {
+	if err := h.noteRepo.Delete(c.Request.Context(), noteID); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete note"})
 		return
 	}

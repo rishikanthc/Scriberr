@@ -17,6 +17,8 @@ import (
 	"scriberr/internal/config"
 	"scriberr/internal/database"
 	"scriberr/internal/queue"
+	"scriberr/internal/repository"
+	"scriberr/internal/service"
 	"scriberr/internal/transcription"
 
 	"github.com/gin-gonic/gin"
@@ -57,14 +59,47 @@ func (suite *SecurityTestSuite) SetupSuite() {
 
 	// Initialize services
 	suite.authService = auth.NewAuthService(suite.config.JWTSecret)
-	suite.unifiedProcessor = transcription.NewUnifiedJobProcessor()
+	// Initialize repositories
+	jobRepo := repository.NewJobRepository(database.DB)
+	userRepo := repository.NewUserRepository(database.DB)
+	apiKeyRepo := repository.NewAPIKeyRepository(database.DB)
+	profileRepo := repository.NewProfileRepository(database.DB)
+	llmConfigRepo := repository.NewLLMConfigRepository(database.DB)
+	summaryRepo := repository.NewSummaryRepository(database.DB)
+	chatRepo := repository.NewChatRepository(database.DB)
+	noteRepo := repository.NewNoteRepository(database.DB)
+	speakerMappingRepo := repository.NewSpeakerMappingRepository(database.DB)
+
+	// Initialize services
+	userService := service.NewUserService(userRepo, suite.authService)
+	fileService := service.NewFileService()
+
+	// Initialize services
+	suite.unifiedProcessor = transcription.NewUnifiedJobProcessor(jobRepo)
 	var err error
 	suite.quickTranscriptionService, err = transcription.NewQuickTranscriptionService(suite.config, suite.unifiedProcessor)
 	if err != nil {
 		suite.T().Fatal("Failed to initialize quick transcription service:", err)
 	}
 	suite.taskQueue = queue.NewTaskQueue(1, suite.unifiedProcessor)
-	suite.handler = api.NewHandler(suite.config, suite.authService, suite.taskQueue, suite.unifiedProcessor, suite.quickTranscriptionService)
+	suite.handler = api.NewHandler(
+		suite.config,
+		suite.authService,
+		userService,
+		fileService,
+		jobRepo,
+		apiKeyRepo,
+		profileRepo,
+		userRepo,
+		llmConfigRepo,
+		summaryRepo,
+		chatRepo,
+		noteRepo,
+		speakerMappingRepo,
+		suite.taskQueue,
+		suite.unifiedProcessor,
+		suite.quickTranscriptionService,
+	)
 
 	// Set up router
 	suite.router = api.SetupRoutes(suite.handler, suite.authService)

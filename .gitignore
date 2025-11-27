@@ -44,6 +44,7 @@ env-data
 # main
 results.json
 # server
+!cmd/server/main.go
 test_word_conversion.go
 debug_whisperx_parsing.go
 debug_parsing.go
@@ -57,5 +58,4 @@ feats.txt
 log.txt
 manifest_and_icons
 manifest_and_icons.zip
-server
 tests/database_test.db-wal

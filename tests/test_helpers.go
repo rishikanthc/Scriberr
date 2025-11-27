@@ -10,8 +10,11 @@ import (
 	"scriberr/internal/database"
 	"scriberr/internal/models"
 
+	"context"
+
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"gorm.io/gorm"
 )
 
@@ -234,4 +237,65 @@ func floatPtr(f float64) *float64 {
 // Helper function to create bool pointer
 func boolPtr(b bool) *bool {
 	return &b
+}
+
+// MockJobRepository is a mock implementation of JobRepository
+type MockJobRepository struct {
+	mock.Mock
+}
+
+func (m *MockJobRepository) Create(ctx context.Context, entity *models.TranscriptionJob) error {
+	args := m.Called(ctx, entity)
+	return args.Error(0)
+}
+
+func (m *MockJobRepository) FindByID(ctx context.Context, id interface{}) (*models.TranscriptionJob, error) {
+	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.TranscriptionJob), args.Error(1)
+}
+
+func (m *MockJobRepository) Update(ctx context.Context, entity *models.TranscriptionJob) error {
+	args := m.Called(ctx, entity)
+	return args.Error(0)
+}
+
+func (m *MockJobRepository) Delete(ctx context.Context, id interface{}) error {
+	args := m.Called(ctx, id)
+	return args.Error(0)
+}
+
+func (m *MockJobRepository) List(ctx context.Context, offset, limit int) ([]models.TranscriptionJob, int64, error) {
+	args := m.Called(ctx, offset, limit)
+	return args.Get(0).([]models.TranscriptionJob), args.Get(1).(int64), args.Error(2)
+}
+
+func (m *MockJobRepository) FindWithAssociations(ctx context.Context, id string) (*models.TranscriptionJob, error) {
+	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.TranscriptionJob), args.Error(1)
+}
+
+func (m *MockJobRepository) ListByUser(ctx context.Context, userID uint, offset, limit int) ([]models.TranscriptionJob, int64, error) {
+	args := m.Called(ctx, userID, offset, limit)
+	return args.Get(0).([]models.TranscriptionJob), args.Get(1).(int64), args.Error(2)
+}
+
+func (m *MockJobRepository) UpdateTranscript(ctx context.Context, jobID string, transcript string) error {
+	args := m.Called(ctx, jobID, transcript)
+	return args.Error(0)
+}
+
+func (m *MockJobRepository) CreateExecution(ctx context.Context, execution *models.TranscriptionJobExecution) error {
+	args := m.Called(ctx, execution)
+	return args.Error(0)
+}
+
+func (m *MockJobRepository) UpdateExecution(ctx context.Context, execution *models.TranscriptionJobExecution) error {
+	args := m.Called(ctx, execution)
+	return args.Error(0)
 }

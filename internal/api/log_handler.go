@@ -3,7 +3,6 @@ package api
 import (
 	"fmt"
 	"net/http"
-	"os"
 	"path/filepath"
 
 	"github.com/gin-gonic/gin"
@@ -23,17 +22,21 @@ func (h *Handler) GetJobLogs(c *gin.Context) {
 	jobID := c.Param("id")
 
 	// Construct path to log file
-	// Note: output directory is hardcoded to "data/transcripts" in UnifiedTranscriptionService
-	logPath := filepath.Join("data", "transcripts", jobID, "transcription.log")
+	logPath := filepath.Join(h.config.TranscriptsDir, jobID, "transcription.log")
 
 	// Check if file exists
-	if _, err := os.Stat(logPath); os.IsNotExist(err) {
+	exists, err := h.fileService.FileExists(logPath)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to check logs: %v", err)})
+		return
+	}
+	if !exists {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Logs not found for this job"})
 		return
 	}
 
 	// Read file content
-	content, err := os.ReadFile(logPath)
+	content, err := h.fileService.ReadFile(logPath)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to read logs: %v", err)})
 		return

@@ -62,9 +62,9 @@ type ChatSessionWithMessages struct {
 }
 
 // getLLMService returns a provider-agnostic LLM service based on active config
-func (h *Handler) getLLMService() (llm.Service, string, error) {
-	var cfg models.LLMConfig
-	if err := database.DB.Where("is_active = ?", true).First(&cfg).Error; err != nil {
+func (h *Handler) getLLMService(ctx context.Context) (llm.Service, string, error) {
+	cfg, err := h.llmConfigRepo.GetActive(ctx)
+	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, "", fmt.Errorf("no active LLM configuration found")
 		}
@@ -97,7 +97,7 @@ func (h *Handler) getLLMService() (llm.Service, string, error) {
 // @Security ApiKeyAuth
 // @Security BearerAuth
 func (h *Handler) GetChatModels(c *gin.Context) {
-	svc, _, err := h.getLLMService()
+	svc, _, err := h.getLLMService(c.Request.Context())
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -136,13 +136,9 @@ func (h *Handler) CreateChatSession(c *gin.Context) {
 	}
 
 	// Verify transcription exists and has completed transcript
-	var transcription models.TranscriptionJob
-	if err := database.DB.Where("id = ?", req.TranscriptionID).First(&transcription).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Transcription not found"})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get transcription"})
+	transcription, err := h.jobRepo.FindByID(c.Request.Context(), req.TranscriptionID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Transcription not found"})
 		return
 	}
 
@@ -152,7 +148,7 @@ func (h *Handler) CreateChatSession(c *gin.Context) {
 	}
 
 	// Verify LLM service is available
-	_, _, err := h.getLLMService()
+	_, _, err = h.getLLMService(c.Request.Context())
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -165,7 +161,7 @@ func (h *Handler) CreateChatSession(c *gin.Context) {
 	}
 
 	now := time.Now()
-	chatSession := models.ChatSession{
+	chatSession := &models.ChatSession{
 		JobID:           req.TranscriptionID, // Use same ID for JobID as TranscriptionID
 		TranscriptionID: req.TranscriptionID,
 		Title:           title,
@@ -176,7 +172,7 @@ func (h *Handler) CreateChatSession(c *gin.Context) {
 		IsActive:        true,
 	}
 
-	if err := database.DB.Create(&chatSession).Error; err != nil {
+	if err := h.chatRepo.Create(c.Request.Context(), chatSession); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create chat session"})
 		return
 	}
@@ -215,9 +211,8 @@ func (h *Handler) GetChatSessions(c *gin.Context) {
 		return
 	}
 
-	var sessions []models.ChatSession
-	if err := database.DB.Where("transcription_id = ?", transcriptionID).
-		Order("updated_at DESC").Find(&sessions).Error; err != nil {
+	sessions, err := h.chatRepo.ListByJob(c.Request.Context(), transcriptionID)
+	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get chat sessions"})
 		return
 	}
@@ -307,8 +302,8 @@ func (h *Handler) GetChatSession(c *gin.Context) {
 		return
 	}
 
-	var session models.ChatSession
-	if err := database.DB.Where("id = ?", sessionID).First(&session).Error; err != nil {
+	session, err := h.chatRepo.GetSessionWithMessages(c.Request.Context(), sessionID)
+	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Chat session not found"})
 			return
@@ -317,15 +312,8 @@ func (h *Handler) GetChatSession(c *gin.Context) {
 		return
 	}
 
-	var messages []models.ChatMessage
-	if err := database.DB.Where("chat_session_id = ?", sessionID).
-		Order("created_at ASC").Find(&messages).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get messages"})
-		return
-	}
-
 	var messageResponses []ChatMessageResponse
-	for _, msg := range messages {
+	for _, msg := range session.Messages {
 		messageResponses = append(messageResponses, ChatMessageResponse{
 			ID:        msg.ID,
 			Role:      msg.Role,
@@ -381,8 +369,8 @@ func (h *Handler) SendChatMessage(c *gin.Context) {
 	}
 
 	// Get chat session
-	var session models.ChatSession
-	if err := database.DB.Preload("Transcription").Where("id = ?", sessionID).First(&session).Error; err != nil {
+	session, err := h.chatRepo.GetSessionWithTranscription(c.Request.Context(), sessionID)
+	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Chat session not found"})
 			return
@@ -392,37 +380,47 @@ func (h *Handler) SendChatMessage(c *gin.Context) {
 	}
 
 	// Get LLM service
-	svc, _, err := h.getLLMService()
+	svc, _, err := h.getLLMService(c.Request.Context())
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
 	// Save user message
-	userMessage := models.ChatMessage{
+	userMessage := &models.ChatMessage{
 		SessionID:     sessionID,
 		ChatSessionID: sessionID,
 		Role:          "user",
 		Content:       req.Content,
 	}
 
-	if err := database.DB.Create(&userMessage).Error; err != nil {
+	if err := h.chatRepo.AddMessage(c.Request.Context(), userMessage); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save message"})
 		return
 	}
 
 	// Check if this is the first user message and update session title
-	var messageCount int64
-	database.DB.Model(&models.ChatMessage{}).Where("chat_session_id = ? AND role = ?", sessionID, "user").Count(&messageCount)
-	if messageCount == 1 {
-		// Generate a title based on the first message
-		title := generateChatTitle(req.Content)
-		database.DB.Model(&session).Update("title", title)
+	// We can check if message count is 1 (the one we just added)
+	// Or query count. Let's query count to be safe or check if session.MessageCount was 0 before (but we don't have that easily unless we trust the model)
+	// Let's query messages count
+	messages, err := h.chatRepo.GetMessages(c.Request.Context(), sessionID, 0)
+	if err == nil {
+		userMsgCount := 0
+		for _, m := range messages {
+			if m.Role == "user" {
+				userMsgCount++
+			}
+		}
+		if userMsgCount == 1 {
+			// Generate a title based on the first message
+			title := generateChatTitle(req.Content)
+			session.Title = title
+			h.chatRepo.Update(c.Request.Context(), session)
+		}
 	}
 
-	// Get conversation history
-	var messages []models.ChatMessage
-	database.DB.Where("chat_session_id = ?", sessionID).Order("created_at ASC").Find(&messages)
+	// Get conversation history (already fetched above if we reuse it, but let's be clean)
+	// messages variable already holds all messages ordered by created_at ASC
 
 	// Build OpenAI messages including transcript context
 	var openaiMessages []llm.ChatMessage
@@ -451,7 +449,7 @@ func (h *Handler) SendChatMessage(c *gin.Context) {
 	c.Header("Access-Control-Allow-Origin", "*")
 
 	// Stream the response
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Minute)
 	defer cancel()
 
 	// Use model defaults: do not set temperature explicitly
@@ -464,21 +462,20 @@ func (h *Handler) SendChatMessage(c *gin.Context) {
 			if !ok {
 				// Channel closed, save complete response and return
 				if assistantResponse.Len() > 0 {
-					assistantMessage := models.ChatMessage{
+					assistantMessage := &models.ChatMessage{
 						SessionID:     sessionID,
 						ChatSessionID: sessionID,
 						Role:          "assistant",
 						Content:       assistantResponse.String(),
 					}
-					database.DB.Create(&assistantMessage)
+					h.chatRepo.AddMessage(context.Background(), assistantMessage)
 
 					// Update session updated_at, message count, and last activity
 					now := time.Now()
-					database.DB.Model(&session).Updates(map[string]interface{}{
-						"updated_at":       now,
-						"last_activity_at": now,
-						"message_count":    gorm.Expr("message_count + ?", 2), // +2 for user + assistant message
-					})
+					session.UpdatedAt = now
+					session.LastActivityAt = &now
+					session.MessageCount += 2 // +2 for user + assistant message
+					h.chatRepo.Update(context.Background(), session)
 				}
 				return
 			}
@@ -505,21 +502,20 @@ func (h *Handler) SendChatMessage(c *gin.Context) {
 					assistantResponse.WriteString(content)
 
 					if assistantResponse.Len() > 0 {
-						assistantMessage := models.ChatMessage{
+						assistantMessage := &models.ChatMessage{
 							SessionID:     sessionID,
 							ChatSessionID: sessionID,
 							Role:          "assistant",
 							Content:       assistantResponse.String(),
 						}
-						database.DB.Create(&assistantMessage)
+						h.chatRepo.AddMessage(context.Background(), assistantMessage)
 
 						// Update session updated_at, message count, and last activity
 						now := time.Now()
-						database.DB.Model(&session).Updates(map[string]interface{}{
-							"updated_at":       now,
-							"last_activity_at": now,
-							"message_count":    gorm.Expr("message_count + ?", 2), // +2 for user + assistant message
-						})
+						session.UpdatedAt = now
+						session.LastActivityAt = &now
+						session.MessageCount += 2 // +2 for user + assistant message
+						h.chatRepo.Update(context.Background(), session)
 					}
 					return
 				}
@@ -567,8 +563,8 @@ func (h *Handler) UpdateChatSessionTitle(c *gin.Context) {
 		return
 	}
 
-	var session models.ChatSession
-	if err := database.DB.Where("id = ?", sessionID).First(&session).Error; err != nil {
+	session, err := h.chatRepo.FindByID(c.Request.Context(), sessionID)
+	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Chat session not found"})
 			return
@@ -578,7 +574,7 @@ func (h *Handler) UpdateChatSessionTitle(c *gin.Context) {
 	}
 
 	session.Title = req.Title
-	if err := database.DB.Save(&session).Error; err != nil {
+	if err := h.chatRepo.Update(c.Request.Context(), session); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update title"})
 		return
 	}
@@ -617,21 +613,12 @@ func (h *Handler) DeleteChatSession(c *gin.Context) {
 		return
 	}
 
-	// Delete messages first (due to foreign key constraint)
-	if err := database.DB.Where("chat_session_id = ?", sessionID).Delete(&models.ChatMessage{}).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete messages"})
-		return
-	}
-
-	// Delete session
-	result := database.DB.Where("id = ?", sessionID).Delete(&models.ChatSession{})
-	if result.Error != nil {
+	if err := h.chatRepo.DeleteSession(c.Request.Context(), sessionID); err != nil {
+		if err == gorm.ErrRecordNotFound {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Chat session not found"})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete chat session"})
-		return
-	}
-
-	if result.RowsAffected == 0 {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Chat session not found"})
 		return
 	}
 
@@ -678,8 +665,8 @@ func (h *Handler) AutoGenerateChatTitle(c *gin.Context) {
 	}
 
 	// Load session
-	var session models.ChatSession
-	if err := database.DB.Where("id = ?", sessionID).First(&session).Error; err != nil {
+	session, err := h.chatRepo.FindByID(c.Request.Context(), sessionID)
+	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Chat session not found"})
 			return
@@ -692,12 +679,20 @@ func (h *Handler) AutoGenerateChatTitle(c *gin.Context) {
 	isDefaultTitle := strings.EqualFold(strings.TrimSpace(session.Title), "New Chat Session")
 
 	// Load first user message to compare against simple generator
-	var firstUser models.ChatMessage
-	_ = database.DB.Where("chat_session_id = ? AND role = ?", sessionID, "user").Order("created_at ASC").First(&firstUser).Error
-	if firstUser.ID != 0 {
-		simple := generateChatTitle(firstUser.Content)
-		if strings.EqualFold(strings.TrimSpace(session.Title), strings.TrimSpace(simple)) {
-			isDefaultTitle = true
+	msgs, err := h.chatRepo.GetMessages(c.Request.Context(), sessionID, 0)
+	if err == nil && len(msgs) > 0 {
+		var firstUser *models.ChatMessage
+		for _, m := range msgs {
+			if m.Role == "user" {
+				firstUser = &m
+				break
+			}
+		}
+		if firstUser != nil {
+			simple := generateChatTitle(firstUser.Content)
+			if strings.EqualFold(strings.TrimSpace(session.Title), strings.TrimSpace(simple)) {
+				isDefaultTitle = true
+			}
 		}
 	}
 
@@ -719,12 +714,19 @@ func (h *Handler) AutoGenerateChatTitle(c *gin.Context) {
 	}
 
 	// Fetch recent messages (first user + first assistant ideally)
-	var msgs []models.ChatMessage
-	if err := database.DB.Where("chat_session_id = ?", sessionID).Order("created_at ASC").Limit(6).Find(&msgs).Error; err != nil {
+	// We already fetched all messages above, but let's limit to 6 for context if we re-query or just use the slice
+	// Since we fetched all messages (limit 0), we can just use the slice.
+	// But wait, GetMessages(0) fetches ALL messages. If the chat is huge, this is bad.
+	// We should probably limit the fetch for the first check too, or just fetch enough.
+	// The original code fetched "first user" then "limit 6".
+	// Let's optimize.
+	// Fetch first 6 messages.
+	recentMsgs, err := h.chatRepo.GetMessages(c.Request.Context(), sessionID, 6)
+	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get messages"})
 		return
 	}
-	if len(msgs) == 0 {
+	if len(recentMsgs) == 0 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Not enough conversation to generate a title"})
 		return
 	}
@@ -753,18 +755,14 @@ Return only the title, nothing else.`
 
 	var chatMsgs []llm.ChatMessage
 	chatMsgs = append(chatMsgs, llm.ChatMessage{Role: "system", Content: prompt})
-	// Include up to first 4-6 messages for better context
-	maxCtx := len(msgs)
-	if maxCtx > 6 {
-		maxCtx = 6
-	}
-	for i := 0; i < maxCtx; i++ {
-		role := msgs[i].Role
+
+	for _, msg := range recentMsgs {
+		role := msg.Role
 		if role != "user" && role != "assistant" {
 			role = "user"
 		}
 		// Truncate very long messages to keep within token limits
-		content := msgs[i].Content
+		content := msg.Content
 		if len(content) > 500 {
 			content = content[:497] + "..."
 		}
@@ -772,13 +770,13 @@ Return only the title, nothing else.`
 	}
 
 	// Use configured LLM service
-	svc, _, err := h.getLLMService()
+	svc, _, err := h.getLLMService(c.Request.Context())
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 30*time.Second)
 	defer cancel()
 	// Use slightly higher temperature for more creative titles
 	// Use model defaults: do not set temperature explicitly

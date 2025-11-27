@@ -43,7 +43,7 @@ func (h *Handler) Summarize(c *gin.Context) {
 		return
 	}
 
-	svc, provider, err := h.getLLMService()
+	svc, provider, err := h.getLLMService(c.Request.Context())
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -76,13 +76,13 @@ func (h *Handler) Summarize(c *gin.Context) {
 		if req.TranscriptionID == "" || finalText == "" {
 			return
 		}
-		sum := models.Summary{
+		sum := &models.Summary{
 			TranscriptionID: req.TranscriptionID,
 			TemplateID:      req.TemplateID,
 			Model:           req.Model,
 			Content:         finalText,
 		}
-		if err := database.DB.Create(&sum).Error; err != nil {
+		if err := h.summaryRepo.SaveSummary(context.Background(), sum); err != nil {
 			// Fallback: store on the transcription job record
 			_ = database.DB.Model(&models.TranscriptionJob{}).Where("id = ?", req.TranscriptionID).Update("summary", finalText).Error
 		} else {
@@ -183,12 +183,14 @@ func (h *Handler) GetSummaryForTranscription(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Transcription ID required"})
 		return
 	}
-	var s models.Summary
-	if err := database.DB.Where("transcription_id = ?", tid).Order("created_at DESC").First(&s).Error; err != nil {
+	s, err := h.summaryRepo.GetLatestSummary(c.Request.Context(), tid)
+	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			// Fallback: check if summary is cached on the job record
-			var job models.TranscriptionJob
-			if err2 := database.DB.Where("id = ?", tid).First(&job).Error; err2 == nil && job.Summary != nil && *job.Summary != "" {
+			// We can use jobRepo here if we add FindByID
+			// For now let's use jobRepo.FindByID
+			job, err2 := h.jobRepo.FindByID(c.Request.Context(), tid)
+			if err2 == nil && job.Summary != nil && *job.Summary != "" {
 				c.JSON(http.StatusOK, gin.H{
 					"transcription_id": tid,
 					"template_id":      nil,

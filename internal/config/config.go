@@ -27,7 +27,8 @@ type Config struct {
 	JWTSecret string
 
 	// File storage
-	UploadDir string
+	UploadDir      string
+	TranscriptsDir string
 
 	// Python/WhisperX configuration
 	UVPath      string
@@ -42,13 +43,14 @@ func Load() *Config {
 	}
 
 	return &Config{
-		Port:         getEnv("PORT", "8080"),
-		Host:         getEnv("HOST", "0.0.0.0"),
-		DatabasePath: getEnv("DATABASE_PATH", "data/scriberr.db"),
-		JWTSecret:    getJWTSecret(),
-		UploadDir:    getEnv("UPLOAD_DIR", "data/uploads"),
-		UVPath:       findUVPath(),
-		WhisperXEnv:  getEnv("WHISPERX_ENV", "data/whisperx-env"),
+		Port:           getEnv("PORT", "8080"),
+		Host:           getEnv("HOST", "0.0.0.0"),
+		DatabasePath:   getEnv("DATABASE_PATH", "data/scriberr.db"),
+		JWTSecret:      getJWTSecret(),
+		UploadDir:      getEnv("UPLOAD_DIR", "data/uploads"),
+		TranscriptsDir: getEnv("TRANSCRIPTS_DIR", "data/transcripts"),
+		UVPath:         findUVPath(),
+		WhisperXEnv:    getEnv("WHISPERX_ENV", "data/whisperx-env"),
 	}
 }
 

@@ -6,11 +6,146 @@ import (
 	"time"
 
 	"scriberr/internal/models"
+	"scriberr/internal/transcription/adapters"
 	"scriberr/internal/transcription/interfaces"
 	"scriberr/internal/transcription/registry"
+
+	"github.com/stretchr/testify/mock"
 )
 
+// MockJobRepository is a mock implementation of JobRepository
+type MockJobRepository struct {
+	mock.Mock
+}
+
+func (m *MockJobRepository) Create(ctx context.Context, entity *models.TranscriptionJob) error {
+	args := m.Called(ctx, entity)
+	return args.Error(0)
+}
+
+func (m *MockJobRepository) FindByID(ctx context.Context, id interface{}) (*models.TranscriptionJob, error) {
+	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.TranscriptionJob), args.Error(1)
+}
+
+func (m *MockJobRepository) Update(ctx context.Context, entity *models.TranscriptionJob) error {
+	args := m.Called(ctx, entity)
+	return args.Error(0)
+}
+
+func (m *MockJobRepository) Delete(ctx context.Context, id interface{}) error {
+	args := m.Called(ctx, id)
+	return args.Error(0)
+}
+
+func (m *MockJobRepository) List(ctx context.Context, offset, limit int) ([]models.TranscriptionJob, int64, error) {
+	args := m.Called(ctx, offset, limit)
+	return args.Get(0).([]models.TranscriptionJob), args.Get(1).(int64), args.Error(2)
+}
+
+func (m *MockJobRepository) FindWithAssociations(ctx context.Context, id string) (*models.TranscriptionJob, error) {
+	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.TranscriptionJob), args.Error(1)
+}
+
+func (m *MockJobRepository) ListByUser(ctx context.Context, userID uint, offset, limit int) ([]models.TranscriptionJob, int64, error) {
+	args := m.Called(ctx, userID, offset, limit)
+	return args.Get(0).([]models.TranscriptionJob), args.Get(1).(int64), args.Error(2)
+}
+
+func (m *MockJobRepository) UpdateTranscript(ctx context.Context, jobID string, transcript string) error {
+	args := m.Called(ctx, jobID, transcript)
+	return args.Error(0)
+}
+
+func (m *MockJobRepository) CreateExecution(ctx context.Context, execution *models.TranscriptionJobExecution) error {
+	args := m.Called(ctx, execution)
+	return args.Error(0)
+}
+
+func (m *MockJobRepository) UpdateExecution(ctx context.Context, execution *models.TranscriptionJobExecution) error {
+	args := m.Called(ctx, execution)
+	return args.Error(0)
+}
+
+// MockTranscriptionAdapter is a mock implementation of TranscriptionAdapter
+type MockTranscriptionAdapter struct {
+	mock.Mock
+}
+
+func (m *MockTranscriptionAdapter) GetCapabilities() interfaces.ModelCapabilities {
+	return interfaces.ModelCapabilities{
+		ModelID:     "mock-model",
+		ModelFamily: "mock",
+		Features:    map[string]bool{"timestamps": true},
+	}
+}
+
+func (m *MockTranscriptionAdapter) GetParameterSchema() []interfaces.ParameterSchema {
+	return []interfaces.ParameterSchema{}
+}
+
+func (m *MockTranscriptionAdapter) ValidateParameters(params map[string]interface{}) error {
+	return nil
+}
+
+func (m *MockTranscriptionAdapter) PrepareEnvironment(ctx context.Context) error {
+	return nil
+}
+
+func (m *MockTranscriptionAdapter) GetModelPath() string {
+	return "/tmp/mock-model"
+}
+
+func (m *MockTranscriptionAdapter) IsReady(ctx context.Context) bool {
+	return true
+}
+
+func (m *MockTranscriptionAdapter) GetEstimatedProcessingTime(input interfaces.AudioInput) time.Duration {
+	return time.Second
+}
+
+func (m *MockTranscriptionAdapter) Transcribe(ctx context.Context, input interfaces.AudioInput, params map[string]interface{}, procCtx interfaces.ProcessingContext) (*interfaces.TranscriptResult, error) {
+	return &interfaces.TranscriptResult{
+		Text: "mock transcript",
+	}, nil
+}
+
+func (m *MockTranscriptionAdapter) GetSupportedModels() []string {
+	return []string{"mock-model"}
+}
+
+func (m *MockTranscriptionAdapter) Diarize(ctx context.Context, input interfaces.AudioInput, params map[string]interface{}, procCtx interfaces.ProcessingContext) (*interfaces.DiarizationResult, error) {
+	return &interfaces.DiarizationResult{
+		SpeakerCount: 1,
+		Speakers:     []string{"SPEAKER_00"},
+	}, nil
+}
+
+func (m *MockTranscriptionAdapter) GetMaxSpeakers() int {
+	return 10
+}
+
+func (m *MockTranscriptionAdapter) GetMinSpeakers() int {
+	return 1
+}
+
 func TestModelRegistry(t *testing.T) {
+	// Register mock models
+	registry.RegisterTranscriptionAdapter("mock-transcription", new(MockTranscriptionAdapter))
+	registry.RegisterDiarizationAdapter("mock-diarization", new(MockTranscriptionAdapter))
+	// We need a mock diarization adapter too, but for now let's just use transcription one if interface matches?
+	// No, interfaces are different.
+	// I'll create a MockDiarizationAdapter too.
+	// Or just reuse MockTranscriptionAdapter if I implement DiarizationAdapter interface on it.
+	// Let's implement DiarizationAdapter on MockTranscriptionAdapter.
+
 	// Get the global registry
 	reg := registry.GetRegistry()
 
@@ -31,6 +166,7 @@ func TestModelRegistry(t *testing.T) {
 
 func TestWhisperXAdapter(t *testing.T) {
 	reg := registry.GetRegistry()
+	registry.RegisterTranscriptionAdapter("whisperx", adapters.NewWhisperXAdapter("/tmp/whisperx"))
 
 	// Get WhisperX adapter
 	adapter, err := reg.GetTranscriptionAdapter("whisperx")
@@ -79,6 +215,7 @@ func TestWhisperXAdapter(t *testing.T) {
 
 func TestParakeetAdapter(t *testing.T) {
 	reg := registry.GetRegistry()
+	registry.RegisterTranscriptionAdapter("parakeet", adapters.NewParakeetAdapter("/tmp/parakeet"))
 
 	// Get Parakeet adapter
 	adapter, err := reg.GetTranscriptionAdapter("parakeet")
@@ -111,6 +248,7 @@ func TestParakeetAdapter(t *testing.T) {
 
 func TestCanaryAdapter(t *testing.T) {
 	reg := registry.GetRegistry()
+	registry.RegisterTranscriptionAdapter("canary", adapters.NewCanaryAdapter("/tmp/canary"))
 
 	// Get Canary adapter
 	adapter, err := reg.GetTranscriptionAdapter("canary")
@@ -148,6 +286,7 @@ func TestCanaryAdapter(t *testing.T) {
 
 func TestPyAnnoteAdapter(t *testing.T) {
 	reg := registry.GetRegistry()
+	registry.RegisterDiarizationAdapter("pyannote", adapters.NewPyAnnoteAdapter("/tmp/pyannote"))
 
 	// Get PyAnnote adapter
 	adapter, err := reg.GetDiarizationAdapter("pyannote")
@@ -196,6 +335,7 @@ func TestPyAnnoteAdapter(t *testing.T) {
 
 func TestSortformerAdapter(t *testing.T) {
 	reg := registry.GetRegistry()
+	registry.RegisterDiarizationAdapter("sortformer", adapters.NewSortformerAdapter("/tmp/sortformer"))
 
 	// Get Sortformer adapter
 	adapter, err := reg.GetDiarizationAdapter("sortformer")
@@ -227,6 +367,8 @@ func TestSortformerAdapter(t *testing.T) {
 
 func TestModelSelection(t *testing.T) {
 	reg := registry.GetRegistry()
+	registry.RegisterTranscriptionAdapter("whisperx", adapters.NewWhisperXAdapter("/tmp/whisperx"))
+	registry.RegisterDiarizationAdapter("pyannote", adapters.NewPyAnnoteAdapter("/tmp/pyannote"))
 
 	// Test selecting best transcription model
 	requirements := interfaces.ModelRequirements{
@@ -257,8 +399,15 @@ func TestModelSelection(t *testing.T) {
 }
 
 func TestUnifiedTranscriptionService(t *testing.T) {
-	// Create unified service
-	service := NewUnifiedTranscriptionService()
+	// Register mock adapter
+	registry.ClearRegistry()
+	mockAdapter := new(MockTranscriptionAdapter)
+	registry.RegisterTranscriptionAdapter("mock-model", mockAdapter)
+	defer registry.ClearRegistry()
+
+	// Create unified service with mock repo
+	mockRepo := new(MockJobRepository)
+	service := NewUnifiedTranscriptionService(mockRepo)
 
 	// Test model discovery
 	models := service.GetSupportedModels()
@@ -277,11 +426,12 @@ func TestUnifiedTranscriptionService(t *testing.T) {
 }
 
 func TestAudioInputCreation(t *testing.T) {
-	service := NewUnifiedTranscriptionService()
+	mockRepo := new(MockJobRepository)
+	service := NewUnifiedTranscriptionService(mockRepo)
 
 	// Test creating audio input from a hypothetical file
 	audioPath := "/tmp/test.wav"
-	
+
 	// This will fail since the file doesn't exist, but we can test the structure
 	_, err := service.createAudioInput(audioPath)
 	if err == nil {
@@ -290,7 +440,8 @@ func TestAudioInputCreation(t *testing.T) {
 }
 
 func TestParameterConversion(t *testing.T) {
-	service := NewUnifiedTranscriptionService()
+	mockRepo := new(MockJobRepository)
+	service := NewUnifiedTranscriptionService(mockRepo)
 
 	// Test converting WhisperX parameters to generic map
 	params := models.WhisperXParams{
@@ -332,7 +483,7 @@ func intPtr(i int) *int {
 // Benchmark tests
 func BenchmarkModelRegistryLookup(b *testing.B) {
 	reg := registry.GetRegistry()
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_, err := reg.GetTranscriptionAdapter("whisperx")

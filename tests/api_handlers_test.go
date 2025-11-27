@@ -15,6 +15,8 @@ import (
 	"scriberr/internal/api"
 	"scriberr/internal/models"
 	"scriberr/internal/queue"
+	"scriberr/internal/repository"
+	"scriberr/internal/service"
 	"scriberr/internal/transcription"
 
 	"github.com/gin-gonic/gin"
@@ -35,14 +37,46 @@ type APIHandlerTestSuite struct {
 func (suite *APIHandlerTestSuite) SetupSuite() {
 	suite.helper = NewTestHelper(suite.T(), "api_handlers_test.db")
 
+	// Initialize repositories
+	jobRepo := repository.NewJobRepository(suite.helper.DB)
+	userRepo := repository.NewUserRepository(suite.helper.DB)
+	apiKeyRepo := repository.NewAPIKeyRepository(suite.helper.DB)
+	profileRepo := repository.NewProfileRepository(suite.helper.DB)
+	llmConfigRepo := repository.NewLLMConfigRepository(suite.helper.DB)
+	summaryRepo := repository.NewSummaryRepository(suite.helper.DB)
+	chatRepo := repository.NewChatRepository(suite.helper.DB)
+	noteRepo := repository.NewNoteRepository(suite.helper.DB)
+	speakerMappingRepo := repository.NewSpeakerMappingRepository(suite.helper.DB)
+
 	// Initialize services
-	suite.unifiedProcessor = transcription.NewUnifiedJobProcessor()
+	userService := service.NewUserService(userRepo, suite.helper.AuthService)
+	fileService := service.NewFileService()
+
+	// Initialize services
+	suite.unifiedProcessor = transcription.NewUnifiedJobProcessor(jobRepo)
 	var err error
 	suite.quickTranscription, err = transcription.NewQuickTranscriptionService(suite.helper.Config, suite.unifiedProcessor)
 	assert.NoError(suite.T(), err)
 
 	suite.taskQueue = queue.NewTaskQueue(1, suite.unifiedProcessor)
-	suite.handler = api.NewHandler(suite.helper.Config, suite.helper.AuthService, suite.taskQueue, suite.unifiedProcessor, suite.quickTranscription)
+	suite.handler = api.NewHandler(
+		suite.helper.Config,
+		suite.helper.AuthService,
+		userService,
+		fileService,
+		jobRepo,
+		apiKeyRepo,
+		profileRepo,
+		userRepo,
+		llmConfigRepo,
+		summaryRepo,
+		chatRepo,
+		noteRepo,
+		speakerMappingRepo,
+		suite.taskQueue,
+		suite.unifiedProcessor,
+		suite.quickTranscription,
+	)
 
 	// Set up router
 	suite.router = api.SetupRoutes(suite.handler, suite.helper.AuthService)

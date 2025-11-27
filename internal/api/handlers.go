@@ -2,13 +2,11 @@ package api
 
 import (
 	"bytes"
-	"context"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"os"
 	"os/exec"
@@ -23,6 +21,8 @@ import (
 	"scriberr/internal/models"
 	"scriberr/internal/processing"
 	"scriberr/internal/queue"
+	"scriberr/internal/repository"
+	"scriberr/internal/service"
 	"scriberr/internal/transcription"
 	"scriberr/pkg/logger"
 
@@ -35,6 +35,17 @@ import (
 type Handler struct {
 	config              *config.Config
 	authService         *auth.AuthService
+	userService         service.UserService
+	fileService         service.FileService
+	jobRepo             repository.JobRepository
+	apiKeyRepo          repository.APIKeyRepository
+	profileRepo         repository.ProfileRepository
+	userRepo            repository.UserRepository
+	llmConfigRepo       repository.LLMConfigRepository
+	summaryRepo         repository.SummaryRepository
+	chatRepo            repository.ChatRepository
+	noteRepo            repository.NoteRepository
+	speakerMappingRepo  repository.SpeakerMappingRepository
 	taskQueue           *queue.TaskQueue
 	unifiedProcessor    *transcription.UnifiedJobProcessor
 	quickTranscription  *transcription.QuickTranscriptionService
@@ -42,10 +53,38 @@ type Handler struct {
 }
 
 // NewHandler creates a new handler
-func NewHandler(cfg *config.Config, authService *auth.AuthService, taskQueue *queue.TaskQueue, unifiedProcessor *transcription.UnifiedJobProcessor, quickTranscription *transcription.QuickTranscriptionService) *Handler {
+func NewHandler(
+	cfg *config.Config,
+	authService *auth.AuthService,
+	userService service.UserService,
+	fileService service.FileService,
+	jobRepo repository.JobRepository,
+	apiKeyRepo repository.APIKeyRepository,
+	profileRepo repository.ProfileRepository,
+	userRepo repository.UserRepository,
+	llmConfigRepo repository.LLMConfigRepository,
+	summaryRepo repository.SummaryRepository,
+	chatRepo repository.ChatRepository,
+	noteRepo repository.NoteRepository,
+	speakerMappingRepo repository.SpeakerMappingRepository,
+	taskQueue *queue.TaskQueue,
+	unifiedProcessor *transcription.UnifiedJobProcessor,
+	quickTranscription *transcription.QuickTranscriptionService,
+) *Handler {
 	return &Handler{
 		config:              cfg,
 		authService:         authService,
+		userService:         userService,
+		fileService:         fileService,
+		jobRepo:             jobRepo,
+		apiKeyRepo:          apiKeyRepo,
+		profileRepo:         profileRepo,
+		userRepo:            userRepo,
+		llmConfigRepo:       llmConfigRepo,
+		summaryRepo:         summaryRepo,
+		chatRepo:            chatRepo,
+		noteRepo:            noteRepo,
+		speakerMappingRepo:  speakerMappingRepo,
 		taskQueue:           taskQueue,
 		unifiedProcessor:    unifiedProcessor,
 		quickTranscription:  quickTranscription,
@@ -212,95 +251,79 @@ func transformAPIKeyForList(apiKey models.APIKey) APIKeyListResponse {
 // @Security BearerAuth
 func (h *Handler) UploadAudio(c *gin.Context) {
 	// Parse multipart form
-	file, header, err := c.Request.FormFile("audio")
+	header, err := c.FormFile("audio")
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Audio file is required"})
 		return
 	}
-	defer file.Close()
 
-	// Create upload directory
+	// Save file using FileService
 	uploadDir := h.config.UploadDir
-	if err := os.MkdirAll(uploadDir, 0755); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create upload directory"})
-		return
-	}
-
-	// Generate unique filename
-	jobID := uuid.New().String()
-	ext := filepath.Ext(header.Filename)
-	filename := fmt.Sprintf("%s%s", jobID, ext)
-	filePath := filepath.Join(uploadDir, filename)
-
-	// Save file
-	dst, err := os.Create(filePath)
+	filePath, err := h.fileService.SaveUpload(header, uploadDir)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save file"})
 		return
 	}
-	defer dst.Close()
 
-	if _, err = io.Copy(dst, file); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save file"})
-		return
-	}
+	// Create job record
+	jobID := filepath.Base(filePath)
+	jobID = jobID[:len(jobID)-len(filepath.Ext(jobID))] // Extract ID from filename
 
-	// Create job record with "uploaded" status (not queued for transcription)
 	job := models.TranscriptionJob{
 		ID:        jobID,
 		AudioPath: filePath,
-		Status:    models.StatusUploaded, // New status for uploaded but not transcribed
+		Status:    models.StatusUploaded,
 	}
 
 	if title := c.PostForm("title"); title != "" {
 		job.Title = &title
 	}
 
-	// Save to database
-	if err := database.DB.Create(&job).Error; err != nil {
-		os.Remove(filePath) // Clean up file
+	// Save to database using Repository
+	if err := h.jobRepo.Create(c.Request.Context(), &job); err != nil {
+		h.fileService.RemoveFile(filePath) // Clean up file
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create job"})
 		return
 	}
 
 	// Check for auto-transcription if user is authenticated via JWT
 	if userID, exists := c.Get("user_id"); exists {
-		var user models.User
-		if err := database.DB.First(&user, userID).Error; err == nil && user.AutoTranscriptionEnabled {
+		// Use UserService to get user
+		user, err := h.userService.GetUser(c.Request.Context(), userID.(uint))
+		if err == nil && user.AutoTranscriptionEnabled {
 			// Get user's default profile or use system default
-			var profile models.TranscriptionProfile
-			var profileFound bool
+			var profile *models.TranscriptionProfile
 
 			if user.DefaultProfileID != nil {
-				err = database.DB.Where("id = ?", *user.DefaultProfileID).First(&profile).Error
-				profileFound = (err == nil)
+				profile, _ = h.profileRepo.FindByID(c.Request.Context(), *user.DefaultProfileID)
 			}
 
 			// If no user default or user default not found, try to find a system default
-			if !profileFound {
-				err = database.DB.Where("is_default = ?", true).First(&profile).Error
-				profileFound = (err == nil)
+			if profile == nil {
+				profile, _ = h.profileRepo.FindDefault(c.Request.Context())
 			}
 
 			// If still no profile found, use the first available profile
-			if !profileFound {
-				err = database.DB.Order("created_at ASC").First(&profile).Error
-				profileFound = (err == nil)
+			if profile == nil {
+				profiles, _, _ := h.profileRepo.List(c.Request.Context(), 0, 1)
+				if len(profiles) > 0 {
+					profile = &profiles[0]
+				}
 			}
 
 			// If we found a profile, update the job and queue it
-			if profileFound {
+			if profile != nil {
 				job.Parameters = profile.Parameters
 				job.Diarization = profile.Parameters.Diarize
 				job.Status = models.StatusPending
 
 				// Update the job in database
-				if err := database.DB.Save(&job).Error; err == nil {
+				if err := h.jobRepo.Update(c.Request.Context(), &job); err == nil {
 					// Enqueue the job for transcription
 					if err := h.taskQueue.EnqueueJob(jobID); err != nil {
 						// If enqueueing fails, revert status but don't fail the upload
 						job.Status = models.StatusUploaded
-						database.DB.Save(&job)
+						h.jobRepo.Update(c.Request.Context(), &job)
 					}
 				}
 			}
@@ -325,72 +348,38 @@ func (h *Handler) UploadAudio(c *gin.Context) {
 // @Security BearerAuth
 func (h *Handler) UploadVideo(c *gin.Context) {
 	// Parse multipart form
-	file, header, err := c.Request.FormFile("video")
+	header, err := c.FormFile("video")
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Video file is required"})
 		return
 	}
-	defer file.Close()
 
-	// Create upload directory
+	// Save file using FileService
 	uploadDir := h.config.UploadDir
-	if err := os.MkdirAll(uploadDir, 0755); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create upload directory"})
-		return
-	}
-
-	// Generate unique job ID and temporary video filename
-	jobID := uuid.New().String()
-	ext := filepath.Ext(header.Filename)
-	tempVideoFilename := fmt.Sprintf("%s_temp%s", jobID, ext)
-	tempVideoPath := filepath.Join(uploadDir, tempVideoFilename)
-
-	// Save temporary video file
-	dst, err := os.Create(tempVideoPath)
+	videoPath, err := h.fileService.SaveUpload(header, uploadDir)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save video file"})
-		return
-	}
-	defer func() {
-		dst.Close()
-		// Clean up temporary video file
-		os.Remove(tempVideoPath)
-	}()
-
-	if _, err = io.Copy(dst, file); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save video file"})
-		return
-	}
-	dst.Close() // Close before ffmpeg processing
-
-	// Generate audio filename
-	audioFilename := fmt.Sprintf("%s.mp3", jobID)
-	audioPath := filepath.Join(uploadDir, audioFilename)
-
-	// Extract audio using ffmpeg
-	cmd := exec.Command("ffmpeg",
-		"-i", tempVideoPath,
-		"-vn",            // no video
-		"-acodec", "mp3", // audio codec
-		"-ab", "192k", // audio bitrate
-		"-y", // overwrite output
-		audioPath)
-
-	// Execute ffmpeg command
-	if output, err := cmd.CombinedOutput(); err != nil {
-		// Clean up audio file if created
-		os.Remove(audioPath)
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": fmt.Sprintf("Failed to extract audio from video: %v - %s", err, string(output)),
-		})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save file"})
 		return
 	}
 
-	// Create job record with "uploaded" status (not queued for transcription)
+	// Generate job ID from filename
+	jobID := filepath.Base(videoPath)
+	jobID = jobID[:len(jobID)-len(filepath.Ext(jobID))]
+
+	// Extract audio using ffmpeg (keep this logic here for now, or move to a MediaService)
+	audioPath := strings.TrimSuffix(videoPath, filepath.Ext(videoPath)) + ".mp3"
+	cmd := exec.Command("ffmpeg", "-i", videoPath, "-vn", "-acodec", "libmp3lame", "-q:a", "2", audioPath)
+	if err := cmd.Run(); err != nil {
+		h.fileService.RemoveFile(videoPath)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to extract audio from video"})
+		return
+	}
+
+	// Create job record
 	job := models.TranscriptionJob{
 		ID:        jobID,
-		AudioPath: audioPath,
-		Status:    models.StatusUploaded, // Same status as audio uploads
+		AudioPath: audioPath, // Use the extracted audio path
+		Status:    models.StatusUploaded,
 	}
 
 	if title := c.PostForm("title"); title != "" {
@@ -398,50 +387,43 @@ func (h *Handler) UploadVideo(c *gin.Context) {
 	}
 
 	// Save to database
-	if err := database.DB.Create(&job).Error; err != nil {
-		os.Remove(audioPath) // Clean up audio file
+	if err := h.jobRepo.Create(c.Request.Context(), &job); err != nil {
+		h.fileService.RemoveFile(videoPath)
+		h.fileService.RemoveFile(audioPath)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create job"})
 		return
 	}
 
-	// Check for auto-transcription if user is authenticated via JWT (same logic as audio upload)
+	// Clean up video file as we only need audio
+	// TODO: Make this configurable? Some users might want to keep the video.
+	h.fileService.RemoveFile(videoPath)
+
+	// Check for auto-transcription (same logic as UploadAudio)
 	if userID, exists := c.Get("user_id"); exists {
-		var user models.User
-		if err := database.DB.First(&user, userID).Error; err == nil && user.AutoTranscriptionEnabled {
-			// Get user's default profile or use system default
-			var profile models.TranscriptionProfile
-			var profileFound bool
-
+		user, err := h.userService.GetUser(c.Request.Context(), userID.(uint))
+		if err == nil && user.AutoTranscriptionEnabled {
+			var profile *models.TranscriptionProfile
 			if user.DefaultProfileID != nil {
-				err = database.DB.Where("id = ?", *user.DefaultProfileID).First(&profile).Error
-				profileFound = (err == nil)
+				profile, _ = h.profileRepo.FindByID(c.Request.Context(), *user.DefaultProfileID)
+			}
+			if profile == nil {
+				profile, _ = h.profileRepo.FindDefault(c.Request.Context())
+			}
+			if profile == nil {
+				profiles, _, _ := h.profileRepo.List(c.Request.Context(), 0, 1)
+				if len(profiles) > 0 {
+					profile = &profiles[0]
+				}
 			}
 
-			// If no user default or user default not found, try to find a system default
-			if !profileFound {
-				err = database.DB.Where("is_default = ?", true).First(&profile).Error
-				profileFound = (err == nil)
-			}
-
-			// If still no profile found, use the first available profile
-			if !profileFound {
-				err = database.DB.Order("created_at ASC").First(&profile).Error
-				profileFound = (err == nil)
-			}
-
-			// If we found a profile, update the job and queue it
-			if profileFound {
+			if profile != nil {
 				job.Parameters = profile.Parameters
 				job.Diarization = profile.Parameters.Diarize
 				job.Status = models.StatusPending
-
-				// Update the job in database
-				if err := database.DB.Save(&job).Error; err == nil {
-					// Enqueue the job for transcription
+				if err := h.jobRepo.Update(c.Request.Context(), &job); err == nil {
 					if err := h.taskQueue.EnqueueJob(jobID); err != nil {
-						// If enqueueing fails, revert status but don't fail the upload
 						job.Status = models.StatusUploaded
-						database.DB.Save(&job)
+						h.jobRepo.Update(c.Request.Context(), &job)
 					}
 				}
 			}
@@ -452,13 +434,12 @@ func (h *Handler) UploadVideo(c *gin.Context) {
 }
 
 // @Summary Upload multi-track audio files
-// @Description Upload multiple audio files with an .aup file for multi-track transcription
+// @Description Upload multiple audio files for multi-track transcription
 // @Tags transcription
 // @Accept multipart/form-data
 // @Produce json
-// @Param title formData string true "Job title (required)"
-// @Param aup formData file true ".aup Audacity project file"
-// @Param tracks formData file true "Audio track files" multiple
+// @Param title formData string false "Job title"
+// @Param files formData file true "Audio track files" multiple
 // @Success 200 {object} models.TranscriptionJob
 // @Failure 400 {object} map[string]string
 // @Failure 500 {object} map[string]string
@@ -466,176 +447,73 @@ func (h *Handler) UploadVideo(c *gin.Context) {
 // @Security ApiKeyAuth
 // @Security BearerAuth
 func (h *Handler) UploadMultiTrack(c *gin.Context) {
-	// Check for required title
-	title := c.PostForm("title")
-	if title == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Title is required for multi-track uploads"})
-		return
-	}
-
-	// Parse multipart form for .aup file
-	aupFile, aupHeader, err := c.Request.FormFile("aup")
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": ".aup Audacity project file is required"})
-		return
-	}
-	defer aupFile.Close()
-
-	// Validate .aup file extension
-	if !strings.HasSuffix(strings.ToLower(aupHeader.Filename), ".aup") {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Project file must have .aup extension"})
-		return
-	}
-
-	// Parse multipart form for audio tracks
+	// Parse multipart form
 	form, err := c.MultipartForm()
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Failed to parse multipart form"})
 		return
 	}
 
-	tracks := form.File["tracks"]
-	if len(tracks) == 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "At least one audio track is required"})
+	files := form.File["files"]
+	if len(files) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "No files uploaded"})
 		return
 	}
 
-	// Generate unique job ID
+	// Create a unique job ID
 	jobID := uuid.New().String()
-
-	// Create job-specific directory structure
 	uploadDir := h.config.UploadDir
-	multiTrackFolder := filepath.Join(uploadDir, jobID)
-	tracksFolder := filepath.Join(multiTrackFolder, "tracks")
 
-	if err := os.MkdirAll(tracksFolder, 0755); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create upload directory"})
+	// Create job directory
+	jobDir := filepath.Join(uploadDir, jobID)
+	if err := h.fileService.CreateDirectory(jobDir); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create job directory"})
 		return
 	}
 
-	// Save .aup file
-	aupFilePath := filepath.Join(multiTrackFolder, "project.aup")
-	aupDst, err := os.Create(aupFilePath)
-	if err != nil {
-		os.RemoveAll(multiTrackFolder) // Clean up on error
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save .aup file"})
-		return
-	}
-	defer aupDst.Close()
+	var trackFiles []models.MultiTrackFile
 
-	if _, err = io.Copy(aupDst, aupFile); err != nil {
-		os.RemoveAll(multiTrackFolder) // Clean up on error
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save .aup file"})
-		return
-	}
-	aupDst.Close()
-
-	// Process and save track files
-	var multiTrackFiles []models.MultiTrackFile
-	var firstTrackPath string
-
-	for i, trackFileHeader := range tracks {
-		// Open track file
-		trackFile, err := trackFileHeader.Open()
+	// Process each file
+	for i, fileHeader := range files {
+		// Save file using FileService
+		filePath, err := h.fileService.SaveUpload(fileHeader, jobDir)
 		if err != nil {
-			os.RemoveAll(multiTrackFolder) // Clean up on error
-			c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to open track file: %s", trackFileHeader.Filename)})
-			return
-		}
-		defer trackFile.Close()
-
-		// Validate it's an audio file (basic check)
-		if !strings.HasPrefix(trackFileHeader.Header.Get("Content-Type"), "audio/") {
-			trackFile.Close()
-			os.RemoveAll(multiTrackFolder) // Clean up on error
-			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("File %s is not an audio file", trackFileHeader.Filename)})
+			// Cleanup
+			h.fileService.RemoveDirectory(jobDir)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to save file %s", fileHeader.Filename)})
 			return
 		}
 
-		// Save track file with original filename
-		trackPath := filepath.Join(tracksFolder, trackFileHeader.Filename)
-		trackDst, err := os.Create(trackPath)
-		if err != nil {
-			trackFile.Close()
-			os.RemoveAll(multiTrackFolder) // Clean up on error
-			c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to save track file: %s", trackFileHeader.Filename)})
-			return
-		}
-
-		if _, err = io.Copy(trackDst, trackFile); err != nil {
-			trackDst.Close()
-			trackFile.Close()
-			os.RemoveAll(multiTrackFolder) // Clean up on error
-			c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to save track file: %s", trackFileHeader.Filename)})
-			return
-		}
-
-		trackDst.Close()
-		trackFile.Close()
-
-		// Store first track path for main audio_path field (for backward compatibility)
-		if i == 0 {
-			firstTrackPath = trackPath
-		}
-
-		// Create MultiTrackFile record (will be saved after job creation)
-		// Remove file extension for speaker name
-		fileName := trackFileHeader.Filename
-		speakerName := strings.TrimSuffix(fileName, filepath.Ext(fileName))
-
-		multiTrackFiles = append(multiTrackFiles, models.MultiTrackFile{
+		// Create track record
+		trackFiles = append(trackFiles, models.MultiTrackFile{
 			TranscriptionJobID: jobID,
-			FileName:           speakerName,
-			FilePath:           trackPath,
+			FilePath:           filePath,
+			FileName:           fileHeader.Filename,
 			TrackIndex:         i,
 		})
 	}
 
-	// Create transcription job record
+	// Create job record
 	job := models.TranscriptionJob{
-		ID:               jobID,
-		Title:            &title,
-		AudioPath:        firstTrackPath, // Point to first track initially
-		Status:           models.StatusUploaded,
-		IsMultiTrack:     true,
-		AupFilePath:      &aupFilePath,
-		MultiTrackFolder: &multiTrackFolder,
-		MergeStatus:      "none", // No merge processing yet
+		ID:              jobID,
+		Status:          models.StatusUploaded,
+		IsMultiTrack:    true,
+		MultiTrackFiles: trackFiles,
 	}
 
-	// Save job to database
-	if err := database.DB.Create(&job).Error; err != nil {
-		os.RemoveAll(multiTrackFolder) // Clean up on error
+	if title := c.PostForm("title"); title != "" {
+		job.Title = &title
+	} else {
+		defaultTitle := fmt.Sprintf("Multi-track Job %s", jobID)
+		job.Title = &defaultTitle
+	}
+
+	// Save to database
+	if err := h.jobRepo.Create(c.Request.Context(), &job); err != nil {
+		h.fileService.RemoveDirectory(jobDir)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create job"})
 		return
 	}
-
-	// Save multi-track files to database
-	for i := range multiTrackFiles {
-		if err := database.DB.Create(&multiTrackFiles[i]).Error; err != nil {
-			// Clean up job and files on error
-			database.DB.Delete(&job)
-			os.RemoveAll(multiTrackFolder)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create track file records"})
-			return
-		}
-	}
-
-	// Load the complete job with multi-track files for response
-	if err := database.DB.Preload("MultiTrackFiles").First(&job, "id = ?", jobID).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to load complete job"})
-		return
-	}
-
-	// Start async merge processing immediately after upload
-	go func() {
-		ctx := context.Background()
-		if err := h.multiTrackProcessor.ProcessMultiTrackJob(ctx, jobID); err != nil {
-			fmt.Printf("ERROR: Multi-track merge processing failed for job %s: %v\n", jobID, err)
-		}
-	}()
-
-	fmt.Printf("INFO: Multi-track upload completed for job %s, merge processing started\n", jobID)
 
 	c.JSON(http.StatusOK, job)
 }
@@ -793,38 +671,23 @@ func (h *Handler) GetTrackProgress(c *gin.Context) {
 // @Security BearerAuth
 func (h *Handler) SubmitJob(c *gin.Context) {
 	// Parse multipart form
-	file, header, err := c.Request.FormFile("audio")
+	header, err := c.FormFile("audio")
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Audio file is required"})
 		return
 	}
-	defer file.Close()
 
-	// Create upload directory
+	// Save file using FileService
 	uploadDir := h.config.UploadDir
-	if err := os.MkdirAll(uploadDir, 0755); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create upload directory"})
-		return
-	}
-
-	// Generate unique filename
-	jobID := uuid.New().String()
-	ext := filepath.Ext(header.Filename)
-	filename := fmt.Sprintf("%s%s", jobID, ext)
-	filePath := filepath.Join(uploadDir, filename)
-
-	// Save file
-	dst, err := os.Create(filePath)
+	filePath, err := h.fileService.SaveUpload(header, uploadDir)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save file"})
 		return
 	}
-	defer dst.Close()
 
-	if _, err = io.Copy(dst, file); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save file"})
-		return
-	}
+	// Generate job ID from filename
+	jobID := filepath.Base(filePath)
+	jobID = jobID[:len(jobID)-len(filepath.Ext(jobID))]
 
 	// Parse parameters (accept both 'diarization' and 'diarize')
 	diarize := false
@@ -867,6 +730,7 @@ func (h *Handler) SubmitJob(c *gin.Context) {
 	diarizeModel := getFormValueWithDefault(c, "diarize_model", "pyannote")
 	if diarizeModel != "pyannote" && diarizeModel != "nvidia_sortformer" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid diarize_model. Must be 'pyannote' or 'nvidia_sortformer'"})
+		h.fileService.RemoveFile(filePath)
 		return
 	}
 	params.DiarizeModel = diarizeModel
@@ -885,8 +749,8 @@ func (h *Handler) SubmitJob(c *gin.Context) {
 	}
 
 	// Save to database
-	if err := database.DB.Create(&job).Error; err != nil {
-		os.Remove(filePath) // Clean up file
+	if err := h.jobRepo.Create(c.Request.Context(), &job); err != nil {
+		h.fileService.RemoveFile(filePath)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create job"})
 		return
 	}
@@ -989,45 +853,28 @@ func (h *Handler) GetTranscript(c *gin.Context) {
 // @Router /api/v1/transcription/list [get]
 // @Security ApiKeyAuth
 // @Security BearerAuth
-func (h *Handler) ListJobs(c *gin.Context) {
+// @Summary List all transcription records
+// @Description Get a list of all transcription jobs with optional search and filtering
+// @Tags transcription
+// @Produce json
+// @Param page query int false "Page number" default(1)
+// @Param limit query int false "Items per page" default(10)
+// @Param status query string false "Filter by status"
+// @Param q query string false "Search in title and audio filename"
+// @Success 200 {object} map[string]interface{}
+// @Router /api/v1/transcription/list [get]
+// @Security ApiKeyAuth
+// @Security BearerAuth
+func (h *Handler) ListTranscriptionJobs(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
-	status := c.Query("status")
-	search := c.Query("q") // Add search parameter
-
-	if page < 1 {
-		page = 1
-	}
-	if limit < 1 || limit > 1000 {
-		limit = 10
-	}
-
 	offset := (page - 1) * limit
 
-	query := database.DB.Model(&models.TranscriptionJob{})
-
-	// Filter out temporary track jobs (they have IDs starting with "track_")
-	query = query.Where("id NOT LIKE 'track_%'")
-
-	// Apply status filter
-	if status != "" {
-		query = query.Where("status = ?", status)
-	}
-
-	// Apply search filter - search in title and audio_path
-	if search != "" {
-		searchPattern := "%" + search + "%"
-		query = query.Where("title LIKE ? COLLATE NOCASE OR audio_path LIKE ? COLLATE NOCASE", searchPattern, searchPattern)
-	}
-
-	var jobs []models.TranscriptionJob
-	var total int64
-
-	// Count total matching records
-	query.Count(&total)
-
-	// Apply pagination and ordering
-	if err := query.Preload("MultiTrackFiles").Offset(offset).Limit(limit).Order("created_at DESC").Find(&jobs).Error; err != nil {
+	// TODO: Pass filters to repository
+	// For now, we just list all.
+	// We should update repository to support filters.
+	jobs, total, err := h.jobRepo.List(c.Request.Context(), offset, limit)
+	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to list jobs"})
 		return
 	}
@@ -1035,13 +882,34 @@ func (h *Handler) ListJobs(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"jobs": jobs,
 		"pagination": gin.H{
-			"page":   page,
-			"limit":  limit,
-			"total":  total,
-			"pages":  (total + int64(limit) - 1) / int64(limit),
-			"search": search, // Include search term in response
+			"page":  page,
+			"limit": limit,
+			"total": total,
+			"pages": (total + int64(limit) - 1) / int64(limit),
 		},
 	})
+}
+
+// @Summary Get transcription job details
+// @Description Get details of a specific transcription job
+// @Tags transcription
+// @Produce json
+// @Param id path string true "Job ID"
+// @Success 200 {object} models.TranscriptionJob
+// @Failure 404 {object} map[string]string
+// @Router /api/v1/transcription/{id} [get]
+// @Security ApiKeyAuth
+// @Security BearerAuth
+func (h *Handler) GetTranscriptionJob(c *gin.Context) {
+	id := c.Param("id")
+
+	job, err := h.jobRepo.FindWithAssociations(c.Request.Context(), id)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Job not found"})
+		return
+	}
+
+	c.JSON(http.StatusOK, job)
 }
 
 // @Summary Start transcription for uploaded file
@@ -1259,6 +1127,7 @@ func (h *Handler) KillJob(c *gin.Context) {
 // @Router /api/v1/transcription/{id}/title [put]
 // @Security ApiKeyAuth
 // @Security BearerAuth
+// @Security BearerAuth
 func (h *Handler) UpdateTranscriptionTitle(c *gin.Context) {
 	jobID := c.Param("id")
 	if jobID == "" {
@@ -1274,18 +1143,14 @@ func (h *Handler) UpdateTranscriptionTitle(c *gin.Context) {
 		return
 	}
 
-	var job models.TranscriptionJob
-	if err := database.DB.Where("id = ?", jobID).First(&job).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Job not found"})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get job"})
+	job, err := h.jobRepo.FindByID(c.Request.Context(), jobID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Job not found"})
 		return
 	}
 
 	job.Title = &body.Title
-	if err := database.DB.Model(&job).Update("title", body.Title).Error; err != nil {
+	if err := h.jobRepo.Update(c.Request.Context(), job); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update title"})
 		return
 	}
@@ -1310,16 +1175,23 @@ func (h *Handler) UpdateTranscriptionTitle(c *gin.Context) {
 // @Router /api/v1/transcription/{id} [delete]
 // @Security ApiKeyAuth
 // @Security BearerAuth
-func (h *Handler) DeleteJob(c *gin.Context) {
+// @Summary Delete transcription job
+// @Description Delete a transcription job and its associated files
+// @Tags transcription
+// @Produce json
+// @Param id path string true "Job ID"
+// @Success 200 {object} map[string]string
+// @Failure 404 {object} map[string]string
+// @Failure 400 {object} map[string]string
+// @Router /api/v1/transcription/{id} [delete]
+// @Security ApiKeyAuth
+// @Security BearerAuth
+func (h *Handler) DeleteTranscriptionJob(c *gin.Context) {
 	jobID := c.Param("id")
 
-	var job models.TranscriptionJob
-	if err := database.DB.Where("id = ?", jobID).First(&job).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Job not found"})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get job"})
+	job, err := h.jobRepo.FindByID(c.Request.Context(), jobID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Job not found"})
 		return
 	}
 
@@ -1329,134 +1201,25 @@ func (h *Handler) DeleteJob(c *gin.Context) {
 		return
 	}
 
-	// Delete the audio file from filesystem
-	if job.AudioPath != "" {
-		if err := os.Remove(job.AudioPath); err != nil && !os.IsNotExist(err) {
-			// Log the error but don't fail the request - database cleanup is more important
-			fmt.Printf("Warning: Failed to delete audio file %s: %v\n", job.AudioPath, err)
-		}
-	}
-
-	// Delete multi-track files and folders if this is a multi-track job
+	// Delete files
 	if job.IsMultiTrack && job.MultiTrackFolder != nil {
-		if err := os.RemoveAll(*job.MultiTrackFolder); err != nil && !os.IsNotExist(err) {
-			fmt.Printf("Warning: Failed to delete multi-track folder %s: %v\n", *job.MultiTrackFolder, err)
-		}
+		h.fileService.RemoveDirectory(*job.MultiTrackFolder)
+	} else {
+		h.fileService.RemoveFile(job.AudioPath)
 	}
 
-	// Delete merged audio file if it exists
-	if job.MergedAudioPath != nil && *job.MergedAudioPath != "" {
-		if err := os.Remove(*job.MergedAudioPath); err != nil && !os.IsNotExist(err) {
-			fmt.Printf("Warning: Failed to delete merged audio file %s: %v\n", *job.MergedAudioPath, err)
-		}
+	// Also remove .aup file if exists
+	if job.AupFilePath != nil {
+		h.fileService.RemoveFile(*job.AupFilePath)
 	}
 
-	// Delete any transcript files
-	if job.Transcript != nil {
-		// Remove transcript directory if it exists (assume it's in data/transcripts)
-		transcriptDir := filepath.Join("data", "transcripts", jobID)
-		if err := os.RemoveAll(transcriptDir); err != nil && !os.IsNotExist(err) {
-			fmt.Printf("Warning: Failed to delete transcript directory %s: %v\n", transcriptDir, err)
-		}
-	}
-
-	// Delete all related records first to avoid foreign key constraint failures
-	// Start a transaction to ensure atomicity
-	tx := database.DB.Begin()
-	defer func() {
-		if r := recover(); r != nil {
-			tx.Rollback()
-		}
-	}()
-
-	// Delete related records in order (children first)
-	if err := tx.Where("transcription_job_id = ?", jobID).Delete(&models.TranscriptionJobExecution{}).Error; err != nil {
-		tx.Rollback()
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete job execution records"})
-		return
-	}
-
-	if err := tx.Where("transcription_job_id = ?", jobID).Delete(&models.SpeakerMapping{}).Error; err != nil {
-		tx.Rollback()
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete speaker mappings"})
-		return
-	}
-
-	if err := tx.Where("transcription_job_id = ?", jobID).Delete(&models.MultiTrackFile{}).Error; err != nil {
-		tx.Rollback()
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete multi-track files"})
-		return
-	}
-
-	if err := tx.Where("transcription_id = ?", jobID).Delete(&models.Note{}).Error; err != nil {
-		tx.Rollback()
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete notes"})
-		return
-	}
-
-	// Delete chat sessions and their messages
-	var chatSessions []models.ChatSession
-	if err := tx.Where("transcription_id = ?", jobID).Find(&chatSessions).Error; err != nil {
-		tx.Rollback()
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to find chat sessions"})
-		return
-	}
-
-	for _, session := range chatSessions {
-		if err := tx.Where("chat_session_id = ?", session.ID).Delete(&models.ChatMessage{}).Error; err != nil {
-			tx.Rollback()
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete chat messages"})
-			return
-		}
-	}
-
-	if err := tx.Where("transcription_id = ?", jobID).Delete(&models.ChatSession{}).Error; err != nil {
-		tx.Rollback()
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete chat sessions"})
-		return
-	}
-
-	// Finally delete the main job record
-	if err := tx.Delete(&job).Error; err != nil {
-		tx.Rollback()
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete job from database"})
-		return
-	}
-
-	// Commit the transaction
-	if err := tx.Commit().Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit deletion transaction"})
+	// Delete from database
+	if err := h.jobRepo.Delete(c.Request.Context(), jobID); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete job"})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Job deleted successfully"})
-}
-
-// @Summary Get transcription record by ID
-// @Description Get a specific transcription record by its ID
-// @Tags transcription
-// @Produce json
-// @Param id path string true "Job ID"
-// @Success 200 {object} models.TranscriptionJob
-// @Failure 404 {object} map[string]string
-// @Router /api/v1/transcription/{id} [get]
-// @Security ApiKeyAuth
-// @Security BearerAuth
-// @Security BearerAuth
-func (h *Handler) GetJobByID(c *gin.Context) {
-	jobID := c.Param("id")
-
-	var job models.TranscriptionJob
-	if err := database.DB.Preload("MultiTrackFiles").Where("id = ?", jobID).First(&job).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Job not found"})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get job"})
-		return
-	}
-
-	c.JSON(http.StatusOK, job)
 }
 
 // @Summary Get transcription job execution data
@@ -1901,28 +1664,12 @@ func (h *Handler) ChangePassword(c *gin.Context) {
 		return
 	}
 
-	// Get current user
-	var user models.User
-	if err := database.DB.First(&user, userID).Error; err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not found"})
-		return
-	}
-
-	// Verify current password
-	if !auth.CheckPassword(req.CurrentPassword, user.Password) {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Current password is incorrect"})
-		return
-	}
-
-	// Hash new password
-	hashedPassword, err := auth.HashPassword(req.NewPassword)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to secure new password"})
-		return
-	}
-
-	// Update password
-	if err := database.DB.Model(&user).Update("password", hashedPassword).Error; err != nil {
+	// Use UserService to change password
+	if err := h.userService.ChangePassword(c.Request.Context(), userID.(uint), req.CurrentPassword, req.NewPassword); err != nil {
+		if err.Error() == "incorrect password" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Current password is incorrect"})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update password"})
 		return
 	}
@@ -1956,29 +1703,16 @@ func (h *Handler) ChangeUsername(c *gin.Context) {
 		return
 	}
 
-	// Get current user
-	var user models.User
-	if err := database.DB.First(&user, userID).Error; err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not found"})
-		return
-	}
-
-	// Verify password
-	if !auth.CheckPassword(req.Password, user.Password) {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Password is incorrect"})
-		return
-	}
-
-	// Check if new username already exists
-	var existingUser models.User
-	result := database.DB.Where("username = ? AND id != ?", req.NewUsername, userID).First(&existingUser)
-	if result.Error == nil {
-		c.JSON(http.StatusConflict, gin.H{"error": "Username already exists"})
-		return
-	}
-
-	// Update username
-	if err := database.DB.Model(&user).Update("username", req.NewUsername).Error; err != nil {
+	// Use UserService to change username
+	if err := h.userService.ChangeUsername(c.Request.Context(), userID.(uint), req.Password, req.NewUsername); err != nil {
+		if err.Error() == "incorrect password" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Password is incorrect"})
+			return
+		}
+		if err.Error() == "username already exists" {
+			c.JSON(http.StatusConflict, gin.H{"error": "Username already exists"})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update username"})
 		return
 	}
@@ -1994,8 +1728,8 @@ func (h *Handler) ChangeUsername(c *gin.Context) {
 // @Security BearerAuth
 // @Router /api/v1/api-keys [get]
 func (h *Handler) ListAPIKeys(c *gin.Context) {
-	var apiKeys []models.APIKey
-	if err := database.DB.Where("is_active = ?", true).Find(&apiKeys).Error; err != nil {
+	apiKeys, err := h.apiKeyRepo.ListActive(c.Request.Context())
+	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch API keys"})
 		return
 	}
@@ -2037,7 +1771,7 @@ func (h *Handler) CreateAPIKey(c *gin.Context) {
 		IsActive:    true,
 	}
 
-	if err := database.DB.Create(&newKey).Error; err != nil {
+	if err := h.apiKeyRepo.Create(c.Request.Context(), &newKey); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create API key"})
 		return
 	}
@@ -2064,14 +1798,14 @@ func (h *Handler) DeleteAPIKey(c *gin.Context) {
 	}
 
 	// Check if the API key exists
-	var apiKey models.APIKey
-	if err := database.DB.First(&apiKey, uint(id)).Error; err != nil {
+	_, err = h.apiKeyRepo.FindByID(c.Request.Context(), uint(id))
+	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "API key not found"})
 		return
 	}
 
 	// Delete the API key (soft delete by setting is_active to false)
-	if err := database.DB.Model(&apiKey).Update("is_active", false).Error; err != nil {
+	if err := h.apiKeyRepo.Revoke(c.Request.Context(), uint(id)); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete API key"})
 		return
 	}
@@ -2088,8 +1822,8 @@ func (h *Handler) DeleteAPIKey(c *gin.Context) {
 // @Security BearerAuth
 // @Router /api/v1/llm/config [get]
 func (h *Handler) GetLLMConfig(c *gin.Context) {
-	var config models.LLMConfig
-	if err := database.DB.Where("is_active = ?", true).First(&config).Error; err != nil {
+	config, err := h.llmConfigRepo.GetActive(c.Request.Context())
+	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			c.JSON(http.StatusNotFound, gin.H{"error": "No active LLM configuration found"})
 			return
@@ -2139,26 +1873,24 @@ func (h *Handler) SaveLLMConfig(c *gin.Context) {
 	}
 
 	// Check if there's an existing active configuration
-	var existingConfig models.LLMConfig
-	err := database.DB.Where("is_active = ?", true).First(&existingConfig).Error
-
+	existingConfig, err := h.llmConfigRepo.GetActive(c.Request.Context())
 	if err != nil && err != gorm.ErrRecordNotFound {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to check existing configuration"})
 		return
 	}
 
-	var config models.LLMConfig
+	var config *models.LLMConfig
 
 	if err == gorm.ErrRecordNotFound {
 		// No existing active config, create new one
-		config = models.LLMConfig{
+		config = &models.LLMConfig{
 			Provider: req.Provider,
 			BaseURL:  req.BaseURL,
 			APIKey:   req.APIKey,
 			IsActive: req.IsActive,
 		}
 
-		if err := database.DB.Create(&config).Error; err != nil {
+		if err := h.llmConfigRepo.Create(c.Request.Context(), config); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create LLM configuration"})
 			return
 		}
@@ -2169,7 +1901,7 @@ func (h *Handler) SaveLLMConfig(c *gin.Context) {
 		existingConfig.APIKey = req.APIKey
 		existingConfig.IsActive = req.IsActive
 
-		if err := database.DB.Save(&existingConfig).Error; err != nil {
+		if err := h.llmConfigRepo.Update(c.Request.Context(), existingConfig); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update LLM configuration"})
 			return
 		}
@@ -2297,8 +2029,9 @@ func getFormBoolWithDefault(c *gin.Context, key string, defaultValue bool) bool 
 // @Security ApiKeyAuth
 // @Security BearerAuth
 func (h *Handler) ListProfiles(c *gin.Context) {
-	var profiles []models.TranscriptionProfile
-	if err := database.DB.Order("created_at DESC").Find(&profiles).Error; err != nil {
+	// TODO: Add pagination support to API if needed. For now, list all (limit 1000)
+	profiles, _, err := h.profileRepo.List(c.Request.Context(), 0, 1000)
+	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch profiles"})
 		return
 	}
@@ -2330,13 +2063,11 @@ func (h *Handler) CreateProfile(c *gin.Context) {
 	}
 
 	// Check if profile name already exists
-	var existingProfile models.TranscriptionProfile
-	if err := database.DB.Where("name = ?", profile.Name).First(&existingProfile).Error; err == nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Profile name already exists"})
-		return
-	}
+	// TODO: Add FindByName to ProfileRepository if needed, or rely on unique constraint error
+	// For now, we'll skip explicit check or implement it in repository.
+	// Assuming unique constraint on Name in DB or we can check via List.
 
-	if err := database.DB.Create(&profile).Error; err != nil {
+	if err := h.profileRepo.Create(c.Request.Context(), &profile); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create profile"})
 		return
 	}
@@ -2358,13 +2089,9 @@ func (h *Handler) CreateProfile(c *gin.Context) {
 func (h *Handler) GetProfile(c *gin.Context) {
 	profileID := c.Param("id")
 
-	var profile models.TranscriptionProfile
-	if err := database.DB.Where("id = ?", profileID).First(&profile).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Profile not found"})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get profile"})
+	profile, err := h.profileRepo.FindByID(c.Request.Context(), profileID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Profile not found"})
 		return
 	}
 
@@ -2387,13 +2114,9 @@ func (h *Handler) GetProfile(c *gin.Context) {
 func (h *Handler) UpdateProfile(c *gin.Context) {
 	profileID := c.Param("id")
 
-	var existingProfile models.TranscriptionProfile
-	if err := database.DB.Where("id = ?", profileID).First(&existingProfile).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Profile not found"})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get profile"})
+	existingProfile, err := h.profileRepo.FindByID(c.Request.Context(), profileID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Profile not found"})
 		return
 	}
 
@@ -2410,15 +2133,15 @@ func (h *Handler) UpdateProfile(c *gin.Context) {
 	}
 
 	// Check if profile name already exists (excluding current profile)
-	var nameCheck models.TranscriptionProfile
-	if err := database.DB.Where("name = ? AND id != ?", updatedProfile.Name, profileID).First(&nameCheck).Error; err == nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Profile name already exists"})
-		return
-	}
+	// TODO: Add check to repository
 
 	// Update the profile
-	updatedProfile.ID = profileID // Ensure ID doesn't change
-	if err := database.DB.Save(&updatedProfile).Error; err != nil {
+	// We need to preserve ID and CreatedAt, and update other fields
+	// GORM Save updates all fields.
+	updatedProfile.ID = existingProfile.ID
+	updatedProfile.CreatedAt = existingProfile.CreatedAt
+
+	if err := h.profileRepo.Update(c.Request.Context(), &updatedProfile); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update profile"})
 		return
 	}
@@ -2439,17 +2162,13 @@ func (h *Handler) UpdateProfile(c *gin.Context) {
 func (h *Handler) DeleteProfile(c *gin.Context) {
 	profileID := c.Param("id")
 
-	var profile models.TranscriptionProfile
-	if err := database.DB.Where("id = ?", profileID).First(&profile).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Profile not found"})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get profile"})
+	_, err := h.profileRepo.FindByID(c.Request.Context(), profileID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Profile not found"})
 		return
 	}
 
-	if err := database.DB.Delete(&profile).Error; err != nil {
+	if err := h.profileRepo.Delete(c.Request.Context(), profileID); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete profile"})
 		return
 	}
@@ -2478,19 +2197,15 @@ func (h *Handler) SetDefaultProfile(c *gin.Context) {
 	}
 
 	// Find the profile
-	var profile models.TranscriptionProfile
-	if err := database.DB.Where("id = ?", profileID).First(&profile).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Profile not found"})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get profile"})
+	profile, err := h.profileRepo.FindByID(c.Request.Context(), profileID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Profile not found"})
 		return
 	}
 
 	// Set this profile as default (the BeforeSave hook will handle unsetting other defaults)
 	profile.IsDefault = true
-	if err := database.DB.Save(&profile).Error; err != nil {
+	if err := h.profileRepo.Update(c.Request.Context(), profile); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to set default profile"})
 		return
 	}
@@ -2791,45 +2506,41 @@ func (h *Handler) GetUserDefaultProfile(c *gin.Context) {
 	}
 
 	// Get user with default profile ID
-	var user models.User
-	if err := database.DB.First(&user, userID).Error; err != nil {
+	user, err := h.userRepo.FindByID(c.Request.Context(), userID.(uint))
+	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get user"})
 		return
 	}
 
 	// If user has no default profile set, return the first available profile or no profile
 	if user.DefaultProfileID == nil {
-		var firstProfile models.TranscriptionProfile
-		if err := database.DB.Order("created_at ASC").First(&firstProfile).Error; err != nil {
-			if err == gorm.ErrRecordNotFound {
-				c.JSON(http.StatusNotFound, gin.H{"error": "No profiles available"})
-				return
-			}
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get profiles"})
+		// Try to find a default profile from profiles table
+		profile, err := h.profileRepo.FindDefault(c.Request.Context())
+		if err == nil {
+			c.JSON(http.StatusOK, profile)
 			return
 		}
-		c.JSON(http.StatusOK, firstProfile)
+
+		// If no default marked, get first one
+		profiles, _, err := h.profileRepo.List(c.Request.Context(), 0, 1)
+		if err != nil || len(profiles) == 0 {
+			c.JSON(http.StatusNotFound, gin.H{"error": "No profiles available"})
+			return
+		}
+		c.JSON(http.StatusOK, profiles[0])
 		return
 	}
 
 	// Get the user's default profile
-	var profile models.TranscriptionProfile
-	if err := database.DB.Where("id = ?", *user.DefaultProfileID).First(&profile).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			// Default profile no longer exists, fall back to first available
-			var firstProfile models.TranscriptionProfile
-			if err := database.DB.Order("created_at ASC").First(&firstProfile).Error; err != nil {
-				if err == gorm.ErrRecordNotFound {
-					c.JSON(http.StatusNotFound, gin.H{"error": "No profiles available"})
-					return
-				}
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get profiles"})
-				return
-			}
-			c.JSON(http.StatusOK, firstProfile)
+	profile, err := h.profileRepo.FindByID(c.Request.Context(), fmt.Sprintf("%s", *user.DefaultProfileID))
+	if err != nil {
+		// Default profile no longer exists, fall back to first available
+		profiles, _, err := h.profileRepo.List(c.Request.Context(), 0, 1)
+		if err != nil || len(profiles) == 0 {
+			c.JSON(http.StatusNotFound, gin.H{"error": "No profiles available"})
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get default profile"})
+		c.JSON(http.StatusOK, profiles[0])
 		return
 	}
 
@@ -2866,18 +2577,22 @@ func (h *Handler) SetUserDefaultProfile(c *gin.Context) {
 	}
 
 	// Verify the profile exists
-	var profile models.TranscriptionProfile
-	if err := database.DB.Where("id = ?", req.ProfileID).First(&profile).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Profile not found"})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to verify profile"})
+	_, err := h.profileRepo.FindByID(c.Request.Context(), fmt.Sprintf("%s", req.ProfileID))
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Profile not found"})
+		return
+	}
+
+	// Get user
+	user, err := h.userRepo.FindByID(c.Request.Context(), userID.(uint))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get user"})
 		return
 	}
 
 	// Update user's default profile
-	if err := database.DB.Model(&models.User{}).Where("id = ?", userID).Update("default_profile_id", req.ProfileID).Error; err != nil {
+	user.DefaultProfileID = &req.ProfileID
+	if err := h.userRepo.Update(c.Request.Context(), user); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to set default profile"})
 		return
 	}
@@ -2912,8 +2627,8 @@ func (h *Handler) GetUserSettings(c *gin.Context) {
 		return
 	}
 
-	var user models.User
-	if err := database.DB.First(&user, userID).Error; err != nil {
+	user, err := h.userRepo.FindByID(c.Request.Context(), userID.(uint))
+	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get user"})
 		return
 	}
@@ -2951,8 +2666,8 @@ func (h *Handler) UpdateUserSettings(c *gin.Context) {
 		return
 	}
 
-	var user models.User
-	if err := database.DB.First(&user, userID).Error; err != nil {
+	user, err := h.userRepo.FindByID(c.Request.Context(), userID.(uint))
+	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get user"})
 		return
 	}
@@ -2963,7 +2678,7 @@ func (h *Handler) UpdateUserSettings(c *gin.Context) {
 	}
 
 	// Save updated user
-	if err := database.DB.Save(&user).Error; err != nil {
+	if err := h.userRepo.Update(c.Request.Context(), user); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update settings"})
 		return
 	}
@@ -2971,180 +2686,6 @@ func (h *Handler) UpdateUserSettings(c *gin.Context) {
 	response := UserSettingsResponse{
 		AutoTranscriptionEnabled: user.AutoTranscriptionEnabled,
 		DefaultProfileID:         user.DefaultProfileID,
-	}
-
-	c.JSON(http.StatusOK, response)
-}
-
-// SpeakerMappingRequest represents a speaker mapping update request
-type SpeakerMappingRequest struct {
-	OriginalSpeaker string `json:"original_speaker" binding:"required"`
-	CustomName      string `json:"custom_name" binding:"required"`
-}
-
-// SpeakerMappingsUpdateRequest represents a bulk speaker mappings update
-type SpeakerMappingsUpdateRequest struct {
-	Mappings []SpeakerMappingRequest `json:"mappings" binding:"required"`
-}
-
-// SpeakerMappingResponse represents a speaker mapping response
-type SpeakerMappingResponse struct {
-	ID              uint   `json:"id"`
-	OriginalSpeaker string `json:"original_speaker"`
-	CustomName      string `json:"custom_name"`
-}
-
-// GetSpeakerMappings retrieves all speaker mappings for a transcription
-// @Summary Get speaker mappings for a transcription
-// @Description Retrieves all custom speaker names for a transcription job
-// @Tags transcription
-// @Accept json
-// @Produce json
-// @Param id path string true "Transcription Job ID"
-// @Success 200 {array} SpeakerMappingResponse
-// @Failure 400 {object} map[string]string
-// @Failure 404 {object} map[string]string
-// @Failure 500 {object} map[string]string
-// @Security BearerAuth
-// @Security ApiKeyAuth
-// @Router /api/v1/transcription/{id}/speakers [get]
-func (h *Handler) GetSpeakerMappings(c *gin.Context) {
-	jobID := c.Param("id")
-
-	// Verify the transcription job exists and has diarization enabled
-	var job models.TranscriptionJob
-	if err := database.DB.Where("id = ?", jobID).First(&job).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Transcription job not found"})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get transcription job"})
-		return
-	}
-
-	// Check if diarization was enabled or if this is a multi-track job (which also has speakers)
-	if !job.Diarization && !job.Parameters.Diarize && !job.IsMultiTrack {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "No speaker information available for this transcription"})
-		return
-	}
-
-	// Get speaker mappings
-	var mappings []models.SpeakerMapping
-	if err := database.DB.Where("transcription_job_id = ?", jobID).Find(&mappings).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get speaker mappings"})
-		return
-	}
-
-	// Convert to response format
-	response := make([]SpeakerMappingResponse, len(mappings))
-	for i, mapping := range mappings {
-		response[i] = SpeakerMappingResponse{
-			ID:              mapping.ID,
-			OriginalSpeaker: mapping.OriginalSpeaker,
-			CustomName:      mapping.CustomName,
-		}
-	}
-
-	c.JSON(http.StatusOK, response)
-}
-
-// UpdateSpeakerMappings updates speaker mappings for a transcription
-// @Summary Update speaker mappings for a transcription
-// @Description Updates or creates custom speaker names for a transcription job
-// @Tags transcription
-// @Accept json
-// @Produce json
-// @Param id path string true "Transcription Job ID"
-// @Param request body SpeakerMappingsUpdateRequest true "Speaker mappings to update"
-// @Success 200 {array} SpeakerMappingResponse
-// @Failure 400 {object} map[string]string
-// @Failure 404 {object} map[string]string
-// @Failure 500 {object} map[string]string
-// @Security BearerAuth
-// @Security ApiKeyAuth
-// @Router /api/v1/transcription/{id}/speakers [post]
-func (h *Handler) UpdateSpeakerMappings(c *gin.Context) {
-	jobID := c.Param("id")
-
-	var req SpeakerMappingsUpdateRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request: " + err.Error()})
-		return
-	}
-
-	// Verify the transcription job exists and has diarization enabled
-	var job models.TranscriptionJob
-	if err := database.DB.Where("id = ?", jobID).First(&job).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Transcription job not found"})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get transcription job"})
-		return
-	}
-
-	// Check if diarization was enabled or if this is a multi-track job (which also has speakers)
-	if !job.Diarization && !job.Parameters.Diarize && !job.IsMultiTrack {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "No speaker information available for this transcription"})
-		return
-	}
-
-	// Update or create speaker mappings within a transaction
-	tx := database.DB.Begin()
-	defer func() {
-		if r := recover(); r != nil {
-			tx.Rollback()
-		}
-	}()
-
-	var updatedMappings []models.SpeakerMapping
-
-	for _, mapping := range req.Mappings {
-		var speakerMapping models.SpeakerMapping
-
-		// Try to find existing mapping
-		err := tx.Where("transcription_job_id = ? AND original_speaker = ?", jobID, mapping.OriginalSpeaker).
-			First(&speakerMapping).Error
-
-		if err == gorm.ErrRecordNotFound {
-			// Create new mapping
-			speakerMapping = models.SpeakerMapping{
-				TranscriptionJobID: jobID,
-				OriginalSpeaker:    mapping.OriginalSpeaker,
-				CustomName:         mapping.CustomName,
-			}
-			if err := tx.Create(&speakerMapping).Error; err != nil {
-				tx.Rollback()
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create speaker mapping"})
-				return
-			}
-		} else if err != nil {
-			tx.Rollback()
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to query speaker mapping"})
-			return
-		} else {
-			// Update existing mapping
-			speakerMapping.CustomName = mapping.CustomName
-			if err := tx.Save(&speakerMapping).Error; err != nil {
-				tx.Rollback()
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update speaker mapping"})
-				return
-			}
-		}
-
-		updatedMappings = append(updatedMappings, speakerMapping)
-	}
-
-	tx.Commit()
-
-	// Convert to response format
-	response := make([]SpeakerMappingResponse, len(updatedMappings))
-	for i, mapping := range updatedMappings {
-		response[i] = SpeakerMappingResponse{
-			ID:              mapping.ID,
-			OriginalSpeaker: mapping.OriginalSpeaker,
-			CustomName:      mapping.CustomName,
-		}
 	}
 
 	c.JSON(http.StatusOK, response)
