@@ -74,6 +74,16 @@ func (m *MockJobRepository) UpdateExecution(ctx context.Context, execution *mode
 	return args.Error(0)
 }
 
+func (m *MockJobRepository) DeleteExecutionsByJobID(ctx context.Context, jobID string) error {
+	args := m.Called(ctx, jobID)
+	return args.Error(0)
+}
+
+func (m *MockJobRepository) DeleteMultiTrackFilesByJobID(ctx context.Context, jobID string) error {
+	args := m.Called(ctx, jobID)
+	return args.Error(0)
+}
+
 // MockTranscriptionAdapter is a mock implementation of TranscriptionAdapter
 type MockTranscriptionAdapter struct {
 	mock.Mock

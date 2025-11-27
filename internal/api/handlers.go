@@ -1213,9 +1213,52 @@ func (h *Handler) DeleteTranscriptionJob(c *gin.Context) {
 		h.fileService.RemoveFile(*job.AupFilePath)
 	}
 
+	// Manually delete related records to handle legacy DBs without CASCADE constraints
+	// 1. Delete Chat Sessions (and their messages via GORM hooks or manual if needed, but let's assume messages are cascaded by session deletion or we delete them too)
+	// Actually, we should use the repositories if available, or direct DB calls if not exposed.
+	// Since we have repositories, let's try to use them or add methods.
+	// However, for speed and robustness here, we can use the jobRepo's DB instance if we had access, but we don't directly.
+	// We should add DeleteByJobID methods to repositories or use a transaction.
+	// Given the constraints, let's add a helper in jobRepo or just rely on the fact that we can't easily access other repos here without adding them to Handler if they aren't already.
+	// Wait, Handler HAS all repos.
+
+	ctx := c.Request.Context()
+
+	// Delete Chat Sessions
+	// We need a method in ChatRepository to delete by JobID or TranscriptionID
+	if err := h.chatRepo.DeleteByJobID(ctx, jobID); err != nil {
+		// Log error but continue? Or fail? Best to try to clean up as much as possible.
+		fmt.Printf("Failed to delete chat sessions for job %s: %v\n", jobID, err)
+	}
+
+	// Delete Notes
+	if err := h.noteRepo.DeleteByTranscriptionID(ctx, jobID); err != nil {
+		fmt.Printf("Failed to delete notes for job %s: %v\n", jobID, err)
+	}
+
+	// Delete Summaries
+	if err := h.summaryRepo.DeleteByTranscriptionID(ctx, jobID); err != nil {
+		fmt.Printf("Failed to delete summaries for job %s: %v\n", jobID, err)
+	}
+
+	// Delete Speaker Mappings
+	if err := h.speakerMappingRepo.DeleteByJobID(ctx, jobID); err != nil {
+		fmt.Printf("Failed to delete speaker mappings for job %s: %v\n", jobID, err)
+	}
+
+	// Delete Job Executions
+	if err := h.jobRepo.DeleteExecutionsByJobID(ctx, jobID); err != nil {
+		fmt.Printf("Failed to delete job executions for job %s: %v\n", jobID, err)
+	}
+
+	// Delete MultiTrack Files (DB records)
+	if err := h.jobRepo.DeleteMultiTrackFilesByJobID(ctx, jobID); err != nil {
+		fmt.Printf("Failed to delete multi-track file records for job %s: %v\n", jobID, err)
+	}
+
 	// Delete from database
 	if err := h.jobRepo.Delete(c.Request.Context(), jobID); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete job"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete job: " + err.Error()})
 		return
 	}
 

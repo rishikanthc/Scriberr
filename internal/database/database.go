@@ -27,13 +27,13 @@ func Initialize(dbPath string) error {
 
 	// SQLite connection string with performance optimizations
 	dsn := fmt.Sprintf("%s?"+
-		"_pragma=foreign_keys(1)&"+          // Enable foreign keys
-		"_pragma=journal_mode(WAL)&"+        // Use WAL mode for better concurrency
-		"_pragma=synchronous(NORMAL)&"+      // Balance between safety and performance
-		"_pragma=cache_size(-64000)&"+       // 64MB cache size
-		"_pragma=temp_store(MEMORY)&"+       // Store temp tables in memory
-		"_pragma=mmap_size(268435456)&"+     // 256MB mmap size
-		"_timeout=30000",                     // 30 second timeout
+		"_pragma=foreign_keys(1)&"+ // Enable foreign keys
+		"_pragma=journal_mode(WAL)&"+ // Use WAL mode for better concurrency
+		"_pragma=synchronous(NORMAL)&"+ // Balance between safety and performance
+		"_pragma=cache_size(-64000)&"+ // 64MB cache size
+		"_pragma=temp_store(MEMORY)&"+ // Store temp tables in memory
+		"_pragma=mmap_size(268435456)&"+ // 256MB mmap size
+		"_timeout=30000", // 30 second timeout
 		dbPath)
 
 	// Open database connection with optimized config
@@ -52,8 +52,8 @@ func Initialize(dbPath string) error {
 	}
 
 	// Configure connection pool for optimal performance
-	sqlDB.SetMaxOpenConns(10)                // SQLite generally works well with lower connection counts
-	sqlDB.SetMaxIdleConns(5)                 // Keep some connections idle
+	sqlDB.SetMaxOpenConns(10)                  // SQLite generally works well with lower connection counts
+	sqlDB.SetMaxIdleConns(5)                   // Keep some connections idle
 	sqlDB.SetConnMaxLifetime(30 * time.Minute) // Reset connections every 30 minutes
 	sqlDB.SetConnMaxIdleTime(5 * time.Minute)  // Close idle connections after 5 minutes
 
@@ -76,6 +76,22 @@ func Initialize(dbPath string) error {
 		&models.RefreshToken{},
 	); err != nil {
 		return fmt.Errorf("failed to auto migrate: %v", err)
+	}
+
+	// Cleanup duplicate speaker mappings before creating unique index (for backward compatibility)
+	// Keep the latest mapping for each (job_id, original_speaker) pair
+	cleanupQuery := `
+		DELETE FROM speaker_mappings 
+		WHERE id NOT IN (
+			SELECT MAX(id) 
+			FROM speaker_mappings 
+			GROUP BY transcription_job_id, original_speaker
+		)
+	`
+	if err := DB.Exec(cleanupQuery).Error; err != nil {
+		// Log warning but continue, as table might not exist yet or query might fail for other reasons
+		// We don't want to block startup if this fails, but index creation might fail next.
+		fmt.Printf("Warning: Failed to cleanup duplicate speaker mappings: %v\n", err)
 	}
 
 	// Add unique constraint for speaker mappings (transcription_job_id + original_speaker)
@@ -105,17 +121,17 @@ func HealthCheck() error {
 	if DB == nil {
 		return fmt.Errorf("database connection is nil")
 	}
-	
+
 	sqlDB, err := DB.DB()
 	if err != nil {
 		return fmt.Errorf("failed to get underlying sql.DB: %v", err)
 	}
-	
+
 	// Test the connection with a ping
 	if err := sqlDB.Ping(); err != nil {
 		return fmt.Errorf("database ping failed: %v", err)
 	}
-	
+
 	return nil
 }
 
@@ -124,11 +140,11 @@ func GetConnectionStats() sql.DBStats {
 	if DB == nil {
 		return sql.DBStats{}
 	}
-	
+
 	sqlDB, err := DB.DB()
 	if err != nil {
 		return sql.DBStats{}
 	}
-	
+
 	return sqlDB.Stats()
 }

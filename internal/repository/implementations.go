@@ -40,6 +40,8 @@ type JobRepository interface {
 	UpdateTranscript(ctx context.Context, jobID string, transcript string) error
 	CreateExecution(ctx context.Context, execution *models.TranscriptionJobExecution) error
 	UpdateExecution(ctx context.Context, execution *models.TranscriptionJobExecution) error
+	DeleteExecutionsByJobID(ctx context.Context, jobID string) error
+	DeleteMultiTrackFilesByJobID(ctx context.Context, jobID string) error
 }
 
 type jobRepository struct {
@@ -85,6 +87,14 @@ func (r *jobRepository) CreateExecution(ctx context.Context, execution *models.T
 
 func (r *jobRepository) UpdateExecution(ctx context.Context, execution *models.TranscriptionJobExecution) error {
 	return r.db.WithContext(ctx).Save(execution).Error
+}
+
+func (r *jobRepository) DeleteExecutionsByJobID(ctx context.Context, jobID string) error {
+	return r.db.WithContext(ctx).Where("transcription_job_id = ?", jobID).Delete(&models.TranscriptionJobExecution{}).Error
+}
+
+func (r *jobRepository) DeleteMultiTrackFilesByJobID(ctx context.Context, jobID string) error {
+	return r.db.WithContext(ctx).Where("transcription_job_id = ?", jobID).Delete(&models.MultiTrackFile{}).Error
 }
 
 // APIKeyRepository handles API key operations
@@ -184,6 +194,7 @@ type SummaryRepository interface {
 	SaveSettings(ctx context.Context, settings *models.SummarySetting) error
 	SaveSummary(ctx context.Context, summary *models.Summary) error
 	GetLatestSummary(ctx context.Context, transcriptionID string) (*models.Summary, error)
+	DeleteByTranscriptionID(ctx context.Context, transcriptionID string) error
 }
 
 type summaryRepository struct {
@@ -224,6 +235,10 @@ func (r *summaryRepository) GetLatestSummary(ctx context.Context, transcriptionI
 	return &summary, nil
 }
 
+func (r *summaryRepository) DeleteByTranscriptionID(ctx context.Context, transcriptionID string) error {
+	return r.db.WithContext(ctx).Where("transcription_id = ?", transcriptionID).Delete(&models.Summary{}).Error
+}
+
 // ChatRepository handles chat sessions and messages
 type ChatRepository interface {
 	Repository[models.ChatSession]
@@ -233,6 +248,7 @@ type ChatRepository interface {
 	ListByJob(ctx context.Context, jobID string) ([]models.ChatSession, error)
 	DeleteSession(ctx context.Context, id string) error
 	GetMessages(ctx context.Context, sessionID string, limit int) ([]models.ChatMessage, error)
+	DeleteByJobID(ctx context.Context, jobID string) error
 }
 
 type chatRepository struct {
@@ -290,6 +306,22 @@ func (r *chatRepository) DeleteSession(ctx context.Context, id string) error {
 	})
 }
 
+func (r *chatRepository) DeleteByJobID(ctx context.Context, jobID string) error {
+	// Find all sessions for this job
+	var sessions []models.ChatSession
+	if err := r.db.WithContext(ctx).Where("transcription_id = ?", jobID).Find(&sessions).Error; err != nil {
+		return err
+	}
+
+	// Delete each session (which deletes messages)
+	for _, session := range sessions {
+		if err := r.DeleteSession(ctx, session.ID); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (r *chatRepository) GetMessages(ctx context.Context, sessionID string, limit int) ([]models.ChatMessage, error) {
 	var messages []models.ChatMessage
 	query := r.db.WithContext(ctx).Where("chat_session_id = ?", sessionID).Order("created_at ASC")
@@ -307,6 +339,7 @@ func (r *chatRepository) GetMessages(ctx context.Context, sessionID string, limi
 type NoteRepository interface {
 	Repository[models.Note]
 	ListByJob(ctx context.Context, jobID string) ([]models.Note, error)
+	DeleteByTranscriptionID(ctx context.Context, transcriptionID string) error
 }
 
 type noteRepository struct {
@@ -328,11 +361,16 @@ func (r *noteRepository) ListByJob(ctx context.Context, jobID string) ([]models.
 	return notes, nil
 }
 
+func (r *noteRepository) DeleteByTranscriptionID(ctx context.Context, transcriptionID string) error {
+	return r.db.WithContext(ctx).Where("transcription_id = ?", transcriptionID).Delete(&models.Note{}).Error
+}
+
 // SpeakerMappingRepository handles speaker mappings
 type SpeakerMappingRepository interface {
 	Repository[models.SpeakerMapping]
 	ListByJob(ctx context.Context, jobID string) ([]models.SpeakerMapping, error)
 	UpdateMappings(ctx context.Context, jobID string, mappings []models.SpeakerMapping) error
+	DeleteByJobID(ctx context.Context, jobID string) error
 }
 
 type speakerMappingRepository struct {
@@ -354,27 +392,21 @@ func (r *speakerMappingRepository) ListByJob(ctx context.Context, jobID string) 
 	return mappings, nil
 }
 
+func (r *speakerMappingRepository) DeleteByJobID(ctx context.Context, jobID string) error {
+	return r.db.WithContext(ctx).Where("transcription_job_id = ?", jobID).Delete(&models.SpeakerMapping{}).Error
+}
+
 func (r *speakerMappingRepository) UpdateMappings(ctx context.Context, jobID string, mappings []models.SpeakerMapping) error {
 	return r.db.Transaction(func(tx *gorm.DB) error {
-		for _, mapping := range mappings {
-			var existing models.SpeakerMapping
-			err := tx.Where("transcription_job_id = ? AND original_speaker = ?", jobID, mapping.OriginalSpeaker).
-				First(&existing).Error
+		// Delete existing mappings for this job
+		if err := tx.Where("transcription_job_id = ?", jobID).Delete(&models.SpeakerMapping{}).Error; err != nil {
+			return err
+		}
 
-			if err == gorm.ErrRecordNotFound {
-				// Create new mapping
-				mapping.TranscriptionJobID = jobID // Ensure JobID is set
-				if err := tx.Create(&mapping).Error; err != nil {
-					return err
-				}
-			} else if err != nil {
+		// Create new mappings
+		if len(mappings) > 0 {
+			if err := tx.Create(&mappings).Error; err != nil {
 				return err
-			} else {
-				// Update existing mapping
-				existing.CustomName = mapping.CustomName
-				if err := tx.Save(&existing).Error; err != nil {
-					return err
-				}
 			}
 		}
 		return nil
