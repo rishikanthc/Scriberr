@@ -178,7 +178,10 @@ func (p *Processor) StartBatch(batchID string) error {
 		return fmt.Errorf("batch not found: %w", err)
 	}
 
-	if batch.Status != models.CSVBatchStatusPending && batch.Status != models.CSVBatchStatusFailed {
+	// Allow starting from pending, failed, or cancelled states (for resume)
+	if batch.Status != models.CSVBatchStatusPending &&
+		batch.Status != models.CSVBatchStatusFailed &&
+		batch.Status != models.CSVBatchStatusCancelled {
 		return fmt.Errorf("batch is not in a startable state: %s", batch.Status)
 	}
 
