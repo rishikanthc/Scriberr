@@ -310,3 +310,24 @@ func (s *OpenAIService) ValidateAPIKey(ctx context.Context) error {
 
 	return nil
 }
+
+// GetContextWindow returns the context window size for a given OpenAI model
+func (s *OpenAIService) GetContextWindow(ctx context.Context, model string) (int, error) {
+	// Known context windows for OpenAI models
+	// As of late 2024/early 2025
+	switch {
+	case strings.HasPrefix(model, "gpt-4-turbo"), strings.HasPrefix(model, "gpt-4o"):
+		return 128000, nil
+	case strings.HasPrefix(model, "gpt-4-32k"):
+		return 32768, nil
+	case strings.HasPrefix(model, "gpt-4"):
+		return 8192, nil
+	case strings.HasPrefix(model, "gpt-3.5-turbo-16k"):
+		return 16385, nil
+	case strings.HasPrefix(model, "gpt-3.5-turbo"):
+		return 16385, nil // Most recent gpt-3.5-turbo is 16k
+	default:
+		// Default fallback
+		return 4096, nil
+	}
+}
