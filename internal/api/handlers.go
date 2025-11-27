@@ -46,7 +46,7 @@ type Handler struct {
 // NewHandler creates a new handler
 func NewHandler(cfg *config.Config, authService *auth.AuthService, taskQueue *queue.TaskQueue, unifiedProcessor *transcription.UnifiedJobProcessor, quickTranscription *transcription.QuickTranscriptionService) *Handler {
 	// Create CSV batch processor
-	csvProcessor := csvbatch.NewProcessor(cfg, nil) // Transcribe function can be nil, will use direct transcription
+	csvProcessor := csvbatch.New(cfg)
 
 	return &Handler{
 		config:              cfg,

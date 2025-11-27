@@ -16,13 +16,11 @@ import (
 	"github.com/google/uuid"
 )
 
-// CSVBatchHandler handles CSV batch operations
 type CSVBatchHandler struct {
 	processor *csvbatch.Processor
 	handler   *Handler
 }
 
-// NewCSVBatchHandler creates a new CSV batch handler
 func NewCSVBatchHandler(h *Handler, processor *csvbatch.Processor) *CSVBatchHandler {
 	return &CSVBatchHandler{
 		processor: processor,
@@ -30,13 +28,11 @@ func NewCSVBatchHandler(h *Handler, processor *csvbatch.Processor) *CSVBatchHand
 	}
 }
 
-// CSVBatchUploadRequest represents the request for batch upload
 type CSVBatchUploadRequest struct {
 	Name      string  `form:"name"`
 	ProfileID *string `form:"profile_id"`
 }
 
-// CSVBatchStartRequest represents the request to start batch processing
 type CSVBatchStartRequest struct {
 	ProfileID *string `json:"profile_id,omitempty"`
 }
@@ -46,7 +42,7 @@ type CSVBatchStartRequest struct {
 // @Tags csv-batch
 // @Accept multipart/form-data
 // @Produce json
-// @Param file formance file true "CSV file with YouTube URLs"
+// @Param file formData file true "CSV file with YouTube URLs"
 // @Param name formData string false "Batch name"
 // @Param profile_id formData string false "Transcription profile ID to use"
 // @Success 200 {object} models.CSVBatch
@@ -56,7 +52,6 @@ type CSVBatchStartRequest struct {
 // @Security ApiKeyAuth
 // @Security BearerAuth
 func (h *CSVBatchHandler) UploadCSV(c *gin.Context) {
-	// Parse form data
 	file, header, err := c.Request.FormFile("file")
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "No file uploaded"})
@@ -64,21 +59,18 @@ func (h *CSVBatchHandler) UploadCSV(c *gin.Context) {
 	}
 	defer file.Close()
 
-	// Validate file extension
 	ext := filepath.Ext(header.Filename)
 	if ext != ".csv" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "File must be a CSV file"})
 		return
 	}
 
-	// Create upload directory
 	uploadDir := filepath.Join(h.handler.config.UploadDir, "csv-batch", "uploads")
 	if err := os.MkdirAll(uploadDir, 0755); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create upload directory"})
 		return
 	}
 
-	// Save file
 	filename := fmt.Sprintf("%s.csv", uuid.New().String())
 	filePath := filepath.Join(uploadDir, filename)
 
@@ -94,19 +86,16 @@ func (h *CSVBatchHandler) UploadCSV(c *gin.Context) {
 		return
 	}
 
-	// Get batch name
 	name := c.PostForm("name")
 	if name == "" {
 		name = header.Filename
 	}
 
-	// Get profile ID
 	var profileID *string
 	if pid := c.PostForm("profile_id"); pid != "" {
 		profileID = &pid
 	}
 
-	// Get transcription parameters from profile if specified
 	var params *models.WhisperXParams
 	if profileID != nil {
 		var profile models.TranscriptionProfile
@@ -115,8 +104,7 @@ func (h *CSVBatchHandler) UploadCSV(c *gin.Context) {
 		}
 	}
 
-	// Create batch
-	batch, err := h.processor.CreateBatch(name, filePath, params, profileID)
+	batch, err := h.processor.CreateBatch(name, filePath, params)
 	if err != nil {
 		os.Remove(filePath)
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -144,9 +132,8 @@ func (h *CSVBatchHandler) StartBatch(c *gin.Context) {
 	batchID := c.Param("id")
 
 	var req CSVBatchStartRequest
-	c.ShouldBindJSON(&req) // Optional body
+	c.ShouldBindJSON(&req)
 
-	// If profile_id provided, update batch parameters
 	if req.ProfileID != nil {
 		var profile models.TranscriptionProfile
 		if err := database.DB.First(&profile, "id = ?", *req.ProfileID).Error; err == nil {
@@ -157,12 +144,12 @@ func (h *CSVBatchHandler) StartBatch(c *gin.Context) {
 		}
 	}
 
-	if err := h.processor.StartBatch(batchID); err != nil {
+	if err := h.processor.Start(batchID); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	batch, _ := h.processor.GetBatchStatus(batchID)
+	batch, _ := h.processor.GetStatus(batchID)
 	c.JSON(http.StatusOK, batch)
 }
 
@@ -180,12 +167,12 @@ func (h *CSVBatchHandler) StartBatch(c *gin.Context) {
 func (h *CSVBatchHandler) StopBatch(c *gin.Context) {
 	batchID := c.Param("id")
 
-	if err := h.processor.StopBatch(batchID); err != nil {
+	if err := h.processor.Stop(batchID); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	batch, _ := h.processor.GetBatchStatus(batchID)
+	batch, _ := h.processor.GetStatus(batchID)
 	c.JSON(http.StatusOK, batch)
 }
 
@@ -202,7 +189,7 @@ func (h *CSVBatchHandler) StopBatch(c *gin.Context) {
 func (h *CSVBatchHandler) GetBatchStatus(c *gin.Context) {
 	batchID := c.Param("id")
 
-	batch, err := h.processor.GetBatchStatus(batchID)
+	batch, err := h.processor.GetStatus(batchID)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Batch not found"})
 		return
@@ -224,7 +211,7 @@ func (h *CSVBatchHandler) GetBatchStatus(c *gin.Context) {
 func (h *CSVBatchHandler) GetBatchRows(c *gin.Context) {
 	batchID := c.Param("id")
 
-	rows, err := h.processor.GetBatchRows(batchID)
+	rows, err := h.processor.GetRows(batchID)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Batch not found"})
 		return
@@ -237,13 +224,13 @@ func (h *CSVBatchHandler) GetBatchRows(c *gin.Context) {
 // @Description Get a list of all CSV batch jobs
 // @Tags csv-batch
 // @Produce json
-// @Success 200 {array} models.CSVBatch
+// @Success 200 {array} models.Batch
 // @Failure 500 {object} map[string]string
 // @Router /api/v1/csv-batch [get]
 // @Security ApiKeyAuth
 // @Security BearerAuth
 func (h *CSVBatchHandler) ListBatches(c *gin.Context) {
-	batches, err := h.processor.ListBatches()
+	batches, err := h.processor.List()
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -265,7 +252,7 @@ func (h *CSVBatchHandler) ListBatches(c *gin.Context) {
 func (h *CSVBatchHandler) DeleteBatch(c *gin.Context) {
 	batchID := c.Param("id")
 
-	if err := h.processor.DeleteBatch(batchID); err != nil {
+	if err := h.processor.Delete(batchID); err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
 		return
 	}
@@ -288,38 +275,34 @@ func (h *CSVBatchHandler) DownloadOutput(c *gin.Context) {
 	batchID := c.Param("id")
 	rowID := c.Param("row_id")
 
-	// Get batch
-	batch, err := h.processor.GetBatchStatus(batchID)
+	batch, err := h.processor.GetStatus(batchID)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Batch not found"})
 		return
 	}
 
-	// Find the row
 	var row models.CSVBatchRow
-	if err := database.DB.Where("batch_id = ? AND row_id = ?", batchID, rowID).First(&row).Error; err != nil {
+	if err := database.DB.Where("batch_id = ? AND row_num = ?", batchID, rowID).First(&row).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Row not found"})
 		return
 	}
 
-	if row.OutputFilePath == nil || *row.OutputFilePath == "" {
+	if row.OutputPath == nil || *row.OutputPath == "" {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Output file not available"})
 		return
 	}
 
-	// Check if file exists
-	if _, err := os.Stat(*row.OutputFilePath); os.IsNotExist(err) {
+	if _, err := os.Stat(*row.OutputPath); os.IsNotExist(err) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Output file not found"})
 		return
 	}
 
-	// Set filename for download
-	filename := filepath.Base(*row.OutputFilePath)
+	filename := filepath.Base(*row.OutputPath)
 	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filename))
 	c.Header("Content-Type", "application/json")
-	c.File(*row.OutputFilePath)
+	c.File(*row.OutputPath)
 
-	_ = batch // Use batch for potential future enhancements
+	_ = batch
 }
 
 // @Summary Download all batch outputs as ZIP
@@ -335,20 +318,17 @@ func (h *CSVBatchHandler) DownloadOutput(c *gin.Context) {
 func (h *CSVBatchHandler) DownloadAllOutputs(c *gin.Context) {
 	batchID := c.Param("id")
 
-	batch, err := h.processor.GetBatchStatus(batchID)
+	batch, err := h.processor.GetStatus(batchID)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Batch not found"})
 		return
 	}
 
-	// Check if output directory exists
 	if _, err := os.Stat(batch.OutputDir); os.IsNotExist(err) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Output directory not found"})
 		return
 	}
 
-	// For now, we'll provide directory listing
-	// A proper ZIP implementation would require additional packages
 	files, err := os.ReadDir(batch.OutputDir)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read output directory"})
