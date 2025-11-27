@@ -400,9 +400,6 @@ func (h *Handler) SendChatMessage(c *gin.Context) {
 	}
 
 	// Check if this is the first user message and update session title
-	// We can check if message count is 1 (the one we just added)
-	// Or query count. Let's query count to be safe or check if session.MessageCount was 0 before (but we don't have that easily unless we trust the model)
-	// Let's query messages count
 	messages, err := h.chatRepo.GetMessages(c.Request.Context(), sessionID, 0)
 	if err == nil {
 		userMsgCount := 0
@@ -419,27 +416,54 @@ func (h *Handler) SendChatMessage(c *gin.Context) {
 		}
 	}
 
-	// Get conversation history (already fetched above if we reuse it, but let's be clean)
-	// messages variable already holds all messages ordered by created_at ASC
+	// Get context window
+	contextWindow, err := svc.GetContextWindow(c.Request.Context(), session.Model)
+	if err != nil {
+		fmt.Printf("Failed to get context window for model %s: %v. Using default 4096.\n", session.Model, err)
+		contextWindow = 4096
+	}
 
 	// Build OpenAI messages including transcript context
 	var openaiMessages []llm.ChatMessage
+	var currentTokenCount int
 
 	// Add system message with transcript context
-	if session.Transcription.Transcript != nil {
-		systemContent := fmt.Sprintf("You are a helpful assistant analyzing this transcript. Please answer questions and provide insights based on the following transcript:\n\n%s", *session.Transcription.Transcript)
+	if session.Transcription.Transcript != nil && *session.Transcription.Transcript != "" {
+		transcript := *session.Transcription.Transcript
+		fmt.Printf("Injecting transcript of length %d into chat context for session %s\n", len(transcript), sessionID)
+
+		systemContent := fmt.Sprintf("You are a helpful assistant analyzing this transcript. Please answer questions and provide insights based on the following transcript:\n\n%s", transcript)
+
+		// Check if transcript itself exceeds context (leaving some room for response)
+		// Estimate 1 token ~= 4 chars
+		transcriptTokens := len(systemContent) / 4
+		if transcriptTokens > contextWindow-500 { // Leave 500 tokens for response/history
+			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Transcript is too long for this model's context window (estimated %d tokens, limit %d). Please use a model with a larger context window.", transcriptTokens, contextWindow)})
+			return
+		}
+
 		openaiMessages = append(openaiMessages, llm.ChatMessage{
 			Role:    "system",
 			Content: systemContent,
 		})
+		currentTokenCount += transcriptTokens
+	} else {
+		fmt.Printf("Warning: Transcript is nil or empty for chat session %s\n", sessionID)
 	}
 
 	// Add conversation history
 	for _, msg := range messages {
+		msgTokens := len(msg.Content) / 4
 		openaiMessages = append(openaiMessages, llm.ChatMessage{
 			Role:    msg.Role,
 			Content: msg.Content,
 		})
+		currentTokenCount += msgTokens
+	}
+
+	if currentTokenCount > contextWindow {
+		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Conversation context length (estimated %d tokens) exceeds model limit (%d tokens). Please start a new session or use a model with larger context.", currentTokenCount, contextWindow)})
+		return
 	}
 
 	// Set up streaming response

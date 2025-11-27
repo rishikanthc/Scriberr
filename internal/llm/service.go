@@ -7,4 +7,5 @@ type Service interface {
 	GetModels(ctx context.Context) ([]string, error)
 	ChatCompletion(ctx context.Context, model string, messages []ChatMessage, temperature float64) (*ChatResponse, error)
 	ChatCompletionStream(ctx context.Context, model string, messages []ChatMessage, temperature float64) (<-chan string, <-chan error)
+	GetContextWindow(ctx context.Context, model string) (int, error)
 }
