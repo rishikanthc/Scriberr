@@ -78,6 +78,12 @@ func SetupRoutes(handler *Handler, authService *auth.AuthService) *gin.Engine {
 			}
 		}
 
+		// Public CLI routes (no auth required to download, script handles auth)
+		cliPublic := v1.Group("/cli")
+		{
+			cliPublic.GET("/download", handler.DownloadCLIBinary)
+			cliPublic.GET("/install", handler.GetInstallScript)
+		}
 		// API Key management routes (require authentication)
 		apiKeys := v1.Group("/api-keys")
 		// API key management restricted to JWT-authenticated users
