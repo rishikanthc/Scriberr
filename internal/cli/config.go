@@ -10,8 +10,9 @@ import (
 
 // Config holds the CLI configuration
 type Config struct {
-	ServerURL string `mapstructure:"server_url"`
-	Token     string `mapstructure:"token"`
+	ServerURL   string `mapstructure:"server_url"`
+	Token       string `mapstructure:"token"`
+	WatchFolder string `mapstructure:"watch_folder"`
 }
 
 // InitConfig initializes the configuration
@@ -34,9 +35,16 @@ func InitConfig() {
 }
 
 // SaveConfig saves the configuration to ~/.scriberr.yaml
-func SaveConfig(serverURL, token string) error {
-	viper.Set("server_url", serverURL)
-	viper.Set("token", token)
+func SaveConfig(serverURL, token, watchFolder string) error {
+	if serverURL != "" {
+		viper.Set("server_url", serverURL)
+	}
+	if token != "" {
+		viper.Set("token", token)
+	}
+	if watchFolder != "" {
+		viper.Set("watch_folder", watchFolder)
+	}
 
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -49,7 +57,8 @@ func SaveConfig(serverURL, token string) error {
 // GetConfig returns the current configuration
 func GetConfig() *Config {
 	return &Config{
-		ServerURL: viper.GetString("server_url"),
-		Token:     viper.GetString("token"),
+		ServerURL:   viper.GetString("server_url"),
+		Token:       viper.GetString("token"),
+		WatchFolder: viper.GetString("watch_folder"),
 	}
 }

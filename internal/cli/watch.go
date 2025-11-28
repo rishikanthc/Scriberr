@@ -35,6 +35,15 @@ func runWatch(cmd *cobra.Command, args []string) {
 		log.Fatalf("Folder does not exist: %s", absPath)
 	}
 
+	// Save as current watch folder
+	if err := SaveConfig("", "", absPath); err != nil {
+		fmt.Printf("Warning: Failed to save watch folder to config: %v\n", err)
+	}
+
+	watchFolder(absPath)
+}
+
+func watchFolder(path string) {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		log.Fatal(err)
@@ -74,11 +83,11 @@ func runWatch(cmd *cobra.Command, args []string) {
 						delete(timers, event.Name)
 						mu.Unlock()
 
-						fmt.Printf("Uploading %s...\n", event.Name)
+						log.Printf("Uploading %s...\n", event.Name)
 						if err := UploadFile(event.Name); err != nil {
-							fmt.Printf("Failed to upload %s: %v\n", event.Name, err)
+							log.Printf("Failed to upload %s: %v\n", event.Name, err)
 						} else {
-							fmt.Printf("Successfully uploaded %s\n", event.Name)
+							log.Printf("Successfully uploaded %s\n", event.Name)
 						}
 					})
 					mu.Unlock()
@@ -93,11 +102,11 @@ func runWatch(cmd *cobra.Command, args []string) {
 		}
 	}()
 
-	err = watcher.Add(absPath)
+	err = watcher.Add(path)
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Printf("Watching %s for new audio files...\n", absPath)
+	log.Printf("Watching %s for new audio files...\n", path)
 	<-done
 }
 
