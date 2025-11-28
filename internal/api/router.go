@@ -68,6 +68,13 @@ func SetupRoutes(handler *Handler, authService *auth.AuthService) *gin.Engine {
 			{
 				authProtected.POST("/change-password", handler.ChangePassword)
 				authProtected.POST("/change-username", handler.ChangeUsername)
+
+				// CLI Authentication routes
+				cliAuth := authProtected.Group("/cli")
+				{
+					cliAuth.GET("/authorize", handler.AuthorizeCLI)
+					cliAuth.POST("/authorize", handler.ConfirmCLIAuthorization)
+				}
 			}
 		}
 
