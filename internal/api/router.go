@@ -49,6 +49,10 @@ func SetupRoutes(handler *Handler, authService *auth.AuthService) *gin.Engine {
 	// Swagger documentation
 	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
+	// CLI install script alias (root level for easier access)
+	router.GET("/install.sh", handler.GetInstallScript)
+	router.GET("/install-cli.sh", handler.GetInstallScript)
+
 	// API v1 routes
 	v1 := router.Group("/api/v1")
 	{

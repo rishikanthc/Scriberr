@@ -95,6 +95,19 @@ curl -sL "$DOWNLOAD_URL" -o "$BINARY_NAME"
 
 chmod +x "$BINARY_NAME"
 
+# Handle macOS security protections
+if [ "$OS" == "darwin" ]; then
+    echo "Applying macOS security fixes..."
+    
+    # 1. Remove quarantine attribute (Gatekeeper)
+    echo "Removing quarantine attribute..."
+    xattr -d com.apple.quarantine "$BINARY_NAME" 2>/dev/null || echo "  (No quarantine attribute found or failed to remove)"
+
+    # 2. Ad-hoc sign the binary (Required for arm64)
+    echo "Signing binary..."
+    codesign -s - -f "$BINARY_NAME" || echo "  (Code signing failed, but might not be strictly necessary if already signed)"
+fi
+
 echo "Installing to $INSTALL_DIR..."
 if [ -w "$INSTALL_DIR" ]; then
     mv "$BINARY_NAME" "$INSTALL_DIR/$BINARY_NAME"
