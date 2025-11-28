@@ -36,7 +36,7 @@ func runWatch(cmd *cobra.Command, args []string) {
 	}
 
 	// Save as current watch folder
-	if err := SaveConfig("", "", absPath); err != nil {
+	if _, err := SaveConfig("", "", absPath); err != nil {
 		fmt.Printf("Warning: Failed to save watch folder to config: %v\n", err)
 	}
 
