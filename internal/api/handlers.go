@@ -250,6 +250,9 @@ func transformAPIKeyForList(apiKey models.APIKey) APIKeyListResponse {
 // @Security ApiKeyAuth
 // @Security BearerAuth
 func (h *Handler) UploadAudio(c *gin.Context) {
+	// Note: This endpoint is also used by the CLI watcher to upload files.
+	// The CLI authenticates using a long-lived JWT token.
+
 	// Parse multipart form
 	header, err := c.FormFile("audio")
 	if err != nil {
