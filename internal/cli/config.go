@@ -17,15 +17,22 @@ type Config struct {
 
 // InitConfig initializes the configuration
 func InitConfig() {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+	if cfgFile != "" {
+		// Use config file from the flag.
+		viper.SetConfigFile(cfgFile)
+	} else {
+		// Find home directory.
+		home, err := os.UserHomeDir()
+		if err != nil {
+			fmt.Println(err)
+			// Don't exit, just don't load config from home
+		} else {
+			// Search config in home directory with name ".scriberr" (without extension).
+			viper.AddConfigPath(home)
+			viper.SetConfigType("yaml")
+			viper.SetConfigName(".scriberr")
+		}
 	}
-
-	viper.AddConfigPath(home)
-	viper.SetConfigType("yaml")
-	viper.SetConfigName(".scriberr")
 
 	viper.AutomaticEnv()
 
@@ -34,8 +41,8 @@ func InitConfig() {
 	}
 }
 
-// SaveConfig saves the configuration to ~/.scriberr.yaml
-func SaveConfig(serverURL, token, watchFolder string) error {
+// SaveConfig saves the configuration to ~/.scriberr.yaml and returns the path
+func SaveConfig(serverURL, token, watchFolder string) (string, error) {
 	if serverURL != "" {
 		viper.Set("server_url", serverURL)
 	}
@@ -48,10 +55,10 @@ func SaveConfig(serverURL, token, watchFolder string) error {
 
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return err
+		return "", err
 	}
 	configPath := filepath.Join(home, ".scriberr.yaml")
-	return viper.WriteConfigAs(configPath)
+	return configPath, viper.WriteConfigAs(configPath)
 }
 
 // GetConfig returns the current configuration

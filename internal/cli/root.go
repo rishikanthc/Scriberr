@@ -21,6 +21,9 @@ func Execute() {
 	}
 }
 
+var cfgFile string
+
 func init() {
 	cobra.OnInitialize(InitConfig)
+	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.scriberr.yaml)")
 }
