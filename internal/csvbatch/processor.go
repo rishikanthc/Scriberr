@@ -415,13 +415,18 @@ func parseCSV(path string) ([]string, error) {
 			return nil, fmt.Errorf("CSV parse error: %w", err)
 		}
 
-		// Skip header row
+		// Skip header row if it looks like a header
 		if isFirstRow {
 			isFirstRow = false
+			isHeader := false
 			for _, field := range record {
 				if strings.EqualFold(strings.TrimSpace(field), "url") {
-					continue
+					isHeader = true
+					break
 				}
+			}
+			if isHeader {
+				continue
 			}
 		}
 

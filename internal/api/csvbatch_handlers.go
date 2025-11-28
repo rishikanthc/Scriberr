@@ -224,7 +224,7 @@ func (h *CSVBatchHandler) GetBatchRows(c *gin.Context) {
 // @Description Get a list of all CSV batch jobs
 // @Tags csv-batch
 // @Produce json
-// @Success 200 {array} models.Batch
+// @Success 200 {array} models.CSVBatch
 // @Failure 500 {object} map[string]string
 // @Router /api/v1/csv-batch [get]
 // @Security ApiKeyAuth
@@ -301,8 +301,6 @@ func (h *CSVBatchHandler) DownloadOutput(c *gin.Context) {
 	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filename))
 	c.Header("Content-Type", "application/json")
 	c.File(*row.OutputPath)
-
-	_ = batch
 }
 
 // @Summary Download all batch outputs as ZIP
