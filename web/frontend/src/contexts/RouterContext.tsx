@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 
 export type Route = {
-  path: 'home' | 'audio-detail' | 'settings' | 'chat'
+  path: 'home' | 'audio-detail' | 'settings' | 'settings-cli' | 'chat'
   params?: Record<string, string | undefined>
 }
 
@@ -33,6 +33,8 @@ export function RouterProvider({ children }: { children: React.ReactNode }) {
     if (path.startsWith('/audio/')) {
       const audioId = path.split('/audio/')[1]
       return { path: 'audio-detail', params: { id: audioId } }
+    } else if (path === '/settings/cli') {
+      return { path: 'settings-cli' }
     } else if (path === '/settings') {
       return { path: 'settings' }
     }
@@ -42,7 +44,7 @@ export function RouterProvider({ children }: { children: React.ReactNode }) {
 
   const navigate = (route: Route) => {
     setCurrentRoute(route)
-    
+
     // Update browser URL
     let url = '/'
     if (route.path === 'audio-detail' && route.params?.id) {
@@ -53,8 +55,10 @@ export function RouterProvider({ children }: { children: React.ReactNode }) {
       url = `/audio/${route.params.audioId}/chat`
     } else if (route.path === 'settings') {
       url = '/settings'
+    } else if (route.path === 'settings-cli') {
+      url = '/settings/cli'
     }
-    
+
     window.history.pushState({ route }, '', url)
   }
 
@@ -65,6 +69,7 @@ export function RouterProvider({ children }: { children: React.ReactNode }) {
       } else {
         // Fallback to parsing URL
         const path = window.location.pathname
+
         const chatMatch = path.match(/^\/audio\/([^\/]+)\/chat\/(.+)$/)
         if (chatMatch) {
           setCurrentRoute({ path: 'chat', params: { audioId: chatMatch[1], sessionId: chatMatch[2] } })
@@ -76,6 +81,8 @@ export function RouterProvider({ children }: { children: React.ReactNode }) {
           } else if (path.startsWith('/audio/')) {
             const audioId = path.split('/audio/')[1]
             setCurrentRoute({ path: 'audio-detail', params: { id: audioId } })
+          } else if (path === '/settings/cli') {
+            setCurrentRoute({ path: 'settings-cli' })
           } else if (path === '/settings') {
             setCurrentRoute({ path: 'settings' })
           } else {
