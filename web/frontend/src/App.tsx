@@ -5,6 +5,7 @@ import { useRouter } from './contexts/RouterContext'
 const Homepage = lazy(() => import('./components/Homepage').then(module => ({ default: module.Homepage })))
 const AudioDetailView = lazy(() => import('./components/AudioDetailView').then(module => ({ default: module.AudioDetailView })))
 const Settings = lazy(() => import('./pages/Settings').then(module => ({ default: module.Settings })))
+const CLISettings = lazy(() => import('./pages/CLISettings').then(module => ({ default: module.CLISettings })))
 const ChatPage = lazy(() => import('./pages/ChatPage').then(module => ({ default: module.ChatPage })))
 
 // Loading component
@@ -23,6 +24,8 @@ function App() {
         <AudioDetailView audioId={currentRoute.params.id} />
       ) : currentRoute.path === 'settings' ? (
         <Settings />
+      ) : currentRoute.path === 'settings-cli' ? (
+        <CLISettings />
       ) : currentRoute.path === 'chat' ? (
         <ChatPage />
       ) : (
