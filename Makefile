@@ -31,3 +31,12 @@ website-serve: website-build ## Build and preview project website locally
 	cd web/landing && npm run preview
 
 docs-serve: website-serve ## Alias for website-serve
+
+build-cli: ## Build CLI binaries for Linux, macOS, and Windows
+	@echo "Building CLI binaries..."
+	@mkdir -p bin/cli
+	GOOS=linux GOARCH=amd64 go build -o bin/cli/scriberr-linux-amd64 ./cmd/scriberr-cli
+	GOOS=darwin GOARCH=amd64 go build -o bin/cli/scriberr-darwin-amd64 ./cmd/scriberr-cli
+	GOOS=darwin GOARCH=arm64 go build -o bin/cli/scriberr-darwin-arm64 ./cmd/scriberr-cli
+	GOOS=windows GOARCH=amd64 go build -o bin/cli/scriberr-windows-amd64.exe ./cmd/scriberr-cli
+	@echo "✓ CLI binaries built in bin/cli/"
