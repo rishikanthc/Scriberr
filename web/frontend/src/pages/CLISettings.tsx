@@ -1,10 +1,8 @@
 
 import { useState, useEffect } from 'react'
 import { Layout } from '../components/Layout'
-import { useAuth } from '../contexts/AuthContext'
 
 export function CLISettings() {
-    const { getAuthHeaders } = useAuth()
     const [installCmd, setInstallCmd] = useState<string>('')
     const [copied, setCopied] = useState(false)
     const [loading, setLoading] = useState(true)
@@ -57,7 +55,7 @@ export function CLISettings() {
                 // Let's just use the current window location to construct the URL.
                 const protocol = window.location.protocol
                 const host = window.location.host
-                const url = `${protocol}//${host}/api/v1/cli/install`
+                const url = `${protocol}//${host}/install.sh`
 
                 setInstallCmd(`curl -sL "${url}" | bash`)
             } catch (err) {

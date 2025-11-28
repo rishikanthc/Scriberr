@@ -255,6 +255,30 @@ func (suite *AuthServiceTestSuite) TestTokenExpiryTime() {
 	assert.True(suite.T(), claims.IssuedAt.Time.Before(afterGeneration.Add(1*time.Minute)))
 }
 
+// Test long-lived token generation
+func (suite *AuthServiceTestSuite) TestGenerateLongLivedToken() {
+	user := &models.User{ID: 1, Username: "testuser"}
+
+	beforeGeneration := time.Now()
+	token, err := suite.helper.AuthService.GenerateLongLivedToken(user)
+	afterGeneration := time.Now()
+
+	assert.NoError(suite.T(), err)
+	assert.NotEmpty(suite.T(), token)
+
+	claims, err := suite.helper.AuthService.ValidateToken(token)
+	assert.NoError(suite.T(), err)
+	assert.Equal(suite.T(), user.ID, claims.UserID)
+
+	// Token should expire 1 year from generation
+	expectedExpiry := beforeGeneration.Add(365 * 24 * time.Hour)
+	actualExpiry := claims.ExpiresAt.Time
+
+	// Allow some tolerance
+	assert.True(suite.T(), actualExpiry.After(expectedExpiry.Add(-1*time.Minute)))
+	assert.True(suite.T(), actualExpiry.Before(afterGeneration.Add(365*24*time.Hour).Add(1*time.Minute)))
+}
+
 // Test new auth service creation
 func (suite *AuthServiceTestSuite) TestNewAuthService() {
 	secrets := []string{
