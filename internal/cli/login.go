@@ -48,7 +48,7 @@ func runLogin(cmd *cobra.Command, args []string) {
 		if token != "" {
 			fmt.Fprintf(w, "Login successful! You can close this window now.")
 			// Save config
-			if _, err := SaveConfig("", token, ""); err != nil {
+			if _, err := SaveConfig(serverURL, token, ""); err != nil {
 				fmt.Printf("Error saving config: %v\n", err)
 				os.Exit(1)
 			}
