@@ -66,10 +66,10 @@ export const AudioPlayer = forwardRef<AudioPlayerRef, AudioPlayerProps>(({
                 const url = URL.createObjectURL(blob);
 
                 const isDark = theme === 'dark';
-                // Warm minimalist colors
-                const waveColor = isDark ? '#57534e' : '#d6d3d1'; // stone-600 / stone-300
-                const progressColor = isDark ? '#d97706' : '#f59e0b'; // amber-600 / amber-500
-                const cursorColor = isDark ? '#f59e0b' : '#d97706';
+                // Neutral Zinc colors - Professional & Clean
+                const waveColor = isDark ? '#52525b' : '#d4d4d8'; // zinc-600 / zinc-300
+                const progressColor = isDark ? '#e4e4e7' : '#18181b'; // zinc-200 / zinc-900 (High contrast)
+                const cursorColor = isDark ? '#3b82f6' : '#2563eb'; // Blue accent for cursor
 
                 const ws = WaveSurfer.create({
                     container: containerRef.current!,
@@ -190,7 +190,7 @@ export const AudioPlayer = forwardRef<AudioPlayerRef, AudioPlayerProps>(({
                 <button
                     onClick={togglePlayPause}
                     disabled={!isReady}
-                    className="w-12 h-12 sm:w-14 sm:h-14 flex items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg hover:scale-105 hover:shadow-xl transition-all disabled:opacity-50 disabled:hover:scale-100 cursor-pointer"
+                    className="w-12 h-12 sm:w-14 sm:h-14 flex items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md hover:scale-105 hover:shadow-lg transition-all disabled:opacity-50 disabled:hover:scale-100 cursor-pointer border border-primary/10"
                 >
                     {isPlaying ? (
                         <Pause className="h-5 w-5 sm:h-6 sm:w-6 fill-current" />
@@ -208,7 +208,7 @@ export const AudioPlayer = forwardRef<AudioPlayerRef, AudioPlayerProps>(({
                             {onToggleCollapse && (
                                 <button
                                     onClick={onToggleCollapse}
-                                    className="p-1 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-md transition-colors cursor-pointer"
+                                    className="p-1 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-md transition-colors cursor-pointer"
                                     title={collapsed ? "Expand" : "Collapse"}
                                 >
                                     {collapsed ? <Maximize2 className="h-3 w-3" /> : <Minimize2 className="h-3 w-3" />}
@@ -226,7 +226,7 @@ export const AudioPlayer = forwardRef<AudioPlayerRef, AudioPlayerProps>(({
 
                     {/* Progress Bar (visible when collapsed) */}
                     {collapsed && (
-                        <div className="h-1 w-full bg-stone-200 dark:bg-stone-700 rounded-full overflow-hidden">
+                        <div className="h-1 w-full bg-zinc-200 dark:bg-zinc-800 rounded-full overflow-hidden">
                             <div
                                 className="h-full bg-primary transition-all duration-100"
                                 style={{ width: `${(currentTime / duration) * 100}%` }}
@@ -240,16 +240,16 @@ export const AudioPlayer = forwardRef<AudioPlayerRef, AudioPlayerProps>(({
             {!collapsed && (
                 <div className="flex items-center justify-between mt-4 px-2 animate-fade-in">
                     <div className="flex items-center gap-2">
-                        <Button variant="ghost" size="icon" onClick={skipBackward} className="h-8 w-8 rounded-full hover:bg-stone-100 dark:hover:bg-stone-800 cursor-pointer">
+                        <Button variant="ghost" size="icon" onClick={skipBackward} className="h-8 w-8 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer">
                             <SkipBack className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="icon" onClick={skipForward} className="h-8 w-8 rounded-full hover:bg-stone-100 dark:hover:bg-stone-800 cursor-pointer">
+                        <Button variant="ghost" size="icon" onClick={skipForward} className="h-8 w-8 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer">
                             <SkipForward className="h-4 w-4" />
                         </Button>
                     </div>
 
                     <div className="flex items-center gap-2 group">
-                        <button onClick={toggleMute} className="p-1.5 rounded-full hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors cursor-pointer">
+                        <button onClick={toggleMute} className="p-1.5 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer">
                             {isMuted || volume === 0 ? (
                                 <VolumeX className="h-4 w-4 text-muted-foreground" />
                             ) : (
