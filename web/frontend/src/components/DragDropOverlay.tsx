@@ -24,16 +24,16 @@ export function DragDropOverlay({
 		if (errorMessage) {
 			return <AlertCircle className="h-16 w-16 text-red-400" />;
 		}
-		
+
 		switch (fileType) {
 			case 'multitrack':
-				return <Users className="h-16 w-16 text-blue-400" />;
+				return <Users className="h-16 w-16 text-amber-400" />;
 			case 'video':
-				return <Video className="h-16 w-16 text-purple-400" />;
+				return <Video className="h-16 w-16 text-rose-400" />;
 			case 'single':
-				return <FileAudio className="h-16 w-16 text-green-400" />;
+				return <FileAudio className="h-16 w-16 text-emerald-400" />;
 			default:
-				return <Upload className="h-16 w-16 text-gray-400" />;
+				return <Upload className="h-16 w-16 text-stone-400" />;
 		}
 	};
 
@@ -41,7 +41,7 @@ export function DragDropOverlay({
 		if (errorMessage) {
 			return "Invalid Files";
 		}
-		
+
 		switch (fileType) {
 			case 'multitrack':
 				return "Multi-Track Audio Project";
@@ -58,7 +58,7 @@ export function DragDropOverlay({
 		if (errorMessage) {
 			return errorMessage;
 		}
-		
+
 		return fileDescription || "Release to upload";
 	};
 
@@ -66,16 +66,16 @@ export function DragDropOverlay({
 		if (errorMessage) {
 			return "border-red-400";
 		}
-		
+
 		switch (fileType) {
 			case 'multitrack':
-				return "border-blue-400";
+				return "border-amber-400";
 			case 'video':
-				return "border-purple-400";
+				return "border-rose-400";
 			case 'single':
-				return "border-green-400";
+				return "border-emerald-400";
 			default:
-				return "border-gray-400";
+				return "border-stone-400";
 		}
 	};
 
@@ -83,16 +83,16 @@ export function DragDropOverlay({
 		if (errorMessage) {
 			return "bg-red-50 dark:bg-red-950/20";
 		}
-		
+
 		switch (fileType) {
 			case 'multitrack':
-				return "bg-blue-50 dark:bg-blue-950/20";
+				return "bg-amber-50 dark:bg-amber-950/20";
 			case 'video':
-				return "bg-purple-50 dark:bg-purple-950/20";
+				return "bg-rose-50 dark:bg-rose-950/20";
 			case 'single':
-				return "bg-green-50 dark:bg-green-950/20";
+				return "bg-emerald-50 dark:bg-emerald-950/20";
 			default:
-				return "bg-gray-50 dark:bg-gray-950/20";
+				return "bg-stone-50 dark:bg-stone-950/20";
 		}
 	};
 
@@ -100,7 +100,7 @@ export function DragDropOverlay({
 		<div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
 			{/* Backdrop */}
 			<div className="absolute inset-0 bg-black/20 dark:bg-black/40 backdrop-blur-sm" />
-			
+
 			{/* Drop Zone */}
 			<div className={cn(
 				"relative flex flex-col items-center justify-center",
@@ -115,31 +115,31 @@ export function DragDropOverlay({
 				<div className="mb-4 transform transition-transform duration-300 scale-110">
 					{getIcon()}
 				</div>
-				
+
 				{/* Title */}
 				<h2 className={cn(
 					"text-2xl font-bold mb-2 text-center",
-					errorMessage ? "text-red-700 dark:text-red-300" : "text-gray-900 dark:text-gray-100"
+					errorMessage ? "text-red-700 dark:text-red-300" : "text-stone-900 dark:text-stone-100"
 				)}>
 					{getTitle()}
 				</h2>
-				
+
 				{/* Description */}
 				<p className={cn(
 					"text-center px-4 leading-relaxed",
-					errorMessage ? "text-red-600 dark:text-red-400" : "text-gray-600 dark:text-gray-400"
+					errorMessage ? "text-red-600 dark:text-red-400" : "text-stone-600 dark:text-stone-400"
 				)}>
 					{getDescription()}
 				</p>
-				
+
 				{/* Multi-track badge */}
 				{fileType === 'multitrack' && !errorMessage && (
-					<div className="mt-3 px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full text-sm font-medium">
+					<div className="mt-3 px-3 py-1 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 rounded-full text-sm font-medium">
 						Auto-detected multi-track project
 					</div>
 				)}
 			</div>
-			
+
 			{/* Animated border effect */}
 			<div className={cn(
 				"absolute inset-8",

@@ -1,7 +1,8 @@
-import { useState, useEffect, useRef, memo, useCallback } from "react";
+import { useState, useEffect, useRef, memo } from "react";
 import { createPortal } from "react-dom";
 import { ArrowLeft, Play, Pause, List, AlignLeft, MessageCircle, Download, FileText, FileJson, FileImage, Check, StickyNote, Plus, X, Sparkles, Pencil, ChevronUp, ChevronDown, Info, Clock, Settings, Users, Loader2 } from "lucide-react";
-import WaveSurfer from "wavesurfer.js";
+import { AudioPlayer, type AudioPlayerRef } from "./audio/AudioPlayer";
+import { TranscriptView } from "./transcript/TranscriptView";
 import { Button } from "./ui/button";
 import {
     DropdownMenu,
@@ -20,7 +21,6 @@ import {
 import { Label } from "./ui/label";
 import { Switch } from "./ui/switch";
 import { useRouter } from "../contexts/RouterContext";
-import { useTheme } from "../contexts/ThemeContext";
 import { ThemeSwitcher } from "./ThemeSwitcher";
 import { useAuth } from "../contexts/AuthContext";
 import { ChatInterface } from "./ChatInterface";
@@ -172,7 +172,6 @@ const formatElapsedTime = (seconds: number): string => {
 
 export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioDetailViewProps) {
     const { navigate } = useRouter();
-    const { theme } = useTheme();
     const { getAuthHeaders } = useAuth();
     const [audioFile, setAudioFile] = useState<AudioFile | null>(null);
     const [transcript, setTranscript] = useState<Transcript | null>(null);
@@ -207,8 +206,8 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
     const [processingStartTime, setProcessingStartTime] = useState<Date | null>(null);
     const [elapsedTime, setElapsedTime] = useState<number>(0);
     const [currentStatus, setCurrentStatus] = useState<string | null>(null);
-    const waveformRef = useRef<HTMLDivElement>(null);
-    const wavesurferRef = useRef<WaveSurfer | null>(null);
+    const [duration, setDuration] = useState(0);
+    const audioPlayerRef = useRef<AudioPlayerRef>(null);
     const transcriptRef = useRef<HTMLDivElement>(null);
     const highlightedWordRef = useRef<HTMLSpanElement>(null);
     const audioSectionRef = useRef<HTMLDivElement>(null);
@@ -381,119 +380,7 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
 
     // Former floating-controls visibility logic removed: controls are always fixed.
 
-    const initializeWaveSurfer = useCallback(async () => {
-        if (!waveformRef.current || !audioFile) return;
-
-        try {
-            // First, try to load the audio file manually to check if it's accessible
-            const audioUrl = `/api/v1/transcription/${audioId}/audio`;
-
-            const response = await fetch(audioUrl, {
-                headers: {
-                    ...getAuthHeaders(),
-                },
-            });
-
-            if (!response.ok) {
-                console.error(
-                    "Audio file request failed:",
-                    response.status,
-                    response.statusText,
-                );
-                const errorText = await response.text();
-                console.error("Error response body:", errorText);
-                return;
-            }
-
-
-            // Theme-aware colors
-            const isDark = theme === "dark";
-            const waveColor = isDark ? "#4b5563" : "#d1d5db"; // dark: gray-600, light: gray-300
-            const progressColor = "#3b82f6"; // blue-500 for both themes
-
-            // Create WaveSurfer instance
-            wavesurferRef.current = WaveSurfer.create({
-                container: waveformRef.current,
-                waveColor,
-                progressColor,
-                barWidth: 2,
-                barGap: 1,
-                barRadius: 2,
-                height: 80,
-                normalize: true,
-                backend: "WebAudio",
-            });
-
-            // Load the audio blob
-            const audioBlob = await response.blob();
-            const audioObjectURL = URL.createObjectURL(audioBlob);
-
-            await wavesurferRef.current.load(audioObjectURL);
-
-
-            wavesurferRef.current.on("error", (error) => {
-                console.error("WaveSurfer error:", error);
-            });
-
-            wavesurferRef.current.on("play", () => {
-                setIsPlaying(true);
-            });
-
-            wavesurferRef.current.on("pause", () => {
-                setIsPlaying(false);
-            });
-
-            wavesurferRef.current.on("finish", () => {
-                setIsPlaying(false);
-                setCurrentWordIndex(null);
-            });
-
-            // Add time update listener for word highlighting
-            wavesurferRef.current.on("audioprocess", (time) => {
-                setCurrentTime(time);
-            });
-
-            // Add ready event listener for immediate time updates when seeking
-            wavesurferRef.current.on("ready", () => {
-                // Set up additional event listeners after WaveSurfer is ready
-                wavesurferRef.current?.on("interaction", () => {
-                    const currentTime = wavesurferRef.current?.getCurrentTime() || 0;
-                    setCurrentTime(currentTime);
-                });
-            });
-        } catch (error) {
-            console.error("Failed to initialize WaveSurfer:", error);
-        }
-    }, [audioId, audioFile, theme, getAuthHeaders]);
-
-    // Initialize WaveSurfer when audioFile is available - with proper DOM timing
-    useEffect(() => {
-        if (!audioFile) {
-            return;
-        }
-
-
-        // Use a longer timeout and multiple checks to ensure DOM is ready
-        const checkAndInitialize = () => {
-            if (waveformRef.current && !wavesurferRef.current) {
-                initializeWaveSurfer();
-            } else if (!waveformRef.current) {
-                // Retry after a bit more time
-                setTimeout(checkAndInitialize, 200);
-            }
-        };
-
-        // Initial check with a small delay
-        const timer = setTimeout(checkAndInitialize, 50);
-
-        return () => {
-            clearTimeout(timer);
-            if (wavesurferRef.current) {
-                wavesurferRef.current.destroy();
-                wavesurferRef.current = null;
-            }
-        };
-    }, [audioFile?.id, audioFile?.audio_path, initializeWaveSurfer]);
+    // WaveSurfer initialization logic removed - handled by AudioPlayer component
 
     // Update current word index based on audio time
     useEffect(() => {
@@ -759,9 +646,7 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
     };
 
     const togglePlayPause = () => {
-        if (wavesurferRef.current) {
-            wavesurferRef.current.playPause();
-        }
+        audioPlayerRef.current?.playPause();
     };
 
     const handleBack = () => {
@@ -829,12 +714,12 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
             if (isNaN(start)) return;
             e.preventDefault();
             e.stopPropagation();
-            // Use the latest wavesurferRef at click time
-            const ws = wavesurferRef.current;
-            if (ws) {
-                const dur = ws.getDuration() || 1;
+            // Use the audioPlayerRef
+            const player = audioPlayerRef.current;
+            if (player) {
+                const dur = player.getDuration() || 1;
                 const ratio = Math.min(0.999, Math.max(0, start / dur));
-                ws.seekTo(ratio);
+                player.seekTo(ratio);
                 setCurrentTime(start);
             }
         };
@@ -903,75 +788,9 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
 
 
     // Render transcript with word-level highlighting
-    const renderHighlightedTranscript = () => {
-        console.log("[DEBUG] renderHighlightedTranscript - transcript:", transcript);
-        console.log("[DEBUG] has word_segments:", !!transcript?.word_segments);
-        console.log("[DEBUG] word_segments length:", transcript?.word_segments?.length);
+    // Logic moved to TranscriptView
 
-        if (!transcript?.word_segments || transcript.word_segments.length === 0) {
-            console.log("[DEBUG] No word_segments, returning plain text:", transcript?.text?.substring(0, 100) + "...");
-            return transcript?.text || '';
-        }
-
-        return transcript.word_segments.map((word, index) => {
-            const isHighlighted = index === currentWordIndex;
-            const isAnnotated = notes.some(n => index >= n.start_word_index && index <= n.end_word_index);
-            return (
-                <span
-                    key={index}
-                    ref={isHighlighted ? highlightedWordRef : undefined}
-                    data-word-index={index}
-                    data-word={word.word}
-                    data-start={word.start}
-                    data-end={word.end}
-                    className={`cursor-text transition-colors duration-150 hover:bg-blue-100 dark:hover:bg-blue-800 inline ${isHighlighted
-                        ? 'bg-yellow-300 dark:bg-yellow-500 dark:text-black px-1 rounded'
-                        : isAnnotated ? 'bg-amber-100/70 dark:bg-amber-800/40 px-0.5 rounded' : 'px-0.5'
-                        }`}
-                >
-                    {word.word}{" "}
-                </span>
-            );
-        });
-    };
-
-    // Render segment with word-level highlighting for expanded view
-    const renderSegmentWithHighlighting = (segment: any) => {
-        if (!transcript?.word_segments) {
-            return segment.text.trim();
-        }
-
-        // Find words that belong to this segment
-        const segmentWords = transcript.word_segments.filter(
-            word => word.start >= segment.start && word.end <= segment.end
-        );
-
-        if (segmentWords.length === 0) {
-            return segment.text.trim();
-        }
-
-        return segmentWords.map((word, index) => {
-            const globalIndex = transcript.word_segments?.findIndex(w => w === word) ?? -1;
-            const isHighlighted = globalIndex === currentWordIndex;
-            const isAnnotated = notes.some(n => globalIndex >= n.start_word_index && globalIndex <= n.end_word_index);
-            return (
-                <span
-                    key={index}
-                    ref={isHighlighted ? highlightedWordRef : undefined}
-                    data-word-index={globalIndex}
-                    data-word={word.word}
-                    data-start={word.start}
-                    data-end={word.end}
-                    className={`cursor-text transition-colors duration-150 hover:bg-blue-100 dark:hover:bg-blue-800 inline ${isHighlighted
-                        ? 'bg-yellow-300 dark:bg-yellow-500 dark:text-black px-1 rounded'
-                        : isAnnotated ? 'bg-amber-100/70 dark:bg-amber-800/40 px-0.5 rounded' : 'px-0.5'
-                        }`}
-                >
-                    {word.word}{" "}
-                </span>
-            );
-        });
-    };
+    // Segment rendering logic moved to TranscriptView
 
     const getFileName = (audioPath: string) => {
         const parts = audioPath.split("/");
@@ -987,9 +806,9 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
     };
 
     const toggleAudioCollapsed = () => {
-        if (!audioCollapsed && wavesurferRef.current && isPlaying) {
+        if (!audioCollapsed && audioPlayerRef.current && isPlaying) {
             // Pause when collapsing
-            try { wavesurferRef.current.pause(); } catch { }
+            try { audioPlayerRef.current.playPause(); } catch { }
         }
         setAudioCollapsed(v => !v);
     };
@@ -1319,9 +1138,9 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-                <div className="mx-auto w-full max-w-6xl px-2 sm:px-6 md:px-8 py-3 sm:py-6">
-                    <div className="bg-white dark:bg-gray-800 rounded-xl p-3 sm:p-6">
+            <div className="min-h-screen bg-stone-50 dark:bg-stone-950">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
+                    <div className="bg-white dark:bg-stone-900 rounded-xl p-3 sm:p-6">
                         <div className="animate-pulse">
                             <div className="h-6 bg-gray-200 dark:bg-gray-600 rounded w-1/4 mb-4"></div>
                             <div className="h-4 bg-gray-200 dark:bg-gray-600 rounded w-1/2 mb-8"></div>
@@ -1344,10 +1163,10 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
 
     if (!audioFile) {
         return (
-            <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-                <div className="mx-auto w-full max-w-6xl px-2 sm:px-6 md:px-8 py-3 sm:py-6">
-                    <div className="bg-white dark:bg-gray-800 rounded-xl p-3 sm:p-6 text-center">
-                        <h1 className="text-xl font-semibold text-gray-900 dark:text-gray-50 mb-4">
+            <div className="min-h-screen bg-stone-50 dark:bg-stone-950">
+                <div className="flex items-center justify-center min-h-[50vh]">
+                    <div className="bg-white dark:bg-stone-900 rounded-xl p-3 sm:p-6 text-center">
+                        <h1 className="text-xl font-semibold text-stone-900 dark:text-stone-50 mb-4">
                             Audio file not found
                         </h1>
                         <Button onClick={handleBack} variant="outline" className="cursor-pointer">
@@ -1361,8 +1180,8 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
     }
 
     return (
-        <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-            <div className="mx-auto w-full max-w-6xl px-2 sm:px-6 md:px-8 py-3 sm:py-6">
+        <div className="min-h-screen bg-stone-50 dark:bg-stone-950">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
                 {/* Header with back button and theme switcher */}
                 <div className="flex items-center justify-between mb-3 sm:mb-6">
                     <Button onClick={handleBack} variant="outline" size="sm" className="cursor-pointer">
@@ -1373,13 +1192,13 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                 </div>
 
                 {/* Audio Player Section */}
-                <div ref={audioSectionRef} className={`bg-white dark:bg-gray-800 rounded-xl ${audioCollapsed ? 'p-3 sm:p-4' : 'p-3 sm:p-6'} mb-3 sm:mb-6`}>
+                <div ref={audioSectionRef} className={`bg-white dark:bg-stone-900 rounded-xl ${audioCollapsed ? 'p-3 sm:p-4' : 'p-3 sm:p-6'} mb-3 sm:mb-6`}>
                     <div className="mb-6">
                         <div className="mb-2 flex items-center gap-2 justify-between">
                             {editingTitle ? (
                                 <input
                                     autoFocus
-                                    className="w-full max-w-xl text-2xl font-bold bg-transparent border-b border-blue-400 focus:outline-none focus:ring-0 dark:text-gray-50 text-gray-900"
+                                    className="w-full max-w-xl text-2xl font-bold bg-transparent border-b border-amber-400 focus:outline-none focus:ring-0 dark:text-stone-50 text-stone-900"
                                     value={titleInput}
                                     disabled={savingTitle}
                                     onChange={(e) => setTitleInput(e.target.value)}
@@ -1408,7 +1227,7 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                                         </>
                                     )}
                                     <button
-                                        className="h-7 w-7 inline-flex items-center justify-center rounded-md cursor-pointer text-gray-500 hover:text-gray-700 hover:bg-gray-200/60 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-gray-700/60 transition-colors"
+                                        className="h-7 w-7 inline-flex items-center justify-center rounded-md cursor-pointer text-stone-500 hover:text-stone-700 hover:bg-stone-200/60 dark:text-stone-400 dark:hover:text-stone-200 dark:hover:bg-stone-700/60 transition-colors"
                                         aria-label="Edit title"
                                         title="Edit title"
                                         onClick={() => {
@@ -1434,45 +1253,33 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                                 )}
                             </button>
                         </div>
-                        <p className="text-gray-600 dark:text-gray-400 text-sm">
+                        <p className="text-stone-600 dark:text-stone-400 text-sm">
                             Added on {formatDate(audioFile.created_at)}
                         </p>
                     </div>
 
                     {/* Audio Player Controls (hidden when collapsed, but kept mounted) */}
+                    {/* Audio Player Controls */}
                     <div className={`mb-6 ${audioCollapsed ? 'hidden' : ''}`}>
-                        <div className="flex items-center gap-4">
-                            {/* Circular Play/Pause Button */}
-                            <button
-                                onClick={togglePlayPause}
-                                className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-blue-500 hover:bg-blue-600 text-white shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105 flex items-center justify-center group cursor-pointer"
-                            >
-                                {isPlaying ? (
-                                    <Pause className="h-5 w-5 sm:h-6 sm:w-6 group-hover:scale-110 transition-transform" />
-                                ) : (
-                                    <Play className="h-5 w-5 sm:h-6 sm:w-6 ml-0.5 group-hover:scale-110 transition-transform" />
-                                )}
-                            </button>
-
-                            {/* WaveSurfer Container */}
-                            <div className="flex-1">
-                                <div
-                                    ref={waveformRef}
-                                    className="w-full bg-gray-50 dark:bg-gray-700 rounded-lg p-2 sm:p-4"
-                                    style={{ minHeight: "80px" }}
-                                />
-                            </div>
-                        </div>
+                        <AudioPlayer
+                            ref={audioPlayerRef}
+                            audioId={audioId}
+                            collapsed={audioCollapsed}
+                            onToggleCollapse={toggleAudioCollapsed}
+                            onTimeUpdate={setCurrentTime}
+                            onPlayStateChange={setIsPlaying}
+                            onDurationChange={setDuration}
+                        />
                     </div>
                 </div>
 
                 {(currentStatus || audioFile.status) === "completed" && transcript && (
-                    <div className="bg-white dark:bg-gray-800 rounded-xl p-3 sm:p-6">
+                    <div className="bg-white dark:bg-stone-900 rounded-xl p-3 sm:p-6">
                         {/* Header Section */}
                         <div className="mb-3 sm:mb-6">
                             {/* Title Row */}
                             <div className="flex items-center justify-between mb-3 sm:mb-0">
-                                <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-gray-50">
+                                <h2 className="text-lg sm:text-xl font-semibold text-stone-900 dark:text-stone-50">
                                     {viewMode === "transcript" ? "Transcript" : "Chat with Transcript"}
                                 </h2>
 
@@ -1480,12 +1287,12 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                                 <div className="hidden sm:flex items-center gap-2">
                                     {/* Sleek toolbar (desktop only) */}
                                     {viewMode === 'transcript' && (
-                                        <div className="flex items-center gap-1 sm:gap-1.5 rounded-md sm:rounded-lg bg-gray-100/80 dark:bg-gray-800/80 px-1.5 py-0.5 sm:px-2 sm:py-1 border border-gray-200 dark:border-gray-700 shadow-sm">
+                                        <div className="flex items-center gap-1 sm:gap-1.5 rounded-md sm:rounded-lg bg-stone-100/80 dark:bg-stone-800/80 px-1.5 py-0.5 sm:px-2 sm:py-1 border border-stone-200 dark:border-stone-700 shadow-sm">
                                             {/* View toggle */}
                                             <button
                                                 type="button"
                                                 onClick={() => setTranscriptMode(m => m === 'compact' ? 'expanded' : 'compact')}
-                                                className={`h-6 w-6 sm:h-7 sm:w-7 inline-flex items-center justify-center rounded-md cursor-pointer text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors ${transcriptMode === 'compact' ? 'bg-white dark:bg-gray-700 shadow-sm' : ''}`}
+                                                className={`h-6 w-6 sm:h-7 sm:w-7 inline-flex items-center justify-center rounded-md cursor-pointer text-stone-600 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-700 transition-colors ${transcriptMode === 'compact' ? 'bg-white dark:bg-stone-700 shadow-sm' : ''}`}
                                                 title={transcriptMode === 'compact' ? 'Switch to Timeline view' : 'Switch to Compact view'}
                                             >
                                                 {transcriptMode === 'compact' ? (
@@ -1495,42 +1302,42 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                                                 )}
                                             </button>
 
-                                            <div className="mx-1 h-5 w-px bg-gray-300 dark:bg-gray-700" />
+                                            <div className="mx-1 h-5 w-px bg-stone-300 dark:bg-stone-700" />
 
                                             {/* Notes toggle (icon + tiny count) */}
                                             <button
                                                 type="button"
                                                 onClick={() => setNotesOpen(v => !v)}
-                                                className={`relative h-6 w-6 sm:h-7 sm:w-7 inline-flex items-center justify-center rounded-md cursor-pointer text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors ${notesOpen ? 'bg-white dark:bg-gray-700 shadow-sm' : ''}`}
+                                                className={`relative h-6 w-6 sm:h-7 sm:w-7 inline-flex items-center justify-center rounded-md cursor-pointer text-stone-600 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-700 transition-colors ${notesOpen ? 'bg-white dark:bg-stone-700 shadow-sm' : ''}`}
                                                 title="Toggle notes"
                                             >
                                                 <StickyNote className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                                                 {notes.length > 0 && (
-                                                    <span className="absolute -top-1 -right-0.5 min-w-[15px] h-[15px] px-1 rounded-full bg-blue-600 text-white text-[10px] leading-[15px] text-center">
+                                                    <span className="absolute -top-1 -right-0.5 min-w-[15px] h-[15px] px-1 rounded-full bg-amber-600 text-white text-[10px] leading-[15px] text-center">
                                                         {notes.length > 99 ? '99+' : notes.length}
                                                     </span>
                                                 )}
                                             </button>
 
-                                            <div className="mx-1 h-5 w-px bg-gray-300 dark:bg-gray-700" />
+                                            <div className="mx-1 h-5 w-px bg-stone-300 dark:bg-stone-700" />
 
                                             {/* Execution Info */}
                                             <button
                                                 type="button"
                                                 onClick={openExecutionInfo}
-                                                className="h-6 w-6 sm:h-7 sm:w-7 inline-flex items-center justify-center rounded-md cursor-pointer text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                                                className="h-6 w-6 sm:h-7 sm:w-7 inline-flex items-center justify-center rounded-md cursor-pointer text-stone-600 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-700 transition-colors"
                                                 title="View execution parameters and timing"
                                             >
                                                 <Info className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                                             </button>
 
-                                            <div className="mx-1 h-5 w-px bg-gray-300 dark:bg-gray-700" />
+                                            <div className="mx-1 h-5 w-px bg-stone-300 dark:bg-stone-700" />
 
                                             {/* Logs */}
                                             <button
                                                 type="button"
                                                 onClick={openLogsDialog}
-                                                className="h-6 w-6 sm:h-7 sm:w-7 inline-flex items-center justify-center rounded-md cursor-pointer text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                                                className="h-6 w-6 sm:h-7 sm:w-7 inline-flex items-center justify-center rounded-md cursor-pointer text-stone-600 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-700 transition-colors"
                                                 title="View transcription logs"
                                             >
                                                 <FileText className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
@@ -1539,11 +1346,11 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                                             {/* Speaker Renaming - only show if there are speakers (from diarization or multi-track) */}
                                             {hasSpeakers() && getDetectedSpeakers().length > 0 && (
                                                 <>
-                                                    <div className="mx-1 h-5 w-px bg-gray-300 dark:bg-gray-700" />
+                                                    <div className="mx-1 h-5 w-px bg-stone-300 dark:bg-stone-700" />
                                                     <button
                                                         type="button"
                                                         onClick={() => setSpeakerRenameDialogOpen(true)}
-                                                        className="h-6 w-6 sm:h-7 sm:w-7 inline-flex items-center justify-center rounded-md cursor-pointer text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                                                        className="h-6 w-6 sm:h-7 sm:w-7 inline-flex items-center justify-center rounded-md cursor-pointer text-stone-600 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-700 transition-colors"
                                                         title="Rename speakers"
                                                     >
                                                         <Users className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
@@ -1551,27 +1358,27 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                                                 </>
                                             )}
 
-                                            <div className="mx-1 h-5 w-px bg-gray-300 dark:bg-gray-700" />
+                                            <div className="mx-1 h-5 w-px bg-stone-300 dark:bg-stone-700" />
 
                                             {/* Summarize */}
                                             <button
                                                 type="button"
                                                 onClick={openSummarizeDialog}
-                                                className="h-6 w-6 sm:h-7 sm:w-7 inline-flex items-center justify-center rounded-md cursor-pointer text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
+                                                className="h-6 w-6 sm:h-7 sm:w-7 inline-flex items-center justify-center rounded-md cursor-pointer text-stone-600 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-700 transition-colors disabled:opacity-50"
                                                 title={llmReady === false ? 'Configure LLM in Settings' : 'Summarize transcript'}
                                                 disabled={llmReady === false}
                                             >
                                                 <Sparkles className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                                             </button>
 
-                                            <div className="mx-1 h-5 w-px bg-gray-300 dark:bg-gray-700" />
+                                            <div className="mx-1 h-5 w-px bg-stone-300 dark:bg-stone-700" />
 
                                             {/* Download dropdown */}
                                             <DropdownMenu>
                                                 <DropdownMenuTrigger asChild>
                                                     <button
                                                         type="button"
-                                                        className="h-6 w-6 sm:h-7 sm:w-7 inline-flex items-center justify-center rounded-md cursor-pointer text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                                                        className="h-6 w-6 sm:h-7 sm:w-7 inline-flex items-center justify-center rounded-md cursor-pointer text-stone-600 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-700 transition-colors"
                                                         title="Download transcript"
                                                     >
                                                         <Download className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
@@ -1593,13 +1400,13 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                                                 </DropdownMenuContent>
                                             </DropdownMenu>
 
-                                            <div className="mx-1 h-5 w-px bg-gray-300 dark:bg-gray-700" />
+                                            <div className="mx-1 h-5 w-px bg-stone-300 dark:bg-stone-700" />
 
                                             {/* Open Chat Page */}
                                             <button
                                                 type="button"
                                                 onClick={() => navigate({ path: 'chat', params: { audioId } })}
-                                                className="h-7 w-7 inline-flex items-center justify-center rounded-md cursor-pointer text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                                                className="h-7 w-7 inline-flex items-center justify-center rounded-md cursor-pointer text-stone-600 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-700 transition-colors"
                                                 title="Open chat"
                                             >
                                                 <MessageCircle className="h-4 w-4" />
@@ -1732,61 +1539,18 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                         {/* Content Area - Show transcript or chat based on view mode */}
                         {viewMode === "transcript" ? (
                             <div className="relative overflow-hidden">
-                                <div
-                                    className={`transition-all duration-300 ease-in-out ${transcriptMode === "compact"
-                                        ? "opacity-100 translate-y-0"
-                                        : "opacity-0 -translate-y-4 absolute inset-0 pointer-events-none"
-                                        }`}
-                                >
-                                    {transcriptMode === "compact" && (
-                                        <div
-                                            ref={transcriptRef}
-                                            className="prose prose-gray dark:prose-invert max-w-none relative select-text cursor-text"
-                                        >
-                                            <div className="text-gray-700 dark:text-gray-300 leading-relaxed break-words select-text">
-                                                {renderHighlightedTranscript()}
-                                            </div>
-
-                                            {/* Selection bubble and editor moved to portal */}
-                                        </div>
-                                    )}
-                                </div>
-
-                                <div
-                                    className={`transition-all duration-300 ease-in-out ${transcriptMode === "expanded"
-                                        ? "opacity-100 translate-y-0"
-                                        : "opacity-0 translate-y-4 absolute inset-0 pointer-events-none"
-                                        }`}
-                                >
-                                    {transcriptMode === "expanded" && transcript.segments && (
-                                        <div
-                                            ref={transcriptRef}
-                                            className="space-y-4 relative select-text cursor-text"
-                                        >
-                                            {transcript.segments.map((segment, index) => (
-                                                <div
-                                                    key={index}
-                                                    className="flex gap-4 p-3 rounded-lg bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors duration-150"
-                                                >
-                                                    <div className="flex-shrink-0 flex flex-col gap-2">
-                                                        <span className="inline-block px-2 py-1 text-xs font-mono bg-blue-100 dark:bg-blue-700 text-blue-800 dark:text-blue-200 rounded">
-                                                            {formatTimestamp(segment.start)}
-                                                        </span>
-                                                        {segment.speaker && (
-                                                            <span className="inline-block px-2 py-1 text-xs font-medium bg-green-100 dark:bg-green-700 text-green-800 dark:text-green-200 rounded transition-all duration-200">
-                                                                {getDisplaySpeakerName(segment.speaker)}
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                    <div className="flex-1 min-w-0">
-                                                        <p className="text-gray-700 dark:text-gray-200 leading-relaxed break-words select-text">
-                                                            {renderSegmentWithHighlighting(segment)}
-                                                        </p>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
+                                {/* Transcript Content */}
+                                <div className="prose prose-stone dark:prose-invert max-w-none">
+                                    <div ref={transcriptRef} className="relative">
+                                        <TranscriptView
+                                            transcript={transcript}
+                                            mode={transcriptMode}
+                                            currentWordIndex={currentWordIndex}
+                                            notes={notes}
+                                            highlightedWordRef={highlightedWordRef}
+                                            speakerMappings={speakerMappings}
+                                        />
+                                    </div>
                                 </div>
                             </div>
                         ) : (
@@ -1805,15 +1569,15 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
 
                 {/* Status Messages */}
                 {(currentStatus || audioFile.status) !== "completed" && (
-                    <div className="bg-white dark:bg-gray-700 rounded-xl p-6">
+                    <div className="bg-white dark:bg-stone-900 rounded-xl p-6">
                         <div className="text-center">
                             {/* Processing Status with Animation */}
                             {(currentStatus || audioFile.status) === "processing" && (
                                 <div className="flex flex-col items-center space-y-4">
                                     <div className="flex items-center space-x-3">
-                                        <Loader2 className="h-8 w-8 text-blue-500 animate-spin" />
+                                        <Loader2 className="h-8 w-8 text-amber-500 animate-spin" />
                                         <div>
-                                            <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-50">
+                                            <h2 className="text-xl font-semibold text-stone-900 dark:text-stone-50">
                                                 Transcription in Progress
                                             </h2>
                                             {elapsedTime > 0 && (
@@ -1824,11 +1588,11 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                                         </div>
                                     </div>
                                     <div className="w-full max-w-md">
-                                        <div className="bg-gray-200 dark:bg-gray-600 rounded-full h-2">
-                                            <div className="bg-blue-500 h-2 rounded-full transition-all duration-1000 ease-out animate-pulse" style={{ width: '60%' }}></div>
+                                        <div className="bg-stone-200 dark:bg-stone-600 rounded-full h-2">
+                                            <div className="bg-amber-500 h-2 rounded-full transition-all duration-1000 ease-out animate-pulse" style={{ width: '60%' }}></div>
                                         </div>
                                     </div>
-                                    <p className="text-gray-600 dark:text-gray-400 text-sm">
+                                    <p className="text-stone-600 dark:text-stone-400 text-sm">
                                         Converting your audio to text... This may take a few minutes.
                                     </p>
                                 </div>
@@ -1870,7 +1634,6 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                 {/* Fixed bottom-left compact circular control with progress ring */}
                 <div className="fixed bottom-4 left-4 z-[9999]">
                     {(() => {
-                        const duration = wavesurferRef.current?.getDuration() ?? 0
                         const progress = duration > 0 ? Math.min(1, Math.max(0, currentTime / duration)) : 0
                         const size = 64 // outer box size
                         const strokeWidth = 5
@@ -2937,7 +2700,14 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                                             notes={notes}
                                             onEdit={updateNote}
                                             onDelete={deleteNote}
-                                            onJumpTo={(t) => { if (wavesurferRef.current) { const dur = wavesurferRef.current.getDuration(); wavesurferRef.current.seekTo(Math.min(0.999, Math.max(0, t / dur))); setCurrentTime(t); } }}
+                                            onJumpTo={(t) => {
+                                                const player = audioPlayerRef.current;
+                                                if (player) {
+                                                    const dur = player.getDuration();
+                                                    player.seekTo(Math.min(0.999, Math.max(0, t / dur)));
+                                                    setCurrentTime(t);
+                                                }
+                                            }}
                                         />
                                     </div>
                                 </div>

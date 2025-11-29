@@ -46,7 +46,7 @@ export function MultiTrackUploadDialog({
 			if (prePopulatedTitle) {
 				setTitle(prePopulatedTitle);
 			}
-			
+
 			// Prepare all files (audio + aup)
 			const allFiles = [...prePopulatedFiles, prePopulatedAupFile];
 			const fileItems: FileWithPreview[] = allFiles.map(file => ({
@@ -54,7 +54,7 @@ export function MultiTrackUploadDialog({
 				id: Math.random().toString(36),
 				isApu: file.name.toLowerCase().endsWith('.aup')
 			}));
-			
+
 			setFiles(fileItems);
 		} else if (!open) {
 			// Reset when dialog closes
@@ -82,7 +82,7 @@ export function MultiTrackUploadDialog({
 			id: Math.random().toString(36),
 			isApu: file.name.toLowerCase().endsWith('.aup')
 		}));
-		
+
 		setFiles(prev => [...prev, ...fileItems]);
 	};
 
@@ -103,10 +103,10 @@ export function MultiTrackUploadDialog({
 		// Extract audio files and aup file
 		const trackFiles = audioFiles.map(fileItem => fileItem.file);
 		const aupFileToUpload = aupFiles[0].file;
-		
+
 		// Call the callback with the files and title
 		await onMultiTrackUpload?.(trackFiles, aupFileToUpload, title.trim());
-		
+
 		// Reset form and close dialog (Note: this may not be called if callback handles closing)
 		setTitle("");
 		setFiles([]);
@@ -146,17 +146,17 @@ export function MultiTrackUploadDialog({
 					{/* File Upload Zone */}
 					<div className="space-y-4">
 						<Label>Files</Label>
-						
+
 						{/* Drop Zone */}
 						<div
-							className="border-2 border-dashed rounded-lg p-8 text-center transition-colors border-gray-300 hover:border-gray-400 hover:bg-gray-50"
+							className="border-2 border-dashed rounded-lg p-8 text-center transition-colors border-stone-300 hover:border-stone-400 hover:bg-stone-50"
 							onDrop={handleDrop}
 							onDragOver={(e) => e.preventDefault()}
 						>
-							<Upload className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+							<Upload className="mx-auto h-12 w-12 text-stone-400 mb-4" />
 							<div className="space-y-2">
 								<p className="text-lg font-medium">Drop files here or click to upload</p>
-								<p className="text-sm text-gray-500">
+								<p className="text-sm text-stone-500">
 									Upload multiple audio files and one .aup Audacity project file
 								</p>
 								<input
@@ -169,7 +169,7 @@ export function MultiTrackUploadDialog({
 								/>
 								<label
 									htmlFor="file-upload"
-									className="inline-block px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 cursor-pointer transition-colors"
+									className="inline-block px-4 py-2 bg-stone-900 text-white rounded-md hover:bg-stone-800 cursor-pointer transition-colors"
 								>
 									Choose Files
 								</label>
@@ -180,16 +180,16 @@ export function MultiTrackUploadDialog({
 						{files.length > 0 && (
 							<div className="space-y-2">
 								<h4 className="font-medium text-sm">Uploaded Files:</h4>
-								
+
 								{/* AUP Files */}
 								{aupFiles.map(fileItem => (
-									<div key={fileItem.id} className="flex items-center gap-3 p-3 bg-green-50 border border-green-200 rounded-lg">
-										<File className="h-4 w-4 text-green-600 flex-shrink-0" />
+									<div key={fileItem.id} className="flex items-center gap-3 p-3 bg-emerald-50 border border-emerald-200 rounded-lg">
+										<File className="h-4 w-4 text-emerald-600 flex-shrink-0" />
 										<div className="flex-1 min-w-0">
-											<p className="font-medium text-green-800 truncate">
+											<p className="font-medium text-emerald-800 truncate">
 												{fileItem.file.name}
 											</p>
-											<p className="text-xs text-green-600">Audacity project file</p>
+											<p className="text-xs text-emerald-600">Audacity project file</p>
 										</div>
 										<Button
 											variant="ghost"
@@ -203,13 +203,13 @@ export function MultiTrackUploadDialog({
 
 								{/* Audio Files */}
 								{audioFiles.map(fileItem => (
-									<div key={fileItem.id} className="flex items-center gap-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-										<FileAudio className="h-4 w-4 text-blue-600 flex-shrink-0" />
+									<div key={fileItem.id} className="flex items-center gap-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+										<FileAudio className="h-4 w-4 text-amber-600 flex-shrink-0" />
 										<div className="flex-1 min-w-0">
-											<p className="font-medium text-blue-800 truncate">
+											<p className="font-medium text-amber-800 truncate">
 												{fileItem.file.name}
 											</p>
-											<p className="text-xs text-blue-600">
+											<p className="text-xs text-amber-600">
 												Speaker: {getSpeakerName(fileItem.file.name)}
 											</p>
 										</div>
@@ -253,13 +253,13 @@ export function MultiTrackUploadDialog({
 				</div>
 
 				<DialogFooter>
-					<Button 
-						variant="outline" 
+					<Button
+						variant="outline"
 						onClick={() => onOpenChange(false)}
 					>
 						Cancel
 					</Button>
-					<Button 
+					<Button
 						onClick={handleUpload}
 						disabled={!canUpload}
 					>

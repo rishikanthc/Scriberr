@@ -121,7 +121,7 @@ export function Header({ onFileSelect, onMultiTrackClick, onDownloadComplete }: 
 	};
 
 	return (
-		<header className="bg-white dark:bg-gray-800 rounded-xl p-4 sm:p-6 mb-4 sm:mb-6">
+		<header className="sticky top-4 z-50 glass rounded-2xl p-4 mb-6 transition-all duration-300 shadow-sm hover:shadow-md">
 			<div className="flex items-center justify-between">
 				{/* Left side - Logo navigates home */}
 				<ScriberrLogo onClick={handleHomeClick} />
@@ -134,84 +134,96 @@ export function Header({ onFileSelect, onMultiTrackClick, onDownloadComplete }: 
 							<Button
 								variant="default"
 								size="icon"
-								className="bg-blue-500 hover:bg-blue-600 text-white h-9 w-9 sm:h-10 sm:w-10 cursor-pointer"
+								className="bg-stone-900 hover:bg-stone-800 dark:bg-stone-100 dark:hover:bg-stone-200 text-white dark:text-stone-900 h-10 w-10 rounded-xl shadow-sm transition-all hover:scale-105 cursor-pointer"
 							>
-								<Plus className="h-4 w-4" />
+								<Plus className="h-5 w-5" />
 								<span className="sr-only">Add audio</span>
 							</Button>
 						</DropdownMenuTrigger>
 						<DropdownMenuContent
 							align="end"
-							className="w-48 bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700 shadow-lg"
+							className="w-56 glass-card border-stone-200 dark:border-stone-800 p-2"
 						>
 							<DropdownMenuItem
 								onClick={handleQuickTranscriptionClick}
-								className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
+								className="flex items-center gap-3 px-3 py-2.5 cursor-pointer rounded-lg focus:bg-stone-100 dark:focus:bg-stone-800"
 							>
-								<Zap className="h-4 w-4 text-yellow-500" />
+								<div className="p-2 bg-amber-100 dark:bg-amber-900/30 rounded-lg text-amber-700 dark:text-amber-400">
+									<Zap className="h-4 w-4" />
+								</div>
 								<div>
-									<div className="font-medium">Quick Transcribe</div>
-									<div className="text-xs text-gray-500 dark:text-gray-400">
+									<div className="font-medium text-sm">Quick Transcribe</div>
+									<div className="text-xs text-muted-foreground">
 										Fast transcribe without saving
 									</div>
 								</div>
 							</DropdownMenuItem>
 							<DropdownMenuItem
 								onClick={handleYouTubeClick}
-								className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
+								className="flex items-center gap-3 px-3 py-2.5 cursor-pointer rounded-lg focus:bg-stone-100 dark:focus:bg-stone-800"
 							>
-								<Youtube className="h-4 w-4 text-red-500" />
+								<div className="p-2 bg-rose-100 dark:bg-rose-900/30 rounded-lg text-rose-600 dark:text-rose-400">
+									<Youtube className="h-4 w-4" />
+								</div>
 								<div>
-									<div className="font-medium">YouTube URL</div>
-									<div className="text-xs text-gray-500 dark:text-gray-400">
+									<div className="font-medium text-sm">YouTube URL</div>
+									<div className="text-xs text-muted-foreground">
 										Download audio from YouTube
 									</div>
 								</div>
 							</DropdownMenuItem>
 							<DropdownMenuItem
 								onClick={handleUploadClick}
-								className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
+								className="flex items-center gap-3 px-3 py-2.5 cursor-pointer rounded-lg focus:bg-stone-100 dark:focus:bg-stone-800"
 							>
-								<Upload className="h-4 w-4 text-blue-500" />
+								<div className="p-2 bg-stone-100 dark:bg-stone-800 rounded-lg text-stone-600 dark:text-stone-400">
+									<Upload className="h-4 w-4" />
+								</div>
 								<div>
-									<div className="font-medium">Upload Files</div>
-									<div className="text-xs text-gray-500 dark:text-gray-400">
+									<div className="font-medium text-sm">Upload Files</div>
+									<div className="text-xs text-muted-foreground">
 										Choose one or more audio files
 									</div>
 								</div>
 							</DropdownMenuItem>
 							<DropdownMenuItem
 								onClick={handleVideoUploadClick}
-								className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
+								className="flex items-center gap-3 px-3 py-2.5 cursor-pointer rounded-lg focus:bg-stone-100 dark:focus:bg-stone-800"
 							>
-								<Video className="h-4 w-4 text-purple-500" />
+								<div className="p-2 bg-stone-100 dark:bg-stone-800 rounded-lg text-stone-600 dark:text-stone-400">
+									<Video className="h-4 w-4" />
+								</div>
 								<div>
-									<div className="font-medium">Upload Videos</div>
-									<div className="text-xs text-gray-500 dark:text-gray-400">
+									<div className="font-medium text-sm">Upload Videos</div>
+									<div className="text-xs text-muted-foreground">
 										Extract audio from video files
 									</div>
 								</div>
 							</DropdownMenuItem>
 							<DropdownMenuItem
 								onClick={handleRecordClick}
-								className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
+								className="flex items-center gap-3 px-3 py-2.5 cursor-pointer rounded-lg focus:bg-stone-100 dark:focus:bg-stone-800"
 							>
-								<Mic className="h-4 w-4 text-red-500" />
+								<div className="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-lg text-orange-600 dark:text-orange-400">
+									<Mic className="h-4 w-4" />
+								</div>
 								<div>
-									<div className="font-medium">Record Audio</div>
-									<div className="text-xs text-gray-500 dark:text-gray-400">
+									<div className="font-medium text-sm">Record Audio</div>
+									<div className="text-xs text-muted-foreground">
 										Record using microphone
 									</div>
 								</div>
 							</DropdownMenuItem>
 							<DropdownMenuItem
 								onClick={handleMultiTrackClick}
-								className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
+								className="flex items-center gap-3 px-3 py-2.5 cursor-pointer rounded-lg focus:bg-stone-100 dark:focus:bg-stone-800"
 							>
-								<Users className="h-4 w-4 text-green-500" />
+								<div className="p-2 bg-teal-100 dark:bg-teal-900/30 rounded-lg text-teal-600 dark:text-teal-400">
+									<Users className="h-4 w-4" />
+								</div>
 								<div>
-									<div className="font-medium">Multi-Track Audio</div>
-									<div className="text-xs text-gray-500 dark:text-gray-400">
+									<div className="font-medium text-sm">Multi-Track Audio</div>
+									<div className="text-xs text-muted-foreground">
 										Upload multiple speaker tracks
 									</div>
 								</div>
@@ -223,25 +235,25 @@ export function Header({ onFileSelect, onMultiTrackClick, onDownloadComplete }: 
 					<DropdownMenu>
 						<DropdownMenuTrigger asChild>
 							<Button
-								variant="outline"
+								variant="ghost"
 								size="icon"
-								className="h-9 w-9 sm:h-10 sm:w-10 cursor-pointer"
+								className="h-10 w-10 rounded-xl hover:bg-stone-100 dark:hover:bg-stone-800 cursor-pointer"
 							>
-								<Grip className="h-5 w-5" />
+								<Grip className="h-5 w-5 text-muted-foreground" />
 								<span className="sr-only">Open menu</span>
 							</Button>
 						</DropdownMenuTrigger>
-						<DropdownMenuContent align="end" className="w-44 bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700">
-							<DropdownMenuItem onClick={handleHomeClick} className="cursor-pointer">
-								<Home className="h-4 w-4" />
+						<DropdownMenuContent align="end" className="w-48 glass-card border-stone-200 dark:border-stone-800 p-2">
+							<DropdownMenuItem onClick={handleHomeClick} className="cursor-pointer rounded-lg focus:bg-stone-100 dark:focus:bg-stone-800">
+								<Home className="h-4 w-4 mr-2" />
 								Home
 							</DropdownMenuItem>
-							<DropdownMenuItem onClick={handleSettingsClick} className="cursor-pointer">
-								<Settings className="h-4 w-4" />
+							<DropdownMenuItem onClick={handleSettingsClick} className="cursor-pointer rounded-lg focus:bg-stone-100 dark:focus:bg-stone-800">
+								<Settings className="h-4 w-4 mr-2" />
 								Settings
 							</DropdownMenuItem>
-							<DropdownMenuItem onClick={handleLogout} className="cursor-pointer" variant="destructive">
-								<LogOut className="h-4 w-4" />
+							<DropdownMenuItem onClick={handleLogout} className="cursor-pointer rounded-lg focus:bg-rose-50 dark:focus:bg-rose-900/20 text-rose-600 dark:text-rose-400">
+								<LogOut className="h-4 w-4 mr-2" />
 								Logout
 							</DropdownMenuItem>
 						</DropdownMenuContent>
@@ -259,7 +271,7 @@ export function Header({ onFileSelect, onMultiTrackClick, onDownloadComplete }: 
 						onChange={handleFileChange}
 						className="hidden"
 					/>
-					
+
 					{/* Hidden video file input */}
 					<input
 						ref={videoFileInputRef}
