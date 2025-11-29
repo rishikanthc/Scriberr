@@ -6,13 +6,13 @@ import { MultiTrackUploadDialog } from "./MultiTrackUploadDialog";
 import { useAuth } from "../contexts/AuthContext";
 import { Progress } from "./ui/progress";
 import { X, CheckCircle, AlertCircle } from "lucide-react";
-import { 
-	groupFiles, 
-	convertToFileWithType, 
-	prepareMultiTrackFiles, 
-	hasValidFiles, 
-	getFileDescription, 
-	validateMultiTrackFiles 
+import {
+	groupFiles,
+	convertToFileWithType,
+	prepareMultiTrackFiles,
+	hasValidFiles,
+	getFileDescription,
+	validateMultiTrackFiles
 } from "../utils/fileProcessor";
 
 interface FileWithType {
@@ -31,13 +31,13 @@ export function Homepage() {
 	const [refreshTrigger, setRefreshTrigger] = useState(0);
 	const [uploadProgress, setUploadProgress] = useState<UploadProgress[]>([]);
 	const [isUploading, setIsUploading] = useState(false);
-	
+
 	// Drag and drop state
 	const [isDragging, setIsDragging] = useState(false);
 	const [dragCount, setDragCount] = useState(0);
 	const [draggedFileGroup, setDraggedFileGroup] = useState<ReturnType<typeof groupFiles> | null>(null);
 	const [isMultiTrackDialogOpen, setIsMultiTrackDialogOpen] = useState(false);
-	const [multiTrackPreview, setMultiTrackPreview] = useState<{audioFiles: File[], aupFile: File, title: string} | null>(null);
+	const [multiTrackPreview, setMultiTrackPreview] = useState<{ audioFiles: File[], aupFile: File, title: string } | null>(null);
 	const dragCounter = useRef(0);
 
 	const uploadSingleFile = async (file: File): Promise<boolean> => {
@@ -92,9 +92,9 @@ export function Homepage() {
 				return { file: item as File, isVideo: false };
 			}
 		});
-		
+
 		if (processedFiles.length === 0) return;
-		
+
 		setIsUploading(true);
 		setUploadProgress(processedFiles.map(item => ({
 			fileName: item.file.name,
@@ -102,29 +102,29 @@ export function Homepage() {
 		})));
 
 		let successCount = 0;
-		
+
 		// Upload files sequentially to avoid overwhelming the server
 		for (let i = 0; i < processedFiles.length; i++) {
 			const fileItem = processedFiles[i];
 			const file = fileItem.file;
 			const isVideo = fileItem.isVideo;
-			
+
 			try {
 				const success = isVideo ? await uploadSingleVideo(file) : await uploadSingleFile(file);
-				
-				setUploadProgress(prev => prev.map((item, index) => 
+
+				setUploadProgress(prev => prev.map((item, index) =>
 					index === i ? {
 						...item,
 						status: success ? 'success' : 'error',
 						error: success ? undefined : (isVideo ? 'Video upload failed' : 'Upload failed')
 					} : item
 				));
-				
+
 				if (success) {
 					successCount++;
 				}
 			} catch (error) {
-				setUploadProgress(prev => prev.map((item, index) => 
+				setUploadProgress(prev => prev.map((item, index) =>
 					index === i ? {
 						...item,
 						status: 'error',
@@ -133,14 +133,14 @@ export function Homepage() {
 				));
 			}
 		}
-		
+
 		setIsUploading(false);
-		
+
 		// Refresh table if any uploads succeeded
 		if (successCount > 0) {
 			setRefreshTrigger((prev) => prev + 1);
 		}
-		
+
 		// Auto-hide progress after 3 seconds if all succeeded
 		if (successCount === fileArray.length) {
 			setTimeout(() => setUploadProgress([]), 3000);
@@ -158,20 +158,20 @@ export function Homepage() {
 
 	const handleMultiTrackUpload = async (files: File[], aupFile: File, title: string) => {
 		setIsUploading(true);
-		
+
 		// Create progress entry for multi-track upload
 		const multiTrackProgress = {
 			fileName: `${title} (${files.length} tracks)`,
 			status: 'uploading' as const
 		};
-		
+
 		setUploadProgress([multiTrackProgress]);
 
 		try {
 			const formData = new FormData();
 			formData.append('title', title);
 			formData.append('aup', aupFile);
-			
+
 			files.forEach(file => {
 				formData.append('tracks', file);
 			});
@@ -189,10 +189,10 @@ export function Homepage() {
 					...multiTrackProgress,
 					status: 'success'
 				}]);
-				
+
 				// Refresh table
 				setRefreshTrigger((prev) => prev + 1);
-				
+
 				// Auto-hide progress after 3 seconds
 				setTimeout(() => setUploadProgress([]), 3000);
 			} else {
@@ -218,19 +218,19 @@ export function Homepage() {
 	const handleDragEnter = useCallback((e: React.DragEvent) => {
 		e.preventDefault();
 		e.stopPropagation();
-		
+
 		dragCounter.current++;
-		
+
 		if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
 			setIsDragging(true);
 			setDragCount(dragCounter.current);
-			
+
 			// Preview files being dragged
 			const files = Array.from(e.dataTransfer.items)
 				.filter(item => item.kind === 'file')
 				.map(item => item.getAsFile())
 				.filter((file): file is File => file !== null);
-			
+
 			if (files.length > 0) {
 				const fileGroup = groupFiles(files);
 				setDraggedFileGroup(fileGroup);
@@ -241,9 +241,9 @@ export function Homepage() {
 	const handleDragLeave = useCallback((e: React.DragEvent) => {
 		e.preventDefault();
 		e.stopPropagation();
-		
+
 		dragCounter.current--;
-		
+
 		if (dragCounter.current === 0) {
 			setIsDragging(false);
 			setDragCount(0);
@@ -259,25 +259,25 @@ export function Homepage() {
 	const handleDrop = useCallback(async (e: React.DragEvent) => {
 		e.preventDefault();
 		e.stopPropagation();
-		
+
 		// Reset drag state
 		dragCounter.current = 0;
 		setIsDragging(false);
 		setDragCount(0);
 		setDraggedFileGroup(null);
-		
+
 		const files = Array.from(e.dataTransfer.files);
 		if (files.length === 0) return;
-		
+
 		const fileGroup = groupFiles(files);
-		
+
 		// Validate files
 		if (!hasValidFiles(fileGroup)) {
 			// Show error - could add toast notification here
 			console.error('Invalid files dropped');
 			return;
 		}
-		
+
 		// Handle different file types
 		if (fileGroup.type === 'multitrack') {
 			const multiTrackFiles = prepareMultiTrackFiles(fileGroup);
@@ -307,52 +307,53 @@ export function Homepage() {
 	}, []);
 
 	return (
-		<div 
-			className="min-h-screen bg-gray-50 dark:bg-gray-900"
+		<div
+			className="min-h-screen"
 			onDragEnter={handleDragEnter}
 			onDragLeave={handleDragLeave}
 			onDragOver={handleDragOver}
 			onDrop={handleDrop}
 		>
 			<div className="mx-auto w-full max-w-6xl px-2 sm:px-6 md:px-8 py-3 sm:py-6">
-				<Header 
-					onFileSelect={handleFileSelect} 
+				<Header
+					onFileSelect={handleFileSelect}
 					onMultiTrackClick={() => setIsMultiTrackDialogOpen(true)}
 					onDownloadComplete={() => setRefreshTrigger((prev) => prev + 1)}
 				/>
-				
+
 				{/* Upload Progress */}
 				{uploadProgress.length > 0 && (
-					<div className="mb-4 sm:mb-6 bg-white dark:bg-gray-800 rounded-xl p-4 sm:p-6">
+					<div className="mb-4 sm:mb-6 bg-white dark:bg-stone-900 rounded-xl p-4 sm:p-6 shadow-sm border border-stone-200 dark:border-stone-800">
 						<div className="flex items-center justify-between mb-4">
-							<h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+							<h3 className="text-lg font-semibold text-stone-900 dark:text-stone-100">
 								Uploading Files ({uploadProgress.filter(p => p.status === 'success').length}/{uploadProgress.length})
 							</h3>
 							{!isUploading && (
 								<button
 									onClick={dismissProgress}
-									className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors cursor-pointer"
+									className="p-1 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-md transition-colors cursor-pointer"
 								>
-									<X className="h-4 w-4 text-gray-500 dark:text-gray-400" />
+									<X className="h-4 w-4 text-stone-500 dark:text-stone-400" />
 								</button>
 							)}
 						</div>
-						
+
 						{/* Overall progress */}
 						<div className="mb-4">
-							<Progress 
-								value={(uploadProgress.filter(p => p.status !== 'uploading').length / uploadProgress.length) * 100} 
-								className="h-2"
+							<Progress
+								value={(uploadProgress.filter(p => p.status !== 'uploading').length / uploadProgress.length) * 100}
+								className="h-2 bg-stone-100 dark:bg-stone-800"
+								indicatorClassName="bg-amber-500"
 							/>
 						</div>
-						
+
 						{/* Individual file progress */}
 						<div className="space-y-2 max-h-32 overflow-y-auto">
 							{uploadProgress.map((progress, index) => (
 								<div key={index} className="flex items-center gap-3 text-sm">
 									<div className="flex-shrink-0">
 										{progress.status === 'uploading' && (
-											<div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+											<div className="w-4 h-4 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
 										)}
 										{progress.status === 'success' && (
 											<CheckCircle className="w-4 h-4 text-green-500" />
@@ -362,7 +363,7 @@ export function Homepage() {
 										)}
 									</div>
 									<div className="flex-1 min-w-0">
-										<div className="truncate text-gray-900 dark:text-gray-100">
+										<div className="truncate text-stone-900 dark:text-stone-100">
 											{progress.fileName}
 										</div>
 										{progress.error && (
@@ -371,7 +372,7 @@ export function Homepage() {
 											</div>
 										)}
 									</div>
-									<div className="flex-shrink-0 text-xs text-gray-500 dark:text-gray-400">
+									<div className="flex-shrink-0 text-xs text-stone-500 dark:text-stone-400">
 										{progress.status === 'uploading' && 'Uploading...'}
 										{progress.status === 'success' && 'Completed'}
 										{progress.status === 'error' && 'Failed'}
@@ -381,26 +382,26 @@ export function Homepage() {
 						</div>
 					</div>
 				)}
-				
+
 				<AudioFilesTable
 					refreshTrigger={refreshTrigger}
 					onTranscribe={handleTranscribe}
 				/>
 			</div>
-			
+
 			{/* Drag and Drop Overlay */}
 			<DragDropOverlay
 				isDragging={isDragging}
 				dragCount={dragCount}
 				fileType={draggedFileGroup?.type}
 				fileDescription={draggedFileGroup ? getFileDescription(draggedFileGroup) : undefined}
-				errorMessage={draggedFileGroup && !hasValidFiles(draggedFileGroup) 
-					? (draggedFileGroup.type === 'multitrack' 
+				errorMessage={draggedFileGroup && !hasValidFiles(draggedFileGroup)
+					? (draggedFileGroup.type === 'multitrack'
 						? validateMultiTrackFiles([...draggedFileGroup.files, draggedFileGroup.aupFile!]).error
 						: "No supported files found")
 					: undefined}
 			/>
-			
+
 			{/* Multi-track Upload Dialog with pre-populated data */}
 			<MultiTrackUploadDialog
 				open={isMultiTrackDialogOpen}

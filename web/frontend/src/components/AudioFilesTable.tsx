@@ -1,41 +1,41 @@
 import { useState, useEffect, useMemo, useCallback, memo, useRef } from "react";
 import {
-    CheckCircle,
-    Clock,
-    XCircle,
-    Loader2,
-    MoreVertical,
-    Hash,
-    Trash2,
-    StopCircle,
-    ChevronUp,
-    ChevronDown,
-    ChevronsUpDown,
-    Search,
-    ChevronLeft,
-    ChevronRight,
-    ChevronsLeft,
-    ChevronsRight,
-    MessageCircle,
+	CheckCircle,
+	Clock,
+	XCircle,
+	Loader2,
+	MoreVertical,
+	Hash,
+	Trash2,
+	StopCircle,
+	ChevronUp,
+	ChevronDown,
+	ChevronsUpDown,
+	Search,
+	ChevronLeft,
+	ChevronRight,
+	ChevronsLeft,
+	ChevronsRight,
+	MessageCircle,
 } from "lucide-react";
 
 // Custom SVG icons for transcription actions
 const QuickTranscribeIcon = ({ className }: { className?: string }) => (
-  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-    <path d="M12 2L15.09 8.26L22 9L17 14L18.18 21L12 17.77L5.82 21L7 14L2 9L8.91 8.26L12 2Z" />
-    <path d="M8 12h8" strokeWidth="1.5" />
-    <path d="M8 16h6" strokeWidth="1.5" />
-  </svg>
+	<svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+		<path d="M12 2L15.09 8.26L22 9L17 14L18.18 21L12 17.77L5.82 21L7 14L2 9L8.91 8.26L12 2Z" />
+		<path d="M8 12h8" strokeWidth="1.5" />
+		<path d="M8 16h6" strokeWidth="1.5" />
+	</svg>
 );
 
 const AdvancedTranscribeIcon = ({ className }: { className?: string }) => (
-  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-    <circle cx="12" cy="12" r="3" />
-    <path d="M12 1v6m0 6v6" />
-    <path d="m21 12-6 0m-6 0-6 0" />
-    <path d="m16.24 7.76-4.24 4.24m-4.24 4.24-1.41-1.41" />
-    <path d="M16.24 16.24 12 12m-4.24-4.24L6.34 6.34" />
-  </svg>
+	<svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+		<circle cx="12" cy="12" r="3" />
+		<path d="M12 1v6m0 6v6" />
+		<path d="m21 12-6 0m-6 0-6 0" />
+		<path d="m16.24 7.76-4.24 4.24m-4.24 4.24-1.41-1.41" />
+		<path d="M16.24 16.24 12 12m-4.24-4.24L6.34 6.34" />
+	</svg>
 );
 import {
 	Popover,
@@ -83,16 +83,16 @@ import {
 
 
 // Debounced search input component to prevent focus loss
-function DebouncedSearchInput({ 
-	value, 
-	onChange, 
-	placeholder, 
-	className 
-}: { 
-	value: string; 
-	onChange: (value: string) => void; 
-	placeholder: string; 
-	className: string; 
+function DebouncedSearchInput({
+	value,
+	onChange,
+	placeholder,
+	className
+}: {
+	value: string;
+	onChange: (value: string) => void;
+	placeholder: string;
+	className: string;
 }) {
 	const [searchValue, setSearchValue] = useState(value);
 
@@ -174,7 +174,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 	const [killingJobs, setKillingJobs] = useState<Set<string>>(new Set());
 	const [transcribeDDialogOpen, setTranscribeDDialogOpen] = useState(false);
 	const [trackProgress, setTrackProgress] = useState<Record<string, any>>({});
-	
+
 	// Dialog state management (moved outside table to prevent re-renders)
 	const [stopDialogOpen, setStopDialogOpen] = useState(false);
 	const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -189,21 +189,21 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 				// Only show loading indicator for user-triggered actions, not polling
 				setIsPageChanging(true);
 			}
-			
+
 			const currentPage = page || pagination.pageIndex + 1;
 			const currentLimit = limit || pagination.pageSize;
 			const currentSearch = searchQuery !== undefined ? searchQuery : globalFilter;
-			
+
 			const params = new URLSearchParams({
 				page: currentPage.toString(),
 				limit: currentLimit.toString(),
 			});
-			
+
 			// Add search parameter if provided
 			if (currentSearch) {
 				params.set('q', currentSearch);
 			}
-			
+
 			const response = await fetch(`/api/v1/transcription/list?${params}`, {
 				headers: {
 					...getAuthHeaders(),
@@ -212,50 +212,50 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 
 			if (response.ok) {
 				const result: PaginationResponse = await response.json();
-				
+
 				// Smart update: Only update status fields during polling to preserve UI state
 				if (isPolling) {
 					setData(prevData => {
 						const newJobs = result.jobs || [];
-						
+
 						// Update existing jobs if their status changed
 						const updatedData = prevData.map(existingJob => {
 							const updatedJob = newJobs.find(j => j.id === existingJob.id);
 							if (updatedJob) {
 								// Only update if anything actually changed (mainly status)
-								const hasChanges = 
+								const hasChanges =
 									updatedJob.status !== existingJob.status ||
 									updatedJob.error_message !== existingJob.error_message ||
 									JSON.stringify(updatedJob.individual_transcripts) !== JSON.stringify(existingJob.individual_transcripts);
-								
+
 								if (hasChanges) {
 									return { ...existingJob, ...updatedJob };
 								}
 							}
 							return existingJob; // Keep existing reference if no change
 						});
-						
+
 						// Add any new jobs that appeared
 						const existingIds = new Set(prevData.map(job => job.id));
 						const newJobsToAdd = newJobs.filter(job => !existingIds.has(job.id));
-						
+
 						return [...updatedData, ...newJobsToAdd];
 					});
 				} else {
 					// Full replacement for user-triggered actions
 					setData(result.jobs || []);
 				}
-				
+
 				setTotalItems(result.pagination.total);
 				setPageCount(result.pagination.pages);
 				// Fetch queue positions for pending jobs
 				fetchQueuePositions(result.jobs || []);
-				
+
 				// Fetch track progress for multi-track jobs that are processing
-				const processingMultiTrackJobs = (result.jobs || []).filter(job => 
+				const processingMultiTrackJobs = (result.jobs || []).filter(job =>
 					job.is_multi_track && (job.status === "processing" || job.status === "pending")
 				);
-				
+
 				if (processingMultiTrackJobs.length > 0) {
 					try {
 						const progressPromises = processingMultiTrackJobs.map(async (job) => {
@@ -326,7 +326,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 
 		// Close the popover
 		setOpenPopovers((prev) => ({ ...prev, [jobId]: false }));
-		
+
 		// Open configuration dialog
 		setSelectedJobId(jobId);
 		setConfigDialogOpen(true);
@@ -339,7 +339,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 
 		// Close the popover
 		setOpenPopovers((prev) => ({ ...prev, [jobId]: false }));
-		
+
 		// Open Transcribe-D dialog
 		setSelectedJobId(jobId);
 		setTranscribeDDialogOpen(true);
@@ -355,7 +355,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 			alert("Multi-track audio requires a profile with multi-track transcription enabled. Please select or create a profile with multi-track support.");
 			return;
 		}
-		
+
 		if (!selectedJob?.is_multi_track && params.is_multi_track_enabled) {
 			alert("Multi-track transcription cannot be used with single-track audio files.");
 			return;
@@ -401,7 +401,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 			alert("Multi-track audio requires a profile with multi-track transcription enabled. Please select a different profile with multi-track support.");
 			return;
 		}
-		
+
 		if (!selectedJob?.is_multi_track && params.is_multi_track_enabled) {
 			alert("Multi-track transcription cannot be used with single-track audio files. Please select a different profile.");
 			return;
@@ -473,7 +473,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 
 		try {
 			setKillingJobs((prev) => new Set(prev).add(jobId));
-			
+
 			const response = await fetch(`/api/v1/transcription/${jobId}/kill`, {
 				method: "POST",
 				headers: {
@@ -508,8 +508,8 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 	useEffect(() => {
 		if (data.length > 0) { // Only fetch if not initial load
 			fetchAudioFiles(
-				pagination.pageIndex + 1, 
-				pagination.pageSize, 
+				pagination.pageIndex + 1,
+				pagination.pageSize,
 				globalFilter || undefined
 			);
 		}
@@ -524,7 +524,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 
 	// Smart polling: only poll when there are active jobs and increase interval when idle
 	const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
-	
+
 	useEffect(() => {
 		const activeJobs = data.filter(
 			(job) => job.status === "pending" || job.status === "processing",
@@ -541,7 +541,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 			// Use shorter interval for processing jobs, longer for pending jobs
 			const hasProcessingJobs = activeJobs.some(job => job.status === "processing");
 			const pollingInterval = hasProcessingJobs ? 2000 : 5000; // 2s for processing, 5s for pending
-			
+
 			pollingIntervalRef.current = setInterval(() => {
 				// Keep current pagination when polling, but don't show loading indicators
 				fetchAudioFiles(undefined, undefined, undefined, false, true);
@@ -574,9 +574,9 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 					<TooltipTrigger asChild>
 						<div className="cursor-help inline-flex items-center gap-1">
 							<div className="relative">
-								<Loader2 size={iconSize} className="text-blue-400 animate-spin" />
+								<Loader2 size={iconSize} className="text-amber-500 animate-spin" />
 							</div>
-							<span className="text-xs text-blue-400 font-medium">
+							<span className="text-xs text-amber-500 font-medium">
 								{completedTracks}/{totalTracks}
 							</span>
 						</div>
@@ -587,11 +587,10 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 							<div className="space-y-1">
 								{tracks && tracks.slice(0, 5).map((track: any, index: number) => (
 									<div key={index} className="flex items-center gap-2 text-xs">
-										<span className={`w-2 h-2 rounded-full ${
-											track.status === 'completed' ? 'bg-green-400' : 
-											track.status === 'processing' ? 'bg-blue-400' : 
-											'bg-gray-400'
-										}`}></span>
+										<span className={`w-2 h-2 rounded-full ${track.status === 'completed' ? 'bg-emerald-400' :
+												track.status === 'processing' ? 'bg-amber-400' :
+													'bg-stone-400'
+											}`}></span>
 										<span>{track.track_name}</span>
 									</div>
 								))}
@@ -611,7 +610,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 					<Tooltip>
 						<TooltipTrigger asChild>
 							<div className="cursor-help inline-block">
-								<CheckCircle size={iconSize} className="text-green-500" />
+								<CheckCircle size={iconSize} className="text-emerald-500" />
 							</div>
 						</TooltipTrigger>
 						<TooltipContent className="bg-gray-900 border-gray-700 text-white">
@@ -626,7 +625,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 							<div className="cursor-help inline-block">
 								<Loader2
 									size={iconSize}
-									className="text-blue-400 animate-spin"
+									className="text-amber-500 animate-spin"
 								/>
 							</div>
 						</TooltipTrigger>
@@ -640,7 +639,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 					<Tooltip>
 						<TooltipTrigger asChild>
 							<div className="cursor-help inline-block">
-								<XCircle size={iconSize} className="text-magenta-400" />
+								<XCircle size={iconSize} className="text-rose-400" />
 							</div>
 						</TooltipTrigger>
 						<TooltipContent className="bg-gray-900 border-gray-700 text-white">
@@ -653,8 +652,8 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 					<Tooltip>
 						<TooltipTrigger asChild>
 							<div className="flex items-center gap-1 cursor-help inline-flex">
-								<Hash size={12} className="text-purple-400" />
-								<span className="text-xs text-purple-400 font-medium">
+								<Hash size={12} className="text-stone-400" />
+								<span className="text-xs text-stone-400 font-medium">
 									{queuePosition || "?"}
 								</span>
 							</div>
@@ -670,7 +669,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 					<Tooltip>
 						<TooltipTrigger asChild>
 							<div className="cursor-help inline-block">
-								<Clock size={iconSize} className="text-blue-500" />
+								<Clock size={iconSize} className="text-stone-500" />
 							</div>
 						</TooltipTrigger>
 						<TooltipContent className="bg-gray-900 border-gray-700 text-white">
@@ -729,7 +728,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 					return (
 						<button
 							onClick={() => handleAudioClick(file.id)}
-							className="text-gray-900 dark:text-gray-50 font-medium hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer text-left"
+							className="text-stone-900 dark:text-stone-50 font-medium hover:text-amber-600 dark:hover:text-amber-400 transition-colors cursor-pointer text-left"
 						>
 							{file.title || getFileName(file.audio_path)}
 						</button>
@@ -758,7 +757,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 					);
 				},
 				cell: ({ getValue }) => (
-					<span className="text-gray-600 dark:text-gray-300 text-sm">
+					<span className="text-stone-600 dark:text-stone-300 text-sm">
 						{formatDate(getValue() as string)}
 					</span>
 				),
@@ -813,15 +812,15 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 									}))
 								}
 							>
-									<PopoverTrigger asChild>
-										<Button
-											variant="ghost"
-											size="sm"
-											className="h-8 w-8 sm:h-9 sm:w-9 p-0 cursor-pointer"
-										>
-											<MoreVertical className="h-5 w-5" />
-										</Button>
-									</PopoverTrigger>
+								<PopoverTrigger asChild>
+									<Button
+										variant="ghost"
+										size="sm"
+										className="h-8 w-8 sm:h-9 sm:w-9 p-0 cursor-pointer"
+									>
+										<MoreVertical className="h-5 w-5" />
+									</Button>
+								</PopoverTrigger>
 								<PopoverContent className="w-40 bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-600 p-1">
 									<div className="space-y-1">
 										{file.status === "completed" && (
@@ -848,7 +847,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 											<QuickTranscribeIcon className="mr-2 h-4 w-4" />
 											Transcribe
 										</Button>
-										
+
 										<Button
 											variant="ghost"
 											size="sm"
@@ -859,7 +858,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 											<AdvancedTranscribeIcon className="mr-2 h-4 w-4" />
 											Transcribe+
 										</Button>
-										
+
 										{file.status === "processing" && (
 											<Button
 												variant="ghost"
@@ -884,7 +883,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 												)}
 											</Button>
 										)}
-										
+
 										<Button
 											variant="ghost"
 											size="sm"
@@ -959,13 +958,13 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 							Audio Files
 						</h2>
 						<p className="text-gray-600 dark:text-gray-400 text-sm">
-							{globalFilter 
+							{globalFilter
 								? `${totalItems} file${totalItems !== 1 ? "s" : ""} found`
 								: `${totalItems} file${totalItems !== 1 ? "s" : ""} total`
 							}
 						</p>
 					</div>
-					
+
 					{/* Global Search */}
 					<div className="relative w-full sm:w-72">
 						<Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4 z-10" />
@@ -985,8 +984,8 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 							{globalFilter ? "No matching audio files" : "No audio files yet"}
 						</h3>
 						<p className="text-gray-500 dark:text-gray-400">
-							{globalFilter 
-								? "Try adjusting your search terms" 
+							{globalFilter
+								? "Try adjusting your search terms"
 								: "Upload your first audio file to get started"
 							}
 						</p>
@@ -994,7 +993,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 				) : (
 					<>
 						{/* Table */}
-					<div className={`border border-gray-100 dark:border-gray-900 rounded-lg overflow-hidden relative transition-opacity duration-200 ${isPageChanging ? 'opacity-75' : ''}`}>
+						<div className={`border border-gray-100 dark:border-gray-900 rounded-lg overflow-hidden relative transition-opacity duration-200 ${isPageChanging ? 'opacity-75' : ''}`}>
 							{isPageChanging && (
 								<div className="absolute inset-0 bg-white/20 dark:bg-gray-800/20 flex items-center justify-center z-10">
 									<div className="flex items-center space-x-2 text-gray-600 dark:text-gray-400 bg-white dark:bg-gray-800 px-3 py-1 rounded-md shadow-sm">
@@ -1006,12 +1005,12 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 							<Table>
 								<TableHeader className="hidden sm:table-header-group">
 									{table.getHeaderGroups().map((headerGroup) => (
-										<TableRow 
+										<TableRow
 											key={headerGroup.id}
 											className="bg-gray-50 dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 border-b border-gray-100 dark:border-gray-900"
 										>
 											{headerGroup.headers.map((header) => (
-												<TableHead 
+												<TableHead
 													key={header.id}
 													className={`text-gray-700 dark:text-gray-300 ${header.column.id === 'created_at' ? 'hidden sm:table-cell' : ''} ${header.column.id === 'title' ? 'w-full' : ''} ${header.column.id === 'status' ? 'w-10 text-center' : ''} ${header.column.id === 'actions' ? 'w-10 text-center' : ''}`}
 												>

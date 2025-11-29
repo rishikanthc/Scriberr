@@ -18,10 +18,10 @@ interface YouTubeDownloadDialogProps {
   onDownloadComplete?: () => void;
 }
 
-export function YouTubeDownloadDialog({ 
-  isOpen, 
-  onClose, 
-  onDownloadComplete 
+export function YouTubeDownloadDialog({
+  isOpen,
+  onClose,
+  onDownloadComplete
 }: YouTubeDownloadDialogProps) {
   const { getAuthHeaders } = useAuth();
   const [url, setUrl] = useState("");
@@ -36,7 +36,7 @@ export function YouTubeDownloadDialog({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!url.trim()) {
       setError("Please enter a YouTube URL");
       return;
@@ -102,7 +102,7 @@ export function YouTubeDownloadDialog({
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Youtube className="h-5 w-5 text-red-500" />
+            <Youtube className="h-5 w-5 text-rose-500" />
             Download from YouTube
           </DialogTitle>
           <DialogDescription>
@@ -113,13 +113,13 @@ export function YouTubeDownloadDialog({
         {success ? (
           <div className="space-y-4 py-4">
             <div className="flex items-center justify-center">
-              <CheckCircle className="h-12 w-12 text-green-500" />
+              <CheckCircle className="h-12 w-12 text-emerald-500" />
             </div>
             <div className="text-center">
-              <h3 className="font-medium text-gray-900 dark:text-gray-100 mb-2">
+              <h3 className="font-medium text-stone-900 dark:text-stone-100 mb-2">
                 Download Complete!
               </h3>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
+              <p className="text-sm text-stone-500 dark:text-stone-400">
                 The audio has been downloaded and added to your audio files.
               </p>
             </div>
@@ -136,7 +136,7 @@ export function YouTubeDownloadDialog({
                 onChange={(e) => setUrl(e.target.value)}
                 disabled={isDownloading}
               />
-              
+
               {/* YouTube thumbnail preview */}
               {videoId && (
                 <div className="mt-2">
@@ -162,29 +162,29 @@ export function YouTubeDownloadDialog({
                 onChange={(e) => setTitle(e.target.value)}
                 disabled={isDownloading}
               />
-              <p className="text-xs text-gray-500 dark:text-gray-400">
+              <p className="text-xs text-stone-500 dark:text-stone-400">
                 If left empty, the video's title will be used automatically
               </p>
             </div>
 
             {error && (
-              <div className="flex items-center gap-2 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md">
-                <AlertCircle className="h-4 w-4 text-red-500" />
-                <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+              <div className="flex items-center gap-2 p-3 bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800 rounded-md">
+                <AlertCircle className="h-4 w-4 text-rose-500" />
+                <p className="text-sm text-rose-600 dark:text-rose-400">{error}</p>
               </div>
             )}
 
             <div className="flex gap-2 justify-end pt-4">
-              <Button 
-                type="button" 
-                variant="outline" 
+              <Button
+                type="button"
+                variant="outline"
                 onClick={handleClose}
                 disabled={isDownloading}
               >
                 Cancel
               </Button>
-              <Button 
-                type="submit" 
+              <Button
+                type="submit"
                 disabled={isDownloading || !url.trim()}
                 className="min-w-24"
               >
