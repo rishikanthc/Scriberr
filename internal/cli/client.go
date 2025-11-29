@@ -13,8 +13,11 @@ import (
 // UploadFile uploads a file to the Scriberr server
 func UploadFile(filePath string) error {
 	config := GetConfig()
-	if config.ServerURL == "" || config.Token == "" {
-		return fmt.Errorf("not logged in. Please run 'scriberr login' first")
+	if config.ServerURL == "" {
+		return fmt.Errorf("server URL not configured. Please run 'scriberr login' or 'scriberr install'")
+	}
+	if config.Token == "" {
+		return fmt.Errorf("not logged in (token missing). Please run 'scriberr login'")
 	}
 
 	file, err := os.Open(filePath)

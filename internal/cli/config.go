@@ -34,6 +34,7 @@ func InitConfig() {
 		}
 	}
 
+	viper.SetEnvPrefix("SCRIBERR")
 	viper.AutomaticEnv()
 
 	if err := viper.ReadInConfig(); err == nil {
