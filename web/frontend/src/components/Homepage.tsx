@@ -323,17 +323,17 @@ export function Homepage() {
 
 				{/* Upload Progress */}
 				{uploadProgress.length > 0 && (
-					<div className="mb-4 sm:mb-6 bg-white dark:bg-stone-900 rounded-xl p-4 sm:p-6 shadow-sm border border-stone-200 dark:border-stone-800">
+					<div className="mb-4 sm:mb-6 bg-white dark:bg-zinc-900 rounded-xl p-4 sm:p-6 shadow-sm border border-zinc-200 dark:border-zinc-800">
 						<div className="flex items-center justify-between mb-4">
-							<h3 className="text-lg font-semibold text-stone-900 dark:text-stone-100">
+							<h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
 								Uploading Files ({uploadProgress.filter(p => p.status === 'success').length}/{uploadProgress.length})
 							</h3>
 							{!isUploading && (
 								<button
 									onClick={dismissProgress}
-									className="p-1 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-md transition-colors cursor-pointer"
+									className="p-1 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-md transition-colors cursor-pointer"
 								>
-									<X className="h-4 w-4 text-stone-500 dark:text-stone-400" />
+									<X className="h-4 w-4 text-zinc-500 dark:text-zinc-400" />
 								</button>
 							)}
 						</div>
@@ -342,8 +342,8 @@ export function Homepage() {
 						<div className="mb-4">
 							<Progress
 								value={(uploadProgress.filter(p => p.status !== 'uploading').length / uploadProgress.length) * 100}
-								className="h-2 bg-stone-100 dark:bg-stone-800"
-								indicatorClassName="bg-amber-500"
+								className="h-2 bg-zinc-100 dark:bg-zinc-800"
+								indicatorClassName="bg-zinc-900 dark:bg-zinc-100"
 							/>
 						</div>
 
@@ -353,7 +353,7 @@ export function Homepage() {
 								<div key={index} className="flex items-center gap-3 text-sm">
 									<div className="flex-shrink-0">
 										{progress.status === 'uploading' && (
-											<div className="w-4 h-4 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
+											<div className="w-4 h-4 border-2 border-zinc-500 border-t-transparent rounded-full animate-spin" />
 										)}
 										{progress.status === 'success' && (
 											<CheckCircle className="w-4 h-4 text-green-500" />
@@ -363,7 +363,7 @@ export function Homepage() {
 										)}
 									</div>
 									<div className="flex-1 min-w-0">
-										<div className="truncate text-stone-900 dark:text-stone-100">
+										<div className="truncate text-zinc-900 dark:text-zinc-100">
 											{progress.fileName}
 										</div>
 										{progress.error && (
@@ -372,7 +372,7 @@ export function Homepage() {
 											</div>
 										)}
 									</div>
-									<div className="flex-shrink-0 text-xs text-stone-500 dark:text-stone-400">
+									<div className="flex-shrink-0 text-xs text-zinc-500 dark:text-zinc-400">
 										{progress.status === 'uploading' && 'Uploading...'}
 										{progress.status === 'success' && 'Completed'}
 										{progress.status === 'error' && 'Failed'}

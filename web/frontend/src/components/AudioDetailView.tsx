@@ -22,6 +22,7 @@ import { Label } from "./ui/label";
 import { Switch } from "./ui/switch";
 import { useRouter } from "../contexts/RouterContext";
 import { ThemeSwitcher } from "./ThemeSwitcher";
+
 import { useAuth } from "../contexts/AuthContext";
 import { ChatInterface } from "./ChatInterface";
 import type { Note } from "../types/note";
@@ -1138,9 +1139,9 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-stone-50 dark:bg-stone-950">
+            <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
-                    <div className="bg-white dark:bg-stone-900 rounded-xl p-3 sm:p-6">
+                    <div className="bg-white dark:bg-zinc-900 rounded-xl p-3 sm:p-6">
                         <div className="animate-pulse">
                             <div className="h-6 bg-gray-200 dark:bg-gray-600 rounded w-1/4 mb-4"></div>
                             <div className="h-4 bg-gray-200 dark:bg-gray-600 rounded w-1/2 mb-8"></div>
@@ -1163,10 +1164,10 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
 
     if (!audioFile) {
         return (
-            <div className="min-h-screen bg-stone-50 dark:bg-stone-950">
+            <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
                 <div className="flex items-center justify-center min-h-[50vh]">
-                    <div className="bg-white dark:bg-stone-900 rounded-xl p-3 sm:p-6 text-center">
-                        <h1 className="text-xl font-semibold text-stone-900 dark:text-stone-50 mb-4">
+                    <div className="bg-white dark:bg-zinc-900 rounded-xl p-3 sm:p-6 text-center">
+                        <h1 className="text-xl font-semibold text-zinc-900 dark:text-zinc-50 mb-4">
                             Audio file not found
                         </h1>
                         <Button onClick={handleBack} variant="outline" className="cursor-pointer">
@@ -1180,7 +1181,7 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
     }
 
     return (
-        <div className="min-h-screen bg-stone-50 dark:bg-stone-950">
+        <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
                 {/* Header with back button and theme switcher */}
                 <div className="flex items-center justify-between mb-3 sm:mb-6">
@@ -1192,13 +1193,13 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                 </div>
 
                 {/* Audio Player Section */}
-                <div ref={audioSectionRef} className={`bg-white dark:bg-stone-900 rounded-xl ${audioCollapsed ? 'p-3 sm:p-4' : 'p-3 sm:p-6'} mb-3 sm:mb-6`}>
+                <div ref={audioSectionRef} className={`bg-white dark:bg-zinc-900 rounded-xl ${audioCollapsed ? 'p-3 sm:p-4' : 'p-3 sm:p-6'} mb-3 sm:mb-6`}>
                     <div className="mb-6">
                         <div className="mb-2 flex items-center gap-2 justify-between">
                             {editingTitle ? (
                                 <input
                                     autoFocus
-                                    className="w-full max-w-xl text-2xl font-bold bg-transparent border-b border-amber-400 focus:outline-none focus:ring-0 dark:text-stone-50 text-stone-900"
+                                    className="w-full max-w-xl text-2xl font-bold bg-transparent border-b border-amber-400 focus:outline-none focus:ring-0 dark:text-zinc-50 text-zinc-900"
                                     value={titleInput}
                                     disabled={savingTitle}
                                     onChange={(e) => setTitleInput(e.target.value)}
@@ -1210,7 +1211,7 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                                 />
                             ) : (
                                 <div className="flex items-center gap-2">
-                                    <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-50">
+                                    <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-50">
                                         {audioFile.title || getFileName(audioFile.audio_path)}
                                     </h1>
                                     {audioFile.is_multi_track && (
@@ -1227,7 +1228,7 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                                         </>
                                     )}
                                     <button
-                                        className="h-7 w-7 inline-flex items-center justify-center rounded-md cursor-pointer text-stone-500 hover:text-stone-700 hover:bg-stone-200/60 dark:text-stone-400 dark:hover:text-stone-200 dark:hover:bg-stone-700/60 transition-colors"
+                                        className="h-7 w-7 inline-flex items-center justify-center rounded-md cursor-pointer text-zinc-500 hover:text-zinc-700 hover:bg-zinc-200/60 dark:text-zinc-400 dark:hover:text-zinc-200 dark:hover:bg-zinc-700/60 transition-colors"
                                         aria-label="Edit title"
                                         title="Edit title"
                                         onClick={() => {
@@ -1241,7 +1242,7 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                                 </div>
                             )}
                             <button
-                                className="h-7 w-7 inline-flex items-center justify-center rounded-md cursor-pointer text-gray-500 hover:text-gray-700 hover:bg-gray-200/60 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-gray-700/60 transition-colors"
+                                className="h-7 w-7 inline-flex items-center justify-center rounded-md cursor-pointer text-zinc-500 hover:text-zinc-700 hover:bg-zinc-200/60 dark:text-zinc-400 dark:hover:text-zinc-200 dark:hover:bg-zinc-700/60 transition-colors"
                                 aria-label={audioCollapsed ? 'Expand audio' : 'Collapse audio'}
                                 title={audioCollapsed ? 'Expand audio' : 'Collapse audio'}
                                 onClick={toggleAudioCollapsed}
@@ -1253,7 +1254,7 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                                 )}
                             </button>
                         </div>
-                        <p className="text-stone-600 dark:text-stone-400 text-sm">
+                        <p className="text-zinc-600 dark:text-zinc-400 text-sm">
                             Added on {formatDate(audioFile.created_at)}
                         </p>
                     </div>
@@ -1274,25 +1275,27 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                 </div>
 
                 {(currentStatus || audioFile.status) === "completed" && transcript && (
-                    <div className="bg-white dark:bg-stone-900 rounded-xl p-3 sm:p-6">
+                    <div className="bg-white dark:bg-zinc-900 rounded-xl p-3 sm:p-6">
                         {/* Header Section */}
                         <div className="mb-3 sm:mb-6">
                             {/* Title Row */}
                             <div className="flex items-center justify-between mb-3 sm:mb-0">
-                                <h2 className="text-lg sm:text-xl font-semibold text-stone-900 dark:text-stone-50">
-                                    {viewMode === "transcript" ? "Transcript" : "Chat with Transcript"}
-                                </h2>
+                                <div className="flex items-center gap-3 min-w-0 flex-1 mr-2">
+                                    <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 truncate flex-1" title={audioFile.title || audioFile.audio_path}>
+                                        {getFileNameWithoutExt()}
+                                    </h1>
+                                </div>
 
                                 {/* Desktop: Show toolbar inline, Mobile: Hide here (shown below) */}
                                 <div className="hidden sm:flex items-center gap-2">
                                     {/* Sleek toolbar (desktop only) */}
                                     {viewMode === 'transcript' && (
-                                        <div className="flex items-center gap-1 sm:gap-1.5 rounded-md sm:rounded-lg bg-stone-100/80 dark:bg-stone-800/80 px-1.5 py-0.5 sm:px-2 sm:py-1 border border-stone-200 dark:border-stone-700 shadow-sm">
+                                        <div className="flex items-center gap-1 sm:gap-1.5 rounded-md sm:rounded-lg bg-zinc-100/80 dark:bg-zinc-800/80 px-1.5 py-0.5 sm:px-2 sm:py-1 border border-zinc-200 dark:border-zinc-700 shadow-sm">
                                             {/* View toggle */}
                                             <button
                                                 type="button"
                                                 onClick={() => setTranscriptMode(m => m === 'compact' ? 'expanded' : 'compact')}
-                                                className={`h-6 w-6 sm:h-7 sm:w-7 inline-flex items-center justify-center rounded-md cursor-pointer text-stone-600 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-700 transition-colors ${transcriptMode === 'compact' ? 'bg-white dark:bg-stone-700 shadow-sm' : ''}`}
+                                                className={`h-6 w-6 sm:h-7 sm:w-7 inline-flex items-center justify-center rounded-md cursor-pointer text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors ${transcriptMode === 'compact' ? 'bg-white dark:bg-zinc-700 shadow-sm' : ''}`}
                                                 title={transcriptMode === 'compact' ? 'Switch to Timeline view' : 'Switch to Compact view'}
                                             >
                                                 {transcriptMode === 'compact' ? (
@@ -1302,42 +1305,42 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                                                 )}
                                             </button>
 
-                                            <div className="mx-1 h-5 w-px bg-stone-300 dark:bg-stone-700" />
+                                            <div className="mx-1 h-5 w-px bg-zinc-300 dark:bg-zinc-700" />
 
                                             {/* Notes toggle (icon + tiny count) */}
                                             <button
                                                 type="button"
                                                 onClick={() => setNotesOpen(v => !v)}
-                                                className={`relative h-6 w-6 sm:h-7 sm:w-7 inline-flex items-center justify-center rounded-md cursor-pointer text-stone-600 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-700 transition-colors ${notesOpen ? 'bg-white dark:bg-stone-700 shadow-sm' : ''}`}
+                                                className={`relative h-6 w-6 sm:h-7 sm:w-7 inline-flex items-center justify-center rounded-md cursor-pointer text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors ${notesOpen ? 'bg-white dark:bg-zinc-700 shadow-sm' : ''}`}
                                                 title="Toggle notes"
                                             >
                                                 <StickyNote className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                                                 {notes.length > 0 && (
-                                                    <span className="absolute -top-1 -right-0.5 min-w-[15px] h-[15px] px-1 rounded-full bg-amber-600 text-white text-[10px] leading-[15px] text-center">
+                                                    <span className="absolute -top-1 -right-0.5 min-w-[15px] h-[15px] px-1 rounded-full bg-blue-600 text-white text-[10px] leading-[15px] text-center">
                                                         {notes.length > 99 ? '99+' : notes.length}
                                                     </span>
                                                 )}
                                             </button>
 
-                                            <div className="mx-1 h-5 w-px bg-stone-300 dark:bg-stone-700" />
+                                            <div className="mx-1 h-5 w-px bg-zinc-300 dark:bg-zinc-700" />
 
                                             {/* Execution Info */}
                                             <button
                                                 type="button"
                                                 onClick={openExecutionInfo}
-                                                className="h-6 w-6 sm:h-7 sm:w-7 inline-flex items-center justify-center rounded-md cursor-pointer text-stone-600 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-700 transition-colors"
+                                                className="h-6 w-6 sm:h-7 sm:w-7 inline-flex items-center justify-center rounded-md cursor-pointer text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors"
                                                 title="View execution parameters and timing"
                                             >
                                                 <Info className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                                             </button>
 
-                                            <div className="mx-1 h-5 w-px bg-stone-300 dark:bg-stone-700" />
+                                            <div className="mx-1 h-5 w-px bg-zinc-300 dark:bg-zinc-700" />
 
                                             {/* Logs */}
                                             <button
                                                 type="button"
                                                 onClick={openLogsDialog}
-                                                className="h-6 w-6 sm:h-7 sm:w-7 inline-flex items-center justify-center rounded-md cursor-pointer text-stone-600 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-700 transition-colors"
+                                                className="h-6 w-6 sm:h-7 sm:w-7 inline-flex items-center justify-center rounded-md cursor-pointer text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors"
                                                 title="View transcription logs"
                                             >
                                                 <FileText className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
@@ -1346,11 +1349,11 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                                             {/* Speaker Renaming - only show if there are speakers (from diarization or multi-track) */}
                                             {hasSpeakers() && getDetectedSpeakers().length > 0 && (
                                                 <>
-                                                    <div className="mx-1 h-5 w-px bg-stone-300 dark:bg-stone-700" />
+                                                    <div className="mx-1 h-5 w-px bg-zinc-300 dark:bg-zinc-700" />
                                                     <button
                                                         type="button"
                                                         onClick={() => setSpeakerRenameDialogOpen(true)}
-                                                        className="h-6 w-6 sm:h-7 sm:w-7 inline-flex items-center justify-center rounded-md cursor-pointer text-stone-600 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-700 transition-colors"
+                                                        className="h-6 w-6 sm:h-7 sm:w-7 inline-flex items-center justify-center rounded-md cursor-pointer text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors"
                                                         title="Rename speakers"
                                                     >
                                                         <Users className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
@@ -1358,34 +1361,153 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                                                 </>
                                             )}
 
-                                            <div className="mx-1 h-5 w-px bg-stone-300 dark:bg-stone-700" />
+                                            <div className="mx-1 h-5 w-px bg-zinc-300 dark:bg-zinc-700" />
 
                                             {/* Summarize */}
                                             <button
                                                 type="button"
                                                 onClick={openSummarizeDialog}
-                                                className="h-6 w-6 sm:h-7 sm:w-7 inline-flex items-center justify-center rounded-md cursor-pointer text-stone-600 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-700 transition-colors disabled:opacity-50"
+                                                className="h-6 w-6 sm:h-7 sm:w-7 inline-flex items-center justify-center rounded-md cursor-pointer text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors disabled:opacity-50"
                                                 title={llmReady === false ? 'Configure LLM in Settings' : 'Summarize transcript'}
                                                 disabled={llmReady === false}
                                             >
                                                 <Sparkles className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                                             </button>
 
-                                            <div className="mx-1 h-5 w-px bg-stone-300 dark:bg-stone-700" />
+                                            <div className="mx-1 h-5 w-px bg-zinc-300 dark:bg-zinc-700" />
 
                                             {/* Download dropdown */}
                                             <DropdownMenu>
                                                 <DropdownMenuTrigger asChild>
                                                     <button
                                                         type="button"
-                                                        className="h-6 w-6 sm:h-7 sm:w-7 inline-flex items-center justify-center rounded-md cursor-pointer text-stone-600 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-700 transition-colors"
+                                                        className="h-6 w-6 sm:h-7 sm:w-7 inline-flex items-center justify-center rounded-md cursor-pointer text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors"
                                                         title="Download transcript"
                                                     >
                                                         <Download className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                                                     </button>
                                                 </DropdownMenuTrigger>
-                                                <DropdownMenuContent className="w-44 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
-                                                    <DropdownMenuItem onClick={downloadSRT} className="flex items-center gap-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-gray-100">
+                                                <DropdownMenuContent className="w-44 bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700">
+                                                    <DropdownMenuItem onClick={downloadSRT} className="flex items-center gap-2 cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-700 text-zinc-900 dark:text-zinc-100">
+                                                        <FileImage className="h-4 w-4" />
+                                                        Download as SRT
+                                                    </DropdownMenuItem>
+                                                    <DropdownMenuItem onClick={() => handleDownloadWithDialog('txt')} className="flex items-center gap-2 cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-700 text-zinc-900 dark:text-zinc-100">
+                                                        <FileText className="h-4 w-4" />
+                                                        Download as TXT
+                                                    </DropdownMenuItem>
+                                                    <DropdownMenuItem onClick={() => handleDownloadWithDialog('json')} className="flex items-center gap-2 cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-700 text-zinc-900 dark:text-zinc-100">
+                                                        <FileJson className="h-4 w-4" />
+                                                        Download as JSON
+                                                    </DropdownMenuItem>
+                                                </DropdownMenuContent>
+                                            </DropdownMenu>
+
+                                            <div className="mx-1 h-5 w-px bg-zinc-300 dark:bg-zinc-700" />
+
+                                            {/* Open Chat Page */}
+                                            <button
+                                                type="button"
+                                                onClick={() => navigate({ path: 'chat', params: { audioId } })}
+                                                className="h-7 w-7 inline-flex items-center justify-center rounded-md cursor-pointer text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors"
+                                                title="Open chat"
+                                            >
+                                                <MessageCircle className="h-4 w-4" />
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Mobile Toolbar Placeholder */}
+                                {viewMode === 'transcript' && (
+                                    <div className="flex sm:hidden justify-center">
+                                        <div className="flex items-center gap-1 rounded-md bg-zinc-100/80 dark:bg-zinc-800/80 px-1.5 py-0.5 border border-zinc-200 dark:border-zinc-700 shadow-sm">
+                                            {/* View toggle */}
+                                            <button
+                                                type="button"
+                                                onClick={() => setTranscriptMode(m => m === 'compact' ? 'expanded' : 'compact')}
+                                                className={`h-6 w-6 inline-flex items-center justify-center rounded-md cursor-pointer text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors ${transcriptMode === 'compact' ? 'bg-white dark:bg-zinc-700 shadow-sm' : ''}`}
+                                                title={transcriptMode === 'compact' ? 'Switch to Timeline view' : 'Switch to Compact view'}
+                                            >
+                                                {transcriptMode === 'compact' ? (
+                                                    <List className="h-3.5 w-3.5" />
+                                                ) : (
+                                                    <AlignLeft className="h-3.5 w-3.5" />
+                                                )}
+                                            </button>
+
+                                            <div className="mx-1 h-5 w-px bg-zinc-300 dark:bg-zinc-700" />
+
+                                            {/* Notes toggle */}
+                                            <button
+                                                type="button"
+                                                onClick={() => setNotesOpen(v => !v)}
+                                                className={`relative h-6 w-6 inline-flex items-center justify-center rounded-md cursor-pointer text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors ${notesOpen ? 'bg-white dark:bg-zinc-700 shadow-sm' : ''}`}
+                                                title="Toggle notes"
+                                            >
+                                                <StickyNote className="h-3.5 w-3.5" />
+                                                {notes.length > 0 && (
+                                                    <span className="absolute -top-1 -right-0.5 min-w-[15px] h-[15px] px-1 rounded-full bg-blue-600 text-white text-[10px] leading-[15px] text-center">
+                                                        {notes.length > 99 ? '99+' : notes.length}
+                                                    </span>
+                                                )}
+                                            </button>
+
+                                            <div className="mx-1 h-5 w-px bg-zinc-300 dark:bg-zinc-700" />
+
+                                            {/* Execution Info */}
+                                            <button
+                                                type="button"
+                                                onClick={openExecutionInfo}
+                                                className="h-6 w-6 inline-flex items-center justify-center rounded-md cursor-pointer text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors"
+                                                title="View execution parameters and timing"
+                                            >
+                                                <Info className="h-3.5 w-3.5" />
+                                            </button>
+
+                                            {/* Speaker Renaming - only show if there are speakers (from diarization or multi-track) */}
+                                            {hasSpeakers() && getDetectedSpeakers().length > 0 && (
+                                                <>
+                                                    <div className="mx-1 h-5 w-px bg-zinc-300 dark:bg-zinc-700" />
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setSpeakerRenameDialogOpen(true)}
+                                                        className="h-6 w-6 inline-flex items-center justify-center rounded-md cursor-pointer text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors"
+                                                        title="Rename speakers"
+                                                    >
+                                                        <Users className="h-3.5 w-3.5" />
+                                                    </button>
+                                                </>
+                                            )}
+
+                                            <div className="mx-1 h-5 w-px bg-zinc-300 dark:bg-zinc-700" />
+
+                                            {/* Summarize */}
+                                            <button
+                                                type="button"
+                                                onClick={openSummarizeDialog}
+                                                className="h-6 w-6 inline-flex items-center justify-center rounded-md cursor-pointer text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors disabled:opacity-50"
+                                                title={llmReady === false ? 'Configure LLM in Settings' : 'Summarize transcript'}
+                                                disabled={llmReady === false}
+                                            >
+                                                <Sparkles className="h-3.5 w-3.5" />
+                                            </button>
+
+                                            <div className="mx-1 h-5 w-px bg-zinc-300 dark:bg-zinc-700" />
+
+                                            {/* Download dropdown */}
+                                            <DropdownMenu>
+                                                <DropdownMenuTrigger asChild>
+                                                    <button
+                                                        type="button"
+                                                        className="h-6 w-6 inline-flex items-center justify-center rounded-md cursor-pointer text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors"
+                                                        title="Download transcript"
+                                                    >
+                                                        <Download className="h-3.5 w-3.5" />
+                                                    </button>
+                                                </DropdownMenuTrigger>
+                                                <DropdownMenuContent className="w-44 bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700">
+                                                    <DropdownMenuItem onClick={downloadSRT} className="flex items-center gap-2 cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-700 text-zinc-900 dark:text-zinc-100">
                                                         <FileImage className="h-4 w-4" />
                                                         Download as SRT
                                                     </DropdownMenuItem>
@@ -1400,184 +1522,64 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                                                 </DropdownMenuContent>
                                             </DropdownMenu>
 
-                                            <div className="mx-1 h-5 w-px bg-stone-300 dark:bg-stone-700" />
+                                            <div className="mx-1 h-5 w-px bg-zinc-300 dark:bg-zinc-700" />
 
                                             {/* Open Chat Page */}
                                             <button
                                                 type="button"
                                                 onClick={() => navigate({ path: 'chat', params: { audioId } })}
-                                                className="h-7 w-7 inline-flex items-center justify-center rounded-md cursor-pointer text-stone-600 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-700 transition-colors"
+                                                className="h-6 w-6 inline-flex items-center justify-center rounded-md cursor-pointer text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
                                                 title="Open chat"
                                             >
-                                                <MessageCircle className="h-4 w-4" />
+                                                <MessageCircle className="h-3.5 w-3.5" />
                                             </button>
                                         </div>
-                                    )}
-                                </div>
+                                    </div>
+                                )}
                             </div>
 
-                            {/* Mobile: Centered toolbar below title */}
-                            {viewMode === 'transcript' && (
-                                <div className="flex sm:hidden justify-center">
-                                    <div className="flex items-center gap-1 rounded-md bg-gray-100/80 dark:bg-gray-800/80 px-1.5 py-0.5 border border-gray-200 dark:border-gray-700 shadow-sm">
-                                        {/* View toggle */}
-                                        <button
-                                            type="button"
-                                            onClick={() => setTranscriptMode(m => m === 'compact' ? 'expanded' : 'compact')}
-                                            className={`h-6 w-6 inline-flex items-center justify-center rounded-md cursor-pointer text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors ${transcriptMode === 'compact' ? 'bg-white dark:bg-gray-700 shadow-sm' : ''}`}
-                                            title={transcriptMode === 'compact' ? 'Switch to Timeline view' : 'Switch to Compact view'}
-                                        >
-                                            {transcriptMode === 'compact' ? (
-                                                <List className="h-3.5 w-3.5" />
-                                            ) : (
-                                                <AlignLeft className="h-3.5 w-3.5" />
-                                            )}
-                                        </button>
-
-                                        <div className="mx-1 h-5 w-px bg-gray-300 dark:bg-gray-700" />
-
-                                        {/* Notes toggle */}
-                                        <button
-                                            type="button"
-                                            onClick={() => setNotesOpen(v => !v)}
-                                            className={`relative h-6 w-6 inline-flex items-center justify-center rounded-md cursor-pointer text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors ${notesOpen ? 'bg-white dark:bg-gray-700 shadow-sm' : ''}`}
-                                            title="Toggle notes"
-                                        >
-                                            <StickyNote className="h-3.5 w-3.5" />
-                                            {notes.length > 0 && (
-                                                <span className="absolute -top-1 -right-0.5 min-w-[15px] h-[15px] px-1 rounded-full bg-blue-600 text-white text-[10px] leading-[15px] text-center">
-                                                    {notes.length > 99 ? '99+' : notes.length}
-                                                </span>
-                                            )}
-                                        </button>
-
-                                        <div className="mx-1 h-5 w-px bg-gray-300 dark:bg-gray-700" />
-
-                                        {/* Execution Info */}
-                                        <button
-                                            type="button"
-                                            onClick={openExecutionInfo}
-                                            className="h-6 w-6 inline-flex items-center justify-center rounded-md cursor-pointer text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-                                            title="View execution parameters and timing"
-                                        >
-                                            <Info className="h-3.5 w-3.5" />
-                                        </button>
-
-                                        {/* Speaker Renaming - only show if there are speakers (from diarization or multi-track) */}
-                                        {hasSpeakers() && getDetectedSpeakers().length > 0 && (
-                                            <>
-                                                <div className="mx-1 h-5 w-px bg-gray-300 dark:bg-gray-700" />
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setSpeakerRenameDialogOpen(true)}
-                                                    className="h-6 w-6 inline-flex items-center justify-center rounded-md cursor-pointer text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-                                                    title="Rename speakers"
-                                                >
-                                                    <Users className="h-3.5 w-3.5" />
-                                                </button>
-                                            </>
-                                        )}
-
-                                        <div className="mx-1 h-5 w-px bg-gray-300 dark:bg-gray-700" />
-
-                                        {/* Summarize */}
-                                        <button
-                                            type="button"
-                                            onClick={openSummarizeDialog}
-                                            className="h-6 w-6 inline-flex items-center justify-center rounded-md cursor-pointer text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
-                                            title={llmReady === false ? 'Configure LLM in Settings' : 'Summarize transcript'}
-                                            disabled={llmReady === false}
-                                        >
-                                            <Sparkles className="h-3.5 w-3.5" />
-                                        </button>
-
-                                        <div className="mx-1 h-5 w-px bg-gray-300 dark:bg-gray-700" />
-
-                                        {/* Download dropdown */}
-                                        <DropdownMenu>
-                                            <DropdownMenuTrigger asChild>
-                                                <button
-                                                    type="button"
-                                                    className="h-6 w-6 inline-flex items-center justify-center rounded-md cursor-pointer text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-                                                    title="Download transcript"
-                                                >
-                                                    <Download className="h-3.5 w-3.5" />
-                                                </button>
-                                            </DropdownMenuTrigger>
-                                            <DropdownMenuContent className="w-44 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
-                                                <DropdownMenuItem onClick={downloadSRT} className="flex items-center gap-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-gray-100">
-                                                    <FileImage className="h-4 w-4" />
-                                                    Download as SRT
-                                                </DropdownMenuItem>
-                                                <DropdownMenuItem onClick={() => handleDownloadWithDialog('txt')} className="flex items-center gap-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-gray-100">
-                                                    <FileText className="h-4 w-4" />
-                                                    Download as TXT
-                                                </DropdownMenuItem>
-                                                <DropdownMenuItem onClick={() => handleDownloadWithDialog('json')} className="flex items-center gap-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-gray-100">
-                                                    <FileJson className="h-4 w-4" />
-                                                    Download as JSON
-                                                </DropdownMenuItem>
-                                            </DropdownMenuContent>
-                                        </DropdownMenu>
-
-                                        <div className="mx-1 h-5 w-px bg-gray-300 dark:bg-gray-700" />
-
-                                        {/* Open Chat Page */}
-                                        <button
-                                            type="button"
-                                            onClick={() => navigate({ path: 'chat', params: { audioId } })}
-                                            className="h-6 w-6 inline-flex items-center justify-center rounded-md cursor-pointer text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-                                            title="Open chat"
-                                        >
-                                            <MessageCircle className="h-3.5 w-3.5" />
-                                        </button>
+                            {/* Content Area - Show transcript or chat based on view mode */}
+                            {viewMode === "transcript" ? (
+                                <div className="relative overflow-hidden">
+                                    {/* Transcript Content */}
+                                    <div className="prose prose-zinc dark:prose-invert max-w-none">
+                                        <div ref={transcriptRef} className="relative">
+                                            <TranscriptView
+                                                transcript={transcript}
+                                                mode={transcriptMode}
+                                                currentWordIndex={currentWordIndex}
+                                                notes={notes}
+                                                highlightedWordRef={highlightedWordRef}
+                                                speakerMappings={speakerMappings}
+                                            />
+                                        </div>
                                     </div>
+                                </div>
+                            ) : (
+                                <div style={{ height: "600px" }}>
+                                    <ChatInterface
+                                        transcriptionId={audioId}
+                                        onClose={() => setViewMode("transcript")}
+                                    />
                                 </div>
                             )}
                         </div>
-
-                        {/* Content Area - Show transcript or chat based on view mode */}
-                        {viewMode === "transcript" ? (
-                            <div className="relative overflow-hidden">
-                                {/* Transcript Content */}
-                                <div className="prose prose-stone dark:prose-invert max-w-none">
-                                    <div ref={transcriptRef} className="relative">
-                                        <TranscriptView
-                                            transcript={transcript}
-                                            mode={transcriptMode}
-                                            currentWordIndex={currentWordIndex}
-                                            notes={notes}
-                                            highlightedWordRef={highlightedWordRef}
-                                            speakerMappings={speakerMappings}
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-                        ) : (
-                            <div style={{ height: "600px" }}>
-                                <ChatInterface
-                                    transcriptionId={audioId}
-                                    onClose={() => setViewMode("transcript")}
-                                />
-                            </div>
-                        )}
                     </div>
-
                 )}
 
 
 
                 {/* Status Messages */}
                 {(currentStatus || audioFile.status) !== "completed" && (
-                    <div className="bg-white dark:bg-stone-900 rounded-xl p-6">
+                    <div className="bg-white dark:bg-zinc-900 rounded-xl p-6">
                         <div className="text-center">
                             {/* Processing Status with Animation */}
                             {(currentStatus || audioFile.status) === "processing" && (
                                 <div className="flex flex-col items-center space-y-4">
                                     <div className="flex items-center space-x-3">
-                                        <Loader2 className="h-8 w-8 text-amber-500 animate-spin" />
+                                        <Loader2 className="h-8 w-8 text-slate-500 animate-spin" />
                                         <div>
-                                            <h2 className="text-xl font-semibold text-stone-900 dark:text-stone-50">
+                                            <h2 className="text-xl font-semibold text-zinc-900 dark:text-zinc-50">
                                                 Transcription in Progress
                                             </h2>
                                             {elapsedTime > 0 && (
@@ -1588,11 +1590,11 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                                         </div>
                                     </div>
                                     <div className="w-full max-w-md">
-                                        <div className="bg-stone-200 dark:bg-stone-600 rounded-full h-2">
-                                            <div className="bg-amber-500 h-2 rounded-full transition-all duration-1000 ease-out animate-pulse" style={{ width: '60%' }}></div>
+                                        <div className="bg-zinc-200 dark:bg-zinc-600 rounded-full h-2">
+                                            <div className="bg-slate-500 h-2 rounded-full transition-all duration-1000 ease-out animate-pulse" style={{ width: '60%' }}></div>
                                         </div>
                                     </div>
-                                    <p className="text-stone-600 dark:text-stone-400 text-sm">
+                                    <p className="text-zinc-600 dark:text-zinc-400 text-sm">
                                         Converting your audio to text... This may take a few minutes.
                                     </p>
                                 </div>
