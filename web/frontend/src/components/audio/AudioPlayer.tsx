@@ -158,7 +158,7 @@ export const AudioPlayer = forwardRef<AudioPlayerRef, AudioPlayerProps>(({
                 {/* Play/Pause Button */}
                 <button
                     onClick={togglePlayPause}
-                    className={`w-12 h-12 sm:w-14 sm:h-14 flex-shrink-0 flex items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md hover:scale-105 hover:shadow-lg transition-all cursor-pointer border border-primary/10 ${!isReady ? 'opacity-50' : ''}`}
+                    className={`w-12 h-12 sm:w-14 sm:h-14 flex-shrink-0 flex items-center justify-center rounded-full bg-blue-600 hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-500 text-white shadow-md hover:scale-105 hover:shadow-lg transition-all cursor-pointer border border-blue-500/20 ${!isReady ? 'opacity-50' : ''}`}
                 >
                     {isPlaying ? (
                         <Pause className="h-5 w-5 sm:h-6 sm:w-6 fill-current" />
