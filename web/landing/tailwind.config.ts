@@ -17,20 +17,18 @@ export default {
       },
       fontFamily: {
         sans: [
-          'DM Sans',
           'Inter',
           'ui-sans-serif',
           'system-ui',
           'sans-serif',
         ],
         display: [
-          'Outfit',
-          'DM Sans',
+          'Plus Jakarta Sans',
+          'Inter',
           'sans-serif',
         ],
         accent: [
-          'Outfit',
-          'DM Sans',
+          'Inter',
           'sans-serif',
         ]
       },
@@ -49,5 +47,8 @@ export default {
       }
     }
   },
-  darkMode: 'class'
+  darkMode: 'class',
+  plugins: [
+    require('@tailwindcss/typography'),
+  ],
 } satisfies Config;
