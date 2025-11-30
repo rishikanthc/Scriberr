@@ -45,10 +45,10 @@ export function ChatPage() {
 	if (!audioId) return null;
 
 	return (
-		<div className="text-gray-700 dark:text-gray-100 bg-white dark:bg-gray-900 h-screen max-h-[100dvh] overflow-auto flex flex-row justify-end">
+		<div className="text-foreground bg-background h-screen max-h-[100dvh] overflow-auto flex flex-row justify-end transition-colors duration-300">
 			{/* Sidebar */}
 			{showSidebar && (
-				<div className="fixed inset-y-0 left-0 z-40 w-80 bg-white dark:bg-gray-850 md:relative md:translate-x-0">
+				<div className="fixed inset-y-0 left-0 z-40 w-80 glass border-r border-border md:relative md:translate-x-0">
 					<ChatSessionsSidebar
 						transcriptionId={audioId}
 						activeSessionId={sessionId}
@@ -65,25 +65,24 @@ export function ChatPage() {
 
 			{/* Overlay for mobile sidebar */}
 			{showSidebar && (
-				<div 
-					className="fixed inset-0 bg-black bg-opacity-50 z-30 md:hidden"
+				<div
+					className="fixed inset-0 bg-black/50 backdrop-blur-sm z-30 md:hidden"
 					onClick={() => setShowSidebar(false)}
 				/>
 			)}
 
 			{/* Main Content Area */}
-			<div className={`transition-width duration-200 ease-in-out ${
-				showSidebar ? 'md:max-w-[calc(100%-320px)]' : ''
-			} w-full max-w-full flex flex-col`}>
+			<div className={`transition-all duration-200 ease-in-out ${showSidebar ? 'md:max-w-[calc(100%-320px)]' : ''
+				} w-full max-w-full flex flex-col`}>
 				{/* Top Navigation Bar */}
-				<div className="h-14 bg-white dark:bg-gray-900 flex items-center px-4 md:px-6 z-10">
+				<div className="h-14 glass border-b border-border flex items-center px-4 md:px-6 z-10 sticky top-0">
 					<div className="flex items-center gap-3 flex-1">
 						{/* Sidebar Toggle Button */}
 						<Button
 							variant="ghost"
 							size="sm"
 							onClick={() => setShowSidebar(!showSidebar)}
-							className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
+							className="p-2 text-muted-foreground hover:text-foreground"
 							title="Toggle Sidebar"
 						>
 							<Sidebar className="h-4 w-4" />
@@ -94,14 +93,14 @@ export function ChatPage() {
 							variant="ghost"
 							size="sm"
 							onClick={() => navigate({ path: "audio-detail", params: { id: audioId } })}
-							className="gap-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
+							className="gap-2 text-muted-foreground hover:text-foreground"
 						>
 							<ArrowLeft className="h-4 w-4" />
 							Back to Transcript
 						</Button>
 
 						{/* Title */}
-						<div className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+						<div className="text-sm font-medium text-foreground truncate">
 							{audioTitle || "Chat Session"}
 						</div>
 					</div>
@@ -113,7 +112,7 @@ export function ChatPage() {
 				</div>
 
 				{/* Chat Interface */}
-				<div className="flex-1 h-0 bg-white dark:bg-gray-900">
+				<div className="flex-1 h-0 bg-background/50">
 					<ChatInterface
 						transcriptionId={audioId}
 						activeSessionId={sessionId}
