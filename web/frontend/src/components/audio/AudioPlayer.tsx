@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, forwardRef, useImperativeHandle } from 'react';
 import WaveSurfer from 'wavesurfer.js';
-import { Play, Pause, Volume2, VolumeX, SkipBack, SkipForward, Maximize2, Minimize2 } from 'lucide-react';
+import { Play, Pause, Volume2, VolumeX, SkipBack, SkipForward } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -27,7 +27,6 @@ interface AudioPlayerProps {
 export const AudioPlayer = forwardRef<AudioPlayerRef, AudioPlayerProps>(({
     audioId,
     collapsed = false,
-    onToggleCollapse,
     onTimeUpdate,
     onPlayStateChange,
     onDurationChange,
@@ -202,18 +201,6 @@ export const AudioPlayer = forwardRef<AudioPlayerRef, AudioPlayerProps>(({
                     {/* Time & Title Row */}
                     <div className="flex items-center justify-between text-xs sm:text-sm font-medium text-muted-foreground px-1">
                         <span>{formatTime(currentTime)}</span>
-                        <div className="flex items-center gap-2">
-                            {onToggleCollapse && (
-                                <button
-                                    onClick={onToggleCollapse}
-                                    className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md transition-colors cursor-pointer"
-                                    title={collapsed ? "Expand" : "Collapse"}
-                                >
-                                    {collapsed ? <Maximize2 className="h-3 w-3" /> : <Minimize2 className="h-3 w-3" />}
-                                </button>
-                            )}
-                            <span>{formatTime(duration)}</span>
-                        </div>
                     </div>
 
                     {/* Waveform Container */}
