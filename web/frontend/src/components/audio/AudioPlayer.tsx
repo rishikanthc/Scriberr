@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, forwardRef, useImperativeHandle } from 'react';
 import WaveSurfer from 'wavesurfer.js';
-import { Play, Pause, SkipBack, SkipForward } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Play, Pause } from 'lucide-react';
+
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -145,14 +145,6 @@ export const AudioPlayer = forwardRef<AudioPlayerRef, AudioPlayerProps>(({
         wavesurferRef.current?.playPause();
     };
 
-    const skipForward = () => {
-        wavesurferRef.current?.skip(5);
-    };
-
-    const skipBackward = () => {
-        wavesurferRef.current?.skip(-5);
-    };
-
     const formatTime = (seconds: number) => {
         const mins = Math.floor(seconds / 60);
         const secs = Math.floor(seconds % 60);
@@ -162,33 +154,20 @@ export const AudioPlayer = forwardRef<AudioPlayerRef, AudioPlayerProps>(({
     return (
         <div className={`glass rounded-xl p-4 transition-all duration-300 ${className}`}>
 
-            <div className="flex gap-4">
-                {/* Left Column: Playback Controls */}
-                <div className="flex flex-col items-center gap-2 min-w-[3.5rem] sm:min-w-[4rem]">
-                    {/* Play/Pause Button */}
-                    <button
-                        onClick={togglePlayPause}
-                        className={`w-12 h-12 sm:w-14 sm:h-14 flex items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md hover:scale-105 hover:shadow-lg transition-all cursor-pointer border border-primary/10 ${!isReady ? 'opacity-50' : ''}`}
-                    >
-                        {isPlaying ? (
-                            <Pause className="h-5 w-5 sm:h-6 sm:w-6 fill-current" />
-                        ) : (
-                            <Play className="h-5 w-5 sm:h-6 sm:w-6 fill-current ml-1" />
-                        )}
-                    </button>
+            <div className="flex items-center gap-4">
+                {/* Play/Pause Button */}
+                <button
+                    onClick={togglePlayPause}
+                    className={`w-12 h-12 sm:w-14 sm:h-14 flex-shrink-0 flex items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md hover:scale-105 hover:shadow-lg transition-all cursor-pointer border border-primary/10 ${!isReady ? 'opacity-50' : ''}`}
+                >
+                    {isPlaying ? (
+                        <Pause className="h-5 w-5 sm:h-6 sm:w-6 fill-current" />
+                    ) : (
+                        <Play className="h-5 w-5 sm:h-6 sm:w-6 fill-current ml-1" />
+                    )}
+                </button>
 
-                    {/* Seek Buttons (Below Play/Pause) */}
-                    <div className="flex items-center gap-1 sm:gap-2">
-                        <Button variant="ghost" size="icon" onClick={skipBackward} className="h-8 w-8 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer text-muted-foreground hover:text-foreground transition-colors">
-                            <SkipBack className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" onClick={skipForward} className="h-8 w-8 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer text-muted-foreground hover:text-foreground transition-colors">
-                            <SkipForward className="h-4 w-4" />
-                        </Button>
-                    </div>
-                </div>
-
-                {/* Right Column: Waveform & Info */}
+                {/* Waveform & Info */}
                 <div className="flex-1 min-w-0 flex flex-col justify-center gap-2">
                     {/* Time & Title Row */}
                     <div className="flex items-center justify-between text-xs sm:text-sm font-medium text-muted-foreground px-1">
