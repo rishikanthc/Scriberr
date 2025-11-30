@@ -39,8 +39,10 @@ export default defineConfig({
         // Docs pages - built directly in /docs/ subdirectory
         'docs/index': resolve(__dirname, 'docs-index.html'),
         'docs/intro': resolve(__dirname, 'docs-intro.html'),
+        'docs/features': resolve(__dirname, 'docs-features.html'),
         'docs/installation': resolve(__dirname, 'docs-installation.html'),
-        'docs/diarization': resolve(__dirname, 'docs-diarization.html'),
+        'docs/configuration': resolve(__dirname, 'docs-configuration.html'),
+        'docs/usage': resolve(__dirname, 'docs-usage.html'),
         'docs/contributing': resolve(__dirname, 'docs-contributing.html'),
       }
     }

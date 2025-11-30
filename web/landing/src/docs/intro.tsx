@@ -12,30 +12,49 @@ function Introduction() {
         <p className="mt-2">A quick overview of Scriberr and what you can do with it.</p>
       </header>
 
-      <article>
+      <article className="docs-prose">
         <h2>What is Scriberr?</h2>
-        <p className="mt-2">
-          Scriberr is a self-hosted, offline transcription app for converting audio files into text. Record or upload audio, get it transcribed, and quickly summarize or chat using your preferred LLM provider. Scriberr doesn’t require GPUs (although GPUs can be used for acceleration) and runs on modern CPUs, offering a range of trade-offs between speed and transcription quality.
+        <p className="mt-4">
+          Scriberr is a powerful, self-hosted transcription application designed for privacy and performance. It converts audio files into text entirely offline, ensuring your data never leaves your machine. Whether you're a journalist, researcher, or developer, Scriberr provides a seamless workflow for transcribing, summarizing, and interacting with your audio content.
         </p>
-        <p className="mt-2">
-          Scriberr is built with React on the frontend and Go on the backend, compiled into a single binary. It uses the WhisperX engine and open-source Whisper models for transcription. Some key features include:
+        <p className="mt-4">
+          Built with a robust Go backend and a modern React frontend, Scriberr is distributed as a single binary for easy deployment. It leverages state-of-the-art models like Whisper, NVIDIA Parakeet, and NVIDIA Canary to deliver high-accuracy transcriptions with word-level timestamps.
         </p>
-        <ul className="mt-2 list-disc pl-5 space-y-1">
-          <li>Fine-tune advanced transcription parameters for precise control over quality</li>
-          <li>Built-in recorder to capture audio directly in‑app</li>
-          <li>Speaker diarization to identify and label different speakers</li>
-          <li>Summarize &amp; chat with your audio using LLMs</li>
-          <li>Highlight, annotate, and tag notes</li>
-          <li>Save configurations as profiles for different audio scenarios</li>
-          <li>API endpoints for building your own automations and applications</li>
+
+        <h3 className="mt-8 text-xl font-semibold text-gray-900">Key Features</h3>
+        <ul className="mt-4 list-disc pl-5 space-y-2">
+          <li>
+            <strong>Advanced Transcription Engines:</strong> Support for Whisper, NVIDIA Parakeet, and NVIDIA Canary models for superior accuracy and speed.
+          </li>
+          <li>
+            <strong>Offline & Private:</strong> All processing happens locally on your device. No data is sent to the cloud.
+          </li>
+          <li>
+            <strong>Hardware Acceleration:</strong> Optimized for NVIDIA GPUs (CUDA) with fallback to CPU execution.
+          </li>
+          <li>
+            <strong>Speaker Diarization:</strong> Automatically identify and label different speakers in your audio (powered by PyAnnote).
+          </li>
+          <li>
+            <strong>Scriberr Watcher CLI:</strong> A background service that automatically detects and transcribes new audio files in monitored directories.
+          </li>
+          <li>
+            <strong>Interactive Player:</strong> Click-to-seek, waveform visualization, and synchronized playback.
+          </li>
+          <li>
+            <strong>LLM Integration:</strong> Summarize and chat with your transcripts using your preferred LLM provider (Ollama, OpenAI, Anthropic, etc.).
+          </li>
+          <li>
+            <strong>PWA Support:</strong> Install Scriberr as a Progressive Web App on mobile and desktop for a native-like experience.
+          </li>
         </ul>
 
-        <div className="mt-5">
+        <div className="mt-8">
           <Window src="/screenshots/scriberr-homepage.png" alt="Scriberr homepage" />
         </div>
 
-        <p className="mt-4">
-          To install Scriberr, check the <a href="/docs/installation.html">installation page</a> for setup instructions.
+        <p className="mt-8">
+          Ready to get started? Check out the <a href="/docs/installation.html">Installation Guide</a> to set up Scriberr on your machine.
         </p>
       </article>
     </DocsLayout>

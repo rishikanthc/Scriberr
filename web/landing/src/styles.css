@@ -5,7 +5,9 @@
 /* Page chrome */
 
 
-html, body, #root {
+html,
+body,
+#root {
   height: 100%;
 }
 
@@ -16,22 +18,30 @@ body {
 }
 
 /* Prevent layout shift when scrollbars appear */
-html { scrollbar-gutter: stable both-edges; }
+html {
+  scrollbar-gutter: stable both-edges;
+}
 
 .container-narrow {
   /* widen container to reduce clipping of rich content */
   @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
 }
 
-.card { @apply bg-white border border-gray-200 rounded-xl; }
+.card {
+  @apply bg-white border border-gray-200 rounded-xl;
+}
 
 .badge {
   @apply inline-flex items-center gap-2 rounded-full border border-gray-200 bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700 transition;
 }
 
-.button-primary { @apply inline-flex items-center justify-center gap-2 rounded-md bg-gray-900 text-white px-4 py-2 text-sm font-semibold hover:opacity-95 active:opacity-90 transition; }
+.button-primary {
+  @apply inline-flex items-center justify-center gap-2 rounded-md bg-gray-900 text-white px-4 py-2 text-sm font-semibold hover:opacity-95 active:opacity-90 transition;
+}
 
-.button-ghost { @apply inline-flex items-center justify-center gap-2 rounded-md border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-900 hover:bg-gray-50 transition; }
+.button-ghost {
+  @apply inline-flex items-center justify-center gap-2 rounded-md border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-900 hover:bg-gray-50 transition;
+}
 
 .headline {
   @apply text-4xl sm:text-5xl md:text-6xl font-semibold tracking-tight leading-tight;
@@ -42,39 +52,119 @@ html { scrollbar-gutter: stable both-edges; }
 }
 
 /* Utilities */
-.no-scrollbar::-webkit-scrollbar { display: none; }
-.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
 
-.section { @apply py-24; }
-.divider { @apply border-t border-gray-200; }
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
 
-.eyebrow { @apply text-xs font-medium uppercase tracking-wider text-gray-500; }
-.hover-lift { @apply transition-transform transition-shadow duration-200 hover:-translate-y-0.5 hover:shadow-hover; }
+.section {
+  @apply py-24;
+}
+
+.divider {
+  @apply border-t border-gray-200;
+}
+
+.eyebrow {
+  @apply text-xs font-medium uppercase tracking-wider text-gray-500;
+}
+
+.hover-lift {
+  @apply transition-transform transition-shadow duration-200 hover:-translate-y-0.5 hover:shadow-hover;
+}
 
 /* Brand logo style to match app */
-.logo-font-poiret { font-family: 'Poiret One', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; letter-spacing: 0.04em; }
+/* Brand logo style to match app */
+.logo-font-poiret {
+  @apply font-display tracking-wide;
+}
 
 /* API reference specific helpers */
-.api-topbar { @apply sticky top-0 z-40 bg-white/80 backdrop-blur border-b border-gray-200; }
-.api-sidebar { @apply hidden md:block border-r border-gray-200; }
-.api-card { @apply bg-white border border-gray-200 rounded-xl p-4; }
-.api-section-title { @apply text-xs font-semibold text-gray-700 uppercase tracking-wide; }
-.kbd { @apply inline-block rounded border border-gray-300 bg-gray-50 px-1.5 py-0.5 text-[11px] font-medium text-gray-700; }
-.codeblock { @apply overflow-x-auto rounded-md border border-gray-200 bg-gray-50 text-gray-800 text-xs p-3; }
-.codeblock-wrap { white-space: pre-wrap; word-break: break-word; }
-.pill { @apply inline-flex items-center justify-center rounded-md px-2 py-0.5 text-xs font-medium ring-1 ring-inset; }
-.status-pill { @apply inline-flex items-center rounded-md bg-gray-100 text-gray-700 px-2 py-0.5 text-[11px] font-medium; }
+.api-topbar {
+  @apply sticky top-0 z-40 bg-white/80 backdrop-blur border-b border-gray-200;
+}
+
+.api-sidebar {
+  @apply hidden md:block border-r border-gray-200;
+}
+
+.api-card {
+  @apply bg-white border border-gray-200 rounded-xl p-4;
+}
+
+.api-section-title {
+  @apply text-xs font-semibold text-gray-700 uppercase tracking-wide;
+}
+
+.kbd {
+  @apply inline-block rounded border border-gray-300 bg-gray-50 px-1.5 py-0.5 text-[11px] font-medium text-gray-700;
+}
+
+.codeblock {
+  @apply overflow-x-auto rounded-md border border-gray-200 bg-gray-50 text-gray-800 text-xs p-3;
+}
+
+.codeblock-wrap {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.pill {
+  @apply inline-flex items-center justify-center rounded-md px-2 py-0.5 text-xs font-medium ring-1 ring-inset;
+}
+
+.status-pill {
+  @apply inline-flex items-center rounded-md bg-gray-100 text-gray-700 px-2 py-0.5 text-[11px] font-medium;
+}
 
 /* Docs + Changelog typography */
-.docs-prose { font-family: 'Noto Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; }
-.docs-prose h1 { @apply text-[32px] md:text-[36px] font-semibold tracking-tight text-gray-900; }
-.docs-prose h2 { @apply text-xl md:text-2xl font-semibold text-gray-900; }
-.docs-prose p { @apply text-[15px] md:text-base leading-7 text-gray-700; }
-.docs-prose ul { @apply text-[15px] md:text-base leading-7 text-gray-700; }
-.docs-prose li { @apply my-0.5; }
-.docs-prose a { @apply text-blue-600 hover:text-blue-700 underline-offset-2 hover:underline; }
+.docs-prose {
+  @apply font-sans;
+}
 
-.changelog-prose h2 { @apply text-xl md:text-2xl font-semibold text-gray-900; }
-.changelog-prose p, .changelog-prose li, .changelog-prose ul, .changelog-prose div { @apply text-[15px] md:text-base leading-7; }
-.changelog-prose li { @apply my-0.5; }
-.changelog-prose a { @apply text-blue-600 hover:text-blue-700 underline-offset-2 hover:underline; }
+.docs-prose h1 {
+  @apply font-display text-[32px] md:text-[36px] font-semibold tracking-tight text-gray-900;
+}
+
+.docs-prose h2 {
+  @apply text-xl md:text-2xl font-semibold text-gray-900;
+}
+
+.docs-prose p {
+  @apply text-[15px] md:text-base leading-7 text-gray-700;
+}
+
+.docs-prose ul {
+  @apply text-[15px] md:text-base leading-7 text-gray-700;
+}
+
+.docs-prose li {
+  @apply my-0.5;
+}
+
+.docs-prose a {
+  @apply text-blue-600 hover:text-blue-700 underline-offset-2 hover:underline;
+}
+
+.changelog-prose h2 {
+  @apply text-xl md:text-2xl font-semibold text-gray-900;
+}
+
+.changelog-prose p,
+.changelog-prose li,
+.changelog-prose ul,
+.changelog-prose div {
+  @apply text-[15px] md:text-base leading-7;
+}
+
+.changelog-prose li {
+  @apply my-0.5;
+}
+
+.changelog-prose a {
+  @apply text-blue-600 hover:text-blue-700 underline-offset-2 hover:underline;
+}
