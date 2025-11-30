@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, memo } from "react";
 import { createPortal } from "react-dom";
-import { ArrowLeft, Play, Pause, List, AlignLeft, MessageCircle, Download, FileText, FileJson, FileImage, Check, StickyNote, Plus, X, Sparkles, Pencil, ChevronUp, ChevronDown, Info, Clock, Settings, Users, Loader2 } from "lucide-react";
+import { ArrowLeft, Play, Pause, List, AlignLeft, MessageCircle, Download, FileText, FileJson, FileImage, Check, StickyNote, Plus, X, Sparkles, Pencil, ChevronUp, ChevronDown, Info, Clock, Settings, Users, Loader2, Home } from "lucide-react";
 import { AudioPlayer, type AudioPlayerRef } from "./audio/AudioPlayer";
 import { TranscriptView } from "./transcript/TranscriptView";
 import { Button } from "./ui/button";
@@ -1185,9 +1185,8 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
                 {/* Header with back button and theme switcher */}
                 <div className="flex items-center justify-between mb-3 sm:mb-6">
-                    <Button onClick={handleBack} variant="outline" size="sm" className="cursor-pointer">
-                        <ArrowLeft className="mr-2 h-4 w-4" />
-                        Back to Audio Files
+                    <Button onClick={() => navigate({ path: "home" })} variant="outline" size="icon" className="h-9 w-9 cursor-pointer" title="Back to Home">
+                        <Home className="h-4 w-4" />
                     </Button>
                     <ThemeSwitcher />
                 </div>
@@ -1279,7 +1278,7 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                         {/* Header Section */}
                         <div className="mb-10 sm:mb-16">
                             {/* Title Row */}
-                            <div className="flex items-center justify-between mb-3 sm:mb-0">
+                            <div className="flex items-center justify-between mb-6 sm:mb-0">
                                 <div className="flex items-center gap-3 min-w-0 flex-1 mr-2">
                                     <h1 className="text-2xl font-bold text-carbon-900 dark:text-carbon-100 truncate flex-1" title={audioFile.title || audioFile.audio_path}>
                                         {getFileNameWithoutExt()}
