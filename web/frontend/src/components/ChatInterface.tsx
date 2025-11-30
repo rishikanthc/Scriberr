@@ -55,7 +55,7 @@ export const ChatInterface = memo(function ChatInterface({ transcriptionId, acti
   const [streamingMessage, setStreamingMessage] = useState("");
   const [selectedModel, setSelectedModel] = useState("gpt-3.5-turbo");
   const [error, setError] = useState<string | null>(null);
-  
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -92,12 +92,12 @@ export const ChatInterface = memo(function ChatInterface({ transcriptionId, acti
       const response = await fetch(`/api/v1/chat/sessions/${sessionId}`, {
         headers: getAuthHeaders(),
       });
-      
+
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || "Failed to load chat session");
       }
-      
+
       const data = await response.json();
       setMessages(data.messages || []);
     } catch (err: any) {
@@ -112,12 +112,12 @@ export const ChatInterface = memo(function ChatInterface({ transcriptionId, acti
       const response = await fetch(`/api/v1/chat/transcriptions/${transcriptionId}/sessions`, {
         headers: getAuthHeaders(),
       });
-      
+
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || "Failed to load chat sessions");
       }
-      
+
       const data = await response.json();
       setSessions(data || []);
 
@@ -169,18 +169,18 @@ export const ChatInterface = memo(function ChatInterface({ transcriptionId, acti
       const response = await fetch("/api/v1/chat/models", {
         headers: getAuthHeaders(),
       });
-      
+
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || "Failed to load models");
       }
-      
+
       const data = await response.json();
       if (data.models && data.models.length > 0 && !selectedModel) {
         setSelectedModel(data.models[0]);
       }
       setError(null);
-      
+
       // Only load chat sessions if models loaded successfully
       loadChatSessions();
     } catch (err: any) {
@@ -238,7 +238,7 @@ export const ChatInterface = memo(function ChatInterface({ transcriptionId, acti
         content: "",
         created_at: new Date().toISOString(),
       };
-      
+
       // Use ref to track assistant message index to avoid recreating array
       let assistantMessageIndex = -1;
       setMessages(prev => {
@@ -252,7 +252,7 @@ export const ChatInterface = memo(function ChatInterface({ transcriptionId, acti
 
         const chunk = new TextDecoder().decode(value);
         assistantContent += chunk;
-        
+
         // Optimize by only updating the specific message index instead of mapping entire array
         setMessages(prev => {
           const newMessages = [...prev];
@@ -266,11 +266,11 @@ export const ChatInterface = memo(function ChatInterface({ transcriptionId, acti
       // Store the complete response before any potential session updates
       const finalAssistantContent = assistantContent;
       const finalMessages = [...messages, userMessage, { ...assistantMessage, content: finalAssistantContent }];
-      
+
       // Auto-generate title after 2nd exchange (when we have 2 user messages and 2 assistant responses)
       const userMessageCount = finalMessages.filter(msg => msg.role === 'user').length;
       const assistantMessageCount = finalMessages.filter(msg => msg.role === 'assistant').length;
-      
+
       // Only generate title after the 2nd complete exchange
       if (userMessageCount === 2 && assistantMessageCount === 2) {
         // Wait a moment to ensure UI is updated, then generate title
@@ -283,15 +283,15 @@ export const ChatInterface = memo(function ChatInterface({ transcriptionId, acti
                 method: 'POST',
                 headers: { ...getAuthHeaders() }
               });
-              
+
               if (res.ok) {
                 const updated = await res.json();
                 setSessions(prev => prev.map(s => s.id === updated.id ? { ...s, title: updated.title } : s));
                 if ((activeSession && activeSession.id === updated.id) || (!activeSession && sid === updated.id)) {
                   setActiveSession(prev => prev ? { ...prev, title: updated.title } as any : prev);
                 }
-                toast({ 
-                  title: '✨ Chat Renamed', 
+                toast({
+                  title: '✨ Chat Renamed',
                   description: `Renamed to "${updated.title}"`
                 });
                 emitSessionTitleUpdated({ sessionId: updated.id, title: updated.title });
@@ -313,8 +313,8 @@ export const ChatInterface = memo(function ChatInterface({ transcriptionId, acti
       try {
         const sid = activeSession?.id || activeSessionId;
         if (sid) {
-          setSessions(prev => prev.map(s => 
-            s.id === sid 
+          setSessions(prev => prev.map(s =>
+            s.id === sid
               ? { ...s, message_count: finalMessages.length, updated_at: new Date().toISOString() }
               : s
           ));
@@ -350,7 +350,7 @@ export const ChatInterface = memo(function ChatInterface({ transcriptionId, acti
         await navigator.clipboard.writeText(text)
         setCopied(true)
         setTimeout(() => setCopied(false), 1200)
-      } catch {}
+      } catch { }
     }
     return (
       <div className="relative group">
@@ -383,12 +383,12 @@ export const ChatInterface = memo(function ChatInterface({ transcriptionId, acti
   }
 
   return (
-    <div className="h-full flex flex-col bg-white dark:bg-gray-900">
+    <div className="h-full flex flex-col bg-transparent">
       {activeSession || activeSessionId ? (
         <>
           {/* Messages Container */}
-          <div 
-            ref={messagesContainerRef} 
+          <div
+            ref={messagesContainerRef}
             className="flex-1 overflow-y-auto pb-2.5 flex flex-col justify-between w-full flex-auto max-w-full z-10"
             id="messages-container"
           >
@@ -402,22 +402,22 @@ export const ChatInterface = memo(function ChatInterface({ transcriptionId, acti
                         <div className="w-full flex justify-end">
                           <div className="flex space-x-3 max-w-3xl">
                             <div className="flex-1 overflow-hidden">
-                              <div className="bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white rounded-2xl px-4 py-3 relative">
+                              <div className="bg-primary/5 dark:bg-primary/10 text-foreground rounded-2xl px-4 py-3 relative border border-primary/10 shadow-sm">
                                 {/* Copy button */}
                                 <button
-                                  onClick={async () => { try { await navigator.clipboard.writeText(message.content || ''); } catch {} }}
-                                  className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-600"
+                                  onClick={async () => { try { await navigator.clipboard.writeText(message.content || ''); } catch { } }}
+                                  className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-background/50"
                                   title="Copy message"
                                 >
-                                  <Copy className="h-3 w-3" />
+                                  <Copy className="h-3 w-3 text-muted-foreground" />
                                 </button>
-                                <div className="text-sm leading-relaxed pr-6">
+                                <div className="text-sm leading-relaxed pr-6 font-inter">
                                   {message.content}
                                 </div>
                               </div>
                             </div>
-                            <div className="h-8 w-8 rounded-full bg-gray-300 dark:bg-gray-700 flex items-center justify-center flex-shrink-0">
-                              <User className="h-4 w-4 text-gray-700 dark:text-white" />
+                            <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 border border-primary/20">
+                              <User className="h-4 w-4 text-primary" />
                             </div>
                           </div>
                         </div>
@@ -429,17 +429,17 @@ export const ChatInterface = memo(function ChatInterface({ transcriptionId, acti
                       <div className="flex w-full max-w-5xl px-6 mx-auto">
                         <div className="w-full flex justify-start">
                           <div className="flex space-x-3 max-w-5xl w-full">
-                            <div className="h-8 w-8 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center flex-shrink-0">
-                              <Bot className="h-4 w-4 text-gray-700 dark:text-gray-200" />
+                            <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center flex-shrink-0 border border-border">
+                              <Bot className="h-4 w-4 text-muted-foreground" />
                             </div>
                             <div className="flex-1 space-y-2 overflow-hidden">
                               <div className="flex items-center space-x-2">
-                                <div className="font-medium text-gray-800 dark:text-gray-100 text-sm">Assistant</div>
+                                <div className="font-medium text-foreground text-sm">Assistant</div>
                               </div>
-                              <div className="prose prose-sm dark:prose-invert max-w-none text-gray-700 dark:text-gray-200 leading-relaxed">
+                              <div className="prose prose-sm dark:prose-invert max-w-none text-foreground leading-relaxed font-inter">
                                 {/* Copy button for assistant message */}
                                 <button
-                                  onClick={async () => { try { await navigator.clipboard.writeText(message.content || ''); } catch {} }}
+                                  onClick={async () => { try { await navigator.clipboard.writeText(message.content || ''); } catch { } }}
                                   className="float-right opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 ml-2"
                                   title="Copy message"
                                 >
@@ -461,7 +461,7 @@ export const ChatInterface = memo(function ChatInterface({ transcriptionId, acti
                   )}
                 </div>
               ))}
-              
+
               {/* Loading Indicator */}
               {isLoading && (
                 <div className="group w-full">
@@ -491,16 +491,16 @@ export const ChatInterface = memo(function ChatInterface({ transcriptionId, acti
                   </div>
                 </div>
               )}
-              
+
               <div ref={messagesEndRef} />
             </div>
           </div>
 
           {/* Input Area */}
-          <div className="pb-2">
+          <div className="pb-4 pt-2 bg-gradient-to-t from-background via-background to-transparent">
             <div className="flex w-full max-w-5xl px-6 mx-auto">
               <div className="w-full">
-                <div className="flex items-end gap-3 bg-gray-50 dark:bg-gray-800 rounded-2xl p-3 mx-auto">
+                <div className="flex items-end gap-3 glass-card rounded-2xl p-3 mx-auto shadow-sm focus-within:shadow-md transition-shadow duration-300">
                   <Input
                     ref={inputRef}
                     value={inputMessage}
@@ -508,13 +508,13 @@ export const ChatInterface = memo(function ChatInterface({ transcriptionId, acti
                     onKeyDown={handleKeyPress}
                     placeholder="Send a message..."
                     disabled={isLoading}
-                    className="flex-1 border-0 bg-transparent focus-visible:ring-0 focus:ring-0 outline-none resize-none text-sm placeholder:text-gray-500 dark:placeholder:text-gray-400"
+                    className="flex-1 border-0 bg-transparent focus-visible:ring-0 focus:ring-0 outline-none resize-none text-sm placeholder:text-muted-foreground font-inter"
                   />
                   <Button
                     onClick={sendMessage}
                     disabled={isLoading || !inputMessage.trim()}
                     size="sm"
-                    className="h-8 w-8 p-0 rounded-full bg-gray-900 hover:bg-gray-800 dark:bg-gray-100 dark:hover:bg-gray-200 text-white dark:text-gray-900"
+                    className="h-8 w-8 p-0 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm transition-all hover:scale-105"
                   >
                     <Send className="h-4 w-4" />
                   </Button>

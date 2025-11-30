@@ -1577,7 +1577,7 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                             {(currentStatus || audioFile.status) === "processing" && (
                                 <div className="flex flex-col items-center space-y-4">
                                     <div className="flex items-center space-x-3">
-                                        <Loader2 className="h-8 w-8 text-slate-500 animate-spin" />
+                                        <Loader2 className="h-8 w-8 text-gray-500 animate-spin" />
                                         <div>
                                             <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-50">
                                                 Transcription in Progress
@@ -1591,7 +1591,7 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                                     </div>
                                     <div className="w-full max-w-md">
                                         <div className="bg-gray-200 dark:bg-black-600 rounded-full h-2">
-                                            <div className="bg-slate-500 h-2 rounded-full transition-all duration-1000 ease-out animate-pulse" style={{ width: '60%' }}></div>
+                                            <div className="bg-gray-500 h-2 rounded-full transition-all duration-1000 ease-out animate-pulse" style={{ width: '60%' }}></div>
                                         </div>
                                     </div>
                                     <p className="text-gray-600 dark:text-gray-400 text-sm">
@@ -1682,7 +1682,7 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                                     onClick={togglePlayPause}
                                     aria-label={isPlaying ? 'Pause audio' : 'Play audio'}
                                     title={isPlaying ? 'Pause' : 'Play'}
-                                    className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow-lg transition-colors flex items-center justify-center cursor-pointer"
+                                    className="absolute left-1/2 top-1/2 -trangray-x-1/2 -trangray-y-1/2 w-11 h-11 rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow-lg transition-colors flex items-center justify-center cursor-pointer"
                                 >
                                     {isPlaying ? (
                                         <Pause className="h-5 w-5" />
@@ -2059,7 +2059,7 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                                         {/* Model Parameters for Multi-track */}
                                         <div>
                                             <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3 sm:mb-4 flex items-center gap-2">
-                                                <Settings className="h-5 w-5 text-slate-600 dark:text-slate-400" />
+                                                <Settings className="h-5 w-5 text-gray-600 dark:text-gray-400" />
                                                 {(() => {
                                                     const modelFamily = executionData.actual_parameters?.model_family;
                                                     if (modelFamily === 'nvidia_parakeet') return 'NVIDIA Parakeet Parameters';
@@ -2068,15 +2068,15 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                                                     return 'Model Parameters';
                                                 })()}
                                             </h3>
-                                            <div className="bg-slate-50/50 dark:bg-slate-800/30 border border-slate-200/50 dark:border-slate-700/50 rounded-lg p-3 sm:p-4">
+                                            <div className="glass-card rounded-lg p-3 sm:p-4">
                                                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 text-sm">
                                                     {/* Model Settings */}
-                                                    <div className="bg-white/40 dark:bg-slate-700/20 rounded-md p-3 border border-slate-200/30 dark:border-slate-600/30">
-                                                        <h4 className="font-semibold text-slate-800 dark:text-slate-200 mb-2 text-sm sm:text-base">Model & Configuration</h4>
+                                                    <div className="bg-muted/20 dark:bg-gray-700/20 rounded-md p-3 border border-gray-200/30 dark:border-gray-600/30">
+                                                        <h4 className="font-semibold text-gray-800 dark:text-gray-200 mb-2 text-sm sm:text-base">Model & Configuration</h4>
                                                         <div className="space-y-2">
                                                             <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
-                                                                <span className="text-slate-600 dark:text-slate-400 text-xs sm:text-sm font-medium">Model Family:</span>
-                                                                <span className="font-mono text-slate-900 dark:text-slate-100 text-xs sm:text-sm">
+                                                                <span className="text-gray-600 dark:text-gray-400 text-xs sm:text-sm font-medium">Model Family:</span>
+                                                                <span className="font-mono text-gray-900 dark:text-gray-100 text-xs sm:text-sm">
                                                                     {(() => {
                                                                         const family = executionData.actual_parameters?.model_family;
                                                                         if (family === 'nvidia_parakeet') return 'NVIDIA Parakeet';
@@ -2087,45 +2087,45 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                                                                 </span>
                                                             </div>
                                                             <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
-                                                                <span className="text-slate-600 dark:text-slate-400 text-xs sm:text-sm font-medium">Model:</span>
-                                                                <span className="font-mono text-slate-900 dark:text-slate-100 text-xs sm:text-sm break-all">{executionData.actual_parameters?.model || 'N/A'}</span>
+                                                                <span className="text-gray-600 dark:text-gray-400 text-xs sm:text-sm font-medium">Model:</span>
+                                                                <span className="font-mono text-gray-900 dark:text-gray-100 text-xs sm:text-sm break-all">{executionData.actual_parameters?.model || 'N/A'}</span>
                                                             </div>
                                                             {executionData.actual_parameters?.model_family === 'whisper' && (
                                                                 <>
                                                                     <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
-                                                                        <span className="text-slate-600 dark:text-slate-400 text-xs sm:text-sm font-medium">Device:</span>
-                                                                        <span className="font-mono text-slate-900 dark:text-slate-100 text-xs sm:text-sm">{executionData.actual_parameters?.device || 'N/A'}</span>
+                                                                        <span className="text-gray-600 dark:text-gray-400 text-xs sm:text-sm font-medium">Device:</span>
+                                                                        <span className="font-mono text-gray-900 dark:text-gray-100 text-xs sm:text-sm">{executionData.actual_parameters?.device || 'N/A'}</span>
                                                                     </div>
                                                                     <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
-                                                                        <span className="text-slate-600 dark:text-slate-400 text-xs sm:text-sm font-medium">Compute Type:</span>
-                                                                        <span className="font-mono text-slate-900 dark:text-slate-100 text-xs sm:text-sm">{executionData.actual_parameters?.compute_type || 'N/A'}</span>
+                                                                        <span className="text-gray-600 dark:text-gray-400 text-xs sm:text-sm font-medium">Compute Type:</span>
+                                                                        <span className="font-mono text-gray-900 dark:text-gray-100 text-xs sm:text-sm">{executionData.actual_parameters?.compute_type || 'N/A'}</span>
                                                                     </div>
                                                                     <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
-                                                                        <span className="text-slate-600 dark:text-slate-400 text-xs sm:text-sm font-medium">Batch Size:</span>
-                                                                        <span className="font-mono text-slate-900 dark:text-slate-100 text-xs sm:text-sm">{executionData.actual_parameters?.batch_size || 'N/A'}</span>
+                                                                        <span className="text-gray-600 dark:text-gray-400 text-xs sm:text-sm font-medium">Batch Size:</span>
+                                                                        <span className="font-mono text-gray-900 dark:text-gray-100 text-xs sm:text-sm">{executionData.actual_parameters?.batch_size || 'N/A'}</span>
                                                                     </div>
                                                                     <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
-                                                                        <span className="text-slate-600 dark:text-slate-400 text-xs sm:text-sm font-medium">Threads:</span>
-                                                                        <span className="font-mono text-slate-900 dark:text-slate-100 text-xs sm:text-sm">{executionData.actual_parameters?.threads || 0}</span>
+                                                                        <span className="text-gray-600 dark:text-gray-400 text-xs sm:text-sm font-medium">Threads:</span>
+                                                                        <span className="font-mono text-gray-900 dark:text-gray-100 text-xs sm:text-sm">{executionData.actual_parameters?.threads || 0}</span>
                                                                     </div>
                                                                 </>
                                                             )}
                                                             {executionData.actual_parameters?.model_family === 'nvidia_parakeet' && (
                                                                 <>
                                                                     <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
-                                                                        <span className="text-slate-600 dark:text-slate-400 text-xs sm:text-sm font-medium">Context Left:</span>
-                                                                        <span className="font-mono text-slate-900 dark:text-slate-100 text-xs sm:text-sm">{executionData.actual_parameters?.attention_context_left || 256}</span>
+                                                                        <span className="text-gray-600 dark:text-gray-400 text-xs sm:text-sm font-medium">Context Left:</span>
+                                                                        <span className="font-mono text-gray-900 dark:text-gray-100 text-xs sm:text-sm">{executionData.actual_parameters?.attention_context_left || 256}</span>
                                                                     </div>
                                                                     <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
-                                                                        <span className="text-slate-600 dark:text-slate-400 text-xs sm:text-sm font-medium">Context Right:</span>
-                                                                        <span className="font-mono text-slate-900 dark:text-slate-100 text-xs sm:text-sm">{executionData.actual_parameters?.attention_context_right || 256}</span>
+                                                                        <span className="text-gray-600 dark:text-gray-400 text-xs sm:text-sm font-medium">Context Right:</span>
+                                                                        <span className="font-mono text-gray-900 dark:text-gray-100 text-xs sm:text-sm">{executionData.actual_parameters?.attention_context_right || 256}</span>
                                                                     </div>
                                                                 </>
                                                             )}
                                                             {executionData.actual_parameters?.model_family === 'nvidia_canary' && (
                                                                 <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
-                                                                    <span className="text-slate-600 dark:text-slate-400 text-xs sm:text-sm font-medium">Source Language:</span>
-                                                                    <span className="font-mono text-slate-900 dark:text-slate-100 text-xs sm:text-sm">{executionData.actual_parameters?.language || 'auto'}</span>
+                                                                    <span className="text-gray-600 dark:text-gray-400 text-xs sm:text-sm font-medium">Source Language:</span>
+                                                                    <span className="font-mono text-gray-900 dark:text-gray-100 text-xs sm:text-sm">{executionData.actual_parameters?.language || 'auto'}</span>
                                                                 </div>
                                                             )}
                                                         </div>
@@ -2133,8 +2133,8 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
 
                                                     {/* Processing Settings - Only for WhisperX */}
                                                     {executionData.actual_parameters?.model_family === 'whisper' && (
-                                                        <div className="bg-white/40 dark:bg-slate-700/20 rounded-md p-3 border border-slate-200/30 dark:border-slate-600/30">
-                                                            <h4 className="font-semibold text-slate-800 dark:text-slate-200 mb-2 text-sm sm:text-base">Processing</h4>
+                                                        <div className="bg-muted/20 dark:bg-gray-700/20 rounded-md p-3 border border-gray-200/30 dark:border-gray-600/30">
+                                                            <h4 className="font-semibold text-gray-800 dark:text-gray-200 mb-2 text-sm sm:text-base">Processing</h4>
                                                             <div className="space-y-1">
                                                                 <div className="flex justify-between">
                                                                     <span className="text-gray-600 dark:text-gray-400">Task:</span>
@@ -2182,8 +2182,8 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
 
                                                     {/* Advanced Settings - Only for WhisperX */}
                                                     {executionData.actual_parameters?.model_family === 'whisper' && (
-                                                        <div className="bg-white/40 dark:bg-slate-700/20 rounded-md p-3 border border-slate-200/30 dark:border-slate-600/30">
-                                                            <h4 className="font-semibold text-slate-800 dark:text-slate-200 mb-2 text-sm sm:text-base">Advanced</h4>
+                                                        <div className="bg-muted/20 dark:bg-gray-700/20 rounded-md p-3 border border-gray-200/30 dark:border-gray-600/30">
+                                                            <h4 className="font-semibold text-gray-800 dark:text-gray-200 mb-2 text-sm sm:text-base">Advanced</h4>
                                                             <div className="space-y-1">
                                                                 <div className="flex justify-between">
                                                                     <span className="text-gray-600 dark:text-gray-400">Beam Size:</span>
@@ -2223,8 +2223,8 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
 
                                                     {/* Advanced Settings - Only for NVIDIA Parakeet/Canary */}
                                                     {(executionData.actual_parameters?.model_family === 'nvidia_parakeet' || executionData.actual_parameters?.model_family === 'nvidia_canary') && (
-                                                        <div className="bg-white/40 dark:bg-slate-700/20 rounded-md p-3 border border-slate-200/30 dark:border-slate-600/30">
-                                                            <h4 className="font-semibold text-slate-800 dark:text-slate-200 mb-2 text-sm sm:text-base">Advanced</h4>
+                                                        <div className="bg-muted/20 dark:bg-gray-700/20 rounded-md p-3 border border-gray-200/30 dark:border-gray-600/30">
+                                                            <h4 className="font-semibold text-gray-800 dark:text-gray-200 mb-2 text-sm sm:text-base">Advanced</h4>
                                                             <div className="space-y-1">
                                                                 <div className="flex justify-between">
                                                                     <span className="text-gray-600 dark:text-gray-400">Word Boost:</span>
@@ -2299,8 +2299,8 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                                         </div>
                                         {/* Model Parameters for Single-track */}
                                         <div>
-                                            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3 sm:mb-4 flex items-center gap-2">
-                                                <Settings className="h-5 w-5 text-slate-600 dark:text-slate-400" />
+                                            <h3 className="text-lg font-semibold text-foreground mb-3 sm:mb-4 flex items-center gap-2">
+                                                <Settings className="h-5 w-5 text-muted-foreground" />
                                                 {(() => {
                                                     const modelFamily = executionData.actual_parameters?.model_family;
                                                     if (modelFamily === 'nvidia_parakeet') return 'NVIDIA Parakeet Parameters';
@@ -2309,15 +2309,15 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                                                     return 'Model Parameters';
                                                 })()}
                                             </h3>
-                                            <div className="bg-slate-50/50 dark:bg-slate-800/30 border border-slate-200/50 dark:border-slate-700/50 rounded-lg p-3 sm:p-4">
+                                            <div className="glass-card rounded-lg p-3 sm:p-4">
                                                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 text-sm">
                                                     {/* Model Settings */}
-                                                    <div className="bg-white/40 dark:bg-slate-700/20 rounded-md p-3 border border-slate-200/30 dark:border-slate-600/30">
-                                                        <h4 className="font-semibold text-slate-800 dark:text-slate-200 mb-2 text-sm sm:text-base">Model & Configuration</h4>
+                                                    <div className="bg-muted/20 dark:bg-gray-700/20 rounded-md p-3 border border-gray-200/30 dark:border-gray-600/30">
+                                                        <h4 className="font-semibold text-gray-800 dark:text-gray-200 mb-2 text-sm sm:text-base">Model & Configuration</h4>
                                                         <div className="space-y-2">
                                                             <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
-                                                                <span className="text-slate-600 dark:text-slate-400 text-xs sm:text-sm font-medium">Model Family:</span>
-                                                                <span className="font-mono text-slate-900 dark:text-slate-100 text-xs sm:text-sm">
+                                                                <span className="text-muted-foreground text-xs sm:text-sm font-medium">Model Family:</span>
+                                                                <span className="font-mono text-foreground text-xs sm:text-sm">
                                                                     {(() => {
                                                                         const family = executionData.actual_parameters?.model_family;
                                                                         if (family === 'nvidia_parakeet') return 'NVIDIA Parakeet';
@@ -2328,45 +2328,45 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                                                                 </span>
                                                             </div>
                                                             <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
-                                                                <span className="text-slate-600 dark:text-slate-400 text-xs sm:text-sm font-medium">Model:</span>
-                                                                <span className="font-mono text-slate-900 dark:text-slate-100 text-xs sm:text-sm break-all">{executionData.actual_parameters?.model || 'N/A'}</span>
+                                                                <span className="text-muted-foreground text-xs sm:text-sm font-medium">Model:</span>
+                                                                <span className="font-mono text-foreground text-xs sm:text-sm break-all">{executionData.actual_parameters?.model || 'N/A'}</span>
                                                             </div>
                                                             {executionData.actual_parameters?.model_family === 'whisper' && (
                                                                 <>
                                                                     <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
-                                                                        <span className="text-slate-600 dark:text-slate-400 text-xs sm:text-sm font-medium">Device:</span>
-                                                                        <span className="font-mono text-slate-900 dark:text-slate-100 text-xs sm:text-sm">{executionData.actual_parameters?.device || 'N/A'}</span>
+                                                                        <span className="text-gray-600 dark:text-gray-400 text-xs sm:text-sm font-medium">Device:</span>
+                                                                        <span className="font-mono text-gray-900 dark:text-gray-100 text-xs sm:text-sm">{executionData.actual_parameters?.device || 'N/A'}</span>
                                                                     </div>
                                                                     <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
-                                                                        <span className="text-slate-600 dark:text-slate-400 text-xs sm:text-sm font-medium">Compute Type:</span>
-                                                                        <span className="font-mono text-slate-900 dark:text-slate-100 text-xs sm:text-sm">{executionData.actual_parameters?.compute_type || 'N/A'}</span>
+                                                                        <span className="text-gray-600 dark:text-gray-400 text-xs sm:text-sm font-medium">Compute Type:</span>
+                                                                        <span className="font-mono text-gray-900 dark:text-gray-100 text-xs sm:text-sm">{executionData.actual_parameters?.compute_type || 'N/A'}</span>
                                                                     </div>
                                                                     <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
-                                                                        <span className="text-slate-600 dark:text-slate-400 text-xs sm:text-sm font-medium">Batch Size:</span>
-                                                                        <span className="font-mono text-slate-900 dark:text-slate-100 text-xs sm:text-sm">{executionData.actual_parameters?.batch_size || 'N/A'}</span>
+                                                                        <span className="text-gray-600 dark:text-gray-400 text-xs sm:text-sm font-medium">Batch Size:</span>
+                                                                        <span className="font-mono text-gray-900 dark:text-gray-100 text-xs sm:text-sm">{executionData.actual_parameters?.batch_size || 'N/A'}</span>
                                                                     </div>
                                                                     <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
-                                                                        <span className="text-slate-600 dark:text-slate-400 text-xs sm:text-sm font-medium">Threads:</span>
-                                                                        <span className="font-mono text-slate-900 dark:text-slate-100 text-xs sm:text-sm">{executionData.actual_parameters?.threads || 0}</span>
+                                                                        <span className="text-gray-600 dark:text-gray-400 text-xs sm:text-sm font-medium">Threads:</span>
+                                                                        <span className="font-mono text-gray-900 dark:text-gray-100 text-xs sm:text-sm">{executionData.actual_parameters?.threads || 0}</span>
                                                                     </div>
                                                                 </>
                                                             )}
                                                             {executionData.actual_parameters?.model_family === 'nvidia_parakeet' && (
                                                                 <>
                                                                     <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
-                                                                        <span className="text-slate-600 dark:text-slate-400 text-xs sm:text-sm font-medium">Context Left:</span>
-                                                                        <span className="font-mono text-slate-900 dark:text-slate-100 text-xs sm:text-sm">{executionData.actual_parameters?.attention_context_left || 256}</span>
+                                                                        <span className="text-gray-600 dark:text-gray-400 text-xs sm:text-sm font-medium">Context Left:</span>
+                                                                        <span className="font-mono text-gray-900 dark:text-gray-100 text-xs sm:text-sm">{executionData.actual_parameters?.attention_context_left || 256}</span>
                                                                     </div>
                                                                     <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
-                                                                        <span className="text-slate-600 dark:text-slate-400 text-xs sm:text-sm font-medium">Context Right:</span>
-                                                                        <span className="font-mono text-slate-900 dark:text-slate-100 text-xs sm:text-sm">{executionData.actual_parameters?.attention_context_right || 256}</span>
+                                                                        <span className="text-gray-600 dark:text-gray-400 text-xs sm:text-sm font-medium">Context Right:</span>
+                                                                        <span className="font-mono text-gray-900 dark:text-gray-100 text-xs sm:text-sm">{executionData.actual_parameters?.attention_context_right || 256}</span>
                                                                     </div>
                                                                 </>
                                                             )}
                                                             {executionData.actual_parameters?.model_family === 'nvidia_canary' && (
                                                                 <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
-                                                                    <span className="text-slate-600 dark:text-slate-400 text-xs sm:text-sm font-medium">Source Language:</span>
-                                                                    <span className="font-mono text-slate-900 dark:text-slate-100 text-xs sm:text-sm">{executionData.actual_parameters?.language || 'auto'}</span>
+                                                                    <span className="text-gray-600 dark:text-gray-400 text-xs sm:text-sm font-medium">Source Language:</span>
+                                                                    <span className="font-mono text-gray-900 dark:text-gray-100 text-xs sm:text-sm">{executionData.actual_parameters?.language || 'auto'}</span>
                                                                 </div>
                                                             )}
                                                         </div>
@@ -2374,8 +2374,8 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
 
                                                     {/* Processing Settings - Only for WhisperX */}
                                                     {executionData.actual_parameters?.model_family === 'whisper' && (
-                                                        <div className="bg-white/40 dark:bg-slate-700/20 rounded-md p-3 border border-slate-200/30 dark:border-slate-600/30">
-                                                            <h4 className="font-semibold text-slate-800 dark:text-slate-200 mb-2 text-sm sm:text-base">Processing</h4>
+                                                        <div className="bg-muted/20 dark:bg-gray-700/20 rounded-md p-3 border border-gray-200/30 dark:border-gray-600/30">
+                                                            <h4 className="font-semibold text-gray-800 dark:text-gray-200 mb-2 text-sm sm:text-base">Processing</h4>
                                                             <div className="space-y-1">
                                                                 <div className="flex justify-between">
                                                                     <span className="text-gray-600 dark:text-gray-400">Task:</span>
@@ -2423,46 +2423,46 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
 
                                                     {/* Speaker Diarization Settings - For all model families and multi-track jobs */}
                                                     {(executionData.actual_parameters?.diarize || executionData.is_multi_track) && (
-                                                        <div className="bg-white/40 dark:bg-slate-700/20 rounded-md p-3 border border-slate-200/30 dark:border-slate-600/30">
-                                                            <h4 className="font-semibold text-slate-800 dark:text-slate-200 mb-2 text-sm sm:text-base flex items-center gap-2">
-                                                                <Users className="h-4 w-4 text-slate-600 dark:text-slate-400" />
+                                                        <div className="bg-muted/20 dark:bg-gray-700/20 rounded-md p-3 border border-gray-200/30 dark:border-gray-600/30">
+                                                            <h4 className="font-semibold text-gray-800 dark:text-gray-200 mb-2 text-sm sm:text-base flex items-center gap-2">
+                                                                <Users className="h-4 w-4 text-gray-600 dark:text-gray-400" />
                                                                 Speaker Diarization
                                                             </h4>
                                                             <div className="space-y-1">
                                                                 <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
-                                                                    <span className="text-slate-600 dark:text-slate-400 text-xs sm:text-sm font-medium">Enabled:</span>
-                                                                    <span className="font-mono text-slate-900 dark:text-slate-100 text-xs sm:text-sm">
+                                                                    <span className="text-gray-600 dark:text-gray-400 text-xs sm:text-sm font-medium">Enabled:</span>
+                                                                    <span className="font-mono text-gray-900 dark:text-gray-100 text-xs sm:text-sm">
                                                                         {executionData.is_multi_track ? 'Yes (Multi-Track)' : (executionData.actual_parameters?.diarize ? 'Yes' : 'No')}
                                                                     </span>
                                                                 </div>
                                                                 {executionData.is_multi_track && (
                                                                     <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
-                                                                        <span className="text-slate-600 dark:text-slate-400 text-xs sm:text-sm font-medium">Number of Tracks:</span>
-                                                                        <span className="font-mono text-slate-900 dark:text-slate-100 text-xs sm:text-sm">{executionData.multi_track_files?.length || 0}</span>
+                                                                        <span className="text-gray-600 dark:text-gray-400 text-xs sm:text-sm font-medium">Number of Tracks:</span>
+                                                                        <span className="font-mono text-gray-900 dark:text-gray-100 text-xs sm:text-sm">{executionData.multi_track_files?.length || 0}</span>
                                                                     </div>
                                                                 )}
                                                                 {!executionData.is_multi_track && executionData.actual_parameters?.min_speakers && (
                                                                     <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
-                                                                        <span className="text-slate-600 dark:text-slate-400 text-xs sm:text-sm font-medium">Min Speakers:</span>
-                                                                        <span className="font-mono text-slate-900 dark:text-slate-100 text-xs sm:text-sm">{executionData.actual_parameters.min_speakers}</span>
+                                                                        <span className="text-gray-600 dark:text-gray-400 text-xs sm:text-sm font-medium">Min Speakers:</span>
+                                                                        <span className="font-mono text-gray-900 dark:text-gray-100 text-xs sm:text-sm">{executionData.actual_parameters.min_speakers}</span>
                                                                     </div>
                                                                 )}
                                                                 {!executionData.is_multi_track && executionData.actual_parameters?.max_speakers && (
                                                                     <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
-                                                                        <span className="text-slate-600 dark:text-slate-400 text-xs sm:text-sm font-medium">Max Speakers:</span>
-                                                                        <span className="font-mono text-slate-900 dark:text-slate-100 text-xs sm:text-sm">{executionData.actual_parameters.max_speakers}</span>
+                                                                        <span className="text-gray-600 dark:text-gray-400 text-xs sm:text-sm font-medium">Max Speakers:</span>
+                                                                        <span className="font-mono text-gray-900 dark:text-gray-100 text-xs sm:text-sm">{executionData.actual_parameters.max_speakers}</span>
                                                                     </div>
                                                                 )}
                                                                 {executionData.actual_parameters?.diarize_model && (
                                                                     <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
-                                                                        <span className="text-slate-600 dark:text-slate-400 text-xs sm:text-sm font-medium">Diarization Model:</span>
-                                                                        <span className="font-mono text-slate-900 dark:text-slate-100 text-xs sm:text-sm">{getDiarizationModelDisplayName(executionData.actual_parameters.diarize_model)}</span>
+                                                                        <span className="text-gray-600 dark:text-gray-400 text-xs sm:text-sm font-medium">Diarization Model:</span>
+                                                                        <span className="font-mono text-gray-900 dark:text-gray-100 text-xs sm:text-sm">{getDiarizationModelDisplayName(executionData.actual_parameters.diarize_model)}</span>
                                                                     </div>
                                                                 )}
                                                                 {executionData.actual_parameters?.speaker_embeddings !== undefined && (
                                                                     <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
-                                                                        <span className="text-slate-600 dark:text-slate-400 text-xs sm:text-sm font-medium">Speaker Embeddings:</span>
-                                                                        <span className="font-mono text-slate-900 dark:text-slate-100 text-xs sm:text-sm">{executionData.actual_parameters.speaker_embeddings ? 'Yes' : 'No'}</span>
+                                                                        <span className="text-gray-600 dark:text-gray-400 text-xs sm:text-sm font-medium">Speaker Embeddings:</span>
+                                                                        <span className="font-mono text-gray-900 dark:text-gray-100 text-xs sm:text-sm">{executionData.actual_parameters.speaker_embeddings ? 'Yes' : 'No'}</span>
                                                                     </div>
                                                                 )}
                                                             </div>
@@ -2471,8 +2471,8 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
 
                                                     {/* Advanced Settings - Only for WhisperX */}
                                                     {executionData.actual_parameters?.model_family === 'whisper' && (
-                                                        <div className="bg-white/40 dark:bg-slate-700/20 rounded-md p-3 border border-slate-200/30 dark:border-slate-600/30">
-                                                            <h4 className="font-semibold text-slate-800 dark:text-slate-200 mb-2 text-sm sm:text-base">Advanced</h4>
+                                                        <div className="bg-muted/20 dark:bg-gray-700/20 rounded-md p-3 border border-gray-200/30 dark:border-gray-600/30">
+                                                            <h4 className="font-semibold text-gray-800 dark:text-gray-200 mb-2 text-sm sm:text-base">Advanced</h4>
                                                             <div className="space-y-1">
                                                                 <div className="flex justify-between">
                                                                     <span className="text-gray-600 dark:text-gray-400">Beam Size:</span>
@@ -2512,8 +2512,8 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
 
                                                     {/* Advanced Settings - Only for NVIDIA Parakeet/Canary */}
                                                     {(executionData.actual_parameters?.model_family === 'nvidia_parakeet' || executionData.actual_parameters?.model_family === 'nvidia_canary') && (
-                                                        <div className="bg-white/40 dark:bg-slate-700/20 rounded-md p-3 border border-slate-200/30 dark:border-slate-600/30">
-                                                            <h4 className="font-semibold text-slate-800 dark:text-slate-200 mb-2 text-sm sm:text-base">Advanced</h4>
+                                                        <div className="bg-muted/20 dark:bg-gray-700/20 rounded-md p-3 border border-gray-200/30 dark:border-gray-600/30">
+                                                            <h4 className="font-semibold text-gray-800 dark:text-gray-200 mb-2 text-sm sm:text-base">Advanced</h4>
                                                             <div className="space-y-1">
                                                                 <div className="flex justify-between">
                                                                     <span className="text-gray-600 dark:text-gray-400">Word Boost:</span>
@@ -2646,7 +2646,7 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                                 />
 
                                 {showSelectionMenu && (
-                                    <div style={{ position: 'fixed', left: selectionViewportPos.x, top: selectionViewportPos.y, transform: 'translate(-50%, -100%)', zIndex: 10000 }} onMouseDown={(e) => e.stopPropagation()}>
+                                    <div style={{ position: 'fixed', left: selectionViewportPos.x, top: selectionViewportPos.y, transform: 'trangray(-50%, -100%)', zIndex: 10000 }} onMouseDown={(e) => e.stopPropagation()}>
                                         <div className="bg-gray-900 text-white text-xs rounded-md shadow-2xl px-2 py-1 flex items-center gap-1 pointer-events-auto">
                                             <button type="button" className="flex items-center gap-1 hover:opacity-90" onClick={openEditorForSelection}>
                                                 <Plus className="h-3 w-3" /> Add note
@@ -2656,7 +2656,7 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                                 )}
 
                                 {showEditor && (
-                                    <div style={{ position: 'fixed', left: selectionViewportPos.x, top: selectionViewportPos.y + 18, transform: 'translate(-50%, 0)', zIndex: 10001 }} className="w-[min(90vw,520px)]" onMouseDown={(e) => e.stopPropagation()}>
+                                    <div style={{ position: 'fixed', left: selectionViewportPos.x, top: selectionViewportPos.y + 18, transform: 'trangray(-50%, 0)', zIndex: 10001 }} className="w-[min(90vw,520px)]" onMouseDown={(e) => e.stopPropagation()}>
                                         <div className="bg-white dark:bg-black-900 rounded-lg shadow-2xl p-3 pointer-events-auto">
                                             <div className="text-xs text-gray-500 dark:text-gray-400 border-l-2 border-gray-300 dark:border-black-600 pl-2 italic mb-2 max-h-32 overflow-auto">
                                                 {pendingSelection.quote}

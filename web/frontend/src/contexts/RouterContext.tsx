@@ -59,11 +59,11 @@ export function RouterProvider({ children }: { children: React.ReactNode }) {
     // Update browser URL
     let url = '/'
     if (route.path === 'audio-detail' && route.params?.id) {
-      url = `/ audio / ${route.params.id} `
+      url = `/audio/${route.params.id}`
     } else if (route.path === 'chat' && route.params?.audioId && route.params?.sessionId) {
-      url = `/ audio / ${route.params.audioId} /chat/${route.params.sessionId} `
+      url = `/audio/${route.params.audioId}/chat/${route.params.sessionId}`
     } else if (route.path === 'chat' && route.params?.audioId) {
-      url = `/ audio / ${route.params.audioId}/chat`
+      url = `/audio/${route.params.audioId}/chat`
     } else if (route.path === 'settings') {
       url = '/settings'
     } else if (route.path === 'settings-cli') {

@@ -574,22 +574,22 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 					<TooltipTrigger asChild>
 						<div className="cursor-help inline-flex items-center gap-1">
 							<div className="relative">
-								<Loader2 size={iconSize} className="text-amber-500 animate-spin" />
+								<Loader2 size={iconSize} className="text-primary animate-spin" />
 							</div>
-							<span className="text-xs text-amber-500 font-medium">
+							<span className="text-xs text-primary font-medium">
 								{completedTracks}/{totalTracks}
 							</span>
 						</div>
 					</TooltipTrigger>
-					<TooltipContent className="bg-gray-900 border-gray-700 text-white">
+					<TooltipContent className="bg-popover border-border text-popover-foreground">
 						<div className="space-y-1">
 							<p>Multi-Track Processing ({percentage}%)</p>
 							<div className="space-y-1">
 								{tracks && tracks.slice(0, 5).map((track: any, index: number) => (
 									<div key={index} className="flex items-center gap-2 text-xs">
 										<span className={`w-2 h-2 rounded-full ${track.status === 'completed' ? 'bg-emerald-400' :
-												track.status === 'processing' ? 'bg-amber-400' :
-													'bg-stone-400'
+											track.status === 'processing' ? 'bg-amber-400' :
+												'bg-stone-400'
 											}`}></span>
 										<span>{track.track_name}</span>
 									</div>
@@ -610,10 +610,10 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 					<Tooltip>
 						<TooltipTrigger asChild>
 							<div className="cursor-help inline-block">
-								<CheckCircle size={iconSize} className="text-emerald-500" />
+								<CheckCircle size={iconSize} className="text-green-500" />
 							</div>
 						</TooltipTrigger>
-						<TooltipContent className="bg-gray-900 border-gray-700 text-white">
+						<TooltipContent className="bg-popover border-border text-popover-foreground">
 							<p>Completed</p>
 						</TooltipContent>
 					</Tooltip>
@@ -625,11 +625,11 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 							<div className="cursor-help inline-block">
 								<Loader2
 									size={iconSize}
-									className="text-amber-500 animate-spin"
+									className="text-primary animate-spin"
 								/>
 							</div>
 						</TooltipTrigger>
-						<TooltipContent className="bg-gray-900 border-gray-700 text-white">
+						<TooltipContent className="bg-popover border-border text-popover-foreground">
 							<p>Processing</p>
 						</TooltipContent>
 					</Tooltip>
@@ -639,10 +639,10 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 					<Tooltip>
 						<TooltipTrigger asChild>
 							<div className="cursor-help inline-block">
-								<XCircle size={iconSize} className="text-rose-400" />
+								<XCircle size={iconSize} className="text-destructive" />
 							</div>
 						</TooltipTrigger>
-						<TooltipContent className="bg-gray-900 border-gray-700 text-white">
+						<TooltipContent className="bg-popover border-border text-popover-foreground">
 							<p>Failed</p>
 						</TooltipContent>
 					</Tooltip>
@@ -652,13 +652,13 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 					<Tooltip>
 						<TooltipTrigger asChild>
 							<div className="flex items-center gap-1 cursor-help inline-flex">
-								<Hash size={12} className="text-stone-400" />
-								<span className="text-xs text-stone-400 font-medium">
+								<Hash size={12} className="text-muted-foreground" />
+								<span className="text-xs text-muted-foreground font-medium">
 									{queuePosition || "?"}
 								</span>
 							</div>
 						</TooltipTrigger>
-						<TooltipContent className="bg-gray-900 border-gray-700 text-white">
+						<TooltipContent className="bg-popover border-border text-popover-foreground">
 							<p>Queued (Position {queuePosition || "?"})</p>
 						</TooltipContent>
 					</Tooltip>
@@ -669,10 +669,10 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 					<Tooltip>
 						<TooltipTrigger asChild>
 							<div className="cursor-help inline-block">
-								<Clock size={iconSize} className="text-stone-500" />
+								<Clock size={iconSize} className="text-muted-foreground" />
 							</div>
 						</TooltipTrigger>
-						<TooltipContent className="bg-gray-900 border-gray-700 text-white">
+						<TooltipContent className="bg-popover border-border text-popover-foreground">
 							<p>Uploaded</p>
 						</TooltipContent>
 					</Tooltip>
@@ -728,7 +728,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 					return (
 						<button
 							onClick={() => handleAudioClick(file.id)}
-							className="text-stone-900 dark:text-stone-50 font-medium hover:text-amber-600 dark:hover:text-amber-400 transition-colors cursor-pointer text-left"
+							className="text-foreground font-medium hover:text-primary transition-colors cursor-pointer text-left font-inter"
 						>
 							{file.title || getFileName(file.audio_path)}
 						</button>
@@ -757,7 +757,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 					);
 				},
 				cell: ({ getValue }) => (
-					<span className="text-stone-600 dark:text-stone-300 text-sm">
+					<span className="text-muted-foreground text-sm font-inter">
 						{formatDate(getValue() as string)}
 					</span>
 				),
@@ -950,7 +950,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 	}
 
 	return (
-		<div className="bg-white dark:bg-gray-800 rounded-xl overflow-hidden">
+		<div className="glass-card rounded-xl overflow-hidden">
 			<div className="p-3 sm:p-6">
 				<div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0 mb-4">
 					<div>
@@ -972,7 +972,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 							placeholder="Search audio files..."
 							value={globalFilter ?? ""}
 							onChange={setGlobalFilter}
-							className="pl-10 bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600"
+							className="pl-10 bg-muted/50 border-border focus:bg-background transition-colors"
 						/>
 					</div>
 				</div>
@@ -1007,7 +1007,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 									{table.getHeaderGroups().map((headerGroup) => (
 										<TableRow
 											key={headerGroup.id}
-											className="bg-gray-50 dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 border-b border-gray-100 dark:border-gray-900"
+											className="bg-muted/50 hover:bg-muted/60 border-b border-border"
 										>
 											{headerGroup.headers.map((header) => (
 												<TableHead
@@ -1030,7 +1030,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 										table.getRowModel().rows.map((row) => (
 											<TableRow
 												key={row.id}
-												className="hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200 border-b border-gray-100 dark:border-gray-700 last:border-b-0"
+												className="hover:bg-muted/30 transition-colors duration-200 border-b border-border last:border-b-0"
 											>
 												{row.getVisibleCells().map((cell) => (
 													<TableCell
