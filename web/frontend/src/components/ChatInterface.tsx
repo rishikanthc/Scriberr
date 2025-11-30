@@ -356,7 +356,7 @@ export const ChatInterface = memo(function ChatInterface({ transcriptionId, acti
       <div className="relative group">
         <button
           onClick={handleCopy}
-          className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs bg-black/60 dark:bg-white/10 text-white dark:text-gray-200 hover:bg-black/70 dark:hover:bg-white/20 transition-opacity opacity-0 group-hover:opacity-100"
+          className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs bg-muted text-muted-foreground hover:bg-muted/80 transition-opacity opacity-0 group-hover:opacity-100"
           aria-label="Copy code"
         >
           {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
@@ -440,7 +440,7 @@ export const ChatInterface = memo(function ChatInterface({ transcriptionId, acti
                                 {/* Copy button for assistant message */}
                                 <button
                                   onClick={async () => { try { await navigator.clipboard.writeText(message.content || ''); } catch { } }}
-                                  className="float-right opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 ml-2"
+                                  className="float-right opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-muted ml-2"
                                   title="Copy message"
                                 >
                                   <Copy className="h-3 w-3" />
@@ -469,14 +469,14 @@ export const ChatInterface = memo(function ChatInterface({ transcriptionId, acti
                     <div className="flex w-full max-w-5xl px-6 mx-auto">
                       <div className="w-full flex justify-start">
                         <div className="flex space-x-3 max-w-5xl w-full">
-                          <div className="h-8 w-8 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center flex-shrink-0">
-                            <Bot className="h-4 w-4 text-gray-700 dark:text-gray-200" />
+                          <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
+                            <Bot className="h-4 w-4 text-muted-foreground" />
                           </div>
                           <div className="flex-1 space-y-2 overflow-hidden">
                             <div className="flex items-center space-x-2">
-                              <div className="font-medium text-gray-800 dark:text-gray-100 text-sm">Assistant</div>
+                              <div className="font-medium text-foreground text-sm">Assistant</div>
                             </div>
-                            <div className="flex items-center space-x-2 text-gray-500 dark:text-gray-400">
+                            <div className="flex items-center space-x-2 text-muted-foreground">
                               <div className="flex space-x-1">
                                 <div className="w-2 h-2 bg-current rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
                                 <div className="w-2 h-2 bg-current rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
@@ -530,11 +530,11 @@ export const ChatInterface = memo(function ChatInterface({ transcriptionId, acti
       ) : (
         <div className="flex items-center h-full">
           <div className="flex flex-col items-center justify-center w-full max-w-md mx-auto p-6 text-center">
-            <div className="h-16 w-16 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mb-4">
-              <MessageCircle className="h-8 w-8 text-gray-400" />
+            <div className="h-16 w-16 rounded-full bg-muted flex items-center justify-center mb-4">
+              <MessageCircle className="h-8 w-8 text-muted-foreground" />
             </div>
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">How can I help you today?</h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400 max-w-sm">
+            <h3 className="text-lg font-semibold text-foreground mb-2">How can I help you today?</h3>
+            <p className="text-sm text-muted-foreground max-w-sm">
               Start a conversation about this transcript or ask any questions you have.
             </p>
           </div>

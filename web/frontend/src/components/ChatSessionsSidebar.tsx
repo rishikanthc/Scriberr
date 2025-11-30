@@ -39,7 +39,7 @@ export function ChatSessionsSidebar({
   useEffect(() => {
     loadModels()
     loadSessions()
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [transcriptionId])
 
   // Reactively apply title updates emitted elsewhere
@@ -73,7 +73,7 @@ export function ChatSessionsSidebar({
       const data = await res.json()
       setAvailableModels(data.models || [])
       if (!selectedModel && data.models?.length) setSelectedModel(data.models[0])
-    } catch {}
+    } catch { }
   }
 
   async function loadSessions() {
@@ -82,7 +82,7 @@ export function ChatSessionsSidebar({
       if (!res.ok) return
       const data = await res.json()
       setSessions(data || [])
-    } catch {}
+    } catch { }
   }
 
   async function createSession() {
@@ -99,7 +99,7 @@ export function ChatSessionsSidebar({
       onSessionChange(created.id)
       setShowNewSessionDialog(false)
       setNewSessionTitle('')
-    } catch {}
+    } catch { }
   }
 
   async function updateTitle(id: string, title: string) {
@@ -113,7 +113,7 @@ export function ChatSessionsSidebar({
       const updated = await res.json()
       setSessions(prev => prev.map(s => (s.id === id ? updated : s)))
       setEditingId(null)
-    } catch {}
+    } catch { }
   }
 
   async function deleteSession(id: string) {
@@ -121,11 +121,11 @@ export function ChatSessionsSidebar({
     try {
       const res = await fetch(`/api/v1/chat/sessions/${id}`, { method: 'DELETE', headers: getAuthHeaders() })
       if (!res.ok) return
-      
+
       // Update sessions list first
       const updatedSessions = sessions.filter(s => s.id !== id)
       setSessions(updatedSessions)
-      
+
       // If we deleted the active session, switch to the next available one
       if (activeSessionId === id) {
         if (updatedSessions.length > 0) {
@@ -136,36 +136,36 @@ export function ChatSessionsSidebar({
           onSessionChange(null)
         }
       }
-    } catch {}
+    } catch { }
   }
 
   return (
-    <div className="h-full flex flex-col bg-gray-50 dark:bg-gray-850">
+    <div className="h-full flex flex-col bg-background/50">
       {/* Header */}
       <div className="flex-shrink-0 p-4">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Chats</h2>
+          <h2 className="text-lg font-semibold text-foreground">Chats</h2>
           <Dialog open={showNewSessionDialog} onOpenChange={setShowNewSessionDialog}>
             <DialogTrigger asChild>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className="h-8 w-8 p-0 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-200 dark:hover:bg-gray-800"
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground hover:bg-muted"
                 title="New Chat"
               >
                 <Plus className="h-4 w-4" />
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[425px] bg-white dark:bg-gray-800 shadow-2xl">
+            <DialogContent className="sm:max-w-[425px] bg-background border-border shadow-2xl">
               <DialogHeader><DialogTitle>New Chat Session</DialogTitle></DialogHeader>
               <div className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="model">Model</Label>
                   <Select value={selectedModel} onValueChange={setSelectedModel}>
-                    <SelectTrigger className="w-full bg-white dark:bg-gray-800 border-0 text-foreground">
+                    <SelectTrigger className="w-full bg-background border-border text-foreground">
                       <SelectValue placeholder="Select a model" />
                     </SelectTrigger>
-                    <SelectContent className="bg-white dark:bg-gray-850 border-0">
+                    <SelectContent className="bg-popover border-border">
                       {(availableModels || []).map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
                     </SelectContent>
                   </Select>
@@ -179,13 +179,13 @@ export function ChatSessionsSidebar({
             </DialogContent>
           </Dialog>
         </div>
-        
+
         {/* Search bar placeholder - similar to Open-webui */}
         <div className="relative mb-4">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <Input 
-            placeholder="Search conversations..." 
-            className="pl-10 bg-white dark:bg-gray-800 border-0 text-sm"
+          <Input
+            placeholder="Search conversations..."
+            className="pl-10 bg-muted/50 border-transparent text-sm"
             disabled
           />
         </div>
@@ -206,18 +206,17 @@ export function ChatSessionsSidebar({
             {sessions.map(s => (
               <div
                 key={s.id}
-                className={`group relative flex items-center p-2 mx-2 rounded-lg cursor-pointer transition-all duration-150 ${
-                  activeSessionId === s.id 
-                    ? 'bg-gray-200 dark:bg-gray-800' 
-                    : 'hover:bg-gray-100 dark:hover:bg-gray-800'
-                }`}
+                className={`group relative flex items-center p-2 mx-2 rounded-lg cursor-pointer transition-all duration-150 ${activeSessionId === s.id
+                    ? 'bg-muted text-foreground'
+                    : 'hover:bg-muted/50 text-muted-foreground hover:text-foreground'
+                  }`}
                 onClick={() => onSessionChange(s.id)}
               >
                 {/* Chat icon */}
                 <div className="flex-shrink-0 mr-3">
-                  <MessageSquare className="h-4 w-4 text-gray-400 dark:text-gray-500" />
+                  <MessageSquare className="h-4 w-4 opacity-70" />
                 </div>
-                
+
                 <div className="flex-1 min-w-0 flex items-center">
                   {editingId === s.id ? (
                     <Input
@@ -228,12 +227,12 @@ export function ChatSessionsSidebar({
                         if (e.key === 'Escape') setEditingId(null)
                       }}
                       onBlur={() => updateTitle(s.id, editTitle)}
-                      className="h-6 text-sm bg-white dark:bg-gray-900 border-0 p-0 focus-visible:ring-0"
+                      className="h-6 text-sm bg-background border-border p-0 focus-visible:ring-0"
                       autoFocus
                     />
                   ) : (
                     <div className="flex items-center gap-2 min-w-0 flex-1">
-                      <div className="truncate text-sm text-gray-900 dark:text-gray-100 font-medium">
+                      <div className="truncate text-sm font-medium">
                         {s.title || 'New Chat'}
                       </div>
                       {generatingTitleIds.has(s.id) && (
@@ -244,22 +243,22 @@ export function ChatSessionsSidebar({
                     </div>
                   )}
                 </div>
-                
+
                 {/* Action buttons */}
                 <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <Button 
-                    size="sm" 
-                    variant="ghost" 
-                    className="h-6 w-6 p-0 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded" 
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-6 w-6 p-0 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded"
                     onClick={(e) => { e.stopPropagation(); setEditingId(s.id); setEditTitle(s.title) }}
                     title="Rename chat"
                   >
                     <Edit2 className="h-3 w-3" />
                   </Button>
-                  <Button 
-                    size="sm" 
-                    variant="ghost" 
-                    className="h-6 w-6 p-0 text-gray-400 hover:text-red-500 rounded" 
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-6 w-6 p-0 text-gray-400 hover:text-red-500 rounded"
                     onClick={(e) => { e.stopPropagation(); deleteSession(s.id) }}
                     title="Delete chat"
                   >
