@@ -95,7 +95,7 @@ fi
 # List mode
 if [ "$LIST_MODE" = true ]; then
   log "Listing all batches..."
-  RESPONSE=$(curl -s -w "\n%{http_code}" -H "Authorization: Bearer $API_KEY" "$SERVER/api/v1/csv-batch")
+  RESPONSE=$(curl -s --connect-timeout 10 --max-time 30 -w "\n%{http_code}" -H "Authorization: Bearer $API_KEY" "$SERVER/api/v1/csv-batch")
   HTTP_CODE=$(echo "$RESPONSE" | tail -n 1)
   BODY=$(echo "$RESPONSE" | sed '$d')
 
@@ -119,7 +119,8 @@ else
   [ ! -f "$CSV_FILE" ] && { error "CSV file not found: $CSV_FILE"; exit 1; }
 
   log "Uploading CSV file: $CSV_FILE"
-  UPLOAD_RESPONSE=$(curl -s -w "\n%{http_code}" -X POST -H "Authorization: Bearer $API_KEY" \
+  UPLOAD_RESPONSE=$(curl -s --connect-timeout 10 --max-time 120 -w "\n%{http_code}" -X POST \
+    -H "Authorization: Bearer $API_KEY" \
     -F "file=@\"$CSV_FILE\"" "$SERVER/api/v1/csv-batch/upload")
   HTTP_CODE=$(echo "$UPLOAD_RESPONSE" | tail -n 1)
   UPLOAD_BODY=$(echo "$UPLOAD_RESPONSE" | sed '$d')
@@ -147,14 +148,23 @@ else
 
   # Start batch
   log "Starting batch processing..."
-  START_RESPONSE=$(curl -s -X POST -H "Authorization: Bearer $API_KEY" \
+  START_RESPONSE=$(curl -s --connect-timeout 10 --max-time 30 -w "\n%{http_code}" -X POST \
+    -H "Authorization: Bearer $API_KEY" \
     -H "Content-Type: application/json" -d "$PAYLOAD" \
     "$SERVER/api/v1/csv-batch/$BATCH_ID/start")
+  HTTP_CODE=$(echo "$START_RESPONSE" | tail -n 1)
+  START_BODY=$(echo "$START_RESPONSE" | sed '$d')
 
-  START_STATUS=$(echo "$START_RESPONSE" | jq -r '.status // empty')
+  if [ "$HTTP_CODE" != "200" ]; then
+    error "Failed to start batch (HTTP $HTTP_CODE)"
+    echo "$START_BODY" | jq . 2>/dev/null || echo "$START_BODY"
+    exit 1
+  fi
+
+  START_STATUS=$(echo "$START_BODY" | jq -r '.status // empty')
   if [ -z "$START_STATUS" ]; then
-    error "Failed to start batch"
-    echo "$START_RESPONSE" | jq . 2>/dev/null || echo "$START_RESPONSE"
+    error "Failed to start batch - invalid response"
+    echo "$START_BODY" | jq . 2>/dev/null || echo "$START_BODY"
     exit 1
   fi
 fi
@@ -166,7 +176,8 @@ RETRY_COUNT=0
 MAX_RETRIES=720  # ~1 hour at 5-second intervals
 
 while true; do
-  STATUS_RESPONSE=$(curl -s -w "\n%{http_code}" -H "Authorization: Bearer $API_KEY" \
+  STATUS_RESPONSE=$(curl -s --connect-timeout 10 --max-time 30 -w "\n%{http_code}" \
+    -H "Authorization: Bearer $API_KEY" \
     "$SERVER/api/v1/csv-batch/$BATCH_ID/status")
   HTTP_CODE=$(echo "$STATUS_RESPONSE" | tail -n 1)
   STATUS_BODY=$(echo "$STATUS_RESPONSE" | sed '$d')

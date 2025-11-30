@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"scriberr/internal/csvbatch"
@@ -53,12 +54,19 @@ type CSVBatchStartRequest struct {
 // @Security ApiKeyAuth
 // @Security BearerAuth
 func (h *CSVBatchHandler) UploadCSV(c *gin.Context) {
+	// Limit file size to 10MB to prevent DoS
+	const maxFileSize = 10 << 20 // 10MB
 	file, header, err := c.Request.FormFile("file")
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "No file uploaded"})
 		return
 	}
 	defer file.Close()
+
+	if header.Size > maxFileSize {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "CSV file too large (max 10MB)"})
+		return
+	}
 
 	ext := filepath.Ext(header.Filename)
 	if ext != ".csv" {
@@ -288,7 +296,14 @@ func (h *CSVBatchHandler) DeleteBatch(c *gin.Context) {
 // @Security BearerAuth
 func (h *CSVBatchHandler) DownloadOutput(c *gin.Context) {
 	batchID := c.Param("id")
-	rowID := c.Param("row_id")
+	rowIDStr := c.Param("row_id")
+
+	// Validate row_id is a valid integer
+	rowID, err := strconv.Atoi(rowIDStr)
+	if err != nil || rowID < 1 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid row ID"})
+		return
+	}
 
 	batch, err := h.processor.GetStatus(batchID)
 	if err != nil {
@@ -307,19 +322,28 @@ func (h *CSVBatchHandler) DownloadOutput(c *gin.Context) {
 		return
 	}
 
-	if _, err := os.Stat(*row.OutputPath); os.IsNotExist(err) {
+	// Path traversal protection: ensure output path is within batch directory
+	outputPath := filepath.Clean(*row.OutputPath)
+	batchDir := filepath.Clean(batch.OutputDir)
+	if !strings.HasPrefix(outputPath, batchDir) {
+		logger.Error("Path traversal attempt", "output_path", outputPath, "batch_dir", batchDir)
+		c.JSON(http.StatusForbidden, gin.H{"error": "Access denied"})
+		return
+	}
+
+	if _, err := os.Stat(outputPath); os.IsNotExist(err) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Output file not found"})
 		return
 	}
 
-	filename := filepath.Base(*row.OutputPath)
+	filename := filepath.Base(outputPath)
 	// Properly escape filename to prevent header injection
 	safeFilename := strings.ReplaceAll(filename, "\"", "\\\"")
 	safeFilename = strings.ReplaceAll(safeFilename, "\n", "")
 	safeFilename = strings.ReplaceAll(safeFilename, "\r", "")
 	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", safeFilename))
 	c.Header("Content-Type", "application/json")
-	c.File(*row.OutputPath)
+	c.File(outputPath)
 }
 
 // @Summary List batch output files

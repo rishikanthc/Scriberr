@@ -211,14 +211,20 @@ func (p *Processor) process(ctx context.Context, batchID string) {
 		default:
 		}
 
-		database.DB.Model(&models.CSVBatch{}).Where("id = ?", batchID).Update("current_row", row.RowNum)
+		if err := database.DB.Model(&models.CSVBatch{}).Where("id = ?", batchID).Update("current_row", row.RowNum).Error; err != nil {
+			logger.Error("Failed to update current_row", "batch", batchID, "error", err)
+		}
 
 		if p.processRow(ctx, &batch, &row) {
-			database.DB.Model(&models.CSVBatch{}).Where("id = ?", batchID).
-				UpdateColumn("success_rows", database.DB.Raw("success_rows + 1"))
+			if err := database.DB.Model(&models.CSVBatch{}).Where("id = ?", batchID).
+				UpdateColumn("success_rows", database.DB.Raw("success_rows + 1")).Error; err != nil {
+				logger.Error("Failed to update success_rows", "batch", batchID, "error", err)
+			}
 		} else {
-			database.DB.Model(&models.CSVBatch{}).Where("id = ?", batchID).
-				UpdateColumn("failed_rows", database.DB.Raw("failed_rows + 1"))
+			if err := database.DB.Model(&models.CSVBatch{}).Where("id = ?", batchID).
+				UpdateColumn("failed_rows", database.DB.Raw("failed_rows + 1")).Error; err != nil {
+				logger.Error("Failed to update failed_rows", "batch", batchID, "error", err)
+			}
 		}
 	}
 
@@ -228,12 +234,14 @@ func (p *Processor) process(ctx context.Context, batchID string) {
 // processRow handles a single URL: download -> convert -> transcribe -> save JSON
 func (p *Processor) processRow(ctx context.Context, batch *models.CSVBatch, row *models.CSVBatchRow) bool {
 	start := time.Now()
-	database.DB.Model(row).Updates(map[string]interface{}{
+	if err := database.DB.Model(row).Updates(map[string]interface{}{
 		"status":     models.RowProcessing,
 		"started_at": start,
-	})
+	}).Error; err != nil {
+		logger.Error("Failed to update row status to processing", "row", row.RowNum, "error", err)
+	}
 
-	logger.Info("Processing row", "batch", batch.ID, "row", row.RowNum, "url", row.URL)
+	logger.Info("Processing row", "batch", batch.ID, "row", row.RowNum)
 
 	// Get video title
 	title := p.getVideoTitle(ctx, row.URL)
@@ -241,17 +249,21 @@ func (p *Processor) processRow(ctx context.Context, batch *models.CSVBatch, row 
 		title = fmt.Sprintf("video_%d", row.RowNum)
 	}
 	filename := sanitizeFilename(title)
-	database.DB.Model(row).Updates(map[string]interface{}{
+	if err := database.DB.Model(row).Updates(map[string]interface{}{
 		"title":    title,
 		"filename": filename,
-	})
+	}).Error; err != nil {
+		logger.Error("Failed to update row title/filename", "row", row.RowNum, "error", err)
+	}
 
 	// Download and extract audio
 	audioPath, err := p.downloadAudio(ctx, row.URL, batch.ID, row.RowNum)
 	if err != nil {
 		return p.failRow(row, "download failed: "+err.Error())
 	}
-	database.DB.Model(row).Update("audio_path", audioPath)
+	if err := database.DB.Model(row).Update("audio_path", audioPath).Error; err != nil {
+		logger.Error("Failed to update row audio_path", "row", row.RowNum, "error", err)
+	}
 
 	// Transcribe
 	transcript, err := p.transcribe(ctx, audioPath, batch.Parameters)
@@ -279,11 +291,13 @@ func (p *Processor) processRow(ctx context.Context, batch *models.CSVBatch, row 
 
 	// Mark complete
 	now := time.Now()
-	database.DB.Model(row).Updates(map[string]interface{}{
+	if err := database.DB.Model(row).Updates(map[string]interface{}{
 		"status":       models.RowCompleted,
 		"output_path":  outputPath,
 		"completed_at": now,
-	})
+	}).Error; err != nil {
+		logger.Error("Failed to update row completion", "row", row.RowNum, "error", err)
+	}
 
 	logger.Info("Row completed", "batch", batch.ID, "row", row.RowNum, "duration", time.Since(start))
 	return true
@@ -382,36 +396,44 @@ func (p *Processor) transcribe(ctx context.Context, audioPath string, params mod
 
 func (p *Processor) failRow(row *models.CSVBatchRow, msg string) bool {
 	now := time.Now()
-	database.DB.Model(row).Updates(map[string]interface{}{
+	if err := database.DB.Model(row).Updates(map[string]interface{}{
 		"status":        models.RowFailed,
 		"error_message": msg,
 		"completed_at":  now,
-	})
+	}).Error; err != nil {
+		logger.Error("Failed to update row failure status", "row", row.RowNum, "db_error", err)
+	}
 	logger.Error("Row failed", "row", row.RowNum, "error", msg)
 	return false
 }
 
 func (p *Processor) failBatch(batchID, msg string) {
 	now := time.Now()
-	database.DB.Model(&models.CSVBatch{}).Where("id = ?", batchID).Updates(map[string]interface{}{
+	if err := database.DB.Model(&models.CSVBatch{}).Where("id = ?", batchID).Updates(map[string]interface{}{
 		"status":        models.BatchFailed,
 		"error_message": msg,
 		"completed_at":  now,
-	})
+	}).Error; err != nil {
+		logger.Error("Failed to update batch failure status", "batch", batchID, "db_error", err)
+	}
 	logger.Error("Batch failed", "id", batchID, "error", msg)
 }
 
 func (p *Processor) completeBatch(batchID string) {
 	now := time.Now()
-	database.DB.Model(&models.CSVBatch{}).Where("id = ?", batchID).Updates(map[string]interface{}{
+	if err := database.DB.Model(&models.CSVBatch{}).Where("id = ?", batchID).Updates(map[string]interface{}{
 		"status":       models.BatchCompleted,
 		"completed_at": now,
-	})
+	}).Error; err != nil {
+		logger.Error("Failed to update batch completion", "batch", batchID, "error", err)
+	}
 	logger.Info("Batch completed", "id", batchID)
 }
 
 func (p *Processor) updateBatchStatus(batchID string, status models.BatchStatus) {
-	database.DB.Model(&models.CSVBatch{}).Where("id = ?", batchID).Update("status", status)
+	if err := database.DB.Model(&models.CSVBatch{}).Where("id = ?", batchID).Update("status", status).Error; err != nil {
+		logger.Error("Failed to update batch status", "batch", batchID, "status", status, "error", err)
+	}
 }
 
 // parseCSV extracts YouTube URLs from a CSV file
