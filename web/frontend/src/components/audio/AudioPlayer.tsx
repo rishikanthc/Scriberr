@@ -82,8 +82,6 @@ export const AudioPlayer = forwardRef<AudioPlayerRef, AudioPlayerProps>(({
 
                 wavesurferRef.current = ws;
 
-                await ws.load(url);
-
                 ws.on('ready', () => {
                     setIsReady(true);
                     const dur = ws.getDuration();
@@ -116,6 +114,8 @@ export const AudioPlayer = forwardRef<AudioPlayerRef, AudioPlayerProps>(({
                     setIsPlaying(false);
                     onPlayStateChange?.(false);
                 });
+
+                await ws.load(url);
 
             } catch (error) {
                 console.error('Error initializing audio player:', error);
