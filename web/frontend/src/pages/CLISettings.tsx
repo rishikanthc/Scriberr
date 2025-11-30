@@ -77,26 +77,26 @@ export function CLISettings() {
     return (
         <Layout>
             <div className="max-w-3xl mx-auto">
-                <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-8">
+                <h1 className="text-3xl font-bold text-carbon-900 dark:text-white mb-8">
                     Watcher CLI
                 </h1>
 
-                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden mb-8">
+                <div className="bg-white dark:bg-carbon-800 rounded-xl shadow-sm border border-carbon-200 dark:border-carbon-700 overflow-hidden mb-8">
                     <div className="p-6">
-                        <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+                        <h2 className="text-xl font-semibold text-carbon-900 dark:text-white mb-4">
                             Installation
                         </h2>
-                        <p className="text-gray-600 dark:text-gray-300 mb-6">
+                        <p className="text-carbon-600 dark:text-carbon-300 mb-6">
                             Run this command in your terminal to install the Scriberr CLI. This script will automatically detect your OS and architecture.
                         </p>
 
                         <div className="relative">
-                            <div className="bg-gray-900 rounded-lg p-4 pr-24 font-mono text-sm text-gray-300 overflow-x-auto">
+                            <div className="bg-carbon-900 rounded-lg p-4 pr-24 font-mono text-sm text-carbon-300 overflow-x-auto">
                                 {loading ? 'Generating command...' : installCmd}
                             </div>
                             <button
                                 onClick={copyToClipboard}
-                                className="absolute right-2 top-2 px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-white text-xs rounded-md transition-colors flex items-center gap-2"
+                                className="absolute right-2 top-2 px-3 py-1.5 bg-carbon-700 hover:bg-carbon-600 text-white text-xs rounded-md transition-colors flex items-center gap-2"
                             >
                                 {copied ? (
                                     <>
@@ -119,38 +119,38 @@ export function CLISettings() {
                 </div>
 
                 <div className="grid gap-6 md:grid-cols-2">
-                    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
+                    <div className="bg-white dark:bg-carbon-800 rounded-xl shadow-sm border border-carbon-200 dark:border-carbon-700 p-6">
+                        <h3 className="text-lg font-semibold text-carbon-900 dark:text-white mb-3">
                             1. Authenticate
                         </h3>
-                        <p className="text-gray-600 dark:text-gray-300 text-sm mb-4">
+                        <p className="text-carbon-600 dark:text-carbon-300 text-sm mb-4">
                             Link the CLI to your account. This will open your browser for approval.
                         </p>
-                        <div className="bg-gray-100 dark:bg-gray-900 rounded p-3 font-mono text-sm text-gray-800 dark:text-gray-200">
+                        <div className="bg-carbon-100 dark:bg-carbon-900 rounded p-3 font-mono text-sm text-carbon-800 dark:text-carbon-200">
                             scriberr login
                         </div>
                     </div>
 
-                    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
+                    <div className="bg-white dark:bg-carbon-800 rounded-xl shadow-sm border border-carbon-200 dark:border-carbon-700 p-6">
+                        <h3 className="text-lg font-semibold text-carbon-900 dark:text-white mb-3">
                             2. Watch a Folder
                         </h3>
-                        <p className="text-gray-600 dark:text-gray-300 text-sm mb-4">
+                        <p className="text-carbon-600 dark:text-carbon-300 text-sm mb-4">
                             Start watching a directory for new audio files.
                         </p>
-                        <div className="bg-gray-100 dark:bg-gray-900 rounded p-3 font-mono text-sm text-gray-800 dark:text-gray-200">
+                        <div className="bg-carbon-100 dark:bg-carbon-900 rounded p-3 font-mono text-sm text-carbon-800 dark:text-carbon-200">
                             scriberr watch ~/Recordings
                         </div>
                     </div>
 
-                    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
+                    <div className="bg-white dark:bg-carbon-800 rounded-xl shadow-sm border border-carbon-200 dark:border-carbon-700 p-6">
+                        <h3 className="text-lg font-semibold text-carbon-900 dark:text-white mb-3">
                             3. Run as Service
                         </h3>
-                        <p className="text-gray-600 dark:text-gray-300 text-sm mb-4">
+                        <p className="text-carbon-600 dark:text-carbon-300 text-sm mb-4">
                             Install as a background service to keep watching after restart.
                         </p>
-                        <div className="bg-gray-100 dark:bg-gray-900 rounded p-3 font-mono text-sm text-gray-800 dark:text-gray-200">
+                        <div className="bg-carbon-100 dark:bg-carbon-900 rounded p-3 font-mono text-sm text-carbon-800 dark:text-carbon-200">
                             sudo scriberr install ~/Recordings<br />
                             sudo scriberr start
                         </div>

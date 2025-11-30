@@ -88,14 +88,14 @@ export function Register({ onRegister }: RegisterProps) {
 	};
 
 	const PasswordStrengthIndicator = ({ label, met }: { label: string; met: boolean }) => (
-		<div className={`flex items-center gap-2 text-sm ${met ? 'text-green-600 dark:text-green-400' : 'text-gray-500 dark:text-gray-400'}`}>
+		<div className={`flex items-center gap-2 text-sm ${met ? 'text-green-600 dark:text-green-400' : 'text-carbon-500 dark:text-carbon-400'}`}>
 			{met ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
 			<span>{label}</span>
 		</div>
 	);
 
 	return (
-		<div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+		<div className="min-h-screen bg-carbon-50 dark:bg-carbon-900 flex items-center justify-center">
 			<div className="absolute top-8 right-8">
 				<ThemeSwitcher />
 			</div>
@@ -105,18 +105,18 @@ export function Register({ onRegister }: RegisterProps) {
                 <div className="flex justify-center mb-6">
                     <ScriberrLogo onClick={() => navigate({ path: 'home' })} />
                 </div>
-					<h2 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
+					<h2 className="text-3xl font-bold text-carbon-900 dark:text-carbon-100">
 						Welcome to Scriberr
 					</h2>
-					<p className="mt-2 text-gray-600 dark:text-gray-400">
+					<p className="mt-2 text-carbon-600 dark:text-carbon-400">
 						Create your admin account to get started
 					</p>
 				</div>
 
-				<Card className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+				<Card className="bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700">
 					<CardHeader>
-						<CardTitle className="text-gray-900 dark:text-gray-100">Setup Admin Account</CardTitle>
-						<CardDescription className="text-gray-600 dark:text-gray-400">
+						<CardTitle className="text-carbon-900 dark:text-carbon-100">Setup Admin Account</CardTitle>
+						<CardDescription className="text-carbon-600 dark:text-carbon-400">
 							This will be the only account that can access this Scriberr instance
 						</CardDescription>
 					</CardHeader>
@@ -129,7 +129,7 @@ export function Register({ onRegister }: RegisterProps) {
 							)}
 							
 							<div className="space-y-2">
-								<Label htmlFor="username" className="text-gray-700 dark:text-gray-300">
+								<Label htmlFor="username" className="text-carbon-700 dark:text-carbon-300">
 									Username
 								</Label>
 								<Input
@@ -142,12 +142,12 @@ export function Register({ onRegister }: RegisterProps) {
 									required
 									minLength={3}
 									maxLength={50}
-									className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100"
+									className="bg-white dark:bg-carbon-800 border-carbon-300 dark:border-carbon-600 text-carbon-900 dark:text-carbon-100"
 								/>
 							</div>
 							
 							<div className="space-y-2">
-								<Label htmlFor="password" className="text-gray-700 dark:text-gray-300">
+								<Label htmlFor="password" className="text-carbon-700 dark:text-carbon-300">
 									Password
 								</Label>
 								<div className="relative">
@@ -159,20 +159,20 @@ export function Register({ onRegister }: RegisterProps) {
 										onChange={(e) => setPassword(e.target.value)}
 										disabled={loading}
 										required
-										className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 pr-10"
+										className="bg-white dark:bg-carbon-800 border-carbon-300 dark:border-carbon-600 text-carbon-900 dark:text-carbon-100 pr-10"
 									/>
 									<button
 										type="button"
 										onClick={() => setShowPassword(!showPassword)}
-										className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+										className="absolute right-3 top-1/2 -translate-y-1/2 text-carbon-400 hover:text-carbon-600 dark:hover:text-carbon-300"
 									>
 										{showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
 									</button>
 								</div>
 								
 								{password && (
-									<div className="mt-3 space-y-2 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-										<p className="text-sm font-medium text-gray-700 dark:text-gray-300">Password Requirements:</p>
+									<div className="mt-3 space-y-2 p-3 bg-carbon-50 dark:bg-carbon-800 rounded-lg">
+										<p className="text-sm font-medium text-carbon-700 dark:text-carbon-300">Password Requirements:</p>
 										<div className="grid grid-cols-1 gap-1">
 											<PasswordStrengthIndicator label="At least 8 characters" met={passwordStrength.hasMinLength} />
 											<PasswordStrengthIndicator label="One uppercase letter" met={passwordStrength.hasUppercase} />
@@ -185,7 +185,7 @@ export function Register({ onRegister }: RegisterProps) {
 							</div>
 							
 							<div className="space-y-2">
-								<Label htmlFor="confirmPassword" className="text-gray-700 dark:text-gray-300">
+								<Label htmlFor="confirmPassword" className="text-carbon-700 dark:text-carbon-300">
 									Confirm Password
 								</Label>
 								<div className="relative">
@@ -197,14 +197,14 @@ export function Register({ onRegister }: RegisterProps) {
 										onChange={(e) => setConfirmPassword(e.target.value)}
 										disabled={loading}
 										required
-										className={`bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 pr-10 ${
+										className={`bg-white dark:bg-carbon-800 border-carbon-300 dark:border-carbon-600 text-carbon-900 dark:text-carbon-100 pr-10 ${
 											confirmPassword && !passwordsMatch ? 'border-red-300 dark:border-red-600' : ''
 										}`}
 									/>
 									<button
 										type="button"
 										onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-										className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+										className="absolute right-3 top-1/2 -translate-y-1/2 text-carbon-400 hover:text-carbon-600 dark:hover:text-carbon-300"
 									>
 										{showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
 									</button>
@@ -232,7 +232,7 @@ export function Register({ onRegister }: RegisterProps) {
 				</Card>
 
 				<div className="text-center">
-					<p className="text-sm text-gray-600 dark:text-gray-400">
+					<p className="text-sm text-carbon-600 dark:text-carbon-400">
 						This account will have full administrative access to your Scriberr instance
 					</p>
 				</div>

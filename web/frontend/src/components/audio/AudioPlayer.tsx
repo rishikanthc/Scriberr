@@ -182,7 +182,7 @@ export const AudioPlayer = forwardRef<AudioPlayerRef, AudioPlayerProps>(({
 
                     {/* Progress Bar (visible when collapsed) */}
                     {collapsed && (
-                        <div className="h-1 w-full bg-gray-200 dark:bg-black-800 rounded-full overflow-hidden">
+                        <div className="h-1 w-full bg-carbon-200 dark:bg-carbon-800 rounded-full overflow-hidden">
                             <div
                                 className="h-full bg-primary transition-all duration-100"
                                 style={{ width: `${(currentTime / duration) * 100}%` }}

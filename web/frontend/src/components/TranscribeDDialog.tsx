@@ -122,46 +122,46 @@ export function TranscribeDDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+      <DialogContent className="sm:max-w-md bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700">
         <DialogHeader>
-          <DialogTitle className="text-gray-900 dark:text-gray-100">
+          <DialogTitle className="text-carbon-900 dark:text-carbon-100">
             Transcribe with Profile
           </DialogTitle>
-          <DialogDescription className="text-gray-600 dark:text-gray-400">
+          <DialogDescription className="text-carbon-600 dark:text-carbon-400">
             Choose a saved profile to start transcription with your preferred settings.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
           <div className="space-y-2">
-            <Label htmlFor="profile" className="text-gray-700 dark:text-gray-300 font-medium">
+            <Label htmlFor="profile" className="text-carbon-700 dark:text-carbon-300 font-medium">
               Select Profile
             </Label>
             
             {profilesLoading ? (
-              <div className="flex items-center space-x-2 p-3 bg-gray-50 dark:bg-gray-800 rounded-md border border-gray-200 dark:border-gray-700">
-                <Loader2 className="h-4 w-4 animate-spin text-gray-500 dark:text-gray-400" />
-                <span className="text-sm text-gray-600 dark:text-gray-400">Loading profiles...</span>
+              <div className="flex items-center space-x-2 p-3 bg-carbon-50 dark:bg-carbon-800 rounded-md border border-carbon-200 dark:border-carbon-700">
+                <Loader2 className="h-4 w-4 animate-spin text-carbon-500 dark:text-carbon-400" />
+                <span className="text-sm text-carbon-600 dark:text-carbon-400">Loading profiles...</span>
               </div>
             ) : profiles.length === 0 ? (
-              <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-md border border-gray-200 dark:border-gray-700">
-                <span className="text-sm text-gray-600 dark:text-gray-400">No profiles available</span>
+              <div className="p-3 bg-carbon-50 dark:bg-carbon-800 rounded-md border border-carbon-200 dark:border-carbon-700">
+                <span className="text-sm text-carbon-600 dark:text-carbon-400">No profiles available</span>
               </div>
             ) : (
               <Select
                 value={selectedProfileId}
                 onValueChange={handleProfileChange}
               >
-                <SelectTrigger className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400">
+                <SelectTrigger className="bg-white dark:bg-carbon-800 border-carbon-300 dark:border-carbon-600 text-carbon-900 dark:text-carbon-100 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400">
                   <SelectValue placeholder="Choose a profile..." />
                 </SelectTrigger>
-                <SelectContent className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 max-h-60">
+                <SelectContent className="bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700 max-h-60">
                   {/* All profiles */}
                   {profiles.map((profile) => (
                     <SelectItem 
                       key={profile.id} 
                       value={profile.id}
-                      className="text-gray-900 dark:text-gray-100 focus:bg-gray-100 dark:focus:bg-gray-700"
+                      className="text-carbon-900 dark:text-carbon-100 focus:bg-carbon-100 dark:focus:bg-carbon-700"
                     >
                       <div className="flex flex-col space-y-1">
                         <div className="flex items-center space-x-2">
@@ -173,7 +173,7 @@ export function TranscribeDDialog({
                           )}
                         </div>
                         {profile.description && (
-                          <span className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                          <span className="text-xs text-carbon-500 dark:text-carbon-400 truncate">
                             {profile.description}
                           </span>
                         )}
@@ -187,15 +187,15 @@ export function TranscribeDDialog({
 
           {/* Show selected profile details */}
           {selectedProfileId && !profilesLoading && (
-            <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-md border border-gray-200 dark:border-gray-700">
+            <div className="p-3 bg-carbon-50 dark:bg-carbon-800 rounded-md border border-carbon-200 dark:border-carbon-700">
               <div className="text-sm">
-                <span className="font-medium text-gray-700 dark:text-gray-300">Selected: </span>
-                <span className="text-gray-600 dark:text-gray-400">{getSelectedProfileName()}</span>
+                <span className="font-medium text-carbon-700 dark:text-carbon-300">Selected: </span>
+                <span className="text-carbon-600 dark:text-carbon-400">{getSelectedProfileName()}</span>
               </div>
               {(() => {
                 const profile = profiles.find(p => p.id === selectedProfileId);
                 return profile?.description ? (
-                  <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  <div className="text-xs text-carbon-500 dark:text-carbon-400 mt-1">
                     {profile.description}
                   </div>
                 ) : null;
@@ -208,7 +208,7 @@ export function TranscribeDDialog({
           <Button 
             variant="outline" 
             onClick={() => onOpenChange(false)}
-            className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
+            className="bg-white dark:bg-carbon-800 border-carbon-300 dark:border-carbon-600 text-carbon-700 dark:text-carbon-200 hover:bg-carbon-50 dark:hover:bg-carbon-700"
           >
             Cancel
           </Button>

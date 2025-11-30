@@ -58,10 +58,10 @@ export function NotesSidebar({ notes, onEdit, onDelete, onJumpTo }: NotesSidebar
   return (
     <div className="h-full overflow-y-auto space-y-2">
       {notes.length === 0 && (
-        <p className="text-sm text-gray-600 dark:text-gray-300">No notes yet. Select transcript text to add one.</p>
+        <p className="text-sm text-carbon-600 dark:text-carbon-300">No notes yet. Select transcript text to add one.</p>
       )}
       {notes.map((n) => (
-        <Card key={n.id} className="p-2 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+        <Card key={n.id} className="p-2 bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700">
           <div className="flex items-start justify-between gap-1.5">
             <div className="text-xs text-blue-600 dark:text-blue-300 font-mono">
               <button className="hover:underline" onClick={() => onJumpTo(n.start_time)} title="Jump to time">
@@ -104,7 +104,7 @@ export function NotesSidebar({ notes, onEdit, onDelete, onJumpTo }: NotesSidebar
               </Button>
             </div>
           </div>
-          <blockquote className="text-xs text-gray-500 dark:text-gray-400 border-l-2 border-gray-300 dark:border-gray-600 pl-2 mt-1 italic select-text">
+          <blockquote className="text-xs text-carbon-500 dark:text-carbon-400 border-l-2 border-carbon-300 dark:border-carbon-600 pl-2 mt-1 italic select-text">
             {n.quote}
           </blockquote>
           {editingId === n.id ? (
@@ -112,7 +112,7 @@ export function NotesSidebar({ notes, onEdit, onDelete, onJumpTo }: NotesSidebar
               <Textarea value={draft} onChange={(e) => setDraft(e.target.value)} rows={3} />
             </div>
           ) : (
-            <p className="mt-1 text-sm text-gray-800 dark:text-gray-100 whitespace-pre-wrap">
+            <p className="mt-1 text-sm text-carbon-800 dark:text-carbon-100 whitespace-pre-wrap">
               {n.content}
             </p>
           )}

@@ -68,38 +68,38 @@ export function SummaryTemplateDialog({ open, onOpenChange, onSave, initial }: S
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-xl md:max-w-2xl lg:max-w-3xl xl:max-w-4xl max-h-[90vh] md:max-h-[92vh] overflow-y-auto bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+      <DialogContent className="sm:max-w-xl md:max-w-2xl lg:max-w-3xl xl:max-w-4xl max-h-[90vh] md:max-h-[92vh] overflow-y-auto bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700">
         <DialogHeader>
-          <DialogTitle className="text-gray-900 dark:text-gray-100">{initial ? 'Edit Summary Template' : 'New Summary Template'}</DialogTitle>
-          <DialogDescription className="text-gray-600 dark:text-gray-400">
+          <DialogTitle className="text-carbon-900 dark:text-carbon-100">{initial ? 'Edit Summary Template' : 'New Summary Template'}</DialogTitle>
+          <DialogDescription className="text-carbon-600 dark:text-carbon-400">
             Define a reusable prompt to summarize transcripts.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-2">
           <div className="space-y-2">
-            <Label className="text-gray-700 dark:text-gray-300">Name</Label>
+            <Label className="text-carbon-700 dark:text-carbon-300">Name</Label>
             <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g., Concise Bullet Summary" />
           </div>
           <div className="space-y-2">
-            <Label className="text-gray-700 dark:text-gray-300">Model</Label>
+            <Label className="text-carbon-700 dark:text-carbon-300">Model</Label>
             <Select value={model} onValueChange={setModel}>
-              <SelectTrigger className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100">
+              <SelectTrigger className="bg-white dark:bg-carbon-800 border-carbon-300 dark:border-carbon-600 text-carbon-900 dark:text-carbon-100">
                 <SelectValue placeholder={models.length ? 'Select model' : 'No models available'} />
               </SelectTrigger>
-              <SelectContent className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 max-h-60">
+              <SelectContent className="bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700 max-h-60">
                 {models.map((m) => (
-                  <SelectItem key={m} value={m} className="text-gray-900 dark:text-gray-100 focus:bg-gray-100 dark:focus:bg-gray-700">{m}</SelectItem>
+                  <SelectItem key={m} value={m} className="text-carbon-900 dark:text-carbon-100 focus:bg-carbon-100 dark:focus:bg-carbon-700">{m}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
           <div className="space-y-2">
-            <Label className="text-gray-700 dark:text-gray-300">Description (optional)</Label>
+            <Label className="text-carbon-700 dark:text-carbon-300">Description (optional)</Label>
             <Input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Short description" />
           </div>
           <div className="space-y-2">
-            <Label className="text-gray-700 dark:text-gray-300">Prompt</Label>
+            <Label className="text-carbon-700 dark:text-carbon-300">Prompt</Label>
             <Textarea
               rows={10}
               className="resize-y min-h-40 sm:min-h-60 md:min-h-72 lg:min-h-[50vh] max-h-[65vh]"

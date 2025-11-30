@@ -72,7 +72,7 @@ export function APIKeyDisplayDialog({
 
 	return (
 		<Dialog open={open} onOpenChange={handleOpenChange}>
-			<DialogContent className="sm:max-w-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+			<DialogContent className="sm:max-w-lg bg-white dark:bg-carbon-800 border border-carbon-200 dark:border-carbon-700">
 				<DialogHeader>
 					<DialogTitle className="flex items-center gap-2">
 						<Check className="h-5 w-5 text-green-600" />
@@ -101,7 +101,7 @@ export function APIKeyDisplayDialog({
 					<div className="space-y-3">
 						<div>
 							<Label className="text-sm font-medium">Name</Label>
-							<div className="text-gray-900 dark:text-gray-100 mt-1">
+							<div className="text-carbon-900 dark:text-carbon-100 mt-1">
 								{apiKey.name}
 							</div>
 						</div>
@@ -109,7 +109,7 @@ export function APIKeyDisplayDialog({
 						{apiKey.description && (
 							<div>
 								<Label className="text-sm font-medium">Description</Label>
-								<div className="text-gray-600 dark:text-gray-400 mt-1">
+								<div className="text-carbon-600 dark:text-carbon-400 mt-1">
 									{apiKey.description}
 								</div>
 							</div>
@@ -124,7 +124,7 @@ export function APIKeyDisplayDialog({
 									id="api-key"
 									value={apiKey.key}
 									readOnly
-									className="font-mono text-sm bg-gray-50 dark:bg-gray-800"
+									className="font-mono text-sm bg-carbon-50 dark:bg-carbon-800"
 									onClick={(e) => (e.target as HTMLInputElement).select()}
 								/>
 								<Button
@@ -148,10 +148,10 @@ export function APIKeyDisplayDialog({
 							)}
 						</div>
 
-						<div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3">
-							<div className="text-sm text-gray-600 dark:text-gray-400">
+						<div className="bg-carbon-50 dark:bg-carbon-800 rounded-lg p-3">
+							<div className="text-sm text-carbon-600 dark:text-carbon-400">
 								<div className="font-medium mb-1">Usage Example:</div>
-								<div className="font-mono text-xs bg-white dark:bg-gray-900 p-2 rounded border">
+								<div className="font-mono text-xs bg-white dark:bg-carbon-900 p-2 rounded border">
 									curl -H "X-API-Key: {apiKey.key}" http://localhost:8080/api/v1/...
 								</div>
 							</div>

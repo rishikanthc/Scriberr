@@ -1139,18 +1139,18 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-gray-50 dark:bg-black-950">
+            <div className="min-h-screen bg-carbon-50 dark:bg-carbon-950">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
-                    <div className="bg-white dark:bg-black-900 rounded-xl p-3 sm:p-6">
+                    <div className="bg-white dark:bg-carbon-900 rounded-xl p-3 sm:p-6">
                         <div className="animate-pulse">
-                            <div className="h-6 bg-gray-200 dark:bg-black-600 rounded w-1/4 mb-4"></div>
-                            <div className="h-4 bg-gray-200 dark:bg-black-600 rounded w-1/2 mb-8"></div>
-                            <div className="h-20 bg-gray-200 dark:bg-black-600 rounded mb-8"></div>
+                            <div className="h-6 bg-carbon-200 dark:bg-carbon-600 rounded w-1/4 mb-4"></div>
+                            <div className="h-4 bg-carbon-200 dark:bg-carbon-600 rounded w-1/2 mb-8"></div>
+                            <div className="h-20 bg-carbon-200 dark:bg-carbon-600 rounded mb-8"></div>
                             <div className="space-y-3">
                                 {[...Array(5)].map((_, i) => (
                                     <div
                                         key={i}
-                                        className="h-4 bg-gray-200 dark:bg-black-600 rounded"
+                                        className="h-4 bg-carbon-200 dark:bg-carbon-600 rounded"
                                     ></div>
                                 ))}
                                 {/* Selection bubble and editor moved to portal */}
@@ -1164,10 +1164,10 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
 
     if (!audioFile) {
         return (
-            <div className="min-h-screen bg-gray-50 dark:bg-black-950">
+            <div className="min-h-screen bg-carbon-50 dark:bg-carbon-950">
                 <div className="flex items-center justify-center min-h-[50vh]">
-                    <div className="bg-white dark:bg-black-900 rounded-xl p-3 sm:p-6 text-center">
-                        <h1 className="text-xl font-semibold text-gray-900 dark:text-gray-50 mb-4">
+                    <div className="bg-white dark:bg-carbon-900 rounded-xl p-3 sm:p-6 text-center">
+                        <h1 className="text-xl font-semibold text-carbon-900 dark:text-carbon-50 mb-4">
                             Audio file not found
                         </h1>
                         <Button onClick={handleBack} variant="outline" className="cursor-pointer">
@@ -1199,7 +1199,7 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                             {editingTitle ? (
                                 <input
                                     autoFocus
-                                    className="w-full max-w-xl text-2xl font-bold bg-transparent border-b border-amber-400 focus:outline-none focus:ring-0 dark:text-gray-50 text-gray-900"
+                                    className="w-full max-w-xl text-2xl font-bold bg-transparent border-b border-amber-400 focus:outline-none focus:ring-0 dark:text-carbon-50 text-carbon-900"
                                     value={titleInput}
                                     disabled={savingTitle}
                                     onChange={(e) => setTitleInput(e.target.value)}
@@ -1211,12 +1211,12 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                                 />
                             ) : (
                                 <div className="flex items-center gap-2">
-                                    <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-50">
+                                    <h1 className="text-2xl font-bold text-carbon-900 dark:text-carbon-50">
                                         {audioFile.title || getFileName(audioFile.audio_path)}
                                     </h1>
                                     {audioFile.is_multi_track && (
                                         <>
-                                            <span className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300 text-xs font-medium rounded-md">
+                                            <span className="inline-flex items-center gap-1 px-2 py-1 bg-carbon-100 text-carbon-800 dark:bg-carbon-800 dark:text-carbon-300 text-xs font-medium rounded-md">
                                                 <Users className="h-3 w-3" />
                                                 Multi-Track ({audioFile.multi_track_files?.length || 0} speakers)
                                             </span>
@@ -1228,7 +1228,7 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                                         </>
                                     )}
                                     <button
-                                        className="h-7 w-7 inline-flex items-center justify-center rounded-md cursor-pointer text-gray-500 hover:text-gray-700 hover:bg-gray-200/60 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-gray-700/60 transition-colors"
+                                        className="h-7 w-7 inline-flex items-center justify-center rounded-md cursor-pointer text-carbon-500 hover:text-carbon-700 hover:bg-carbon-200/60 dark:text-carbon-400 dark:hover:text-carbon-200 dark:hover:bg-carbon-700/60 transition-colors"
                                         aria-label="Edit title"
                                         title="Edit title"
                                         onClick={() => {
@@ -1242,7 +1242,7 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                                 </div>
                             )}
                             <button
-                                className="h-7 w-7 inline-flex items-center justify-center rounded-md cursor-pointer text-gray-500 hover:text-gray-700 hover:bg-gray-200/60 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-gray-700/60 transition-colors"
+                                className="h-7 w-7 inline-flex items-center justify-center rounded-md cursor-pointer text-carbon-500 hover:text-carbon-700 hover:bg-carbon-200/60 dark:text-carbon-400 dark:hover:text-carbon-200 dark:hover:bg-carbon-700/60 transition-colors"
                                 aria-label={audioCollapsed ? 'Expand audio' : 'Collapse audio'}
                                 title={audioCollapsed ? 'Expand audio' : 'Collapse audio'}
                                 onClick={toggleAudioCollapsed}
@@ -1254,7 +1254,7 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                                 )}
                             </button>
                         </div>
-                        <p className="text-gray-600 dark:text-gray-400 text-sm">
+                        <p className="text-carbon-600 dark:text-carbon-400 text-sm">
                             Added on {formatDate(audioFile.created_at)}
                         </p>
                     </div>
@@ -1281,7 +1281,7 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                             {/* Title Row */}
                             <div className="flex items-center justify-between mb-3 sm:mb-0">
                                 <div className="flex items-center gap-3 min-w-0 flex-1 mr-2">
-                                    <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 truncate flex-1" title={audioFile.title || audioFile.audio_path}>
+                                    <h1 className="text-2xl font-bold text-carbon-900 dark:text-carbon-100 truncate flex-1" title={audioFile.title || audioFile.audio_path}>
                                         {getFileNameWithoutExt()}
                                     </h1>
                                 </div>
@@ -1290,12 +1290,12 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                                 <div className="hidden sm:flex items-center gap-2">
                                     {/* Sleek toolbar (desktop only) */}
                                     {viewMode === 'transcript' && (
-                                        <div className="flex items-center gap-1 sm:gap-1.5 rounded-md sm:rounded-lg bg-gray-100/80 dark:bg-black-800/80 px-1.5 py-0.5 sm:px-2 sm:py-1 border border-gray-200 dark:border-black-700 shadow-sm">
+                                        <div className="flex items-center gap-1 sm:gap-1.5 rounded-md sm:rounded-lg bg-carbon-100/80 dark:bg-carbon-800/80 px-1.5 py-0.5 sm:px-2 sm:py-1 border border-carbon-200 dark:border-carbon-700 shadow-sm">
                                             {/* View toggle */}
                                             <button
                                                 type="button"
                                                 onClick={() => setTranscriptMode(m => m === 'compact' ? 'expanded' : 'compact')}
-                                                className={`h-6 w-6 sm:h-7 sm:w-7 inline-flex items-center justify-center rounded-md cursor-pointer text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors ${transcriptMode === 'compact' ? 'bg-white dark:bg-black-700 shadow-sm' : ''}`}
+                                                className={`h-6 w-6 sm:h-7 sm:w-7 inline-flex items-center justify-center rounded-md cursor-pointer text-carbon-600 dark:text-carbon-300 hover:bg-carbon-200 dark:hover:bg-carbon-700 transition-colors ${transcriptMode === 'compact' ? 'bg-white dark:bg-carbon-700 shadow-sm' : ''}`}
                                                 title={transcriptMode === 'compact' ? 'Switch to Timeline view' : 'Switch to Compact view'}
                                             >
                                                 {transcriptMode === 'compact' ? (
@@ -1305,42 +1305,42 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                                                 )}
                                             </button>
 
-                                            <div className="mx-1 h-5 w-px bg-gray-300 dark:bg-black-700" />
+                                            <div className="mx-1 h-5 w-px bg-carbon-300 dark:bg-carbon-700" />
 
                                             {/* Notes toggle (icon + tiny count) */}
                                             <button
                                                 type="button"
                                                 onClick={() => setNotesOpen(v => !v)}
-                                                className={`relative h-6 w-6 sm:h-7 sm:w-7 inline-flex items-center justify-center rounded-md cursor-pointer text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors ${notesOpen ? 'bg-white dark:bg-black-700 shadow-sm' : ''}`}
+                                                className={`relative h-6 w-6 sm:h-7 sm:w-7 inline-flex items-center justify-center rounded-md cursor-pointer text-carbon-600 dark:text-carbon-300 hover:bg-carbon-200 dark:hover:bg-carbon-700 transition-colors ${notesOpen ? 'bg-white dark:bg-carbon-700 shadow-sm' : ''}`}
                                                 title="Toggle notes"
                                             >
                                                 <StickyNote className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                                                 {notes.length > 0 && (
-                                                    <span className="absolute -top-1 -right-0.5 min-w-[15px] h-[15px] px-1 rounded-full bg-gray-900 text-white text-[10px] leading-[15px] text-center">
+                                                    <span className="absolute -top-1 -right-0.5 min-w-[15px] h-[15px] px-1 rounded-full bg-carbon-900 text-white text-[10px] leading-[15px] text-center">
                                                         {notes.length > 99 ? '99+' : notes.length}
                                                     </span>
                                                 )}
                                             </button>
 
-                                            <div className="mx-1 h-5 w-px bg-gray-300 dark:bg-black-700" />
+                                            <div className="mx-1 h-5 w-px bg-carbon-300 dark:bg-carbon-700" />
 
                                             {/* Execution Info */}
                                             <button
                                                 type="button"
                                                 onClick={openExecutionInfo}
-                                                className="h-6 w-6 sm:h-7 sm:w-7 inline-flex items-center justify-center rounded-md cursor-pointer text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                                                className="h-6 w-6 sm:h-7 sm:w-7 inline-flex items-center justify-center rounded-md cursor-pointer text-carbon-600 dark:text-carbon-300 hover:bg-carbon-200 dark:hover:bg-carbon-700 transition-colors"
                                                 title="View execution parameters and timing"
                                             >
                                                 <Info className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                                             </button>
 
-                                            <div className="mx-1 h-5 w-px bg-gray-300 dark:bg-black-700" />
+                                            <div className="mx-1 h-5 w-px bg-carbon-300 dark:bg-carbon-700" />
 
                                             {/* Logs */}
                                             <button
                                                 type="button"
                                                 onClick={openLogsDialog}
-                                                className="h-6 w-6 sm:h-7 sm:w-7 inline-flex items-center justify-center rounded-md cursor-pointer text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                                                className="h-6 w-6 sm:h-7 sm:w-7 inline-flex items-center justify-center rounded-md cursor-pointer text-carbon-600 dark:text-carbon-300 hover:bg-carbon-200 dark:hover:bg-carbon-700 transition-colors"
                                                 title="View transcription logs"
                                             >
                                                 <FileText className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
@@ -1349,11 +1349,11 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                                             {/* Speaker Renaming - only show if there are speakers (from diarization or multi-track) */}
                                             {hasSpeakers() && getDetectedSpeakers().length > 0 && (
                                                 <>
-                                                    <div className="mx-1 h-5 w-px bg-gray-300 dark:bg-black-700" />
+                                                    <div className="mx-1 h-5 w-px bg-carbon-300 dark:bg-carbon-700" />
                                                     <button
                                                         type="button"
                                                         onClick={() => setSpeakerRenameDialogOpen(true)}
-                                                        className="h-6 w-6 sm:h-7 sm:w-7 inline-flex items-center justify-center rounded-md cursor-pointer text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                                                        className="h-6 w-6 sm:h-7 sm:w-7 inline-flex items-center justify-center rounded-md cursor-pointer text-carbon-600 dark:text-carbon-300 hover:bg-carbon-200 dark:hover:bg-carbon-700 transition-colors"
                                                         title="Rename speakers"
                                                     >
                                                         <Users className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
@@ -1361,55 +1361,55 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                                                 </>
                                             )}
 
-                                            <div className="mx-1 h-5 w-px bg-gray-300 dark:bg-black-700" />
+                                            <div className="mx-1 h-5 w-px bg-carbon-300 dark:bg-carbon-700" />
 
                                             {/* Summarize */}
                                             <button
                                                 type="button"
                                                 onClick={openSummarizeDialog}
-                                                className="h-6 w-6 sm:h-7 sm:w-7 inline-flex items-center justify-center rounded-md cursor-pointer text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
+                                                className="h-6 w-6 sm:h-7 sm:w-7 inline-flex items-center justify-center rounded-md cursor-pointer text-carbon-600 dark:text-carbon-300 hover:bg-carbon-200 dark:hover:bg-carbon-700 transition-colors disabled:opacity-50"
                                                 title={llmReady === false ? 'Configure LLM in Settings' : 'Summarize transcript'}
                                                 disabled={llmReady === false}
                                             >
                                                 <Sparkles className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                                             </button>
 
-                                            <div className="mx-1 h-5 w-px bg-gray-300 dark:bg-black-700" />
+                                            <div className="mx-1 h-5 w-px bg-carbon-300 dark:bg-carbon-700" />
 
                                             {/* Download dropdown */}
                                             <DropdownMenu>
                                                 <DropdownMenuTrigger asChild>
                                                     <button
                                                         type="button"
-                                                        className="h-6 w-6 sm:h-7 sm:w-7 inline-flex items-center justify-center rounded-md cursor-pointer text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                                                        className="h-6 w-6 sm:h-7 sm:w-7 inline-flex items-center justify-center rounded-md cursor-pointer text-carbon-600 dark:text-carbon-300 hover:bg-carbon-200 dark:hover:bg-carbon-700 transition-colors"
                                                         title="Download transcript"
                                                     >
                                                         <Download className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                                                     </button>
                                                 </DropdownMenuTrigger>
-                                                <DropdownMenuContent className="w-44 bg-white dark:bg-black-800 border-gray-200 dark:border-black-700">
-                                                    <DropdownMenuItem onClick={downloadSRT} className="flex items-center gap-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-gray-100">
+                                                <DropdownMenuContent className="w-44 bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700">
+                                                    <DropdownMenuItem onClick={downloadSRT} className="flex items-center gap-2 cursor-pointer hover:bg-carbon-100 dark:hover:bg-carbon-700 text-carbon-900 dark:text-carbon-100">
                                                         <FileImage className="h-4 w-4" />
                                                         Download as SRT
                                                     </DropdownMenuItem>
-                                                    <DropdownMenuItem onClick={() => handleDownloadWithDialog('txt')} className="flex items-center gap-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-gray-100">
+                                                    <DropdownMenuItem onClick={() => handleDownloadWithDialog('txt')} className="flex items-center gap-2 cursor-pointer hover:bg-carbon-100 dark:hover:bg-carbon-700 text-carbon-900 dark:text-carbon-100">
                                                         <FileText className="h-4 w-4" />
                                                         Download as TXT
                                                     </DropdownMenuItem>
-                                                    <DropdownMenuItem onClick={() => handleDownloadWithDialog('json')} className="flex items-center gap-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-gray-100">
+                                                    <DropdownMenuItem onClick={() => handleDownloadWithDialog('json')} className="flex items-center gap-2 cursor-pointer hover:bg-carbon-100 dark:hover:bg-carbon-700 text-carbon-900 dark:text-carbon-100">
                                                         <FileJson className="h-4 w-4" />
                                                         Download as JSON
                                                     </DropdownMenuItem>
                                                 </DropdownMenuContent>
                                             </DropdownMenu>
 
-                                            <div className="mx-1 h-5 w-px bg-gray-300 dark:bg-black-700" />
+                                            <div className="mx-1 h-5 w-px bg-carbon-300 dark:bg-carbon-700" />
 
                                             {/* Open Chat Page */}
                                             <button
                                                 type="button"
                                                 onClick={() => navigate({ path: 'chat', params: { audioId } })}
-                                                className="h-7 w-7 inline-flex items-center justify-center rounded-md cursor-pointer text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                                                className="h-7 w-7 inline-flex items-center justify-center rounded-md cursor-pointer text-carbon-600 dark:text-carbon-300 hover:bg-carbon-200 dark:hover:bg-carbon-700 transition-colors"
                                                 title="Open chat"
                                             >
                                                 <MessageCircle className="h-4 w-4" />
@@ -1421,12 +1421,12 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                                 {/* Mobile Toolbar Placeholder */}
                                 {viewMode === 'transcript' && (
                                     <div className="flex sm:hidden justify-center">
-                                        <div className="flex items-center gap-1 rounded-md bg-gray-100/80 dark:bg-black-800/80 px-1.5 py-0.5 border border-gray-200 dark:border-black-700 shadow-sm">
+                                        <div className="flex items-center gap-1 rounded-md bg-carbon-100/80 dark:bg-carbon-800/80 px-1.5 py-0.5 border border-carbon-200 dark:border-carbon-700 shadow-sm">
                                             {/* View toggle */}
                                             <button
                                                 type="button"
                                                 onClick={() => setTranscriptMode(m => m === 'compact' ? 'expanded' : 'compact')}
-                                                className={`h-6 w-6 inline-flex items-center justify-center rounded-md cursor-pointer text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors ${transcriptMode === 'compact' ? 'bg-white dark:bg-black-700 shadow-sm' : ''}`}
+                                                className={`h-6 w-6 inline-flex items-center justify-center rounded-md cursor-pointer text-carbon-600 dark:text-carbon-300 hover:bg-carbon-200 dark:hover:bg-carbon-700 transition-colors ${transcriptMode === 'compact' ? 'bg-white dark:bg-carbon-700 shadow-sm' : ''}`}
                                                 title={transcriptMode === 'compact' ? 'Switch to Timeline view' : 'Switch to Compact view'}
                                             >
                                                 {transcriptMode === 'compact' ? (
@@ -1436,30 +1436,30 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                                                 )}
                                             </button>
 
-                                            <div className="mx-1 h-5 w-px bg-gray-300 dark:bg-black-700" />
+                                            <div className="mx-1 h-5 w-px bg-carbon-300 dark:bg-carbon-700" />
 
                                             {/* Notes toggle */}
                                             <button
                                                 type="button"
                                                 onClick={() => setNotesOpen(v => !v)}
-                                                className={`relative h-6 w-6 inline-flex items-center justify-center rounded-md cursor-pointer text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors ${notesOpen ? 'bg-white dark:bg-black-700 shadow-sm' : ''}`}
+                                                className={`relative h-6 w-6 inline-flex items-center justify-center rounded-md cursor-pointer text-carbon-600 dark:text-carbon-300 hover:bg-carbon-200 dark:hover:bg-carbon-700 transition-colors ${notesOpen ? 'bg-white dark:bg-carbon-700 shadow-sm' : ''}`}
                                                 title="Toggle notes"
                                             >
                                                 <StickyNote className="h-3.5 w-3.5" />
                                                 {notes.length > 0 && (
-                                                    <span className="absolute -top-1 -right-0.5 min-w-[15px] h-[15px] px-1 rounded-full bg-gray-900 text-white text-[10px] leading-[15px] text-center">
+                                                    <span className="absolute -top-1 -right-0.5 min-w-[15px] h-[15px] px-1 rounded-full bg-carbon-900 text-white text-[10px] leading-[15px] text-center">
                                                         {notes.length > 99 ? '99+' : notes.length}
                                                     </span>
                                                 )}
                                             </button>
 
-                                            <div className="mx-1 h-5 w-px bg-gray-300 dark:bg-black-700" />
+                                            <div className="mx-1 h-5 w-px bg-carbon-300 dark:bg-carbon-700" />
 
                                             {/* Execution Info */}
                                             <button
                                                 type="button"
                                                 onClick={openExecutionInfo}
-                                                className="h-6 w-6 inline-flex items-center justify-center rounded-md cursor-pointer text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                                                className="h-6 w-6 inline-flex items-center justify-center rounded-md cursor-pointer text-carbon-600 dark:text-carbon-300 hover:bg-carbon-200 dark:hover:bg-carbon-700 transition-colors"
                                                 title="View execution parameters and timing"
                                             >
                                                 <Info className="h-3.5 w-3.5" />
@@ -1468,11 +1468,11 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                                             {/* Speaker Renaming - only show if there are speakers (from diarization or multi-track) */}
                                             {hasSpeakers() && getDetectedSpeakers().length > 0 && (
                                                 <>
-                                                    <div className="mx-1 h-5 w-px bg-gray-300 dark:bg-black-700" />
+                                                    <div className="mx-1 h-5 w-px bg-carbon-300 dark:bg-carbon-700" />
                                                     <button
                                                         type="button"
                                                         onClick={() => setSpeakerRenameDialogOpen(true)}
-                                                        className="h-6 w-6 inline-flex items-center justify-center rounded-md cursor-pointer text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                                                        className="h-6 w-6 inline-flex items-center justify-center rounded-md cursor-pointer text-carbon-600 dark:text-carbon-300 hover:bg-carbon-200 dark:hover:bg-carbon-700 transition-colors"
                                                         title="Rename speakers"
                                                     >
                                                         <Users className="h-3.5 w-3.5" />
@@ -1480,55 +1480,55 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                                                 </>
                                             )}
 
-                                            <div className="mx-1 h-5 w-px bg-gray-300 dark:bg-black-700" />
+                                            <div className="mx-1 h-5 w-px bg-carbon-300 dark:bg-carbon-700" />
 
                                             {/* Summarize */}
                                             <button
                                                 type="button"
                                                 onClick={openSummarizeDialog}
-                                                className="h-6 w-6 inline-flex items-center justify-center rounded-md cursor-pointer text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
+                                                className="h-6 w-6 inline-flex items-center justify-center rounded-md cursor-pointer text-carbon-600 dark:text-carbon-300 hover:bg-carbon-200 dark:hover:bg-carbon-700 transition-colors disabled:opacity-50"
                                                 title={llmReady === false ? 'Configure LLM in Settings' : 'Summarize transcript'}
                                                 disabled={llmReady === false}
                                             >
                                                 <Sparkles className="h-3.5 w-3.5" />
                                             </button>
 
-                                            <div className="mx-1 h-5 w-px bg-gray-300 dark:bg-black-700" />
+                                            <div className="mx-1 h-5 w-px bg-carbon-300 dark:bg-carbon-700" />
 
                                             {/* Download dropdown */}
                                             <DropdownMenu>
                                                 <DropdownMenuTrigger asChild>
                                                     <button
                                                         type="button"
-                                                        className="h-6 w-6 inline-flex items-center justify-center rounded-md cursor-pointer text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                                                        className="h-6 w-6 inline-flex items-center justify-center rounded-md cursor-pointer text-carbon-600 dark:text-carbon-300 hover:bg-carbon-200 dark:hover:bg-carbon-700 transition-colors"
                                                         title="Download transcript"
                                                     >
                                                         <Download className="h-3.5 w-3.5" />
                                                     </button>
                                                 </DropdownMenuTrigger>
-                                                <DropdownMenuContent className="w-44 bg-white dark:bg-black-800 border-gray-200 dark:border-black-700">
-                                                    <DropdownMenuItem onClick={downloadSRT} className="flex items-center gap-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-gray-100">
+                                                <DropdownMenuContent className="w-44 bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700">
+                                                    <DropdownMenuItem onClick={downloadSRT} className="flex items-center gap-2 cursor-pointer hover:bg-carbon-100 dark:hover:bg-carbon-700 text-carbon-900 dark:text-carbon-100">
                                                         <FileImage className="h-4 w-4" />
                                                         Download as SRT
                                                     </DropdownMenuItem>
-                                                    <DropdownMenuItem onClick={() => handleDownloadWithDialog('txt')} className="flex items-center gap-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-gray-100">
+                                                    <DropdownMenuItem onClick={() => handleDownloadWithDialog('txt')} className="flex items-center gap-2 cursor-pointer hover:bg-carbon-100 dark:hover:bg-carbon-700 text-carbon-900 dark:text-carbon-100">
                                                         <FileText className="h-4 w-4" />
                                                         Download as TXT
                                                     </DropdownMenuItem>
-                                                    <DropdownMenuItem onClick={() => handleDownloadWithDialog('json')} className="flex items-center gap-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-gray-100">
+                                                    <DropdownMenuItem onClick={() => handleDownloadWithDialog('json')} className="flex items-center gap-2 cursor-pointer hover:bg-carbon-100 dark:hover:bg-carbon-700 text-carbon-900 dark:text-carbon-100">
                                                         <FileJson className="h-4 w-4" />
                                                         Download as JSON
                                                     </DropdownMenuItem>
                                                 </DropdownMenuContent>
                                             </DropdownMenu>
 
-                                            <div className="mx-1 h-5 w-px bg-gray-300 dark:bg-black-700" />
+                                            <div className="mx-1 h-5 w-px bg-carbon-300 dark:bg-carbon-700" />
 
                                             {/* Open Chat Page */}
                                             <button
                                                 type="button"
                                                 onClick={() => navigate({ path: 'chat', params: { audioId } })}
-                                                className="h-6 w-6 inline-flex items-center justify-center rounded-md cursor-pointer text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                                                className="h-6 w-6 inline-flex items-center justify-center rounded-md cursor-pointer text-carbon-600 dark:text-carbon-300 hover:bg-carbon-200 dark:hover:bg-carbon-700 transition-colors"
                                                 title="Open chat"
                                             >
                                                 <MessageCircle className="h-3.5 w-3.5" />
@@ -1571,30 +1571,30 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
 
                 {/* Status Messages */}
                 {(currentStatus || audioFile.status) !== "completed" && (
-                    <div className="bg-white dark:bg-black-900 rounded-xl p-6">
+                    <div className="bg-white dark:bg-carbon-900 rounded-xl p-6">
                         <div className="text-center">
                             {/* Processing Status with Animation */}
                             {(currentStatus || audioFile.status) === "processing" && (
                                 <div className="flex flex-col items-center space-y-4">
                                     <div className="flex items-center space-x-3">
-                                        <Loader2 className="h-8 w-8 text-gray-500 animate-spin" />
+                                        <Loader2 className="h-8 w-8 text-carbon-500 animate-spin" />
                                         <div>
-                                            <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-50">
+                                            <h2 className="text-xl font-semibold text-carbon-900 dark:text-carbon-50">
                                                 Transcription in Progress
                                             </h2>
                                             {elapsedTime > 0 && (
-                                                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                                                <p className="text-sm text-carbon-500 dark:text-carbon-400 mt-1">
                                                     Processing for {formatElapsedTime(elapsedTime)}
                                                 </p>
                                             )}
                                         </div>
                                     </div>
                                     <div className="w-full max-w-md">
-                                        <div className="bg-gray-200 dark:bg-black-600 rounded-full h-2">
-                                            <div className="bg-gray-500 h-2 rounded-full transition-all duration-1000 ease-out animate-pulse" style={{ width: '60%' }}></div>
+                                        <div className="bg-carbon-200 dark:bg-carbon-600 rounded-full h-2">
+                                            <div className="bg-carbon-500 h-2 rounded-full transition-all duration-1000 ease-out animate-pulse" style={{ width: '60%' }}></div>
                                         </div>
                                     </div>
-                                    <p className="text-gray-600 dark:text-gray-400 text-sm">
+                                    <p className="text-carbon-600 dark:text-carbon-400 text-sm">
                                         Converting your audio to text... This may take a few minutes.
                                     </p>
                                 </div>
@@ -1603,12 +1603,12 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                             {/* Other Status Messages */}
                             {(currentStatus || audioFile.status) !== "processing" && (
                                 <>
-                                    <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-50 mb-2">
+                                    <h2 className="text-xl font-semibold text-carbon-900 dark:text-carbon-50 mb-2">
                                         {(currentStatus || audioFile.status) === "pending" && "Transcription Queued"}
                                         {(currentStatus || audioFile.status) === "uploaded" && "Ready for Transcription"}
                                         {(currentStatus || audioFile.status) === "failed" && "Transcription Failed"}
                                     </h2>
-                                    <p className="text-gray-600 dark:text-gray-400">
+                                    <p className="text-carbon-600 dark:text-carbon-400">
                                         {(currentStatus || audioFile.status) === "pending" &&
                                             "Your audio file is in the transcription queue."}
                                         {(currentStatus || audioFile.status) === "uploaded" &&
@@ -1620,7 +1620,7 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                                         <div className="mt-4">
                                             <button
                                                 onClick={openLogsDialog}
-                                                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-gray-900 rounded-md hover:bg-black focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors"
+                                                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-carbon-900 rounded-md hover:bg-carbon-950 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-carbon-500 transition-colors"
                                             >
                                                 <FileText className="h-4 w-4" />
                                                 View Logs
@@ -1671,7 +1671,7 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                                         r={radius}
                                         fill="none"
                                         stroke="currentColor"
-                                        className="text-gray-500 dark:text-gray-400"
+                                        className="text-carbon-500 dark:text-carbon-400"
                                         strokeWidth={strokeWidth}
                                         strokeLinecap="round"
                                         strokeDasharray={circumference}
@@ -1683,7 +1683,7 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                                     aria-label={isPlaying ? 'Pause audio' : 'Play audio'}
                                     title={isPlaying ? 'Pause' : 'Play'}
                                     style={{ transform: 'translate(-50%, -50%)' }}
-                                    className="absolute left-1/2 top-1/2 w-11 h-11 rounded-full bg-gray-900 hover:bg-black text-white shadow-lg transition-colors flex items-center justify-center cursor-pointer"
+                                    className="absolute left-1/2 top-1/2 w-11 h-11 rounded-full bg-carbon-900 hover:bg-carbon-950 text-white shadow-lg transition-colors flex items-center justify-center cursor-pointer"
                                 >
                                     {isPlaying ? (
                                         <Pause className="h-5 w-5" />
@@ -1698,7 +1698,7 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
 
                 {/* Download Options Dialog */}
                 <Dialog open={downloadDialogOpen} onOpenChange={setDownloadDialogOpen}>
-                    <DialogContent className="sm:max-w-md bg-white dark:bg-black-800 border-gray-200 dark:border-black-700">
+                    <DialogContent className="sm:max-w-md bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700">
                         <DialogHeader>
                             <DialogTitle className="flex items-center gap-2 text-xl">
                                 <Sparkles className="h-5 w-5 text-primary" />
@@ -1711,7 +1711,7 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
 
                         <div className="space-y-4 py-4">
                             <div className="flex items-center justify-between">
-                                <Label htmlFor="speaker-labels" className="text-gray-700 dark:text-gray-300">
+                                <Label htmlFor="speaker-labels" className="text-carbon-700 dark:text-carbon-300">
                                     Include Speaker Labels
                                 </Label>
                                 <Switch
@@ -1723,7 +1723,7 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                             </div>
 
                             <div className="flex items-center justify-between">
-                                <Label htmlFor="timestamps" className="text-gray-700 dark:text-gray-300">
+                                <Label htmlFor="timestamps" className="text-carbon-700 dark:text-carbon-300">
                                     Include Timestamps
                                 </Label>
                                 <Switch
@@ -1735,18 +1735,18 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                             </div>
 
                             {(!includeSpeakerLabels && !includeTimestamps) && (
-                                <div className="text-sm text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-black-800 p-3 rounded-md">
+                                <div className="text-sm text-carbon-500 dark:text-carbon-400 bg-carbon-50 dark:bg-carbon-800 p-3 rounded-md">
                                     <div className="flex items-center gap-2">
-                                        <Check className="h-4 w-4 text-gray-900 dark:text-gray-100" />
+                                        <Check className="h-4 w-4 text-carbon-900 dark:text-carbon-100" />
                                         Transcript will be formatted as a single paragraph
                                     </div>
                                 </div>
                             )}
 
                             {(includeSpeakerLabels || includeTimestamps) && (
-                                <div className="text-sm text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-black-800 p-3 rounded-md">
+                                <div className="text-sm text-carbon-500 dark:text-carbon-400 bg-carbon-50 dark:bg-carbon-800 p-3 rounded-md">
                                     <div className="flex items-center gap-2">
-                                        <Check className="h-4 w-4 text-gray-900 dark:text-gray-100" />
+                                        <Check className="h-4 w-4 text-carbon-900 dark:text-carbon-100" />
                                         Transcript will be formatted in segments with selected labels
                                     </div>
                                 </div>
@@ -1757,13 +1757,13 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                             <Button
                                 variant="outline"
                                 onClick={() => setDownloadDialogOpen(false)}
-                                className="bg-white dark:bg-black-800 border-gray-300 dark:border-black-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
+                                className="bg-white dark:bg-carbon-800 border-carbon-300 dark:border-carbon-600 text-carbon-700 dark:text-carbon-200 hover:bg-carbon-50 dark:hover:bg-carbon-700"
                             >
                                 Cancel
                             </Button>
                             <Button
                                 onClick={handleDownloadConfirm}
-                                className="bg-gray-900 dark:bg-gray-700 hover:bg-black dark:hover:bg-gray-600 text-white"
+                                className="bg-carbon-900 dark:bg-carbon-700 hover:bg-carbon-950 dark:hover:bg-carbon-600 text-white"
                             >
                                 <Download className="mr-2 h-4 w-4" />
                                 Download {downloadFormat.toUpperCase()}
@@ -1783,25 +1783,25 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
 
                 {/* Summarization template selector dialog */}
                 <UIDialog open={summarizeOpen} onOpenChange={(o) => { setSummarizeOpen(o); if (!o) { setTplPopoverOpen(false); } }}>
-                    <UIDialogContent className="sm:max-w-lg bg-white dark:bg-black-800 border-gray-200 dark:border-black-700">
+                    <UIDialogContent className="sm:max-w-lg bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700">
                         <UIDialogHeader>
-                            <UIDialogTitle className="text-gray-900 dark:text-gray-100">Summarize Transcript</UIDialogTitle>
-                            <UIDialogDescription className="text-gray-600 dark:text-gray-400">Choose a summarization template</UIDialogDescription>
+                            <UIDialogTitle className="text-carbon-900 dark:text-carbon-100">Summarize Transcript</UIDialogTitle>
+                            <UIDialogDescription className="text-carbon-600 dark:text-carbon-400">Choose a summarization template</UIDialogDescription>
                         </UIDialogHeader>
                         <div className="py-2 space-y-3">
                             <div className="space-y-1">
-                                <UILabel className="text-sm text-gray-700 dark:text-gray-300">Template</UILabel>
+                                <UILabel className="text-sm text-carbon-700 dark:text-carbon-300">Template</UILabel>
                                 <Popover open={tplPopoverOpen} onOpenChange={setTplPopoverOpen}>
                                     <PopoverTrigger asChild>
                                         <button
-                                            className="w-full inline-flex justify-between items-center rounded-md border border-gray-300 dark:border-black-600 bg-white dark:bg-black-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer"
+                                            className="w-full inline-flex justify-between items-center rounded-md border border-carbon-300 dark:border-carbon-600 bg-white dark:bg-carbon-800 px-3 py-2 text-sm text-carbon-900 dark:text-carbon-100 hover:bg-carbon-50 dark:hover:bg-carbon-700 cursor-pointer"
                                             aria-label="Choose template"
                                         >
                                             <span className="truncate text-left">{selectedTemplate ? selectedTemplate.name : (templatesLoading ? 'Loading...' : 'Select a template')}</span>
-                                            <span className="text-xs text-gray-500 ml-2 truncate">{selectedTemplate?.model ? `(${selectedTemplate.model})` : ''}</span>
+                                            <span className="text-xs text-carbon-500 ml-2 truncate">{selectedTemplate?.model ? `(${selectedTemplate.model})` : ''}</span>
                                         </button>
                                     </PopoverTrigger>
-                                    <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0 bg-white dark:bg-black-800 border border-gray-200 dark:border-black-700">
+                                    <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0 bg-white dark:bg-carbon-800 border border-carbon-200 dark:border-carbon-700">
                                         <Command>
                                             <CommandInput placeholder="Search templates..." />
                                             <CommandList className="max-h-64 overflow-auto">
@@ -1815,7 +1815,7 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                                                         >
                                                             <div className="flex flex-col">
                                                                 <span className="text-sm">{t.name}</span>
-                                                                <span className="text-xs text-gray-500">Model: {t.model || '—'}</span>
+                                                                <span className="text-xs text-carbon-500">Model: {t.model || '—'}</span>
                                                             </div>
                                                         </CommandItem>
                                                     ))}
@@ -1825,15 +1825,15 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                                     </PopoverContent>
                                 </Popover>
                                 {!templatesLoading && templates.length === 0 && (
-                                    <p className="text-xs text-gray-500">No templates. Create one in Settings → Summary.</p>
+                                    <p className="text-xs text-carbon-500">No templates. Create one in Settings → Summary.</p>
                                 )}
                                 {selectedTemplate && !selectedTemplate.model && (
                                     <p className="text-xs text-red-600">Selected template has no model configured. Edit it in Settings.</p>
                                 )}
                             </div>
                             <div className="mt-1 flex items-center justify-end gap-2">
-                                <button className="px-3 py-1.5 rounded-md bg-gray-200 dark:bg-black-700" onClick={() => setSummarizeOpen(false)}>Cancel</button>
-                                <button className="px-3 py-1.5 rounded-md bg-gray-900 text-white disabled:opacity-50 hover:bg-black transition-colors" disabled={!selectedTemplateId || !selectedTemplate?.model} onClick={() => { setSummarizeOpen(false); startSummarization(); }}>Summarize</button>
+                                <button className="px-3 py-1.5 rounded-md bg-carbon-200 dark:bg-carbon-700" onClick={() => setSummarizeOpen(false)}>Cancel</button>
+                                <button className="px-3 py-1.5 rounded-md bg-carbon-900 text-white disabled:opacity-50 hover:bg-carbon-950 transition-colors" disabled={!selectedTemplateId || !selectedTemplate?.model} onClick={() => { setSummarizeOpen(false); startSummarization(); }}>Summarize</button>
                             </div>
                         </div>
                     </UIDialogContent>
@@ -1841,14 +1841,14 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
 
                 {/* Summary output dialog */}
                 <UIDialog open={summaryOpen} onOpenChange={setSummaryOpen}>
-                    <UIDialogContent className="sm:max-w-3xl bg-white dark:bg-black-800 border-gray-200 dark:border-black-700 max-h-[85vh] overflow-y-auto">
+                    <UIDialogContent className="sm:max-w-3xl bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700 max-h-[85vh] overflow-y-auto">
                         <UIDialogHeader>
-                            <UIDialogTitle className="text-gray-900 dark:text-gray-100">Summary</UIDialogTitle>
-                            <UIDialogDescription className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+                            <UIDialogTitle className="text-carbon-900 dark:text-carbon-100">Summary</UIDialogTitle>
+                            <UIDialogDescription className="flex items-center gap-2 text-carbon-600 dark:text-carbon-400">
                                 {isSummarizing ? (
                                     <>
                                         <span>Generating summary...</span>
-                                        <span className="inline-block h-3.5 w-3.5 border-2 border-gray-600 border-t-transparent rounded-full animate-spin" aria-label="Loading" />
+                                        <span className="inline-block h-3.5 w-3.5 border-2 border-carbon-600 border-t-transparent rounded-full animate-spin" aria-label="Loading" />
                                     </>
                                 ) : (
                                     <span>Summary {summaryError ? 'failed' : 'ready'}</span>
@@ -1857,7 +1857,7 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                         </UIDialogHeader>
                         <div className="flex items-center justify-end gap-2 mb-2">
                             <button
-                                className="px-2.5 py-1.5 rounded-md bg-gray-900 text-white text-sm hover:bg-black transition-colors"
+                                className="px-2.5 py-1.5 rounded-md bg-carbon-900 text-white text-sm hover:bg-carbon-950 transition-colors"
                                 onClick={async () => {
                                     // Keep summary dialog open; open template picker on top
                                     setSummarizeOpen(true);
@@ -1879,7 +1879,7 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                                 Regenerate
                             </button>
                             <button
-                                className="px-2.5 py-1.5 rounded-md bg-gray-200 dark:bg-black-700 text-sm"
+                                className="px-2.5 py-1.5 rounded-md bg-carbon-200 dark:bg-carbon-700 text-sm"
                                 onClick={async () => {
                                     try {
                                         await navigator.clipboard.writeText(summaryStream || '');
@@ -1891,7 +1891,7 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                                 Copy Text
                             </button>
                             <button
-                                className="px-2.5 py-1.5 rounded-md bg-gray-200 dark:bg-black-700 text-sm"
+                                className="px-2.5 py-1.5 rounded-md bg-carbon-200 dark:bg-carbon-700 text-sm"
                                 onClick={() => {
                                     if (!summaryStream) return;
                                     const base = getFileNameWithoutExt();
@@ -1910,7 +1910,7 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                                     {summaryStream}
                                 </ReactMarkdown>
                             ) : (
-                                <p className="text-sm text-gray-500">{isSummarizing ? 'Generating summary...' : 'No content'}</p>
+                                <p className="text-sm text-carbon-500">{isSummarizing ? 'Generating summary...' : 'No content'}</p>
                             )}
                         </div>
                     </UIDialogContent>
@@ -1918,13 +1918,13 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
 
                 {/* Execution info dialog */}
                 <UIDialog open={executionInfoOpen} onOpenChange={setExecutionInfoOpen}>
-                    <UIDialogContent className="sm:max-w-4xl w-[95vw] bg-white dark:bg-gray-950 border-gray-200 dark:border-gray-800 max-h-[90vh] overflow-y-auto">
+                    <UIDialogContent className="sm:max-w-4xl w-[95vw] bg-white dark:bg-carbon-950 border-carbon-200 dark:border-carbon-800 max-h-[90vh] overflow-y-auto">
                         <UIDialogHeader>
-                            <UIDialogTitle className="text-gray-900 dark:text-gray-100 flex items-center gap-2">
-                                <Info className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                            <UIDialogTitle className="text-carbon-900 dark:text-carbon-100 flex items-center gap-2">
+                                <Info className="h-5 w-5 text-carbon-600 dark:text-carbon-400" />
                                 Transcription Execution Details
                             </UIDialogTitle>
-                            <UIDialogDescription className="text-gray-600 dark:text-gray-400">
+                            <UIDialogDescription className="text-carbon-600 dark:text-carbon-400">
                                 Parameters used and processing time for this transcription
                             </UIDialogDescription>
                         </UIDialogHeader>
@@ -1932,8 +1932,8 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                         {executionDataLoading ? (
                             <div className="py-8 text-center">
                                 <div className="animate-pulse">
-                                    <div className="h-4 bg-gray-200 dark:bg-black-600 rounded w-3/4 mx-auto mb-4"></div>
-                                    <div className="h-4 bg-gray-200 dark:bg-black-600 rounded w-1/2 mx-auto"></div>
+                                    <div className="h-4 bg-carbon-200 dark:bg-carbon-600 rounded w-3/4 mx-auto mb-4"></div>
+                                    <div className="h-4 bg-carbon-200 dark:bg-carbon-600 rounded w-1/2 mx-auto"></div>
                                 </div>
                             </div>
                         ) : executionData ? (
@@ -1943,30 +1943,30 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                                     // Multi-track timing display
                                     <div className="space-y-4">
                                         {/* Overall Processing Time */}
-                                        <div className="bg-gray-100/50 dark:bg-gray-900/50 backdrop-blur-md border border-gray-200/50 dark:border-gray-800/50 rounded-lg p-4 sm:p-6 shadow-sm">
-                                            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3 sm:mb-4 flex items-center gap-2">
-                                                <Clock className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                                        <div className="bg-carbon-100/50 dark:bg-carbon-900/50 backdrop-blur-md border border-carbon-200/50 dark:border-carbon-800/50 rounded-lg p-4 sm:p-6 shadow-sm">
+                                            <h3 className="text-lg font-semibold text-carbon-900 dark:text-carbon-100 mb-3 sm:mb-4 flex items-center gap-2">
+                                                <Clock className="h-5 w-5 text-carbon-600 dark:text-carbon-400" />
                                                 Overall Processing Time
                                             </h3>
                                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 text-sm">
-                                                <div className="bg-white/60 dark:bg-black/40 backdrop-blur-sm rounded-md p-3 border border-gray-200/50 dark:border-gray-700/50 shadow-sm">
-                                                    <span className="text-gray-600 dark:text-gray-400 font-medium">Started:</span>
-                                                    <p className="font-mono text-gray-900 dark:text-gray-100 mt-1 text-xs sm:text-sm">
+                                                <div className="bg-white/60 dark:bg-carbon-950/40 backdrop-blur-sm rounded-md p-3 border border-carbon-200/50 dark:border-carbon-700/50 shadow-sm">
+                                                    <span className="text-carbon-600 dark:text-carbon-400 font-medium">Started:</span>
+                                                    <p className="font-mono text-carbon-900 dark:text-carbon-100 mt-1 text-xs sm:text-sm">
                                                         {new Date(executionData.started_at).toLocaleString()}
                                                     </p>
                                                 </div>
-                                                <div className="bg-white/60 dark:bg-black/40 backdrop-blur-sm rounded-md p-3 border border-gray-200/50 dark:border-gray-700/50 shadow-sm">
-                                                    <span className="text-gray-600 dark:text-gray-400 font-medium">Completed:</span>
-                                                    <p className="font-mono text-gray-900 dark:text-gray-100 mt-1 text-xs sm:text-sm">
+                                                <div className="bg-white/60 dark:bg-carbon-950/40 backdrop-blur-sm rounded-md p-3 border border-carbon-200/50 dark:border-carbon-700/50 shadow-sm">
+                                                    <span className="text-carbon-600 dark:text-carbon-400 font-medium">Completed:</span>
+                                                    <p className="font-mono text-carbon-900 dark:text-carbon-100 mt-1 text-xs sm:text-sm">
                                                         {executionData.completed_at
                                                             ? new Date(executionData.completed_at).toLocaleString()
                                                             : 'N/A'
                                                         }
                                                     </p>
                                                 </div>
-                                                <div className="bg-white/60 dark:bg-black/40 backdrop-blur-sm rounded-md p-3 border border-gray-200/50 dark:border-gray-700/50 shadow-sm">
-                                                    <span className="text-gray-600 dark:text-gray-400 font-medium">Total Duration:</span>
-                                                    <p className="font-mono text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">
+                                                <div className="bg-white/60 dark:bg-carbon-950/40 backdrop-blur-sm rounded-md p-3 border border-carbon-200/50 dark:border-carbon-700/50 shadow-sm">
+                                                    <span className="text-carbon-600 dark:text-carbon-400 font-medium">Total Duration:</span>
+                                                    <p className="font-mono text-xl sm:text-2xl font-bold text-carbon-900 dark:text-carbon-100 mt-1">
                                                         {executionData.processing_duration
                                                             ? `${(executionData.processing_duration / 1000).toFixed(1)}s`
                                                             : 'N/A'
@@ -1978,26 +1978,26 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
 
                                         {/* Individual Track Processing */}
                                         {executionData.multi_track_timings && executionData.multi_track_timings.length > 0 && (
-                                            <div className="bg-gray-100/50 dark:bg-gray-900/50 backdrop-blur-md border border-gray-200/50 dark:border-gray-800/50 rounded-lg p-4 sm:p-6 shadow-sm">
-                                                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3 sm:mb-4 flex items-center gap-2">
-                                                    <svg className="h-5 w-5 text-gray-600 dark:text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <div className="bg-carbon-100/50 dark:bg-carbon-900/50 backdrop-blur-md border border-carbon-200/50 dark:border-carbon-800/50 rounded-lg p-4 sm:p-6 shadow-sm">
+                                                <h3 className="text-lg font-semibold text-carbon-900 dark:text-carbon-100 mb-3 sm:mb-4 flex items-center gap-2">
+                                                    <svg className="h-5 w-5 text-carbon-600 dark:text-carbon-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                                                     </svg>
                                                     Individual Track Processing
                                                 </h3>
                                                 <div className="space-y-3">
                                                     {executionData.multi_track_timings.map((timing, index) => (
-                                                        <div key={index} className="flex items-center gap-2 bg-gray-200/50 dark:bg-gray-800/50 backdrop-blur-sm p-1 rounded-lg border border-gray-200/50 dark:border-gray-700/50">
-                                                            <div className="bg-white/60 dark:bg-black/40 backdrop-blur-sm rounded-md p-3 border border-gray-200/50 dark:border-gray-700/50 flex-grow">
+                                                        <div key={index} className="flex items-center gap-2 bg-carbon-200/50 dark:bg-carbon-800/50 backdrop-blur-sm p-1 rounded-lg border border-carbon-200/50 dark:border-carbon-700/50">
+                                                            <div className="bg-white/60 dark:bg-carbon-950/40 backdrop-blur-sm rounded-md p-3 border border-carbon-200/50 dark:border-carbon-700/50 flex-grow">
                                                                 <div className="flex justify-between items-center mb-2">
-                                                                    <span className="font-medium text-gray-800 dark:text-gray-200">
+                                                                    <span className="font-medium text-carbon-800 dark:text-carbon-200">
                                                                         {timing.track_name}
                                                                     </span>
-                                                                    <span className="font-mono text-lg font-bold text-gray-600 dark:text-gray-400">
+                                                                    <span className="font-mono text-lg font-bold text-carbon-600 dark:text-carbon-400">
                                                                         {(timing.duration / 1000).toFixed(1)}s
                                                                     </span>
                                                                 </div>
-                                                                <div className="grid grid-cols-2 gap-2 text-xs text-gray-600 dark:text-gray-400">
+                                                                <div className="grid grid-cols-2 gap-2 text-xs text-carbon-600 dark:text-carbon-400">
                                                                     <div>
                                                                         <span className="font-medium">Started:</span>
                                                                         <p className="font-mono">{new Date(timing.start_time).toLocaleTimeString()}</p>
@@ -2016,41 +2016,41 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
 
                                         {/* Audio Merge Phase */}
                                         {executionData.merge_duration && (
-                                            <div className="bg-gray-100/50 dark:bg-gray-900/50 backdrop-blur-md border border-gray-200/50 dark:border-gray-800/50 rounded-lg p-4 sm:p-6 shadow-sm">
-                                                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3 sm:mb-4 flex items-center gap-2">
-                                                    <svg className="h-5 w-5 text-gray-600 dark:text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <div className="bg-carbon-100/50 dark:bg-carbon-900/50 backdrop-blur-md border border-carbon-200/50 dark:border-carbon-800/50 rounded-lg p-4 sm:p-6 shadow-sm">
+                                                <h3 className="text-lg font-semibold text-carbon-900 dark:text-carbon-100 mb-3 sm:mb-4 flex items-center gap-2">
+                                                    <svg className="h-5 w-5 text-carbon-600 dark:text-carbon-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
                                                     </svg>
                                                     Transcript Merge Phase
                                                 </h3>
                                                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-sm">
-                                                    <div className="bg-white/60 dark:bg-black/40 backdrop-blur-sm rounded-md p-3 border border-gray-200/50 dark:border-gray-700/50 shadow-sm">
-                                                        <span className="text-gray-600 dark:text-gray-400 font-medium">Started:</span>
-                                                        <p className="font-mono text-gray-900 dark:text-gray-100 mt-1 text-xs">
+                                                    <div className="bg-white/60 dark:bg-carbon-950/40 backdrop-blur-sm rounded-md p-3 border border-carbon-200/50 dark:border-carbon-700/50 shadow-sm">
+                                                        <span className="text-carbon-600 dark:text-carbon-400 font-medium">Started:</span>
+                                                        <p className="font-mono text-carbon-900 dark:text-carbon-100 mt-1 text-xs">
                                                             {executionData.merge_start_time
                                                                 ? new Date(executionData.merge_start_time).toLocaleTimeString()
                                                                 : 'N/A'
                                                             }
                                                         </p>
                                                     </div>
-                                                    <div className="bg-white/60 dark:bg-black/40 backdrop-blur-sm rounded-md p-3 border border-gray-200/50 dark:border-gray-700/50 shadow-sm">
-                                                        <span className="text-gray-600 dark:text-gray-400 font-medium">Completed:</span>
-                                                        <p className="font-mono text-gray-900 dark:text-gray-100 mt-1 text-xs">
+                                                    <div className="bg-white/60 dark:bg-carbon-950/40 backdrop-blur-sm rounded-md p-3 border border-carbon-200/50 dark:border-carbon-700/50 shadow-sm">
+                                                        <span className="text-carbon-600 dark:text-carbon-400 font-medium">Completed:</span>
+                                                        <p className="font-mono text-carbon-900 dark:text-carbon-100 mt-1 text-xs">
                                                             {executionData.merge_end_time
                                                                 ? new Date(executionData.merge_end_time).toLocaleTimeString()
                                                                 : 'N/A'
                                                             }
                                                         </p>
                                                     </div>
-                                                    <div className="bg-white/60 dark:bg-black/40 backdrop-blur-sm rounded-md p-3 border border-gray-200/50 dark:border-gray-700/50 shadow-sm">
-                                                        <span className="text-gray-600 dark:text-gray-400 font-medium">Duration:</span>
-                                                        <p className="font-mono text-lg font-bold text-gray-900 dark:text-gray-100 mt-1">
+                                                    <div className="bg-white/60 dark:bg-carbon-950/40 backdrop-blur-sm rounded-md p-3 border border-carbon-200/50 dark:border-carbon-700/50 shadow-sm">
+                                                        <span className="text-carbon-600 dark:text-carbon-400 font-medium">Duration:</span>
+                                                        <p className="font-mono text-lg font-bold text-carbon-900 dark:text-carbon-100 mt-1">
                                                             {(executionData.merge_duration / 1000).toFixed(1)}s
                                                         </p>
                                                     </div>
-                                                    <div className="bg-white/60 dark:bg-black/40 backdrop-blur-sm rounded-md p-3 border border-gray-200/50 dark:border-gray-700/50 shadow-sm">
-                                                        <span className="text-gray-600 dark:text-gray-400 font-medium">Audio Length:</span>
-                                                        <p className="font-mono text-lg font-bold text-gray-900 dark:text-gray-100 mt-1">
+                                                    <div className="bg-white/60 dark:bg-carbon-950/40 backdrop-blur-sm rounded-md p-3 border border-carbon-200/50 dark:border-carbon-700/50 shadow-sm">
+                                                        <span className="text-carbon-600 dark:text-carbon-400 font-medium">Audio Length:</span>
+                                                        <p className="font-mono text-lg font-bold text-carbon-900 dark:text-carbon-100 mt-1">
                                                             {(() => {
                                                                 const duration = getAudioDurationFromTranscript(transcript);
                                                                 return duration ? formatDuration(duration) : 'N/A';
@@ -2062,8 +2062,8 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                                         )}
                                         {/* Model Parameters for Multi-track */}
                                         <div>
-                                            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3 sm:mb-4 flex items-center gap-2">
-                                                <Settings className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                                            <h3 className="text-lg font-semibold text-carbon-900 dark:text-carbon-100 mb-3 sm:mb-4 flex items-center gap-2">
+                                                <Settings className="h-5 w-5 text-carbon-600 dark:text-carbon-400" />
                                                 {(() => {
                                                     const modelFamily = executionData.actual_parameters?.model_family;
                                                     if (modelFamily === 'nvidia_parakeet') return 'NVIDIA Parakeet Parameters';
@@ -2075,12 +2075,12 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                                             <div className="glass-card rounded-lg p-3 sm:p-4">
                                                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 text-sm">
                                                     {/* Model Settings */}
-                                                    <div className="bg-white/40 dark:bg-black/40 backdrop-blur-sm rounded-md p-3 border border-gray-200/50 dark:border-gray-800/50 shadow-sm">
-                                                        <h4 className="font-semibold text-gray-800 dark:text-gray-200 mb-2 text-sm sm:text-base">Model & Configuration</h4>
+                                                    <div className="bg-white/40 dark:bg-carbon-950/40 backdrop-blur-sm rounded-md p-3 border border-carbon-200/50 dark:border-carbon-800/50 shadow-sm">
+                                                        <h4 className="font-semibold text-carbon-800 dark:text-carbon-200 mb-2 text-sm sm:text-base">Model & Configuration</h4>
                                                         <div className="space-y-2">
                                                             <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
-                                                                <span className="text-gray-600 dark:text-gray-400 text-xs sm:text-sm font-medium">Model Family:</span>
-                                                                <span className="font-mono text-gray-900 dark:text-gray-100 text-xs sm:text-sm">
+                                                                <span className="text-carbon-600 dark:text-carbon-400 text-xs sm:text-sm font-medium">Model Family:</span>
+                                                                <span className="font-mono text-carbon-900 dark:text-carbon-100 text-xs sm:text-sm">
                                                                     {(() => {
                                                                         const family = executionData.actual_parameters?.model_family;
                                                                         if (family === 'nvidia_parakeet') return 'NVIDIA Parakeet';
@@ -2091,45 +2091,45 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                                                                 </span>
                                                             </div>
                                                             <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
-                                                                <span className="text-gray-600 dark:text-gray-400 text-xs sm:text-sm font-medium">Model:</span>
-                                                                <span className="font-mono text-gray-900 dark:text-gray-100 text-xs sm:text-sm break-all">{executionData.actual_parameters?.model || 'N/A'}</span>
+                                                                <span className="text-carbon-600 dark:text-carbon-400 text-xs sm:text-sm font-medium">Model:</span>
+                                                                <span className="font-mono text-carbon-900 dark:text-carbon-100 text-xs sm:text-sm break-all">{executionData.actual_parameters?.model || 'N/A'}</span>
                                                             </div>
                                                             {executionData.actual_parameters?.model_family === 'whisper' && (
                                                                 <>
                                                                     <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
-                                                                        <span className="text-gray-600 dark:text-gray-400 text-xs sm:text-sm font-medium">Device:</span>
-                                                                        <span className="font-mono text-gray-900 dark:text-gray-100 text-xs sm:text-sm">{executionData.actual_parameters?.device || 'N/A'}</span>
+                                                                        <span className="text-carbon-600 dark:text-carbon-400 text-xs sm:text-sm font-medium">Device:</span>
+                                                                        <span className="font-mono text-carbon-900 dark:text-carbon-100 text-xs sm:text-sm">{executionData.actual_parameters?.device || 'N/A'}</span>
                                                                     </div>
                                                                     <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
-                                                                        <span className="text-gray-600 dark:text-gray-400 text-xs sm:text-sm font-medium">Compute Type:</span>
-                                                                        <span className="font-mono text-gray-900 dark:text-gray-100 text-xs sm:text-sm">{executionData.actual_parameters?.compute_type || 'N/A'}</span>
+                                                                        <span className="text-carbon-600 dark:text-carbon-400 text-xs sm:text-sm font-medium">Compute Type:</span>
+                                                                        <span className="font-mono text-carbon-900 dark:text-carbon-100 text-xs sm:text-sm">{executionData.actual_parameters?.compute_type || 'N/A'}</span>
                                                                     </div>
                                                                     <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
-                                                                        <span className="text-gray-600 dark:text-gray-400 text-xs sm:text-sm font-medium">Batch Size:</span>
-                                                                        <span className="font-mono text-gray-900 dark:text-gray-100 text-xs sm:text-sm">{executionData.actual_parameters?.batch_size || 'N/A'}</span>
+                                                                        <span className="text-carbon-600 dark:text-carbon-400 text-xs sm:text-sm font-medium">Batch Size:</span>
+                                                                        <span className="font-mono text-carbon-900 dark:text-carbon-100 text-xs sm:text-sm">{executionData.actual_parameters?.batch_size || 'N/A'}</span>
                                                                     </div>
                                                                     <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
-                                                                        <span className="text-gray-600 dark:text-gray-400 text-xs sm:text-sm font-medium">Threads:</span>
-                                                                        <span className="font-mono text-gray-900 dark:text-gray-100 text-xs sm:text-sm">{executionData.actual_parameters?.threads || 0}</span>
+                                                                        <span className="text-carbon-600 dark:text-carbon-400 text-xs sm:text-sm font-medium">Threads:</span>
+                                                                        <span className="font-mono text-carbon-900 dark:text-carbon-100 text-xs sm:text-sm">{executionData.actual_parameters?.threads || 0}</span>
                                                                     </div>
                                                                 </>
                                                             )}
                                                             {executionData.actual_parameters?.model_family === 'nvidia_parakeet' && (
                                                                 <>
                                                                     <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
-                                                                        <span className="text-gray-600 dark:text-gray-400 text-xs sm:text-sm font-medium">Context Left:</span>
-                                                                        <span className="font-mono text-gray-900 dark:text-gray-100 text-xs sm:text-sm">{executionData.actual_parameters?.attention_context_left || 256}</span>
+                                                                        <span className="text-carbon-600 dark:text-carbon-400 text-xs sm:text-sm font-medium">Context Left:</span>
+                                                                        <span className="font-mono text-carbon-900 dark:text-carbon-100 text-xs sm:text-sm">{executionData.actual_parameters?.attention_context_left || 256}</span>
                                                                     </div>
                                                                     <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
-                                                                        <span className="text-gray-600 dark:text-gray-400 text-xs sm:text-sm font-medium">Context Right:</span>
-                                                                        <span className="font-mono text-gray-900 dark:text-gray-100 text-xs sm:text-sm">{executionData.actual_parameters?.attention_context_right || 256}</span>
+                                                                        <span className="text-carbon-600 dark:text-carbon-400 text-xs sm:text-sm font-medium">Context Right:</span>
+                                                                        <span className="font-mono text-carbon-900 dark:text-carbon-100 text-xs sm:text-sm">{executionData.actual_parameters?.attention_context_right || 256}</span>
                                                                     </div>
                                                                 </>
                                                             )}
                                                             {executionData.actual_parameters?.model_family === 'nvidia_canary' && (
                                                                 <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
-                                                                    <span className="text-gray-600 dark:text-gray-400 text-xs sm:text-sm font-medium">Source Language:</span>
-                                                                    <span className="font-mono text-gray-900 dark:text-gray-100 text-xs sm:text-sm">{executionData.actual_parameters?.language || 'auto'}</span>
+                                                                    <span className="text-carbon-600 dark:text-carbon-400 text-xs sm:text-sm font-medium">Source Language:</span>
+                                                                    <span className="font-mono text-carbon-900 dark:text-carbon-100 text-xs sm:text-sm">{executionData.actual_parameters?.language || 'auto'}</span>
                                                                 </div>
                                                             )}
                                                         </div>
@@ -2137,48 +2137,48 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
 
                                                     {/* Processing Settings - Only for WhisperX */}
                                                     {executionData.actual_parameters?.model_family === 'whisper' && (
-                                                        <div className="bg-white/40 dark:bg-black/40 backdrop-blur-sm rounded-md p-3 border border-gray-200/50 dark:border-gray-800/50 shadow-sm">
-                                                            <h4 className="font-semibold text-gray-800 dark:text-gray-200 mb-2 text-sm sm:text-base">Processing</h4>
+                                                        <div className="bg-white/40 dark:bg-carbon-950/40 backdrop-blur-sm rounded-md p-3 border border-carbon-200/50 dark:border-carbon-800/50 shadow-sm">
+                                                            <h4 className="font-semibold text-carbon-800 dark:text-carbon-200 mb-2 text-sm sm:text-base">Processing</h4>
                                                             <div className="space-y-1">
                                                                 <div className="flex justify-between">
-                                                                    <span className="text-gray-600 dark:text-gray-400">Task:</span>
-                                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.task || 'transcribe'}</span>
+                                                                    <span className="text-carbon-600 dark:text-carbon-400">Task:</span>
+                                                                    <span className="font-mono text-carbon-900 dark:text-carbon-100">{executionData.actual_parameters?.task || 'transcribe'}</span>
                                                                 </div>
                                                                 <div className="flex justify-between">
-                                                                    <span className="text-gray-600 dark:text-gray-400">Language:</span>
-                                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.language || 'auto'}</span>
+                                                                    <span className="text-carbon-600 dark:text-carbon-400">Language:</span>
+                                                                    <span className="font-mono text-carbon-900 dark:text-carbon-100">{executionData.actual_parameters?.language || 'auto'}</span>
                                                                 </div>
                                                                 <div className="flex justify-between">
-                                                                    <span className="text-gray-600 dark:text-gray-400">Diarization:</span>
-                                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.diarize ? 'Yes' : 'No'}</span>
+                                                                    <span className="text-carbon-600 dark:text-carbon-400">Diarization:</span>
+                                                                    <span className="font-mono text-carbon-900 dark:text-carbon-100">{executionData.actual_parameters?.diarize ? 'Yes' : 'No'}</span>
                                                                 </div>
                                                                 <div className="flex justify-between">
-                                                                    <span className="text-gray-600 dark:text-gray-400">VAD Method:</span>
-                                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.vad_method || 'pyannote'}</span>
+                                                                    <span className="text-carbon-600 dark:text-carbon-400">VAD Method:</span>
+                                                                    <span className="font-mono text-carbon-900 dark:text-carbon-100">{executionData.actual_parameters?.vad_method || 'pyannote'}</span>
                                                                 </div>
                                                                 <div className="flex justify-between">
-                                                                    <span className="text-gray-600 dark:text-gray-400">VAD Onset:</span>
-                                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.vad_onset ?? 0.5}</span>
+                                                                    <span className="text-carbon-600 dark:text-carbon-400">VAD Onset:</span>
+                                                                    <span className="font-mono text-carbon-900 dark:text-carbon-100">{executionData.actual_parameters?.vad_onset ?? 0.5}</span>
                                                                 </div>
                                                                 <div className="flex justify-between">
-                                                                    <span className="text-gray-600 dark:text-gray-400">VAD Offset:</span>
-                                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.vad_offset ?? 0.363}</span>
+                                                                    <span className="text-carbon-600 dark:text-carbon-400">VAD Offset:</span>
+                                                                    <span className="font-mono text-carbon-900 dark:text-carbon-100">{executionData.actual_parameters?.vad_offset ?? 0.363}</span>
                                                                 </div>
                                                                 <div className="flex justify-between">
-                                                                    <span className="text-gray-600 dark:text-gray-400">Chunk Size:</span>
-                                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.chunk_size || 'N/A'}</span>
+                                                                    <span className="text-carbon-600 dark:text-carbon-400">Chunk Size:</span>
+                                                                    <span className="font-mono text-carbon-900 dark:text-carbon-100">{executionData.actual_parameters?.chunk_size || 'N/A'}</span>
                                                                 </div>
                                                                 <div className="flex justify-between">
-                                                                    <span className="text-gray-600 dark:text-gray-400">Align Chunks:</span>
-                                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.align_chunks ? 'Yes' : 'No'}</span>
+                                                                    <span className="text-carbon-600 dark:text-carbon-400">Align Chunks:</span>
+                                                                    <span className="font-mono text-carbon-900 dark:text-carbon-100">{executionData.actual_parameters?.align_chunks ? 'Yes' : 'No'}</span>
                                                                 </div>
                                                                 <div className="flex justify-between">
-                                                                    <span className="text-gray-600 dark:text-gray-400">Align Method:</span>
-                                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.align_method || 'N/A'}</span>
+                                                                    <span className="text-carbon-600 dark:text-carbon-400">Align Method:</span>
+                                                                    <span className="font-mono text-carbon-900 dark:text-carbon-100">{executionData.actual_parameters?.align_method || 'N/A'}</span>
                                                                 </div>
                                                                 <div className="flex justify-between">
-                                                                    <span className="text-gray-600 dark:text-gray-400">Return Scores:</span>
-                                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.return_scores ? 'Yes' : 'No'}</span>
+                                                                    <span className="text-carbon-600 dark:text-carbon-400">Return Scores:</span>
+                                                                    <span className="font-mono text-carbon-900 dark:text-carbon-100">{executionData.actual_parameters?.return_scores ? 'Yes' : 'No'}</span>
                                                                 </div>
                                                             </div>
                                                         </div>
@@ -2186,40 +2186,40 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
 
                                                     {/* Advanced Settings - Only for WhisperX */}
                                                     {executionData.actual_parameters?.model_family === 'whisper' && (
-                                                        <div className="bg-white/40 dark:bg-black/40 backdrop-blur-sm rounded-md p-3 border border-gray-200/50 dark:border-gray-800/50 shadow-sm">
-                                                            <h4 className="font-semibold text-gray-800 dark:text-gray-200 mb-2 text-sm sm:text-base">Advanced</h4>
+                                                        <div className="bg-white/40 dark:bg-carbon-950/40 backdrop-blur-sm rounded-md p-3 border border-carbon-200/50 dark:border-carbon-800/50 shadow-sm">
+                                                            <h4 className="font-semibold text-carbon-800 dark:text-carbon-200 mb-2 text-sm sm:text-base">Advanced</h4>
                                                             <div className="space-y-1">
                                                                 <div className="flex justify-between">
-                                                                    <span className="text-gray-600 dark:text-gray-400">Beam Size:</span>
-                                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.beam_size || 'N/A'}</span>
+                                                                    <span className="text-carbon-600 dark:text-carbon-400">Beam Size:</span>
+                                                                    <span className="font-mono text-carbon-900 dark:text-carbon-100">{executionData.actual_parameters?.beam_size || 'N/A'}</span>
                                                                 </div>
                                                                 <div className="flex justify-between">
-                                                                    <span className="text-gray-600 dark:text-gray-400">Best Of:</span>
-                                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.best_of || 'N/A'}</span>
+                                                                    <span className="text-carbon-600 dark:text-carbon-400">Best Of:</span>
+                                                                    <span className="font-mono text-carbon-900 dark:text-carbon-100">{executionData.actual_parameters?.best_of || 'N/A'}</span>
                                                                 </div>
                                                                 <div className="flex justify-between">
-                                                                    <span className="text-gray-600 dark:text-gray-400">Temperature:</span>
-                                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.temperature || 'N/A'}</span>
+                                                                    <span className="text-carbon-600 dark:text-carbon-400">Temperature:</span>
+                                                                    <span className="font-mono text-carbon-900 dark:text-carbon-100">{executionData.actual_parameters?.temperature || 'N/A'}</span>
                                                                 </div>
                                                                 <div className="flex justify-between">
-                                                                    <span className="text-gray-600 dark:text-gray-400">No Speech Threshold:</span>
-                                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.no_speech_threshold || 'N/A'}</span>
+                                                                    <span className="text-carbon-600 dark:text-carbon-400">No Speech Threshold:</span>
+                                                                    <span className="font-mono text-carbon-900 dark:text-carbon-100">{executionData.actual_parameters?.no_speech_threshold || 'N/A'}</span>
                                                                 </div>
                                                                 <div className="flex justify-between">
-                                                                    <span className="text-gray-600 dark:text-gray-400">Log Prob Threshold:</span>
-                                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.logprob_threshold || 'N/A'}</span>
+                                                                    <span className="text-carbon-600 dark:text-carbon-400">Log Prob Threshold:</span>
+                                                                    <span className="font-mono text-carbon-900 dark:text-carbon-100">{executionData.actual_parameters?.logprob_threshold || 'N/A'}</span>
                                                                 </div>
                                                                 <div className="flex justify-between">
-                                                                    <span className="text-gray-600 dark:text-gray-400">Compression Ratio Threshold:</span>
-                                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.compression_ratio_threshold || 'N/A'}</span>
+                                                                    <span className="text-carbon-600 dark:text-carbon-400">Compression Ratio Threshold:</span>
+                                                                    <span className="font-mono text-carbon-900 dark:text-carbon-100">{executionData.actual_parameters?.compression_ratio_threshold || 'N/A'}</span>
                                                                 </div>
                                                                 <div className="flex justify-between">
-                                                                    <span className="text-gray-600 dark:text-gray-400">Condition On Previous Text:</span>
-                                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.condition_on_previous_text ? 'Yes' : 'No'}</span>
+                                                                    <span className="text-carbon-600 dark:text-carbon-400">Condition On Previous Text:</span>
+                                                                    <span className="font-mono text-carbon-900 dark:text-carbon-100">{executionData.actual_parameters?.condition_on_previous_text ? 'Yes' : 'No'}</span>
                                                                 </div>
                                                                 <div className="flex justify-between">
-                                                                    <span className="text-gray-600 dark:text-gray-400">Initial Prompt:</span>
-                                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.initial_prompt || 'N/A'}</span>
+                                                                    <span className="text-carbon-600 dark:text-carbon-400">Initial Prompt:</span>
+                                                                    <span className="font-mono text-carbon-900 dark:text-carbon-100">{executionData.actual_parameters?.initial_prompt || 'N/A'}</span>
                                                                 </div>
                                                             </div>
                                                         </div>
@@ -2227,28 +2227,28 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
 
                                                     {/* Advanced Settings - Only for NVIDIA Parakeet/Canary */}
                                                     {(executionData.actual_parameters?.model_family === 'nvidia_parakeet' || executionData.actual_parameters?.model_family === 'nvidia_canary') && (
-                                                        <div className="bg-white/40 dark:bg-black/40 backdrop-blur-sm rounded-md p-3 border border-gray-200/50 dark:border-gray-800/50 shadow-sm">
-                                                            <h4 className="font-semibold text-gray-800 dark:text-gray-200 mb-2 text-sm sm:text-base">Advanced</h4>
+                                                        <div className="bg-white/40 dark:bg-carbon-950/40 backdrop-blur-sm rounded-md p-3 border border-carbon-200/50 dark:border-carbon-800/50 shadow-sm">
+                                                            <h4 className="font-semibold text-carbon-800 dark:text-carbon-200 mb-2 text-sm sm:text-base">Advanced</h4>
                                                             <div className="space-y-1">
                                                                 <div className="flex justify-between">
-                                                                    <span className="text-gray-600 dark:text-gray-400">Word Boost:</span>
-                                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.word_boost ? 'Yes' : 'No'}</span>
+                                                                    <span className="text-carbon-600 dark:text-carbon-400">Word Boost:</span>
+                                                                    <span className="font-mono text-carbon-900 dark:text-carbon-100">{executionData.actual_parameters?.word_boost ? 'Yes' : 'No'}</span>
                                                                 </div>
                                                                 <div className="flex justify-between">
-                                                                    <span className="text-gray-600 dark:text-gray-400">Punctuation:</span>
-                                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.enable_punctuation ? 'Yes' : 'No'}</span>
+                                                                    <span className="text-carbon-600 dark:text-carbon-400">Punctuation:</span>
+                                                                    <span className="font-mono text-carbon-900 dark:text-carbon-100">{executionData.actual_parameters?.enable_punctuation ? 'Yes' : 'No'}</span>
                                                                 </div>
                                                                 <div className="flex justify-between">
-                                                                    <span className="text-gray-600 dark:text-gray-400">Automatic Capitalization:</span>
-                                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.enable_automatic_capitalization ? 'Yes' : 'No'}</span>
+                                                                    <span className="text-carbon-600 dark:text-carbon-400">Automatic Capitalization:</span>
+                                                                    <span className="font-mono text-carbon-900 dark:text-carbon-100">{executionData.actual_parameters?.enable_automatic_capitalization ? 'Yes' : 'No'}</span>
                                                                 </div>
                                                                 <div className="flex justify-between">
-                                                                    <span className="text-gray-600 dark:text-gray-400">ITN:</span>
-                                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.enable_inverse_text_normalization ? 'Yes' : 'No'}</span>
+                                                                    <span className="text-carbon-600 dark:text-carbon-400">ITN:</span>
+                                                                    <span className="font-mono text-carbon-900 dark:text-carbon-100">{executionData.actual_parameters?.enable_inverse_text_normalization ? 'Yes' : 'No'}</span>
                                                                 </div>
                                                                 <div className="flex justify-between">
-                                                                    <span className="text-gray-600 dark:text-gray-400">Speaker Diarization:</span>
-                                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.enable_speaker_diarization ? 'Yes' : 'No'}</span>
+                                                                    <span className="text-carbon-600 dark:text-carbon-400">Speaker Diarization:</span>
+                                                                    <span className="font-mono text-carbon-900 dark:text-carbon-100">{executionData.actual_parameters?.enable_speaker_diarization ? 'Yes' : 'No'}</span>
                                                                 </div>
                                                             </div>
                                                         </div>
@@ -2260,39 +2260,39 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                                 ) : (
                                     // Single track execution info
                                     <div className="space-y-4">
-                                        <div className="bg-gray-100/50 dark:bg-gray-900/50 backdrop-blur-md border border-gray-200/50 dark:border-gray-800/50 rounded-lg p-4 sm:p-6 shadow-sm">
-                                            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3 sm:mb-4 flex items-center gap-2">
-                                                <Clock className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                                        <div className="bg-carbon-100/50 dark:bg-carbon-900/50 backdrop-blur-md border border-carbon-200/50 dark:border-carbon-800/50 rounded-lg p-4 sm:p-6 shadow-sm">
+                                            <h3 className="text-lg font-semibold text-carbon-900 dark:text-carbon-100 mb-3 sm:mb-4 flex items-center gap-2">
+                                                <Clock className="h-5 w-5 text-carbon-600 dark:text-carbon-400" />
                                                 Processing Time
                                             </h3>
                                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 text-sm">
-                                                <div className="bg-white/60 dark:bg-black/40 backdrop-blur-sm rounded-md p-3 border border-gray-200/50 dark:border-gray-700/50 shadow-sm">
-                                                    <span className="text-gray-600 dark:text-gray-400 font-medium">Started:</span>
-                                                    <p className="font-mono text-gray-900 dark:text-gray-100 mt-1 text-xs sm:text-sm">
+                                                <div className="bg-white/60 dark:bg-carbon-950/40 backdrop-blur-sm rounded-md p-3 border border-carbon-200/50 dark:border-carbon-700/50 shadow-sm">
+                                                    <span className="text-carbon-600 dark:text-carbon-400 font-medium">Started:</span>
+                                                    <p className="font-mono text-carbon-900 dark:text-carbon-100 mt-1 text-xs sm:text-sm">
                                                         {new Date(executionData.started_at).toLocaleString()}
                                                     </p>
                                                 </div>
-                                                <div className="bg-white/60 dark:bg-black/40 backdrop-blur-sm rounded-md p-3 border border-gray-200/50 dark:border-gray-700/50 shadow-sm">
-                                                    <span className="text-gray-600 dark:text-gray-400 font-medium">Completed:</span>
-                                                    <p className="font-mono text-gray-900 dark:text-gray-100 mt-1 text-xs sm:text-sm">
+                                                <div className="bg-white/60 dark:bg-carbon-950/40 backdrop-blur-sm rounded-md p-3 border border-carbon-200/50 dark:border-carbon-700/50 shadow-sm">
+                                                    <span className="text-carbon-600 dark:text-carbon-400 font-medium">Completed:</span>
+                                                    <p className="font-mono text-carbon-900 dark:text-carbon-100 mt-1 text-xs sm:text-sm">
                                                         {executionData.completed_at
                                                             ? new Date(executionData.completed_at).toLocaleString()
                                                             : 'N/A'
                                                         }
                                                     </p>
                                                 </div>
-                                                <div className="bg-white/60 dark:bg-black/40 backdrop-blur-sm rounded-md p-3 border border-gray-200/50 dark:border-gray-700/50 shadow-sm">
-                                                    <span className="text-gray-600 dark:text-gray-400 font-medium">Duration:</span>
-                                                    <p className="font-mono text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">
+                                                <div className="bg-white/60 dark:bg-carbon-950/40 backdrop-blur-sm rounded-md p-3 border border-carbon-200/50 dark:border-carbon-700/50 shadow-sm">
+                                                    <span className="text-carbon-600 dark:text-carbon-400 font-medium">Duration:</span>
+                                                    <p className="font-mono text-xl sm:text-2xl font-bold text-carbon-900 dark:text-carbon-100 mt-1">
                                                         {executionData.processing_duration
                                                             ? `${(executionData.processing_duration / 1000).toFixed(1)}s`
                                                             : 'N/A'
                                                         }
                                                     </p>
                                                 </div>
-                                                <div className="bg-white/60 dark:bg-black/40 backdrop-blur-sm rounded-md p-3 border border-gray-200/50 dark:border-gray-700/50 shadow-sm">
-                                                    <span className="text-gray-600 dark:text-gray-400 font-medium">Audio Length:</span>
-                                                    <p className="font-mono text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">
+                                                <div className="bg-white/60 dark:bg-carbon-950/40 backdrop-blur-sm rounded-md p-3 border border-carbon-200/50 dark:border-carbon-700/50 shadow-sm">
+                                                    <span className="text-carbon-600 dark:text-carbon-400 font-medium">Audio Length:</span>
+                                                    <p className="font-mono text-xl sm:text-2xl font-bold text-carbon-900 dark:text-carbon-100 mt-1">
                                                         {(() => {
                                                             const duration = getAudioDurationFromTranscript(transcript);
                                                             return duration ? formatDuration(duration) : 'N/A';
@@ -2316,8 +2316,8 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                                             <div className="glass-card rounded-lg p-3 sm:p-4">
                                                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 text-sm">
                                                     {/* Model Settings */}
-                                                    <div className="bg-white/40 dark:bg-black/40 backdrop-blur-sm rounded-lg p-4 border border-gray-200/50 dark:border-gray-800/50 shadow-sm">
-                                                        <h4 className="font-semibold text-gray-800 dark:text-gray-200 mb-2 text-sm sm:text-base">Model & Configuration</h4>
+                                                    <div className="bg-white/40 dark:bg-carbon-950/40 backdrop-blur-sm rounded-lg p-4 border border-carbon-200/50 dark:border-carbon-800/50 shadow-sm">
+                                                        <h4 className="font-semibold text-carbon-800 dark:text-carbon-200 mb-2 text-sm sm:text-base">Model & Configuration</h4>
                                                         <div className="space-y-2">
                                                             <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
                                                                 <span className="text-muted-foreground text-xs sm:text-sm font-medium">Model Family:</span>
@@ -2338,39 +2338,39 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                                                             {executionData.actual_parameters?.model_family === 'whisper' && (
                                                                 <>
                                                                     <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
-                                                                        <span className="text-gray-600 dark:text-gray-400 text-xs sm:text-sm font-medium">Device:</span>
-                                                                        <span className="font-mono text-gray-900 dark:text-gray-100 text-xs sm:text-sm">{executionData.actual_parameters?.device || 'N/A'}</span>
+                                                                        <span className="text-carbon-600 dark:text-carbon-400 text-xs sm:text-sm font-medium">Device:</span>
+                                                                        <span className="font-mono text-carbon-900 dark:text-carbon-100 text-xs sm:text-sm">{executionData.actual_parameters?.device || 'N/A'}</span>
                                                                     </div>
                                                                     <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
-                                                                        <span className="text-gray-600 dark:text-gray-400 text-xs sm:text-sm font-medium">Compute Type:</span>
-                                                                        <span className="font-mono text-gray-900 dark:text-gray-100 text-xs sm:text-sm">{executionData.actual_parameters?.compute_type || 'N/A'}</span>
+                                                                        <span className="text-carbon-600 dark:text-carbon-400 text-xs sm:text-sm font-medium">Compute Type:</span>
+                                                                        <span className="font-mono text-carbon-900 dark:text-carbon-100 text-xs sm:text-sm">{executionData.actual_parameters?.compute_type || 'N/A'}</span>
                                                                     </div>
                                                                     <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
-                                                                        <span className="text-gray-600 dark:text-gray-400 text-xs sm:text-sm font-medium">Batch Size:</span>
-                                                                        <span className="font-mono text-gray-900 dark:text-gray-100 text-xs sm:text-sm">{executionData.actual_parameters?.batch_size || 'N/A'}</span>
+                                                                        <span className="text-carbon-600 dark:text-carbon-400 text-xs sm:text-sm font-medium">Batch Size:</span>
+                                                                        <span className="font-mono text-carbon-900 dark:text-carbon-100 text-xs sm:text-sm">{executionData.actual_parameters?.batch_size || 'N/A'}</span>
                                                                     </div>
                                                                     <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
-                                                                        <span className="text-gray-600 dark:text-gray-400 text-xs sm:text-sm font-medium">Threads:</span>
-                                                                        <span className="font-mono text-gray-900 dark:text-gray-100 text-xs sm:text-sm">{executionData.actual_parameters?.threads || 0}</span>
+                                                                        <span className="text-carbon-600 dark:text-carbon-400 text-xs sm:text-sm font-medium">Threads:</span>
+                                                                        <span className="font-mono text-carbon-900 dark:text-carbon-100 text-xs sm:text-sm">{executionData.actual_parameters?.threads || 0}</span>
                                                                     </div>
                                                                 </>
                                                             )}
                                                             {executionData.actual_parameters?.model_family === 'nvidia_parakeet' && (
                                                                 <>
                                                                     <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
-                                                                        <span className="text-gray-600 dark:text-gray-400 text-xs sm:text-sm font-medium">Context Left:</span>
-                                                                        <span className="font-mono text-gray-900 dark:text-gray-100 text-xs sm:text-sm">{executionData.actual_parameters?.attention_context_left || 256}</span>
+                                                                        <span className="text-carbon-600 dark:text-carbon-400 text-xs sm:text-sm font-medium">Context Left:</span>
+                                                                        <span className="font-mono text-carbon-900 dark:text-carbon-100 text-xs sm:text-sm">{executionData.actual_parameters?.attention_context_left || 256}</span>
                                                                     </div>
                                                                     <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
-                                                                        <span className="text-gray-600 dark:text-gray-400 text-xs sm:text-sm font-medium">Context Right:</span>
-                                                                        <span className="font-mono text-gray-900 dark:text-gray-100 text-xs sm:text-sm">{executionData.actual_parameters?.attention_context_right || 256}</span>
+                                                                        <span className="text-carbon-600 dark:text-carbon-400 text-xs sm:text-sm font-medium">Context Right:</span>
+                                                                        <span className="font-mono text-carbon-900 dark:text-carbon-100 text-xs sm:text-sm">{executionData.actual_parameters?.attention_context_right || 256}</span>
                                                                     </div>
                                                                 </>
                                                             )}
                                                             {executionData.actual_parameters?.model_family === 'nvidia_canary' && (
                                                                 <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
-                                                                    <span className="text-gray-600 dark:text-gray-400 text-xs sm:text-sm font-medium">Source Language:</span>
-                                                                    <span className="font-mono text-gray-900 dark:text-gray-100 text-xs sm:text-sm">{executionData.actual_parameters?.language || 'auto'}</span>
+                                                                    <span className="text-carbon-600 dark:text-carbon-400 text-xs sm:text-sm font-medium">Source Language:</span>
+                                                                    <span className="font-mono text-carbon-900 dark:text-carbon-100 text-xs sm:text-sm">{executionData.actual_parameters?.language || 'auto'}</span>
                                                                 </div>
                                                             )}
                                                         </div>
@@ -2378,48 +2378,48 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
 
                                                     {/* Processing Settings - Only for WhisperX */}
                                                     {executionData.actual_parameters?.model_family === 'whisper' && (
-                                                        <div className="bg-white/40 dark:bg-black/40 backdrop-blur-sm rounded-lg p-4 border border-gray-200/50 dark:border-gray-800/50 shadow-sm">
-                                                            <h4 className="font-semibold text-gray-800 dark:text-gray-200 mb-2 text-sm sm:text-base">Processing</h4>
+                                                        <div className="bg-white/40 dark:bg-carbon-950/40 backdrop-blur-sm rounded-lg p-4 border border-carbon-200/50 dark:border-carbon-800/50 shadow-sm">
+                                                            <h4 className="font-semibold text-carbon-800 dark:text-carbon-200 mb-2 text-sm sm:text-base">Processing</h4>
                                                             <div className="space-y-1">
                                                                 <div className="flex justify-between">
-                                                                    <span className="text-gray-600 dark:text-gray-400">Task:</span>
-                                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.task || 'transcribe'}</span>
+                                                                    <span className="text-carbon-600 dark:text-carbon-400">Task:</span>
+                                                                    <span className="font-mono text-carbon-900 dark:text-carbon-100">{executionData.actual_parameters?.task || 'transcribe'}</span>
                                                                 </div>
                                                                 <div className="flex justify-between">
-                                                                    <span className="text-gray-600 dark:text-gray-400">Language:</span>
-                                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.language || 'auto'}</span>
+                                                                    <span className="text-carbon-600 dark:text-carbon-400">Language:</span>
+                                                                    <span className="font-mono text-carbon-900 dark:text-carbon-100">{executionData.actual_parameters?.language || 'auto'}</span>
                                                                 </div>
                                                                 <div className="flex justify-between">
-                                                                    <span className="text-gray-600 dark:text-gray-400">Diarization:</span>
-                                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.diarize ? 'Yes' : 'No'}</span>
+                                                                    <span className="text-carbon-600 dark:text-carbon-400">Diarization:</span>
+                                                                    <span className="font-mono text-carbon-900 dark:text-carbon-100">{executionData.actual_parameters?.diarize ? 'Yes' : 'No'}</span>
                                                                 </div>
                                                                 <div className="flex justify-between">
-                                                                    <span className="text-gray-600 dark:text-gray-400">VAD Method:</span>
-                                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.vad_method || 'pyannote'}</span>
+                                                                    <span className="text-carbon-600 dark:text-carbon-400">VAD Method:</span>
+                                                                    <span className="font-mono text-carbon-900 dark:text-carbon-100">{executionData.actual_parameters?.vad_method || 'pyannote'}</span>
                                                                 </div>
                                                                 <div className="flex justify-between">
-                                                                    <span className="text-gray-600 dark:text-gray-400">VAD Onset:</span>
-                                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.vad_onset ?? 0.5}</span>
+                                                                    <span className="text-carbon-600 dark:text-carbon-400">VAD Onset:</span>
+                                                                    <span className="font-mono text-carbon-900 dark:text-carbon-100">{executionData.actual_parameters?.vad_onset ?? 0.5}</span>
                                                                 </div>
                                                                 <div className="flex justify-between">
-                                                                    <span className="text-gray-600 dark:text-gray-400">VAD Offset:</span>
-                                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.vad_offset ?? 0.363}</span>
+                                                                    <span className="text-carbon-600 dark:text-carbon-400">VAD Offset:</span>
+                                                                    <span className="font-mono text-carbon-900 dark:text-carbon-100">{executionData.actual_parameters?.vad_offset ?? 0.363}</span>
                                                                 </div>
                                                                 <div className="flex justify-between">
-                                                                    <span className="text-gray-600 dark:text-gray-400">Chunk Size:</span>
-                                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.chunk_size || 'N/A'}</span>
+                                                                    <span className="text-carbon-600 dark:text-carbon-400">Chunk Size:</span>
+                                                                    <span className="font-mono text-carbon-900 dark:text-carbon-100">{executionData.actual_parameters?.chunk_size || 'N/A'}</span>
                                                                 </div>
                                                                 <div className="flex justify-between">
-                                                                    <span className="text-gray-600 dark:text-gray-400">Align Chunks:</span>
-                                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.align_chunks ? 'Yes' : 'No'}</span>
+                                                                    <span className="text-carbon-600 dark:text-carbon-400">Align Chunks:</span>
+                                                                    <span className="font-mono text-carbon-900 dark:text-carbon-100">{executionData.actual_parameters?.align_chunks ? 'Yes' : 'No'}</span>
                                                                 </div>
                                                                 <div className="flex justify-between">
-                                                                    <span className="text-gray-600 dark:text-gray-400">Align Method:</span>
-                                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.align_method || 'N/A'}</span>
+                                                                    <span className="text-carbon-600 dark:text-carbon-400">Align Method:</span>
+                                                                    <span className="font-mono text-carbon-900 dark:text-carbon-100">{executionData.actual_parameters?.align_method || 'N/A'}</span>
                                                                 </div>
                                                                 <div className="flex justify-between">
-                                                                    <span className="text-gray-600 dark:text-gray-400">Return Scores:</span>
-                                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.return_scores ? 'Yes' : 'No'}</span>
+                                                                    <span className="text-carbon-600 dark:text-carbon-400">Return Scores:</span>
+                                                                    <span className="font-mono text-carbon-900 dark:text-carbon-100">{executionData.actual_parameters?.return_scores ? 'Yes' : 'No'}</span>
                                                                 </div>
                                                             </div>
                                                         </div>
@@ -2427,46 +2427,46 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
 
                                                     {/* Speaker Diarization Settings - For all model families and multi-track jobs */}
                                                     {(executionData.actual_parameters?.diarize || executionData.is_multi_track) && (
-                                                        <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-800">
-                                                            <h4 className="font-semibold text-gray-800 dark:text-gray-200 mb-2 text-sm sm:text-base flex items-center gap-2">
-                                                                <Users className="h-4 w-4 text-gray-600 dark:text-gray-400" />
+                                                        <div className="bg-carbon-50 dark:bg-carbon-900 rounded-lg p-4 border border-carbon-200 dark:border-carbon-800">
+                                                            <h4 className="font-semibold text-carbon-800 dark:text-carbon-200 mb-2 text-sm sm:text-base flex items-center gap-2">
+                                                                <Users className="h-4 w-4 text-carbon-600 dark:text-carbon-400" />
                                                                 Speaker Diarization
                                                             </h4>
                                                             <div className="space-y-1">
                                                                 <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
-                                                                    <span className="text-gray-600 dark:text-gray-400 text-xs sm:text-sm font-medium">Enabled:</span>
-                                                                    <span className="font-mono text-gray-900 dark:text-gray-100 text-xs sm:text-sm">
+                                                                    <span className="text-carbon-600 dark:text-carbon-400 text-xs sm:text-sm font-medium">Enabled:</span>
+                                                                    <span className="font-mono text-carbon-900 dark:text-carbon-100 text-xs sm:text-sm">
                                                                         {executionData.is_multi_track ? 'Yes (Multi-Track)' : (executionData.actual_parameters?.diarize ? 'Yes' : 'No')}
                                                                     </span>
                                                                 </div>
                                                                 {executionData.is_multi_track && (
                                                                     <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
-                                                                        <span className="text-gray-600 dark:text-gray-400 text-xs sm:text-sm font-medium">Number of Tracks:</span>
-                                                                        <span className="font-mono text-gray-900 dark:text-gray-100 text-xs sm:text-sm">{executionData.multi_track_files?.length || 0}</span>
+                                                                        <span className="text-carbon-600 dark:text-carbon-400 text-xs sm:text-sm font-medium">Number of Tracks:</span>
+                                                                        <span className="font-mono text-carbon-900 dark:text-carbon-100 text-xs sm:text-sm">{executionData.multi_track_files?.length || 0}</span>
                                                                     </div>
                                                                 )}
                                                                 {!executionData.is_multi_track && executionData.actual_parameters?.min_speakers && (
                                                                     <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
-                                                                        <span className="text-gray-600 dark:text-gray-400 text-xs sm:text-sm font-medium">Min Speakers:</span>
-                                                                        <span className="font-mono text-gray-900 dark:text-gray-100 text-xs sm:text-sm">{executionData.actual_parameters.min_speakers}</span>
+                                                                        <span className="text-carbon-600 dark:text-carbon-400 text-xs sm:text-sm font-medium">Min Speakers:</span>
+                                                                        <span className="font-mono text-carbon-900 dark:text-carbon-100 text-xs sm:text-sm">{executionData.actual_parameters.min_speakers}</span>
                                                                     </div>
                                                                 )}
                                                                 {!executionData.is_multi_track && executionData.actual_parameters?.max_speakers && (
                                                                     <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
-                                                                        <span className="text-gray-600 dark:text-gray-400 text-xs sm:text-sm font-medium">Max Speakers:</span>
-                                                                        <span className="font-mono text-gray-900 dark:text-gray-100 text-xs sm:text-sm">{executionData.actual_parameters.max_speakers}</span>
+                                                                        <span className="text-carbon-600 dark:text-carbon-400 text-xs sm:text-sm font-medium">Max Speakers:</span>
+                                                                        <span className="font-mono text-carbon-900 dark:text-carbon-100 text-xs sm:text-sm">{executionData.actual_parameters.max_speakers}</span>
                                                                     </div>
                                                                 )}
                                                                 {executionData.actual_parameters?.diarize_model && (
                                                                     <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
-                                                                        <span className="text-gray-600 dark:text-gray-400 text-xs sm:text-sm font-medium">Diarization Model:</span>
-                                                                        <span className="font-mono text-gray-900 dark:text-gray-100 text-xs sm:text-sm">{getDiarizationModelDisplayName(executionData.actual_parameters.diarize_model)}</span>
+                                                                        <span className="text-carbon-600 dark:text-carbon-400 text-xs sm:text-sm font-medium">Diarization Model:</span>
+                                                                        <span className="font-mono text-carbon-900 dark:text-carbon-100 text-xs sm:text-sm">{getDiarizationModelDisplayName(executionData.actual_parameters.diarize_model)}</span>
                                                                     </div>
                                                                 )}
                                                                 {executionData.actual_parameters?.speaker_embeddings !== undefined && (
                                                                     <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
-                                                                        <span className="text-gray-600 dark:text-gray-400 text-xs sm:text-sm font-medium">Speaker Embeddings:</span>
-                                                                        <span className="font-mono text-gray-900 dark:text-gray-100 text-xs sm:text-sm">{executionData.actual_parameters.speaker_embeddings ? 'Yes' : 'No'}</span>
+                                                                        <span className="text-carbon-600 dark:text-carbon-400 text-xs sm:text-sm font-medium">Speaker Embeddings:</span>
+                                                                        <span className="font-mono text-carbon-900 dark:text-carbon-100 text-xs sm:text-sm">{executionData.actual_parameters.speaker_embeddings ? 'Yes' : 'No'}</span>
                                                                     </div>
                                                                 )}
                                                             </div>
@@ -2475,40 +2475,40 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
 
                                                     {/* Advanced Settings - Only for WhisperX */}
                                                     {executionData.actual_parameters?.model_family === 'whisper' && (
-                                                        <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-800">
-                                                            <h4 className="font-semibold text-gray-800 dark:text-gray-200 mb-2 text-sm sm:text-base">Advanced</h4>
+                                                        <div className="bg-carbon-50 dark:bg-carbon-900 rounded-lg p-4 border border-carbon-200 dark:border-carbon-800">
+                                                            <h4 className="font-semibold text-carbon-800 dark:text-carbon-200 mb-2 text-sm sm:text-base">Advanced</h4>
                                                             <div className="space-y-1">
                                                                 <div className="flex justify-between">
-                                                                    <span className="text-gray-600 dark:text-gray-400">Beam Size:</span>
-                                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.beam_size || 'N/A'}</span>
+                                                                    <span className="text-carbon-600 dark:text-carbon-400">Beam Size:</span>
+                                                                    <span className="font-mono text-carbon-900 dark:text-carbon-100">{executionData.actual_parameters?.beam_size || 'N/A'}</span>
                                                                 </div>
                                                                 <div className="flex justify-between">
-                                                                    <span className="text-gray-600 dark:text-gray-400">Best Of:</span>
-                                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.best_of || 'N/A'}</span>
+                                                                    <span className="text-carbon-600 dark:text-carbon-400">Best Of:</span>
+                                                                    <span className="font-mono text-carbon-900 dark:text-carbon-100">{executionData.actual_parameters?.best_of || 'N/A'}</span>
                                                                 </div>
                                                                 <div className="flex justify-between">
-                                                                    <span className="text-gray-600 dark:text-gray-400">Temperature:</span>
-                                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.temperature || 'N/A'}</span>
+                                                                    <span className="text-carbon-600 dark:text-carbon-400">Temperature:</span>
+                                                                    <span className="font-mono text-carbon-900 dark:text-carbon-100">{executionData.actual_parameters?.temperature || 'N/A'}</span>
                                                                 </div>
                                                                 <div className="flex justify-between">
-                                                                    <span className="text-gray-600 dark:text-gray-400">No Speech Threshold:</span>
-                                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.no_speech_threshold || 'N/A'}</span>
+                                                                    <span className="text-carbon-600 dark:text-carbon-400">No Speech Threshold:</span>
+                                                                    <span className="font-mono text-carbon-900 dark:text-carbon-100">{executionData.actual_parameters?.no_speech_threshold || 'N/A'}</span>
                                                                 </div>
                                                                 <div className="flex justify-between">
-                                                                    <span className="text-gray-600 dark:text-gray-400">Log Prob Threshold:</span>
-                                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.logprob_threshold || 'N/A'}</span>
+                                                                    <span className="text-carbon-600 dark:text-carbon-400">Log Prob Threshold:</span>
+                                                                    <span className="font-mono text-carbon-900 dark:text-carbon-100">{executionData.actual_parameters?.logprob_threshold || 'N/A'}</span>
                                                                 </div>
                                                                 <div className="flex justify-between">
-                                                                    <span className="text-gray-600 dark:text-gray-400">Compression Ratio Threshold:</span>
-                                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.compression_ratio_threshold || 'N/A'}</span>
+                                                                    <span className="text-carbon-600 dark:text-carbon-400">Compression Ratio Threshold:</span>
+                                                                    <span className="font-mono text-carbon-900 dark:text-carbon-100">{executionData.actual_parameters?.compression_ratio_threshold || 'N/A'}</span>
                                                                 </div>
                                                                 <div className="flex justify-between">
-                                                                    <span className="text-gray-600 dark:text-gray-400">Condition On Previous Text:</span>
-                                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.condition_on_previous_text ? 'Yes' : 'No'}</span>
+                                                                    <span className="text-carbon-600 dark:text-carbon-400">Condition On Previous Text:</span>
+                                                                    <span className="font-mono text-carbon-900 dark:text-carbon-100">{executionData.actual_parameters?.condition_on_previous_text ? 'Yes' : 'No'}</span>
                                                                 </div>
                                                                 <div className="flex justify-between">
-                                                                    <span className="text-gray-600 dark:text-gray-400">Initial Prompt:</span>
-                                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.initial_prompt || 'N/A'}</span>
+                                                                    <span className="text-carbon-600 dark:text-carbon-400">Initial Prompt:</span>
+                                                                    <span className="font-mono text-carbon-900 dark:text-carbon-100">{executionData.actual_parameters?.initial_prompt || 'N/A'}</span>
                                                                 </div>
                                                             </div>
                                                         </div>
@@ -2516,28 +2516,28 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
 
                                                     {/* Advanced Settings - Only for NVIDIA Parakeet/Canary */}
                                                     {(executionData.actual_parameters?.model_family === 'nvidia_parakeet' || executionData.actual_parameters?.model_family === 'nvidia_canary') && (
-                                                        <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-800">
-                                                            <h4 className="font-semibold text-gray-800 dark:text-gray-200 mb-2 text-sm sm:text-base">Advanced</h4>
+                                                        <div className="bg-carbon-50 dark:bg-carbon-900 rounded-lg p-4 border border-carbon-200 dark:border-carbon-800">
+                                                            <h4 className="font-semibold text-carbon-800 dark:text-carbon-200 mb-2 text-sm sm:text-base">Advanced</h4>
                                                             <div className="space-y-1">
                                                                 <div className="flex justify-between">
-                                                                    <span className="text-gray-600 dark:text-gray-400">Word Boost:</span>
-                                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.word_boost ? 'Yes' : 'No'}</span>
+                                                                    <span className="text-carbon-600 dark:text-carbon-400">Word Boost:</span>
+                                                                    <span className="font-mono text-carbon-900 dark:text-carbon-100">{executionData.actual_parameters?.word_boost ? 'Yes' : 'No'}</span>
                                                                 </div>
                                                                 <div className="flex justify-between">
-                                                                    <span className="text-gray-600 dark:text-gray-400">Punctuation:</span>
-                                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.enable_punctuation ? 'Yes' : 'No'}</span>
+                                                                    <span className="text-carbon-600 dark:text-carbon-400">Punctuation:</span>
+                                                                    <span className="font-mono text-carbon-900 dark:text-carbon-100">{executionData.actual_parameters?.enable_punctuation ? 'Yes' : 'No'}</span>
                                                                 </div>
                                                                 <div className="flex justify-between">
-                                                                    <span className="text-gray-600 dark:text-gray-400">Automatic Capitalization:</span>
-                                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.enable_automatic_capitalization ? 'Yes' : 'No'}</span>
+                                                                    <span className="text-carbon-600 dark:text-carbon-400">Automatic Capitalization:</span>
+                                                                    <span className="font-mono text-carbon-900 dark:text-carbon-100">{executionData.actual_parameters?.enable_automatic_capitalization ? 'Yes' : 'No'}</span>
                                                                 </div>
                                                                 <div className="flex justify-between">
-                                                                    <span className="text-gray-600 dark:text-gray-400">ITN:</span>
-                                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.enable_inverse_text_normalization ? 'Yes' : 'No'}</span>
+                                                                    <span className="text-carbon-600 dark:text-carbon-400">ITN:</span>
+                                                                    <span className="font-mono text-carbon-900 dark:text-carbon-100">{executionData.actual_parameters?.enable_inverse_text_normalization ? 'Yes' : 'No'}</span>
                                                                 </div>
                                                                 <div className="flex justify-between">
-                                                                    <span className="text-gray-600 dark:text-gray-400">Speaker Diarization:</span>
-                                                                    <span className="font-mono text-gray-900 dark:text-gray-100">{executionData.actual_parameters?.enable_speaker_diarization ? 'Yes' : 'No'}</span>
+                                                                    <span className="text-carbon-600 dark:text-carbon-400">Speaker Diarization:</span>
+                                                                    <span className="font-mono text-carbon-900 dark:text-carbon-100">{executionData.actual_parameters?.enable_speaker_diarization ? 'Yes' : 'No'}</span>
                                                                 </div>
                                                             </div>
                                                         </div>
@@ -2550,13 +2550,13 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
 
                                 {/* Parameters */}
                                 {executionData.actual_parameters && (
-                                    <div className="bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg p-4 sm:p-6">
-                                        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3 sm:mb-4 flex items-center gap-2">
-                                            <Settings className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                                    <div className="bg-carbon-50 dark:bg-carbon-900 border border-carbon-200 dark:border-carbon-800 rounded-lg p-4 sm:p-6">
+                                        <h3 className="text-lg font-semibold text-carbon-900 dark:text-carbon-100 mb-3 sm:mb-4 flex items-center gap-2">
+                                            <Settings className="h-5 w-5 text-carbon-600 dark:text-carbon-400" />
                                             Parameters Used
                                         </h3>
-                                        <div className="bg-gray-900 rounded-md p-4 overflow-x-auto">
-                                            <pre className="text-xs sm:text-sm font-mono text-gray-300">
+                                        <div className="bg-carbon-900 rounded-md p-4 overflow-x-auto">
+                                            <pre className="text-xs sm:text-sm font-mono text-carbon-300">
                                                 {JSON.stringify(executionData.actual_parameters, null, 2)}
                                             </pre>
                                         </div>
@@ -2564,7 +2564,7 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                                 )}
                             </div>
                         ) : (
-                            <div className="py-8 text-center text-gray-500 dark:text-gray-400">
+                            <div className="py-8 text-center text-carbon-500 dark:text-carbon-400">
                                 No execution data available
                             </div>
                         )}
@@ -2573,13 +2573,13 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
 
                 {/* Logs dialog */}
                 <UIDialog open={logsOpen} onOpenChange={setLogsOpen}>
-                    <UIDialogContent className="sm:max-w-4xl w-[95vw] bg-white dark:bg-black-700 border-gray-200 dark:border-black-600 max-h-[90vh] overflow-y-auto">
+                    <UIDialogContent className="sm:max-w-4xl w-[95vw] bg-white dark:bg-carbon-700 border-carbon-200 dark:border-carbon-600 max-h-[90vh] overflow-y-auto">
                         <UIDialogHeader>
-                            <UIDialogTitle className="text-gray-900 dark:text-gray-100 flex items-center gap-2">
-                                <FileText className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                            <UIDialogTitle className="text-carbon-900 dark:text-carbon-100 flex items-center gap-2">
+                                <FileText className="h-5 w-5 text-carbon-600 dark:text-carbon-400" />
                                 Transcription Logs
                             </UIDialogTitle>
-                            <UIDialogDescription className="text-gray-600 dark:text-gray-400">
+                            <UIDialogDescription className="text-carbon-600 dark:text-carbon-400">
                                 Raw output from the transcription process
                             </UIDialogDescription>
                         </UIDialogHeader>
@@ -2587,13 +2587,13 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                         {logsLoading ? (
                             <div className="py-8 text-center">
                                 <div className="animate-pulse">
-                                    <div className="h-4 bg-gray-200 dark:bg-black-600 rounded w-3/4 mx-auto mb-4"></div>
-                                    <div className="h-4 bg-gray-200 dark:bg-black-600 rounded w-1/2 mx-auto"></div>
+                                    <div className="h-4 bg-carbon-200 dark:bg-carbon-600 rounded w-3/4 mx-auto mb-4"></div>
+                                    <div className="h-4 bg-carbon-200 dark:bg-carbon-600 rounded w-1/2 mx-auto"></div>
                                 </div>
                             </div>
                         ) : (
-                            <div className="bg-gray-900 rounded-md p-4 overflow-x-auto">
-                                <pre className="text-xs sm:text-sm font-mono text-gray-300 whitespace-pre-wrap">
+                            <div className="bg-carbon-900 rounded-md p-4 overflow-x-auto">
+                                <pre className="text-xs sm:text-sm font-mono text-carbon-300 whitespace-pre-wrap">
                                     {logsContent || "No logs available."}
                                 </pre>
                             </div>
@@ -2602,13 +2602,13 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                 </UIDialog>
                 {/* Logs dialog */}
                 < UIDialog open={logsOpen} onOpenChange={setLogsOpen} >
-                    <UIDialogContent className="sm:max-w-4xl w-[95vw] bg-white dark:bg-black-700 border-gray-200 dark:border-black-600 max-h-[90vh] overflow-y-auto">
+                    <UIDialogContent className="sm:max-w-4xl w-[95vw] bg-white dark:bg-carbon-700 border-carbon-200 dark:border-carbon-600 max-h-[90vh] overflow-y-auto">
                         <UIDialogHeader>
-                            <UIDialogTitle className="text-gray-900 dark:text-gray-100 flex items-center gap-2">
-                                <FileText className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                            <UIDialogTitle className="text-carbon-900 dark:text-carbon-100 flex items-center gap-2">
+                                <FileText className="h-5 w-5 text-carbon-600 dark:text-carbon-400" />
                                 Transcription Logs
                             </UIDialogTitle>
-                            <UIDialogDescription className="text-gray-600 dark:text-gray-400">
+                            <UIDialogDescription className="text-carbon-600 dark:text-carbon-400">
                                 Raw output from the transcription process
                             </UIDialogDescription>
                         </UIDialogHeader>
@@ -2616,13 +2616,13 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                         {logsLoading ? (
                             <div className="py-8 text-center">
                                 <div className="animate-pulse">
-                                    <div className="h-4 bg-gray-200 dark:bg-black-600 rounded w-3/4 mx-auto mb-4"></div>
-                                    <div className="h-4 bg-gray-200 dark:bg-black-600 rounded w-1/2 mx-auto"></div>
+                                    <div className="h-4 bg-carbon-200 dark:bg-carbon-600 rounded w-3/4 mx-auto mb-4"></div>
+                                    <div className="h-4 bg-carbon-200 dark:bg-carbon-600 rounded w-1/2 mx-auto"></div>
                                 </div>
                             </div>
                         ) : (
-                            <div className="bg-gray-900 rounded-md p-4 overflow-x-auto">
-                                <pre className="text-xs sm:text-sm font-mono text-gray-300 whitespace-pre-wrap">
+                            <div className="bg-carbon-900 rounded-md p-4 overflow-x-auto">
+                                <pre className="text-xs sm:text-sm font-mono text-carbon-300 whitespace-pre-wrap">
                                     {logsContent || "No logs available."}
                                 </pre>
                             </div>
@@ -2651,7 +2651,7 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
 
                                 {showSelectionMenu && (
                                     <div style={{ position: 'fixed', left: selectionViewportPos.x, top: selectionViewportPos.y, transform: 'translate(-50%, -100%)', zIndex: 10000 }} onMouseDown={(e) => e.stopPropagation()}>
-                                        <div className="bg-gray-900 text-white text-base font-medium rounded-xl shadow-2xl px-6 py-3 flex items-center gap-3 pointer-events-auto hover:bg-black transition-colors ring-2 ring-white/20 transform hover:scale-105 duration-200">
+                                        <div className="bg-carbon-900 text-white text-base font-medium rounded-xl shadow-2xl px-6 py-3 flex items-center gap-3 pointer-events-auto hover:bg-carbon-950 transition-colors ring-2 ring-white/20 transform hover:scale-105 duration-200">
                                             <button type="button" className="flex items-center gap-2" onClick={openEditorForSelection}>
                                                 <Plus className="h-5 w-5" /> <span className="font-semibold">Add note</span>
                                             </button>
@@ -2661,14 +2661,14 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
 
                                 {showEditor && (
                                     <div style={{ position: 'fixed', left: selectionViewportPos.x, top: selectionViewportPos.y + 18, transform: 'translate(-50%, 0)', zIndex: 10001 }} className="w-[min(90vw,520px)]" onMouseDown={(e) => e.stopPropagation()}>
-                                        <div className="bg-white dark:bg-black-900 rounded-lg shadow-2xl p-3 pointer-events-auto">
-                                            <div className="text-xs text-gray-500 dark:text-gray-400 border-l-2 border-gray-300 dark:border-black-600 pl-2 italic mb-2 max-h-32 overflow-auto">
+                                        <div className="bg-white dark:bg-carbon-900 rounded-lg shadow-2xl p-3 pointer-events-auto">
+                                            <div className="text-xs text-carbon-500 dark:text-carbon-400 border-l-2 border-carbon-300 dark:border-carbon-600 pl-2 italic mb-2 max-h-32 overflow-auto">
                                                 {pendingSelection.quote}
                                             </div>
-                                            <textarea className="w-full text-sm bg-transparent border rounded-md p-2 border-gray-300 dark:border-black-700 text-gray-900 dark:text-gray-100" placeholder="Add a note..." value={newNoteContent} onChange={e => setNewNoteContent(e.target.value)} rows={4} />
+                                            <textarea className="w-full text-sm bg-transparent border rounded-md p-2 border-carbon-300 dark:border-carbon-700 text-carbon-900 dark:text-carbon-100" placeholder="Add a note..." value={newNoteContent} onChange={e => setNewNoteContent(e.target.value)} rows={4} />
                                             <div className="mt-2 flex items-center justify-end gap-2">
-                                                <button type="button" className="px-2 py-1 text-sm rounded-md bg-gray-200 dark:bg-black-700" onClick={() => { setShowEditor(false); setPendingSelection(null); }}>{"Cancel"}</button>
-                                                <button type="button" className="px-2 py-1 text-sm rounded-md bg-gray-900 text-white hover:bg-black transition-colors" onClick={saveNewNote}>{"Save"}</button>
+                                                <button type="button" className="px-2 py-1 text-sm rounded-md bg-carbon-200 dark:bg-carbon-700" onClick={() => { setShowEditor(false); setPendingSelection(null); }}>{"Cancel"}</button>
+                                                <button type="button" className="px-2 py-1 text-sm rounded-md bg-carbon-900 text-white hover:bg-carbon-950 transition-colors" onClick={saveNewNote}>{"Save"}</button>
                                             </div>
                                         </div>
                                     </div>
@@ -2683,18 +2683,18 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                 {
                     notesOpen ? (
                         createPortal(
-                            <div className="fixed inset-y-0 right-0 w-[88vw] max-w-[380px] md:max-w-[420px] bg-white dark:bg-black-900 shadow-2xl z-[9990]">
+                            <div className="fixed inset-y-0 right-0 w-[88vw] max-w-[380px] md:max-w-[420px] bg-white dark:bg-carbon-900 shadow-2xl z-[9990]">
                                 <div className="h-full flex flex-col">
                                     <div className="px-3 md:px-4 py-3">
                                         <div className="flex items-center justify-between">
-                                            <h3 className="font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                                            <h3 className="font-semibold text-carbon-900 dark:text-carbon-100 flex items-center gap-2">
                                                 <StickyNote className="h-4 w-4" /> Notes
-                                                <span className="ml-1 text-xs rounded-full px-1.5 py-0.5 bg-gray-200 dark:bg-black-700">{notes.length}</span>
+                                                <span className="ml-1 text-xs rounded-full px-1.5 py-0.5 bg-carbon-200 dark:bg-carbon-700">{notes.length}</span>
                                             </h3>
                                             <button
                                                 type="button"
                                                 onClick={() => setNotesOpen(false)}
-                                                className="h-8 w-8 inline-flex items-center justify-center rounded-md text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer"
+                                                className="h-8 w-8 inline-flex items-center justify-center rounded-md text-carbon-600 dark:text-carbon-300 hover:bg-carbon-100 dark:hover:bg-carbon-800 cursor-pointer"
                                                 aria-label="Close notes"
                                             >
                                                 <X className="h-4 w-4" />

@@ -101,7 +101,7 @@ export function APIKeyCreateDialog({
 
 	return (
 		<Dialog open={open} onOpenChange={handleOpenChange}>
-			<DialogContent className="sm:max-w-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+			<DialogContent className="sm:max-w-md bg-white dark:bg-carbon-800 border border-carbon-200 dark:border-carbon-700">
 				<DialogHeader>
 					<DialogTitle>Create New API Key</DialogTitle>
 					<DialogDescription>
@@ -121,7 +121,7 @@ export function APIKeyCreateDialog({
 							maxLength={100}
 							disabled={isCreating}
 						/>
-						<div className="text-xs text-gray-500 dark:text-gray-400">
+						<div className="text-xs text-carbon-500 dark:text-carbon-400">
 							A friendly name to identify this API key
 						</div>
 					</div>

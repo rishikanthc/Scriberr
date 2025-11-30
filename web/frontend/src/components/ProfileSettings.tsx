@@ -30,8 +30,8 @@ export function ProfileSettings() {
 	const [profiles, setProfiles] = useState<TranscriptionProfile[]>([]);
 	const [defaultProfile, setDefaultProfile] = useState<TranscriptionProfile | null>(null);
 	const [isLoadingProfiles, setIsLoadingProfiles] = useState(true);
-    const { getAuthHeaders } = useAuth();
-	
+	const { getAuthHeaders } = useAuth();
+
 	// User settings state
 	const [userSettings, setUserSettings] = useState<UserSettings | null>(null);
 	const [settingsLoading, setSettingsLoading] = useState(true);
@@ -42,7 +42,7 @@ export function ProfileSettings() {
 	const loadProfiles = useCallback(async () => {
 		try {
 			setIsLoadingProfiles(true);
-			
+
 			// Load all profiles
 			const profilesRes = await fetch('/api/v1/profiles', {
 				headers: getAuthHeaders()
@@ -51,7 +51,7 @@ export function ProfileSettings() {
 				const profilesData = await profilesRes.json();
 				setProfiles(profilesData);
 			}
-			
+
 			// Load user's default profile
 			const defaultRes = await fetch('/api/v1/user/default-profile', {
 				headers: getAuthHeaders()
@@ -81,7 +81,7 @@ export function ProfileSettings() {
 				},
 				body: JSON.stringify({ profile_id: profileId })
 			});
-			
+
 			if (res.ok) {
 				// Update local state
 				const selectedProfile = profiles.find(p => p.id === profileId);
@@ -109,7 +109,7 @@ export function ProfileSettings() {
 				const response = await fetch("/api/v1/user/settings", {
 					headers: getAuthHeaders(),
 				});
-				
+
 				if (response.ok) {
 					const settings = await response.json();
 					setUserSettings(settings);
@@ -130,7 +130,7 @@ export function ProfileSettings() {
 	const handleAutoTranscriptionToggle = async (enabled: boolean) => {
 		setError("");
 		setSuccess("");
-		
+
 		try {
 			const response = await fetch("/api/v1/user/settings", {
 				method: "PUT",
@@ -226,41 +226,41 @@ export function ProfileSettings() {
 		<div className="space-y-6">
 			{/* Error/Success Messages */}
 			{error && (
-				<div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3">
-					<p className="text-red-700 dark:text-red-300 text-sm">{error}</p>
+				<div className="bg-carbon-50 dark:bg-carbon-900/50 border border-carbon-200 dark:border-carbon-800 rounded-lg p-3">
+					<p className="text-red-700 dark:text-red-400 text-sm">{error}</p>
 				</div>
 			)}
-			
+
 			{success && (
-				<div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-3">
-					<p className="text-green-700 dark:text-green-300 text-sm">{success}</p>
+				<div className="bg-carbon-50 dark:bg-carbon-900/50 border border-carbon-200 dark:border-carbon-800 rounded-lg p-3">
+					<p className="text-green-700 dark:text-green-400 text-sm">{success}</p>
 				</div>
 			)}
 
 			{/* Auto-Transcription Settings */}
-			<div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 sm:p-6">
+			<div className="bg-carbon-50 dark:bg-carbon-700/50 rounded-xl p-4 sm:p-6">
 				<div className="mb-4">
 					<div className="flex items-center space-x-2 mb-2">
-						<Settings className="h-5 w-5 text-green-600 dark:text-green-400" />
-						<h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">Auto-Transcription</h3>
+						<Settings className="h-5 w-5 text-carbon-600 dark:text-carbon-400" />
+						<h3 className="text-lg font-medium text-carbon-900 dark:text-carbon-100">Auto-Transcription</h3>
 					</div>
-					<p className="text-sm text-gray-600 dark:text-gray-400">
+					<p className="text-sm text-carbon-600 dark:text-carbon-400">
 						Configure automatic transcription behavior for uploaded files.
 					</p>
 				</div>
-				
+
 				{settingsLoading ? (
 					<div className="flex items-center space-x-2 py-4">
-						<div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-						<span className="text-sm text-gray-600 dark:text-gray-400">Loading settings...</span>
+						<div className="animate-spin rounded-full h-4 w-4 border-b-2 border-carbon-600 dark:border-carbon-400"></div>
+						<span className="text-sm text-carbon-600 dark:text-carbon-400">Loading settings...</span>
 					</div>
 				) : (
 					<div className="flex items-center justify-between py-2">
 						<div>
-							<Label htmlFor="auto-transcription" className="text-gray-700 dark:text-gray-300 font-medium">
+							<Label htmlFor="auto-transcription" className="text-carbon-700 dark:text-carbon-300 font-medium">
 								Automatic Transcription on Upload
 							</Label>
-							<p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+							<p className="text-sm text-carbon-600 dark:text-carbon-400 mt-1">
 								When enabled, uploaded audio files will automatically be queued for transcription using your default profile.
 							</p>
 						</div>
@@ -275,32 +275,32 @@ export function ProfileSettings() {
 			</div>
 
 			{/* Transcription Profiles */}
-			<div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 sm:p-6">
+			<div className="bg-carbon-50 dark:bg-carbon-700/50 rounded-xl p-4 sm:p-6">
 				<div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0 mb-4">
 					<div>
-						<h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">
+						<h3 className="text-lg font-medium text-carbon-900 dark:text-carbon-100">
 							Transcription Profiles
 						</h3>
-						<p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+						<p className="text-sm text-carbon-600 dark:text-carbon-400 mt-1">
 							Manage your saved transcription configurations for quick access.
 						</p>
 					</div>
 					<Button
 						onClick={handleCreateProfile}
-						className="bg-blue-600 hover:bg-blue-700 text-white"
+						className="bg-carbon-900 hover:bg-carbon-950 text-white dark:bg-carbon-100 dark:hover:bg-white dark:text-carbon-950"
 					>
 						Create New Profile
 					</Button>
 				</div>
 
 				{/* Default Profile Selection */}
-				<div className="mb-6 p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+				<div className="mb-6 p-4 bg-white dark:bg-carbon-800 rounded-lg border border-carbon-200 dark:border-carbon-700">
 					<div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
 						<div className="flex-1">
-							<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+							<label className="block text-sm font-medium text-carbon-700 dark:text-carbon-300 mb-1">
 								Default Profile
 							</label>
-							<p className="text-xs text-gray-500 dark:text-gray-400">
+							<p className="text-xs text-carbon-500 dark:text-carbon-400">
 								The profile to use by default when starting new transcriptions.
 							</p>
 						</div>
@@ -311,13 +311,13 @@ export function ProfileSettings() {
 								disabled={isLoadingProfiles || profiles.length === 0}
 							>
 								<SelectTrigger>
-									<SelectValue 
+									<SelectValue
 										placeholder={
-											isLoadingProfiles 
-												? "Loading..." 
-												: profiles.length === 0 
-												? "No profiles available" 
-												: "Select default profile"
+											isLoadingProfiles
+												? "Loading..."
+												: profiles.length === 0
+													? "No profiles available"
+													: "Select default profile"
 										}
 									/>
 								</SelectTrigger>
