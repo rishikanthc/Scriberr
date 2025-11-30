@@ -20,18 +20,18 @@ error() { echo -e "${RED}Error: $*${NC}" >&2; log "ERROR: $*"; }
 success() { echo -e "${GREEN}$*${NC}"; log "SUCCESS: $*"; }
 info() { echo -e "${YELLOW}$*${NC}"; log "INFO: $*"; }
 
-# Cleanup handler
+# Cleanup handler (only for interrupts)
 cleanup() {
   echo ""
-  if [ -n "$BATCH_ID" ]; then
+  if [ -n "$BATCH_ID" ] && [ -n "${API_KEY:-}" ]; then
     info "Stopping batch $BATCH_ID..."
     curl -s -X POST -H "Authorization: Bearer $API_KEY" \
       "$SERVER/api/v1/csv-batch/$BATCH_ID/stop" > /dev/null 2>&1 || true
     info "Batch stopped. Use --resume $BATCH_ID to continue."
   fi
-  exit 1
 }
-trap cleanup SIGINT SIGTERM
+trap 'cleanup; exit 130' SIGINT
+trap 'cleanup; exit 143' SIGTERM
 
 # Usage
 usage() {
@@ -95,7 +95,17 @@ fi
 # List mode
 if [ "$LIST_MODE" = true ]; then
   log "Listing all batches..."
-  curl -s -H "Authorization: Bearer $API_KEY" "$SERVER/api/v1/csv-batch" | jq .
+  RESPONSE=$(curl -s -w "\n%{http_code}" -H "Authorization: Bearer $API_KEY" "$SERVER/api/v1/csv-batch")
+  HTTP_CODE=$(echo "$RESPONSE" | tail -n 1)
+  BODY=$(echo "$RESPONSE" | sed '$d')
+
+  if [ "$HTTP_CODE" != "200" ]; then
+    error "Failed to list batches (HTTP $HTTP_CODE)"
+    echo "$BODY"
+    exit 1
+  fi
+
+  echo "$BODY" | jq . 2>/dev/null || { error "Invalid JSON response"; echo "$BODY"; exit 1; }
   exit 0
 fi
 
@@ -109,13 +119,21 @@ else
   [ ! -f "$CSV_FILE" ] && { error "CSV file not found: $CSV_FILE"; exit 1; }
 
   log "Uploading CSV file: $CSV_FILE"
-  UPLOAD_RESPONSE=$(curl -s -X POST -H "Authorization: Bearer $API_KEY" \
-    -F "file=@$CSV_FILE" "$SERVER/api/v1/csv-batch/upload")
+  UPLOAD_RESPONSE=$(curl -s -w "\n%{http_code}" -X POST -H "Authorization: Bearer $API_KEY" \
+    -F "file=@\"$CSV_FILE\"" "$SERVER/api/v1/csv-batch/upload")
+  HTTP_CODE=$(echo "$UPLOAD_RESPONSE" | tail -n 1)
+  UPLOAD_BODY=$(echo "$UPLOAD_RESPONSE" | sed '$d')
 
-  BATCH_ID=$(echo "$UPLOAD_RESPONSE" | jq -r '.id // empty')
+  if [ "$HTTP_CODE" != "200" ]; then
+    error "Failed to upload CSV (HTTP $HTTP_CODE)"
+    echo "$UPLOAD_BODY" | jq . 2>/dev/null || echo "$UPLOAD_BODY"
+    exit 1
+  fi
+
+  BATCH_ID=$(echo "$UPLOAD_BODY" | jq -r '.id // empty')
   if [ -z "$BATCH_ID" ]; then
-    error "Failed to upload CSV"
-    echo "$UPLOAD_RESPONSE" | jq . 2>/dev/null || echo "$UPLOAD_RESPONSE"
+    error "Failed to upload CSV - no batch ID returned"
+    echo "$UPLOAD_BODY" | jq . 2>/dev/null || echo "$UPLOAD_BODY"
     exit 1
   fi
 
@@ -144,16 +162,39 @@ fi
 # Poll status
 info "Polling status (Ctrl+C to stop)..."
 LAST_CURRENT=0
+RETRY_COUNT=0
+MAX_RETRIES=720  # ~1 hour at 5-second intervals
 
 while true; do
-  STATUS_RESPONSE=$(curl -s -H "Authorization: Bearer $API_KEY" \
+  STATUS_RESPONSE=$(curl -s -w "\n%{http_code}" -H "Authorization: Bearer $API_KEY" \
     "$SERVER/api/v1/csv-batch/$BATCH_ID/status")
+  HTTP_CODE=$(echo "$STATUS_RESPONSE" | tail -n 1)
+  STATUS_BODY=$(echo "$STATUS_RESPONSE" | sed '$d')
 
-  STATUS=$(echo "$STATUS_RESPONSE" | jq -r '.status // "unknown"')
-  TOTAL=$(echo "$STATUS_RESPONSE" | jq -r '.total_rows // 0')
-  CURRENT=$(echo "$STATUS_RESPONSE" | jq -r '.current_row // 0')
-  SUCCESS=$(echo "$STATUS_RESPONSE" | jq -r '.success_rows // 0')
-  FAILED=$(echo "$STATUS_RESPONSE" | jq -r '.failed_rows // 0')
+  # Handle HTTP errors with retry
+  if [ "$HTTP_CODE" != "200" ]; then
+    RETRY_COUNT=$((RETRY_COUNT + 1))
+    if [ $RETRY_COUNT -gt $MAX_RETRIES ]; then
+      error "Max retries exceeded. Server unreachable."
+      exit 1
+    fi
+    log "Server error (HTTP $HTTP_CODE), retry $RETRY_COUNT/$MAX_RETRIES..."
+    sleep 5
+    continue
+  fi
+  RETRY_COUNT=0  # Reset on success
+
+  STATUS=$(echo "$STATUS_BODY" | jq -r '.status // "unknown"')
+  TOTAL=$(echo "$STATUS_BODY" | jq -r '.total_rows // 0')
+  CURRENT=$(echo "$STATUS_BODY" | jq -r '.current_row // 0')
+  SUCCESS=$(echo "$STATUS_BODY" | jq -r '.success_rows // 0')
+  FAILED=$(echo "$STATUS_BODY" | jq -r '.failed_rows // 0')
+
+  # Validate numeric values (fallback to 0 if not numeric)
+  [[ ! "$CURRENT" =~ ^[0-9]+$ ]] && CURRENT=0
+  [[ ! "$TOTAL" =~ ^[0-9]+$ ]] && TOTAL=0
+  [[ ! "$SUCCESS" =~ ^[0-9]+$ ]] && SUCCESS=0
+  [[ ! "$FAILED" =~ ^[0-9]+$ ]] && FAILED=0
 
   # Log progress changes
   if [ "$CURRENT" -ne "$LAST_CURRENT" ]; then
@@ -174,6 +215,13 @@ while true; do
     cancelled)
       info "Batch cancelled. Resume with: $0 --resume $BATCH_ID"
       exit 0
+      ;;
+    pending|processing)
+      # Normal states, continue polling
+      ;;
+    *)
+      error "Unknown batch status: $STATUS"
+      exit 1
       ;;
   esac
 

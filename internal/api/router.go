@@ -228,7 +228,7 @@ func SetupRoutes(handler *Handler, authService *auth.AuthService) *gin.Engine {
 			csvBatch.POST("/:id/stop", csvBatchHandler.StopBatch)
 			csvBatch.DELETE("/:id", csvBatchHandler.DeleteBatch)
 			csvBatch.GET("/:id/output/:row_id", csvBatchHandler.DownloadOutput)
-			csvBatch.GET("/:id/download-all", csvBatchHandler.DownloadAllOutputs)
+			csvBatch.GET("/:id/outputs", csvBatchHandler.ListOutputs)
 		}
 	}
 

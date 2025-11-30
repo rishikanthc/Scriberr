@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"scriberr/internal/csvbatch"
 	"scriberr/internal/database"
@@ -132,16 +133,22 @@ func (h *CSVBatchHandler) StartBatch(c *gin.Context) {
 	batchID := c.Param("id")
 
 	var req CSVBatchStartRequest
-	c.ShouldBindJSON(&req)
+	// Ignore bind errors since body is optional, but log malformed JSON
+	if err := c.ShouldBindJSON(&req); err != nil && c.Request.ContentLength > 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid JSON body"})
+		return
+	}
 
 	if req.ProfileID != nil {
 		var profile models.TranscriptionProfile
-		if err := database.DB.First(&profile, "id = ?", *req.ProfileID).Error; err == nil {
-			database.DB.Model(&models.CSVBatch{}).Where("id = ?", batchID).Updates(map[string]interface{}{
-				"profile_id": req.ProfileID,
-				"parameters": profile.Parameters,
-			})
+		if err := database.DB.First(&profile, "id = ?", *req.ProfileID).Error; err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Profile not found"})
+			return
 		}
+		database.DB.Model(&models.CSVBatch{}).Where("id = ?", batchID).Updates(map[string]interface{}{
+			"profile_id": req.ProfileID,
+			"parameters": profile.Parameters,
+		})
 	}
 
 	if err := h.processor.Start(batchID); err != nil {
@@ -149,7 +156,11 @@ func (h *CSVBatchHandler) StartBatch(c *gin.Context) {
 		return
 	}
 
-	batch, _ := h.processor.GetStatus(batchID)
+	batch, err := h.processor.GetStatus(batchID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Batch not found"})
+		return
+	}
 	c.JSON(http.StatusOK, batch)
 }
 
@@ -172,7 +183,11 @@ func (h *CSVBatchHandler) StopBatch(c *gin.Context) {
 		return
 	}
 
-	batch, _ := h.processor.GetStatus(batchID)
+	batch, err := h.processor.GetStatus(batchID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Batch not found"})
+		return
+	}
 	c.JSON(http.StatusOK, batch)
 }
 
@@ -298,22 +313,26 @@ func (h *CSVBatchHandler) DownloadOutput(c *gin.Context) {
 	}
 
 	filename := filepath.Base(*row.OutputPath)
-	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filename))
+	// Properly escape filename to prevent header injection
+	safeFilename := strings.ReplaceAll(filename, "\"", "\\\"")
+	safeFilename = strings.ReplaceAll(safeFilename, "\n", "")
+	safeFilename = strings.ReplaceAll(safeFilename, "\r", "")
+	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", safeFilename))
 	c.Header("Content-Type", "application/json")
 	c.File(*row.OutputPath)
 }
 
-// @Summary Download all batch outputs as ZIP
-// @Description Download all output JSON files from a batch as a ZIP archive
+// @Summary List batch output files
+// @Description List all output JSON files from a batch
 // @Tags csv-batch
-// @Produce application/zip
+// @Produce json
 // @Param id path string true "Batch ID"
-// @Success 200 {file} file "ZIP archive of all outputs"
+// @Success 200 {object} map[string]interface{} "List of output files"
 // @Failure 404 {object} map[string]string
-// @Router /api/v1/csv-batch/{id}/download-all [get]
+// @Router /api/v1/csv-batch/{id}/outputs [get]
 // @Security ApiKeyAuth
 // @Security BearerAuth
-func (h *CSVBatchHandler) DownloadAllOutputs(c *gin.Context) {
+func (h *CSVBatchHandler) ListOutputs(c *gin.Context) {
 	batchID := c.Param("id")
 
 	batch, err := h.processor.GetStatus(batchID)

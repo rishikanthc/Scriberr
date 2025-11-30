@@ -21,6 +21,7 @@ import (
 	"scriberr/pkg/logger"
 
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 )
 
 // Processor handles sequential processing of YouTube URLs from CSV files
@@ -65,20 +66,28 @@ func (p *Processor) CreateBatch(name, csvPath string, params *models.WhisperXPar
 		batch.Parameters = *params
 	}
 
-	if err := database.DB.Create(batch).Error; err != nil {
-		return nil, fmt.Errorf("failed to save batch: %w", err)
-	}
+	// Use transaction to ensure atomicity - either all rows are created or none
+	err = database.DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(batch).Error; err != nil {
+			return fmt.Errorf("failed to save batch: %w", err)
+		}
 
-	for i, url := range urls {
-		row := &models.CSVBatchRow{
-			BatchID: batchID,
-			RowNum:  i + 1,
-			URL:     url,
-			Status:  models.RowPending,
+		for i, url := range urls {
+			row := &models.CSVBatchRow{
+				BatchID: batchID,
+				RowNum:  i + 1,
+				URL:     url,
+				Status:  models.RowPending,
+			}
+			if err := tx.Create(row).Error; err != nil {
+				return fmt.Errorf("failed to save row %d: %w", i+1, err)
+			}
 		}
-		if err := database.DB.Create(row).Error; err != nil {
-			return nil, fmt.Errorf("failed to save row %d: %w", i+1, err)
-		}
+		return nil
+	})
+	if err != nil {
+		os.RemoveAll(outputDir) // Cleanup output dir on failure
+		return nil, err
 	}
 
 	logger.Info("Batch created", "id", batchID, "rows", len(urls))
@@ -169,10 +178,14 @@ func (p *Processor) process(ctx context.Context, batchID string) {
 	}()
 
 	now := time.Now()
-	database.DB.Model(&models.CSVBatch{}).Where("id = ?", batchID).Updates(map[string]interface{}{
+	if err := database.DB.Model(&models.CSVBatch{}).Where("id = ?", batchID).Updates(map[string]interface{}{
 		"status":     models.BatchProcessing,
 		"started_at": now,
-	})
+	}).Error; err != nil {
+		logger.Error("Failed to update batch status", "id", batchID, "error", err)
+		p.failBatch(batchID, "failed to update status: "+err.Error())
+		return
+	}
 
 	logger.Info("Processing batch", "id", batchID)
 
@@ -184,7 +197,10 @@ func (p *Processor) process(ctx context.Context, batchID string) {
 	}
 
 	var batch models.CSVBatch
-	database.DB.First(&batch, "id = ?", batchID)
+	if err := database.DB.First(&batch, "id = ?", batchID).Error; err != nil {
+		p.failBatch(batchID, "failed to fetch batch: "+err.Error())
+		return
+	}
 
 	for _, row := range rows {
 		select {
@@ -253,7 +269,10 @@ func (p *Processor) processRow(ctx context.Context, batch *models.CSVBatch, row 
 		"processed_at": time.Now().Format(time.RFC3339),
 	}
 
-	data, _ := json.MarshalIndent(output, "", "  ")
+	data, err := json.MarshalIndent(output, "", "  ")
+	if err != nil {
+		return p.failRow(row, "failed to marshal JSON: "+err.Error())
+	}
 	if err := os.WriteFile(outputPath, data, 0644); err != nil {
 		return p.failRow(row, "failed to write output: "+err.Error())
 	}
@@ -305,9 +324,13 @@ func (p *Processor) downloadAudio(ctx context.Context, url, batchID string, rowN
 	}
 
 	// Find actual file (yt-dlp may change extension)
-	matches, _ := filepath.Glob(filepath.Join(tempDir, fmt.Sprintf("row_%d.*", rowNum)))
+	pattern := filepath.Join(tempDir, fmt.Sprintf("row_%d.*", rowNum))
+	matches, err := filepath.Glob(pattern)
+	if err != nil {
+		return "", fmt.Errorf("glob error: %w", err)
+	}
 	if len(matches) == 0 {
-		return "", fmt.Errorf("audio file not found")
+		return "", fmt.Errorf("audio file not found after download")
 	}
 	return matches[0], nil
 }

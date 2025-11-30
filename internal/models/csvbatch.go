@@ -31,8 +31,8 @@ const (
 // CSVBatch represents a batch job for processing YouTube URLs from a CSV file
 type CSVBatch struct {
 	ID        string      `json:"id" gorm:"primaryKey;type:varchar(36)"`
-	Name      string      `json:"name" gorm:"type:varchar(255)"`
-	Status    BatchStatus `json:"status" gorm:"type:varchar(20);not null;default:'pending'"`
+	Name      string      `json:"name" gorm:"type:varchar(255);not null"`
+	Status    BatchStatus `json:"status" gorm:"type:varchar(20);not null;default:'pending';index"`
 	OutputDir string      `json:"output_dir" gorm:"type:text;not null"`
 
 	// Progress tracking
@@ -49,10 +49,10 @@ type CSVBatch struct {
 	ErrorMessage *string    `json:"error_message,omitempty" gorm:"type:text"`
 	StartedAt    *time.Time `json:"started_at,omitempty"`
 	CompletedAt  *time.Time `json:"completed_at,omitempty"`
-	CreatedAt    time.Time  `json:"created_at" gorm:"autoCreateTime"`
+	CreatedAt    time.Time  `json:"created_at" gorm:"autoCreateTime;index"`
 	UpdatedAt    time.Time  `json:"updated_at" gorm:"autoUpdateTime"`
 
-	Rows []CSVBatchRow `json:"rows,omitempty" gorm:"foreignKey:BatchID"`
+	Rows []CSVBatchRow `json:"rows,omitempty" gorm:"foreignKey:BatchID;references:ID"`
 }
 
 // BeforeCreate generates UUID if not set
@@ -74,8 +74,8 @@ func (b *CSVBatch) Progress() float64 {
 // CSVBatchRow represents a single URL entry in a batch
 type CSVBatchRow struct {
 	ID      uint   `json:"id" gorm:"primaryKey;autoIncrement"`
-	BatchID string `json:"batch_id" gorm:"type:varchar(36);not null;index"`
-	RowNum  int    `json:"row_num" gorm:"type:int;not null"` // 1-indexed position in CSV
+	BatchID string `json:"batch_id" gorm:"type:varchar(36);not null;index;uniqueIndex:idx_batch_row"`
+	RowNum  int    `json:"row_num" gorm:"type:int;not null;uniqueIndex:idx_batch_row"` // 1-indexed position in CSV
 
 	// Video information
 	URL        string  `json:"url" gorm:"type:text;not null"`
@@ -85,7 +85,7 @@ type CSVBatchRow struct {
 	OutputPath *string `json:"output_path,omitempty" gorm:"type:text"`
 
 	// Status
-	Status       RowStatus `json:"status" gorm:"type:varchar(20);not null;default:'pending'"`
+	Status       RowStatus `json:"status" gorm:"type:varchar(20);not null;default:'pending';index"`
 	ErrorMessage *string   `json:"error_message,omitempty" gorm:"type:text"`
 
 	// Timing
