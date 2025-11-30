@@ -1682,7 +1682,8 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                                     onClick={togglePlayPause}
                                     aria-label={isPlaying ? 'Pause audio' : 'Play audio'}
                                     title={isPlaying ? 'Pause' : 'Play'}
-                                    className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow-lg transition-colors flex items-center justify-center cursor-pointer"
+                                    style={{ transform: 'translate(-50%, -50%)' }}
+                                    className="absolute left-1/2 top-1/2 w-11 h-11 rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow-lg transition-colors flex items-center justify-center cursor-pointer"
                                 >
                                     {isPlaying ? (
                                         <Pause className="h-5 w-5" />
