@@ -29,6 +29,7 @@
   --color-carbon-200: #c6c6c6;
   --color-carbon-100: #e0e0e0;
   --color-carbon-50: #f4f4f4;
+  --color-carbon-white: #ffffff;
 
   /* Black Palette (matching gray for consistency) */
   --black-rich: #000000;
@@ -159,11 +160,11 @@
   --card: var(--color-carbon-900);
   --card-foreground: var(--color-carbon-50);
 
-  --popover: var(--color-carbon-900);
+  --popover: var(--color-carbon-800);
   --popover-foreground: var(--color-carbon-50);
 
   --primary: var(--color-carbon-50);
-  --primary-foreground: var(--color-carbon-950);
+  --primary-foreground: var(--color-carbon-900);
 
   --secondary: var(--color-carbon-800);
   --secondary-foreground: var(--color-carbon-50);
@@ -174,12 +175,12 @@
   --accent: var(--color-carbon-800);
   --accent-foreground: var(--color-carbon-50);
 
-  --destructive: #7F1D1D;
+  --destructive: 0 62.8% 30.6%;
   --destructive-foreground: var(--color-carbon-50);
 
-  --border: var(--color-carbon-700);
+  --border: var(--color-carbon-800);
   --input: var(--color-carbon-800);
-  --ring: var(--color-carbon-600);
+  --ring: var(--color-carbon-400);
 
   --chart-1: var(--color-carbon-50);
   --chart-2: var(--color-carbon-400);
@@ -187,14 +188,14 @@
   --chart-4: var(--color-carbon-800);
   --chart-5: var(--color-carbon-900);
 
-  --sidebar: var(--color-carbon-950);
+  --sidebar: var(--color-carbon-900);
   --sidebar-foreground: var(--color-carbon-50);
-  --sidebar-primary: var(--color-carbon-50);
-  --sidebar-primary-foreground: var(--color-carbon-950);
+  --sidebar-primary: var(--color-carbon-100);
+  --sidebar-primary-foreground: var(--color-carbon-900);
   --sidebar-accent: var(--color-carbon-800);
   --sidebar-accent-foreground: var(--color-carbon-50);
-  --sidebar-border: var(--color-carbon-700);
-  --sidebar-ring: var(--color-carbon-600);
+  --sidebar-border: var(--color-carbon-800);
+  --sidebar-ring: var(--color-carbon-400);
 
   /* Scrollbar (dark) */
   --scroll-track: transparent;
@@ -208,7 +209,7 @@
   }
 
   body {
-    @apply bg-background text-foreground font-sans antialiased selection:bg-gray-200 dark:selection:bg-gray-800;
+    @apply bg-background text-foreground font-sans antialiased selection:bg-gray-200 dark:selection:bg-carbon-800;
   }
 
   h1,
@@ -226,7 +227,7 @@
   }
 
   .glass-card {
-    @apply bg-white/60 dark:bg-carbon-950/60 backdrop-blur-lg border border-gray-200/50 dark:border-carbon-800/50 shadow-sm;
+    @apply bg-white/60 dark:bg-carbon-900/60 backdrop-blur-lg border border-gray-200/50 dark:border-carbon-800/50 shadow-sm;
   }
 
   /* Transcript Font Utility */

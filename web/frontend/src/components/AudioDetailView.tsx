@@ -1918,7 +1918,7 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
 
                 {/* Execution info dialog */}
                 <UIDialog open={executionInfoOpen} onOpenChange={setExecutionInfoOpen}>
-                    <UIDialogContent className="sm:max-w-4xl w-[95vw] bg-white dark:bg-carbon-950 border-carbon-200 dark:border-carbon-800 max-h-[90vh] overflow-y-auto">
+                    <UIDialogContent className="sm:max-w-4xl w-[95vw] bg-white dark:bg-carbon-900 border-carbon-200 dark:border-carbon-800 max-h-[90vh] overflow-y-auto">
                         <UIDialogHeader>
                             <UIDialogTitle className="text-carbon-900 dark:text-carbon-100 flex items-center gap-2">
                                 <Info className="h-5 w-5 text-carbon-600 dark:text-carbon-400" />
@@ -1943,7 +1943,7 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                                     // Multi-track timing display
                                     <div className="space-y-4">
                                         {/* Overall Processing Time */}
-                                        <div className="bg-carbon-100/50 dark:bg-carbon-900/50 backdrop-blur-md border border-carbon-200/50 dark:border-carbon-800/50 rounded-lg p-4 sm:p-6 shadow-sm">
+                                        <div className="bg-carbon-100/50 dark:bg-carbon-800/50 backdrop-blur-md border border-carbon-200/50 dark:border-carbon-700/50 rounded-lg p-4 sm:p-6 shadow-sm">
                                             <h3 className="text-lg font-semibold text-carbon-900 dark:text-carbon-100 mb-3 sm:mb-4 flex items-center gap-2">
                                                 <Clock className="h-5 w-5 text-carbon-600 dark:text-carbon-400" />
                                                 Overall Processing Time
@@ -1978,7 +1978,7 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
 
                                         {/* Individual Track Processing */}
                                         {executionData.multi_track_timings && executionData.multi_track_timings.length > 0 && (
-                                            <div className="bg-carbon-100/50 dark:bg-carbon-900/50 backdrop-blur-md border border-carbon-200/50 dark:border-carbon-800/50 rounded-lg p-4 sm:p-6 shadow-sm">
+                                            <div className="bg-carbon-100/50 dark:bg-carbon-800/50 backdrop-blur-md border border-carbon-200/50 dark:border-carbon-700/50 rounded-lg p-4 sm:p-6 shadow-sm">
                                                 <h3 className="text-lg font-semibold text-carbon-900 dark:text-carbon-100 mb-3 sm:mb-4 flex items-center gap-2">
                                                     <svg className="h-5 w-5 text-carbon-600 dark:text-carbon-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
@@ -2016,7 +2016,7 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
 
                                         {/* Audio Merge Phase */}
                                         {executionData.merge_duration && (
-                                            <div className="bg-carbon-100/50 dark:bg-carbon-900/50 backdrop-blur-md border border-carbon-200/50 dark:border-carbon-800/50 rounded-lg p-4 sm:p-6 shadow-sm">
+                                            <div className="bg-carbon-100/50 dark:bg-carbon-800/50 backdrop-blur-md border border-carbon-200/50 dark:border-carbon-700/50 rounded-lg p-4 sm:p-6 shadow-sm">
                                                 <h3 className="text-lg font-semibold text-carbon-900 dark:text-carbon-100 mb-3 sm:mb-4 flex items-center gap-2">
                                                     <svg className="h-5 w-5 text-carbon-600 dark:text-carbon-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
@@ -2260,7 +2260,7 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                                 ) : (
                                     // Single track execution info
                                     <div className="space-y-4">
-                                        <div className="bg-carbon-100/50 dark:bg-carbon-900/50 backdrop-blur-md border border-carbon-200/50 dark:border-carbon-800/50 rounded-lg p-4 sm:p-6 shadow-sm">
+                                        <div className="bg-carbon-100/50 dark:bg-carbon-800/50 backdrop-blur-md border border-carbon-200/50 dark:border-carbon-700/50 rounded-lg p-4 sm:p-6 shadow-sm">
                                             <h3 className="text-lg font-semibold text-carbon-900 dark:text-carbon-100 mb-3 sm:mb-4 flex items-center gap-2">
                                                 <Clock className="h-5 w-5 text-carbon-600 dark:text-carbon-400" />
                                                 Processing Time
