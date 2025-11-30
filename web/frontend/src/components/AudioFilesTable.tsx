@@ -933,14 +933,14 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 
 	if (loading) {
 		return (
-			<div className="bg-white dark:bg-gray-700 rounded-xl p-6">
+			<div className="glass-card rounded-xl p-6">
 				<div className="animate-pulse">
-					<div className="h-4 bg-gray-200 dark:bg-gray-600 rounded w-1/4 mb-6"></div>
+					<div className="h-4 bg-muted rounded w-1/4 mb-6"></div>
 					<div className="space-y-3">
 						{[...Array(5)].map((_, i) => (
 							<div
 								key={i}
-								className="h-12 bg-gray-100 dark:bg-gray-600/50 rounded-lg"
+								className="h-12 bg-muted/50 rounded-lg"
 							></div>
 						))}
 					</div>
