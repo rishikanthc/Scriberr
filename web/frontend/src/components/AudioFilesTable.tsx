@@ -821,7 +821,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 										<MoreVertical className="h-5 w-5" />
 									</Button>
 								</PopoverTrigger>
-								<PopoverContent className="w-40 bg-white dark:bg-carbon-900 border-carbon-200 dark:border-carbon-600 p-1">
+								<PopoverContent className="w-40 bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700 p-1">
 									<div className="space-y-1">
 										{file.status === "completed" && (
 											<Button
@@ -972,7 +972,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 							placeholder="Search audio files..."
 							value={globalFilter ?? ""}
 							onChange={setGlobalFilter}
-							className="pl-10 bg-muted/50 border-border focus:bg-background transition-colors"
+							className="pl-10 bg-carbon-50 dark:bg-carbon-800 border-border focus:bg-background transition-colors"
 						/>
 					</div>
 				</div>
@@ -1007,7 +1007,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 									{table.getHeaderGroups().map((headerGroup) => (
 										<TableRow
 											key={headerGroup.id}
-											className="bg-muted/50 hover:bg-muted/60 border-b border-border"
+											className="bg-carbon-100 dark:bg-carbon-800 hover:bg-carbon-200 dark:hover:bg-carbon-700 border-b border-border"
 										>
 											{headerGroup.headers.map((header) => (
 												<TableHead
@@ -1030,7 +1030,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 										table.getRowModel().rows.map((row) => (
 											<TableRow
 												key={row.id}
-												className="hover:bg-muted/30 transition-colors duration-200 border-b border-border last:border-b-0"
+												className="hover:bg-carbon-50 dark:hover:bg-carbon-800 transition-colors duration-200 border-b border-border last:border-b-0"
 											>
 												{row.getVisibleCells().map((cell) => (
 													<TableCell

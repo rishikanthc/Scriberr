@@ -238,7 +238,7 @@ export function ProfileSettings() {
 			)}
 
 			{/* Auto-Transcription Settings */}
-			<div className="bg-carbon-50 dark:bg-carbon-700/50 rounded-xl p-4 sm:p-6">
+			<div className="bg-carbon-50 dark:bg-carbon-800 rounded-xl p-4 sm:p-6">
 				<div className="mb-4">
 					<div className="flex items-center space-x-2 mb-2">
 						<Settings className="h-5 w-5 text-carbon-600 dark:text-carbon-400" />
@@ -275,7 +275,7 @@ export function ProfileSettings() {
 			</div>
 
 			{/* Transcription Profiles */}
-			<div className="bg-carbon-50 dark:bg-carbon-700/50 rounded-xl p-4 sm:p-6">
+			<div className="bg-carbon-50 dark:bg-carbon-800 rounded-xl p-4 sm:p-6">
 				<div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0 mb-4">
 					<div>
 						<h3 className="text-lg font-medium text-carbon-900 dark:text-carbon-100">
@@ -294,7 +294,7 @@ export function ProfileSettings() {
 				</div>
 
 				{/* Default Profile Selection */}
-				<div className="mb-6 p-4 bg-white dark:bg-carbon-800 rounded-lg border border-carbon-200 dark:border-carbon-700">
+				<div className="mb-6 p-4 bg-white dark:bg-carbon-900 rounded-lg border border-carbon-200 dark:border-carbon-700">
 					<div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
 						<div className="flex-1">
 							<label className="block text-sm font-medium text-carbon-700 dark:text-carbon-300 mb-1">

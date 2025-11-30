@@ -155,14 +155,14 @@ export function Settings() {
                     <button
                       onClick={() => { setEditingSummary(null); setSummaryDialogOpen(true); }}
                       disabled={!llmConfigured}
-                      className={`inline-flex items-center gap-2 px-3 py-2 rounded-md cursor-pointer ${llmConfigured ? 'bg-carbon-100 hover:bg-carbon-200 text-carbon-950 dark:bg-carbon-800 dark:hover:bg-carbon-700 dark:text-carbon-100' : 'bg-carbon-300 text-carbon-500 cursor-not-allowed'}`}
+                      className={`inline-flex items-center gap-2 px-3 py-2 rounded-md cursor-pointer ${llmConfigured ? 'bg-carbon-100 hover:bg-carbon-200 text-carbon-950 dark:bg-carbon-700 dark:hover:bg-carbon-600 dark:text-carbon-100' : 'bg-carbon-300 text-carbon-500 cursor-not-allowed'}`}
                     >
                       <Plus className="h-4 w-4" /> New Template
                     </button>
                   </div>
                 </div>
                 {!llmConfigured && (
-                  <div className="mb-3 text-sm text-carbon-700 dark:text-carbon-300 bg-carbon-100 dark:bg-carbon-800 border border-carbon-200 dark:border-carbon-700 rounded-md px-3 py-2">
+                  <div className="mb-3 text-sm text-carbon-700 dark:text-carbon-300 bg-carbon-100 dark:bg-carbon-900 border border-carbon-200 dark:border-carbon-700 rounded-md px-3 py-2">
                     Configure an LLM provider in the LLMs tab to enable summary templates and model selection.
                   </div>
                 )}
