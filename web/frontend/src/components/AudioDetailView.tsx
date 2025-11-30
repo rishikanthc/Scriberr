@@ -1216,7 +1216,7 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                                     </h1>
                                     {audioFile.is_multi_track && (
                                         <>
-                                            <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 text-xs font-medium rounded-md">
+                                            <span className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300 text-xs font-medium rounded-md">
                                                 <Users className="h-3 w-3" />
                                                 Multi-Track ({audioFile.multi_track_files?.length || 0} speakers)
                                             </span>
@@ -1620,7 +1620,7 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                                         <div className="mt-4">
                                             <button
                                                 onClick={openLogsDialog}
-                                                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+                                                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-gray-900 rounded-md hover:bg-black focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors"
                                             >
                                                 <FileText className="h-4 w-4" />
                                                 View Logs
@@ -1671,7 +1671,7 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                                         r={radius}
                                         fill="none"
                                         stroke="currentColor"
-                                        className="text-indigo-500 dark:text-indigo-400"
+                                        className="text-gray-500 dark:text-gray-400"
                                         strokeWidth={strokeWidth}
                                         strokeLinecap="round"
                                         strokeDasharray={circumference}
@@ -1683,7 +1683,7 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                                     aria-label={isPlaying ? 'Pause audio' : 'Play audio'}
                                     title={isPlaying ? 'Pause' : 'Play'}
                                     style={{ transform: 'translate(-50%, -50%)' }}
-                                    className="absolute left-1/2 top-1/2 w-11 h-11 rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow-lg transition-colors flex items-center justify-center cursor-pointer"
+                                    className="absolute left-1/2 top-1/2 w-11 h-11 rounded-full bg-gray-900 hover:bg-black text-white shadow-lg transition-colors flex items-center justify-center cursor-pointer"
                                 >
                                     {isPlaying ? (
                                         <Pause className="h-5 w-5" />
@@ -1737,7 +1737,7 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                             {(!includeSpeakerLabels && !includeTimestamps) && (
                                 <div className="text-sm text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-black-800 p-3 rounded-md">
                                     <div className="flex items-center gap-2">
-                                        <Check className="h-4 w-4 text-green-500" />
+                                        <Check className="h-4 w-4 text-gray-900 dark:text-gray-100" />
                                         Transcript will be formatted as a single paragraph
                                     </div>
                                 </div>
@@ -1746,7 +1746,7 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                             {(includeSpeakerLabels || includeTimestamps) && (
                                 <div className="text-sm text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-black-800 p-3 rounded-md">
                                     <div className="flex items-center gap-2">
-                                        <Check className="h-4 w-4 text-green-500" />
+                                        <Check className="h-4 w-4 text-gray-900 dark:text-gray-100" />
                                         Transcript will be formatted in segments with selected labels
                                     </div>
                                 </div>
@@ -1763,7 +1763,7 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                             </Button>
                             <Button
                                 onClick={handleDownloadConfirm}
-                                className="bg-blue-600 dark:bg-blue-700 hover:bg-blue-700 dark:hover:bg-blue-800 text-white"
+                                className="bg-gray-900 dark:bg-gray-700 hover:bg-black dark:hover:bg-gray-600 text-white"
                             >
                                 <Download className="mr-2 h-4 w-4" />
                                 Download {downloadFormat.toUpperCase()}
@@ -1833,7 +1833,7 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                             </div>
                             <div className="mt-1 flex items-center justify-end gap-2">
                                 <button className="px-3 py-1.5 rounded-md bg-gray-200 dark:bg-black-700" onClick={() => setSummarizeOpen(false)}>Cancel</button>
-                                <button className="px-3 py-1.5 rounded-md bg-blue-600 text-white disabled:opacity-50" disabled={!selectedTemplateId || !selectedTemplate?.model} onClick={() => { setSummarizeOpen(false); startSummarization(); }}>Summarize</button>
+                                <button className="px-3 py-1.5 rounded-md bg-gray-900 text-white disabled:opacity-50 hover:bg-black transition-colors" disabled={!selectedTemplateId || !selectedTemplate?.model} onClick={() => { setSummarizeOpen(false); startSummarization(); }}>Summarize</button>
                             </div>
                         </div>
                     </UIDialogContent>
@@ -1848,7 +1848,7 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                                 {isSummarizing ? (
                                     <>
                                         <span>Generating summary...</span>
-                                        <span className="inline-block h-3.5 w-3.5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" aria-label="Loading" />
+                                        <span className="inline-block h-3.5 w-3.5 border-2 border-gray-600 border-t-transparent rounded-full animate-spin" aria-label="Loading" />
                                     </>
                                 ) : (
                                     <span>Summary {summaryError ? 'failed' : 'ready'}</span>
@@ -1857,7 +1857,7 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                         </UIDialogHeader>
                         <div className="flex items-center justify-end gap-2 mb-2">
                             <button
-                                className="px-2.5 py-1.5 rounded-md bg-blue-600 text-white text-sm"
+                                className="px-2.5 py-1.5 rounded-md bg-gray-900 text-white text-sm hover:bg-black transition-colors"
                                 onClick={async () => {
                                     // Keep summary dialog open; open template picker on top
                                     setSummarizeOpen(true);
@@ -2048,9 +2048,9 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                                                             {(executionData.merge_duration / 1000).toFixed(1)}s
                                                         </p>
                                                     </div>
-                                                    <div className="bg-white/60 dark:bg-black-800/30 rounded-md p-3 border border-orange-100/50 dark:border-orange-800/50">
-                                                        <span className="text-orange-700 dark:text-orange-300 font-medium">Audio Length:</span>
-                                                        <p className="font-mono text-lg font-bold text-orange-600 dark:text-orange-400 mt-1">
+                                                    <div className="bg-white dark:bg-black-800 rounded-md p-3 border border-gray-200 dark:border-gray-700">
+                                                        <span className="text-gray-600 dark:text-gray-400 font-medium">Audio Length:</span>
+                                                        <p className="font-mono text-lg font-bold text-gray-900 dark:text-gray-100 mt-1">
                                                             {(() => {
                                                                 const duration = getAudioDurationFromTranscript(transcript);
                                                                 return duration ? formatDuration(duration) : 'N/A';
@@ -2075,7 +2075,7 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                                             <div className="glass-card rounded-lg p-3 sm:p-4">
                                                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 text-sm">
                                                     {/* Model Settings */}
-                                                    <div className="bg-muted/20 dark:bg-gray-700/20 rounded-md p-3 border border-gray-200/30 dark:border-gray-600/30">
+                                                    <div className="bg-gray-50 dark:bg-gray-900 rounded-md p-3 border border-gray-200 dark:border-gray-800">
                                                         <h4 className="font-semibold text-gray-800 dark:text-gray-200 mb-2 text-sm sm:text-base">Model & Configuration</h4>
                                                         <div className="space-y-2">
                                                             <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
@@ -2137,7 +2137,7 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
 
                                                     {/* Processing Settings - Only for WhisperX */}
                                                     {executionData.actual_parameters?.model_family === 'whisper' && (
-                                                        <div className="bg-muted/20 dark:bg-gray-700/20 rounded-md p-3 border border-gray-200/30 dark:border-gray-600/30">
+                                                        <div className="bg-gray-50 dark:bg-gray-900 rounded-md p-3 border border-gray-200 dark:border-gray-800">
                                                             <h4 className="font-semibold text-gray-800 dark:text-gray-200 mb-2 text-sm sm:text-base">Processing</h4>
                                                             <div className="space-y-1">
                                                                 <div className="flex justify-between">
@@ -2186,7 +2186,7 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
 
                                                     {/* Advanced Settings - Only for WhisperX */}
                                                     {executionData.actual_parameters?.model_family === 'whisper' && (
-                                                        <div className="bg-muted/20 dark:bg-gray-700/20 rounded-md p-3 border border-gray-200/30 dark:border-gray-600/30">
+                                                        <div className="bg-gray-50 dark:bg-gray-900 rounded-md p-3 border border-gray-200 dark:border-gray-800">
                                                             <h4 className="font-semibold text-gray-800 dark:text-gray-200 mb-2 text-sm sm:text-base">Advanced</h4>
                                                             <div className="space-y-1">
                                                                 <div className="flex justify-between">
@@ -2227,7 +2227,7 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
 
                                                     {/* Advanced Settings - Only for NVIDIA Parakeet/Canary */}
                                                     {(executionData.actual_parameters?.model_family === 'nvidia_parakeet' || executionData.actual_parameters?.model_family === 'nvidia_canary') && (
-                                                        <div className="bg-muted/20 dark:bg-gray-700/20 rounded-md p-3 border border-gray-200/30 dark:border-gray-600/30">
+                                                        <div className="bg-gray-50 dark:bg-gray-900 rounded-md p-3 border border-gray-200 dark:border-gray-800">
                                                             <h4 className="font-semibold text-gray-800 dark:text-gray-200 mb-2 text-sm sm:text-base">Advanced</h4>
                                                             <div className="space-y-1">
                                                                 <div className="flex justify-between">
@@ -2668,7 +2668,7 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                                             <textarea className="w-full text-sm bg-transparent border rounded-md p-2 border-gray-300 dark:border-black-700 text-gray-900 dark:text-gray-100" placeholder="Add a note..." value={newNoteContent} onChange={e => setNewNoteContent(e.target.value)} rows={4} />
                                             <div className="mt-2 flex items-center justify-end gap-2">
                                                 <button type="button" className="px-2 py-1 text-sm rounded-md bg-gray-200 dark:bg-black-700" onClick={() => { setShowEditor(false); setPendingSelection(null); }}>{"Cancel"}</button>
-                                                <button type="button" className="px-2 py-1 text-sm rounded-md bg-blue-600 text-white" onClick={saveNewNote}>{"Save"}</button>
+                                                <button type="button" className="px-2 py-1 text-sm rounded-md bg-gray-900 text-white hover:bg-black transition-colors" onClick={saveNewNote}>{"Save"}</button>
                                             </div>
                                         </div>
                                     </div>
