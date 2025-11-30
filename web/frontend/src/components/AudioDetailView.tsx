@@ -1277,7 +1277,7 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                 {(currentStatus || audioFile.status) === "completed" && transcript && (
                     <div className="glass rounded-xl p-3 sm:p-6 transition-all duration-300">
                         {/* Header Section */}
-                        <div className="mb-3 sm:mb-6">
+                        <div className="mb-10 sm:mb-16">
                             {/* Title Row */}
                             <div className="flex items-center justify-between mb-3 sm:mb-0">
                                 <div className="flex items-center gap-3 min-w-0 flex-1 mr-2">
@@ -1316,7 +1316,7 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                                             >
                                                 <StickyNote className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                                                 {notes.length > 0 && (
-                                                    <span className="absolute -top-1 -right-0.5 min-w-[15px] h-[15px] px-1 rounded-full bg-blue-600 text-white text-[10px] leading-[15px] text-center">
+                                                    <span className="absolute -top-1 -right-0.5 min-w-[15px] h-[15px] px-1 rounded-full bg-gray-900 text-white text-[10px] leading-[15px] text-center">
                                                         {notes.length > 99 ? '99+' : notes.length}
                                                     </span>
                                                 )}
@@ -1447,7 +1447,7 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                                             >
                                                 <StickyNote className="h-3.5 w-3.5" />
                                                 {notes.length > 0 && (
-                                                    <span className="absolute -top-1 -right-0.5 min-w-[15px] h-[15px] px-1 rounded-full bg-blue-600 text-white text-[10px] leading-[15px] text-center">
+                                                    <span className="absolute -top-1 -right-0.5 min-w-[15px] h-[15px] px-1 rounded-full bg-gray-900 text-white text-[10px] leading-[15px] text-center">
                                                         {notes.length > 99 ? '99+' : notes.length}
                                                     </span>
                                                 )}
@@ -1921,7 +1921,7 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                     <UIDialogContent className="sm:max-w-4xl w-[95vw] bg-white dark:bg-black-700 border-gray-200 dark:border-black-600 max-h-[90vh] overflow-y-auto">
                         <UIDialogHeader>
                             <UIDialogTitle className="text-gray-900 dark:text-gray-100 flex items-center gap-2">
-                                <Info className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                                <Info className="h-5 w-5 text-gray-600 dark:text-gray-400" />
                                 Transcription Execution Details
                             </UIDialogTitle>
                             <UIDialogDescription className="text-gray-600 dark:text-gray-400">
@@ -1943,20 +1943,20 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                                     // Multi-track timing display
                                     <div className="space-y-4">
                                         {/* Overall Processing Time */}
-                                        <div className="bg-indigo-50 dark:bg-indigo-950/30 border border-blue-100 dark:border-blue-800/30 rounded-lg p-4 sm:p-6">
-                                            <h3 className="text-lg font-semibold text-indigo-900 dark:text-indigo-100 mb-3 sm:mb-4 flex items-center gap-2">
-                                                <Clock className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+                                        <div className="bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg p-4 sm:p-6">
+                                            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3 sm:mb-4 flex items-center gap-2">
+                                                <Clock className="h-5 w-5 text-gray-600 dark:text-gray-400" />
                                                 Overall Processing Time
                                             </h3>
                                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 text-sm">
-                                                <div className="bg-white/60 dark:bg-black-800/30 rounded-md p-3 border border-indigo-100/50 dark:border-indigo-800/50">
-                                                    <span className="text-indigo-700 dark:text-indigo-300 font-medium">Started:</span>
+                                                <div className="bg-white dark:bg-black-800 rounded-md p-3 border border-gray-200 dark:border-gray-700">
+                                                    <span className="text-gray-600 dark:text-gray-400 font-medium">Started:</span>
                                                     <p className="font-mono text-gray-900 dark:text-gray-100 mt-1 text-xs sm:text-sm">
                                                         {new Date(executionData.started_at).toLocaleString()}
                                                     </p>
                                                 </div>
-                                                <div className="bg-white/60 dark:bg-black-800/30 rounded-md p-3 border border-indigo-100/50 dark:border-indigo-800/50">
-                                                    <span className="text-indigo-700 dark:text-indigo-300 font-medium">Completed:</span>
+                                                <div className="bg-white dark:bg-black-800 rounded-md p-3 border border-gray-200 dark:border-gray-700">
+                                                    <span className="text-gray-600 dark:text-gray-400 font-medium">Completed:</span>
                                                     <p className="font-mono text-gray-900 dark:text-gray-100 mt-1 text-xs sm:text-sm">
                                                         {executionData.completed_at
                                                             ? new Date(executionData.completed_at).toLocaleString()
@@ -1964,9 +1964,9 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                                                         }
                                                     </p>
                                                 </div>
-                                                <div className="bg-white/60 dark:bg-black-800/30 rounded-md p-3 border border-indigo-100/50 dark:border-indigo-800/50">
-                                                    <span className="text-indigo-700 dark:text-indigo-300 font-medium">Total Duration:</span>
-                                                    <p className="font-mono text-xl sm:text-2xl font-bold text-indigo-600 dark:text-indigo-400 mt-1">
+                                                <div className="bg-white dark:bg-black-800 rounded-md p-3 border border-gray-200 dark:border-gray-700">
+                                                    <span className="text-gray-600 dark:text-gray-400 font-medium">Total Duration:</span>
+                                                    <p className="font-mono text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">
                                                         {executionData.processing_duration
                                                             ? `${(executionData.processing_duration / 1000).toFixed(1)}s`
                                                             : 'N/A'
@@ -1978,22 +1978,22 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
 
                                         {/* Individual Track Processing */}
                                         {executionData.multi_track_timings && executionData.multi_track_timings.length > 0 && (
-                                            <div className="bg-green-50 dark:bg-green-950/30 border border-green-100 dark:border-green-800/30 rounded-lg p-4 sm:p-6">
-                                                <h3 className="text-lg font-semibold text-green-900 dark:text-green-100 mb-3 sm:mb-4 flex items-center gap-2">
-                                                    <svg className="h-5 w-5 text-green-600 dark:text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <div className="bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg p-4 sm:p-6">
+                                                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3 sm:mb-4 flex items-center gap-2">
+                                                    <svg className="h-5 w-5 text-gray-600 dark:text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                                                     </svg>
                                                     Individual Track Processing
                                                 </h3>
                                                 <div className="space-y-3">
                                                     {executionData.multi_track_timings.map((timing, index) => (
-                                                        <div key={index} className="flex items-center gap-2 bg-muted/50 p-1 rounded-lg border border-border/50">
-                                                            <div className="bg-white/60 dark:bg-black-800/30 rounded-md p-3 border border-green-100/50 dark:border-green-800/50 flex-grow">
+                                                        <div key={index} className="flex items-center gap-2 bg-gray-100 dark:bg-gray-800 p-1 rounded-lg border border-gray-200 dark:border-gray-700">
+                                                            <div className="bg-white dark:bg-black-900 rounded-md p-3 border border-gray-200 dark:border-gray-700 flex-grow">
                                                                 <div className="flex justify-between items-center mb-2">
-                                                                    <span className="font-medium text-green-800 dark:text-green-200">
+                                                                    <span className="font-medium text-gray-800 dark:text-gray-200">
                                                                         {timing.track_name}
                                                                     </span>
-                                                                    <span className="font-mono text-lg font-bold text-green-600 dark:text-green-400">
+                                                                    <span className="font-mono text-lg font-bold text-gray-600 dark:text-gray-400">
                                                                         {(timing.duration / 1000).toFixed(1)}s
                                                                     </span>
                                                                 </div>
@@ -2016,16 +2016,16 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
 
                                         {/* Audio Merge Phase */}
                                         {executionData.merge_duration && (
-                                            <div className="bg-orange-50 dark:bg-orange-950/30 border border-orange-100 dark:border-orange-800/30 rounded-lg p-4 sm:p-6">
-                                                <h3 className="text-lg font-semibold text-orange-900 dark:text-orange-100 mb-3 sm:mb-4 flex items-center gap-2">
-                                                    <svg className="h-5 w-5 text-orange-600 dark:text-orange-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <div className="bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg p-4 sm:p-6">
+                                                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3 sm:mb-4 flex items-center gap-2">
+                                                    <svg className="h-5 w-5 text-gray-600 dark:text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
                                                     </svg>
                                                     Transcript Merge Phase
                                                 </h3>
                                                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-sm">
-                                                    <div className="bg-white/60 dark:bg-black-800/30 rounded-md p-3 border border-orange-100/50 dark:border-orange-800/50">
-                                                        <span className="text-orange-700 dark:text-orange-300 font-medium">Started:</span>
+                                                    <div className="bg-white dark:bg-black-800 rounded-md p-3 border border-gray-200 dark:border-gray-700">
+                                                        <span className="text-gray-600 dark:text-gray-400 font-medium">Started:</span>
                                                         <p className="font-mono text-gray-900 dark:text-gray-100 mt-1 text-xs">
                                                             {executionData.merge_start_time
                                                                 ? new Date(executionData.merge_start_time).toLocaleTimeString()
@@ -2033,8 +2033,8 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                                                             }
                                                         </p>
                                                     </div>
-                                                    <div className="bg-white/60 dark:bg-black-800/30 rounded-md p-3 border border-orange-100/50 dark:border-orange-800/50">
-                                                        <span className="text-orange-700 dark:text-orange-300 font-medium">Completed:</span>
+                                                    <div className="bg-white dark:bg-black-800 rounded-md p-3 border border-gray-200 dark:border-gray-700">
+                                                        <span className="text-gray-600 dark:text-gray-400 font-medium">Completed:</span>
                                                         <p className="font-mono text-gray-900 dark:text-gray-100 mt-1 text-xs">
                                                             {executionData.merge_end_time
                                                                 ? new Date(executionData.merge_end_time).toLocaleTimeString()
@@ -2042,9 +2042,9 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                                                             }
                                                         </p>
                                                     </div>
-                                                    <div className="bg-white/60 dark:bg-black-800/30 rounded-md p-3 border border-orange-100/50 dark:border-orange-800/50">
-                                                        <span className="text-orange-700 dark:text-orange-300 font-medium">Duration:</span>
-                                                        <p className="font-mono text-lg font-bold text-orange-600 dark:text-orange-400 mt-1">
+                                                    <div className="bg-white dark:bg-black-800 rounded-md p-3 border border-gray-200 dark:border-gray-700">
+                                                        <span className="text-gray-600 dark:text-gray-400 font-medium">Duration:</span>
+                                                        <p className="font-mono text-lg font-bold text-gray-900 dark:text-gray-100 mt-1">
                                                             {(executionData.merge_duration / 1000).toFixed(1)}s
                                                         </p>
                                                     </div>
@@ -2260,20 +2260,20 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                                 ) : (
                                     // Single track execution info
                                     <div className="space-y-4">
-                                        <div className="bg-gradient-to-br from-indigo-50 via-blue-50 to-cyan-50 dark:from-indigo-950/30 dark:via-blue-950/30 dark:to-cyan-950/30 border border-blue-100 dark:border-blue-800/30 rounded-lg p-4 sm:p-6">
-                                            <h3 className="text-lg font-semibold text-indigo-900 dark:text-indigo-100 mb-3 sm:mb-4 flex items-center gap-2">
-                                                <Clock className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+                                        <div className="bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg p-4 sm:p-6">
+                                            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3 sm:mb-4 flex items-center gap-2">
+                                                <Clock className="h-5 w-5 text-gray-600 dark:text-gray-400" />
                                                 Processing Time
                                             </h3>
                                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 text-sm">
-                                                <div className="bg-white/60 dark:bg-black-800/30 rounded-md p-3 border border-indigo-100/50 dark:border-indigo-800/50">
-                                                    <span className="text-indigo-700 dark:text-indigo-300 font-medium">Started:</span>
+                                                <div className="bg-white dark:bg-black-800 rounded-md p-3 border border-gray-200 dark:border-gray-700">
+                                                    <span className="text-gray-600 dark:text-gray-400 font-medium">Started:</span>
                                                     <p className="font-mono text-gray-900 dark:text-gray-100 mt-1 text-xs sm:text-sm">
                                                         {new Date(executionData.started_at).toLocaleString()}
                                                     </p>
                                                 </div>
-                                                <div className="bg-white/60 dark:bg-black-800/30 rounded-md p-3 border border-indigo-100/50 dark:border-indigo-800/50">
-                                                    <span className="text-indigo-700 dark:text-indigo-300 font-medium">Completed:</span>
+                                                <div className="bg-white dark:bg-black-800 rounded-md p-3 border border-gray-200 dark:border-gray-700">
+                                                    <span className="text-gray-600 dark:text-gray-400 font-medium">Completed:</span>
                                                     <p className="font-mono text-gray-900 dark:text-gray-100 mt-1 text-xs sm:text-sm">
                                                         {executionData.completed_at
                                                             ? new Date(executionData.completed_at).toLocaleString()
@@ -2281,18 +2281,18 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                                                         }
                                                     </p>
                                                 </div>
-                                                <div className="bg-white/60 dark:bg-black-800/30 rounded-md p-3 border border-indigo-100/50 dark:border-indigo-800/50">
-                                                    <span className="text-indigo-700 dark:text-indigo-300 font-medium">Duration:</span>
-                                                    <p className="font-mono text-xl sm:text-2xl font-bold text-indigo-600 dark:text-indigo-400 mt-1">
+                                                <div className="bg-white dark:bg-black-800 rounded-md p-3 border border-gray-200 dark:border-gray-700">
+                                                    <span className="text-gray-600 dark:text-gray-400 font-medium">Duration:</span>
+                                                    <p className="font-mono text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">
                                                         {executionData.processing_duration
                                                             ? `${(executionData.processing_duration / 1000).toFixed(1)}s`
                                                             : 'N/A'
                                                         }
                                                     </p>
                                                 </div>
-                                                <div className="bg-white/60 dark:bg-black-800/30 rounded-md p-3 border border-indigo-100/50 dark:border-indigo-800/50">
-                                                    <span className="text-indigo-700 dark:text-indigo-300 font-medium">Audio Length:</span>
-                                                    <p className="font-mono text-xl sm:text-2xl font-bold text-indigo-600 dark:text-indigo-400 mt-1">
+                                                <div className="bg-white dark:bg-black-800 rounded-md p-3 border border-gray-200 dark:border-gray-700">
+                                                    <span className="text-gray-600 dark:text-gray-400 font-medium">Audio Length:</span>
+                                                    <p className="font-mono text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">
                                                         {(() => {
                                                             const duration = getAudioDurationFromTranscript(transcript);
                                                             return duration ? formatDuration(duration) : 'N/A';
@@ -2316,7 +2316,7 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                                             <div className="glass-card rounded-lg p-3 sm:p-4">
                                                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 text-sm">
                                                     {/* Model Settings */}
-                                                    <div className="bg-muted/20 dark:bg-gray-700/20 rounded-md p-3 border border-gray-200/30 dark:border-gray-600/30">
+                                                    <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-800">
                                                         <h4 className="font-semibold text-gray-800 dark:text-gray-200 mb-2 text-sm sm:text-base">Model & Configuration</h4>
                                                         <div className="space-y-2">
                                                             <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
@@ -2378,7 +2378,7 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
 
                                                     {/* Processing Settings - Only for WhisperX */}
                                                     {executionData.actual_parameters?.model_family === 'whisper' && (
-                                                        <div className="bg-muted/20 dark:bg-gray-700/20 rounded-md p-3 border border-gray-200/30 dark:border-gray-600/30">
+                                                        <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-800">
                                                             <h4 className="font-semibold text-gray-800 dark:text-gray-200 mb-2 text-sm sm:text-base">Processing</h4>
                                                             <div className="space-y-1">
                                                                 <div className="flex justify-between">
@@ -2427,7 +2427,7 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
 
                                                     {/* Speaker Diarization Settings - For all model families and multi-track jobs */}
                                                     {(executionData.actual_parameters?.diarize || executionData.is_multi_track) && (
-                                                        <div className="bg-muted/20 dark:bg-gray-700/20 rounded-md p-3 border border-gray-200/30 dark:border-gray-600/30">
+                                                        <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-800">
                                                             <h4 className="font-semibold text-gray-800 dark:text-gray-200 mb-2 text-sm sm:text-base flex items-center gap-2">
                                                                 <Users className="h-4 w-4 text-gray-600 dark:text-gray-400" />
                                                                 Speaker Diarization
@@ -2475,7 +2475,7 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
 
                                                     {/* Advanced Settings - Only for WhisperX */}
                                                     {executionData.actual_parameters?.model_family === 'whisper' && (
-                                                        <div className="bg-muted/20 dark:bg-gray-700/20 rounded-md p-3 border border-gray-200/30 dark:border-gray-600/30">
+                                                        <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-800">
                                                             <h4 className="font-semibold text-gray-800 dark:text-gray-200 mb-2 text-sm sm:text-base">Advanced</h4>
                                                             <div className="space-y-1">
                                                                 <div className="flex justify-between">
@@ -2516,7 +2516,7 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
 
                                                     {/* Advanced Settings - Only for NVIDIA Parakeet/Canary */}
                                                     {(executionData.actual_parameters?.model_family === 'nvidia_parakeet' || executionData.actual_parameters?.model_family === 'nvidia_canary') && (
-                                                        <div className="bg-muted/20 dark:bg-gray-700/20 rounded-md p-3 border border-gray-200/30 dark:border-gray-600/30">
+                                                        <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-800">
                                                             <h4 className="font-semibold text-gray-800 dark:text-gray-200 mb-2 text-sm sm:text-base">Advanced</h4>
                                                             <div className="space-y-1">
                                                                 <div className="flex justify-between">
@@ -2550,7 +2550,7 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
 
                                 {/* Parameters */}
                                 {executionData.actual_parameters && (
-                                    <div className="bg-gray-50 dark:bg-black-800 border border-gray-200 dark:border-black-700 rounded-lg p-4 sm:p-6">
+                                    <div className="bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg p-4 sm:p-6">
                                         <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3 sm:mb-4 flex items-center gap-2">
                                             <Settings className="h-5 w-5 text-gray-600 dark:text-gray-400" />
                                             Parameters Used
@@ -2576,7 +2576,7 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                     <UIDialogContent className="sm:max-w-4xl w-[95vw] bg-white dark:bg-black-700 border-gray-200 dark:border-black-600 max-h-[90vh] overflow-y-auto">
                         <UIDialogHeader>
                             <UIDialogTitle className="text-gray-900 dark:text-gray-100 flex items-center gap-2">
-                                <FileText className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                                <FileText className="h-5 w-5 text-gray-600 dark:text-gray-400" />
                                 Transcription Logs
                             </UIDialogTitle>
                             <UIDialogDescription className="text-gray-600 dark:text-gray-400">
@@ -2605,7 +2605,7 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                     <UIDialogContent className="sm:max-w-4xl w-[95vw] bg-white dark:bg-black-700 border-gray-200 dark:border-black-600 max-h-[90vh] overflow-y-auto">
                         <UIDialogHeader>
                             <UIDialogTitle className="text-gray-900 dark:text-gray-100 flex items-center gap-2">
-                                <FileText className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                                <FileText className="h-5 w-5 text-gray-600 dark:text-gray-400" />
                                 Transcription Logs
                             </UIDialogTitle>
                             <UIDialogDescription className="text-gray-600 dark:text-gray-400">
@@ -2651,9 +2651,9 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
 
                                 {showSelectionMenu && (
                                     <div style={{ position: 'fixed', left: selectionViewportPos.x, top: selectionViewportPos.y, transform: 'translate(-50%, -100%)', zIndex: 10000 }} onMouseDown={(e) => e.stopPropagation()}>
-                                        <div className="bg-gray-900 text-white text-xs rounded-md shadow-2xl px-2 py-1 flex items-center gap-1 pointer-events-auto">
-                                            <button type="button" className="flex items-center gap-1 hover:opacity-90" onClick={openEditorForSelection}>
-                                                <Plus className="h-3 w-3" /> Add note
+                                        <div className="bg-gray-900 text-white text-base font-medium rounded-xl shadow-2xl px-6 py-3 flex items-center gap-3 pointer-events-auto hover:bg-black transition-colors ring-2 ring-white/20 transform hover:scale-105 duration-200">
+                                            <button type="button" className="flex items-center gap-2" onClick={openEditorForSelection}>
+                                                <Plus className="h-5 w-5" /> <span className="font-semibold">Add note</span>
                                             </button>
                                         </div>
                                     </div>

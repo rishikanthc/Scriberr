@@ -43,7 +43,7 @@ export const TranscriptView = forwardRef<HTMLDivElement, TranscriptViewProps>(({
 
     if (!transcript) {
         return (
-            <div className="flex flex-col items-center justify-center h-64 text-stone-400">
+            <div className="flex flex-col items-center justify-center h-64 text-gray-400">
                 <p>No transcript available.</p>
             </div>
         );
@@ -56,11 +56,11 @@ export const TranscriptView = forwardRef<HTMLDivElement, TranscriptViewProps>(({
     // Render transcript with word-level highlighting for compact view
     const renderCompactView = () => {
         if (!transcript.word_segments || transcript.word_segments.length === 0) {
-            return <p className="text-lg leading-relaxed text-stone-700 dark:text-stone-300 whitespace-pre-wrap">{transcript.text}</p>;
+            return <p className="text-lg leading-relaxed text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{transcript.text}</p>;
         }
 
         return (
-            <div className="text-lg leading-relaxed text-stone-700 dark:text-stone-300">
+            <div className="text-lg leading-relaxed text-gray-700 dark:text-gray-300">
                 {transcript.word_segments.map((word, index) => {
                     const isHighlighted = index === currentWordIndex;
                     const isAnnotated = notes.some(n => index >= n.start_word_index && index <= n.end_word_index);
@@ -76,8 +76,8 @@ export const TranscriptView = forwardRef<HTMLDivElement, TranscriptViewProps>(({
                             className={cn(
                                 "cursor-text transition-colors duration-150 rounded px-0.5 inline-block",
                                 "hover:bg-blue-100 dark:hover:bg-blue-900/30",
-                                isHighlighted && "bg-amber-200 dark:bg-amber-700/50 text-stone-900 dark:text-stone-50 font-medium shadow-sm",
-                                !isHighlighted && isAnnotated && "bg-stone-200 dark:bg-stone-700/50 border-b-2 border-amber-400 dark:border-amber-600"
+                                isHighlighted && "bg-amber-200 dark:bg-amber-700/50 text-gray-900 dark:text-gray-50 font-medium shadow-sm",
+                                !isHighlighted && isAnnotated && "bg-gray-200 dark:bg-gray-700/50 border-b-2 border-amber-400 dark:border-amber-600"
                             )}
                         >
                             {word.word}{" "}
@@ -123,8 +123,8 @@ export const TranscriptView = forwardRef<HTMLDivElement, TranscriptViewProps>(({
                     className={cn(
                         "cursor-text transition-colors duration-150 rounded px-0.5 inline-block",
                         "hover:bg-blue-100 dark:hover:bg-blue-900/30",
-                        isHighlighted && "bg-amber-200 dark:bg-amber-700/50 text-stone-900 dark:text-stone-50 font-medium shadow-sm",
-                        !isHighlighted && isAnnotated && "bg-stone-200 dark:bg-stone-700/50 border-b-2 border-amber-400 dark:border-amber-600"
+                        isHighlighted && "bg-amber-200 dark:bg-amber-700/50 text-gray-900 dark:text-gray-50 font-medium shadow-sm",
+                        !isHighlighted && isAnnotated && "bg-gray-200 dark:bg-gray-700/50 border-b-2 border-amber-400 dark:border-amber-600"
                     )}
                 >
                     {word.word}{" "}
@@ -141,15 +141,15 @@ export const TranscriptView = forwardRef<HTMLDivElement, TranscriptViewProps>(({
         return (
             <div className="space-y-6">
                 {transcript.segments.map((segment, i) => (
-                    <div key={i} className="group flex flex-col sm:flex-row gap-2 sm:gap-4 p-3 rounded-lg hover:bg-stone-50 dark:hover:bg-stone-800/50 transition-colors">
+                    <div key={i} className="group flex flex-col sm:flex-row gap-2 sm:gap-4 p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
                         {/* Timestamp & Speaker */}
-                        <div className="flex-shrink-0 w-full sm:w-32 flex sm:flex-col items-center sm:items-end gap-2 sm:gap-1 text-xs sm:text-sm text-stone-500 dark:text-stone-400 select-none">
-                            <span className="font-mono bg-stone-100 dark:bg-stone-800 px-1.5 py-0.5 rounded">
+                        <div className="flex-shrink-0 w-full sm:w-32 flex sm:flex-col items-center sm:items-end gap-2 sm:gap-1 text-xs sm:text-sm text-gray-500 dark:text-gray-400 select-none">
+                            <span className="font-mono bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded">
                                 {new Date(segment.start * 1000).toISOString().substr(11, 8)}
                             </span>
                             {segment.speaker && (
                                 <span
-                                    className="font-medium text-stone-700 dark:text-stone-300 truncate max-w-[120px]"
+                                    className="font-medium text-gray-700 dark:text-gray-300 truncate max-w-[120px]"
                                     title={getDisplaySpeakerName(segment.speaker)}
                                 >
                                     {getDisplaySpeakerName(segment.speaker)}
@@ -158,7 +158,7 @@ export const TranscriptView = forwardRef<HTMLDivElement, TranscriptViewProps>(({
                         </div>
 
                         {/* Text */}
-                        <div className="flex-grow text-base sm:text-lg leading-relaxed text-stone-700 dark:text-stone-300">
+                        <div className="flex-grow text-base sm:text-lg leading-relaxed text-gray-700 dark:text-gray-300">
                             {renderSegmentWords(segment)}
                         </div>
                     </div>
@@ -170,7 +170,7 @@ export const TranscriptView = forwardRef<HTMLDivElement, TranscriptViewProps>(({
     return (
         <div
             ref={ref}
-            className={cn("w-full max-w-none font-sans", className)}
+            className={cn("w-full max-w-none font-inter", className)}
         >
             {mode === 'compact' ? renderCompactView() : renderExpandedView()}
         </div>
