@@ -520,7 +520,7 @@ export const ChatInterface = memo(function ChatInterface({ transcriptionId, acti
                   </Button>
                 </div>
                 {/* Bottom disclaimer */}
-                <div className="text-xs text-gray-500 text-center mt-2 px-2">
+                <div className="text-xs text-carbon-500 text-center mt-2 px-2">
                   AI can make mistakes. Verify important information.
                 </div>
               </div>

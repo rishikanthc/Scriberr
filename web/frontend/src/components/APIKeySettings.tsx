@@ -40,13 +40,13 @@ export function APIKeySettings() {
 
 	return (
 		<div className="space-y-6">
-			<div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 sm:p-6">
+			<div className="bg-carbon-50 dark:bg-carbon-700/50 rounded-xl p-4 sm:p-6">
 				<div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0 mb-4">
 					<div>
-						<h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">
+						<h3 className="text-lg font-medium text-carbon-900 dark:text-carbon-100">
 							API Keys
 						</h3>
-						<p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+						<p className="text-sm text-carbon-600 dark:text-carbon-400 mt-1">
 							Manage your API keys for external access to Scriberr.
 						</p>
 					</div>

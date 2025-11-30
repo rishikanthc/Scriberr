@@ -14,14 +14,26 @@
   --gray-500: #6f6f6c;
   --gray-600: #525250;
   --gray-700: #393937;
-  --gray-800: #262625;
-  --gray-900: #161615;
+  --gray-800: #262626;
+  --gray-900: #161616;
   --gray-950: #000000;
+
+  --color-carbon-950: #000000;
+  --color-carbon-900: #161616;
+  --color-carbon-800: #262626;
+  --color-carbon-700: #393939;
+  --color-carbon-600: #525252;
+  --color-carbon-500: #6f6f6f;
+  --color-carbon-400: #8d8d8d;
+  --color-carbon-300: #a8a8a8;
+  --color-carbon-200: #c6c6c6;
+  --color-carbon-100: #e0e0e0;
+  --color-carbon-50: #f4f4f4;
 
   /* Black Palette (matching gray for consistency) */
   --black-rich: #000000;
-  --black-soft: #161615;
-  --black-card: #262625;
+  --black-soft: #161616;
+  --black-card: #262626;
   --black-border: #393937;
   --color-black-50: #f3f5ef;
   --color-black-100: #dfe1db;
@@ -30,9 +42,9 @@
   --color-black-400: #8c8d8a;
   --color-black-500: #6f6f6c;
   --color-black-600: #525250;
-  --color-black-700: #393937;
-  --color-black-800: #262625;
-  --color-black-900: #161615;
+  --color-black-700: #393939;
+  --color-black-800: #262626;
+  --color-black-900: #161616;
   --color-black-950: #000000;
 
   --font-sans: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
@@ -140,64 +152,54 @@
 }
 
 .dark {
-  /* Dark Mode - User's Black-to-Gray Palette */
-  --background: #000000;
-  /* Pure Black */
-  --foreground: #f3f5ef;
-  /* Gray 50 */
+  /* Dark Mode - Carbon Palette */
+  --background: var(--color-carbon-950);
+  --foreground: var(--color-carbon-50);
 
-  --card: #161615;
-  /* Gray 900 - Near Black */
-  --card-foreground: #f3f5ef;
+  --card: var(--color-carbon-900);
+  --card-foreground: var(--color-carbon-50);
 
-  --popover: #161615;
-  --popover-foreground: #f3f5ef;
+  --popover: var(--color-carbon-900);
+  --popover-foreground: var(--color-carbon-50);
 
-  --primary: #f3f5ef;
-  --primary-foreground: #000000;
+  --primary: var(--color-carbon-50);
+  --primary-foreground: var(--color-carbon-950);
 
-  --secondary: #262625;
-  /* Gray 800 - Very Dark Gray */
-  --secondary-foreground: #f3f5ef;
+  --secondary: var(--color-carbon-800);
+  --secondary-foreground: var(--color-carbon-50);
 
-  --muted: #161615;
-  /* Gray 900 */
-  --muted-foreground: #8c8d8a;
-  /* Gray 400 */
+  --muted: var(--color-carbon-900);
+  --muted-foreground: var(--color-carbon-400);
 
-  --accent: #262625;
-  /* Gray 800 */
-  --accent-foreground: #f3f5ef;
+  --accent: var(--color-carbon-800);
+  --accent-foreground: var(--color-carbon-50);
 
   --destructive: #7F1D1D;
-  --destructive-foreground: #f3f5ef;
+  --destructive-foreground: var(--color-carbon-50);
 
-  --border: #393937;
-  /* Gray 700 - Dark Gray */
-  --input: #262625;
-  --ring: #525250;
-  /* Gray 600 */
+  --border: var(--color-carbon-700);
+  --input: var(--color-carbon-800);
+  --ring: var(--color-carbon-600);
 
-  --chart-1: #f3f5ef;
-  --chart-2: #8c8d8a;
-  --chart-3: #525250;
-  --chart-4: #262625;
-  --chart-5: #161615;
+  --chart-1: var(--color-carbon-50);
+  --chart-2: var(--color-carbon-400);
+  --chart-3: var(--color-carbon-600);
+  --chart-4: var(--color-carbon-800);
+  --chart-5: var(--color-carbon-900);
 
-  --sidebar: #000000;
-  /* Pure Black */
-  --sidebar-foreground: #f3f5ef;
-  --sidebar-primary: #f3f5ef;
-  --sidebar-primary-foreground: #000000;
-  --sidebar-accent: #262625;
-  --sidebar-accent-foreground: #f3f5ef;
-  --sidebar-border: #393937;
-  --sidebar-ring: #525250;
+  --sidebar: var(--color-carbon-950);
+  --sidebar-foreground: var(--color-carbon-50);
+  --sidebar-primary: var(--color-carbon-50);
+  --sidebar-primary-foreground: var(--color-carbon-950);
+  --sidebar-accent: var(--color-carbon-800);
+  --sidebar-accent-foreground: var(--color-carbon-50);
+  --sidebar-border: var(--color-carbon-700);
+  --sidebar-ring: var(--color-carbon-600);
 
   /* Scrollbar (dark) */
   --scroll-track: transparent;
-  --scroll-thumb: #393937;
-  --scroll-thumb-hover: #525250;
+  --scroll-thumb: var(--color-carbon-700);
+  --scroll-thumb-hover: var(--color-carbon-600);
 }
 
 @layer base {
@@ -220,11 +222,11 @@
 
   /* Glassmorphism Utilities - Refined */
   .glass {
-    @apply bg-white/80 dark:bg-black/80 backdrop-blur-xl border border-white/20 dark:border-white/10 shadow-sm;
+    @apply bg-white/80 dark:bg-carbon-950/80 backdrop-blur-xl border border-white/20 dark:border-white/10 shadow-sm;
   }
 
   .glass-card {
-    @apply bg-white/60 dark:bg-black/60 backdrop-blur-lg border border-gray-200/50 dark:border-gray-800/50 shadow-sm;
+    @apply bg-white/60 dark:bg-carbon-950/60 backdrop-blur-lg border border-gray-200/50 dark:border-carbon-800/50 shadow-sm;
   }
 
   /* Transcript Font Utility */

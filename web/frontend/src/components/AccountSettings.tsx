@@ -136,7 +136,7 @@ export function AccountSettings() {
 	};
 
 	const PasswordStrengthIndicator = ({ label, met }: { label: string; met: boolean }) => (
-		<div className={`flex items-center gap-2 text-sm ${met ? 'text-green-600 dark:text-green-400' : 'text-gray-500 dark:text-gray-400'}`}>
+		<div className={`flex items-center gap-2 text-sm ${met ? 'text-green-600 dark:text-green-400' : 'text-carbon-500 dark:text-carbon-400'}`}>
 			{met ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
 			<span>{label}</span>
 		</div>
@@ -158,20 +158,20 @@ export function AccountSettings() {
 			)}
 
 			{/* Username Change Section */}
-			<div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 sm:p-6">
+			<div className="bg-carbon-50 dark:bg-carbon-700/50 rounded-xl p-4 sm:p-6">
 				<div className="mb-4">
 					<div className="flex items-center space-x-2 mb-2">
 						<User className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-						<h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">Change Username</h3>
+						<h3 className="text-lg font-medium text-carbon-900 dark:text-carbon-100">Change Username</h3>
 					</div>
-					<p className="text-sm text-gray-600 dark:text-gray-400">
+					<p className="text-sm text-carbon-600 dark:text-carbon-400">
 						Update your account username. You'll need to verify your current password.
 					</p>
 				</div>
 				<div>
 					<form onSubmit={handleUsernameChange} className="space-y-4">
 						<div className="space-y-2">
-							<Label htmlFor="newUsername" className="text-gray-700 dark:text-gray-300">
+							<Label htmlFor="newUsername" className="text-carbon-700 dark:text-carbon-300">
 								New Username
 							</Label>
 							<Input
@@ -184,12 +184,12 @@ export function AccountSettings() {
 								required
 								minLength={3}
 								maxLength={50}
-								className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100"
+								className="bg-white dark:bg-carbon-800 border-carbon-300 dark:border-carbon-600 text-carbon-900 dark:text-carbon-100"
 							/>
 						</div>
 
 						<div className="space-y-2">
-							<Label htmlFor="usernamePassword" className="text-gray-700 dark:text-gray-300">
+							<Label htmlFor="usernamePassword" className="text-carbon-700 dark:text-carbon-300">
 								Current Password
 							</Label>
 							<div className="relative">
@@ -201,12 +201,12 @@ export function AccountSettings() {
 									onChange={(e) => setUsernamePassword(e.target.value)}
 									disabled={loading}
 									required
-									className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 pr-10"
+									className="bg-white dark:bg-carbon-800 border-carbon-300 dark:border-carbon-600 text-carbon-900 dark:text-carbon-100 pr-10"
 								/>
 								<button
 									type="button"
 									onClick={() => setShowUsernamePassword(!showUsernamePassword)}
-									className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+									className="absolute right-3 top-1/2 -translate-y-1/2 text-carbon-400 hover:text-carbon-600 dark:hover:text-carbon-300"
 								>
 									{showUsernamePassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
 								</button>
@@ -224,23 +224,23 @@ export function AccountSettings() {
 				</div>
 			</div>
 
-			<Separator className="bg-gray-200 dark:bg-gray-700" />
+			<Separator className="bg-carbon-200 dark:bg-carbon-700" />
 
 			{/* Password Change Section */}
-			<div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 sm:p-6">
+			<div className="bg-carbon-50 dark:bg-carbon-700/50 rounded-xl p-4 sm:p-6">
 				<div className="mb-4">
 					<div className="flex items-center space-x-2 mb-2">
 						<Lock className="h-5 w-5 text-red-600 dark:text-red-400" />
-						<h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">Change Password</h3>
+						<h3 className="text-lg font-medium text-carbon-900 dark:text-carbon-100">Change Password</h3>
 					</div>
-					<p className="text-sm text-gray-600 dark:text-gray-400">
+					<p className="text-sm text-carbon-600 dark:text-carbon-400">
 						Update your account password. You'll be automatically logged out after changing your password.
 					</p>
 				</div>
 				<div>
 					<form onSubmit={handlePasswordChange} className="space-y-4">
 						<div className="space-y-2">
-							<Label htmlFor="currentPassword" className="text-gray-700 dark:text-gray-300">
+							<Label htmlFor="currentPassword" className="text-carbon-700 dark:text-carbon-300">
 								Current Password
 							</Label>
 							<div className="relative">
@@ -252,12 +252,12 @@ export function AccountSettings() {
 									onChange={(e) => setCurrentPassword(e.target.value)}
 									disabled={loading}
 									required
-									className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 pr-10"
+									className="bg-white dark:bg-carbon-800 border-carbon-300 dark:border-carbon-600 text-carbon-900 dark:text-carbon-100 pr-10"
 								/>
 								<button
 									type="button"
 									onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-									className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+									className="absolute right-3 top-1/2 -translate-y-1/2 text-carbon-400 hover:text-carbon-600 dark:hover:text-carbon-300"
 								>
 									{showCurrentPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
 								</button>
@@ -265,7 +265,7 @@ export function AccountSettings() {
 						</div>
 
 						<div className="space-y-2">
-							<Label htmlFor="newPassword" className="text-gray-700 dark:text-gray-300">
+							<Label htmlFor="newPassword" className="text-carbon-700 dark:text-carbon-300">
 								New Password
 							</Label>
 							<div className="relative">
@@ -277,20 +277,20 @@ export function AccountSettings() {
 									onChange={(e) => setNewPassword(e.target.value)}
 									disabled={loading}
 									required
-									className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 pr-10"
+									className="bg-white dark:bg-carbon-800 border-carbon-300 dark:border-carbon-600 text-carbon-900 dark:text-carbon-100 pr-10"
 								/>
 								<button
 									type="button"
 									onClick={() => setShowNewPassword(!showNewPassword)}
-									className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+									className="absolute right-3 top-1/2 -translate-y-1/2 text-carbon-400 hover:text-carbon-600 dark:hover:text-carbon-300"
 								>
 									{showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
 								</button>
 							</div>
 
 							{newPassword && (
-								<div className="mt-3 space-y-2 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-									<p className="text-sm font-medium text-gray-700 dark:text-gray-300">Password Requirements:</p>
+								<div className="mt-3 space-y-2 p-3 bg-carbon-50 dark:bg-carbon-800 rounded-lg">
+									<p className="text-sm font-medium text-carbon-700 dark:text-carbon-300">Password Requirements:</p>
 									<div className="grid grid-cols-1 gap-1">
 										<PasswordStrengthIndicator label="At least 8 characters" met={passwordStrength.hasMinLength} />
 										<PasswordStrengthIndicator label="One uppercase letter" met={passwordStrength.hasUppercase} />
@@ -303,7 +303,7 @@ export function AccountSettings() {
 						</div>
 
 						<div className="space-y-2">
-							<Label htmlFor="confirmPassword" className="text-gray-700 dark:text-gray-300">
+							<Label htmlFor="confirmPassword" className="text-carbon-700 dark:text-carbon-300">
 								Confirm New Password
 							</Label>
 							<div className="relative">
@@ -315,14 +315,14 @@ export function AccountSettings() {
 									onChange={(e) => setConfirmPassword(e.target.value)}
 									disabled={loading}
 									required
-									className={`bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 pr-10 ${
+									className={`bg-white dark:bg-carbon-800 border-carbon-300 dark:border-carbon-600 text-carbon-900 dark:text-carbon-100 pr-10 ${
 										confirmPassword && !passwordsMatch ? 'border-red-300 dark:border-red-600' : ''
 									}`}
 								/>
 								<button
 									type="button"
 									onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-									className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+									className="absolute right-3 top-1/2 -translate-y-1/2 text-carbon-400 hover:text-carbon-600 dark:hover:text-carbon-300"
 								>
 									{showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
 								</button>

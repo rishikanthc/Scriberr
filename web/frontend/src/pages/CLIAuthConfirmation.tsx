@@ -94,7 +94,7 @@ export function CLIAuthConfirmation() {
                     </div>
                     <button
                         onClick={() => navigate({ path: 'home' })}
-                        className="px-4 py-2 bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600"
+                        className="px-4 py-2 bg-carbon-200 dark:bg-carbon-700 rounded hover:bg-carbon-300 dark:hover:bg-carbon-600"
                     >
                         Go Home
                     </button>
@@ -106,18 +106,18 @@ export function CLIAuthConfirmation() {
     return (
         <Layout>
             <div className="flex flex-col items-center justify-center min-h-[60vh] p-6">
-                <div className="bg-white dark:bg-gray-800 shadow-lg rounded-xl p-8 max-w-md w-full text-center">
+                <div className="bg-white dark:bg-carbon-800 shadow-lg rounded-xl p-8 max-w-md w-full text-center">
                     <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mx-auto mb-6">
                         <svg className="w-8 h-8 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
                         </svg>
                     </div>
 
-                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                    <h1 className="text-2xl font-bold text-carbon-900 dark:text-white mb-2">
                         Authorize CLI Device?
                     </h1>
 
-                    <p className="text-gray-600 dark:text-gray-300 mb-6">
+                    <p className="text-carbon-600 dark:text-carbon-300 mb-6">
                         <span className="font-semibold">{deviceName}</span> wants to access your account <span className="font-semibold">{user?.username}</span>.
                     </p>
 
@@ -132,7 +132,7 @@ export function CLIAuthConfirmation() {
                         <button
                             onClick={handleDeny}
                             disabled={processing}
-                            className="w-full py-2.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg font-medium transition-colors"
+                            className="w-full py-2.5 bg-carbon-100 dark:bg-carbon-700 hover:bg-carbon-200 dark:hover:bg-carbon-600 text-carbon-700 dark:text-carbon-200 rounded-lg font-medium transition-colors"
                         >
                             Deny
                         </button>

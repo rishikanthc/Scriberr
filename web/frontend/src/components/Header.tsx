@@ -134,7 +134,7 @@ export function Header({ onFileSelect, onMultiTrackClick, onDownloadComplete }: 
 							<Button
 								variant="default"
 								size="icon"
-								className="bg-gray-900 hover:bg-gray-800 dark:bg-black-100 dark:hover:bg-gray-200 text-white dark:text-gray-900 h-10 w-10 rounded-xl shadow-sm transition-all hover:scale-105 cursor-pointer"
+								className="bg-carbon-900 hover:bg-carbon-800 dark:bg-carbon-100 dark:hover:bg-carbon-200 text-white dark:text-carbon-900 h-10 w-10 rounded-xl shadow-sm transition-all hover:scale-105 cursor-pointer"
 							>
 								<Plus className="h-5 w-5" />
 								<span className="sr-only">Add audio</span>
@@ -142,11 +142,11 @@ export function Header({ onFileSelect, onMultiTrackClick, onDownloadComplete }: 
 						</DropdownMenuTrigger>
 						<DropdownMenuContent
 							align="end"
-							className="w-56 glass-card border-gray-200 dark:border-black-800 p-2"
+							className="w-56 glass-card border-carbon-200 dark:border-carbon-800 p-2"
 						>
 							<DropdownMenuItem
 								onClick={handleQuickTranscriptionClick}
-								className="flex items-center gap-3 px-3 py-2.5 cursor-pointer rounded-lg focus:bg-gray-100 dark:focus:bg-gray-800"
+								className="flex items-center gap-3 px-3 py-2.5 cursor-pointer rounded-lg focus:bg-carbon-100 dark:focus:bg-carbon-800"
 							>
 								<div className="p-2 bg-amber-100 dark:bg-amber-900/30 rounded-lg text-amber-700 dark:text-amber-400">
 									<Zap className="h-4 w-4" />
@@ -160,7 +160,7 @@ export function Header({ onFileSelect, onMultiTrackClick, onDownloadComplete }: 
 							</DropdownMenuItem>
 							<DropdownMenuItem
 								onClick={handleYouTubeClick}
-								className="flex items-center gap-3 px-3 py-2.5 cursor-pointer rounded-lg focus:bg-gray-100 dark:focus:bg-gray-800"
+								className="flex items-center gap-3 px-3 py-2.5 cursor-pointer rounded-lg focus:bg-carbon-100 dark:focus:bg-carbon-800"
 							>
 								<div className="p-2 bg-rose-100 dark:bg-rose-900/30 rounded-lg text-rose-600 dark:text-rose-400">
 									<Youtube className="h-4 w-4" />
@@ -174,9 +174,9 @@ export function Header({ onFileSelect, onMultiTrackClick, onDownloadComplete }: 
 							</DropdownMenuItem>
 							<DropdownMenuItem
 								onClick={handleUploadClick}
-								className="flex items-center gap-3 px-3 py-2.5 cursor-pointer rounded-lg focus:bg-gray-100 dark:focus:bg-gray-800"
+								className="flex items-center gap-3 px-3 py-2.5 cursor-pointer rounded-lg focus:bg-carbon-100 dark:focus:bg-carbon-800"
 							>
-								<div className="p-2 bg-gray-100 dark:bg-black-800 rounded-lg text-gray-600 dark:text-gray-400">
+								<div className="p-2 bg-carbon-100 dark:bg-carbon-800 rounded-lg text-carbon-600 dark:text-carbon-400">
 									<Upload className="h-4 w-4" />
 								</div>
 								<div>
@@ -188,9 +188,9 @@ export function Header({ onFileSelect, onMultiTrackClick, onDownloadComplete }: 
 							</DropdownMenuItem>
 							<DropdownMenuItem
 								onClick={handleVideoUploadClick}
-								className="flex items-center gap-3 px-3 py-2.5 cursor-pointer rounded-lg focus:bg-gray-100 dark:focus:bg-gray-800"
+								className="flex items-center gap-3 px-3 py-2.5 cursor-pointer rounded-lg focus:bg-carbon-100 dark:focus:bg-carbon-800"
 							>
-								<div className="p-2 bg-gray-100 dark:bg-black-800 rounded-lg text-gray-600 dark:text-gray-400">
+								<div className="p-2 bg-carbon-100 dark:bg-carbon-800 rounded-lg text-carbon-600 dark:text-carbon-400">
 									<Video className="h-4 w-4" />
 								</div>
 								<div>
@@ -202,7 +202,7 @@ export function Header({ onFileSelect, onMultiTrackClick, onDownloadComplete }: 
 							</DropdownMenuItem>
 							<DropdownMenuItem
 								onClick={handleRecordClick}
-								className="flex items-center gap-3 px-3 py-2.5 cursor-pointer rounded-lg focus:bg-gray-100 dark:focus:bg-gray-800"
+								className="flex items-center gap-3 px-3 py-2.5 cursor-pointer rounded-lg focus:bg-carbon-100 dark:focus:bg-carbon-800"
 							>
 								<div className="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-lg text-orange-600 dark:text-orange-400">
 									<Mic className="h-4 w-4" />
@@ -216,7 +216,7 @@ export function Header({ onFileSelect, onMultiTrackClick, onDownloadComplete }: 
 							</DropdownMenuItem>
 							<DropdownMenuItem
 								onClick={handleMultiTrackClick}
-								className="flex items-center gap-3 px-3 py-2.5 cursor-pointer rounded-lg focus:bg-gray-100 dark:focus:bg-gray-800"
+								className="flex items-center gap-3 px-3 py-2.5 cursor-pointer rounded-lg focus:bg-carbon-100 dark:focus:bg-carbon-800"
 							>
 								<div className="p-2 bg-teal-100 dark:bg-teal-900/30 rounded-lg text-teal-600 dark:text-teal-400">
 									<Users className="h-4 w-4" />
@@ -237,18 +237,18 @@ export function Header({ onFileSelect, onMultiTrackClick, onDownloadComplete }: 
 							<Button
 								variant="ghost"
 								size="icon"
-								className="h-10 w-10 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer"
+								className="h-10 w-10 rounded-xl hover:bg-carbon-100 dark:hover:bg-carbon-800 cursor-pointer"
 							>
 								<Grip className="h-5 w-5 text-muted-foreground" />
 								<span className="sr-only">Open menu</span>
 							</Button>
 						</DropdownMenuTrigger>
-						<DropdownMenuContent align="end" className="w-48 glass-card border-gray-200 dark:border-black-800 p-2">
-							<DropdownMenuItem onClick={handleHomeClick} className="cursor-pointer rounded-lg focus:bg-gray-100 dark:focus:bg-gray-800">
+						<DropdownMenuContent align="end" className="w-48 glass-card border-carbon-200 dark:border-carbon-800 p-2">
+							<DropdownMenuItem onClick={handleHomeClick} className="cursor-pointer rounded-lg focus:bg-carbon-100 dark:focus:bg-carbon-800">
 								<Home className="h-4 w-4 mr-2" />
 								Home
 							</DropdownMenuItem>
-							<DropdownMenuItem onClick={handleSettingsClick} className="cursor-pointer rounded-lg focus:bg-gray-100 dark:focus:bg-gray-800">
+							<DropdownMenuItem onClick={handleSettingsClick} className="cursor-pointer rounded-lg focus:bg-carbon-100 dark:focus:bg-carbon-800">
 								<Settings className="h-4 w-4 mr-2" />
 								Settings
 							</DropdownMenuItem>

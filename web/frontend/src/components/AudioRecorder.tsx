@@ -272,12 +272,12 @@ export function AudioRecorder({
 
 	return (
 		<Dialog open={isOpen} onOpenChange={handleClose}>
-			<DialogContent className="sm:max-w-[600px] bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+			<DialogContent className="sm:max-w-[600px] bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700">
 				<DialogHeader>
-					<DialogTitle className="text-gray-900 dark:text-gray-100 text-xl font-semibold">
+					<DialogTitle className="text-carbon-900 dark:text-carbon-100 text-xl font-semibold">
 						Record Audio
 					</DialogTitle>
-					<DialogDescription className="text-gray-600 dark:text-gray-400">
+					<DialogDescription className="text-carbon-600 dark:text-carbon-400">
 						Record audio directly from your microphone and upload it for
 						transcription.
 					</DialogDescription>
@@ -286,14 +286,14 @@ export function AudioRecorder({
 				<div className="space-y-6 py-4">
 					{/* Title Input */}
 					<div className="space-y-2">
-						<label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+						<label className="text-sm font-medium text-carbon-700 dark:text-carbon-300">
 							Recording Title (Optional)
 						</label>
 						<Input
 							value={title}
 							onChange={(e) => setTitle(e.target.value)}
 							placeholder="Enter a title for your recording..."
-							className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100"
+							className="bg-white dark:bg-carbon-800 border-carbon-300 dark:border-carbon-600 text-carbon-900 dark:text-carbon-100"
 							disabled={isRecording}
 						/>
 					</div>
@@ -301,14 +301,14 @@ export function AudioRecorder({
 					{/* Microphone Selection */}
 					{availableDevices.length > 1 && (
 						<div className="space-y-2">
-							<label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+							<label className="text-sm font-medium text-carbon-700 dark:text-carbon-300">
 								Microphone
 							</label>
 							<DropdownMenu>
 								<DropdownMenuTrigger asChild disabled={isRecording}>
 									<Button
 										variant="outline"
-										className="w-full justify-between bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700"
+										className="w-full justify-between bg-white dark:bg-carbon-800 border-carbon-300 dark:border-carbon-600 hover:bg-carbon-50 dark:hover:bg-carbon-700"
 									>
 										<div className="flex items-center gap-2">
 											<Settings className="h-4 w-4" />
@@ -321,20 +321,20 @@ export function AudioRecorder({
 										<ChevronDown className="h-4 w-4 opacity-50" />
 									</Button>
 								</DropdownMenuTrigger>
-								<DropdownMenuContent className="w-full min-w-[400px] bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700">
+								<DropdownMenuContent className="w-full min-w-[400px] bg-white dark:bg-carbon-900 border-carbon-200 dark:border-carbon-700">
 									{availableDevices.map((device) => (
 										<DropdownMenuItem
 											key={device.deviceId}
 											onClick={() => setSelectedDevice(device.deviceId)}
-											className="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
+											className="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-carbon-100 dark:hover:bg-carbon-700"
 										>
-											<Mic className="h-4 w-4 text-gray-500" />
+											<Mic className="h-4 w-4 text-carbon-500" />
 											<div className="flex-1">
-												<div className="text-sm font-medium text-gray-900 dark:text-gray-100">
+												<div className="text-sm font-medium text-carbon-900 dark:text-carbon-100">
 													{device.label ||
 														`Microphone ${device.deviceId.slice(0, 8)}`}
 												</div>
-												<div className="text-xs text-gray-500 dark:text-gray-400">
+												<div className="text-xs text-carbon-500 dark:text-carbon-400">
 													Device ID: {device.deviceId.slice(0, 20)}...
 												</div>
 											</div>
@@ -350,10 +350,10 @@ export function AudioRecorder({
 
 					{/* Recording Time */}
 					<div className="text-center">
-						<div className="text-3xl font-mono font-bold text-gray-900 dark:text-gray-100 mb-2">
+						<div className="text-3xl font-mono font-bold text-carbon-900 dark:text-carbon-100 mb-2">
 							{formatTime(recordingTime)}
 						</div>
-						<div className="flex items-center justify-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+						<div className="flex items-center justify-center gap-2 text-sm text-carbon-600 dark:text-carbon-400">
 							{isRecording && !isPaused && (
 								<div className="h-2 w-2 bg-red-500 rounded-full animate-pulse"></div>
 							)}
@@ -376,11 +376,11 @@ export function AudioRecorder({
 					<div className="relative">
 						<div
 							ref={micContainerRef}
-							className="w-full rounded-lg p-4 bg-gray-50 dark:bg-gray-800/50 min-h-[120px]"
+							className="w-full rounded-lg p-4 bg-carbon-50 dark:bg-carbon-800/50 min-h-[120px]"
 						/>
 						{!isRecording && !recordedBlob && (
 							<div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-								<div className="text-gray-400 dark:text-gray-500 text-sm text-center">
+								<div className="text-carbon-400 dark:text-carbon-500 text-sm text-center">
 									<Mic className="h-8 w-8 mx-auto mb-2 opacity-50" />
 									<div>Waveform will appear here during recording</div>
 									{!wavesurfer && (
@@ -422,7 +422,7 @@ export function AudioRecorder({
 									onClick={togglePauseRecording}
 									size="lg"
 									variant="outline"
-									className="border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 px-6 py-3 rounded-xl"
+									className="border-carbon-300 dark:border-carbon-600 hover:bg-carbon-100 dark:hover:bg-carbon-700 px-6 py-3 rounded-xl"
 								>
 									{isPaused ? (
 										<>
@@ -439,7 +439,7 @@ export function AudioRecorder({
 								<Button
 									onClick={stopRecording}
 									size="lg"
-									className="bg-gray-600 hover:bg-gray-700 text-white px-6 py-3 rounded-xl"
+									className="bg-carbon-600 hover:bg-carbon-700 text-white px-6 py-3 rounded-xl"
 								>
 									<Square className="h-5 w-5 mr-2" />
 									Stop

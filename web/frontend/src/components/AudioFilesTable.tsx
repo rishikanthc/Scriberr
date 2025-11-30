@@ -595,7 +595,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 									</div>
 								))}
 								{tracks && tracks.length > 5 && (
-									<p className="text-xs text-gray-400">...and {tracks.length - 5} more</p>
+									<p className="text-xs text-carbon-400">...and {tracks.length - 5} more</p>
 								)}
 							</div>
 						</div>
@@ -821,13 +821,13 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 										<MoreVertical className="h-5 w-5" />
 									</Button>
 								</PopoverTrigger>
-								<PopoverContent className="w-40 bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-600 p-1">
+								<PopoverContent className="w-40 bg-white dark:bg-carbon-900 border-carbon-200 dark:border-carbon-600 p-1">
 									<div className="space-y-1">
 										{file.status === "completed" && (
 											<Button
 												variant="ghost"
 												size="sm"
-												className="w-full justify-start h-8 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
+												className="w-full justify-start h-8 text-sm hover:bg-carbon-100 dark:hover:bg-carbon-700 cursor-pointer"
 												onClick={() => {
 													setOpenPopovers((prev) => ({ ...prev, [file.id]: false }));
 													navigate({ path: 'chat', params: { audioId: file.id } });
@@ -840,7 +840,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 										<Button
 											variant="ghost"
 											size="sm"
-											className="w-full justify-start h-8 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer disabled:cursor-not-allowed"
+											className="w-full justify-start h-8 text-sm hover:bg-carbon-100 dark:hover:bg-carbon-700 cursor-pointer disabled:cursor-not-allowed"
 											disabled={!canTranscribe(file)}
 											onClick={() => handleTranscribeD(file.id)}
 										>
@@ -851,7 +851,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 										<Button
 											variant="ghost"
 											size="sm"
-											className="w-full justify-start h-8 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer disabled:cursor-not-allowed"
+											className="w-full justify-start h-8 text-sm hover:bg-carbon-100 dark:hover:bg-carbon-700 cursor-pointer disabled:cursor-not-allowed"
 											disabled={!canTranscribe(file)}
 											onClick={() => handleTranscribe(file.id)}
 										>
@@ -863,7 +863,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 											<Button
 												variant="ghost"
 												size="sm"
-												className="w-full justify-start h-8 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 text-orange-500 dark:text-orange-400 hover:text-orange-600 dark:hover:text-orange-300 cursor-pointer"
+												className="w-full justify-start h-8 text-sm hover:bg-carbon-100 dark:hover:bg-carbon-700 text-orange-500 dark:text-orange-400 hover:text-orange-600 dark:hover:text-orange-300 cursor-pointer"
 												disabled={killingJobs.has(file.id)}
 												onClick={() => {
 													setSelectedFile(file);
@@ -887,7 +887,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 										<Button
 											variant="ghost"
 											size="sm"
-											className="w-full justify-start h-8 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 text-red-500 dark:text-red-400 hover:text-red-600 dark:hover:text-red-300 cursor-pointer"
+											className="w-full justify-start h-8 text-sm hover:bg-carbon-100 dark:hover:bg-carbon-700 text-red-500 dark:text-red-400 hover:text-red-600 dark:hover:text-red-300 cursor-pointer"
 											onClick={() => {
 												setSelectedFile(file);
 												setDeleteDialogOpen(true);
@@ -954,10 +954,10 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 			<div className="p-3 sm:p-6">
 				<div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0 mb-4">
 					<div>
-						<h2 className="text-xl font-semibold text-gray-900 dark:text-gray-50 mb-2">
+						<h2 className="text-xl font-semibold text-carbon-900 dark:text-carbon-50 mb-2">
 							Audio Files
 						</h2>
-						<p className="text-gray-600 dark:text-gray-400 text-sm">
+						<p className="text-carbon-600 dark:text-carbon-400 text-sm">
 							{globalFilter
 								? `${totalItems} file${totalItems !== 1 ? "s" : ""} found`
 								: `${totalItems} file${totalItems !== 1 ? "s" : ""} total`
@@ -967,7 +967,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 
 					{/* Global Search */}
 					<div className="relative w-full sm:w-72">
-						<Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4 z-10" />
+						<Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-carbon-400 h-4 w-4 z-10" />
 						<DebouncedSearchInput
 							placeholder="Search audio files..."
 							value={globalFilter ?? ""}
@@ -980,10 +980,10 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 				{data.length === 0 && !loading ? (
 					<div className="p-12 text-center">
 						<div className="text-5xl mb-4 opacity-50">🎵</div>
-						<h3 className="text-lg font-medium text-gray-600 dark:text-gray-300 mb-2">
+						<h3 className="text-lg font-medium text-carbon-600 dark:text-carbon-300 mb-2">
 							{globalFilter ? "No matching audio files" : "No audio files yet"}
 						</h3>
-						<p className="text-gray-500 dark:text-gray-400">
+						<p className="text-carbon-500 dark:text-carbon-400">
 							{globalFilter
 								? "Try adjusting your search terms"
 								: "Upload your first audio file to get started"
@@ -993,10 +993,10 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 				) : (
 					<>
 						{/* Table */}
-						<div className={`border border-gray-100 dark:border-gray-900 rounded-lg overflow-hidden relative transition-opacity duration-200 ${isPageChanging ? 'opacity-75' : ''}`}>
+						<div className={`border border-carbon-100 dark:border-carbon-900 rounded-lg overflow-hidden relative transition-opacity duration-200 ${isPageChanging ? 'opacity-75' : ''}`}>
 							{isPageChanging && (
-								<div className="absolute inset-0 bg-white/20 dark:bg-gray-800/20 flex items-center justify-center z-10">
-									<div className="flex items-center space-x-2 text-gray-600 dark:text-gray-400 bg-white dark:bg-gray-800 px-3 py-1 rounded-md shadow-sm">
+								<div className="absolute inset-0 bg-white/20 dark:bg-carbon-800/20 flex items-center justify-center z-10">
+									<div className="flex items-center space-x-2 text-carbon-600 dark:text-carbon-400 bg-white dark:bg-carbon-800 px-3 py-1 rounded-md shadow-sm">
 										<Loader2 className="h-4 w-4 animate-spin" />
 										<span className="text-sm">Loading...</span>
 									</div>
@@ -1012,7 +1012,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 											{headerGroup.headers.map((header) => (
 												<TableHead
 													key={header.id}
-													className={`text-gray-700 dark:text-gray-300 ${header.column.id === 'created_at' ? 'hidden sm:table-cell' : ''} ${header.column.id === 'title' ? 'w-full' : ''} ${header.column.id === 'status' ? 'w-10 text-center' : ''} ${header.column.id === 'actions' ? 'w-10 text-center' : ''}`}
+													className={`text-carbon-700 dark:text-carbon-300 ${header.column.id === 'created_at' ? 'hidden sm:table-cell' : ''} ${header.column.id === 'title' ? 'w-full' : ''} ${header.column.id === 'status' ? 'w-10 text-center' : ''} ${header.column.id === 'actions' ? 'w-10 text-center' : ''}`}
 												>
 													{header.isPlaceholder
 														? null
@@ -1067,7 +1067,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 						{/* Pagination */}
 						<div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0 px-2 py-4">
 							<div className="flex items-center space-x-2">
-								<p className="text-sm text-gray-600 dark:text-gray-400">
+								<p className="text-sm text-carbon-600 dark:text-carbon-400">
 									{globalFilter ? (
 										`Showing ${pagination.pageIndex * pagination.pageSize + 1} to ${Math.min(
 											(pagination.pageIndex + 1) * pagination.pageSize,
@@ -1087,7 +1087,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 									size="sm"
 									onClick={() => table.setPageIndex(0)}
 									disabled={!table.getCanPreviousPage()}
-									className="text-gray-600 dark:text-gray-400"
+									className="text-carbon-600 dark:text-carbon-400"
 								>
 									<ChevronsLeft className="h-4 w-4" />
 								</Button>
@@ -1096,11 +1096,11 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 									size="sm"
 									onClick={() => table.previousPage()}
 									disabled={!table.getCanPreviousPage()}
-									className="text-gray-600 dark:text-gray-400"
+									className="text-carbon-600 dark:text-carbon-400"
 								>
 									<ChevronLeft className="h-4 w-4" />
 								</Button>
-								<span className="text-sm text-gray-600 dark:text-gray-400">
+								<span className="text-sm text-carbon-600 dark:text-carbon-400">
 									Page {table.getState().pagination.pageIndex + 1} of{" "}
 									{pageCount}
 								</span>
@@ -1109,7 +1109,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 									size="sm"
 									onClick={() => table.nextPage()}
 									disabled={!table.getCanNextPage()}
-									className="text-gray-600 dark:text-gray-400"
+									className="text-carbon-600 dark:text-carbon-400"
 								>
 									<ChevronRight className="h-4 w-4" />
 								</Button>
@@ -1118,7 +1118,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 									size="sm"
 									onClick={() => table.setPageIndex(pageCount - 1)}
 									disabled={!table.getCanNextPage()}
-									className="text-gray-600 dark:text-gray-400"
+									className="text-carbon-600 dark:text-carbon-400"
 								>
 									<ChevronsRight className="h-4 w-4" />
 								</Button>
@@ -1147,19 +1147,19 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 
 			{/* Stop Transcription Dialog */}
 			<AlertDialog open={stopDialogOpen} onOpenChange={setStopDialogOpen}>
-				<AlertDialogContent className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+				<AlertDialogContent className="bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700">
 					<AlertDialogHeader>
-						<AlertDialogTitle className="text-gray-900 dark:text-gray-100">
+						<AlertDialogTitle className="text-carbon-900 dark:text-carbon-100">
 							Stop Transcription
 						</AlertDialogTitle>
-						<AlertDialogDescription className="text-gray-600 dark:text-gray-400">
+						<AlertDialogDescription className="text-carbon-600 dark:text-carbon-400">
 							Are you sure you want to stop the transcription of "
 							{selectedFile?.title || (selectedFile ? getFileName(selectedFile.audio_path) : "")}
 							"? This will cancel the current transcription process.
 						</AlertDialogDescription>
 					</AlertDialogHeader>
 					<AlertDialogFooter>
-						<AlertDialogCancel className="bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700">
+						<AlertDialogCancel className="bg-carbon-100 dark:bg-carbon-800 border-carbon-300 dark:border-carbon-600 text-carbon-700 dark:text-carbon-200 hover:bg-carbon-200 dark:hover:bg-carbon-700">
 							Cancel
 						</AlertDialogCancel>
 						<AlertDialogAction
@@ -1179,12 +1179,12 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 
 			{/* Delete Audio File Dialog */}
 			<AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-				<AlertDialogContent className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+				<AlertDialogContent className="bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700">
 					<AlertDialogHeader>
-						<AlertDialogTitle className="text-gray-900 dark:text-gray-100">
+						<AlertDialogTitle className="text-carbon-900 dark:text-carbon-100">
 							Delete Audio File
 						</AlertDialogTitle>
-						<AlertDialogDescription className="text-gray-600 dark:text-gray-400">
+						<AlertDialogDescription className="text-carbon-600 dark:text-carbon-400">
 							Are you sure you want to delete "
 							{selectedFile?.title || (selectedFile ? getFileName(selectedFile.audio_path) : "")}
 							"? This action cannot be undone and will
@@ -1193,7 +1193,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 						</AlertDialogDescription>
 					</AlertDialogHeader>
 					<AlertDialogFooter>
-						<AlertDialogCancel className="bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700">
+						<AlertDialogCancel className="bg-carbon-100 dark:bg-carbon-800 border-carbon-300 dark:border-carbon-600 text-carbon-700 dark:text-carbon-200 hover:bg-carbon-200 dark:hover:bg-carbon-700">
 							Cancel
 						</AlertDialogCancel>
 						<AlertDialogAction

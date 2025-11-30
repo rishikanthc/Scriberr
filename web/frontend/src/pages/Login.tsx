@@ -51,7 +51,7 @@ export function Login({ onLogin }: LoginProps) {
 	};
 
 	return (
-		<div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+		<div className="min-h-screen bg-carbon-50 dark:bg-carbon-900 flex items-center justify-center">
 			<div className="absolute top-8 right-8">
 				<ThemeSwitcher />
 			</div>
@@ -61,18 +61,18 @@ export function Login({ onLogin }: LoginProps) {
                 <div className="flex justify-center mb-6">
                     <ScriberrLogo onClick={() => navigate({ path: 'home' })} />
                 </div>
-					<h2 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
+					<h2 className="text-3xl font-bold text-carbon-900 dark:text-carbon-100">
 						Sign in to Scriberr
 					</h2>
-					<p className="mt-2 text-gray-600 dark:text-gray-400">
+					<p className="mt-2 text-carbon-600 dark:text-carbon-400">
 						Access your audio transcription workspace
 					</p>
 				</div>
 
-				<Card className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+				<Card className="bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700">
 					<CardHeader>
-						<CardTitle className="text-gray-900 dark:text-gray-100">Login</CardTitle>
-						<CardDescription className="text-gray-600 dark:text-gray-400">
+						<CardTitle className="text-carbon-900 dark:text-carbon-100">Login</CardTitle>
+						<CardDescription className="text-carbon-600 dark:text-carbon-400">
 							Enter your credentials to continue
 						</CardDescription>
 					</CardHeader>
@@ -85,7 +85,7 @@ export function Login({ onLogin }: LoginProps) {
 							)}
 							
 							<div className="space-y-2">
-								<Label htmlFor="username" className="text-gray-700 dark:text-gray-300">
+								<Label htmlFor="username" className="text-carbon-700 dark:text-carbon-300">
 									Username
 								</Label>
 								<Input
@@ -96,12 +96,12 @@ export function Login({ onLogin }: LoginProps) {
 									onChange={(e) => setUsername(e.target.value)}
 									disabled={loading}
 									required
-									className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100"
+									className="bg-white dark:bg-carbon-800 border-carbon-300 dark:border-carbon-600 text-carbon-900 dark:text-carbon-100"
 								/>
 							</div>
 							
 							<div className="space-y-2">
-								<Label htmlFor="password" className="text-gray-700 dark:text-gray-300">
+								<Label htmlFor="password" className="text-carbon-700 dark:text-carbon-300">
 									Password
 								</Label>
 								<Input
@@ -112,7 +112,7 @@ export function Login({ onLogin }: LoginProps) {
 									onChange={(e) => setPassword(e.target.value)}
 									disabled={loading}
 									required
-									className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100"
+									className="bg-white dark:bg-carbon-800 border-carbon-300 dark:border-carbon-600 text-carbon-900 dark:text-carbon-100"
 								/>
 							</div>
 							
@@ -128,7 +128,7 @@ export function Login({ onLogin }: LoginProps) {
 				</Card>
 
 				<div className="text-center">
-					<p className="text-sm text-gray-600 dark:text-gray-400">
+					<p className="text-sm text-carbon-600 dark:text-carbon-400">
 						Secure authentication required for API key management
 					</p>
 				</div>

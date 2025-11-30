@@ -107,20 +107,20 @@ export function LLMSettings() {
 	if (loading) {
 		return (
 			<div className="flex items-center justify-center h-32">
-				<div className="text-gray-500 dark:text-gray-400">Loading LLM configuration...</div>
+				<div className="text-carbon-500 dark:text-carbon-400">Loading LLM configuration...</div>
 			</div>
 		);
 	}
 
 	return (
 		<div className="space-y-6">
-			<div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 sm:p-6">
+			<div className="bg-carbon-50 dark:bg-carbon-700/50 rounded-xl p-4 sm:p-6">
 				<div className="mb-4 sm:mb-6">
-					<h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 flex items-center gap-2">
+					<h3 className="text-lg font-medium text-carbon-900 dark:text-carbon-100 flex items-center gap-2">
 						<Bot className="h-5 w-5" />
 						LLM Configuration
 					</h3>
-					<p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+					<p className="text-sm text-carbon-600 dark:text-carbon-400 mt-1">
 						Configure external Large Language Model integration for enhanced features.
 					</p>
 				</div>
@@ -144,7 +144,7 @@ export function LLMSettings() {
 					{/* Provider Selection */}
 					<div>
 						<Label className="text-base font-medium">Choose LLM Provider</Label>
-						<p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+						<p className="text-sm text-carbon-600 dark:text-carbon-400 mb-3">
 							Select the LLM service you want to integrate with
 						</p>
 						<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -152,7 +152,7 @@ export function LLMSettings() {
 								<Card className={`cursor-pointer transition-colors ${
 									config.provider === "ollama" 
 										? "border-blue-500 bg-blue-50 dark:bg-blue-900/20" 
-										: "hover:bg-gray-50 dark:hover:bg-gray-600"
+										: "hover:bg-carbon-50 dark:hover:bg-carbon-600"
 								}`}>
 									<CardHeader className="pb-2">
 										<div className="flex items-center space-x-2">
@@ -181,7 +181,7 @@ export function LLMSettings() {
 								<Card className={`cursor-pointer transition-colors ${
 									config.provider === "openai" 
 										? "border-blue-500 bg-blue-50 dark:bg-blue-900/20" 
-										: "hover:bg-gray-50 dark:hover:bg-gray-600"
+										: "hover:bg-carbon-50 dark:hover:bg-carbon-600"
 								}`}>
 									<CardHeader className="pb-2">
 										<div className="flex items-center space-x-2">
@@ -221,7 +221,7 @@ export function LLMSettings() {
 									onChange={(e) => setBaseUrl(e.target.value)}
 									className="mt-1"
 								/>
-								<p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+								<p className="text-xs text-carbon-500 dark:text-carbon-400 mt-1">
 									The URL where your Ollama server is running
 								</p>
 							</div>
@@ -246,7 +246,7 @@ export function LLMSettings() {
 									onChange={(e) => setApiKey(e.target.value)}
 									className="mt-1"
 								/>
-								<p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+								<p className="text-xs text-carbon-500 dark:text-carbon-400 mt-1">
 									Your OpenAI API key. {config.has_api_key ? "Leave blank to keep current key." : ""}
 								</p>
 							</div>
@@ -255,8 +255,8 @@ export function LLMSettings() {
 
 					{/* Status */}
 					{config.id && (
-						<div className="bg-white dark:bg-gray-800 rounded-lg p-4 border">
-							<h4 className="font-medium text-gray-900 dark:text-gray-100 mb-2">Status</h4>
+						<div className="bg-white dark:bg-carbon-800 rounded-lg p-4 border">
+							<h4 className="font-medium text-carbon-900 dark:text-carbon-100 mb-2">Status</h4>
 							<div className="flex items-center gap-2">
 								{config.is_active ? (
 									<>

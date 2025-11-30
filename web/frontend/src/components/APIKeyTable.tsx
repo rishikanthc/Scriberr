@@ -93,7 +93,7 @@ export function APIKeyTable({ refreshTrigger, onKeyChange }: APIKeyTableProps) {
 	if (loading) {
 		return (
 			<div className="flex items-center justify-center h-32">
-				<div className="text-gray-500 dark:text-gray-400">Loading API keys...</div>
+				<div className="text-carbon-500 dark:text-carbon-400">Loading API keys...</div>
 			</div>
 		);
 	}
@@ -101,10 +101,10 @@ export function APIKeyTable({ refreshTrigger, onKeyChange }: APIKeyTableProps) {
 	if (apiKeys.length === 0) {
 		return (
 			<div className="text-center py-8">
-				<div className="text-gray-500 dark:text-gray-400 mb-2">
+				<div className="text-carbon-500 dark:text-carbon-400 mb-2">
 					No API keys found
 				</div>
-				<div className="text-sm text-gray-400 dark:text-gray-500">
+				<div className="text-sm text-carbon-400 dark:text-carbon-500">
 					Create your first API key to get started with external access
 				</div>
 			</div>
@@ -115,23 +115,23 @@ export function APIKeyTable({ refreshTrigger, onKeyChange }: APIKeyTableProps) {
 		<div className="overflow-x-auto">
 			<table className="w-full">
 				<thead>
-					<tr className="border-b border-gray-200 dark:border-gray-600">
-						<th className="text-left py-2 px-2 sm:py-3 sm:px-4 font-medium text-gray-700 dark:text-gray-300">
+					<tr className="border-b border-carbon-200 dark:border-carbon-600">
+						<th className="text-left py-2 px-2 sm:py-3 sm:px-4 font-medium text-carbon-700 dark:text-carbon-300">
 							Name
 						</th>
-						<th className="hidden sm:table-cell text-left py-2 px-2 sm:py-3 sm:px-4 font-medium text-gray-700 dark:text-gray-300">
+						<th className="hidden sm:table-cell text-left py-2 px-2 sm:py-3 sm:px-4 font-medium text-carbon-700 dark:text-carbon-300">
 							Description
 						</th>
-						<th className="hidden sm:table-cell text-left py-2 px-2 sm:py-3 sm:px-4 font-medium text-gray-700 dark:text-gray-300">
+						<th className="hidden sm:table-cell text-left py-2 px-2 sm:py-3 sm:px-4 font-medium text-carbon-700 dark:text-carbon-300">
 							Key Preview
 						</th>
-						<th className="hidden sm:table-cell text-left py-2 px-2 sm:py-3 sm:px-4 font-medium text-gray-700 dark:text-gray-300">
+						<th className="hidden sm:table-cell text-left py-2 px-2 sm:py-3 sm:px-4 font-medium text-carbon-700 dark:text-carbon-300">
 							Created
 						</th>
-						<th className="hidden sm:table-cell text-left py-2 px-2 sm:py-3 sm:px-4 font-medium text-gray-700 dark:text-gray-300">
+						<th className="hidden sm:table-cell text-left py-2 px-2 sm:py-3 sm:px-4 font-medium text-carbon-700 dark:text-carbon-300">
 							Last Used
 						</th>
-						<th className="text-right py-2 px-2 sm:py-3 sm:px-4 font-medium text-gray-700 dark:text-gray-300">
+						<th className="text-right py-2 px-2 sm:py-3 sm:px-4 font-medium text-carbon-700 dark:text-carbon-300">
 							Actions
 						</th>
 					</tr>
@@ -140,31 +140,31 @@ export function APIKeyTable({ refreshTrigger, onKeyChange }: APIKeyTableProps) {
 					{apiKeys.map((apiKey) => (
 						<tr
 							key={apiKey.id}
-							className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50"
+							className="border-b border-carbon-100 dark:border-carbon-700 hover:bg-carbon-50 dark:hover:bg-carbon-800/50"
 						>
 							<td className="py-2 px-2 sm:py-3 sm:px-4">
-								<div className="font-medium text-gray-900 dark:text-gray-100">
+								<div className="font-medium text-carbon-900 dark:text-carbon-100">
 									{apiKey.name}
 								</div>
 							</td>
 							<td className="hidden sm:table-cell py-2 px-2 sm:py-3 sm:px-4">
-								<div className="text-sm text-gray-600 dark:text-gray-400">
+								<div className="text-sm text-carbon-600 dark:text-carbon-400">
 									{apiKey.description || "—"}
 								</div>
 							</td>
 							<td className="hidden sm:table-cell py-2 px-2 sm:py-3 sm:px-4">
-								<div className="font-mono text-sm text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">
+								<div className="font-mono text-sm text-carbon-700 dark:text-carbon-300 bg-carbon-100 dark:bg-carbon-700 px-2 py-1 rounded">
 									{apiKey.key_preview}
 								</div>
 							</td>
 							<td className="hidden sm:table-cell py-2 px-2 sm:py-3 sm:px-4">
-								<div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
+								<div className="flex items-center text-sm text-carbon-600 dark:text-carbon-400">
 									<Calendar className="h-4 w-4 mr-1" />
 									{formatDate(apiKey.created_at)}
 								</div>
 							</td>
 							<td className="hidden sm:table-cell py-2 px-2 sm:py-3 sm:px-4">
-								<div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
+								<div className="flex items-center text-sm text-carbon-600 dark:text-carbon-400">
 									{apiKey.last_used ? (
 										<>
 											<Clock className="h-4 w-4 mr-1" />

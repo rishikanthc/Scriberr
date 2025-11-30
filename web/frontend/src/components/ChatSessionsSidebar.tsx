@@ -182,7 +182,7 @@ export function ChatSessionsSidebar({
 
         {/* Search bar placeholder - similar to Open-webui */}
         <div className="relative mb-4">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-carbon-400" />
           <Input
             placeholder="Search conversations..."
             className="pl-10 bg-muted/50 border-transparent text-sm"
@@ -194,8 +194,8 @@ export function ChatSessionsSidebar({
       {/* Chat Sessions List */}
       <div className="flex-1 overflow-y-auto px-2 pb-4">
         {sessions.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12 text-gray-500 dark:text-gray-400">
-            <MessageSquare className="h-12 w-12 mb-4 text-gray-300 dark:text-gray-600" />
+          <div className="flex flex-col items-center justify-center py-12 text-carbon-500 dark:text-carbon-400">
+            <MessageSquare className="h-12 w-12 mb-4 text-carbon-300 dark:text-carbon-600" />
             <div className="text-sm text-center">
               <p className="font-medium">No conversations yet</p>
               <p className="mt-1 text-xs">Start a new chat to begin!</p>
@@ -249,7 +249,7 @@ export function ChatSessionsSidebar({
                   <Button
                     size="sm"
                     variant="ghost"
-                    className="h-6 w-6 p-0 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded"
+                    className="h-6 w-6 p-0 text-carbon-400 hover:text-carbon-600 dark:hover:text-carbon-300 rounded"
                     onClick={(e) => { e.stopPropagation(); setEditingId(s.id); setEditTitle(s.title) }}
                     title="Rename chat"
                   >
@@ -258,7 +258,7 @@ export function ChatSessionsSidebar({
                   <Button
                     size="sm"
                     variant="ghost"
-                    className="h-6 w-6 p-0 text-gray-400 hover:text-red-500 rounded"
+                    className="h-6 w-6 p-0 text-carbon-400 hover:text-red-500 rounded"
                     onClick={(e) => { e.stopPropagation(); deleteSession(s.id) }}
                     title="Delete chat"
                   >

@@ -34,12 +34,12 @@ export function ToastProvider({ children }: PropsWithChildren<{}>) {
         {toasts.map(t => (
           <div
             key={t.id}
-            className="pointer-events-auto min-w-[220px] max-w-[360px] rounded-md bg-gray-900 text-white shadow-lg ring-1 ring-black/10 dark:bg-gray-800 dark:text-gray-100 transition-all"
+            className="pointer-events-auto min-w-[220px] max-w-[360px] rounded-md bg-carbon-900 text-white shadow-lg ring-1 ring-black/10 dark:bg-carbon-800 dark:text-carbon-100 transition-all"
           >
             <div className="px-3 py-2">
               <div className="text-sm font-medium">{t.title}</div>
               {t.description && (
-                <div className="text-xs text-gray-300 dark:text-gray-300 mt-0.5">{t.description}</div>
+                <div className="text-xs text-carbon-300 dark:text-carbon-300 mt-0.5">{t.description}</div>
               )}
             </div>
           </div>

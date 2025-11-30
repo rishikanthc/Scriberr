@@ -66,7 +66,7 @@ export function ChatPage() {
 			{/* Overlay for mobile sidebar */}
 			{showSidebar && (
 				<div
-					className="fixed inset-0 bg-black/50 backdrop-blur-sm z-30 md:hidden"
+					className="fixed inset-0 bg-carbon-950/50 backdrop-blur-sm z-30 md:hidden"
 					onClick={() => setShowSidebar(false)}
 				/>
 			)}

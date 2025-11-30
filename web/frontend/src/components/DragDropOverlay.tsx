@@ -99,7 +99,7 @@ export function DragDropOverlay({
 	return (
 		<div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
 			{/* Backdrop */}
-			<div className="absolute inset-0 bg-black/20 dark:bg-black/40 backdrop-blur-sm" />
+			<div className="absolute inset-0 bg-carbon-950/20 dark:bg-carbon-950/40 backdrop-blur-sm" />
 
 			{/* Drop Zone */}
 			<div className={cn(

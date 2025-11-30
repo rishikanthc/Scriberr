@@ -50,18 +50,18 @@ export function Settings() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-carbon-50 dark:bg-carbon-950">
       <div className="mx-auto w-full max-w-6xl px-2 sm:px-6 md:px-8 py-3 sm:py-6">
         {/* Use the same Header component as Homepage */}
         <Header onFileSelect={handleFileSelect} />
 
         {/* Main Content Container with same styling as Homepage */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl p-2 sm:p-6 mt-4 sm:mt-6">
+        <div className="bg-white dark:bg-carbon-900 rounded-xl p-2 sm:p-6 mt-4 sm:mt-6">
           <div className="mb-4 sm:mb-8">
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">
+            <h1 className="text-2xl font-bold text-carbon-900 dark:text-carbon-100 mb-2">
               Settings
             </h1>
-            <p className="text-gray-600 dark:text-gray-400">
+            <p className="text-carbon-600 dark:text-carbon-400">
               Manage your account settings and transcription profiles.
             </p>
           </div>
@@ -72,11 +72,11 @@ export function Settings() {
             onValueChange={setActiveTab}
             className="space-y-4 sm:space-y-6"
           >
-            <TabsList className="grid w-full grid-cols-6 items-center h-auto bg-gray-100 dark:bg-gray-800 p-1 rounded-xl">
+            <TabsList className="grid w-full grid-cols-6 items-center h-auto bg-carbon-100 dark:bg-carbon-800 p-1 rounded-xl">
               <TabsTrigger
                 value="transcription"
                 aria-label="Transcription"
-                className="flex items-center justify-center gap-2 h-9 py-1.5 data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-gray-900 dark:data-[state=active]:text-gray-100 text-gray-600 dark:text-gray-400 font-medium rounded-lg text-xs sm:text-sm"
+                className="flex items-center justify-center gap-2 h-9 py-1.5 data-[state=active]:bg-white dark:data-[state=active]:bg-carbon-700 data-[state=active]:text-carbon-900 dark:data-[state=active]:text-carbon-100 text-carbon-600 dark:text-carbon-400 font-medium rounded-lg text-xs sm:text-sm"
               >
                 <SettingsIcon className="h-4 w-4" />
                 <span className="hidden sm:inline">Transcription</span>
@@ -84,7 +84,7 @@ export function Settings() {
               <TabsTrigger
                 value="account"
                 aria-label="Account"
-                className="flex items-center justify-center gap-2 h-9 py-1.5 data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-gray-900 dark:data-[state=active]:text-gray-100 text-gray-600 dark:text-gray-400 font-medium rounded-lg text-xs sm:text-sm"
+                className="flex items-center justify-center gap-2 h-9 py-1.5 data-[state=active]:bg-white dark:data-[state=active]:bg-carbon-700 data-[state=active]:text-carbon-900 dark:data-[state=active]:text-carbon-100 text-carbon-600 dark:text-carbon-400 font-medium rounded-lg text-xs sm:text-sm"
               >
                 <User className="h-4 w-4" />
                 <span className="hidden sm:inline">Account</span>
@@ -92,7 +92,7 @@ export function Settings() {
               <TabsTrigger
                 value="apikeys"
                 aria-label="API Keys"
-                className="flex items-center justify-center gap-2 h-9 py-1.5 data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-gray-900 dark:data-[state=active]:text-gray-100 text-gray-600 dark:text-gray-400 font-medium rounded-lg text-xs sm:text-sm"
+                className="flex items-center justify-center gap-2 h-9 py-1.5 data-[state=active]:bg-white dark:data-[state=active]:bg-carbon-700 data-[state=active]:text-carbon-900 dark:data-[state=active]:text-carbon-100 text-carbon-600 dark:text-carbon-400 font-medium rounded-lg text-xs sm:text-sm"
               >
                 <Key className="h-4 w-4" />
                 <span className="hidden sm:inline">API Keys</span>
@@ -100,7 +100,7 @@ export function Settings() {
               <TabsTrigger
                 value="llms"
                 aria-label="LLMs"
-                className="flex items-center justify-center gap-2 h-9 py-1.5 data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-gray-900 dark:data-[state=active]:text-gray-100 text-gray-600 dark:text-gray-400 font-medium rounded-lg text-xs sm:text-sm"
+                className="flex items-center justify-center gap-2 h-9 py-1.5 data-[state=active]:bg-white dark:data-[state=active]:bg-carbon-700 data-[state=active]:text-carbon-900 dark:data-[state=active]:text-carbon-100 text-carbon-600 dark:text-carbon-400 font-medium rounded-lg text-xs sm:text-sm"
               >
                 <Bot className="h-4 w-4" />
                 <span className="hidden sm:inline">LLMs</span>
@@ -108,7 +108,7 @@ export function Settings() {
               <TabsTrigger
                 value="summary"
                 aria-label="Summary"
-                className="flex items-center justify-center gap-2 h-9 py-1.5 data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-gray-900 dark:data-[state=active]:text-gray-100 text-gray-600 dark:text-gray-400 font-medium rounded-lg text-xs sm:text-sm"
+                className="flex items-center justify-center gap-2 h-9 py-1.5 data-[state=active]:bg-white dark:data-[state=active]:bg-carbon-700 data-[state=active]:text-carbon-900 dark:data-[state=active]:text-carbon-100 text-carbon-600 dark:text-carbon-400 font-medium rounded-lg text-xs sm:text-sm"
               >
                 <FileText className="h-4 w-4" />
                 <span className="hidden sm:inline">Summary</span>
@@ -116,7 +116,7 @@ export function Settings() {
               <TabsTrigger
                 value="cli"
                 aria-label="CLI Watcher"
-                className="flex items-center justify-center gap-2 h-9 py-1.5 data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-gray-900 dark:data-[state=active]:text-gray-100 text-gray-600 dark:text-gray-400 font-medium rounded-lg text-xs sm:text-sm"
+                className="flex items-center justify-center gap-2 h-9 py-1.5 data-[state=active]:bg-white dark:data-[state=active]:bg-carbon-700 data-[state=active]:text-carbon-900 dark:data-[state=active]:text-carbon-100 text-carbon-600 dark:text-carbon-400 font-medium rounded-lg text-xs sm:text-sm"
               >
                 <Terminal className="h-4 w-4" />
                 <span className="hidden sm:inline">CLI Watcher</span>
@@ -145,24 +145,24 @@ export function Settings() {
 
             {/* Summary Tab */}
             <TabsContent value="summary" className="space-y-6">
-              <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 sm:p-6">
+              <div className="bg-carbon-50 dark:bg-carbon-800 rounded-xl p-4 sm:p-6">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0 mb-4">
                   <div>
-                    <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">Summarization Templates</h3>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Create and manage prompts used to summarize transcripts.</p>
+                    <h3 className="text-lg font-medium text-carbon-900 dark:text-carbon-100">Summarization Templates</h3>
+                    <p className="text-sm text-carbon-600 dark:text-carbon-400 mt-1">Create and manage prompts used to summarize transcripts.</p>
                   </div>
                   <div className="flex items-center gap-3">
                     <button
                       onClick={() => { setEditingSummary(null); setSummaryDialogOpen(true); }}
                       disabled={!llmConfigured}
-                      className={`inline-flex items-center gap-2 px-3 py-2 rounded-md cursor-pointer ${llmConfigured ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}
+                      className={`inline-flex items-center gap-2 px-3 py-2 rounded-md cursor-pointer ${llmConfigured ? 'bg-carbon-100 hover:bg-carbon-200 text-carbon-950 dark:bg-carbon-800 dark:hover:bg-carbon-700 dark:text-carbon-100' : 'bg-carbon-300 text-carbon-500 cursor-not-allowed'}`}
                     >
                       <Plus className="h-4 w-4" /> New Template
                     </button>
                   </div>
                 </div>
                 {!llmConfigured && (
-                  <div className="mb-3 text-sm text-gray-700 dark:text-gray-300 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-md px-3 py-2">
+                  <div className="mb-3 text-sm text-carbon-700 dark:text-carbon-300 bg-carbon-100 dark:bg-carbon-800 border border-carbon-200 dark:border-carbon-700 rounded-md px-3 py-2">
                     Configure an LLM provider in the LLMs tab to enable summary templates and model selection.
                   </div>
                 )}
