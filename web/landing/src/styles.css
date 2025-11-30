@@ -44,7 +44,7 @@ html {
 }
 
 .headline {
-  @apply text-4xl sm:text-5xl md:text-6xl font-semibold tracking-tight leading-tight;
+  @apply text-4xl sm:text-5xl md:text-6xl font-semibold tracking-tight leading-[1.1];
 }
 
 .subcopy {
@@ -122,49 +122,15 @@ html {
 }
 
 /* Docs + Changelog typography */
+/* Docs + Changelog typography handled by @tailwindcss/typography */
 .docs-prose {
-  @apply font-sans;
+  @apply prose prose-slate prose-lg max-w-none;
+  @apply prose-headings:font-display prose-headings:font-semibold prose-headings:tracking-tight;
+  @apply prose-a:text-blue-600 prose-a:no-underline hover:prose-a:underline;
 }
 
-.docs-prose h1 {
-  @apply font-display text-[32px] md:text-[36px] font-semibold tracking-tight text-gray-900;
-}
-
-.docs-prose h2 {
-  @apply text-xl md:text-2xl font-semibold text-gray-900;
-}
-
-.docs-prose p {
-  @apply text-[15px] md:text-base leading-7 text-gray-700;
-}
-
-.docs-prose ul {
-  @apply text-[15px] md:text-base leading-7 text-gray-700;
-}
-
-.docs-prose li {
-  @apply my-0.5;
-}
-
-.docs-prose a {
-  @apply text-blue-600 hover:text-blue-700 underline-offset-2 hover:underline;
-}
-
-.changelog-prose h2 {
-  @apply text-xl md:text-2xl font-semibold text-gray-900;
-}
-
-.changelog-prose p,
-.changelog-prose li,
-.changelog-prose ul,
-.changelog-prose div {
-  @apply text-[15px] md:text-base leading-7;
-}
-
-.changelog-prose li {
-  @apply my-0.5;
-}
-
-.changelog-prose a {
-  @apply text-blue-600 hover:text-blue-700 underline-offset-2 hover:underline;
+.changelog-prose {
+  @apply prose prose-slate prose-lg max-w-none;
+  @apply prose-headings:font-display prose-headings:font-semibold;
+  @apply prose-a:text-blue-600 prose-a:no-underline hover:prose-a:underline;
 }
