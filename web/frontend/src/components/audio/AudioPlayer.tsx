@@ -82,7 +82,6 @@ export const AudioPlayer = forwardRef<AudioPlayerRef, AudioPlayerProps>(({
                     height: collapsed ? 0 : 64,
                     normalize: true,
                     backend: 'WebAudio',
-                    minPxPerSec: 50,
                 });
 
                 wavesurferRef.current = ws;
