@@ -1682,7 +1682,7 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                                     onClick={togglePlayPause}
                                     aria-label={isPlaying ? 'Pause audio' : 'Play audio'}
                                     title={isPlaying ? 'Pause' : 'Play'}
-                                    className="absolute left-1/2 top-1/2 -trangray-x-1/2 -trangray-y-1/2 w-11 h-11 rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow-lg transition-colors flex items-center justify-center cursor-pointer"
+                                    className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow-lg transition-colors flex items-center justify-center cursor-pointer"
                                 >
                                     {isPlaying ? (
                                         <Pause className="h-5 w-5" />
@@ -2649,7 +2649,7 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                                 />
 
                                 {showSelectionMenu && (
-                                    <div style={{ position: 'fixed', left: selectionViewportPos.x, top: selectionViewportPos.y, transform: 'trangray(-50%, -100%)', zIndex: 10000 }} onMouseDown={(e) => e.stopPropagation()}>
+                                    <div style={{ position: 'fixed', left: selectionViewportPos.x, top: selectionViewportPos.y, transform: 'translate(-50%, -100%)', zIndex: 10000 }} onMouseDown={(e) => e.stopPropagation()}>
                                         <div className="bg-gray-900 text-white text-xs rounded-md shadow-2xl px-2 py-1 flex items-center gap-1 pointer-events-auto">
                                             <button type="button" className="flex items-center gap-1 hover:opacity-90" onClick={openEditorForSelection}>
                                                 <Plus className="h-3 w-3" /> Add note
@@ -2659,7 +2659,7 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                                 )}
 
                                 {showEditor && (
-                                    <div style={{ position: 'fixed', left: selectionViewportPos.x, top: selectionViewportPos.y + 18, transform: 'trangray(-50%, 0)', zIndex: 10001 }} className="w-[min(90vw,520px)]" onMouseDown={(e) => e.stopPropagation()}>
+                                    <div style={{ position: 'fixed', left: selectionViewportPos.x, top: selectionViewportPos.y + 18, transform: 'translate(-50%, 0)', zIndex: 10001 }} className="w-[min(90vw,520px)]" onMouseDown={(e) => e.stopPropagation()}>
                                         <div className="bg-white dark:bg-black-900 rounded-lg shadow-2xl p-3 pointer-events-auto">
                                             <div className="text-xs text-gray-500 dark:text-gray-400 border-l-2 border-gray-300 dark:border-black-600 pl-2 italic mb-2 max-h-32 overflow-auto">
                                                 {pendingSelection.quote}
