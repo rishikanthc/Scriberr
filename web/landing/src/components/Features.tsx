@@ -4,6 +4,14 @@ const features = [
 		desc: "Tweak advanced transcription parameters to get the best quality output",
 	},
 	{
+		title: "GPU Acceleration",
+		desc: "Full CUDA support for NVIDIA GPUs for lightning-fast transcription.",
+	},
+	{
+		title: "Scriberr Watcher",
+		desc: "Automatically detect and transcribe new audio files in monitored folders.",
+	},
+	{
 		title: "Built-in recorder",
 		desc: "Capture audio directly in-app and transcribe instantly.",
 	},
@@ -12,8 +20,8 @@ const features = [
 		desc: "Extract key points or chat over transcripts using LLMs.",
 	},
 	{
-		title: "Lightweight notes",
-		desc: "Highlight, annotate, and tag important moments as you listen/read.",
+		title: "Highlighting & Notes",
+		desc: "Highlight text and add notes for easy reference.",
 	},
 	{
 		title: "Speaker diarization",
@@ -22,6 +30,10 @@ const features = [
 	{
 		title: "Profiles & presets",
 		desc: "Save configurations for different audio scenarios.",
+	},
+	{
+		title: "Export Options",
+		desc: "Export transcripts to TXT, SRT, or JSON formats.",
 	},
 ];
 
@@ -66,7 +78,7 @@ function Icon({ name }: { name: string }) {
 					<path d="M21 15a4 4 0 0 1-4 4H7l-4 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z" />
 				</svg>
 			);
-		case "Lightweight notes":
+		case "Highlighting & Notes":
 			return (
 				<svg
 					viewBox="0 0 24 24"
@@ -106,6 +118,49 @@ function Icon({ name }: { name: string }) {
 					<path d="M6 3v12" />
 					<path d="M12 3v18" />
 					<path d="M18 3v8" />
+				</svg>
+			);
+		case "Export Options":
+			return (
+				<svg
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					strokeWidth="1.8"
+					className={common}
+				>
+					<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+					<polyline points="7 10 12 15 17 10" />
+					<line x1="12" y1="15" x2="12" y2="3" />
+				</svg>
+			);
+		case "GPU Acceleration":
+			return (
+				<svg
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					strokeWidth="1.8"
+					className={common}
+				>
+					<path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+				</svg>
+			);
+		case "Scriberr Watcher":
+			return (
+				<svg
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					strokeWidth="1.8"
+					className={common}
+				>
+					<path d="M2 12h10" />
+					<path d="M9 4v16" />
+					<path d="M3 9l3 3-3 3" />
+					<path d="M14 8v8" />
+					<path d="M18 8v8" />
+					<path d="M22 8v8" />
 				</svg>
 			);
 		default:

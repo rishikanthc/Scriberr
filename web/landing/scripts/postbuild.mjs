@@ -22,8 +22,10 @@ if (!existsSync(docsSubDir)) {
 const docsFiles = [
   { from: 'docs-index.html', to: 'docs/index.html' },
   { from: 'docs-intro.html', to: 'docs/intro.html' },
+  { from: 'docs-features.html', to: 'docs/features.html' },
   { from: 'docs-installation.html', to: 'docs/installation.html' },
-  { from: 'docs-diarization.html', to: 'docs/diarization.html' },
+  { from: 'docs-configuration.html', to: 'docs/configuration.html' },
+  { from: 'docs-usage.html', to: 'docs/usage.html' },
   { from: 'docs-contributing.html', to: 'docs/contributing.html' },
 ];
 

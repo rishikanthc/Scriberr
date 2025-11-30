@@ -165,6 +165,11 @@ definitions:
       name:
         type: string
     type: object
+  api.ErrorResponse:
+    properties:
+      error:
+        type: string
+    type: object
   api.LLMConfigRequest:
     properties:
       api_key:
@@ -456,6 +461,10 @@ definitions:
       start_word_index:
         description: Indexed selection into transcript by word positions
         type: integer
+      transcription:
+        allOf:
+        - $ref: '#/definitions/models.TranscriptionJob'
+        description: Relationships
       transcription_id:
         type: string
       updated_at:
@@ -473,6 +482,10 @@ definitions:
         type: string
       template_id:
         type: string
+      transcription:
+        allOf:
+        - $ref: '#/definitions/models.TranscriptionJob'
+        description: Relationships
       transcription_id:
         type: string
       updated_at:
@@ -1945,14 +1958,22 @@ paths:
       - summarize
   /api/v1/transcription/{id}:
     delete:
-      description: Delete a transcription job and its associated files
+      description: |-
+        Delete a transcription job and its associated files
+        Delete a transcription job and its associated files
       parameters:
       - description: Job ID
         in: path
         name: id
         required: true
         type: string
+      - description: Job ID
+        in: path
+        name: id
+        required: true
+        type: string
       produces:
+      - application/json
       - application/json
       responses:
         "200":
@@ -1976,11 +1997,14 @@ paths:
       security:
       - ApiKeyAuth: []
       - BearerAuth: []
+      - ApiKeyAuth: []
+      - BearerAuth: []
       summary: Delete transcription job
       tags:
       - transcription
+      - transcription
     get:
-      description: Get a specific transcription record by its ID
+      description: Get details of a specific transcription job
       parameters:
       - description: Job ID
         in: path
@@ -2003,8 +2027,7 @@ paths:
       security:
       - ApiKeyAuth: []
       - BearerAuth: []
-      - BearerAuth: []
-      summary: Get transcription record by ID
+      summary: Get transcription job details
       tags:
       - transcription
   /api/v1/transcription/{id}/audio:
@@ -2209,8 +2232,6 @@ paths:
       - notes
   /api/v1/transcription/{id}/speakers:
     get:
-      consumes:
-      - application/json
       description: Retrieves all custom speaker names for a transcription job
       parameters:
       - description: Transcription Job ID
@@ -2452,6 +2473,7 @@ paths:
       security:
       - ApiKeyAuth: []
       - BearerAuth: []
+      - BearerAuth: []
       summary: Update transcription title
       tags:
       - transcription
@@ -2522,8 +2544,28 @@ paths:
       - transcription
   /api/v1/transcription/list:
     get:
-      description: Get a list of all transcription jobs with optional search and filtering
+      description: |-
+        Get a list of all transcription jobs with optional search and filtering
+        Get a list of all transcription jobs with optional search and filtering
       parameters:
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: Items per page
+        in: query
+        name: limit
+        type: integer
+      - description: Filter by status
+        in: query
+        name: status
+        type: string
+      - description: Search in title and audio filename
+        in: query
+        name: q
+        type: string
       - default: 1
         description: Page number
         in: query
@@ -2544,6 +2586,7 @@ paths:
         type: string
       produces:
       - application/json
+      - application/json
       responses:
         "200":
           description: OK
@@ -2553,8 +2596,11 @@ paths:
       security:
       - ApiKeyAuth: []
       - BearerAuth: []
+      - ApiKeyAuth: []
+      - BearerAuth: []
       summary: List all transcription records
       tags:
+      - transcription
       - transcription
   /api/v1/transcription/models:
     get:
@@ -2780,21 +2826,15 @@ paths:
     post:
       consumes:
       - multipart/form-data
-      description: Upload multiple audio files with an .aup file for multi-track transcription
+      description: Upload multiple audio files for multi-track transcription
       parameters:
-      - description: Job title (required)
+      - description: Job title
         in: formData
         name: title
-        required: true
         type: string
-      - description: .aup Audacity project file
-        in: formData
-        name: aup
-        required: true
-        type: file
       - description: Audio track files
         in: formData
-        name: tracks
+        name: files
         required: true
         type: file
       produces:
@@ -3041,6 +3081,33 @@ paths:
       summary: Health check
       tags:
       - health
+  /transcription/{id}/logs:
+    get:
+      description: Get the raw transcription logs for a job
+      parameters:
+      - description: Job ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - text/plain
+      responses:
+        "200":
+          description: Log content
+          schema:
+            type: string
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      summary: Get transcription logs
+      tags:
+      - transcription
 securityDefinitions:
   ApiKeyAuth:
     in: header

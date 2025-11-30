@@ -17,19 +17,21 @@ export default {
       },
       fontFamily: {
         sans: [
-          'Inter var',
+          'DM Sans',
           'Inter',
           'ui-sans-serif',
           'system-ui',
-          'Segoe UI',
-          'Roboto',
-          'Helvetica Neue',
-          'Arial',
-          'Noto Sans',
-          'Apple Color Emoji',
-          'Segoe UI Emoji',
-          'Segoe UI Symbol',
-          'Noto Color Emoji'
+          'sans-serif',
+        ],
+        display: [
+          'Outfit',
+          'DM Sans',
+          'sans-serif',
+        ],
+        accent: [
+          'Outfit',
+          'DM Sans',
+          'sans-serif',
         ]
       },
       boxShadow: {

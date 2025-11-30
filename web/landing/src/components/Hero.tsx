@@ -12,7 +12,7 @@ export default function Hero() {
 				</h1>
 				<p className="subcopy mt-3 mx-auto max-w-2xl">
 					Transcribe audio locally into text - Summarize and Chat with your
-					audio. No GPU Required.
+					audio. Now with NVIDIA GPU acceleration.
 				</p>
 				<div className="mt-8 flex items-center justify-center gap-3">
 					<a href="/docs/installation.html" className="button-primary">
@@ -23,16 +23,16 @@ export default function Hero() {
 					</a>
 				</div>
 				<div className="mt-6 flex justify-center">
-					<a 
-						href='https://ko-fi.com/H2H41KQZA3' 
-						target='_blank' 
+					<a
+						href='https://ko-fi.com/H2H41KQZA3'
+						target='_blank'
 						rel="noopener noreferrer"
 						onClick={(e) => {
 							e.preventDefault();
 							window.open('https://ko-fi.com/H2H41KQZA3', '_blank', 'noopener,noreferrer');
 						}}
 					>
-						<img height='36' style={{border: '0px', height: '36px'}} src='https://storage.ko-fi.com/cdn/kofi6.png?v=6' alt='Buy Me a Coffee at ko-fi.com' />
+						<img height='36' style={{ border: '0px', height: '36px' }} src='https://storage.ko-fi.com/cdn/kofi6.png?v=6' alt='Buy Me a Coffee at ko-fi.com' />
 					</a>
 				</div>
 				<div className="mt-12 max-w-5xl mx-auto">

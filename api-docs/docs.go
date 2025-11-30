@@ -1937,17 +1937,51 @@ const docTemplate = `{
                     },
                     {
                         "BearerAuth": []
+                    },
+                    {
+                        "ApiKeyAuth": []
+                    },
+                    {
+                        "BearerAuth": []
                     }
                 ],
-                "description": "Get a list of all transcription jobs with optional search and filtering",
+                "description": "Get a list of all transcription jobs with optional search and filtering\nGet a list of all transcription jobs with optional search and filtering",
                 "produces": [
+                    "application/json",
                     "application/json"
                 ],
                 "tags": [
+                    "transcription",
                     "transcription"
                 ],
                 "summary": "List all transcription records",
                 "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "Page number",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Items per page",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by status",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Search in title and audio filename",
+                        "name": "q",
+                        "in": "query"
+                    },
                     {
                         "type": "integer",
                         "default": 1,
@@ -2341,7 +2375,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Upload multiple audio files with an .aup file for multi-track transcription",
+                "description": "Upload multiple audio files for multi-track transcription",
                 "consumes": [
                     "multipart/form-data"
                 ],
@@ -2355,22 +2389,14 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Job title (required)",
+                        "description": "Job title",
                         "name": "title",
-                        "in": "formData",
-                        "required": true
-                    },
-                    {
-                        "type": "file",
-                        "description": ".aup Audacity project file",
-                        "name": "aup",
-                        "in": "formData",
-                        "required": true
+                        "in": "formData"
                     },
                     {
                         "type": "file",
                         "description": "Audio track files",
-                        "name": "tracks",
+                        "name": "files",
                         "in": "formData",
                         "required": true
                     }
@@ -2535,19 +2561,16 @@ const docTemplate = `{
                     },
                     {
                         "BearerAuth": []
-                    },
-                    {
-                        "BearerAuth": []
                     }
                 ],
-                "description": "Get a specific transcription record by its ID",
+                "description": "Get details of a specific transcription job",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "transcription"
                 ],
-                "summary": "Get transcription record by ID",
+                "summary": "Get transcription job details",
                 "parameters": [
                     {
                         "type": "string",
@@ -2582,17 +2605,32 @@ const docTemplate = `{
                     },
                     {
                         "BearerAuth": []
+                    },
+                    {
+                        "ApiKeyAuth": []
+                    },
+                    {
+                        "BearerAuth": []
                     }
                 ],
-                "description": "Delete a transcription job and its associated files",
+                "description": "Delete a transcription job and its associated files\nDelete a transcription job and its associated files",
                 "produces": [
+                    "application/json",
                     "application/json"
                 ],
                 "tags": [
+                    "transcription",
                     "transcription"
                 ],
                 "summary": "Delete transcription job",
                 "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Job ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
                     {
                         "type": "string",
                         "description": "Job ID",
@@ -2962,9 +3000,6 @@ const docTemplate = `{
                     }
                 ],
                 "description": "Retrieves all custom speaker names for a transcription job",
-                "consumes": [
-                    "application/json"
-                ],
                 "produces": [
                     "application/json"
                 ],
@@ -3280,6 +3315,9 @@ const docTemplate = `{
                 "security": [
                     {
                         "ApiKeyAuth": []
+                    },
+                    {
+                        "BearerAuth": []
                     },
                     {
                         "BearerAuth": []
@@ -3670,6 +3708,47 @@ const docTemplate = `{
                     }
                 }
             }
+        },
+        "/transcription/{id}/logs": {
+            "get": {
+                "description": "Get the raw transcription logs for a job",
+                "produces": [
+                    "text/plain"
+                ],
+                "tags": [
+                    "transcription"
+                ],
+                "summary": "Get transcription logs",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Job ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Log content",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
@@ -3918,6 +3997,14 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "api.ErrorResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
                     "type": "string"
                 }
             }
@@ -4347,6 +4434,14 @@ const docTemplate = `{
                     "description": "Indexed selection into transcript by word positions",
                     "type": "integer"
                 },
+                "transcription": {
+                    "description": "Relationships",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.TranscriptionJob"
+                        }
+                    ]
+                },
                 "transcription_id": {
                     "type": "string"
                 },
@@ -4372,6 +4467,14 @@ const docTemplate = `{
                 },
                 "template_id": {
                     "type": "string"
+                },
+                "transcription": {
+                    "description": "Relationships",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.TranscriptionJob"
+                        }
+                    ]
                 },
                 "transcription_id": {
                     "type": "string"
