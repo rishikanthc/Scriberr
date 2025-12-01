@@ -215,6 +215,8 @@ func registerAdapters(cfg *config.Config) {
 		adapters.NewParakeetAdapter(nvidiaEnvPath))
 	registry.RegisterTranscriptionAdapter("canary",
 		adapters.NewCanaryAdapter(nvidiaEnvPath)) // Shares with Parakeet
+	registry.RegisterTranscriptionAdapter("openai_whisper",
+		adapters.NewOpenAIAdapter(cfg.OpenAIAPIKey))
 
 	// Register diarization adapters
 	registry.RegisterDiarizationAdapter("pyannote",

@@ -33,6 +33,9 @@ type Config struct {
 	// Python/WhisperX configuration
 	UVPath      string
 	WhisperXEnv string
+
+	// OpenAI configuration
+	OpenAIAPIKey string
 }
 
 // Load loads configuration from environment variables and .env file
@@ -51,6 +54,7 @@ func Load() *Config {
 		TranscriptsDir: getEnv("TRANSCRIPTS_DIR", "data/transcripts"),
 		UVPath:         findUVPath(),
 		WhisperXEnv:    getEnv("WHISPERX_ENV", "data/whisperx-env"),
+		OpenAIAPIKey:   getEnv("OPENAI_API_KEY", ""),
 	}
 }
 

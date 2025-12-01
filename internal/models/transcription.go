@@ -124,6 +124,9 @@ type WhisperXParams struct {
 
 	// Webhook settings
 	CallbackURL *string `json:"callback_url,omitempty" gorm:"type:text"`
+
+	// OpenAI settings
+	APIKey *string `json:"api_key,omitempty" gorm:"type:text"`
 }
 
 // BeforeCreate sets the ID if not already set
