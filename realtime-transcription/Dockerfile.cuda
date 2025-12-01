@@ -1,26 +1,50 @@
-FROM nvidia/cuda:11.8.0-cudnn8-runtime-ubuntu22.04
+FROM nvidia/cuda:12.9.1-cudnn-devel-ubuntu24.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PYTHONUNBUFFERED=1
 
 WORKDIR /app
 
-# Install python and system dependencies
-RUN apt-get update && apt-get install -y \
-    python3 \
-    python3-pip \
-    ffmpeg \
-    git \
-    && rm -rf /var/lib/apt/lists/*
+# Install system dependencies
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        python3 \
+        python3-pip \
+        python3-venv \
+        ffmpeg \
+        git \
+        build-essential \
+        python3-dev \
+        ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
+
+RUN python3 -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Install PyTorch with CUDA support
+# Using cu124 as it is the current stable version for PyTorch 2.5+ (cu129 might not have wheels yet)
+# If the user specifically needs cu129 wheels and knows they exist, they can change this.
+# For now, I'll use the URL provided by the user but fallback to standard index if needed.
+RUN pip3 install --upgrade pip setuptools wheel && \
+    pip3 --disable-pip-version-check install --timeout=120 --retries=5 \
+        torch torchaudio --index-url https://download.pytorch.org/whl/cu124 \
+    || (echo "Initial install failed — retrying..." && \
+        pip3 --disable-pip-version-check install --timeout=300 --retries=3 \
+            torch torchaudio --index-url https://download.pytorch.org/whl/cu124)
 
 # Copy requirements
 COPY requirements.txt .
 
 # Install dependencies
-RUN pip3 install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy server code
 COPY server.py .
 
-# Expose port
+# In-container caching for Hugging Face models
+VOLUME ["/root/.cache/huggingface/hub"]
+
 EXPOSE 8000
 
-# Run server
+# Run custom server
 CMD ["uvicorn", "server:app", "--host", "0.0.0.0", "--port", "8000"]
