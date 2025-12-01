@@ -143,7 +143,7 @@ export const TranscriptView = forwardRef<HTMLDivElement, TranscriptViewProps>(({
         return (
             <div className="space-y-6">
                 {transcript.segments.map((segment, i) => (
-                    <div key={i} className="group flex flex-col sm:flex-row items-start gap-2 sm:gap-4 p-3 rounded-lg hover:bg-carbon-50 dark:hover:bg-carbon-800/50 transition-colors">
+                    <div key={i} className="group flex flex-col sm:flex-row items-start gap-2 w-full max-w-none sm:gap-4 p-0 m-0 rounded-lg hover:bg-carbon-50 dark:hover:bg-carbon-800/50 transition-colors">
                         {/* Timestamp & Speaker */}
                         <div className="flex-shrink-0 w-full sm:w-32 flex sm:flex-col items-center sm:items-end gap-2 sm:gap-1 text-xs sm:text-sm text-carbon-500 dark:text-carbon-400 select-none mt-1">
                             <span className="font-mono bg-carbon-100 dark:bg-carbon-800 px-1.5 py-0.5 rounded">
@@ -172,7 +172,7 @@ export const TranscriptView = forwardRef<HTMLDivElement, TranscriptViewProps>(({
     return (
         <div
             ref={ref}
-            className={cn("w-full max-w-none font-inter", className)}
+            className={cn("w-full max-w-none font-inter mt-4", className)}
         >
             {mode === 'compact' ? renderCompactView() : renderExpandedView()}
         </div>

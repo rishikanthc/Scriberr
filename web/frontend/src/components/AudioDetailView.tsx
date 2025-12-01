@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, memo } from "react";
 import { createPortal } from "react-dom";
-import { ArrowLeft, Play, Pause, List, AlignLeft, MessageCircle, Download, FileText, FileJson, FileImage, Check, StickyNote, Plus, X, Sparkles, Pencil, ChevronUp, ChevronDown, Info, Clock, Settings, Users, Loader2, Home, ArrowDownCircle } from "lucide-react";
+import { ArrowLeft, Play, Pause, List, AlignLeft, MessageCircle, Download, FileText, FileJson, FileImage, Check, StickyNote, Plus, X, Sparkles, Pencil, ChevronUp, ChevronDown, Info, Clock, Settings, Users, Loader2, Home, ArrowDownCircle, MoreHorizontal } from "lucide-react";
 import { AudioPlayer, type AudioPlayerRef } from "./audio/AudioPlayer";
 import { TranscriptView } from "./transcript/TranscriptView";
 import { Button } from "./ui/button";
@@ -250,6 +250,7 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
     const [savingTitle, setSavingTitle] = useState(false);
     const [audioCollapsed, setAudioCollapsed] = useState(false);
     const [autoScrollEnabled, setAutoScrollEnabled] = useState(true);
+    const [mobileToolbarExpanded, setMobileToolbarExpanded] = useState(false);
 
     // Execution info state
     const [executionInfoOpen, setExecutionInfoOpen] = useState(false);
@@ -1430,134 +1431,171 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                                     )}
                                 </div>
 
-                                {/* Mobile Toolbar Placeholder */}
+                                {/* Mobile Toolbar */}
                                 {viewMode === 'transcript' && (
-                                    <div className="flex sm:hidden justify-center">
-                                        <div className="flex items-center gap-1 rounded-md bg-carbon-100/80 dark:bg-carbon-800/80 px-1.5 py-0.5 border border-carbon-200 dark:border-carbon-700 shadow-sm">
-                                            {/* View toggle */}
-                                            <button
-                                                type="button"
-                                                onClick={() => setTranscriptMode(m => m === 'compact' ? 'expanded' : 'compact')}
-                                                className={`h-6 w-6 inline-flex items-center justify-center rounded-md cursor-pointer text-carbon-600 dark:text-carbon-300 hover:bg-carbon-200 dark:hover:bg-carbon-700 transition-colors ${transcriptMode === 'compact' ? 'bg-white dark:bg-carbon-700 shadow-sm' : ''}`}
-                                                title={transcriptMode === 'compact' ? 'Switch to Timeline view' : 'Switch to Compact view'}
-                                            >
-                                                {transcriptMode === 'compact' ? (
-                                                    <List className="h-3.5 w-3.5" />
-                                                ) : (
-                                                    <AlignLeft className="h-3.5 w-3.5" />
-                                                )}
-                                            </button>
+                                    <div className="flex sm:hidden justify-center mt-4">
+                                        {!mobileToolbarExpanded ? (
+                                            <div className="flex items-center gap-1 rounded-md bg-carbon-100/80 dark:bg-carbon-800/80 px-2 py-1 border border-carbon-200 dark:border-carbon-700 shadow-sm backdrop-blur-md">
+                                                {/* View toggle */}
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setTranscriptMode(m => m === 'compact' ? 'expanded' : 'compact')}
+                                                    className={`h-8 w-8 inline-flex items-center justify-center rounded-md cursor-pointer text-carbon-600 dark:text-carbon-300 hover:bg-carbon-200 dark:hover:bg-carbon-700 transition-colors ${transcriptMode === 'compact' ? 'bg-white dark:bg-carbon-700 shadow-sm' : ''}`}
+                                                    title={transcriptMode === 'compact' ? 'Switch to Timeline view' : 'Switch to Compact view'}
+                                                >
+                                                    {transcriptMode === 'compact' ? (
+                                                        <List className="h-4 w-4" />
+                                                    ) : (
+                                                        <AlignLeft className="h-4 w-4" />
+                                                    )}
+                                                </button>
 
-                                            <div className="mx-1 h-5 w-px bg-carbon-300 dark:bg-carbon-700" />
+                                                <div className="mx-1 h-5 w-px bg-carbon-300 dark:bg-carbon-700" />
 
-                                            {/* Auto-Scroll Toggle */}
-                                            <button
-                                                type="button"
-                                                onClick={() => setAutoScrollEnabled(v => !v)}
-                                                className={`h-6 w-6 inline-flex items-center justify-center rounded-md cursor-pointer text-carbon-600 dark:text-carbon-300 hover:bg-carbon-200 dark:hover:bg-carbon-700 transition-colors ${autoScrollEnabled ? 'bg-white dark:bg-carbon-700 shadow-sm' : ''}`}
-                                                title={autoScrollEnabled ? 'Disable auto-scroll' : 'Enable auto-scroll'}
-                                            >
-                                                <ArrowDownCircle className="h-3.5 w-3.5" />
-                                            </button>
+                                                {/* Auto-Scroll Toggle */}
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setAutoScrollEnabled(v => !v)}
+                                                    className={`h-8 w-8 inline-flex items-center justify-center rounded-md cursor-pointer text-carbon-600 dark:text-carbon-300 hover:bg-carbon-200 dark:hover:bg-carbon-700 transition-colors ${autoScrollEnabled ? 'bg-white dark:bg-carbon-700 shadow-sm' : ''}`}
+                                                    title={autoScrollEnabled ? 'Disable auto-scroll' : 'Enable auto-scroll'}
+                                                >
+                                                    <ArrowDownCircle className="h-4 w-4" />
+                                                </button>
 
-                                            <div className="mx-1 h-5 w-px bg-carbon-300 dark:bg-carbon-700" />
+                                                <div className="mx-1 h-5 w-px bg-carbon-300 dark:bg-carbon-700" />
 
-                                            {/* Notes toggle */}
-                                            <button
-                                                type="button"
-                                                onClick={() => setNotesOpen(v => !v)}
-                                                className={`relative h-6 w-6 inline-flex items-center justify-center rounded-md cursor-pointer text-carbon-600 dark:text-carbon-300 hover:bg-carbon-200 dark:hover:bg-carbon-700 transition-colors ${notesOpen ? 'bg-white dark:bg-carbon-700 shadow-sm' : ''}`}
-                                                title="Toggle notes"
-                                            >
-                                                <StickyNote className="h-3.5 w-3.5" />
-                                                {notes.length > 0 && (
-                                                    <span className="absolute -top-1 -right-0.5 min-w-[15px] h-[15px] px-1 rounded-full bg-carbon-900 text-white text-[10px] leading-[15px] text-center">
-                                                        {notes.length > 99 ? '99+' : notes.length}
-                                                    </span>
-                                                )}
-                                            </button>
+                                                {/* More Actions */}
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setMobileToolbarExpanded(true)}
+                                                    className="h-8 w-8 inline-flex items-center justify-center rounded-md cursor-pointer text-carbon-600 dark:text-carbon-300 hover:bg-carbon-200 dark:hover:bg-carbon-700 transition-colors"
+                                                    title="More actions"
+                                                >
+                                                    <MoreHorizontal className="h-4 w-4" />
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <div className="flex flex-wrap items-center justify-center gap-2 rounded-lg bg-carbon-100/95 dark:bg-carbon-800/95 p-2 border border-carbon-200 dark:border-carbon-700 shadow-lg backdrop-blur-md w-full max-w-sm animate-in fade-in zoom-in-95 duration-200">
+                                                {/* View toggle */}
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setTranscriptMode(m => m === 'compact' ? 'expanded' : 'compact')}
+                                                    className={`h-9 w-9 inline-flex items-center justify-center rounded-md cursor-pointer text-carbon-600 dark:text-carbon-300 hover:bg-carbon-200 dark:hover:bg-carbon-700 transition-colors ${transcriptMode === 'compact' ? 'bg-white dark:bg-carbon-700 shadow-sm' : ''}`}
+                                                    title={transcriptMode === 'compact' ? 'Switch to Timeline view' : 'Switch to Compact view'}
+                                                >
+                                                    {transcriptMode === 'compact' ? (
+                                                        <List className="h-4 w-4" />
+                                                    ) : (
+                                                        <AlignLeft className="h-4 w-4" />
+                                                    )}
+                                                </button>
 
-                                            <div className="mx-1 h-5 w-px bg-carbon-300 dark:bg-carbon-700" />
+                                                {/* Auto-Scroll Toggle */}
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setAutoScrollEnabled(v => !v)}
+                                                    className={`h-9 w-9 inline-flex items-center justify-center rounded-md cursor-pointer text-carbon-600 dark:text-carbon-300 hover:bg-carbon-200 dark:hover:bg-carbon-700 transition-colors ${autoScrollEnabled ? 'bg-white dark:bg-carbon-700 shadow-sm' : ''}`}
+                                                    title={autoScrollEnabled ? 'Disable auto-scroll' : 'Enable auto-scroll'}
+                                                >
+                                                    <ArrowDownCircle className="h-4 w-4" />
+                                                </button>
 
-                                            {/* Execution Info */}
-                                            <button
-                                                type="button"
-                                                onClick={openExecutionInfo}
-                                                className="h-6 w-6 inline-flex items-center justify-center rounded-md cursor-pointer text-carbon-600 dark:text-carbon-300 hover:bg-carbon-200 dark:hover:bg-carbon-700 transition-colors"
-                                                title="View execution parameters and timing"
-                                            >
-                                                <Info className="h-3.5 w-3.5" />
-                                            </button>
+                                                {/* Notes toggle */}
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setNotesOpen(v => !v)}
+                                                    className={`relative h-9 w-9 inline-flex items-center justify-center rounded-md cursor-pointer text-carbon-600 dark:text-carbon-300 hover:bg-carbon-200 dark:hover:bg-carbon-700 transition-colors ${notesOpen ? 'bg-white dark:bg-carbon-700 shadow-sm' : ''}`}
+                                                    title="Toggle notes"
+                                                >
+                                                    <StickyNote className="h-4 w-4" />
+                                                    {notes.length > 0 && (
+                                                        <span className="absolute -top-1 -right-0.5 min-w-[16px] h-[16px] px-1 rounded-full bg-carbon-900 text-white text-[10px] leading-[16px] text-center">
+                                                            {notes.length > 99 ? '99+' : notes.length}
+                                                        </span>
+                                                    )}
+                                                </button>
 
-                                            {/* Speaker Renaming - only show if there are speakers (from diarization or multi-track) */}
-                                            {hasSpeakers() && getDetectedSpeakers().length > 0 && (
-                                                <>
-                                                    <div className="mx-1 h-5 w-px bg-carbon-300 dark:bg-carbon-700" />
+                                                {/* Execution Info */}
+                                                <button
+                                                    type="button"
+                                                    onClick={openExecutionInfo}
+                                                    className="h-9 w-9 inline-flex items-center justify-center rounded-md cursor-pointer text-carbon-600 dark:text-carbon-300 hover:bg-carbon-200 dark:hover:bg-carbon-700 transition-colors"
+                                                    title="View execution parameters"
+                                                >
+                                                    <Info className="h-4 w-4" />
+                                                </button>
+
+                                                {/* Speaker Renaming */}
+                                                {hasSpeakers() && getDetectedSpeakers().length > 0 && (
                                                     <button
                                                         type="button"
                                                         onClick={() => setSpeakerRenameDialogOpen(true)}
-                                                        className="h-6 w-6 inline-flex items-center justify-center rounded-md cursor-pointer text-carbon-600 dark:text-carbon-300 hover:bg-carbon-200 dark:hover:bg-carbon-700 transition-colors"
+                                                        className="h-9 w-9 inline-flex items-center justify-center rounded-md cursor-pointer text-carbon-600 dark:text-carbon-300 hover:bg-carbon-200 dark:hover:bg-carbon-700 transition-colors"
                                                         title="Rename speakers"
                                                     >
-                                                        <Users className="h-3.5 w-3.5" />
+                                                        <Users className="h-4 w-4" />
                                                     </button>
-                                                </>
-                                            )}
+                                                )}
 
-                                            <div className="mx-1 h-5 w-px bg-carbon-300 dark:bg-carbon-700" />
+                                                {/* Summarize */}
+                                                <button
+                                                    type="button"
+                                                    onClick={openSummarizeDialog}
+                                                    className="h-9 w-9 inline-flex items-center justify-center rounded-md cursor-pointer text-carbon-600 dark:text-carbon-300 hover:bg-carbon-200 dark:hover:bg-carbon-700 transition-colors disabled:opacity-50"
+                                                    title="Summarize transcript"
+                                                    disabled={llmReady === false}
+                                                >
+                                                    <Sparkles className="h-4 w-4" />
+                                                </button>
 
-                                            {/* Summarize */}
-                                            <button
-                                                type="button"
-                                                onClick={openSummarizeDialog}
-                                                className="h-6 w-6 inline-flex items-center justify-center rounded-md cursor-pointer text-carbon-600 dark:text-carbon-300 hover:bg-carbon-200 dark:hover:bg-carbon-700 transition-colors disabled:opacity-50"
-                                                title={llmReady === false ? 'Configure LLM in Settings' : 'Summarize transcript'}
-                                                disabled={llmReady === false}
-                                            >
-                                                <Sparkles className="h-3.5 w-3.5" />
-                                            </button>
+                                                {/* Download dropdown */}
+                                                <DropdownMenu>
+                                                    <DropdownMenuTrigger asChild>
+                                                        <button
+                                                            type="button"
+                                                            className="h-9 w-9 inline-flex items-center justify-center rounded-md cursor-pointer text-carbon-600 dark:text-carbon-300 hover:bg-carbon-200 dark:hover:bg-carbon-700 transition-colors"
+                                                            title="Download transcript"
+                                                        >
+                                                            <Download className="h-4 w-4" />
+                                                        </button>
+                                                    </DropdownMenuTrigger>
+                                                    <DropdownMenuContent className="w-44 bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700">
+                                                        <DropdownMenuItem onClick={downloadSRT} className="flex items-center gap-2 cursor-pointer hover:bg-carbon-100 dark:hover:bg-carbon-700 text-carbon-900 dark:text-carbon-100">
+                                                            <FileImage className="h-4 w-4" />
+                                                            Download as SRT
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuItem onClick={() => handleDownloadWithDialog('txt')} className="flex items-center gap-2 cursor-pointer hover:bg-carbon-100 dark:hover:bg-carbon-700 text-carbon-900 dark:text-carbon-100">
+                                                            <FileText className="h-4 w-4" />
+                                                            Download as TXT
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuItem onClick={() => handleDownloadWithDialog('json')} className="flex items-center gap-2 cursor-pointer hover:bg-carbon-100 dark:hover:bg-carbon-700 text-carbon-900 dark:text-carbon-100">
+                                                            <FileJson className="h-4 w-4" />
+                                                            Download as JSON
+                                                        </DropdownMenuItem>
+                                                    </DropdownMenuContent>
+                                                </DropdownMenu>
 
-                                            <div className="mx-1 h-5 w-px bg-carbon-300 dark:bg-carbon-700" />
+                                                {/* Open Chat Page */}
+                                                <button
+                                                    type="button"
+                                                    onClick={() => navigate({ path: 'chat', params: { audioId } })}
+                                                    className="h-9 w-9 inline-flex items-center justify-center rounded-md cursor-pointer text-carbon-600 dark:text-carbon-300 hover:bg-carbon-200 dark:hover:bg-carbon-700 transition-colors"
+                                                    title="Open chat"
+                                                >
+                                                    <MessageCircle className="h-4 w-4" />
+                                                </button>
 
-                                            {/* Download dropdown */}
-                                            <DropdownMenu>
-                                                <DropdownMenuTrigger asChild>
-                                                    <button
-                                                        type="button"
-                                                        className="h-6 w-6 inline-flex items-center justify-center rounded-md cursor-pointer text-carbon-600 dark:text-carbon-300 hover:bg-carbon-200 dark:hover:bg-carbon-700 transition-colors"
-                                                        title="Download transcript"
-                                                    >
-                                                        <Download className="h-3.5 w-3.5" />
-                                                    </button>
-                                                </DropdownMenuTrigger>
-                                                <DropdownMenuContent className="w-44 bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700">
-                                                    <DropdownMenuItem onClick={downloadSRT} className="flex items-center gap-2 cursor-pointer hover:bg-carbon-100 dark:hover:bg-carbon-700 text-carbon-900 dark:text-carbon-100">
-                                                        <FileImage className="h-4 w-4" />
-                                                        Download as SRT
-                                                    </DropdownMenuItem>
-                                                    <DropdownMenuItem onClick={() => handleDownloadWithDialog('txt')} className="flex items-center gap-2 cursor-pointer hover:bg-carbon-100 dark:hover:bg-carbon-700 text-carbon-900 dark:text-carbon-100">
-                                                        <FileText className="h-4 w-4" />
-                                                        Download as TXT
-                                                    </DropdownMenuItem>
-                                                    <DropdownMenuItem onClick={() => handleDownloadWithDialog('json')} className="flex items-center gap-2 cursor-pointer hover:bg-carbon-100 dark:hover:bg-carbon-700 text-carbon-900 dark:text-carbon-100">
-                                                        <FileJson className="h-4 w-4" />
-                                                        Download as JSON
-                                                    </DropdownMenuItem>
-                                                </DropdownMenuContent>
-                                            </DropdownMenu>
-
-                                            <div className="mx-1 h-5 w-px bg-carbon-300 dark:bg-carbon-700" />
-
-                                            {/* Open Chat Page */}
-                                            <button
-                                                type="button"
-                                                onClick={() => navigate({ path: 'chat', params: { audioId } })}
-                                                className="h-6 w-6 inline-flex items-center justify-center rounded-md cursor-pointer text-carbon-600 dark:text-carbon-300 hover:bg-carbon-200 dark:hover:bg-carbon-700 transition-colors"
-                                                title="Open chat"
-                                            >
-                                                <MessageCircle className="h-3.5 w-3.5" />
-                                            </button>
-                                        </div>
+                                                {/* Close Toolbar */}
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setMobileToolbarExpanded(false)}
+                                                    className="h-9 w-9 inline-flex items-center justify-center rounded-md cursor-pointer text-carbon-500 hover:text-carbon-700 hover:bg-carbon-200/60 dark:text-carbon-400 dark:hover:text-carbon-200 dark:hover:bg-carbon-700/60 transition-colors ml-auto"
+                                                    title="Close menu"
+                                                >
+                                                    <X className="h-4 w-4" />
+                                                </button>
+                                            </div>
+                                        )}
                                     </div>
                                 )}
                             </div>
@@ -1566,7 +1604,7 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                             {viewMode === "transcript" ? (
                                 <div className="relative overflow-hidden">
                                     {/* Transcript Content */}
-                                    <div className="prose prose-gray dark:prose-invert max-w-none font-transcript">
+                                    <div className="w-full font-transcript">
                                         <div ref={transcriptRef} className="relative">
                                             <TranscriptView
                                                 transcript={transcript}
