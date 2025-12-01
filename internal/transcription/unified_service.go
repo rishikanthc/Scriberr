@@ -337,6 +337,8 @@ func (u *UnifiedTranscriptionService) selectModels(params models.WhisperXParams)
 		transcriptionModelID = "canary"
 	case "whisper":
 		transcriptionModelID = "whisperx"
+	case "openai":
+		transcriptionModelID = "openai_whisper"
 	default:
 		transcriptionModelID = "whisperx" // Default fallback
 	}
@@ -510,10 +512,34 @@ func (u *UnifiedTranscriptionService) convertParametersForModel(params models.Wh
 		return u.convertToPyannoteParams(params)
 	case "sortformer":
 		return u.convertToSortformerParams(params)
+	case "openai_whisper":
+		return u.convertToOpenAIParams(params)
 	default:
 		// Fallback to legacy conversion
 		return u.parametersToMap(params)
 	}
+}
+
+// convertToOpenAIParams converts to OpenAI-specific parameters
+func (u *UnifiedTranscriptionService) convertToOpenAIParams(params models.WhisperXParams) map[string]interface{} {
+	paramMap := map[string]interface{}{
+		"model":       params.Model,
+		"temperature": params.Temperature,
+	}
+
+	if params.Language != nil {
+		paramMap["language"] = *params.Language
+	}
+	if params.InitialPrompt != nil {
+		paramMap["prompt"] = *params.InitialPrompt
+	}
+
+	// Add API key if provided in params (e.g. from UI override)
+	if params.APIKey != nil && *params.APIKey != "" {
+		paramMap["api_key"] = *params.APIKey
+	}
+
+	return paramMap
 }
 
 // convertToParakeetParams converts to Parakeet-specific parameters

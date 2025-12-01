@@ -105,6 +105,9 @@ export interface WhisperXParams {
 
   // Multi-track transcription settings
   is_multi_track_enabled: boolean;
+
+  // OpenAI settings
+  api_key?: string;
 }
 
 // Parameter descriptions for hover cards
@@ -202,6 +205,7 @@ const DEFAULT_PARAMS: WhisperXParams = {
   attention_context_left: 256,
   attention_context_right: 256,
   is_multi_track_enabled: false,
+  api_key: "",
 };
 
 const WHISPER_MODELS = [
@@ -468,6 +472,9 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
                 </SelectItem>
                 <SelectItem value="nvidia_canary" className="text-carbon-900 dark:text-carbon-100 focus:bg-carbon-100 dark:focus:bg-carbon-700">
                   NVIDIA Canary
+                </SelectItem>
+                <SelectItem value="openai" className="text-carbon-900 dark:text-carbon-100 focus:bg-carbon-100 dark:focus:bg-carbon-700">
+                  OpenAI API
                 </SelectItem>
               </SelectContent>
             </Select>
@@ -932,6 +939,141 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
 
               </div>
             )}
+          </div>
+        ) : params.model_family === "openai" ? (
+          <div className="space-y-6">
+            <div className="p-4 border border-blue-200 dark:border-blue-700 rounded-lg bg-blue-50 dark:bg-blue-900/20">
+              <div className="flex items-center gap-2">
+                <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                <span className="text-sm font-medium text-blue-800 dark:text-blue-200">Cloud Transcription</span>
+              </div>
+              <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
+                Audio will be sent to OpenAI servers for processing.
+              </p>
+            </div>
+
+            {/* API Key */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Label htmlFor="openai_api_key" className="text-carbon-700 dark:text-carbon-300 font-medium">
+                  OpenAI API Key
+                </Label>
+                <HoverCard>
+                  <HoverCardTrigger asChild>
+                    <Info className="h-4 w-4 text-carbon-400 cursor-help" />
+                  </HoverCardTrigger>
+                  <HoverCardContent className="w-80 bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700">
+                    <p className="text-sm text-carbon-700 dark:text-carbon-300">
+                      Your OpenAI API key. If not provided, the server-configured key will be used (if any).
+                    </p>
+                  </HoverCardContent>
+                </HoverCard>
+              </div>
+              <Input
+                id="openai_api_key"
+                type="password"
+                value={params.api_key || ""}
+                onChange={(e) => updateParam('api_key', e.target.value)}
+                placeholder="sk-..."
+                className="bg-white dark:bg-carbon-800 border-carbon-300 dark:border-carbon-600 text-carbon-900 dark:text-carbon-100"
+              />
+            </div>
+
+            {/* Model Selection */}
+            <div className="space-y-2">
+              <Label htmlFor="openai_model" className="text-carbon-700 dark:text-carbon-300 font-medium">
+                Model
+              </Label>
+              <Select
+                value={params.model || "whisper-1"}
+                onValueChange={(value) => updateParam('model', value)}
+              >
+                <SelectTrigger className="bg-white dark:bg-carbon-800 border-carbon-300 dark:border-carbon-600 text-carbon-900 dark:text-carbon-100">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700">
+                  <SelectItem value="whisper-1" className="text-carbon-900 dark:text-carbon-100 focus:bg-carbon-100 dark:focus:bg-carbon-700">
+                    whisper-1
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Language Selection */}
+            <div className="space-y-2">
+              <Label htmlFor="openai_language" className="text-carbon-700 dark:text-carbon-300 font-medium">
+                Language
+              </Label>
+              <Select
+                value={params.language || "auto"}
+                onValueChange={(value) => updateParam('language', value === "auto" ? undefined : value)}
+              >
+                <SelectTrigger className="bg-white dark:bg-carbon-800 border-carbon-300 dark:border-carbon-600 text-carbon-900 dark:text-carbon-100">
+                  <SelectValue placeholder="Auto-detect" />
+                </SelectTrigger>
+                <SelectContent className="bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700 max-h-60">
+                  {LANGUAGES.map((lang) => (
+                    <SelectItem key={lang.value} value={lang.value} className="text-carbon-900 dark:text-carbon-100 focus:bg-carbon-100 dark:focus:bg-carbon-700">
+                      {lang.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Temperature */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Label htmlFor="openai_temperature" className="text-carbon-700 dark:text-carbon-300">
+                  Temperature
+                </Label>
+                <HoverCard>
+                  <HoverCardTrigger asChild>
+                    <Info className="h-4 w-4 text-carbon-400 cursor-help" />
+                  </HoverCardTrigger>
+                  <HoverCardContent className="w-80 bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700">
+                    <p className="text-sm text-carbon-700 dark:text-carbon-300">{PARAM_DESCRIPTIONS.temperature}</p>
+                  </HoverCardContent>
+                </HoverCard>
+              </div>
+              <div className="flex items-center gap-4">
+                <Slider
+                  value={[params.temperature]}
+                  onValueChange={(value) => updateParam('temperature', value[0])}
+                  max={1}
+                  step={0.1}
+                  className="flex-1"
+                />
+                <span className="w-12 text-right text-sm text-carbon-600 dark:text-carbon-400">
+                  {params.temperature}
+                </span>
+              </div>
+            </div>
+
+            {/* Initial Prompt */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Label htmlFor="openai_prompt" className="text-carbon-700 dark:text-carbon-300">
+                  Initial Prompt
+                </Label>
+                <HoverCard>
+                  <HoverCardTrigger asChild>
+                    <Info className="h-4 w-4 text-carbon-400 cursor-help" />
+                  </HoverCardTrigger>
+                  <HoverCardContent className="w-80 bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700">
+                    <p className="text-sm text-carbon-700 dark:text-carbon-300">{PARAM_DESCRIPTIONS.initial_prompt}</p>
+                  </HoverCardContent>
+                </HoverCard>
+              </div>
+              <Textarea
+                id="openai_prompt"
+                value={params.initial_prompt || ""}
+                onChange={(e) => updateParam('initial_prompt', e.target.value || undefined)}
+                placeholder="Optional text to guide the model's style..."
+                className="bg-white dark:bg-carbon-800 border-carbon-300 dark:border-carbon-600 text-carbon-900 dark:text-carbon-100 resize-none"
+                rows={3}
+              />
+            </div>
           </div>
         ) : (
           <Tabs defaultValue="basic" className="w-full">
