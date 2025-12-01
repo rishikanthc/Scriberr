@@ -1279,14 +1279,8 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                     <div className="glass rounded-xl p-3 sm:p-6 transition-all duration-300">
                         {/* Header Section */}
                         <div className="mb-10 sm:mb-16">
-                            {/* Title Row */}
-                            <div className="flex items-center justify-between mb-6 sm:mb-0">
-                                <div className="flex items-center gap-3 min-w-0 flex-1 mr-2">
-                                    <h1 className="text-2xl font-bold text-carbon-900 dark:text-carbon-100 truncate flex-1" title={audioFile.title || audioFile.audio_path}>
-                                        {getFileNameWithoutExt()}
-                                    </h1>
-                                </div>
-
+                            {/* Title Row - Centered Toolbar */}
+                            <div className="flex items-center justify-center mb-6 sm:mb-0">
                                 {/* Desktop: Show toolbar inline, Mobile: Hide here (shown below) */}
                                 <div className="hidden sm:flex items-center gap-2">
                                     {/* Sleek toolbar (desktop only) */}
