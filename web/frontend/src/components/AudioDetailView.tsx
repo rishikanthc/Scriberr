@@ -1,15 +1,10 @@
 import { useState, useEffect, useRef, memo } from "react";
 import { createPortal } from "react-dom";
-import { ArrowLeft, Play, Pause, List, AlignLeft, MessageCircle, Download, FileText, FileJson, FileImage, Check, StickyNote, Plus, X, Sparkles, Pencil, ChevronUp, ChevronDown, Info, Clock, Settings, Users, Loader2, Home, ArrowDownCircle } from "lucide-react";
+import { ArrowLeft, Play, Pause, Check, StickyNote, Plus, X, Sparkles, Pencil, ChevronUp, ChevronDown, Info, Clock, Settings, Users, Loader2, Home, FileText, Download } from "lucide-react";
 import { AudioPlayer, type AudioPlayerRef } from "./audio/AudioPlayer";
 import { TranscriptView } from "./transcript/TranscriptView";
+import { TranscriptToolbar } from "./transcript/TranscriptToolbar";
 import { Button } from "./ui/button";
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-} from "./ui/dropdown-menu";
 import {
     Dialog,
     DialogContent,
@@ -1276,366 +1271,128 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
 
                 {(currentStatus || audioFile.status) === "completed" && transcript && (
                     <div className="glass rounded-xl p-3 sm:p-6 transition-all duration-300">
-                        {/* Header Section */}
-                        <div className="mb-10 sm:mb-16">
-                            {/* Title Row - Centered Toolbar */}
-                            <div className="flex items-center justify-center mb-6 sm:mb-0">
-                                {/* Desktop: Show toolbar inline, Mobile: Hide here (shown below) */}
-                                <div className="hidden sm:flex items-center gap-2">
-                                    {/* Sleek toolbar (desktop only) */}
-                                    {viewMode === 'transcript' && (
-                                        <div className="flex items-center gap-1 sm:gap-1.5 rounded-md sm:rounded-lg bg-carbon-100/80 dark:bg-carbon-800/80 px-1.5 py-0.5 sm:px-2 sm:py-1 border border-carbon-200 dark:border-carbon-700 shadow-sm">
-                                            {/* View toggle */}
-                                            <button
-                                                type="button"
-                                                onClick={() => setTranscriptMode(m => m === 'compact' ? 'expanded' : 'compact')}
-                                                className={`h-6 w-6 sm:h-7 sm:w-7 inline-flex items-center justify-center rounded-md cursor-pointer text-carbon-600 dark:text-carbon-300 hover:bg-carbon-200 dark:hover:bg-carbon-700 transition-colors ${transcriptMode === 'compact' ? 'bg-white dark:bg-carbon-700 shadow-sm' : ''}`}
-                                                title={transcriptMode === 'compact' ? 'Switch to Timeline view' : 'Switch to Compact view'}
-                                            >
-                                                {transcriptMode === 'compact' ? (
-                                                    <List className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                                                ) : (
-                                                    <AlignLeft className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                                                )}
-                                            </button>
-
-                                            <div className="mx-1 h-5 w-px bg-carbon-300 dark:bg-carbon-700" />
-
-                                            {/* Auto-Scroll Toggle */}
-                                            <button
-                                                type="button"
-                                                onClick={() => setAutoScrollEnabled(v => !v)}
-                                                className={`h-6 w-6 sm:h-7 sm:w-7 inline-flex items-center justify-center rounded-md cursor-pointer text-carbon-600 dark:text-carbon-300 hover:bg-carbon-200 dark:hover:bg-carbon-700 transition-colors ${autoScrollEnabled ? 'bg-white dark:bg-carbon-700 shadow-sm' : ''}`}
-                                                title={autoScrollEnabled ? 'Disable auto-scroll' : 'Enable auto-scroll'}
-                                            >
-                                                <ArrowDownCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                                            </button>
-
-                                            <div className="mx-1 h-5 w-px bg-carbon-300 dark:bg-carbon-700" />
-
-                                            {/* Notes toggle (icon + tiny count) */}
-                                            <button
-                                                type="button"
-                                                onClick={() => setNotesOpen(v => !v)}
-                                                className={`relative h-6 w-6 sm:h-7 sm:w-7 inline-flex items-center justify-center rounded-md cursor-pointer text-carbon-600 dark:text-carbon-300 hover:bg-carbon-200 dark:hover:bg-carbon-700 transition-colors ${notesOpen ? 'bg-white dark:bg-carbon-700 shadow-sm' : ''}`}
-                                                title="Toggle notes"
-                                            >
-                                                <StickyNote className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                                                {notes.length > 0 && (
-                                                    <span className="absolute -top-1 -right-0.5 min-w-[15px] h-[15px] px-1 rounded-full bg-carbon-900 text-white text-[10px] leading-[15px] text-center">
-                                                        {notes.length > 99 ? '99+' : notes.length}
-                                                    </span>
-                                                )}
-                                            </button>
-
-                                            <div className="mx-1 h-5 w-px bg-carbon-300 dark:bg-carbon-700" />
-
-                                            {/* Execution Info */}
-                                            <button
-                                                type="button"
-                                                onClick={openExecutionInfo}
-                                                className="h-6 w-6 sm:h-7 sm:w-7 inline-flex items-center justify-center rounded-md cursor-pointer text-carbon-600 dark:text-carbon-300 hover:bg-carbon-200 dark:hover:bg-carbon-700 transition-colors"
-                                                title="View execution parameters and timing"
-                                            >
-                                                <Info className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                                            </button>
-
-                                            <div className="mx-1 h-5 w-px bg-carbon-300 dark:bg-carbon-700" />
-
-                                            {/* Logs */}
-                                            <button
-                                                type="button"
-                                                onClick={openLogsDialog}
-                                                className="h-6 w-6 sm:h-7 sm:w-7 inline-flex items-center justify-center rounded-md cursor-pointer text-carbon-600 dark:text-carbon-300 hover:bg-carbon-200 dark:hover:bg-carbon-700 transition-colors"
-                                                title="View transcription logs"
-                                            >
-                                                <FileText className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                                            </button>
-
-                                            {/* Speaker Renaming - only show if there are speakers (from diarization or multi-track) */}
-                                            {hasSpeakers() && getDetectedSpeakers().length > 0 && (
-                                                <>
-                                                    <div className="mx-1 h-5 w-px bg-carbon-300 dark:bg-carbon-700" />
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => setSpeakerRenameDialogOpen(true)}
-                                                        className="h-6 w-6 sm:h-7 sm:w-7 inline-flex items-center justify-center rounded-md cursor-pointer text-carbon-600 dark:text-carbon-300 hover:bg-carbon-200 dark:hover:bg-carbon-700 transition-colors"
-                                                        title="Rename speakers"
-                                                    >
-                                                        <Users className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                                                    </button>
-                                                </>
-                                            )}
-
-                                            <div className="mx-1 h-5 w-px bg-carbon-300 dark:bg-carbon-700" />
-
-                                            {/* Summarize */}
-                                            <button
-                                                type="button"
-                                                onClick={openSummarizeDialog}
-                                                className="h-6 w-6 sm:h-7 sm:w-7 inline-flex items-center justify-center rounded-md cursor-pointer text-carbon-600 dark:text-carbon-300 hover:bg-carbon-200 dark:hover:bg-carbon-700 transition-colors disabled:opacity-50"
-                                                title={llmReady === false ? 'Configure LLM in Settings' : 'Summarize transcript'}
-                                                disabled={llmReady === false}
-                                            >
-                                                <Sparkles className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                                            </button>
-
-                                            <div className="mx-1 h-5 w-px bg-carbon-300 dark:bg-carbon-700" />
-
-                                            {/* Download dropdown */}
-                                            <DropdownMenu>
-                                                <DropdownMenuTrigger asChild>
-                                                    <button
-                                                        type="button"
-                                                        className="h-6 w-6 sm:h-7 sm:w-7 inline-flex items-center justify-center rounded-md cursor-pointer text-carbon-600 dark:text-carbon-300 hover:bg-carbon-200 dark:hover:bg-carbon-700 transition-colors"
-                                                        title="Download transcript"
-                                                    >
-                                                        <Download className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                                                    </button>
-                                                </DropdownMenuTrigger>
-                                                <DropdownMenuContent className="w-44 bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700">
-                                                    <DropdownMenuItem onClick={downloadSRT} className="flex items-center gap-2 cursor-pointer hover:bg-carbon-100 dark:hover:bg-carbon-700 text-carbon-900 dark:text-carbon-100">
-                                                        <FileImage className="h-4 w-4" />
-                                                        Download as SRT
-                                                    </DropdownMenuItem>
-                                                    <DropdownMenuItem onClick={() => handleDownloadWithDialog('txt')} className="flex items-center gap-2 cursor-pointer hover:bg-carbon-100 dark:hover:bg-carbon-700 text-carbon-900 dark:text-carbon-100">
-                                                        <FileText className="h-4 w-4" />
-                                                        Download as TXT
-                                                    </DropdownMenuItem>
-                                                    <DropdownMenuItem onClick={() => handleDownloadWithDialog('json')} className="flex items-center gap-2 cursor-pointer hover:bg-carbon-100 dark:hover:bg-carbon-700 text-carbon-900 dark:text-carbon-100">
-                                                        <FileJson className="h-4 w-4" />
-                                                        Download as JSON
-                                                    </DropdownMenuItem>
-                                                </DropdownMenuContent>
-                                            </DropdownMenu>
-
-                                            <div className="mx-1 h-5 w-px bg-carbon-300 dark:bg-carbon-700" />
-
-                                            {/* Open Chat Page */}
-                                            <button
-                                                type="button"
-                                                onClick={() => navigate({ path: 'chat', params: { audioId } })}
-                                                className="h-7 w-7 inline-flex items-center justify-center rounded-md cursor-pointer text-carbon-600 dark:text-carbon-300 hover:bg-carbon-200 dark:hover:bg-carbon-700 transition-colors"
-                                                title="Open chat"
-                                            >
-                                                <MessageCircle className="h-4 w-4" />
-                                            </button>
-                                        </div>
-                                    )}
-                                </div>
-
-                                {/* Mobile Toolbar */}
-                                {viewMode === 'transcript' && (
-                                    <div className="flex sm:hidden justify-center mt-4">
-                                        <div className="flex items-center justify-center gap-1 rounded-lg bg-carbon-100/90 dark:bg-carbon-800/90 p-1 border border-carbon-200 dark:border-carbon-700 shadow-sm backdrop-blur-md">
-                                            {/* View toggle */}
-                                            <button
-                                                type="button"
-                                                onClick={() => setTranscriptMode(m => m === 'compact' ? 'expanded' : 'compact')}
-                                                className={`h-7 w-7 inline-flex items-center justify-center rounded-md cursor-pointer text-carbon-600 dark:text-carbon-300 hover:bg-carbon-200 dark:hover:bg-carbon-700 transition-colors ${transcriptMode === 'compact' ? 'bg-white dark:bg-carbon-700 shadow-sm' : ''}`}
-                                                title={transcriptMode === 'compact' ? 'Switch to Timeline view' : 'Switch to Compact view'}
-                                            >
-                                                {transcriptMode === 'compact' ? (
-                                                    <List className="h-3.5 w-3.5" />
-                                                ) : (
-                                                    <AlignLeft className="h-3.5 w-3.5" />
-                                                )}
-                                            </button>
-
-                                            {/* Auto-Scroll Toggle */}
-                                            <button
-                                                type="button"
-                                                onClick={() => setAutoScrollEnabled(v => !v)}
-                                                className={`h-7 w-7 inline-flex items-center justify-center rounded-md cursor-pointer text-carbon-600 dark:text-carbon-300 hover:bg-carbon-200 dark:hover:bg-carbon-700 transition-colors ${autoScrollEnabled ? 'bg-white dark:bg-carbon-700 shadow-sm' : ''}`}
-                                                title={autoScrollEnabled ? 'Disable auto-scroll' : 'Enable auto-scroll'}
-                                            >
-                                                <ArrowDownCircle className="h-3.5 w-3.5" />
-                                            </button>
-
-                                            {/* Notes toggle */}
-                                            <button
-                                                type="button"
-                                                onClick={() => setNotesOpen(v => !v)}
-                                                className={`relative h-7 w-7 inline-flex items-center justify-center rounded-md cursor-pointer text-carbon-600 dark:text-carbon-300 hover:bg-carbon-200 dark:hover:bg-carbon-700 transition-colors ${notesOpen ? 'bg-white dark:bg-carbon-700 shadow-sm' : ''}`}
-                                                title="Toggle notes"
-                                            >
-                                                <StickyNote className="h-3.5 w-3.5" />
-                                                {notes.length > 0 && (
-                                                    <span className="absolute -top-1 -right-0.5 min-w-[12px] h-[12px] px-0.5 rounded-full bg-carbon-900 text-white text-[8px] leading-[12px] text-center">
-                                                        {notes.length > 99 ? '99+' : notes.length}
-                                                    </span>
-                                                )}
-                                            </button>
-
-                                            {/* Execution Info */}
-                                            <button
-                                                type="button"
-                                                onClick={openExecutionInfo}
-                                                className="h-7 w-7 inline-flex items-center justify-center rounded-md cursor-pointer text-carbon-600 dark:text-carbon-300 hover:bg-carbon-200 dark:hover:bg-carbon-700 transition-colors"
-                                                title="View execution parameters"
-                                            >
-                                                <Info className="h-3.5 w-3.5" />
-                                            </button>
-
-                                            {/* Speaker Renaming */}
-                                            {hasSpeakers() && getDetectedSpeakers().length > 0 && (
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setSpeakerRenameDialogOpen(true)}
-                                                    className="h-7 w-7 inline-flex items-center justify-center rounded-md cursor-pointer text-carbon-600 dark:text-carbon-300 hover:bg-carbon-200 dark:hover:bg-carbon-700 transition-colors"
-                                                    title="Rename speakers"
-                                                >
-                                                    <Users className="h-3.5 w-3.5" />
-                                                </button>
-                                            )}
-
-                                            {/* Summarize */}
-                                            <button
-                                                type="button"
-                                                onClick={openSummarizeDialog}
-                                                className="h-7 w-7 inline-flex items-center justify-center rounded-md cursor-pointer text-carbon-600 dark:text-carbon-300 hover:bg-carbon-200 dark:hover:bg-carbon-700 transition-colors disabled:opacity-50"
-                                                title="Summarize transcript"
-                                                disabled={llmReady === false}
-                                            >
-                                                <Sparkles className="h-3.5 w-3.5" />
-                                            </button>
-
-                                            {/* Download dropdown */}
-                                            <DropdownMenu>
-                                                <DropdownMenuTrigger asChild>
-                                                    <button
-                                                        type="button"
-                                                        className="h-7 w-7 inline-flex items-center justify-center rounded-md cursor-pointer text-carbon-600 dark:text-carbon-300 hover:bg-carbon-200 dark:hover:bg-carbon-700 transition-colors"
-                                                        title="Download transcript"
-                                                    >
-                                                        <Download className="h-3.5 w-3.5" />
-                                                    </button>
-                                                </DropdownMenuTrigger>
-                                                <DropdownMenuContent className="w-44 bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700">
-                                                    <DropdownMenuItem onClick={downloadSRT} className="flex items-center gap-2 cursor-pointer hover:bg-carbon-100 dark:hover:bg-carbon-700 text-carbon-900 dark:text-carbon-100">
-                                                        <FileImage className="h-4 w-4" />
-                                                        Download as SRT
-                                                    </DropdownMenuItem>
-                                                    <DropdownMenuItem onClick={() => handleDownloadWithDialog('txt')} className="flex items-center gap-2 cursor-pointer hover:bg-carbon-100 dark:hover:bg-carbon-700 text-carbon-900 dark:text-carbon-100">
-                                                        <FileText className="h-4 w-4" />
-                                                        Download as TXT
-                                                    </DropdownMenuItem>
-                                                    <DropdownMenuItem onClick={() => handleDownloadWithDialog('json')} className="flex items-center gap-2 cursor-pointer hover:bg-carbon-100 dark:hover:bg-carbon-700 text-carbon-900 dark:text-carbon-100">
-                                                        <FileJson className="h-4 w-4" />
-                                                        Download as JSON
-                                                    </DropdownMenuItem>
-                                                </DropdownMenuContent>
-                                            </DropdownMenu>
-
-                                            {/* Open Chat Page */}
-                                            <button
-                                                type="button"
-                                                onClick={() => navigate({ path: 'chat', params: { audioId } })}
-                                                className="h-7 w-7 inline-flex items-center justify-center rounded-md cursor-pointer text-carbon-600 dark:text-carbon-300 hover:bg-carbon-200 dark:hover:bg-carbon-700 transition-colors"
-                                                title="Open chat"
-                                            >
-                                                <MessageCircle className="h-3.5 w-3.5" />
-                                            </button>
-                                        </div>
-                                    </div>
-                                )}
+                        {/* Header Section - Sticky Toolbar */}
+                        <div className="mb-6 sm:mb-8 sticky top-4 z-10 flex justify-center pointer-events-none">
+                            <div className="pointer-events-auto shadow-lg rounded-2xl">
+                                <TranscriptToolbar
+                                    transcriptMode={transcriptMode}
+                                    setTranscriptMode={setTranscriptMode}
+                                    autoScrollEnabled={autoScrollEnabled}
+                                    setAutoScrollEnabled={setAutoScrollEnabled}
+                                    notesOpen={notesOpen}
+                                    setNotesOpen={setNotesOpen}
+                                    notes={notes}
+                                    onOpenExecutionInfo={openExecutionInfo}
+                                    onOpenLogs={openLogsDialog}
+                                    hasSpeakers={hasSpeakers()}
+                                    detectedSpeakersCount={getDetectedSpeakers().length}
+                                    onOpenSpeakerRename={() => setSpeakerRenameDialogOpen(true)}
+                                    onOpenSummarize={openSummarizeDialog}
+                                    llmReady={llmReady}
+                                    onDownloadSRT={downloadSRT}
+                                    onDownloadTXT={() => handleDownloadWithDialog('txt')}
+                                    onDownloadJSON={() => handleDownloadWithDialog('json')}
+                                    onOpenChat={() => navigate({ path: 'chat', params: { audioId } })}
+                                />
                             </div>
+                        </div>
 
-                            {/* Content Area - Show transcript or chat based on view mode */}
-                            {viewMode === "transcript" ? (
-                                <div className="relative overflow-hidden">
-                                    {/* Transcript Content */}
-                                    <div className="w-full font-transcript">
-                                        <div ref={transcriptRef} className="relative">
-                                            <TranscriptView
-                                                transcript={transcript}
-                                                mode={transcriptMode}
-                                                currentWordIndex={currentWordIndex}
-                                                notes={notes}
-                                                highlightedWordRef={highlightedWordRef}
-                                                speakerMappings={speakerMappings}
-                                                autoScrollEnabled={autoScrollEnabled}
-                                            />
-                                        </div>
+                        {/* Content Area */}
+                        {viewMode === "transcript" ? (
+                            <div className="relative overflow-hidden">
+                                <div className="w-full font-transcript">
+                                    <div ref={transcriptRef} className="relative">
+                                        <TranscriptView
+                                            transcript={transcript}
+                                            mode={transcriptMode}
+                                            currentWordIndex={currentWordIndex}
+                                            notes={notes}
+                                            highlightedWordRef={highlightedWordRef}
+                                            speakerMappings={speakerMappings}
+                                            autoScrollEnabled={autoScrollEnabled}
+                                        />
                                     </div>
                                 </div>
-                            ) : (
-                                <div style={{ height: "600px" }}>
-                                    <ChatInterface
-                                        transcriptionId={audioId}
-                                        onClose={() => setViewMode("transcript")}
-                                    />
-                                </div>
-                            )}
-                        </div>
+                            </div>
+                        ) : (
+                            <div style={{ height: "600px" }}>
+                                <ChatInterface
+                                    transcriptionId={audioId}
+                                    onClose={() => setViewMode("transcript")}
+                                />
+                            </div>
+                        )}
                     </div>
                 )}
+
 
 
 
                 {/* Status Messages */}
-                {(currentStatus || audioFile.status) !== "completed" && (
-                    <div className="bg-white dark:bg-carbon-900 rounded-xl p-6">
-                        <div className="text-center">
-                            {/* Processing Status with Animation */}
-                            {(currentStatus || audioFile.status) === "processing" && (
-                                <div className="flex flex-col items-center space-y-4">
-                                    <div className="flex items-center space-x-3">
-                                        <Loader2 className="h-8 w-8 text-carbon-500 animate-spin" />
-                                        <div>
-                                            <h2 className="text-xl font-semibold text-carbon-900 dark:text-carbon-50">
-                                                Transcription in Progress
-                                            </h2>
-                                            {elapsedTime > 0 && (
-                                                <p className="text-sm text-carbon-500 dark:text-carbon-400 mt-1">
-                                                    Processing for {formatElapsedTime(elapsedTime)}
-                                                </p>
-                                            )}
+                {
+                    (currentStatus || audioFile.status) !== "completed" && (
+                        <div className="bg-white dark:bg-carbon-900 rounded-xl p-6">
+                            <div className="text-center">
+                                {/* Processing Status with Animation */}
+                                {(currentStatus || audioFile.status) === "processing" && (
+                                    <div className="flex flex-col items-center space-y-4">
+                                        <div className="flex items-center space-x-3">
+                                            <Loader2 className="h-8 w-8 text-carbon-500 animate-spin" />
+                                            <div>
+                                                <h2 className="text-xl font-semibold text-carbon-900 dark:text-carbon-50">
+                                                    Transcription in Progress
+                                                </h2>
+                                                {elapsedTime > 0 && (
+                                                    <p className="text-sm text-carbon-500 dark:text-carbon-400 mt-1">
+                                                        Processing for {formatElapsedTime(elapsedTime)}
+                                                    </p>
+                                                )}
+                                            </div>
                                         </div>
-                                    </div>
-                                    <div className="w-full max-w-md">
-                                        <div className="bg-carbon-200 dark:bg-carbon-600 rounded-full h-2">
-                                            <div className="bg-carbon-500 h-2 rounded-full transition-all duration-1000 ease-out animate-pulse" style={{ width: '60%' }}></div>
+                                        <div className="w-full max-w-md">
+                                            <div className="bg-carbon-200 dark:bg-carbon-600 rounded-full h-2">
+                                                <div className="bg-carbon-500 h-2 rounded-full transition-all duration-1000 ease-out animate-pulse" style={{ width: '60%' }}></div>
+                                            </div>
                                         </div>
+                                        <p className="text-carbon-600 dark:text-carbon-400 text-sm">
+                                            Converting your audio to text... This may take a few minutes.
+                                        </p>
                                     </div>
-                                    <p className="text-carbon-600 dark:text-carbon-400 text-sm">
-                                        Converting your audio to text... This may take a few minutes.
-                                    </p>
-                                </div>
-                            )}
+                                )}
 
-                            {/* Other Status Messages */}
-                            {(currentStatus || audioFile.status) !== "processing" && (
-                                <>
-                                    <h2 className="text-xl font-semibold text-carbon-900 dark:text-carbon-50 mb-2">
-                                        {(currentStatus || audioFile.status) === "pending" && "Transcription Queued"}
-                                        {(currentStatus || audioFile.status) === "uploaded" && "Ready for Transcription"}
-                                        {(currentStatus || audioFile.status) === "failed" && "Transcription Failed"}
-                                    </h2>
-                                    <p className="text-carbon-600 dark:text-carbon-400">
-                                        {(currentStatus || audioFile.status) === "pending" &&
-                                            "Your audio file is in the transcription queue."}
-                                        {(currentStatus || audioFile.status) === "uploaded" &&
-                                            "Start transcription from the audio files list."}
-                                        {(currentStatus || audioFile.status) === "failed" &&
-                                            "There was an error processing your audio file."}
-                                    </p>
-                                    {(currentStatus || audioFile.status) === "failed" && (
-                                        <div className="mt-4">
-                                            <button
-                                                onClick={openLogsDialog}
-                                                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-carbon-900 rounded-md hover:bg-carbon-950 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-carbon-500 transition-colors"
-                                            >
-                                                <FileText className="h-4 w-4" />
-                                                View Logs
-                                            </button>
-                                        </div>
-                                    )}
-                                </>
-                            )}
+                                {/* Other Status Messages */}
+                                {(currentStatus || audioFile.status) !== "processing" && (
+                                    <>
+                                        <h2 className="text-xl font-semibold text-carbon-900 dark:text-carbon-50 mb-2">
+                                            {(currentStatus || audioFile.status) === "pending" && "Transcription Queued"}
+                                            {(currentStatus || audioFile.status) === "uploaded" && "Ready for Transcription"}
+                                            {(currentStatus || audioFile.status) === "failed" && "Transcription Failed"}
+                                        </h2>
+                                        <p className="text-carbon-600 dark:text-carbon-400">
+                                            {(currentStatus || audioFile.status) === "pending" &&
+                                                "Your audio file is in the transcription queue."}
+                                            {(currentStatus || audioFile.status) === "uploaded" &&
+                                                "Start transcription from the audio files list."}
+                                            {(currentStatus || audioFile.status) === "failed" &&
+                                                "There was an error processing your audio file."}
+                                        </p>
+                                        {(currentStatus || audioFile.status) === "failed" && (
+                                            <div className="mt-4">
+                                                <button
+                                                    onClick={openLogsDialog}
+                                                    className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-carbon-900 rounded-md hover:bg-carbon-950 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-carbon-500 transition-colors"
+                                                >
+                                                    <FileText className="h-4 w-4" />
+                                                    View Logs
+                                                </button>
+                                            </div>
+                                        )}
+                                    </>
+                                )}
+                            </div>
                         </div>
-                    </div>
-                )}
+                    )
+                }
 
                 {/* Fixed bottom-left compact circular control with progress ring */}
                 <div className="fixed bottom-4 left-4 z-[9999]">
