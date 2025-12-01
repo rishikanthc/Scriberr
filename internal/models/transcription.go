@@ -121,6 +121,9 @@ type WhisperXParams struct {
 
 	// Multi-track transcription settings
 	IsMultiTrackEnabled bool `json:"is_multi_track_enabled" gorm:"type:boolean;default:false"`
+
+	// Webhook settings
+	CallbackURL *string `json:"callback_url,omitempty" gorm:"type:text"`
 }
 
 // BeforeCreate sets the ID if not already set
