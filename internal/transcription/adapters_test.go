@@ -84,6 +84,11 @@ func (m *MockJobRepository) DeleteMultiTrackFilesByJobID(ctx context.Context, jo
 	return args.Error(0)
 }
 
+func (m *MockJobRepository) ListWithParams(ctx context.Context, offset, limit int, sortBy, sortOrder, searchQuery string) ([]models.TranscriptionJob, int64, error) {
+	args := m.Called(ctx, offset, limit, sortBy, sortOrder, searchQuery)
+	return args.Get(0).([]models.TranscriptionJob), args.Get(1).(int64), args.Error(2)
+}
+
 // MockTranscriptionAdapter is a mock implementation of TranscriptionAdapter
 type MockTranscriptionAdapter struct {
 	mock.Mock
