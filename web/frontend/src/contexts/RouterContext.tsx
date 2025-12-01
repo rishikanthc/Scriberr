@@ -2,7 +2,7 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 
 export type Route = {
-  path: 'home' | 'audio-detail' | 'settings' | 'settings-cli' | 'chat' | 'auth-cli-authorize'
+  path: 'home' | 'audio-detail' | 'settings' | 'settings-cli' | 'chat' | 'auth-cli-authorize' | 'realtime-transcription'
   params?: Record<string, string | undefined>
 }
 
@@ -39,6 +39,15 @@ export function RouterProvider({ children }: { children: React.ReactNode }) {
       return { path: 'settings-cli' }
     } else if (path === '/settings') {
       return { path: 'settings' }
+    } else if (path === '/realtime-transcription') {
+      const params = new URLSearchParams(search)
+      return {
+        path: 'realtime-transcription',
+        params: {
+          model: params.get('model') || 'base',
+          device: params.get('device') || 'cpu'
+        }
+      }
     } else if (path === '/auth/cli/authorize') {
       const params = new URLSearchParams(search)
       return {
@@ -68,6 +77,15 @@ export function RouterProvider({ children }: { children: React.ReactNode }) {
       url = '/settings'
     } else if (route.path === 'settings-cli') {
       url = '/settings/cli'
+    } else if (route.path === 'realtime-transcription') {
+      url = '/realtime-transcription'
+      if (route.params) {
+        const searchParams = new URLSearchParams()
+        if (route.params.model) searchParams.set('model', route.params.model)
+        if (route.params.device) searchParams.set('device', route.params.device)
+        const search = searchParams.toString()
+        if (search) url += `?${search}`
+      }
     } else if (route.path === 'auth-cli-authorize') {
       url = '/auth/cli/authorize'
       if (route.params) {
@@ -106,6 +124,15 @@ export function RouterProvider({ children }: { children: React.ReactNode }) {
             setCurrentRoute({ path: 'settings-cli' })
           } else if (path === '/settings') {
             setCurrentRoute({ path: 'settings' })
+          } else if (path === '/realtime-transcription') {
+            const params = new URLSearchParams(search)
+            setCurrentRoute({
+              path: 'realtime-transcription',
+              params: {
+                model: params.get('model') || 'base',
+                device: params.get('device') || 'cpu'
+              }
+            })
           } else if (path === '/auth/cli/authorize') {
             const params = new URLSearchParams(search)
             setCurrentRoute({

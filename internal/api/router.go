@@ -231,6 +231,10 @@ func SetupRoutes(handler *Handler, authService *auth.AuthService) *gin.Engine {
 		{
 			config.POST("/openai/validate", handler.ValidateOpenAIKey)
 		}
+
+		// Real-time transcription proxy (no auth required for now, or use auth middleware if needed)
+		// Note: WebSockets usually send auth in query params or initial message if headers aren't supported by client lib
+		v1.GET("/realtime/asr", handler.ProxyRealtimeTranscription)
 	}
 
 	// Set up static file serving for React app

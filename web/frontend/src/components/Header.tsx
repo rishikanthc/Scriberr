@@ -12,6 +12,7 @@ import { ThemeSwitcher } from "./ThemeSwitcher";
 import { AudioRecorder } from "./AudioRecorder";
 import { QuickTranscriptionDialog } from "./QuickTranscriptionDialog";
 import { YouTubeDownloadDialog } from "./YouTubeDownloadDialog";
+import { RealtimeTranscriptionConfigDialog } from "./RealtimeTranscriptionConfigDialog";
 import { useRouter } from "../contexts/RouterContext";
 import { useAuth } from "../contexts/AuthContext";
 import { isVideoFile, isAudioFile } from "../utils/fileProcessor";
@@ -35,6 +36,7 @@ export function Header({ onFileSelect, onMultiTrackClick, onDownloadComplete }: 
 	const [isRecorderOpen, setIsRecorderOpen] = useState(false);
 	const [isQuickTranscriptionOpen, setIsQuickTranscriptionOpen] = useState(false);
 	const [isYouTubeDialogOpen, setIsYouTubeDialogOpen] = useState(false);
+	const [isRealtimeConfigOpen, setIsRealtimeConfigOpen] = useState(false);
 
 	const handleUploadClick = () => {
 		fileInputRef.current?.click();
@@ -173,6 +175,20 @@ export function Header({ onFileSelect, onMultiTrackClick, onDownloadComplete }: 
 								</div>
 							</DropdownMenuItem>
 							<DropdownMenuItem
+								onClick={() => setIsRealtimeConfigOpen(true)}
+								className="flex items-center gap-3 px-3 py-2.5 cursor-pointer rounded-lg focus:bg-carbon-100 dark:focus:bg-carbon-900"
+							>
+								<div className="p-2 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg text-indigo-600 dark:text-indigo-400">
+									<Zap className="h-4 w-4" />
+								</div>
+								<div>
+									<div className="font-medium text-sm">Real-time</div>
+									<div className="text-xs text-muted-foreground">
+										Live transcription
+									</div>
+								</div>
+							</DropdownMenuItem>
+							<DropdownMenuItem
 								onClick={handleUploadClick}
 								className="flex items-center gap-3 px-3 py-2.5 cursor-pointer rounded-lg focus:bg-carbon-100 dark:focus:bg-carbon-900"
 							>
@@ -302,6 +318,12 @@ export function Header({ onFileSelect, onMultiTrackClick, onDownloadComplete }: 
 				isOpen={isYouTubeDialogOpen}
 				onClose={() => setIsYouTubeDialogOpen(false)}
 				onDownloadComplete={onDownloadComplete}
+			/>
+
+			{/* Real-time Transcription Config Dialog */}
+			<RealtimeTranscriptionConfigDialog
+				isOpen={isRealtimeConfigOpen}
+				onClose={() => setIsRealtimeConfigOpen(false)}
 			/>
 
 		</header>

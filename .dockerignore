@@ -68,3 +68,16 @@ Makefile
 run_tests.sh
 build.sh
 install_*.sh
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+env
+venv
+pip-log.txt
+.pytest_cache
+.coverage
+htmlcov

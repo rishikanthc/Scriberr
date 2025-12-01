@@ -8,6 +8,7 @@ const Settings = lazy(() => import('./pages/Settings').then(module => ({ default
 const CLISettings = lazy(() => import('./pages/CLISettings').then(module => ({ default: module.CLISettings })))
 const CLIAuthConfirmation = lazy(() => import('./pages/CLIAuthConfirmation').then(module => ({ default: module.CLIAuthConfirmation })))
 const ChatPage = lazy(() => import('./pages/ChatPage').then(module => ({ default: module.ChatPage })))
+const RealtimeTranscriptionPage = lazy(() => import('./pages/RealtimeTranscriptionPage').then(module => ({ default: module.RealtimeTranscriptionPage })))
 
 // Loading component
 const PageLoader = () => (
@@ -31,6 +32,8 @@ function App() {
         <CLIAuthConfirmation />
       ) : currentRoute.path === 'chat' ? (
         <ChatPage />
+      ) : currentRoute.path === 'realtime-transcription' ? (
+        <RealtimeTranscriptionPage />
       ) : (
         <Homepage />
       )}
