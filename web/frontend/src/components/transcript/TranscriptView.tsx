@@ -28,6 +28,7 @@ interface TranscriptViewProps {
     notes: Note[];
     highlightedWordRef: React.RefObject<HTMLSpanElement | null>;
     speakerMappings: Record<string, string>;
+    autoScrollEnabled: boolean;
     className?: string;
 }
 
@@ -38,6 +39,7 @@ export const TranscriptView = forwardRef<HTMLDivElement, TranscriptViewProps>(({
     notes,
     highlightedWordRef,
     speakerMappings,
+    autoScrollEnabled,
     className
 }, ref) => {
 
@@ -68,7 +70,7 @@ export const TranscriptView = forwardRef<HTMLDivElement, TranscriptViewProps>(({
                     return (
                         <span
                             key={index}
-                            ref={isHighlighted ? highlightedWordRef : undefined}
+                            ref={isHighlighted && autoScrollEnabled ? highlightedWordRef : undefined}
                             data-word-index={index}
                             data-word={word.word}
                             data-start={word.start}
@@ -115,7 +117,7 @@ export const TranscriptView = forwardRef<HTMLDivElement, TranscriptViewProps>(({
             return (
                 <span
                     key={`${segment.start}-${index}`}
-                    ref={isHighlighted ? highlightedWordRef : undefined}
+                    ref={isHighlighted && autoScrollEnabled ? highlightedWordRef : undefined}
                     data-word-index={globalIndex}
                     data-word={word.word}
                     data-start={word.start}

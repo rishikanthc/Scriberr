@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, memo } from "react";
 import { createPortal } from "react-dom";
-import { ArrowLeft, Play, Pause, List, AlignLeft, MessageCircle, Download, FileText, FileJson, FileImage, Check, StickyNote, Plus, X, Sparkles, Pencil, ChevronUp, ChevronDown, Info, Clock, Settings, Users, Loader2, Home } from "lucide-react";
+import { ArrowLeft, Play, Pause, List, AlignLeft, MessageCircle, Download, FileText, FileJson, FileImage, Check, StickyNote, Plus, X, Sparkles, Pencil, ChevronUp, ChevronDown, Info, Clock, Settings, Users, Loader2, Home, ArrowDownCircle } from "lucide-react";
 import { AudioPlayer, type AudioPlayerRef } from "./audio/AudioPlayer";
 import { TranscriptView } from "./transcript/TranscriptView";
 import { Button } from "./ui/button";
@@ -249,6 +249,7 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
     const [titleInput, setTitleInput] = useState("");
     const [savingTitle, setSavingTitle] = useState(false);
     const [audioCollapsed, setAudioCollapsed] = useState(false);
+    const [autoScrollEnabled, setAutoScrollEnabled] = useState(true);
 
     // Execution info state
     const [executionInfoOpen, setExecutionInfoOpen] = useState(false);
@@ -1182,7 +1183,7 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
 
     return (
         <div className="min-h-screen bg-background text-foreground transition-colors duration-300">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
+            <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
                 {/* Header with back button and theme switcher */}
                 <div className="flex items-center justify-between mb-3 sm:mb-6">
                     <Button onClick={() => navigate({ path: "home" })} variant="outline" size="icon" className="h-9 w-9 cursor-pointer" title="Back to Home">
@@ -1302,6 +1303,18 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                                                 ) : (
                                                     <AlignLeft className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                                                 )}
+                                            </button>
+
+                                            <div className="mx-1 h-5 w-px bg-carbon-300 dark:bg-carbon-700" />
+
+                                            {/* Auto-Scroll Toggle */}
+                                            <button
+                                                type="button"
+                                                onClick={() => setAutoScrollEnabled(v => !v)}
+                                                className={`h-6 w-6 sm:h-7 sm:w-7 inline-flex items-center justify-center rounded-md cursor-pointer text-carbon-600 dark:text-carbon-300 hover:bg-carbon-200 dark:hover:bg-carbon-700 transition-colors ${autoScrollEnabled ? 'bg-white dark:bg-carbon-700 shadow-sm' : ''}`}
+                                                title={autoScrollEnabled ? 'Disable auto-scroll' : 'Enable auto-scroll'}
+                                            >
+                                                <ArrowDownCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                                             </button>
 
                                             <div className="mx-1 h-5 w-px bg-carbon-300 dark:bg-carbon-700" />
@@ -1437,6 +1450,18 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
 
                                             <div className="mx-1 h-5 w-px bg-carbon-300 dark:bg-carbon-700" />
 
+                                            {/* Auto-Scroll Toggle */}
+                                            <button
+                                                type="button"
+                                                onClick={() => setAutoScrollEnabled(v => !v)}
+                                                className={`h-6 w-6 inline-flex items-center justify-center rounded-md cursor-pointer text-carbon-600 dark:text-carbon-300 hover:bg-carbon-200 dark:hover:bg-carbon-700 transition-colors ${autoScrollEnabled ? 'bg-white dark:bg-carbon-700 shadow-sm' : ''}`}
+                                                title={autoScrollEnabled ? 'Disable auto-scroll' : 'Enable auto-scroll'}
+                                            >
+                                                <ArrowDownCircle className="h-3.5 w-3.5" />
+                                            </button>
+
+                                            <div className="mx-1 h-5 w-px bg-carbon-300 dark:bg-carbon-700" />
+
                                             {/* Notes toggle */}
                                             <button
                                                 type="button"
@@ -1550,6 +1575,7 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                                                 notes={notes}
                                                 highlightedWordRef={highlightedWordRef}
                                                 speakerMappings={speakerMappings}
+                                                autoScrollEnabled={autoScrollEnabled}
                                             />
                                         </div>
                                     </div>
