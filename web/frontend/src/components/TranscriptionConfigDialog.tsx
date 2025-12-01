@@ -28,7 +28,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
-import { Info } from "lucide-react";
+import { Info, Check, XCircle, Loader2 } from "lucide-react";
 
 export interface WhisperXParams {
   // Model family (whisper or nvidia)
@@ -362,6 +362,48 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
   const [params, setParams] = useState<WhisperXParams>(DEFAULT_PARAMS);
   const [profileName, setProfileName] = useState("");
   const [profileDescription, setProfileDescription] = useState("");
+
+  // OpenAI Validation State
+  const [isValidating, setIsValidating] = useState(false);
+  const [validationStatus, setValidationStatus] = useState<'idle' | 'valid' | 'invalid'>('idle');
+  const [validationMessage, setValidationMessage] = useState("");
+  const [availableModels, setAvailableModels] = useState<string[]>(["whisper-1"]);
+
+  const validateAPIKey = async () => {
+    if (!params.api_key) return;
+
+    setIsValidating(true);
+    setValidationStatus('idle');
+    setValidationMessage("");
+
+    try {
+      const response = await fetch('/api/v1/config/openai/validate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ api_key: params.api_key }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.valid) {
+        setValidationStatus('valid');
+        setAvailableModels(data.models || ["whisper-1"]);
+        setValidationMessage("API key validated successfully");
+      } else {
+        setValidationStatus('invalid');
+        setValidationMessage(data.error || "Invalid API key");
+        setAvailableModels(["whisper-1"]);
+      }
+    } catch (error) {
+      setValidationStatus('invalid');
+      setValidationMessage("Failed to validate API key");
+      console.error("Validation error:", error);
+    } finally {
+      setIsValidating(false);
+    }
+  };
 
   // Reset to defaults or initial values when dialog opens
   useEffect(() => {
@@ -969,14 +1011,42 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
                   </HoverCardContent>
                 </HoverCard>
               </div>
-              <Input
-                id="openai_api_key"
-                type="password"
-                value={params.api_key || ""}
-                onChange={(e) => updateParam('api_key', e.target.value)}
-                placeholder="sk-..."
-                className="bg-white dark:bg-carbon-800 border-carbon-300 dark:border-carbon-600 text-carbon-900 dark:text-carbon-100"
-              />
+              <div className="flex gap-2">
+                <Input
+                  id="openai_api_key"
+                  type="password"
+                  value={params.api_key || ""}
+                  onChange={(e) => {
+                    updateParam('api_key', e.target.value);
+                    setValidationStatus('idle');
+                  }}
+                  placeholder="sk-..."
+                  className="bg-white dark:bg-carbon-800 border-carbon-300 dark:border-carbon-600 text-carbon-900 dark:text-carbon-100 flex-1"
+                />
+                <Button
+                  variant="outline"
+                  onClick={validateAPIKey}
+                  disabled={!params.api_key || isValidating}
+                  className="shrink-0"
+                >
+                  {isValidating ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    "Validate"
+                  )}
+                </Button>
+              </div>
+              {validationStatus !== 'idle' && (
+                <div className={`flex items-center gap-2 text-sm ${validationStatus === 'valid' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+                  }`}>
+                  {validationStatus === 'valid' ? (
+                    <Check className="h-4 w-4" />
+                  ) : (
+                    <XCircle className="h-4 w-4" />
+                  )}
+                  <span>{validationMessage}</span>
+                </div>
+              )}
             </div>
 
             {/* Model Selection */}
@@ -992,9 +1062,11 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700">
-                  <SelectItem value="whisper-1" className="text-carbon-900 dark:text-carbon-100 focus:bg-carbon-100 dark:focus:bg-carbon-700">
-                    whisper-1
-                  </SelectItem>
+                  {availableModels.map((model) => (
+                    <SelectItem key={model} value={model} className="text-carbon-900 dark:text-carbon-100 focus:bg-carbon-100 dark:focus:bg-carbon-700">
+                      {model}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
