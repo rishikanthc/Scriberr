@@ -161,7 +161,9 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 		pageIndex: 0,
 		pageSize: 10,
 	});
-	const [sorting, setSorting] = useState<SortingState>([]);
+	const [sorting, setSorting] = useState<SortingState>([
+		{ id: "created_at", desc: true }
+	]);
 	const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
 	const [globalFilter, setGlobalFilter] = useState("");
 	const [queuePositions, setQueuePositions] = useState<Record<string, number>>({});
@@ -202,6 +204,12 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 			// Add search parameter if provided
 			if (currentSearch) {
 				params.set('q', currentSearch);
+			}
+
+			// Add sorting parameters
+			if (sorting.length > 0) {
+				params.set('sort_by', sorting[0].id);
+				params.set('sort_order', sorting[0].desc ? 'desc' : 'asc');
 			}
 
 			const response = await fetch(`/api/v1/transcription/list?${params}`, {
@@ -292,7 +300,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 			setLoading(false);
 			setIsPageChanging(false);
 		}
-	}, [pagination.pageIndex, pagination.pageSize, globalFilter, getAuthHeaders]);
+	}, [pagination.pageIndex, pagination.pageSize, globalFilter, sorting, getAuthHeaders]);
 
 	// Fetch queue positions for pending jobs
 	const fetchQueuePositions = async (jobs: AudioFile[]) => {
@@ -504,7 +512,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 		fetchAudioFiles(undefined, undefined, undefined, isInitialLoad);
 	}, [refreshTrigger, fetchAudioFiles]);
 
-	// Handle pagination and search changes
+	// Handle pagination, search, and sorting changes
 	useEffect(() => {
 		if (data.length > 0) { // Only fetch if not initial load
 			fetchAudioFiles(
@@ -513,7 +521,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 				globalFilter || undefined
 			);
 		}
-	}, [pagination.pageIndex, pagination.pageSize, globalFilter, fetchAudioFiles]);
+	}, [pagination.pageIndex, pagination.pageSize, globalFilter, sorting, fetchAudioFiles]);
 
 	// Reset to first page when search changes
 	useEffect(() => {

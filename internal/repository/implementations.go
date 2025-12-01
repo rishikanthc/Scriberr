@@ -36,6 +36,7 @@ func (r *userRepository) FindByUsername(ctx context.Context, username string) (*
 type JobRepository interface {
 	Repository[models.TranscriptionJob]
 	FindWithAssociations(ctx context.Context, id string) (*models.TranscriptionJob, error)
+	ListWithParams(ctx context.Context, offset, limit int, sortBy, sortOrder, searchQuery string) ([]models.TranscriptionJob, int64, error)
 	ListByUser(ctx context.Context, userID uint, offset, limit int) ([]models.TranscriptionJob, int64, error)
 	UpdateTranscript(ctx context.Context, jobID string, transcript string) error
 	CreateExecution(ctx context.Context, execution *models.TranscriptionJobExecution) error
@@ -64,6 +65,43 @@ func (r *jobRepository) FindWithAssociations(ctx context.Context, id string) (*m
 		return nil, err
 	}
 	return &job, nil
+}
+
+func (r *jobRepository) ListWithParams(ctx context.Context, offset, limit int, sortBy, sortOrder, searchQuery string) ([]models.TranscriptionJob, int64, error) {
+	var jobs []models.TranscriptionJob
+	var count int64
+
+	db := r.db.WithContext(ctx).Model(&models.TranscriptionJob{})
+
+	// Apply search filter
+	if searchQuery != "" {
+		search := "%" + searchQuery + "%"
+		db = db.Where("title LIKE ? OR audio_path LIKE ?", search, search)
+	}
+
+	// Count total matching records
+	if err := db.Count(&count).Error; err != nil {
+		return nil, 0, err
+	}
+
+	// Apply sorting
+	if sortBy != "" {
+		if sortOrder == "" {
+			sortOrder = "desc"
+		}
+		db = db.Order(sortBy + " " + sortOrder)
+	} else {
+		// Default sort
+		db = db.Order("created_at desc")
+	}
+
+	// Apply pagination
+	err := db.Offset(offset).Limit(limit).Find(&jobs).Error
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return jobs, count, nil
 }
 
 func (r *jobRepository) ListByUser(ctx context.Context, userID uint, offset, limit int) ([]models.TranscriptionJob, int64, error) {

@@ -873,10 +873,11 @@ func (h *Handler) ListTranscriptionJobs(c *gin.Context) {
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
 	offset := (page - 1) * limit
 
-	// TODO: Pass filters to repository
-	// For now, we just list all.
-	// We should update repository to support filters.
-	jobs, total, err := h.jobRepo.List(c.Request.Context(), offset, limit)
+	sortBy := c.Query("sort_by")
+	sortOrder := c.Query("sort_order")
+	searchQuery := c.Query("q")
+
+	jobs, total, err := h.jobRepo.ListWithParams(c.Request.Context(), offset, limit, sortBy, sortOrder, searchQuery)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to list jobs"})
 		return
