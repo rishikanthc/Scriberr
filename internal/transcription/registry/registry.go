@@ -395,46 +395,46 @@ func (r *ModelRegistry) InitializeModels(ctx context.Context) error {
 		return nil
 	}
 
-	logger.Info("Initializing registered models sequentially...")
+	logger.Info("Initializing registered models in parallel...")
 
-	initErrors := make(chan error, 10) // Buffer for potential errors
+	var wg sync.WaitGroup
+	initErrors := make(chan error, len(r.transcriptionAdapters)+len(r.diarizationAdapters)+len(r.compositeAdapters))
 
-	// Initialize transcription adapters sequentially
+	// Helper function to initialize an adapter
+	initAdapter := func(id string, adapter interface {
+		PrepareEnvironment(context.Context) error
+	}, typeName string) {
+		defer wg.Done()
+		logger.Debug(fmt.Sprintf("Initializing %s model", typeName), "model_id", id)
+		if err := adapter.PrepareEnvironment(ctx); err != nil {
+			logger.Error(fmt.Sprintf("Failed to initialize %s model", typeName),
+				"model_id", id, "error", err)
+			initErrors <- fmt.Errorf("%s model %s: %w", typeName, id, err)
+		} else {
+			logger.Info(fmt.Sprintf("%s model initialized", typeName), "model_id", id)
+		}
+	}
+
+	// Initialize transcription adapters
 	for modelID, adapter := range r.transcriptionAdapters {
-		logger.Debug("Initializing transcription model", "model_id", modelID)
-		if err := adapter.PrepareEnvironment(ctx); err != nil {
-			logger.Error("Failed to initialize transcription model",
-				"model_id", modelID, "error", err)
-			initErrors <- fmt.Errorf("transcription model %s: %w", modelID, err)
-		} else {
-			logger.Info("Transcription model initialized", "model_id", modelID)
-		}
+		wg.Add(1)
+		go initAdapter(modelID, adapter, "transcription")
 	}
 
-	// Initialize diarization adapters sequentially
+	// Initialize diarization adapters
 	for modelID, adapter := range r.diarizationAdapters {
-		logger.Debug("Initializing diarization model", "model_id", modelID)
-		if err := adapter.PrepareEnvironment(ctx); err != nil {
-			logger.Error("Failed to initialize diarization model",
-				"model_id", modelID, "error", err)
-			initErrors <- fmt.Errorf("diarization model %s: %w", modelID, err)
-		} else {
-			logger.Info("Diarization model initialized", "model_id", modelID)
-		}
+		wg.Add(1)
+		go initAdapter(modelID, adapter, "diarization")
 	}
 
-	// Initialize composite adapters sequentially
+	// Initialize composite adapters
 	for modelID, adapter := range r.compositeAdapters {
-		logger.Debug("Initializing composite model", "model_id", modelID)
-		if err := adapter.PrepareEnvironment(ctx); err != nil {
-			logger.Error("Failed to initialize composite model",
-				"model_id", modelID, "error", err)
-			initErrors <- fmt.Errorf("composite model %s: %w", modelID, err)
-		} else {
-			logger.Info("Composite model initialized", "model_id", modelID)
-		}
+		wg.Add(1)
+		go initAdapter(modelID, adapter, "composite")
 	}
 
+	// Wait for all initializations to complete
+	wg.Wait()
 	close(initErrors)
 
 	// Collect any errors (but don't fail completely)
