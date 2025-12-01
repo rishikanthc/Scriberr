@@ -11,7 +11,7 @@ import (
 
 // ValidateOpenAIKeyRequest represents the request to validate an OpenAI API key
 type ValidateOpenAIKeyRequest struct {
-	APIKey string `json:"api_key" binding:"required"`
+	APIKey string `json:"api_key"`
 }
 
 // OpenAIModel represents a model returned by OpenAI API
@@ -44,8 +44,14 @@ type OpenAIModelListResponse struct {
 // @Security BearerAuth
 func (h *Handler) ValidateOpenAIKey(c *gin.Context) {
 	var req ValidateOpenAIKeyRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "API key is required"})
+	// If API key is not provided in request, try to use the one from config
+	apiKey := req.APIKey
+	if apiKey == "" {
+		apiKey = h.config.OpenAIAPIKey
+	}
+
+	if apiKey == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "API key is required (none provided and no server default)"})
 		return
 	}
 
@@ -60,7 +66,7 @@ func (h *Handler) ValidateOpenAIKey(c *gin.Context) {
 		return
 	}
 
-	request.Header.Set("Authorization", "Bearer "+req.APIKey)
+	request.Header.Set("Authorization", "Bearer "+apiKey)
 
 	response, err := client.Do(request)
 	if err != nil {

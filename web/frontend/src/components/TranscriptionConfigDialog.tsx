@@ -29,6 +29,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { Info, Check, XCircle, Loader2 } from "lucide-react";
+import { useAuth } from "../contexts/AuthContext";
 
 export interface WhisperXParams {
   // Model family (whisper or nvidia)
@@ -367,10 +368,11 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
   const [isValidating, setIsValidating] = useState(false);
   const [validationStatus, setValidationStatus] = useState<'idle' | 'valid' | 'invalid'>('idle');
   const [validationMessage, setValidationMessage] = useState("");
+  const { getAuthHeaders } = useAuth();
   const [availableModels, setAvailableModels] = useState<string[]>(["whisper-1"]);
 
   const validateAPIKey = async () => {
-    if (!params.api_key) return;
+    // Allow validation with empty key (will use server default)
 
     setIsValidating(true);
     setValidationStatus('idle');
@@ -381,6 +383,7 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...getAuthHeaders(),
         },
         body: JSON.stringify({ api_key: params.api_key }),
       });
@@ -1026,7 +1029,7 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
                 <Button
                   variant="outline"
                   onClick={validateAPIKey}
-                  disabled={!params.api_key || isValidating}
+                  disabled={isValidating}
                   className="shrink-0"
                 >
                   {isValidating ? (
