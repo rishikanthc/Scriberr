@@ -78,6 +78,7 @@ export const AudioPlayer = forwardRef<AudioPlayerRef, AudioPlayerProps>(({
                     height: collapsed ? 0 : 64,
                     normalize: true,
                     backend: 'WebAudio',
+                    dragToSeek: true,
                 });
 
                 wavesurferRef.current = ws;
@@ -99,13 +100,7 @@ export const AudioPlayer = forwardRef<AudioPlayerRef, AudioPlayerProps>(({
                     onPlayStateChange?.(false);
                 });
 
-                ws.on('audioprocess', (time) => {
-                    setCurrentTime(time);
-                    onTimeUpdate?.(time);
-                });
-
-                ws.on('interaction', () => {
-                    const time = ws.getCurrentTime();
+                ws.on('timeupdate', (time) => {
                     setCurrentTime(time);
                     onTimeUpdate?.(time);
                 });
@@ -172,6 +167,7 @@ export const AudioPlayer = forwardRef<AudioPlayerRef, AudioPlayerProps>(({
                     {/* Time & Title Row */}
                     <div className="flex items-center justify-between text-xs sm:text-sm font-medium text-muted-foreground px-1">
                         <span>{formatTime(currentTime)}</span>
+                        <span>-{formatTime(Math.max(0, duration - currentTime))}</span>
                     </div>
 
                     {/* Waveform Container */}
