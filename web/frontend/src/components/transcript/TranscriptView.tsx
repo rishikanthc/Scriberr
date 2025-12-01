@@ -141,9 +141,9 @@ export const TranscriptView = forwardRef<HTMLDivElement, TranscriptViewProps>(({
         return (
             <div className="space-y-6">
                 {transcript.segments.map((segment, i) => (
-                    <div key={i} className="group flex flex-col sm:flex-row gap-2 sm:gap-4 p-3 rounded-lg hover:bg-carbon-50 dark:hover:bg-carbon-800/50 transition-colors">
+                    <div key={i} className="group flex flex-col sm:flex-row items-start gap-2 sm:gap-4 p-3 rounded-lg hover:bg-carbon-50 dark:hover:bg-carbon-800/50 transition-colors">
                         {/* Timestamp & Speaker */}
-                        <div className="flex-shrink-0 w-full sm:w-32 flex sm:flex-col items-center sm:items-end gap-2 sm:gap-1 text-xs sm:text-sm text-carbon-500 dark:text-carbon-400 select-none">
+                        <div className="flex-shrink-0 w-full sm:w-32 flex sm:flex-col items-center sm:items-end gap-2 sm:gap-1 text-xs sm:text-sm text-carbon-500 dark:text-carbon-400 select-none mt-1">
                             <span className="font-mono bg-carbon-100 dark:bg-carbon-800 px-1.5 py-0.5 rounded">
                                 {new Date(segment.start * 1000).toISOString().substr(11, 8)}
                             </span>
