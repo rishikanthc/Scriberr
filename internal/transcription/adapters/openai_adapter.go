@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"scriberr/internal/transcription/interfaces"
+	"scriberr/pkg/logger"
 )
 
 // OpenAIAdapter implements the TranscriptionAdapter interface for OpenAI API
@@ -119,8 +120,27 @@ func (a *OpenAIAdapter) Transcribe(ctx context.Context, input interfaces.AudioIn
 		a.LogProcessingEnd(procCtx, time.Since(startTime), nil)
 	}()
 
+	// Helper to write to job log file
+	writeLog := func(format string, args ...interface{}) {
+		logPath := filepath.Join(procCtx.OutputDirectory, "transcription.log")
+		f, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		if err != nil {
+			logger.Error("Failed to open log file", "path", logPath, "error", err)
+			return
+		}
+		defer f.Close()
+
+		msg := fmt.Sprintf(format, args...)
+		timestamp := time.Now().Format("2006-01-02 15:04:05")
+		fmt.Fprintf(f, "[%s] %s\n", timestamp, msg)
+	}
+
+	writeLog("Starting OpenAI transcription for job %s", procCtx.JobID)
+	writeLog("Input file: %s", input.FilePath)
+
 	// Validate input
 	if err := a.ValidateAudioInput(input); err != nil {
+		writeLog("Error: Invalid audio input: %v", err)
 		return nil, fmt.Errorf("invalid audio input: %w", err)
 	}
 
@@ -131,6 +151,7 @@ func (a *OpenAIAdapter) Transcribe(ctx context.Context, input interfaces.AudioIn
 	}
 
 	if apiKey == "" {
+		writeLog("Error: OpenAI API key is required but not provided")
 		return nil, fmt.Errorf("OpenAI API key is required but not provided")
 	}
 
@@ -141,15 +162,18 @@ func (a *OpenAIAdapter) Transcribe(ctx context.Context, input interfaces.AudioIn
 	// Add file
 	file, err := os.Open(input.FilePath)
 	if err != nil {
+		writeLog("Error: Failed to open audio file: %v", err)
 		return nil, fmt.Errorf("failed to open audio file: %w", err)
 	}
 	defer file.Close()
 
 	part, err := writer.CreateFormFile("file", filepath.Base(input.FilePath))
 	if err != nil {
+		writeLog("Error: Failed to create form file: %v", err)
 		return nil, fmt.Errorf("failed to create form file: %w", err)
 	}
 	if _, err := io.Copy(part, file); err != nil {
+		writeLog("Error: Failed to copy file content: %v", err)
 		return nil, fmt.Errorf("failed to copy file content: %w", err)
 	}
 
@@ -158,28 +182,35 @@ func (a *OpenAIAdapter) Transcribe(ctx context.Context, input interfaces.AudioIn
 	if model == "" {
 		model = "whisper-1"
 	}
+	writeLog("Model: %s", model)
 	_ = writer.WriteField("model", model)
 	_ = writer.WriteField("response_format", "verbose_json")
 	_ = writer.WriteField("timestamp_granularities[]", "segment") // Request segment timestamps
 
 	if lang := a.GetStringParameter(params, "language"); lang != "" {
+		writeLog("Language: %s", lang)
 		_ = writer.WriteField("language", lang)
 	}
 
 	if prompt := a.GetStringParameter(params, "prompt"); prompt != "" {
+		writeLog("Prompt provided")
 		_ = writer.WriteField("prompt", prompt)
 	}
 
 	temp := a.GetFloatParameter(params, "temperature")
+	writeLog("Temperature: %.2f", temp)
 	_ = writer.WriteField("temperature", fmt.Sprintf("%.2f", temp))
 
 	if err := writer.Close(); err != nil {
+		writeLog("Error: Failed to close multipart writer: %v", err)
 		return nil, fmt.Errorf("failed to close multipart writer: %w", err)
 	}
 
 	// Create request
+	writeLog("Sending request to OpenAI API...")
 	req, err := http.NewRequestWithContext(ctx, "POST", "https://api.openai.com/v1/audio/transcriptions", body)
 	if err != nil {
+		writeLog("Error: Failed to create request: %v", err)
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
@@ -192,14 +223,18 @@ func (a *OpenAIAdapter) Transcribe(ctx context.Context, input interfaces.AudioIn
 	}
 	resp, err := client.Do(req)
 	if err != nil {
+		writeLog("Error: Request failed: %v", err)
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		respBody, _ := io.ReadAll(resp.Body)
+		writeLog("Error: OpenAI API error (status %d): %s", resp.StatusCode, string(respBody))
 		return nil, fmt.Errorf("OpenAI API error (status %d): %s", resp.StatusCode, string(respBody))
 	}
+
+	writeLog("Response received. Parsing...")
 
 	// Parse response
 	var openAIResponse struct {
@@ -222,8 +257,11 @@ func (a *OpenAIAdapter) Transcribe(ctx context.Context, input interfaces.AudioIn
 	}
 
 	if err := json.NewDecoder(resp.Body).Decode(&openAIResponse); err != nil {
+		writeLog("Error: Failed to decode response: %v", err)
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
+
+	writeLog("Transcription completed successfully. Duration: %.2fs", openAIResponse.Duration)
 
 	// Convert to TranscriptResult
 	result := &interfaces.TranscriptResult{
