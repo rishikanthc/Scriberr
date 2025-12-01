@@ -185,6 +185,7 @@ func (a *OpenAIAdapter) Transcribe(ctx context.Context, input interfaces.AudioIn
 	writeLog("Model: %s", model)
 	_ = writer.WriteField("model", model)
 	_ = writer.WriteField("response_format", "verbose_json")
+	_ = writer.WriteField("timestamp_granularities[]", "word")    // Request word timestamps
 	_ = writer.WriteField("timestamp_granularities[]", "segment") // Request segment timestamps
 
 	if lang := a.GetStringParameter(params, "language"); lang != "" {
@@ -254,6 +255,11 @@ func (a *OpenAIAdapter) Transcribe(ctx context.Context, input interfaces.AudioIn
 			CompressionRatio float64 `json:"compression_ratio"`
 			NoSpeechProb     float64 `json:"no_speech_prob"`
 		} `json:"segments"`
+		Words []struct {
+			Word  string  `json:"word"`
+			Start float64 `json:"start"`
+			End   float64 `json:"end"`
+		} `json:"words"`
 	}
 
 	if err := json.NewDecoder(resp.Body).Decode(&openAIResponse); err != nil {
@@ -261,13 +267,14 @@ func (a *OpenAIAdapter) Transcribe(ctx context.Context, input interfaces.AudioIn
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
 
-	writeLog("Transcription completed successfully. Duration: %.2fs", openAIResponse.Duration)
+	writeLog("Transcription completed successfully. Duration: %.2fs, Words: %d", openAIResponse.Duration, len(openAIResponse.Words))
 
 	// Convert to TranscriptResult
 	result := &interfaces.TranscriptResult{
 		Language:       openAIResponse.Language,
 		Text:           openAIResponse.Text,
 		Segments:       make([]interfaces.TranscriptSegment, len(openAIResponse.Segments)),
+		WordSegments:   make([]interfaces.TranscriptWord, len(openAIResponse.Words)),
 		ProcessingTime: time.Since(startTime),
 		ModelUsed:      model,
 		Metadata:       a.CreateDefaultMetadata(params),
@@ -281,9 +288,13 @@ func (a *OpenAIAdapter) Transcribe(ctx context.Context, input interfaces.AudioIn
 		}
 	}
 
-	// OpenAI doesn't provide word-level timestamps in standard verbose_json without extra beta flags
-	// For now, we'll leave WordSegments empty or implement a basic splitter if needed.
-	// Given the requirements, segment-level is sufficient for now.
+	for i, word := range openAIResponse.Words {
+		result.WordSegments[i] = interfaces.TranscriptWord{
+			Word:  word.Word,
+			Start: word.Start,
+			End:   word.End,
+		}
+	}
 
 	return result, nil
 }
