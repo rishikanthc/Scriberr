@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -92,21 +93,25 @@ func (h *Handler) ValidateOpenAIKey(c *gin.Context) {
 		return
 	}
 
-	// Filter for whisper models
-	var whisperModels []string
+	// Filter for whisper and gpt-4o transcription models
+	var availableModels []string
 	for _, model := range modelList.Data {
-		if model.ID == "whisper-1" || (len(model.ID) > 7 && model.ID[:7] == "whisper") {
-			whisperModels = append(whisperModels, model.ID)
+		isWhisper := model.ID == "whisper-1" || (len(model.ID) > 7 && model.ID[:7] == "whisper")
+		isGPT4oAudio := (len(model.ID) > 6 && model.ID[:6] == "gpt-4o") &&
+			(strings.Contains(model.ID, "transcribe") || strings.Contains(model.ID, "audio"))
+
+		if isWhisper || isGPT4oAudio {
+			availableModels = append(availableModels, model.ID)
 		}
 	}
 
-	// If no whisper models found (unlikely), default to whisper-1
-	if len(whisperModels) == 0 {
-		whisperModels = []string{"whisper-1"}
+	// If no models found (unlikely), default to whisper-1
+	if len(availableModels) == 0 {
+		availableModels = []string{"whisper-1"}
 	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"valid":  true,
-		"models": whisperModels,
+		"models": availableModels,
 	})
 }
