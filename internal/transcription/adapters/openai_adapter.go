@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"scriberr/internal/transcription/interfaces"
@@ -184,9 +185,22 @@ func (a *OpenAIAdapter) Transcribe(ctx context.Context, input interfaces.AudioIn
 	}
 	writeLog("Model: %s", model)
 	_ = writer.WriteField("model", model)
-	_ = writer.WriteField("response_format", "verbose_json")
-	_ = writer.WriteField("timestamp_granularities[]", "word")    // Request word timestamps
-	_ = writer.WriteField("timestamp_granularities[]", "segment") // Request segment timestamps
+
+	if strings.HasPrefix(model, "gpt-4o") {
+		if strings.Contains(model, "diarize") {
+			_ = writer.WriteField("response_format", "diarized_json")
+		} else {
+			_ = writer.WriteField("response_format", "json")
+		}
+		// gpt-4o models don't support timestamp_granularities with these formats
+	} else {
+		_ = writer.WriteField("response_format", "verbose_json")
+		// timestamp_granularities is only supported for whisper-1
+		if model == "whisper-1" {
+			_ = writer.WriteField("timestamp_granularities[]", "word")    // Request word timestamps
+			_ = writer.WriteField("timestamp_granularities[]", "segment") // Request segment timestamps
+		}
+	}
 
 	if lang := a.GetStringParameter(params, "language"); lang != "" {
 		writeLog("Language: %s", lang)
@@ -280,11 +294,22 @@ func (a *OpenAIAdapter) Transcribe(ctx context.Context, input interfaces.AudioIn
 		Metadata:       a.CreateDefaultMetadata(params),
 	}
 
-	for i, seg := range openAIResponse.Segments {
-		result.Segments[i] = interfaces.TranscriptSegment{
-			Start: seg.Start,
-			End:   seg.End,
-			Text:  seg.Text,
+	if len(openAIResponse.Segments) > 0 {
+		for i, seg := range openAIResponse.Segments {
+			result.Segments[i] = interfaces.TranscriptSegment{
+				Start: seg.Start,
+				End:   seg.End,
+				Text:  seg.Text,
+			}
+		}
+	} else if openAIResponse.Text != "" {
+		// If no segments returned (e.g. standard json format), create one segment with the whole text
+		result.Segments = []interfaces.TranscriptSegment{
+			{
+				Start: 0,
+				End:   openAIResponse.Duration,
+				Text:  openAIResponse.Text,
+			},
 		}
 	}
 

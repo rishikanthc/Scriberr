@@ -1074,6 +1074,22 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
               </Select>
             </div>
 
+            {params.model && params.model !== "whisper-1" && (
+              <div className="p-4 border border-orange-200 dark:border-orange-700 rounded-lg bg-orange-50 dark:bg-orange-900/20">
+                <div className="flex items-start gap-3">
+                  <div className="text-orange-500 dark:text-orange-400 mt-0.5">⚠️</div>
+                  <div>
+                    <h4 className="text-sm font-medium text-orange-800 dark:text-orange-200 mb-1">
+                      Limited Synchronization
+                    </h4>
+                    <p className="text-sm text-orange-700 dark:text-orange-300">
+                      Word-level timestamps are only supported by the <strong>whisper-1</strong> model. Synchronized playback will not be available for this model.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Language Selection */}
             <div className="space-y-2">
               <Label htmlFor="openai_language" className="text-carbon-700 dark:text-carbon-300 font-medium">
