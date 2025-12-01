@@ -16,6 +16,7 @@ import (
 	"scriberr/internal/transcription/interfaces"
 	"scriberr/internal/transcription/pipeline"
 	"scriberr/internal/transcription/registry"
+	"scriberr/internal/webhook"
 	"scriberr/pkg/logger"
 )
 
@@ -30,6 +31,7 @@ type UnifiedTranscriptionService struct {
 	defaultModelIDs       map[string]string      // Default model IDs for each task type
 	multiTrackTranscriber *MultiTrackTranscriber // For termination support
 	jobRepo               repository.JobRepository
+	webhookService        *webhook.Service
 }
 
 // NewUnifiedTranscriptionService creates a new unified transcription service
@@ -45,7 +47,8 @@ func NewUnifiedTranscriptionService(jobRepo repository.JobRepository) *UnifiedTr
 			"transcription": "whisperx",
 			"diarization":   "pyannote",
 		},
-		jobRepo: jobRepo,
+		jobRepo:        jobRepo,
+		webhookService: webhook.NewService(),
 	}
 }
 
@@ -106,6 +109,35 @@ func (u *UnifiedTranscriptionService) ProcessJob(ctx context.Context, jobID stri
 		}
 
 		u.jobRepo.UpdateExecution(ctx, execution)
+
+		// Trigger webhook if callback URL is present
+		if job.Parameters.CallbackURL != nil && *job.Parameters.CallbackURL != "" {
+			payload := webhook.WebhookPayload{
+				JobID:        job.ID,
+				Status:       status,
+				AudioPath:    job.AudioPath,
+				Transcript:   job.Transcript,
+				Summary:      job.Summary,
+				ErrorMessage: execution.ErrorMessage,
+				CompletedAt:  completedAt,
+				Metadata: map[string]interface{}{
+					"model":        job.Parameters.Model,
+					"model_family": job.Parameters.ModelFamily,
+					"duration_ms":  execution.ProcessingDuration,
+				},
+			}
+
+			// Send webhook asynchronously to not block the main process
+			go func() {
+				// Create a new context with timeout for the webhook
+				webhookCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+				defer cancel()
+
+				if err := u.webhookService.SendWebhook(webhookCtx, *job.Parameters.CallbackURL, payload); err != nil {
+					logger.Error("Failed to send webhook", "job_id", job.ID, "error", err)
+				}
+			}()
+		}
 	}
 
 	// Check for multi-track processing
