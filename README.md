@@ -17,7 +17,7 @@ Self‑hostable, secure & private offline transcription. Drop in a recording, ge
 
 ## Sponsors
 
-![recall.ai-logo](https://cdn.prod.website-files.com/620d732b1f1f7b244ac89f0e/66b294e51ee15f18dd2b171e_recall-logo.svg) Meeting Transcription API
+![recall.ai-logo](https://cdn.prod.website-files.com/620d732b1f1f7b244ac89f0e/66b294e51ee15f18dd2b171e_recall-logo.svg) Meeting Transcription API   
 If you're looking for a transcription API for meetings, consider checking out [Recall.ai](https://www.recall.ai/?utm_source=github&utm_medium=sponsorship&utm_campaign=rishikanthc-scriberr), an API that works with Zoom, Google Meet, Microsoft Teams, and more.
 Recall.ai diarizes by pulling the speaker data and seperate audio streams from the meeting platforms, which means 100% accurate speaker diarization with actual speaker names.
 
@@ -207,22 +207,19 @@ Scriberr exposes a clean REST API for most features (transcription, chat, notes,
 
 Issues and PRs are welcome. Please open an issue to discuss large changes first and keep PRs focused.
 
-Local development setup:
+Local dev overview:
 
-```sh
-# Backend
+```bash
+# Backend (dev)
+cp -n .env.example .env || true
 go run cmd/server/main.go
 
-# Frontend
+# Frontend (dev)
 cd web/frontend
 npm ci
 npm run dev
-# The vite server will proxy /api calls over to the server port
-```
 
-Release build:
-
-```sh
+# Full build (embeds UI in Go binary)
 ./build.sh
 ./scriberr
 ```

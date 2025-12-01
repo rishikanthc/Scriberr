@@ -5,8 +5,6 @@ import path from "path"
 
 import { VitePWA } from 'vite-plugin-pwa'
 
-const BACKEND_PORT = process.env.PORT || '8080'
-
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
@@ -66,12 +64,4 @@ export default defineConfig({
     chunkSizeWarningLimit: 1000,
   },
   base: "/",
-  server: {
-    proxy: {
-      '/api': {
-        target: `http://localhost:${BACKEND_PORT}`,
-        changeOrigin: true,
-      }
-    }
-  }
 })
