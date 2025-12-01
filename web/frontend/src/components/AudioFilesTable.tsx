@@ -18,6 +18,7 @@ import {
 	ChevronsRight,
 	MessageCircle,
 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 
 // Custom SVG icons for transcription actions
 const QuickTranscribeIcon = ({ className }: { className?: string }) => (
@@ -168,6 +169,9 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 	const [globalFilter, setGlobalFilter] = useState("");
 	const [queuePositions, setQueuePositions] = useState<Record<string, number>>({});
 	const [openPopovers, setOpenPopovers] = useState<Record<string, boolean>>({});
+	const [rowSelection, setRowSelection] = useState({});
+	const [bulkActionLoading, setBulkActionLoading] = useState(false);
+	const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false);
 	const [totalItems, setTotalItems] = useState(0);
 	const [pageCount, setPageCount] = useState(0);
 	const [configDialogOpen, setConfigDialogOpen] = useState(false);
@@ -506,6 +510,90 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 		}
 	}, [fetchAudioFiles]);
 
+	// Bulk Actions Handlers
+	const handleBulkTranscribe = useCallback(async (params: WhisperXParams) => {
+		const selectedIds = Object.keys(rowSelection);
+		if (selectedIds.length === 0) return;
+
+		setBulkActionLoading(true);
+		try {
+			// Process sequentially to avoid overwhelming the server
+			for (const id of selectedIds) {
+				const job = data.find(j => j.id === id);
+				if (!job) continue;
+
+				// Skip if multi-track mismatch
+				if (job.is_multi_track && !params.is_multi_track_enabled) continue;
+				if (!job.is_multi_track && params.is_multi_track_enabled) continue;
+
+				await fetch(`/api/v1/transcription/${id}/start`, {
+					method: "POST",
+					headers: {
+						...getAuthHeaders(),
+						"Content-Type": "application/json",
+					},
+					body: JSON.stringify(params),
+				});
+			}
+
+			// Clear selection and refresh
+			setRowSelection({});
+			setConfigDialogOpen(false);
+			setTranscribeDDialogOpen(false);
+			fetchAudioFiles();
+		} catch (error) {
+			console.error("Bulk transcribe error:", error);
+			alert("Error processing bulk transcription");
+		} finally {
+			setBulkActionLoading(false);
+		}
+	}, [rowSelection, data, getAuthHeaders, fetchAudioFiles]);
+
+	const handleBulkDelete = useCallback(async () => {
+		const selectedIds = Object.keys(rowSelection);
+		if (selectedIds.length === 0) return;
+
+		setBulkActionLoading(true);
+		try {
+			// Process sequentially
+			for (const id of selectedIds) {
+				await fetch(`/api/v1/transcription/${id}`, {
+					method: "DELETE",
+					headers: {
+						...getAuthHeaders(),
+					},
+				});
+			}
+
+			// Clear selection and refresh
+			setRowSelection({});
+			setBulkDeleteDialogOpen(false);
+			fetchAudioFiles();
+		} catch (error) {
+			console.error("Bulk delete error:", error);
+			alert("Error processing bulk delete");
+		} finally {
+			setBulkActionLoading(false);
+		}
+	}, [rowSelection, getAuthHeaders, fetchAudioFiles]);
+
+	// Modified handlers to support bulk actions
+	const onStartTranscribe = (params: WhisperXParams) => {
+		if (Object.keys(rowSelection).length > 0) {
+			handleBulkTranscribe(params);
+		} else {
+			handleStartTranscription(params);
+		}
+	};
+
+	const onStartTranscribeWithProfile = (params: WhisperXParams) => {
+		if (Object.keys(rowSelection).length > 0) {
+			handleBulkTranscribe(params);
+		} else {
+			handleStartTranscriptionWithProfile(params);
+		}
+	};
+
 	// Initial load
 	useEffect(() => {
 		const isInitialLoad = data.length === 0;
@@ -710,6 +798,31 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 	// Memoize column definitions to prevent recreation on every render
 	const columns = useMemo<ColumnDef<AudioFile>[]>(
 		() => [
+			{
+				id: "select",
+				header: ({ table }) => (
+					<div className={`transition-opacity duration-200 ${table.getIsSomeRowsSelected() || table.getIsAllRowsSelected() ? 'opacity-100' : 'opacity-0 group-hover/header:opacity-100'}`}>
+						<Checkbox
+							checked={table.getIsAllPageRowsSelected() || (table.getIsSomePageRowsSelected() && "indeterminate")}
+							onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
+							aria-label="Select all"
+							className="translate-y-[2px]"
+						/>
+					</div>
+				),
+				cell: ({ row }) => (
+					<div className={`transition-opacity duration-200 ${row.getIsSelected() ? 'opacity-100' : 'opacity-0 group-hover/row:opacity-100'}`}>
+						<Checkbox
+							checked={row.getIsSelected()}
+							onCheckedChange={(value) => row.toggleSelected(!!value)}
+							aria-label="Select row"
+							className="translate-y-[2px]"
+						/>
+					</div>
+				),
+				enableSorting: false,
+				enableHiding: false,
+			},
 			{
 				accessorFn: (row) => row.title || getFileName(row.audio_path),
 				id: "title",
@@ -921,36 +1034,98 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 	const table = useReactTable({
 		data,
 		columns,
+		getCoreRowModel: getCoreRowModel(),
+		getSortedRowModel: getSortedRowModel(),
+		onSortingChange: setSorting,
+		onColumnFiltersChange: setColumnFilters,
+		onGlobalFilterChange: setGlobalFilter,
+		onRowSelectionChange: setRowSelection,
+		onPaginationChange: setPagination,
+		manualPagination: true,
+		manualSorting: true,
+		manualFiltering: true,
+		pageCount: pageCount,
 		state: {
 			sorting,
 			columnFilters,
 			globalFilter,
+			rowSelection,
 			pagination,
 		},
-		onSortingChange: setSorting,
-		onColumnFiltersChange: setColumnFilters,
-		onGlobalFilterChange: setGlobalFilter,
-		onPaginationChange: setPagination,
-		getCoreRowModel: getCoreRowModel(),
-		getSortedRowModel: getSortedRowModel(),
-		// Server-side pagination and search
-		manualPagination: true,
-		pageCount: pageCount,
+		getRowId: row => row.id, // Use ID for selection
 	});
 
+	const selectedCount = Object.keys(rowSelection).length;
 
+	// Create the table instance with server-side pagination and search
 	if (loading) {
 		return (
-			<div className="glass-card rounded-xl p-6">
-				<div className="animate-pulse">
-					<div className="h-4 bg-muted rounded w-1/4 mb-6"></div>
-					<div className="space-y-3">
-						{[...Array(5)].map((_, i) => (
-							<div
-								key={i}
-								className="h-12 bg-muted/50 rounded-lg"
-							></div>
-						))}
+			<div className="space-y-4">
+				{/* Bulk Actions Toolbar */}
+				{selectedCount > 0 && (
+					<div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-lg rounded-full px-6 py-3 flex items-center gap-4 animate-in slide-in-from-bottom-5 fade-in duration-300">
+						<span className="text-sm font-medium text-zinc-600 dark:text-zinc-400 border-r border-zinc-200 dark:border-zinc-800 pr-4">
+							{selectedCount} selected
+						</span>
+
+						<div className="flex items-center gap-2">
+							<Button
+								variant="ghost"
+								size="sm"
+								onClick={() => setConfigDialogOpen(true)}
+								disabled={bulkActionLoading}
+								className="h-8 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800"
+							>
+								<QuickTranscribeIcon className="mr-2 h-4 w-4" />
+								Transcribe
+							</Button>
+
+							<Button
+								variant="ghost"
+								size="sm"
+								onClick={() => setTranscribeDDialogOpen(true)}
+								disabled={bulkActionLoading}
+								className="h-8 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800"
+							>
+								<AdvancedTranscribeIcon className="mr-2 h-4 w-4" />
+								Transcribe+
+							</Button>
+
+							<div className="w-px h-4 bg-zinc-200 dark:bg-zinc-800 mx-1" />
+
+							<Button
+								variant="ghost"
+								size="sm"
+								onClick={() => setBulkDeleteDialogOpen(true)}
+								disabled={bulkActionLoading}
+								className="h-8 rounded-full text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
+							>
+								<Trash2 className="mr-2 h-4 w-4" />
+								Delete
+							</Button>
+						</div>
+
+						<Button
+							variant="ghost"
+							size="icon"
+							onClick={() => setRowSelection({})}
+							className="h-6 w-6 rounded-full ml-2 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+						>
+							<XCircle className="h-4 w-4 text-zinc-400" />
+						</Button>
+					</div>
+				)}
+				<div className="glass-card rounded-xl p-6">
+					<div className="animate-pulse">
+						<div className="h-4 bg-muted rounded w-1/4 mb-6"></div>
+						<div className="space-y-3">
+							{[...Array(5)].map((_, i) => (
+								<div
+									key={i}
+									className="h-12 bg-muted/50 rounded-lg"
+								></div>
+							))}
+						</div>
 					</div>
 				</div>
 			</div>
@@ -958,201 +1133,287 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 	}
 
 	return (
-		<div className="glass-card rounded-xl overflow-hidden">
-			<div className="p-3 sm:p-6">
-				<div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0 mb-4">
-					<div>
-						<h2 className="text-xl font-semibold text-carbon-900 dark:text-carbon-50 mb-2">
-							Audio Files
-						</h2>
-						<p className="text-carbon-600 dark:text-carbon-400 text-sm">
-							{globalFilter
-								? `${totalItems} file${totalItems !== 1 ? "s" : ""} found`
-								: `${totalItems} file${totalItems !== 1 ? "s" : ""} total`
-							}
-						</p>
+		<div className="space-y-4">
+			{/* Bulk Actions Toolbar */}
+			{selectedCount > 0 && (
+				<div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-lg rounded-full px-6 py-3 flex items-center gap-4 animate-in slide-in-from-bottom-5 fade-in duration-300">
+					<span className="text-sm font-medium text-zinc-600 dark:text-zinc-400 border-r border-zinc-200 dark:border-zinc-800 pr-4">
+						{selectedCount} selected
+					</span>
+
+					<div className="flex items-center gap-2">
+						<Button
+							variant="ghost"
+							size="sm"
+							onClick={() => setTranscribeDDialogOpen(true)}
+							disabled={bulkActionLoading}
+							className="h-8 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800"
+						>
+							<QuickTranscribeIcon className="mr-2 h-4 w-4" />
+							Transcribe
+						</Button>
+
+						<Button
+							variant="ghost"
+							size="sm"
+							onClick={() => setConfigDialogOpen(true)}
+							disabled={bulkActionLoading}
+							className="h-8 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800"
+						>
+							<AdvancedTranscribeIcon className="mr-2 h-4 w-4" />
+							Transcribe+
+						</Button>
+
+						<div className="w-px h-4 bg-zinc-200 dark:bg-zinc-800 mx-1" />
+
+						<Button
+							variant="ghost"
+							size="sm"
+							onClick={() => setBulkDeleteDialogOpen(true)}
+							disabled={bulkActionLoading}
+							className="h-8 rounded-full text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
+						>
+							<Trash2 className="mr-2 h-4 w-4" />
+							Delete
+						</Button>
 					</div>
 
-					{/* Global Search */}
-					<div className="relative w-full sm:w-72">
-						<Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-carbon-400 h-4 w-4 z-10" />
-						<DebouncedSearchInput
-							placeholder="Search audio files..."
-							value={globalFilter ?? ""}
-							onChange={setGlobalFilter}
-							className="pl-10 bg-carbon-50 dark:bg-carbon-800 border-border focus:bg-background transition-colors"
-						/>
-					</div>
+					<Button
+						variant="ghost"
+						size="icon"
+						onClick={() => setRowSelection({})}
+						className="h-6 w-6 rounded-full ml-2 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+					>
+						<XCircle className="h-4 w-4 text-zinc-400" />
+					</Button>
 				</div>
+			)}
+			<div className="glass-card rounded-xl overflow-hidden">
+				<div className="p-3 sm:p-6">
+					<div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0 mb-4">
+						<div>
+							<h2 className="text-xl font-semibold text-carbon-900 dark:text-carbon-50 mb-2">
+								Audio Files
+							</h2>
+							<p className="text-carbon-600 dark:text-carbon-400 text-sm">
+								{globalFilter
+									? `${totalItems} file${totalItems !== 1 ? "s" : ""} found`
+									: `${totalItems} file${totalItems !== 1 ? "s" : ""} total`
+								}
+							</p>
+						</div>
 
-				{data.length === 0 && !loading ? (
-					<div className="p-12 text-center">
-						<div className="text-5xl mb-4 opacity-50">🎵</div>
-						<h3 className="text-lg font-medium text-carbon-600 dark:text-carbon-300 mb-2">
-							{globalFilter ? "No matching audio files" : "No audio files yet"}
-						</h3>
-						<p className="text-carbon-500 dark:text-carbon-400">
-							{globalFilter
-								? "Try adjusting your search terms"
-								: "Upload your first audio file to get started"
-							}
-						</p>
+						{/* Global Search */}
+						<div className="relative w-full sm:w-72">
+							<Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-carbon-400 h-4 w-4 z-10" />
+							<DebouncedSearchInput
+								placeholder="Search audio files..."
+								value={globalFilter ?? ""}
+								onChange={setGlobalFilter}
+								className="pl-10 bg-carbon-50 dark:bg-carbon-800 border-border focus:bg-background transition-colors"
+							/>
+						</div>
 					</div>
-				) : (
-					<>
-						{/* Table */}
-						<div className={`border border-carbon-100 dark:border-carbon-900 rounded-lg overflow-hidden relative transition-opacity duration-200 ${isPageChanging ? 'opacity-75' : ''}`}>
-							{isPageChanging && (
-								<div className="absolute inset-0 bg-white/20 dark:bg-carbon-800/20 flex items-center justify-center z-10">
-									<div className="flex items-center space-x-2 text-carbon-600 dark:text-carbon-400 bg-white dark:bg-carbon-800 px-3 py-1 rounded-md shadow-sm">
-										<Loader2 className="h-4 w-4 animate-spin" />
-										<span className="text-sm">Loading...</span>
+
+					{data.length === 0 && !loading ? (
+						<div className="p-12 text-center">
+							<div className="text-5xl mb-4 opacity-50">🎵</div>
+							<h3 className="text-lg font-medium text-carbon-600 dark:text-carbon-300 mb-2">
+								{globalFilter ? "No matching audio files" : "No audio files yet"}
+							</h3>
+							<p className="text-carbon-500 dark:text-carbon-400">
+								{globalFilter
+									? "Try adjusting your search terms"
+									: "Upload your first audio file to get started"
+								}
+							</p>
+						</div>
+					) : (
+						<>
+							{/* Table */}
+							<div className={`border border-carbon-100 dark:border-carbon-900 rounded-lg overflow-hidden relative transition-opacity duration-200 ${isPageChanging ? 'opacity-75' : ''}`}>
+								{isPageChanging && (
+									<div className="absolute inset-0 bg-white/20 dark:bg-carbon-800/20 flex items-center justify-center z-10">
+										<div className="flex items-center space-x-2 text-carbon-600 dark:text-carbon-400 bg-white dark:bg-carbon-800 px-3 py-1 rounded-md shadow-sm">
+											<Loader2 className="h-4 w-4 animate-spin" />
+											<span className="text-sm">Loading...</span>
+										</div>
 									</div>
-								</div>
-							)}
-							<Table>
-								<TableHeader className="hidden sm:table-header-group">
-									{table.getHeaderGroups().map((headerGroup) => (
-										<TableRow
-											key={headerGroup.id}
-											className="bg-carbon-100 dark:bg-carbon-800 hover:bg-carbon-200 dark:hover:bg-carbon-700 border-b border-border"
-										>
-											{headerGroup.headers.map((header) => (
-												<TableHead
-													key={header.id}
-													className={`text-carbon-700 dark:text-carbon-300 ${header.column.id === 'created_at' ? 'hidden sm:table-cell' : ''} ${header.column.id === 'title' ? 'w-full' : ''} ${header.column.id === 'status' ? 'w-10 text-center' : ''} ${header.column.id === 'actions' ? 'w-10 text-center' : ''}`}
-												>
-													{header.isPlaceholder
-														? null
-														: flexRender(
-															header.column.columnDef.header,
-															header.getContext()
-														)}
-												</TableHead>
-											))}
-										</TableRow>
-									))}
-								</TableHeader>
-								<TableBody>
-									{table.getRowModel().rows?.length ? (
-										table.getRowModel().rows.map((row) => (
+								)}
+								<Table>
+									<TableHeader className="hidden sm:table-header-group">
+										{table.getHeaderGroups().map((headerGroup) => (
 											<TableRow
-												key={row.id}
-												className="hover:bg-carbon-50 dark:hover:bg-carbon-800 transition-colors duration-200 border-b border-border last:border-b-0"
+												key={headerGroup.id}
+												className="bg-carbon-100 dark:bg-carbon-800 hover:bg-carbon-200 dark:hover:bg-carbon-700 border-b border-border group/header"
 											>
-												{row.getVisibleCells().map((cell) => (
-													<TableCell
-														key={cell.id}
-														className={`
-															${cell.column.id === 'created_at' ? 'hidden sm:table-cell' : ''}
-															${cell.column.id === 'title' ? 'whitespace-normal break-words pr-1 sm:pr-2' : ''}
-															${cell.column.id === 'status' ? 'w-[36px] px-1 text-center' : ''}
-															${cell.column.id === 'actions' ? 'w-[36px] px-1 text-center' : ''}
-														`}
+												{headerGroup.headers.map((header) => (
+													<TableHead
+														key={header.id}
+														className={`text-carbon-700 dark:text-carbon-300 ${header.column.id === 'created_at' ? 'hidden sm:table-cell' : ''} ${header.column.id === 'title' ? 'w-full' : ''} ${header.column.id === 'status' ? 'w-10 text-center' : ''} ${header.column.id === 'actions' ? 'w-10 text-center' : ''} ${header.column.id === 'select' ? 'w-[40px] px-2' : ''}`}
 													>
-														{flexRender(
-															cell.column.columnDef.cell,
-															cell.getContext()
-														)}
-													</TableCell>
+														{header.isPlaceholder
+															? null
+															: flexRender(
+																header.column.columnDef.header,
+																header.getContext()
+															)}
+													</TableHead>
 												))}
 											</TableRow>
-										))
-									) : (
-										<TableRow>
-											<TableCell
-												colSpan={columns.length}
-												className="h-24 text-center"
-											>
-												No results.
-											</TableCell>
-										</TableRow>
-									)}
-								</TableBody>
-							</Table>
-						</div>
+										))}
+									</TableHeader>
+									<TableBody>
+										{table.getRowModel().rows?.length ? (
+											table.getRowModel().rows.map((row) => (
+												<TableRow
+													key={row.id}
+													className="hover:bg-carbon-50 dark:hover:bg-carbon-800 transition-colors duration-200 border-b border-border last:border-b-0 group/row"
+													data-state={row.getIsSelected() && "selected"}
+												>
+													{row.getVisibleCells().map((cell) => (
+														<TableCell
+															key={cell.id}
+															className={`
+																${cell.column.id === 'created_at' ? 'hidden sm:table-cell' : ''}
+																${cell.column.id === 'title' ? 'whitespace-normal break-words pr-1 sm:pr-2' : ''}
+																${cell.column.id === 'status' ? 'w-[36px] px-1 text-center' : ''}
+																${cell.column.id === 'actions' ? 'w-[36px] px-1 text-center' : ''}
+																${cell.column.id === 'select' ? 'w-[40px] px-2' : ''}
+															`}
+														>
+															{flexRender(
+																cell.column.columnDef.cell,
+																cell.getContext()
+															)}
+														</TableCell>
+													))}
+												</TableRow>
+											))
+										) : (
+											<TableRow>
+												<TableCell
+													colSpan={columns.length}
+													className="h-24 text-center"
+												>
+													No results.
+												</TableCell>
+											</TableRow>
+										)}
+									</TableBody>
+								</Table>
+							</div>
 
-						{/* Pagination */}
-						<div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0 px-2 py-4">
-							<div className="flex items-center space-x-2">
-								<p className="text-sm text-carbon-600 dark:text-carbon-400">
-									{globalFilter ? (
-										`Showing ${pagination.pageIndex * pagination.pageSize + 1} to ${Math.min(
-											(pagination.pageIndex + 1) * pagination.pageSize,
-											totalItems
-										)} of ${totalItems} entries (filtered)`
-									) : (
-										`Showing ${pagination.pageIndex * pagination.pageSize + 1} to ${Math.min(
-											(pagination.pageIndex + 1) * pagination.pageSize,
-											totalItems
-										)} of ${totalItems} entries`
-									)}
-								</p>
+							{/* Pagination */}
+							<div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0 px-2 py-4">
+								<div className="flex items-center space-x-2">
+									<p className="text-sm text-carbon-600 dark:text-carbon-400">
+										{globalFilter ? (
+											`Showing ${pagination.pageIndex * pagination.pageSize + 1} to ${Math.min(
+												(pagination.pageIndex + 1) * pagination.pageSize,
+												totalItems
+											)} of ${totalItems} entries (filtered)`
+										) : (
+											`Showing ${pagination.pageIndex * pagination.pageSize + 1} to ${Math.min(
+												(pagination.pageIndex + 1) * pagination.pageSize,
+												totalItems
+											)} of ${totalItems} entries`
+										)}
+									</p>
+								</div>
+								<div className="flex items-center space-x-2">
+									<Button
+										variant="outline"
+										size="sm"
+										onClick={() => table.setPageIndex(0)}
+										disabled={!table.getCanPreviousPage()}
+										className="text-carbon-600 dark:text-carbon-400"
+									>
+										<ChevronsLeft className="h-4 w-4" />
+									</Button>
+									<Button
+										variant="outline"
+										size="sm"
+										onClick={() => table.previousPage()}
+										disabled={!table.getCanPreviousPage()}
+										className="text-carbon-600 dark:text-carbon-400"
+									>
+										<ChevronLeft className="h-4 w-4" />
+									</Button>
+									<span className="text-sm text-carbon-600 dark:text-carbon-400">
+										Page {table.getState().pagination.pageIndex + 1} of{" "}
+										{pageCount}
+									</span>
+									<Button
+										variant="outline"
+										size="sm"
+										onClick={() => table.nextPage()}
+										disabled={!table.getCanNextPage()}
+										className="text-carbon-600 dark:text-carbon-400"
+									>
+										<ChevronRight className="h-4 w-4" />
+									</Button>
+									<Button
+										variant="outline"
+										size="sm"
+										onClick={() => table.setPageIndex(pageCount - 1)}
+										disabled={!table.getCanNextPage()}
+										className="text-carbon-600 dark:text-carbon-400"
+									>
+										<ChevronsRight className="h-4 w-4" />
+									</Button>
+								</div>
 							</div>
-							<div className="flex items-center space-x-2">
-								<Button
-									variant="outline"
-									size="sm"
-									onClick={() => table.setPageIndex(0)}
-									disabled={!table.getCanPreviousPage()}
-									className="text-carbon-600 dark:text-carbon-400"
-								>
-									<ChevronsLeft className="h-4 w-4" />
-								</Button>
-								<Button
-									variant="outline"
-									size="sm"
-									onClick={() => table.previousPage()}
-									disabled={!table.getCanPreviousPage()}
-									className="text-carbon-600 dark:text-carbon-400"
-								>
-									<ChevronLeft className="h-4 w-4" />
-								</Button>
-								<span className="text-sm text-carbon-600 dark:text-carbon-400">
-									Page {table.getState().pagination.pageIndex + 1} of{" "}
-									{pageCount}
-								</span>
-								<Button
-									variant="outline"
-									size="sm"
-									onClick={() => table.nextPage()}
-									disabled={!table.getCanNextPage()}
-									className="text-carbon-600 dark:text-carbon-400"
-								>
-									<ChevronRight className="h-4 w-4" />
-								</Button>
-								<Button
-									variant="outline"
-									size="sm"
-									onClick={() => table.setPageIndex(pageCount - 1)}
-									disabled={!table.getCanNextPage()}
-									className="text-carbon-600 dark:text-carbon-400"
-								>
-									<ChevronsRight className="h-4 w-4" />
-								</Button>
-							</div>
-						</div>
-					</>
-				)}
+						</>
+					)}
+				</div>
 			</div>
 
-			{/* Transcription Configuration Dialog */}
+			{/* Transcription Config Dialog (reused for bulk) */}
 			<TranscriptionConfigDialog
 				open={configDialogOpen}
 				onOpenChange={setConfigDialogOpen}
-				onStartTranscription={handleStartTranscription}
-				loading={transcriptionLoading}
-				isMultiTrack={selectedJobId ? data.find(job => job.id === selectedJobId)?.is_multi_track || false : false}
+				onStartTranscription={onStartTranscribe}
+				loading={transcriptionLoading || bulkActionLoading}
+				title={selectedCount > 0 ? `Transcribe ${selectedCount} Files` : undefined}
 			/>
 
-			{/* Transcribe-D Dialog */}
+			{/* Transcribe-D Dialog (reused for bulk) */}
 			<TranscribeDDialog
 				open={transcribeDDialogOpen}
 				onOpenChange={setTranscribeDDialogOpen}
-				onStartTranscription={handleStartTranscriptionWithProfile}
-				loading={transcriptionLoading}
+				onStartTranscription={onStartTranscribeWithProfile}
+				loading={transcriptionLoading || bulkActionLoading}
+				title={selectedCount > 0 ? `Transcribe+ ${selectedCount} Files` : undefined}
 			/>
 
+			{/* Bulk Delete Confirmation */}
+			<AlertDialog open={bulkDeleteDialogOpen} onOpenChange={setBulkDeleteDialogOpen}>
+				<AlertDialogContent>
+					<AlertDialogHeader>
+						<AlertDialogTitle>Delete {selectedCount} Files?</AlertDialogTitle>
+						<AlertDialogDescription>
+							This action cannot be undone. This will permanently delete the selected audio files and their transcripts.
+						</AlertDialogDescription>
+					</AlertDialogHeader>
+					<AlertDialogFooter>
+						<AlertDialogCancel>Cancel</AlertDialogCancel>
+						<AlertDialogAction
+							onClick={handleBulkDelete}
+							className="bg-red-600 hover:bg-red-700 text-white"
+						>
+							{bulkActionLoading ? (
+								<>
+									<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+									Deleting...
+								</>
+							) : (
+								"Delete Files"
+							)}
+						</AlertDialogAction>
+					</AlertDialogFooter>
+				</AlertDialogContent>
+			</AlertDialog>
 			{/* Stop Transcription Dialog */}
 			<AlertDialog open={stopDialogOpen} onOpenChange={setStopDialogOpen}>
 				<AlertDialogContent className="bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700">

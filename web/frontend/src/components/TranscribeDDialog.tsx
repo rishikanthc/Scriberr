@@ -35,6 +35,7 @@ interface TranscribeDDialogProps {
   onOpenChange: (open: boolean) => void;
   onStartTranscription: (params: WhisperXParams, profileId?: string) => void;
   loading?: boolean;
+  title?: string;
 }
 
 export function TranscribeDDialog({
@@ -42,6 +43,7 @@ export function TranscribeDDialog({
   onOpenChange,
   onStartTranscription,
   loading = false,
+  title,
 }: TranscribeDDialogProps) {
   const { getAuthHeaders } = useAuth();
   const [profiles, setProfiles] = useState<TranscriptionProfile[]>([]);
@@ -59,7 +61,7 @@ export function TranscribeDDialog({
   const fetchProfiles = async () => {
     try {
       setProfilesLoading(true);
-      
+
       // Fetch all profiles
       const profilesResponse = await fetch("/api/v1/profiles", {
         headers: {
@@ -70,14 +72,14 @@ export function TranscribeDDialog({
       if (profilesResponse.ok) {
         const profilesData: TranscriptionProfile[] = await profilesResponse.json();
         setProfiles(profilesData);
-        
+
         // Fetch user's default profile
         const defaultResponse = await fetch("/api/v1/user/default-profile", {
           headers: {
             ...getAuthHeaders(),
           },
         });
-        
+
         if (defaultResponse.ok) {
           const defaultData: TranscriptionProfile = await defaultResponse.json();
           setDefaultProfile(defaultData);
@@ -125,7 +127,7 @@ export function TranscribeDDialog({
       <DialogContent className="sm:max-w-md bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700">
         <DialogHeader>
           <DialogTitle className="text-carbon-900 dark:text-carbon-100">
-            Transcribe with Profile
+            {title || "Transcribe with Profile"}
           </DialogTitle>
           <DialogDescription className="text-carbon-600 dark:text-carbon-400">
             Choose a saved profile to start transcription with your preferred settings.
@@ -137,7 +139,7 @@ export function TranscribeDDialog({
             <Label htmlFor="profile" className="text-carbon-700 dark:text-carbon-300 font-medium">
               Select Profile
             </Label>
-            
+
             {profilesLoading ? (
               <div className="flex items-center space-x-2 p-3 bg-carbon-50 dark:bg-carbon-800 rounded-md border border-carbon-200 dark:border-carbon-700">
                 <Loader2 className="h-4 w-4 animate-spin text-carbon-500 dark:text-carbon-400" />
@@ -158,8 +160,8 @@ export function TranscribeDDialog({
                 <SelectContent className="bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700 max-h-60">
                   {/* All profiles */}
                   {profiles.map((profile) => (
-                    <SelectItem 
-                      key={profile.id} 
+                    <SelectItem
+                      key={profile.id}
                       value={profile.id}
                       className="text-carbon-900 dark:text-carbon-100 focus:bg-carbon-100 dark:focus:bg-carbon-700"
                     >
@@ -205,15 +207,15 @@ export function TranscribeDDialog({
         </div>
 
         <DialogFooter className="gap-2">
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             onClick={() => onOpenChange(false)}
             className="bg-white dark:bg-carbon-800 border-carbon-300 dark:border-carbon-600 text-carbon-700 dark:text-carbon-200 hover:bg-carbon-50 dark:hover:bg-carbon-700"
           >
             Cancel
           </Button>
-          <Button 
-            onClick={handleStartTranscription} 
+          <Button
+            onClick={handleStartTranscription}
             disabled={loading || !selectedProfileId || profilesLoading || profiles.length === 0}
             className="bg-blue-600 dark:bg-blue-700 hover:bg-blue-700 dark:hover:bg-blue-800 text-white min-w-[120px]"
           >

@@ -159,6 +159,7 @@ interface TranscriptionConfigDialogProps {
   initialName?: string;
   initialDescription?: string;
   isMultiTrack?: boolean;
+  title?: string;
 }
 
 const DEFAULT_PARAMS: WhisperXParams = {
@@ -352,6 +353,7 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
   initialName = "",
   initialDescription = "",
   isMultiTrack = false,
+  title,
 }: TranscriptionConfigDialogProps) {
   const [params, setParams] = useState<WhisperXParams>(DEFAULT_PARAMS);
   const [profileName, setProfileName] = useState("");
@@ -401,9 +403,9 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
       <DialogContent className="max-w-full sm:max-w-4xl w-[calc(100vw-1rem)] sm:w-auto max-h-[85vh] overflow-y-auto bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700 p-3 sm:p-8">
         <DialogHeader className="mb-3 sm:mb-6">
           <DialogTitle className="text-carbon-900 dark:text-carbon-100">
-            {isProfileMode
+            {title || (isProfileMode
               ? (initialName ? `Edit "${initialName}"` : "New Transcription Profile")
-              : "Transcription Configuration"
+              : "Transcription Configuration")
             }
           </DialogTitle>
           <DialogDescription className="text-carbon-600 dark:text-carbon-400">
