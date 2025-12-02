@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, memo } from "react";
 import { createPortal } from "react-dom";
-import { ArrowLeft, Play, Pause, Check, StickyNote, Plus, X, Sparkles, Pencil, ChevronUp, ChevronDown, Info, Clock, Settings, Users, Loader2, Home, FileText, Download } from "lucide-react";
+import { ArrowLeft, Play, Pause, Check, StickyNote, Plus, X, Sparkles, Pencil, ChevronUp, ChevronDown, Info, Clock, Settings, Users, Loader2, Home, FileText, Download, Ear } from "lucide-react";
 import { AudioPlayer, type AudioPlayerRef } from "./audio/AudioPlayer";
 import { TranscriptView } from "./transcript/TranscriptView";
 import { TranscriptToolbar } from "./transcript/TranscriptToolbar";
@@ -2473,15 +2473,17 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                                                     }
                                                 }
                                             }}
+                                            title="Listen from here"
                                         >
-                                            <Play className="h-6 w-6 ml-1" />
+                                            <Ear className="h-6 w-6" />
                                         </button>
                                         <button
                                             type="button"
                                             className="h-14 w-14 rounded-full bg-carbon-900 text-white shadow-xl flex items-center justify-center hover:bg-carbon-950 transition-all active:scale-95"
                                             onClick={openEditorForSelection}
+                                            title="Add note"
                                         >
-                                            <Plus className="h-6 w-6" />
+                                            <StickyNote className="h-6 w-6" />
                                         </button>
                                     </div>
                                 )}
