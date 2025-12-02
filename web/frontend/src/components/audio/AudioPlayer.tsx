@@ -64,7 +64,7 @@ export const AudioPlayer = forwardRef<AudioPlayerRef, AudioPlayerProps>(({
                 const isDark = theme === 'dark';
                 // Aesthetic Gray / True Black Palette
                 const waveColor = isDark ? '#525252' : '#D1D5DB'; // black-600 / gray-300
-                const progressColor = isDark ? '#E5E5E5' : '#111827'; // black-200 / gray-900 (High contrast)
+                const progressColor = isDark ? '#3b82f6' : '#2563eb'; // Blue-500 (dark) / Blue-600 (light)
                 const cursorColor = isDark ? '#fe9a00' : '#fe9a00'; // Brand Orange accent for cursor
 
                 const ws = WaveSurfer.create({
