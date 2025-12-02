@@ -72,6 +72,7 @@ import { TranscriptionConfigDialog, type WhisperXParams } from "./TranscriptionC
 import { TranscribeDDialog } from "./TranscribeDDialog";
 import { useRouter } from "../contexts/RouterContext";
 import { useAuth } from "../contexts/AuthContext";
+import { useIsMobile } from "../hooks/use-mobile";
 import {
 	useReactTable,
 	getCoreRowModel,
@@ -155,6 +156,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 }: AudioFilesTableProps) {
 	const { navigate } = useRouter();
 	const { getAuthHeaders } = useAuth();
+	const isMobile = useIsMobile();
 	const [data, setData] = useState<AudioFile[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [isPageChanging, setIsPageChanging] = useState(false);
@@ -922,69 +924,172 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 				),
 				cell: ({ row }) => {
 					const file = row.original;
-					return (
-						<div className="text-center">
-							<Popover
-								open={openPopovers[file.id] || false}
-								onOpenChange={(open) =>
-									setOpenPopovers((prev) => ({
-										...prev,
-										[file.id]: open,
-									}))
-								}
-							>
-								<PopoverTrigger asChild>
-									<Button
-										variant="ghost"
-										size="sm"
-										className="h-8 w-8 sm:h-9 sm:w-9 p-0 cursor-pointer"
-									>
-										<MoreVertical className="h-5 w-5" />
-									</Button>
-								</PopoverTrigger>
-								<PopoverContent className="w-40 bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700 p-1">
-									<div className="space-y-1">
-										{file.status === "completed" && (
-											<Button
-												variant="ghost"
-												size="sm"
-												className="w-full justify-start h-8 text-sm hover:bg-carbon-100 dark:hover:bg-carbon-700 cursor-pointer"
-												onClick={() => {
-													setOpenPopovers((prev) => ({ ...prev, [file.id]: false }));
-													navigate({ path: 'chat', params: { audioId: file.id } });
-												}}
-											>
-												<MessageCircle className="mr-2 h-4 w-4" />
-												Open Chat
-											</Button>
-										)}
+
+					// Mobile view: Keep existing popover
+					if (isMobile) {
+						return (
+							<div className="text-center">
+								<Popover
+									open={openPopovers[file.id] || false}
+									onOpenChange={(open) =>
+										setOpenPopovers((prev) => ({
+											...prev,
+											[file.id]: open,
+										}))
+									}
+								>
+									<PopoverTrigger asChild>
 										<Button
 											variant="ghost"
 											size="sm"
-											className="w-full justify-start h-8 text-sm hover:bg-carbon-100 dark:hover:bg-carbon-700 cursor-pointer disabled:cursor-not-allowed"
+											className="h-8 w-8 sm:h-9 sm:w-9 p-0 cursor-pointer"
+										>
+											<MoreVertical className="h-5 w-5" />
+										</Button>
+									</PopoverTrigger>
+									<PopoverContent className="w-40 bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700 p-1">
+										<div className="space-y-1">
+											{file.status === "completed" && (
+												<Button
+													variant="ghost"
+													size="sm"
+													className="w-full justify-start h-8 text-sm hover:bg-carbon-100 dark:hover:bg-carbon-700 cursor-pointer"
+													onClick={() => {
+														setOpenPopovers((prev) => ({ ...prev, [file.id]: false }));
+														navigate({ path: 'chat', params: { audioId: file.id } });
+													}}
+												>
+													<MessageCircle className="mr-2 h-4 w-4" />
+													Open Chat
+												</Button>
+											)}
+											<Button
+												variant="ghost"
+												size="sm"
+												className="w-full justify-start h-8 text-sm hover:bg-carbon-100 dark:hover:bg-carbon-700 cursor-pointer disabled:cursor-not-allowed"
+												disabled={!canTranscribe(file)}
+												onClick={() => handleTranscribeD(file.id)}
+											>
+												<QuickTranscribeIcon className="mr-2 h-4 w-4" />
+												Transcribe
+											</Button>
+
+											<Button
+												variant="ghost"
+												size="sm"
+												className="w-full justify-start h-8 text-sm hover:bg-carbon-100 dark:hover:bg-carbon-700 cursor-pointer disabled:cursor-not-allowed"
+												disabled={!canTranscribe(file)}
+												onClick={() => handleTranscribe(file.id)}
+											>
+												<AdvancedTranscribeIcon className="mr-2 h-4 w-4" />
+												Transcribe+
+											</Button>
+
+											{file.status === "processing" && (
+												<Button
+													variant="ghost"
+													size="sm"
+													className="w-full justify-start h-8 text-sm hover:bg-carbon-100 dark:hover:bg-carbon-700 text-orange-500 dark:text-orange-400 hover:text-orange-600 dark:hover:text-orange-300 cursor-pointer"
+													disabled={killingJobs.has(file.id)}
+													onClick={() => {
+														setSelectedFile(file);
+														setStopDialogOpen(true);
+													}}
+												>
+													{killingJobs.has(file.id) ? (
+														<>
+															<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+															Stopping...
+														</>
+													) : (
+														<>
+															<StopCircle className="mr-2 h-4 w-4" />
+															Stop
+														</>
+													)}
+												</Button>
+											)}
+
+											<Button
+												variant="ghost"
+												size="sm"
+												className="w-full justify-start h-8 text-sm hover:bg-carbon-100 dark:hover:bg-carbon-700 text-red-500 dark:text-red-400 hover:text-red-600 dark:hover:text-red-300 cursor-pointer"
+												onClick={() => {
+													setSelectedFile(file);
+													setDeleteDialogOpen(true);
+												}}
+											>
+												<Trash2 className="mr-2 h-4 w-4" />
+												Delete
+											</Button>
+										</div>
+									</PopoverContent>
+								</Popover>
+							</div>
+						);
+					}
+
+					// Desktop view: Hover toolbar
+					return (
+						<div className="text-center relative h-8">
+							{/* Placeholder to keep column width */}
+							<div className="w-8"></div>
+
+							{/* Floating Toolbar */}
+							<div className="absolute right-0 top-1/2 -translate-y-1/2 opacity-0 group-hover/row:opacity-100 transition-opacity duration-200 bg-white/95 dark:bg-carbon-900/95 backdrop-blur-sm shadow-md border border-carbon-200 dark:border-carbon-700 rounded-lg flex items-center p-1 gap-1 z-10">
+								{file.status === "completed" && (
+									<Tooltip>
+										<TooltipTrigger asChild>
+											<Button
+												variant="ghost"
+												size="icon"
+												className="h-8 w-8 hover:bg-carbon-100 dark:hover:bg-carbon-800 text-carbon-600 dark:text-carbon-400"
+												onClick={() => navigate({ path: 'chat', params: { audioId: file.id } })}
+											>
+												<MessageCircle className="h-4 w-4" />
+											</Button>
+										</TooltipTrigger>
+										<TooltipContent>Open Chat</TooltipContent>
+									</Tooltip>
+								)}
+
+								<Tooltip>
+									<TooltipTrigger asChild>
+										<Button
+											variant="ghost"
+											size="icon"
+											className="h-8 w-8 hover:bg-carbon-100 dark:hover:bg-carbon-800 text-carbon-600 dark:text-carbon-400"
 											disabled={!canTranscribe(file)}
 											onClick={() => handleTranscribeD(file.id)}
 										>
-											<QuickTranscribeIcon className="mr-2 h-4 w-4" />
-											Transcribe
+											<QuickTranscribeIcon className="h-4 w-4" />
 										</Button>
+									</TooltipTrigger>
+									<TooltipContent>Quick Transcribe</TooltipContent>
+								</Tooltip>
 
+								<Tooltip>
+									<TooltipTrigger asChild>
 										<Button
 											variant="ghost"
-											size="sm"
-											className="w-full justify-start h-8 text-sm hover:bg-carbon-100 dark:hover:bg-carbon-700 cursor-pointer disabled:cursor-not-allowed"
+											size="icon"
+											className="h-8 w-8 hover:bg-carbon-100 dark:hover:bg-carbon-800 text-carbon-600 dark:text-carbon-400"
 											disabled={!canTranscribe(file)}
 											onClick={() => handleTranscribe(file.id)}
 										>
-											<AdvancedTranscribeIcon className="mr-2 h-4 w-4" />
-											Transcribe+
+											<AdvancedTranscribeIcon className="h-4 w-4" />
 										</Button>
+									</TooltipTrigger>
+									<TooltipContent>Advanced Transcribe</TooltipContent>
+								</Tooltip>
 
-										{file.status === "processing" && (
+								{file.status === "processing" && (
+									<Tooltip>
+										<TooltipTrigger asChild>
 											<Button
 												variant="ghost"
-												size="sm"
-												className="w-full justify-start h-8 text-sm hover:bg-carbon-100 dark:hover:bg-carbon-700 text-orange-500 dark:text-orange-400 hover:text-orange-600 dark:hover:text-orange-300 cursor-pointer"
+												size="icon"
+												className="h-8 w-8 hover:bg-orange-100 dark:hover:bg-orange-900/30 text-orange-500 dark:text-orange-400"
 												disabled={killingJobs.has(file.id)}
 												onClick={() => {
 													setSelectedFile(file);
@@ -992,34 +1097,33 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 												}}
 											>
 												{killingJobs.has(file.id) ? (
-													<>
-														<Loader2 className="mr-2 h-4 w-4 animate-spin" />
-														Stopping...
-													</>
+													<Loader2 className="h-4 w-4 animate-spin" />
 												) : (
-													<>
-														<StopCircle className="mr-2 h-4 w-4" />
-														Stop
-													</>
+													<StopCircle className="h-4 w-4" />
 												)}
 											</Button>
-										)}
+										</TooltipTrigger>
+										<TooltipContent>Stop Transcription</TooltipContent>
+									</Tooltip>
+								)}
 
+								<Tooltip>
+									<TooltipTrigger asChild>
 										<Button
 											variant="ghost"
-											size="sm"
-											className="w-full justify-start h-8 text-sm hover:bg-carbon-100 dark:hover:bg-carbon-700 text-red-500 dark:text-red-400 hover:text-red-600 dark:hover:text-red-300 cursor-pointer"
+											size="icon"
+											className="h-8 w-8 hover:bg-red-100 dark:hover:bg-red-900/30 text-red-500 dark:text-red-400"
 											onClick={() => {
 												setSelectedFile(file);
 												setDeleteDialogOpen(true);
 											}}
 										>
-											<Trash2 className="mr-2 h-4 w-4" />
-											Delete
+											<Trash2 className="h-4 w-4" />
 										</Button>
-									</div>
-								</PopoverContent>
-							</Popover>
+									</TooltipTrigger>
+									<TooltipContent>Delete</TooltipContent>
+								</Tooltip>
+							</div>
 						</div>
 					);
 				},
@@ -1027,7 +1131,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 				enableGlobalFilter: false,
 			},
 		],
-		[openPopovers, queuePositions, trackProgress, getStatusIcon, handleAudioClick, handleTranscribe, handleTranscribeD, canTranscribe, getFileName, killingJobs, setSelectedFile, setStopDialogOpen, setDeleteDialogOpen]
+		[openPopovers, queuePositions, trackProgress, getStatusIcon, handleAudioClick, handleTranscribe, handleTranscribeD, canTranscribe, getFileName, killingJobs, setSelectedFile, setStopDialogOpen, setDeleteDialogOpen, isMobile, navigate]
 	);
 
 	// Create the table instance with server-side pagination and search
@@ -1268,7 +1372,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 											table.getRowModel().rows.map((row) => (
 												<TableRow
 													key={row.id}
-													className="hover:bg-carbon-50 dark:hover:bg-carbon-800 transition-colors duration-200 border-b border-border last:border-b-0 group/row"
+													className="hover:bg-carbon-50 dark:hover:bg-carbon-800 transition-colors duration-200 border-b border-border last:border-b-0 group/row relative"
 													data-state={row.getIsSelected() && "selected"}
 												>
 													{row.getVisibleCells().map((cell) => (
