@@ -17,6 +17,7 @@ import { Label } from "./ui/label";
 import { Switch } from "./ui/switch";
 import { useRouter } from "../contexts/RouterContext";
 import { ThemeSwitcher } from "./ThemeSwitcher";
+import { useIsMobile } from "../hooks/use-mobile";
 
 import { useAuth } from "../contexts/AuthContext";
 import { ChatInterface } from "./ChatInterface";
@@ -219,6 +220,7 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
             return (a.created_at || '').localeCompare(b.created_at || '');
         });
     };
+    const isMobile = useIsMobile();
     const [notesOpen, setNotesOpen] = useState(false);
     const [showSelectionMenu, setShowSelectionMenu] = useState(false);
     const [pendingSelection, setPendingSelection] = useState<{ startIdx: number; endIdx: number; startTime: number; endTime: number; quote: string } | null>(null);
@@ -655,7 +657,7 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
         const el = transcriptRef.current;
         if (!el) return;
 
-        const onMouseUp = () => {
+        const handleSelection = () => {
             const sel = window.getSelection();
             if (!sel || sel.isCollapsed) { setShowSelectionMenu(false); setShowEditor(false); return; }
             const anchor = sel.anchorNode as HTMLElement | null;
@@ -674,25 +676,60 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
             const endTime = transcript.word_segments[endIdx]?.end ?? startTime;
             const quote = transcript.word_segments.slice(startIdx, endIdx + 1).map(w => w.word).join(" ");
 
-            const range = sel.getRangeAt(0);
-            const rect = range.getBoundingClientRect();
-            // Robust viewport coordinates for the selection UI
-            // Clamp X within viewport with 16px gutters
-            const centerX = rect.left + rect.width / 2;
-            const clampedX = Math.min(window.innerWidth - 16, Math.max(16, centerX));
-            // Prefer above selection; if too close to the top, place below
-            let bubbleY = rect.top - 10;
-            if (bubbleY < 12) {
-                bubbleY = rect.bottom + 8;
-            }
-            setSelectionViewportPos({ x: clampedX, y: bubbleY });
             setPendingSelection({ startIdx, endIdx, startTime, endTime, quote });
             setShowSelectionMenu(true);
+
+            if (!isMobile) {
+                const range = sel.getRangeAt(0);
+                const rect = range.getBoundingClientRect();
+                // Robust viewport coordinates for the selection UI
+                // Clamp X within viewport with 16px gutters
+                const centerX = rect.left + rect.width / 2;
+                const clampedX = Math.min(window.innerWidth - 16, Math.max(16, centerX));
+                // Prefer above selection; if too close to the top, place below
+                let bubbleY = rect.top - 10;
+                if (bubbleY < 12) {
+                    bubbleY = rect.bottom + 8;
+                }
+                setSelectionViewportPos({ x: clampedX, y: bubbleY });
+            }
+        };
+
+        const onMouseUp = () => {
+            if (!isMobile) {
+                handleSelection();
+            }
+        };
+
+        const onTouchEnd = () => {
+            if (isMobile) {
+                // Small delay to let selection settle
+                setTimeout(handleSelection, 100);
+            }
         };
 
         el.addEventListener('mouseup', onMouseUp);
-        return () => el.removeEventListener('mouseup', onMouseUp);
-    }, [transcript, transcriptMode]);
+        el.addEventListener('touchend', onTouchEnd);
+
+        // Also listen for selectionchange on mobile to handle handle adjustments
+        const onSelectionChange = () => {
+            if (isMobile && !showEditor) {
+                handleSelection();
+            }
+        };
+
+        if (isMobile) {
+            document.addEventListener('selectionchange', onSelectionChange);
+        }
+
+        return () => {
+            el.removeEventListener('mouseup', onMouseUp);
+            el.removeEventListener('touchend', onTouchEnd);
+            if (isMobile) {
+                document.removeEventListener('selectionchange', onSelectionChange);
+            }
+        };
+    }, [transcript, transcriptMode, isMobile, showEditor]);
 
     // Cmd/Ctrl + click to seek to word start (without breaking selection or follow-along)
     // Attach the handler when the transcript DOM content is present (not on ref.current changes)
@@ -2410,7 +2447,7 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                                     }}
                                 />
 
-                                {showSelectionMenu && (
+                                {showSelectionMenu && !isMobile && (
                                     <div style={{ position: 'fixed', left: selectionViewportPos.x, top: selectionViewportPos.y, transform: 'translate(-50%, -100%)', zIndex: 10000 }} onMouseDown={(e) => e.stopPropagation()}>
                                         <div className="bg-carbon-900 text-white text-base font-medium rounded-xl shadow-2xl px-6 py-3 flex items-center gap-3 pointer-events-auto hover:bg-carbon-950 transition-colors ring-2 ring-white/20 transform hover:scale-105 duration-200">
                                             <button type="button" className="flex items-center gap-2" onClick={openEditorForSelection}>
@@ -2420,8 +2457,37 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                                     </div>
                                 )}
 
+                                {showSelectionMenu && isMobile && (
+                                    <div className="fixed bottom-6 right-6 flex flex-col gap-3 z-[10000]" onMouseDown={(e) => e.stopPropagation()}>
+                                        <button
+                                            type="button"
+                                            className="h-14 w-14 rounded-full bg-carbon-900 text-white shadow-xl flex items-center justify-center hover:bg-carbon-950 transition-all active:scale-95"
+                                            onClick={() => {
+                                                if (pendingSelection) {
+                                                    const player = audioPlayerRef.current;
+                                                    if (player) {
+                                                        const dur = player.getDuration() || 1;
+                                                        const ratio = Math.min(0.999, Math.max(0, pendingSelection.startTime / dur));
+                                                        player.seekTo(ratio);
+                                                        setCurrentTime(pendingSelection.startTime);
+                                                    }
+                                                }
+                                            }}
+                                        >
+                                            <Play className="h-6 w-6 ml-1" />
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className="h-14 w-14 rounded-full bg-carbon-900 text-white shadow-xl flex items-center justify-center hover:bg-carbon-950 transition-all active:scale-95"
+                                            onClick={openEditorForSelection}
+                                        >
+                                            <Plus className="h-6 w-6" />
+                                        </button>
+                                    </div>
+                                )}
+
                                 {showEditor && (
-                                    <div style={{ position: 'fixed', left: selectionViewportPos.x, top: selectionViewportPos.y + 18, transform: 'translate(-50%, 0)', zIndex: 10001 }} className="w-[min(90vw,520px)]" onMouseDown={(e) => e.stopPropagation()}>
+                                    <div style={{ position: 'fixed', left: isMobile ? '50%' : selectionViewportPos.x, top: isMobile ? '50%' : selectionViewportPos.y + 18, transform: isMobile ? 'translate(-50%, -50%)' : 'translate(-50%, 0)', zIndex: 10001 }} className="w-[min(90vw,520px)]" onMouseDown={(e) => e.stopPropagation()}>
                                         <div className="bg-white dark:bg-carbon-900 rounded-lg shadow-2xl p-3 pointer-events-auto">
                                             <div className="text-xs text-carbon-500 dark:text-carbon-400 border-l-2 border-carbon-300 dark:border-carbon-600 pl-2 italic mb-2 max-h-32 overflow-auto">
                                                 {pendingSelection.quote}
