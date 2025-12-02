@@ -147,7 +147,7 @@ export const AudioPlayer = forwardRef<AudioPlayerRef, AudioPlayerProps>(({
     };
 
     return (
-        <div className={`glass rounded-xl p-4 transition-all duration-300 ${className}`}>
+        <div className={`transition-all duration-300 ${className}`}>
 
             <div className="flex items-center gap-4">
                 {/* Play/Pause Button */}

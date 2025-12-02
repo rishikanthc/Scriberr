@@ -1225,7 +1225,7 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                 </div>
 
                 {/* Audio Player Section */}
-                <div ref={audioSectionRef} className={`glass rounded-xl ${audioCollapsed ? 'p-3 sm:p-4' : 'p-3 sm:p-6'} mb-3 sm:mb-6 transition-all duration-300`}>
+                <div ref={audioSectionRef} className={`glass rounded-xl ${audioCollapsed ? 'p-3 sm:p-4' : 'p-3 sm:p-4'} mb-2 sm:mb-4 transition-all duration-300`}>
                     <div className="mb-6">
                         <div className="mb-2 flex items-center gap-2 justify-between">
                             {editingTitle ? (
@@ -1309,7 +1309,7 @@ export const AudioDetailView = memo(function AudioDetailView({ audioId }: AudioD
                 {(currentStatus || audioFile.status) === "completed" && transcript && (
                     <div className="glass rounded-xl p-3 sm:p-6 transition-all duration-300">
                         {/* Header Section - Sticky Toolbar */}
-                        <div className="mb-6 sm:mb-8 sticky top-4 z-10 flex justify-center pointer-events-none">
+                        <div className="mb-2 sm:mb-4 sticky top-4 z-10 flex justify-center pointer-events-none">
                             <div className="pointer-events-auto shadow-lg rounded-2xl">
                                 <TranscriptToolbar
                                     transcriptMode={transcriptMode}
