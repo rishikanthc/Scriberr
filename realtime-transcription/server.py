@@ -61,6 +61,7 @@ async def handle_websocket_results(websocket: WebSocket, results_generator):
         async for response in results_generator:
             # response is typically a dict with 'text', 'start', 'end', 'is_final' etc.
             # WLK sends partial results with is_final=False (gray) and final with is_final=True (black)
+            logger.info(f"Sending to client: {response}")
             await websocket.send_json(response)
     except Exception as e:
         logger.error(f"Error sending results: {e}")

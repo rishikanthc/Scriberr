@@ -147,7 +147,9 @@ export function RealtimeTranscriptionPage() {
 
             ws.onmessage = (event) => {
                 try {
+                    console.log("WebSocket received:", event.data);
                     const data = JSON.parse(event.data);
+                    console.log("Parsed data:", data);
 
                     if (data.text) {
                         // Logic to handle partial vs final

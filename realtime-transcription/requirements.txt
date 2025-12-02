@@ -4,3 +4,4 @@ websockets==12.0
 whisperlivekit
 numpy
 scipy
+faster-whisper
