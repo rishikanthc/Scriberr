@@ -101,7 +101,7 @@ export const TranscriptToolbar: React.FC<TranscriptToolbarProps> = ({
             >
                 <StickyNote className="w-4 h-4" />
                 {notes.length > 0 && (
-                    <span className="absolute -top-1 -right-1 min-w-[16px] h-[16px] flex items-center justify-center rounded-full bg-blue-600 text-[10px] font-bold text-white ring-2 ring-white dark:ring-carbon-900">
+                    <span className="absolute -top-1 -right-1 min-w-[16px] h-[16px] flex items-center justify-center rounded-full bg-brand-600 text-[10px] font-bold text-white ring-2 ring-white dark:ring-carbon-900">
                         {notes.length > 99 ? '99+' : notes.length}
                     </span>
                 )}
@@ -149,7 +149,7 @@ export const TranscriptToolbar: React.FC<TranscriptToolbarProps> = ({
                             "flex items-center justify-center w-8 h-8 rounded-xl transition-all duration-200",
                             "text-carbon-600 dark:text-carbon-400 hover:text-carbon-900 dark:hover:text-carbon-100",
                             "hover:bg-carbon-100 dark:hover:bg-carbon-800",
-                            "focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                            "focus:outline-none focus:ring-2 focus:ring-brand-500/20"
                         )}
                         title="Download"
                     >
@@ -200,7 +200,7 @@ const ToolbarButton: React.FC<{
             "flex items-center justify-center w-8 h-8 rounded-xl transition-all duration-200",
             "text-carbon-600 dark:text-carbon-400",
             active
-                ? "bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400 shadow-sm ring-1 ring-blue-500/20"
+                ? "bg-brand-50 text-brand-600 dark:bg-brand-900/20 dark:text-brand-400 shadow-sm ring-1 ring-brand-500/20"
                 : "hover:bg-carbon-100 dark:hover:bg-carbon-800 hover:text-carbon-900 dark:hover:text-carbon-100",
             disabled && "opacity-50 cursor-not-allowed hover:bg-transparent dark:hover:bg-transparent",
             className

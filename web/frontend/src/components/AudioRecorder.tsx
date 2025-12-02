@@ -339,7 +339,7 @@ export function AudioRecorder({
 												</div>
 											</div>
 											{selectedDevice === device.deviceId && (
-												<div className="h-2 w-2 bg-blue-500 rounded-full"></div>
+												<div className="h-2 w-2 bg-brand-500 rounded-full"></div>
 											)}
 										</DropdownMenuItem>
 									))}
@@ -366,7 +366,7 @@ export function AudioRecorder({
 							</span>
 						</div>
 						{isRecording && (
-							<div className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+							<div className="text-xs text-brand-600 dark:text-brand-400 mt-1">
 								Recording continues even if you switch tabs
 							</div>
 						)}
@@ -452,7 +452,7 @@ export function AudioRecorder({
 								onClick={handleUpload}
 								size="lg"
 								disabled={isUploading}
-								className="bg-blue-500 hover:bg-blue-600 text-white px-8 py-3 rounded-xl font-medium transition-all duration-300 hover:scale-105"
+								className="bg-brand-500 hover:bg-brand-600 text-white px-8 py-3 rounded-xl font-medium transition-all duration-300 hover:scale-105"
 							>
 								{isUploading ? (
 									<>

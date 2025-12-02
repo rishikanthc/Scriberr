@@ -207,8 +207,8 @@ export function ChatSessionsSidebar({
               <div
                 key={s.id}
                 className={`group relative flex items-center p-2 mx-2 rounded-lg cursor-pointer transition-all duration-150 ${activeSessionId === s.id
-                    ? 'bg-muted text-foreground'
-                    : 'hover:bg-muted/50 text-muted-foreground hover:text-foreground'
+                  ? 'bg-muted text-foreground'
+                  : 'hover:bg-muted/50 text-muted-foreground hover:text-foreground'
                   }`}
                 onClick={() => onSessionChange(s.id)}
               >
@@ -236,7 +236,7 @@ export function ChatSessionsSidebar({
                         {s.title || 'New Chat'}
                       </div>
                       {generatingTitleIds.has(s.id) && (
-                        <div className="flex-shrink-0 text-blue-500 dark:text-blue-400" title="Generating title...">
+                        <div className="flex-shrink-0 text-brand-500 dark:text-brand-400" title="Generating title...">
                           <Sparkles className="h-3 w-3 animate-pulse" />
                         </div>
                       )}

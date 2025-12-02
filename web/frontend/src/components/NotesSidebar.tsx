@@ -63,7 +63,7 @@ export function NotesSidebar({ notes, onEdit, onDelete, onJumpTo }: NotesSidebar
       {notes.map((n) => (
         <Card key={n.id} className="p-2 bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700">
           <div className="flex items-start justify-between gap-1.5">
-            <div className="text-xs text-blue-600 dark:text-blue-300 font-mono">
+            <div className="text-xs text-brand-600 dark:text-brand-300 font-mono">
               <button className="hover:underline" onClick={() => onJumpTo(n.start_time)} title="Jump to time">
                 <ExternalLink className="inline h-3 w-3 mr-1" /> {formatTime(n.start_time)} - {formatTime(n.end_time)}
               </button>
@@ -80,7 +80,7 @@ export function NotesSidebar({ notes, onEdit, onDelete, onJumpTo }: NotesSidebar
                     await navigator.clipboard.writeText(n.content || "");
                     setCopiedId(n.id);
                     setTimeout(() => setCopiedId((prev) => (prev === n.id ? null : prev)), 1200);
-                  } catch {}
+                  } catch { }
                 }}
               >
                 {copiedId === n.id ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}

@@ -48,6 +48,31 @@
   --color-black-900: #161616;
   --color-black-950: #000000;
 
+  /* Brand Palette (Orange #fe9a00) */
+  --brand-50: #fff8e6;
+  --brand-100: #ffedcc;
+  --brand-200: #ffdd99;
+  --brand-300: #ffcc66;
+  --brand-400: #ffbb33;
+  --brand-500: #fe9a00;
+  --brand-600: #e68a00;
+  --brand-700: #cc7a00;
+  --brand-800: #b36b00;
+  --brand-900: #995c00;
+  --brand-950: #663d00;
+
+  --color-brand-50: var(--brand-50);
+  --color-brand-100: var(--brand-100);
+  --color-brand-200: var(--brand-200);
+  --color-brand-300: var(--brand-300);
+  --color-brand-400: var(--brand-400);
+  --color-brand-500: var(--brand-500);
+  --color-brand-600: var(--brand-600);
+  --color-brand-700: var(--brand-700);
+  --color-brand-800: var(--brand-800);
+  --color-brand-900: var(--brand-900);
+  --color-brand-950: var(--brand-950);
+
   --font-sans: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
   --font-display: 'Outfit', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   --font-mono: 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;

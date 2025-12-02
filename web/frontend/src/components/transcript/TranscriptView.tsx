@@ -77,7 +77,7 @@ export const TranscriptView = forwardRef<HTMLDivElement, TranscriptViewProps>(({
                             data-end={word.end}
                             className={cn(
                                 "cursor-text transition-colors duration-150 rounded px-0.5 inline-block",
-                                "hover:bg-blue-100 dark:hover:bg-blue-900/30",
+                                "hover:bg-brand-100 dark:hover:bg-brand-900/30",
                                 isHighlighted && "bg-amber-200 dark:bg-amber-700/50 text-carbon-900 dark:text-carbon-50 font-medium shadow-sm",
                                 !isHighlighted && isAnnotated && "bg-carbon-200 dark:bg-carbon-700/50 border-b-2 border-amber-400 dark:border-amber-600"
                             )}
@@ -124,7 +124,7 @@ export const TranscriptView = forwardRef<HTMLDivElement, TranscriptViewProps>(({
                     data-end={word.end}
                     className={cn(
                         "cursor-text transition-colors duration-150 rounded px-0.5 inline-block",
-                        "hover:bg-blue-100 dark:hover:bg-blue-900/30",
+                        "hover:bg-brand-100 dark:hover:bg-brand-900/30",
                         isHighlighted && "bg-amber-200 dark:bg-amber-700/50 text-carbon-900 dark:text-carbon-50 font-medium shadow-sm",
                         !isHighlighted && isAnnotated && "bg-carbon-200 dark:bg-carbon-700/50 border-b-2 border-amber-400 dark:border-amber-600"
                     )}
