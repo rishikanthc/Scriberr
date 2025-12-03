@@ -454,6 +454,7 @@ func (h *Handler) SendChatMessage(c *gin.Context) {
 	// Add system message with transcript context
 	if session.Transcription.Transcript != nil && *session.Transcription.Transcript != "" {
 		transcript := *session.Transcription.Transcript
+		fmt.Printf("Debug: Transcript found for session %s. Length: %d\n", sessionID, len(transcript))
 
 		// Parse transcript json segments and build string with format: [SPEAKER_01] [00:00:17 - 00:00:19] Nej, det var tråkigt att höra.
 		var t Transcript
@@ -461,6 +462,8 @@ func (h *Handler) SendChatMessage(c *gin.Context) {
 			fmt.Println("Error parsing transcript JSON:", err)
 			return
 		}
+		
+		fmt.Printf("Debug: Parsed %d segments from transcript\n", len(t.Segments))
 
 		var sb strings.Builder
 
@@ -477,6 +480,7 @@ func (h *Handler) SendChatMessage(c *gin.Context) {
 		}
 
 		cleanTranscript := sb.String()
+		fmt.Printf("Debug: Clean transcript length: %d\n", len(cleanTranscript))
 		
 		systemContent := fmt.Sprintf("You are a helpful assistant analyzing this transcript. Please answer questions and provide insights based on the following transcript:\n\n%s", cleanTranscript)
 
@@ -496,7 +500,10 @@ func (h *Handler) SendChatMessage(c *gin.Context) {
 		})
 		currentTokenCount += transcriptTokens
 	} else {
-		fmt.Printf("Warning: Transcript is nil or empty for chat session %s\n", sessionID)
+		fmt.Printf("Warning: Transcript is nil or empty for chat session %s. Transcription ID: %s\n", sessionID, session.TranscriptionID)
+		if session.Transcription.ID == "" {
+			fmt.Println("Warning: Session Transcription relation seems missing or empty")
+		}
 	}
 
 	// Add conversation history
