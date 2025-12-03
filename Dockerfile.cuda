@@ -47,7 +47,7 @@ RUN mkdir -p /out/bin/cli \
 ########################
 # CUDA Runtime stage
 ########################
-FROM nvidia/cuda:12.9.1-cudnn-runtime-ubuntu24.04 AS runtime
+FROM nvidia/cuda:12.6.3-cudnn-runtime-ubuntu24.04 AS runtime
 
 ENV PYTHONUNBUFFERED=1 \
     HOST=0.0.0.0 \
