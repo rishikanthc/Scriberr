@@ -7,8 +7,8 @@ PGID=${PGID:-1000}
 
 echo "=== Scriberr Container Setup ==="
 echo "Requested UID: $PUID, GID: $PGID"
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/lib/x86_64-linux-gnu/
-echo "LD_LIBRARY_PATH is: $LD_LIBRARY_PATH"
+# export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/lib/x86_64-linux-gnu/
+# echo "LD_LIBRARY_PATH is: $LD_LIBRARY_PATH"
 
 # Function to setup user if needed
 setup_user() {
