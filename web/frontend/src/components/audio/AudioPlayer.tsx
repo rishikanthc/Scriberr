@@ -35,10 +35,12 @@ export const AudioPlayer = forwardRef<AudioPlayerRef, AudioPlayerProps>(({
     const { getAuthHeaders } = useAuth();
     const containerRef = useRef<HTMLDivElement>(null);
     const wavesurferRef = useRef<WaveSurfer | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+    const [loadingProgress, setLoadingProgress] = useState(0);
     const [isPlaying, setIsPlaying] = useState(false);
     const [duration, setDuration] = useState(0);
     const [currentTime, setCurrentTime] = useState(0);
-    const [isReady, setIsReady] = useState(false);
 
     useImperativeHandle(ref, () => ({
         playPause: () => wavesurferRef.current?.playPause(),
@@ -53,13 +55,11 @@ export const AudioPlayer = forwardRef<AudioPlayerRef, AudioPlayerProps>(({
 
         const initWaveSurfer = async () => {
             try {
+                setIsLoading(true);
+                setError(null);
+                setLoadingProgress(0);
+
                 const audioUrl = `/api/v1/transcription/${audioId}/audio`;
-                const response = await fetch(audioUrl, { headers: { ...getAuthHeaders() } });
-
-                if (!response.ok) throw new Error('Failed to load audio');
-
-                const blob = await response.blob();
-                const url = URL.createObjectURL(blob);
 
                 const isDark = theme === 'dark';
                 // Aesthetic Gray / True Black Palette
@@ -79,15 +79,28 @@ export const AudioPlayer = forwardRef<AudioPlayerRef, AudioPlayerProps>(({
                     normalize: true,
                     backend: 'WebAudio',
                     dragToSeek: true,
+                    fetchParams: {
+                        headers: { ...getAuthHeaders() }
+                    }
                 });
 
                 wavesurferRef.current = ws;
 
+                ws.on('loading', (percent) => {
+                    setLoadingProgress(percent);
+                });
+
                 ws.on('ready', () => {
-                    setIsReady(true);
+                    setIsLoading(false);
                     const dur = ws.getDuration();
                     setDuration(dur);
                     onDurationChange?.(dur);
+                });
+
+                ws.on('error', (err) => {
+                    console.error("WaveSurfer error:", err);
+                    setError("Failed to load audio. Please try again.");
+                    setIsLoading(false);
                 });
 
                 ws.on('play', () => {
@@ -110,10 +123,12 @@ export const AudioPlayer = forwardRef<AudioPlayerRef, AudioPlayerProps>(({
                     onPlayStateChange?.(false);
                 });
 
-                await ws.load(url);
+                await ws.load(audioUrl);
 
             } catch (error) {
                 console.error('Error initializing audio player:', error);
+                setError("An unexpected error occurred.");
+                setIsLoading(false);
             }
         };
 
@@ -146,6 +161,33 @@ export const AudioPlayer = forwardRef<AudioPlayerRef, AudioPlayerProps>(({
         return `${mins}:${secs.toString().padStart(2, '0')}`;
     };
 
+    const retryLoad = () => {
+        // Force re-render/re-init by toggling a key or similar, 
+        // but here we can just call the effect logic again if we extract it, 
+        // or simpler: just unmount/remount the component from parent.
+        // For now, let's just reload the page or ask user to refresh.
+        // Better: we can just clear error and let the effect run again? 
+        // Actually, since the effect depends on audioId, we can't easily re-trigger it without changing dependencies.
+        // A simple way is to use a retry counter.
+        window.location.reload(); // Simple fallback for now
+    };
+
+    if (error) {
+        return (
+            <div className={`transition-all duration-300 ${className} flex items-center justify-center p-8 bg-red-50 dark:bg-red-900/20 rounded-xl border border-red-200 dark:border-red-800`}>
+                <div className="text-center">
+                    <p className="text-red-600 dark:text-red-400 mb-2">{error}</p>
+                    <button
+                        onClick={retryLoad}
+                        className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md text-sm font-medium transition-colors"
+                    >
+                        Retry
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className={`transition-all duration-300 ${className}`}>
 
@@ -153,9 +195,12 @@ export const AudioPlayer = forwardRef<AudioPlayerRef, AudioPlayerProps>(({
                 {/* Play/Pause Button */}
                 <button
                     onClick={togglePlayPause}
-                    className={`w-12 h-12 sm:w-14 sm:h-14 flex-shrink-0 flex items-center justify-center rounded-full bg-brand-500 hover:bg-brand-600 dark:bg-brand-500 dark:hover:bg-brand-600 text-white shadow-md hover:scale-105 hover:shadow-lg transition-all cursor-pointer border border-brand-400/20 ${!isReady ? 'opacity-50' : ''}`}
+                    disabled={isLoading}
+                    className={`w-12 h-12 sm:w-14 sm:h-14 flex-shrink-0 flex items-center justify-center rounded-full bg-brand-500 hover:bg-brand-600 dark:bg-brand-500 dark:hover:bg-brand-600 text-white shadow-md hover:scale-105 hover:shadow-lg transition-all cursor-pointer border border-brand-400/20 ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
-                    {isPlaying ? (
+                    {isLoading ? (
+                        <div className="h-5 w-5 sm:h-6 sm:w-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    ) : isPlaying ? (
                         <Pause className="h-5 w-5 sm:h-6 sm:w-6 fill-current" />
                     ) : (
                         <Play className="h-5 w-5 sm:h-6 sm:w-6 fill-current ml-1" />
@@ -166,15 +211,28 @@ export const AudioPlayer = forwardRef<AudioPlayerRef, AudioPlayerProps>(({
                 <div className="flex-1 min-w-0 flex flex-col justify-center gap-2">
                     {/* Time & Title Row */}
                     <div className="flex items-center justify-between text-xs sm:text-sm font-medium text-muted-foreground px-1">
-                        <span>{formatTime(currentTime)}</span>
-                        <span>-{formatTime(Math.max(0, duration - currentTime))}</span>
+                        {isLoading ? (
+                            <span className="animate-pulse">Loading audio... {loadingProgress}%</span>
+                        ) : (
+                            <>
+                                <span>{formatTime(currentTime)}</span>
+                                <span>-{formatTime(Math.max(0, duration - currentTime))}</span>
+                            </>
+                        )}
                     </div>
 
                     {/* Waveform Container */}
-                    <div
-                        ref={containerRef}
-                        className={`w-full transition-all duration-300 ${collapsed ? 'h-0 opacity-0' : 'h-16 opacity-100'}`}
-                    />
+                    <div className="relative w-full">
+                        {isLoading && (
+                            <div className="absolute inset-0 flex items-center justify-center z-10 bg-white/50 dark:bg-carbon-900/50 backdrop-blur-sm rounded-lg">
+                                {/* Optional: Add a more prominent loader here if needed */}
+                            </div>
+                        )}
+                        <div
+                            ref={containerRef}
+                            className={`w-full transition-all duration-300 ${collapsed ? 'h-0 opacity-0' : 'h-16 opacity-100'}`}
+                        />
+                    </div>
 
                     {/* Progress Bar (visible when collapsed) */}
                     {collapsed && (
