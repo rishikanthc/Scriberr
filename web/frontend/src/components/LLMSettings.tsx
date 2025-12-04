@@ -10,6 +10,7 @@ interface LLMConfig {
 	id?: number;
 	provider: string;
 	base_url?: string;
+	openai_base_url?: string;
 	has_api_key?: boolean;
 	is_active: boolean;
 	created_at?: string;
@@ -22,6 +23,7 @@ export function LLMSettings() {
 		is_active: false,
 	});
 	const [baseUrl, setBaseUrl] = useState("");
+	const [openAIBaseUrl, setOpenAIBaseUrl] = useState("");
 	const [apiKey, setApiKey] = useState("");
 	const [loading, setLoading] = useState(true);
 	const [saving, setSaving] = useState(false);
@@ -42,6 +44,7 @@ export function LLMSettings() {
 				const data = await response.json();
 				setConfig(data);
 				setBaseUrl(data.base_url || "");
+				setOpenAIBaseUrl(data.openai_base_url || "");
 				// Don't set API key from response for security
 			} else if (response.status !== 404) {
 				console.error("Failed to fetch LLM config");
@@ -61,7 +64,10 @@ export function LLMSettings() {
 			provider: config.provider,
 			is_active: true, // Always set to active when saving
 			...(config.provider === "ollama" && { base_url: baseUrl }),
-			...(config.provider === "openai" && { api_key: apiKey }),
+			...(config.provider === "openai" && {
+				api_key: apiKey,
+				openai_base_url: openAIBaseUrl
+			}),
 		};
 
 		try {
@@ -228,27 +234,44 @@ export function LLMSettings() {
 						)}
 
 						{config.provider === "openai" && (
-							<div>
-								<Label htmlFor="apiKey" className="flex items-center gap-2">
-									<Key className="h-4 w-4" />
-									OpenAI API Key *
-									{config.has_api_key && (
-										<span className="text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 px-2 py-1 rounded">
-											Already configured
-										</span>
-									)}
-								</Label>
-								<Input
-									id="apiKey"
-									type="password"
-									placeholder={config.has_api_key ? "Enter new API key to update" : "sk-..."}
-									value={apiKey}
-									onChange={(e) => setApiKey(e.target.value)}
-									className="mt-1"
-								/>
-								<p className="text-xs text-carbon-500 dark:text-carbon-400 mt-1">
-									Your OpenAI API key. {config.has_api_key ? "Leave blank to keep current key." : ""}
-								</p>
+							<div className="space-y-4">
+								<div>
+									<Label htmlFor="apiKey" className="flex items-center gap-2">
+										<Key className="h-4 w-4" />
+										OpenAI API Key *
+										{config.has_api_key && (
+											<span className="text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 px-2 py-1 rounded">
+												Already configured
+											</span>
+										)}
+									</Label>
+									<Input
+										id="apiKey"
+										type="password"
+										placeholder={config.has_api_key ? "Enter new API key to update" : "sk-..."}
+										value={apiKey}
+										onChange={(e) => setApiKey(e.target.value)}
+										className="mt-1"
+									/>
+									<p className="text-xs text-carbon-500 dark:text-carbon-400 mt-1">
+										Your OpenAI API key. {config.has_api_key ? "Leave blank to keep current key." : ""}
+									</p>
+								</div>
+
+								<div>
+									<Label htmlFor="openAIBaseUrl">OpenAI Base URL (Optional)</Label>
+									<Input
+										id="openAIBaseUrl"
+										type="url"
+										placeholder="https://api.openai.com/v1"
+										value={openAIBaseUrl}
+										onChange={(e) => setOpenAIBaseUrl(e.target.value)}
+										className="mt-1"
+									/>
+									<p className="text-xs text-carbon-500 dark:text-carbon-400 mt-1">
+										Custom endpoint URL for OpenAI-compatible services. Leave blank for default.
+									</p>
+								</div>
 							</div>
 						)}
 					</div>

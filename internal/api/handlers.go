@@ -171,21 +171,23 @@ type YouTubeDownloadResponse struct {
 
 // LLMConfigRequest represents the LLM configuration request
 type LLMConfigRequest struct {
-	Provider string  `json:"provider" binding:"required,oneof=ollama openai"`
-	BaseURL  *string `json:"base_url,omitempty"`
-	APIKey   *string `json:"api_key,omitempty"`
-	IsActive bool    `json:"is_active"`
+	Provider      string  `json:"provider" binding:"required,oneof=ollama openai"`
+	BaseURL       *string `json:"base_url,omitempty"`
+	OpenAIBaseURL *string `json:"openai_base_url,omitempty"`
+	APIKey        *string `json:"api_key,omitempty"`
+	IsActive      bool    `json:"is_active"`
 }
 
 // LLMConfigResponse represents the LLM configuration response
 type LLMConfigResponse struct {
-	ID        uint    `json:"id"`
-	Provider  string  `json:"provider"`
-	BaseURL   *string `json:"base_url,omitempty"`
-	HasAPIKey bool    `json:"has_api_key"` // Don't return actual API key
-	IsActive  bool    `json:"is_active"`
-	CreatedAt string  `json:"created_at"`
-	UpdatedAt string  `json:"updated_at"`
+	ID            uint    `json:"id"`
+	Provider      string  `json:"provider"`
+	BaseURL       *string `json:"base_url,omitempty"`
+	OpenAIBaseURL *string `json:"openai_base_url,omitempty"`
+	HasAPIKey     bool    `json:"has_api_key"` // Don't return actual API key
+	IsActive      bool    `json:"is_active"`
+	CreatedAt     string  `json:"created_at"`
+	UpdatedAt     string  `json:"updated_at"`
 }
 
 // APIKeyListResponse represents an API key in the list (without the actual key)
@@ -1880,13 +1882,14 @@ func (h *Handler) GetLLMConfig(c *gin.Context) {
 	}
 
 	response := LLMConfigResponse{
-		ID:        config.ID,
-		Provider:  config.Provider,
-		BaseURL:   config.BaseURL,
-		HasAPIKey: config.APIKey != nil && *config.APIKey != "",
-		IsActive:  config.IsActive,
-		CreatedAt: config.CreatedAt.Format("2006-01-02 15:04:05"),
-		UpdatedAt: config.UpdatedAt.Format("2006-01-02 15:04:05"),
+		ID:            config.ID,
+		Provider:      config.Provider,
+		BaseURL:       config.BaseURL,
+		OpenAIBaseURL: config.OpenAIBaseURL,
+		HasAPIKey:     config.APIKey != nil && *config.APIKey != "",
+		IsActive:      config.IsActive,
+		CreatedAt:     config.CreatedAt.Format("2006-01-02 15:04:05"),
+		UpdatedAt:     config.UpdatedAt.Format("2006-01-02 15:04:05"),
 	}
 
 	c.JSON(http.StatusOK, response)
@@ -1914,10 +1917,6 @@ func (h *Handler) SaveLLMConfig(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Base URL is required for Ollama provider"})
 		return
 	}
-	if req.Provider == "openai" && (req.APIKey == nil || *req.APIKey == "") {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "API key is required for OpenAI provider"})
-		return
-	}
 
 	// Check if there's an existing active configuration
 	existingConfig, err := h.llmConfigRepo.GetActive(c.Request.Context())
@@ -1926,15 +1925,32 @@ func (h *Handler) SaveLLMConfig(c *gin.Context) {
 		return
 	}
 
+	// Handle API Key logic for OpenAI
+	var apiKeyToSave *string
+	if req.Provider == "openai" {
+		if req.APIKey != nil && *req.APIKey != "" {
+			// New key provided
+			apiKeyToSave = req.APIKey
+		} else if existingConfig != nil && existingConfig.APIKey != nil && *existingConfig.APIKey != "" {
+			// Reuse existing key
+			apiKeyToSave = existingConfig.APIKey
+		} else {
+			// No key provided and no existing key
+			c.JSON(http.StatusBadRequest, gin.H{"error": "API key is required for OpenAI provider"})
+			return
+		}
+	}
+
 	var config *models.LLMConfig
 
 	if err == gorm.ErrRecordNotFound {
 		// No existing active config, create new one
 		config = &models.LLMConfig{
-			Provider: req.Provider,
-			BaseURL:  req.BaseURL,
-			APIKey:   req.APIKey,
-			IsActive: req.IsActive,
+			Provider:      req.Provider,
+			BaseURL:       req.BaseURL,
+			OpenAIBaseURL: req.OpenAIBaseURL,
+			APIKey:        apiKeyToSave,
+			IsActive:      req.IsActive,
 		}
 
 		if err := h.llmConfigRepo.Create(c.Request.Context(), config); err != nil {
@@ -1945,7 +1961,8 @@ func (h *Handler) SaveLLMConfig(c *gin.Context) {
 		// Update existing config
 		existingConfig.Provider = req.Provider
 		existingConfig.BaseURL = req.BaseURL
-		existingConfig.APIKey = req.APIKey
+		existingConfig.OpenAIBaseURL = req.OpenAIBaseURL
+		existingConfig.APIKey = apiKeyToSave
 		existingConfig.IsActive = req.IsActive
 
 		if err := h.llmConfigRepo.Update(c.Request.Context(), existingConfig); err != nil {
@@ -1956,13 +1973,14 @@ func (h *Handler) SaveLLMConfig(c *gin.Context) {
 	}
 
 	response := LLMConfigResponse{
-		ID:        config.ID,
-		Provider:  config.Provider,
-		BaseURL:   config.BaseURL,
-		HasAPIKey: config.APIKey != nil && *config.APIKey != "",
-		IsActive:  config.IsActive,
-		CreatedAt: config.CreatedAt.Format("2006-01-02 15:04:05"),
-		UpdatedAt: config.UpdatedAt.Format("2006-01-02 15:04:05"),
+		ID:            config.ID,
+		Provider:      config.Provider,
+		BaseURL:       config.BaseURL,
+		OpenAIBaseURL: config.OpenAIBaseURL,
+		HasAPIKey:     config.APIKey != nil && *config.APIKey != "",
+		IsActive:      config.IsActive,
+		CreatedAt:     config.CreatedAt.Format("2006-01-02 15:04:05"),
+		UpdatedAt:     config.UpdatedAt.Format("2006-01-02 15:04:05"),
 	}
 
 	c.JSON(http.StatusOK, response)
