@@ -349,6 +349,39 @@ func (w *WhisperXAdapter) updateWhisperXDependencies(whisperxPath string) error 
     "yt-dlp[default]",`)
 	}
 
+	// Pin PyTorch to CUDA 12.6 or CPU depending on platform
+	targetBlock := `[[tool.uv.index]]
+name = "pytorch"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true`
+
+	replacementBlock := `[tool.uv.sources]
+torch = [
+    { index = "pytorch-cpu", marker = "sys_platform == 'darwin'" },
+    { index = "pytorch-cpu", marker = "platform_machine != 'x86_64' and sys_platform != 'darwin'" },
+    { index = "pytorch", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
+]
+torchaudio = [
+    { index = "pytorch-cpu", marker = "sys_platform == 'darwin'" },
+    { index = "pytorch-cpu", marker = "platform_machine != 'x86_64' and sys_platform != 'darwin'" },
+    { index = "pytorch", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
+]
+triton = [
+  { index = "pytorch", marker = "sys_platform == 'linux'" }
+]
+
+[[tool.uv.index]]
+name = "pytorch"
+url = "https://download.pytorch.org/whl/cu126"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true`
+
+	content = strings.ReplaceAll(content, targetBlock, replacementBlock)
+
 	if err := os.WriteFile(pyprojectPath, []byte(content), 0644); err != nil {
 		return fmt.Errorf("failed to write pyproject.toml: %w", err)
 	}
