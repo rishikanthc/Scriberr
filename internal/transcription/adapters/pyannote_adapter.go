@@ -294,9 +294,9 @@ import torch
 # Fix for PyTorch 2.6+ which defaults weights_only=True
 # We need to allowlist PyAnnote's custom classes
 try:
-    from pyannote.audio.core.task import Specifications
+    from pyannote.audio.core.task import Specifications, Problem, Resolution
     if hasattr(torch.serialization, "add_safe_globals"):
-        torch.serialization.add_safe_globals([Specifications])
+        torch.serialization.add_safe_globals([Specifications, Problem, Resolution])
 except ImportError:
     pass
 except Exception as e:
