@@ -291,6 +291,17 @@ from pathlib import Path
 from pyannote.audio import Pipeline
 import torch
 
+# Fix for PyTorch 2.6+ which defaults weights_only=True
+# We need to allowlist PyAnnote's custom classes
+try:
+    from pyannote.audio.core.task import Specifications
+    if hasattr(torch.serialization, "add_safe_globals"):
+        torch.serialization.add_safe_globals([Specifications])
+except ImportError:
+    pass
+except Exception as e:
+    print(f"Warning: Could not add safe globals: {e}")
+
 
 def diarize_audio(
     audio_path: str,
