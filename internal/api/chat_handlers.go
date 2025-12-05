@@ -467,12 +467,28 @@ func (h *Handler) SendChatMessage(c *gin.Context) {
 
 		var sb strings.Builder
 
+		// Get speaker mappings
+		mappings, err := h.speakerMappingRepo.ListByJob(c.Request.Context(), session.TranscriptionID)
+		speakerMap := make(map[string]string)
+		if err == nil {
+			for _, m := range mappings {
+				speakerMap[m.OriginalSpeaker] = m.CustomName
+			}
+		} else {
+			fmt.Printf("Failed to get speaker mappings for job %s: %v\n", session.TranscriptionID, err)
+		}
+
 		for _, seg := range t.Segments {
 			start := formatTime(seg.Start)
 			end := formatTime(seg.End)
 
+			speakerName := seg.Speaker
+			if customName, ok := speakerMap[speakerName]; ok {
+				speakerName = customName
+			}
+
 			fmt.Fprintf(&sb, "[%s] [%s - %s] %s\n",
-				seg.Speaker,
+				speakerName,
 				start,
 				end,
 				strings.TrimSpace(seg.Text),
