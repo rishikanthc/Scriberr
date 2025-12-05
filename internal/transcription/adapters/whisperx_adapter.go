@@ -404,7 +404,32 @@ func (w *WhisperXAdapter) Transcribe(ctx context.Context, input interfaces.Audio
 
 	// Execute WhisperX
 	cmd := exec.CommandContext(ctx, "uv", args...)
-	cmd.Env = append(os.Environ(), "PYTHONUNBUFFERED=1")
+
+	// Add nvidia libraries to LD_LIBRARY_PATH
+	env := os.Environ()
+	if nvidiaPaths, err := w.findNvidiaLibPaths(); err == nil && len(nvidiaPaths) > 0 {
+		ldLibraryPath := os.Getenv("LD_LIBRARY_PATH")
+		newPath := strings.Join(nvidiaPaths, string(os.PathListSeparator))
+		if ldLibraryPath != "" {
+			newPath = newPath + string(os.PathListSeparator) + ldLibraryPath
+		}
+
+		// Update LD_LIBRARY_PATH in env
+		found := false
+		for i, e := range env {
+			if strings.HasPrefix(e, "LD_LIBRARY_PATH=") {
+				env[i] = "LD_LIBRARY_PATH=" + newPath
+				found = true
+				break
+			}
+		}
+		if !found {
+			env = append(env, "LD_LIBRARY_PATH="+newPath)
+		}
+		logger.Debug("Updated LD_LIBRARY_PATH for WhisperX", "path", newPath)
+	}
+
+	cmd.Env = append(env, "PYTHONUNBUFFERED=1")
 
 	// Setup log file
 	logFile, err := os.OpenFile(filepath.Join(procCtx.OutputDirectory, "transcription.log"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
@@ -616,4 +641,35 @@ func (w *WhisperXAdapter) GetEstimatedProcessingTime(input interfaces.AudioInput
 	// This would need model size information from parameters
 	// For now, use base estimation
 	return baseTime
+}
+
+// findNvidiaLibPaths searches for nvidia library paths in the virtual environment
+func (w *WhisperXAdapter) findNvidiaLibPaths() ([]string, error) {
+	whisperxPath := filepath.Join(w.envPath, "WhisperX")
+
+	// Find site-packages
+	matches, err := filepath.Glob(filepath.Join(whisperxPath, ".venv", "lib", "python*", "site-packages"))
+	if err != nil || len(matches) == 0 {
+		return nil, fmt.Errorf("could not find site-packages: %v", err)
+	}
+	sitePackages := matches[0]
+
+	// Find all nvidia/*/lib directories
+	libMatches, err := filepath.Glob(filepath.Join(sitePackages, "nvidia", "*", "lib"))
+	if err != nil {
+		return nil, err
+	}
+
+	// Also include the base site-packages/nvidia directory if needed, sometimes libs are there
+	// But usually they are in nvidia/<component>/lib
+
+	// Filter out any matches that are not directories
+	var paths []string
+	for _, match := range libMatches {
+		if info, err := os.Stat(match); err == nil && info.IsDir() {
+			paths = append(paths, match)
+		}
+	}
+
+	return paths, nil
 }
