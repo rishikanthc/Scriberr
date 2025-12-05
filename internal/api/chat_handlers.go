@@ -88,7 +88,7 @@ func (h *Handler) getLLMService(ctx context.Context) (llm.Service, string, error
 		if cfg.APIKey == nil || *cfg.APIKey == "" {
 			return nil, cfg.Provider, fmt.Errorf("OpenAI API key not configured")
 		}
-		return llm.NewOpenAIService(*cfg.APIKey), cfg.Provider, nil
+		return llm.NewOpenAIService(*cfg.APIKey, cfg.OpenAIBaseURL), cfg.Provider, nil
 	case "ollama":
 		if cfg.BaseURL == nil || *cfg.BaseURL == "" {
 			return nil, cfg.Provider, fmt.Errorf("Ollama base URL not configured")
