@@ -169,12 +169,12 @@ interface TranscriptionConfigDialogProps {
 
 const DEFAULT_PARAMS: WhisperXParams = {
   model_family: "whisper",
-  model: "small",
+  model: "KBLab/kb-whisper-large",
   model_cache_only: false,
-  device: "cpu",
+  device: "cuda",
   device_index: 0,
   batch_size: 8,
-  compute_type: "float32",
+  compute_type: "float16",
   threads: 0,
   output_format: "all",
   verbose: true,
@@ -186,7 +186,7 @@ const DEFAULT_PARAMS: WhisperXParams = {
   vad_onset: 0.5,
   vad_offset: 0.363,
   chunk_size: 30,
-  diarize: false,
+  diarize: true,
   diarize_model: "pyannote",
   speaker_embeddings: false,
   temperature: 0,
@@ -211,6 +211,11 @@ const DEFAULT_PARAMS: WhisperXParams = {
 };
 
 const WHISPER_MODELS = [
+  "KBLab/kb-whisper-large",
+  "KBLab/kb-whisper-medium",
+  "KBLab/kb-whisper-small",
+  "KBLab/kb-whisper-base",
+  "KBLab/kb-whisper-tiny",
   "tiny", "tiny.en",
   "base", "base.en",
   "small", "small.en",
@@ -1097,8 +1102,8 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
                 Language
               </Label>
               <Select
-                value={params.language || "auto"}
-                onValueChange={(value) => updateParam('language', value === "auto" ? undefined : value)}
+                value={params.language || "sv"}
+                onValueChange={(value) => updateParam('language', value === "sv" ? undefined : value)}
               >
                 <SelectTrigger className="bg-white dark:bg-carbon-800 border-carbon-300 dark:border-carbon-600 text-carbon-900 dark:text-carbon-100">
                   <SelectValue placeholder="Auto-detect" />

@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+	"encoding/json"
+	"math"
 
 	"scriberr/internal/database"
 	"scriberr/internal/llm"
@@ -61,6 +63,17 @@ type ChatSessionWithMessages struct {
 	Messages []ChatMessageResponse `json:"messages"`
 }
 
+type Transcript struct {
+	Segments []Segment `json:"segments"`
+}
+
+type Segment struct {
+	Start   float64 `json:"start"`
+	End     float64 `json:"end"`
+	Text    string  `json:"text"`
+	Speaker string  `json:"speaker"`
+}
+
 // getLLMService returns a provider-agnostic LLM service based on active config
 func (h *Handler) getLLMService(ctx context.Context) (llm.Service, string, error) {
 	cfg, err := h.llmConfigRepo.GetActive(ctx)
@@ -75,7 +88,7 @@ func (h *Handler) getLLMService(ctx context.Context) (llm.Service, string, error
 		if cfg.APIKey == nil || *cfg.APIKey == "" {
 			return nil, cfg.Provider, fmt.Errorf("OpenAI API key not configured")
 		}
-		return llm.NewOpenAIService(*cfg.APIKey), cfg.Provider, nil
+		return llm.NewOpenAIService(*cfg.APIKey, cfg.OpenAIBaseURL), cfg.Provider, nil
 	case "ollama":
 		if cfg.BaseURL == nil || *cfg.BaseURL == "" {
 			return nil, cfg.Provider, fmt.Errorf("Ollama base URL not configured")
@@ -341,6 +354,17 @@ func (h *Handler) GetChatSession(c *gin.Context) {
 	c.JSON(http.StatusOK, response)
 }
 
+// format time from transcription json as 00:00:00
+func formatTime(seconds float64) string {
+	s := int(math.Round(seconds))
+
+	hours := s / 3600
+	minutes := (s % 3600) / 60
+	secs := s % 60
+
+	return fmt.Sprintf("%02d:%02d:%02d", hours, minutes, secs)
+}
+
 // @Summary Send a message to a chat session
 // @Description Send a message to a chat session and get streaming response
 // @Tags chat
@@ -430,9 +454,37 @@ func (h *Handler) SendChatMessage(c *gin.Context) {
 	// Add system message with transcript context
 	if session.Transcription.Transcript != nil && *session.Transcription.Transcript != "" {
 		transcript := *session.Transcription.Transcript
-		fmt.Printf("Injecting transcript of length %d into chat context for session %s\n", len(transcript), sessionID)
+		fmt.Printf("Debug: Transcript found for session %s. Length: %d\n", sessionID, len(transcript))
 
-		systemContent := fmt.Sprintf("You are a helpful assistant analyzing this transcript. Please answer questions and provide insights based on the following transcript:\n\n%s", transcript)
+		// Parse transcript json segments and build string with format: [SPEAKER_01] [00:00:17 - 00:00:19] Nej, det var tråkigt att höra.
+		var t Transcript
+		if err := json.Unmarshal([]byte(transcript), &t); err != nil {
+			fmt.Println("Error parsing transcript JSON:", err)
+			return
+		}
+		
+		fmt.Printf("Debug: Parsed %d segments from transcript\n", len(t.Segments))
+
+		var sb strings.Builder
+
+		for _, seg := range t.Segments {
+			start := formatTime(seg.Start)
+			end := formatTime(seg.End)
+
+			fmt.Fprintf(&sb, "[%s] [%s - %s] %s\n",
+				seg.Speaker,
+				start,
+				end,
+				strings.TrimSpace(seg.Text),
+			)
+		}
+
+		cleanTranscript := sb.String()
+		fmt.Printf("Debug: Clean transcript length: %d\n", len(cleanTranscript))
+		
+		systemContent := fmt.Sprintf("You are a helpful assistant analyzing this transcript. Please answer questions and provide insights based on the following transcript:\n\n%s", cleanTranscript)
+
+		fmt.Printf("Injecting transcript of length %d into chat context for session %s\n", len(systemContent), sessionID)
 
 		// Check if transcript itself exceeds context (leaving some room for response)
 		// Estimate 1 token ~= 4 chars
@@ -448,7 +500,10 @@ func (h *Handler) SendChatMessage(c *gin.Context) {
 		})
 		currentTokenCount += transcriptTokens
 	} else {
-		fmt.Printf("Warning: Transcript is nil or empty for chat session %s\n", sessionID)
+		fmt.Printf("Warning: Transcript is nil or empty for chat session %s. Transcription ID: %s\n", sessionID, session.TranscriptionID)
+		if session.Transcription.ID == "" {
+			fmt.Println("Warning: Session Transcription relation seems missing or empty")
+		}
 	}
 
 	// Add conversation history
