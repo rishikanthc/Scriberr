@@ -21,10 +21,14 @@ type OpenAIService struct {
 }
 
 // NewOpenAIService creates a new OpenAI service
-func NewOpenAIService(apiKey string) *OpenAIService {
+func NewOpenAIService(apiKey string, baseURL *string) *OpenAIService {
+	url := "https://api.openai.com/v1"
+	if baseURL != nil && *baseURL != "" {
+		url = *baseURL
+	}
 	return &OpenAIService{
 		apiKey:  apiKey,
-		baseURL: "https://api.openai.com/v1",
+		baseURL: url,
 		client: &http.Client{
 			Timeout: 300 * time.Second,
 		},
