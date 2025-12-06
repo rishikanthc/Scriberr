@@ -258,6 +258,16 @@ func NewWhisperXAdapter(envPath string) *WhisperXAdapter {
 			Description: "VAD offset threshold",
 			Group:       "advanced",
 		},
+
+		// Custom Alignment Model
+		{
+			Name:        "align_model",
+			Type:        "string",
+			Required:    false,
+			Default:     nil,
+			Description: "Custom alignment model (e.g. KBLab/wav2vec2-large-voxrex-swedish)",
+			Group:       "advanced",
+		},
 	}
 
 	baseAdapter := NewBaseAdapter("whisperx", filepath.Join(envPath, "WhisperX"), capabilities, schema)
@@ -512,6 +522,11 @@ func (w *WhisperXAdapter) buildWhisperXArgs(input interfaces.AudioInput, params 
 	args = append(args, "--vad_method", w.GetStringParameter(params, "vad_method"))
 	args = append(args, "--vad_onset", fmt.Sprintf("%.3f", w.GetFloatParameter(params, "vad_onset")))
 	args = append(args, "--vad_offset", fmt.Sprintf("%.3f", w.GetFloatParameter(params, "vad_offset")))
+
+	// Custom alignment model
+	if alignModel := w.GetStringParameter(params, "align_model"); alignModel != "" {
+		args = append(args, "--align_model", alignModel)
+	}
 
 	// Diarization
 	if w.GetBoolParameter(params, "diarize") {
