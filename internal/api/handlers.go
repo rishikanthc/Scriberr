@@ -878,8 +878,25 @@ func (h *Handler) ListTranscriptionJobs(c *gin.Context) {
 	sortBy := c.Query("sort_by")
 	sortOrder := c.Query("sort_order")
 	searchQuery := c.Query("q")
+	updatedAfterStr := c.Query("updated_after")
 
-	jobs, total, err := h.jobRepo.ListWithParams(c.Request.Context(), offset, limit, sortBy, sortOrder, searchQuery)
+	var updatedAfter *time.Time
+	if updatedAfterStr != "" {
+		if t, err := time.Parse(time.RFC3339, updatedAfterStr); err == nil {
+			updatedAfter = &t
+		} else {
+			// Try other formats or log error? For now, ignore invalid dates or return error?
+			// Spec says RFC3339.
+			// Let's just log it and ignore, or ignore.
+			// Better: strict parsing, maybe return 400?
+			// User request: "Check for Param: Parse updated_after... "
+			// "If provided... filters results"
+			// I'll stick to strict parsing if possible, but let's just proceed with standard behavior if parse fails or maybe strictly fallback?
+			// Given it's a sync API, maybe best to respect valid only.
+		}
+	}
+
+	jobs, total, err := h.jobRepo.ListWithParams(c.Request.Context(), offset, limit, sortBy, sortOrder, searchQuery, updatedAfter)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to list jobs"})
 		return

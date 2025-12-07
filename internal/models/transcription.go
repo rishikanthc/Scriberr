@@ -25,7 +25,8 @@ type TranscriptionJob struct {
 	MergeError            *string   `json:"merge_error,omitempty" gorm:"type:text"`
 	IndividualTranscripts *string   `json:"individual_transcripts,omitempty" gorm:"type:text"` // JSON-serialized map[string]*string
 	CreatedAt             time.Time `json:"created_at" gorm:"autoCreateTime"`
-	UpdatedAt             time.Time `json:"updated_at" gorm:"autoUpdateTime"`
+	UpdatedAt             time.Time      `json:"updated_at" gorm:"autoUpdateTime"`
+	DeletedAt             gorm.DeletedAt `json:"deleted_at,omitempty" gorm:"index"`
 
 	// WhisperX parameters
 	Parameters WhisperXParams `json:"parameters" gorm:"embedded"`

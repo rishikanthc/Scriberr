@@ -11,6 +11,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"scriberr/internal/api"
 	"scriberr/internal/models"
@@ -269,6 +270,83 @@ func (suite *APIHandlerTestSuite) TestListTranscriptionJobs() {
 		}
 	}
 	assert.True(suite.T(), foundJob)
+}
+
+// Test transcription job listing with delta sync
+func (suite *APIHandlerTestSuite) TestListTranscriptionJobsDeltaSync() {
+	// 1. Create a job
+	job1 := suite.helper.CreateTestTranscriptionJob(suite.T(), "Job 1 (Active)")
+	time.Sleep(10 * time.Millisecond) // Ensure unique timestamp
+
+	// 2. Create another job
+	job2 := suite.helper.CreateTestTranscriptionJob(suite.T(), "Job 2 (To Be Deleted)")
+	time.Sleep(10 * time.Millisecond)
+
+	// Capture time before deletion (but after creation)
+	syncTime := time.Now().Add(-5 * time.Second) // Set sync time to slightly before now to pick up these jobs if they updated?
+	// Actually, we want to test:
+	// - created job is returned
+	// - deleted job is returned if updated_after < deletion_time
+
+	// Let's delete job2
+	w := suite.makeAuthenticatedRequest("DELETE", fmt.Sprintf("/api/v1/transcription/%s", job2.ID), nil, false)
+	assert.Equal(suite.T(), 200, w.Code)
+
+	// Case A: Normal List (No param) -> Should return job1, NOT job2
+	w = suite.makeAuthenticatedRequest("GET", "/api/v1/transcription/list", nil, false)
+	assert.Equal(suite.T(), 200, w.Code)
+	var responseStandard map[string]interface{}
+	json.Unmarshal(w.Body.Bytes(), &responseStandard)
+	jobsStd := responseStandard["jobs"].([]interface{})
+
+	foundJob1 := false
+	foundJob2 := false
+	for _, j := range jobsStd {
+		jm := j.(map[string]interface{})
+		if jm["id"] == job1.ID {
+			foundJob1 = true
+		}
+		if jm["id"] == job2.ID {
+			foundJob2 = true
+		}
+	}
+	assert.True(suite.T(), foundJob1, "Active job should be found in standard list")
+	assert.False(suite.T(), foundJob2, "Deleted job should NOT be found in standard list")
+
+	// Case B: Delta Sync (updated_after)
+	// We want to see both jobs because both were updated (created or deleted) recently.
+	updatedAfter := syncTime.Format(time.RFC3339)
+	w = suite.makeAuthenticatedRequest("GET", fmt.Sprintf("/api/v1/transcription/list?updated_after=%s", updatedAfter), nil, false)
+	assert.Equal(suite.T(), 200, w.Code)
+
+	var responseDelta map[string]interface{}
+	json.Unmarshal(w.Body.Bytes(), &responseDelta)
+	jobsDelta := responseDelta["jobs"].([]interface{})
+
+	foundJob1 = false
+	foundJob2 = false
+	var job2Data map[string]interface{}
+
+	for _, j := range jobsDelta {
+		jm := j.(map[string]interface{})
+		if jm["id"] == job1.ID {
+			foundJob1 = true
+		}
+		if jm["id"] == job2.ID {
+			foundJob2 = true
+			job2Data = jm
+		}
+	}
+	assert.True(suite.T(), foundJob1, "Active job should be found in delta sync")
+	assert.True(suite.T(), foundJob2, "Deleted job SHOULD be found in delta sync")
+
+	// Verify deleted_at is set for job2
+	if job2Data != nil {
+		_, hasDeletedAt := job2Data["deleted_at"]
+		// deleted_at might be nil or string
+		assert.True(suite.T(), hasDeletedAt, "deleted_at field should be present")
+		assert.NotNil(suite.T(), job2Data["deleted_at"], "deleted_at should not be nil for deleted job")
+	}
 }
 
 // Test getting transcription job by ID

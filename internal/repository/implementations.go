@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"scriberr/internal/models"
+	"time"
 
 	"gorm.io/gorm"
 )
@@ -36,7 +37,7 @@ func (r *userRepository) FindByUsername(ctx context.Context, username string) (*
 type JobRepository interface {
 	Repository[models.TranscriptionJob]
 	FindWithAssociations(ctx context.Context, id string) (*models.TranscriptionJob, error)
-	ListWithParams(ctx context.Context, offset, limit int, sortBy, sortOrder, searchQuery string) ([]models.TranscriptionJob, int64, error)
+	ListWithParams(ctx context.Context, offset, limit int, sortBy, sortOrder, searchQuery string, updatedAfter *time.Time) ([]models.TranscriptionJob, int64, error)
 	ListByUser(ctx context.Context, userID uint, offset, limit int) ([]models.TranscriptionJob, int64, error)
 	UpdateTranscript(ctx context.Context, jobID string, transcript string) error
 	CreateExecution(ctx context.Context, execution *models.TranscriptionJobExecution) error
@@ -67,11 +68,16 @@ func (r *jobRepository) FindWithAssociations(ctx context.Context, id string) (*m
 	return &job, nil
 }
 
-func (r *jobRepository) ListWithParams(ctx context.Context, offset, limit int, sortBy, sortOrder, searchQuery string) ([]models.TranscriptionJob, int64, error) {
+func (r *jobRepository) ListWithParams(ctx context.Context, offset, limit int, sortBy, sortOrder, searchQuery string, updatedAfter *time.Time) ([]models.TranscriptionJob, int64, error) {
 	var jobs []models.TranscriptionJob
 	var count int64
 
 	db := r.db.WithContext(ctx).Model(&models.TranscriptionJob{})
+
+	// Handle delta sync if updatedAfter provided
+	if updatedAfter != nil {
+		db = db.Unscoped().Where("updated_at > ?", *updatedAfter)
+	}
 
 	// Apply search filter
 	if searchQuery != "" {
