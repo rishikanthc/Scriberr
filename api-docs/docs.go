@@ -4103,6 +4103,9 @@ const docTemplate = `{
                 "is_active": {
                     "type": "boolean"
                 },
+                "openai_base_url": {
+                    "type": "string"
+                },
                 "provider": {
                     "type": "string",
                     "enum": [
@@ -4130,6 +4133,9 @@ const docTemplate = `{
                 },
                 "is_active": {
                     "type": "boolean"
+                },
+                "openai_base_url": {
+                    "type": "string"
                 },
                 "provider": {
                     "type": "string"

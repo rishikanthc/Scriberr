@@ -47,7 +47,7 @@ func (suite *LLMTestSuite) setupMockServer() {
 	}))
 
 	// Create OpenAI service with mock server
-	service := llm.NewOpenAIService("test-api-key")
+	service := llm.NewOpenAIService("test-api-key", nil)
 	// Use reflection or a custom method to set baseURL to mock server
 	// For now, we'll test what we can without modifying the baseURL
 	suite.service = service
@@ -196,7 +196,7 @@ func (suite *LLMTestSuite) handleStreamingResponse(w http.ResponseWriter, chatRe
 
 // Test OpenAI service creation
 func (suite *LLMTestSuite) TestNewOpenAIService() {
-	service := llm.NewOpenAIService("test-api-key-123")
+	service := llm.NewOpenAIService("test-api-key-123", nil)
 
 	assert.NotNil(suite.T(), service)
 }

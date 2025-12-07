@@ -4097,6 +4097,9 @@
                 "is_active": {
                     "type": "boolean"
                 },
+                "openai_base_url": {
+                    "type": "string"
+                },
                 "provider": {
                     "type": "string",
                     "enum": [
@@ -4124,6 +4127,9 @@
                 },
                 "is_active": {
                     "type": "boolean"
+                },
+                "openai_base_url": {
+                    "type": "string"
                 },
                 "provider": {
                     "type": "string"
