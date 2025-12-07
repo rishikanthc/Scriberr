@@ -974,6 +974,76 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/config/openai/validate": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Validate the provided OpenAI API key and return available Whisper models",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "config"
+                ],
+                "summary": "Validate OpenAI API Key",
+                "parameters": [
+                    {
+                        "description": "API Key",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.ValidateOpenAIKeyRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/llm/config": {
             "get": {
                 "security": [
@@ -1937,12 +2007,6 @@ const docTemplate = `{
                     },
                     {
                         "BearerAuth": []
-                    },
-                    {
-                        "ApiKeyAuth": []
-                    },
-                    {
-                        "BearerAuth": []
                     }
                 ],
                 "description": "Get a list of all transcription jobs with optional search and filtering\nGet a list of all transcription jobs with optional search and filtering",
@@ -1971,18 +2035,6 @@ const docTemplate = `{
                         "in": "query"
                     },
                     {
-                        "type": "string",
-                        "description": "Filter by status",
-                        "name": "status",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Search in title and audio filename",
-                        "name": "q",
-                        "in": "query"
-                    },
-                    {
                         "type": "integer",
                         "default": 1,
                         "description": "Page number",
@@ -1998,6 +2050,18 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
+                        "description": "Sort By",
+                        "name": "sort_by",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Sort Order (asc/desc)",
+                        "name": "sort_order",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
                         "description": "Filter by status",
                         "name": "status",
                         "in": "query"
@@ -2007,6 +2071,12 @@ const docTemplate = `{
                         "description": "Search in title and audio filename",
                         "name": "q",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by updated_at \u003e timestamp (RFC3339)",
+                        "name": "updated_after",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -2015,6 +2085,15 @@ const docTemplate = `{
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
                         }
                     }
                 }
@@ -4319,6 +4398,14 @@ const docTemplate = `{
                 }
             }
         },
+        "api.ValidateOpenAIKeyRequest": {
+            "type": "object",
+            "properties": {
+                "api_key": {
+                    "type": "string"
+                }
+            }
+        },
         "api.YouTubeDownloadRequest": {
             "type": "object",
             "required": [
@@ -4522,6 +4609,9 @@ const docTemplate = `{
                 "created_at": {
                     "type": "string"
                 },
+                "deleted_at": {
+                    "type": "string"
+                },
                 "diarization": {
                     "type": "boolean"
                 },
@@ -4686,6 +4776,10 @@ const docTemplate = `{
                     "description": "Alignment settings",
                     "type": "string"
                 },
+                "api_key": {
+                    "description": "OpenAI settings",
+                    "type": "string"
+                },
                 "attention_context_left": {
                     "description": "NVIDIA Parakeet-specific parameters for long-form audio",
                     "type": "integer"
@@ -4701,6 +4795,10 @@ const docTemplate = `{
                 },
                 "best_of": {
                     "type": "integer"
+                },
+                "callback_url": {
+                    "description": "Webhook settings",
+                    "type": "string"
                 },
                 "chunk_size": {
                     "type": "integer"

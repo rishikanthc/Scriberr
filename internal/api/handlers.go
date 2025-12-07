@@ -519,8 +519,6 @@ func (h *Handler) UploadMultiTrack(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create job"})
 		return
 	}
-
-	c.JSON(http.StatusOK, job)
 }
 
 // @Summary Get multi-track merge status
@@ -852,21 +850,19 @@ func (h *Handler) GetTranscript(c *gin.Context) {
 // @Produce json
 // @Param page query int false "Page number" default(1)
 // @Param limit query int false "Items per page" default(10)
-// @Param status query string false "Filter by status"
-// @Param q query string false "Search in title and audio filename"
-// @Success 200 {object} map[string]interface{}
-// @Router /api/v1/transcription/list [get]
-// @Security ApiKeyAuth
-// @Security BearerAuth
 // @Summary List all transcription records
 // @Description Get a list of all transcription jobs with optional search and filtering
 // @Tags transcription
 // @Produce json
 // @Param page query int false "Page number" default(1)
 // @Param limit query int false "Items per page" default(10)
+// @Param sort_by query string false "Sort By"
+// @Param sort_order query string false "Sort Order (asc/desc)"
 // @Param status query string false "Filter by status"
 // @Param q query string false "Search in title and audio filename"
+// @Param updated_after query string false "Filter by updated_at > timestamp (RFC3339)"
 // @Success 200 {object} map[string]interface{}
+// @Failure 500 {object} map[string]string
 // @Router /api/v1/transcription/list [get]
 // @Security ApiKeyAuth
 // @Security BearerAuth

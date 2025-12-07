@@ -380,6 +380,11 @@ definitions:
       default_profile_id:
         type: string
     type: object
+  api.ValidateOpenAIKeyRequest:
+    properties:
+      api_key:
+        type: string
+    type: object
   api.YouTubeDownloadRequest:
     properties:
       title:
@@ -516,6 +521,8 @@ definitions:
         type: string
       created_at:
         type: string
+      deleted_at:
+        type: string
       diarization:
         type: boolean
       error_message:
@@ -623,6 +630,9 @@ definitions:
       align_model:
         description: Alignment settings
         type: string
+      api_key:
+        description: OpenAI settings
+        type: string
       attention_context_left:
         description: NVIDIA Parakeet-specific parameters for long-form audio
         type: integer
@@ -634,6 +644,9 @@ definitions:
         type: integer
       best_of:
         type: integer
+      callback_url:
+        description: Webhook settings
+        type: string
       chunk_size:
         type: integer
       compression_ratio_threshold:
@@ -1365,6 +1378,51 @@ paths:
       summary: Get chat sessions for a transcription
       tags:
       - chat
+  /api/v1/config/openai/validate:
+    post:
+      consumes:
+      - application/json
+      description: Validate the provided OpenAI API key and return available Whisper
+        models
+      parameters:
+      - description: API Key
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/api.ValidateOpenAIKeyRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - ApiKeyAuth: []
+      - BearerAuth: []
+      summary: Validate OpenAI API Key
+      tags:
+      - config
   /api/v1/llm/config:
     get:
       description: Get the current active LLM configuration
@@ -2558,14 +2616,6 @@ paths:
         in: query
         name: limit
         type: integer
-      - description: Filter by status
-        in: query
-        name: status
-        type: string
-      - description: Search in title and audio filename
-        in: query
-        name: q
-        type: string
       - default: 1
         description: Page number
         in: query
@@ -2576,6 +2626,14 @@ paths:
         in: query
         name: limit
         type: integer
+      - description: Sort By
+        in: query
+        name: sort_by
+        type: string
+      - description: Sort Order (asc/desc)
+        in: query
+        name: sort_order
+        type: string
       - description: Filter by status
         in: query
         name: status
@@ -2583,6 +2641,10 @@ paths:
       - description: Search in title and audio filename
         in: query
         name: q
+        type: string
+      - description: Filter by updated_at > timestamp (RFC3339)
+        in: query
+        name: updated_after
         type: string
       produces:
       - application/json
@@ -2593,9 +2655,13 @@ paths:
           schema:
             additionalProperties: true
             type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
       security:
-      - ApiKeyAuth: []
-      - BearerAuth: []
       - ApiKeyAuth: []
       - BearerAuth: []
       summary: List all transcription records
