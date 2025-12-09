@@ -123,12 +123,18 @@ func (s *OpenAIService) GetModels(ctx context.Context) ([]string, error) {
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
 
-	// Filter for chat models (GPT models)
+	useDefault := s.baseURL == "https://api.openai.com/v1"
 	var chatModels []string
 	for _, model := range modelsResp.Data {
-		if strings.Contains(model.ID, "gpt") {
+		if useDefault {
+			// Filter for chat models (GPT models) if default OpenAI baseURL
+			if strings.Contains(model.ID, "gpt") {
+				chatModels = append(chatModels, model.ID)
+			}
+		} else {
+			// If custom baseURL → return all models
 			chatModels = append(chatModels, model.ID)
-		}
+    	}
 	}
 
 	return chatModels, nil
