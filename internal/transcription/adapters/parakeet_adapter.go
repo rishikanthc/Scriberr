@@ -209,7 +209,7 @@ torchaudio = [
     { index = "pytorch", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
 ]
 triton = [
-  { index = "pytorch", marker = "sys_platform == 'linux'" }
+    { index = "pytorch", marker = "sys_platform == 'linux'" }
 ]
 
 [[tool.uv.index]]
