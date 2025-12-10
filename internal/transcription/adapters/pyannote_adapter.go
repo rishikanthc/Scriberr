@@ -270,6 +270,11 @@ explicit = true
 
 // createDiarizationScript creates the Python script for PyAnnote diarization
 func (p *PyAnnoteAdapter) createDiarizationScript() error {
+	// Ensure the directory exists first
+	if err := os.MkdirAll(p.envPath, 0755); err != nil {
+		return fmt.Errorf("failed to create pyannote directory: %w", err)
+	}
+
 	scriptPath := filepath.Join(p.envPath, "pyannote_diarize.py")
 
 	// Always recreate the script to ensure it's up to date with the adapter code
