@@ -18,7 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
 import type { WhisperXParams } from "./TranscriptionConfigDialog";
-import { useAuth } from "../contexts/AuthContext";
+import { useAuth } from "@/features/auth/hooks/useAuth";
 
 interface TranscriptionProfile {
   id: string;

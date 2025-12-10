@@ -4,7 +4,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "./ui/alert-dialog";
 import { Trash2, FileText } from "lucide-react";
 import type { SummaryTemplate } from "./SummaryTemplateDialog";
-import { useAuth } from "../contexts/AuthContext";
+import { useAuth } from "@/features/auth/hooks/useAuth";
 
 interface SummaryTemplatesTableProps {
   onEdit: (tpl: SummaryTemplate) => void;

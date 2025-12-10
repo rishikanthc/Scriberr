@@ -13,7 +13,7 @@ import { AudioRecorder } from "./AudioRecorder";
 import { QuickTranscriptionDialog } from "./QuickTranscriptionDialog";
 import { YouTubeDownloadDialog } from "./YouTubeDownloadDialog";
 import { useRouter } from "../contexts/RouterContext";
-import { useAuth } from "../contexts/AuthContext";
+import { useAuth } from "@/features/auth/hooks/useAuth";
 import { isVideoFile, isAudioFile } from "../utils/fileProcessor";
 
 interface FileWithType {

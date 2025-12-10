@@ -71,7 +71,7 @@ import { Input } from "@/components/ui/input";
 import { TranscriptionConfigDialog, type WhisperXParams } from "./TranscriptionConfigDialog";
 import { TranscribeDDialog } from "./TranscribeDDialog";
 import { useRouter } from "../contexts/RouterContext";
-import { useAuth } from "../contexts/AuthContext";
+import { useAuth } from "@/features/auth/hooks/useAuth";
 import {
 	useReactTable,
 	getCoreRowModel,

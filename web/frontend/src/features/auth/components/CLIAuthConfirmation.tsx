@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react'
-import { useRouter } from '../contexts/RouterContext'
-import { useAuth } from '../contexts/AuthContext'
-import { Layout } from '../components/Layout'
+import { useState, useEffect } from "react";
+import { useAuth } from "@/features/auth/hooks/useAuth";
+import { useRouter } from "@/contexts/RouterContext";
+import { Layout } from "@/components/Layout";
 
 export function CLIAuthConfirmation() {
     const { currentRoute, navigate } = useRouter()

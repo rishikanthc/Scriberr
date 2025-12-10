@@ -4,7 +4,7 @@ import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Separator } from "./ui/separator";
 import { Eye, EyeOff, User, Lock, Check, X } from "lucide-react";
-import { useAuth } from "../contexts/AuthContext";
+import { useAuth } from "@/features/auth/hooks/useAuth";
 
 interface PasswordStrength {
 	hasMinLength: boolean;

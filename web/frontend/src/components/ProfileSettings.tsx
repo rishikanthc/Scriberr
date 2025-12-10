@@ -4,7 +4,7 @@ import { Label } from "./ui/label";
 import { Switch } from "./ui/switch";
 import { ProfilesTable } from "./ProfilesTable";
 import { TranscriptionConfigDialog, type WhisperXParams } from "./TranscriptionConfigDialog";
-import { useAuth } from "../contexts/AuthContext";
+import { useAuth } from "@/features/auth/hooks/useAuth";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Settings } from "lucide-react";
 

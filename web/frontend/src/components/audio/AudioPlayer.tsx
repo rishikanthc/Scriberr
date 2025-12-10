@@ -3,7 +3,7 @@ import WaveSurfer from 'wavesurfer.js';
 import { Play, Pause } from 'lucide-react';
 
 import { useTheme } from '@/contexts/ThemeContext';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/features/auth/hooks/useAuth';
 
 export interface AudioPlayerRef {
     playPause: () => void;

@@ -3,7 +3,7 @@ import { Header } from "./Header";
 import { AudioFilesTable } from "./AudioFilesTable";
 import { DragDropOverlay } from "./DragDropOverlay";
 import { MultiTrackUploadDialog } from "./MultiTrackUploadDialog";
-import { useAuth } from "../contexts/AuthContext";
+import { useAuth } from "@/features/auth/hooks/useAuth";
 import { Progress } from "./ui/progress";
 import { X, CheckCircle, AlertCircle } from "lucide-react";
 import {

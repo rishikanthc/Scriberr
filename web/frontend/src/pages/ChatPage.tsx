@@ -4,7 +4,7 @@ import { ChatInterface } from "../components/ChatInterface";
 import { Button } from "../components/ui/button";
 import { ArrowLeft, Sidebar } from "lucide-react";
 import { ThemeSwitcher } from "../components/ThemeSwitcher";
-import { useAuth } from "../contexts/AuthContext";
+import { useAuth } from "@/features/auth/hooks/useAuth";
 import { ChatSessionsSidebar } from "../components/ChatSessionsSidebar";
 
 export function ChatPage() {

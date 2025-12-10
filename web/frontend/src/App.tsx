@@ -6,7 +6,7 @@ const Homepage = lazy(() => import('./components/Homepage').then(module => ({ de
 const AudioDetailView = lazy(() => import('./components/AudioDetailView').then(module => ({ default: module.AudioDetailView })))
 const Settings = lazy(() => import('./pages/Settings').then(module => ({ default: module.Settings })))
 const CLISettings = lazy(() => import('./pages/CLISettings').then(module => ({ default: module.CLISettings })))
-const CLIAuthConfirmation = lazy(() => import('./pages/CLIAuthConfirmation').then(module => ({ default: module.CLIAuthConfirmation })))
+const CLIAuthConfirmation = lazy(() => import('./features/auth/components/CLIAuthConfirmation').then(module => ({ default: module.CLIAuthConfirmation })))
 const ChatPage = lazy(() => import('./pages/ChatPage').then(module => ({ default: module.ChatPage })))
 
 // Loading component
