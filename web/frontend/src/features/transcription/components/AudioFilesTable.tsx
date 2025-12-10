@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, memo, useRef } from "react";
+import { useState, useEffect, useMemo, useCallback, memo } from "react";
 import {
 	CheckCircle,
 	Clock,
@@ -68,10 +68,11 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { TranscriptionConfigDialog, type WhisperXParams } from "./TranscriptionConfigDialog";
-import { TranscribeDDialog } from "./TranscribeDDialog";
-import { useRouter } from "../contexts/RouterContext";
+import { TranscriptionConfigDialog, type WhisperXParams } from "@/components/TranscriptionConfigDialog";
+import { TranscribeDDialog } from "@/components/TranscribeDDialog";
+import { useRouter } from "@/contexts/RouterContext";
 import { useAuth } from "@/features/auth/hooks/useAuth";
+import { useAudioList, type AudioFile } from "@/features/transcription/hooks/useAudioFiles";
 import {
 	useReactTable,
 	getCoreRowModel,
@@ -121,43 +122,20 @@ function DebouncedSearchInput({
 	);
 }
 
-interface AudioFile {
-	id: string;
-	title?: string;
-	status: "uploaded" | "pending" | "processing" | "completed" | "failed";
-	created_at: string;
-	audio_path: string;
-	diarization?: boolean;
-	is_multi_track?: boolean;
-	error_message?: string;
-	individual_transcripts?: any;
-}
+
 
 interface AudioFilesTableProps {
-	refreshTrigger: number;
+	refreshTrigger?: number; // Optional now, kept for compatibility during refactor
 	onTranscribe?: (jobId: string) => void;
 }
 
-interface PaginationResponse {
-	jobs: AudioFile[];
-	pagination: {
-		page: number;
-		limit: number;
-		total: number;
-		pages: number;
-	};
-}
-
-
 export const AudioFilesTable = memo(function AudioFilesTable({
-	refreshTrigger,
 	onTranscribe,
 }: AudioFilesTableProps) {
 	const { navigate } = useRouter();
 	const { getAuthHeaders } = useAuth();
-	const [data, setData] = useState<AudioFile[]>([]);
-	const [loading, setLoading] = useState(true);
-	const [isPageChanging, setIsPageChanging] = useState(false);
+
+	// Table State
 	const [pagination, setPagination] = useState({
 		pageIndex: 0,
 		pageSize: 10,
@@ -167,13 +145,38 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 	]);
 	const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
 	const [globalFilter, setGlobalFilter] = useState("");
+
+	// Query
+	const {
+		data: queryData,
+		isLoading: queryLoading,
+		refetch,
+		isPlaceholderData
+	} = useAudioList({
+		page: pagination.pageIndex + 1,
+		limit: pagination.pageSize,
+		search: globalFilter,
+		sortBy: sorting[0]?.id,
+		sortOrder: sorting[0]?.desc ? 'desc' : 'asc'
+	});
+
+	const data = queryData?.jobs || [];
+	const totalItems = queryData?.pagination.total || 0;
+	const pageCount = queryData?.pagination.pages || 0;
+	const loading = queryLoading;
+	const isPageChanging = isPlaceholderData;
+
+	// Local state for UI
 	const [queuePositions, setQueuePositions] = useState<Record<string, number>>({});
+
 	const [openPopovers, setOpenPopovers] = useState<Record<string, boolean>>({});
 	const [rowSelection, setRowSelection] = useState({});
 	const [bulkActionLoading, setBulkActionLoading] = useState(false);
 	const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false);
-	const [totalItems, setTotalItems] = useState(0);
-	const [pageCount, setPageCount] = useState(0);
+	// data state removed
+	// loading state removed
+	// totalItems derived from query
+	// pageCount derived from query
 	const [configDialogOpen, setConfigDialogOpen] = useState(false);
 	const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
 	const [transcriptionLoading, setTranscriptionLoading] = useState(false);
@@ -186,125 +189,44 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 	const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 	const [selectedFile, setSelectedFile] = useState<AudioFile | null>(null);
 
-	const fetchAudioFiles = useCallback(async (page?: number, limit?: number, searchQuery?: string, isInitialLoad = false, isPolling = false) => {
-		try {
-			// Only show loading skeleton on initial load, use page changing indicator for pagination
-			if (isInitialLoad) {
-				setLoading(true);
-			} else if (!isPolling) {
-				// Only show loading indicator for user-triggered actions, not polling
-				setIsPageChanging(true);
+	// Side effects for queue and progress
+	useEffect(() => {
+		if (data.length > 0) {
+			fetchQueuePositions(data);
+			// Fetch track progress for processing multi-track jobs
+			const processingMultiTrackJobs = data.filter(job =>
+				job.is_multi_track && (job.status === "processing" || job.status === "pending")
+			);
+
+			if (processingMultiTrackJobs.length > 0) {
+				fetchTrackProgress(processingMultiTrackJobs);
 			}
-
-			const currentPage = page || pagination.pageIndex + 1;
-			const currentLimit = limit || pagination.pageSize;
-			const currentSearch = searchQuery !== undefined ? searchQuery : globalFilter;
-
-			const params = new URLSearchParams({
-				page: currentPage.toString(),
-				limit: currentLimit.toString(),
-			});
-
-			// Add search parameter if provided
-			if (currentSearch) {
-				params.set('q', currentSearch);
-			}
-
-			// Add sorting parameters
-			if (sorting.length > 0) {
-				params.set('sort_by', sorting[0].id);
-				params.set('sort_order', sorting[0].desc ? 'desc' : 'asc');
-			}
-
-			const response = await fetch(`/api/v1/transcription/list?${params}`, {
-				headers: {
-					...getAuthHeaders(),
-				},
-			});
-
-			if (response.ok) {
-				const result: PaginationResponse = await response.json();
-
-				// Smart update: Only update status fields during polling to preserve UI state
-				if (isPolling) {
-					setData(prevData => {
-						const newJobs = result.jobs || [];
-
-						// Update existing jobs if their status changed
-						const updatedData = prevData.map(existingJob => {
-							const updatedJob = newJobs.find(j => j.id === existingJob.id);
-							if (updatedJob) {
-								// Only update if anything actually changed (mainly status)
-								const hasChanges =
-									updatedJob.status !== existingJob.status ||
-									updatedJob.error_message !== existingJob.error_message ||
-									JSON.stringify(updatedJob.individual_transcripts) !== JSON.stringify(existingJob.individual_transcripts);
-
-								if (hasChanges) {
-									return { ...existingJob, ...updatedJob };
-								}
-							}
-							return existingJob; // Keep existing reference if no change
-						});
-
-						// Add any new jobs that appeared
-						const existingIds = new Set(prevData.map(job => job.id));
-						const newJobsToAdd = newJobs.filter(job => !existingIds.has(job.id));
-
-						return [...updatedData, ...newJobsToAdd];
-					});
-				} else {
-					// Full replacement for user-triggered actions
-					setData(result.jobs || []);
-				}
-
-				setTotalItems(result.pagination.total);
-				setPageCount(result.pagination.pages);
-				// Fetch queue positions for pending jobs
-				fetchQueuePositions(result.jobs || []);
-
-				// Fetch track progress for multi-track jobs that are processing
-				const processingMultiTrackJobs = (result.jobs || []).filter(job =>
-					job.is_multi_track && (job.status === "processing" || job.status === "pending")
-				);
-
-				if (processingMultiTrackJobs.length > 0) {
-					try {
-						const progressPromises = processingMultiTrackJobs.map(async (job) => {
-							const response = await fetch(`/api/v1/transcription/${job.id}/track-progress`, {
-								headers: {
-									...getAuthHeaders(),
-								},
-							});
-							if (response.ok) {
-								const progress = await response.json();
-								return { jobId: job.id, progress };
-							}
-							return null;
-						});
-
-						const results = await Promise.all(progressPromises);
-						const progressData: Record<string, any> = {};
-
-						results.forEach(result => {
-							if (result) {
-								progressData[result.jobId] = result.progress;
-							}
-						});
-
-						setTrackProgress(progressData);
-					} catch (error) {
-						console.error("Failed to fetch track progress:", error);
-					}
-				}
-			}
-		} catch (error) {
-			console.error("Failed to fetch audio files:", error);
-		} finally {
-			setLoading(false);
-			setIsPageChanging(false);
 		}
-	}, [pagination.pageIndex, pagination.pageSize, globalFilter, sorting, getAuthHeaders]);
+	}, [data]);
+
+	const fetchTrackProgress = async (jobs: AudioFile[]) => {
+		try {
+			const progressPromises = jobs.map(async (job) => {
+				const response = await fetch(`/api/v1/transcription/${job.id}/track-progress`, {
+					headers: { ...getAuthHeaders() },
+				});
+				if (response.ok) {
+					const progress = await response.json();
+					return { jobId: job.id, progress };
+				}
+				return null;
+			});
+
+			const results = await Promise.all(progressPromises);
+			const progressData: Record<string, any> = {};
+			results.forEach(result => {
+				if (result) progressData[result.jobId] = result.progress;
+			});
+			setTrackProgress(prev => ({ ...prev, ...progressData }));
+		} catch (error) {
+			console.error("Failed to fetch track progress:", error);
+		}
+	};
 
 	// Fetch queue positions for pending jobs
 	const fetchQueuePositions = async (jobs: AudioFile[]) => {
@@ -389,7 +311,6 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 				// Close dialog and refresh
 				setConfigDialogOpen(false);
 				setSelectedJobId(null);
-				fetchAudioFiles();
 				if (onTranscribe) {
 					onTranscribe(selectedJobId);
 				}
@@ -401,7 +322,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 		} finally {
 			setTranscriptionLoading(false);
 		}
-	}, [selectedJobId, fetchAudioFiles, onTranscribe]);
+	}, [selectedJobId, refetch, onTranscribe]);
 
 	// Handle actual transcription start with profile parameters
 	const handleStartTranscriptionWithProfile = useCallback(async (params: WhisperXParams, _profileId?: string) => {
@@ -435,7 +356,6 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 				// Close dialog and refresh
 				setTranscribeDDialogOpen(false);
 				setSelectedJobId(null);
-				fetchAudioFiles();
 				if (onTranscribe) {
 					onTranscribe(selectedJobId);
 				}
@@ -447,7 +367,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 		} finally {
 			setTranscriptionLoading(false);
 		}
-	}, [selectedJobId, fetchAudioFiles, onTranscribe]);
+	}, [selectedJobId, refetch, onTranscribe]);
 
 	// Check if job can be transcribed (not currently processing or pending)
 	const canTranscribe = useCallback((file: AudioFile) => {
@@ -469,14 +389,15 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 
 			if (response.ok) {
 				// Refresh to show updated list
-				fetchAudioFiles();
+				// Refresh to show updated list
+				refetch();
 			} else {
 				alert("Failed to delete audio file");
 			}
 		} catch {
 			alert("Error deleting audio file");
 		}
-	}, [fetchAudioFiles]);
+	}, [refetch]);
 
 	// Handle kill action
 	const handleKillJob = useCallback(async (jobId: string) => {
@@ -495,7 +416,8 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 
 			if (response.ok) {
 				// Refresh to show updated status
-				fetchAudioFiles();
+				// Refresh to show updated status
+				refetch();
 			} else {
 				alert("Failed to kill transcription job");
 			}
@@ -508,7 +430,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 				return newSet;
 			});
 		}
-	}, [fetchAudioFiles]);
+	}, [refetch]);
 
 	// Bulk Actions Handlers
 	const handleBulkTranscribe = useCallback(async (params: WhisperXParams) => {
@@ -540,14 +462,15 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 			setRowSelection({});
 			setConfigDialogOpen(false);
 			setTranscribeDDialogOpen(false);
-			fetchAudioFiles();
+			setTranscribeDDialogOpen(false);
+			refetch();
 		} catch (error) {
 			console.error("Bulk transcribe error:", error);
 			alert("Error processing bulk transcription");
 		} finally {
 			setBulkActionLoading(false);
 		}
-	}, [rowSelection, data, getAuthHeaders, fetchAudioFiles]);
+	}, [rowSelection, data, getAuthHeaders, refetch]);
 
 	const handleBulkDelete = useCallback(async () => {
 		const selectedIds = Object.keys(rowSelection);
@@ -568,14 +491,15 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 			// Clear selection and refresh
 			setRowSelection({});
 			setBulkDeleteDialogOpen(false);
-			fetchAudioFiles();
+			setBulkDeleteDialogOpen(false);
+			refetch();
 		} catch (error) {
 			console.error("Bulk delete error:", error);
 			alert("Error processing bulk delete");
 		} finally {
 			setBulkActionLoading(false);
 		}
-	}, [rowSelection, getAuthHeaders, fetchAudioFiles]);
+	}, [rowSelection, getAuthHeaders, refetch]);
 
 	// Modified handlers to support bulk actions
 	const onStartTranscribe = (params: WhisperXParams) => {
@@ -594,14 +518,14 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 		}
 	};
 
-	// Initial load
-	useEffect(() => {
+	// Initial load handled by useQuery
+	/* useEffect(() => {
 		const isInitialLoad = data.length === 0;
 		fetchAudioFiles(undefined, undefined, undefined, isInitialLoad);
-	}, [refreshTrigger, fetchAudioFiles]);
+	}, [refreshTrigger, fetchAudioFiles]); */
 
-	// Handle pagination, search, and sorting changes
-	useEffect(() => {
+	// Data fetching handled by useQuery dependencies
+	/* useEffect(() => {
 		if (data.length > 0) { // Only fetch if not initial load
 			fetchAudioFiles(
 				pagination.pageIndex + 1,
@@ -609,7 +533,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 				globalFilter || undefined
 			);
 		}
-	}, [pagination.pageIndex, pagination.pageSize, globalFilter, sorting, fetchAudioFiles]);
+	}, [pagination.pageIndex, pagination.pageSize, globalFilter, sorting, fetchAudioFiles]); */
 
 	// Reset to first page when search changes
 	useEffect(() => {
@@ -618,39 +542,39 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 		}
 	}, [globalFilter]);
 
-	// Smart polling: only poll when there are active jobs and increase interval when idle
-	const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
-
+	// Polling handled by useQuery refetchInterval
+	/* const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+	
 	useEffect(() => {
 		const activeJobs = data.filter(
 			(job) => job.status === "pending" || job.status === "processing",
 		);
-
+	
 		// Clear any existing polling interval
 		if (pollingIntervalRef.current) {
 			clearInterval(pollingIntervalRef.current);
 			pollingIntervalRef.current = null;
 		}
-
+	
 		// Only poll if there are active jobs
 		if (activeJobs.length > 0) {
 			// Use shorter interval for processing jobs, longer for pending jobs
 			const hasProcessingJobs = activeJobs.some(job => job.status === "processing");
 			const pollingInterval = hasProcessingJobs ? 2000 : 5000; // 2s for processing, 5s for pending
-
+	
 			pollingIntervalRef.current = setInterval(() => {
 				// Keep current pagination when polling, but don't show loading indicators
 				fetchAudioFiles(undefined, undefined, undefined, false, true);
 			}, pollingInterval);
 		}
-
+	
 		return () => {
 			if (pollingIntervalRef.current) {
 				clearInterval(pollingIntervalRef.current);
 				pollingIntervalRef.current = null;
 			}
 		};
-	}, [data, fetchAudioFiles]);
+	}, [data, fetchAudioFiles]); */
 
 	const getStatusIcon = useCallback((file: AudioFile) => {
 		const iconSize = 16;

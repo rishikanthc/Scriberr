@@ -10,8 +10,8 @@ import { Upload, Mic, Settings, LogOut, Home, Plus, Grip, Zap, Youtube, Video, U
 import { ScriberrLogo } from "./ScriberrLogo";
 import { ThemeSwitcher } from "./ThemeSwitcher";
 import { AudioRecorder } from "./AudioRecorder";
-import { QuickTranscriptionDialog } from "./QuickTranscriptionDialog";
-import { YouTubeDownloadDialog } from "./YouTubeDownloadDialog";
+import { QuickTranscriptionDialog } from "@/features/transcription/components/QuickTranscriptionDialog";
+import { YouTubeDownloadDialog } from "@/features/transcription/components/YouTubeDownloadDialog";
 import { useRouter } from "../contexts/RouterContext";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { isVideoFile, isAudioFile } from "../utils/fileProcessor";

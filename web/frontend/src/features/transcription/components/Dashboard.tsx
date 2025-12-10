@@ -1,10 +1,10 @@
 import { useState, useCallback, useRef } from "react";
-import { Header } from "./Header";
+import { Header } from "@/components/Header";
 import { AudioFilesTable } from "./AudioFilesTable";
-import { DragDropOverlay } from "./DragDropOverlay";
+import { DragDropOverlay } from "@/components/DragDropOverlay";
 import { MultiTrackUploadDialog } from "./MultiTrackUploadDialog";
-import { useAuth } from "@/features/auth/hooks/useAuth";
-import { Progress } from "./ui/progress";
+import { useAudioUpload, useMultiTrackUpload } from "@/features/transcription/hooks/useAudioFiles";
+import { Progress } from "@/components/ui/progress";
 import { X, CheckCircle, AlertCircle } from "lucide-react";
 import {
 	groupFiles,
@@ -13,7 +13,7 @@ import {
 	hasValidFiles,
 	getFileDescription,
 	validateMultiTrackFiles
-} from "../utils/fileProcessor";
+} from "@/utils/fileProcessor";
 
 interface FileWithType {
 	file: File;
@@ -26,9 +26,10 @@ interface UploadProgress {
 	error?: string;
 }
 
-export function Homepage() {
-	const { getAuthHeaders } = useAuth();
-	const [refreshTrigger, setRefreshTrigger] = useState(0);
+export function Dashboard() {
+	const { mutateAsync: uploadFile } = useAudioUpload();
+	const { mutateAsync: uploadMultiTrack } = useMultiTrackUpload();
+
 	const [uploadProgress, setUploadProgress] = useState<UploadProgress[]>([]);
 	const [isUploading, setIsUploading] = useState(false);
 
@@ -40,45 +41,7 @@ export function Homepage() {
 	const [multiTrackPreview, setMultiTrackPreview] = useState<{ audioFiles: File[], aupFile: File, title: string } | null>(null);
 	const dragCounter = useRef(0);
 
-	const uploadSingleFile = async (file: File): Promise<boolean> => {
-		const formData = new FormData();
-		formData.append("audio", file);
-		formData.append("title", file.name.replace(/\.[^/.]+$/, ""));
 
-		try {
-			const response = await fetch("/api/v1/transcription/upload", {
-				method: "POST",
-				headers: {
-					...getAuthHeaders(),
-				},
-				body: formData,
-			});
-
-			return response.ok;
-		} catch {
-			return false;
-		}
-	};
-
-	const uploadSingleVideo = async (file: File): Promise<boolean> => {
-		const formData = new FormData();
-		formData.append("video", file);
-		formData.append("title", file.name.replace(/\.[^/.]+$/, ""));
-
-		try {
-			const response = await fetch("/api/v1/transcription/upload-video", {
-				method: "POST",
-				headers: {
-					...getAuthHeaders(),
-				},
-				body: formData,
-			});
-
-			return response.ok;
-		} catch {
-			return false;
-		}
-	};
 
 	const handleFileSelect = async (files: File | File[] | FileWithType | FileWithType[]) => {
 		// Normalize input to an array of FileWithType objects
@@ -110,36 +73,29 @@ export function Homepage() {
 			const isVideo = fileItem.isVideo;
 
 			try {
-				const success = isVideo ? await uploadSingleVideo(file) : await uploadSingleFile(file);
+				await uploadFile({ file, isVideo });
 
 				setUploadProgress(prev => prev.map((item, index) =>
 					index === i ? {
 						...item,
-						status: success ? 'success' : 'error',
-						error: success ? undefined : (isVideo ? 'Video upload failed' : 'Upload failed')
+						status: 'success',
+						error: undefined
 					} : item
 				));
 
-				if (success) {
-					successCount++;
-				}
+				successCount++;
 			} catch (error) {
 				setUploadProgress(prev => prev.map((item, index) =>
 					index === i ? {
 						...item,
 						status: 'error',
-						error: 'Network error'
+						error: error instanceof Error ? error.message : 'Upload failed'
 					} : item
 				));
 			}
 		}
 
 		setIsUploading(false);
-
-		// Refresh table if any uploads succeeded
-		if (successCount > 0) {
-			setRefreshTrigger((prev) => prev + 1);
-		}
 
 		// Auto-hide progress after 3 seconds if all succeeded
 		if (successCount === fileArray.length) {
@@ -148,8 +104,7 @@ export function Homepage() {
 	};
 
 	const handleTranscribe = () => {
-		// Refresh table when transcription starts
-		setRefreshTrigger((prev) => prev + 1);
+		// Table auto-refreshes when transcription starts via query invalidation
 	};
 
 	const dismissProgress = () => {
@@ -168,46 +123,21 @@ export function Homepage() {
 		setUploadProgress([multiTrackProgress]);
 
 		try {
-			const formData = new FormData();
-			formData.append('title', title);
-			formData.append('aup', aupFile);
+			await uploadMultiTrack({ files, aupFile, title });
 
-			files.forEach(file => {
-				formData.append('tracks', file);
-			});
+			setUploadProgress([{
+				...multiTrackProgress,
+				status: 'success'
+			}]);
 
-			const response = await fetch("/api/v1/transcription/upload-multitrack", {
-				method: "POST",
-				headers: {
-					...getAuthHeaders(),
-				},
-				body: formData,
-			});
+			// Auto-hide progress after 3 seconds
+			setTimeout(() => setUploadProgress([]), 3000);
 
-			if (response.ok) {
-				setUploadProgress([{
-					...multiTrackProgress,
-					status: 'success'
-				}]);
-
-				// Refresh table
-				setRefreshTrigger((prev) => prev + 1);
-
-				// Auto-hide progress after 3 seconds
-				setTimeout(() => setUploadProgress([]), 3000);
-			} else {
-				const errorData = await response.json();
-				setUploadProgress([{
-					...multiTrackProgress,
-					status: 'error',
-					error: errorData.error || 'Upload failed'
-				}]);
-			}
 		} catch (error) {
 			setUploadProgress([{
 				...multiTrackProgress,
 				status: 'error',
-				error: 'Upload failed: Network error'
+				error: error instanceof Error ? error.message : 'Upload failed'
 			}]);
 		} finally {
 			setIsUploading(false);
@@ -318,7 +248,9 @@ export function Homepage() {
 				<Header
 					onFileSelect={handleFileSelect}
 					onMultiTrackClick={() => setIsMultiTrackDialogOpen(true)}
-					onDownloadComplete={() => setRefreshTrigger((prev) => prev + 1)}
+					onDownloadComplete={() => {
+						// Table auto-refreshes due to query invalidation
+					}}
 				/>
 
 				{/* Upload Progress */}
@@ -384,7 +316,6 @@ export function Homepage() {
 				)}
 
 				<AudioFilesTable
-					refreshTrigger={refreshTrigger}
 					onTranscribe={handleTranscribe}
 				/>
 			</div>
