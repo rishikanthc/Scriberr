@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Youtube, Download, AlertCircle, CheckCircle } from "lucide-react";
-import { useAuth } from "@/features/auth/hooks/useAuth";
+import { useYouTubeDownload } from "@/features/transcription/hooks/useAudioFiles";
 
 interface YouTubeDownloadDialogProps {
   isOpen: boolean;
@@ -23,10 +23,9 @@ export function YouTubeDownloadDialog({
   onClose,
   onDownloadComplete
 }: YouTubeDownloadDialogProps) {
-  const { getAuthHeaders } = useAuth();
+  const { mutateAsync: downloadYouTube, isPending: isDownloading } = useYouTubeDownload();
   const [url, setUrl] = useState("");
   const [title, setTitle] = useState("");
-  const [isDownloading, setIsDownloading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
@@ -47,45 +46,24 @@ export function YouTubeDownloadDialog({
       return;
     }
 
-    setIsDownloading(true);
     setError(null);
 
     try {
-      const response = await fetch("/api/v1/transcription/youtube", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...getAuthHeaders(),
-        },
-        body: JSON.stringify({
-          url: url.trim(),
-          title: title.trim() || undefined,
-        }),
-      });
-
-      if (response.ok) {
-        setSuccess(true);
-        setTimeout(() => {
-          handleClose();
-          onDownloadComplete?.();
-        }, 2000);
-      } else {
-        const errorData = await response.json();
-        setError(errorData.error || "Failed to download YouTube audio");
-      }
+      await downloadYouTube({ url, title });
+      setSuccess(true);
+      setTimeout(() => {
+        handleClose();
+        onDownloadComplete?.();
+      }, 2000);
     } catch (err) {
-      setError("Network error occurred. Please try again.");
-    } finally {
-      setIsDownloading(false);
+      setError(err instanceof Error ? err.message : "Network error occurred. Please try again.");
     }
   };
 
   const handleClose = () => {
-    setUrl("");
     setTitle("");
     setError(null);
     setSuccess(false);
-    setIsDownloading(false);
     onClose();
   };
 

@@ -10,14 +10,11 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 import { Upload, Clock, CheckCircle, XCircle, FileAudio, Zap } from "lucide-react";
+import { useTranscriptionProfiles, useQuickTranscription } from "@/features/transcription/hooks/useAudioFiles";
+import type { Profile } from "@/features/transcription/hooks/useAudioFiles";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 
-interface Profile {
-  id: string;
-  name: string;
-  description?: string;
-  is_default: boolean;
-}
+
 
 interface QuickTranscriptionJob {
   id: string;
@@ -52,21 +49,26 @@ interface QuickTranscriptionDialogProps {
 
 export function QuickTranscriptionDialog({ isOpen, onClose }: QuickTranscriptionDialogProps) {
   const { getAuthHeaders } = useAuth();
+  const { data: profiles = [] } = useTranscriptionProfiles();
+  const { mutateAsync: submitQuickTranscription } = useQuickTranscription();
+
   const [step, setStep] = useState<"upload" | "profile" | "processing" | "result">("upload");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [profiles, setProfiles] = useState<Profile[]>([]);
   const [selectedProfile, setSelectedProfile] = useState<string>("");
   const [job, setJob] = useState<QuickTranscriptionJob | null>(null);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Load profiles when dialog opens
+  // Set default profile when profiles load
   useEffect(() => {
-    if (isOpen && profiles.length === 0) {
-      loadProfiles();
+    if (profiles.length > 0 && !selectedProfile) {
+      const defaultProfile = profiles.find((p: Profile) => p.is_default);
+      if (defaultProfile) {
+        setSelectedProfile(defaultProfile.name);
+      }
     }
-  }, [isOpen]);
+  }, [profiles, selectedProfile]);
 
   // Cleanup polling on unmount
   useEffect(() => {
@@ -77,24 +79,7 @@ export function QuickTranscriptionDialog({ isOpen, onClose }: QuickTranscription
     };
   }, []);
 
-  const loadProfiles = async () => {
-    try {
-      const response = await fetch("/api/v1/profiles/", {
-        headers: getAuthHeaders(),
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setProfiles(data);
-        // Set default profile if available
-        const defaultProfile = data.find((p: Profile) => p.is_default);
-        if (defaultProfile) {
-          setSelectedProfile(defaultProfile.name);
-        }
-      }
-    } catch (err) {
-      console.error("Failed to load profiles:", err);
-    }
-  };
+
 
   const handleFileSelect = () => {
     fileInputRef.current?.click();
@@ -115,30 +100,16 @@ export function QuickTranscriptionDialog({ isOpen, onClose }: QuickTranscription
     setError(null);
 
     try {
-      const formData = new FormData();
-      formData.append("audio", selectedFile);
-
-      if (selectedProfile) {
-        formData.append("profile_name", selectedProfile);
-      }
-
-      const response = await fetch("/api/v1/transcription/quick", {
-        method: "POST",
-        headers: getAuthHeaders(),
-        body: formData,
+      const jobData = await submitQuickTranscription({
+        file: selectedFile,
+        profileName: selectedProfile || undefined
       });
 
-      if (response.ok) {
-        const jobData = await response.json();
-        setJob(jobData);
-        startPolling(jobData.id);
-      } else {
-        const errorData = await response.json();
-        setError(errorData.error || "Failed to submit transcription");
-        setStep("profile");
-      }
+      setJob(jobData);
+      startPolling(jobData.id);
+
     } catch (err) {
-      setError("Network error occurred");
+      setError(err instanceof Error ? err.message : "Failed to submit transcription");
       setStep("profile");
     }
   };

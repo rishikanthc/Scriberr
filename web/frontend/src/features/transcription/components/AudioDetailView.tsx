@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef, memo } from "react";
 import { createPortal } from "react-dom";
 import { ArrowLeft, Play, Pause, Check, StickyNote, Plus, X, Sparkles, Pencil, ChevronUp, ChevronDown, Info, Clock, Settings, Users, Loader2, Home, FileText, Download, Ear } from "lucide-react";
-import { AudioPlayer, type AudioPlayerRef } from "./audio/AudioPlayer";
-import { TranscriptView } from "./transcript/TranscriptView";
-import { TranscriptToolbar } from "./transcript/TranscriptToolbar";
-import { Button } from "./ui/button";
+import { AudioPlayer, type AudioPlayerRef } from "@/components/audio/AudioPlayer";
+import { TranscriptView } from "@/components/transcript/TranscriptView";
+import { TranscriptToolbar } from "@/components/transcript/TranscriptToolbar";
+import { Button } from "@/components/ui/button";
 import {
     Dialog,
     DialogContent,
@@ -12,29 +12,29 @@ import {
     DialogFooter,
     DialogHeader,
     DialogTitle,
-} from "./ui/dialog";
-import { Label } from "./ui/label";
-import { Switch } from "./ui/switch";
-import { useRouter } from "../contexts/RouterContext";
-import { ThemeSwitcher } from "./ThemeSwitcher";
-import { useIsMobile } from "../hooks/use-mobile";
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { useRouter } from "@/contexts/RouterContext";
+import { ThemeSwitcher } from "@/components/ThemeSwitcher";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 import { useAuth } from "@/features/auth/hooks/useAuth";
-import { ChatInterface } from "./ChatInterface";
-import type { Note } from "../types/note";
-import { NotesSidebar } from "./NotesSidebar";
-import SpeakerRenameDialog from "./SpeakerRenameDialog";
+import { ChatInterface } from "@/components/ChatInterface";
+import type { Note } from "@/types/note";
+import { NotesSidebar } from "@/components/NotesSidebar";
+import SpeakerRenameDialog from "@/components/SpeakerRenameDialog";
 import ReactMarkdown from 'react-markdown';
 import rehypeRaw from 'rehype-raw';
 import rehypeHighlight from 'rehype-highlight';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
-import { Dialog as UIDialog, DialogContent as UIDialogContent, DialogHeader as UIDialogHeader, DialogTitle as UIDialogTitle, DialogDescription as UIDialogDescription } from "./ui/dialog";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "./ui/command";
-import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
-import { Label as UILabel } from "./ui/label";
-import { useToast } from "./ui/toast";
-import { MergeStatusBadge } from "./MergeStatusBadge";
+import { Dialog as UIDialog, DialogContent as UIDialogContent, DialogHeader as UIDialogHeader, DialogTitle as UIDialogTitle, DialogDescription as UIDialogDescription } from "@/components/ui/dialog";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Label as UILabel } from "@/components/ui/label";
+import { useToast } from "@/components/ui/toast";
+import { MergeStatusBadge } from "@/components/MergeStatusBadge";
 
 interface MultiTrackFile {
     id: number;

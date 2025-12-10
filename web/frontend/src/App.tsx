@@ -2,8 +2,8 @@ import { lazy, Suspense } from 'react'
 import { useRouter } from './contexts/RouterContext'
 
 // Lazy load route components for better performance
-const Homepage = lazy(() => import('./components/Homepage').then(module => ({ default: module.Homepage })))
-const AudioDetailView = lazy(() => import('./components/AudioDetailView').then(module => ({ default: module.AudioDetailView })))
+const Dashboard = lazy(() => import("@/features/transcription/components/Dashboard").then(module => ({ default: module.Dashboard })));
+const AudioDetailView = lazy(() => import("@/features/transcription/components/AudioDetailView").then(module => ({ default: module.AudioDetailView })));
 const Settings = lazy(() => import('./pages/Settings').then(module => ({ default: module.Settings })))
 const CLISettings = lazy(() => import('./pages/CLISettings').then(module => ({ default: module.CLISettings })))
 const CLIAuthConfirmation = lazy(() => import('./features/auth/components/CLIAuthConfirmation').then(module => ({ default: module.CLIAuthConfirmation })))
@@ -32,7 +32,7 @@ function App() {
       ) : currentRoute.path === 'chat' ? (
         <ChatPage />
       ) : (
-        <Homepage />
+        <Dashboard />
       )}
     </Suspense>
   )
