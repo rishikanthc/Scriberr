@@ -7,16 +7,18 @@ import './App.css'
 import App from './App.tsx'
 import { ThemeProvider } from './contexts/ThemeContext'
 import { RouterProvider } from './contexts/RouterContext'
-import { AuthProvider } from './contexts/AuthContext'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { ToastProvider } from '@/components/ui/toast'
 import { ChatEventsProvider } from './contexts/ChatEventsContext'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+
+const queryClient = new QueryClient()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <ThemeProvider>
-      <AuthProvider>
+    <QueryClientProvider client={queryClient}>
+      <ThemeProvider>
         <RouterProvider>
           <TooltipProvider>
             <ToastProvider>
@@ -28,7 +30,7 @@ createRoot(document.getElementById('root')!).render(
             </ToastProvider>
           </TooltipProvider>
         </RouterProvider>
-      </AuthProvider>
-    </ThemeProvider>
+      </ThemeProvider>
+    </QueryClientProvider>
   </StrictMode>,
 )

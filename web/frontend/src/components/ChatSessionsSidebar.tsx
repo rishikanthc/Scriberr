@@ -5,7 +5,7 @@ import { Input } from './ui/input'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
 import { Label } from './ui/label'
-import { useAuth } from '../contexts/AuthContext'
+import { useAuth } from '@/features/auth/hooks/useAuth'
 import { useChatEvents } from '../contexts/ChatEventsContext'
 
 interface ChatSession {

@@ -19,7 +19,7 @@ import { useRouter } from "../contexts/RouterContext";
 import { ThemeSwitcher } from "./ThemeSwitcher";
 import { useIsMobile } from "../hooks/use-mobile";
 
-import { useAuth } from "../contexts/AuthContext";
+import { useAuth } from "@/features/auth/hooks/useAuth";
 import { ChatInterface } from "./ChatInterface";
 import type { Note } from "../types/note";
 import { NotesSidebar } from "./NotesSidebar";

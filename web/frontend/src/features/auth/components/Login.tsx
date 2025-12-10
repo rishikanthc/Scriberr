@@ -1,18 +1,18 @@
 import { useState } from "react";
-import { Button } from "../components/ui/button";
-import { Input } from "../components/ui/input";
-import { Label } from "../components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card";
-import { ScriberrLogo } from "../components/ScriberrLogo";
-import { useRouter } from "../contexts/RouterContext";
-import { ThemeSwitcher } from "../components/ThemeSwitcher";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { ScriberrLogo } from "@/components/ScriberrLogo";
+import { useRouter } from "@/contexts/RouterContext";
+import { ThemeSwitcher } from "@/components/ThemeSwitcher";
 
 interface LoginProps {
 	onLogin: (token: string) => void;
 }
 
 export function Login({ onLogin }: LoginProps) {
-    const { navigate } = useRouter();
+	const { navigate } = useRouter();
 	const [username, setUsername] = useState("");
 	const [password, setPassword] = useState("");
 	const [loading, setLoading] = useState(false);
@@ -55,12 +55,12 @@ export function Login({ onLogin }: LoginProps) {
 			<div className="absolute top-8 right-8">
 				<ThemeSwitcher />
 			</div>
-			
+
 			<div className="w-full max-w-md space-y-8">
 				<div className="text-center">
-                <div className="flex justify-center mb-6">
-                    <ScriberrLogo onClick={() => navigate({ path: 'home' })} />
-                </div>
+					<div className="flex justify-center mb-6">
+						<ScriberrLogo onClick={() => navigate({ path: 'home' })} />
+					</div>
 					<h2 className="text-3xl font-bold text-carbon-900 dark:text-carbon-100">
 						Sign in to Scriberr
 					</h2>
@@ -83,7 +83,7 @@ export function Login({ onLogin }: LoginProps) {
 									<p className="text-red-700 dark:text-red-300 text-sm">{error}</p>
 								</div>
 							)}
-							
+
 							<div className="space-y-2">
 								<Label htmlFor="username" className="text-carbon-700 dark:text-carbon-300">
 									Username
@@ -99,7 +99,7 @@ export function Login({ onLogin }: LoginProps) {
 									className="bg-white dark:bg-carbon-800 border-carbon-300 dark:border-carbon-600 text-carbon-900 dark:text-carbon-100"
 								/>
 							</div>
-							
+
 							<div className="space-y-2">
 								<Label htmlFor="password" className="text-carbon-700 dark:text-carbon-300">
 									Password
@@ -115,7 +115,7 @@ export function Login({ onLogin }: LoginProps) {
 									className="bg-white dark:bg-carbon-800 border-carbon-300 dark:border-carbon-600 text-carbon-900 dark:text-carbon-100"
 								/>
 							</div>
-							
+
 							<Button
 								type="submit"
 								className="w-full bg-blue-600 hover:bg-blue-700 text-white"

@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
-import { useAuth } from "../contexts/AuthContext";
-import { Login } from "../pages/Login";
-import { Register } from "../pages/Register";
+import { useAuth } from "@/features/auth/hooks/useAuth";
+import { Login } from "@/features/auth/components/Login";
+import { Register } from "@/features/auth/components/Register";
 
 interface ProtectedRouteProps {
 	children: ReactNode;

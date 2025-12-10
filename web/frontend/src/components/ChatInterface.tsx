@@ -7,7 +7,7 @@ import rehypeRaw from 'rehype-raw'
 import rehypeHighlight from 'rehype-highlight'
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
-import { useAuth } from "../contexts/AuthContext";
+import { useAuth } from "@/features/auth/hooks/useAuth";
 import { useChatEvents } from "../contexts/ChatEventsContext";
 import { useToast } from "./ui/toast";
 

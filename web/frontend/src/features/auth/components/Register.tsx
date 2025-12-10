@@ -1,11 +1,11 @@
 import { useState } from "react";
-import { Button } from "../components/ui/button";
-import { Input } from "../components/ui/input";
-import { Label } from "../components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card";
-import { ScriberrLogo } from "../components/ScriberrLogo";
-import { useRouter } from "../contexts/RouterContext";
-import { ThemeSwitcher } from "../components/ThemeSwitcher";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { ScriberrLogo } from "@/components/ScriberrLogo";
+import { useRouter } from "@/contexts/RouterContext";
+import { ThemeSwitcher } from "@/components/ThemeSwitcher";
 import { Eye, EyeOff, Check, X } from "lucide-react";
 
 interface RegisterProps {
@@ -21,7 +21,7 @@ interface PasswordStrength {
 }
 
 export function Register({ onRegister }: RegisterProps) {
-    const { navigate } = useRouter();
+	const { navigate } = useRouter();
 	const [username, setUsername] = useState("");
 	const [password, setPassword] = useState("");
 	const [confirmPassword, setConfirmPassword] = useState("");
@@ -99,12 +99,12 @@ export function Register({ onRegister }: RegisterProps) {
 			<div className="absolute top-8 right-8">
 				<ThemeSwitcher />
 			</div>
-			
+
 			<div className="w-full max-w-md space-y-8">
 				<div className="text-center">
-                <div className="flex justify-center mb-6">
-                    <ScriberrLogo onClick={() => navigate({ path: 'home' })} />
-                </div>
+					<div className="flex justify-center mb-6">
+						<ScriberrLogo onClick={() => navigate({ path: 'home' })} />
+					</div>
 					<h2 className="text-3xl font-bold text-carbon-900 dark:text-carbon-100">
 						Welcome to Scriberr
 					</h2>
@@ -127,7 +127,7 @@ export function Register({ onRegister }: RegisterProps) {
 									<p className="text-red-700 dark:text-red-300 text-sm">{error}</p>
 								</div>
 							)}
-							
+
 							<div className="space-y-2">
 								<Label htmlFor="username" className="text-carbon-700 dark:text-carbon-300">
 									Username
@@ -145,7 +145,7 @@ export function Register({ onRegister }: RegisterProps) {
 									className="bg-white dark:bg-carbon-800 border-carbon-300 dark:border-carbon-600 text-carbon-900 dark:text-carbon-100"
 								/>
 							</div>
-							
+
 							<div className="space-y-2">
 								<Label htmlFor="password" className="text-carbon-700 dark:text-carbon-300">
 									Password
@@ -169,7 +169,7 @@ export function Register({ onRegister }: RegisterProps) {
 										{showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
 									</button>
 								</div>
-								
+
 								{password && (
 									<div className="mt-3 space-y-2 p-3 bg-carbon-50 dark:bg-carbon-800 rounded-lg">
 										<p className="text-sm font-medium text-carbon-700 dark:text-carbon-300">Password Requirements:</p>
@@ -183,7 +183,7 @@ export function Register({ onRegister }: RegisterProps) {
 									</div>
 								)}
 							</div>
-							
+
 							<div className="space-y-2">
 								<Label htmlFor="confirmPassword" className="text-carbon-700 dark:text-carbon-300">
 									Confirm Password
@@ -197,9 +197,8 @@ export function Register({ onRegister }: RegisterProps) {
 										onChange={(e) => setConfirmPassword(e.target.value)}
 										disabled={loading}
 										required
-										className={`bg-white dark:bg-carbon-800 border-carbon-300 dark:border-carbon-600 text-carbon-900 dark:text-carbon-100 pr-10 ${
-											confirmPassword && !passwordsMatch ? 'border-red-300 dark:border-red-600' : ''
-										}`}
+										className={`bg-white dark:bg-carbon-800 border-carbon-300 dark:border-carbon-600 text-carbon-900 dark:text-carbon-100 pr-10 ${confirmPassword && !passwordsMatch ? 'border-red-300 dark:border-red-600' : ''
+											}`}
 									/>
 									<button
 										type="button"
@@ -209,17 +208,16 @@ export function Register({ onRegister }: RegisterProps) {
 										{showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
 									</button>
 								</div>
-								
+
 								{confirmPassword && (
-									<div className={`flex items-center gap-2 text-sm ${
-										passwordsMatch ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
-									}`}>
+									<div className={`flex items-center gap-2 text-sm ${passwordsMatch ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+										}`}>
 										{passwordsMatch ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
 										<span>{passwordsMatch ? "Passwords match" : "Passwords do not match"}</span>
 									</div>
 								)}
 							</div>
-							
+
 							<Button
 								type="submit"
 								className="w-full bg-blue-600 hover:bg-blue-700 text-white"

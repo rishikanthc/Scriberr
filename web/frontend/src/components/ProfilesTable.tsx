@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { MoreVertical, Trash2, Settings, Terminal } from "lucide-react";
 import { Button } from "./ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
-import { useAuth } from "../contexts/AuthContext";
+import { useAuth } from "@/features/auth/hooks/useAuth";
 import {
 	AlertDialog,
 	AlertDialogAction,

@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
 import { Loader2, Users, Save, X } from 'lucide-react';
-import { useAuth } from "../contexts/AuthContext";
+import { useAuth } from "@/features/auth/hooks/useAuth";
 // Note: Install framer-motion for enhanced animations
 // import { motion, AnimatePresence } from 'framer-motion';
 
