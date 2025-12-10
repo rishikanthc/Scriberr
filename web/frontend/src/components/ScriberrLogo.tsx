@@ -1,4 +1,5 @@
 import { useTheme } from "@/contexts/ThemeContext";
+import { ScriberrTextLogo } from "./ScriberrTextLogo";
 
 export function ScriberrLogo({ className = "", onClick }: { className?: string; onClick?: () => void }) {
   const clickable = typeof onClick === 'function';
@@ -11,7 +12,7 @@ export function ScriberrLogo({ className = "", onClick }: { className?: string; 
 
   return (
     <div
-      className={`${className} ${clickable ? 'cursor-pointer hover:opacity-90 focus:opacity-90 outline-none' : ''}`}
+      className={`${className} flex items-center gap-2 ${clickable ? 'cursor-pointer hover:opacity-90 focus:opacity-90 outline-none' : ''}`}
       role={clickable ? 'button' as const : undefined}
       tabIndex={clickable ? 0 : undefined}
       onClick={onClick}
@@ -23,6 +24,7 @@ export function ScriberrLogo({ className = "", onClick }: { className?: string; 
         }
       }}
     >
+      {/* Icon Logo */}
       <svg
         id="svg"
         version="1.1"
@@ -31,7 +33,7 @@ export function ScriberrLogo({ className = "", onClick }: { className?: string; 
         viewBox="0 0 206.37398 159.8615"
         xmlns="http://www.w3.org/2000/svg"
         className="h-8 sm:h-10 w-auto select-none transition-all duration-300"
-        aria-label="Scriberr"
+        aria-label="Scriberr Icon"
       >
         <defs>
           <linearGradient id="dynamicGradient" x1="0%" y1="0%" x2="0%" y2="100%">
@@ -48,6 +50,9 @@ export function ScriberrLogo({ className = "", onClick }: { className?: string; 
           />
         </g>
       </svg>
+
+      {/* Text Logo */}
+      <ScriberrTextLogo className="h-6 sm:h-7 w-auto" />
     </div>
   )
 }
