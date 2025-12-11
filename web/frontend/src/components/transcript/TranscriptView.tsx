@@ -1,7 +1,22 @@
-import { forwardRef, useRef } from 'react';
+import { forwardRef, useRef, useState, useCallback, useEffect } from 'react';
 import { useKaraokeHighlight } from '@/features/transcription/hooks/useKaraokeHighlight';
 import { cn } from '@/lib/utils';
 import type { Note } from '@/types/note';
+
+// Helper for cross-browser caret position
+function getCaretOffsetFromPoint(x: number, y: number) {
+    if (document.caretRangeFromPoint) {
+        const range = document.caretRangeFromPoint(x, y);
+        return range ? range.startOffset : null;
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    if ((document as any).caretPositionFromPoint) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const pos = (document as any).caretPositionFromPoint(x, y);
+        return pos ? pos.offset : null;
+    }
+    return null;
+}
 
 interface WordSegment {
     start: number;
@@ -32,6 +47,7 @@ interface TranscriptViewProps {
     highlightedWordRef: React.RefObject<HTMLSpanElement | null>;
     speakerMappings: Record<string, string>;
     autoScrollEnabled: boolean;
+    onSeek: (time: number) => void;
     className?: string;
 }
 
@@ -45,6 +61,7 @@ export const TranscriptView = forwardRef<HTMLDivElement, TranscriptViewProps>(({
     highlightedWordRef,
     speakerMappings,
     autoScrollEnabled,
+    onSeek,
     className
 }, ref) => {
 
@@ -53,16 +70,52 @@ export const TranscriptView = forwardRef<HTMLDivElement, TranscriptViewProps>(({
     };
 
     const containerRef = useRef<HTMLDivElement>(null);
+    const [isModifierPressed, setIsModifierPressed] = useState(false);
 
     // Use CSS Highlight API for Compact Mode
     // Note: We only use this hook when in compact mode to save resources
     const words = transcript?.word_segments || [];
-    const fullText = useKaraokeHighlight(
+    const { fullText, offsets } = useKaraokeHighlight(
         containerRef,
         words,
         currentTime,
         isPlaying
     );
+
+    // Click-to-Seek Handler
+    const handleWordClick = useCallback((e: React.MouseEvent) => {
+        // Only trigger if Cmd (Mac) or Ctrl (Windows) is held
+        if (!e.metaKey && !e.ctrlKey) return;
+
+        const clickOffset = getCaretOffsetFromPoint(e.clientX, e.clientY);
+        if (clickOffset === null) return;
+
+        const clickedWord = offsets.find(w =>
+            clickOffset >= w.startChar && clickOffset <= w.endChar
+        );
+
+        if (clickedWord) {
+            onSeek(clickedWord.startTime);
+            e.preventDefault();
+        }
+    }, [offsets, onSeek]);
+
+    // Keyboard listener for modifier key visual cue
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Meta' || e.key === 'Control') setIsModifierPressed(true);
+        };
+        const handleKeyUp = (e: KeyboardEvent) => {
+            if (e.key === 'Meta' || e.key === 'Control') setIsModifierPressed(false);
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        window.addEventListener('keyup', handleKeyUp);
+        return () => {
+            window.removeEventListener('keydown', handleKeyDown);
+            window.removeEventListener('keyup', handleKeyUp);
+        };
+    }, []);
 
     if (!transcript) {
         return (
@@ -82,7 +135,11 @@ export const TranscriptView = forwardRef<HTMLDivElement, TranscriptViewProps>(({
             <>
                 <div
                     ref={containerRef}
-                    className="text-lg leading-relaxed text-carbon-700 dark:text-carbon-300 whitespace-pre-wrap font-reading selection:bg-orange-500/30"
+                    onClick={handleWordClick}
+                    className={cn(
+                        "text-lg leading-relaxed text-carbon-700 dark:text-carbon-300 whitespace-pre-wrap font-reading selection:bg-orange-500/30 transition-colors duration-200",
+                        isModifierPressed ? 'cursor-pointer hover:text-carbon-900 dark:hover:text-carbon-100' : 'cursor-text'
+                    )}
                 >
                     {/* The hook returns the built text string, so we just render it directly */}
                     {fullText}

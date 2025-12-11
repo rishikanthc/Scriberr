@@ -1,4 +1,4 @@
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { TranscriptView } from "@/components/transcript/TranscriptView";
 import { useNotes, useCreateNote, useUpdateNote, useDeleteNote } from "@/features/transcription/hooks/useTranscriptionNotes";
@@ -10,6 +10,7 @@ import { TranscriptSelectionMenu } from "./TranscriptSelectionMenu";
 import { NoteEditorDialog } from "./NoteEditorDialog";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { X, StickyNote } from "lucide-react";
+import { computeWordOffsets } from "@/features/transcription/hooks/useKaraokeHighlight";
 import type { Transcript } from "@/features/transcription/hooks/useAudioDetail";
 
 interface TranscriptSectionProps {
@@ -63,6 +64,10 @@ export function TranscriptSection({
     const transcriptRef = useRef<HTMLDivElement>(null);
     const highlightedWordRef = useRef<HTMLSpanElement>(null);
 
+    // Compute offsets for selection logic
+    const words = transcript?.word_segments || [];
+    const { offsets } = useMemo(() => computeWordOffsets(words), [words]);
+
     // Selection Logic
     const {
         showSelectionMenu,
@@ -71,7 +76,7 @@ export function TranscriptSection({
         showEditor,
         openEditor,
         closeEditor
-    } = useTranscriptSelection(transcript, transcriptRef as React.RefObject<HTMLElement>);
+    } = useTranscriptSelection(transcriptRef as React.RefObject<HTMLElement>, offsets);
 
     // Auto-scroll logic
     useEffect(() => {
@@ -167,6 +172,7 @@ export function TranscriptSection({
                             currentTime={currentTime}
                             isPlaying={isPlaying}
                             notes={notes}
+                            onSeek={onSeek}
                             highlightedWordRef={highlightedWordRef}
                             speakerMappings={speakerMappings}
                             autoScrollEnabled={autoScrollEnabled}
