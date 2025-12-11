@@ -35,7 +35,7 @@ export const AudioDetailView = function AudioDetailView({ audioId: propAudioId }
 
     // State
     const [currentTime, setCurrentTime] = useState(0);
-    const [, setIsPlaying] = useState(false);
+    const [isPlaying, setIsPlaying] = useState(false);
     const [isEditingTitle, setIsEditingTitle] = useState(false);
     const [newTitle, setNewTitle] = useState("");
 
@@ -322,6 +322,7 @@ export const AudioDetailView = function AudioDetailView({ audioId: propAudioId }
                         downloadDialogOpen={downloadDialogOpen}
                         setDownloadDialogOpen={setDownloadDialogOpen}
                         downloadFormat={downloadFormat}
+                        isPlaying={isPlaying}
                     />
                 </div>
             </main>
@@ -349,7 +350,7 @@ export const AudioDetailView = function AudioDetailView({ audioId: propAudioId }
 
 // Wrapper to handle transcript word index calculation without polluting main view
 // Wrapper to handle word index calc
-function TranscriptSectionWrapper({ audioId, currentTime, transcript, ...props }: any) {
+function TranscriptSectionWrapper({ audioId, currentTime, transcript, isPlaying, ...props }: any) {
     // If transcript not passed (loading?), handle it
     let currentWordIndex = null;
     if (transcript?.word_segments) {
@@ -364,6 +365,7 @@ function TranscriptSectionWrapper({ audioId, currentTime, transcript, ...props }
             currentTime={currentTime}
             currentWordIndex={currentWordIndex}
             transcript={transcript}
+            isPlaying={isPlaying}
             {...props}
         />
     );

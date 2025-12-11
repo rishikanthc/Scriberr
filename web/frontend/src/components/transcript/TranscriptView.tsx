@@ -1,4 +1,5 @@
-import { forwardRef } from 'react';
+import { forwardRef, useRef } from 'react';
+import { useKaraokeHighlight } from '@/features/transcription/hooks/useKaraokeHighlight';
 import { cn } from '@/lib/utils';
 import type { Note } from '@/types/note';
 
@@ -25,6 +26,8 @@ interface TranscriptViewProps {
     transcript: Transcript | null;
     mode: 'compact' | 'expanded';
     currentWordIndex: number | null;
+    currentTime: number;
+    isPlaying: boolean;
     notes: Note[];
     highlightedWordRef: React.RefObject<HTMLSpanElement | null>;
     speakerMappings: Record<string, string>;
@@ -36,12 +39,30 @@ export const TranscriptView = forwardRef<HTMLDivElement, TranscriptViewProps>(({
     transcript,
     mode,
     currentWordIndex,
+    currentTime,
+    isPlaying,
     notes,
     highlightedWordRef,
     speakerMappings,
     autoScrollEnabled,
     className
 }, ref) => {
+
+    const getDisplaySpeakerName = (originalSpeaker: string): string => {
+        return speakerMappings[originalSpeaker] || originalSpeaker;
+    };
+
+    const containerRef = useRef<HTMLDivElement>(null);
+
+    // Use CSS Highlight API for Compact Mode
+    // Note: We only use this hook when in compact mode to save resources
+    const words = transcript?.word_segments || [];
+    const fullText = useKaraokeHighlight(
+        containerRef,
+        words,
+        currentTime,
+        isPlaying
+    );
 
     if (!transcript) {
         return (
@@ -51,10 +72,6 @@ export const TranscriptView = forwardRef<HTMLDivElement, TranscriptViewProps>(({
         );
     }
 
-    const getDisplaySpeakerName = (originalSpeaker: string): string => {
-        return speakerMappings[originalSpeaker] || originalSpeaker;
-    };
-
     // Render transcript with word-level highlighting for compact view
     const renderCompactView = () => {
         if (!transcript.word_segments || transcript.word_segments.length === 0) {
@@ -62,31 +79,27 @@ export const TranscriptView = forwardRef<HTMLDivElement, TranscriptViewProps>(({
         }
 
         return (
-            <div className="text-lg leading-relaxed text-carbon-700 dark:text-carbon-300">
-                {transcript.word_segments.map((word, index) => {
-                    const isHighlighted = index === currentWordIndex;
-                    const isAnnotated = notes.some(n => index >= n.start_word_index && index <= n.end_word_index);
+            <>
+                <div
+                    ref={containerRef}
+                    className="text-lg leading-relaxed text-carbon-700 dark:text-carbon-300 whitespace-pre-wrap font-reading selection:bg-orange-500/30"
+                >
+                    {/* The hook returns the built text string, so we just render it directly */}
+                    {fullText}
+                </div>
 
-                    return (
-                        <span
-                            key={index}
-                            ref={isHighlighted && autoScrollEnabled ? highlightedWordRef : undefined}
-                            data-word-index={index}
-                            data-word={word.word}
-                            data-start={word.start}
-                            data-end={word.end}
-                            className={cn(
-                                "cursor-text transition-colors duration-150 rounded px-0.5 inline-block",
-                                "hover:bg-brand-100 dark:hover:bg-brand-900/30",
-                                isHighlighted && "bg-amber-200 dark:bg-amber-700/50 text-carbon-900 dark:text-carbon-50 font-medium shadow-sm",
-                                !isHighlighted && isAnnotated && "bg-carbon-200 dark:bg-carbon-700/50 border-b-2 border-amber-400 dark:border-amber-600"
-                            )}
-                        >
-                            {word.word}{" "}
-                        </span>
-                    );
-                })}
-            </div>
+                {/* CSS for the Highlight API */}
+                <style>{`
+                    ::highlight(karaoke-word) {
+                        background-color: var(--brand-solid);
+                        color: white !important;
+                        border-radius: 3px;
+                        padding: 0 1px;
+                        box-decoration-break: clone;
+                        -webkit-box-decoration-break: clone;
+                    }
+                `}</style>
+            </>
         );
     };
 

@@ -15,6 +15,8 @@ import type { Transcript } from "@/features/transcription/hooks/useAudioDetail";
 interface TranscriptSectionProps {
     audioId: string;
     currentWordIndex: number | null;
+    currentTime: number;
+    isPlaying: boolean;
     onSeek: (time: number) => void;
     // Lifted State Props
     transcript: Transcript | undefined;
@@ -33,6 +35,8 @@ interface TranscriptSectionProps {
 export function TranscriptSection({
     audioId,
     currentWordIndex,
+    currentTime,
+    isPlaying,
     onSeek,
     transcript,
     speakerMappings,
@@ -160,6 +164,8 @@ export function TranscriptSection({
                             transcript={transcript}
                             mode={transcriptMode}
                             currentWordIndex={currentWordIndex}
+                            currentTime={currentTime}
+                            isPlaying={isPlaying}
                             notes={notes}
                             highlightedWordRef={highlightedWordRef}
                             speakerMappings={speakerMappings}
