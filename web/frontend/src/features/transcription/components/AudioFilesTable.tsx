@@ -117,7 +117,7 @@ function DebouncedSearchInput({
 			placeholder={placeholder}
 			value={searchValue}
 			onChange={(e) => setSearchValue(e.target.value)}
-			className={className}
+			className={`h-10 rounded-[var(--radius-btn)] border-[var(--border-subtle)] bg-[var(--bg-main)] focus:ring-[var(--brand-light)] focus:border-[var(--brand-solid)] transition-all duration-200 ${className}`}
 		/>
 	);
 }
@@ -730,7 +730,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 							checked={table.getIsAllPageRowsSelected() || (table.getIsSomePageRowsSelected() && "indeterminate")}
 							onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
 							aria-label="Select all"
-							className="translate-y-[2px]"
+							className="translate-y-[2px] border-[var(--border-focus)] data-[state=checked]:bg-[var(--brand-solid)] data-[state=checked]:border-[var(--brand-solid)]"
 						/>
 					</div>
 				),
@@ -740,7 +740,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 							checked={row.getIsSelected()}
 							onCheckedChange={(value) => row.toggleSelected(!!value)}
 							aria-label="Select row"
-							className="translate-y-[2px]"
+							className="translate-y-[2px] border-[var(--border-focus)] data-[state=checked]:bg-[var(--brand-solid)] data-[state=checked]:border-[var(--brand-solid)]"
 						/>
 					</div>
 				),
@@ -771,10 +771,10 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 				cell: ({ row }) => {
 					const file = row.original;
 					return (
-						<div className="relative flex items-center justify-between w-full group/title">
+						<div className="relative flex items-center justify-between w-full group/title py-2">
 							<button
 								onClick={() => handleAudioClick(file.id)}
-								className="text-foreground font-medium hover:text-primary transition-colors cursor-pointer text-left font-inter truncate pr-8"
+								className="text-[var(--text-primary)] font-medium hover:text-[var(--brand-solid)] transition-colors cursor-pointer text-left font-inter truncate pr-8 text-base tracking-tight"
 							>
 								{file.title || getFileName(file.audio_path)}
 							</button>
@@ -905,7 +905,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 					);
 				},
 				cell: ({ getValue }) => (
-					<span className="text-muted-foreground text-sm font-inter">
+					<span className="text-[var(--text-secondary)] text-sm font-inter">
 						{formatDate(getValue() as string)}
 					</span>
 				),
@@ -1163,8 +1163,8 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 		<div className="space-y-4">
 			{/* Bulk Actions Toolbar */}
 			{selectedCount > 0 && (
-				<div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-lg rounded-full px-6 py-3 flex items-center gap-4 animate-in slide-in-from-bottom-5 fade-in duration-300">
-					<span className="text-sm font-medium text-zinc-600 dark:text-zinc-400 border-r border-zinc-200 dark:border-zinc-800 pr-4">
+				<div className="fixed bottom-8 left-1/2 transform -translate-x-1/2 z-50 glass rounded-full px-6 py-3 flex items-center gap-4 animate-in slide-in-from-bottom-5 fade-in duration-300 shadow-[var(--shadow-float)] border border-[var(--border-subtle)]">
+					<span className="text-sm font-medium text-[var(--text-secondary)] border-r border-[var(--border-subtle)] pr-4">
 						{selectedCount} selected
 					</span>
 
@@ -1174,7 +1174,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 							size="sm"
 							onClick={() => setTranscribeDDialogOpen(true)}
 							disabled={bulkActionLoading}
-							className="h-8 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800"
+							className="h-9 rounded-full hover:bg-[var(--brand-light)] text-[var(--text-primary)] hover:text-[var(--brand-solid)] transition-colors"
 						>
 							<QuickTranscribeIcon className="mr-2 h-4 w-4" />
 							Transcribe
@@ -1185,20 +1185,20 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 							size="sm"
 							onClick={() => setConfigDialogOpen(true)}
 							disabled={bulkActionLoading}
-							className="h-8 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800"
+							className="h-9 rounded-full hover:bg-[var(--brand-light)] text-[var(--text-primary)] hover:text-[var(--brand-solid)] transition-colors"
 						>
 							<AdvancedTranscribeIcon className="mr-2 h-4 w-4" />
 							Transcribe+
 						</Button>
 
-						<div className="w-px h-4 bg-zinc-200 dark:bg-zinc-800 mx-1" />
+						<div className="w-px h-4 bg-[var(--border-subtle)] mx-1" />
 
 						<Button
 							variant="ghost"
 							size="sm"
 							onClick={() => setBulkDeleteDialogOpen(true)}
 							disabled={bulkActionLoading}
-							className="h-8 rounded-full text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
+							className="h-9 rounded-full text-[var(--error)] hover:bg-[var(--error)]/10 transition-colors"
 						>
 							<Trash2 className="mr-2 h-4 w-4" />
 							Delete
@@ -1209,61 +1209,61 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 						variant="ghost"
 						size="icon"
 						onClick={() => setRowSelection({})}
-						className="h-6 w-6 rounded-full ml-2 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+						className="h-6 w-6 rounded-full ml-2 hover:bg-[var(--secondary)] text-[var(--text-tertiary)]"
 					>
-						<XCircle className="h-4 w-4 text-zinc-400" />
+						<XCircle className="h-4 w-4" />
 					</Button>
 				</div>
 			)}
-			<div className="glass-card rounded-xl overflow-hidden">
-				<div className="p-3 sm:p-6">
-					<div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0 mb-4">
+			<div className="glass-card rounded-[var(--radius-card)] overflow-hidden shadow-[var(--shadow-card)] border border-[var(--border-subtle)]">
+				<div className="p-4 sm:p-8">
+					<div className="flex flex-col sm:flex-row items-start sm:items-end justify-between gap-4 sm:gap-0 mb-8">
 						<div>
-							<h2 className="text-xl font-semibold text-carbon-900 dark:text-carbon-50 mb-2">
+							<h2 className="text-2xl font-bold tracking-tight text-[var(--text-primary)] mb-1">
 								Audio Files
 							</h2>
-							<p className="text-carbon-600 dark:text-carbon-400 text-sm">
+							<p className="text-[var(--text-secondary)] text-sm">
 								{globalFilter
 									? `${totalItems} file${totalItems !== 1 ? "s" : ""} found`
-									: `${totalItems} file${totalItems !== 1 ? "s" : ""} total`
+									: `${totalItems} file${totalItems !== 1 ? "s" : ""}`
 								}
 							</p>
 						</div>
 
 						{/* Global Search */}
-						<div className="relative w-full sm:w-72">
-							<Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-carbon-400 h-4 w-4 z-10" />
+						<div className="relative w-full sm:w-80">
+							<Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[var(--text-tertiary)] h-4 w-4 z-10" />
 							<DebouncedSearchInput
-								placeholder="Search audio files..."
+								placeholder="Search..."
 								value={globalFilter ?? ""}
 								onChange={setGlobalFilter}
-								className="pl-10 bg-carbon-50 dark:bg-carbon-800 border-border focus:bg-background transition-colors"
+								className="pl-10"
 							/>
 						</div>
 					</div>
 
 					{data.length === 0 && !loading ? (
-						<div className="p-12 text-center">
-							<div className="text-5xl mb-4 opacity-50">🎵</div>
-							<h3 className="text-lg font-medium text-carbon-600 dark:text-carbon-300 mb-2">
-								{globalFilter ? "No matching audio files" : "No audio files yet"}
+						<div className="p-16 text-center border-2 border-dashed border-[var(--border-subtle)] rounded-[var(--radius-card)]">
+							<div className="text-6xl mb-6 opacity-30 grayscale">🎵</div>
+							<h3 className="text-lg font-semibold text-[var(--text-primary)] mb-2">
+								{globalFilter ? "No matching files" : "Your library is empty"}
 							</h3>
-							<p className="text-carbon-500 dark:text-carbon-400">
+							<p className="text-[var(--text-secondary)] max-w-sm mx-auto">
 								{globalFilter
 									? "Try adjusting your search terms"
-									: "Upload your first audio file to get started"
+									: "Upload your first audio file to get started with transcription"
 								}
 							</p>
 						</div>
 					) : (
 						<>
 							{/* Table */}
-							<div className={`border border-carbon-100 dark:border-carbon-900 rounded-lg overflow-hidden relative transition-opacity duration-200 ${isPageChanging ? 'opacity-75' : ''}`}>
+							<div className={`rounded-lg overflow-hidden relative transition-opacity duration-300 ${isPageChanging ? 'opacity-60' : ''}`}>
 								{isPageChanging && (
-									<div className="absolute inset-0 bg-white/20 dark:bg-carbon-800/20 flex items-center justify-center z-10">
-										<div className="flex items-center space-x-2 text-carbon-600 dark:text-carbon-400 bg-white dark:bg-carbon-800 px-3 py-1 rounded-md shadow-sm">
-											<Loader2 className="h-4 w-4 animate-spin" />
-											<span className="text-sm">Loading...</span>
+									<div className="absolute inset-0 bg-white/50 dark:bg-black/50 backdrop-blur-[1px] flex items-center justify-center z-10">
+										<div className="flex items-center space-x-2 text-[var(--text-secondary)] bg-[var(--bg-card)] px-4 py-2 rounded-full shadow-[var(--shadow-float)]">
+											<Loader2 className="h-4 w-4 animate-spin text-[var(--brand-solid)]" />
+											<span className="text-sm font-medium">Updating...</span>
 										</div>
 									</div>
 								)}
@@ -1272,12 +1272,12 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 										{table.getHeaderGroups().map((headerGroup) => (
 											<TableRow
 												key={headerGroup.id}
-												className="bg-carbon-100 dark:bg-carbon-800 hover:bg-carbon-200 dark:hover:bg-carbon-700 border-b border-border group/header"
+												className="!border-b border-[var(--border-subtle)] hover:bg-transparent"
 											>
 												{headerGroup.headers.map((header) => (
 													<TableHead
 														key={header.id}
-														className={`text-carbon-700 dark:text-carbon-300 ${header.column.id === 'created_at' ? 'hidden sm:table-cell' : ''} ${header.column.id === 'title' ? 'w-full' : ''} ${header.column.id === 'status' ? 'w-10 text-center' : ''} ${header.column.id === 'actions' ? 'w-10 text-center lg:hidden' : ''} ${header.column.id === 'select' ? 'w-[40px] px-2' : ''}`}
+														className={`h-12 text-xs font-semibold uppercase tracking-wider text-[var(--text-tertiary)] ${header.column.id === 'created_at' ? 'hidden sm:table-cell' : ''} ${header.column.id === 'title' ? 'w-full pl-0' : ''} ${header.column.id === 'status' ? 'w-10 text-center' : ''} ${header.column.id === 'actions' ? 'w-10 text-center lg:hidden' : ''} ${header.column.id === 'select' ? 'w-[40px] px-2' : ''}`}
 													>
 														{header.isPlaceholder
 															? null
@@ -1295,15 +1295,16 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 											table.getRowModel().rows.map((row) => (
 												<TableRow
 													key={row.id}
-													className="hover:bg-carbon-50 dark:hover:bg-carbon-800 transition-colors duration-200 border-b border-border last:border-b-0 group/row h-14"
+													className="hover:bg-[var(--brand-light)]/30 transition-all duration-200 border-b border-[var(--border-subtle)] last:border-b-0 group/row h-16"
 													data-state={row.getIsSelected() && "selected"}
 												>
 													{row.getVisibleCells().map((cell) => (
 														<TableCell
 															key={cell.id}
 															className={`
+																py-4
 																${cell.column.id === 'created_at' ? 'hidden sm:table-cell' : ''}
-																${cell.column.id === 'title' ? 'whitespace-normal break-words pr-1 sm:pr-2' : ''}
+																${cell.column.id === 'title' ? 'whitespace-normal break-words pr-1 sm:pr-4 pl-0' : ''}
 																${cell.column.id === 'status' ? 'w-[36px] px-1 text-center' : ''}
 																${cell.column.id === 'actions' ? 'w-[36px] px-1 text-center lg:hidden' : ''}
 																${cell.column.id === 'select' ? 'w-[40px] px-2' : ''}
@@ -1321,9 +1322,9 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 											<TableRow>
 												<TableCell
 													colSpan={columns.length}
-													className="h-24 text-center"
+													className="h-32 text-center text-[var(--text-secondary)]"
 												>
-													No results.
+													No results found.
 												</TableCell>
 											</TableRow>
 										)}

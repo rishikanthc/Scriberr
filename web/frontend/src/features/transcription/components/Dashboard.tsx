@@ -238,13 +238,13 @@ export function Dashboard() {
 
 	return (
 		<div
-			className="min-h-screen"
+			className="min-h-screen bg-[var(--bg-main)]"
 			onDragEnter={handleDragEnter}
 			onDragLeave={handleDragLeave}
 			onDragOver={handleDragOver}
 			onDrop={handleDrop}
 		>
-			<div className="mx-auto w-full max-w-6xl px-2 sm:px-6 md:px-8 py-3 sm:py-6">
+			<div className="mx-auto w-full max-w-6xl px-4 sm:px-8 py-8 sm:py-12 transition-all duration-300">
 				<Header
 					onFileSelect={handleFileSelect}
 					onMultiTrackClick={() => setIsMultiTrackDialogOpen(true)}
@@ -255,56 +255,56 @@ export function Dashboard() {
 
 				{/* Upload Progress */}
 				{uploadProgress.length > 0 && (
-					<div className="mb-4 sm:mb-6 bg-white dark:bg-zinc-900 rounded-xl p-4 sm:p-6 shadow-sm border border-zinc-200 dark:border-zinc-800">
-						<div className="flex items-center justify-between mb-4">
-							<h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
+					<div className="mb-8 glass-card rounded-[var(--radius-card)] p-6 sm:p-8 shadow-[var(--shadow-float)] border border-[var(--border-subtle)] animate-in fade-in slide-in-from-top-4 duration-500">
+						<div className="flex items-center justify-between mb-6">
+							<h3 className="text-lg font-semibold tracking-tight text-[var(--text-primary)]">
 								Uploading Files ({uploadProgress.filter(p => p.status === 'success').length}/{uploadProgress.length})
 							</h3>
 							{!isUploading && (
 								<button
 									onClick={dismissProgress}
-									className="p-1 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-md transition-colors cursor-pointer"
+									className="p-2 hover:bg-[var(--secondary)] rounded-[var(--radius-btn)] transition-colors cursor-pointer text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
 								>
-									<X className="h-4 w-4 text-zinc-500 dark:text-zinc-400" />
+									<X className="h-4 w-4" />
 								</button>
 							)}
 						</div>
 
 						{/* Overall progress */}
-						<div className="mb-4">
+						<div className="mb-6">
 							<Progress
 								value={(uploadProgress.filter(p => p.status !== 'uploading').length / uploadProgress.length) * 100}
-								className="h-2 bg-zinc-100 dark:bg-zinc-800"
-								indicatorClassName="bg-zinc-900 dark:bg-zinc-100"
+								className="h-2 bg-[var(--secondary)]"
+								indicatorClassName="bg-gradient-to-r from-[var(--brand-solid)] to-[var(--brand-solid)]"
 							/>
 						</div>
 
 						{/* Individual file progress */}
-						<div className="space-y-2 max-h-32 overflow-y-auto">
+						<div className="space-y-3 max-h-40 overflow-y-auto pr-2 custom-scrollbar">
 							{uploadProgress.map((progress, index) => (
-								<div key={index} className="flex items-center gap-3 text-sm">
+								<div key={index} className="flex items-center gap-4 text-sm p-3 rounded-[var(--radius-btn)] bg-[var(--bg-main)] border border-[var(--border-subtle)]">
 									<div className="flex-shrink-0">
 										{progress.status === 'uploading' && (
-											<div className="w-4 h-4 border-2 border-zinc-500 border-t-transparent rounded-full animate-spin" />
+											<div className="w-4 h-4 border-2 border-[var(--brand-solid)] border-t-transparent rounded-full animate-spin" />
 										)}
 										{progress.status === 'success' && (
-											<CheckCircle className="w-4 h-4 text-green-500" />
+											<CheckCircle className="w-4 h-4 text-[var(--success)]" />
 										)}
 										{progress.status === 'error' && (
-											<AlertCircle className="w-4 h-4 text-red-500" />
+											<AlertCircle className="w-4 h-4 text-[var(--error)]" />
 										)}
 									</div>
 									<div className="flex-1 min-w-0">
-										<div className="truncate text-zinc-900 dark:text-zinc-100">
+										<div className="truncate font-medium text-[var(--text-primary)]">
 											{progress.fileName}
 										</div>
 										{progress.error && (
-											<div className="text-red-500 dark:text-red-400 text-xs">
+											<div className="text-[var(--error)] text-xs mt-0.5">
 												{progress.error}
 											</div>
 										)}
 									</div>
-									<div className="flex-shrink-0 text-xs text-zinc-500 dark:text-zinc-400">
+									<div className="flex-shrink-0 text-xs font-medium text-[var(--text-tertiary)]">
 										{progress.status === 'uploading' && 'Uploading...'}
 										{progress.status === 'success' && 'Completed'}
 										{progress.status === 'error' && 'Failed'}

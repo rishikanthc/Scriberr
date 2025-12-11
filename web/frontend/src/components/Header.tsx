@@ -121,20 +121,20 @@ export function Header({ onFileSelect, onMultiTrackClick, onDownloadComplete }: 
 	};
 
 	return (
-		<header className="sticky top-4 z-50 glass rounded-2xl p-4 mb-6 transition-all duration-300 shadow-sm hover:shadow-md">
+		<header className="sticky top-6 z-50 glass rounded-[var(--radius-card)] px-6 py-4 mb-8 transition-all duration-500 shadow-[var(--shadow-float)] border border-[var(--border-subtle)]">
 			<div className="flex items-center justify-between">
 				{/* Left side - Logo navigates home */}
 				<ScriberrLogo onClick={handleHomeClick} />
 
 				{/* Right side - Plus (Add Audio), Grip Menu, Theme Switcher */}
-				<div className="flex items-center gap-2 sm:gap-3">
+				<div className="flex items-center gap-3">
 					{/* Add Audio (icon-only) */}
 					<DropdownMenu>
 						<DropdownMenuTrigger asChild>
 							<Button
 								variant="default"
 								size="icon"
-								className="bg-carbon-900 hover:bg-carbon-800 dark:bg-carbon-100 dark:hover:bg-carbon-200 text-white dark:text-carbon-900 h-10 w-10 rounded-xl shadow-sm transition-all hover:scale-105 cursor-pointer"
+								className="bg-transparent hover:bg-[var(--brand-light)] text-[var(--brand-solid)] border border-[var(--brand-solid)] h-10 w-10 rounded-[var(--radius-btn)] shadow-none transition-all hover:scale-105 active:scale-95 cursor-pointer"
 							>
 								<Plus className="h-5 w-5" />
 								<span className="sr-only">Add audio</span>
@@ -142,88 +142,88 @@ export function Header({ onFileSelect, onMultiTrackClick, onDownloadComplete }: 
 						</DropdownMenuTrigger>
 						<DropdownMenuContent
 							align="end"
-							className="w-56 glass-card border-carbon-200 dark:border-carbon-800 p-2"
+							className="w-64 glass-card p-2 rounded-[var(--radius-card)] shadow-[var(--shadow-float)] border-[var(--border-subtle)]"
 						>
 							<DropdownMenuItem
 								onClick={handleQuickTranscriptionClick}
-								className="flex items-center gap-3 px-3 py-2.5 cursor-pointer rounded-lg focus:bg-carbon-100 dark:focus:bg-carbon-900"
+								className="group flex items-center gap-3 px-3 py-3 cursor-pointer rounded-[var(--radius-btn)] focus:bg-[var(--brand-light)] focus:text-[var(--brand-solid)] transition-colors"
 							>
-								<div className="p-2 bg-amber-100 dark:bg-amber-900/30 rounded-lg text-amber-700 dark:text-amber-400">
+								<div className="p-2 bg-amber-500/10 rounded-[var(--radius-btn)] text-amber-600 group-focus:text-[var(--brand-solid)]">
 									<Zap className="h-4 w-4" />
 								</div>
 								<div>
 									<div className="font-medium text-sm">Quick Transcribe</div>
-									<div className="text-xs text-muted-foreground">
+									<div className="text-xs text-[var(--text-secondary)]">
 										Fast transcribe without saving
 									</div>
 								</div>
 							</DropdownMenuItem>
 							<DropdownMenuItem
 								onClick={handleYouTubeClick}
-								className="flex items-center gap-3 px-3 py-2.5 cursor-pointer rounded-lg focus:bg-carbon-100 dark:focus:bg-carbon-900"
+								className="group flex items-center gap-3 px-3 py-3 cursor-pointer rounded-[var(--radius-btn)] focus:bg-[var(--brand-light)] focus:text-[var(--brand-solid)] transition-colors"
 							>
-								<div className="p-2 bg-rose-100 dark:bg-rose-900/30 rounded-lg text-rose-600 dark:text-rose-400">
+								<div className="p-2 bg-rose-500/10 rounded-[var(--radius-btn)] text-rose-600 group-focus:text-[var(--brand-solid)]">
 									<Youtube className="h-4 w-4" />
 								</div>
 								<div>
 									<div className="font-medium text-sm">YouTube URL</div>
-									<div className="text-xs text-muted-foreground">
+									<div className="text-xs text-[var(--text-secondary)]">
 										Download audio from YouTube
 									</div>
 								</div>
 							</DropdownMenuItem>
 							<DropdownMenuItem
 								onClick={handleUploadClick}
-								className="flex items-center gap-3 px-3 py-2.5 cursor-pointer rounded-lg focus:bg-carbon-100 dark:focus:bg-carbon-900"
+								className="group flex items-center gap-3 px-3 py-3 cursor-pointer rounded-[var(--radius-btn)] focus:bg-[var(--brand-light)] focus:text-[var(--brand-solid)] transition-colors"
 							>
-								<div className="p-2 bg-carbon-100 dark:bg-carbon-900/30 rounded-lg text-carbon-600 dark:text-carbon-400">
+								<div className="p-2 bg-[var(--brand-light)] rounded-[var(--radius-btn)] text-[var(--brand-solid)] group-focus:text-[var(--brand-solid)]">
 									<Upload className="h-4 w-4" />
 								</div>
 								<div>
 									<div className="font-medium text-sm">Upload Files</div>
-									<div className="text-xs text-muted-foreground">
+									<div className="text-xs text-[var(--text-secondary)]">
 										Choose one or more audio files
 									</div>
 								</div>
 							</DropdownMenuItem>
 							<DropdownMenuItem
 								onClick={handleVideoUploadClick}
-								className="flex items-center gap-3 px-3 py-2.5 cursor-pointer rounded-lg focus:bg-carbon-100 dark:focus:bg-carbon-900"
+								className="group flex items-center gap-3 px-3 py-3 cursor-pointer rounded-[var(--radius-btn)] focus:bg-[var(--brand-light)] focus:text-[var(--brand-solid)] transition-colors"
 							>
-								<div className="p-2 bg-carbon-100 dark:bg-carbon-800 rounded-lg text-carbon-600 dark:text-carbon-400">
+								<div className="p-2 bg-purple-500/10 rounded-[var(--radius-btn)] text-purple-600 group-focus:text-[var(--brand-solid)]">
 									<Video className="h-4 w-4" />
 								</div>
 								<div>
 									<div className="font-medium text-sm">Upload Videos</div>
-									<div className="text-xs text-muted-foreground">
+									<div className="text-xs text-[var(--text-secondary)]">
 										Extract audio from video files
 									</div>
 								</div>
 							</DropdownMenuItem>
 							<DropdownMenuItem
 								onClick={handleRecordClick}
-								className="flex items-center gap-3 px-3 py-2.5 cursor-pointer rounded-lg focus:bg-carbon-100 dark:focus:bg-carbon-900"
+								className="group flex items-center gap-3 px-3 py-3 cursor-pointer rounded-[var(--radius-btn)] focus:bg-[var(--brand-light)] focus:text-[var(--brand-solid)] transition-colors"
 							>
-								<div className="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-lg text-orange-600 dark:text-orange-400">
+								<div className="p-2 bg-emerald-500/10 rounded-[var(--radius-btn)] text-emerald-600 group-focus:text-[var(--brand-solid)]">
 									<Mic className="h-4 w-4" />
 								</div>
 								<div>
 									<div className="font-medium text-sm">Record Audio</div>
-									<div className="text-xs text-muted-foreground">
+									<div className="text-xs text-[var(--text-secondary)]">
 										Record using microphone
 									</div>
 								</div>
 							</DropdownMenuItem>
 							<DropdownMenuItem
 								onClick={handleMultiTrackClick}
-								className="flex items-center gap-3 px-3 py-2.5 cursor-pointer rounded-lg focus:bg-carbon-100 dark:focus:bg-carbon-900"
+								className="group flex items-center gap-3 px-3 py-3 cursor-pointer rounded-[var(--radius-btn)] focus:bg-[var(--brand-light)] focus:text-[var(--brand-solid)] transition-colors"
 							>
-								<div className="p-2 bg-teal-100 dark:bg-teal-900/30 rounded-lg text-teal-600 dark:text-teal-400">
+								<div className="p-2 bg-indigo-500/10 rounded-[var(--radius-btn)] text-indigo-600 group-focus:text-[var(--brand-solid)]">
 									<Users className="h-4 w-4" />
 								</div>
 								<div>
 									<div className="font-medium text-sm">Multi-Track Audio</div>
-									<div className="text-xs text-muted-foreground">
+									<div className="text-xs text-[var(--text-secondary)]">
 										Upload multiple speaker tracks
 									</div>
 								</div>
@@ -235,24 +235,24 @@ export function Header({ onFileSelect, onMultiTrackClick, onDownloadComplete }: 
 					<DropdownMenu>
 						<DropdownMenuTrigger asChild>
 							<Button
-								variant="outline"
+								variant="ghost"
 								size="icon"
-								className="h-10 w-10 hover:bg-carbon-100 dark:hover:bg-carbon-800 cursor-pointer"
+								className="h-10 w-10 hover:bg-[var(--secondary)] rounded-[var(--radius-btn)] cursor-pointer text-[var(--text-secondary)]"
 							>
-								<Grip className="h-5 w-5 text-muted-foreground" />
+								<Grip className="h-5 w-5" />
 								<span className="sr-only">Open menu</span>
 							</Button>
 						</DropdownMenuTrigger>
-						<DropdownMenuContent align="end" className="w-48 glass-card border-carbon-200 dark:border-carbon-800 p-2">
-							<DropdownMenuItem onClick={handleHomeClick} className="cursor-pointer rounded-lg focus:bg-carbon-100 dark:focus:bg-carbon-900">
+						<DropdownMenuContent align="end" className="w-48 glass-card border-[var(--border-subtle)] p-2 rounded-[var(--radius-card)] shadow-[var(--shadow-float)]">
+							<DropdownMenuItem onClick={handleHomeClick} className="cursor-pointer rounded-[var(--radius-btn)] focus:bg-[var(--secondary)] py-2.5">
 								<Home className="h-4 w-4 mr-2" />
 								Home
 							</DropdownMenuItem>
-							<DropdownMenuItem onClick={handleSettingsClick} className="cursor-pointer rounded-lg focus:bg-carbon-100 dark:focus:bg-carbon-900">
+							<DropdownMenuItem onClick={handleSettingsClick} className="cursor-pointer rounded-[var(--radius-btn)] focus:bg-[var(--secondary)] py-2.5">
 								<Settings className="h-4 w-4 mr-2" />
 								Settings
 							</DropdownMenuItem>
-							<DropdownMenuItem onClick={handleLogout} className="cursor-pointer rounded-lg focus:bg-rose-50 dark:focus:bg-rose-600/20 text-rose-600 dark:text-rose-400">
+							<DropdownMenuItem onClick={handleLogout} className="cursor-pointer rounded-[var(--radius-btn)] focus:bg-[var(--error)]/10 text-[var(--error)] py-2.5">
 								<LogOut className="h-4 w-4 mr-2" />
 								Logout
 							</DropdownMenuItem>
