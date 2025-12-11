@@ -1,6 +1,6 @@
 import { useRef, useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { MoreVertical, Edit2, Activity, FileText, Bot, Check, Loader2 } from "lucide-react";
+import { MoreVertical, Edit2, Activity, FileText, Bot, Check, Loader2, List, AlignLeft, ArrowDownCircle, StickyNote, Users, MessageCircle, FileImage, FileJson } from "lucide-react";
 import { Header } from "@/components/Header";
 
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,8 @@ import { cn } from "@/lib/utils";
 
 // Custom Hooks
 import { useAudioDetail, useUpdateTitle, useTranscript } from "@/features/transcription/hooks/useAudioDetail";
+import { useSpeakerMappings } from "@/features/transcription/hooks/useTranscriptionSpeakers";
+import { useTranscriptDownload } from "@/features/transcription/hooks/useTranscriptDownload";
 
 // Sub-components
 import { TranscriptSection } from "./audio-detail/TranscriptSection";
@@ -38,6 +40,14 @@ export const AudioDetailView = function AudioDetailView({ audioId: propAudioId }
     const [isEditingTitle, setIsEditingTitle] = useState(false);
     const [newTitle, setNewTitle] = useState("");
 
+    // Lifted Transcript State
+    const [transcriptMode, setTranscriptMode] = useState<"compact" | "expanded">("compact");
+    const [autoScrollEnabled, setAutoScrollEnabled] = useState(true);
+    const [notesOpen, setNotesOpen] = useState(false);
+    const [speakerRenameOpen, setSpeakerRenameOpen] = useState(false);
+    const [downloadDialogOpen, setDownloadDialogOpen] = useState(false);
+    const [downloadFormat, setDownloadFormat] = useState<'txt' | 'json'>('txt');
+
     // Dialog States
     const [executionDialogOpen, setExecutionDialogOpen] = useState(false);
     const [logsDialogOpen, setLogsDialogOpen] = useState(false);
@@ -46,6 +56,25 @@ export const AudioDetailView = function AudioDetailView({ audioId: propAudioId }
     // Data Fetching
     const { data: audioFile, isLoading, error } = useAudioDetail(audioId || "");
     const { mutate: updateTitle } = useUpdateTitle(audioId || "");
+    // Fetch transcript & speakers here to support menu actions
+    const { data: transcript } = useTranscript(audioId || "", true);
+    const { data: speakerMappings = {} } = useSpeakerMappings(audioId || "", true);
+
+    // Download Logic
+    const { downloadSRT } = useTranscriptDownload();
+
+    // Helpers
+    const getDetectedSpeakers = useCallback(() => {
+        if (!transcript?.segments) return [];
+        const speakers = new Set<string>();
+        transcript.segments.forEach((segment: any) => {
+            if (segment.speaker) speakers.add(segment.speaker);
+        });
+        return Array.from(speakers).sort();
+    }, [transcript]);
+
+    const hasSpeakers = audioFile?.diarization || audioFile?.parameters?.diarize || audioFile?.is_multi_track || false;
+    const detectedSpeakers = getDetectedSpeakers();
 
     // Effects
     useEffect(() => {
@@ -111,16 +140,17 @@ export const AudioDetailView = function AudioDetailView({ audioId: propAudioId }
             {/* 
               1. Header Redesign:
               - Using shared Header component for consistency
+              - Padding matches Dashboard (px-4 sm:px-8)
             */}
-            <div className="max-w-6xl mx-auto w-full px-6 py-6">
+            <div className="max-w-6xl mx-auto w-full px-4 sm:px-8 py-6">
                 <Header
                     onFileSelect={() => { }} // No file upload in detail view
                 />
             </div>
 
             {/* Main Content */}
-            <main className="flex-1 overflow-y-auto overflow-x-hidden p-6 pb-32">
-                <div className="max-w-6xl mx-auto space-y-8">
+            <main className="flex-1 overflow-y-auto overflow-x-hidden px-4 sm:px-8 pb-32 max-w-6xl mx-auto">
+                <div className="mx-auto space-y-8">
 
                     {/* 
                       2. Metadata Section (New):
@@ -189,17 +219,63 @@ export const AudioDetailView = function AudioDetailView({ audioId: propAudioId }
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end" className="w-56 glass-card rounded-[var(--radius-card)] shadow-[var(--shadow-float)] border-[var(--border-subtle)] p-1.5">
                                     <DropdownMenuLabel className="text-xs font-semibold text-[var(--text-tertiary)] uppercase tracking-wider px-2 py-1.5">
-                                        Recording Options
+                                        View Options
                                     </DropdownMenuLabel>
-                                    <DropdownMenuItem onClick={() => setExecutionDialogOpen(true)} className="rounded-[8px] cursor-pointer text-[var(--text-secondary)] focus:text-[var(--text-primary)] focus:bg-[var(--bg-main)]/80">
-                                        <Activity className="mr-2 h-4 w-4 opacity-70" /> Execution Info
+                                    <DropdownMenuItem onClick={() => setTranscriptMode(transcriptMode === 'compact' ? 'expanded' : 'compact')} className="rounded-[8px] cursor-pointer">
+                                        {transcriptMode === 'compact' ? <List className="mr-2 h-4 w-4 opacity-70" /> : <AlignLeft className="mr-2 h-4 w-4 opacity-70" />}
+                                        {transcriptMode === 'compact' ? 'Timeline View' : 'Compact View'}
                                     </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => setLogsDialogOpen(true)} className="rounded-[8px] cursor-pointer text-[var(--text-secondary)] focus:text-[var(--text-primary)] focus:bg-[var(--bg-main)]/80">
-                                        <FileText className="mr-2 h-4 w-4 opacity-70" /> View Logs
+                                    <DropdownMenuItem onClick={() => setAutoScrollEnabled(!autoScrollEnabled)} className="rounded-[8px] cursor-pointer">
+                                        <ArrowDownCircle className={cn("mr-2 h-4 w-4 opacity-70", autoScrollEnabled && "text-[var(--brand-solid)]")} />
+                                        Auto Scroll {autoScrollEnabled ? 'On' : 'Off'}
                                     </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => setNotesOpen(!notesOpen)} className="rounded-[8px] cursor-pointer">
+                                        <StickyNote className={cn("mr-2 h-4 w-4 opacity-70", notesOpen && "text-[var(--brand-solid)]")} />
+                                        Notes
+                                    </DropdownMenuItem>
+
                                     <DropdownMenuSeparator className="bg-[var(--border-subtle)] my-1" />
+
+                                    <DropdownMenuLabel className="text-xs font-semibold text-[var(--text-tertiary)] uppercase tracking-wider px-2 py-1.5">
+                                        Actions
+                                    </DropdownMenuLabel>
+                                    {hasSpeakers && detectedSpeakers.length > 0 && (
+                                        <DropdownMenuItem onClick={() => setSpeakerRenameOpen(true)} className="rounded-[8px] cursor-pointer">
+                                            <Users className="mr-2 h-4 w-4 opacity-70" /> Rename Speakers
+                                        </DropdownMenuItem>
+                                    )}
+                                    <DropdownMenuItem onClick={() => navigate(`/audio/${audioId}/chat`)} className="rounded-[8px] cursor-pointer">
+                                        <MessageCircle className="mr-2 h-4 w-4 opacity-70" /> Chat with Audio
+                                    </DropdownMenuItem>
                                     <DropdownMenuItem onClick={() => setSummaryDialogOpen(true)} className="rounded-[8px] cursor-pointer text-[var(--brand-solid)] focus:text-[var(--brand-solid)] focus:bg-[var(--brand-light)]">
                                         <Bot className="mr-2 h-4 w-4" /> AI Summary
+                                    </DropdownMenuItem>
+
+                                    <DropdownMenuSeparator className="bg-[var(--border-subtle)] my-1" />
+
+                                    <DropdownMenuLabel className="text-xs font-semibold text-[var(--text-tertiary)] uppercase tracking-wider px-2 py-1.5">
+                                        Downloads
+                                    </DropdownMenuLabel>
+                                    <DropdownMenuItem onClick={() => transcript && downloadSRT(transcript, audioFile?.title || 'transcript', speakerMappings)} className="rounded-[8px] cursor-pointer">
+                                        <FileImage className="mr-2 h-4 w-4 opacity-70" /> Download SRT
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => { setDownloadFormat('txt'); setDownloadDialogOpen(true); }} className="rounded-[8px] cursor-pointer">
+                                        <AlignLeft className="mr-2 h-4 w-4 opacity-70" /> Download Text
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => { setDownloadFormat('json'); setDownloadDialogOpen(true); }} className="rounded-[8px] cursor-pointer">
+                                        <FileJson className="mr-2 h-4 w-4 opacity-70" /> Download JSON
+                                    </DropdownMenuItem>
+
+                                    <DropdownMenuSeparator className="bg-[var(--border-subtle)] my-1" />
+
+                                    <DropdownMenuLabel className="text-xs font-semibold text-[var(--text-tertiary)] uppercase tracking-wider px-2 py-1.5">
+                                        System
+                                    </DropdownMenuLabel>
+                                    <DropdownMenuItem onClick={() => setExecutionDialogOpen(true)} className="rounded-[8px] cursor-pointer">
+                                        <Activity className="mr-2 h-4 w-4 opacity-70" /> Execution Info
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => setLogsDialogOpen(true)} className="rounded-[8px] cursor-pointer">
+                                        <FileText className="mr-2 h-4 w-4 opacity-70" /> View Logs
                                     </DropdownMenuItem>
                                 </DropdownMenuContent>
                             </DropdownMenu>
@@ -236,10 +312,19 @@ export const AudioDetailView = function AudioDetailView({ audioId: propAudioId }
                         audioId={audioId}
                         currentTime={currentTime}
                         onSeek={handleSeek}
-                        onOpenExecutionInfo={() => setExecutionDialogOpen(true)}
-                        onOpenLogs={() => setLogsDialogOpen(true)}
-                        onOpenSummarize={() => setSummaryDialogOpen(true)}
-                        llmReady={true}
+
+                        // Pass down lifted state & setters
+                        transcript={transcript}
+                        speakerMappings={speakerMappings}
+                        transcriptMode={transcriptMode}
+                        autoScrollEnabled={autoScrollEnabled}
+                        notesOpen={notesOpen}
+                        setNotesOpen={setNotesOpen}
+                        speakerRenameOpen={speakerRenameOpen}
+                        setSpeakerRenameOpen={setSpeakerRenameOpen}
+                        downloadDialogOpen={downloadDialogOpen}
+                        setDownloadDialogOpen={setDownloadDialogOpen}
+                        downloadFormat={downloadFormat}
                     />
                 </div>
             </main>
@@ -266,9 +351,9 @@ export const AudioDetailView = function AudioDetailView({ audioId: propAudioId }
 };
 
 // Wrapper to handle transcript word index calculation without polluting main view
-function TranscriptSectionWrapper({ audioId, currentTime, ...props }: any) {
-    const { data: transcript } = useTranscript(audioId, true);
-
+// Wrapper to handle word index calc
+function TranscriptSectionWrapper({ audioId, currentTime, transcript, ...props }: any) {
+    // If transcript not passed (loading?), handle it
     let currentWordIndex = null;
     if (transcript?.word_segments) {
         // Simple linear find for now.
@@ -281,6 +366,7 @@ function TranscriptSectionWrapper({ audioId, currentTime, ...props }: any) {
             audioId={audioId}
             currentTime={currentTime}
             currentWordIndex={currentWordIndex}
+            transcript={transcript}
             {...props}
         />
     );
