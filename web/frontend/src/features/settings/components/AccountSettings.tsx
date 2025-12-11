@@ -215,8 +215,7 @@ export function AccountSettings() {
 
 						<Button
 							type="submit"
-							className="rounded-[var(--radius-btn)] !text-black dark:!text-white border-none shadow-lg shadow-orange-500/20"
-							style={{ background: 'var(--brand-gradient)' }}
+							className="!bg-[var(--brand-gradient)] hover:!opacity-90 !text-black dark:!text-white border-none shadow-lg shadow-orange-500/20"
 							disabled={loading || !newUsername.trim() || !usernamePassword.trim()}
 						>
 							{loading ? "Changing Username..." : "Change Username"}

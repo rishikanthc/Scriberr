@@ -197,8 +197,7 @@ export function TranscribeDDialog({
           <Button
             onClick={handleStartTranscription}
             disabled={loading || !selectedProfileId || profilesLoading || profiles.length === 0}
-            className="rounded-[var(--radius-btn)] !text-white border-none shadow-lg shadow-orange-500/20 min-w-[140px]"
-            style={{ background: 'var(--brand-gradient)' }}
+            className="min-w-[140px] !bg-[var(--brand-gradient)] hover:!opacity-90 !text-black dark:!text-white border-none shadow-lg shadow-orange-500/20"
           >
             {loading ? (
               <>
