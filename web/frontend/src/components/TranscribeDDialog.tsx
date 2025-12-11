@@ -114,13 +114,7 @@ export function TranscribeDDialog({
     setSelectedProfileId(value);
   };
 
-  const getSelectedProfileName = () => {
-    const profile = profiles.find(p => p.id === selectedProfileId);
-    if (profile && defaultProfile && profile.id === defaultProfile.id) {
-      return `${profile.name} (Default)`;
-    }
-    return profile?.name || "";
-  };
+
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -189,23 +183,7 @@ export function TranscribeDDialog({
             )}
           </div>
 
-          {/* Show selected profile details */}
-          {selectedProfileId && !profilesLoading && (
-            <div className="p-4 bg-[var(--bg-main)]/50 rounded-[var(--radius-btn)] border border-[var(--border-subtle)]">
-              <div className="text-sm">
-                <span className="font-medium text-[var(--text-secondary)]">Selected: </span>
-                <span className="text-[var(--text-primary)]">{getSelectedProfileName()}</span>
-              </div>
-              {(() => {
-                const profile = profiles.find(p => p.id === selectedProfileId);
-                return profile?.description ? (
-                  <div className="text-xs text-[var(--text-tertiary)] mt-1">
-                    {profile.description}
-                  </div>
-                ) : null;
-              })()}
-            </div>
-          )}
+
         </div>
 
         <DialogFooter className="p-6 pt-2 gap-3">
@@ -219,7 +197,8 @@ export function TranscribeDDialog({
           <Button
             onClick={handleStartTranscription}
             disabled={loading || !selectedProfileId || profilesLoading || profiles.length === 0}
-            className="rounded-[var(--radius-btn)] bg-[var(--brand-gradient)] hover:opacity-90 text-white border-none shadow-lg shadow-orange-500/20 min-w-[140px]"
+            className="rounded-[var(--radius-btn)] !text-white border-none shadow-lg shadow-orange-500/20 min-w-[140px]"
+            style={{ background: 'var(--brand-gradient)' }}
           >
             {loading ? (
               <>
