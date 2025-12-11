@@ -51,7 +51,7 @@ export function Settings() {
 
   return (
     <div className="min-h-screen bg-[var(--bg-main)]">
-      <div className="mx-auto w-full max-w-[900px] px-6 py-8">
+      <div className="mx-auto w-full max-w-[960px] px-6 py-8">
         {/* Use the same Header component as Homepage */}
         <Header onFileSelect={handleFileSelect} />
 

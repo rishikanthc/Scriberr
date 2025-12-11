@@ -130,7 +130,7 @@ export const AudioDetailView = function AudioDetailView({ audioId: propAudioId }
     }).toUpperCase();
 
     return (
-        <div className="h-full flex flex-col bg-[var(--bg-main)] relative selection:bg-[var(--brand-light)]">
+        <div className="min-h-screen flex flex-col bg-[var(--bg-main)] relative selection:bg-[var(--brand-light)]">
             {/* 
               1. Header Redesign:
               - Constrained width (max-w-4xl) to match content
@@ -142,14 +142,14 @@ export const AudioDetailView = function AudioDetailView({ audioId: propAudioId }
               - Using shared Header component for consistency
               - Padding matches Dashboard (px-6)
             */}
-            <div className="max-w-[900px] mx-auto w-full px-6 py-8">
+            <div className="max-w-[960px] mx-auto w-full px-6 py-8">
                 <Header
                     onFileSelect={() => { }} // No file upload in detail view
                 />
             </div>
 
             {/* Main Content */}
-            <main className="flex-1 overflow-y-auto overflow-x-hidden px-6 pb-32 max-w-[900px] mx-auto w-full">
+            <main className="flex-1 px-6 pb-32 max-w-[960px] mx-auto w-full">
                 <div className="mx-auto space-y-8">
 
                     {/* 
