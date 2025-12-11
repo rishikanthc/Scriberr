@@ -5,8 +5,8 @@ import {
   TabsContent,
   TabsList,
   TabsTrigger,
-} from "../components/ui/tabs";
-import { Header } from "../components/Header";
+} from "@/components/ui/tabs";
+import { Header } from "@/components/Header";
 import { ProfileSettings } from "../components/ProfileSettings";
 import { AccountSettings } from "../components/AccountSettings";
 import { APIKeySettings } from "../components/APIKeySettings";

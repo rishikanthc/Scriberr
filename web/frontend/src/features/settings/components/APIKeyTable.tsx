@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Button } from "./ui/button";
+import { Button } from "@/components/ui/button";
 import { Trash2, Calendar, Clock } from "lucide-react";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 

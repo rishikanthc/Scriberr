@@ -70,7 +70,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { TranscriptionConfigDialog, type WhisperXParams } from "@/components/TranscriptionConfigDialog";
 import { TranscribeDDialog } from "@/components/TranscribeDDialog";
-import { useRouter } from "@/contexts/RouterContext";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { useAudioList, type AudioFile } from "@/features/transcription/hooks/useAudioFiles";
 import {
@@ -132,7 +132,7 @@ interface AudioFilesTableProps {
 export const AudioFilesTable = memo(function AudioFilesTable({
 	onTranscribe,
 }: AudioFilesTableProps) {
-	const { navigate } = useRouter();
+	const navigate = useNavigate();
 	const { getAuthHeaders } = useAuth();
 
 	// Table State
@@ -716,7 +716,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 	}, []);
 
 	const handleAudioClick = useCallback((audioId: string) => {
-		navigate({ path: 'audio-detail', params: { id: audioId } });
+		navigate(`/audio/${audioId}`);
 	}, [navigate]);
 
 	// Memoize column definitions to prevent recreation on every render
@@ -790,7 +790,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 												className="h-7 w-7 text-carbon-600 dark:text-carbon-400 hover:text-primary hover:bg-carbon-100 dark:hover:bg-carbon-700"
 												onClick={(e) => {
 													e.stopPropagation();
-													navigate({ path: 'chat', params: { audioId: file.id } });
+													navigate(`/audio/${file.id}/chat`);
 												}}
 											>
 												<MessageCircle className="h-4 w-4" />
@@ -978,7 +978,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 												className="w-full justify-start h-8 text-sm hover:bg-carbon-100 dark:hover:bg-carbon-700 cursor-pointer"
 												onClick={() => {
 													setOpenPopovers((prev) => ({ ...prev, [file.id]: false }));
-													navigate({ path: 'chat', params: { audioId: file.id } });
+													navigate(`/audio/${file.id}/chat`);
 												}}
 											>
 												<MessageCircle className="mr-2 h-4 w-4" />

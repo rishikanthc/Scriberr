@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "./ui/dialog";
-import { Label } from "./ui/label";
-import { Input } from "./ui/input";
-import { Textarea } from "./ui/textarea";
-import { Button } from "./ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 
 export interface SummaryTemplate {
@@ -42,7 +42,7 @@ export function SummaryTemplateDialog({ open, onOpenChange, onSave, initial }: S
       // Load models when dialog opens
       (async () => {
         try {
-          const res = await fetch('/api/v1/chat/models', { headers: { ...getAuthHeaders() }});
+          const res = await fetch('/api/v1/chat/models', { headers: { ...getAuthHeaders() } });
           if (res.ok) {
             const data = await res.json();
             setModels(data.models || []);
@@ -50,7 +50,7 @@ export function SummaryTemplateDialog({ open, onOpenChange, onSave, initial }: S
               setModel(data.models[0]);
             }
           }
-        } catch {}
+        } catch { }
       })();
     }
   }, [open, initial]);

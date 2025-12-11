@@ -12,7 +12,7 @@ import { ThemeSwitcher } from "./ThemeSwitcher";
 import { AudioRecorder } from "./AudioRecorder";
 import { QuickTranscriptionDialog } from "@/features/transcription/components/QuickTranscriptionDialog";
 import { YouTubeDownloadDialog } from "@/features/transcription/components/YouTubeDownloadDialog";
-import { useRouter } from "../contexts/RouterContext";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { isVideoFile, isAudioFile } from "../utils/fileProcessor";
 
@@ -28,7 +28,7 @@ interface HeaderProps {
 }
 
 export function Header({ onFileSelect, onMultiTrackClick, onDownloadComplete }: HeaderProps) {
-	const { navigate } = useRouter();
+	const navigate = useNavigate();
 	const { logout } = useAuth();
 	const fileInputRef = useRef<HTMLInputElement>(null);
 	const videoFileInputRef = useRef<HTMLInputElement>(null);
@@ -61,7 +61,7 @@ export function Header({ onFileSelect, onMultiTrackClick, onDownloadComplete }: 
 	};
 
 	const handleSettingsClick = () => {
-		navigate({ path: "settings" });
+		navigate("/settings");
 	};
 
 	const handleLogout = () => {
@@ -69,7 +69,7 @@ export function Header({ onFileSelect, onMultiTrackClick, onDownloadComplete }: 
 	};
 
 	const handleHomeClick = () => {
-		navigate({ path: "home" });
+		navigate("/");
 	};
 
 	const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {

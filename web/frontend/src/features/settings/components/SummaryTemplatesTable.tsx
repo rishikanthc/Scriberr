@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
-import { Button } from "./ui/button";
-import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "./ui/alert-dialog";
+import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Trash2, FileText } from "lucide-react";
 import type { SummaryTemplate } from "./SummaryTemplateDialog";
 import { useAuth } from "@/features/auth/hooks/useAuth";
@@ -22,7 +22,7 @@ export function SummaryTemplatesTable({ onEdit, refreshTrigger = 0, disabled = f
   const fetchItems = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await fetch('/api/v1/summaries', { headers: { ...getAuthHeaders() }});
+      const res = await fetch('/api/v1/summaries', { headers: { ...getAuthHeaders() } });
       if (res.ok) {
         const data: SummaryTemplate[] = await res.json();
         setItems(data);
@@ -38,7 +38,7 @@ export function SummaryTemplatesTable({ onEdit, refreshTrigger = 0, disabled = f
     setOpenPop(prev => ({ ...prev, [id]: false }));
     try {
       setDeleting(prev => new Set(prev).add(id));
-      const res = await fetch(`/api/v1/summaries/${id}`, { method: 'DELETE', headers: { ...getAuthHeaders() }});
+      const res = await fetch(`/api/v1/summaries/${id}`, { method: 'DELETE', headers: { ...getAuthHeaders() } });
       if (res.ok) {
         setItems(prev => prev.filter(i => i.id !== id));
       } else {
@@ -94,32 +94,32 @@ export function SummaryTemplatesTable({ onEdit, refreshTrigger = 0, disabled = f
             </div>
             <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200" onClick={(e) => e.stopPropagation()}>
               {!disabled && (
-              <Popover open={openPop[tpl.id!] || false} onOpenChange={(open) => setOpenPop(prev => ({ ...prev, [tpl.id!]: open }))}>
-                <PopoverTrigger asChild>
-                  <Button variant="ghost" size="sm" className="h-7 w-7 p-0 hover:bg-carbon-300 dark:hover:bg-carbon-600">
-                    ⋮
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-32 bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-600 p-1">
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button variant="ghost" size="sm" className="w-full justify-start h-7 text-xs hover:bg-carbon-100 dark:hover:bg-carbon-700 text-red-500 dark:text-red-400 hover:text-red-600 dark:hover:text-red-300" disabled={deleting.has(tpl.id!)}>
-                        <Trash2 className="mr-2 h-3 w-3" /> Delete
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent className="bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700">
-                      <AlertDialogHeader>
-                        <AlertDialogTitle className="text-carbon-900 dark:text-carbon-100">Delete Template</AlertDialogTitle>
-                        <AlertDialogDescription className="text-carbon-600 dark:text-carbon-400">Are you sure you want to delete "{tpl.name}"?</AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel className="bg-carbon-100 dark:bg-carbon-700 border-carbon-300 dark:border-carbon-600 text-carbon-700 dark:text-carbon-200 hover:bg-carbon-200 dark:hover:bg-carbon-600">Cancel</AlertDialogCancel>
-                        <AlertDialogAction className="bg-red-600 text-white hover:bg-red-700" onClick={() => handleDelete(tpl.id!)}>Delete</AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                </PopoverContent>
-              </Popover>
+                <Popover open={openPop[tpl.id!] || false} onOpenChange={(open) => setOpenPop(prev => ({ ...prev, [tpl.id!]: open }))}>
+                  <PopoverTrigger asChild>
+                    <Button variant="ghost" size="sm" className="h-7 w-7 p-0 hover:bg-carbon-300 dark:hover:bg-carbon-600">
+                      ⋮
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-32 bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-600 p-1">
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="ghost" size="sm" className="w-full justify-start h-7 text-xs hover:bg-carbon-100 dark:hover:bg-carbon-700 text-red-500 dark:text-red-400 hover:text-red-600 dark:hover:text-red-300" disabled={deleting.has(tpl.id!)}>
+                          <Trash2 className="mr-2 h-3 w-3" /> Delete
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent className="bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700">
+                        <AlertDialogHeader>
+                          <AlertDialogTitle className="text-carbon-900 dark:text-carbon-100">Delete Template</AlertDialogTitle>
+                          <AlertDialogDescription className="text-carbon-600 dark:text-carbon-400">Are you sure you want to delete "{tpl.name}"?</AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel className="bg-carbon-100 dark:bg-carbon-700 border-carbon-300 dark:border-carbon-600 text-carbon-700 dark:text-carbon-200 hover:bg-carbon-200 dark:hover:bg-carbon-600">Cancel</AlertDialogCancel>
+                          <AlertDialogAction className="bg-red-600 text-white hover:bg-red-700" onClick={() => handleDelete(tpl.id!)}>Delete</AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </PopoverContent>
+                </Popover>
               )}
             </div>
           </div>

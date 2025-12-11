@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useRouter } from "../contexts/RouterContext";
+import { useNavigate, useParams } from "react-router-dom";
 import { ChatInterface } from "../components/ChatInterface";
 import { Button } from "../components/ui/button";
 import { ArrowLeft, Sidebar } from "lucide-react";
@@ -8,9 +8,10 @@ import { useAuth } from "@/features/auth/hooks/useAuth";
 import { ChatSessionsSidebar } from "../components/ChatSessionsSidebar";
 
 export function ChatPage() {
-	const { currentRoute, navigate } = useRouter();
-	const audioId = currentRoute.params?.audioId;
-	const sessionId = currentRoute.params?.sessionId;
+	const navigate = useNavigate();
+	const { audioId, sessionId } = useParams();
+	// const audioId = currentRoute.params?.audioId; // handled by useParams
+	// const sessionId = currentRoute.params?.sessionId; // handled by useParams
 	const { getAuthHeaders } = useAuth();
 	const [audioTitle, setAudioTitle] = useState<string | null>(null);
 	const [showSidebar, setShowSidebar] = useState(true);
@@ -18,7 +19,7 @@ export function ChatPage() {
 	useEffect(() => {
 		// If we somehow landed on chat without required params, bounce home
 		if (!audioId) {
-			navigate({ path: "home" });
+			navigate("/");
 		}
 	}, [audioId, navigate]);
 
@@ -54,9 +55,9 @@ export function ChatPage() {
 						activeSessionId={sessionId}
 						onSessionChange={(newSessionId) => {
 							if (!newSessionId) {
-								navigate({ path: "audio-detail", params: { id: audioId } });
+								navigate(`/audio/${audioId}`);
 							} else {
-								navigate({ path: "chat", params: { audioId, sessionId: newSessionId } });
+								navigate(`/audio/${audioId}/chat/${newSessionId}`);
 							}
 						}}
 					/>
@@ -92,7 +93,7 @@ export function ChatPage() {
 						<Button
 							variant="ghost"
 							size="sm"
-							onClick={() => navigate({ path: "audio-detail", params: { id: audioId } })}
+							onClick={() => navigate(`/audio/${audioId}`)}
 							className="gap-2 text-muted-foreground hover:text-foreground"
 						>
 							<ArrowLeft className="h-4 w-4" />
@@ -119,10 +120,10 @@ export function ChatPage() {
 						hideSidebar
 						onSessionChange={(newSessionId) => {
 							if (newSessionId) {
-								navigate({ path: "chat", params: { audioId, sessionId: newSessionId } });
+								navigate(`/audio/${audioId}/chat/${newSessionId}`);
 							} else {
 								// Stay on chat page but remove sessionId from URL
-								navigate({ path: "chat", params: { audioId } });
+								navigate(`/audio/${audioId}/chat`);
 							}
 						}}
 					/>

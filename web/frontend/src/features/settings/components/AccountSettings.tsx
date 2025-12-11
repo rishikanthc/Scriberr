@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { Button } from "./ui/button";
-import { Input } from "./ui/input";
-import { Label } from "./ui/label";
-import { Separator } from "./ui/separator";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
 import { Eye, EyeOff, User, Lock, Check, X } from "lucide-react";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 
@@ -118,7 +118,7 @@ export function AccountSettings() {
 				setCurrentPassword("");
 				setNewPassword("");
 				setConfirmPassword("");
-				
+
 				// Auto-logout after 2 seconds
 				setTimeout(() => {
 					logout();
@@ -150,7 +150,7 @@ export function AccountSettings() {
 					<p className="text-red-700 dark:text-red-300 text-sm">{error}</p>
 				</div>
 			)}
-			
+
 			{success && (
 				<div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-3">
 					<p className="text-green-700 dark:text-green-300 text-sm">{success}</p>
@@ -315,9 +315,8 @@ export function AccountSettings() {
 									onChange={(e) => setConfirmPassword(e.target.value)}
 									disabled={loading}
 									required
-									className={`bg-white dark:bg-carbon-800 border-carbon-300 dark:border-carbon-600 text-carbon-900 dark:text-carbon-100 pr-10 ${
-										confirmPassword && !passwordsMatch ? 'border-red-300 dark:border-red-600' : ''
-									}`}
+									className={`bg-white dark:bg-carbon-800 border-carbon-300 dark:border-carbon-600 text-carbon-900 dark:text-carbon-100 pr-10 ${confirmPassword && !passwordsMatch ? 'border-red-300 dark:border-red-600' : ''
+										}`}
 								/>
 								<button
 									type="button"
@@ -329,9 +328,8 @@ export function AccountSettings() {
 							</div>
 
 							{confirmPassword && (
-								<div className={`flex items-center gap-2 text-sm ${
-									passwordsMatch ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
-								}`}>
+								<div className={`flex items-center gap-2 text-sm ${passwordsMatch ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+									}`}>
 									{passwordsMatch ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
 									<span>{passwordsMatch ? "Passwords match" : "Passwords do not match"}</span>
 								</div>

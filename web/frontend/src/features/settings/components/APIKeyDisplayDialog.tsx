@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Button } from "./ui/button";
+import { Button } from "@/components/ui/button";
 import {
 	Dialog,
 	DialogContent,
@@ -7,9 +7,9 @@ import {
 	DialogFooter,
 	DialogHeader,
 	DialogTitle,
-} from "./ui/dialog";
-import { Input } from "./ui/input";
-import { Label } from "./ui/label";
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Copy, Check, AlertTriangle } from "lucide-react";
 
 interface CreatedAPIKey {
@@ -79,7 +79,7 @@ export function APIKeyDisplayDialog({
 						API Key Created Successfully
 					</DialogTitle>
 					<DialogDescription>
-						Your API key has been created. Copy it now and store it securely - 
+						Your API key has been created. Copy it now and store it securely -
 						you won't be able to see the full key again.
 					</DialogDescription>
 				</DialogHeader>
@@ -91,7 +91,7 @@ export function APIKeyDisplayDialog({
 							<div className="text-sm text-yellow-800 dark:text-yellow-200">
 								<div className="font-medium mb-1">Important Security Notice</div>
 								<div>
-									This is the only time you'll see the full API key. Make sure to copy 
+									This is the only time you'll see the full API key. Make sure to copy
 									and store it in a secure location before closing this dialog.
 								</div>
 							</div>
