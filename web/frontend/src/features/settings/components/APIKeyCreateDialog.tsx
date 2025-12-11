@@ -101,7 +101,7 @@ export function APIKeyCreateDialog({
 
 	return (
 		<Dialog open={open} onOpenChange={handleOpenChange}>
-			<DialogContent className="sm:max-w-md bg-white dark:bg-carbon-800 border border-carbon-200 dark:border-carbon-700">
+			<DialogContent className="sm:max-w-md bg-[var(--bg-card)] border-[var(--border-subtle)] text-[var(--text-primary)]">
 				<DialogHeader>
 					<DialogTitle>Create New API Key</DialogTitle>
 					<DialogDescription>
@@ -121,7 +121,7 @@ export function APIKeyCreateDialog({
 							maxLength={100}
 							disabled={isCreating}
 						/>
-						<div className="text-xs text-carbon-500 dark:text-carbon-400">
+						<div className="text-xs text-[var(--text-tertiary)]">
 							A friendly name to identify this API key
 						</div>
 					</div>
@@ -139,7 +139,7 @@ export function APIKeyCreateDialog({
 					</div>
 
 					{error && (
-						<div className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 p-3 rounded-lg">
+						<div className="text-sm text-[var(--error)] bg-[var(--error)]/10 p-3 rounded-lg">
 							{error}
 						</div>
 					)}
@@ -156,7 +156,14 @@ export function APIKeyCreateDialog({
 						<Button
 							type="submit"
 							disabled={isCreating || !name.trim()}
-							className="bg-blue-600 hover:bg-blue-700 text-white"
+							className="bg-[var(--bg-secondary)] border-[var(--border-subtle)] text-[var(--text-primary)]"
+						>
+							Cancel
+						</Button>
+						<Button
+							type="submit"
+							disabled={isCreating || !name.trim()}
+							className="!bg-[var(--brand-gradient)] hover:!opacity-90 text-white border-none"
 						>
 							{isCreating ? "Creating..." : "Create API Key"}
 						</Button>

@@ -140,20 +140,20 @@ export function ProfilesTable({
 	if (profiles.length === 0) {
 		return (
 			<div className="text-center py-16">
-				<div className="bg-carbon-100 dark:bg-carbon-700 rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center">
-					<Settings className="h-8 w-8 text-carbon-400 dark:text-carbon-500" />
+				<div className="bg-[var(--bg-main)] rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center border border-[var(--border-subtle)]">
+					<Settings className="h-8 w-8 text-[var(--text-tertiary)]" />
 				</div>
-				<h3 className="text-lg font-medium text-carbon-900 dark:text-carbon-100 mb-2">
+				<h3 className="text-lg font-medium text-[var(--text-primary)] mb-2">
 					No profiles yet
 				</h3>
-				<p className="text-carbon-600 dark:text-carbon-400 mb-6 max-w-sm mx-auto">
+				<p className="text-[var(--text-secondary)] mb-6 max-w-sm mx-auto">
 					Create your first transcription profile to save and reuse your
 					preferred settings.
 				</p>
 				<Button
 					onClick={() => onCreateProfile?.()}
 					variant="outline"
-					className="border-carbon-300 dark:border-carbon-600 text-carbon-600 dark:text-carbon-400"
+					className="border-[var(--border-subtle)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-secondary)]"
 				>
 					Create Profile
 				</Button>
@@ -166,25 +166,25 @@ export function ProfilesTable({
 			{profiles.map((profile) => (
 				<div
 					key={profile.id}
-					className="group bg-carbon-100 dark:bg-carbon-700 rounded-lg p-4 hover:bg-carbon-200 dark:hover:bg-carbon-600 transition-all duration-200 cursor-pointer"
+					className="group bg-[var(--bg-card)] border border-[var(--border-subtle)] rounded-lg p-4 hover:border-[var(--brand-solid)] transition-all duration-200 cursor-pointer shadow-sm"
 					onClick={() => onEditProfile(profile)}
 				>
 					<div className="flex items-center justify-between">
 						<div className="flex items-center gap-3 flex-1 min-w-0">
-							<div className="bg-carbon-200 dark:bg-carbon-800 rounded-md p-1.5">
-								<Terminal className="h-3.5 w-3.5 text-carbon-500 dark:text-carbon-400" />
+							<div className="bg-[var(--bg-main)] rounded-md p-1.5 text-[var(--text-tertiary)]">
+								<Terminal className="h-3.5 w-3.5" />
 							</div>
 							<div className="flex-1 min-w-0">
 								<div className="flex items-center gap-3">
-									<h3 className="text-sm font-medium text-carbon-900 dark:text-carbon-100 truncate">
+									<h3 className="text-sm font-medium text-[var(--text-primary)] truncate">
 										{profile.name}
 									</h3>
-									<span className="text-xs text-carbon-500 dark:text-carbon-400 whitespace-nowrap">
+									<span className="text-xs text-[var(--text-tertiary)] whitespace-nowrap">
 										{formatDate(profile.created_at)}
 									</span>
 								</div>
 								{profile.description && (
-									<p className="text-xs text-carbon-500 dark:text-carbon-400 truncate mt-1">
+									<p className="text-xs text-[var(--text-secondary)] truncate mt-1">
 										{profile.description}
 									</p>
 								)}
@@ -213,35 +213,35 @@ export function ProfilesTable({
 										<MoreVertical className="h-3.5 w-3.5" />
 									</Button>
 								</PopoverTrigger>
-								<PopoverContent className="w-32 bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-600 p-1">
+								<PopoverContent className="w-32 bg-[var(--bg-card)] border-[var(--border-subtle)] p-1 text-[var(--text-primary)]">
 									<AlertDialog>
 										<AlertDialogTrigger asChild>
 											<Button
 												variant="ghost"
 												size="sm"
-												className="w-full justify-start h-7 text-xs hover:bg-carbon-100 dark:hover:bg-carbon-700 text-red-500 dark:text-red-400 hover:text-red-600 dark:hover:text-red-300"
+												className="w-full justify-start h-7 text-xs hover:bg-[var(--error)]/10 text-[var(--error)] hover:text-[var(--error)]"
 												disabled={deletingProfiles.has(profile.id)}
 											>
 												<Trash2 className="mr-2 h-3 w-3" />
 												Delete
 											</Button>
 										</AlertDialogTrigger>
-										<AlertDialogContent className="bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700">
+										<AlertDialogContent className="bg-[var(--bg-card)] border-[var(--border-subtle)]">
 											<AlertDialogHeader>
-												<AlertDialogTitle className="text-carbon-900 dark:text-carbon-100">
+												<AlertDialogTitle className="text-[var(--text-primary)]">
 													Delete Profile
 												</AlertDialogTitle>
-												<AlertDialogDescription className="text-carbon-600 dark:text-carbon-400">
+												<AlertDialogDescription className="text-[var(--text-secondary)]">
 													Are you sure you want to delete "{profile.name}"? This
 													action cannot be undone.
 												</AlertDialogDescription>
 											</AlertDialogHeader>
 											<AlertDialogFooter>
-												<AlertDialogCancel className="bg-carbon-100 dark:bg-carbon-700 border-carbon-300 dark:border-carbon-600 text-carbon-700 dark:text-carbon-200 hover:bg-carbon-200 dark:hover:bg-carbon-600">
+												<AlertDialogCancel className="bg-[var(--bg-secondary)] border-[var(--border-subtle)] text-[var(--text-primary)] hover:bg-[var(--bg-main)]">
 													Cancel
 												</AlertDialogCancel>
 												<AlertDialogAction
-													className="bg-red-600 text-white hover:bg-red-700"
+													className="bg-[var(--error)] text-white hover:bg-[var(--error)]/90"
 													onClick={() => handleDelete(profile.id)}
 												>
 													Delete

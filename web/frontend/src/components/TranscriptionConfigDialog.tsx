@@ -535,12 +535,12 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
               {isMultiTrack && (
                 <div className="space-y-4">
                   <h3 className="text-lg font-medium text-[var(--text-primary)]">Transcription Mode</h3>
-                  <div className="p-4 border border-blue-200 dark:border-blue-700 rounded-lg bg-blue-50 dark:bg-blue-900/20">
+                  <div className="p-4 border border-[var(--brand-solid)]/20 rounded-lg bg-[var(--brand-light)]/10">
                     <div className="flex items-center gap-2">
-                      <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                      <span className="text-sm font-medium text-blue-800 dark:text-blue-200">Multi-track audio detected</span>
+                      <Info className="h-4 w-4 text-[var(--brand-solid)]" />
+                      <span className="text-sm font-medium text-[var(--text-primary)]">Multi-track audio detected</span>
                     </div>
-                    <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
+                    <p className="text-sm text-[var(--text-secondary)] mt-1">
                       Multi-track transcription is automatically enabled for this audio file.
                     </p>
                   </div>
@@ -770,14 +770,14 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
                       )}
 
                       {params.diarize_model === "nvidia_sortformer" && (
-                        <div className="p-4 border border-orange-200 dark:border-orange-700 rounded-lg bg-orange-50 dark:bg-orange-900/20">
+                        <div className="p-4 border border-[var(--warning-solid)]/20 rounded-lg bg-[var(--warning-translucent)]">
                           <div className="flex items-start gap-3">
-                            <div className="text-orange-500 dark:text-orange-400 mt-0.5">⚠️</div>
+                            <div className="text-[var(--warning-solid)] mt-0.5">⚠️</div>
                             <div>
-                              <h4 className="text-sm font-medium text-orange-800 dark:text-orange-200 mb-1">
+                              <h4 className="text-sm font-medium text-[var(--text-primary)] mb-1">
                                 NVIDIA Sortformer Limitations
                               </h4>
-                              <p className="text-sm text-orange-700 dark:text-orange-300">
+                              <p className="text-sm text-[var(--text-secondary)]">
                                 This model is optimized for up to 4 speakers. Beyond 4 speakers accuracy might degrade.
                               </p>
                             </div>
@@ -967,14 +967,14 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
                       )}
 
                       {params.diarize_model === "nvidia_sortformer" && (
-                        <div className="p-4 border border-orange-200 dark:border-orange-700 rounded-lg bg-orange-50 dark:bg-orange-900/20">
+                        <div className="p-4 border border-[var(--warning-solid)]/20 rounded-lg bg-[var(--warning-translucent)]">
                           <div className="flex items-start gap-3">
-                            <div className="text-orange-500 dark:text-orange-400 mt-0.5">⚠️</div>
+                            <div className="text-[var(--warning-solid)] mt-0.5">⚠️</div>
                             <div>
-                              <h4 className="text-sm font-medium text-orange-800 dark:text-orange-200 mb-1">
+                              <h4 className="text-sm font-medium text-[var(--text-primary)] mb-1">
                                 NVIDIA Sortformer Limitations
                               </h4>
-                              <p className="text-sm text-orange-700 dark:text-orange-300">
+                              <p className="text-sm text-[var(--text-secondary)]">
                                 This model is optimized for up to 4 speakers. Beyond 4 speakers accuracy might degrade.
                               </p>
                             </div>
@@ -989,12 +989,12 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
             </div>
           ) : params.model_family === "openai" ? (
             <div className="space-y-6">
-              <div className="p-4 border border-blue-200 dark:border-blue-700 rounded-lg bg-blue-50 dark:bg-blue-900/20">
+              <div className="p-4 border border-[var(--brand-solid)]/20 rounded-lg bg-[var(--brand-light)]/10">
                 <div className="flex items-center gap-2">
-                  <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                  <span className="text-sm font-medium text-blue-800 dark:text-blue-200">Cloud Transcription</span>
+                  <Info className="h-4 w-4 text-[var(--brand-solid)]" />
+                  <span className="text-sm font-medium text-[var(--text-primary)]">Cloud Transcription</span>
                 </div>
-                <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
+                <p className="text-sm text-[var(--text-secondary)] mt-1">
                   Audio will be sent to OpenAI servers for processing.
                 </p>
               </div>
@@ -1042,7 +1042,7 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
                   </Button>
                 </div>
                 {validationStatus !== 'idle' && (
-                  <div className={`flex items-center gap-2 text-sm ${validationStatus === 'valid' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+                  <div className={`flex items-center gap-2 text-sm ${validationStatus === 'valid' ? 'text-[var(--success-solid)]' : 'text-[var(--error)]'
                     }`}>
                     {validationStatus === 'valid' ? (
                       <Check className="h-4 w-4" />
@@ -1077,14 +1077,14 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
               </div>
 
               {params.model && params.model !== "whisper-1" && (
-                <div className="p-4 border border-orange-200 dark:border-orange-700 rounded-lg bg-orange-50 dark:bg-orange-900/20">
+                <div className="p-4 border border-[var(--warning-solid)]/20 rounded-lg bg-[var(--warning-translucent)]">
                   <div className="flex items-start gap-3">
-                    <div className="text-orange-500 dark:text-orange-400 mt-0.5">⚠️</div>
+                    <div className="text-[var(--warning-solid)] mt-0.5">⚠️</div>
                     <div>
-                      <h4 className="text-sm font-medium text-orange-800 dark:text-orange-200 mb-1">
+                      <h4 className="text-sm font-medium text-[var(--text-primary)] mb-1">
                         Limited Synchronization
                       </h4>
-                      <p className="text-sm text-orange-700 dark:text-orange-300">
+                      <p className="text-sm text-[var(--text-secondary)]">
                         Word-level timestamps are only supported by the <strong>whisper-1</strong> model. Synchronized playback will not be available for this model.
                       </p>
                     </div>
@@ -1184,12 +1184,12 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
                   <div className="space-y-4 sm:space-y-6">
                     {/* Multi-track status display */}
                     {isMultiTrack && (
-                      <div className="p-4 border border-blue-200 dark:border-blue-700 rounded-lg bg-blue-50 dark:bg-blue-900/20">
+                      <div className="p-4 border border-[var(--brand-solid)]/20 rounded-lg bg-[var(--brand-light)]/10">
                         <div className="flex items-center gap-2">
-                          <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                          <span className="text-sm font-medium text-blue-800 dark:text-blue-200">Multi-track audio detected</span>
+                          <Info className="h-4 w-4 text-[var(--brand-solid)]" />
+                          <span className="text-sm font-medium text-[var(--text-primary)]">Multi-track audio detected</span>
                         </div>
-                        <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
+                        <p className="text-sm text-[var(--text-secondary)] mt-1">
                           Multi-track transcription is automatically enabled. Diarization is disabled as each track represents a single speaker.
                         </p>
                       </div>

@@ -40,19 +40,19 @@ export function APIKeySettings() {
 
 	return (
 		<div className="space-y-6">
-			<div className="bg-carbon-50 dark:bg-carbon-700/50 rounded-xl p-4 sm:p-6">
+			<div className="bg-[var(--bg-main)]/50 border border-[var(--border-subtle)] rounded-[var(--radius-card)] p-4 sm:p-6 shadow-sm">
 				<div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0 mb-4">
 					<div>
-						<h3 className="text-lg font-medium text-carbon-900 dark:text-carbon-100">
+						<h3 className="text-lg font-medium text-[var(--text-primary)]">
 							API Keys
 						</h3>
-						<p className="text-sm text-carbon-600 dark:text-carbon-400 mt-1">
+						<p className="text-sm text-[var(--text-secondary)] mt-1">
 							Manage your API keys for external access to Scriberr.
 						</p>
 					</div>
 					<Button
 						onClick={handleCreateAPIKey}
-						className="bg-blue-600 hover:bg-blue-700 text-white"
+						className="!bg-[var(--brand-gradient)] hover:!opacity-90 text-white shadow-lg shadow-orange-500/20 border-none"
 					>
 						Create New API Key
 					</Button>
