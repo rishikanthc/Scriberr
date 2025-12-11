@@ -34,6 +34,9 @@ type Config struct {
 	UVPath      string
 	WhisperXEnv string
 
+	// Environment configuration
+	Environment    string
+	AllowedOrigins []string
 	// OpenAI configuration
 	OpenAIAPIKey string
 }
@@ -48,6 +51,8 @@ func Load() *Config {
 	return &Config{
 		Port:           getEnv("PORT", "8080"),
 		Host:           getEnv("HOST", "0.0.0.0"),
+		Environment:    getEnv("APP_ENV", "development"),
+		AllowedOrigins: strings.Split(getEnv("ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:8080"), ","),
 		DatabasePath:   getEnv("DATABASE_PATH", "data/scriberr.db"),
 		JWTSecret:      getJWTSecret(),
 		UploadDir:      getEnv("UPLOAD_DIR", "data/uploads"),
@@ -56,6 +61,11 @@ func Load() *Config {
 		WhisperXEnv:    getEnv("WHISPERX_ENV", "data/whisperx-env"),
 		OpenAIAPIKey:   getEnv("OPENAI_API_KEY", ""),
 	}
+}
+
+// IsProduction returns true if the environment is production
+func (c *Config) IsProduction() bool {
+	return strings.ToLower(c.Environment) == "production"
 }
 
 // getEnv gets an environment variable with a default value

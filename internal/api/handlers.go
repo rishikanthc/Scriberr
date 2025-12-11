@@ -1510,7 +1510,7 @@ func (h *Handler) Login(c *gin.Context) {
 		Path:     "/",
 		Expires:  time.Now().Add(24 * time.Hour), // Match your token duration constant
 		HttpOnly: true,
-		Secure:   false, // Set to true in production with HTTPS
+		Secure:   h.config.IsProduction(), // Secure in production
 		SameSite: http.SameSiteStrictMode,
 	})
 
@@ -1542,7 +1542,18 @@ func (h *Handler) Logout(c *gin.Context) {
 		MaxAge:   -1,
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
-		Secure:   false,
+		Secure:   h.config.IsProduction(),
+	})
+	// Also clear access token
+	http.SetCookie(c.Writer, &http.Cookie{
+		Name:     "scriberr_access_token",
+		Value:    "",
+		Path:     "/",
+		Expires:  time.Unix(0, 0),
+		MaxAge:   -1,
+		HttpOnly: true,
+		SameSite: http.SameSiteStrictMode,
+		Secure:   h.config.IsProduction(),
 	})
 	c.JSON(http.StatusOK, gin.H{"message": "Logged out successfully"})
 }
@@ -1675,6 +1686,18 @@ func (h *Handler) Refresh(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
 		return
 	}
+
+	// Set access token cookie for streaming/media access
+	http.SetCookie(c.Writer, &http.Cookie{
+		Name:     "scriberr_access_token",
+		Value:    token,
+		Path:     "/",
+		Expires:  time.Now().Add(24 * time.Hour),
+		HttpOnly: true,
+		Secure:   h.config.IsProduction(),
+		SameSite: http.SameSiteStrictMode,
+	})
+
 	c.JSON(http.StatusOK, RefreshTokenResponse{Token: token})
 }
 
