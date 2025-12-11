@@ -1,5 +1,5 @@
 import { forwardRef, useRef, useState, useCallback, useEffect, useMemo } from 'react';
-import { useKaraokeHighlight, computeWordOffsets } from '@/features/transcription/hooks/useKaraokeHighlight';
+import { useKaraokeHighlight, computeWordOffsets, findActiveWordIndex } from '@/features/transcription/hooks/useKaraokeHighlight';
 import { cn } from '@/lib/utils';
 import type { Note } from '@/types/note';
 
@@ -182,47 +182,36 @@ export const TranscriptView = forwardRef<HTMLDivElement, TranscriptViewProps>(({
 
         let found = false;
 
-        for (let i = 0; i < expandedData.length; i++) {
+        // Search backwards to find the LATEST segment that has started
+        // This prevents getting stuck on the first segment (which is always "started" relative to future time)
+        for (let i = expandedData.length - 1; i >= 0; i--) {
             const seg = expandedData[i];
-            // Check if time is roughly in segment (with buffer for words crossing boundaries)
-            // But checking words is safer.
 
-            // Binary search within this segment's offsets
-            // Similar logic to useKaraokeHighlight but scoped
-            let low = 0;
-            let high = seg.offsets.length - 1;
+            // Optimization: If segment hasn't started yet, skip it
+            // (heuristic using segment start time)
+            if (seg.start > currentTime) continue;
 
-            while (low <= high) {
-                const mid = Math.floor((low + high) / 2);
-                const w = seg.offsets[mid];
+            const activeIndex = findActiveWordIndex(seg.offsets, currentTime);
+            if (activeIndex !== -1) {
+                const w = seg.offsets[activeIndex];
+                const el = segmentRefs.current[i];
 
-                if (w.startTime <= currentTime) {
-                    if (currentTime <= w.endTime) {
-                        // Found active word!
-                        const el = segmentRefs.current[i];
-                        if (el && el.firstChild) {
-                            try {
-                                const range = new Range();
-                                if (w.endChar <= (el.firstChild as Text).length) {
-                                    range.setStart(el.firstChild, w.startChar);
-                                    range.setEnd(el.firstChild, w.endChar);
-                                    const highlight = new Highlight(range);
-                                    CSS.highlights.set('karaoke-word', highlight);
-                                    found = true;
-                                }
-                            } catch (e) {
-                                // Ignore range errors
-                            }
+                if (el && el.firstChild) {
+                    try {
+                        const range = new Range();
+                        if (w.endChar <= (el.firstChild as Text).length) {
+                            range.setStart(el.firstChild, w.startChar);
+                            range.setEnd(el.firstChild, w.endChar);
+                            const highlight = new Highlight(range);
+                            CSS.highlights.set('karaoke-word', highlight);
+                            found = true;
                         }
-                        found = true;
-                        break;
+                    } catch (e) {
+                        // Ignore range errors
                     }
-                    low = mid + 1;
-                } else {
-                    high = mid - 1;
                 }
+                if (found) break;
             }
-            if (found) break;
         }
 
         if (!found) {
