@@ -1425,13 +1425,37 @@ func (h *Handler) GetAudioFile(c *gin.Context) {
 		c.Header("Content-Type", "audio/mpeg")
 	}
 
-	// Add CORS headers for audio
-	c.Header("Access-Control-Allow-Origin", "*")
-	c.Header("Access-Control-Allow-Methods", "GET")
-	c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Authorization, X-API-Key")
+	// Add CORS headers for audio visualization and streaming
+	origin := c.Request.Header.Get("Origin")
+	if origin != "" {
+		c.Header("Access-Control-Allow-Origin", origin)
+		c.Header("Access-Control-Allow-Credentials", "true")
+	} else {
+		// Fallback for non-browser/direct access
+		c.Header("Access-Control-Allow-Origin", "*")
+	}
+	c.Header("Access-Control-Expose-Headers", "Content-Range, Accept-Ranges, Content-Length")
+	c.Header("Accept-Ranges", "bytes")
 
-	// Serve the audio file
-	c.File(job.AudioPath)
+	// Open the file
+	file, err := os.Open(audioPath)
+	if err != nil {
+		fmt.Printf("ERROR: Failed to open audio file: %v\n", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to open audio file"})
+		return
+	}
+	defer file.Close()
+
+	// Get file stats
+	fileInfo, err := file.Stat()
+	if err != nil {
+		fmt.Printf("ERROR: Failed to stat audio file: %v\n", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to stat audio file"})
+		return
+	}
+
+	// Use http.ServeContent for efficient streaming and range request support
+	http.ServeContent(c.Writer, c.Request, filepath.Base(audioPath), fileInfo.ModTime(), file)
 }
 
 // @Summary Login
@@ -1475,6 +1499,20 @@ func (h *Handler) Login(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create session"})
 		return
 	}
+
+	// Set access token cookie for streaming/media access
+	// We use Lax mode to allow top-level navigation authentication if needed, but Strict is safer for API.
+	// Since we use this for <audio> src which is a cross-origin-like request (even if same origin technically),
+	// SameSite=Strict should work for same-site.
+	http.SetCookie(c.Writer, &http.Cookie{
+		Name:     "scriberr_access_token",
+		Value:    token,
+		Path:     "/",
+		Expires:  time.Now().Add(24 * time.Hour), // Match your token duration constant
+		HttpOnly: true,
+		Secure:   false, // Set to true in production with HTTPS
+		SameSite: http.SameSiteStrictMode,
+	})
 
 	response := LoginResponse{Token: token}
 	response.User.ID = user.ID
