@@ -28,23 +28,10 @@ export function computeWordOffsets(words: { word: string; start: number; end: nu
 
     if (!words) return { fullText: '', offsets: [] };
 
-    words.forEach((w, index) => {
+    words.forEach((w) => {
         const startChar = textBuilder.length;
         textBuilder += w.word;
         const endChar = textBuilder.length;
-
-        // Gap Filling Logic:
-        // Extend the previous word's endTime to meet this word's startTime
-        // if the gap is small (e.g. natural pauses).
-        // This prevents flickering/skipping when the playback update rate is lower than the gap size.
-        if (index > 0) {
-            const prev = computedOffsets[index - 1];
-            const gap = w.start - prev.endTime;
-            // Fill gaps smaller than 0.7 seconds
-            if (gap > 0 && gap < 0.7) {
-                prev.endTime = w.start;
-            }
-        }
 
         computedOffsets.push({
             startChar,
@@ -58,6 +45,29 @@ export function computeWordOffsets(words: { word: string; start: number; end: nu
     });
 
     return { fullText: textBuilder, offsets: computedOffsets };
+}
+
+// O(log N) binary search to find the latest word that has started (startTime <= currentTime)
+// Returns the index of the word, or -1 if no word has started yet.
+export function findActiveWordIndex(
+    offsets: { startTime: number; endTime: number; }[],
+    currentTime: number
+): number {
+    let low = 0;
+    let high = offsets.length - 1;
+    let result = -1;
+
+    while (low <= high) {
+        const mid = Math.floor((low + high) / 2);
+        if (offsets[mid].startTime <= currentTime) {
+            result = mid; // Candidate found, look effectively later for a tighter match? 
+            // Actually, since sorted by startTime, we want the LARGEST startTime <= currentTime.
+            low = mid + 1;
+        } else {
+            high = mid - 1;
+        }
+    }
+    return result;
 }
 
 export function useKaraokeHighlight(
@@ -75,33 +85,8 @@ export function useKaraokeHighlight(
     useEffect(() => {
         if (!containerRef.current || typeof CSS === 'undefined' || !CSS.highlights) return;
 
-        // Binary search for performance (O(logN) vs O(N))
-        // particularly important for long transcripts
-        let activeWord = null;
-        let low = 0;
-        let high = offsets.length - 1;
-
-        while (low <= high) {
-            const mid = Math.floor((low + high) / 2);
-            if (offsets[mid].startTime <= currentTime) {
-                // This word started before or at currentTime.
-                // It's a candidate, but there might be a later one that also started before currentTime.
-                // (Though with non-overlapping words, this is usually unique, but let's be safe).
-                // Actually, if we find one, we check if it contains currentTime.
-                // If offsets are sorted and non-overlapping (mostly), we can optimize.
-                const w = offsets[mid];
-                if (currentTime <= w.endTime) {
-                    activeWord = w;
-                    break;
-                }
-                // If we are here, w started before currentTime but ended before currentTime.
-                // So we need to look later.
-                low = mid + 1;
-            } else {
-                // w started after currentTime. Look earlier.
-                high = mid - 1;
-            }
-        }
+        const activeIndex = findActiveWordIndex(offsets, currentTime);
+        const activeWord = activeIndex !== -1 ? offsets[activeIndex] : null;
 
         if (!activeWord) {
             if (CSS.highlights.has('karaoke-word')) {
