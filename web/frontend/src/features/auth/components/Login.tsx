@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScriberrLogo } from "@/components/ScriberrLogo";
-import { useRouter } from "@/contexts/RouterContext";
+import { useNavigate } from "react-router-dom";
 import { ThemeSwitcher } from "@/components/ThemeSwitcher";
 
 interface LoginProps {
@@ -12,7 +12,7 @@ interface LoginProps {
 }
 
 export function Login({ onLogin }: LoginProps) {
-	const { navigate } = useRouter();
+	const navigate = useNavigate();
 	const [username, setUsername] = useState("");
 	const [password, setPassword] = useState("");
 	const [loading, setLoading] = useState(false);
@@ -59,7 +59,7 @@ export function Login({ onLogin }: LoginProps) {
 			<div className="w-full max-w-md space-y-8">
 				<div className="text-center">
 					<div className="flex justify-center mb-6">
-						<ScriberrLogo onClick={() => navigate({ path: 'home' })} />
+						<ScriberrLogo onClick={() => navigate('/')} />
 					</div>
 					<h2 className="text-3xl font-bold text-carbon-900 dark:text-carbon-100">
 						Sign in to Scriberr

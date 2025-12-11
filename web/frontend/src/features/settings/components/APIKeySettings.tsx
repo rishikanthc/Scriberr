@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { Button } from "./ui/button";
+import { Button } from "@/components/ui/button";
 import { APIKeyTable } from "./APIKeyTable";
 import { APIKeyCreateDialog } from "./APIKeyCreateDialog";
 import { APIKeyDisplayDialog } from "./APIKeyDisplayDialog";

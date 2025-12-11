@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
-import { Button } from "./ui/button";
-import { Input } from "./ui/input";
-import { Label } from "./ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Bot, Key, Globe, CheckCircle, AlertCircle } from "lucide-react";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 
@@ -132,11 +132,10 @@ export function LLMSettings() {
 				</div>
 
 				{message && (
-					<div className={`mb-4 sm:mb-6 p-3 sm:p-4 rounded-lg flex items-center gap-2 ${
-						message.type === "success" 
-							? "bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-200" 
+					<div className={`mb-4 sm:mb-6 p-3 sm:p-4 rounded-lg flex items-center gap-2 ${message.type === "success"
+							? "bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-200"
 							: "bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-200"
-					}`}>
+						}`}>
 						{message.type === "success" ? (
 							<CheckCircle className="h-4 w-4" />
 						) : (
@@ -155,11 +154,10 @@ export function LLMSettings() {
 						</p>
 						<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 							<label htmlFor="ollama">
-								<Card className={`cursor-pointer transition-colors ${
-									config.provider === "ollama" 
-										? "border-blue-500 bg-blue-50 dark:bg-blue-900/20" 
+								<Card className={`cursor-pointer transition-colors ${config.provider === "ollama"
+										? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
 										: "hover:bg-carbon-50 dark:hover:bg-carbon-600"
-								}`}>
+									}`}>
 									<CardHeader className="pb-2">
 										<div className="flex items-center space-x-2">
 											<input
@@ -184,11 +182,10 @@ export function LLMSettings() {
 							</label>
 
 							<label htmlFor="openai">
-								<Card className={`cursor-pointer transition-colors ${
-									config.provider === "openai" 
-										? "border-blue-500 bg-blue-50 dark:bg-blue-900/20" 
+								<Card className={`cursor-pointer transition-colors ${config.provider === "openai"
+										? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
 										: "hover:bg-carbon-50 dark:hover:bg-carbon-600"
-								}`}>
+									}`}>
 									<CardHeader className="pb-2">
 										<div className="flex items-center space-x-2">
 											<input

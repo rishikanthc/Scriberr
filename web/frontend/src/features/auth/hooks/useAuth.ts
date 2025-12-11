@@ -4,7 +4,6 @@ import { useAuthStore } from '../store/authStore';
 export function useAuth() {
     const {
         token,
-        isAuthenticated,
         requiresRegistration,
         isInitialized,
         setToken,
@@ -12,6 +11,8 @@ export function useAuth() {
         setInitialized,
         logout: storeLogout
     } = useAuthStore();
+
+    const isAuthenticated = !!token;
 
     const tokenCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
     const fetchWrapperSetupRef = useRef(false);

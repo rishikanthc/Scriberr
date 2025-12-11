@@ -1,11 +1,11 @@
 import { useState, useCallback, useEffect } from "react";
-import { Button } from "./ui/button";
-import { Label } from "./ui/label";
-import { Switch } from "./ui/switch";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { ProfilesTable } from "./ProfilesTable";
-import { TranscriptionConfigDialog, type WhisperXParams } from "./TranscriptionConfigDialog";
+import { TranscriptionConfigDialog, type WhisperXParams } from "@/components/TranscriptionConfigDialog";
 import { useAuth } from "@/features/auth/hooks/useAuth";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Settings } from "lucide-react";
 
 interface TranscriptionProfile {

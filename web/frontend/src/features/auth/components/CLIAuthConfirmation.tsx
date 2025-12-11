@@ -1,18 +1,19 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/features/auth/hooks/useAuth";
-import { useRouter } from "@/contexts/RouterContext";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Layout } from "@/components/Layout";
 
 export function CLIAuthConfirmation() {
-    const { currentRoute, navigate } = useRouter()
+    const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
     const { getAuthHeaders } = useAuth()
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
     const [user, setUser] = useState<{ id: number; username: string } | null>(null)
     const [processing, setProcessing] = useState(false)
 
-    const callbackUrl = currentRoute.params?.callback_url
-    const deviceName = currentRoute.params?.device_name || 'CLI Device'
+    const callbackUrl = searchParams.get('callback_url')
+    const deviceName = searchParams.get('device_name') || 'CLI Device'
 
     useEffect(() => {
         const checkSession = async () => {
@@ -72,7 +73,7 @@ export function CLIAuthConfirmation() {
     }
 
     const handleDeny = () => {
-        navigate({ path: 'home' })
+        navigate("/")
     }
 
     if (loading) {
@@ -93,7 +94,7 @@ export function CLIAuthConfirmation() {
                         {error}
                     </div>
                     <button
-                        onClick={() => navigate({ path: 'home' })}
+                        onClick={() => navigate("/")}
                         className="px-4 py-2 bg-carbon-200 dark:bg-carbon-700 rounded hover:bg-carbon-300 dark:hover:bg-carbon-600"
                     >
                         Go Home

@@ -24,7 +24,7 @@ export const useAuthStore = create<AuthState>()(
             setInitialized: (initialized) => set({ isInitialized: initialized }),
             logout: () => {
                 set({ token: null, isAuthenticated: false });
-                localStorage.removeItem('scriberr_auth_token');
+                localStorage.removeItem('auth-storage');
                 // Optional: Call logout endpoint if needed, but side effects strictly in hooks/components usually better
             },
         }),

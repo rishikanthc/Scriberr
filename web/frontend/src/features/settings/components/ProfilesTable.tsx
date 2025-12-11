@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { MoreVertical, Trash2, Settings, Terminal } from "lucide-react";
-import { Button } from "./ui/button";
-import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
+import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import {
 	AlertDialog,
@@ -13,8 +13,8 @@ import {
 	AlertDialogHeader,
 	AlertDialogTitle,
 	AlertDialogTrigger,
-} from "./ui/alert-dialog";
-import type { WhisperXParams } from "./TranscriptionConfigDialog";
+} from "@/components/ui/alert-dialog";
+import type { WhisperXParams } from "@/components/TranscriptionConfigDialog";
 
 interface TranscriptionProfile {
 	id: string;
@@ -27,17 +27,17 @@ interface TranscriptionProfile {
 }
 
 interface ProfilesTableProps {
-    refreshTrigger: number;
-    onProfileChange: () => void;
-    onEditProfile: (profile: TranscriptionProfile) => void;
-    onCreateProfile?: () => void;
+	refreshTrigger: number;
+	onProfileChange: () => void;
+	onEditProfile: (profile: TranscriptionProfile) => void;
+	onCreateProfile?: () => void;
 }
 
 export function ProfilesTable({
-    refreshTrigger,
-    onProfileChange,
-    onEditProfile,
-    onCreateProfile,
+	refreshTrigger,
+	onProfileChange,
+	onEditProfile,
+	onCreateProfile,
 }: ProfilesTableProps) {
 	const { getAuthHeaders } = useAuth();
 	const [profiles, setProfiles] = useState<TranscriptionProfile[]>([]);
@@ -150,13 +150,13 @@ export function ProfilesTable({
 					Create your first transcription profile to save and reuse your
 					preferred settings.
 				</p>
-        <Button
-            onClick={() => onCreateProfile?.()}
-            variant="outline"
-            className="border-carbon-300 dark:border-carbon-600 text-carbon-600 dark:text-carbon-400"
-        >
-            Create Profile
-        </Button>
+				<Button
+					onClick={() => onCreateProfile?.()}
+					variant="outline"
+					className="border-carbon-300 dark:border-carbon-600 text-carbon-600 dark:text-carbon-400"
+				>
+					Create Profile
+				</Button>
 			</div>
 		);
 	}
