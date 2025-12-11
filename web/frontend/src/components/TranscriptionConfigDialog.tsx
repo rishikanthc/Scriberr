@@ -450,15 +450,15 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-full sm:max-w-4xl w-[calc(100vw-1rem)] sm:w-auto max-h-[85vh] overflow-y-auto bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700 p-3 sm:p-8">
-        <DialogHeader className="mb-3 sm:mb-6">
-          <DialogTitle className="text-carbon-900 dark:text-carbon-100">
+      <DialogContent className="max-w-full sm:max-w-4xl w-[calc(100vw-1rem)] sm:w-auto max-h-[85vh] overflow-y-auto glass-card rounded-[var(--radius-card)] p-0 border border-[var(--border-subtle)] shadow-[var(--shadow-float)]">
+        <DialogHeader className="p-6 sm:p-8 pb-4">
+          <DialogTitle className="text-2xl font-bold tracking-tight text-[var(--text-primary)]">
             {title || (isProfileMode
               ? (initialName ? `Edit "${initialName}"` : "New Transcription Profile")
               : "Transcription Configuration")
             }
           </DialogTitle>
-          <DialogDescription className="text-carbon-600 dark:text-carbon-400">
+          <DialogDescription className="text-[var(--text-secondary)] mt-2">
             {isProfileMode
               ? (initialName ? "Update your transcription profile settings." : "Create a new profile to save and reuse your transcription settings.")
               : "Configure WhisperX parameters for your transcription. Advanced settings allow fine-tuning quality and performance."
@@ -466,1506 +466,296 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
           </DialogDescription>
         </DialogHeader>
 
-        {isProfileMode && (
-          <div className="mb-6 space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="profileName" className="text-carbon-700 dark:text-carbon-300 font-medium">
-                Profile Name
-              </Label>
-              <Input
-                id="profileName"
-                value={profileName}
-                onChange={(e) => setProfileName(e.target.value)}
-                placeholder="Enter a name for this profile..."
-                className="bg-white dark:bg-carbon-800 border-carbon-300 dark:border-carbon-600 text-carbon-900 dark:text-carbon-100"
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="profileDescription" className="text-carbon-700 dark:text-carbon-300 font-medium">
-                Description <span className="text-carbon-500 dark:text-carbon-400 font-normal">(optional)</span>
-              </Label>
-              <Textarea
-                id="profileDescription"
-                value={profileDescription}
-                onChange={(e) => setProfileDescription(e.target.value)}
-                placeholder="Describe this profile's purpose..."
-                className="bg-white dark:bg-carbon-800 border-carbon-300 dark:border-carbon-600 text-carbon-900 dark:text-carbon-100 resize-none"
-                rows={2}
-              />
-            </div>
-          </div>
-        )}
-
-        <div className="mb-6 space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="modelFamily" className="text-carbon-700 dark:text-carbon-300 font-medium">
-              Model Family
-            </Label>
-            <Select
-              value={params.model_family}
-              onValueChange={(value) => updateParam('model_family', value)}
-            >
-              <SelectTrigger className="bg-white dark:bg-carbon-800 border-carbon-300 dark:border-carbon-600 text-carbon-900 dark:text-carbon-100">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent className="bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700">
-                <SelectItem value="whisper" className="text-carbon-900 dark:text-carbon-100 focus:bg-carbon-100 dark:focus:bg-carbon-700">
-                  Whisper (OpenAI)
-                </SelectItem>
-                <SelectItem value="nvidia_parakeet" className="text-carbon-900 dark:text-carbon-100 focus:bg-carbon-100 dark:focus:bg-carbon-700">
-                  NVIDIA Parakeet
-                </SelectItem>
-                <SelectItem value="nvidia_canary" className="text-carbon-900 dark:text-carbon-100 focus:bg-carbon-100 dark:focus:bg-carbon-700">
-                  NVIDIA Canary
-                </SelectItem>
-                <SelectItem value="openai" className="text-carbon-900 dark:text-carbon-100 focus:bg-carbon-100 dark:focus:bg-carbon-700">
-                  OpenAI API
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
-        {params.model_family === "nvidia_parakeet" ? (
-          <div className="space-y-6">
-
-            {/* Multi-track status for Parakeet */}
-            {isMultiTrack && (
-              <div className="space-y-4">
-                <h3 className="text-lg font-medium text-carbon-900 dark:text-carbon-100">Transcription Mode</h3>
-                <div className="p-4 border border-blue-200 dark:border-blue-700 rounded-lg bg-blue-50 dark:bg-blue-900/20">
-                  <div className="flex items-center gap-2">
-                    <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                    <span className="text-sm font-medium text-blue-800 dark:text-blue-200">Multi-track audio detected</span>
-                  </div>
-                  <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
-                    Multi-track transcription is automatically enabled for this audio file.
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {/* Long-form Audio Settings */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-medium text-carbon-900 dark:text-carbon-100">Long-form Audio Settings</h3>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                {/* Left Context Size */}
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <Label htmlFor="attention_context_left" className="text-carbon-700 dark:text-carbon-300">
-                      Left Context Size
-                    </Label>
-                    <HoverCard>
-                      <HoverCardTrigger asChild>
-                        <Info className="h-4 w-4 text-carbon-400 cursor-help" />
-                      </HoverCardTrigger>
-                      <HoverCardContent className="w-80 bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700">
-                        <div className="space-y-2">
-                          <p className="text-sm font-medium text-carbon-900 dark:text-carbon-100">Left Attention Context</p>
-                          <p className="text-sm text-carbon-700 dark:text-carbon-300">
-                            Controls how much past audio context the model considers when processing. Higher values (up to 512) improve accuracy for long audio but increase memory usage.
-                          </p>
-                          <p className="text-xs text-carbon-600 dark:text-carbon-400">
-                            • Default: 256 (good balance)
-                            • Low (64-128): Faster, less memory, may reduce accuracy
-                            • High (384-512): Better context, more memory needed
-                          </p>
-                        </div>
-                      </HoverCardContent>
-                    </HoverCard>
-                  </div>
-                  <div className="space-y-2">
-                    <Slider
-                      value={[params.attention_context_left]}
-                      onValueChange={(value) => updateParam('attention_context_left', value[0])}
-                      max={512}
-                      min={64}
-                      step={64}
-                      className="w-full"
-                    />
-                    <div className="flex justify-between text-xs text-carbon-500 dark:text-carbon-400">
-                      <span>64 (Fast)</span>
-                      <span className="font-medium">{params.attention_context_left}</span>
-                      <span>512 (Max Context)</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Right Context Size */}
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <Label htmlFor="attention_context_right" className="text-carbon-700 dark:text-carbon-300">
-                      Right Context Size
-                    </Label>
-                    <HoverCard>
-                      <HoverCardTrigger asChild>
-                        <Info className="h-4 w-4 text-carbon-400 cursor-help" />
-                      </HoverCardTrigger>
-                      <HoverCardContent className="w-80 bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700">
-                        <div className="space-y-2">
-                          <p className="text-sm font-medium text-carbon-900 dark:text-carbon-100">Right Attention Context</p>
-                          <p className="text-sm text-carbon-700 dark:text-carbon-300">
-                            Controls how much future audio context the model considers. Higher values improve accuracy but increase processing latency and memory usage.
-                          </p>
-                          <p className="text-xs text-carbon-600 dark:text-carbon-400">
-                            • Default: 256 (recommended)
-                            • Low (64-128): Real-time processing, may reduce accuracy
-                            • High (384-512): Better accuracy, higher latency
-                          </p>
-                        </div>
-                      </HoverCardContent>
-                    </HoverCard>
-                  </div>
-                  <div className="space-y-2">
-                    <Slider
-                      value={[params.attention_context_right]}
-                      onValueChange={(value) => updateParam('attention_context_right', value[0])}
-                      max={512}
-                      min={64}
-                      step={64}
-                      className="w-full"
-                    />
-                    <div className="flex justify-between text-xs text-carbon-500 dark:text-carbon-400">
-                      <span>64 (Fast)</span>
-                      <span className="font-medium">{params.attention_context_right}</span>
-                      <span>512 (Max Context)</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-            </div>
-
-            {/* Diarization Settings for Parakeet */}
-            {!isMultiTrack && (
-              <div className="space-y-4">
-                <h3 className="text-lg font-medium text-carbon-900 dark:text-carbon-100">Speaker Diarization</h3>
-
-                <div className="flex items-center space-x-2 mb-4">
-                  <Switch
-                    id="parakeet_diarize"
-                    checked={params.diarize}
-                    onCheckedChange={(checked) => updateParam('diarize', checked)}
-                    disabled={params.is_multi_track_enabled}
-                  />
-                  <Label htmlFor="parakeet_diarize" className="text-carbon-700 dark:text-carbon-300">Enable Speaker Diarization</Label>
-                  <HoverCard>
-                    <HoverCardTrigger asChild>
-                      <Info className="h-4 w-4 text-carbon-400 cursor-help" />
-                    </HoverCardTrigger>
-                    <HoverCardContent className="w-80 bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700">
-                      <div className="space-y-2">
-                        <p className="text-sm font-medium text-carbon-900 dark:text-carbon-100">Pyannote Speaker Diarization</p>
-                        <p className="text-sm text-carbon-700 dark:text-carbon-300">
-                          Uses Pyannote to identify and separate different speakers in the audio after transcription. Requires a Hugging Face token for model access.
-                        </p>
-                      </div>
-                    </HoverCardContent>
-                  </HoverCard>
-                </div>
-
-                {params.diarize && (
-                  <div className="p-4 bg-carbon-50 dark:bg-carbon-800 rounded-lg border border-carbon-200 dark:border-carbon-700 space-y-4">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <div className="flex items-center gap-2 mb-2">
-                          <Label htmlFor="parakeet_min_speakers" className="text-carbon-700 dark:text-carbon-300">Min Speakers</Label>
-                          <HoverCard>
-                            <HoverCardTrigger asChild>
-                              <Info className="h-4 w-4 text-carbon-400 cursor-help" />
-                            </HoverCardTrigger>
-                            <HoverCardContent className="w-64 bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700">
-                              <p className="text-sm text-carbon-700 dark:text-carbon-300">Minimum number of speakers expected in the audio (leave empty for automatic detection).</p>
-                            </HoverCardContent>
-                          </HoverCard>
-                        </div>
-                        <Input
-                          type="number"
-                          min="1"
-                          max="20"
-                          placeholder="Auto-detect"
-                          value={params.min_speakers || ""}
-                          onChange={(e) => updateParam('min_speakers', e.target.value ? parseInt(e.target.value) : undefined)}
-                          className="bg-white dark:bg-carbon-800 border-carbon-300 dark:border-carbon-600 text-carbon-900 dark:text-carbon-100"
-                        />
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2 mb-2">
-                          <Label htmlFor="parakeet_max_speakers" className="text-carbon-700 dark:text-carbon-300">Max Speakers</Label>
-                          <HoverCard>
-                            <HoverCardTrigger asChild>
-                              <Info className="h-4 w-4 text-carbon-400 cursor-help" />
-                            </HoverCardTrigger>
-                            <HoverCardContent className="w-64 bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700">
-                              <p className="text-sm text-carbon-700 dark:text-carbon-300">Maximum number of speakers expected in the audio (leave empty for automatic detection).</p>
-                            </HoverCardContent>
-                          </HoverCard>
-                        </div>
-                        <Input
-                          type="number"
-                          min="1"
-                          max="20"
-                          placeholder="Auto-detect"
-                          value={params.max_speakers || ""}
-                          onChange={(e) => updateParam('max_speakers', e.target.value ? parseInt(e.target.value) : undefined)}
-                          className="bg-white dark:bg-carbon-800 border-carbon-300 dark:border-carbon-600 text-carbon-900 dark:text-carbon-100"
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <div className="flex items-center gap-2 mb-2">
-                        <Label htmlFor="parakeet_diarize_model" className="text-carbon-700 dark:text-carbon-300">Diarization Model</Label>
-                        <HoverCard>
-                          <HoverCardTrigger asChild>
-                            <Info className="h-4 w-4 text-carbon-400 cursor-help" />
-                          </HoverCardTrigger>
-                          <HoverCardContent className="w-80 bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700">
-                            <p className="text-sm text-carbon-700 dark:text-carbon-300">{PARAM_DESCRIPTIONS.diarize_model}</p>
-                          </HoverCardContent>
-                        </HoverCard>
-                      </div>
-                      <Select
-                        value={params.diarize_model}
-                        onValueChange={(value) => updateParam('diarize_model', value)}
-                      >
-                        <SelectTrigger className="bg-white dark:bg-carbon-800 border-carbon-300 dark:border-carbon-600 text-carbon-900 dark:text-carbon-100">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent className="bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700">
-                          <SelectItem value="pyannote" className="text-carbon-900 dark:text-carbon-100 focus:bg-carbon-100 dark:focus:bg-carbon-700">
-                            Pyannote (Recommended) - Requires HF Token
-                          </SelectItem>
-                          <SelectItem value="nvidia_sortformer" className="text-carbon-900 dark:text-carbon-100 focus:bg-carbon-100 dark:focus:bg-carbon-700">
-                            NVIDIA Sortformer - 4 Speakers Max, No Token
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    {params.diarize_model === "pyannote" && (
-                      <div>
-                        <div className="flex items-center gap-2 mb-2">
-                          <Label htmlFor="parakeet_hf_token" className="text-carbon-700 dark:text-carbon-300">Hugging Face Token</Label>
-                          <HoverCard>
-                            <HoverCardTrigger asChild>
-                              <Info className="h-4 w-4 text-carbon-400 cursor-help" />
-                            </HoverCardTrigger>
-                            <HoverCardContent className="w-80 bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700">
-                              <p className="text-sm text-carbon-700 dark:text-carbon-300">Hugging Face API token required for accessing Pyannote diarization models. Get one at https://huggingface.co/settings/tokens</p>
-                            </HoverCardContent>
-                          </HoverCard>
-                        </div>
-                        <Input
-                          type="password"
-                          placeholder="Required for Pyannote diarization models"
-                          value={params.hf_token || ""}
-                          onChange={(e) => updateParam('hf_token', e.target.value || undefined)}
-                          className="bg-white dark:bg-carbon-800 border-carbon-300 dark:border-carbon-600 text-carbon-900 dark:text-carbon-100"
-                        />
-                      </div>
-                    )}
-
-                    {params.diarize_model === "nvidia_sortformer" && (
-                      <div className="p-4 border border-orange-200 dark:border-orange-700 rounded-lg bg-orange-50 dark:bg-orange-900/20">
-                        <div className="flex items-start gap-3">
-                          <div className="text-orange-500 dark:text-orange-400 mt-0.5">⚠️</div>
-                          <div>
-                            <h4 className="text-sm font-medium text-orange-800 dark:text-orange-200 mb-1">
-                              NVIDIA Sortformer Limitations
-                            </h4>
-                            <p className="text-sm text-orange-700 dark:text-orange-300">
-                              This model is optimized for up to 4 speakers. Beyond 4 speakers accuracy might degrade.
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-              </div>
-            )}
-          </div>
-        ) : params.model_family === "nvidia_canary" ? (
-          <div className="space-y-6">
-
-            {/* Multi-track status for Canary */}
-            {isMultiTrack && (
-              <div className="space-y-4">
-                <h3 className="text-lg font-medium text-carbon-900 dark:text-carbon-100">Transcription Mode</h3>
-                <div className="p-4 border border-blue-200 dark:border-blue-700 rounded-lg bg-blue-50 dark:bg-blue-900/20">
-                  <div className="flex items-center gap-2">
-                    <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                    <span className="text-sm font-medium text-blue-800 dark:text-blue-200">Multi-track audio detected</span>
-                  </div>
-                  <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
-                    Multi-track transcription is automatically enabled for this audio file.
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {/* Language Selection */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-medium text-carbon-900 dark:text-carbon-100">Language Settings</h3>
-
+        <div className="px-6 sm:px-8 space-y-6">
+          {isProfileMode && (
+            <div className="space-y-4 p-4 bg-[var(--bg-main)]/50 rounded-[var(--radius-card)] border border-[var(--border-subtle)]">
               <div className="space-y-2">
-                <Label htmlFor="canary_language" className="text-carbon-700 dark:text-carbon-300 font-medium">
-                  Source Language
+                <Label htmlFor="profileName" className="text-[var(--text-primary)] font-medium">
+                  Profile Name
                 </Label>
-                <Select
-                  value={params.language || "en"}
-                  onValueChange={(value) => updateParam('language', value)}
-                >
-                  <SelectTrigger className="bg-white dark:bg-carbon-800 border-carbon-300 dark:border-carbon-600 text-carbon-900 dark:text-carbon-100">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700 max-h-60">
-                    {CANARY_LANGUAGES.map((lang) => (
-                      <SelectItem key={lang.value} value={lang.value} className="text-carbon-900 dark:text-carbon-100 focus:bg-carbon-100 dark:focus:bg-carbon-700">
-                        {lang.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-            </div>
-
-            {/* Diarization Settings for Canary */}
-            {!isMultiTrack && (
-              <div className="space-y-4">
-                <h3 className="text-lg font-medium text-carbon-900 dark:text-carbon-100">Speaker Diarization</h3>
-
-                <div className="flex items-center space-x-2 mb-4">
-                  <Switch
-                    id="canary_diarize"
-                    checked={params.diarize}
-                    onCheckedChange={(checked) => updateParam('diarize', checked)}
-                    disabled={params.is_multi_track_enabled}
-                  />
-                  <Label htmlFor="canary_diarize" className="text-carbon-700 dark:text-carbon-300">Enable Speaker Diarization</Label>
-                  <HoverCard>
-                    <HoverCardTrigger asChild>
-                      <Info className="h-4 w-4 text-carbon-400 cursor-help" />
-                    </HoverCardTrigger>
-                    <HoverCardContent className="w-80 bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700">
-                      <div className="space-y-2">
-                        <p className="text-sm font-medium text-carbon-900 dark:text-carbon-100">Pyannote Speaker Diarization</p>
-                        <p className="text-sm text-carbon-700 dark:text-carbon-300">
-                          Uses Pyannote to identify and separate different speakers in the audio after transcription. Requires a Hugging Face token for model access.
-                        </p>
-                      </div>
-                    </HoverCardContent>
-                  </HoverCard>
-                </div>
-
-                {params.diarize && (
-                  <div className="p-4 bg-carbon-50 dark:bg-carbon-800 rounded-lg border border-carbon-200 dark:border-carbon-700 space-y-4">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <div className="flex items-center gap-2 mb-2">
-                          <Label htmlFor="canary_min_speakers" className="text-carbon-700 dark:text-carbon-300">Min Speakers</Label>
-                          <HoverCard>
-                            <HoverCardTrigger asChild>
-                              <Info className="h-4 w-4 text-carbon-400 cursor-help" />
-                            </HoverCardTrigger>
-                            <HoverCardContent className="w-64 bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700">
-                              <p className="text-sm text-carbon-700 dark:text-carbon-300">Minimum number of speakers expected in the audio (leave empty for automatic detection).</p>
-                            </HoverCardContent>
-                          </HoverCard>
-                        </div>
-                        <Input
-                          type="number"
-                          min="1"
-                          max="20"
-                          placeholder="Auto-detect"
-                          value={params.min_speakers || ""}
-                          onChange={(e) => updateParam('min_speakers', e.target.value ? parseInt(e.target.value) : undefined)}
-                          className="bg-white dark:bg-carbon-800 border-carbon-300 dark:border-carbon-600 text-carbon-900 dark:text-carbon-100"
-                        />
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2 mb-2">
-                          <Label htmlFor="canary_max_speakers" className="text-carbon-700 dark:text-carbon-300">Max Speakers</Label>
-                          <HoverCard>
-                            <HoverCardTrigger asChild>
-                              <Info className="h-4 w-4 text-carbon-400 cursor-help" />
-                            </HoverCardTrigger>
-                            <HoverCardContent className="w-64 bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700">
-                              <p className="text-sm text-carbon-700 dark:text-carbon-300">Maximum number of speakers expected in the audio (leave empty for automatic detection).</p>
-                            </HoverCardContent>
-                          </HoverCard>
-                        </div>
-                        <Input
-                          type="number"
-                          min="1"
-                          max="20"
-                          placeholder="Auto-detect"
-                          value={params.max_speakers || ""}
-                          onChange={(e) => updateParam('max_speakers', e.target.value ? parseInt(e.target.value) : undefined)}
-                          className="bg-white dark:bg-carbon-800 border-carbon-300 dark:border-carbon-600 text-carbon-900 dark:text-carbon-100"
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <div className="flex items-center gap-2 mb-2">
-                        <Label htmlFor="canary_diarize_model" className="text-carbon-700 dark:text-carbon-300">Diarization Model</Label>
-                        <HoverCard>
-                          <HoverCardTrigger asChild>
-                            <Info className="h-4 w-4 text-carbon-400 cursor-help" />
-                          </HoverCardTrigger>
-                          <HoverCardContent className="w-80 bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700">
-                            <p className="text-sm text-carbon-700 dark:text-carbon-300">{PARAM_DESCRIPTIONS.diarize_model}</p>
-                          </HoverCardContent>
-                        </HoverCard>
-                      </div>
-                      <Select
-                        value={params.diarize_model}
-                        onValueChange={(value) => updateParam('diarize_model', value)}
-                      >
-                        <SelectTrigger className="bg-white dark:bg-carbon-800 border-carbon-300 dark:border-carbon-600 text-carbon-900 dark:text-carbon-100">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent className="bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700">
-                          <SelectItem value="pyannote" className="text-carbon-900 dark:text-carbon-100 focus:bg-carbon-100 dark:focus:bg-carbon-700">
-                            Pyannote (Recommended) - Requires HF Token
-                          </SelectItem>
-                          <SelectItem value="nvidia_sortformer" className="text-carbon-900 dark:text-carbon-100 focus:bg-carbon-100 dark:focus:bg-carbon-700">
-                            NVIDIA Sortformer - 4 Speakers Max, No Token
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    {params.diarize_model === "pyannote" && (
-                      <div>
-                        <div className="flex items-center gap-2 mb-2">
-                          <Label htmlFor="canary_hf_token" className="text-carbon-700 dark:text-carbon-300">Hugging Face Token</Label>
-                          <HoverCard>
-                            <HoverCardTrigger asChild>
-                              <Info className="h-4 w-4 text-carbon-400 cursor-help" />
-                            </HoverCardTrigger>
-                            <HoverCardContent className="w-80 bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700">
-                              <p className="text-sm text-carbon-700 dark:text-carbon-300">Hugging Face API token required for accessing Pyannote diarization models. Get one at https://huggingface.co/settings/tokens</p>
-                            </HoverCardContent>
-                          </HoverCard>
-                        </div>
-                        <Input
-                          type="password"
-                          placeholder="Required for Pyannote diarization models"
-                          value={params.hf_token || ""}
-                          onChange={(e) => updateParam('hf_token', e.target.value || undefined)}
-                          className="bg-white dark:bg-carbon-800 border-carbon-300 dark:border-carbon-600 text-carbon-900 dark:text-carbon-100"
-                        />
-                      </div>
-                    )}
-
-                    {params.diarize_model === "nvidia_sortformer" && (
-                      <div className="p-4 border border-orange-200 dark:border-orange-700 rounded-lg bg-orange-50 dark:bg-orange-900/20">
-                        <div className="flex items-start gap-3">
-                          <div className="text-orange-500 dark:text-orange-400 mt-0.5">⚠️</div>
-                          <div>
-                            <h4 className="text-sm font-medium text-orange-800 dark:text-orange-200 mb-1">
-                              NVIDIA Sortformer Limitations
-                            </h4>
-                            <p className="text-sm text-orange-700 dark:text-orange-300">
-                              This model is optimized for up to 4 speakers. Beyond 4 speakers accuracy might degrade.
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-              </div>
-            )}
-          </div>
-        ) : params.model_family === "openai" ? (
-          <div className="space-y-6">
-            <div className="p-4 border border-blue-200 dark:border-blue-700 rounded-lg bg-blue-50 dark:bg-blue-900/20">
-              <div className="flex items-center gap-2">
-                <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                <span className="text-sm font-medium text-blue-800 dark:text-blue-200">Cloud Transcription</span>
-              </div>
-              <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
-                Audio will be sent to OpenAI servers for processing.
-              </p>
-            </div>
-
-            {/* API Key */}
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <Label htmlFor="openai_api_key" className="text-carbon-700 dark:text-carbon-300 font-medium">
-                  OpenAI API Key
-                </Label>
-                <HoverCard>
-                  <HoverCardTrigger asChild>
-                    <Info className="h-4 w-4 text-carbon-400 cursor-help" />
-                  </HoverCardTrigger>
-                  <HoverCardContent className="w-80 bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700">
-                    <p className="text-sm text-carbon-700 dark:text-carbon-300">
-                      Your OpenAI API key. If not provided, the server-configured key will be used (if any).
-                    </p>
-                  </HoverCardContent>
-                </HoverCard>
-              </div>
-              <div className="flex gap-2">
                 <Input
-                  id="openai_api_key"
-                  type="password"
-                  value={params.api_key || ""}
-                  onChange={(e) => {
-                    updateParam('api_key', e.target.value);
-                    setValidationStatus('idle');
-                  }}
-                  placeholder="sk-..."
-                  className="bg-white dark:bg-carbon-800 border-carbon-300 dark:border-carbon-600 text-carbon-900 dark:text-carbon-100 flex-1"
+                  id="profileName"
+                  value={profileName}
+                  onChange={(e) => setProfileName(e.target.value)}
+                  placeholder="Enter a name for this profile..."
+                  className="bg-[var(--bg-main)] border-[var(--border-subtle)] text-[var(--text-primary)] focus:ring-[var(--brand-light)] focus:border-[var(--brand-solid)] rounded-[var(--radius-btn)]"
+                  required
                 />
-                <Button
-                  variant="outline"
-                  onClick={validateAPIKey}
-                  disabled={isValidating}
-                  className="shrink-0"
-                >
-                  {isValidating ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    "Validate"
-                  )}
-                </Button>
               </div>
-              {validationStatus !== 'idle' && (
-                <div className={`flex items-center gap-2 text-sm ${validationStatus === 'valid' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
-                  }`}>
-                  {validationStatus === 'valid' ? (
-                    <Check className="h-4 w-4" />
-                  ) : (
-                    <XCircle className="h-4 w-4" />
-                  )}
-                  <span>{validationMessage}</span>
-                </div>
-              )}
+              <div className="space-y-2">
+                <Label htmlFor="profileDescription" className="text-[var(--text-primary)] font-medium">
+                  Description <span className="text-[var(--text-tertiary)] font-normal">(optional)</span>
+                </Label>
+                <Textarea
+                  id="profileDescription"
+                  value={profileDescription}
+                  onChange={(e) => setProfileDescription(e.target.value)}
+                  placeholder="Describe this profile's purpose..."
+                  className="bg-[var(--bg-main)] border-[var(--border-subtle)] text-[var(--text-primary)] focus:ring-[var(--brand-light)] focus:border-[var(--brand-solid)] rounded-[var(--radius-btn)] resize-none"
+                  rows={2}
+                />
+              </div>
             </div>
+          )}
 
-            {/* Model Selection */}
+          <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="openai_model" className="text-carbon-700 dark:text-carbon-300 font-medium">
-                Model
+              <Label htmlFor="modelFamily" className="text-[var(--text-primary)] font-medium">
+                Model Family
               </Label>
               <Select
-                value={params.model || "whisper-1"}
-                onValueChange={(value) => updateParam('model', value)}
+                value={params.model_family}
+                onValueChange={(value) => updateParam('model_family', value)}
               >
-                <SelectTrigger className="bg-white dark:bg-carbon-800 border-carbon-300 dark:border-carbon-600 text-carbon-900 dark:text-carbon-100">
+                <SelectTrigger className="h-11 bg-[var(--bg-main)] border-[var(--border-subtle)] text-[var(--text-primary)] focus:ring-[var(--brand-light)] focus:border-[var(--brand-solid)] rounded-[var(--radius-btn)] shadow-none">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700">
-                  {availableModels.map((model) => (
-                    <SelectItem key={model} value={model} className="text-carbon-900 dark:text-carbon-100 focus:bg-carbon-100 dark:focus:bg-carbon-700">
-                      {model}
-                    </SelectItem>
-                  ))}
+                <SelectContent className="glass-card border border-[var(--border-subtle)] rounded-[var(--radius-btn)]">
+                  <SelectItem value="whisper" className="text-[var(--text-primary)] focus:bg-[var(--brand-light)] focus:text-[var(--brand-solid)] rounded-[8px] m-1 cursor-pointer">
+                    Whisper (OpenAI)
+                  </SelectItem>
+                  <SelectItem value="nvidia_parakeet" className="text-[var(--text-primary)] focus:bg-[var(--brand-light)] focus:text-[var(--brand-solid)] rounded-[8px] m-1 cursor-pointer">
+                    NVIDIA Parakeet
+                  </SelectItem>
+                  <SelectItem value="nvidia_canary" className="text-[var(--text-primary)] focus:bg-[var(--brand-light)] focus:text-[var(--brand-solid)] rounded-[8px] m-1 cursor-pointer">
+                    NVIDIA Canary
+                  </SelectItem>
+                  <SelectItem value="openai" className="text-[var(--text-primary)] focus:bg-[var(--brand-light)] focus:text-[var(--brand-solid)] rounded-[8px] m-1 cursor-pointer">
+                    OpenAI API
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
+          </div>
 
-            {params.model && params.model !== "whisper-1" && (
-              <div className="p-4 border border-orange-200 dark:border-orange-700 rounded-lg bg-orange-50 dark:bg-orange-900/20">
-                <div className="flex items-start gap-3">
-                  <div className="text-orange-500 dark:text-orange-400 mt-0.5">⚠️</div>
-                  <div>
-                    <h4 className="text-sm font-medium text-orange-800 dark:text-orange-200 mb-1">
-                      Limited Synchronization
-                    </h4>
-                    <p className="text-sm text-orange-700 dark:text-orange-300">
-                      Word-level timestamps are only supported by the <strong>whisper-1</strong> model. Synchronized playback will not be available for this model.
+          {params.model_family === "nvidia_parakeet" ? (
+            <div className="space-y-6">
+
+              {/* Multi-track status for Parakeet */}
+              {isMultiTrack && (
+                <div className="space-y-4">
+                  <h3 className="text-lg font-medium text-[var(--text-primary)]">Transcription Mode</h3>
+                  <div className="p-4 border border-blue-200 dark:border-blue-700 rounded-lg bg-blue-50 dark:bg-blue-900/20">
+                    <div className="flex items-center gap-2">
+                      <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                      <span className="text-sm font-medium text-blue-800 dark:text-blue-200">Multi-track audio detected</span>
+                    </div>
+                    <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
+                      Multi-track transcription is automatically enabled for this audio file.
                     </p>
                   </div>
                 </div>
-              </div>
-            )}
-
-            {/* Language Selection */}
-            <div className="space-y-2">
-              <Label htmlFor="openai_language" className="text-carbon-700 dark:text-carbon-300 font-medium">
-                Language
-              </Label>
-              <Select
-                value={params.language || "auto"}
-                onValueChange={(value) => updateParam('language', value === "auto" ? undefined : value)}
-              >
-                <SelectTrigger className="bg-white dark:bg-carbon-800 border-carbon-300 dark:border-carbon-600 text-carbon-900 dark:text-carbon-100">
-                  <SelectValue placeholder="Auto-detect" />
-                </SelectTrigger>
-                <SelectContent className="bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700 max-h-60">
-                  {LANGUAGES.map((lang) => (
-                    <SelectItem key={lang.value} value={lang.value} className="text-carbon-900 dark:text-carbon-100 focus:bg-carbon-100 dark:focus:bg-carbon-700">
-                      {lang.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Temperature */}
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <Label htmlFor="openai_temperature" className="text-carbon-700 dark:text-carbon-300">
-                  Temperature
-                </Label>
-                <HoverCard>
-                  <HoverCardTrigger asChild>
-                    <Info className="h-4 w-4 text-carbon-400 cursor-help" />
-                  </HoverCardTrigger>
-                  <HoverCardContent className="w-80 bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700">
-                    <p className="text-sm text-carbon-700 dark:text-carbon-300">{PARAM_DESCRIPTIONS.temperature}</p>
-                  </HoverCardContent>
-                </HoverCard>
-              </div>
-              <div className="flex items-center gap-4">
-                <Slider
-                  value={[params.temperature]}
-                  onValueChange={(value) => updateParam('temperature', value[0])}
-                  max={1}
-                  step={0.1}
-                  className="flex-1"
-                />
-                <span className="w-12 text-right text-sm text-carbon-600 dark:text-carbon-400">
-                  {params.temperature}
-                </span>
-              </div>
-            </div>
-
-            {/* Initial Prompt */}
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <Label htmlFor="openai_prompt" className="text-carbon-700 dark:text-carbon-300">
-                  Initial Prompt
-                </Label>
-                <HoverCard>
-                  <HoverCardTrigger asChild>
-                    <Info className="h-4 w-4 text-carbon-400 cursor-help" />
-                  </HoverCardTrigger>
-                  <HoverCardContent className="w-80 bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700">
-                    <p className="text-sm text-carbon-700 dark:text-carbon-300">{PARAM_DESCRIPTIONS.initial_prompt}</p>
-                  </HoverCardContent>
-                </HoverCard>
-              </div>
-              <Textarea
-                id="openai_prompt"
-                value={params.initial_prompt || ""}
-                onChange={(e) => updateParam('initial_prompt', e.target.value || undefined)}
-                placeholder="Optional text to guide the model's style..."
-                className="bg-white dark:bg-carbon-800 border-carbon-300 dark:border-carbon-600 text-carbon-900 dark:text-carbon-100 resize-none"
-                rows={3}
-              />
-            </div>
-          </div>
-        ) : (
-          <Tabs defaultValue="basic" className="w-full">
-            <TabsList className={`grid w-full items-center h-auto bg-carbon-100 dark:bg-carbon-800 p-1 rounded-lg ${isMultiTrack ? 'grid-cols-3' : 'grid-cols-4'}`}>
-              <TabsTrigger value="basic" className="h-9 py-1.5 data-[state=active]:bg-white data-[state=active]:dark:bg-carbon-700 text-carbon-700 dark:text-carbon-300 text-xs sm:text-sm">Basic</TabsTrigger>
-              <TabsTrigger value="quality" className="h-9 py-1.5 data-[state=active]:bg-white data-[state=active]:dark:bg-carbon-700 text-carbon-700 dark:text-carbon-300 text-xs sm:text-sm">Quality</TabsTrigger>
-              <TabsTrigger value="advanced" className="h-9 py-1.5 data-[state=active]:bg-white data-[state=active]:dark:bg-carbon-700 text-carbon-700 dark:text-carbon-300 text-xs sm:text-sm">Advanced</TabsTrigger>
-              {!isMultiTrack && (
-                <TabsTrigger value="diarization" className="h-9 py-1.5 data-[state=active]:bg-white data-[state=active]:dark:bg-carbon-700 text-carbon-700 dark:text-carbon-300 text-xs sm:text-sm">Diarization</TabsTrigger>
               )}
-            </TabsList>
 
-            <TabsContent value="basic" className="space-y-6 sm:space-y-8 mt-4 sm:mt-6">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-8">
-                <div className="space-y-4 sm:space-y-6">
-                  {/* Multi-track status display */}
-                  {isMultiTrack && (
-                    <div className="p-4 border border-blue-200 dark:border-blue-700 rounded-lg bg-blue-50 dark:bg-blue-900/20">
-                      <div className="flex items-center gap-2">
-                        <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                        <span className="text-sm font-medium text-blue-800 dark:text-blue-200">Multi-track audio detected</span>
+              {/* Long-form Audio Settings */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-medium text-[var(--text-primary)]">Long-form Audio Settings</h3>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                  {/* Left Context Size */}
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Label htmlFor="attention_context_left" className="text-[var(--text-secondary)]">
+                        Left Context Size
+                      </Label>
+                      <HoverCard>
+                        <HoverCardTrigger asChild>
+                          <Info className="h-4 w-4 text-carbon-400 cursor-help" />
+                        </HoverCardTrigger>
+                        <HoverCardContent className="w-80 bg-[var(--bg-main)] border-[var(--border-subtle)]">
+                          <div className="space-y-2">
+                            <p className="text-sm font-medium text-[var(--text-primary)]">Left Attention Context</p>
+                            <p className="text-sm text-[var(--text-secondary)]">
+                              Controls how much past audio context the model considers when processing. Higher values (up to 512) improve accuracy for long audio but increase memory usage.
+                            </p>
+                            <p className="text-xs text-carbon-600 dark:text-carbon-400">
+                              • Default: 256 (good balance)
+                              • Low (64-128): Faster, less memory, may reduce accuracy
+                              • High (384-512): Better context, more memory needed
+                            </p>
+                          </div>
+                        </HoverCardContent>
+                      </HoverCard>
+                    </div>
+                    <div className="space-y-2">
+                      <Slider
+                        value={[params.attention_context_left]}
+                        onValueChange={(value) => updateParam('attention_context_left', value[0])}
+                        max={512}
+                        min={64}
+                        step={64}
+                        className="w-full"
+                      />
+                      <div className="flex justify-between text-xs text-carbon-500 dark:text-carbon-400">
+                        <span>64 (Fast)</span>
+                        <span className="font-medium">{params.attention_context_left}</span>
+                        <span>512 (Max Context)</span>
                       </div>
-                      <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
-                        Multi-track transcription is automatically enabled. Diarization is disabled as each track represents a single speaker.
-                      </p>
                     </div>
-                  )}
-
-                  <div>
-                    <div className="flex items-center gap-2 mb-2">
-                      <Label htmlFor="model" className="text-carbon-700 dark:text-carbon-300">Model Size</Label>
-                      <HoverCard>
-                        <HoverCardTrigger asChild>
-                          <Info className="h-4 w-4 text-carbon-400 cursor-help" />
-                        </HoverCardTrigger>
-                        <HoverCardContent className="w-80 bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700">
-                          <p className="text-sm text-carbon-700 dark:text-carbon-300">{PARAM_DESCRIPTIONS.model}</p>
-                        </HoverCardContent>
-                      </HoverCard>
-                    </div>
-                    <Select
-                      value={params.model}
-                      onValueChange={(value) => updateParam('model', value)}
-                    >
-                      <SelectTrigger className="mt-3 w-full min-w-0 bg-white dark:bg-carbon-800 border-carbon-300 dark:border-carbon-600 text-carbon-900 dark:text-carbon-100">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent className="bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700">
-                        {WHISPER_MODELS.map((model) => (
-                          <SelectItem key={model} value={model} className="text-carbon-900 dark:text-carbon-100 focus:bg-carbon-100 dark:focus:bg-carbon-700">
-                            {model}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
                   </div>
 
-                  <div>
-                    <div className="flex items-center gap-2 mb-2">
-                      <Label htmlFor="language" className="text-carbon-700 dark:text-carbon-300">Language</Label>
+                  {/* Right Context Size */}
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Label htmlFor="attention_context_right" className="text-[var(--text-secondary)]">
+                        Right Context Size
+                      </Label>
                       <HoverCard>
                         <HoverCardTrigger asChild>
                           <Info className="h-4 w-4 text-carbon-400 cursor-help" />
                         </HoverCardTrigger>
-                        <HoverCardContent className="w-80 bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700">
-                          <p className="text-sm text-carbon-700 dark:text-carbon-300">{PARAM_DESCRIPTIONS.language}</p>
+                        <HoverCardContent className="w-80 bg-[var(--bg-main)] border-[var(--border-subtle)]">
+                          <div className="space-y-2">
+                            <p className="text-sm font-medium text-[var(--text-primary)]">Right Attention Context</p>
+                            <p className="text-sm text-[var(--text-secondary)]">
+                              Controls how much future audio context the model considers. Higher values improve accuracy but increase processing latency and memory usage.
+                            </p>
+                            <p className="text-xs text-carbon-600 dark:text-carbon-400">
+                              • Default: 256 (recommended)
+                              • Low (64-128): Real-time processing, may reduce accuracy
+                              • High (384-512): Better accuracy, higher latency
+                            </p>
+                          </div>
                         </HoverCardContent>
                       </HoverCard>
                     </div>
-                    <Select
-                      value={params.language || "auto"}
-                      onValueChange={(value) => updateParam('language', value === "auto" ? undefined : value)}
-                    >
-                      <SelectTrigger className="mt-3 w-full min-w-0 bg-white dark:bg-carbon-800 border-carbon-300 dark:border-carbon-600 text-carbon-900 dark:text-carbon-100">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent className="bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700 max-h-60">
-                        {LANGUAGES.map((lang) => (
-                          <SelectItem key={lang.value} value={lang.value} className="text-carbon-900 dark:text-carbon-100 focus:bg-carbon-100 dark:focus:bg-carbon-700">
-                            {lang.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div>
-                    <div className="flex items-center gap-2 mb-2">
-                      <Label htmlFor="task" className="text-carbon-700 dark:text-carbon-300">Task</Label>
-                      <HoverCard>
-                        <HoverCardTrigger asChild>
-                          <Info className="h-4 w-4 text-carbon-400 cursor-help" />
-                        </HoverCardTrigger>
-                        <HoverCardContent className="w-80 bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700">
-                          <p className="text-sm text-carbon-700 dark:text-carbon-300">{PARAM_DESCRIPTIONS.task}</p>
-                        </HoverCardContent>
-                      </HoverCard>
+                    <div className="space-y-2">
+                      <Slider
+                        value={[params.attention_context_right]}
+                        onValueChange={(value) => updateParam('attention_context_right', value[0])}
+                        max={512}
+                        min={64}
+                        step={64}
+                        className="w-full"
+                      />
+                      <div className="flex justify-between text-xs text-carbon-500 dark:text-carbon-400">
+                        <span>64 (Fast)</span>
+                        <span className="font-medium">{params.attention_context_right}</span>
+                        <span>512 (Max Context)</span>
+                      </div>
                     </div>
-                    <Select
-                      value={params.task}
-                      onValueChange={(value) => updateParam('task', value)}
-                    >
-                      <SelectTrigger className="mt-3 bg-white dark:bg-carbon-800 border-carbon-300 dark:border-carbon-600 text-carbon-900 dark:text-carbon-100">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent className="bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700">
-                        <SelectItem value="transcribe" className="text-carbon-900 dark:text-carbon-100 focus:bg-carbon-100 dark:focus:bg-carbon-700">Transcribe</SelectItem>
-                        <SelectItem value="translate" className="text-carbon-900 dark:text-carbon-100 focus:bg-carbon-100 dark:focus:bg-carbon-700">Translate to English</SelectItem>
-                      </SelectContent>
-                    </Select>
                   </div>
                 </div>
 
-                <div className="space-y-4 sm:space-y-6">
-                  <div>
-                    <div className="flex items-center gap-2 mb-2">
-                      <Label htmlFor="device" className="text-carbon-700 dark:text-carbon-300">Device</Label>
-                      <HoverCard>
-                        <HoverCardTrigger asChild>
-                          <Info className="h-4 w-4 text-carbon-400 cursor-help" />
-                        </HoverCardTrigger>
-                        <HoverCardContent className="w-80 bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700">
-                          <p className="text-sm text-carbon-700 dark:text-carbon-300">{PARAM_DESCRIPTIONS.device}</p>
-                        </HoverCardContent>
-                      </HoverCard>
-                    </div>
-                    <Select
-                      value={params.device}
-                      onValueChange={(value) => updateParam('device', value)}
-                    >
-                      <SelectTrigger className="mt-3 w-full min-w-0 bg-white dark:bg-carbon-800 border-carbon-300 dark:border-carbon-600 text-carbon-900 dark:text-carbon-100">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent className="bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700">
-                        <SelectItem value="cpu" className="text-carbon-900 dark:text-carbon-100 focus:bg-carbon-100 dark:focus:bg-carbon-700">CPU</SelectItem>
-                        <SelectItem value="cuda" className="text-carbon-900 dark:text-carbon-100 focus:bg-carbon-100 dark:focus:bg-carbon-700">GPU (CUDA)</SelectItem>
-
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div>
-                    <div className="flex items-center gap-2 mb-2">
-                      <Label htmlFor="compute_type" className="text-carbon-700 dark:text-carbon-300">Compute Type</Label>
-                      <HoverCard>
-                        <HoverCardTrigger asChild>
-                          <Info className="h-4 w-4 text-carbon-400 cursor-help" />
-                        </HoverCardTrigger>
-                        <HoverCardContent className="w-80 bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700">
-                          <p className="text-sm text-carbon-700 dark:text-carbon-300">{PARAM_DESCRIPTIONS.compute_type}</p>
-                        </HoverCardContent>
-                      </HoverCard>
-                    </div>
-                    <Select
-                      value={params.compute_type}
-                      onValueChange={(value) => updateParam('compute_type', value)}
-                    >
-                      <SelectTrigger className="mt-3 w-full min-w-0 bg-white dark:bg-carbon-800 border-carbon-300 dark:border-carbon-600 text-carbon-900 dark:text-carbon-100">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent className="bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700">
-                        <SelectItem value="float16" className="text-carbon-900 dark:text-carbon-100 focus:bg-carbon-100 dark:focus:bg-carbon-700">Float16 (Faster)</SelectItem>
-                        <SelectItem value="float32" className="text-carbon-900 dark:text-carbon-100 focus:bg-carbon-100 dark:focus:bg-carbon-700">Float32 (More Accurate)</SelectItem>
-                        <SelectItem value="int8" className="text-carbon-900 dark:text-carbon-100 focus:bg-carbon-100 dark:focus:bg-carbon-700">Int8 (Fastest)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <Label htmlFor="batch_size" className="text-carbon-700 dark:text-carbon-300">Batch Size: {params.batch_size}</Label>
-                        <HoverCard>
-                          <HoverCardTrigger asChild>
-                            <Info className="h-4 w-4 text-carbon-400 cursor-help" />
-                          </HoverCardTrigger>
-                          <HoverCardContent className="w-80 bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700">
-                            <p className="text-sm text-carbon-700 dark:text-carbon-300">{PARAM_DESCRIPTIONS.batch_size}</p>
-                          </HoverCardContent>
-                        </HoverCard>
-                      </div>
-                    </div>
-                    <Slider
-                      value={[params.batch_size]}
-                      onValueChange={([value]) => updateParam('batch_size', value)}
-                      min={1}
-                      max={32}
-                      step={1}
-                      className="mt-3"
-                    />
-                  </div>
-
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <Label htmlFor="threads" className="text-carbon-700 dark:text-carbon-300">Threads: {params.threads}</Label>
-                        <HoverCard>
-                          <HoverCardTrigger asChild>
-                            <Info className="h-4 w-4 text-carbon-400 cursor-help" />
-                          </HoverCardTrigger>
-                          <HoverCardContent className="w-80 bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700">
-                            <p className="text-sm text-carbon-700 dark:text-carbon-300">Number of threads used by torch for CPU inference. 0 means auto-detect.</p>
-                          </HoverCardContent>
-                        </HoverCard>
-                      </div>
-                    </div>
-                    <Slider
-                      value={[params.threads]}
-                      onValueChange={([value]) => updateParam('threads', value)}
-                      min={0}
-                      max={16}
-                      step={1}
-                      className="mt-3"
-                    />
-                  </div>
-                </div>
               </div>
 
-            </TabsContent>
+              {/* Diarization Settings for Parakeet */}
+              {!isMultiTrack && (
+                <div className="space-y-4">
+                  <h3 className="text-lg font-medium text-[var(--text-primary)]">Speaker Diarization</h3>
 
-            <TabsContent value="quality" className="space-y-6 sm:space-y-8 mt-4 sm:mt-6">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-8">
-                <div className="space-y-4 sm:space-y-6">
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <Label htmlFor="temperature" className="text-carbon-700 dark:text-carbon-300">Temperature: {params.temperature}</Label>
-                        <HoverCard>
-                          <HoverCardTrigger asChild>
-                            <Info className="h-4 w-4 text-carbon-400 cursor-help" />
-                          </HoverCardTrigger>
-                          <HoverCardContent className="w-80 bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700">
-                            <p className="text-sm text-carbon-700 dark:text-carbon-300">{PARAM_DESCRIPTIONS.temperature}</p>
-                          </HoverCardContent>
-                        </HoverCard>
-                      </div>
-                    </div>
-                    <Slider
-                      value={[params.temperature]}
-                      onValueChange={([value]) => updateParam('temperature', value)}
-                      min={0}
-                      max={1}
-                      step={0.1}
-                      className="mt-3"
-                    />
-                  </div>
-
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <Label htmlFor="beam_size" className="text-carbon-700 dark:text-carbon-300">Beam Size: {params.beam_size}</Label>
-                        <HoverCard>
-                          <HoverCardTrigger asChild>
-                            <Info className="h-4 w-4 text-carbon-400 cursor-help" />
-                          </HoverCardTrigger>
-                          <HoverCardContent className="w-80 bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700">
-                            <p className="text-sm text-carbon-700 dark:text-carbon-300">{PARAM_DESCRIPTIONS.beam_size}</p>
-                          </HoverCardContent>
-                        </HoverCard>
-                      </div>
-                    </div>
-                    <Slider
-                      value={[params.beam_size]}
-                      onValueChange={([value]) => updateParam('beam_size', value)}
-                      min={1}
-                      max={20}
-                      step={1}
-                      className="mt-3"
-                    />
-                  </div>
-
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <Label htmlFor="best_of" className="text-carbon-700 dark:text-carbon-300">Best Of: {params.best_of}</Label>
-                        <HoverCard>
-                          <HoverCardTrigger asChild>
-                            <Info className="h-4 w-4 text-carbon-400 cursor-help" />
-                          </HoverCardTrigger>
-                          <HoverCardContent className="w-80 bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700">
-                            <p className="text-sm text-carbon-700 dark:text-carbon-300">{PARAM_DESCRIPTIONS.best_of}</p>
-                          </HoverCardContent>
-                        </HoverCard>
-                      </div>
-                    </div>
-                    <Slider
-                      value={[params.best_of]}
-                      onValueChange={([value]) => updateParam('best_of', value)}
-                      min={1}
-                      max={20}
-                      step={1}
-                      className="mt-3"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-4 sm:space-y-6">
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <Label htmlFor="patience" className="text-carbon-700 dark:text-carbon-300">Patience: {params.patience}</Label>
-                        <HoverCard>
-                          <HoverCardTrigger asChild>
-                            <Info className="h-4 w-4 text-carbon-400 cursor-help" />
-                          </HoverCardTrigger>
-                          <HoverCardContent className="w-80 bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700">
-                            <p className="text-sm text-carbon-700 dark:text-carbon-300">{PARAM_DESCRIPTIONS.patience}</p>
-                          </HoverCardContent>
-                        </HoverCard>
-                      </div>
-                    </div>
-                    <Slider
-                      value={[params.patience]}
-                      onValueChange={([value]) => updateParam('patience', value)}
-                      min={0.1}
-                      max={3.0}
-                      step={0.1}
-                      className="mt-3"
-                    />
-                  </div>
-
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <Label htmlFor="length_penalty" className="text-carbon-700 dark:text-carbon-300">Length Penalty: {params.length_penalty}</Label>
-                        <HoverCard>
-                          <HoverCardTrigger asChild>
-                            <Info className="h-4 w-4 text-carbon-400 cursor-help" />
-                          </HoverCardTrigger>
-                          <HoverCardContent className="w-80 bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700">
-                            <p className="text-sm text-carbon-700 dark:text-carbon-300">{PARAM_DESCRIPTIONS.length_penalty}</p>
-                          </HoverCardContent>
-                        </HoverCard>
-                      </div>
-                    </div>
-                    <Slider
-                      value={[params.length_penalty]}
-                      onValueChange={([value]) => updateParam('length_penalty', value)}
-                      min={0.1}
-                      max={3.0}
-                      step={0.1}
-                      className="mt-3"
-                    />
-                  </div>
-
-                  <div>
-                    <div className="flex items-center gap-2 mb-2">
-                      <Label htmlFor="initial_prompt" className="text-carbon-700 dark:text-carbon-300">Initial Prompt</Label>
-                      <HoverCard>
-                        <HoverCardTrigger asChild>
-                          <Info className="h-4 w-4 text-carbon-400 cursor-help" />
-                        </HoverCardTrigger>
-                        <HoverCardContent className="w-80 bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700">
-                          <p className="text-sm text-carbon-700 dark:text-carbon-300">{PARAM_DESCRIPTIONS.initial_prompt}</p>
-                        </HoverCardContent>
-                      </HoverCard>
-                    </div>
-                    <Textarea
-                      placeholder="Optional text to provide as context for the first window"
-                      value={params.initial_prompt || ""}
-                      onChange={(e) => updateParam('initial_prompt', e.target.value || undefined)}
-                      rows={3}
-                      className="mt-3 bg-white dark:bg-carbon-800 border-carbon-300 dark:border-carbon-600 text-carbon-900 dark:text-carbon-100 placeholder:text-carbon-500 dark:placeholder:text-carbon-400"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <Separator className="bg-carbon-200 dark:bg-carbon-700 my-6 sm:my-8" />
-
-              <div className="space-y-4 sm:space-y-6">
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    id="suppress_numerals"
-                    checked={params.suppress_numerals}
-                    onCheckedChange={(checked) => updateParam('suppress_numerals', checked)}
-                  />
-                  <Label htmlFor="suppress_numerals" className="text-carbon-700 dark:text-carbon-300">Suppress Numerals</Label>
-                  <HoverCard>
-                    <HoverCardTrigger asChild>
-                      <Info className="h-4 w-4 text-carbon-400 cursor-help" />
-                    </HoverCardTrigger>
-                    <HoverCardContent className="w-80 bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700">
-                      <p className="text-sm text-carbon-700 dark:text-carbon-300">{PARAM_DESCRIPTIONS.suppress_numerals}</p>
-                    </HoverCardContent>
-                  </HoverCard>
-                </div>
-
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    id="condition_on_previous_text"
-                    checked={params.condition_on_previous_text}
-                    onCheckedChange={(checked) => updateParam('condition_on_previous_text', checked)}
-                  />
-                  <Label htmlFor="condition_on_previous_text" className="text-carbon-700 dark:text-carbon-300">Condition on Previous Text</Label>
-                  <HoverCard>
-                    <HoverCardTrigger asChild>
-                      <Info className="h-4 w-4 text-carbon-400 cursor-help" />
-                    </HoverCardTrigger>
-                    <HoverCardContent className="w-80 bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700">
-                      <p className="text-sm text-carbon-700 dark:text-carbon-300">{PARAM_DESCRIPTIONS.condition_on_previous_text}</p>
-                    </HoverCardContent>
-                  </HoverCard>
-                </div>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="advanced" className="space-y-6 sm:space-y-8 mt-4 sm:mt-6">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-8">
-                <div className="space-y-4 sm:space-y-6">
-                  <h4 className="font-medium text-carbon-900 dark:text-carbon-100">VAD Settings</h4>
-
-                  <div>
-                    <div className="flex items-center gap-2 mb-2">
-                      <Label htmlFor="vad_method" className="text-carbon-700 dark:text-carbon-300">VAD Method</Label>
-                      <HoverCard>
-                        <HoverCardTrigger asChild>
-                          <Info className="h-4 w-4 text-carbon-400 cursor-help" />
-                        </HoverCardTrigger>
-                        <HoverCardContent className="w-80 bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700">
-                          <p className="text-sm text-carbon-700 dark:text-carbon-300">{PARAM_DESCRIPTIONS.vad_method}</p>
-                        </HoverCardContent>
-                      </HoverCard>
-                    </div>
-                    <Select
-                      value={params.vad_method}
-                      onValueChange={(value) => updateParam('vad_method', value)}
-                    >
-                      <SelectTrigger className="mt-3 bg-white dark:bg-carbon-800 border-carbon-300 dark:border-carbon-600 text-carbon-900 dark:text-carbon-100">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent className="bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700">
-                        <SelectItem value="pyannote" className="text-carbon-900 dark:text-carbon-100 focus:bg-carbon-100 dark:focus:bg-carbon-700">Pyannote</SelectItem>
-                        <SelectItem value="silero" className="text-carbon-900 dark:text-carbon-100 focus:bg-carbon-100 dark:focus:bg-carbon-700">Silero</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <Label htmlFor="vad_onset" className="text-carbon-700 dark:text-carbon-300">VAD Onset: {params.vad_onset}</Label>
-                        <HoverCard>
-                          <HoverCardTrigger asChild>
-                            <Info className="h-4 w-4 text-carbon-400 cursor-help" />
-                          </HoverCardTrigger>
-                          <HoverCardContent className="w-80 bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700">
-                            <p className="text-sm text-carbon-700 dark:text-carbon-300">{PARAM_DESCRIPTIONS.vad_onset}</p>
-                          </HoverCardContent>
-                        </HoverCard>
-                      </div>
-                    </div>
-                    <Slider
-                      value={[params.vad_onset]}
-                      onValueChange={([value]) => updateParam('vad_onset', value)}
-                      min={0.1}
-                      max={1.0}
-                      step={0.01}
-                      className="mt-3"
-                    />
-                  </div>
-
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <Label htmlFor="vad_offset" className="text-carbon-700 dark:text-carbon-300">VAD Offset: {params.vad_offset}</Label>
-                        <HoverCard>
-                          <HoverCardTrigger asChild>
-                            <Info className="h-4 w-4 text-carbon-400 cursor-help" />
-                          </HoverCardTrigger>
-                          <HoverCardContent className="w-80 bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700">
-                            <p className="text-sm text-carbon-700 dark:text-carbon-300">{PARAM_DESCRIPTIONS.vad_offset}</p>
-                          </HoverCardContent>
-                        </HoverCard>
-                      </div>
-                    </div>
-                    <Slider
-                      value={[params.vad_offset]}
-                      onValueChange={([value]) => updateParam('vad_offset', value)}
-                      min={0.1}
-                      max={1.0}
-                      step={0.01}
-                      className="mt-3"
-                    />
-                  </div>
-
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <Label htmlFor="chunk_size" className="text-carbon-700 dark:text-carbon-300">Chunk Size: {params.chunk_size}</Label>
-                        <HoverCard>
-                          <HoverCardTrigger asChild>
-                            <Info className="h-4 w-4 text-carbon-400 cursor-help" />
-                          </HoverCardTrigger>
-                          <HoverCardContent className="w-80 bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700">
-                            <p className="text-sm text-carbon-700 dark:text-carbon-300">{PARAM_DESCRIPTIONS.chunk_size}</p>
-                          </HoverCardContent>
-                        </HoverCard>
-                      </div>
-                    </div>
-                    <Slider
-                      value={[params.chunk_size]}
-                      onValueChange={([value]) => updateParam('chunk_size', value)}
-                      min={5}
-                      max={60}
-                      step={1}
-                      className="mt-3"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-4 sm:space-y-6">
-                  <h4 className="font-medium">Detection Thresholds</h4>
-
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <Label htmlFor="compression_ratio_threshold" className="text-carbon-700 dark:text-carbon-300">Compression Ratio: {params.compression_ratio_threshold}</Label>
-                        <HoverCard>
-                          <HoverCardTrigger asChild>
-                            <Info className="h-4 w-4 text-carbon-400 cursor-help" />
-                          </HoverCardTrigger>
-                          <HoverCardContent className="w-80 bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700">
-                            <p className="text-sm text-carbon-700 dark:text-carbon-300">{PARAM_DESCRIPTIONS.compression_ratio_threshold}</p>
-                          </HoverCardContent>
-                        </HoverCard>
-                      </div>
-                    </div>
-                    <Slider
-                      value={[params.compression_ratio_threshold]}
-                      onValueChange={([value]) => updateParam('compression_ratio_threshold', value)}
-                      min={1.0}
-                      max={5.0}
-                      step={0.1}
-                      className="mt-3"
-                    />
-                  </div>
-
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <Label htmlFor="logprob_threshold" className="text-carbon-700 dark:text-carbon-300">Log Probability: {params.logprob_threshold}</Label>
-                        <HoverCard>
-                          <HoverCardTrigger asChild>
-                            <Info className="h-4 w-4 text-carbon-400 cursor-help" />
-                          </HoverCardTrigger>
-                          <HoverCardContent className="w-80 bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700">
-                            <p className="text-sm text-carbon-700 dark:text-carbon-300">{PARAM_DESCRIPTIONS.logprob_threshold}</p>
-                          </HoverCardContent>
-                        </HoverCard>
-                      </div>
-                    </div>
-                    <Slider
-                      value={[params.logprob_threshold]}
-                      onValueChange={([value]) => updateParam('logprob_threshold', value)}
-                      min={-3.0}
-                      max={0.0}
-                      step={0.1}
-                      className="mt-3"
-                    />
-                  </div>
-
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <Label htmlFor="no_speech_threshold" className="text-carbon-700 dark:text-carbon-300">No Speech: {params.no_speech_threshold}</Label>
-                        <HoverCard>
-                          <HoverCardTrigger asChild>
-                            <Info className="h-4 w-4 text-carbon-400 cursor-help" />
-                          </HoverCardTrigger>
-                          <HoverCardContent className="w-80 bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700">
-                            <p className="text-sm text-carbon-700 dark:text-carbon-300">{PARAM_DESCRIPTIONS.no_speech_threshold}</p>
-                          </HoverCardContent>
-                        </HoverCard>
-                      </div>
-                    </div>
-                    <Slider
-                      value={[params.no_speech_threshold]}
-                      onValueChange={([value]) => updateParam('no_speech_threshold', value)}
-                      min={0.1}
-                      max={1.0}
-                      step={0.01}
-                      className="mt-3"
-                    />
-                  </div>
-
-                  <div>
-                    <div className="flex items-center gap-2 mb-2">
-                      <Label htmlFor="suppress_tokens" className="text-carbon-700 dark:text-carbon-300">Suppress Tokens</Label>
-                      <HoverCard>
-                        <HoverCardTrigger asChild>
-                          <Info className="h-4 w-4 text-carbon-400 cursor-help" />
-                        </HoverCardTrigger>
-                        <HoverCardContent className="w-80 bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700">
-                          <p className="text-sm text-carbon-700 dark:text-carbon-300">{PARAM_DESCRIPTIONS.suppress_tokens}</p>
-                        </HoverCardContent>
-                      </HoverCard>
-                    </div>
-                    <Input
-                      placeholder="-1 (default: suppress special characters)"
-                      value={params.suppress_tokens || ""}
-                      onChange={(e) => updateParam('suppress_tokens', e.target.value || undefined)}
-                      className="mt-3"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <Separator className="my-8" />
-
-              <div className="space-y-6">
-                <div>
-                  <div className="flex items-center gap-2 mb-2">
-                    <Label htmlFor="align_model" className="text-gray-700 dark:text-gray-300">Custom Alignment Model</Label>
-                    <HoverCard>
-                      <HoverCardTrigger asChild>
-                        <Info className="h-4 w-4 text-gray-400 cursor-help" />
-                      </HoverCardTrigger>
-                      <HoverCardContent className="w-80 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
-                        <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-line">{PARAM_DESCRIPTIONS.align_model}</p>
-                      </HoverCardContent>
-                    </HoverCard>
-                  </div>
-                  <Input
-                    id="align_model"
-                    placeholder="default: none"
-                    value={params.align_model || ""}
-                    onChange={(e) => updateParam('align_model', e.target.value || undefined)}
-                    className="mt-3 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100"
-                  />
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    id="no_align"
-                    checked={params.no_align}
-                    onCheckedChange={(checked) => updateParam('no_align', checked)}
-                  />
-                  <Label htmlFor="no_align" className="text-carbon-700 dark:text-carbon-300">Disable Alignment</Label>
-                  <HoverCard>
-                    <HoverCardTrigger asChild>
-                      <Info className="h-4 w-4 text-carbon-400 cursor-help" />
-                    </HoverCardTrigger>
-                    <HoverCardContent className="w-80 bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700">
-                      <p className="text-sm text-carbon-700 dark:text-carbon-300">{PARAM_DESCRIPTIONS.no_align}</p>
-                    </HoverCardContent>
-                  </HoverCard>
-                </div>
-
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    id="return_char_alignments"
-                    checked={params.return_char_alignments}
-                    onCheckedChange={(checked) => updateParam('return_char_alignments', checked)}
-                  />
-                  <Label htmlFor="return_char_alignments" className="text-carbon-700 dark:text-carbon-300">Character-level Alignments</Label>
-                  <HoverCard>
-                    <HoverCardTrigger asChild>
-                      <Info className="h-4 w-4 text-carbon-400 cursor-help" />
-                    </HoverCardTrigger>
-                    <HoverCardContent className="w-80 bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700">
-                      <p className="text-sm text-carbon-700 dark:text-carbon-300">{PARAM_DESCRIPTIONS.return_char_alignments}</p>
-                    </HoverCardContent>
-                  </HoverCard>
-                </div>
-
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    id="fp16"
-                    checked={params.fp16}
-                    onCheckedChange={(checked) => updateParam('fp16', checked)}
-                  />
-                  <Label htmlFor="fp16" className="text-carbon-700 dark:text-carbon-300">FP16 Inference</Label>
-                  <HoverCard>
-                    <HoverCardTrigger asChild>
-                      <Info className="h-4 w-4 text-carbon-400 cursor-help" />
-                    </HoverCardTrigger>
-                    <HoverCardContent className="w-80 bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700">
-                      <p className="text-sm text-carbon-700 dark:text-carbon-300">{PARAM_DESCRIPTIONS.fp16}</p>
-                    </HoverCardContent>
-                  </HoverCard>
-                </div>
-              </div>
-            </TabsContent>
-
-            {!isMultiTrack && (
-              <TabsContent value="diarization" className="space-y-6 sm:space-y-8 mt-4 sm:mt-6">
-                <div>
-                  <div className="flex items-center space-x-2 mb-6">
+                  <div className="flex items-center space-x-2 mb-4">
                     <Switch
-                      id="diarize"
+                      id="parakeet_diarize"
                       checked={params.diarize}
                       onCheckedChange={(checked) => updateParam('diarize', checked)}
                       disabled={params.is_multi_track_enabled}
                     />
-                    <Label htmlFor="diarize" className="text-carbon-700 dark:text-carbon-300">Enable Speaker Diarization</Label>
+                    <Label htmlFor="parakeet_diarize" className="text-[var(--text-secondary)]">Enable Speaker Diarization</Label>
                     <HoverCard>
                       <HoverCardTrigger asChild>
                         <Info className="h-4 w-4 text-carbon-400 cursor-help" />
                       </HoverCardTrigger>
-                      <HoverCardContent className="w-80 bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700">
-                        <p className="text-sm text-carbon-700 dark:text-carbon-300">{PARAM_DESCRIPTIONS.diarize}</p>
+                      <HoverCardContent className="w-80 bg-[var(--bg-main)] border-[var(--border-subtle)]">
+                        <div className="space-y-2">
+                          <p className="text-sm font-medium text-[var(--text-primary)]">Pyannote Speaker Diarization</p>
+                          <p className="text-sm text-[var(--text-secondary)]">
+                            Uses Pyannote to identify and separate different speakers in the audio after transcription. Requires a Hugging Face token for model access.
+                          </p>
+                        </div>
                       </HoverCardContent>
                     </HoverCard>
                   </div>
 
                   {params.diarize && (
-                    <div className="p-4 sm:p-6 border border-carbon-200 dark:border-carbon-700 rounded-lg bg-carbon-50 dark:bg-carbon-800 space-y-4 sm:space-y-6">
-                      {params.model_family !== 'whisper' && (
+                    <div className="p-4 bg-carbon-50 dark:bg-carbon-800 rounded-lg border border-[var(--border-subtle)] space-y-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
                           <div className="flex items-center gap-2 mb-2">
-                            <Label htmlFor="diarize_model" className="text-carbon-700 dark:text-carbon-300">Diarization Model</Label>
+                            <Label htmlFor="parakeet_min_speakers" className="text-[var(--text-secondary)]">Min Speakers</Label>
                             <HoverCard>
                               <HoverCardTrigger asChild>
                                 <Info className="h-4 w-4 text-carbon-400 cursor-help" />
                               </HoverCardTrigger>
-                              <HoverCardContent className="w-80 bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700">
-                                <p className="text-sm text-carbon-700 dark:text-carbon-300">{PARAM_DESCRIPTIONS.diarize_model}</p>
+                              <HoverCardContent className="w-64 bg-[var(--bg-main)] border-[var(--border-subtle)]">
+                                <p className="text-sm text-[var(--text-secondary)]">Minimum number of speakers expected in the audio (leave empty for automatic detection).</p>
                               </HoverCardContent>
                             </HoverCard>
                           </div>
-                          <Select
-                            value={params.diarize_model}
-                            onValueChange={(value) => updateParam('diarize_model', value)}
-                          >
-                            <SelectTrigger className="mt-3 bg-white dark:bg-carbon-800 border-carbon-300 dark:border-carbon-600 text-carbon-900 dark:text-carbon-100">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent className="bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700">
-                              <SelectItem value="pyannote" className="text-carbon-900 dark:text-carbon-100 focus:bg-carbon-100 dark:focus:bg-carbon-700">
-                                Pyannote (Recommended) - Requires HF Token
-                              </SelectItem>
-                              <SelectItem value="nvidia_sortformer" className="text-carbon-900 dark:text-carbon-100 focus:bg-carbon-100 dark:focus:bg-carbon-700">
-                                NVIDIA Sortformer - 4 Speakers Max, No Token
-                              </SelectItem>
-                            </SelectContent>
-                          </Select>
+                          <Input
+                            type="number"
+                            min="1"
+                            max="20"
+                            placeholder="Auto-detect"
+                            value={params.min_speakers || ""}
+                            onChange={(e) => updateParam('min_speakers', e.target.value ? parseInt(e.target.value) : undefined)}
+                            className="bg-[var(--bg-main)] border-carbon-300 dark:border-carbon-600 text-[var(--text-primary)]"
+                          />
                         </div>
-                      )}
-
-                      {params.diarize_model === "pyannote" && (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
-                          <div>
-                            <div className="flex items-center gap-2 mb-2">
-                              <Label htmlFor="min_speakers" className="text-carbon-700 dark:text-carbon-300">Min Speakers</Label>
-                              <HoverCard>
-                                <HoverCardTrigger asChild>
-                                  <Info className="h-4 w-4 text-carbon-400 cursor-help" />
-                                </HoverCardTrigger>
-                                <HoverCardContent className="w-64 bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700">
-                                  <p className="text-sm text-carbon-700 dark:text-carbon-300">{PARAM_DESCRIPTIONS.min_speakers}</p>
-                                </HoverCardContent>
-                              </HoverCard>
-                            </div>
-                            <Input
-                              type="number"
-                              min="1"
-                              max="20"
-                              placeholder="Auto-detect"
-                              value={params.min_speakers || ""}
-                              onChange={(e) => updateParam('min_speakers', e.target.value ? parseInt(e.target.value) : undefined)}
-                              className="mt-3 bg-white dark:bg-carbon-800 border-carbon-300 dark:border-carbon-600 text-carbon-900 dark:text-carbon-100"
-                            />
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-2 mb-2">
-                              <Label htmlFor="max_speakers" className="text-carbon-700 dark:text-carbon-300">Max Speakers</Label>
-                              <HoverCard>
-                                <HoverCardTrigger asChild>
-                                  <Info className="h-4 w-4 text-carbon-400 cursor-help" />
-                                </HoverCardTrigger>
-                                <HoverCardContent className="w-64 bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700">
-                                  <p className="text-sm text-carbon-700 dark:text-carbon-300">{PARAM_DESCRIPTIONS.max_speakers}</p>
-                                </HoverCardContent>
-                              </HoverCard>
-                            </div>
-                            <Input
-                              type="number"
-                              min="1"
-                              max="20"
-                              placeholder="Auto-detect"
-                              value={params.max_speakers || ""}
-                              onChange={(e) => updateParam('max_speakers', e.target.value ? parseInt(e.target.value) : undefined)}
-                              className="mt-3 bg-white dark:bg-carbon-800 border-carbon-300 dark:border-carbon-600 text-carbon-900 dark:text-carbon-100"
-                            />
-                          </div>
-                        </div>
-                      )}
-
-                      <Separator className="my-4 sm:my-6" />
-
-                      {params.diarize_model === "pyannote" && (
                         <div>
                           <div className="flex items-center gap-2 mb-2">
-                            <Label htmlFor="hf_token" className="text-carbon-700 dark:text-carbon-300">Hugging Face Token</Label>
+                            <Label htmlFor="parakeet_max_speakers" className="text-[var(--text-secondary)]">Max Speakers</Label>
                             <HoverCard>
                               <HoverCardTrigger asChild>
                                 <Info className="h-4 w-4 text-carbon-400 cursor-help" />
                               </HoverCardTrigger>
-                              <HoverCardContent className="w-80 bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700">
-                                <p className="text-sm text-carbon-700 dark:text-carbon-300">{PARAM_DESCRIPTIONS.hf_token}</p>
+                              <HoverCardContent className="w-64 bg-[var(--bg-main)] border-[var(--border-subtle)]">
+                                <p className="text-sm text-[var(--text-secondary)]">Maximum number of speakers expected in the audio (leave empty for automatic detection).</p>
+                              </HoverCardContent>
+                            </HoverCard>
+                          </div>
+                          <Input
+                            type="number"
+                            min="1"
+                            max="20"
+                            placeholder="Auto-detect"
+                            value={params.max_speakers || ""}
+                            onChange={(e) => updateParam('max_speakers', e.target.value ? parseInt(e.target.value) : undefined)}
+                            className="bg-[var(--bg-main)] border-carbon-300 dark:border-carbon-600 text-[var(--text-primary)]"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <div className="flex items-center gap-2 mb-2">
+                          <Label htmlFor="parakeet_diarize_model" className="text-[var(--text-secondary)]">Diarization Model</Label>
+                          <HoverCard>
+                            <HoverCardTrigger asChild>
+                              <Info className="h-4 w-4 text-carbon-400 cursor-help" />
+                            </HoverCardTrigger>
+                            <HoverCardContent className="w-80 bg-[var(--bg-main)] border-[var(--border-subtle)]">
+                              <p className="text-sm text-[var(--text-secondary)]">{PARAM_DESCRIPTIONS.diarize_model}</p>
+                            </HoverCardContent>
+                          </HoverCard>
+                        </div>
+                        <Select
+                          value={params.diarize_model}
+                          onValueChange={(value) => updateParam('diarize_model', value)}
+                        >
+                          <SelectTrigger className="bg-[var(--bg-main)] border-carbon-300 dark:border-carbon-600 text-[var(--text-primary)]">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="bg-[var(--bg-main)] border-[var(--border-subtle)]">
+                            <SelectItem value="pyannote" className="text-[var(--text-primary)] focus:bg-carbon-100 dark:focus:bg-carbon-700">
+                              Pyannote (Recommended) - Requires HF Token
+                            </SelectItem>
+                            <SelectItem value="nvidia_sortformer" className="text-[var(--text-primary)] focus:bg-carbon-100 dark:focus:bg-carbon-700">
+                              NVIDIA Sortformer - 4 Speakers Max, No Token
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {params.diarize_model === "pyannote" && (
+                        <div>
+                          <div className="flex items-center gap-2 mb-2">
+                            <Label htmlFor="parakeet_hf_token" className="text-[var(--text-secondary)]">Hugging Face Token</Label>
+                            <HoverCard>
+                              <HoverCardTrigger asChild>
+                                <Info className="h-4 w-4 text-carbon-400 cursor-help" />
+                              </HoverCardTrigger>
+                              <HoverCardContent className="w-80 bg-[var(--bg-main)] border-[var(--border-subtle)]">
+                                <p className="text-sm text-[var(--text-secondary)]">Hugging Face API token required for accessing Pyannote diarization models. Get one at https://huggingface.co/settings/tokens</p>
                               </HoverCardContent>
                             </HoverCard>
                           </div>
@@ -1974,7 +764,7 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
                             placeholder="Required for Pyannote diarization models"
                             value={params.hf_token || ""}
                             onChange={(e) => updateParam('hf_token', e.target.value || undefined)}
-                            className="mt-3 bg-white dark:bg-carbon-800 border-carbon-300 dark:border-carbon-600 text-carbon-900 dark:text-carbon-100"
+                            className="bg-[var(--bg-main)] border-carbon-300 dark:border-carbon-600 text-[var(--text-primary)]"
                           />
                         </div>
                       )}
@@ -1998,19 +788,1231 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
                   )}
 
                 </div>
-              </TabsContent>
-            )}
-          </Tabs>
-        )}
+              )}
+            </div>
+          ) : params.model_family === "nvidia_canary" ? (
+            <div className="space-y-6">
 
-        <DialogFooter className="gap-2 border-t border-carbon-200 dark:border-carbon-700 pt-3 sm:pt-6 mt-4 sm:mt-8">
-          <Button variant="outline" onClick={() => onOpenChange(false)} className="bg-white dark:bg-carbon-800 border-carbon-300 dark:border-carbon-600 text-carbon-700 dark:text-carbon-200 hover:bg-carbon-50 dark:hover:bg-carbon-700 cursor-pointer">
+              {/* Multi-track status for Canary */}
+              {isMultiTrack && (
+                <div className="space-y-4">
+                  <h3 className="text-lg font-medium text-[var(--text-primary)]">Transcription Mode</h3>
+                  <div className="p-4 border border-blue-200 dark:border-blue-700 rounded-lg bg-blue-50 dark:bg-blue-900/20">
+                    <div className="flex items-center gap-2">
+                      <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                      <span className="text-sm font-medium text-blue-800 dark:text-blue-200">Multi-track audio detected</span>
+                    </div>
+                    <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
+                      Multi-track transcription is automatically enabled for this audio file.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Language Selection */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-medium text-[var(--text-primary)]">Language Settings</h3>
+
+                <div className="space-y-2">
+                  <Label htmlFor="canary_language" className="text-[var(--text-secondary)] font-medium">
+                    Source Language
+                  </Label>
+                  <Select
+                    value={params.language || "en"}
+                    onValueChange={(value) => updateParam('language', value)}
+                  >
+                    <SelectTrigger className="bg-[var(--bg-main)] border-carbon-300 dark:border-carbon-600 text-[var(--text-primary)]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-[var(--bg-main)] border-[var(--border-subtle)] max-h-60">
+                      {CANARY_LANGUAGES.map((lang) => (
+                        <SelectItem key={lang.value} value={lang.value} className="text-[var(--text-primary)] focus:bg-carbon-100 dark:focus:bg-carbon-700">
+                          {lang.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+              </div>
+
+              {/* Diarization Settings for Canary */}
+              {!isMultiTrack && (
+                <div className="space-y-4">
+                  <h3 className="text-lg font-medium text-[var(--text-primary)]">Speaker Diarization</h3>
+
+                  <div className="flex items-center space-x-2 mb-4">
+                    <Switch
+                      id="canary_diarize"
+                      checked={params.diarize}
+                      onCheckedChange={(checked) => updateParam('diarize', checked)}
+                      disabled={params.is_multi_track_enabled}
+                    />
+                    <Label htmlFor="canary_diarize" className="text-[var(--text-secondary)]">Enable Speaker Diarization</Label>
+                    <HoverCard>
+                      <HoverCardTrigger asChild>
+                        <Info className="h-4 w-4 text-carbon-400 cursor-help" />
+                      </HoverCardTrigger>
+                      <HoverCardContent className="w-80 bg-[var(--bg-main)] border-[var(--border-subtle)]">
+                        <div className="space-y-2">
+                          <p className="text-sm font-medium text-[var(--text-primary)]">Pyannote Speaker Diarization</p>
+                          <p className="text-sm text-[var(--text-secondary)]">
+                            Uses Pyannote to identify and separate different speakers in the audio after transcription. Requires a Hugging Face token for model access.
+                          </p>
+                        </div>
+                      </HoverCardContent>
+                    </HoverCard>
+                  </div>
+
+                  {params.diarize && (
+                    <div className="p-4 bg-carbon-50 dark:bg-carbon-800 rounded-lg border border-[var(--border-subtle)] space-y-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <div className="flex items-center gap-2 mb-2">
+                            <Label htmlFor="canary_min_speakers" className="text-[var(--text-secondary)]">Min Speakers</Label>
+                            <HoverCard>
+                              <HoverCardTrigger asChild>
+                                <Info className="h-4 w-4 text-carbon-400 cursor-help" />
+                              </HoverCardTrigger>
+                              <HoverCardContent className="w-64 bg-[var(--bg-main)] border-[var(--border-subtle)]">
+                                <p className="text-sm text-[var(--text-secondary)]">Minimum number of speakers expected in the audio (leave empty for automatic detection).</p>
+                              </HoverCardContent>
+                            </HoverCard>
+                          </div>
+                          <Input
+                            type="number"
+                            min="1"
+                            max="20"
+                            placeholder="Auto-detect"
+                            value={params.min_speakers || ""}
+                            onChange={(e) => updateParam('min_speakers', e.target.value ? parseInt(e.target.value) : undefined)}
+                            className="bg-[var(--bg-main)] border-carbon-300 dark:border-carbon-600 text-[var(--text-primary)]"
+                          />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2 mb-2">
+                            <Label htmlFor="canary_max_speakers" className="text-[var(--text-secondary)]">Max Speakers</Label>
+                            <HoverCard>
+                              <HoverCardTrigger asChild>
+                                <Info className="h-4 w-4 text-carbon-400 cursor-help" />
+                              </HoverCardTrigger>
+                              <HoverCardContent className="w-64 bg-[var(--bg-main)] border-[var(--border-subtle)]">
+                                <p className="text-sm text-[var(--text-secondary)]">Maximum number of speakers expected in the audio (leave empty for automatic detection).</p>
+                              </HoverCardContent>
+                            </HoverCard>
+                          </div>
+                          <Input
+                            type="number"
+                            min="1"
+                            max="20"
+                            placeholder="Auto-detect"
+                            value={params.max_speakers || ""}
+                            onChange={(e) => updateParam('max_speakers', e.target.value ? parseInt(e.target.value) : undefined)}
+                            className="bg-[var(--bg-main)] border-carbon-300 dark:border-carbon-600 text-[var(--text-primary)]"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <div className="flex items-center gap-2 mb-2">
+                          <Label htmlFor="canary_diarize_model" className="text-[var(--text-secondary)]">Diarization Model</Label>
+                          <HoverCard>
+                            <HoverCardTrigger asChild>
+                              <Info className="h-4 w-4 text-carbon-400 cursor-help" />
+                            </HoverCardTrigger>
+                            <HoverCardContent className="w-80 bg-[var(--bg-main)] border-[var(--border-subtle)]">
+                              <p className="text-sm text-[var(--text-secondary)]">{PARAM_DESCRIPTIONS.diarize_model}</p>
+                            </HoverCardContent>
+                          </HoverCard>
+                        </div>
+                        <Select
+                          value={params.diarize_model}
+                          onValueChange={(value) => updateParam('diarize_model', value)}
+                        >
+                          <SelectTrigger className="bg-[var(--bg-main)] border-carbon-300 dark:border-carbon-600 text-[var(--text-primary)]">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="bg-[var(--bg-main)] border-[var(--border-subtle)]">
+                            <SelectItem value="pyannote" className="text-[var(--text-primary)] focus:bg-carbon-100 dark:focus:bg-carbon-700">
+                              Pyannote (Recommended) - Requires HF Token
+                            </SelectItem>
+                            <SelectItem value="nvidia_sortformer" className="text-[var(--text-primary)] focus:bg-carbon-100 dark:focus:bg-carbon-700">
+                              NVIDIA Sortformer - 4 Speakers Max, No Token
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {params.diarize_model === "pyannote" && (
+                        <div>
+                          <div className="flex items-center gap-2 mb-2">
+                            <Label htmlFor="canary_hf_token" className="text-[var(--text-secondary)]">Hugging Face Token</Label>
+                            <HoverCard>
+                              <HoverCardTrigger asChild>
+                                <Info className="h-4 w-4 text-carbon-400 cursor-help" />
+                              </HoverCardTrigger>
+                              <HoverCardContent className="w-80 bg-[var(--bg-main)] border-[var(--border-subtle)]">
+                                <p className="text-sm text-[var(--text-secondary)]">Hugging Face API token required for accessing Pyannote diarization models. Get one at https://huggingface.co/settings/tokens</p>
+                              </HoverCardContent>
+                            </HoverCard>
+                          </div>
+                          <Input
+                            type="password"
+                            placeholder="Required for Pyannote diarization models"
+                            value={params.hf_token || ""}
+                            onChange={(e) => updateParam('hf_token', e.target.value || undefined)}
+                            className="bg-[var(--bg-main)] border-carbon-300 dark:border-carbon-600 text-[var(--text-primary)]"
+                          />
+                        </div>
+                      )}
+
+                      {params.diarize_model === "nvidia_sortformer" && (
+                        <div className="p-4 border border-orange-200 dark:border-orange-700 rounded-lg bg-orange-50 dark:bg-orange-900/20">
+                          <div className="flex items-start gap-3">
+                            <div className="text-orange-500 dark:text-orange-400 mt-0.5">⚠️</div>
+                            <div>
+                              <h4 className="text-sm font-medium text-orange-800 dark:text-orange-200 mb-1">
+                                NVIDIA Sortformer Limitations
+                              </h4>
+                              <p className="text-sm text-orange-700 dark:text-orange-300">
+                                This model is optimized for up to 4 speakers. Beyond 4 speakers accuracy might degrade.
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                </div>
+              )}
+            </div>
+          ) : params.model_family === "openai" ? (
+            <div className="space-y-6">
+              <div className="p-4 border border-blue-200 dark:border-blue-700 rounded-lg bg-blue-50 dark:bg-blue-900/20">
+                <div className="flex items-center gap-2">
+                  <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                  <span className="text-sm font-medium text-blue-800 dark:text-blue-200">Cloud Transcription</span>
+                </div>
+                <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
+                  Audio will be sent to OpenAI servers for processing.
+                </p>
+              </div>
+
+              {/* API Key */}
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="openai_api_key" className="text-[var(--text-secondary)] font-medium">
+                    OpenAI API Key
+                  </Label>
+                  <HoverCard>
+                    <HoverCardTrigger asChild>
+                      <Info className="h-4 w-4 text-carbon-400 cursor-help" />
+                    </HoverCardTrigger>
+                    <HoverCardContent className="w-80 bg-[var(--bg-main)] border-[var(--border-subtle)]">
+                      <p className="text-sm text-[var(--text-secondary)]">
+                        Your OpenAI API key. If not provided, the server-configured key will be used (if any).
+                      </p>
+                    </HoverCardContent>
+                  </HoverCard>
+                </div>
+                <div className="flex gap-2">
+                  <Input
+                    id="openai_api_key"
+                    type="password"
+                    value={params.api_key || ""}
+                    onChange={(e) => {
+                      updateParam('api_key', e.target.value);
+                      setValidationStatus('idle');
+                    }}
+                    placeholder="sk-..."
+                    className="bg-[var(--bg-main)] border-carbon-300 dark:border-carbon-600 text-[var(--text-primary)] flex-1"
+                  />
+                  <Button
+                    variant="outline"
+                    onClick={validateAPIKey}
+                    disabled={isValidating}
+                    className="shrink-0"
+                  >
+                    {isValidating ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      "Validate"
+                    )}
+                  </Button>
+                </div>
+                {validationStatus !== 'idle' && (
+                  <div className={`flex items-center gap-2 text-sm ${validationStatus === 'valid' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+                    }`}>
+                    {validationStatus === 'valid' ? (
+                      <Check className="h-4 w-4" />
+                    ) : (
+                      <XCircle className="h-4 w-4" />
+                    )}
+                    <span>{validationMessage}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Model Selection */}
+              <div className="space-y-2">
+                <Label htmlFor="openai_model" className="text-[var(--text-secondary)] font-medium">
+                  Model
+                </Label>
+                <Select
+                  value={params.model || "whisper-1"}
+                  onValueChange={(value) => updateParam('model', value)}
+                >
+                  <SelectTrigger className="bg-[var(--bg-main)] border-carbon-300 dark:border-carbon-600 text-[var(--text-primary)]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-[var(--bg-main)] border-[var(--border-subtle)]">
+                    {availableModels.map((model) => (
+                      <SelectItem key={model} value={model} className="text-[var(--text-primary)] focus:bg-carbon-100 dark:focus:bg-carbon-700">
+                        {model}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {params.model && params.model !== "whisper-1" && (
+                <div className="p-4 border border-orange-200 dark:border-orange-700 rounded-lg bg-orange-50 dark:bg-orange-900/20">
+                  <div className="flex items-start gap-3">
+                    <div className="text-orange-500 dark:text-orange-400 mt-0.5">⚠️</div>
+                    <div>
+                      <h4 className="text-sm font-medium text-orange-800 dark:text-orange-200 mb-1">
+                        Limited Synchronization
+                      </h4>
+                      <p className="text-sm text-orange-700 dark:text-orange-300">
+                        Word-level timestamps are only supported by the <strong>whisper-1</strong> model. Synchronized playback will not be available for this model.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Language Selection */}
+              <div className="space-y-2">
+                <Label htmlFor="openai_language" className="text-[var(--text-secondary)] font-medium">
+                  Language
+                </Label>
+                <Select
+                  value={params.language || "auto"}
+                  onValueChange={(value) => updateParam('language', value === "auto" ? undefined : value)}
+                >
+                  <SelectTrigger className="bg-[var(--bg-main)] border-carbon-300 dark:border-carbon-600 text-[var(--text-primary)]">
+                    <SelectValue placeholder="Auto-detect" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-[var(--bg-main)] border-[var(--border-subtle)] max-h-60">
+                    {LANGUAGES.map((lang) => (
+                      <SelectItem key={lang.value} value={lang.value} className="text-[var(--text-primary)] focus:bg-carbon-100 dark:focus:bg-carbon-700">
+                        {lang.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Temperature */}
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="openai_temperature" className="text-[var(--text-secondary)]">
+                    Temperature
+                  </Label>
+                  <HoverCard>
+                    <HoverCardTrigger asChild>
+                      <Info className="h-4 w-4 text-carbon-400 cursor-help" />
+                    </HoverCardTrigger>
+                    <HoverCardContent className="w-80 bg-[var(--bg-main)] border-[var(--border-subtle)]">
+                      <p className="text-sm text-[var(--text-secondary)]">{PARAM_DESCRIPTIONS.temperature}</p>
+                    </HoverCardContent>
+                  </HoverCard>
+                </div>
+                <div className="flex items-center gap-4">
+                  <Slider
+                    value={[params.temperature]}
+                    onValueChange={(value) => updateParam('temperature', value[0])}
+                    max={1}
+                    step={0.1}
+                    className="flex-1"
+                  />
+                  <span className="w-12 text-right text-sm text-carbon-600 dark:text-carbon-400">
+                    {params.temperature}
+                  </span>
+                </div>
+              </div>
+
+              {/* Initial Prompt */}
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="openai_prompt" className="text-[var(--text-secondary)]">
+                    Initial Prompt
+                  </Label>
+                  <HoverCard>
+                    <HoverCardTrigger asChild>
+                      <Info className="h-4 w-4 text-carbon-400 cursor-help" />
+                    </HoverCardTrigger>
+                    <HoverCardContent className="w-80 bg-[var(--bg-main)] border-[var(--border-subtle)]">
+                      <p className="text-sm text-[var(--text-secondary)]">{PARAM_DESCRIPTIONS.initial_prompt}</p>
+                    </HoverCardContent>
+                  </HoverCard>
+                </div>
+                <Textarea
+                  id="openai_prompt"
+                  value={params.initial_prompt || ""}
+                  onChange={(e) => updateParam('initial_prompt', e.target.value || undefined)}
+                  placeholder="Optional text to guide the model's style..."
+                  className="bg-[var(--bg-main)] border-carbon-300 dark:border-carbon-600 text-[var(--text-primary)] resize-none"
+                  rows={3}
+                />
+              </div>
+            </div>
+          ) : (
+            <Tabs defaultValue="basic" className="w-full">
+              <TabsList className={`grid w-full items-center h-auto bg-carbon-100 dark:bg-carbon-800 p-1 rounded-lg ${isMultiTrack ? 'grid-cols-3' : 'grid-cols-4'}`}>
+                <TabsTrigger value="basic" className="h-9 py-1.5 data-[state=active]:bg-white data-[state=active]:dark:bg-carbon-700 text-[var(--text-secondary)] text-xs sm:text-sm">Basic</TabsTrigger>
+                <TabsTrigger value="quality" className="h-9 py-1.5 data-[state=active]:bg-white data-[state=active]:dark:bg-carbon-700 text-[var(--text-secondary)] text-xs sm:text-sm">Quality</TabsTrigger>
+                <TabsTrigger value="advanced" className="h-9 py-1.5 data-[state=active]:bg-white data-[state=active]:dark:bg-carbon-700 text-[var(--text-secondary)] text-xs sm:text-sm">Advanced</TabsTrigger>
+                {!isMultiTrack && (
+                  <TabsTrigger value="diarization" className="h-9 py-1.5 data-[state=active]:bg-white data-[state=active]:dark:bg-carbon-700 text-[var(--text-secondary)] text-xs sm:text-sm">Diarization</TabsTrigger>
+                )}
+              </TabsList>
+
+              <TabsContent value="basic" className="space-y-6 sm:space-y-8 mt-4 sm:mt-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-8">
+                  <div className="space-y-4 sm:space-y-6">
+                    {/* Multi-track status display */}
+                    {isMultiTrack && (
+                      <div className="p-4 border border-blue-200 dark:border-blue-700 rounded-lg bg-blue-50 dark:bg-blue-900/20">
+                        <div className="flex items-center gap-2">
+                          <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                          <span className="text-sm font-medium text-blue-800 dark:text-blue-200">Multi-track audio detected</span>
+                        </div>
+                        <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
+                          Multi-track transcription is automatically enabled. Diarization is disabled as each track represents a single speaker.
+                        </p>
+                      </div>
+                    )}
+
+                    <div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <Label htmlFor="model" className="text-[var(--text-secondary)]">Model Size</Label>
+                        <HoverCard>
+                          <HoverCardTrigger asChild>
+                            <Info className="h-4 w-4 text-carbon-400 cursor-help" />
+                          </HoverCardTrigger>
+                          <HoverCardContent className="w-80 bg-[var(--bg-main)] border-[var(--border-subtle)]">
+                            <p className="text-sm text-[var(--text-secondary)]">{PARAM_DESCRIPTIONS.model}</p>
+                          </HoverCardContent>
+                        </HoverCard>
+                      </div>
+                      <Select
+                        value={params.model}
+                        onValueChange={(value) => updateParam('model', value)}
+                      >
+                        <SelectTrigger className="mt-3 w-full min-w-0 bg-[var(--bg-main)] border-carbon-300 dark:border-carbon-600 text-[var(--text-primary)]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="bg-[var(--bg-main)] border-[var(--border-subtle)]">
+                          {WHISPER_MODELS.map((model) => (
+                            <SelectItem key={model} value={model} className="text-[var(--text-primary)] focus:bg-carbon-100 dark:focus:bg-carbon-700">
+                              {model}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <Label htmlFor="language" className="text-[var(--text-secondary)]">Language</Label>
+                        <HoverCard>
+                          <HoverCardTrigger asChild>
+                            <Info className="h-4 w-4 text-carbon-400 cursor-help" />
+                          </HoverCardTrigger>
+                          <HoverCardContent className="w-80 bg-[var(--bg-main)] border-[var(--border-subtle)]">
+                            <p className="text-sm text-[var(--text-secondary)]">{PARAM_DESCRIPTIONS.language}</p>
+                          </HoverCardContent>
+                        </HoverCard>
+                      </div>
+                      <Select
+                        value={params.language || "auto"}
+                        onValueChange={(value) => updateParam('language', value === "auto" ? undefined : value)}
+                      >
+                        <SelectTrigger className="mt-3 w-full min-w-0 bg-[var(--bg-main)] border-carbon-300 dark:border-carbon-600 text-[var(--text-primary)]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="bg-[var(--bg-main)] border-[var(--border-subtle)] max-h-60">
+                          {LANGUAGES.map((lang) => (
+                            <SelectItem key={lang.value} value={lang.value} className="text-[var(--text-primary)] focus:bg-carbon-100 dark:focus:bg-carbon-700">
+                              {lang.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <Label htmlFor="task" className="text-[var(--text-secondary)]">Task</Label>
+                        <HoverCard>
+                          <HoverCardTrigger asChild>
+                            <Info className="h-4 w-4 text-carbon-400 cursor-help" />
+                          </HoverCardTrigger>
+                          <HoverCardContent className="w-80 bg-[var(--bg-main)] border-[var(--border-subtle)]">
+                            <p className="text-sm text-[var(--text-secondary)]">{PARAM_DESCRIPTIONS.task}</p>
+                          </HoverCardContent>
+                        </HoverCard>
+                      </div>
+                      <Select
+                        value={params.task}
+                        onValueChange={(value) => updateParam('task', value)}
+                      >
+                        <SelectTrigger className="mt-3 bg-[var(--bg-main)] border-carbon-300 dark:border-carbon-600 text-[var(--text-primary)]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="bg-[var(--bg-main)] border-[var(--border-subtle)]">
+                          <SelectItem value="transcribe" className="text-[var(--text-primary)] focus:bg-carbon-100 dark:focus:bg-carbon-700">Transcribe</SelectItem>
+                          <SelectItem value="translate" className="text-[var(--text-primary)] focus:bg-carbon-100 dark:focus:bg-carbon-700">Translate to English</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4 sm:space-y-6">
+                    <div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <Label htmlFor="device" className="text-[var(--text-secondary)]">Device</Label>
+                        <HoverCard>
+                          <HoverCardTrigger asChild>
+                            <Info className="h-4 w-4 text-carbon-400 cursor-help" />
+                          </HoverCardTrigger>
+                          <HoverCardContent className="w-80 bg-[var(--bg-main)] border-[var(--border-subtle)]">
+                            <p className="text-sm text-[var(--text-secondary)]">{PARAM_DESCRIPTIONS.device}</p>
+                          </HoverCardContent>
+                        </HoverCard>
+                      </div>
+                      <Select
+                        value={params.device}
+                        onValueChange={(value) => updateParam('device', value)}
+                      >
+                        <SelectTrigger className="mt-3 w-full min-w-0 bg-[var(--bg-main)] border-carbon-300 dark:border-carbon-600 text-[var(--text-primary)]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="bg-[var(--bg-main)] border-[var(--border-subtle)]">
+                          <SelectItem value="cpu" className="text-[var(--text-primary)] focus:bg-carbon-100 dark:focus:bg-carbon-700">CPU</SelectItem>
+                          <SelectItem value="cuda" className="text-[var(--text-primary)] focus:bg-carbon-100 dark:focus:bg-carbon-700">GPU (CUDA)</SelectItem>
+
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <Label htmlFor="compute_type" className="text-[var(--text-secondary)]">Compute Type</Label>
+                        <HoverCard>
+                          <HoverCardTrigger asChild>
+                            <Info className="h-4 w-4 text-carbon-400 cursor-help" />
+                          </HoverCardTrigger>
+                          <HoverCardContent className="w-80 bg-[var(--bg-main)] border-[var(--border-subtle)]">
+                            <p className="text-sm text-[var(--text-secondary)]">{PARAM_DESCRIPTIONS.compute_type}</p>
+                          </HoverCardContent>
+                        </HoverCard>
+                      </div>
+                      <Select
+                        value={params.compute_type}
+                        onValueChange={(value) => updateParam('compute_type', value)}
+                      >
+                        <SelectTrigger className="mt-3 w-full min-w-0 bg-[var(--bg-main)] border-carbon-300 dark:border-carbon-600 text-[var(--text-primary)]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="bg-[var(--bg-main)] border-[var(--border-subtle)]">
+                          <SelectItem value="float16" className="text-[var(--text-primary)] focus:bg-carbon-100 dark:focus:bg-carbon-700">Float16 (Faster)</SelectItem>
+                          <SelectItem value="float32" className="text-[var(--text-primary)] focus:bg-carbon-100 dark:focus:bg-carbon-700">Float32 (More Accurate)</SelectItem>
+                          <SelectItem value="int8" className="text-[var(--text-primary)] focus:bg-carbon-100 dark:focus:bg-carbon-700">Int8 (Fastest)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <Label htmlFor="batch_size" className="text-[var(--text-secondary)]">Batch Size: {params.batch_size}</Label>
+                          <HoverCard>
+                            <HoverCardTrigger asChild>
+                              <Info className="h-4 w-4 text-carbon-400 cursor-help" />
+                            </HoverCardTrigger>
+                            <HoverCardContent className="w-80 bg-[var(--bg-main)] border-[var(--border-subtle)]">
+                              <p className="text-sm text-[var(--text-secondary)]">{PARAM_DESCRIPTIONS.batch_size}</p>
+                            </HoverCardContent>
+                          </HoverCard>
+                        </div>
+                      </div>
+                      <Slider
+                        value={[params.batch_size]}
+                        onValueChange={([value]) => updateParam('batch_size', value)}
+                        min={1}
+                        max={32}
+                        step={1}
+                        className="mt-3"
+                      />
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <Label htmlFor="threads" className="text-[var(--text-secondary)]">Threads: {params.threads}</Label>
+                          <HoverCard>
+                            <HoverCardTrigger asChild>
+                              <Info className="h-4 w-4 text-carbon-400 cursor-help" />
+                            </HoverCardTrigger>
+                            <HoverCardContent className="w-80 bg-[var(--bg-main)] border-[var(--border-subtle)]">
+                              <p className="text-sm text-[var(--text-secondary)]">Number of threads used by torch for CPU inference. 0 means auto-detect.</p>
+                            </HoverCardContent>
+                          </HoverCard>
+                        </div>
+                      </div>
+                      <Slider
+                        value={[params.threads]}
+                        onValueChange={([value]) => updateParam('threads', value)}
+                        min={0}
+                        max={16}
+                        step={1}
+                        className="mt-3"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+              </TabsContent>
+
+              <TabsContent value="quality" className="space-y-6 sm:space-y-8 mt-4 sm:mt-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-8">
+                  <div className="space-y-4 sm:space-y-6">
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <Label htmlFor="temperature" className="text-[var(--text-secondary)]">Temperature: {params.temperature}</Label>
+                          <HoverCard>
+                            <HoverCardTrigger asChild>
+                              <Info className="h-4 w-4 text-carbon-400 cursor-help" />
+                            </HoverCardTrigger>
+                            <HoverCardContent className="w-80 bg-[var(--bg-main)] border-[var(--border-subtle)]">
+                              <p className="text-sm text-[var(--text-secondary)]">{PARAM_DESCRIPTIONS.temperature}</p>
+                            </HoverCardContent>
+                          </HoverCard>
+                        </div>
+                      </div>
+                      <Slider
+                        value={[params.temperature]}
+                        onValueChange={([value]) => updateParam('temperature', value)}
+                        min={0}
+                        max={1}
+                        step={0.1}
+                        className="mt-3"
+                      />
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <Label htmlFor="beam_size" className="text-[var(--text-secondary)]">Beam Size: {params.beam_size}</Label>
+                          <HoverCard>
+                            <HoverCardTrigger asChild>
+                              <Info className="h-4 w-4 text-carbon-400 cursor-help" />
+                            </HoverCardTrigger>
+                            <HoverCardContent className="w-80 bg-[var(--bg-main)] border-[var(--border-subtle)]">
+                              <p className="text-sm text-[var(--text-secondary)]">{PARAM_DESCRIPTIONS.beam_size}</p>
+                            </HoverCardContent>
+                          </HoverCard>
+                        </div>
+                      </div>
+                      <Slider
+                        value={[params.beam_size]}
+                        onValueChange={([value]) => updateParam('beam_size', value)}
+                        min={1}
+                        max={20}
+                        step={1}
+                        className="mt-3"
+                      />
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <Label htmlFor="best_of" className="text-[var(--text-secondary)]">Best Of: {params.best_of}</Label>
+                          <HoverCard>
+                            <HoverCardTrigger asChild>
+                              <Info className="h-4 w-4 text-carbon-400 cursor-help" />
+                            </HoverCardTrigger>
+                            <HoverCardContent className="w-80 bg-[var(--bg-main)] border-[var(--border-subtle)]">
+                              <p className="text-sm text-[var(--text-secondary)]">{PARAM_DESCRIPTIONS.best_of}</p>
+                            </HoverCardContent>
+                          </HoverCard>
+                        </div>
+                      </div>
+                      <Slider
+                        value={[params.best_of]}
+                        onValueChange={([value]) => updateParam('best_of', value)}
+                        min={1}
+                        max={20}
+                        step={1}
+                        className="mt-3"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-4 sm:space-y-6">
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <Label htmlFor="patience" className="text-[var(--text-secondary)]">Patience: {params.patience}</Label>
+                          <HoverCard>
+                            <HoverCardTrigger asChild>
+                              <Info className="h-4 w-4 text-carbon-400 cursor-help" />
+                            </HoverCardTrigger>
+                            <HoverCardContent className="w-80 bg-[var(--bg-main)] border-[var(--border-subtle)]">
+                              <p className="text-sm text-[var(--text-secondary)]">{PARAM_DESCRIPTIONS.patience}</p>
+                            </HoverCardContent>
+                          </HoverCard>
+                        </div>
+                      </div>
+                      <Slider
+                        value={[params.patience]}
+                        onValueChange={([value]) => updateParam('patience', value)}
+                        min={0.1}
+                        max={3.0}
+                        step={0.1}
+                        className="mt-3"
+                      />
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <Label htmlFor="length_penalty" className="text-[var(--text-secondary)]">Length Penalty: {params.length_penalty}</Label>
+                          <HoverCard>
+                            <HoverCardTrigger asChild>
+                              <Info className="h-4 w-4 text-carbon-400 cursor-help" />
+                            </HoverCardTrigger>
+                            <HoverCardContent className="w-80 bg-[var(--bg-main)] border-[var(--border-subtle)]">
+                              <p className="text-sm text-[var(--text-secondary)]">{PARAM_DESCRIPTIONS.length_penalty}</p>
+                            </HoverCardContent>
+                          </HoverCard>
+                        </div>
+                      </div>
+                      <Slider
+                        value={[params.length_penalty]}
+                        onValueChange={([value]) => updateParam('length_penalty', value)}
+                        min={0.1}
+                        max={3.0}
+                        step={0.1}
+                        className="mt-3"
+                      />
+                    </div>
+
+                    <div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <Label htmlFor="initial_prompt" className="text-[var(--text-secondary)]">Initial Prompt</Label>
+                        <HoverCard>
+                          <HoverCardTrigger asChild>
+                            <Info className="h-4 w-4 text-carbon-400 cursor-help" />
+                          </HoverCardTrigger>
+                          <HoverCardContent className="w-80 bg-[var(--bg-main)] border-[var(--border-subtle)]">
+                            <p className="text-sm text-[var(--text-secondary)]">{PARAM_DESCRIPTIONS.initial_prompt}</p>
+                          </HoverCardContent>
+                        </HoverCard>
+                      </div>
+                      <Textarea
+                        placeholder="Optional text to provide as context for the first window"
+                        value={params.initial_prompt || ""}
+                        onChange={(e) => updateParam('initial_prompt', e.target.value || undefined)}
+                        rows={3}
+                        className="mt-3 bg-[var(--bg-main)] border-carbon-300 dark:border-carbon-600 text-[var(--text-primary)] placeholder:text-carbon-500 dark:placeholder:text-carbon-400"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <Separator className="bg-carbon-200 dark:bg-carbon-700 my-6 sm:my-8" />
+
+                <div className="space-y-4 sm:space-y-6">
+                  <div className="flex items-center space-x-2">
+                    <Switch
+                      id="suppress_numerals"
+                      checked={params.suppress_numerals}
+                      onCheckedChange={(checked) => updateParam('suppress_numerals', checked)}
+                    />
+                    <Label htmlFor="suppress_numerals" className="text-[var(--text-secondary)]">Suppress Numerals</Label>
+                    <HoverCard>
+                      <HoverCardTrigger asChild>
+                        <Info className="h-4 w-4 text-carbon-400 cursor-help" />
+                      </HoverCardTrigger>
+                      <HoverCardContent className="w-80 bg-[var(--bg-main)] border-[var(--border-subtle)]">
+                        <p className="text-sm text-[var(--text-secondary)]">{PARAM_DESCRIPTIONS.suppress_numerals}</p>
+                      </HoverCardContent>
+                    </HoverCard>
+                  </div>
+
+                  <div className="flex items-center space-x-2">
+                    <Switch
+                      id="condition_on_previous_text"
+                      checked={params.condition_on_previous_text}
+                      onCheckedChange={(checked) => updateParam('condition_on_previous_text', checked)}
+                    />
+                    <Label htmlFor="condition_on_previous_text" className="text-[var(--text-secondary)]">Condition on Previous Text</Label>
+                    <HoverCard>
+                      <HoverCardTrigger asChild>
+                        <Info className="h-4 w-4 text-carbon-400 cursor-help" />
+                      </HoverCardTrigger>
+                      <HoverCardContent className="w-80 bg-[var(--bg-main)] border-[var(--border-subtle)]">
+                        <p className="text-sm text-[var(--text-secondary)]">{PARAM_DESCRIPTIONS.condition_on_previous_text}</p>
+                      </HoverCardContent>
+                    </HoverCard>
+                  </div>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="advanced" className="space-y-6 sm:space-y-8 mt-4 sm:mt-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-8">
+                  <div className="space-y-4 sm:space-y-6">
+                    <h4 className="font-medium text-[var(--text-primary)]">VAD Settings</h4>
+
+                    <div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <Label htmlFor="vad_method" className="text-[var(--text-secondary)]">VAD Method</Label>
+                        <HoverCard>
+                          <HoverCardTrigger asChild>
+                            <Info className="h-4 w-4 text-carbon-400 cursor-help" />
+                          </HoverCardTrigger>
+                          <HoverCardContent className="w-80 bg-[var(--bg-main)] border-[var(--border-subtle)]">
+                            <p className="text-sm text-[var(--text-secondary)]">{PARAM_DESCRIPTIONS.vad_method}</p>
+                          </HoverCardContent>
+                        </HoverCard>
+                      </div>
+                      <Select
+                        value={params.vad_method}
+                        onValueChange={(value) => updateParam('vad_method', value)}
+                      >
+                        <SelectTrigger className="mt-3 bg-[var(--bg-main)] border-carbon-300 dark:border-carbon-600 text-[var(--text-primary)]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="bg-[var(--bg-main)] border-[var(--border-subtle)]">
+                          <SelectItem value="pyannote" className="text-[var(--text-primary)] focus:bg-carbon-100 dark:focus:bg-carbon-700">Pyannote</SelectItem>
+                          <SelectItem value="silero" className="text-[var(--text-primary)] focus:bg-carbon-100 dark:focus:bg-carbon-700">Silero</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <Label htmlFor="vad_onset" className="text-[var(--text-secondary)]">VAD Onset: {params.vad_onset}</Label>
+                          <HoverCard>
+                            <HoverCardTrigger asChild>
+                              <Info className="h-4 w-4 text-carbon-400 cursor-help" />
+                            </HoverCardTrigger>
+                            <HoverCardContent className="w-80 bg-[var(--bg-main)] border-[var(--border-subtle)]">
+                              <p className="text-sm text-[var(--text-secondary)]">{PARAM_DESCRIPTIONS.vad_onset}</p>
+                            </HoverCardContent>
+                          </HoverCard>
+                        </div>
+                      </div>
+                      <Slider
+                        value={[params.vad_onset]}
+                        onValueChange={([value]) => updateParam('vad_onset', value)}
+                        min={0.1}
+                        max={1.0}
+                        step={0.01}
+                        className="mt-3"
+                      />
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <Label htmlFor="vad_offset" className="text-[var(--text-secondary)]">VAD Offset: {params.vad_offset}</Label>
+                          <HoverCard>
+                            <HoverCardTrigger asChild>
+                              <Info className="h-4 w-4 text-carbon-400 cursor-help" />
+                            </HoverCardTrigger>
+                            <HoverCardContent className="w-80 bg-[var(--bg-main)] border-[var(--border-subtle)]">
+                              <p className="text-sm text-[var(--text-secondary)]">{PARAM_DESCRIPTIONS.vad_offset}</p>
+                            </HoverCardContent>
+                          </HoverCard>
+                        </div>
+                      </div>
+                      <Slider
+                        value={[params.vad_offset]}
+                        onValueChange={([value]) => updateParam('vad_offset', value)}
+                        min={0.1}
+                        max={1.0}
+                        step={0.01}
+                        className="mt-3"
+                      />
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <Label htmlFor="chunk_size" className="text-[var(--text-secondary)]">Chunk Size: {params.chunk_size}</Label>
+                          <HoverCard>
+                            <HoverCardTrigger asChild>
+                              <Info className="h-4 w-4 text-carbon-400 cursor-help" />
+                            </HoverCardTrigger>
+                            <HoverCardContent className="w-80 bg-[var(--bg-main)] border-[var(--border-subtle)]">
+                              <p className="text-sm text-[var(--text-secondary)]">{PARAM_DESCRIPTIONS.chunk_size}</p>
+                            </HoverCardContent>
+                          </HoverCard>
+                        </div>
+                      </div>
+                      <Slider
+                        value={[params.chunk_size]}
+                        onValueChange={([value]) => updateParam('chunk_size', value)}
+                        min={5}
+                        max={60}
+                        step={1}
+                        className="mt-3"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-4 sm:space-y-6">
+                    <h4 className="font-medium">Detection Thresholds</h4>
+
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <Label htmlFor="compression_ratio_threshold" className="text-[var(--text-secondary)]">Compression Ratio: {params.compression_ratio_threshold}</Label>
+                          <HoverCard>
+                            <HoverCardTrigger asChild>
+                              <Info className="h-4 w-4 text-carbon-400 cursor-help" />
+                            </HoverCardTrigger>
+                            <HoverCardContent className="w-80 bg-[var(--bg-main)] border-[var(--border-subtle)]">
+                              <p className="text-sm text-[var(--text-secondary)]">{PARAM_DESCRIPTIONS.compression_ratio_threshold}</p>
+                            </HoverCardContent>
+                          </HoverCard>
+                        </div>
+                      </div>
+                      <Slider
+                        value={[params.compression_ratio_threshold]}
+                        onValueChange={([value]) => updateParam('compression_ratio_threshold', value)}
+                        min={1.0}
+                        max={5.0}
+                        step={0.1}
+                        className="mt-3"
+                      />
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <Label htmlFor="logprob_threshold" className="text-[var(--text-secondary)]">Log Probability: {params.logprob_threshold}</Label>
+                          <HoverCard>
+                            <HoverCardTrigger asChild>
+                              <Info className="h-4 w-4 text-carbon-400 cursor-help" />
+                            </HoverCardTrigger>
+                            <HoverCardContent className="w-80 bg-[var(--bg-main)] border-[var(--border-subtle)]">
+                              <p className="text-sm text-[var(--text-secondary)]">{PARAM_DESCRIPTIONS.logprob_threshold}</p>
+                            </HoverCardContent>
+                          </HoverCard>
+                        </div>
+                      </div>
+                      <Slider
+                        value={[params.logprob_threshold]}
+                        onValueChange={([value]) => updateParam('logprob_threshold', value)}
+                        min={-3.0}
+                        max={0.0}
+                        step={0.1}
+                        className="mt-3"
+                      />
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <Label htmlFor="no_speech_threshold" className="text-[var(--text-secondary)]">No Speech: {params.no_speech_threshold}</Label>
+                          <HoverCard>
+                            <HoverCardTrigger asChild>
+                              <Info className="h-4 w-4 text-carbon-400 cursor-help" />
+                            </HoverCardTrigger>
+                            <HoverCardContent className="w-80 bg-[var(--bg-main)] border-[var(--border-subtle)]">
+                              <p className="text-sm text-[var(--text-secondary)]">{PARAM_DESCRIPTIONS.no_speech_threshold}</p>
+                            </HoverCardContent>
+                          </HoverCard>
+                        </div>
+                      </div>
+                      <Slider
+                        value={[params.no_speech_threshold]}
+                        onValueChange={([value]) => updateParam('no_speech_threshold', value)}
+                        min={0.1}
+                        max={1.0}
+                        step={0.01}
+                        className="mt-3"
+                      />
+                    </div>
+
+                    <div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <Label htmlFor="suppress_tokens" className="text-[var(--text-secondary)]">Suppress Tokens</Label>
+                        <HoverCard>
+                          <HoverCardTrigger asChild>
+                            <Info className="h-4 w-4 text-carbon-400 cursor-help" />
+                          </HoverCardTrigger>
+                          <HoverCardContent className="w-80 bg-[var(--bg-main)] border-[var(--border-subtle)]">
+                            <p className="text-sm text-[var(--text-secondary)]">{PARAM_DESCRIPTIONS.suppress_tokens}</p>
+                          </HoverCardContent>
+                        </HoverCard>
+                      </div>
+                      <Input
+                        placeholder="-1 (default: suppress special characters)"
+                        value={params.suppress_tokens || ""}
+                        onChange={(e) => updateParam('suppress_tokens', e.target.value || undefined)}
+                        className="mt-3"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <Separator className="my-8" />
+
+                <div className="space-y-6">
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <Label htmlFor="align_model" className="text-gray-700 dark:text-gray-300">Custom Alignment Model</Label>
+                      <HoverCard>
+                        <HoverCardTrigger asChild>
+                          <Info className="h-4 w-4 text-gray-400 cursor-help" />
+                        </HoverCardTrigger>
+                        <HoverCardContent className="w-80 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                          <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-line">{PARAM_DESCRIPTIONS.align_model}</p>
+                        </HoverCardContent>
+                      </HoverCard>
+                    </div>
+                    <Input
+                      id="align_model"
+                      placeholder="default: none"
+                      value={params.align_model || ""}
+                      onChange={(e) => updateParam('align_model', e.target.value || undefined)}
+                      className="mt-3 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100"
+                    />
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Switch
+                      id="no_align"
+                      checked={params.no_align}
+                      onCheckedChange={(checked) => updateParam('no_align', checked)}
+                    />
+                    <Label htmlFor="no_align" className="text-[var(--text-secondary)]">Disable Alignment</Label>
+                    <HoverCard>
+                      <HoverCardTrigger asChild>
+                        <Info className="h-4 w-4 text-carbon-400 cursor-help" />
+                      </HoverCardTrigger>
+                      <HoverCardContent className="w-80 bg-[var(--bg-main)] border-[var(--border-subtle)]">
+                        <p className="text-sm text-[var(--text-secondary)]">{PARAM_DESCRIPTIONS.no_align}</p>
+                      </HoverCardContent>
+                    </HoverCard>
+                  </div>
+
+                  <div className="flex items-center space-x-2">
+                    <Switch
+                      id="return_char_alignments"
+                      checked={params.return_char_alignments}
+                      onCheckedChange={(checked) => updateParam('return_char_alignments', checked)}
+                    />
+                    <Label htmlFor="return_char_alignments" className="text-[var(--text-secondary)]">Character-level Alignments</Label>
+                    <HoverCard>
+                      <HoverCardTrigger asChild>
+                        <Info className="h-4 w-4 text-carbon-400 cursor-help" />
+                      </HoverCardTrigger>
+                      <HoverCardContent className="w-80 bg-[var(--bg-main)] border-[var(--border-subtle)]">
+                        <p className="text-sm text-[var(--text-secondary)]">{PARAM_DESCRIPTIONS.return_char_alignments}</p>
+                      </HoverCardContent>
+                    </HoverCard>
+                  </div>
+
+                  <div className="flex items-center space-x-2">
+                    <Switch
+                      id="fp16"
+                      checked={params.fp16}
+                      onCheckedChange={(checked) => updateParam('fp16', checked)}
+                    />
+                    <Label htmlFor="fp16" className="text-[var(--text-secondary)]">FP16 Inference</Label>
+                    <HoverCard>
+                      <HoverCardTrigger asChild>
+                        <Info className="h-4 w-4 text-carbon-400 cursor-help" />
+                      </HoverCardTrigger>
+                      <HoverCardContent className="w-80 bg-[var(--bg-main)] border-[var(--border-subtle)]">
+                        <p className="text-sm text-[var(--text-secondary)]">{PARAM_DESCRIPTIONS.fp16}</p>
+                      </HoverCardContent>
+                    </HoverCard>
+                  </div>
+                </div>
+              </TabsContent>
+
+              {!isMultiTrack && (
+                <TabsContent value="diarization" className="space-y-6 sm:space-y-8 mt-4 sm:mt-6">
+                  <div>
+                    <div className="flex items-center space-x-2 mb-6">
+                      <Switch
+                        id="diarize"
+                        checked={params.diarize}
+                        onCheckedChange={(checked) => updateParam('diarize', checked)}
+                        disabled={params.is_multi_track_enabled}
+                      />
+                      <Label htmlFor="diarize" className="text-[var(--text-secondary)]">Enable Speaker Diarization</Label>
+                      <HoverCard>
+                        <HoverCardTrigger asChild>
+                          <Info className="h-4 w-4 text-carbon-400 cursor-help" />
+                        </HoverCardTrigger>
+                        <HoverCardContent className="w-80 bg-[var(--bg-main)] border-[var(--border-subtle)]">
+                          <p className="text-sm text-[var(--text-secondary)]">{PARAM_DESCRIPTIONS.diarize}</p>
+                        </HoverCardContent>
+                      </HoverCard>
+                    </div>
+
+                    {params.diarize && (
+                      <div className="p-4 sm:p-6 border border-[var(--border-subtle)] rounded-lg bg-carbon-50 dark:bg-carbon-800 space-y-4 sm:space-y-6">
+                        {params.model_family !== 'whisper' && (
+                          <div>
+                            <div className="flex items-center gap-2 mb-2">
+                              <Label htmlFor="diarize_model" className="text-[var(--text-secondary)]">Diarization Model</Label>
+                              <HoverCard>
+                                <HoverCardTrigger asChild>
+                                  <Info className="h-4 w-4 text-carbon-400 cursor-help" />
+                                </HoverCardTrigger>
+                                <HoverCardContent className="w-80 bg-[var(--bg-main)] border-[var(--border-subtle)]">
+                                  <p className="text-sm text-[var(--text-secondary)]">{PARAM_DESCRIPTIONS.diarize_model}</p>
+                                </HoverCardContent>
+                              </HoverCard>
+                            </div>
+                            <Select
+                              value={params.diarize_model}
+                              onValueChange={(value) => updateParam('diarize_model', value)}
+                            >
+                              <SelectTrigger className="mt-3 bg-[var(--bg-main)] border-carbon-300 dark:border-carbon-600 text-[var(--text-primary)]">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent className="bg-[var(--bg-main)] border-[var(--border-subtle)]">
+                                <SelectItem value="pyannote" className="text-[var(--text-primary)] focus:bg-carbon-100 dark:focus:bg-carbon-700">
+                                  Pyannote (Recommended) - Requires HF Token
+                                </SelectItem>
+                                <SelectItem value="nvidia_sortformer" className="text-[var(--text-primary)] focus:bg-carbon-100 dark:focus:bg-carbon-700">
+                                  NVIDIA Sortformer - 4 Speakers Max, No Token
+                                </SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        )}
+
+                        {params.diarize_model === "pyannote" && (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+                            <div>
+                              <div className="flex items-center gap-2 mb-2">
+                                <Label htmlFor="min_speakers" className="text-[var(--text-secondary)]">Min Speakers</Label>
+                                <HoverCard>
+                                  <HoverCardTrigger asChild>
+                                    <Info className="h-4 w-4 text-carbon-400 cursor-help" />
+                                  </HoverCardTrigger>
+                                  <HoverCardContent className="w-64 bg-[var(--bg-main)] border-[var(--border-subtle)]">
+                                    <p className="text-sm text-[var(--text-secondary)]">{PARAM_DESCRIPTIONS.min_speakers}</p>
+                                  </HoverCardContent>
+                                </HoverCard>
+                              </div>
+                              <Input
+                                type="number"
+                                min="1"
+                                max="20"
+                                placeholder="Auto-detect"
+                                value={params.min_speakers || ""}
+                                onChange={(e) => updateParam('min_speakers', e.target.value ? parseInt(e.target.value) : undefined)}
+                                className="mt-3 bg-[var(--bg-main)] border-carbon-300 dark:border-carbon-600 text-[var(--text-primary)]"
+                              />
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2 mb-2">
+                                <Label htmlFor="max_speakers" className="text-[var(--text-secondary)]">Max Speakers</Label>
+                                <HoverCard>
+                                  <HoverCardTrigger asChild>
+                                    <Info className="h-4 w-4 text-carbon-400 cursor-help" />
+                                  </HoverCardTrigger>
+                                  <HoverCardContent className="w-64 bg-[var(--bg-main)] border-[var(--border-subtle)]">
+                                    <p className="text-sm text-[var(--text-secondary)]">{PARAM_DESCRIPTIONS.max_speakers}</p>
+                                  </HoverCardContent>
+                                </HoverCard>
+                              </div>
+                              <Input
+                                type="number"
+                                min="1"
+                                max="20"
+                                placeholder="Auto-detect"
+                                value={params.max_speakers || ""}
+                                onChange={(e) => updateParam('max_speakers', e.target.value ? parseInt(e.target.value) : undefined)}
+                                className="mt-3 bg-[var(--bg-main)] border-carbon-300 dark:border-carbon-600 text-[var(--text-primary)]"
+                              />
+                            </div>
+                          </div>
+                        )}
+
+                        <Separator className="my-4 sm:my-6" />
+
+                        {params.diarize_model === "pyannote" && (
+                          <div>
+                            <div className="flex items-center gap-2 mb-2">
+                              <Label htmlFor="hf_token" className="text-[var(--text-secondary)]">Hugging Face Token</Label>
+                              <HoverCard>
+                                <HoverCardTrigger asChild>
+                                  <Info className="h-4 w-4 text-carbon-400 cursor-help" />
+                                </HoverCardTrigger>
+                                <HoverCardContent className="w-80 bg-[var(--bg-main)] border-[var(--border-subtle)]">
+                                  <p className="text-sm text-[var(--text-secondary)]">{PARAM_DESCRIPTIONS.hf_token}</p>
+                                </HoverCardContent>
+                              </HoverCard>
+                            </div>
+                            <Input
+                              type="password"
+                              placeholder="Required for Pyannote diarization models"
+                              value={params.hf_token || ""}
+                              onChange={(e) => updateParam('hf_token', e.target.value || undefined)}
+                              className="mt-3 bg-[var(--bg-main)] border-carbon-300 dark:border-carbon-600 text-[var(--text-primary)]"
+                            />
+                          </div>
+                        )}
+
+                        {params.diarize_model === "nvidia_sortformer" && (
+                          <div className="p-4 border border-orange-200 dark:border-orange-700 rounded-lg bg-orange-50 dark:bg-orange-900/20">
+                            <div className="flex items-start gap-3">
+                              <div className="text-orange-500 dark:text-orange-400 mt-0.5">⚠️</div>
+                              <div>
+                                <h4 className="text-sm font-medium text-orange-800 dark:text-orange-200 mb-1">
+                                  NVIDIA Sortformer Limitations
+                                </h4>
+                                <p className="text-sm text-orange-700 dark:text-orange-300">
+                                  This model is optimized for up to 4 speakers. Beyond 4 speakers accuracy might degrade.
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                  </div>
+                </TabsContent>
+              )}
+            </Tabs>
+          )}
+
+        </div>
+        <DialogFooter className="gap-2 border-t border-[var(--border-subtle)] pt-6 mt-8 p-6 sm:p-8">
+          <Button variant="ghost" onClick={() => onOpenChange(false)} className="rounded-[var(--radius-btn)] text-[var(--text-secondary)] hover:bg-[var(--secondary)] hover:text-[var(--text-primary)]">
             Cancel
           </Button>
           <Button
             onClick={handleStartTranscription}
             disabled={loading || (isProfileMode && !profileName.trim())}
-            className="bg-blue-600 dark:bg-blue-700 hover:bg-blue-700 dark:hover:bg-blue-800 text-white cursor-pointer disabled:cursor-not-allowed"
+            className="rounded-[var(--radius-btn)] bg-[var(--brand-gradient)] hover:opacity-90 text-white border-none shadow-lg shadow-orange-500/20 min-w-[140px]"
           >
             {loading
               ? (isProfileMode ? "Saving..." : "Starting...")

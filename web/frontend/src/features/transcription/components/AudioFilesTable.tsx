@@ -594,28 +594,28 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 					<TooltipTrigger asChild>
 						<div className="cursor-help inline-flex items-center gap-1">
 							<div className="relative">
-								<Loader2 size={iconSize} className="text-primary animate-spin" />
+								<Loader2 size={iconSize} className="text-[var(--brand-solid)] animate-spin" />
 							</div>
-							<span className="text-xs text-primary font-medium">
+							<span className="text-xs text-[var(--brand-solid)] font-medium">
 								{completedTracks}/{totalTracks}
 							</span>
 						</div>
 					</TooltipTrigger>
-					<TooltipContent className="bg-popover border-border text-popover-foreground">
+					<TooltipContent className="bg-[var(--bg-card)] border-[var(--border-subtle)] text-[var(--text-primary)]">
 						<div className="space-y-1">
 							<p>Multi-Track Processing ({percentage}%)</p>
 							<div className="space-y-1">
 								{tracks && tracks.slice(0, 5).map((track: any, index: number) => (
 									<div key={index} className="flex items-center gap-2 text-xs">
-										<span className={`w-2 h-2 rounded-full ${track.status === 'completed' ? 'bg-emerald-400' :
-											track.status === 'processing' ? 'bg-amber-400' :
-												'bg-stone-400'
+										<span className={`w-2 h-2 rounded-full ${track.status === 'completed' ? 'bg-[var(--success)]' :
+											track.status === 'processing' ? 'bg-[var(--warning)]' :
+												'bg-[var(--text-disabled)]'
 											}`}></span>
 										<span>{track.track_name}</span>
 									</div>
 								))}
 								{tracks && tracks.length > 5 && (
-									<p className="text-xs text-carbon-400">...and {tracks.length - 5} more</p>
+									<p className="text-xs text-[var(--text-tertiary)]">...and {tracks.length - 5} more</p>
 								)}
 							</div>
 						</div>
@@ -630,10 +630,10 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 					<Tooltip>
 						<TooltipTrigger asChild>
 							<div className="cursor-help inline-block">
-								<CheckCircle size={iconSize} className="text-green-500" />
+								<CheckCircle size={iconSize} className="text-[var(--success)]" />
 							</div>
 						</TooltipTrigger>
-						<TooltipContent className="bg-popover border-border text-popover-foreground">
+						<TooltipContent className="bg-[var(--bg-card)] border-[var(--border-subtle)] text-[var(--text-primary)]">
 							<p>Completed</p>
 						</TooltipContent>
 					</Tooltip>
@@ -645,11 +645,11 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 							<div className="cursor-help inline-block">
 								<Loader2
 									size={iconSize}
-									className="text-primary animate-spin"
+									className="text-[var(--brand-solid)] animate-spin"
 								/>
 							</div>
 						</TooltipTrigger>
-						<TooltipContent className="bg-popover border-border text-popover-foreground">
+						<TooltipContent className="bg-[var(--bg-card)] border-[var(--border-subtle)] text-[var(--text-primary)]">
 							<p>Processing</p>
 						</TooltipContent>
 					</Tooltip>
@@ -659,10 +659,10 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 					<Tooltip>
 						<TooltipTrigger asChild>
 							<div className="cursor-help inline-block">
-								<XCircle size={iconSize} className="text-destructive" />
+								<XCircle size={iconSize} className="text-[var(--error)]" />
 							</div>
 						</TooltipTrigger>
-						<TooltipContent className="bg-popover border-border text-popover-foreground">
+						<TooltipContent className="bg-[var(--bg-card)] border-[var(--border-subtle)] text-[var(--text-primary)]">
 							<p>Failed</p>
 						</TooltipContent>
 					</Tooltip>
@@ -672,13 +672,13 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 					<Tooltip>
 						<TooltipTrigger asChild>
 							<div className="flex items-center gap-1 cursor-help inline-flex">
-								<Hash size={12} className="text-muted-foreground" />
-								<span className="text-xs text-muted-foreground font-medium">
+								<Hash size={12} className="text-[var(--text-tertiary)]" />
+								<span className="text-xs text-[var(--text-tertiary)] font-medium">
 									{queuePosition || "?"}
 								</span>
 							</div>
 						</TooltipTrigger>
-						<TooltipContent className="bg-popover border-border text-popover-foreground">
+						<TooltipContent className="bg-[var(--bg-card)] border-[var(--border-subtle)] text-[var(--text-primary)]">
 							<p>Queued (Position {queuePosition || "?"})</p>
 						</TooltipContent>
 					</Tooltip>
@@ -689,10 +689,10 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 					<Tooltip>
 						<TooltipTrigger asChild>
 							<div className="cursor-help inline-block">
-								<Clock size={iconSize} className="text-muted-foreground" />
+								<Clock size={iconSize} className="text-[var(--text-tertiary)]" />
 							</div>
 						</TooltipTrigger>
-						<TooltipContent className="bg-popover border-border text-popover-foreground">
+						<TooltipContent className="bg-[var(--bg-card)] border-[var(--border-subtle)] text-[var(--text-primary)]">
 							<p>Uploaded</p>
 						</TooltipContent>
 					</Tooltip>
@@ -780,14 +780,14 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 							</button>
 
 							{/* Desktop Hover Actions Toolbar */}
-							<div className="hidden lg:flex absolute right-0 top-1/2 -translate-y-1/2 opacity-0 group-hover/row:opacity-100 transition-opacity duration-200 items-center gap-1 bg-white/90 dark:bg-carbon-800/90 backdrop-blur-sm shadow-sm border border-carbon-200 dark:border-carbon-700 rounded-md px-1 py-0.5 z-10">
+							<div className="hidden lg:flex absolute right-0 top-1/2 -translate-y-1/2 opacity-0 group-hover/row:opacity-100 transition-opacity duration-200 items-center gap-1 bg-[var(--bg-main)]/90 backdrop-blur-sm shadow-[var(--shadow-card)] border border-[var(--border-subtle)] rounded-[var(--radius-btn)] px-1 py-0.5 z-10">
 								{file.status === "completed" && (
 									<Tooltip>
 										<TooltipTrigger asChild>
 											<Button
 												variant="ghost"
 												size="icon"
-												className="h-7 w-7 text-carbon-600 dark:text-carbon-400 hover:text-primary hover:bg-carbon-100 dark:hover:bg-carbon-700"
+												className="h-7 w-7 text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card)]"
 												onClick={(e) => {
 													e.stopPropagation();
 													navigate(`/audio/${file.id}/chat`);
@@ -805,7 +805,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 										<Button
 											variant="ghost"
 											size="icon"
-											className="h-7 w-7 text-carbon-600 dark:text-carbon-400 hover:text-primary hover:bg-carbon-100 dark:hover:bg-carbon-700 disabled:opacity-50"
+											className="h-7 w-7 text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card)] disabled:opacity-50"
 											disabled={!canTranscribe(file)}
 											onClick={(e) => {
 												e.stopPropagation();
@@ -823,7 +823,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 										<Button
 											variant="ghost"
 											size="icon"
-											className="h-7 w-7 text-carbon-600 dark:text-carbon-400 hover:text-primary hover:bg-carbon-100 dark:hover:bg-carbon-700 disabled:opacity-50"
+											className="h-7 w-7 text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card)] disabled:opacity-50"
 											disabled={!canTranscribe(file)}
 											onClick={(e) => {
 												e.stopPropagation();
@@ -1090,8 +1090,8 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 			<div className="space-y-4">
 				{/* Bulk Actions Toolbar */}
 				{selectedCount > 0 && (
-					<div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-lg rounded-full px-6 py-3 flex items-center gap-4 animate-in slide-in-from-bottom-5 fade-in duration-300">
-						<span className="text-sm font-medium text-zinc-600 dark:text-zinc-400 border-r border-zinc-200 dark:border-zinc-800 pr-4">
+					<div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50 bg-[var(--bg-main)] border border-[var(--border-subtle)] shadow-[var(--shadow-float)] rounded-full px-6 py-3 flex items-center gap-4 animate-in slide-in-from-bottom-5 fade-in duration-300">
+						<span className="text-sm font-medium text-[var(--text-secondary)] border-r border-[var(--border-subtle)] pr-4">
 							{selectedCount} selected
 						</span>
 
@@ -1101,7 +1101,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 								size="sm"
 								onClick={() => setConfigDialogOpen(true)}
 								disabled={bulkActionLoading}
-								className="h-8 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800"
+								className="h-8 rounded-full hover:bg-[var(--secondary)]"
 							>
 								<QuickTranscribeIcon className="mr-2 h-4 w-4" />
 								Transcribe
@@ -1112,20 +1112,20 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 								size="sm"
 								onClick={() => setTranscribeDDialogOpen(true)}
 								disabled={bulkActionLoading}
-								className="h-8 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800"
+								className="h-8 rounded-full hover:bg-[var(--secondary)]"
 							>
 								<AdvancedTranscribeIcon className="mr-2 h-4 w-4" />
 								Transcribe+
 							</Button>
 
-							<div className="w-px h-4 bg-zinc-200 dark:bg-zinc-800 mx-1" />
+							<div className="w-px h-4 bg-[var(--border-subtle)] mx-1" />
 
 							<Button
 								variant="ghost"
 								size="sm"
 								onClick={() => setBulkDeleteDialogOpen(true)}
 								disabled={bulkActionLoading}
-								className="h-8 rounded-full text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
+								className="h-8 rounded-full text-[var(--error)] hover:text-[var(--error)] hover:bg-[var(--error)]/10"
 							>
 								<Trash2 className="mr-2 h-4 w-4" />
 								Delete
@@ -1136,9 +1136,9 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 							variant="ghost"
 							size="icon"
 							onClick={() => setRowSelection({})}
-							className="h-6 w-6 rounded-full ml-2 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+							className="h-6 w-6 rounded-full ml-2 hover:bg-[var(--secondary)]"
 						>
-							<XCircle className="h-4 w-4 text-zinc-400" />
+							<XCircle className="h-4 w-4 text-[var(--text-tertiary)]" />
 						</Button>
 					</div>
 				)}
@@ -1444,23 +1444,23 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 			</AlertDialog>
 			{/* Stop Transcription Dialog */}
 			<AlertDialog open={stopDialogOpen} onOpenChange={setStopDialogOpen}>
-				<AlertDialogContent className="bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700">
+				<AlertDialogContent className="glass-card bg-[var(--bg-main)]/90 border-[var(--border-subtle)]">
 					<AlertDialogHeader>
-						<AlertDialogTitle className="text-carbon-900 dark:text-carbon-100">
+						<AlertDialogTitle className="text-[var(--text-primary)]">
 							Stop Transcription
 						</AlertDialogTitle>
-						<AlertDialogDescription className="text-carbon-600 dark:text-carbon-400">
+						<AlertDialogDescription className="text-[var(--text-secondary)]">
 							Are you sure you want to stop the transcription of "
 							{selectedFile?.title || (selectedFile ? getFileName(selectedFile.audio_path) : "")}
 							"? This will cancel the current transcription process.
 						</AlertDialogDescription>
 					</AlertDialogHeader>
 					<AlertDialogFooter>
-						<AlertDialogCancel className="bg-carbon-100 dark:bg-carbon-800 border-carbon-300 dark:border-carbon-600 text-carbon-700 dark:text-carbon-200 hover:bg-carbon-200 dark:hover:bg-carbon-700">
+						<AlertDialogCancel className="bg-[var(--secondary)] border-[var(--border-subtle)] text-[var(--text-secondary)] hover:bg-[var(--bg-card)]">
 							Cancel
 						</AlertDialogCancel>
 						<AlertDialogAction
-							className="bg-orange-600 text-white hover:bg-orange-700"
+							className="bg-[var(--warning)] text-white hover:opacity-90"
 							onClick={() => {
 								if (selectedFile) {
 									handleKillJob(selectedFile.id);
@@ -1476,12 +1476,12 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 
 			{/* Delete Audio File Dialog */}
 			<AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-				<AlertDialogContent className="bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700">
+				<AlertDialogContent className="glass-card bg-[var(--bg-main)]/90 border-[var(--border-subtle)]">
 					<AlertDialogHeader>
-						<AlertDialogTitle className="text-carbon-900 dark:text-carbon-100">
+						<AlertDialogTitle className="text-[var(--text-primary)]">
 							Delete Audio File
 						</AlertDialogTitle>
-						<AlertDialogDescription className="text-carbon-600 dark:text-carbon-400">
+						<AlertDialogDescription className="text-[var(--text-secondary)]">
 							Are you sure you want to delete "
 							{selectedFile?.title || (selectedFile ? getFileName(selectedFile.audio_path) : "")}
 							"? This action cannot be undone and will
@@ -1490,11 +1490,11 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 						</AlertDialogDescription>
 					</AlertDialogHeader>
 					<AlertDialogFooter>
-						<AlertDialogCancel className="bg-carbon-100 dark:bg-carbon-800 border-carbon-300 dark:border-carbon-600 text-carbon-700 dark:text-carbon-200 hover:bg-carbon-200 dark:hover:bg-carbon-700">
+						<AlertDialogCancel className="bg-[var(--secondary)] border-[var(--border-subtle)] text-[var(--text-secondary)] hover:bg-[var(--bg-card)]">
 							Cancel
 						</AlertDialogCancel>
 						<AlertDialogAction
-							className="bg-red-600 text-white hover:bg-red-700"
+							className="bg-[var(--error)] text-white hover:opacity-90"
 							onClick={() => {
 								if (selectedFile) {
 									handleDelete(selectedFile.id);

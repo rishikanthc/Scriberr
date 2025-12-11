@@ -9,16 +9,16 @@ export function ScriberrTextLogo({ className = "" }: { className?: string }) {
   return (
     <svg
       version="1.0"
-      width="2269.6284pt"
-      height="424.95316pt"
-      viewBox="0 0 2269.6284 424.95316"
+      width="1475pt"
+      height="276pt"
+      viewBox="0 0 1475 276"
       preserveAspectRatio="xMidYMid"
       xmlns="http://www.w3.org/2000/svg"
       className={`${className} transition-all duration-300`}
       aria-label="Scriberr"
     >
       <g
-        transform="matrix(0.1,0,0,-0.1,-3,1001)"
+        transform="matrix(0.065,0,0,-0.065,-2,650)"
         fill={fillColor}
         stroke="none"
       >

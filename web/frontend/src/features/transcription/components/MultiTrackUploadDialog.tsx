@@ -149,14 +149,17 @@ export function MultiTrackUploadDialog({
 
 						{/* Drop Zone */}
 						<div
-							className="border-2 border-dashed rounded-lg p-8 text-center transition-colors border-stone-300 hover:border-stone-400 hover:bg-stone-50"
+							className="border-2 border-dashed rounded-[var(--radius-card)] p-8 text-center transition-all duration-200 border-[var(--border-subtle)] hover:border-[var(--brand-solid)] hover:bg-[var(--bg-card)] group cursor-pointer"
 							onDrop={handleDrop}
 							onDragOver={(e) => e.preventDefault()}
+							onClick={() => document.getElementById('file-upload')?.click()}
 						>
-							<Upload className="mx-auto h-12 w-12 text-stone-400 mb-4" />
+							<div className="mx-auto w-12 h-12 rounded-full bg-[var(--bg-card)] flex items-center justify-center mb-4 border border-[var(--border-subtle)] group-hover:border-[var(--brand-solid)] transition-colors">
+								<Upload className="h-6 w-6 text-[var(--text-tertiary)] group-hover:text-[var(--brand-solid)] transition-colors" />
+							</div>
 							<div className="space-y-2">
-								<p className="text-lg font-medium">Drop files here or click to upload</p>
-								<p className="text-sm text-stone-500">
+								<p className="text-lg font-medium text-[var(--text-primary)]">Drop files here or click to upload</p>
+								<p className="text-sm text-[var(--text-secondary)]">
 									Upload multiple audio files and one .aup Audacity project file
 								</p>
 								<input
@@ -167,12 +170,9 @@ export function MultiTrackUploadDialog({
 									className="hidden"
 									id="file-upload"
 								/>
-								<label
-									htmlFor="file-upload"
-									className="inline-block px-4 py-2 bg-stone-900 text-white rounded-md hover:bg-stone-800 cursor-pointer transition-colors"
-								>
+								<Button className="mt-4 bg-[var(--brand-solid)] text-white hover:opacity-90 rounded-[var(--radius-btn)]">
 									Choose Files
-								</label>
+								</Button>
 							</div>
 						</div>
 
@@ -183,18 +183,19 @@ export function MultiTrackUploadDialog({
 
 								{/* AUP Files */}
 								{aupFiles.map(fileItem => (
-									<div key={fileItem.id} className="flex items-center gap-3 p-3 bg-emerald-50 border border-emerald-200 rounded-lg">
-										<File className="h-4 w-4 text-emerald-600 flex-shrink-0" />
+									<div key={fileItem.id} className="flex items-center gap-3 p-3 bg-[var(--success-translucent)] border border-[var(--success-solid)]/20 rounded-[var(--radius-input)]">
+										<File className="h-4 w-4 text-[var(--success-solid)] flex-shrink-0" />
 										<div className="flex-1 min-w-0">
-											<p className="font-medium text-emerald-800 truncate">
+											<p className="font-medium text-[var(--text-primary)] truncate">
 												{fileItem.file.name}
 											</p>
-											<p className="text-xs text-emerald-600">Audacity project file</p>
+											<p className="text-xs text-[var(--success-solid)]">Audacity project file</p>
 										</div>
 										<Button
 											variant="ghost"
 											size="sm"
 											onClick={() => removeFile(fileItem.id)}
+											className="hover:bg-[var(--success-solid)]/10 text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
 										>
 											<X className="h-4 w-4" />
 										</Button>
@@ -203,13 +204,13 @@ export function MultiTrackUploadDialog({
 
 								{/* Audio Files */}
 								{audioFiles.map(fileItem => (
-									<div key={fileItem.id} className="flex items-center gap-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
-										<FileAudio className="h-4 w-4 text-amber-600 flex-shrink-0" />
+									<div key={fileItem.id} className="flex items-center gap-3 p-3 bg-[var(--warning-translucent)] border border-[var(--warning-solid)]/20 rounded-[var(--radius-input)]">
+										<FileAudio className="h-4 w-4 text-[var(--warning-solid)] flex-shrink-0" />
 										<div className="flex-1 min-w-0">
-											<p className="font-medium text-amber-800 truncate">
+											<p className="font-medium text-[var(--text-primary)] truncate">
 												{fileItem.file.name}
 											</p>
-											<p className="text-xs text-amber-600">
+											<p className="text-xs text-[var(--warning-solid)]">
 												Speaker: {getSpeakerName(fileItem.file.name)}
 											</p>
 										</div>
@@ -217,6 +218,7 @@ export function MultiTrackUploadDialog({
 											variant="ghost"
 											size="sm"
 											onClick={() => removeFile(fileItem.id)}
+											className="hover:bg-[var(--warning-solid)]/10 text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
 										>
 											<X className="h-4 w-4" />
 										</Button>
@@ -229,19 +231,19 @@ export function MultiTrackUploadDialog({
 						{files.length > 0 && (
 							<div className="space-y-1 text-sm">
 								{!hasAupFile && (
-									<div className="flex items-center gap-2 text-red-600">
+									<div className="flex items-center gap-2 text-[var(--error)]">
 										<AlertCircle className="h-4 w-4" />
 										<span>An .aup Audacity project file is required</span>
 									</div>
 								)}
 								{!hasAudioFiles && (
-									<div className="flex items-center gap-2 text-red-600">
+									<div className="flex items-center gap-2 text-[var(--error)]">
 										<AlertCircle className="h-4 w-4" />
 										<span>At least one audio file is required</span>
 									</div>
 								)}
 								{!title.trim() && (
-									<div className="flex items-center gap-2 text-red-600">
+									<div className="flex items-center gap-2 text-[var(--error)]">
 										<AlertCircle className="h-4 w-4" />
 										<span>Title is required</span>
 									</div>
