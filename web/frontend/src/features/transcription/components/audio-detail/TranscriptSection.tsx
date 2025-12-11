@@ -154,7 +154,7 @@ export function TranscriptSection({
     if (!transcript) return null;
 
     return (
-        <div className="bg-[var(--bg-main)] rounded-[var(--radius-card)] border border-[var(--border-subtle)] p-6 md:p-8 transition-all duration-300">
+        <div className="bg-[var(--bg-main)] rounded-[var(--radius-card)] border border-[var(--border-subtle)] p-4 md:p-6 transition-all duration-300">
             {/* Sticky Toolbar */}
             <div className="mb-6 sticky top-4 z-10 flex justify-center pointer-events-none">
                 <div className="pointer-events-auto bg-[var(--bg-card)]/80 backdrop-blur-xl border border-[var(--border-subtle)] shadow-lg rounded-[var(--radius-card)] p-1">
