@@ -51,12 +51,12 @@ export function Settings() {
 
   return (
     <div className="min-h-screen bg-[var(--bg-main)]">
-      <div className="mx-auto w-full max-w-6xl px-2 sm:px-6 md:px-8 py-3 sm:py-6">
+      <div className="mx-auto w-full max-w-[900px] px-6 py-8">
         {/* Use the same Header component as Homepage */}
         <Header onFileSelect={handleFileSelect} />
 
         {/* Main Content Container with same styling as Homepage */}
-        <div className="bg-[var(--bg-card)] border border-[var(--border-subtle)] shadow-[var(--shadow-card)] rounded-[var(--radius-card)] p-2 sm:p-6 mt-4 sm:mt-6">
+        <div className="bg-[var(--bg-card)] border border-[var(--border-subtle)] shadow-[var(--shadow-card)] rounded-[var(--radius-card)] p-2 sm:p-6 mt-8">
           <div className="mb-4 sm:mb-8">
             <h1 className="text-2xl font-display font-bold text-[var(--text-primary)] mb-2">
               Settings

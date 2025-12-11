@@ -140,16 +140,16 @@ export const AudioDetailView = function AudioDetailView({ audioId: propAudioId }
             {/* 
               1. Header Redesign:
               - Using shared Header component for consistency
-              - Padding matches Dashboard (px-4 sm:px-8)
+              - Padding matches Dashboard (px-6)
             */}
-            <div className="max-w-6xl mx-auto w-full px-4 sm:px-8 py-6">
+            <div className="max-w-[900px] mx-auto w-full px-6 py-8">
                 <Header
                     onFileSelect={() => { }} // No file upload in detail view
                 />
             </div>
 
             {/* Main Content */}
-            <main className="flex-1 overflow-y-auto overflow-x-hidden px-4 sm:px-8 pb-32 max-w-6xl mx-auto">
+            <main className="flex-1 overflow-y-auto overflow-x-hidden px-6 pb-32 max-w-[900px] mx-auto w-full">
                 <div className="mx-auto space-y-8">
 
                     {/* 

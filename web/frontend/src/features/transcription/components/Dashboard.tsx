@@ -244,7 +244,7 @@ export function Dashboard() {
 			onDragOver={handleDragOver}
 			onDrop={handleDrop}
 		>
-			<div className="mx-auto w-full max-w-6xl px-4 sm:px-8 py-8 sm:py-12 transition-all duration-300">
+			<div className="mx-auto w-full max-w-[900px] px-6 py-8 transition-all duration-300">
 				<Header
 					onFileSelect={handleFileSelect}
 					onMultiTrackClick={() => setIsMultiTrackDialogOpen(true)}
