@@ -53,14 +53,13 @@ export function TranscriptSelectionMenu({
             }}
             onMouseDown={(e) => e.stopPropagation()}
         >
-            <div className="bg-carbon-900 text-white text-base font-medium rounded-xl shadow-2xl px-6 py-3 flex items-center gap-3 pointer-events-auto hover:bg-carbon-950 transition-colors ring-2 ring-white/20 transform hover:scale-105 duration-200">
-                <button type="button" className="flex items-center gap-2" onClick={onAddNote}>
-                    <Plus className="h-5 w-5" /> <span className="font-semibold">Add note</span>
+            <div className="bg-[var(--bg-popover)] text-[var(--text-primary)] border border-[var(--border-subtle)] text-base font-medium rounded-full shadow-[var(--shadow-float)] px-5 py-2.5 flex items-center gap-3 pointer-events-auto hover:bg-[var(--bg-card)] transition-colors ring-0 transform hover:scale-105 duration-200">
+                <button type="button" className="flex items-center gap-2 hover:text-[var(--brand-solid)] transition-colors" onClick={onAddNote}>
+                    <Plus className="h-4 w-4" /> <span className="font-semibold text-sm">Add note</span>
                 </button>
-                {/* Desktop could also have "Listen from here" if desired, currently sticking to "Add note" based on original code, but easy to add */}
-                <div className="w-px h-4 bg-white/20"></div>
-                <button type="button" className="flex items-center gap-2" onClick={onListenFromHere}>
-                    <Ear className="h-4 w-4" /> <span className="text-sm">Listen</span>
+                <div className="w-px h-4 bg-[var(--border-subtle)]"></div>
+                <button type="button" className="flex items-center gap-2 hover:text-[var(--brand-solid)] transition-colors" onClick={onListenFromHere}>
+                    <Ear className="h-4 w-4" /> <span className="text-sm font-semibold">Listen</span>
                 </button>
             </div>
         </div>
