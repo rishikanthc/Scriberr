@@ -1,5 +1,5 @@
-import { forwardRef, useRef, useState, useCallback, useEffect } from 'react';
-import { useKaraokeHighlight } from '@/features/transcription/hooks/useKaraokeHighlight';
+import { forwardRef, useRef, useState, useCallback, useEffect, useMemo } from 'react';
+import { useKaraokeHighlight, computeWordOffsets } from '@/features/transcription/hooks/useKaraokeHighlight';
 import { cn } from '@/lib/utils';
 import type { Note } from '@/types/note';
 
@@ -54,13 +54,13 @@ interface TranscriptViewProps {
 export const TranscriptView = forwardRef<HTMLDivElement, TranscriptViewProps>(({
     transcript,
     mode,
-    currentWordIndex,
+    // currentWordIndex, 
     currentTime,
     isPlaying,
-    notes,
-    highlightedWordRef,
+    // notes, 
+    // highlightedWordRef,
     speakerMappings,
-    autoScrollEnabled,
+    // autoScrollEnabled,
     onSeek,
     className
 }, ref) => {
@@ -132,96 +132,143 @@ export const TranscriptView = forwardRef<HTMLDivElement, TranscriptViewProps>(({
         }
 
         return (
-            <>
-                <div
-                    ref={containerRef}
-                    onClick={handleWordClick}
-                    className={cn(
-                        "text-lg leading-relaxed text-carbon-700 dark:text-carbon-300 whitespace-pre-wrap font-reading selection:bg-orange-500/30 transition-colors duration-200",
-                        isModifierPressed ? 'cursor-pointer hover:text-carbon-900 dark:hover:text-carbon-100' : 'cursor-text'
-                    )}
-                >
-                    {/* The hook returns the built text string, so we just render it directly */}
-                    {fullText}
-                </div>
+            <div
+                ref={containerRef}
+                onClick={handleWordClick}
+                className={cn(
+                    "text-lg leading-relaxed text-carbon-700 dark:text-carbon-300 whitespace-pre-wrap font-reading selection:bg-orange-500/30 transition-colors duration-200",
+                    isModifierPressed ? 'cursor-pointer hover:text-carbon-900 dark:hover:text-carbon-100' : 'cursor-text'
+                )}
+            >
+                {/* The hook returns the built text string, so we just render it directly */}
+                {fullText}
+            </div>
 
-                {/* CSS for the Highlight API */}
-                <style>{`
-                    ::highlight(karaoke-word) {
-                        background-color: var(--brand-solid);
-                        color: white !important;
-                        border-radius: 3px;
-                        padding: 0 1px;
-                        box-decoration-break: clone;
-                        -webkit-box-decoration-break: clone;
-                    }
-                `}</style>
-            </>
         );
     };
 
-    // Render segment with word-level highlighting for expanded view
-    const renderSegmentWords = (segment: any) => {
-        if (!transcript.word_segments) {
-            return segment.text.trim();
-        }
+    // Expanded View Logic
+    const segmentRefs = useRef<(HTMLDivElement | null)[]>([]);
 
-        // Find words that belong to this segment
-        // We use a slightly loose matching to ensure we catch words that might slightly overlap boundaries
-        const segmentWords = transcript.word_segments.filter(
-            word => word.start >= segment.start - 0.1 && word.end <= segment.end + 0.1
-        );
+    // 1. Precompute per-segment text and offsets
+    const expandedData = useMemo(() => {
+        if (!transcript?.segments || !transcript.word_segments) return [];
 
-        if (segmentWords.length === 0) {
-            return segment.text.trim();
-        }
-
-        return segmentWords.map((word, index) => {
-            // We need to find the global index for correct highlighting
-            // This might be slow for very long transcripts, but correct
-            const globalIndex = transcript.word_segments?.findIndex(w => w === word) ?? -1;
-
-            const isHighlighted = globalIndex === currentWordIndex;
-            const isAnnotated = notes.some(n => globalIndex >= n.start_word_index && globalIndex <= n.end_word_index);
-
-            return (
-                <span
-                    key={`${segment.start}-${index}`}
-                    ref={isHighlighted && autoScrollEnabled ? highlightedWordRef : undefined}
-                    data-word-index={globalIndex}
-                    data-word={word.word}
-                    data-start={word.start}
-                    data-end={word.end}
-                    className={cn(
-                        "cursor-text transition-colors duration-150 rounded px-0.5 inline-block",
-                        "hover:bg-brand-100 dark:hover:bg-brand-900/30",
-                        isHighlighted && "bg-amber-200 dark:bg-amber-700/50 text-carbon-900 dark:text-carbon-50 font-medium shadow-sm",
-                        !isHighlighted && isAnnotated && "bg-carbon-200 dark:bg-carbon-700/50 border-b-2 border-amber-400 dark:border-amber-600"
-                    )}
-                >
-                    {word.word}{" "}
-                </span>
+        return transcript.segments.map((segment) => {
+            // Filter words belonging to this segment
+            const segmentWords = transcript.word_segments!.filter(
+                word => word.start >= segment.start - 0.1 && word.end <= segment.end + 0.1
             );
+
+            // Compute local offsets for this segment's text
+            const { fullText, offsets } = computeWordOffsets(segmentWords);
+
+            return {
+                ...segment,
+                fullText, // The text to render
+                offsets   // Offsets relative to this segment's text node
+            };
         });
-    };
+    }, [transcript]);
+
+    // 2. Highlight Effect for Expanded View
+    useEffect(() => {
+        if (mode !== 'expanded' || !expandedData.length || !isPlaying) return;
+        if (typeof CSS === 'undefined' || !CSS.highlights) return;
+
+        // Find the active segment and word
+        // Optimization: We could binary search segments, but N is usually small (<1000). Linear is okay or optimize later.
+        // Actually for real-time validation, let's just find the active word in the relevant segment.
+
+        let found = false;
+
+        for (let i = 0; i < expandedData.length; i++) {
+            const seg = expandedData[i];
+            // Check if time is roughly in segment (with buffer for words crossing boundaries)
+            // But checking words is safer.
+
+            // Binary search within this segment's offsets
+            // Similar logic to useKaraokeHighlight but scoped
+            let low = 0;
+            let high = seg.offsets.length - 1;
+
+            while (low <= high) {
+                const mid = Math.floor((low + high) / 2);
+                const w = seg.offsets[mid];
+
+                if (w.startTime <= currentTime) {
+                    if (currentTime <= w.endTime) {
+                        // Found active word!
+                        const el = segmentRefs.current[i];
+                        if (el && el.firstChild) {
+                            try {
+                                const range = new Range();
+                                if (w.endChar <= (el.firstChild as Text).length) {
+                                    range.setStart(el.firstChild, w.startChar);
+                                    range.setEnd(el.firstChild, w.endChar);
+                                    const highlight = new Highlight(range);
+                                    CSS.highlights.set('karaoke-word', highlight);
+                                    found = true;
+                                }
+                            } catch (e) {
+                                // Ignore range errors
+                            }
+                        }
+                        found = true;
+                        break;
+                    }
+                    low = mid + 1;
+                } else {
+                    high = mid - 1;
+                }
+            }
+            if (found) break;
+        }
+
+        if (!found) {
+            if (CSS.highlights.has('karaoke-word')) CSS.highlights.delete('karaoke-word');
+        }
+
+    }, [currentTime, isPlaying, mode, expandedData]);
+
+    // 3. Click Handler for Expanded View
+    const handleExpandedClick = useCallback((e: React.MouseEvent, segmentIndex: number) => {
+        if (!e.metaKey && !e.ctrlKey) return;
+
+        const clickOffset = getCaretOffsetFromPoint(e.clientX, e.clientY);
+        if (clickOffset === null) return;
+
+        const segData = expandedData[segmentIndex];
+        if (!segData) return;
+
+        const clickedWord = segData.offsets.find(w =>
+            clickOffset >= w.startChar && clickOffset <= w.endChar
+        );
+
+        if (clickedWord) {
+            onSeek(clickedWord.startTime);
+            e.preventDefault();
+        }
+    }, [expandedData, onSeek]);
+
 
     const renderExpandedView = () => {
-        if (!transcript.segments) {
+        if (!transcript?.segments) {
             return renderCompactView();
         }
 
         return (
-            <div className="space-y-6">
-                {transcript.segments.map((segment, i) => (
-                    <div key={i} className="group flex flex-col sm:flex-row items-start gap-2 w-full max-w-none sm:gap-4 p-4 rounded-lg hover:bg-carbon-50 dark:hover:bg-carbon-800/50 transition-colors">
+            <div className="space-y-4"> {/* Reduced spacing from space-y-6 */}
+                {expandedData.map((segment: any, i: number) => (
+                    <div key={i} className="group flex flex-col sm:flex-row items-start gap-4 p-3 rounded-lg hover:bg-carbon-50 dark:hover:bg-carbon-800/50 transition-colors border border-transparent hover:border-carbon-100 dark:hover:border-carbon-800">
                         {/* Timestamp & Speaker */}
-                        <div className="flex-shrink-0 w-full sm:w-32 flex sm:flex-col items-center sm:items-end gap-2 sm:gap-1 text-xs sm:text-sm text-carbon-500 dark:text-carbon-400 select-none mt-1">
-                            <span className="font-mono bg-carbon-100 dark:bg-carbon-800 px-1.5 py-0.5 rounded">
+                        <div className="flex-shrink-0 w-24 sm:w-28 flex flex-col items-start sm:items-end gap-1 text-xs text-carbon-500 dark:text-carbon-400 select-none mt-1">
+                            <span className="font-mono bg-carbon-100 dark:bg-carbon-800/80 px-1.5 py-0.5 rounded text-[10px] sm:text-xs">
                                 {new Date(segment.start * 1000).toISOString().substr(11, 8)}
                             </span>
                             {segment.speaker && (
                                 <span
-                                    className="font-medium text-carbon-700 dark:text-carbon-300 truncate max-w-[120px]"
+                                    className="font-medium text-carbon-700 dark:text-carbon-300 truncate max-w-full"
                                     title={getDisplaySpeakerName(segment.speaker)}
                                 >
                                     {getDisplaySpeakerName(segment.speaker)}
@@ -230,8 +277,15 @@ export const TranscriptView = forwardRef<HTMLDivElement, TranscriptViewProps>(({
                         </div>
 
                         {/* Text */}
-                        <div className="flex-grow text-base sm:text-lg leading-relaxed text-carbon-700 dark:text-carbon-300">
-                            {renderSegmentWords(segment)}
+                        <div
+                            ref={(el) => { segmentRefs.current[i] = el; }}
+                            onClick={(e) => handleExpandedClick(e, i)}
+                            className={cn(
+                                "flex-grow text-base text-carbon-700 dark:text-carbon-300 leading-relaxed whitespace-pre-wrap font-reading transition-colors duration-200",
+                                isModifierPressed ? 'cursor-pointer hover:text-carbon-900 dark:hover:text-carbon-100' : 'cursor-text'
+                            )}
+                        >
+                            {segment.fullText || segment.text}
                         </div>
                     </div>
                 ))}
@@ -245,6 +299,18 @@ export const TranscriptView = forwardRef<HTMLDivElement, TranscriptViewProps>(({
             className={cn("w-full max-w-none font-inter mt-4", className)}
         >
             {mode === 'compact' ? renderCompactView() : renderExpandedView()}
+
+            {/* CSS for the Highlight API - Global for both views */}
+            <style>{`
+                ::highlight(karaoke-word) {
+                    background-color: var(--brand-solid);
+                    color: white !important;
+                    border-radius: 3px;
+                    padding: 0 1px;
+                    box-decoration-break: clone;
+                    -webkit-box-decoration-break: clone;
+                }
+            `}</style>
         </div>
     );
 });
