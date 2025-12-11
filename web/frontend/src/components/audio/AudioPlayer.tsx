@@ -80,7 +80,7 @@ export const AudioPlayer = forwardRef<AudioPlayerRef, AudioPlayerProps>(({
                     barWidth: 3,
                     barGap: 3,
                     barRadius: 3,
-                    height: collapsed ? 0 : 80, // Taller for better visualization
+                    height: collapsed ? 0 : 48, // Compact height
                     normalize: true,
                     backend: 'WebAudio',
                     dragToSeek: true,
@@ -151,7 +151,7 @@ export const AudioPlayer = forwardRef<AudioPlayerRef, AudioPlayerProps>(({
     useEffect(() => {
         if (wavesurferRef.current) {
             wavesurferRef.current.setOptions({
-                height: collapsed ? 0 : 80
+                height: collapsed ? 0 : 48
             });
         }
     }, [collapsed]);
@@ -195,7 +195,7 @@ export const AudioPlayer = forwardRef<AudioPlayerRef, AudioPlayerProps>(({
                     onClick={togglePlayPause}
                     disabled={isLoading}
                     className={`
-                        group relative w-14 h-14 flex-shrink-0 flex items-center justify-center 
+                        group relative w-12 h-12 flex-shrink-0 flex items-center justify-center 
                         rounded-full text-white shadow-lg shadow-orange-500/30 
                         transition-all duration-300 hover:scale-105 hover:shadow-orange-500/40
                         active:scale-95 border-none outline-none
@@ -238,7 +238,7 @@ export const AudioPlayer = forwardRef<AudioPlayerRef, AudioPlayerProps>(({
                         {/* Waveform */}
                         <div
                             ref={containerRef}
-                            className={`w-full transition-all duration-300 ${collapsed ? 'h-0 opacity-0' : 'h-20 opacity-100'}`}
+                            className={`w-full transition-all duration-300 ${collapsed ? 'h-0 opacity-0' : 'h-12 opacity-100'}`}
                         />
                     </div>
                 </div>

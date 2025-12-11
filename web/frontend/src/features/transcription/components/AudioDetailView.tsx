@@ -1,8 +1,7 @@
 import { useRef, useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, MoreVertical, Edit2, Activity, FileText, Bot, Check, Loader2 } from "lucide-react";
-import { ScriberrLogo } from "@/components/ScriberrLogo";
-import { ThemeSwitcher } from "@/components/ThemeSwitcher";
+import { MoreVertical, Edit2, Activity, FileText, Bot, Check, Loader2 } from "lucide-react";
+import { Header } from "@/components/Header";
 
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -109,22 +108,19 @@ export const AudioDetailView = function AudioDetailView({ audioId: propAudioId }
               - Only Logo + Theme Switcher
               - "Invisible" feel (glass background, subtle border)
             */}
-            <header className="flex-none sticky top-0 z-50 glass border-b border-[var(--border-subtle)]/50 backdrop-blur-xl">
-                <div className="max-w-4xl mx-auto px-6 h-16 flex items-center justify-between">
-                    <div
-                        className="cursor-pointer opacity-90 hover:opacity-100 transition-opacity"
-                        onClick={() => navigate('/dashboard')}
-                    >
-                        {/* Re-using the Logo component but scaling it slightly if needed, or just standard */}
-                        <ScriberrLogo />
-                    </div>
-                    <ThemeSwitcher />
-                </div>
-            </header>
+            {/* 
+              1. Header Redesign:
+              - Using shared Header component for consistency
+            */}
+            <div className="max-w-6xl mx-auto w-full px-6 py-6">
+                <Header
+                    onFileSelect={() => { }} // No file upload in detail view
+                />
+            </div>
 
             {/* Main Content */}
             <main className="flex-1 overflow-y-auto overflow-x-hidden p-6 pb-32">
-                <div className="max-w-4xl mx-auto space-y-8">
+                <div className="max-w-6xl mx-auto space-y-8">
 
                     {/* 
                       2. Metadata Section (New):
@@ -134,18 +130,8 @@ export const AudioDetailView = function AudioDetailView({ audioId: propAudioId }
                       - Generous whitespace
                     */}
                     <div className="space-y-6 pt-4">
-                        {/* Top Row: Back Button */}
-                        <div className="flex items-center">
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => navigate('/dashboard')}
-                                className="group -ml-2 text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card)] rounded-full px-3"
-                            >
-                                <ArrowLeft className="h-4 w-4 mr-1.5 transition-transform group-hover:-translate-x-0.5" />
-                                <span className="font-medium">Back to Dashboard</span>
-                            </Button>
-                        </div>
+                        {/* Top Row: Back Button REMOVED (Redundant) */}
+
 
                         {/* Title & Actions Row */}
                         <div className="flex items-start justify-between gap-4">
@@ -242,17 +228,19 @@ export const AudioDetailView = function AudioDetailView({ audioId: propAudioId }
                       - Clean container
                       - Typography handled by component (ensure it uses font-transcript)
                     */}
-                    <div className="bg-[var(--bg-main)] rounded-[var(--radius-card)] border border-[var(--border-subtle)] min-h-[500px] p-6 md:p-8">
-                        <TranscriptSectionWrapper
-                            audioId={audioId}
-                            currentTime={currentTime}
-                            onSeek={handleSeek}
-                            onOpenExecutionInfo={() => setExecutionDialogOpen(true)}
-                            onOpenLogs={() => setLogsDialogOpen(true)}
-                            onOpenSummarize={() => setSummaryDialogOpen(true)}
-                            llmReady={true}
-                        />
-                    </div>
+                    {/* 
+                      4. Transcript Section:
+                      - Clean container, removed nested card
+                    */}
+                    <TranscriptSectionWrapper
+                        audioId={audioId}
+                        currentTime={currentTime}
+                        onSeek={handleSeek}
+                        onOpenExecutionInfo={() => setExecutionDialogOpen(true)}
+                        onOpenLogs={() => setLogsDialogOpen(true)}
+                        onOpenSummarize={() => setSummaryDialogOpen(true)}
+                        llmReady={true}
+                    />
                 </div>
             </main>
 
