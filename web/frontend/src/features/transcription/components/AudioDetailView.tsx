@@ -1,6 +1,8 @@
 import { useRef, useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, MoreVertical, Edit2, Activity, FileText, Bot } from "lucide-react";
+import { ArrowLeft, MoreVertical, Edit2, Activity, FileText, Bot, Check, Loader2 } from "lucide-react";
+import { ScriberrLogo } from "@/components/ScriberrLogo";
+import { ThemeSwitcher } from "@/components/ThemeSwitcher";
 
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -92,87 +94,155 @@ export const AudioDetailView = function AudioDetailView({ audioId: propAudioId }
         );
     }
 
+    // Helper to format date "Premium" style: "OCT 12, 2023"
+    const formattedDate = new Date(audioFile.created_at).toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric"
+    }).toUpperCase();
+
     return (
-        <div className="h-full flex flex-col bg-background relative selection:bg-primary/20">
-            {/* Header */}
-            <header className="flex-none bg-background/80 backdrop-blur-md border-b border-border p-4 z-20">
-                <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-4 min-w-0">
-                        <Button variant="ghost" size="icon" onClick={() => navigate('/dashboard')} className="shrink-0 rounded-full hover:bg-carbon-100 dark:hover:bg-carbon-800">
-                            <ArrowLeft className="h-5 w-5" />
-                        </Button>
-
-                        <div className="min-w-0 flex flex-col">
-                            {isEditingTitle ? (
-                                <Input
-                                    value={newTitle}
-                                    onChange={(e) => setNewTitle(e.target.value)}
-                                    onBlur={handleTitleSave}
-                                    onKeyDown={(e) => e.key === 'Enter' && handleTitleSave()}
-                                    className="h-8 py-1 text-lg font-semibold"
-                                    autoFocus
-                                />
-                            ) : (
-                                <div className="flex items-center gap-2 group cursor-pointer" onClick={() => setIsEditingTitle(true)}>
-                                    <h1 className="text-lg font-semibold truncate text-foreground">{audioFile.title || "Untitled"}</h1>
-                                    <Edit2 className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-                                </div>
-                            )}
-                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                <span>{new Date(audioFile.created_at).toLocaleDateString()}</span>
-                                <span>•</span>
-                                <span className={cn(
-                                    "px-1.5 py-0.5 rounded-full font-medium",
-                                    audioFile.status === 'completed' && "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
-                                    audioFile.status === 'processing' && "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
-                                    audioFile.status === 'failed' && "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
-                                )}>
-                                    {audioFile.status.charAt(0).toUpperCase() + audioFile.status.slice(1)}
-                                </span>
-                            </div>
-                        </div>
+        <div className="h-full flex flex-col bg-[var(--bg-main)] relative selection:bg-[var(--brand-light)]">
+            {/* 
+              1. Header Redesign:
+              - Constrained width (max-w-4xl) to match content
+              - Only Logo + Theme Switcher
+              - "Invisible" feel (glass background, subtle border)
+            */}
+            <header className="flex-none sticky top-0 z-50 glass border-b border-[var(--border-subtle)]/50 backdrop-blur-xl">
+                <div className="max-w-4xl mx-auto px-6 h-16 flex items-center justify-between">
+                    <div
+                        className="cursor-pointer opacity-90 hover:opacity-100 transition-opacity"
+                        onClick={() => navigate('/dashboard')}
+                    >
+                        {/* Re-using the Logo component but scaling it slightly if needed, or just standard */}
+                        <ScriberrLogo />
                     </div>
-
-                    <div className="flex items-center gap-2">
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon" className="rounded-full">
-                                    <MoreVertical className="h-5 w-5" />
-                                </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                                <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                <DropdownMenuItem onClick={() => setExecutionDialogOpen(true)}>
-                                    <Activity className="mr-2 h-4 w-4" /> View Execution Info
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => setLogsDialogOpen(true)}>
-                                    <FileText className="mr-2 h-4 w-4" /> View Logs
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem onClick={() => setSummaryDialogOpen(true)}>
-                                    <Bot className="mr-2 h-4 w-4" /> Generate Summary
-                                </DropdownMenuItem>
-                            </DropdownMenuContent>
-                        </DropdownMenu>
-                    </div>
+                    <ThemeSwitcher />
                 </div>
             </header>
 
             {/* Main Content */}
-            <main className="flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-6 pb-32">
-                <div className="max-w-4xl mx-auto space-y-6">
-                    {/* Audio Player */}
-                    <div className="glass-panel p-4 rounded-xl sticky top-2 z-30 shadow-md">
-                        <AudioPlayer
-                            ref={audioPlayerRef}
-                            audioId={audioId}
-                            onTimeUpdate={handleTimeUpdate}
-                            onPlayStateChange={setIsPlaying}
-                        />
+            <main className="flex-1 overflow-y-auto overflow-x-hidden p-6 pb-32">
+                <div className="max-w-4xl mx-auto space-y-8">
+
+                    {/* 
+                      2. Metadata Section (New):
+                      - Back Navigation
+                      - Title (Large, Bold)
+                      - Metadata Row (Date, Status, Actions)
+                      - Generous whitespace
+                    */}
+                    <div className="space-y-6 pt-4">
+                        {/* Top Row: Back Button */}
+                        <div className="flex items-center">
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => navigate('/dashboard')}
+                                className="group -ml-2 text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card)] rounded-full px-3"
+                            >
+                                <ArrowLeft className="h-4 w-4 mr-1.5 transition-transform group-hover:-translate-x-0.5" />
+                                <span className="font-medium">Back to Dashboard</span>
+                            </Button>
+                        </div>
+
+                        {/* Title & Actions Row */}
+                        <div className="flex items-start justify-between gap-4">
+                            <div className="space-y-3 flex-1 min-w-0">
+                                {/* Title with Edit Hover */}
+                                {isEditingTitle ? (
+                                    <Input
+                                        value={newTitle}
+                                        onChange={(e) => setNewTitle(e.target.value)}
+                                        onBlur={handleTitleSave}
+                                        onKeyDown={(e) => e.key === 'Enter' && handleTitleSave()}
+                                        className="h-10 text-3xl font-bold tracking-tight bg-transparent border-none focus:ring-0 focus:outline-none p-0 placeholder:text-[var(--text-tertiary)]"
+                                        autoFocus
+                                    />
+                                ) : (
+                                    <div
+                                        className="group flex items-center gap-3 cursor-text"
+                                        onClick={() => setIsEditingTitle(true)}
+                                    >
+                                        <h1 className="text-3xl font-bold tracking-tight text-[var(--text-primary)] truncate font-display">
+                                            {audioFile.title || "Untitled Recording"}
+                                        </h1>
+                                        <Edit2 className="h-4 w-4 text-[var(--text-tertiary)] opacity-0 group-hover:opacity-100 transition-opacity" />
+                                    </div>
+                                )}
+
+                                {/* Metadata Badges */}
+                                <div className="flex items-center gap-3 text-xs font-medium uppercase tracking-wider text-[var(--text-tertiary)]">
+                                    <span>{formattedDate}</span>
+                                    <span className="w-1 h-1 rounded-full bg-[var(--text-tertiary)] opacity-50"></span>
+                                    <div className={cn(
+                                        "flex items-center gap-1.5 px-2 py-0.5 rounded-full border",
+                                        audioFile.status === 'completed' && "border-[var(--success-solid)]/20 text-[var(--success-solid)] bg-[var(--success-translucent)]",
+                                        audioFile.status === 'processing' && "border-[var(--brand-solid)]/20 text-[var(--brand-solid)] bg-[var(--brand-light)]",
+                                        audioFile.status === 'failed' && "border-[var(--error)]/20 text-[var(--error)] bg-[var(--error)]/10",
+                                    )}>
+                                        {audioFile.status === 'completed' && <Check className="h-3 w-3" />}
+                                        {audioFile.status === 'processing' && <Loader2 className="h-3 w-3 animate-spin" />}
+                                        {audioFile.status === 'failed' && <Activity className="h-3 w-3" />}
+                                        <span>{audioFile.status}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Action Menu (Floating) */}
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button
+                                        variant="outline"
+                                        size="icon"
+                                        className="rounded-full border-[var(--border-subtle)] shadow-sm bg-[var(--bg-card)] hover:bg-[var(--bg-main)] hover:border-[var(--border-focus)] transition-all"
+                                    >
+                                        <MoreVertical className="h-4 w-4 text-[var(--text-secondary)]" />
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-56 glass-card rounded-[var(--radius-card)] shadow-[var(--shadow-float)] border-[var(--border-subtle)] p-1.5">
+                                    <DropdownMenuLabel className="text-xs font-semibold text-[var(--text-tertiary)] uppercase tracking-wider px-2 py-1.5">
+                                        Recording Options
+                                    </DropdownMenuLabel>
+                                    <DropdownMenuItem onClick={() => setExecutionDialogOpen(true)} className="rounded-[8px] cursor-pointer text-[var(--text-secondary)] focus:text-[var(--text-primary)] focus:bg-[var(--bg-main)]/80">
+                                        <Activity className="mr-2 h-4 w-4 opacity-70" /> Execution Info
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => setLogsDialogOpen(true)} className="rounded-[8px] cursor-pointer text-[var(--text-secondary)] focus:text-[var(--text-primary)] focus:bg-[var(--bg-main)]/80">
+                                        <FileText className="mr-2 h-4 w-4 opacity-70" /> View Logs
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator className="bg-[var(--border-subtle)] my-1" />
+                                    <DropdownMenuItem onClick={() => setSummaryDialogOpen(true)} className="rounded-[8px] cursor-pointer text-[var(--brand-solid)] focus:text-[var(--brand-solid)] focus:bg-[var(--brand-light)]">
+                                        <Bot className="mr-2 h-4 w-4" /> AI Summary
+                                    </DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        </div>
                     </div>
 
-                    {/* Transcript Section */}
-                    <div className="min-h-[500px]">
+                    {/* 
+                      3. Audio Player:
+                      - Floating Card style
+                      - 1px hairline border
+                      - Soft dual-shadow
+                    */}
+                    <div className="bg-[var(--bg-card)] rounded-[var(--radius-card)] border border-[var(--border-subtle)] shadow-[var(--shadow-card)] p-1 overflow-hidden transition-shadow hover:shadow-[var(--shadow-float)]">
+                        <div className="bg-[var(--bg-main)]/50 rounded-[calc(var(--radius-card)-4px)] p-4">
+                            <AudioPlayer
+                                ref={audioPlayerRef}
+                                audioId={audioId}
+                                onTimeUpdate={handleTimeUpdate}
+                                onPlayStateChange={setIsPlaying}
+                            />
+                        </div>
+                    </div>
+
+                    {/* 
+                      4. Transcript Section:
+                      - Clean container
+                      - Typography handled by component (ensure it uses font-transcript)
+                    */}
+                    <div className="bg-[var(--bg-main)] rounded-[var(--radius-card)] border border-[var(--border-subtle)] min-h-[500px] p-6 md:p-8">
                         <TranscriptSectionWrapper
                             audioId={audioId}
                             currentTime={currentTime}

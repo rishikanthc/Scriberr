@@ -62,20 +62,25 @@ export const AudioPlayer = forwardRef<AudioPlayerRef, AudioPlayerProps>(({
                 const audioUrl = `/api/v1/transcription/${audioId}/audio`;
 
                 const isDark = theme === 'dark';
-                // Aesthetic Gray / True Black Palette
-                const waveColor = isDark ? '#525252' : '#D1D5DB'; // black-600 / gray-300
-                const progressColor = isDark ? '#3b82f6' : '#2563eb'; // Blue-500 (dark) / Blue-600 (light)
-                const cursorColor = isDark ? '#fe9a00' : '#fe9a00'; // Brand Orange accent for cursor
+
+                // Design System Colors
+                // Wave: Neutral Gray (Light: #D4D4D4, Dark: #404040)
+                // Progress: Brand Solid #FF6D20
+                // Cursor: Brand Solid #FF6D20 with opacity
+
+                const waveColor = isDark ? '#404040' : '#E5E5E5';
+                const progressColor = '#FF6D20'; // Brand Solid
+                const cursorColor = '#FF6D20';   // Brand Solid
 
                 const ws = WaveSurfer.create({
                     container: containerRef.current!,
                     waveColor,
                     progressColor,
                     cursorColor,
-                    barWidth: 2,
-                    barGap: 2,
-                    barRadius: 2,
-                    height: collapsed ? 0 : 64,
+                    barWidth: 3,
+                    barGap: 3,
+                    barRadius: 3,
+                    height: collapsed ? 0 : 80, // Taller for better visualization
                     normalize: true,
                     backend: 'WebAudio',
                     dragToSeek: true,
@@ -146,7 +151,7 @@ export const AudioPlayer = forwardRef<AudioPlayerRef, AudioPlayerProps>(({
     useEffect(() => {
         if (wavesurferRef.current) {
             wavesurferRef.current.setOptions({
-                height: collapsed ? 0 : 64
+                height: collapsed ? 0 : 80
             });
         }
     }, [collapsed]);
@@ -162,24 +167,17 @@ export const AudioPlayer = forwardRef<AudioPlayerRef, AudioPlayerProps>(({
     };
 
     const retryLoad = () => {
-        // Force re-render/re-init by toggling a key or similar, 
-        // but here we can just call the effect logic again if we extract it, 
-        // or simpler: just unmount/remount the component from parent.
-        // For now, let's just reload the page or ask user to refresh.
-        // Better: we can just clear error and let the effect run again? 
-        // Actually, since the effect depends on audioId, we can't easily re-trigger it without changing dependencies.
-        // A simple way is to use a retry counter.
-        window.location.reload(); // Simple fallback for now
+        window.location.reload();
     };
 
     if (error) {
         return (
-            <div className={`transition-all duration-300 ${className} flex items-center justify-center p-8 bg-red-50 dark:bg-red-900/20 rounded-xl border border-red-200 dark:border-red-800`}>
+            <div className={`transition-all duration-300 ${className} flex items-center justify-center p-8 bg-[var(--error)]/5 rounded-[var(--radius-card)] border border-[var(--error)]/20`}>
                 <div className="text-center">
-                    <p className="text-red-600 dark:text-red-400 mb-2">{error}</p>
+                    <p className="text-[var(--error)] mb-2">{error}</p>
                     <button
                         onClick={retryLoad}
-                        className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md text-sm font-medium transition-colors"
+                        className="px-4 py-2 bg-[var(--error)] hover:opacity-90 text-white rounded-[var(--radius-btn)] text-sm font-medium transition-colors"
                     >
                         Retry
                     </button>
@@ -191,26 +189,36 @@ export const AudioPlayer = forwardRef<AudioPlayerRef, AudioPlayerProps>(({
     return (
         <div className={`transition-all duration-300 ${className}`}>
 
-            <div className="flex items-center gap-4">
-                {/* Play/Pause Button */}
+            <div className="flex items-center gap-6">
+                {/* Play/Pause Button - Premium Gradient & Shadow */}
                 <button
                     onClick={togglePlayPause}
                     disabled={isLoading}
-                    className={`w-12 h-12 sm:w-14 sm:h-14 flex-shrink-0 flex items-center justify-center rounded-full bg-brand-500 hover:bg-brand-600 dark:bg-brand-500 dark:hover:bg-brand-600 text-white shadow-md hover:scale-105 hover:shadow-lg transition-all cursor-pointer border border-brand-400/20 ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    className={`
+                        group relative w-14 h-14 flex-shrink-0 flex items-center justify-center 
+                        rounded-full text-white shadow-lg shadow-orange-500/30 
+                        transition-all duration-300 hover:scale-105 hover:shadow-orange-500/40
+                        active:scale-95 border-none outline-none
+                        ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}
+                    `}
+                    style={{ background: 'var(--brand-gradient)' }}
                 >
+                    {/* Inner glow effect */}
+                    <div className="absolute inset-0 rounded-full bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity" />
+
                     {isLoading ? (
-                        <div className="h-5 w-5 sm:h-6 sm:w-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        <div className="h-6 w-6 border-2 border-white/80 border-t-transparent rounded-full animate-spin" />
                     ) : isPlaying ? (
-                        <Pause className="h-5 w-5 sm:h-6 sm:w-6 fill-current" />
+                        <Pause className="h-6 w-6 fill-current relative z-10" />
                     ) : (
-                        <Play className="h-5 w-5 sm:h-6 sm:w-6 fill-current ml-1" />
+                        <Play className="h-6 w-6 fill-current ml-1 relative z-10" />
                     )}
                 </button>
 
                 {/* Waveform & Info */}
-                <div className="flex-1 min-w-0 flex flex-col justify-center gap-2">
+                <div className="flex-1 min-w-0 flex flex-col justify-center gap-1.5">
                     {/* Time & Title Row */}
-                    <div className="flex items-center justify-between text-xs sm:text-sm font-medium text-muted-foreground px-1">
+                    <div className="flex items-center justify-between text-xs font-semibold tracking-wide text-[var(--text-tertiary)] px-1 uppercase">
                         {isLoading ? (
                             <span className="animate-pulse">Loading audio... {loadingProgress}%</span>
                         ) : (
@@ -222,32 +230,19 @@ export const AudioPlayer = forwardRef<AudioPlayerRef, AudioPlayerProps>(({
                     </div>
 
                     {/* Waveform Container */}
-                    <div className="relative w-full">
+                    <div className="relative w-full group">
                         {isLoading && (
-                            <div className="absolute inset-0 flex items-center justify-center z-10 bg-white/50 dark:bg-carbon-900/50 backdrop-blur-sm rounded-lg">
-                                {/* Optional: Add a more prominent loader here if needed */}
+                            <div className="absolute inset-0 flex items-center justify-center z-10 bg-[var(--bg-main)]/50 backdrop-blur-sm rounded-lg">
                             </div>
                         )}
+                        {/* Waveform */}
                         <div
                             ref={containerRef}
-                            className={`w-full transition-all duration-300 ${collapsed ? 'h-0 opacity-0' : 'h-16 opacity-100'}`}
+                            className={`w-full transition-all duration-300 ${collapsed ? 'h-0 opacity-0' : 'h-20 opacity-100'}`}
                         />
                     </div>
-
-                    {/* Progress Bar (visible when collapsed) */}
-                    {collapsed && (
-                        <div className="h-1 w-full bg-carbon-200 dark:bg-carbon-800 rounded-full overflow-hidden">
-                            <div
-                                className="h-full bg-primary transition-all duration-100"
-                                style={{ width: `${(currentTime / duration) * 100}%` }}
-                            />
-                        </div>
-                    )}
                 </div>
             </div>
-
-            {/* Secondary Controls Row (Volume, Skip) - Only visible when expanded */}
-
         </div>
     );
 });
