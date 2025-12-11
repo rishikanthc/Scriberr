@@ -52,7 +52,7 @@ export function APIKeySettings() {
 					</div>
 					<Button
 						onClick={handleCreateAPIKey}
-						className="!bg-[var(--brand-gradient)] hover:!opacity-90 text-white shadow-lg shadow-orange-500/20 border-none"
+						className="!bg-[var(--brand-gradient)] hover:!opacity-90 !text-black dark:!text-white shadow-lg shadow-orange-500/20 border-none"
 					>
 						Create New API Key
 					</Button>
