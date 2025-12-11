@@ -19,27 +19,25 @@ export function LogsDialog({ audioId, isOpen, onClose }: LogsDialogProps) {
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="sm:max-w-4xl w-[95vw] bg-white dark:bg-carbon-900 border-carbon-200 dark:border-carbon-800 max-h-[90vh] overflow-y-auto">
-                <DialogHeader>
-                    <DialogTitle className="text-carbon-900 dark:text-carbon-100 flex items-center gap-2">
-                        <FileText className="h-5 w-5 text-carbon-600 dark:text-carbon-400" />
+            <DialogContent className="sm:max-w-4xl w-[95vw] bg-[var(--bg-card)] border-[var(--border-subtle)] shadow-[var(--shadow-float)] max-h-[90vh] overflow-y-auto">
+                <DialogHeader className="border-b border-[var(--border-subtle)] pb-4">
+                    <DialogTitle className="text-[var(--text-primary)] flex items-center gap-2 text-xl font-bold tracking-tight">
+                        <FileText className="h-5 w-5 text-[var(--brand-solid)]" />
                         Transcription Logs
                     </DialogTitle>
-                    <DialogDescription className="text-carbon-600 dark:text-carbon-400">
-                        Raw output logs from the transcription process
+                    <DialogDescription className="text-[var(--text-secondary)]">
+                        System output and processing events.
                     </DialogDescription>
                 </DialogHeader>
 
                 <div className="mt-4">
                     {isLoading ? (
-                        <div className="h-64 flex items-center justify-center">
-                            <div className="animate-pulse flex flex-col items-center">
-                                <div className="h-4 bg-carbon-200 dark:bg-carbon-800 rounded w-48 mb-2"></div>
-                                <div className="h-4 bg-carbon-200 dark:bg-carbon-800 rounded w-32"></div>
-                            </div>
+                        <div className="py-12 flex flex-col items-center justify-center gap-4">
+                            <div className="h-8 w-8 border-4 border-[var(--brand-solid)] border-t-transparent rounded-full animate-spin" />
+                            <span className="text-[var(--text-tertiary)] animate-pulse">Loading logs...</span>
                         </div>
                     ) : (
-                        <pre className="bg-carbon-950 text-carbon-50 p-4 rounded-lg overflow-x-auto text-xs sm:text-sm font-mono leading-relaxed whitespace-pre-wrap max-h-[60vh] overflow-y-auto border border-carbon-800">
+                        <pre className="bg-[#0A0A0A] text-[#EDEDED] p-4 rounded-[var(--radius-card)] overflow-x-auto text-xs sm:text-sm font-mono leading-relaxed whitespace-pre-wrap max-h-[60vh] overflow-y-auto border border-white/10 shadow-inner">
                             {logsContent || "No logs available."}
                         </pre>
                     )}

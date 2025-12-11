@@ -154,10 +154,10 @@ export function TranscriptSection({
     if (!transcript) return null;
 
     return (
-        <div className="glass rounded-xl p-3 sm:p-6 transition-all duration-300">
+        <div className="bg-[var(--bg-main)] rounded-[var(--radius-card)] border border-[var(--border-subtle)] p-6 md:p-8 transition-all duration-300">
             {/* Sticky Toolbar */}
-            <div className="mb-2 sm:mb-4 sticky top-4 z-10 flex justify-center pointer-events-none">
-                <div className="pointer-events-auto shadow-lg rounded-2xl">
+            <div className="mb-6 sticky top-4 z-10 flex justify-center pointer-events-none">
+                <div className="pointer-events-auto bg-[var(--bg-card)]/80 backdrop-blur-xl border border-[var(--border-subtle)] shadow-lg rounded-[var(--radius-card)] p-1">
                     <TranscriptToolbar
                         transcriptMode={transcriptMode}
                         setTranscriptMode={setTranscriptMode}
@@ -181,9 +181,9 @@ export function TranscriptSection({
                 </div>
             </div>
 
-            {/* Transcript Content */}
-            <div className="relative overflow-hidden">
-                <div className="w-full font-transcript">
+            {/* Transcript Content - Systematic Typography */}
+            <div className="relative overflow-hidden font-sans">
+                <div className="w-full text-[var(--text-secondary)] leading-relaxed">
                     <div ref={transcriptRef} className="relative">
                         <TranscriptView
                             transcript={transcript}
@@ -212,34 +212,22 @@ export function TranscriptSection({
                 onOpenChange={setSpeakerRenameOpen}
                 transcriptionId={audioId}
                 initialSpeakers={getDetectedSpeakers()}
-                onSpeakerMappingsUpdate={() => {
-                    // Mappings are updated via hook/query invalidation ideally, 
-                    // or we accept the callback to update local state if needed.
-                    // But here we rely on useSpeakerMappings hook which should refetch.
-                    // SpeakerRenameDialog implementation calls onSpeakerMappingsUpdate with new mappings.
-                    // We can invalidate queries here if we want, but SpeakerRenameDialog might not do it?
-                    // actually SpeakerRenameDialog does a fetch POST, so backend is updated.
-                    // We need to invalidate speaker query.
-                    // But we don't have queryClient here easily unless we strip it.
-                    // But useSpeakerMappings hook might have a refetch method?
-                    // Actually useSpeakerMappings returns `data`.
-                    // We assume it auto-refetches or we need to trigger it.
-                    // Let's assume the dialog's callback is just for UI.
-                    // We can ignore it or log it.
-                }}
+                onSpeakerMappingsUpdate={() => { }}
             />
 
             {/* Portals */}
             {createPortal(
                 <>
-                    {/* Selection Menu Bubble */}
-                    <TranscriptSelectionMenu
-                        isOpen={showSelectionMenu}
-                        isMobile={isMobile}
-                        position={selectionViewportPos}
-                        onAddNote={openEditor}
-                        onListenFromHere={handleListenFromHere}
-                    />
+                    {/* Selection Menu Bubble (Glass) */}
+                    <div className="z-[9999]">
+                        <TranscriptSelectionMenu
+                            isOpen={showSelectionMenu}
+                            isMobile={isMobile}
+                            position={selectionViewportPos}
+                            onAddNote={openEditor}
+                            onListenFromHere={handleListenFromHere}
+                        />
+                    </div>
 
                     {/* Note Editor Dialog */}
                     <NoteEditorDialog
@@ -262,27 +250,28 @@ export function TranscriptSection({
                         />
                     )}
 
-                    {/* Notes Sidebar */}
+                    {/* Notes Sidebar - Premium Drawer */}
                     {notesOpen && (
-                        <div className="fixed inset-y-0 right-0 w-[88vw] max-w-[380px] md:max-w-[420px] bg-white dark:bg-carbon-900 shadow-2xl z-[9990]">
+                        <div className="fixed inset-y-0 right-0 w-[90vw] max-w-[400px] bg-[var(--bg-card)] border-l border-[var(--border-subtle)] shadow-[var(--shadow-float)] z-[9990] transition-transform duration-300 transform-gpu">
                             <div className="h-full flex flex-col">
-                                <div className="px-3 md:px-4 py-3">
-                                    <div className="flex items-center justify-between">
-                                        <h3 className="font-semibold text-carbon-900 dark:text-carbon-100 flex items-center gap-2">
-                                            <StickyNote className="h-4 w-4" /> Notes
-                                            <span className="ml-1 text-xs rounded-full px-1.5 py-0.5 bg-carbon-200 dark:bg-carbon-700">{notes.length}</span>
-                                        </h3>
-                                        <button
-                                            type="button"
-                                            onClick={() => setNotesOpen(false)}
-                                            className="h-8 w-8 inline-flex items-center justify-center rounded-md text-carbon-600 dark:text-carbon-300 hover:bg-carbon-100 dark:hover:bg-carbon-800 cursor-pointer"
-                                            aria-label="Close notes"
-                                        >
-                                            <X className="h-4 w-4" />
-                                        </button>
-                                    </div>
+                                <div className="px-6 py-5 border-b border-[var(--border-subtle)] flex items-center justify-between">
+                                    <h3 className="font-bold text-[var(--text-primary)] flex items-center gap-2 text-lg">
+                                        <StickyNote className="h-5 w-5 text-[var(--brand-solid)]" />
+                                        Notes
+                                        <span className="ml-1 text-xs font-semibold rounded-full px-2 py-0.5 bg-[var(--bg-main)] text-[var(--text-secondary)] border border-[var(--border-subtle)]">
+                                            {notes.length}
+                                        </span>
+                                    </h3>
+                                    <button
+                                        type="button"
+                                        onClick={() => setNotesOpen(false)}
+                                        className="h-8 w-8 inline-flex items-center justify-center rounded-[var(--radius-btn)] text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-main)] transition-colors"
+                                        aria-label="Close notes"
+                                    >
+                                        <X className="h-5 w-5" />
+                                    </button>
                                 </div>
-                                <div className="flex-1 overflow-y-auto px-3 md:px-4 pb-4">
+                                <div className="flex-1 overflow-y-auto px-6 py-4">
                                     <NotesSidebar
                                         notes={notes}
                                         onEdit={(id, content) => updateNote({ id, content })}
