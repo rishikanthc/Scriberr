@@ -28,10 +28,23 @@ export function computeWordOffsets(words: { word: string; start: number; end: nu
 
     if (!words) return { fullText: '', offsets: [] };
 
-    words.forEach((w) => {
+    words.forEach((w, index) => {
         const startChar = textBuilder.length;
         textBuilder += w.word;
         const endChar = textBuilder.length;
+
+        // Gap Filling Logic:
+        // Extend the previous word's endTime to meet this word's startTime
+        // if the gap is small (e.g. natural pauses).
+        // This prevents flickering/skipping when the playback update rate is lower than the gap size.
+        if (index > 0) {
+            const prev = computedOffsets[index - 1];
+            const gap = w.start - prev.endTime;
+            // Fill gaps smaller than 1.5 seconds (natural sentence pauses are usually < 1s)
+            if (gap > 0 && gap < 1.5) {
+                prev.endTime = w.start;
+            }
+        }
 
         computedOffsets.push({
             startChar,
