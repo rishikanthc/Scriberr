@@ -163,13 +163,13 @@ export function QuickTranscriptionDialog({ isOpen, onClose }: QuickTranscription
       const data: TranscriptData = JSON.parse(transcript);
 
       return data.segments.map((segment, index) => (
-        <div key={index} className="mb-4 p-3 bg-stone-50 dark:bg-stone-800 rounded-lg">
+        <div key={index} className="mb-4 p-3 bg-[var(--bg-card)] border border-[var(--border-subtle)] rounded-[var(--radius-card)]">
           <div className="flex items-center gap-2 mb-2">
-            <span className="text-xs font-mono text-stone-500 bg-stone-200 dark:bg-stone-700 px-2 py-1 rounded">
+            <span className="text-xs font-mono text-[var(--text-tertiary)] bg-[var(--bg-main)] px-2 py-1 rounded">
               {formatTime(segment.start)} - {formatTime(segment.end)}
             </span>
           </div>
-          <p className="text-stone-900 dark:text-stone-100 leading-relaxed">
+          <p className="text-[var(--text-primary)] leading-relaxed">
             {segment.text.trim()}
           </p>
         </div>
@@ -177,12 +177,13 @@ export function QuickTranscriptionDialog({ isOpen, onClose }: QuickTranscription
     } catch (err) {
       // Fallback for plain text
       return [
-        <div key="fallback" className="p-3 bg-stone-50 dark:bg-stone-800 rounded-lg">
-          <p className="text-stone-900 dark:text-stone-100 leading-relaxed whitespace-pre-wrap">
+        <div key="fallback" className="p-3 bg-[var(--bg-card)] border border-[var(--border-subtle)] rounded-[var(--radius-card)]">
+          <p className="text-[var(--text-primary)] leading-relaxed whitespace-pre-wrap">
             {transcript}
           </p>
         </div>
       ];
+
     }
   };
 
@@ -201,7 +202,7 @@ export function QuickTranscriptionDialog({ isOpen, onClose }: QuickTranscription
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Zap className="h-5 w-5 text-amber-500" />
+            <Zap className="h-5 w-5 text-[var(--warning-solid)]" />
             Quick Transcription
           </DialogTitle>
           <DialogDescription>
@@ -212,15 +213,15 @@ export function QuickTranscriptionDialog({ isOpen, onClose }: QuickTranscription
         {step === "upload" && (
           <div className="space-y-4">
             <Card
-              className="border-2 border-dashed border-stone-300 dark:border-stone-600 hover:border-amber-400 dark:hover:border-amber-500 cursor-pointer transition-colors"
+              className="border-2 border-dashed border-[var(--border-subtle)] hover:border-[var(--warning-solid)] cursor-pointer transition-colors bg-[var(--bg-card)]"
               onClick={handleFileSelect}
             >
               <CardContent className="flex flex-col items-center justify-center py-12">
-                <Upload className="h-12 w-12 text-stone-400 mb-4" />
-                <h3 className="text-lg font-medium text-stone-900 dark:text-stone-100 mb-2">
+                <Upload className="h-12 w-12 text-[var(--text-tertiary)] mb-4" />
+                <h3 className="text-lg font-medium text-[var(--text-primary)] mb-2">
                   Select Audio File
                 </h3>
-                <p className="text-stone-500 dark:text-stone-400 text-center">
+                <p className="text-[var(--text-secondary)] text-center">
                   Click to choose an audio file from your device
                 </p>
               </CardContent>
@@ -238,20 +239,20 @@ export function QuickTranscriptionDialog({ isOpen, onClose }: QuickTranscription
 
         {step === "profile" && (
           <div className="space-y-4">
-            <div className="flex items-center gap-3 p-4 bg-amber-50 dark:bg-amber-900/20 rounded-lg">
-              <FileAudio className="h-8 w-8 text-amber-500" />
+            <div className="flex items-center gap-3 p-4 bg-[var(--warning-translucent)] rounded-[var(--radius-card)]">
+              <FileAudio className="h-8 w-8 text-[var(--warning-solid)]" />
               <div>
-                <h3 className="font-medium text-stone-900 dark:text-stone-100">
+                <h3 className="font-medium text-[var(--text-primary)]">
                   {selectedFile?.name}
                 </h3>
-                <p className="text-sm text-stone-500 dark:text-stone-400">
+                <p className="text-sm text-[var(--text-secondary)]">
                   {selectedFile && (selectedFile.size / 1024 / 1024).toFixed(2)} MB
                 </p>
               </div>
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-stone-700 dark:text-stone-300">
+              <label className="text-sm font-medium text-[var(--text-primary)]">
                 Transcription Profile
               </label>
               <Select value={selectedProfile} onValueChange={setSelectedProfile}>
@@ -264,7 +265,7 @@ export function QuickTranscriptionDialog({ isOpen, onClose }: QuickTranscription
                       <div className="flex items-center gap-2">
                         <span>{profile.name}</span>
                         {profile.is_default && (
-                          <span className="text-xs bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300 px-2 py-0.5 rounded">
+                          <span className="text-xs bg-[var(--warning-translucent)] text-[var(--warning-solid)] px-2 py-0.5 rounded">
                             Default
                           </span>
                         )}
@@ -273,14 +274,14 @@ export function QuickTranscriptionDialog({ isOpen, onClose }: QuickTranscription
                   ))}
                 </SelectContent>
               </Select>
-              <p className="text-xs text-stone-500 dark:text-stone-400">
+              <p className="text-xs text-[var(--text-tertiary)]">
                 Leave empty to use default settings
               </p>
             </div>
 
             {error && (
-              <div className="p-3 bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800 rounded-lg">
-                <p className="text-sm text-rose-600 dark:text-rose-400">{error}</p>
+              <div className="p-3 bg-[var(--error)]/10 border border-[var(--error)]/20 rounded-[var(--radius-input)]">
+                <p className="text-sm text-[var(--error)]">{error}</p>
               </div>
             )}
 
@@ -298,22 +299,22 @@ export function QuickTranscriptionDialog({ isOpen, onClose }: QuickTranscription
         {step === "processing" && job && (
           <div className="space-y-4 text-center">
             <div className="flex flex-col items-center">
-              <Clock className="h-12 w-12 text-amber-500 animate-spin mb-4" />
-              <h3 className="text-lg font-medium text-stone-900 dark:text-stone-100 mb-2">
+              <Clock className="h-12 w-12 text-[var(--warning-solid)] animate-spin mb-4" />
+              <h3 className="text-lg font-medium text-[var(--text-primary)] mb-2">
                 Transcribing Audio...
               </h3>
-              <p className="text-stone-500 dark:text-stone-400">
+              <p className="text-[var(--text-secondary)]">
                 This may take a few minutes depending on the audio length
               </p>
-              <p className="text-xs text-stone-400 dark:text-stone-500 mt-2">
+              <p className="text-xs text-[var(--text-tertiary)] mt-2">
                 {getExpiryInfo()}
               </p>
             </div>
 
-            <div className="text-left bg-stone-50 dark:bg-stone-800 p-4 rounded-lg">
-              <h4 className="font-medium mb-2">Job Details:</h4>
-              <p className="text-sm text-stone-600 dark:text-stone-400">ID: {job.id}</p>
-              <p className="text-sm text-stone-600 dark:text-stone-400">Status: {job.status}</p>
+            <div className="text-left bg-[var(--bg-card)] p-4 rounded-[var(--radius-card)] border border-[var(--border-subtle)]">
+              <h4 className="font-medium mb-2 text-[var(--text-primary)]">Job Details:</h4>
+              <p className="text-sm text-[var(--text-secondary)]">ID: {job.id}</p>
+              <p className="text-sm text-[var(--text-secondary)]">Status: {job.status}</p>
             </div>
 
             <Button variant="outline" onClick={handleClose}>
@@ -326,13 +327,13 @@ export function QuickTranscriptionDialog({ isOpen, onClose }: QuickTranscription
           <div className="space-y-4">
             {job.status === "completed" && job.transcript ? (
               <>
-                <div className="flex items-center gap-2 p-3 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg">
-                  <CheckCircle className="h-5 w-5 text-emerald-500" />
+                <div className="flex items-center gap-2 p-3 bg-[var(--success-translucent)] rounded-[var(--radius-card)]">
+                  <CheckCircle className="h-5 w-5 text-[var(--success-solid)]" />
                   <div>
-                    <h3 className="font-medium text-emerald-900 dark:text-emerald-100">
+                    <h3 className="font-medium text-[var(--text-primary)]">
                       Transcription Complete
                     </h3>
-                    <p className="text-sm text-emerald-600 dark:text-emerald-400">
+                    <p className="text-sm text-[var(--success-solid)]">
                       {getExpiryInfo()}
                     </p>
                   </div>
@@ -360,13 +361,13 @@ export function QuickTranscriptionDialog({ isOpen, onClose }: QuickTranscription
               </>
             ) : (
               <>
-                <div className="flex items-center gap-2 p-3 bg-rose-50 dark:bg-rose-900/20 rounded-lg">
-                  <XCircle className="h-5 w-5 text-rose-500" />
+                <div className="flex items-center gap-2 p-3 bg-[var(--error)]/10 border border-[var(--error)]/20 rounded-[var(--radius-card)]">
+                  <XCircle className="h-5 w-5 text-[var(--error)]" />
                   <div>
-                    <h3 className="font-medium text-rose-900 dark:text-rose-100">
+                    <h3 className="font-medium text-[var(--text-primary)]">
                       Transcription Failed
                     </h3>
-                    <p className="text-sm text-rose-600 dark:text-rose-400">
+                    <p className="text-sm text-[var(--error)]">
                       {job.error_message || "An unknown error occurred"}
                     </p>
                   </div>

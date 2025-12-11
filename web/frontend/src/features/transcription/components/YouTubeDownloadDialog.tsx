@@ -80,7 +80,7 @@ export function YouTubeDownloadDialog({
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Youtube className="h-5 w-5 text-rose-500" />
+            <Youtube className="h-5 w-5 text-[var(--error)]" />
             Download from YouTube
           </DialogTitle>
           <DialogDescription>
@@ -91,13 +91,13 @@ export function YouTubeDownloadDialog({
         {success ? (
           <div className="space-y-4 py-4">
             <div className="flex items-center justify-center">
-              <CheckCircle className="h-12 w-12 text-emerald-500" />
+              <CheckCircle className="h-12 w-12 text-[var(--success)]" />
             </div>
             <div className="text-center">
-              <h3 className="font-medium text-stone-900 dark:text-stone-100 mb-2">
+              <h3 className="font-medium text-[var(--text-primary)] mb-2">
                 Download Complete!
               </h3>
-              <p className="text-sm text-stone-500 dark:text-stone-400">
+              <p className="text-sm text-[var(--text-secondary)]">
                 The audio has been downloaded and added to your audio files.
               </p>
             </div>
@@ -140,15 +140,15 @@ export function YouTubeDownloadDialog({
                 onChange={(e) => setTitle(e.target.value)}
                 disabled={isDownloading}
               />
-              <p className="text-xs text-stone-500 dark:text-stone-400">
+              <p className="text-xs text-[var(--text-tertiary)]">
                 If left empty, the video's title will be used automatically
               </p>
             </div>
 
             {error && (
-              <div className="flex items-center gap-2 p-3 bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800 rounded-md">
-                <AlertCircle className="h-4 w-4 text-rose-500" />
-                <p className="text-sm text-rose-600 dark:text-rose-400">{error}</p>
+              <div className="flex items-center gap-2 p-3 bg-[var(--error)]/10 border border-[var(--error)]/20 rounded-[var(--radius-input)]">
+                <AlertCircle className="h-4 w-4 text-[var(--error)]" />
+                <p className="text-sm text-[var(--error)]">{error}</p>
               </div>
             )}
 
