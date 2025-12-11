@@ -1170,7 +1170,7 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
             </div>
           ) : (
             <Tabs defaultValue="basic" className="w-full">
-              <TabsList className={`grid w-full items-center h-auto bg-carbon-100 dark:bg-carbon-800 p-1 rounded-lg ${isMultiTrack ? 'grid-cols-3' : 'grid-cols-4'}`}>
+              <TabsList className={`grid w-full items-center h-auto bg-[var(--bg-main)]/50 border border-[var(--border-subtle)] p-1 rounded-lg ${isMultiTrack ? 'grid-cols-3' : 'grid-cols-4'}`}>
                 <TabsTrigger value="basic" className="h-9 py-1.5 data-[state=active]:bg-white data-[state=active]:dark:bg-carbon-700 text-[var(--text-secondary)] text-xs sm:text-sm">Basic</TabsTrigger>
                 <TabsTrigger value="quality" className="h-9 py-1.5 data-[state=active]:bg-white data-[state=active]:dark:bg-carbon-700 text-[var(--text-secondary)] text-xs sm:text-sm">Quality</TabsTrigger>
                 <TabsTrigger value="advanced" className="h-9 py-1.5 data-[state=active]:bg-white data-[state=active]:dark:bg-carbon-700 text-[var(--text-secondary)] text-xs sm:text-sm">Advanced</TabsTrigger>
@@ -2012,12 +2012,17 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
           <Button
             onClick={handleStartTranscription}
             disabled={loading || (isProfileMode && !profileName.trim())}
-            className="rounded-[var(--radius-btn)] bg-[var(--brand-gradient)] hover:opacity-90 text-white border-none shadow-lg shadow-orange-500/20 min-w-[140px]"
+            className="rounded-[var(--radius-btn)] !text-white border-none shadow-lg shadow-orange-500/20"
+            style={{ background: 'var(--brand-gradient)' }}
           >
-            {loading
-              ? (isProfileMode ? "Saving..." : "Starting...")
-              : (isProfileMode ? "Save Profile" : "Start Transcription")
-            }
+            {loading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Starting Transcription...
+              </>
+            ) : (
+              "Start Transcription"
+            )}
           </Button>
         </DialogFooter>
       </DialogContent>
