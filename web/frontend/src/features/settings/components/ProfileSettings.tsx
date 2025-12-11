@@ -226,25 +226,25 @@ export function ProfileSettings() {
 		<div className="space-y-6">
 			{/* Error/Success Messages */}
 			{error && (
-				<div className="bg-carbon-50 dark:bg-carbon-900/50 border border-carbon-200 dark:border-carbon-800 rounded-lg p-3">
-					<p className="text-red-700 dark:text-red-400 text-sm">{error}</p>
+				<div className="bg-[var(--error)]/10 border border-[var(--error)]/20 rounded-lg p-3">
+					<p className="text-[var(--error)] text-sm">{error}</p>
 				</div>
 			)}
 
 			{success && (
-				<div className="bg-carbon-50 dark:bg-carbon-900/50 border border-carbon-200 dark:border-carbon-800 rounded-lg p-3">
-					<p className="text-green-700 dark:text-green-400 text-sm">{success}</p>
+				<div className="bg-[var(--success-translucent)] border border-[var(--success-solid)]/20 rounded-lg p-3">
+					<p className="text-[var(--success-solid)] text-sm">{success}</p>
 				</div>
 			)}
 
 			{/* Auto-Transcription Settings */}
-			<div className="bg-carbon-50 dark:bg-carbon-800 rounded-xl p-4 sm:p-6">
+			<div className="bg-[var(--bg-main)]/50 border border-[var(--border-subtle)] rounded-[var(--radius-card)] p-4 sm:p-6 shadow-sm">
 				<div className="mb-4">
 					<div className="flex items-center space-x-2 mb-2">
-						<Settings className="h-5 w-5 text-carbon-600 dark:text-carbon-400" />
-						<h3 className="text-lg font-medium text-carbon-900 dark:text-carbon-100">Auto-Transcription</h3>
+						<Settings className="h-5 w-5 text-[var(--brand-solid)]" />
+						<h3 className="text-lg font-medium text-[var(--text-primary)]">Auto-Transcription</h3>
 					</div>
-					<p className="text-sm text-carbon-600 dark:text-carbon-400">
+					<p className="text-sm text-[var(--text-secondary)]">
 						Configure automatic transcription behavior for uploaded files.
 					</p>
 				</div>
@@ -257,10 +257,10 @@ export function ProfileSettings() {
 				) : (
 					<div className="flex items-center justify-between py-2">
 						<div>
-							<Label htmlFor="auto-transcription" className="text-carbon-700 dark:text-carbon-300 font-medium">
+							<Label htmlFor="auto-transcription" className="text-[var(--text-primary)] font-medium">
 								Automatic Transcription on Upload
 							</Label>
-							<p className="text-sm text-carbon-600 dark:text-carbon-400 mt-1">
+							<p className="text-sm text-[var(--text-secondary)] mt-1">
 								When enabled, uploaded audio files will automatically be queued for transcription using your default profile.
 							</p>
 						</div>
@@ -275,32 +275,32 @@ export function ProfileSettings() {
 			</div>
 
 			{/* Transcription Profiles */}
-			<div className="bg-carbon-50 dark:bg-carbon-800 rounded-xl p-4 sm:p-6">
+			<div className="bg-[var(--bg-main)]/50 border border-[var(--border-subtle)] rounded-[var(--radius-card)] p-4 sm:p-6 shadow-sm">
 				<div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0 mb-4">
 					<div>
-						<h3 className="text-lg font-medium text-carbon-900 dark:text-carbon-100">
+						<h3 className="text-lg font-medium text-[var(--text-primary)]">
 							Transcription Profiles
 						</h3>
-						<p className="text-sm text-carbon-600 dark:text-carbon-400 mt-1">
+						<p className="text-sm text-[var(--text-secondary)] mt-1">
 							Manage your saved transcription configurations for quick access.
 						</p>
 					</div>
 					<Button
 						onClick={handleCreateProfile}
-						className="bg-carbon-900 hover:bg-carbon-950 text-white dark:bg-carbon-100 dark:hover:bg-white dark:text-carbon-950"
+						className="!bg-[var(--brand-gradient)] hover:!opacity-90 text-white shadow-lg shadow-orange-500/20 border-none"
 					>
 						Create New Profile
 					</Button>
 				</div>
 
 				{/* Default Profile Selection */}
-				<div className="mb-6 p-4 bg-white dark:bg-carbon-900 rounded-lg border border-carbon-200 dark:border-carbon-700">
+				<div className="mb-6 p-4 bg-[var(--bg-card)] rounded-lg border border-[var(--border-subtle)]">
 					<div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
 						<div className="flex-1">
-							<label className="block text-sm font-medium text-carbon-700 dark:text-carbon-300 mb-1">
+							<label className="block text-sm font-medium text-[var(--text-primary)] mb-1">
 								Default Profile
 							</label>
-							<p className="text-xs text-carbon-500 dark:text-carbon-400">
+							<p className="text-xs text-[var(--text-secondary)]">
 								The profile to use by default when starting new transcriptions.
 							</p>
 						</div>
@@ -310,7 +310,7 @@ export function ProfileSettings() {
 								onValueChange={handleDefaultProfileChange}
 								disabled={isLoadingProfiles || profiles.length === 0}
 							>
-								<SelectTrigger>
+								<SelectTrigger className="bg-[var(--bg-main)] border-[var(--border-subtle)] text-[var(--text-primary)]">
 									<SelectValue
 										placeholder={
 											isLoadingProfiles
@@ -321,9 +321,9 @@ export function ProfileSettings() {
 										}
 									/>
 								</SelectTrigger>
-								<SelectContent>
+								<SelectContent className="bg-[var(--bg-card)] border-[var(--border-subtle)] text-[var(--text-primary)]">
 									{profiles.map((profile) => (
-										<SelectItem key={profile.id} value={profile.id}>
+										<SelectItem key={profile.id} value={profile.id} className="focus:bg-[var(--bg-secondary)] focus:text-[var(--text-primary)]">
 											{profile.name}
 										</SelectItem>
 									))}

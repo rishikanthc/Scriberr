@@ -136,7 +136,7 @@ export function AccountSettings() {
 	};
 
 	const PasswordStrengthIndicator = ({ label, met }: { label: string; met: boolean }) => (
-		<div className={`flex items-center gap-2 text-sm ${met ? 'text-green-600 dark:text-green-400' : 'text-carbon-500 dark:text-carbon-400'}`}>
+		<div className={`flex items-center gap-2 text-sm ${met ? 'text-[var(--success-solid)]' : 'text-[var(--text-tertiary)]'}`}>
 			{met ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
 			<span>{label}</span>
 		</div>
@@ -146,32 +146,32 @@ export function AccountSettings() {
 		<div className="space-y-6">
 			{/* Error/Success Messages */}
 			{error && (
-				<div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3">
-					<p className="text-red-700 dark:text-red-300 text-sm">{error}</p>
+				<div className="bg-[var(--error)]/10 border border-[var(--error)]/20 rounded-lg p-3">
+					<p className="text-[var(--error)] text-sm">{error}</p>
 				</div>
 			)}
 
 			{success && (
-				<div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-3">
-					<p className="text-green-700 dark:text-green-300 text-sm">{success}</p>
+				<div className="bg-[var(--success-translucent)] border border-[var(--success-solid)]/20 rounded-lg p-3">
+					<p className="text-[var(--success-solid)] text-sm">{success}</p>
 				</div>
 			)}
 
 			{/* Username Change Section */}
-			<div className="bg-carbon-50 dark:bg-carbon-700/50 rounded-xl p-4 sm:p-6">
+			<div className="bg-[var(--bg-main)]/50 border border-[var(--border-subtle)] rounded-[var(--radius-card)] p-4 sm:p-6 shadow-sm">
 				<div className="mb-4">
 					<div className="flex items-center space-x-2 mb-2">
-						<User className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-						<h3 className="text-lg font-medium text-carbon-900 dark:text-carbon-100">Change Username</h3>
+						<User className="h-5 w-5 text-[var(--brand-solid)]" />
+						<h3 className="text-lg font-medium text-[var(--text-primary)]">Change Username</h3>
 					</div>
-					<p className="text-sm text-carbon-600 dark:text-carbon-400">
+					<p className="text-sm text-[var(--text-secondary)]">
 						Update your account username. You'll need to verify your current password.
 					</p>
 				</div>
 				<div>
 					<form onSubmit={handleUsernameChange} className="space-y-4">
 						<div className="space-y-2">
-							<Label htmlFor="newUsername" className="text-carbon-700 dark:text-carbon-300">
+							<Label htmlFor="newUsername" className="text-[var(--text-secondary)]">
 								New Username
 							</Label>
 							<Input
@@ -184,12 +184,12 @@ export function AccountSettings() {
 								required
 								minLength={3}
 								maxLength={50}
-								className="bg-white dark:bg-carbon-800 border-carbon-300 dark:border-carbon-600 text-carbon-900 dark:text-carbon-100"
+								className="bg-[var(--bg-main)] border-[var(--border-subtle)] text-[var(--text-primary)] focus:border-[var(--brand-solid)]"
 							/>
 						</div>
 
 						<div className="space-y-2">
-							<Label htmlFor="usernamePassword" className="text-carbon-700 dark:text-carbon-300">
+							<Label htmlFor="usernamePassword" className="text-[var(--text-secondary)]">
 								Current Password
 							</Label>
 							<div className="relative">
@@ -201,12 +201,12 @@ export function AccountSettings() {
 									onChange={(e) => setUsernamePassword(e.target.value)}
 									disabled={loading}
 									required
-									className="bg-white dark:bg-carbon-800 border-carbon-300 dark:border-carbon-600 text-carbon-900 dark:text-carbon-100 pr-10"
+									className="bg-[var(--bg-main)] border-[var(--border-subtle)] text-[var(--text-primary)] focus:border-[var(--brand-solid)] pr-10"
 								/>
 								<button
 									type="button"
 									onClick={() => setShowUsernamePassword(!showUsernamePassword)}
-									className="absolute right-3 top-1/2 -translate-y-1/2 text-carbon-400 hover:text-carbon-600 dark:hover:text-carbon-300"
+									className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
 								>
 									{showUsernamePassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
 								</button>
@@ -215,7 +215,8 @@ export function AccountSettings() {
 
 						<Button
 							type="submit"
-							className="bg-blue-600 hover:bg-blue-700 text-white"
+							className="rounded-[var(--radius-btn)] !text-white border-none shadow-lg shadow-orange-500/20"
+							style={{ background: 'var(--brand-gradient)' }}
 							disabled={loading || !newUsername.trim() || !usernamePassword.trim()}
 						>
 							{loading ? "Changing Username..." : "Change Username"}
@@ -224,23 +225,23 @@ export function AccountSettings() {
 				</div>
 			</div>
 
-			<Separator className="bg-carbon-200 dark:bg-carbon-700" />
+			<Separator className="bg-[var(--border-subtle)]" />
 
 			{/* Password Change Section */}
-			<div className="bg-carbon-50 dark:bg-carbon-700/50 rounded-xl p-4 sm:p-6">
+			<div className="bg-[var(--bg-main)]/50 border border-[var(--border-subtle)] rounded-[var(--radius-card)] p-4 sm:p-6 shadow-sm">
 				<div className="mb-4">
 					<div className="flex items-center space-x-2 mb-2">
-						<Lock className="h-5 w-5 text-red-600 dark:text-red-400" />
-						<h3 className="text-lg font-medium text-carbon-900 dark:text-carbon-100">Change Password</h3>
+						<Lock className="h-5 w-5 text-[var(--error)]" />
+						<h3 className="text-lg font-medium text-[var(--text-primary)]">Change Password</h3>
 					</div>
-					<p className="text-sm text-carbon-600 dark:text-carbon-400">
+					<p className="text-sm text-[var(--text-secondary)]">
 						Update your account password. You'll be automatically logged out after changing your password.
 					</p>
 				</div>
 				<div>
 					<form onSubmit={handlePasswordChange} className="space-y-4">
 						<div className="space-y-2">
-							<Label htmlFor="currentPassword" className="text-carbon-700 dark:text-carbon-300">
+							<Label htmlFor="currentPassword" className="text-[var(--text-secondary)]">
 								Current Password
 							</Label>
 							<div className="relative">
@@ -252,12 +253,12 @@ export function AccountSettings() {
 									onChange={(e) => setCurrentPassword(e.target.value)}
 									disabled={loading}
 									required
-									className="bg-white dark:bg-carbon-800 border-carbon-300 dark:border-carbon-600 text-carbon-900 dark:text-carbon-100 pr-10"
+									className="bg-[var(--bg-main)] border-[var(--border-subtle)] text-[var(--text-primary)] focus:border-[var(--brand-solid)] pr-10"
 								/>
 								<button
 									type="button"
 									onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-									className="absolute right-3 top-1/2 -translate-y-1/2 text-carbon-400 hover:text-carbon-600 dark:hover:text-carbon-300"
+									className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
 								>
 									{showCurrentPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
 								</button>
@@ -265,7 +266,7 @@ export function AccountSettings() {
 						</div>
 
 						<div className="space-y-2">
-							<Label htmlFor="newPassword" className="text-carbon-700 dark:text-carbon-300">
+							<Label htmlFor="newPassword" className="text-[var(--text-secondary)]">
 								New Password
 							</Label>
 							<div className="relative">
@@ -277,20 +278,20 @@ export function AccountSettings() {
 									onChange={(e) => setNewPassword(e.target.value)}
 									disabled={loading}
 									required
-									className="bg-white dark:bg-carbon-800 border-carbon-300 dark:border-carbon-600 text-carbon-900 dark:text-carbon-100 pr-10"
+									className="bg-[var(--bg-main)] border-[var(--border-subtle)] text-[var(--text-primary)] focus:border-[var(--brand-solid)] pr-10"
 								/>
 								<button
 									type="button"
 									onClick={() => setShowNewPassword(!showNewPassword)}
-									className="absolute right-3 top-1/2 -translate-y-1/2 text-carbon-400 hover:text-carbon-600 dark:hover:text-carbon-300"
+									className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
 								>
 									{showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
 								</button>
 							</div>
 
 							{newPassword && (
-								<div className="mt-3 space-y-2 p-3 bg-carbon-50 dark:bg-carbon-800 rounded-lg">
-									<p className="text-sm font-medium text-carbon-700 dark:text-carbon-300">Password Requirements:</p>
+								<div className="mt-3 space-y-2 p-3 bg-[var(--bg-main)]/50 rounded-lg border border-[var(--border-subtle)]">
+									<p className="text-sm font-medium text-[var(--text-primary)]">Password Requirements:</p>
 									<div className="grid grid-cols-1 gap-1">
 										<PasswordStrengthIndicator label="At least 8 characters" met={passwordStrength.hasMinLength} />
 										<PasswordStrengthIndicator label="One uppercase letter" met={passwordStrength.hasUppercase} />
@@ -303,7 +304,7 @@ export function AccountSettings() {
 						</div>
 
 						<div className="space-y-2">
-							<Label htmlFor="confirmPassword" className="text-carbon-700 dark:text-carbon-300">
+							<Label htmlFor="confirmPassword" className="text-[var(--text-secondary)]">
 								Confirm New Password
 							</Label>
 							<div className="relative">
@@ -315,20 +316,20 @@ export function AccountSettings() {
 									onChange={(e) => setConfirmPassword(e.target.value)}
 									disabled={loading}
 									required
-									className={`bg-white dark:bg-carbon-800 border-carbon-300 dark:border-carbon-600 text-carbon-900 dark:text-carbon-100 pr-10 ${confirmPassword && !passwordsMatch ? 'border-red-300 dark:border-red-600' : ''
+									className={`bg-[var(--bg-main)] border-[var(--border-subtle)] text-[var(--text-primary)] focus:border-[var(--brand-solid)] pr-10 ${confirmPassword && !passwordsMatch ? '!border-[var(--error)]' : ''
 										}`}
 								/>
 								<button
 									type="button"
 									onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-									className="absolute right-3 top-1/2 -translate-y-1/2 text-carbon-400 hover:text-carbon-600 dark:hover:text-carbon-300"
+									className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
 								>
 									{showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
 								</button>
 							</div>
 
 							{confirmPassword && (
-								<div className={`flex items-center gap-2 text-sm ${passwordsMatch ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+								<div className={`flex items-center gap-2 text-sm ${passwordsMatch ? 'text-[var(--success-solid)]' : 'text-[var(--error)]'
 									}`}>
 									{passwordsMatch ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
 									<span>{passwordsMatch ? "Passwords match" : "Passwords do not match"}</span>
@@ -336,16 +337,16 @@ export function AccountSettings() {
 							)}
 						</div>
 
-						<div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3">
-							<p className="text-yellow-800 dark:text-yellow-300 text-sm font-medium">⚠️ Warning</p>
-							<p className="text-yellow-700 dark:text-yellow-300 text-sm mt-1">
+						<div className="bg-[var(--warning-translucent)] border border-[var(--warning-solid)]/20 rounded-lg p-3">
+							<p className="text-[var(--warning-solid)] text-sm font-medium">⚠️ Warning</p>
+							<p className="text-[var(--warning-solid)] text-sm mt-1">
 								You will be automatically logged out after changing your password and will need to log in again with your new credentials.
 							</p>
 						</div>
 
 						<Button
 							type="submit"
-							className="bg-red-600 hover:bg-red-700 text-white"
+							className="!bg-[var(--brand-gradient)] hover:!opacity-90 text-white shadow-lg shadow-orange-500/20 border-none"
 							disabled={loading || !currentPassword.trim() || !isPasswordValid || !passwordsMatch}
 						>
 							{loading ? "Changing Password..." : "Change Password"}

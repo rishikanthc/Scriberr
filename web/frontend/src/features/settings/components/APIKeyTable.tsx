@@ -101,10 +101,10 @@ export function APIKeyTable({ refreshTrigger, onKeyChange }: APIKeyTableProps) {
 	if (apiKeys.length === 0) {
 		return (
 			<div className="text-center py-8">
-				<div className="text-carbon-500 dark:text-carbon-400 mb-2">
+				<div className="text-[var(--text-secondary)] mb-2">
 					No API keys found
 				</div>
-				<div className="text-sm text-carbon-400 dark:text-carbon-500">
+				<div className="text-sm text-[var(--text-tertiary)]">
 					Create your first API key to get started with external access
 				</div>
 			</div>
@@ -116,22 +116,22 @@ export function APIKeyTable({ refreshTrigger, onKeyChange }: APIKeyTableProps) {
 			<table className="w-full">
 				<thead>
 					<tr className="border-b border-carbon-200 dark:border-carbon-600">
-						<th className="text-left py-2 px-2 sm:py-3 sm:px-4 font-medium text-carbon-700 dark:text-carbon-300">
+						<th className="text-left py-2 px-2 sm:py-3 sm:px-4 font-medium text-[var(--text-secondary)]">
 							Name
 						</th>
-						<th className="hidden sm:table-cell text-left py-2 px-2 sm:py-3 sm:px-4 font-medium text-carbon-700 dark:text-carbon-300">
+						<th className="hidden sm:table-cell text-left py-2 px-2 sm:py-3 sm:px-4 font-medium text-[var(--text-secondary)]">
 							Description
 						</th>
-						<th className="hidden sm:table-cell text-left py-2 px-2 sm:py-3 sm:px-4 font-medium text-carbon-700 dark:text-carbon-300">
+						<th className="hidden sm:table-cell text-left py-2 px-2 sm:py-3 sm:px-4 font-medium text-[var(--text-secondary)]">
 							Key Preview
 						</th>
-						<th className="hidden sm:table-cell text-left py-2 px-2 sm:py-3 sm:px-4 font-medium text-carbon-700 dark:text-carbon-300">
+						<th className="hidden sm:table-cell text-left py-2 px-2 sm:py-3 sm:px-4 font-medium text-[var(--text-secondary)]">
 							Created
 						</th>
-						<th className="hidden sm:table-cell text-left py-2 px-2 sm:py-3 sm:px-4 font-medium text-carbon-700 dark:text-carbon-300">
+						<th className="hidden sm:table-cell text-left py-2 px-2 sm:py-3 sm:px-4 font-medium text-[var(--text-secondary)]">
 							Last Used
 						</th>
-						<th className="text-right py-2 px-2 sm:py-3 sm:px-4 font-medium text-carbon-700 dark:text-carbon-300">
+						<th className="text-right py-2 px-2 sm:py-3 sm:px-4 font-medium text-[var(--text-secondary)]">
 							Actions
 						</th>
 					</tr>
@@ -140,7 +140,7 @@ export function APIKeyTable({ refreshTrigger, onKeyChange }: APIKeyTableProps) {
 					{apiKeys.map((apiKey) => (
 						<tr
 							key={apiKey.id}
-							className="border-b border-carbon-100 dark:border-carbon-700 hover:bg-carbon-50 dark:hover:bg-carbon-800/50"
+							className="border-b border-[var(--border-subtle)] hover:bg-[var(--bg-main)]/30"
 						>
 							<td className="py-2 px-2 sm:py-3 sm:px-4">
 								<div className="font-medium text-carbon-900 dark:text-carbon-100">
@@ -153,7 +153,7 @@ export function APIKeyTable({ refreshTrigger, onKeyChange }: APIKeyTableProps) {
 								</div>
 							</td>
 							<td className="hidden sm:table-cell py-2 px-2 sm:py-3 sm:px-4">
-								<div className="font-mono text-sm text-carbon-700 dark:text-carbon-300 bg-carbon-100 dark:bg-carbon-700 px-2 py-1 rounded">
+								<div className="font-mono text-sm text-[var(--text-secondary)] bg-[var(--bg-secondary)] px-2 py-1 rounded">
 									{apiKey.key_preview}
 								</div>
 							</td>
@@ -181,7 +181,7 @@ export function APIKeyTable({ refreshTrigger, onKeyChange }: APIKeyTableProps) {
 									size="sm"
 									onClick={() => handleDelete(apiKey.id)}
 									disabled={deletingId === apiKey.id}
-									className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-900/20"
+									className="text-[var(--error)] hover:text-[var(--error)] hover:bg-[var(--error)]/10"
 								>
 									<Trash2 className="h-4 w-4" />
 								</Button>

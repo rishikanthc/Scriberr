@@ -68,41 +68,41 @@ export function SummaryTemplateDialog({ open, onOpenChange, onSave, initial }: S
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-xl md:max-w-2xl lg:max-w-3xl xl:max-w-4xl max-h-[90vh] md:max-h-[92vh] overflow-y-auto bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700">
+      <DialogContent className="sm:max-w-xl md:max-w-2xl lg:max-w-3xl xl:max-w-4xl max-h-[90vh] md:max-h-[92vh] overflow-y-auto bg-[var(--bg-card)] border-[var(--border-subtle)]">
         <DialogHeader>
-          <DialogTitle className="text-carbon-900 dark:text-carbon-100">{initial ? 'Edit Summary Template' : 'New Summary Template'}</DialogTitle>
-          <DialogDescription className="text-carbon-600 dark:text-carbon-400">
+          <DialogTitle className="text-[var(--text-primary)]">{initial ? 'Edit Summary Template' : 'New Summary Template'}</DialogTitle>
+          <DialogDescription className="text-[var(--text-secondary)]">
             Define a reusable prompt to summarize transcripts.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-2">
           <div className="space-y-2">
-            <Label className="text-carbon-700 dark:text-carbon-300">Name</Label>
-            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g., Concise Bullet Summary" />
+            <Label className="text-[var(--text-primary)]">Name</Label>
+            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g., Concise Bullet Summary" className="bg-[var(--bg-main)] border-[var(--border-subtle)] text-[var(--text-primary)] focus:border-[var(--brand-solid)]" />
           </div>
           <div className="space-y-2">
-            <Label className="text-carbon-700 dark:text-carbon-300">Model</Label>
+            <Label className="text-[var(--text-primary)]">Model</Label>
             <Select value={model} onValueChange={setModel}>
-              <SelectTrigger className="bg-white dark:bg-carbon-800 border-carbon-300 dark:border-carbon-600 text-carbon-900 dark:text-carbon-100">
+              <SelectTrigger className="bg-[var(--bg-main)] border-[var(--border-subtle)] text-[var(--text-primary)] focus:border-[var(--brand-solid)]">
                 <SelectValue placeholder={models.length ? 'Select model' : 'No models available'} />
               </SelectTrigger>
-              <SelectContent className="bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700 max-h-60">
+              <SelectContent className="bg-[var(--bg-card)] border-[var(--border-subtle)] text-[var(--text-primary)] max-h-60">
                 {models.map((m) => (
-                  <SelectItem key={m} value={m} className="text-carbon-900 dark:text-carbon-100 focus:bg-carbon-100 dark:focus:bg-carbon-700">{m}</SelectItem>
+                  <SelectItem key={m} value={m} className="text-[var(--text-primary)] focus:bg-[var(--bg-secondary)]">{m}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
           <div className="space-y-2">
-            <Label className="text-carbon-700 dark:text-carbon-300">Description (optional)</Label>
-            <Input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Short description" />
+            <Label className="text-[var(--text-primary)]">Description (optional)</Label>
+            <Input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Short description" className="bg-[var(--bg-main)] border-[var(--border-subtle)] text-[var(--text-primary)] focus:border-[var(--brand-solid)]" />
           </div>
           <div className="space-y-2">
-            <Label className="text-carbon-700 dark:text-carbon-300">Prompt</Label>
+            <Label className="text-[var(--text-primary)]">Prompt</Label>
             <Textarea
               rows={10}
-              className="resize-y min-h-40 sm:min-h-60 md:min-h-72 lg:min-h-[50vh] max-h-[65vh]"
+              className="resize-y min-h-40 sm:min-h-60 md:min-h-72 lg:min-h-[50vh] max-h-[65vh] bg-[var(--bg-main)] border-[var(--border-subtle)] text-[var(--text-primary)] focus:border-[var(--brand-solid)]"
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
               placeholder="Write the summarization instructions..."
@@ -111,13 +111,13 @@ export function SummaryTemplateDialog({ open, onOpenChange, onSave, initial }: S
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button variant="outline" onClick={() => onOpenChange(false)} className="bg-[var(--bg-secondary)] border-[var(--border-subtle)] text-[var(--text-primary)]">
             Cancel
           </Button>
           <Button
             onClick={handleSave}
             disabled={saving || !name.trim() || !prompt.trim() || !model.trim()}
-            className="bg-blue-600 hover:bg-blue-700 text-white dark:bg-blue-600 dark:hover:bg-blue-500"
+            className="!bg-[var(--brand-gradient)] hover:!opacity-90 text-white border-none"
           >
             {saving ? 'Saving...' : 'Save'}
           </Button>

@@ -113,28 +113,28 @@ export function LLMSettings() {
 	if (loading) {
 		return (
 			<div className="flex items-center justify-center h-32">
-				<div className="text-carbon-500 dark:text-carbon-400">Loading LLM configuration...</div>
+				<div className="text-[var(--text-tertiary)]">Loading LLM configuration...</div>
 			</div>
 		);
 	}
 
 	return (
 		<div className="space-y-6">
-			<div className="bg-carbon-50 dark:bg-carbon-700/50 rounded-xl p-4 sm:p-6">
+			<div className="bg-[var(--bg-main)]/50 border border-[var(--border-subtle)] rounded-[var(--radius-card)] p-4 sm:p-6 shadow-sm">
 				<div className="mb-4 sm:mb-6">
-					<h3 className="text-lg font-medium text-carbon-900 dark:text-carbon-100 flex items-center gap-2">
-						<Bot className="h-5 w-5" />
+					<h3 className="text-lg font-medium text-[var(--text-primary)] flex items-center gap-2">
+						<Bot className="h-5 w-5 text-[var(--brand-solid)]" />
 						LLM Configuration
 					</h3>
-					<p className="text-sm text-carbon-600 dark:text-carbon-400 mt-1">
+					<p className="text-sm text-[var(--text-secondary)] mt-1">
 						Configure external Large Language Model integration for enhanced features.
 					</p>
 				</div>
 
 				{message && (
 					<div className={`mb-4 sm:mb-6 p-3 sm:p-4 rounded-lg flex items-center gap-2 ${message.type === "success"
-							? "bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-200"
-							: "bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-200"
+						? "bg-[var(--success-translucent)] text-[var(--success-solid)]"
+						: "bg-[var(--error)]/10 text-[var(--error)]"
 						}`}>
 						{message.type === "success" ? (
 							<CheckCircle className="h-4 w-4" />
@@ -154,9 +154,9 @@ export function LLMSettings() {
 						</p>
 						<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 							<label htmlFor="ollama">
-								<Card className={`cursor-pointer transition-colors ${config.provider === "ollama"
-										? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
-										: "hover:bg-carbon-50 dark:hover:bg-carbon-600"
+								<Card className={`cursor-pointer transition-all ${config.provider === "ollama"
+									? "border-[var(--brand-solid)] bg-[var(--brand-light)] shadow-md transform scale-[1.01]"
+									: "bg-[var(--bg-main)] hover:bg-[var(--bg-secondary)] border-[var(--border-subtle)] hover:shadow-sm"
 									}`}>
 									<CardHeader className="pb-2">
 										<div className="flex items-center space-x-2">
@@ -167,14 +167,14 @@ export function LLMSettings() {
 												value="ollama"
 												checked={config.provider === "ollama"}
 												onChange={(e) => setConfig({ ...config, provider: e.target.value })}
-												className="h-4 w-4 text-blue-600 focus:ring-blue-500"
+												className="h-4 w-4 text-[var(--brand-solid)] focus:ring-[var(--brand-solid)] accent-[var(--brand-solid)]"
 											/>
-											<Bot className="h-5 w-5" />
-											<CardTitle className="text-base">Ollama</CardTitle>
+											<Bot className="h-5 w-5 text-[var(--text-primary)]" />
+											<CardTitle className="text-base text-[var(--text-primary)]">Ollama</CardTitle>
 										</div>
 									</CardHeader>
 									<CardContent>
-										<CardDescription>
+										<CardDescription className="text-[var(--text-secondary)]">
 											Local LLM server. Requires Ollama installation.
 										</CardDescription>
 									</CardContent>
@@ -182,9 +182,9 @@ export function LLMSettings() {
 							</label>
 
 							<label htmlFor="openai">
-								<Card className={`cursor-pointer transition-colors ${config.provider === "openai"
-										? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
-										: "hover:bg-carbon-50 dark:hover:bg-carbon-600"
+								<Card className={`cursor-pointer transition-all ${config.provider === "openai"
+									? "border-[var(--brand-solid)] bg-[var(--brand-light)] shadow-md transform scale-[1.01]"
+									: "bg-[var(--bg-main)] hover:bg-[var(--bg-secondary)] border-[var(--border-subtle)] hover:shadow-sm"
 									}`}>
 									<CardHeader className="pb-2">
 										<div className="flex items-center space-x-2">
@@ -195,14 +195,14 @@ export function LLMSettings() {
 												value="openai"
 												checked={config.provider === "openai"}
 												onChange={(e) => setConfig({ ...config, provider: e.target.value })}
-												className="h-4 w-4 text-blue-600 focus:ring-blue-500"
+												className="h-4 w-4 text-[var(--brand-solid)] focus:ring-[var(--brand-solid)] accent-[var(--brand-solid)]"
 											/>
-											<Globe className="h-5 w-5" />
-											<CardTitle className="text-base">OpenAI</CardTitle>
+											<Globe className="h-5 w-5 text-[var(--text-primary)]" />
+											<CardTitle className="text-base text-[var(--text-primary)]">OpenAI</CardTitle>
 										</div>
 									</CardHeader>
 									<CardContent>
-										<CardDescription>
+										<CardDescription className="text-[var(--text-secondary)]">
 											OpenAI's cloud API. Requires API key.
 										</CardDescription>
 									</CardContent>
@@ -215,16 +215,16 @@ export function LLMSettings() {
 					<div className="space-y-4">
 						{config.provider === "ollama" && (
 							<div>
-								<Label htmlFor="baseUrl">Ollama Base URL *</Label>
+								<Label htmlFor="baseUrl" className="text-[var(--text-primary)]">Ollama Base URL *</Label>
 								<Input
 									id="baseUrl"
 									type="url"
 									placeholder="http://localhost:11434"
 									value={baseUrl}
 									onChange={(e) => setBaseUrl(e.target.value)}
-									className="mt-1"
+									className="mt-1 bg-[var(--bg-main)] border-[var(--border-subtle)] text-[var(--text-primary)] focus:border-[var(--brand-solid)]"
 								/>
-								<p className="text-xs text-carbon-500 dark:text-carbon-400 mt-1">
+								<p className="text-xs text-[var(--text-tertiary)] mt-1">
 									The URL where your Ollama server is running
 								</p>
 							</div>
@@ -233,11 +233,11 @@ export function LLMSettings() {
 						{config.provider === "openai" && (
 							<div className="space-y-4">
 								<div>
-									<Label htmlFor="apiKey" className="flex items-center gap-2">
-										<Key className="h-4 w-4" />
+									<Label htmlFor="apiKey" className="flex items-center gap-2 text-[var(--text-primary)]">
+										<Key className="h-4 w-4 text-[var(--text-tertiary)]" />
 										OpenAI API Key *
 										{config.has_api_key && (
-											<span className="text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 px-2 py-1 rounded">
+											<span className="text-xs bg-[var(--success-translucent)] text-[var(--success-solid)] px-2 py-1 rounded">
 												Already configured
 											</span>
 										)}
@@ -248,24 +248,24 @@ export function LLMSettings() {
 										placeholder={config.has_api_key ? "Enter new API key to update" : "sk-..."}
 										value={apiKey}
 										onChange={(e) => setApiKey(e.target.value)}
-										className="mt-1"
+										className="mt-1 bg-[var(--bg-main)] border-[var(--border-subtle)] text-[var(--text-primary)] focus:border-[var(--brand-solid)]"
 									/>
-									<p className="text-xs text-carbon-500 dark:text-carbon-400 mt-1">
+									<p className="text-xs text-[var(--text-tertiary)] mt-1">
 										Your OpenAI API key. {config.has_api_key ? "Leave blank to keep current key." : ""}
 									</p>
 								</div>
 
 								<div>
-									<Label htmlFor="openAIBaseUrl">OpenAI Base URL (Optional)</Label>
+									<Label htmlFor="openAIBaseUrl" className="text-[var(--text-primary)]">OpenAI Base URL (Optional)</Label>
 									<Input
 										id="openAIBaseUrl"
 										type="url"
 										placeholder="https://api.openai.com/v1"
 										value={openAIBaseUrl}
 										onChange={(e) => setOpenAIBaseUrl(e.target.value)}
-										className="mt-1"
+										className="mt-1 bg-[var(--bg-main)] border-[var(--border-subtle)] text-[var(--text-primary)] focus:border-[var(--brand-solid)]"
 									/>
-									<p className="text-xs text-carbon-500 dark:text-carbon-400 mt-1">
+									<p className="text-xs text-[var(--text-tertiary)] mt-1">
 										Custom endpoint URL for OpenAI-compatible services. Leave blank for default.
 									</p>
 								</div>
@@ -275,20 +275,20 @@ export function LLMSettings() {
 
 					{/* Status */}
 					{config.id && (
-						<div className="bg-white dark:bg-carbon-800 rounded-lg p-4 border">
-							<h4 className="font-medium text-carbon-900 dark:text-carbon-100 mb-2">Status</h4>
+						<div className="bg-[var(--bg-main)]/50 rounded-lg p-4 border border-[var(--border-subtle)]">
+							<h4 className="font-medium text-[var(--text-primary)] mb-2">Status</h4>
 							<div className="flex items-center gap-2">
 								{config.is_active ? (
 									<>
-										<CheckCircle className="h-4 w-4 text-green-600" />
-										<span className="text-sm text-green-700 dark:text-green-300">
+										<CheckCircle className="h-4 w-4 text-[var(--success-solid)]" />
+										<span className="text-sm text-[var(--success-solid)]">
 											Active configuration for {config.provider}
 										</span>
 									</>
 								) : (
 									<>
-										<AlertCircle className="h-4 w-4 text-yellow-600" />
-										<span className="text-sm text-yellow-700 dark:text-yellow-300">
+										<AlertCircle className="h-4 w-4 text-[var(--warning-solid)]" />
+										<span className="text-sm text-[var(--warning-solid)]">
 											Configuration saved but not active
 										</span>
 									</>
@@ -302,7 +302,8 @@ export function LLMSettings() {
 						<Button
 							onClick={handleSave}
 							disabled={!isFormValid() || saving}
-							className="bg-blue-600 hover:bg-blue-700 text-white"
+							className="rounded-[var(--radius-btn)] !text-white border-none shadow-lg shadow-orange-500/20"
+							style={{ background: 'var(--brand-gradient)' }}
 						>
 							{saving ? "Saving..." : "Save Configuration"}
 						</Button>
