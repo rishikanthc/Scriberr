@@ -53,13 +53,21 @@ export function TranscriptSelectionMenu({
             }}
             onMouseDown={(e) => e.stopPropagation()}
         >
-            <div className="bg-[var(--bg-popover)] text-[var(--text-primary)] border border-[var(--border-subtle)] text-base font-medium rounded-full shadow-[var(--shadow-float)] px-5 py-2.5 flex items-center gap-3 pointer-events-auto hover:bg-[var(--bg-card)] transition-colors ring-0 transform hover:scale-105 duration-200">
-                <button type="button" className="flex items-center gap-2 hover:text-[var(--brand-solid)] transition-colors" onClick={onAddNote}>
-                    <Plus className="h-4 w-4" /> <span className="font-semibold text-sm">Add note</span>
+            <div className="glass shadow-2xl rounded-full px-5 py-2.5 flex items-center gap-3 pointer-events-auto transform hover:scale-105 duration-200 border border-white/20 dark:border-white/10">
+                <button
+                    type="button"
+                    className="flex items-center gap-2 text-carbon-900 dark:text-carbon-100 hover:text-brand-500 dark:hover:text-brand-400 transition-colors font-medium text-sm"
+                    onClick={onAddNote}
+                >
+                    <Plus className="h-4 w-4" /> <span>Add note</span>
                 </button>
-                <div className="w-px h-4 bg-[var(--border-subtle)]"></div>
-                <button type="button" className="flex items-center gap-2 hover:text-[var(--brand-solid)] transition-colors" onClick={onListenFromHere}>
-                    <Ear className="h-4 w-4" /> <span className="text-sm font-semibold">Listen</span>
+                <div className="w-px h-4 bg-carbon-200 dark:bg-carbon-700"></div>
+                <button
+                    type="button"
+                    className="flex items-center gap-2 text-carbon-900 dark:text-carbon-100 hover:text-brand-500 dark:hover:text-brand-400 transition-colors font-medium text-sm"
+                    onClick={onListenFromHere}
+                >
+                    <Ear className="h-4 w-4" /> <span>Listen</span>
                 </button>
             </div>
         </div>
