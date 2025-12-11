@@ -215,7 +215,7 @@ export function AccountSettings() {
 
 						<Button
 							type="submit"
-							className="rounded-[var(--radius-btn)] !text-white border-none shadow-lg shadow-orange-500/20"
+							className="rounded-[var(--radius-btn)] !text-black dark:!text-white border-none shadow-lg shadow-orange-500/20"
 							style={{ background: 'var(--brand-gradient)' }}
 							disabled={loading || !newUsername.trim() || !usernamePassword.trim()}
 						>
@@ -346,7 +346,7 @@ export function AccountSettings() {
 
 						<Button
 							type="submit"
-							className="!bg-[var(--brand-gradient)] hover:!opacity-90 text-white shadow-lg shadow-orange-500/20 border-none"
+							className="!bg-[var(--brand-gradient)] hover:!opacity-90 !text-black dark:!text-white shadow-lg shadow-orange-500/20 border-none"
 							disabled={loading || !currentPassword.trim() || !isPasswordValid || !passwordsMatch}
 						>
 							{loading ? "Changing Password..." : "Change Password"}

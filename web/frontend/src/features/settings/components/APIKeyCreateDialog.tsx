@@ -163,7 +163,7 @@ export function APIKeyCreateDialog({
 						<Button
 							type="submit"
 							disabled={isCreating || !name.trim()}
-							className="!bg-[var(--brand-gradient)] hover:!opacity-90 text-white border-none"
+							className="!bg-[var(--brand-gradient)] hover:!opacity-90 !text-black dark:!text-white border-none"
 						>
 							{isCreating ? "Creating..." : "Create API Key"}
 						</Button>

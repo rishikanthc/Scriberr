@@ -2012,7 +2012,7 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
           <Button
             onClick={handleStartTranscription}
             disabled={loading || (isProfileMode && !profileName.trim())}
-            className="rounded-[var(--radius-btn)] !text-white border-none shadow-lg shadow-orange-500/20"
+            className="rounded-[var(--radius-btn)] !text-black dark:!text-white border-none shadow-lg shadow-orange-500/20"
             style={{ background: 'var(--brand-gradient)' }}
           >
             {loading ? (

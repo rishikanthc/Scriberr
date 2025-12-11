@@ -117,7 +117,7 @@ export function SummaryTemplateDialog({ open, onOpenChange, onSave, initial }: S
           <Button
             onClick={handleSave}
             disabled={saving || !name.trim() || !prompt.trim() || !model.trim()}
-            className="!bg-[var(--brand-gradient)] hover:!opacity-90 text-white border-none"
+            className="!bg-[var(--brand-gradient)] hover:!opacity-90 !text-black dark:!text-white border-none"
           >
             {saving ? 'Saving...' : 'Save'}
           </Button>
