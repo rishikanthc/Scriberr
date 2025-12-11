@@ -300,6 +300,11 @@
     @apply bg-background text-foreground font-sans antialiased selection:bg-gray-200 dark:selection:bg-carbon-800;
   }
 
+  /* Stable Layout Gutter */
+  html {
+    scrollbar-gutter: stable;
+  }
+
   h1,
   h2,
   h3,
@@ -324,10 +329,17 @@
   }
 }
 
-/* Custom Scrollbar */
+/* Custom Scrollbar - Cross Browser Support */
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scroll-thumb) transparent;
+}
+
+/* Chrome, Edge, Safari */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
@@ -335,12 +347,16 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--scroll-thumb);
+  background-color: var(--scroll-thumb);
   border-radius: 9999px;
+  border: 2px solid transparent;
+  /* Creates padding around thumb */
+  background-clip: content-box;
+  transition: background-color 0.2s;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--scroll-thumb-hover);
+  background-color: var(--scroll-thumb-hover);
 }
 
 /* Chat Specifics */
