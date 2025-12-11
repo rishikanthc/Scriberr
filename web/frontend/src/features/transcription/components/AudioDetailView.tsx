@@ -286,17 +286,14 @@ export const AudioDetailView = function AudioDetailView({ audioId: propAudioId }
                       3. Audio Player:
                       - Floating Card style
                       - 1px hairline border
-                      - Soft dual-shadow
                     */}
-                    <div className="bg-[var(--bg-card)] rounded-[var(--radius-card)] border border-[var(--border-subtle)] shadow-[var(--shadow-card)] p-1 overflow-hidden transition-shadow hover:shadow-[var(--shadow-float)]">
-                        <div className="bg-[var(--bg-main)]/50 rounded-[calc(var(--radius-card)-4px)] p-4">
-                            <AudioPlayer
-                                ref={audioPlayerRef}
-                                audioId={audioId}
-                                onTimeUpdate={handleTimeUpdate}
-                                onPlayStateChange={setIsPlaying}
-                            />
-                        </div>
+                    <div className="sticky top-6 z-40 glass-card rounded-[var(--radius-card)] border-[var(--border-subtle)] shadow-[var(--shadow-card)] p-4 md:p-6 mb-8 transition-all duration-300 hover:shadow-[var(--shadow-float)]">
+                        <AudioPlayer
+                            ref={audioPlayerRef}
+                            audioId={audioId}
+                            onTimeUpdate={handleTimeUpdate}
+                            onPlayStateChange={setIsPlaying}
+                        />
                     </div>
 
                     {/* 

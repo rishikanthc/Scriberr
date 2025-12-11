@@ -316,7 +316,7 @@
 
   /* Glassmorphism Utilities - Refined */
   .glass {
-    @apply bg-white/80 dark:bg-carbon-950/80 backdrop-blur-xl border border-white/20 dark:border-white/10 shadow-sm;
+    @apply bg-white/80 dark:bg-carbon-900/80 backdrop-blur-xl border border-white/20 dark:border-white/5 shadow-sm;
   }
 
   .glass-card {
@@ -327,6 +327,15 @@
   .font-transcript {
     font-family: var(--font-inter);
   }
+}
+
+/* 
+  Fix Layout Jitter (Radix UI) 
+  Radix adds padding-right to body when dialogs open.
+  We handle the gutter via 'html', so this extra padding causes a jump.
+*/
+body[data-scroll-locked] {
+  padding-right: 0 !important;
 }
 
 /* Custom Scrollbar - Cross Browser Support */
