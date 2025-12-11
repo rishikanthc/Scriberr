@@ -6,8 +6,7 @@ import { Header } from "@/components/Header";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
-import { AudioPlayer } from "@/components/audio/AudioPlayer";
-import type { AudioPlayerRef } from "@/components/audio/AudioPlayer";
+import { EmberPlayer, type EmberPlayerRef } from "@/components/audio/EmberPlayer";
 import { cn } from "@/lib/utils";
 
 // Custom Hooks
@@ -32,7 +31,7 @@ export const AudioDetailView = function AudioDetailView({ audioId: propAudioId }
     const navigate = useNavigate();
 
     // Refs
-    const audioPlayerRef = useRef<AudioPlayerRef>(null);
+    const audioPlayerRef = useRef<EmberPlayerRef>(null);
 
     // State
     const [currentTime, setCurrentTime] = useState(0);
@@ -286,9 +285,10 @@ export const AudioDetailView = function AudioDetailView({ audioId: propAudioId }
                       3. Audio Player:
                       - Floating Card style
                       - 1px hairline border
+                      - Replaced with EmberPlayer (Streaming + Viz)
                     */}
                     <div className="sticky top-6 z-40 glass-card rounded-[var(--radius-card)] border-[var(--border-subtle)] shadow-[var(--shadow-card)] p-4 md:p-6 mb-8 transition-all duration-300 hover:shadow-[var(--shadow-float)]">
-                        <AudioPlayer
+                        <EmberPlayer
                             ref={audioPlayerRef}
                             audioId={audioId}
                             onTimeUpdate={handleTimeUpdate}
