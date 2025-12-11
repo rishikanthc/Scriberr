@@ -1,14 +1,15 @@
-import { useTheme } from "@/contexts/ThemeContext";
+// import { useTheme } from "@/contexts/ThemeContext";
 import { ScriberrTextLogo } from "./ScriberrTextLogo";
 
 export function ScriberrLogo({ className = "", onClick }: { className?: string; onClick?: () => void }) {
   const clickable = typeof onClick === 'function';
-  const { theme } = useTheme();
+  // const { theme } = useTheme();
 
   // Define gradient colors based on theme
-  const gradientColors = theme === 'dark'
-    ? { start: '#FFAB40', end: '#FF3D00' } // Dark mode: electricEmberGradient
-    : { start: '#FF6D00', end: '#C62828' }; // Light mode: electricLightGradient
+  const gradientColors = { start: '#FFAB40', end: '#FF3D00' }; // Always use Dark mode/Electric Ember gradient as requested
+  // theme === 'dark'
+  // ? { start: '#FFAB40', end: '#FF3D00' } // Dark mode: electricEmberGradient
+  // : { start: '#FF6D00', end: '#C62828' }; // Light mode: electricLightGradient
 
   return (
     <div
