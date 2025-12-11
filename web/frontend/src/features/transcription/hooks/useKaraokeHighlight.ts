@@ -40,8 +40,8 @@ export function computeWordOffsets(words: { word: string; start: number; end: nu
         if (index > 0) {
             const prev = computedOffsets[index - 1];
             const gap = w.start - prev.endTime;
-            // Fill gaps smaller than 1.5 seconds (natural sentence pauses are usually < 1s)
-            if (gap > 0 && gap < 1.5) {
+            // Fill gaps smaller than 0.7 seconds
+            if (gap > 0 && gap < 0.7) {
                 prev.endTime = w.start;
             }
         }
@@ -75,9 +75,33 @@ export function useKaraokeHighlight(
     useEffect(() => {
         if (!containerRef.current || typeof CSS === 'undefined' || !CSS.highlights) return;
 
-        const activeWord = offsets.find(
-            (w) => currentTime >= w.startTime && currentTime <= w.endTime
-        );
+        // Binary search for performance (O(logN) vs O(N))
+        // particularly important for long transcripts
+        let activeWord = null;
+        let low = 0;
+        let high = offsets.length - 1;
+
+        while (low <= high) {
+            const mid = Math.floor((low + high) / 2);
+            if (offsets[mid].startTime <= currentTime) {
+                // This word started before or at currentTime.
+                // It's a candidate, but there might be a later one that also started before currentTime.
+                // (Though with non-overlapping words, this is usually unique, but let's be safe).
+                // Actually, if we find one, we check if it contains currentTime.
+                // If offsets are sorted and non-overlapping (mostly), we can optimize.
+                const w = offsets[mid];
+                if (currentTime <= w.endTime) {
+                    activeWord = w;
+                    break;
+                }
+                // If we are here, w started before currentTime but ended before currentTime.
+                // So we need to look later.
+                low = mid + 1;
+            } else {
+                // w started after currentTime. Look earlier.
+                high = mid - 1;
+            }
+        }
 
         if (!activeWord) {
             if (CSS.highlights.has('karaoke-word')) {
