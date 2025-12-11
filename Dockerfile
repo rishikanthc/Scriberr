@@ -66,7 +66,7 @@ WORKDIR /app
 RUN apt-get update \
   && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
        curl ca-certificates ffmpeg git gosu \
-       build-essential gcc g++ make python3-dev \
+       build-essential gcc g++ make python3-dev unzip\
   && rm -rf /var/lib/apt/lists/*
 
 # Install uv (fast Python package manager) directly to system PATH
