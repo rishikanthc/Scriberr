@@ -134,9 +134,9 @@ export function Header({ onFileSelect, onMultiTrackClick, onDownloadComplete }: 
 							<Button
 								variant="default"
 								size="icon"
-								className="bg-transparent hover:bg-[var(--brand-light)] text-[var(--brand-solid)] border border-[var(--brand-solid)] h-8 w-8 sm:h-10 sm:w-10 rounded-[var(--radius-btn)] shadow-none transition-all hover:scale-105 active:scale-95 cursor-pointer"
+								className="bg-gradient-to-br from-[#FFAB40] to-[#FF3D00] text-white shadow-[0_4px_12px_rgba(255,61,0,0.4)] hover:shadow-[0_6px_16px_rgba(255,61,0,0.5)] border-none h-8 w-8 sm:h-10 sm:w-10 rounded-full transition-all hover:scale-105 active:scale-95 cursor-pointer"
 							>
-								<Plus className="h-4 w-4 sm:h-5 sm:w-5" />
+								<Plus className="h-5 w-5 sm:h-6 sm:w-6" />
 								<span className="sr-only">Add audio</span>
 							</Button>
 						</DropdownMenuTrigger>
