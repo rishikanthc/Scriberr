@@ -426,6 +426,7 @@ function TranscriptSectionWrapper({ audioId, currentTime, transcript, isPlaying,
             currentWordIndex={currentWordIndex}
             transcript={transcript}
             isPlaying={isPlaying}
+            className="font-transcript"
             {...props}
         />
     );

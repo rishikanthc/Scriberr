@@ -10,7 +10,6 @@ import {
 	Settings2,
 	Check,
 	AlertCircle,
-	Calendar,
 	Clock
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -39,7 +38,6 @@ import {
 	DropdownMenuSeparator
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { TranscriptionConfigDialog, type WhisperXParams } from "@/components/TranscriptionConfigDialog";
 import { TranscribeDDialog } from "@/components/TranscribeDDialog";
 import { useNavigate } from "react-router-dom";
@@ -47,43 +45,8 @@ import { useAuth } from "@/features/auth/hooks/useAuth";
 import { useAudioListInfinite, type AudioFile } from "@/features/transcription/hooks/useAudioFiles";
 
 
-// Debounced search input component to prevent focus loss
-function DebouncedSearchInput({
-	value,
-	onChange,
-	placeholder,
-	className
-}: {
-	value: string;
-	onChange: (value: string) => void;
-	placeholder: string;
-	className: string;
-}) {
-	const [searchValue, setSearchValue] = useState(value);
+import { DebouncedSearchInput } from "@/components/DebouncedSearchInput";
 
-	// Update internal state when external value changes
-	useEffect(() => {
-		setSearchValue(value);
-	}, [value]);
-
-	// Debounce the onChange callback
-	useEffect(() => {
-		const timeoutId = setTimeout(() => {
-			onChange(searchValue);
-		}, 300);
-
-		return () => clearTimeout(timeoutId);
-	}, [searchValue, onChange]);
-
-	return (
-		<Input
-			placeholder={placeholder}
-			value={searchValue}
-			onChange={(e) => setSearchValue(e.target.value)}
-			className={`h-10 rounded-[var(--radius-btn)] border-[var(--border-subtle)] bg-[var(--bg-main)] focus:ring-[var(--brand-light)] focus:border-[var(--brand-solid)] transition-all duration-200 ${className}`}
-		/>
-	);
-}
 
 
 
@@ -592,10 +555,10 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 			year: "numeric",
 			month: "short",
 			day: "numeric",
-			hour: "2-digit",
-			minute: "2-digit",
 		});
 	}, []);
+
+
 
 
 	const getFileName = useCallback((audioPath: string) => {
@@ -695,8 +658,8 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 
 								{/* Left: Identification */}
 								<div className="flex items-center gap-4 min-w-0">
-									{/* Icon (Tinted Pastel Square) */}
-									<div className="flex-shrink-0 w-12 h-12 flex items-center justify-center rounded-xl bg-[#FFF4E6] text-[#FF6D20] group-hover:opacity-0 transition-opacity duration-200">
+									{/* Icon (Tinted Pastel Square) - Lighter Shade */}
+									<div className="flex-shrink-0 w-12 h-12 flex items-center justify-center rounded-xl bg-[#FFFAF0] text-[#FF6D20] group-hover:opacity-0 transition-opacity duration-200">
 										<FileAudio className="h-6 w-6" strokeWidth={2} />
 									</div>
 
@@ -706,7 +669,6 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 											{file.title || getFileName(file.audio_path)}
 										</h4>
 										<div className="flex items-center gap-1.5 mt-1 text-sm text-gray-500">
-											<Calendar className="h-3 w-3" />
 											{formatDate(file.created_at)}
 										</div>
 									</div>

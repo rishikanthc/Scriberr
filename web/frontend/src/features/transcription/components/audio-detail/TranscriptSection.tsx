@@ -12,6 +12,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { X, StickyNote } from "lucide-react";
 import { computeWordOffsets } from "@/features/transcription/hooks/useKaraokeHighlight";
 import type { Transcript } from "@/features/transcription/hooks/useAudioDetail";
+import { cn } from "@/lib/utils";
 
 interface TranscriptSectionProps {
     audioId: string;
@@ -49,8 +50,9 @@ export function TranscriptSection({
     setSpeakerRenameOpen,
     downloadDialogOpen,
     setDownloadDialogOpen,
-    downloadFormat
-}: TranscriptSectionProps) {
+    downloadFormat,
+    className
+}: TranscriptSectionProps & { className?: string }) {
     const isMobile = useIsMobile();
 
     // Data hooks
@@ -162,7 +164,7 @@ export function TranscriptSection({
                 */}
 
             {/* Transcript Content - Systematic Typography */}
-            <div className="relative overflow-hidden font-sans">
+            <div className={cn("relative overflow-hidden font-sans", className)}>
                 <div className="w-full text-[var(--text-secondary)] leading-relaxed">
                     <div ref={transcriptRef} className="relative">
                         <TranscriptView

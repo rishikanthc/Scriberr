@@ -77,6 +77,7 @@
   --font-display: 'Outfit', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   --font-mono: 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
   --font-inter: 'Inter', sans-serif;
+  --font-lora: 'Lora', serif;
   /* For Transcripts */
 
   /* UI Token Mappings for Tailwind v4 */
@@ -298,7 +299,7 @@
 
   body {
     @apply bg-background text-foreground antialiased selection:bg-gray-200 dark:selection:bg-carbon-800;
-    font-family: 'Outfit', sans-serif;
+    font-family: var(--font-inter);
   }
 
   /* Stable Layout Gutter */
@@ -313,7 +314,9 @@
   h5,
   h6 {
     @apply font-display tracking-tight;
-    font-family: 'Outfit', sans-serif;
+    font-family: var(--font-display);
+    letter-spacing: -0.025em;
+    /* Tighten tracking for headings */
   }
 
   /* Glassmorphism Utilities - Refined */
@@ -327,7 +330,10 @@
 
   /* Transcript Font Utility */
   .font-transcript {
-    font-family: var(--font-inter);
+    font-family: var(--font-lora);
+    font-size: 1.125rem;
+    /* 18px */
+    line-height: 1.7;
   }
 }
 
