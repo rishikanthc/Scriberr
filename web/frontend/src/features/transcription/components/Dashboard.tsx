@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { Header } from "@/components/Header";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { AudioFilesTable } from "./AudioFilesTable";
@@ -145,87 +145,97 @@ export function Dashboard() {
 		}
 	};
 
-	// Drag and drop handlers
-	const handleDragEnter = useCallback((e: React.DragEvent) => {
-		e.preventDefault();
-		e.stopPropagation();
+	// Global drag and drop handlers
+	useEffect(() => {
+		const handleWindowDragEnter = (e: DragEvent) => {
+			e.preventDefault();
+			e.stopPropagation();
+			dragCounter.current++;
 
-		dragCounter.current++;
+			if (e.dataTransfer?.items && e.dataTransfer.items.length > 0) {
+				setIsDragging(true);
+				setDragCount(dragCounter.current);
 
-		if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
-			setIsDragging(true);
-			setDragCount(dragCounter.current);
+				// Preview files being dragged
+				const files = Array.from(e.dataTransfer.items)
+					.filter(item => item.kind === 'file')
+					.map(item => item.getAsFile())
+					.filter((file): file is File => file !== null);
 
-			// Preview files being dragged
-			const files = Array.from(e.dataTransfer.items)
-				.filter(item => item.kind === 'file')
-				.map(item => item.getAsFile())
-				.filter((file): file is File => file !== null);
-
-			if (files.length > 0) {
-				const fileGroup = groupFiles(files);
-				setDraggedFileGroup(fileGroup);
+				if (files.length > 0) {
+					const fileGroup = groupFiles(files);
+					setDraggedFileGroup(fileGroup);
+				}
 			}
-		}
-	}, []);
+		};
 
-	const handleDragLeave = useCallback((e: React.DragEvent) => {
-		e.preventDefault();
-		e.stopPropagation();
+		const handleWindowDragLeave = (e: DragEvent) => {
+			e.preventDefault();
+			e.stopPropagation();
+			dragCounter.current--;
 
-		dragCounter.current--;
+			if (dragCounter.current === 0) {
+				setIsDragging(false);
+				setDragCount(0);
+				setDraggedFileGroup(null);
+			}
+		};
 
-		if (dragCounter.current === 0) {
+		const handleWindowDragOver = (e: DragEvent) => {
+			e.preventDefault();
+			e.stopPropagation();
+		};
+
+		const handleWindowDrop = async (e: DragEvent) => {
+			e.preventDefault();
+			e.stopPropagation();
+
+			// Reset drag state
+			dragCounter.current = 0;
 			setIsDragging(false);
 			setDragCount(0);
 			setDraggedFileGroup(null);
-		}
-	}, []);
 
-	const handleDragOver = useCallback((e: React.DragEvent) => {
-		e.preventDefault();
-		e.stopPropagation();
-	}, []);
+			if (e.dataTransfer?.files) {
+				const files = Array.from(e.dataTransfer.files);
+				if (files.length === 0) return;
 
-	const handleDrop = useCallback(async (e: React.DragEvent) => {
-		e.preventDefault();
-		e.stopPropagation();
+				const fileGroup = groupFiles(files);
 
-		// Reset drag state
-		dragCounter.current = 0;
-		setIsDragging(false);
-		setDragCount(0);
-		setDraggedFileGroup(null);
+				// Validate files
+				if (!hasValidFiles(fileGroup)) {
+					console.error('Invalid files dropped');
+					return;
+				}
 
-		const files = Array.from(e.dataTransfer.files);
-		if (files.length === 0) return;
-
-		const fileGroup = groupFiles(files);
-
-		// Validate files
-		if (!hasValidFiles(fileGroup)) {
-			// Show error - could add toast notification here
-			console.error('Invalid files dropped');
-			return;
-		}
-
-		// Handle different file types
-		if (fileGroup.type === 'multitrack') {
-			const multiTrackFiles = prepareMultiTrackFiles(fileGroup);
-			if (multiTrackFiles) {
-				// Open multi-track dialog with pre-populated data
-				setMultiTrackPreview(multiTrackFiles);
-				setIsMultiTrackDialogOpen(true);
+				// Handle different file types
+				if (fileGroup.type === 'multitrack') {
+					const multiTrackFiles = prepareMultiTrackFiles(fileGroup);
+					if (multiTrackFiles) {
+						setMultiTrackPreview(multiTrackFiles);
+						setIsMultiTrackDialogOpen(true);
+					}
+				} else if (fileGroup.type === 'video') {
+					const filesWithType = convertToFileWithType(fileGroup.files, true);
+					await handleFileSelect(filesWithType);
+				} else {
+					await handleFileSelect(fileGroup.files);
+				}
 			}
-		} else if (fileGroup.type === 'video') {
-			// Handle video files
-			const filesWithType = convertToFileWithType(fileGroup.files, true);
-			await handleFileSelect(filesWithType);
-		} else {
-			// Handle regular audio files
-			await handleFileSelect(fileGroup.files);
-		}
-	}, []);
+		};
+
+		window.addEventListener('dragenter', handleWindowDragEnter);
+		window.addEventListener('dragleave', handleWindowDragLeave);
+		window.addEventListener('dragover', handleWindowDragOver);
+		window.addEventListener('drop', handleWindowDrop);
+
+		return () => {
+			window.removeEventListener('dragenter', handleWindowDragEnter);
+			window.removeEventListener('dragleave', handleWindowDragLeave);
+			window.removeEventListener('dragover', handleWindowDragOver);
+			window.removeEventListener('drop', handleWindowDrop);
+		};
+	}, []); // Empty dependency array as handlers use refs or stable functions
 
 	const handleMultiTrackDialogClose = useCallback(() => {
 		setIsMultiTrackDialogOpen(false);
@@ -250,13 +260,6 @@ export function Dashboard() {
 				/>
 			}
 		>
-			<div
-				className="absolute inset-0 z-0"
-				onDragEnter={handleDragEnter}
-				onDragLeave={handleDragLeave}
-				onDragOver={handleDragOver}
-				onDrop={handleDrop}
-			/>
 			{/* Upload Progress */}
 
 			{/* Upload Progress */}
