@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, memo } from "react";
+import { useState, useEffect, useMemo, useCallback, memo, useRef } from "react";
 import {
 	Loader2,
 	Trash2,
@@ -10,9 +10,10 @@ import {
 	Settings2,
 	Check,
 	AlertCircle,
-	Clock
+	Clock,
+	X
 } from "lucide-react";
-import { Checkbox } from "@/components/ui/checkbox";
+// Checkbox removed
 
 import {
 	Tooltip,
@@ -112,6 +113,57 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 
 	// Selection and Dialog state
 	const [rowSelection, setRowSelection] = useState<Record<string, boolean>>({});
+	const longPressTimer = useRef<NodeJS.Timeout | undefined>(undefined);
+	const isLongPress = useRef(false);
+
+	const handleAudioClick = useCallback((audioId: string) => {
+		navigate(`/audio/${audioId}`);
+	}, [navigate]);
+
+	const toggleSelection = useCallback((id: string) => {
+		setRowSelection(prev => {
+			const next = { ...prev };
+			if (next[id]) {
+				delete next[id];
+			} else {
+				next[id] = true;
+			}
+			return next;
+		});
+	}, []);
+
+	const handleRowClick = useCallback((file: AudioFile, e: React.MouseEvent) => {
+		if (isLongPress.current) {
+			isLongPress.current = false;
+			return; // Ignore click after long press
+		}
+
+		const isSelectionMode = Object.keys(rowSelection).length > 0;
+
+		if (isSelectionMode || e.shiftKey) {
+			e.stopPropagation();
+			toggleSelection(file.id);
+		} else {
+			handleAudioClick(file.id);
+		}
+	}, [rowSelection, handleAudioClick, toggleSelection]);
+
+	const startLongPress = useCallback((id: string) => {
+		isLongPress.current = false;
+		longPressTimer.current = setTimeout(() => {
+			isLongPress.current = true;
+			toggleSelection(id);
+			// Optional: Haptic feedback here if supported
+			if (navigator.vibrate) navigator.vibrate(50);
+		}, 600); // 600ms threshold
+	}, [toggleSelection]);
+
+	const clearLongPress = useCallback(() => {
+		if (longPressTimer.current) {
+			clearTimeout(longPressTimer.current);
+		}
+	}, []);
+
 	const [bulkActionLoading, setBulkActionLoading] = useState(false);
 	const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false);
 	// data state removed
@@ -584,9 +636,6 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 		return parts[parts.length - 1];
 	}, []);
 
-	const handleAudioClick = useCallback((audioId: string) => {
-		navigate(`/audio/${audioId}`);
-	}, [navigate]);
 
 	// Table logic removed (Floating Cards used instead)
 
@@ -630,35 +679,18 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 								className={cn(
 									"group relative flex justify-between items-center p-4",
 									"bg-[var(--bg-card)] rounded-xl border border-[var(--border-subtle)]",
-									"shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer",
-									rowSelection[file.id as keyof typeof rowSelection] && "border-[var(--brand-solid)] ring-1 ring-[var(--brand-solid)]/10"
+									"shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer select-none",
+									rowSelection[file.id as keyof typeof rowSelection] && "border-[var(--brand-solid)] ring-1 ring-[var(--brand-solid)]/10 bg-orange-50/50 dark:bg-orange-900/10"
 								)}
-								onClick={() => handleAudioClick(file.id)}
+								onClick={(e) => handleRowClick(file, e)}
+								onMouseDown={() => startLongPress(file.id)}
+								onMouseUp={clearLongPress}
+								onMouseLeave={clearLongPress}
+								onTouchStart={() => startLongPress(file.id)}
+								onTouchEnd={clearLongPress}
 							>
-								{/* Selection Checkbox (Hover or Selected) */}
-								<div className={cn(
-									"absolute left-4 top-1/2 -translate-y-1/2 z-10 transition-opacity duration-200",
-									rowSelection[file.id as keyof typeof rowSelection] ? "opacity-100" : "opacity-0 group-hover:opacity-100"
-								)}
-									onClick={(e) => e.stopPropagation()} // Prevent card click
-								>
-									<Checkbox
-										checked={!!rowSelection[file.id as keyof typeof rowSelection]}
-										onCheckedChange={(checked) => {
-											setRowSelection(prev => {
-												const next = { ...prev };
-												if (checked) next[file.id as keyof typeof rowSelection] = true;
-												else delete next[file.id as keyof typeof rowSelection];
-												return next;
-											});
-										}}
-										className="bg-[var(--bg-card)] border-[var(--border-focus)] data-[state=checked]:bg-[var(--brand-solid)] data-[state=checked]:border-[var(--brand-solid)] cursor-pointer"
-									/>
-								</div>
-
 								{/* Left: Identification */}
-								{/* Added pl-10 to account for checkbox spacing */}
-								<div className="flex items-center gap-4 min-w-0 pl-10 transition-[padding] duration-200">
+								<div className="flex items-center gap-4 min-w-0 transition-[padding] duration-200">
 									{/* Icon (Tinted Pastel Square) - Lighter Shade */}
 									<div className="flex-shrink-0 w-12 h-12 flex items-center justify-center rounded-xl bg-[#FFFAF0] text-[#FF6D20] group-hover:opacity-0 transition-opacity duration-200">
 										<FileAudio className="h-6 w-6" strokeWidth={2} />
@@ -852,6 +884,23 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 								</Button>
 							</TooltipTrigger>
 							<TooltipContent>Delete Selected</TooltipContent>
+						</Tooltip>
+
+						<div className="h-4 w-px bg-[var(--border-subtle)] mx-1" />
+
+						{/* Clear Selection */}
+						<Tooltip>
+							<TooltipTrigger asChild>
+								<Button
+									variant="ghost"
+									size="icon"
+									onClick={() => setRowSelection({})}
+									className="h-9 w-9 rounded-full hover:bg-[var(--bg-card)] hover:text-[var(--text-secondary)] transition-colors"
+								>
+									<X className="h-4 w-4" />
+								</Button>
+							</TooltipTrigger>
+							<TooltipContent>Clear Selection</TooltipContent>
 						</Tooltip>
 					</div>
 				</div>
