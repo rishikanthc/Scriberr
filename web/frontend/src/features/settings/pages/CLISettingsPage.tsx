@@ -83,7 +83,7 @@ export function CLISettings() {
 
                 <div className="bg-white dark:bg-carbon-800 rounded-xl shadow-sm border border-carbon-200 dark:border-carbon-700 overflow-hidden mb-8">
                     <div className="p-6">
-                        <h2 className="text-xl font-semibold text-carbon-900 dark:text-white mb-4">
+                        <h2 className="text-xl font-bold text-carbon-900 dark:text-white mb-4">
                             Installation
                         </h2>
                         <p className="text-carbon-600 dark:text-carbon-300 mb-6">
@@ -120,7 +120,7 @@ export function CLISettings() {
 
                 <div className="grid gap-6 md:grid-cols-2">
                     <div className="bg-white dark:bg-carbon-800 rounded-xl shadow-sm border border-carbon-200 dark:border-carbon-700 p-6">
-                        <h3 className="text-lg font-semibold text-carbon-900 dark:text-white mb-3">
+                        <h3 className="text-lg font-bold text-carbon-900 dark:text-white mb-3">
                             1. Authenticate
                         </h3>
                         <p className="text-carbon-600 dark:text-carbon-300 text-sm mb-4">
@@ -132,7 +132,7 @@ export function CLISettings() {
                     </div>
 
                     <div className="bg-white dark:bg-carbon-800 rounded-xl shadow-sm border border-carbon-200 dark:border-carbon-700 p-6">
-                        <h3 className="text-lg font-semibold text-carbon-900 dark:text-white mb-3">
+                        <h3 className="text-lg font-bold text-carbon-900 dark:text-white mb-3">
                             2. Watch a Folder
                         </h3>
                         <p className="text-carbon-600 dark:text-carbon-300 text-sm mb-4">
@@ -144,7 +144,7 @@ export function CLISettings() {
                     </div>
 
                     <div className="bg-white dark:bg-carbon-800 rounded-xl shadow-sm border border-carbon-200 dark:border-carbon-700 p-6">
-                        <h3 className="text-lg font-semibold text-carbon-900 dark:text-white mb-3">
+                        <h3 className="text-lg font-bold text-carbon-900 dark:text-white mb-3">
                             3. Run as Service
                         </h3>
                         <p className="text-carbon-600 dark:text-carbon-300 text-sm mb-4">

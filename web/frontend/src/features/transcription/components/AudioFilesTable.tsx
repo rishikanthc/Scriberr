@@ -596,7 +596,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 							<div className="relative">
 								<Loader2 size={iconSize} className="text-[var(--brand-solid)] animate-spin" />
 							</div>
-							<span className="text-xs text-[var(--brand-solid)] font-medium">
+							<span className="text-sm text-[var(--brand-solid)] font-medium">
 								{completedTracks}/{totalTracks}
 							</span>
 						</div>
@@ -606,7 +606,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 							<p>Multi-Track Processing ({percentage}%)</p>
 							<div className="space-y-1">
 								{tracks && tracks.slice(0, 5).map((track: any, index: number) => (
-									<div key={index} className="flex items-center gap-2 text-xs">
+									<div key={index} className="flex items-center gap-2 text-sm">
 										<span className={`w-2 h-2 rounded-full ${track.status === 'completed' ? 'bg-[var(--success)]' :
 											track.status === 'processing' ? 'bg-[var(--warning)]' :
 												'bg-[var(--text-disabled)]'
@@ -615,7 +615,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 									</div>
 								))}
 								{tracks && tracks.length > 5 && (
-									<p className="text-xs text-[var(--text-tertiary)]">...and {tracks.length - 5} more</p>
+									<p className="text-sm text-[var(--text-tertiary)]">...and {tracks.length - 5} more</p>
 								)}
 							</div>
 						</div>
@@ -673,7 +673,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 						<TooltipTrigger asChild>
 							<div className="flex items-center gap-1 cursor-help inline-flex">
 								<Hash size={12} className="text-[var(--text-tertiary)]" />
-								<span className="text-xs text-[var(--text-tertiary)] font-medium">
+								<span className="text-sm text-[var(--text-tertiary)] font-medium">
 									{queuePosition || "?"}
 								</span>
 							</div>
@@ -725,7 +725,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 			{
 				id: "select",
 				header: ({ table }) => (
-					<div className={`transition-opacity duration-200 ${table.getIsSomeRowsSelected() || table.getIsAllRowsSelected() ? 'opacity-100' : 'opacity-0 group-hover/header:opacity-100'}`}>
+					<div className={`pr-4 transition-opacity duration-200 ${table.getIsSomeRowsSelected() || table.getIsAllRowsSelected() ? 'opacity-100' : 'opacity-0 group-hover/header:opacity-100'}`}>
 						<Checkbox
 							checked={table.getIsAllPageRowsSelected() || (table.getIsSomePageRowsSelected() && "indeterminate")}
 							onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
@@ -735,7 +735,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 					</div>
 				),
 				cell: ({ row }) => (
-					<div className={`transition-opacity duration-200 ${row.getIsSelected() ? 'opacity-100' : 'opacity-0 group-hover/row:opacity-100'}`}>
+					<div className={`pr-4 transition-opacity duration-200 ${row.getIsSelected() ? 'opacity-100' : 'opacity-0 group-hover/row:opacity-100'}`}>
 						<Checkbox
 							checked={row.getIsSelected()}
 							onCheckedChange={(value) => row.toggleSelected(!!value)}
@@ -774,7 +774,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 						<div className="relative flex items-center justify-between w-full group/title py-2">
 							<button
 								onClick={() => handleAudioClick(file.id)}
-								className="text-[var(--text-primary)] font-medium hover:text-[var(--brand-solid)] transition-colors cursor-pointer text-left font-inter truncate pr-8 text-base tracking-tight"
+								className="text-[var(--text-primary)] font-medium hover:text-[var(--brand-solid)] transition-colors cursor-pointer text-left truncate pr-8 text-base tracking-tight"
 							>
 								{file.title || getFileName(file.audio_path)}
 							</button>
@@ -905,7 +905,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 					);
 				},
 				cell: ({ getValue }) => (
-					<span className="text-[var(--text-secondary)] text-sm font-inter">
+					<span className="text-[var(--text-secondary)] text-sm sm:text-base">
 						{formatDate(getValue() as string)}
 					</span>
 				),
@@ -1163,21 +1163,21 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 		<div className="space-y-4">
 			{/* Bulk Actions Toolbar */}
 			{selectedCount > 0 && (
-				<div className="fixed bottom-8 left-1/2 transform -translate-x-1/2 z-50 glass rounded-full px-6 py-3 flex items-center gap-4 animate-in slide-in-from-bottom-5 fade-in duration-300 shadow-[var(--shadow-float)] border border-[var(--border-subtle)]">
-					<span className="text-sm font-medium text-[var(--text-secondary)] border-r border-[var(--border-subtle)] pr-4">
+				<div className="fixed bottom-8 left-1/2 transform -translate-x-1/2 z-50 glass rounded-full px-4 sm:px-6 py-2 sm:py-3 flex items-center gap-2 sm:gap-4 animate-in slide-in-from-bottom-5 fade-in duration-300 shadow-[var(--shadow-float)] border border-[var(--border-subtle)] w-[90%] sm:w-auto justify-between sm:justify-center">
+					<span className="text-xs sm:text-sm font-medium text-[var(--text-secondary)] border-r border-[var(--border-subtle)] pr-2 sm:pr-4 whitespace-nowrap">
 						{selectedCount} selected
 					</span>
 
-					<div className="flex items-center gap-2">
+					<div className="flex items-center gap-1 sm:gap-2">
 						<Button
 							variant="ghost"
 							size="sm"
 							onClick={() => setTranscribeDDialogOpen(true)}
 							disabled={bulkActionLoading}
-							className="h-9 rounded-full hover:bg-[var(--brand-light)] text-[var(--text-primary)] hover:text-[var(--brand-solid)] transition-colors"
+							className="h-8 sm:h-9 rounded-full hover:bg-[var(--brand-light)] text-[var(--text-primary)] hover:text-[var(--brand-solid)] transition-colors px-2 sm:px-4"
 						>
-							<QuickTranscribeIcon className="mr-2 h-4 w-4" />
-							Transcribe
+							<QuickTranscribeIcon className="sm:mr-2 h-4 w-4" />
+							<span className="hidden sm:inline">Transcribe</span>
 						</Button>
 
 						<Button
@@ -1185,10 +1185,10 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 							size="sm"
 							onClick={() => setConfigDialogOpen(true)}
 							disabled={bulkActionLoading}
-							className="h-9 rounded-full hover:bg-[var(--brand-light)] text-[var(--text-primary)] hover:text-[var(--brand-solid)] transition-colors"
+							className="h-8 sm:h-9 rounded-full hover:bg-[var(--brand-light)] text-[var(--text-primary)] hover:text-[var(--brand-solid)] transition-colors px-2 sm:px-4"
 						>
-							<AdvancedTranscribeIcon className="mr-2 h-4 w-4" />
-							Transcribe+
+							<AdvancedTranscribeIcon className="sm:mr-2 h-4 w-4" />
+							<span className="hidden sm:inline">Transcribe+</span>
 						</Button>
 
 						<div className="w-px h-4 bg-[var(--border-subtle)] mx-1" />
@@ -1198,10 +1198,10 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 							size="sm"
 							onClick={() => setBulkDeleteDialogOpen(true)}
 							disabled={bulkActionLoading}
-							className="h-9 rounded-full text-[var(--error)] hover:bg-[var(--error)]/10 transition-colors"
+							className="h-8 sm:h-9 rounded-full text-[var(--error)] hover:bg-[var(--error)]/10 transition-colors px-2 sm:px-4"
 						>
-							<Trash2 className="mr-2 h-4 w-4" />
-							Delete
+							<Trash2 className="sm:mr-2 h-4 w-4" />
+							<span className="hidden sm:inline">Delete</span>
 						</Button>
 					</div>
 
@@ -1209,7 +1209,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 						variant="ghost"
 						size="icon"
 						onClick={() => setRowSelection({})}
-						className="h-6 w-6 rounded-full ml-2 hover:bg-[var(--secondary)] text-[var(--text-tertiary)]"
+						className="h-6 w-6 rounded-full ml-1 sm:ml-2 hover:bg-[var(--secondary)] text-[var(--text-tertiary)]"
 					>
 						<XCircle className="h-4 w-4" />
 					</Button>
@@ -1222,7 +1222,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 							<h2 className="text-2xl font-bold tracking-tight text-[var(--text-primary)] mb-1">
 								Audio Files
 							</h2>
-							<p className="text-[var(--text-secondary)] text-sm">
+							<p className="text-[var(--text-secondary)] text-base">
 								{globalFilter
 									? `${totalItems} file${totalItems !== 1 ? "s" : ""} found`
 									: `${totalItems} file${totalItems !== 1 ? "s" : ""}`
@@ -1245,7 +1245,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 					{data.length === 0 && !loading ? (
 						<div className="p-16 text-center border-2 border-dashed border-[var(--border-subtle)] rounded-[var(--radius-card)]">
 							<div className="text-6xl mb-6 opacity-30 grayscale">🎵</div>
-							<h3 className="text-lg font-semibold text-[var(--text-primary)] mb-2">
+							<h3 className="text-lg font-bold text-[var(--text-primary)] mb-2">
 								{globalFilter ? "No matching files" : "Your library is empty"}
 							</h3>
 							<p className="text-[var(--text-secondary)] max-w-sm mx-auto">
@@ -1277,7 +1277,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 												{headerGroup.headers.map((header) => (
 													<TableHead
 														key={header.id}
-														className={`h-12 text-xs font-semibold uppercase tracking-wider text-[var(--text-tertiary)] ${header.column.id === 'created_at' ? 'hidden sm:table-cell' : ''} ${header.column.id === 'title' ? 'w-full pl-0' : ''} ${header.column.id === 'status' ? 'w-10 text-center' : ''} ${header.column.id === 'actions' ? 'w-10 text-center lg:hidden' : ''} ${header.column.id === 'select' ? 'w-[40px] px-2' : ''}`}
+														className={`h-12 text-sm font-bold uppercase tracking-wider text-[var(--text-tertiary)] ${header.column.id === 'created_at' ? 'hidden sm:table-cell' : ''} ${header.column.id === 'title' ? 'w-full pl-0' : ''} ${header.column.id === 'status' ? 'w-10 text-center' : ''} ${header.column.id === 'actions' ? 'w-10 text-center lg:hidden' : ''} ${header.column.id === 'select' ? 'w-[40px] px-2' : ''}`}
 													>
 														{header.isPlaceholder
 															? null

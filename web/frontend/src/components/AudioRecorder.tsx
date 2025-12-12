@@ -274,7 +274,7 @@ export function AudioRecorder({
 		<Dialog open={isOpen} onOpenChange={handleClose}>
 			<DialogContent className="sm:max-w-[600px] bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700">
 				<DialogHeader>
-					<DialogTitle className="text-carbon-900 dark:text-carbon-100 text-xl font-semibold">
+					<DialogTitle className="text-carbon-900 dark:text-carbon-100 text-xl font-bold">
 						Record Audio
 					</DialogTitle>
 					<DialogDescription className="text-carbon-600 dark:text-carbon-400">

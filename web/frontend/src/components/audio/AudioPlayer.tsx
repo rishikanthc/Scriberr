@@ -218,7 +218,7 @@ export const AudioPlayer = forwardRef<AudioPlayerRef, AudioPlayerProps>(({
                 {/* Waveform & Info */}
                 <div className="flex-1 min-w-0 flex flex-col justify-center gap-1.5">
                     {/* Time & Title Row */}
-                    <div className="flex items-center justify-between text-xs font-semibold tracking-wide text-[var(--text-tertiary)] px-1 uppercase">
+                    <div className="flex items-center justify-between text-xs font-bold tracking-wide text-[var(--text-tertiary)] px-1 uppercase">
                         {isLoading ? (
                             <span className="animate-pulse">Loading audio... {loadingProgress}%</span>
                         ) : (

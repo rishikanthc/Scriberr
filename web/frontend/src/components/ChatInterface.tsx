@@ -533,7 +533,7 @@ export const ChatInterface = memo(function ChatInterface({ transcriptionId, acti
             <div className="h-16 w-16 rounded-full bg-muted flex items-center justify-center mb-4">
               <MessageCircle className="h-8 w-8 text-muted-foreground" />
             </div>
-            <h3 className="text-lg font-semibold text-foreground mb-2">How can I help you today?</h3>
+            <h3 className="text-lg font-bold text-foreground mb-2">How can I help you today?</h3>
             <p className="text-sm text-muted-foreground max-w-sm">
               Start a conversation about this transcript or ask any questions you have.
             </p>

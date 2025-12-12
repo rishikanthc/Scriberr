@@ -1,6 +1,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@400;500;600;700&display=swap');
+
 
 @custom-variant dark (&:is(.dark *));
 
@@ -297,7 +297,8 @@
   }
 
   body {
-    @apply bg-background text-foreground font-sans antialiased selection:bg-gray-200 dark:selection:bg-carbon-800;
+    @apply bg-background text-foreground antialiased selection:bg-gray-200 dark:selection:bg-carbon-800;
+    font-family: 'Outfit', sans-serif;
   }
 
   /* Stable Layout Gutter */
@@ -312,6 +313,7 @@
   h5,
   h6 {
     @apply font-display tracking-tight;
+    font-family: 'Outfit', sans-serif;
   }
 
   /* Glassmorphism Utilities - Refined */

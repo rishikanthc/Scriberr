@@ -119,7 +119,7 @@ export function CLIAuthConfirmation() {
                     </h1>
 
                     <p className="text-carbon-600 dark:text-carbon-300 mb-6">
-                        <span className="font-semibold">{deviceName}</span> wants to access your account <span className="font-semibold">{user?.username}</span>.
+                        <span className="font-bold">{deviceName}</span> wants to access your account <span className="font-bold">{user?.username}</span>.
                     </p>
 
                     <div className="flex flex-col gap-3">

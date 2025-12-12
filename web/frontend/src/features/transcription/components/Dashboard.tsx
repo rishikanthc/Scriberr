@@ -257,7 +257,7 @@ export function Dashboard() {
 				{uploadProgress.length > 0 && (
 					<div className="mb-8 glass-card rounded-[var(--radius-card)] p-6 sm:p-8 shadow-[var(--shadow-float)] border border-[var(--border-subtle)] animate-in fade-in slide-in-from-top-4 duration-500">
 						<div className="flex items-center justify-between mb-6">
-							<h3 className="text-lg font-semibold tracking-tight text-[var(--text-primary)]">
+							<h3 className="text-lg font-bold tracking-tight text-[var(--text-primary)]">
 								Uploading Files ({uploadProgress.filter(p => p.status === 'success').length}/{uploadProgress.length})
 							</h3>
 							{!isUploading && (
