@@ -5,6 +5,16 @@ import { Input } from './ui/input'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
 import { Label } from './ui/label'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "./ui/alert-dialog"
 import { useAuth } from '@/features/auth/hooks/useAuth'
 import { useChatEvents } from '../contexts/ChatEventsContext'
 
@@ -35,6 +45,7 @@ export function ChatSessionsSidebar({
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editTitle, setEditTitle] = useState('')
   const [generatingTitleIds, setGeneratingTitleIds] = useState<Set<string>>(new Set())
+  const [deleteId, setDeleteId] = useState<string | null>(null)
 
   useEffect(() => {
     loadModels()
@@ -116,8 +127,13 @@ export function ChatSessionsSidebar({
     } catch { }
   }
 
-  async function deleteSession(id: string) {
-    if (!confirm('Delete this chat session?')) return
+  async function initiateDelete(id: string) {
+    setDeleteId(id)
+  }
+
+  async function confirmDelete() {
+    if (!deleteId) return
+    const id = deleteId
     try {
       const res = await fetch(`/api/v1/chat/sessions/${id}`, { method: 'DELETE', headers: getAuthHeaders() })
       if (!res.ok) return
@@ -136,7 +152,9 @@ export function ChatSessionsSidebar({
           onSessionChange(null)
         }
       }
-    } catch { }
+    } catch { } finally {
+      setDeleteId(null)
+    }
   }
 
   return (
@@ -197,10 +215,10 @@ export function ChatSessionsSidebar({
 
         {/* Search bar placeholder - similar to Open-webui */}
         <div className="relative mb-4">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-carbon-400" />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[var(--text-tertiary)]" />
           <Input
             placeholder="Search conversations..."
-            className="pl-10 bg-muted/50 border-transparent text-sm"
+            className="pl-10 bg-[var(--bg-card)] border-[var(--border-subtle)] shadow-sm text-sm focus-visible:ring-[var(--brand-solid)] transition-all"
             disabled
           />
         </div>
@@ -223,7 +241,7 @@ export function ChatSessionsSidebar({
                 key={session.id}
                 onClick={() => onSessionChange(session.id)}
                 className={`
-                  group relative p-3 rounded-xl border cursor-pointer transition-all duration-200
+                  group relative p-3 rounded-xl border cursor-pointer transition-all duration-200 pr-10 min-h-[64px]
                   ${session.id === activeSessionId
                     ? 'bg-card border-[#FF6D20] shadow-md ring-1 ring-[#FF6D20]/20 z-10'
                     : 'bg-card border-border/60 shadow-md hover:border-primary/50 hover:bg-card/80'
@@ -245,7 +263,7 @@ export function ChatSessionsSidebar({
                         autoFocus
                       />
                     ) : (
-                      <h3 className={`text-sm font-medium truncate ${session.id === activeSessionId ? 'text-[#FF6D20]' : 'text-foreground group-hover:text-foreground'}`}>
+                      <h3 className={`text-sm font-medium truncate leading-tight ${session.id === activeSessionId ? 'text-[#FF6D20]' : 'text-foreground group-hover:text-foreground'}`}>
                         {session.title || 'Untitled Chat'}
                         {generatingTitleIds.has(session.id) && (
                           <span className="inline-flex items-center ml-2 text-brand-500 dark:text-brand-400" title="Generating title...">
@@ -254,40 +272,39 @@ export function ChatSessionsSidebar({
                         )}
                       </h3>
                     )}
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className="text-[10px] uppercase tracking-wider text-muted-foreground bg-muted/50 px-1.5 py-0.5 rounded-md">
+                    <div className="flex items-center gap-2 mt-2">
+                      <span className="text-[10px] uppercase tracking-wider text-muted-foreground bg-muted/50 px-1.5 py-0.5 rounded-md font-medium">
                         {session.model}
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        • {session.message_count} msgs
                       </span>
                     </div>
                   </div>
 
-                  {/* Actions */}
-                  <div className={`flex items-center opacity-0 group-hover:opacity-100 transition-opacity ${session.id === activeSessionId ? 'opacity-100' : ''}`}>
+                  {/* Overlay Actions */}
+                  <div className={`absolute top-2 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-card/80 backdrop-blur-sm rounded-lg p-0.5 shadow-sm border border-border/50 ${session.id === activeSessionId ? 'opacity-0 hover:opacity-100' : ''}`}>
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-6 w-6 text-muted-foreground hover:text-foreground"
+                      className="h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-accent"
                       onClick={(e) => {
                         e.stopPropagation();
                         setEditingId(session.id);
                         setEditTitle(session.title);
                       }}
+                      title="Rename"
                     >
-                      <Edit2 className="h-3 w-3" />
+                      <Edit2 className="h-3.5 w-3.5" />
                     </Button>
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-6 w-6 text-muted-foreground hover:text-red-500"
+                      className="h-7 w-7 text-muted-foreground hover:text-red-500 hover:bg-red-500/10"
                       onClick={(e) => {
                         e.stopPropagation();
-                        deleteSession(session.id);
+                        initiateDelete(session.id);
                       }}
+                      title="Delete"
                     >
-                      <Trash2 className="h-3 w-3" />
+                      <Trash2 className="h-3.5 w-3.5" />
                     </Button>
                   </div>
                 </div>
@@ -296,6 +313,27 @@ export function ChatSessionsSidebar({
           </div>
         )}
       </div>
+
+      {/* Delete Confirmation Alert */}
+      <AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
+        <AlertDialogContent className="bg-[#FFFFFF] dark:bg-[#0A0A0A] border-[var(--border-subtle)] shadow-[var(--shadow-float)] rounded-[var(--radius-card)]">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Chat Session?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the chat history for this session.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="rounded-full border-[var(--border-subtle)] hover:bg-[var(--bg-main)]">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              className="rounded-full bg-red-500 text-white hover:bg-red-600 shadow-sm"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
