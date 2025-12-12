@@ -239,27 +239,14 @@ export const AudioDetailView = function AudioDetailView({ audioId: propAudioId }
                                             <Button
                                                 variant="outline"
                                                 size="sm"
-                                                onClick={() => handleSetChatOpen(!chatOpen)}
+                                                onClick={() => setChatOpen(!chatOpen)}
                                                 className={cn(
-                                                    "hidden sm:flex gap-2 rounded-full border-[var(--border-subtle)] shadow-sm bg-[var(--bg-card)] hover:bg-[var(--bg-main)] transition-all",
+                                                    "rounded-full border-[var(--border-subtle)] shadow-sm bg-[var(--bg-card)] hover:bg-[var(--bg-main)] transition-all gap-2 px-3",
                                                     chatOpen && "border-[var(--brand-solid)] text-[var(--brand-solid)]"
                                                 )}
                                             >
                                                 <MessageCircle className="h-4 w-4" />
-                                                Chat
-                                            </Button>
-
-                                            {/* Mobile Chat Button */}
-                                            <Button
-                                                variant="outline"
-                                                size="icon"
-                                                onClick={() => setChatOpen(true)}
-                                                className={cn(
-                                                    "rounded-full border-[var(--border-subtle)] shadow-sm bg-[var(--bg-card)] hover:bg-[var(--bg-main)] transition-all",
-                                                    chatOpen && "text-[var(--brand-solid)] border-[var(--brand-solid)]"
-                                                )}
-                                            >
-                                                <MessageCircle className="h-4 w-4" />
+                                                <span className="hidden sm:inline">Chat</span>
                                             </Button>
 
                                             <DropdownMenu>
@@ -356,11 +343,16 @@ export const AudioDetailView = function AudioDetailView({ audioId: propAudioId }
                     <>
                         {/* Resizer Handle */}
                         <div
-                            className="w-1 cursor-col-resize hover:bg-[var(--brand-solid)] active:bg-[var(--brand-solid)] transition-colors bg-[var(--border-subtle)] z-30 flex-shrink-0"
+                            // 1. Container: Wider hit area (w-3 = 12px) for easy grabbing, transparent bg
+                            className="w-1 flex justify-center cursor-col-resize z-30 flex-shrink-0 group relative select-none"
                             onMouseDown={() => setIsResizing(true)}
-                        />
+                        >
+                            {/* 2. Visual Line: The actual thin line the user sees */}
+                            <div className="w-[1px] h-full bg-[var(--border-subtle)] transition-colors group-hover:bg-[var(--brand-solid)] group-active:bg-[var(--brand-solid)]" />
+                        </div>
                         {/* Right Pane */}
-                        <div style={{ width: sidebarWidth }} className="flex-shrink-0 h-full border-l border-[var(--border-subtle)] bg-[var(--bg-card)] shadow-xl z-20">
+                        {/* Right Pane */}
+                        <div style={{ width: sidebarWidth }} className="flex-shrink-0 h-full  bg-[var(--bg-card)] z-20">
                             <ChatSidePanel
                                 transcriptionId={audioId}
                                 isOpen={chatOpen}
