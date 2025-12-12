@@ -249,6 +249,19 @@ export const AudioDetailView = function AudioDetailView({ audioId: propAudioId }
                                                 Chat
                                             </Button>
 
+                                            {/* Mobile Chat Button */}
+                                            <Button
+                                                variant="outline"
+                                                size="icon"
+                                                onClick={() => setChatOpen(true)}
+                                                className={cn(
+                                                    "rounded-full border-[var(--border-subtle)] shadow-sm bg-[var(--bg-card)] hover:bg-[var(--bg-main)] transition-all",
+                                                    chatOpen && "text-[var(--brand-solid)] border-[var(--brand-solid)]"
+                                                )}
+                                            >
+                                                <MessageCircle className="h-4 w-4" />
+                                            </Button>
+
                                             <DropdownMenu>
                                                 <DropdownMenuTrigger asChild>
                                                     <Button
@@ -388,17 +401,14 @@ export const AudioDetailView = function AudioDetailView({ audioId: propAudioId }
 
             {/* Mobile / Overlay Chat */}
             {chatOpen && isMobile && createPortal(
-                <div className="fixed inset-0 z-[50] flex justify-end bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
-                    <div className="w-[85vw] max-w-[400px] h-full bg-[var(--bg-card)] shadow-2xl animate-in slide-in-from-right duration-300">
+                <div className="fixed inset-0 z-[50] flex justify-end bg-background/80 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="w-full h-full bg-[var(--bg-card)] shadow-2xl animate-in slide-in-from-right duration-300">
                         <ChatSidePanel
                             transcriptionId={audioId}
-                            isOpen={chatOpen}
-                            onClose={() => setChatOpen(false)}
+                            isOpen={chatOpen} onClose={() => setChatOpen(false)}
                             isMobile={true}
                         />
                     </div>
-                    {/* Click outside to close */}
-                    <div className="flex-1" onClick={() => setChatOpen(false)} />
                 </div>,
                 document.body
             )}

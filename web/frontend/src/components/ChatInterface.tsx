@@ -494,7 +494,7 @@ export const ChatInterface = memo(function ChatInterface({ transcriptionId, acti
           </div>
 
           {/* Input Area */}
-          <div className="pb-4 pt-2 bg-gradient-to-t from-background via-background to-transparent">
+          <div className="pb-4 pt-2 bg-gradient-to-t from-background via-background to-transparent sticky bottom-0 z-20 pb-[env(safe-area-inset-bottom)]">
             <div className="flex w-full px-3 mx-auto">
               <div className="w-full">
                 <div className="flex items-center gap-2 bg-[#F9FAFB] dark:bg-zinc-900 rounded-full p-2 mx-auto shadow-sm border border-transparent focus-within:border-[#FF6D20] focus-within:ring-1 focus-within:ring-[#FF6D20]/20 transition-all duration-300">

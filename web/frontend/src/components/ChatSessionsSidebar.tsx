@@ -156,25 +156,40 @@ export function ChatSessionsSidebar({
                 <Plus className="h-5 w-5" />
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[425px] bg-background border-border shadow-2xl">
-              <DialogHeader><DialogTitle>New Chat Session</DialogTitle></DialogHeader>
-              <div className="space-y-4">
+            <DialogContent className="sm:max-w-[425px] bg-[#FFFFFF] dark:bg-[#0A0A0A] border-[var(--border-subtle)] shadow-[var(--shadow-float)] p-6 rounded-[var(--radius-card)]">
+              <DialogHeader className="mb-4">
+                <DialogTitle className="text-xl font-bold text-[var(--text-primary)]">New Chat Session</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-5">
                 <div className="space-y-2">
-                  <Label htmlFor="model">Model</Label>
+                  <Label htmlFor="model" className="text-sm font-medium text-[var(--text-secondary)]">Model</Label>
                   <Select value={selectedModel} onValueChange={setSelectedModel}>
-                    <SelectTrigger className="w-full bg-background border-border text-foreground">
+                    <SelectTrigger className="w-full bg-[var(--bg-main)] border-[var(--border-subtle)] text-[var(--text-primary)] focus:ring-[var(--brand-solid)] focus:border-[var(--brand-solid)] hover:border-[var(--brand-solid)]/50 transition-all">
                       <SelectValue placeholder="Select a model" />
                     </SelectTrigger>
-                    <SelectContent className="bg-popover border-border">
-                      {(availableModels || []).map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                    <SelectContent className="bg-[var(--bg-card)] border-[var(--border-subtle)]">
+                      {(availableModels || []).map(m => <SelectItem key={m} value={m} className="focus:bg-[var(--brand-light)] focus:text-[var(--brand-solid)] cursor-pointer">{m}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="title">Title (optional)</Label>
-                  <Input id="title" value={newSessionTitle} onChange={e => setNewSessionTitle(e.target.value)} placeholder="Enter a title..." />
+                  <Label htmlFor="title" className="text-sm font-medium text-[var(--text-secondary)]">Title (optional)</Label>
+                  <Input
+                    id="title"
+                    value={newSessionTitle}
+                    onChange={e => setNewSessionTitle(e.target.value)}
+                    placeholder="Enter a title..."
+                    className="bg-[var(--bg-main)] border-[var(--border-subtle)] focus-visible:ring-[var(--brand-solid)] focus-visible:border-[var(--brand-solid)] transition-all"
+                  />
                 </div>
-                <Button onClick={createSession} className="w-full">Create Session</Button>
+                <div className="pt-2 flex justify-end gap-3">
+                  <Button variant="ghost" onClick={() => setShowNewSessionDialog(false)} className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-main)]">
+                    Cancel
+                  </Button>
+                  <Button onClick={createSession} className="bg-gradient-to-br from-[#FFAB40] to-[#FF3D00] text-white hover:scale-105 transition-transform shadow-md">
+                    Create Session
+                  </Button>
+                </div>
               </div>
             </DialogContent>
           </Dialog>
