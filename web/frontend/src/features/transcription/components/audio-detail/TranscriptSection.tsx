@@ -158,7 +158,7 @@ export function TranscriptSection({
     if (!transcript) return null;
 
     return (
-        <div className="glass-card rounded-[var(--radius-card)] p-4 md:p-6 min-h-[500px] border-[var(--border-subtle)] shadow-[var(--shadow-card)] transition-shadow hover:shadow-[var(--shadow-float)]">
+        <div className="md:glass-card md:rounded-[var(--radius-card)] md:border-[var(--border-subtle)] md:shadow-[var(--shadow-card)] md:hover:shadow-[var(--shadow-float)] p-4 md:p-6 min-h-[500px] transition-shadow">
             {/* 
                   TOOLBAR REMOVED -> Moved to Context Menu 
                 */}

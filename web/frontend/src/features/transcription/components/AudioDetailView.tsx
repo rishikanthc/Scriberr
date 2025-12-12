@@ -1,10 +1,11 @@
 import { useRef, useState, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { useParams, useNavigate } from "react-router-dom";
-import { MoreVertical, Edit2, Activity, FileText, Bot, Check, Loader2, List, AlignLeft, ArrowDownCircle, StickyNote, MessageCircle, FileImage, FileJson } from "lucide-react";
+import { MoreVertical, Edit2, Activity, FileText, Bot, Check, Loader2, List, AlignLeft, ArrowDownCircle, StickyNote, MessageCircle, FileImage, FileJson, Clock, AlertCircle } from "lucide-react";
 import { Header } from "@/components/Header";
 
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { EmberPlayer, type EmberPlayerRef } from "@/components/audio/EmberPlayer";
@@ -218,16 +219,49 @@ export const AudioDetailView = function AudioDetailView({ audioId: propAudioId }
                                             <div className="flex items-center gap-3 text-xs font-medium uppercase tracking-wider text-[var(--text-tertiary)]">
                                                 <span>{formattedDate}</span>
                                                 <span className="w-1 h-1 rounded-full bg-[var(--text-tertiary)] opacity-50"></span>
-                                                <div className={cn(
-                                                    "flex items-center gap-1.5 px-2 py-0.5 rounded-full border",
-                                                    audioFile.status === 'completed' && "border-[var(--success-solid)]/20 text-[var(--success-solid)] bg-[var(--success-translucent)]",
-                                                    audioFile.status === 'processing' && "border-[var(--brand-solid)]/20 text-[var(--brand-solid)] bg-[var(--brand-light)]",
-                                                    audioFile.status === 'failed' && "border-[var(--error)]/20 text-[var(--error)] bg-[var(--error)]/10",
-                                                )}>
-                                                    {audioFile.status === 'completed' && <Check className="h-3 w-3" />}
-                                                    {audioFile.status === 'processing' && <Loader2 className="h-3 w-3 animate-spin" />}
-                                                    {audioFile.status === 'failed' && <Activity className="h-3 w-3" />}
-                                                    <span>{audioFile.status}</span>
+
+                                                {/* Status Icon */}
+                                                <div>
+                                                    {audioFile.status === 'completed' && (
+                                                        <Tooltip>
+                                                            <TooltipTrigger asChild>
+                                                                <div className="cursor-help text-emerald-500">
+                                                                    <Check className="h-5 w-5" strokeWidth={2.5} />
+                                                                </div>
+                                                            </TooltipTrigger>
+                                                            <TooltipContent>Completed</TooltipContent>
+                                                        </Tooltip>
+                                                    )}
+                                                    {audioFile.status === 'processing' && (
+                                                        <Tooltip>
+                                                            <TooltipTrigger asChild>
+                                                                <div className="cursor-help text-amber-500">
+                                                                    <Loader2 className="h-5 w-5 animate-spin" strokeWidth={2.5} />
+                                                                </div>
+                                                            </TooltipTrigger>
+                                                            <TooltipContent>Processing</TooltipContent>
+                                                        </Tooltip>
+                                                    )}
+                                                    {audioFile.status === 'failed' && (
+                                                        <Tooltip>
+                                                            <TooltipTrigger asChild>
+                                                                <div className="cursor-help text-red-500">
+                                                                    <AlertCircle className="h-5 w-5" strokeWidth={2.5} />
+                                                                </div>
+                                                            </TooltipTrigger>
+                                                            <TooltipContent>Failed</TooltipContent>
+                                                        </Tooltip>
+                                                    )}
+                                                    {audioFile.status === 'pending' && (
+                                                        <Tooltip>
+                                                            <TooltipTrigger asChild>
+                                                                <div className="cursor-help text-gray-400">
+                                                                    <Clock className="h-5 w-5" strokeWidth={2.5} />
+                                                                </div>
+                                                            </TooltipTrigger>
+                                                            <TooltipContent>Queued</TooltipContent>
+                                                        </Tooltip>
+                                                    )}
                                                 </div>
                                             </div>
                                         </div>
