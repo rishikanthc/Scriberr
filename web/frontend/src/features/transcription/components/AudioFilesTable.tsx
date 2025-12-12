@@ -585,28 +585,10 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 					onChange={(value) => setGlobalFilter(String(value))}
 					className="w-full sm:w-80 shadow-sm border-transparent focus:border-[var(--brand-solid)] bg-white dark:bg-zinc-900"
 				/>
-				{/* Bulk actions */}
-				{Object.keys(rowSelection).length > 0 && (
-					<div className="flex items-center gap-2 animate-in fade-in slide-in-from-bottom-2">
-						<span className="text-sm text-[var(--text-secondary)] font-medium">
-							{selectedCount} selected
-						</span>
-						<Button
-							variant="destructive"
-							size="sm"
-							onClick={() => setBulkDeleteDialogOpen(true)}
-							disabled={bulkActionLoading}
-							className="h-8 rounded-full"
-						>
-							<Trash2 className="h-3.5 w-3.5 mr-1.5" />
-							Delete
-						</Button>
-					</div>
-				)}
 			</div>
 
 			{/* List Container */}
-			<div className="space-y-3 min-h-[300px]">
+			<div className="space-y-3 min-h-[300px] pb-24">
 				{loading ? (
 					// Skeleton Loaders
 					Array.from({ length: 5 }).map((_, i) => (
@@ -657,7 +639,8 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 								</div>
 
 								{/* Left: Identification */}
-								<div className="flex items-center gap-4 min-w-0">
+								{/* Added pl-10 to account for checkbox spacing */}
+								<div className="flex items-center gap-4 min-w-0 pl-10 transition-[padding] duration-200">
 									{/* Icon (Tinted Pastel Square) - Lighter Shade */}
 									<div className="flex-shrink-0 w-12 h-12 flex items-center justify-center rounded-xl bg-[#FFFAF0] text-[#FF6D20] group-hover:opacity-0 transition-opacity duration-200">
 										<FileAudio className="h-6 w-6" strokeWidth={2} />
@@ -789,6 +772,72 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 					</div>
 				)}
 			</div>
+
+			{/* Floating Bulk Actions Pill */}
+			{Object.keys(rowSelection).length > 0 && (
+				<div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 animate-in fade-in slide-in-from-bottom-4 duration-300">
+					<div className="glass-card flex items-center gap-1 p-1.5 pl-4 pr-1.5 rounded-full shadow-[var(--shadow-float)] border border-[var(--border-subtle)] bg-[var(--bg-main)]/95 backdrop-blur-xl ring-1 ring-black/5">
+						<div className="flex items-center gap-3 mr-2">
+							<span className="flex h-5 w-5 items-center justify-center rounded-full bg-[var(--brand-solid)] text-[10px] font-bold text-white shadow-sm">
+								{selectedCount}
+							</span>
+							<span className="text-sm font-medium text-[var(--text-primary)]">Selected</span>
+						</div>
+
+						<div className="h-4 w-px bg-[var(--border-subtle)] mx-1" />
+
+						{/* Bulk Transcribe */}
+						<Tooltip>
+							<TooltipTrigger asChild>
+								<Button
+									variant="ghost"
+									size="icon"
+									onClick={() => setTranscribeDDialogOpen(true)}
+									disabled={bulkActionLoading}
+									className="h-9 w-9 rounded-full hover:bg-[var(--brand-light)] hover:text-[var(--brand-solid)] transition-colors"
+								>
+									<Wand2 className="h-4 w-4" />
+								</Button>
+							</TooltipTrigger>
+							<TooltipContent>Transcribe Selected</TooltipContent>
+						</Tooltip>
+
+						{/* Bulk Advanced Transcribe */}
+						<Tooltip>
+							<TooltipTrigger asChild>
+								<Button
+									variant="ghost"
+									size="icon"
+									onClick={() => setConfigDialogOpen(true)}
+									disabled={bulkActionLoading}
+									className="h-9 w-9 rounded-full hover:bg-[var(--brand-light)] hover:text-[var(--brand-solid)] transition-colors"
+								>
+									<Settings2 className="h-4 w-4" />
+								</Button>
+							</TooltipTrigger>
+							<TooltipContent>Transcribe (Advanced)</TooltipContent>
+						</Tooltip>
+
+						<div className="h-4 w-px bg-[var(--border-subtle)] mx-1" />
+
+						{/* Bulk Delete */}
+						<Tooltip>
+							<TooltipTrigger asChild>
+								<Button
+									variant="ghost"
+									size="icon"
+									onClick={() => setBulkDeleteDialogOpen(true)}
+									disabled={bulkActionLoading}
+									className="h-9 w-9 rounded-full hover:bg-red-50 hover:text-[var(--error)] transition-colors"
+								>
+									<Trash2 className="h-4 w-4" />
+								</Button>
+							</TooltipTrigger>
+							<TooltipContent>Delete Selected</TooltipContent>
+						</Tooltip>
+					</div>
+				</div>
+			)}
 
 			{/* Load More Button */}
 			{hasNextPage && (
