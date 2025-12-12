@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, memo } from "react";
-import { Send, Bot, User, MessageCircle, Copy, Check } from "lucide-react";
+import { Send, User, MessageCircle, Copy, Check, Sparkles } from "lucide-react";
 import ReactMarkdown from 'react-markdown'
 import remarkMath from 'remark-math'
 import rehypeKatex from 'rehype-katex'
@@ -10,6 +10,7 @@ import { Input } from "./ui/input";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { useChatEvents } from "../contexts/ChatEventsContext";
 import { useToast } from "./ui/toast";
+import { cn } from "@/lib/utils";
 
 interface ChatSession {
   id: string;
@@ -402,16 +403,16 @@ export const ChatInterface = memo(function ChatInterface({ transcriptionId, acti
                         <div className="w-full flex justify-end">
                           <div className="flex space-x-3 max-w-3xl">
                             <div className="flex-1 overflow-hidden">
-                              <div className="bg-primary/5 dark:bg-primary/10 text-foreground rounded-2xl px-4 py-3 relative border border-primary/10 shadow-sm">
+                              <div className="bg-[#FFAB40]/10 dark:bg-[#FFAB40]/5 text-foreground rounded-3xl rounded-tr-md px-5 py-3 relative border border-[#FFAB40]/20 shadow-sm">
                                 {/* Copy button */}
                                 <button
                                   onClick={async () => { try { await navigator.clipboard.writeText(message.content || ''); } catch { } }}
-                                  className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-background/50"
+                                  className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-background/20 text-[#FF6D20]"
                                   title="Copy message"
                                 >
-                                  <Copy className="h-3 w-3 text-muted-foreground" />
+                                  <Copy className="h-3 w-3" />
                                 </button>
-                                <div className="text-sm leading-relaxed pr-6 font-inter">
+                                <div className="text-sm leading-relaxed pr-6 font-reading">
                                   {message.content}
                                 </div>
                               </div>
@@ -429,29 +430,28 @@ export const ChatInterface = memo(function ChatInterface({ transcriptionId, acti
                       <div className="flex w-full px-2 mx-auto">
                         <div className="w-full flex justify-start">
                           <div className="flex space-x-3 max-w-5xl w-full">
-                            <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center flex-shrink-0 border border-border">
-                              <Bot className="h-4 w-4 text-muted-foreground" />
+                            <div className="h-8 w-8 rounded-full bg-indigo-500/10 dark:bg-indigo-500/20 flex items-center justify-center flex-shrink-0 border border-indigo-500/20">
+                              <Sparkles className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
                             </div>
                             <div className="flex-1 space-y-2 overflow-hidden">
-                              <div className="flex items-center space-x-2">
-                                <div className="font-medium text-foreground text-sm">Assistant</div>
-                              </div>
-                              <div className="prose prose-sm dark:prose-invert max-w-none text-foreground leading-relaxed font-inter">
+                              <div className="bg-card dark:bg-zinc-900 border border-border/40 shadow-sm rounded-3xl rounded-tl-md px-5 py-4 relative">
                                 {/* Copy button for assistant message */}
                                 <button
                                   onClick={async () => { try { await navigator.clipboard.writeText(message.content || ''); } catch { } }}
-                                  className="float-right opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-muted ml-2"
+                                  className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-muted text-muted-foreground"
                                   title="Copy message"
                                 >
                                   <Copy className="h-3 w-3" />
                                 </button>
-                                <ReactMarkdown
-                                  remarkPlugins={[remarkMath]}
-                                  rehypePlugins={[rehypeRaw as any, rehypeKatex as any, rehypeHighlight as any]}
-                                  components={{ pre: PreBlock as any }}
-                                >
-                                  {message.content}
-                                </ReactMarkdown>
+                                <div className="prose prose-sm dark:prose-invert max-w-none text-foreground leading-relaxed font-reading">
+                                  <ReactMarkdown
+                                    remarkPlugins={[remarkMath]}
+                                    rehypePlugins={[rehypeRaw as any, rehypeKatex as any, rehypeHighlight as any]}
+                                    components={{ pre: PreBlock as any }}
+                                  >
+                                    {message.content}
+                                  </ReactMarkdown>
+                                </div>
                               </div>
                             </div>
                           </div>
@@ -469,13 +469,10 @@ export const ChatInterface = memo(function ChatInterface({ transcriptionId, acti
                     <div className="flex w-full max-w-5xl px-2 mx-auto">
                       <div className="w-full flex justify-start">
                         <div className="flex space-x-3 max-w-5xl w-full">
-                          <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
-                            <Bot className="h-4 w-4 text-muted-foreground" />
+                          <div className="h-8 w-8 rounded-full bg-indigo-500/10 dark:bg-indigo-500/20 flex items-center justify-center flex-shrink-0 border border-indigo-500/20 animate-pulse">
+                            <Sparkles className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
                           </div>
                           <div className="flex-1 space-y-2 overflow-hidden">
-                            <div className="flex items-center space-x-2">
-                              <div className="font-medium text-foreground text-sm">Assistant</div>
-                            </div>
                             <div className="flex items-center space-x-2 text-muted-foreground">
                               <div className="flex space-x-1">
                                 <div className="w-2 h-2 bg-current rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
@@ -500,21 +497,26 @@ export const ChatInterface = memo(function ChatInterface({ transcriptionId, acti
           <div className="pb-4 pt-2 bg-gradient-to-t from-background via-background to-transparent">
             <div className="flex w-full px-3 mx-auto">
               <div className="w-full">
-                <div className="flex items-end gap-3 glass-card rounded-2xl p-3 mx-auto shadow-sm focus-within:shadow-md transition-shadow duration-300">
+                <div className="flex items-center gap-2 bg-[#F9FAFB] dark:bg-zinc-900 rounded-full p-2 mx-auto shadow-sm border border-transparent focus-within:border-[#FF6D20] focus-within:ring-1 focus-within:ring-[#FF6D20]/20 transition-all duration-300">
                   <Input
                     ref={inputRef}
                     value={inputMessage}
                     onChange={(e) => setInputMessage(e.target.value)}
                     onKeyDown={handleKeyPress}
-                    placeholder="Send a message..."
+                    placeholder="Type your message..."
                     disabled={isLoading}
-                    className="flex-1 border-0 bg-transparent focus-visible:ring-0 focus:ring-0 outline-none resize-none text-sm placeholder:text-muted-foreground font-inter"
+                    className="flex-1 border-0 bg-transparent focus-visible:ring-0 focus:ring-0 outline-none resize-none text-sm placeholder:text-muted-foreground font-reading px-4 h-9"
                   />
                   <Button
                     onClick={sendMessage}
                     disabled={isLoading || !inputMessage.trim()}
-                    size="sm"
-                    className="h-8 w-8 p-0 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm transition-all hover:scale-105"
+                    size="icon"
+                    className={cn(
+                      "h-9 w-9 p-0 rounded-full shadow-sm transition-all duration-300 hover:scale-105 active:scale-95",
+                      !inputMessage.trim() || isLoading
+                        ? "bg-gray-200 text-gray-400 dark:bg-zinc-800 dark:text-zinc-600"
+                        : "bg-gradient-to-br from-[#FFAB40] to-[#FF3D00] text-white shadow-orange-500/20"
+                    )}
                   >
                     <Send className="h-4 w-4" />
                   </Button>
