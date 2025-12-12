@@ -139,17 +139,17 @@ export const AudioDetailView = function AudioDetailView({ audioId: propAudioId }
             {/* 
               1. Header Redesign:
               - Using shared Header component for consistency
-              - Padding matches Dashboard (px-6)
+              - Padding matches Dashboard (px-6) -> Reduced for mobile
             */}
-            <div className="max-w-[960px] mx-auto w-full px-6 py-8">
+            <div className="max-w-[960px] mx-auto w-full px-3 py-4 sm:px-6 sm:py-8">
                 <Header
                     onFileSelect={() => { }} // No file upload in detail view
                 />
             </div>
 
             {/* Main Content */}
-            <main className="flex-1 px-6 pb-32 max-w-[960px] mx-auto w-full">
-                <div className="mx-auto space-y-8">
+            <main className="flex-1 px-3 sm:px-6 pb-32 max-w-[960px] mx-auto w-full">
+                <div className="mx-auto space-y-6 sm:space-y-8">
 
                     {/* 
                       2. Metadata Section (New):
@@ -158,7 +158,7 @@ export const AudioDetailView = function AudioDetailView({ audioId: propAudioId }
                       - Metadata Row (Date, Status, Actions)
                       - Generous whitespace
                     */}
-                    <div className="space-y-6 pt-4">
+                    <div className="space-y-4 sm:space-y-6">
                         {/* Top Row: Back Button REMOVED (Redundant) */}
 
 
