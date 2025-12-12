@@ -7,7 +7,7 @@ const AudioDetailView = lazy(() => import("@/features/transcription/components/A
 const Settings = lazy(() => import('@/features/settings/pages/SettingsPage').then(module => ({ default: module.Settings })))
 const CLISettings = lazy(() => import('@/features/settings/pages/CLISettingsPage').then(module => ({ default: module.CLISettings })))
 const CLIAuthConfirmation = lazy(() => import('./features/auth/components/CLIAuthConfirmation').then(module => ({ default: module.CLIAuthConfirmation })))
-const ChatPage = lazy(() => import('./pages/ChatPage').then(module => ({ default: module.ChatPage })))
+
 
 // Loading component
 const PageLoader = () => (
@@ -22,7 +22,7 @@ function App() {
       <Routes>
         <Route path="/" element={<Dashboard />} />
         <Route path="/audio/:audioId" element={<AudioDetailView />} />
-        <Route path="/audio/:audioId/chat/:sessionId?" element={<ChatPage />} />
+
         <Route path="/settings" element={<Settings />} />
         <Route path="/settings/cli" element={<CLISettings />} />
         <Route path="/auth/cli/authorize" element={<CLIAuthConfirmation />} />

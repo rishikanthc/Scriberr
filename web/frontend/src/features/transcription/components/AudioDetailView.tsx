@@ -1,10 +1,11 @@
 import { useRef, useState, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { useParams, useNavigate } from "react-router-dom";
-import { MoreVertical, Edit2, Activity, FileText, Bot, Check, Loader2, List, AlignLeft, ArrowDownCircle, StickyNote, Users, MessageCircle, FileImage, FileJson } from "lucide-react";
+import { MoreVertical, Edit2, Activity, FileText, Bot, Check, Loader2, List, AlignLeft, ArrowDownCircle, StickyNote, MessageCircle, FileImage, FileJson } from "lucide-react";
 import { Header } from "@/components/Header";
 
 import { Button } from "@/components/ui/button";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { EmberPlayer, type EmberPlayerRef } from "@/components/audio/EmberPlayer";
 import { cn } from "@/lib/utils";
@@ -19,6 +20,8 @@ import { TranscriptSection } from "./audio-detail/TranscriptSection";
 import { ExecutionInfoDialog } from "./audio-detail/ExecutionInfoDialog";
 import { LogsDialog } from "./audio-detail/LogsDialog";
 import { SummaryDialog } from "./audio-detail/SummaryDialog";
+import { ChatSidePanel } from "./ChatSidePanel";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 // Types
 interface AudioDetailViewProps {
@@ -63,17 +66,9 @@ export const AudioDetailView = function AudioDetailView({ audioId: propAudioId }
     const { downloadSRT } = useTranscriptDownload();
 
     // Helpers
-    const getDetectedSpeakers = useCallback(() => {
-        if (!transcript?.segments) return [];
-        const speakers = new Set<string>();
-        transcript.segments.forEach((segment: any) => {
-            if (segment.speaker) speakers.add(segment.speaker);
-        });
-        return Array.from(speakers).sort();
-    }, [transcript]);
 
-    const hasSpeakers = audioFile?.diarization || audioFile?.parameters?.diarize || audioFile?.is_multi_track || false;
-    const detectedSpeakers = getDetectedSpeakers();
+
+
 
     // Effects
     useEffect(() => {
@@ -103,6 +98,56 @@ export const AudioDetailView = function AudioDetailView({ audioId: propAudioId }
 
     if (!audioId) return <div>Invalid Audio ID</div>;
 
+    // State for Split View
+    const [chatOpen, setChatOpen] = useState(false);
+    const [sidebarWidth, setSidebarWidth] = useState(400);
+    const [isResizing, setIsResizing] = useState(false);
+    const splitContainerRef = useRef<HTMLDivElement>(null);
+    const isMobile = useIsMobile();
+
+    // Handler for notes/chat exclusivity
+    const handleSetNotesOpen = (open: boolean) => {
+        if (open) setChatOpen(false);
+        setNotesOpen(open);
+    };
+
+    const handleSetChatOpen = (open: boolean) => {
+        if (open) setNotesOpen(false);
+        setChatOpen(open);
+    };
+
+    // Resizing Logic
+    useEffect(() => {
+        const handleMouseMove = (e: MouseEvent) => {
+            if (!isResizing) return;
+            const containerWidth = splitContainerRef.current?.getBoundingClientRect().width || window.innerWidth;
+            const newWidth = containerWidth - e.clientX;
+            // Constraints
+            if (newWidth > 300 && newWidth < 800) {
+                setSidebarWidth(newWidth);
+            }
+        };
+
+        const handleMouseUp = () => {
+            setIsResizing(false);
+            document.body.style.cursor = 'default';
+        };
+
+        if (isResizing) {
+            window.addEventListener('mousemove', handleMouseMove);
+            window.addEventListener('mouseup', handleMouseUp);
+            document.body.style.cursor = 'col-resize';
+        }
+
+        return () => {
+            window.removeEventListener('mousemove', handleMouseMove);
+            window.removeEventListener('mouseup', handleMouseUp);
+        };
+    }, [isResizing]);
+
+
+    if (!audioId) return <div>Invalid Audio ID</div>;
+
     // Render
     if (isLoading) {
         return (
@@ -121,7 +166,7 @@ export const AudioDetailView = function AudioDetailView({ audioId: propAudioId }
         );
     }
 
-    // Helper to format date "Premium" style: "OCT 12, 2023"
+    // Helper to format date "Premium" style
     const formattedDate = new Date(audioFile.created_at).toLocaleDateString("en-US", {
         month: "short",
         day: "numeric",
@@ -129,203 +174,199 @@ export const AudioDetailView = function AudioDetailView({ audioId: propAudioId }
     }).toUpperCase();
 
     return (
-        <div className="min-h-screen flex flex-col bg-[var(--bg-main)] relative selection:bg-[var(--brand-light)]">
-            {/* 
-              1. Header Redesign:
-              - Constrained width (max-w-4xl) to match content
-              - Only Logo + Theme Switcher
-              - "Invisible" feel (glass background, subtle border)
-            */}
-            {/* 
-              1. Header Redesign:
-              - Using shared Header component for consistency
-              - Padding matches Dashboard (px-6) -> Reduced for mobile
-            */}
-            <div className="max-w-[960px] mx-auto w-full px-3 py-4 sm:px-6 sm:py-8">
-                <Header
-                    onFileSelect={() => { }} // No file upload in detail view
-                />
-            </div>
-
-            {/* Main Content */}
-            <main className="flex-1 px-3 sm:px-6 pb-32 max-w-[960px] mx-auto w-full">
-                <div className="mx-auto space-y-6 sm:space-y-8">
-
-                    {/* 
-                      2. Metadata Section (New):
-                      - Back Navigation
-                      - Title (Large, Bold)
-                      - Metadata Row (Date, Status, Actions)
-                      - Generous whitespace
-                    */}
-                    <div className="space-y-4 sm:space-y-6">
-                        {/* Top Row: Back Button REMOVED (Redundant) */}
+        <div className="h-screen flex flex-col bg-[var(--bg-main)] relative selection:bg-[var(--brand-light)] overflow-hidden">
+            {/* Split Container */}
+            <div ref={splitContainerRef} className="flex-1 flex overflow-hidden relative">
+                {/* LEFT PANE (Main) */}
+                <main className="flex-1 min-w-0 flex flex-col h-full relative z-0">
 
 
-                        {/* Title & Actions Row */}
-                        <div className="flex items-start justify-between gap-4">
-                            <div className="space-y-3 flex-1 min-w-0">
-                                {/* Title with Edit Hover */}
-                                {isEditingTitle ? (
-                                    <Input
-                                        value={newTitle}
-                                        onChange={(e) => setNewTitle(e.target.value)}
-                                        onBlur={handleTitleSave}
-                                        onKeyDown={(e) => e.key === 'Enter' && handleTitleSave()}
-                                        className="h-10 text-3xl font-bold tracking-tight bg-transparent border-none focus:ring-0 focus:outline-none p-0 placeholder:text-[var(--text-tertiary)]"
-                                        autoFocus
-                                    />
-                                ) : (
-                                    <div
-                                        className="group flex items-center gap-3 cursor-text"
-                                        onClick={() => setIsEditingTitle(true)}
-                                    >
-                                        <h1 className="text-3xl font-bold tracking-tight text-[var(--text-primary)] truncate font-display">
-                                            {audioFile.title || "Untitled Recording"}
-                                        </h1>
-                                        <Edit2 className="h-4 w-4 text-[var(--text-tertiary)] opacity-0 group-hover:opacity-100 transition-opacity" />
-                                    </div>
-                                )}
+                    {/* Scrollable Content */}
+                    <div className="flex-1 overflow-y-auto scrollbar-thin">
+                        <div className="max-w-[960px] mx-auto w-full px-4 sm:px-8 py-8 pb-32">
+                            <div className="mb-8">
+                                <Header onFileSelect={() => { }} />
+                            </div>
+                            <div className="space-y-6 sm:space-y-8">
+                                {/* Title & Metadata */}
+                                <div className="space-y-4">
+                                    <div className="flex items-start justify-between gap-4">
+                                        <div className="space-y-3 flex-1 min-w-0">
+                                            {/* Title Edit Logic */}
+                                            {isEditingTitle ? (
+                                                <Input
+                                                    value={newTitle}
+                                                    onChange={(e) => setNewTitle(e.target.value)}
+                                                    onBlur={handleTitleSave}
+                                                    onKeyDown={(e) => e.key === 'Enter' && handleTitleSave()}
+                                                    className="h-10 text-3xl font-bold tracking-tight bg-transparent border-none focus:ring-0 focus:outline-none p-0 placeholder:text-[var(--text-tertiary)]"
+                                                    autoFocus
+                                                />
+                                            ) : (
+                                                <div
+                                                    className="group flex items-center gap-3 cursor-text"
+                                                    onClick={() => setIsEditingTitle(true)}
+                                                >
+                                                    <h1 className="text-3xl font-bold tracking-tight text-[var(--text-primary)] truncate font-display">
+                                                        {audioFile.title || "Untitled Recording"}
+                                                    </h1>
+                                                    <Edit2 className="h-4 w-4 text-[var(--text-tertiary)] opacity-0 group-hover:opacity-100 transition-opacity" />
+                                                </div>
+                                            )}
 
-                                {/* Metadata Badges */}
-                                <div className="flex items-center gap-3 text-xs font-medium uppercase tracking-wider text-[var(--text-tertiary)]">
-                                    <span>{formattedDate}</span>
-                                    <span className="w-1 h-1 rounded-full bg-[var(--text-tertiary)] opacity-50"></span>
-                                    <div className={cn(
-                                        "flex items-center gap-1.5 px-2 py-0.5 rounded-full border",
-                                        audioFile.status === 'completed' && "border-[var(--success-solid)]/20 text-[var(--success-solid)] bg-[var(--success-translucent)]",
-                                        audioFile.status === 'processing' && "border-[var(--brand-solid)]/20 text-[var(--brand-solid)] bg-[var(--brand-light)]",
-                                        audioFile.status === 'failed' && "border-[var(--error)]/20 text-[var(--error)] bg-[var(--error)]/10",
-                                    )}>
-                                        {audioFile.status === 'completed' && <Check className="h-3 w-3" />}
-                                        {audioFile.status === 'processing' && <Loader2 className="h-3 w-3 animate-spin" />}
-                                        {audioFile.status === 'failed' && <Activity className="h-3 w-3" />}
-                                        <span>{audioFile.status}</span>
+                                            {/* Badges */}
+                                            <div className="flex items-center gap-3 text-xs font-medium uppercase tracking-wider text-[var(--text-tertiary)]">
+                                                <span>{formattedDate}</span>
+                                                <span className="w-1 h-1 rounded-full bg-[var(--text-tertiary)] opacity-50"></span>
+                                                <div className={cn(
+                                                    "flex items-center gap-1.5 px-2 py-0.5 rounded-full border",
+                                                    audioFile.status === 'completed' && "border-[var(--success-solid)]/20 text-[var(--success-solid)] bg-[var(--success-translucent)]",
+                                                    audioFile.status === 'processing' && "border-[var(--brand-solid)]/20 text-[var(--brand-solid)] bg-[var(--brand-light)]",
+                                                    audioFile.status === 'failed' && "border-[var(--error)]/20 text-[var(--error)] bg-[var(--error)]/10",
+                                                )}>
+                                                    {audioFile.status === 'completed' && <Check className="h-3 w-3" />}
+                                                    {audioFile.status === 'processing' && <Loader2 className="h-3 w-3 animate-spin" />}
+                                                    {audioFile.status === 'failed' && <Activity className="h-3 w-3" />}
+                                                    <span>{audioFile.status}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Action Menu */}
+                                        {/* ... keeping existing Logic but updating Chat action ... */}
+                                        <div className="flex items-center gap-2">
+                                            {/* Quick Chat Button */}
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => handleSetChatOpen(!chatOpen)}
+                                                className={cn(
+                                                    "hidden sm:flex gap-2 rounded-full border-[var(--border-subtle)] shadow-sm bg-[var(--bg-card)] hover:bg-[var(--bg-main)] transition-all",
+                                                    chatOpen && "border-[var(--brand-solid)] text-[var(--brand-solid)]"
+                                                )}
+                                            >
+                                                <MessageCircle className="h-4 w-4" />
+                                                Chat
+                                            </Button>
+
+                                            <DropdownMenu>
+                                                <DropdownMenuTrigger asChild>
+                                                    <Button
+                                                        variant="outline"
+                                                        size="icon"
+                                                        className="rounded-full border-[var(--border-subtle)] shadow-sm bg-[var(--bg-card)] hover:bg-[var(--bg-main)] transition-all"
+                                                    >
+                                                        <MoreVertical className="h-4 w-4 text-[var(--text-secondary)]" />
+                                                    </Button>
+                                                </DropdownMenuTrigger>
+                                                <DropdownMenuContent align="end" className="w-56 glass-card rounded-[var(--radius-card)] shadow-[var(--shadow-float)] border-[var(--border-subtle)] p-1.5">
+                                                    {/* ... (Menu Items same as before, update handlers) ... */}
+                                                    <DropdownMenuItem onClick={() => setTranscriptMode(transcriptMode === 'compact' ? 'expanded' : 'compact')} className="rounded-[8px] cursor-pointer">
+                                                        {transcriptMode === 'compact' ? <List className="mr-2 h-4 w-4 opacity-70" /> : <AlignLeft className="mr-2 h-4 w-4 opacity-70" />}
+                                                        {transcriptMode === 'compact' ? 'Timeline View' : 'Compact View'}
+                                                    </DropdownMenuItem>
+                                                    <DropdownMenuItem onClick={() => setAutoScrollEnabled(!autoScrollEnabled)} className="rounded-[8px] cursor-pointer">
+                                                        <ArrowDownCircle className={cn("mr-2 h-4 w-4 opacity-70", autoScrollEnabled && "text-[var(--brand-solid)]")} />
+                                                        Auto Scroll {autoScrollEnabled ? 'On' : 'Off'}
+                                                    </DropdownMenuItem>
+                                                    <DropdownMenuItem onClick={() => handleSetNotesOpen(!notesOpen)} className="rounded-[8px] cursor-pointer">
+                                                        <StickyNote className={cn("mr-2 h-4 w-4 opacity-70", notesOpen && "text-[var(--brand-solid)]")} />
+                                                        Notes
+                                                    </DropdownMenuItem>
+                                                    <DropdownMenuSeparator className="bg-[var(--border-subtle)] my-1" />
+                                                    <DropdownMenuItem onClick={() => handleSetChatOpen(!chatOpen)} className="rounded-[8px] cursor-pointer">
+                                                        <MessageCircle className={cn("mr-2 h-4 w-4 opacity-70", chatOpen && "text-[var(--brand-solid)]")} />
+                                                        Chat with Audio
+                                                    </DropdownMenuItem>
+                                                    {/* ... Rest of menu items ... */}
+                                                    <DropdownMenuItem onClick={() => setSummaryDialogOpen(true)} className="rounded-[8px] cursor-pointer text-[var(--brand-solid)] focus:text-[var(--brand-solid)] focus:bg-[var(--brand-light)]">
+                                                        <Bot className="mr-2 h-4 w-4" /> AI Summary
+                                                    </DropdownMenuItem>
+                                                    <DropdownMenuSeparator className="bg-[var(--border-subtle)] my-1" />
+                                                    <DropdownMenuItem onClick={() => transcript && downloadSRT(transcript, audioFile?.title || 'transcript', speakerMappings)} className="rounded-[8px] cursor-pointer">
+                                                        <FileImage className="mr-2 h-4 w-4 opacity-70" /> Download SRT
+                                                    </DropdownMenuItem>
+                                                    <DropdownMenuItem onClick={() => { setDownloadFormat('txt'); setDownloadDialogOpen(true); }} className="rounded-[8px] cursor-pointer">
+                                                        <AlignLeft className="mr-2 h-4 w-4 opacity-70" /> Download Text
+                                                    </DropdownMenuItem>
+                                                    <DropdownMenuItem onClick={() => { setDownloadFormat('json'); setDownloadDialogOpen(true); }} className="rounded-[8px] cursor-pointer">
+                                                        <FileJson className="mr-2 h-4 w-4 opacity-70" /> Download JSON
+                                                    </DropdownMenuItem>
+                                                    <DropdownMenuSeparator className="bg-[var(--border-subtle)] my-1" />
+                                                    <DropdownMenuItem onClick={() => setExecutionDialogOpen(true)} className="rounded-[8px] cursor-pointer">
+                                                        <Activity className="mr-2 h-4 w-4 opacity-70" /> Execution Info
+                                                    </DropdownMenuItem>
+                                                    <DropdownMenuItem onClick={() => setLogsDialogOpen(true)} className="rounded-[8px] cursor-pointer">
+                                                        <FileText className="mr-2 h-4 w-4 opacity-70" /> View Logs
+                                                    </DropdownMenuItem>
+                                                </DropdownMenuContent>
+                                            </DropdownMenu>
+                                        </div>
                                     </div>
                                 </div>
+
+                                {/* Audio Player */}
+                                <div className="sticky top-0 z-10 glass-card rounded-[var(--radius-card)] border-[var(--border-subtle)] shadow-[var(--shadow-card)] p-4 md:p-6 mb-8 transition-all duration-300 hover:shadow-[var(--shadow-float)]">
+                                    <EmberPlayer
+                                        ref={audioPlayerRef}
+                                        audioId={audioId}
+                                        onTimeUpdate={handleTimeUpdate}
+                                        onPlayStateChange={setIsPlaying}
+                                    />
+                                </div>
+
+                                {/* Transcript */}
+                                <TranscriptSectionWrapper
+                                    audioId={audioId}
+                                    currentTime={currentTime}
+                                    onSeek={handleSeek}
+                                    transcript={transcript}
+                                    speakerMappings={speakerMappings}
+                                    transcriptMode={transcriptMode}
+                                    autoScrollEnabled={autoScrollEnabled}
+                                    notesOpen={notesOpen}
+                                    setNotesOpen={handleSetNotesOpen}
+                                    speakerRenameOpen={speakerRenameOpen}
+                                    setSpeakerRenameOpen={setSpeakerRenameOpen}
+                                    downloadDialogOpen={downloadDialogOpen}
+                                    setDownloadDialogOpen={setDownloadDialogOpen}
+                                    downloadFormat={downloadFormat}
+                                    isPlaying={isPlaying}
+                                />
                             </div>
-
-                            {/* Action Menu (Floating) */}
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button
-                                        variant="outline"
-                                        size="icon"
-                                        className="rounded-full border-[var(--border-subtle)] shadow-sm bg-[var(--bg-card)] hover:bg-[var(--bg-main)] hover:border-[var(--border-focus)] transition-all"
-                                    >
-                                        <MoreVertical className="h-4 w-4 text-[var(--text-secondary)]" />
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end" className="w-56 glass-card rounded-[var(--radius-card)] shadow-[var(--shadow-float)] border-[var(--border-subtle)] p-1.5">
-                                    <DropdownMenuLabel className="text-xs font-bold text-[var(--text-tertiary)] uppercase tracking-wider px-2 py-1.5">
-                                        View Options
-                                    </DropdownMenuLabel>
-                                    <DropdownMenuItem onClick={() => setTranscriptMode(transcriptMode === 'compact' ? 'expanded' : 'compact')} className="rounded-[8px] cursor-pointer">
-                                        {transcriptMode === 'compact' ? <List className="mr-2 h-4 w-4 opacity-70" /> : <AlignLeft className="mr-2 h-4 w-4 opacity-70" />}
-                                        {transcriptMode === 'compact' ? 'Timeline View' : 'Compact View'}
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => setAutoScrollEnabled(!autoScrollEnabled)} className="rounded-[8px] cursor-pointer">
-                                        <ArrowDownCircle className={cn("mr-2 h-4 w-4 opacity-70", autoScrollEnabled && "text-[var(--brand-solid)]")} />
-                                        Auto Scroll {autoScrollEnabled ? 'On' : 'Off'}
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => setNotesOpen(!notesOpen)} className="rounded-[8px] cursor-pointer">
-                                        <StickyNote className={cn("mr-2 h-4 w-4 opacity-70", notesOpen && "text-[var(--brand-solid)]")} />
-                                        Notes
-                                    </DropdownMenuItem>
-
-                                    <DropdownMenuSeparator className="bg-[var(--border-subtle)] my-1" />
-
-                                    <DropdownMenuLabel className="text-xs font-bold text-[var(--text-tertiary)] uppercase tracking-wider px-2 py-1.5">
-                                        Actions
-                                    </DropdownMenuLabel>
-                                    {hasSpeakers && detectedSpeakers.length > 0 && (
-                                        <DropdownMenuItem onClick={() => setSpeakerRenameOpen(true)} className="rounded-[8px] cursor-pointer">
-                                            <Users className="mr-2 h-4 w-4 opacity-70" /> Rename Speakers
-                                        </DropdownMenuItem>
-                                    )}
-                                    <DropdownMenuItem onClick={() => navigate(`/audio/${audioId}/chat`)} className="rounded-[8px] cursor-pointer">
-                                        <MessageCircle className="mr-2 h-4 w-4 opacity-70" /> Chat with Audio
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => setSummaryDialogOpen(true)} className="rounded-[8px] cursor-pointer text-[var(--brand-solid)] focus:text-[var(--brand-solid)] focus:bg-[var(--brand-light)]">
-                                        <Bot className="mr-2 h-4 w-4" /> AI Summary
-                                    </DropdownMenuItem>
-
-                                    <DropdownMenuSeparator className="bg-[var(--border-subtle)] my-1" />
-
-                                    <DropdownMenuLabel className="text-xs font-bold text-[var(--text-tertiary)] uppercase tracking-wider px-2 py-1.5">
-                                        Downloads
-                                    </DropdownMenuLabel>
-                                    <DropdownMenuItem onClick={() => transcript && downloadSRT(transcript, audioFile?.title || 'transcript', speakerMappings)} className="rounded-[8px] cursor-pointer">
-                                        <FileImage className="mr-2 h-4 w-4 opacity-70" /> Download SRT
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => { setDownloadFormat('txt'); setDownloadDialogOpen(true); }} className="rounded-[8px] cursor-pointer">
-                                        <AlignLeft className="mr-2 h-4 w-4 opacity-70" /> Download Text
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => { setDownloadFormat('json'); setDownloadDialogOpen(true); }} className="rounded-[8px] cursor-pointer">
-                                        <FileJson className="mr-2 h-4 w-4 opacity-70" /> Download JSON
-                                    </DropdownMenuItem>
-
-                                    <DropdownMenuSeparator className="bg-[var(--border-subtle)] my-1" />
-
-                                    <DropdownMenuLabel className="text-xs font-bold text-[var(--text-tertiary)] uppercase tracking-wider px-2 py-1.5">
-                                        System
-                                    </DropdownMenuLabel>
-                                    <DropdownMenuItem onClick={() => setExecutionDialogOpen(true)} className="rounded-[8px] cursor-pointer">
-                                        <Activity className="mr-2 h-4 w-4 opacity-70" /> Execution Info
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => setLogsDialogOpen(true)} className="rounded-[8px] cursor-pointer">
-                                        <FileText className="mr-2 h-4 w-4 opacity-70" /> View Logs
-                                    </DropdownMenuItem>
-                                </DropdownMenuContent>
-                            </DropdownMenu>
                         </div>
                     </div>
+                </main>
 
-                    {/* 
-                      3. Audio Player:
-                      - Floating Card style
-                      - 1px hairline border
-                      - Replaced with EmberPlayer (Streaming + Viz)
-                    */}
-                    <div className="sticky top-6 z-40 glass-card rounded-[var(--radius-card)] border-[var(--border-subtle)] shadow-[var(--shadow-card)] p-4 md:p-6 mb-8 transition-all duration-300 hover:shadow-[var(--shadow-float)]">
-                        <EmberPlayer
-                            ref={audioPlayerRef}
-                            audioId={audioId}
-                            onTimeUpdate={handleTimeUpdate}
-                            onPlayStateChange={setIsPlaying}
+                {/* Handlers & Right Pane (Desktop Split) */}
+                {chatOpen && !isMobile && (
+                    <>
+                        {/* Resizer Handle */}
+                        <div
+                            className="w-1 cursor-col-resize hover:bg-[var(--brand-solid)] active:bg-[var(--brand-solid)] transition-colors bg-[var(--border-subtle)] z-30 flex-shrink-0"
+                            onMouseDown={() => setIsResizing(true)}
                         />
-                    </div>
+                        {/* Right Pane */}
+                        <div style={{ width: sidebarWidth }} className="flex-shrink-0 h-full border-l border-[var(--border-subtle)] bg-[var(--bg-card)] shadow-xl z-20">
+                            <ChatSidePanel
+                                transcriptionId={audioId}
+                                isOpen={chatOpen}
+                                onClose={() => setChatOpen(false)}
+                                isMobile={false}
+                            />
+                        </div>
+                    </>
+                )}
+            </div>
 
-                    {/* 
-                      4. Transcript Section:
-                      - Clean container
-                      - Typography handled by component (ensure it uses font-transcript)
-                    */}
-                    {/* 
-                      4. Transcript Section:
-                      - Clean container, removed nested card
-                    */}
-                    <TranscriptSectionWrapper
-                        audioId={audioId}
-                        currentTime={currentTime}
-                        onSeek={handleSeek}
+            {/* Mobile / Overlay Chat (If we want overlay behavior even on desktop, we can adjust logic) */}
+            {/* Note: User asked for sliding over on mobile. NotesSidebar handles this via portal internally often, or we do it here.
+                 Let's do it here for Chat.
+             */}
+            {/* If we define isMobile properly (using hook), we can conditional rendering.
+                 Since I don't have the hook imported in this snippet yet, I will add it.
+              */}
 
-                        // Pass down lifted state & setters
-                        transcript={transcript}
-                        speakerMappings={speakerMappings}
-                        transcriptMode={transcriptMode}
-                        autoScrollEnabled={autoScrollEnabled}
-                        notesOpen={notesOpen}
-                        setNotesOpen={setNotesOpen}
-                        speakerRenameOpen={speakerRenameOpen}
-                        setSpeakerRenameOpen={setSpeakerRenameOpen}
-                        downloadDialogOpen={downloadDialogOpen}
-                        setDownloadDialogOpen={setDownloadDialogOpen}
-                        downloadFormat={downloadFormat}
-                        isPlaying={isPlaying}
-                    />
-                </div>
-            </main>
 
             {/* Dialogs */}
             <ExecutionInfoDialog
@@ -344,6 +385,23 @@ export const AudioDetailView = function AudioDetailView({ audioId: propAudioId }
                 onClose={setSummaryDialogOpen}
                 llmReady={true}
             />
+
+            {/* Mobile / Overlay Chat */}
+            {chatOpen && isMobile && createPortal(
+                <div className="fixed inset-0 z-[50] flex justify-end bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="w-[85vw] max-w-[400px] h-full bg-[var(--bg-card)] shadow-2xl animate-in slide-in-from-right duration-300">
+                        <ChatSidePanel
+                            transcriptionId={audioId}
+                            isOpen={chatOpen}
+                            onClose={() => setChatOpen(false)}
+                            isMobile={true}
+                        />
+                    </div>
+                    {/* Click outside to close */}
+                    <div className="flex-1" onClick={() => setChatOpen(false)} />
+                </div>,
+                document.body
+            )}
         </div>
     );
 };
