@@ -217,7 +217,7 @@ export const AudioDetailView = function AudioDetailView({ audioId: propAudioId }
                                     </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end" className="w-56 glass-card rounded-[var(--radius-card)] shadow-[var(--shadow-float)] border-[var(--border-subtle)] p-1.5">
-                                    <DropdownMenuLabel className="text-xs font-semibold text-[var(--text-tertiary)] uppercase tracking-wider px-2 py-1.5">
+                                    <DropdownMenuLabel className="text-xs font-bold text-[var(--text-tertiary)] uppercase tracking-wider px-2 py-1.5">
                                         View Options
                                     </DropdownMenuLabel>
                                     <DropdownMenuItem onClick={() => setTranscriptMode(transcriptMode === 'compact' ? 'expanded' : 'compact')} className="rounded-[8px] cursor-pointer">
@@ -235,7 +235,7 @@ export const AudioDetailView = function AudioDetailView({ audioId: propAudioId }
 
                                     <DropdownMenuSeparator className="bg-[var(--border-subtle)] my-1" />
 
-                                    <DropdownMenuLabel className="text-xs font-semibold text-[var(--text-tertiary)] uppercase tracking-wider px-2 py-1.5">
+                                    <DropdownMenuLabel className="text-xs font-bold text-[var(--text-tertiary)] uppercase tracking-wider px-2 py-1.5">
                                         Actions
                                     </DropdownMenuLabel>
                                     {hasSpeakers && detectedSpeakers.length > 0 && (
@@ -252,7 +252,7 @@ export const AudioDetailView = function AudioDetailView({ audioId: propAudioId }
 
                                     <DropdownMenuSeparator className="bg-[var(--border-subtle)] my-1" />
 
-                                    <DropdownMenuLabel className="text-xs font-semibold text-[var(--text-tertiary)] uppercase tracking-wider px-2 py-1.5">
+                                    <DropdownMenuLabel className="text-xs font-bold text-[var(--text-tertiary)] uppercase tracking-wider px-2 py-1.5">
                                         Downloads
                                     </DropdownMenuLabel>
                                     <DropdownMenuItem onClick={() => transcript && downloadSRT(transcript, audioFile?.title || 'transcript', speakerMappings)} className="rounded-[8px] cursor-pointer">
@@ -267,7 +267,7 @@ export const AudioDetailView = function AudioDetailView({ audioId: propAudioId }
 
                                     <DropdownMenuSeparator className="bg-[var(--border-subtle)] my-1" />
 
-                                    <DropdownMenuLabel className="text-xs font-semibold text-[var(--text-tertiary)] uppercase tracking-wider px-2 py-1.5">
+                                    <DropdownMenuLabel className="text-xs font-bold text-[var(--text-tertiary)] uppercase tracking-wider px-2 py-1.5">
                                         System
                                     </DropdownMenuLabel>
                                     <DropdownMenuItem onClick={() => setExecutionDialogOpen(true)} className="rounded-[8px] cursor-pointer">

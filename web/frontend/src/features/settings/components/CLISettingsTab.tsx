@@ -34,7 +34,7 @@ export function CLISettingsTab() {
         <div className="space-y-6">
             <div className="bg-[var(--bg-main)]/50 rounded-[var(--radius-card)] shadow-sm border border-[var(--border-subtle)] overflow-hidden">
                 <div className="p-6">
-                    <h2 className="text-xl font-semibold text-[var(--text-primary)] mb-4">
+                    <h2 className="text-xl font-bold text-[var(--text-primary)] mb-4">
                         Installation
                     </h2>
                     <p className="text-[var(--text-secondary)] mb-6">
@@ -71,7 +71,7 @@ export function CLISettingsTab() {
 
             <div className="grid gap-6 md:grid-cols-2">
                 <div className="bg-[var(--bg-main)]/50 rounded-[var(--radius-card)] shadow-sm border border-[var(--border-subtle)] p-6">
-                    <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-3">
+                    <h3 className="text-lg font-bold text-[var(--text-primary)] mb-3">
                         1. Authenticate
                     </h3>
                     <p className="text-[var(--text-secondary)] text-sm mb-4">
@@ -83,7 +83,7 @@ export function CLISettingsTab() {
                 </div>
 
                 <div className="bg-[var(--bg-main)]/50 rounded-[var(--radius-card)] shadow-sm border border-[var(--border-subtle)] p-6">
-                    <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-3">
+                    <h3 className="text-lg font-bold text-[var(--text-primary)] mb-3">
                         2. Watch a Folder
                     </h3>
                     <p className="text-[var(--text-secondary)] text-sm mb-4">
@@ -95,7 +95,7 @@ export function CLISettingsTab() {
                 </div>
 
                 <div className="bg-[var(--bg-main)]/50 rounded-[var(--radius-card)] shadow-sm border border-[var(--border-subtle)] p-6">
-                    <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-3">
+                    <h3 className="text-lg font-bold text-[var(--text-primary)] mb-3">
                         3. Run as Service
                     </h3>
                     <p className="text-[var(--text-secondary)] text-sm mb-4">

@@ -163,7 +163,7 @@ export function SummaryDialog({ audioId, isOpen, onClose, llmReady }: SummaryDia
                                     h2: ({ node, ...props }) => <h2 className="text-[var(--text-primary)] font-bold text-xl mt-6 mb-3" {...props} />,
                                     h3: ({ node, ...props }) => <h3 className="text-[var(--text-primary)] font-bold text-lg mt-5 mb-2" {...props} />,
                                     li: ({ node, ...props }) => <li className="text-[var(--text-secondary)]" {...props} />,
-                                    strong: ({ node, ...props }) => <strong className="text-[var(--text-primary)] font-semibold" {...props} />,
+                                    strong: ({ node, ...props }) => <strong className="text-[var(--text-primary)] font-bold" {...props} />,
                                 }}
                             >
                                 {streamContent || existingSummary?.content || ""}

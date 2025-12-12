@@ -39,7 +39,7 @@ export function ExecutionInfoDialog({ audioId, isOpen, onClose }: ExecutionInfoD
                     <div className="space-y-6 py-4">
                         {/* Overall Processing Time */}
                         <div className="bg-[var(--bg-main)] rounded-[var(--radius-card)] border border-[var(--border-subtle)] p-4 sm:p-6 shadow-sm">
-                            <h3 className="text-base font-semibold text-[var(--text-primary)] mb-4 flex items-center gap-2">
+                            <h3 className="text-base font-bold text-[var(--text-primary)] mb-4 flex items-center gap-2">
                                 <Clock className="h-4 w-4 text-[var(--text-secondary)]" />
                                 Processing Timeline
                             </h3>
@@ -66,7 +66,7 @@ export function ExecutionInfoDialog({ audioId, isOpen, onClose }: ExecutionInfoD
                         {/* Individual Track Processing */}
                         {executionData.is_multi_track && executionData.multi_track_timings && executionData.multi_track_timings.length > 0 && (
                             <div className="bg-[var(--bg-main)] rounded-[var(--radius-card)] border border-[var(--border-subtle)] p-4 sm:p-6 shadow-sm">
-                                <h3 className="text-base font-semibold text-[var(--text-primary)] mb-4 flex items-center gap-2">
+                                <h3 className="text-base font-bold text-[var(--text-primary)] mb-4 flex items-center gap-2">
                                     <UsersRound className="h-4 w-4 text-[var(--text-secondary)]" />
                                     Track Processing
                                 </h3>
@@ -93,7 +93,7 @@ export function ExecutionInfoDialog({ audioId, isOpen, onClose }: ExecutionInfoD
                         {/* Parameters Display - Curated Snapshot */}
                         {executionData.actual_parameters && (
                             <div className="bg-[var(--bg-main)] rounded-[var(--radius-card)] border border-[var(--border-subtle)] p-4 sm:p-6 shadow-sm">
-                                <h3 className="text-base font-semibold text-[var(--text-primary)] mb-4">
+                                <h3 className="text-base font-bold text-[var(--text-primary)] mb-4">
                                     Configuration Parameters
                                 </h3>
                                 <CuratedParamsDisplay params={executionData.actual_parameters} />

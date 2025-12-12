@@ -144,7 +144,7 @@ export function ChatSessionsSidebar({
       {/* Header */}
       <div className="flex-shrink-0 p-4">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-foreground">Chats</h2>
+          <h2 className="text-lg font-bold text-foreground">Chats</h2>
           <Dialog open={showNewSessionDialog} onOpenChange={setShowNewSessionDialog}>
             <DialogTrigger asChild>
               <Button

@@ -240,7 +240,7 @@ export function TranscriptSection({
                                     <h3 className="font-bold text-[var(--text-primary)] flex items-center gap-2 text-lg">
                                         <StickyNote className="h-5 w-5 text-[var(--brand-solid)]" />
                                         Notes
-                                        <span className="ml-1 text-xs font-semibold rounded-full px-2 py-0.5 bg-[var(--bg-main)] text-[var(--text-secondary)] border border-[var(--border-subtle)]">
+                                        <span className="ml-1 text-xs font-bold rounded-full px-2 py-0.5 bg-[var(--bg-main)] text-[var(--text-secondary)] border border-[var(--border-subtle)]">
                                             {notes.length}
                                         </span>
                                     </h3>
