@@ -971,20 +971,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 								</PopoverTrigger>
 								<PopoverContent className="w-40 bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700 p-1">
 									<div className="space-y-1">
-										{file.status === "completed" && (
-											<Button
-												variant="ghost"
-												size="sm"
-												className="w-full justify-start h-8 text-sm hover:bg-carbon-100 dark:hover:bg-carbon-700 cursor-pointer"
-												onClick={() => {
-													setOpenPopovers((prev) => ({ ...prev, [file.id]: false }));
-													navigate(`/audio/${file.id}/chat`);
-												}}
-											>
-												<MessageCircle className="mr-2 h-4 w-4" />
-												Open Chat
-											</Button>
-										)}
+
 										<Button
 											variant="ghost"
 											size="sm"

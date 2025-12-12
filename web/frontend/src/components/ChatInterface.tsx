@@ -392,13 +392,13 @@ export const ChatInterface = memo(function ChatInterface({ transcriptionId, acti
             className="flex-1 overflow-y-auto pb-2.5 flex flex-col justify-between w-full flex-auto max-w-full z-10"
             id="messages-container"
           >
-            <div className="h-full w-full flex flex-col px-6 py-6 space-y-6">
+            <div className="h-full w-full flex flex-col px-3 py-4 space-y-4">
               {(messages || []).map(message => (
                 <div key={message.id} className="group w-full">
                   {message.role === "user" ? (
                     /* User Message */
                     <div className="flex justify-end">
-                      <div className="flex w-full max-w-5xl px-6 mx-auto">
+                      <div className="flex w-full px-2 mx-auto">
                         <div className="w-full flex justify-end">
                           <div className="flex space-x-3 max-w-3xl">
                             <div className="flex-1 overflow-hidden">
@@ -426,7 +426,7 @@ export const ChatInterface = memo(function ChatInterface({ transcriptionId, acti
                   ) : (
                     /* Assistant Message */
                     <div className="flex justify-start">
-                      <div className="flex w-full max-w-5xl px-6 mx-auto">
+                      <div className="flex w-full px-2 mx-auto">
                         <div className="w-full flex justify-start">
                           <div className="flex space-x-3 max-w-5xl w-full">
                             <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center flex-shrink-0 border border-border">
@@ -466,7 +466,7 @@ export const ChatInterface = memo(function ChatInterface({ transcriptionId, acti
               {isLoading && (
                 <div className="group w-full">
                   <div className="flex justify-start">
-                    <div className="flex w-full max-w-5xl px-6 mx-auto">
+                    <div className="flex w-full max-w-5xl px-2 mx-auto">
                       <div className="w-full flex justify-start">
                         <div className="flex space-x-3 max-w-5xl w-full">
                           <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
@@ -498,7 +498,7 @@ export const ChatInterface = memo(function ChatInterface({ transcriptionId, acti
 
           {/* Input Area */}
           <div className="pb-4 pt-2 bg-gradient-to-t from-background via-background to-transparent">
-            <div className="flex w-full max-w-5xl px-6 mx-auto">
+            <div className="flex w-full px-3 mx-auto">
               <div className="w-full">
                 <div className="flex items-end gap-3 glass-card rounded-2xl p-3 mx-auto shadow-sm focus-within:shadow-md transition-shadow duration-300">
                   <Input
