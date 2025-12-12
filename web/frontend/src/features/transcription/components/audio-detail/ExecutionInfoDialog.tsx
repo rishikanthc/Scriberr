@@ -38,63 +38,65 @@ export function ExecutionInfoDialog({ audioId, isOpen, onClose }: ExecutionInfoD
                 ) : executionData ? (
                     <div className="space-y-6 py-4">
                         {/* Overall Processing Time */}
-                        <div className="bg-[var(--bg-main)] rounded-[var(--radius-card)] border border-[var(--border-subtle)] p-6 shadow-sm">
+                        <div className="bg-[var(--bg-main)] rounded-[var(--radius-card)] border border-[var(--border-subtle)] p-4 sm:p-6 shadow-sm">
                             <h3 className="text-base font-semibold text-[var(--text-primary)] mb-4 flex items-center gap-2">
                                 <Clock className="h-4 w-4 text-[var(--text-secondary)]" />
                                 Processing Timeline
                             </h3>
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
                                 <MetricCard
                                     label="Started"
-                                    value={new Date(executionData.started_at).toLocaleString()}
+                                    value={new Date(executionData.started_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                    subtext={new Date(executionData.started_at).toLocaleDateString()}
                                 />
                                 <MetricCard
                                     label="Completed"
-                                    value={executionData.completed_at ? new Date(executionData.completed_at).toLocaleString() : 'In Progress'}
+                                    value={executionData.completed_at ? new Date(executionData.completed_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'In Progress'}
+                                    subtext={executionData.completed_at ? new Date(executionData.completed_at).toLocaleDateString() : ''}
                                 />
                                 <MetricCard
-                                    label="Total Duration"
+                                    label="Duration"
                                     value={executionData.processing_duration ? `${(executionData.processing_duration / 1000).toFixed(1)}s` : '...'}
                                     highlight
+                                    className="col-span-2 sm:col-span-1"
                                 />
                             </div>
                         </div>
 
                         {/* Individual Track Processing */}
                         {executionData.is_multi_track && executionData.multi_track_timings && executionData.multi_track_timings.length > 0 && (
-                            <div className="bg-[var(--bg-main)] rounded-[var(--radius-card)] border border-[var(--border-subtle)] p-6 shadow-sm">
+                            <div className="bg-[var(--bg-main)] rounded-[var(--radius-card)] border border-[var(--border-subtle)] p-4 sm:p-6 shadow-sm">
                                 <h3 className="text-base font-semibold text-[var(--text-primary)] mb-4 flex items-center gap-2">
                                     <UsersRound className="h-4 w-4 text-[var(--text-secondary)]" />
                                     Track Processing
                                 </h3>
                                 <div className="space-y-3">
                                     {executionData.multi_track_timings.map((timing, index) => (
-                                        <div key={index} className="flex gap-4 p-4 bg-[var(--bg-card)] rounded-[var(--radius-card)] border border-[var(--border-subtle)] items-center justify-between">
-                                            <div>
-                                                <span className="block font-medium text-[var(--text-primary)] text-sm mb-1">{timing.track_name}</span>
-                                                <div className="flex gap-3 text-xs text-[var(--text-tertiary)]">
-                                                    <span>Start: {new Date(timing.start_time).toLocaleTimeString()}</span>
-                                                    <span>End: {new Date(timing.end_time).toLocaleTimeString()}</span>
-                                                </div>
+                                        <div key={index} className="flex flex-col gap-2 p-3 bg-[var(--bg-card)] rounded-[var(--radius-card)] border border-[var(--border-subtle)]">
+                                            <div className="flex justify-between items-start gap-2">
+                                                <span className="font-medium text-[var(--text-primary)] text-sm break-all leading-tight">{timing.track_name}</span>
+                                                <span className="font-mono text-sm font-bold text-[var(--brand-solid)] flex-shrink-0">
+                                                    {(timing.duration / 1000).toFixed(1)}s
+                                                </span>
                                             </div>
-                                            <span className="font-mono text-lg font-bold text-[var(--brand-solid)]">
-                                                {(timing.duration / 1000).toFixed(1)}s
-                                            </span>
+                                            <div className="flex justify-between text-[11px] text-[var(--text-tertiary)] bg-[var(--bg-main)]/50 p-1.5 rounded-[var(--radius-sm)]">
+                                                <span>{new Date(timing.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })}</span>
+                                                <span>→</span>
+                                                <span>{new Date(timing.end_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })}</span>
+                                            </div>
                                         </div>
                                     ))}
                                 </div>
                             </div>
                         )}
 
-                        {/* Parameters Display */}
+                        {/* Parameters Display - Curated Snapshot */}
                         {executionData.actual_parameters && (
-                            <div className="bg-[var(--bg-main)] rounded-[var(--radius-card)] border border-[var(--border-subtle)] p-6 shadow-sm">
+                            <div className="bg-[var(--bg-main)] rounded-[var(--radius-card)] border border-[var(--border-subtle)] p-4 sm:p-6 shadow-sm">
                                 <h3 className="text-base font-semibold text-[var(--text-primary)] mb-4">
                                     Configuration Parameters
                                 </h3>
-                                <div className="bg-[var(--bg-card)] p-4 rounded-[var(--radius-card)] border border-[var(--border-subtle)] font-mono text-xs text-[var(--text-secondary)] overflow-x-auto">
-                                    <pre>{JSON.stringify(executionData.actual_parameters, null, 2)}</pre>
-                                </div>
+                                <CuratedParamsDisplay params={executionData.actual_parameters} />
                             </div>
                         )}
                     </div>
@@ -108,13 +110,80 @@ export function ExecutionInfoDialog({ audioId, isOpen, onClose }: ExecutionInfoD
     );
 }
 
-function MetricCard({ label, value, highlight = false }: { label: string; value: string; highlight?: boolean }) {
+function MetricCard({ label, value, subtext, highlight = false, className = "" }: { label: string; value: string; subtext?: string; highlight?: boolean; className?: string }) {
     return (
-        <div className="bg-[var(--bg-card)] p-3 rounded-[var(--radius-card)] border border-[var(--border-subtle)]">
-            <span className="block text-xs font-medium text-[var(--text-tertiary)] uppercase tracking-wider mb-1">{label}</span>
+        <div className={`bg-[var(--bg-card)] p-3 rounded-[var(--radius-card)] border border-[var(--border-subtle)] flex flex-col justify-center ${className}`}>
+            <span className="block text-[10px] sm:text-xs font-medium text-[var(--text-tertiary)] uppercase tracking-wider mb-1">{label}</span>
             <span className={`block font-mono text-sm sm:text-base ${highlight ? 'text-[var(--brand-solid)] font-bold' : 'text-[var(--text-primary)]'}`}>
                 {value}
             </span>
+            {subtext && <span className="block text-[10px] text-[var(--text-secondary)] mt-0.5">{subtext}</span>}
         </div>
     );
+}
+
+// Helper to display curated params based on model type
+function CuratedParamsDisplay({ params }: { params: any }) {
+    // Determine keys to show based on model_family
+    // Common keys for all
+    const commonKeys = [
+        'model_family',
+        'task',
+        'language',
+        'output_format',
+        'device',
+        'compute_type',
+        'batch_size',
+        'diarize'
+    ];
+
+    let specificKeys: string[] = [];
+
+    if (params.model_family === 'whisper') {
+        specificKeys = [
+            'model',
+            'no_align',
+            'vad_method',
+            ...(params.diarize ? ['diarize_model', 'min_speakers', 'max_speakers', 'hf_token'] : [])
+        ];
+    } else if (params.model_family === 'nvidia_parakeet') {
+        specificKeys = [
+            'attention_context_left',
+            'attention_context_right',
+            ...(params.diarize ? ['diarize_model'] : [])
+        ];
+    } else if (params.model_family === 'openai') {
+        specificKeys = ['model', 'api_key']; // api_key should ideally be masked or hidden
+    } else if (params.model_family === 'nvidia_canary') {
+        specificKeys = ['model']; // Canary usually simpler
+    }
+
+    const keysToShow = [...commonKeys, ...specificKeys];
+
+    // Filter and map
+    const displayEntries = keysToShow.map(key => {
+        let value = params[key];
+        if (value === undefined || value === null) return null;
+
+        // Formatting
+        if (typeof value === 'boolean') value = value ? 'Yes' : 'No';
+        if (key === 'hf_token' || key === 'api_key') value = '******'; // Mask secrets
+
+        return { key: formatParamKey(key), value };
+    }).filter(entry => entry !== null);
+
+    return (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-sm">
+            {displayEntries.map((entry: any) => (
+                <div key={entry.key} className="flex justify-between items-center py-1 border-b border-[var(--border-subtle)] last:border-0 sm:last:border-b">
+                    <span className="text-[var(--text-secondary)]">{entry.key}</span>
+                    <span className="font-mono text-[var(--text-primary)] font-medium text-xs break-all text-right ml-4">{entry.value}</span>
+                </div>
+            ))}
+        </div>
+    );
+}
+
+function formatParamKey(key: string): string {
+    return key.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
 }
