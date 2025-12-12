@@ -335,6 +335,11 @@
     /* 18px */
     line-height: 1.7;
   }
+
+  /* Applied to TranscriptView for Lora support */
+  .font-reading {
+    font-family: var(--font-lora);
+  }
 }
 
 /* 
