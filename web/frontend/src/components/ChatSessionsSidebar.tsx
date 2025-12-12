@@ -150,10 +150,10 @@ export function ChatSessionsSidebar({
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground hover:bg-muted"
+                className="h-8 w-8 p-0 text-muted-foreground hover:text-[#FF6D20] hover:bg-orange-500/10 transition-colors"
                 title="New Chat"
               >
-                <Plus className="h-4 w-4" />
+                <Plus className="h-5 w-5" />
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-[425px] bg-background border-border shadow-2xl">
@@ -202,68 +202,79 @@ export function ChatSessionsSidebar({
             </div>
           </div>
         ) : (
-          <div className="space-y-1">
-            {sessions.map(s => (
+          <div className="space-y-2">
+            {sessions.map(session => (
               <div
-                key={s.id}
-                className={`group relative flex items-center p-2 mx-2 rounded-lg cursor-pointer transition-all duration-150 ${activeSessionId === s.id
-                  ? 'bg-muted text-foreground'
-                  : 'hover:bg-muted/50 text-muted-foreground hover:text-foreground'
-                  }`}
-                onClick={() => onSessionChange(s.id)}
+                key={session.id}
+                onClick={() => onSessionChange(session.id)}
+                className={`
+                  group relative p-3 rounded-xl border cursor-pointer transition-all duration-200
+                  ${session.id === activeSessionId
+                    ? 'bg-card border-[#FF6D20] shadow-md ring-1 ring-[#FF6D20]/20 z-10'
+                    : 'bg-card border-border/60 shadow-md hover:border-primary/50 hover:bg-card/80'
+                  }
+                `}
               >
-                {/* Chat icon */}
-                <div className="flex-shrink-0 mr-3">
-                  <MessageSquare className="h-4 w-4 opacity-70" />
-                </div>
-
-                <div className="flex-1 min-w-0 flex items-center">
-                  {editingId === s.id ? (
-                    <Input
-                      value={editTitle}
-                      onChange={e => setEditTitle(e.target.value)}
-                      onKeyDown={e => {
-                        if (e.key === 'Enter') updateTitle(s.id, editTitle)
-                        if (e.key === 'Escape') setEditingId(null)
-                      }}
-                      onBlur={() => updateTitle(s.id, editTitle)}
-                      className="h-6 text-sm bg-background border-border p-0 focus-visible:ring-0"
-                      autoFocus
-                    />
-                  ) : (
-                    <div className="flex items-center gap-2 min-w-0 flex-1">
-                      <div className="truncate text-sm font-medium">
-                        {s.title || 'New Chat'}
-                      </div>
-                      {generatingTitleIds.has(s.id) && (
-                        <div className="flex-shrink-0 text-brand-500 dark:text-brand-400" title="Generating title...">
-                          <Sparkles className="h-3 w-3 animate-pulse" />
-                        </div>
-                      )}
+                <div className="flex items-start justify-between gap-2 overflow-hidden">
+                  <div className="min-w-0 flex-1">
+                    {editingId === session.id ? (
+                      <Input
+                        value={editTitle}
+                        onChange={e => setEditTitle(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') updateTitle(session.id, editTitle)
+                          if (e.key === 'Escape') setEditingId(null)
+                        }}
+                        onBlur={() => updateTitle(session.id, editTitle)}
+                        className="h-6 text-sm bg-background border-border p-0 focus-visible:ring-0"
+                        autoFocus
+                      />
+                    ) : (
+                      <h3 className={`text-sm font-medium truncate ${session.id === activeSessionId ? 'text-[#FF6D20]' : 'text-foreground group-hover:text-foreground'}`}>
+                        {session.title || 'Untitled Chat'}
+                        {generatingTitleIds.has(session.id) && (
+                          <span className="inline-flex items-center ml-2 text-brand-500 dark:text-brand-400" title="Generating title...">
+                            <Sparkles className="h-3 w-3 animate-pulse" />
+                          </span>
+                        )}
+                      </h3>
+                    )}
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-[10px] uppercase tracking-wider text-muted-foreground bg-muted/50 px-1.5 py-0.5 rounded-md">
+                        {session.model}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        • {session.message_count} msgs
+                      </span>
                     </div>
-                  )}
-                </div>
+                  </div>
 
-                {/* Action buttons */}
-                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="h-6 w-6 p-0 text-carbon-400 hover:text-carbon-600 dark:hover:text-carbon-300 rounded"
-                    onClick={(e) => { e.stopPropagation(); setEditingId(s.id); setEditTitle(s.title) }}
-                    title="Rename chat"
-                  >
-                    <Edit2 className="h-3 w-3" />
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="h-6 w-6 p-0 text-carbon-400 hover:text-red-500 rounded"
-                    onClick={(e) => { e.stopPropagation(); deleteSession(s.id) }}
-                    title="Delete chat"
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </Button>
+                  {/* Actions */}
+                  <div className={`flex items-center opacity-0 group-hover:opacity-100 transition-opacity ${session.id === activeSessionId ? 'opacity-100' : ''}`}>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 text-muted-foreground hover:text-foreground"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setEditingId(session.id);
+                        setEditTitle(session.title);
+                      }}
+                    >
+                      <Edit2 className="h-3 w-3" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 text-muted-foreground hover:text-red-500"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        deleteSession(session.id);
+                      }}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </div>
                 </div>
               </div>
             ))}
