@@ -712,15 +712,8 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 									</div>
 								</div>
 
-								{/* Right: Cluster (Status • Actions) */}
+								{/* Right: Cluster (Actions • Status) */}
 								<div className="flex items-center gap-6">
-									{/* Duration removed */}
-
-									{/* Status Icon */}
-									<div className="flex items-center justify-center w-6">
-										{getStatusIcon(file)}
-									</div>
-
 									{/* Desktop Actions (Hover) */}
 									<div
 										className="hidden md:flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
@@ -822,6 +815,11 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 												</DropdownMenuItem>
 											</DropdownMenuContent>
 										</DropdownMenu>
+									</div>
+
+									{/* Status Icon */}
+									<div className="flex items-center justify-center w-6">
+										{getStatusIcon(file)}
 									</div>
 								</div>
 							</div>
