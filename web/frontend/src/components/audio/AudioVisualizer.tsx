@@ -27,6 +27,24 @@ export function AudioVisualizer({
     const peakDropsRef = useRef<number[]>([]);
     const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
 
+    // Persist frequency data across renders/pauses
+    const dataArrayRef = useRef<Uint8Array | null>(null);
+
+    // Initialize with dummy data "wave" pattern for initial state
+    useEffect(() => {
+        if (!dataArrayRef.current) {
+            const size = 128; // analyser.fftSize / 2
+            const data = new Uint8Array(size);
+            for (let i = 0; i < size; i++) {
+                // Gentle bell curve wave
+                const x = (i / size) * Math.PI;
+                const val = Math.sin(x) * 100; // Amplitude ~100/255
+                data[i] = val;
+            }
+            dataArrayRef.current = data;
+        }
+    }, []);
+
     // 1. Handle Window/Container Resizing
     useEffect(() => {
         const updateSize = () => {
@@ -113,14 +131,19 @@ export function AudioVisualizer({
         gradient.addColorStop(0.5, "#FF6D1F"); // Mid: Orange
         gradient.addColorStop(1, "#FF3D00");   // Bottom: Deep Red
 
-        const dataArray = new Uint8Array(analyzerRef.current.frequencyBinCount);
-
         const draw = () => {
-            if (!analyzerRef.current) return;
+            // Ensure we have data array buffer
+            if (!dataArrayRef.current && analyzerRef.current) {
+                dataArrayRef.current = new Uint8Array(analyzerRef.current.frequencyBinCount);
+            }
+            if (!dataArrayRef.current) return;
 
-            if (isPlaying) {
+            const dataArray = dataArrayRef.current;
+
+            if (isPlaying && analyzerRef.current) {
                 analyzerRef.current.getByteFrequencyData(dataArray);
             }
+            // If !isPlaying, we just reuse the existing dataArray (persisting the last frame)
 
             ctx.clearRect(0, 0, dimensions.width, dimensions.height);
             const barCount = Math.floor(dimensions.width / COL_WIDTH);
@@ -184,9 +207,10 @@ export function AudioVisualizer({
                 }
             }
 
-            if (isPlaying || peakPositionsRef.current.some((p) => p > 0)) {
-                rafRef.current = requestAnimationFrame(draw);
-            }
+            // Always animate to keep the visualizer active even when paused (to show static state)
+            // or we could stop it if purely static, but "electric ember" might want subtle idle animation later.
+            // For now, keep it running to render at least the static frame.
+            rafRef.current = requestAnimationFrame(draw);
         };
 
         draw();
