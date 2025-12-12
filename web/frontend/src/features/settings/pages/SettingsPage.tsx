@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { User, Settings as SettingsIcon, Key, Bot, FileText, Plus, Terminal } from "lucide-react";
 import {
@@ -20,6 +21,7 @@ import { useAuth } from "@/features/auth/hooks/useAuth";
 export function Settings() {
   const [activeTab, setActiveTab] = useState("transcription");
   const { getAuthHeaders } = useAuth();
+  const queryClient = useQueryClient();
   const [summaryDialogOpen, setSummaryDialogOpen] = useState(false);
   const [editingSummary, setEditingSummary] = useState<SummaryTemplate | null>(null);
   const [summaryRefresh, setSummaryRefresh] = useState(0);
@@ -181,6 +183,9 @@ export function Settings() {
                     await fetch('/api/v1/summaries', { method: 'POST', headers, body: JSON.stringify({ name: tpl.name, description: tpl.description, model: tpl.model, prompt: tpl.prompt }) });
                   }
                 } finally {
+                  // Invalidate cache to propagate changes
+                  queryClient.invalidateQueries({ queryKey: ["summaryTemplates"] });
+
                   // keep user on Summary tab and refresh the list without a full reload
                   setSummaryDialogOpen(false);
                   setEditingSummary(null);

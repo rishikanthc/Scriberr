@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { ChatSessionsSidebar } from "@/components/ChatSessionsSidebar";
-import { ScriberrIcon } from "@/components/ScriberrLogo";
 import { ChatInterface } from "@/components/ChatInterface";
 import { Button } from "@/components/ui/button";
 import { X, ArrowLeft } from "lucide-react";
@@ -58,7 +57,6 @@ export function ChatSidePanel({ transcriptionId, isOpen, onClose, isMobile }: Ch
                         </Button>
                     )}
                     <div className="flex items-center gap-2 font-bold text-[var(--text-primary)]">
-                        <ScriberrIcon className="h-4 w-4" />
                         <span>{view === 'chat' ? 'Chat' : 'Sessions'}</span>
                     </div>
                 </div>

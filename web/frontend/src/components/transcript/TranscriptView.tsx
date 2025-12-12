@@ -294,12 +294,11 @@ export const TranscriptView = forwardRef<HTMLDivElement, TranscriptViewProps>(({
             {/* CSS for the Highlight API - Global for both views */}
             <style>{`
                 ::highlight(karaoke-word) {
-                    background-color: var(--brand-solid);
-                    color: white !important;
-                    border-radius: 3px;
-                    padding: 0 1px;
-                    box-decoration-break: clone;
-                    -webkit-box-decoration-break: clone;
+                    background-color: transparent;
+                    color: var(--brand-solid) !important;
+                    font-weight: 600;
+                    text-decoration: underline decoration-dotted var(--brand-solid);
+                    text-underline-offset: 4px;
                 }
             `}</style>
         </div>
