@@ -61,13 +61,7 @@ export function useAudioList(params: AudioListParams) {
             return response.json() as Promise<AudioFilesResponse>;
         },
         placeholderData: keepPreviousData,
-        refetchInterval: (query) => {
-            const data = query.state.data;
-            if (data?.jobs.some(j => j.status === 'processing' || j.status === 'pending')) {
-                return 5000;
-            }
-            return false;
-        }
+        refetchInterval: false
     });
 }
 
@@ -105,14 +99,7 @@ export function useAudioListInfinite(params: Omit<AudioListParams, 'page'>) {
             return undefined;
         },
         initialPageParam: 1,
-        refetchInterval: (query) => {
-            // flattening the pages to check for pending status
-            const allJobs = query.state.data?.pages.flatMap(p => p.jobs) || [];
-            if (allJobs.some(j => j.status === 'processing' || j.status === 'pending')) {
-                return 5000;
-            }
-            return false;
-        }
+        refetchInterval: false
     });
 }
 

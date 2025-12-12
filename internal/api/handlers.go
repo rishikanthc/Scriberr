@@ -23,6 +23,7 @@ import (
 	"scriberr/internal/queue"
 	"scriberr/internal/repository"
 	"scriberr/internal/service"
+	"scriberr/internal/sse"
 	"scriberr/internal/transcription"
 	"scriberr/pkg/logger"
 
@@ -50,6 +51,7 @@ type Handler struct {
 	unifiedProcessor    *transcription.UnifiedJobProcessor
 	quickTranscription  *transcription.QuickTranscriptionService
 	multiTrackProcessor *processing.MultiTrackProcessor
+	broadcaster         *sse.Broadcaster
 }
 
 // NewHandler creates a new handler
@@ -70,6 +72,7 @@ func NewHandler(
 	taskQueue *queue.TaskQueue,
 	unifiedProcessor *transcription.UnifiedJobProcessor,
 	quickTranscription *transcription.QuickTranscriptionService,
+	broadcaster *sse.Broadcaster,
 ) *Handler {
 	return &Handler{
 		config:              cfg,
@@ -89,6 +92,7 @@ func NewHandler(
 		unifiedProcessor:    unifiedProcessor,
 		quickTranscription:  quickTranscription,
 		multiTrackProcessor: processing.NewMultiTrackProcessor(),
+		broadcaster:         broadcaster,
 	}
 }
 
@@ -2828,4 +2832,14 @@ func (h *Handler) UpdateUserSettings(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, response)
+}
+
+// @Summary SSE Events
+// @Description Subscribe to server-sent events
+// @Tags events
+// @Produce text/event-stream
+// @Success 200 {string} string "stream"
+// @Router /api/v1/events [get]
+func (h *Handler) Events(c *gin.Context) {
+	h.broadcaster.ServeHTTP(c.Writer, c.Request)
 }

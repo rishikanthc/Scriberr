@@ -13,6 +13,7 @@ import (
 
 	"scriberr/internal/models"
 	"scriberr/internal/repository"
+	"scriberr/internal/sse"
 	"scriberr/internal/transcription/interfaces"
 	"scriberr/internal/transcription/pipeline"
 	"scriberr/internal/transcription/registry"
@@ -32,6 +33,7 @@ type UnifiedTranscriptionService struct {
 	multiTrackTranscriber *MultiTrackTranscriber // For termination support
 	jobRepo               repository.JobRepository
 	webhookService        *webhook.Service
+	broadcaster           *sse.Broadcaster
 }
 
 // NewUnifiedTranscriptionService creates a new unified transcription service
@@ -50,6 +52,11 @@ func NewUnifiedTranscriptionService(jobRepo repository.JobRepository) *UnifiedTr
 		jobRepo:        jobRepo,
 		webhookService: webhook.NewService(),
 	}
+}
+
+// SetBroadcaster sets the SSE broadcaster for the service
+func (u *UnifiedTranscriptionService) SetBroadcaster(b *sse.Broadcaster) {
+	u.broadcaster = b
 }
 
 // Initialize prepares all registered models for use
@@ -97,6 +104,14 @@ func (u *UnifiedTranscriptionService) ProcessJob(ctx context.Context, jobID stri
 		return fmt.Errorf("failed to create execution record: %w", err)
 	}
 
+	// Broadcast initial processing status
+	if u.broadcaster != nil {
+		u.broadcaster.Broadcast(jobID, "job_update", map[string]interface{}{
+			"job_id": jobID,
+			"status": models.StatusProcessing,
+		})
+	}
+
 	// Helper function to update execution status
 	updateExecutionStatus := func(status models.JobStatus, errorMsg string) {
 		completedAt := time.Now()
@@ -109,6 +124,15 @@ func (u *UnifiedTranscriptionService) ProcessJob(ctx context.Context, jobID stri
 		}
 
 		u.jobRepo.UpdateExecution(ctx, execution)
+
+		// Broadcast update via SSE
+		if u.broadcaster != nil {
+			u.broadcaster.Broadcast(jobID, "job_update", map[string]interface{}{
+				"job_id": jobID,
+				"status": status,
+				"error":  errorMsg,
+			})
+		}
 
 		// Trigger webhook if callback URL is present
 		if job.Parameters.CallbackURL != nil && *job.Parameters.CallbackURL != "" {

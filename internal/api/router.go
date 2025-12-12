@@ -231,6 +231,13 @@ func SetupRoutes(handler *Handler, authService *auth.AuthService) *gin.Engine {
 		{
 			config.POST("/openai/validate", handler.ValidateOpenAIKey)
 		}
+
+		// SSE Events (require authentication)
+		events := v1.Group("/events")
+		events.Use(middleware.AuthMiddleware(authService))
+		{
+			events.GET("/", handler.Events)
+		}
 	}
 
 	// Set up static file serving for React app

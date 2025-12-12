@@ -43,6 +43,12 @@ import { TranscribeDDialog } from "@/components/TranscribeDDialog";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { useAudioListInfinite, type AudioFile } from "@/features/transcription/hooks/useAudioFiles";
+import { useTranscriptionEvents } from "@/features/transcription/hooks/useTranscriptionEvents";
+
+const JobStatusMonitor = memo(({ jobId }: { jobId: string }) => {
+	useTranscriptionEvents(jobId);
+	return null;
+});
 
 
 import { DebouncedSearchInput } from "@/components/DebouncedSearchInput";
@@ -82,6 +88,14 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 		sortBy: sorting[0]?.id,
 		sortOrder: sorting[0]?.desc ? 'desc' : 'asc'
 	});
+
+	// Get active jobs for real-time monitoring
+	const activeJobs = useMemo(() => {
+		if (!infiniteData) return [];
+		return infiniteData.pages.flatMap(page => page.jobs).filter(
+			job => job.status === 'processing' || job.status === 'pending'
+		);
+	}, [infiniteData]);
 
 	// Flatten data from pages
 	const data = useMemo(() => {
@@ -203,6 +217,9 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 				// Close dialog and refresh
 				setConfigDialogOpen(false);
 				setSelectedJobId(null);
+				// Refresh the list immediately to show the new processing status
+				// This also triggers SSE connection if it wasn't active
+				refetch();
 				if (onTranscribe) {
 					onTranscribe(selectedJobId);
 				}
@@ -248,6 +265,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 				// Close dialog and refresh
 				setTranscribeDDialogOpen(false);
 				setSelectedJobId(null);
+				refetch();
 				if (onTranscribe) {
 					onTranscribe(selectedJobId);
 				}
@@ -949,6 +967,11 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 					</AlertDialogFooter>
 				</AlertDialogContent>
 			</AlertDialog>
+
+			{/* Active Job Monitors */}
+			{activeJobs.map(job => (
+				<JobStatusMonitor key={job.id} jobId={job.id} />
+			))}
 		</div >
 	);
 });
