@@ -689,16 +689,15 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 								onTouchStart={() => startLongPress(file.id)}
 								onTouchEnd={clearLongPress}
 							>
-								{/* Left: Identification */}
 								<div className="flex items-center gap-4 min-w-0 transition-[padding] duration-200">
 									{/* Icon (Tinted Pastel Square) - Lighter Shade */}
-									<div className="flex-shrink-0 w-12 h-12 flex items-center justify-center rounded-xl bg-[#FFFAF0] text-[#FF6D20] group-hover:opacity-0 transition-opacity duration-200">
+									<div className="flex-shrink-0 w-12 h-12 flex items-center justify-center rounded-xl bg-[#FFFAF0] text-[#FF6D20] transition-opacity duration-200">
 										<FileAudio className="h-6 w-6" strokeWidth={2} />
 									</div>
 
 									{/* Text */}
 									<div className="min-w-0">
-										<h4 className="font-semibold text-gray-900 dark:text-gray-100 truncate text-lg leading-tight group-hover:text-[#FF6D20] transition-colors">
+										<h4 className="font-normal text-gray-900 dark:text-gray-100 truncate text-lg leading-tight group-hover:text-[#FF6D20] transition-colors">
 											{file.title || getFileName(file.audio_path)}
 										</h4>
 										<div className="flex items-center gap-1.5 mt-1 text-sm text-gray-500">
