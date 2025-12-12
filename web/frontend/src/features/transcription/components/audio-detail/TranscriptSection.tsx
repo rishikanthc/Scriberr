@@ -99,8 +99,8 @@ export function TranscriptSection({
         }
     }, [currentWordIndex, autoScrollEnabled]);
 
-    // Click to seek handler
     useEffect(() => {
+        if (isMobile) return; // Disable click-to-seek globally on mobile to prevent selection interference
         const el = transcriptRef.current;
         if (!el) return;
         const onClick = (e: MouseEvent) => {
