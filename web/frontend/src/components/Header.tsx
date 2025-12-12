@@ -134,7 +134,7 @@ export function Header({ onFileSelect, onMultiTrackClick, onDownloadComplete }: 
 							<Button
 								variant="default"
 								size="icon"
-								className="bg-gradient-to-br from-[#FFAB40] to-[#FF3D00] text-white shadow-[0_4px_12px_rgba(255,61,0,0.4)] hover:shadow-[0_6px_16px_rgba(255,61,0,0.5)] border-none h-8 w-8 sm:h-10 sm:w-10 rounded-full transition-all hover:scale-105 active:scale-95 cursor-pointer"
+								className="bg-gradient-to-br from-[#FFAB40] to-[#FF3D00] text-white shadow-[0_4px_12px_rgba(255,61,0,0.4)] hover:shadow-[0_6px_16px_rgba(255,61,0,0.5)] border-none h-8 w-8 sm:h-10 sm:w-10 rounded-lg transition-all hover:scale-105 active:scale-95 cursor-pointer"
 							>
 								<Plus className="h-5 w-5 sm:h-6 sm:w-6" />
 								<span className="sr-only">Add audio</span>
