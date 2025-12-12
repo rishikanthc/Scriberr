@@ -336,9 +336,9 @@
   Radix adds padding-right to body when dialogs open.
   We handle the gutter via 'html', so this extra padding causes a jump.
 */
-body[data-scroll-locked] {
+/* body[data-scroll-locked] {
   padding-right: 0 !important;
-}
+} */
 
 /* Custom Scrollbar - Cross Browser Support */
 /* Firefox */

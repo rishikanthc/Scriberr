@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData, useInfiniteQuery } from '@tanstack/react-query';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 
 export interface AudioFile {
@@ -64,6 +64,51 @@ export function useAudioList(params: AudioListParams) {
         refetchInterval: (query) => {
             const data = query.state.data;
             if (data?.jobs.some(j => j.status === 'processing' || j.status === 'pending')) {
+                return 5000;
+            }
+            return false;
+        }
+    });
+}
+
+export function useAudioListInfinite(params: Omit<AudioListParams, 'page'>) {
+    const { getAuthHeaders } = useAuth();
+
+    return useInfiniteQuery({
+        queryKey: ['audioFiles', 'infinite', params],
+        queryFn: async ({ pageParam = 1 }) => {
+            const searchParams = new URLSearchParams({
+                page: pageParam.toString(),
+                limit: params.limit.toString(),
+            });
+
+            if (params.search) searchParams.set('q', params.search);
+            if (params.sortBy) {
+                searchParams.set('sort_by', params.sortBy);
+                searchParams.set('sort_order', params.sortOrder || 'desc');
+            }
+
+            const response = await fetch(`/api/v1/transcription/list?${searchParams}`, {
+                headers: getAuthHeaders(),
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to fetch audio files');
+            }
+
+            return response.json() as Promise<AudioFilesResponse>;
+        },
+        getNextPageParam: (lastPage) => {
+            if (lastPage.pagination.page < lastPage.pagination.pages) {
+                return lastPage.pagination.page + 1;
+            }
+            return undefined;
+        },
+        initialPageParam: 1,
+        refetchInterval: (query) => {
+            // flattening the pages to check for pending status
+            const allJobs = query.state.data?.pages.flatMap(p => p.jobs) || [];
+            if (allJobs.some(j => j.status === 'processing' || j.status === 'pending')) {
                 return 5000;
             }
             return false;
