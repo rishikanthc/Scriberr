@@ -136,7 +136,7 @@ export const TranscriptView = forwardRef<HTMLDivElement, TranscriptViewProps>(({
                 ref={containerRef}
                 onClick={handleWordClick}
                 className={cn(
-                    "text-lg leading-relaxed text-carbon-700 dark:text-carbon-300 whitespace-pre-wrap font-reading selection:bg-orange-500/30 transition-colors duration-200",
+                    "text-lg leading-relaxed text-carbon-700 dark:text-carbon-300 whitespace-pre-wrap font-reading selection:bg-orange-500/30 transition-colors duration-200 select-text",
                     isModifierPressed ? 'cursor-pointer hover:text-carbon-900 dark:hover:text-carbon-100' : 'cursor-text'
                 )}
             >
@@ -270,7 +270,7 @@ export const TranscriptView = forwardRef<HTMLDivElement, TranscriptViewProps>(({
                             ref={(el) => { segmentRefs.current[i] = el; }}
                             onClick={(e) => handleExpandedClick(e, i)}
                             className={cn(
-                                "flex-grow text-base text-primary leading-relaxed whitespace-pre-wrap font-reading transition-colors duration-200",
+                                "flex-grow text-base text-primary leading-relaxed whitespace-pre-wrap font-reading transition-colors duration-200 select-text",
                                 isModifierPressed ? 'cursor-pointer hover:text-carbon-900 dark:hover:text-carbon-100' : 'cursor-text'
                             )}
                         >
