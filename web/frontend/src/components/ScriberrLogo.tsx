@@ -33,7 +33,7 @@ export function ScriberrLogo({ className = "", onClick }: { className?: string; 
         height="159.8615"
         viewBox="0 0 206.37398 159.8615"
         xmlns="http://www.w3.org/2000/svg"
-        className="h-8 sm:h-10 w-auto select-none transition-all duration-300"
+        className="h-6 sm:h-9 w-auto select-none transition-all duration-300"
         aria-label="Scriberr Icon"
       >
         <defs>
@@ -53,7 +53,7 @@ export function ScriberrLogo({ className = "", onClick }: { className?: string; 
       </svg>
 
       {/* Text Logo */}
-      <ScriberrTextLogo className="h-6 sm:h-7 w-auto" />
+      <ScriberrTextLogo className="h-4 sm:h-6 w-auto" />
     </div>
   )
 }

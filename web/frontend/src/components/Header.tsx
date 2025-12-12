@@ -121,22 +121,22 @@ export function Header({ onFileSelect, onMultiTrackClick, onDownloadComplete }: 
 	};
 
 	return (
-		<header className="sticky top-6 z-50 glass rounded-[var(--radius-card)] px-6 py-4 mb-8 transition-all duration-500 shadow-[var(--shadow-float)] border border-[var(--border-subtle)]">
+		<header className="sticky top-4 sm:top-6 z-50 glass rounded-[var(--radius-card)] px-4 py-3 sm:px-6 sm:py-4 transition-all duration-500 shadow-[var(--shadow-float)] border border-[var(--border-subtle)]">
 			<div className="flex items-center justify-between">
 				{/* Left side - Logo navigates home */}
 				<ScriberrLogo onClick={handleHomeClick} />
 
 				{/* Right side - Plus (Add Audio), Grip Menu, Theme Switcher */}
-				<div className="flex items-center gap-3">
+				<div className="flex items-center gap-2 sm:gap-3">
 					{/* Add Audio (icon-only) */}
 					<DropdownMenu>
 						<DropdownMenuTrigger asChild>
 							<Button
 								variant="default"
 								size="icon"
-								className="bg-transparent hover:bg-[var(--brand-light)] text-[var(--brand-solid)] border border-[var(--brand-solid)] h-10 w-10 rounded-[var(--radius-btn)] shadow-none transition-all hover:scale-105 active:scale-95 cursor-pointer"
+								className="bg-transparent hover:bg-[var(--brand-light)] text-[var(--brand-solid)] border border-[var(--brand-solid)] h-8 w-8 sm:h-10 sm:w-10 rounded-[var(--radius-btn)] shadow-none transition-all hover:scale-105 active:scale-95 cursor-pointer"
 							>
-								<Plus className="h-5 w-5" />
+								<Plus className="h-4 w-4 sm:h-5 sm:w-5" />
 								<span className="sr-only">Add audio</span>
 							</Button>
 						</DropdownMenuTrigger>
@@ -237,9 +237,9 @@ export function Header({ onFileSelect, onMultiTrackClick, onDownloadComplete }: 
 							<Button
 								variant="ghost"
 								size="icon"
-								className="h-10 w-10 hover:bg-[var(--secondary)] rounded-[var(--radius-btn)] cursor-pointer text-[var(--text-secondary)]"
+								className="h-8 w-8 sm:h-10 sm:w-10 hover:bg-[var(--secondary)] rounded-[var(--radius-btn)] cursor-pointer text-[var(--text-secondary)]"
 							>
-								<Grip className="h-5 w-5" />
+								<Grip className="h-4 w-4 sm:h-5 sm:w-5" />
 								<span className="sr-only">Open menu</span>
 							</Button>
 						</DropdownMenuTrigger>
