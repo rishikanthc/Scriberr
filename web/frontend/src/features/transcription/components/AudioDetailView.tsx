@@ -183,8 +183,8 @@ export const AudioDetailView = function AudioDetailView({ audioId: propAudioId }
 
                     {/* Scrollable Content */}
                     <div className="flex-1 overflow-y-auto scrollbar-thin">
-                        <div className="max-w-[960px] mx-auto w-full px-4 sm:px-8 py-8 pb-32">
-                            <div className="mb-8">
+                        <div className="mx-auto w-full max-w-[960px] px-4 sm:px-6 py-6 pb-32">
+                            <div className="mb-6 pb-6">
                                 <Header onFileSelect={() => { }} />
                             </div>
                             <div className="space-y-6 sm:space-y-8">
