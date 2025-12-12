@@ -18,6 +18,7 @@ import (
 	"scriberr/internal/queue"
 	"scriberr/internal/repository"
 	"scriberr/internal/service"
+	"scriberr/internal/sse"
 	"scriberr/internal/transcription"
 	"scriberr/internal/transcription/adapters"
 	"scriberr/internal/transcription/registry"
@@ -92,6 +93,10 @@ func main() {
 	logger.Startup("auth", "Setting up authentication")
 	authService := auth.NewAuthService(cfg.JWTSecret)
 
+	// Initialize SSE Broadcaster
+	logger.Startup("sse", "Initializing SSE broadcaster")
+	broadcaster := sse.NewBroadcaster()
+
 	// Initialize repositories
 	logger.Startup("repository", "Initializing repositories")
 	jobRepo := repository.NewJobRepository(database.DB)
@@ -111,7 +116,10 @@ func main() {
 
 	// Initialize unified transcription processor
 	logger.Startup("transcription", "Initializing transcription service")
+	// Initialize unified transcription processor
+	logger.Startup("transcription", "Initializing transcription service")
 	unifiedProcessor := transcription.NewUnifiedJobProcessor(jobRepo)
+	unifiedProcessor.GetUnifiedService().SetBroadcaster(broadcaster)
 
 	// Bootstrap embedded Python environment (for all adapters)
 	logger.Startup("python", "Preparing Python environment")
@@ -152,6 +160,7 @@ func main() {
 		taskQueue,
 		unifiedProcessor,
 		quickTranscriptionService,
+		broadcaster,
 	)
 
 	// Set up router
@@ -188,6 +197,11 @@ func main() {
 	// Create a deadline for shutdown
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
+
+	// Shutdown broadcaster to close all active SSE connections
+	if broadcaster != nil {
+		broadcaster.Shutdown()
+	}
 
 	// Gracefully shutdown the server
 	if err := srv.Shutdown(ctx); err != nil {
