@@ -6,6 +6,7 @@ import { DragDropOverlay } from "@/components/DragDropOverlay";
 import { MultiTrackUploadDialog } from "./MultiTrackUploadDialog";
 import { useAudioUpload, useMultiTrackUpload } from "@/features/transcription/hooks/useAudioFiles";
 import { Progress } from "@/components/ui/progress";
+import { Button } from "@/components/ui/button";
 import { X, CheckCircle, AlertCircle } from "lucide-react";
 import {
 	groupFiles,
@@ -270,12 +271,14 @@ export function Dashboard() {
 							Uploading Files ({uploadProgress.filter(p => p.status === 'success').length}/{uploadProgress.length})
 						</h3>
 						{!isUploading && (
-							<button
+							<Button
+								variant="ghost"
+								size="icon"
 								onClick={dismissProgress}
-								className="p-2 hover:bg-[var(--secondary)] rounded-[var(--radius-btn)] transition-colors cursor-pointer text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
+								className="h-8 w-8"
 							>
 								<X className="h-4 w-4" />
-							</button>
+							</Button>
 						)}
 					</div>
 

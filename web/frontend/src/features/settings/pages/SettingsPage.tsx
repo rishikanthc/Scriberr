@@ -8,6 +8,7 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
 import { Header } from "@/components/Header";
 import { ProfileSettings } from "../components/ProfileSettings";
 import { AccountSettings } from "../components/AccountSettings";
@@ -153,13 +154,13 @@ export function Settings() {
                   <p className="text-sm text-[var(--text-secondary)] mt-1">Create and manage prompts used to summarize transcripts.</p>
                 </div>
                 <div className="flex items-center gap-3">
-                  <button
+                  <Button
+                    variant="outline"
                     onClick={() => { setEditingSummary(null); setSummaryDialogOpen(true); }}
                     disabled={!llmConfigured}
-                    className={`inline-flex items-center gap-2 px-3 py-2 rounded-md cursor-pointer ${llmConfigured ? 'bg-[var(--bg-main)] hover:bg-[var(--bg-secondary)] border border-[var(--border-subtle)] text-[var(--text-primary)]' : 'bg-[var(--bg-secondary)] text-[var(--text-tertiary)] cursor-not-allowed'}`}
                   >
                     <Plus className="h-4 w-4" /> New Template
-                  </button>
+                  </Button>
                 </div>
               </div>
               {!llmConfigured && (

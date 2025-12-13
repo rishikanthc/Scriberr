@@ -13,7 +13,18 @@ function Switch({
     <SwitchPrimitive.Root
       data-slot="switch"
       className={cn(
-        "peer data-[state=checked]:bg-blue-500 data-[state=unchecked]:bg-carbon-300 focus-visible:border-blue-500 focus-visible:ring-blue-500/50 dark:data-[state=unchecked]:bg-carbon-600 inline-flex h-[1.15rem] w-8 shrink-0 items-center rounded-full border border-transparent shadow-xs transition-all outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer",
+        // Base styles
+        "peer inline-flex h-[1.15rem] w-8 shrink-0 items-center rounded-full border border-transparent shadow-xs transition-all outline-none cursor-pointer",
+        // Unchecked state
+        "data-[state=unchecked]:bg-carbon-300 dark:data-[state=unchecked]:bg-carbon-600",
+        // Checked state - using brand color
+        "data-[state=checked]:bg-[var(--brand-solid)]",
+        // Focus state
+        "focus-visible:ring-[3px] focus-visible:ring-[var(--brand-solid)]/30 focus-visible:border-[var(--brand-solid)]",
+        // Disabled state
+        "disabled:cursor-not-allowed disabled:opacity-50",
+        // Hover micro-animation
+        "hover:scale-[1.02] active:scale-[0.98]",
         className
       )}
       {...props}
@@ -29,3 +40,4 @@ function Switch({
 }
 
 export { Switch }
+

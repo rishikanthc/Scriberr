@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Layout } from "@/components/Layout";
+import { Button } from "@/components/ui/button";
 
 export function CLIAuthConfirmation() {
     const navigate = useNavigate();
@@ -80,7 +81,7 @@ export function CLIAuthConfirmation() {
         return (
             <Layout>
                 <div className="flex items-center justify-center min-h-screen">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--brand-solid)]"></div>
                 </div>
             </Layout>
         )
@@ -90,15 +91,15 @@ export function CLIAuthConfirmation() {
         return (
             <Layout>
                 <div className="flex flex-col items-center justify-center min-h-[60vh] p-6">
-                    <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-4 rounded-lg mb-4">
+                    <div className="bg-[var(--error)]/10 text-[var(--error)] p-4 rounded-[var(--radius-card)] mb-4">
                         {error}
                     </div>
-                    <button
+                    <Button
+                        variant="outline"
                         onClick={() => navigate("/")}
-                        className="px-4 py-2 bg-carbon-200 dark:bg-carbon-700 rounded hover:bg-carbon-300 dark:hover:bg-carbon-600"
                     >
                         Go Home
-                    </button>
+                    </Button>
                 </div>
             </Layout>
         )
@@ -107,39 +108,42 @@ export function CLIAuthConfirmation() {
     return (
         <Layout>
             <div className="flex flex-col items-center justify-center min-h-[60vh] p-6">
-                <div className="bg-white dark:bg-carbon-800 shadow-lg rounded-xl p-8 max-w-md w-full text-center">
-                    <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mx-auto mb-6">
-                        <svg className="w-8 h-8 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="bg-[var(--bg-card)] shadow-[var(--shadow-card)] rounded-[var(--radius-card)] p-8 max-w-md w-full text-center border border-[var(--border-subtle)]">
+                    <div className="w-16 h-16 bg-[var(--brand-solid)]/10 rounded-full flex items-center justify-center mx-auto mb-6">
+                        <svg className="w-8 h-8 text-[var(--brand-solid)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
                         </svg>
                     </div>
 
-                    <h1 className="text-2xl font-bold text-carbon-900 dark:text-white mb-2">
+                    <h1 className="text-2xl font-bold text-[var(--text-primary)] mb-2">
                         Authorize CLI Device?
                     </h1>
 
-                    <p className="text-carbon-600 dark:text-carbon-300 mb-6">
+                    <p className="text-[var(--text-secondary)] mb-6">
                         <span className="font-bold">{deviceName}</span> wants to access your account <span className="font-bold">{user?.username}</span>.
                     </p>
 
                     <div className="flex flex-col gap-3">
-                        <button
+                        <Button
+                            variant="brand"
                             onClick={handleApprove}
                             disabled={processing}
-                            className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="w-full"
                         >
                             {processing ? 'Authorizing...' : 'Approve'}
-                        </button>
-                        <button
+                        </Button>
+                        <Button
+                            variant="outline"
                             onClick={handleDeny}
                             disabled={processing}
-                            className="w-full py-2.5 bg-carbon-100 dark:bg-carbon-700 hover:bg-carbon-200 dark:hover:bg-carbon-600 text-carbon-700 dark:text-carbon-200 rounded-lg font-medium transition-colors"
+                            className="w-full"
                         >
                             Deny
-                        </button>
+                        </Button>
                     </div>
                 </div>
             </div>
         </Layout>
     )
 }
+

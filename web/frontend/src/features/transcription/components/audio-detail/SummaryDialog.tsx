@@ -19,6 +19,7 @@ import {
     PopoverTrigger
 } from "@/components/ui/popover";
 import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
 import { useState, useEffect } from "react";
 import ReactMarkdown from 'react-markdown';
@@ -120,8 +121,9 @@ export function SummaryDialog({ audioId, isOpen, onClose, llmReady }: SummaryDia
                     </DialogHeader>
 
                     <div className="flex items-center justify-end gap-2 mb-2 pt-2">
-                        <button
-                            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-[var(--radius-btn)] bg-[var(--bg-main)] border border-[var(--border-subtle)] text-[var(--text-primary)] text-sm hover:bg-[var(--bg-subtle)] transition-colors transition-shadow disabled:opacity-50"
+                        <Button
+                            variant="outline"
+                            size="sm"
                             onClick={() => {
                                 setShowOutput(false);
                                 setSelectedTemplateId('');
@@ -130,23 +132,25 @@ export function SummaryDialog({ audioId, isOpen, onClose, llmReady }: SummaryDia
                         >
                             <RefreshCw className="h-3.5 w-3.5" />
                             Regenerate
-                        </button>
-                        <button
-                            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-[var(--radius-btn)] bg-[var(--bg-main)] border border-[var(--border-subtle)] text-[var(--text-primary)] text-sm hover:bg-[var(--bg-subtle)] transition-colors transition-shadow disabled:opacity-50"
+                        </Button>
+                        <Button
+                            variant="outline"
+                            size="sm"
                             onClick={handleCopy}
                             disabled={!streamContent && !existingSummary?.content}
                         >
                             <Copy className="h-3.5 w-3.5" />
                             Copy
-                        </button>
-                        <button
-                            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-[var(--radius-btn)] bg-[var(--bg-main)] border border-[var(--border-subtle)] text-[var(--text-primary)] text-sm hover:bg-[var(--bg-subtle)] transition-colors transition-shadow disabled:opacity-50"
+                        </Button>
+                        <Button
+                            variant="outline"
+                            size="sm"
                             onClick={handleDownload}
                             disabled={!streamContent && !existingSummary?.content}
                         >
                             <Download className="h-3.5 w-3.5" />
                             Download
-                        </button>
+                        </Button>
                     </div>
 
                     <div className="prose prose-stone dark:prose-invert max-w-none min-h-[200px] p-4 bg-[var(--bg-main)] rounded-[var(--radius-card)] border border-[var(--border-subtle)]">
@@ -244,20 +248,19 @@ export function SummaryDialog({ audioId, isOpen, onClose, llmReady }: SummaryDia
                     </div>
 
                     <div className="mt-4 flex items-center justify-end gap-3 pt-2">
-                        <button
-                            className="px-4 py-2 rounded-[var(--radius-btn)] text-[var(--text-secondary)] hover:bg-[var(--bg-main)] transition-colors text-sm font-medium"
+                        <Button
+                            variant="ghost"
                             onClick={() => onClose(false)}
                         >
                             Cancel
-                        </button>
-                        <button
-                            className="px-4 py-2 rounded-[var(--radius-btn)] shadow-lg shadow-orange-500/20 text-white text-sm font-medium transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none"
-                            style={{ background: 'var(--brand-gradient)' }}
+                        </Button>
+                        <Button
+                            variant="brand"
                             disabled={!selectedTemplateId || !selectedTemplate?.model || !llmReady}
                             onClick={handleStartSummary}
                         >
                             Generate Summary
-                        </button>
+                        </Button>
                     </div>
                 </div>
             </DialogContent>

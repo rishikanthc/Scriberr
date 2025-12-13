@@ -4,6 +4,7 @@ import { Play, Pause } from 'lucide-react';
 
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/features/auth/hooks/useAuth';
+import { Button } from '@/components/ui/button';
 
 export interface AudioPlayerRef {
     playPause: () => void;
@@ -175,12 +176,12 @@ export const AudioPlayer = forwardRef<AudioPlayerRef, AudioPlayerProps>(({
             <div className={`transition-all duration-300 ${className} flex items-center justify-center p-8 bg-[var(--error)]/5 rounded-[var(--radius-card)] border border-[var(--error)]/20`}>
                 <div className="text-center">
                     <p className="text-[var(--error)] mb-2">{error}</p>
-                    <button
+                    <Button
+                        variant="destructive"
                         onClick={retryLoad}
-                        className="px-4 py-2 bg-[var(--error)] hover:opacity-90 text-white rounded-[var(--radius-btn)] text-sm font-medium transition-colors"
                     >
                         Retry
-                    </button>
+                    </Button>
                 </div>
             </div>
         );
