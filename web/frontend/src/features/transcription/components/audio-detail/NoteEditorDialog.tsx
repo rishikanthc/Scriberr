@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { X, StickyNote } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 interface NoteEditorDialogProps {
     isOpen: boolean;
@@ -94,14 +95,15 @@ export function NoteEditorDialog({
                         <StickyNote className="h-4 w-4 text-[var(--brand-solid)]" />
                         <span className="font-semibold text-sm text-[var(--text-primary)]">Add Note</span>
                     </div>
-                    <button
-                        type="button"
+                    <Button
+                        variant="ghost"
+                        size="icon"
                         onClick={onCancel}
-                        className="h-7 w-7 flex items-center justify-center rounded-[var(--radius-btn)] text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-main)] transition-colors"
+                        className="h-7 w-7"
                         aria-label="Close"
                     >
                         <X className="h-4 w-4" />
-                    </button>
+                    </Button>
                 </div>
 
                 {/* Content */}
@@ -134,21 +136,19 @@ export function NoteEditorDialog({
 
                 {/* Footer - Actions */}
                 <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-[var(--border-subtle)] bg-[var(--bg-card)]">
-                    <button
-                        type="button"
-                        className="px-4 py-2 text-sm font-medium rounded-[var(--radius-btn)] text-[var(--text-secondary)] bg-[var(--bg-main)] border border-[var(--border-subtle)] hover:text-[var(--text-primary)] hover:border-[var(--brand-solid)] transition-colors"
+                    <Button
+                        variant="outline"
                         onClick={onCancel}
                     >
                         Cancel
-                    </button>
-                    <button
-                        type="button"
-                        className="px-4 py-2 text-sm font-medium rounded-[var(--radius-btn)] text-white bg-gradient-to-r from-[var(--brand-start)] to-[var(--brand-end)] hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:shadow-none"
+                    </Button>
+                    <Button
+                        variant="brand"
                         onClick={handleSubmit}
                         disabled={!content.trim()}
                     >
                         Save Note
-                    </button>
+                    </Button>
                 </div>
             </div>
         </div>

@@ -161,13 +161,15 @@ export function Register({ onRegister }: RegisterProps) {
 										required
 										className="bg-white dark:bg-carbon-800 border-carbon-300 dark:border-carbon-600 text-carbon-900 dark:text-carbon-100 pr-10"
 									/>
-									<button
+									<Button
 										type="button"
+										variant="ghost"
+										size="icon"
 										onClick={() => setShowPassword(!showPassword)}
-										className="absolute right-3 top-1/2 -translate-y-1/2 text-carbon-400 hover:text-carbon-600 dark:hover:text-carbon-300"
+										className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
 									>
 										{showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-									</button>
+									</Button>
 								</div>
 
 								{password && (
@@ -200,13 +202,15 @@ export function Register({ onRegister }: RegisterProps) {
 										className={`bg-white dark:bg-carbon-800 border-carbon-300 dark:border-carbon-600 text-carbon-900 dark:text-carbon-100 pr-10 ${confirmPassword && !passwordsMatch ? 'border-red-300 dark:border-red-600' : ''
 											}`}
 									/>
-									<button
+									<Button
 										type="button"
+										variant="ghost"
+										size="icon"
 										onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-										className="absolute right-3 top-1/2 -translate-y-1/2 text-carbon-400 hover:text-carbon-600 dark:hover:text-carbon-300"
+										className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
 									>
 										{showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-									</button>
+									</Button>
 								</div>
 
 								{confirmPassword && (
@@ -220,7 +224,8 @@ export function Register({ onRegister }: RegisterProps) {
 
 							<Button
 								type="submit"
-								className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+								variant="brand"
+								className="w-full"
 								disabled={loading || !username.trim() || !isPasswordValid || !passwordsMatch}
 							>
 								{loading ? "Creating Account..." : "Create Admin Account"}
