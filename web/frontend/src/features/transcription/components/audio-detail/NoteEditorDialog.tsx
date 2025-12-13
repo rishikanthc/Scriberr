@@ -1,5 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { X, StickyNote } from "lucide-react";
 
 interface NoteEditorDialogProps {
     isOpen: boolean;
@@ -18,73 +19,139 @@ export function NoteEditorDialog({
 }: NoteEditorDialogProps) {
     const isMobile = useIsMobile();
     const [content, setContent] = useState("");
+    const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-    // Focus textarea on mount
+    // Focus textarea on mount and reset content
     useEffect(() => {
         if (isOpen) {
             setContent("");
+            // Delay focus to ensure element is mounted
+            setTimeout(() => textareaRef.current?.focus(), 50);
         }
     }, [isOpen]);
 
     if (!isOpen) return null;
 
-    const style: React.CSSProperties = isMobile ? {
+    // Mobile: Center on screen with backdrop
+    // Desktop: Position near selection
+    const containerStyle: React.CSSProperties = isMobile ? {
         position: 'fixed',
-        left: '50%',
-        top: '50%',
-        transform: 'translate(-50%, -50%)',
-        zIndex: 10001
+        inset: 0,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '1rem',
+        zIndex: 10001,
+        backgroundColor: 'rgba(0, 0, 0, 0.4)',
+        backdropFilter: 'blur(4px)'
     } : {
         position: 'fixed',
-        left: position.x,
-        top: position.y + 18,
-        transform: 'translate(-50%, 0)',
+        left: Math.min(Math.max(position.x, 200), window.innerWidth - 200),
+        top: position.y + 24,
+        transform: 'translateX(-50%)',
         zIndex: 10001
     };
 
-    // Safety check for desktop position to avoid going off-screen
-    if (!isMobile) {
-        if (style.left && (style.left as number) > window.innerWidth - 200) {
-            style.left = window.innerWidth - 200;
+    const handleSubmit = () => {
+        if (content.trim()) {
+            onSave(content);
         }
-    }
+    };
+
+    const handleKeyDown = (e: React.KeyboardEvent) => {
+        // Submit on Cmd/Ctrl + Enter
+        if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+            e.preventDefault();
+            handleSubmit();
+        }
+        // Close on Escape
+        if (e.key === 'Escape') {
+            e.preventDefault();
+            onCancel();
+        }
+    };
 
     return (
         <div
-            style={style}
-            className="w-[min(90vw,520px)]"
-            onMouseDown={(e) => e.stopPropagation()}
+            style={containerStyle}
+            onMouseDown={(e) => {
+                // Close when clicking backdrop (mobile)
+                if (isMobile && e.target === e.currentTarget) {
+                    onCancel();
+                }
+                e.stopPropagation();
+            }}
+            onTouchStart={(e) => e.stopPropagation()}
         >
-            <div className="bg-white dark:bg-carbon-900 rounded-lg shadow-2xl p-3 pointer-events-auto border border-carbon-200 dark:border-carbon-800">
-                <div className="text-xs text-carbon-500 dark:text-carbon-400 border-l-2 border-carbon-300 dark:border-carbon-600 pl-2 italic mb-2 max-h-32 overflow-auto">
-                    {quote}
-                </div>
-                <textarea
-                    className="w-full text-sm bg-transparent border rounded-md p-2 border-carbon-300 dark:border-carbon-700 text-carbon-900 dark:text-carbon-100 focus:outline-none focus:ring-2 focus:ring-carbon-500"
-                    placeholder="Add a note..."
-                    value={content}
-                    onChange={e => setContent(e.target.value)}
-                    rows={4}
-                    autoFocus
-                />
-                <div className="mt-2 flex items-center justify-end gap-2">
+            {/* The Card - Glass effect with premium shadows */}
+            <div
+                className="w-full max-w-[480px] glass-card rounded-[var(--radius-card)] border border-[var(--border-subtle)] shadow-[var(--shadow-float)] overflow-hidden"
+                onMouseDown={(e) => e.stopPropagation()}
+            >
+                {/* Header */}
+                <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border-subtle)] bg-[var(--bg-card)]">
+                    <div className="flex items-center gap-2">
+                        <StickyNote className="h-4 w-4 text-[var(--brand-solid)]" />
+                        <span className="font-semibold text-sm text-[var(--text-primary)]">Add Note</span>
+                    </div>
                     <button
                         type="button"
-                        className="px-2 py-1 text-sm rounded-md bg-carbon-200 dark:bg-carbon-700 hover:bg-carbon-300 dark:hover:bg-carbon-600 transition-colors"
+                        onClick={onCancel}
+                        className="h-7 w-7 flex items-center justify-center rounded-[var(--radius-btn)] text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-main)] transition-colors"
+                        aria-label="Close"
+                    >
+                        <X className="h-4 w-4" />
+                    </button>
+                </div>
+
+                {/* Content */}
+                <div className="p-4 bg-[var(--bg-card)] space-y-4">
+                    {/* Quote Block - Elegant left border accent */}
+                    {quote && (
+                        <div className="relative pl-3 py-2 border-l-2 border-[var(--brand-solid)] bg-[var(--bg-main)] rounded-r-lg">
+                            <p className="text-xs text-[var(--text-secondary)] italic leading-relaxed max-h-20 overflow-y-auto">
+                                "{quote}"
+                            </p>
+                        </div>
+                    )}
+
+                    {/* Textarea - Premium input styling */}
+                    <textarea
+                        ref={textareaRef}
+                        className="w-full text-sm bg-[var(--bg-main)] border border-[var(--border-subtle)] rounded-[var(--radius-btn)] p-3 text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-solid)] focus:border-transparent resize-none transition-all"
+                        placeholder="Write your note here..."
+                        value={content}
+                        onChange={e => setContent(e.target.value)}
+                        onKeyDown={handleKeyDown}
+                        rows={4}
+                    />
+
+                    {/* Hint */}
+                    <p className="text-xs text-[var(--text-tertiary)]">
+                        Press <kbd className="px-1.5 py-0.5 text-[10px] bg-[var(--bg-main)] border border-[var(--border-subtle)] rounded font-mono">⌘ Enter</kbd> to save
+                    </p>
+                </div>
+
+                {/* Footer - Actions */}
+                <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-[var(--border-subtle)] bg-[var(--bg-card)]">
+                    <button
+                        type="button"
+                        className="px-4 py-2 text-sm font-medium rounded-[var(--radius-btn)] text-[var(--text-secondary)] bg-[var(--bg-main)] border border-[var(--border-subtle)] hover:text-[var(--text-primary)] hover:border-[var(--brand-solid)] transition-colors"
                         onClick={onCancel}
                     >
                         Cancel
                     </button>
                     <button
                         type="button"
-                        className="px-2 py-1 text-sm rounded-md bg-carbon-900 text-white hover:bg-carbon-950 transition-colors"
-                        onClick={() => onSave(content)}
+                        className="px-4 py-2 text-sm font-medium rounded-[var(--radius-btn)] text-white bg-gradient-to-r from-[var(--brand-start)] to-[var(--brand-end)] hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:shadow-none"
+                        onClick={handleSubmit}
                         disabled={!content.trim()}
                     >
-                        Save
+                        Save Note
                     </button>
                 </div>
             </div>
         </div>
     );
 }
+
