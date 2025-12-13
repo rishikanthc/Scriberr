@@ -164,9 +164,23 @@ export function TranscriptSection({
                 */}
 
             {/* Transcript Content - Systematic Typography */}
-            <div className={cn("relative overflow-hidden font-sans", className)}>
+            <div
+                className={cn("relative font-sans", className)}
+                style={{
+                    // Allow text selection to work in children
+                    WebkitUserSelect: 'text',
+                    userSelect: 'text'
+                }}
+            >
                 <div className="w-full text-[var(--text-secondary)] leading-relaxed">
-                    <div ref={transcriptRef} className="relative">
+                    <div
+                        ref={transcriptRef}
+                        className="relative"
+                        style={{
+                            // Ensure this container doesn't interfere with touch events
+                            touchAction: 'pan-y pinch-zoom'
+                        }}
+                    >
                         <TranscriptView
                             transcript={transcript}
                             mode={transcriptMode}

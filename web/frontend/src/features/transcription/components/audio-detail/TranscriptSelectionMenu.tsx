@@ -17,33 +17,63 @@ export function TranscriptSelectionMenu({
 
     if (!menuState || !menuState.visible) return null;
 
-    // On mobile: position below selection (to avoid native context menu)
-    // On desktop: position above selection
-    const isBelowSelection = !isDesktop;
+    // MOBILE: Fixed bottom-center bar (completely out of the way of selection)
+    if (!isDesktop) {
+        return (
+            <div
+                className="fixed bottom-0 left-0 right-0 z-[10000] flex justify-center pb-6 pt-2"
+                style={{
+                    // Ensure this container doesn't block touch events on the page
+                    pointerEvents: 'none',
+                    // Safe area for devices with home indicators
+                    paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom))'
+                }}
+            >
+                {/* The Pill - only this is interactive */}
+                <div
+                    className="glass shadow-2xl rounded-full px-5 py-3 flex items-center gap-3 border border-white/20 dark:border-white/10 animate-in fade-in slide-in-from-bottom-4 duration-300"
+                    style={{ pointerEvents: 'auto' }}
+                    onTouchStart={(e) => e.stopPropagation()}
+                >
+                    <button
+                        type="button"
+                        className="flex items-center gap-2 text-carbon-900 dark:text-carbon-100 hover:text-brand-500 dark:hover:text-brand-400 transition-colors font-medium text-sm px-2 py-1 active:scale-95"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onAddNote();
+                        }}
+                    >
+                        <Plus className="h-5 w-5" /> <span>Add Note</span>
+                    </button>
+                    <div className="w-px h-5 bg-carbon-200 dark:bg-carbon-700" />
+                    <button
+                        type="button"
+                        className="flex items-center gap-2 text-carbon-900 dark:text-carbon-100 hover:text-brand-500 dark:hover:text-brand-400 transition-colors font-medium text-sm px-2 py-1 active:scale-95"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onListenFromHere();
+                        }}
+                    >
+                        <Ear className="h-5 w-5" /> <span>Listen</span>
+                    </button>
+                </div>
+            </div>
+        );
+    }
 
+    // DESKTOP: Position above the selection
     return (
         <div
             style={{
                 position: 'fixed',
                 left: menuState.x,
                 top: menuState.y,
-                // Desktop: translate up to sit above; Mobile: translate to sit below
-                transform: isBelowSelection
-                    ? 'translate(-50%, 16px)'  // Below selection with 16px gap
-                    : 'translate(-50%, -100%)', // Above selection
+                transform: 'translate(-50%, -100%)',
                 zIndex: 10000,
                 pointerEvents: 'auto'
             }}
             onMouseDown={(e) => e.stopPropagation()}
-            onTouchStart={(e) => e.stopPropagation()}
         >
-            {/* Arrow pointing UP (for mobile, when pill is below) */}
-            {isBelowSelection && (
-                <div
-                    className="w-3 h-3 bg-white/80 dark:bg-carbon-800/90 rotate-45 mx-auto mb-[-6px] shadow-sm border-l border-t border-white/20 dark:border-white/10"
-                />
-            )}
-
             {/* Menu Bubble */}
             <div className="glass shadow-2xl rounded-full px-4 py-2 flex items-center gap-2 pointer-events-auto transform hover:scale-105 duration-200 border border-white/20 dark:border-white/10">
                 <button
@@ -69,13 +99,12 @@ export function TranscriptSelectionMenu({
                 </button>
             </div>
 
-            {/* Arrow pointing DOWN (for desktop, when pill is above) */}
-            {!isBelowSelection && (
-                <div
-                    className="w-3 h-3 bg-white/80 dark:bg-carbon-800/90 rotate-45 mx-auto -mt-1.5 shadow-sm border-r border-b border-white/20 dark:border-white/10"
-                />
-            )}
+            {/* Arrow pointing DOWN to the selection */}
+            <div
+                className="w-3 h-3 bg-white/80 dark:bg-carbon-800/90 rotate-45 mx-auto -mt-1.5 shadow-sm border-r border-b border-white/20 dark:border-white/10"
+            />
         </div>
     );
 }
+
 
