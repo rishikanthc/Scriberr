@@ -55,8 +55,9 @@ func (h *Handler) GetSpeakerMappings(c *gin.Context) {
 	}
 
 	// Check if diarization was enabled or if this is a multi-track job (which also has speakers)
+	// If no speaker info available, return empty array instead of error for graceful frontend handling
 	if !job.Diarization && !job.Parameters.Diarize && !job.IsMultiTrack {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "No speaker information available for this transcription"})
+		c.JSON(http.StatusOK, []SpeakerMappingResponse{})
 		return
 	}
 
