@@ -355,14 +355,16 @@ export const ChatInterface = memo(function ChatInterface({ transcriptionId, acti
     }
     return (
       <div className="relative group">
-        <button
+        <Button
+          variant="ghost"
+          size="sm"
           onClick={handleCopy}
-          className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs bg-muted text-muted-foreground hover:bg-muted/80 transition-opacity opacity-0 group-hover:opacity-100"
+          className="absolute right-2 top-2 h-auto px-2 py-1 text-xs opacity-0 group-hover:opacity-100 transition-opacity"
           aria-label="Copy code"
         >
           {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
           {copied ? 'Copied' : 'Copy'}
-        </button>
+        </Button>
         <pre ref={preRef} className={props.className}>{props.children}</pre>
       </div>
     )
@@ -405,13 +407,15 @@ export const ChatInterface = memo(function ChatInterface({ transcriptionId, acti
                             <div className="flex-1 overflow-hidden">
                               <div className="bg-[#FFAB40]/10 dark:bg-[#FFAB40]/5 text-foreground rounded-3xl rounded-tr-md px-5 py-3 relative border border-[#FFAB40]/20 shadow-sm">
                                 {/* Copy button */}
-                                <button
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
                                   onClick={async () => { try { await navigator.clipboard.writeText(message.content || ''); } catch { } }}
-                                  className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-background/20 text-[#FF6D20]"
+                                  className="absolute right-2 top-2 h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity text-[var(--brand-solid)]"
                                   title="Copy message"
                                 >
                                   <Copy className="h-3 w-3" />
-                                </button>
+                                </Button>
                                 <div className="text-sm leading-relaxed pr-6 font-reading">
                                   {message.content}
                                 </div>
@@ -436,13 +440,15 @@ export const ChatInterface = memo(function ChatInterface({ transcriptionId, acti
                             <div className="flex-1 space-y-2 overflow-hidden">
                               <div className="bg-card dark:bg-zinc-900 border border-border/40 shadow-sm rounded-3xl rounded-tl-md px-5 py-4 relative">
                                 {/* Copy button for assistant message */}
-                                <button
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
                                   onClick={async () => { try { await navigator.clipboard.writeText(message.content || ''); } catch { } }}
-                                  className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-muted text-muted-foreground"
+                                  className="absolute right-2 top-2 h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
                                   title="Copy message"
                                 >
                                   <Copy className="h-3 w-3" />
-                                </button>
+                                </Button>
                                 <div className="prose prose-sm dark:prose-invert max-w-none text-foreground leading-relaxed font-reading">
                                   <ReactMarkdown
                                     remarkPlugins={[remarkMath]}
