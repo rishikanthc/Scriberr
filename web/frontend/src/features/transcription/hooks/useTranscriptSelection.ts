@@ -23,6 +23,11 @@ export function useTranscriptSelection(
         const el = transcriptRef.current;
         if (!el) return;
 
+        // Skip custom selection logic on mobile devices to defer to native handling
+        if (isMobile) {
+            return;
+        }
+
         const handleSelection = () => {
             const sel = window.getSelection();
             if (!sel || sel.isCollapsed) { setShowSelectionMenu(false); setShowEditor(false); return; }
