@@ -146,7 +146,12 @@ export const TranscriptView = forwardRef<HTMLDivElement, TranscriptViewProps>(({
                     WebkitUserSelect: 'text',
                     userSelect: 'text',
                     // CRITICAL: Remove grey tap highlight on iOS
-                    WebkitTapHighlightColor: 'transparent'
+                    WebkitTapHighlightColor: 'transparent',
+                    // CRITICAL: Allow text selection gestures while supporting scroll
+                    // 'manipulation' allows pan and pinch-zoom but not double-tap zoom
+                    touchAction: 'pan-y pinch-zoom',
+                    // Ensure text is the selection target, not the container
+                    WebkitTouchCallout: 'default'
                 }}
             >
                 {/* The hook returns the built text string, so we just render it directly */}
@@ -287,7 +292,10 @@ export const TranscriptView = forwardRef<HTMLDivElement, TranscriptViewProps>(({
                                 WebkitUserSelect: 'text',
                                 userSelect: 'text',
                                 // CRITICAL: Remove grey tap highlight on iOS
-                                WebkitTapHighlightColor: 'transparent'
+                                WebkitTapHighlightColor: 'transparent',
+                                // CRITICAL: Allow text selection gestures while supporting scroll
+                                touchAction: 'pan-y pinch-zoom',
+                                WebkitTouchCallout: 'default'
                             }}
                         >
                             {segment.fullText || segment.text}
