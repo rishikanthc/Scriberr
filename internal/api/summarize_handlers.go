@@ -187,8 +187,6 @@ func (h *Handler) GetSummaryForTranscription(c *gin.Context) {
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			// Fallback: check if summary is cached on the job record
-			// We can use jobRepo here if we add FindByID
-			// For now let's use jobRepo.FindByID
 			job, err2 := h.jobRepo.FindByID(c.Request.Context(), tid)
 			if err2 == nil && job.Summary != nil && *job.Summary != "" {
 				c.JSON(http.StatusOK, gin.H{
@@ -201,7 +199,15 @@ func (h *Handler) GetSummaryForTranscription(c *gin.Context) {
 				})
 				return
 			}
-			c.JSON(http.StatusNotFound, gin.H{"error": "Summary not found"})
+			// Return empty summary instead of 404 for graceful frontend handling
+			c.JSON(http.StatusOK, gin.H{
+				"transcription_id": tid,
+				"template_id":      nil,
+				"model":            "",
+				"content":          "",
+				"created_at":       nil,
+				"updated_at":       nil,
+			})
 			return
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch summary"})
