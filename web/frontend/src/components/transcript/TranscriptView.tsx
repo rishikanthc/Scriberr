@@ -1,7 +1,7 @@
 import { forwardRef, useRef, useState, useCallback, useEffect, useMemo } from 'react';
 import { useKaraokeHighlight, computeWordOffsets, findActiveWordIndex } from '@/features/transcription/hooks/useKaraokeHighlight';
 import { cn } from '@/lib/utils';
-import { useIsMobile } from '@/hooks/use-mobile';
+import { useIsDesktop } from '@/hooks/useIsDesktop';
 import type { Note } from '@/types/note';
 
 // Helper for cross-browser caret position
@@ -72,7 +72,7 @@ export const TranscriptView = forwardRef<HTMLDivElement, TranscriptViewProps>(({
 
     const containerRef = useRef<HTMLDivElement>(null);
     const [isModifierPressed, setIsModifierPressed] = useState(false);
-    const isMobile = useIsMobile();
+    const isDesktop = useIsDesktop();
 
     // Use CSS Highlight API for Compact Mode
     // Note: We only use this hook when in compact mode to save resources
@@ -136,11 +136,18 @@ export const TranscriptView = forwardRef<HTMLDivElement, TranscriptViewProps>(({
         return (
             <div
                 ref={containerRef}
-                onClick={isMobile ? undefined : handleWordClick}
+                onClick={isDesktop ? handleWordClick : undefined}
                 className={cn(
                     "text-lg leading-relaxed text-carbon-700 dark:text-carbon-300 whitespace-pre-wrap font-reading selection:bg-orange-500/30 transition-colors duration-200 select-text",
-                    !isMobile && isModifierPressed ? 'cursor-pointer hover:text-carbon-900 dark:hover:text-carbon-100' : 'cursor-text'
+                    isDesktop && isModifierPressed ? 'cursor-pointer hover:text-carbon-900 dark:hover:text-carbon-100' : 'cursor-text'
                 )}
+                style={{
+                    // CRITICAL: Enable native text selection on iOS/Android
+                    WebkitUserSelect: 'text',
+                    userSelect: 'text',
+                    // CRITICAL: Remove grey tap highlight on iOS
+                    WebkitTapHighlightColor: 'transparent'
+                }}
             >
                 {/* The hook returns the built text string, so we just render it directly */}
                 {fullText}
@@ -270,11 +277,18 @@ export const TranscriptView = forwardRef<HTMLDivElement, TranscriptViewProps>(({
                         {/* Text */}
                         <div
                             ref={(el) => { segmentRefs.current[i] = el; }}
-                            onClick={isMobile ? undefined : (e) => handleExpandedClick(e, i)}
+                            onClick={isDesktop ? (e) => handleExpandedClick(e, i) : undefined}
                             className={cn(
                                 "flex-grow text-base text-primary leading-relaxed whitespace-pre-wrap font-reading transition-colors duration-200 select-text",
-                                !isMobile && isModifierPressed ? 'cursor-pointer hover:text-carbon-900 dark:hover:text-carbon-100' : 'cursor-text'
+                                isDesktop && isModifierPressed ? 'cursor-pointer hover:text-carbon-900 dark:hover:text-carbon-100' : 'cursor-text'
                             )}
+                            style={{
+                                // CRITICAL: Enable native text selection on iOS/Android
+                                WebkitUserSelect: 'text',
+                                userSelect: 'text',
+                                // CRITICAL: Remove grey tap highlight on iOS
+                                WebkitTapHighlightColor: 'transparent'
+                            }}
                         >
                             {segment.fullText || segment.text}
                         </div>

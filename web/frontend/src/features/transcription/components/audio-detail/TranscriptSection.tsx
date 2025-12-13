@@ -2,13 +2,14 @@ import { useRef, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { TranscriptView } from "@/components/transcript/TranscriptView";
 import { useNotes, useCreateNote, useUpdateNote, useDeleteNote } from "@/features/transcription/hooks/useTranscriptionNotes";
-import { useTranscriptSelection } from "@/features/transcription/hooks/useTranscriptSelection";
+import { useSelectionMenu } from "@/features/transcription/hooks/useSelectionMenu";
 import { DownloadDialog } from "./DownloadDialog";
 import SpeakerRenameDialog from "./SpeakerRenameDialog";
 import { NotesSidebar } from "./NotesSidebar";
 import { TranscriptSelectionMenu } from "./TranscriptSelectionMenu";
 import { NoteEditorDialog } from "./NoteEditorDialog";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useIsDesktop } from "@/hooks/useIsDesktop";
 import { X, StickyNote } from "lucide-react";
 import { computeWordOffsets } from "@/features/transcription/hooks/useKaraokeHighlight";
 import type { Transcript } from "@/features/transcription/hooks/useAudioDetail";
@@ -54,9 +55,9 @@ export function TranscriptSection({
     className
 }: TranscriptSectionProps & { className?: string }) {
     const isMobile = useIsMobile();
+    const isDesktop = useIsDesktop();
 
     // Data hooks
-    // const { data: audioFile } = useAudioDetail(audioId); // Unused
     const { data: notes = [] } = useNotes(audioId);
     const { mutate: createNote } = useCreateNote(audioId);
     const { mutateAsync: updateNote } = useUpdateNote(audioId);
@@ -70,15 +71,13 @@ export function TranscriptSection({
     const words = transcript?.word_segments || [];
     const { offsets } = useMemo(() => computeWordOffsets(words), [words]);
 
-    // Selection Logic
+    // Unified Selection Hook for both desktop and mobile
     const {
-        showSelectionMenu,
-        pendingSelection,
-        selectionViewportPos,
+        menuState,
         showEditor,
         openEditor,
         closeEditor
-    } = useTranscriptSelection(transcriptRef as React.RefObject<HTMLElement>, offsets);
+    } = useSelectionMenu(transcriptRef, offsets);
 
     // Auto-scroll logic
     useEffect(() => {
@@ -100,7 +99,8 @@ export function TranscriptSection({
     }, [currentWordIndex, autoScrollEnabled]);
 
     useEffect(() => {
-        if (isMobile) return; // Disable click-to-seek globally on mobile to prevent selection interference
+        // Only enable click-to-seek on desktop devices with fine pointer
+        if (!isDesktop) return;
         const el = transcriptRef.current;
         if (!el) return;
         const onClick = (e: MouseEvent) => {
@@ -119,7 +119,7 @@ export function TranscriptSection({
         };
         el.addEventListener('click', onClick);
         return () => el.removeEventListener('click', onClick);
-    }, [onSeek]);
+    }, [onSeek, isDesktop]);
 
     // Helpers
     const getDetectedSpeakers = () => {
@@ -134,14 +134,14 @@ export function TranscriptSection({
     };
 
     const handleSaveNote = (content: string) => {
-        if (pendingSelection) {
+        if (menuState) {
             createNote({
-                start_time: pendingSelection.startTime,
-                end_time: pendingSelection.endTime,
+                start_time: menuState.startTime,
+                end_time: menuState.endTime,
                 content: content,
-                quote: pendingSelection.quote,
-                start_word_index: pendingSelection.startIdx,
-                end_word_index: pendingSelection.endIdx
+                quote: menuState.selectedText,
+                start_word_index: menuState.startIdx,
+                end_word_index: menuState.endIdx
             });
             closeEditor();
             setNotesOpen(true);
@@ -149,8 +149,8 @@ export function TranscriptSection({
     };
 
     const handleListenFromHere = () => {
-        if (pendingSelection) {
-            onSeek(pendingSelection.startTime);
+        if (menuState) {
+            onSeek(menuState.startTime);
             closeEditor();
         }
     };
@@ -202,37 +202,23 @@ export function TranscriptSection({
             {/* Portals */}
             {createPortal(
                 <>
-                    {/* Selection Menu Bubble (Glass) */}
-                    <div className="z-[9999]">
+                    {/* Selection Menu Bubble (Glass) - Unified for desktop and mobile */}
+                    {!showEditor && (
                         <TranscriptSelectionMenu
-                            isOpen={showSelectionMenu}
-                            isMobile={isMobile}
-                            position={selectionViewportPos}
+                            menuState={menuState}
                             onAddNote={openEditor}
                             onListenFromHere={handleListenFromHere}
                         />
-                    </div>
+                    )}
 
                     {/* Note Editor Dialog */}
                     <NoteEditorDialog
                         isOpen={showEditor}
-                        quote={pendingSelection?.quote || ""}
-                        position={selectionViewportPos}
+                        quote={menuState?.selectedText || ""}
+                        position={menuState ? { x: menuState.x, y: menuState.y } : { x: 0, y: 0 }}
                         onSave={handleSaveNote}
                         onCancel={closeEditor}
                     />
-
-                    {/* Backdrop for menu/editor */}
-                    {(showSelectionMenu || showEditor) && (
-                        <div
-                            style={{ position: 'fixed', inset: 0, zIndex: 9995, background: 'transparent' }}
-                            onMouseDown={() => {
-                                if (showSelectionMenu && !showEditor) {
-                                    closeEditor();
-                                }
-                            }}
-                        />
-                    )}
 
                     {/* Notes Sidebar - Premium Drawer */}
                     {notesOpen && (
