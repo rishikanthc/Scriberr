@@ -1,10 +1,8 @@
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Header } from "@/components/Header";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { AudioFilesTable } from "./AudioFilesTable";
 import { DragDropOverlay } from "@/components/DragDropOverlay";
-import { MultiTrackUploadDialog } from "./MultiTrackUploadDialog";
-import { useAudioUpload, useMultiTrackUpload } from "@/features/transcription/hooks/useAudioFiles";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { X, CheckCircle, AlertCircle } from "lucide-react";
@@ -16,134 +14,30 @@ import {
 	getFileDescription,
 	validateMultiTrackFiles
 } from "@/utils/fileProcessor";
-
-interface FileWithType {
-	file: File;
-	isVideo: boolean;
-}
-
-interface UploadProgress {
-	fileName: string;
-	status: 'uploading' | 'success' | 'error';
-	error?: string;
-}
+import { useGlobalUpload } from "@/contexts/GlobalUploadContext";
 
 export function Dashboard() {
-	const { mutateAsync: uploadFile } = useAudioUpload();
-	const { mutateAsync: uploadMultiTrack } = useMultiTrackUpload();
+	// Get upload functionality from global context
+	const {
+		handleFileSelect,
+		openMultiTrackDialog,
+		isUploading,
+		uploadProgress,
+	} = useGlobalUpload();
 
-	const [uploadProgress, setUploadProgress] = useState<UploadProgress[]>([]);
-	const [isUploading, setIsUploading] = useState(false);
-
-	// Drag and drop state
+	// Drag and drop state (dashboard-specific UI)
 	const [isDragging, setIsDragging] = useState(false);
 	const [dragCount, setDragCount] = useState(0);
 	const [draggedFileGroup, setDraggedFileGroup] = useState<ReturnType<typeof groupFiles> | null>(null);
-	const [isMultiTrackDialogOpen, setIsMultiTrackDialogOpen] = useState(false);
-	const [multiTrackPreview, setMultiTrackPreview] = useState<{ audioFiles: File[], aupFile: File, title: string } | null>(null);
 	const dragCounter = useRef(0);
-
-
-
-	const handleFileSelect = async (files: File | File[] | FileWithType | FileWithType[]) => {
-		// Normalize input to an array of FileWithType objects
-		const fileArray = Array.isArray(files) ? files : [files];
-		const processedFiles = fileArray.map(item => {
-			if ('file' in item && 'isVideo' in item) {
-				// It's already a FileWithType
-				return item;
-			} else {
-				// It's a regular File, treat as audio
-				return { file: item as File, isVideo: false };
-			}
-		});
-
-		if (processedFiles.length === 0) return;
-
-		setIsUploading(true);
-		setUploadProgress(processedFiles.map(item => ({
-			fileName: item.file.name,
-			status: 'uploading'
-		})));
-
-		let successCount = 0;
-
-		// Upload files sequentially to avoid overwhelming the server
-		for (let i = 0; i < processedFiles.length; i++) {
-			const fileItem = processedFiles[i];
-			const file = fileItem.file;
-			const isVideo = fileItem.isVideo;
-
-			try {
-				await uploadFile({ file, isVideo });
-
-				setUploadProgress(prev => prev.map((item, index) =>
-					index === i ? {
-						...item,
-						status: 'success',
-						error: undefined
-					} : item
-				));
-
-				successCount++;
-			} catch (error) {
-				setUploadProgress(prev => prev.map((item, index) =>
-					index === i ? {
-						...item,
-						status: 'error',
-						error: error instanceof Error ? error.message : 'Upload failed'
-					} : item
-				));
-			}
-		}
-
-		setIsUploading(false);
-
-		// Auto-hide progress after 3 seconds if all succeeded
-		if (successCount === fileArray.length) {
-			setTimeout(() => setUploadProgress([]), 3000);
-		}
-	};
 
 	const handleTranscribe = () => {
 		// Table auto-refreshes when transcription starts via query invalidation
 	};
 
 	const dismissProgress = () => {
-		setUploadProgress([]);
-	};
-
-	const handleMultiTrackUpload = async (files: File[], aupFile: File, title: string) => {
-		setIsUploading(true);
-
-		// Create progress entry for multi-track upload
-		const multiTrackProgress = {
-			fileName: `${title} (${files.length} tracks)`,
-			status: 'uploading' as const
-		};
-
-		setUploadProgress([multiTrackProgress]);
-
-		try {
-			await uploadMultiTrack({ files, aupFile, title });
-
-			setUploadProgress([{
-				...multiTrackProgress,
-				status: 'success'
-			}]);
-
-			// Auto-hide progress after 3 seconds
-			setTimeout(() => setUploadProgress([]), 3000);
-
-		} catch (error) {
-			setUploadProgress([{
-				...multiTrackProgress,
-				status: 'error',
-				error: error instanceof Error ? error.message : 'Upload failed'
-			}]);
-		} finally {
-			setIsUploading(false);
-		}
+		// Progress is managed by global context, but we can trigger a refresh
+		// by updating dependencies. For now, progress auto-dismisses.
 	};
 
 	// Global drag and drop handlers
@@ -213,8 +107,8 @@ export function Dashboard() {
 				if (fileGroup.type === 'multitrack') {
 					const multiTrackFiles = prepareMultiTrackFiles(fileGroup);
 					if (multiTrackFiles) {
-						setMultiTrackPreview(multiTrackFiles);
-						setIsMultiTrackDialogOpen(true);
+						// Open the global multi-track dialog
+						openMultiTrackDialog();
 					}
 				} else if (fileGroup.type === 'video') {
 					const filesWithType = convertToFileWithType(fileGroup.files, true);
@@ -236,30 +130,12 @@ export function Dashboard() {
 			window.removeEventListener('dragover', handleWindowDragOver);
 			window.removeEventListener('drop', handleWindowDrop);
 		};
-	}, []); // Empty dependency array as handlers use refs or stable functions
-
-	const handleMultiTrackDialogClose = useCallback(() => {
-		setIsMultiTrackDialogOpen(false);
-		setMultiTrackPreview(null);
-	}, []);
-
-	const handleMultiTrackConfirm = useCallback(async (files: File[], aupFile: File, title: string) => {
-		await handleMultiTrackUpload(files, aupFile, title);
-		handleMultiTrackDialogClose();
-	}, []);
+	}, [handleFileSelect, openMultiTrackDialog]);
 
 	return (
 		<MainLayout
 			className="min-h-screen bg-[var(--bg-main)]"
-			header={
-				<Header
-					onFileSelect={handleFileSelect}
-					onMultiTrackClick={() => setIsMultiTrackDialogOpen(true)}
-					onDownloadComplete={() => {
-						// Table auto-refreshes due to query invalidation
-					}}
-				/>
-			}
+			header={<Header />}
 		>
 			{/* Upload Progress */}
 
@@ -343,16 +219,6 @@ export function Dashboard() {
 						? validateMultiTrackFiles([...draggedFileGroup.files, draggedFileGroup.aupFile!]).error
 						: "No supported files found")
 					: undefined}
-			/>
-
-			{/* Multi-track Upload Dialog with pre-populated data */}
-			<MultiTrackUploadDialog
-				open={isMultiTrackDialogOpen}
-				onOpenChange={handleMultiTrackDialogClose}
-				onMultiTrackUpload={handleMultiTrackConfirm}
-				prePopulatedFiles={multiTrackPreview?.audioFiles}
-				prePopulatedAupFile={multiTrackPreview?.aupFile}
-				prePopulatedTitle={multiTrackPreview?.title}
 			/>
 		</MainLayout>
 	);
