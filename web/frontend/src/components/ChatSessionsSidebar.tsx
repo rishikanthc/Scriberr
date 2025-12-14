@@ -174,10 +174,12 @@ export function ChatSessionsSidebar({
                 <Plus className="h-5 w-5" />
               </Button>
             </DialogTrigger>
-            <DialogContent className="w-[calc(100%-2rem)] max-w-md mx-auto bg-[var(--bg-card)] dark:bg-[#0A0A0A] border border-[var(--border-subtle)] shadow-[var(--shadow-float)] p-0 rounded-2xl overflow-hidden">
+            <DialogContent className="w-[calc(100%-2rem)] max-w-md mx-auto bg-[var(--bg-card)] dark:bg-[#0A0A0A] border border-[rgba(0,0,0,0.06)] dark:border-[rgba(255,255,255,0.08)] shadow-[0_2px_4px_rgba(0,0,0,0.04),0_24px_48px_rgba(0,0,0,0.08)] dark:shadow-[0_2px_4px_rgba(0,0,0,0.3),0_24px_48px_rgba(0,0,0,0.3)] p-0 rounded-2xl overflow-hidden">
               <DialogHeader className="p-5 pb-0">
                 <DialogTitle className="text-xl font-bold text-[var(--text-primary)] flex items-center gap-2">
-                  <Sparkles className="h-5 w-5 text-[var(--brand-solid)]" />
+                  <div className="h-9 w-9 rounded-full bg-gradient-to-br from-[#FFAB40] to-[#FF6D20] flex items-center justify-center shadow-md">
+                    <Sparkles className="h-4 w-4 text-white" />
+                  </div>
                   New Chat Session
                 </DialogTitle>
                 <p className="text-sm text-[var(--text-tertiary)] mt-1">
@@ -268,8 +270,8 @@ export function ChatSessionsSidebar({
                 className={`
                   group relative p-3 rounded-xl border cursor-pointer transition-all duration-200 pr-10 min-h-[64px]
                   ${session.id === activeSessionId
-                    ? 'bg-card border-[#FF6D20] shadow-md ring-1 ring-[#FF6D20]/20 z-10'
-                    : 'bg-card border-border/60 shadow-md hover:border-primary/50 hover:bg-card/80'
+                    ? 'bg-[var(--bg-card)] dark:bg-[#1F1F1F] border-[#FF6D20] shadow-[0_2px_4px_rgba(0,0,0,0.04),0_8px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_4px_rgba(0,0,0,0.3),0_8px_16px_rgba(0,0,0,0.2)] ring-1 ring-[#FF6D20]/20 z-10'
+                    : 'bg-[var(--bg-card)] dark:bg-[#141414] border-[rgba(0,0,0,0.06)] dark:border-[rgba(255,255,255,0.08)] shadow-[0_2px_4px_rgba(0,0,0,0.04),0_8px_16px_rgba(0,0,0,0.04)] dark:shadow-[0_2px_4px_rgba(0,0,0,0.2),0_8px_16px_rgba(0,0,0,0.1)] hover:shadow-[0_4px_8px_rgba(0,0,0,0.06),0_12px_24px_rgba(0,0,0,0.06)] hover:-translate-y-0.5 hover:border-[var(--brand-solid)]/30'
                   }
                 `}
               >
