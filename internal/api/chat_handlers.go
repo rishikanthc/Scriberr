@@ -450,6 +450,7 @@ func (h *Handler) SendChatMessage(c *gin.Context) {
 	// Build OpenAI messages including transcript context
 	var openaiMessages []llm.ChatMessage
 	var currentTokenCount int
+	var transcriptContext string
 
 	// Fallback: If transcript wasn't loaded via Preload, fetch it directly from the job repository
 	if session.Transcription.Transcript == nil || *session.Transcription.Transcript == "" {
@@ -511,22 +512,18 @@ func (h *Handler) SendChatMessage(c *gin.Context) {
 		cleanTranscript := sb.String()
 		fmt.Printf("Debug: Clean transcript length: %d\n", len(cleanTranscript))
 
-		systemContent := fmt.Sprintf("You are a helpful assistant analyzing this transcript. Please answer questions and provide insights based on the following transcript:\n\n%s", cleanTranscript)
+		// Build transcript context - will be prepended to first user message for better model compatibility
+		transcriptContext = fmt.Sprintf("You are analyzing the following transcript. Use this transcript to answer questions:\n\n---TRANSCRIPT START---\n%s\n---TRANSCRIPT END---\n\n", cleanTranscript)
 
-		fmt.Printf("Injecting transcript of length %d into chat context for session %s\n", len(systemContent), sessionID)
+		fmt.Printf("Injecting transcript of length %d into chat context for session %s\n", len(transcriptContext), sessionID)
 
 		// Check if transcript itself exceeds context (leaving some room for response)
 		// Estimate 1 token ~= 4 chars
-		transcriptTokens := len(systemContent) / 4
+		transcriptTokens := len(transcriptContext) / 4
 		if transcriptTokens > contextWindow-500 { // Leave 500 tokens for response/history
 			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Transcript is too long for this model's context window (estimated %d tokens, limit %d). Please use a model with a larger context window.", transcriptTokens, contextWindow)})
 			return
 		}
-
-		openaiMessages = append(openaiMessages, llm.ChatMessage{
-			Role:    "system",
-			Content: systemContent,
-		})
 		currentTokenCount += transcriptTokens
 	} else {
 		fmt.Printf("Warning: Transcript is nil or empty for chat session %s. Transcription ID: %s\n", sessionID, session.TranscriptionID)
@@ -535,12 +532,19 @@ func (h *Handler) SendChatMessage(c *gin.Context) {
 		}
 	}
 
-	// Add conversation history
-	for _, msg := range messages {
-		msgTokens := len(msg.Content) / 4
+	// Add conversation history with transcript context prepended to first user message
+	for i, msg := range messages {
+		msgContent := msg.Content
+		// Prepend transcript context to the first user message for better model compatibility
+		// (Some models like Qwen3 don't properly handle system messages)
+		if i == 0 && msg.Role == "user" && transcriptContext != "" {
+			msgContent = transcriptContext + "User question: " + msg.Content
+			fmt.Printf("Debug: Prepended transcript to first user message\n")
+		}
+		msgTokens := len(msgContent) / 4
 		openaiMessages = append(openaiMessages, llm.ChatMessage{
 			Role:    msg.Role,
-			Content: msg.Content,
+			Content: msgContent,
 		})
 		currentTokenCount += msgTokens
 	}
