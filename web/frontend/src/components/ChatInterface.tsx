@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, memo } from "react";
-import { Send, User, MessageCircle, Copy, Check, Sparkles } from "lucide-react";
+import { Send, User, MessageCircle, Copy, Check, Sparkles, Brain, ChevronDown } from "lucide-react";
 import ReactMarkdown from 'react-markdown'
 import remarkMath from 'remark-math'
 import rehypeKatex from 'rehype-katex'
@@ -11,6 +11,61 @@ import { useAuth } from "@/features/auth/hooks/useAuth";
 import { useChatEvents } from "../contexts/ChatEventsContext";
 import { useToast } from "./ui/toast";
 import { cn } from "@/lib/utils";
+
+// Helper function to parse thinking content from model responses
+function parseThinkingContent(content: string): { thinking: string | null; response: string } {
+  // Match <think>...</think> tags (common in reasoning models)
+  const thinkMatch = content.match(/<think>([\s\S]*?)<\/think>/);
+  if (thinkMatch) {
+    return {
+      thinking: thinkMatch[1].trim(),
+      response: content.replace(/<think>[\s\S]*?<\/think>/, '').trim()
+    };
+  }
+
+  // Detect Qwen3's internal thinking pattern
+  // Patterns like "Okay, the user..." or "thinking:" prefixes
+  const thinkingPatterns = [
+    /^(Okay,\s+(?:the user|I need to|let me)[\s\S]*?)(?=\n\n(?:[A-Z]|This|The|Here|Based|In|To))/i,
+    /^(thinking:\s*[\s\S]*?)(?=\n\n)/i,
+    /^(Let me (?:think|analyze|read|check|consider)[\s\S]*?)(?=\n\n(?:[A-Z]|This|The|Here|Based|In|To))/i,
+  ];
+
+  for (const pattern of thinkingPatterns) {
+    const match = content.match(pattern);
+    if (match && match[1].length > 50) { // Only capture substantial thinking blocks
+      return {
+        thinking: match[1].trim(),
+        response: content.slice(match[0].length).trim()
+      };
+    }
+  }
+
+  return { thinking: null, response: content };
+}
+
+// Collapsible thinking block component
+function ThinkingBlock({ content }: { content: string }) {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <div className="mb-3 border border-purple-500/20 rounded-xl bg-purple-500/5 dark:bg-purple-500/10 overflow-hidden">
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-purple-600 dark:text-purple-400 hover:bg-purple-500/5 transition-colors"
+      >
+        <Brain className="h-4 w-4" />
+        <span className="font-medium">Thinking</span>
+        <ChevronDown className={cn("h-4 w-4 ml-auto transition-transform duration-200", expanded && "rotate-180")} />
+      </button>
+      {expanded && (
+        <div className="px-4 pb-3 text-sm text-muted-foreground italic border-t border-purple-500/10 pt-3 whitespace-pre-wrap">
+          {content}
+        </div>
+      )}
+    </div>
+  );
+}
 
 interface ChatSession {
   id: string;
@@ -56,6 +111,7 @@ export const ChatInterface = memo(function ChatInterface({ transcriptionId, acti
   const [streamingMessage, setStreamingMessage] = useState("");
   const [selectedModel, setSelectedModel] = useState("gpt-3.5-turbo");
   const [error, setError] = useState<string | null>(null);
+  const [contextInfo, setContextInfo] = useState<{ used: number; limit: number; trimmed: number } | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -224,6 +280,14 @@ export const ChatInterface = memo(function ChatInterface({ transcriptionId, acti
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || "Failed to send message");
+      }
+
+      // Parse context info from response headers
+      const contextUsed = parseInt(response.headers.get('X-Context-Used') || '0');
+      const contextLimit = parseInt(response.headers.get('X-Context-Limit') || '0');
+      const messagesTrimmed = parseInt(response.headers.get('X-Messages-Trimmed') || '0');
+      if (contextUsed && contextLimit) {
+        setContextInfo({ used: contextUsed, limit: contextLimit, trimmed: messagesTrimmed });
       }
 
       // Handle streaming response
@@ -449,15 +513,23 @@ export const ChatInterface = memo(function ChatInterface({ transcriptionId, acti
                                 >
                                   <Copy className="h-3 w-3" />
                                 </Button>
-                                <div className="prose prose-sm dark:prose-invert max-w-none text-foreground leading-relaxed font-reading">
-                                  <ReactMarkdown
-                                    remarkPlugins={[remarkMath]}
-                                    rehypePlugins={[rehypeRaw as any, rehypeKatex as any, rehypeHighlight as any]}
-                                    components={{ pre: PreBlock as any }}
-                                  >
-                                    {message.content}
-                                  </ReactMarkdown>
-                                </div>
+                                {(() => {
+                                  const { thinking, response } = parseThinkingContent(message.content);
+                                  return (
+                                    <>
+                                      {thinking && <ThinkingBlock content={thinking} />}
+                                      <div className="prose prose-sm dark:prose-invert max-w-none text-foreground leading-relaxed font-reading">
+                                        <ReactMarkdown
+                                          remarkPlugins={[remarkMath]}
+                                          rehypePlugins={[rehypeRaw as any, rehypeKatex as any, rehypeHighlight as any]}
+                                          components={{ pre: PreBlock as any }}
+                                        >
+                                          {response}
+                                        </ReactMarkdown>
+                                      </div>
+                                    </>
+                                  );
+                                })()}
                               </div>
                             </div>
                           </div>
@@ -527,9 +599,28 @@ export const ChatInterface = memo(function ChatInterface({ transcriptionId, acti
                     <Send className="h-4 w-4" />
                   </Button>
                 </div>
-                {/* Bottom disclaimer */}
-                <div className="text-xs text-carbon-500 text-center mt-2 px-2">
-                  AI can make mistakes. Verify important information.
+                {/* Context usage and disclaimer */}
+                <div className="flex items-center justify-center gap-3 mt-2 px-2 text-xs">
+                  {contextInfo && (
+                    <div className="flex items-center gap-2">
+                      <span className={cn(
+                        "px-2 py-0.5 rounded-full font-medium",
+                        contextInfo.used / contextInfo.limit > 0.8
+                          ? "bg-orange-500/10 text-orange-600 dark:text-orange-400"
+                          : "bg-muted text-muted-foreground"
+                      )}>
+                        {Math.round((contextInfo.used / contextInfo.limit) * 100)}% context
+                      </span>
+                      {contextInfo.trimmed > 0 && (
+                        <span className="text-amber-600 dark:text-amber-400" title={`${contextInfo.trimmed} older messages removed to fit context window`}>
+                          ({contextInfo.trimmed} trimmed)
+                        </span>
+                      )}
+                    </div>
+                  )}
+                  <span className="text-carbon-500">
+                    AI can make mistakes. Verify important information.
+                  </span>
                 </div>
               </div>
             </div>

@@ -174,40 +174,65 @@ export function ChatSessionsSidebar({
                 <Plus className="h-5 w-5" />
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[425px] bg-[#FFFFFF] dark:bg-[#0A0A0A] border-[var(--border-subtle)] shadow-[var(--shadow-float)] p-6 rounded-[var(--radius-card)]">
-              <DialogHeader className="mb-4">
-                <DialogTitle className="text-xl font-bold text-[var(--text-primary)]">New Chat Session</DialogTitle>
+            <DialogContent className="w-[calc(100%-2rem)] max-w-md mx-auto bg-[var(--bg-card)] dark:bg-[#0A0A0A] border border-[var(--border-subtle)] shadow-[var(--shadow-float)] p-0 rounded-2xl overflow-hidden">
+              <DialogHeader className="p-5 pb-0">
+                <DialogTitle className="text-xl font-bold text-[var(--text-primary)] flex items-center gap-2">
+                  <Sparkles className="h-5 w-5 text-[var(--brand-solid)]" />
+                  New Chat Session
+                </DialogTitle>
+                <p className="text-sm text-[var(--text-tertiary)] mt-1">
+                  Start a conversation about this transcript
+                </p>
               </DialogHeader>
-              <div className="space-y-5">
+              <div className="p-5 space-y-5">
                 <div className="space-y-2">
                   <Label htmlFor="model" className="text-sm font-medium text-[var(--text-secondary)]">Model</Label>
                   <Select value={selectedModel} onValueChange={setSelectedModel}>
-                    <SelectTrigger className="w-full bg-[var(--bg-main)] border-[var(--border-subtle)] text-[var(--text-primary)] focus:ring-[var(--brand-solid)] focus:border-[var(--brand-solid)] hover:border-[var(--brand-solid)]/50 transition-all">
+                    <SelectTrigger className="w-full h-11 bg-[var(--bg-main)] border-[var(--border-subtle)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--brand-solid)]/20 focus:border-[var(--brand-solid)] hover:border-[var(--brand-solid)]/50 transition-all rounded-xl">
                       <SelectValue placeholder="Select a model" />
                     </SelectTrigger>
-                    <SelectContent className="bg-[var(--bg-card)] border-[var(--border-subtle)]">
-                      {(availableModels || []).map(m => <SelectItem key={m} value={m} className="focus:bg-[var(--brand-light)] focus:text-[var(--brand-solid)] cursor-pointer">{m}</SelectItem>)}
+                    <SelectContent className="bg-[var(--bg-card)] border-[var(--border-subtle)] rounded-xl shadow-lg">
+                      {(availableModels || []).map(m => (
+                        <SelectItem
+                          key={m}
+                          value={m}
+                          className="focus:bg-[var(--brand-light)] focus:text-[var(--brand-solid)] cursor-pointer py-2.5"
+                        >
+                          <span className="truncate">{m}</span>
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="title" className="text-sm font-medium text-[var(--text-secondary)]">Title (optional)</Label>
+                  <Label htmlFor="title" className="text-sm font-medium text-[var(--text-secondary)]">
+                    Title <span className="text-[var(--text-tertiary)] font-normal">(optional)</span>
+                  </Label>
                   <Input
                     id="title"
                     value={newSessionTitle}
                     onChange={e => setNewSessionTitle(e.target.value)}
-                    placeholder="Enter a title..."
-                    className="bg-[var(--bg-main)] border-[var(--border-subtle)] focus-visible:ring-[var(--brand-solid)] focus-visible:border-[var(--brand-solid)] transition-all"
+                    placeholder="Auto-generated after 2 exchanges..."
+                    className="h-11 bg-[var(--bg-main)] border-[var(--border-subtle)] focus-visible:ring-2 focus-visible:ring-[var(--brand-solid)]/20 focus-visible:border-[var(--brand-solid)] transition-all rounded-xl"
                   />
                 </div>
-                <div className="pt-2 flex justify-end gap-3">
-                  <Button variant="ghost" onClick={() => setShowNewSessionDialog(false)} className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-main)]">
-                    Cancel
-                  </Button>
-                  <Button onClick={createSession} className="bg-gradient-to-br from-[#FFAB40] to-[#FF3D00] text-white hover:scale-105 transition-transform shadow-md">
-                    Create Session
-                  </Button>
-                </div>
+              </div>
+              <div className="p-5 pt-0 flex flex-col-reverse sm:flex-row gap-3 sm:justify-end">
+                <Button
+                  variant="ghost"
+                  onClick={() => setShowNewSessionDialog(false)}
+                  className="h-11 px-6 text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-main)] rounded-full w-full sm:w-auto"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={createSession}
+                  disabled={!selectedModel}
+                  className="h-11 px-6 bg-gradient-to-br from-[#FFAB40] to-[#FF3D00] text-white hover:scale-[1.02] active:scale-[0.98] transition-transform shadow-md disabled:opacity-50 disabled:cursor-not-allowed rounded-full w-full sm:w-auto"
+                >
+                  <MessageSquare className="h-4 w-4 mr-2" />
+                  Start Chat
+                </Button>
               </div>
             </DialogContent>
           </Dialog>

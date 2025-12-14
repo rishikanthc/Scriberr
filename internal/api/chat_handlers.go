@@ -549,16 +549,37 @@ func (h *Handler) SendChatMessage(c *gin.Context) {
 		currentTokenCount += msgTokens
 	}
 
+	// Intelligent context trimming: if context exceeds limit, remove oldest messages
+	// Keep the first message (with transcript context) and trim from the middle
+	trimmedCount := 0
+	for currentTokenCount > contextWindow && len(openaiMessages) > 2 {
+		// Remove the second message (oldest after the context-bearing first message)
+		removed := openaiMessages[1]
+		removedTokens := len(removed.Content) / 4
+		openaiMessages = append(openaiMessages[:1], openaiMessages[2:]...)
+		currentTokenCount -= removedTokens
+		trimmedCount++
+		fmt.Printf("Debug: Trimmed message to fit context. Removed %d tokens, new count: %d/%d\n", removedTokens, currentTokenCount, contextWindow)
+	}
+
+	if trimmedCount > 0 {
+		fmt.Printf("Debug: Trimmed %d messages to fit context window\n", trimmedCount)
+	}
+
+	// Final check - if still over limit after trimming all possible messages, return error
 	if currentTokenCount > contextWindow {
-		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Conversation context length (estimated %d tokens) exceeds model limit (%d tokens). Please start a new session or use a model with larger context.", currentTokenCount, contextWindow)})
+		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Transcript alone exceeds model context limit (%d tokens > %d). Please use a model with larger context window.", currentTokenCount, contextWindow)})
 		return
 	}
 
-	// Set up streaming response
+	// Set up streaming response with context info headers
 	c.Header("Content-Type", "text/plain")
 	c.Header("Cache-Control", "no-cache")
 	c.Header("Connection", "keep-alive")
 	c.Header("Access-Control-Allow-Origin", "*")
+	c.Header("X-Context-Used", fmt.Sprintf("%d", currentTokenCount))
+	c.Header("X-Context-Limit", fmt.Sprintf("%d", contextWindow))
+	c.Header("X-Messages-Trimmed", fmt.Sprintf("%d", trimmedCount))
 
 	// Stream the response
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Minute)
