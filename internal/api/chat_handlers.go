@@ -573,13 +573,17 @@ func (h *Handler) SendChatMessage(c *gin.Context) {
 	}
 
 	// Set up streaming response with context info headers
-	c.Header("Content-Type", "text/plain")
-	c.Header("Cache-Control", "no-cache")
+	c.Header("Content-Type", "text/plain; charset=utf-8")
+	c.Header("Cache-Control", "no-cache, no-store, must-revalidate")
 	c.Header("Connection", "keep-alive")
+	c.Header("Transfer-Encoding", "chunked")
+	c.Header("X-Accel-Buffering", "no") // Disable nginx buffering
 	c.Header("Access-Control-Allow-Origin", "*")
+	c.Header("Access-Control-Expose-Headers", "X-Context-Used, X-Context-Limit, X-Messages-Trimmed")
 	c.Header("X-Context-Used", fmt.Sprintf("%d", currentTokenCount))
 	c.Header("X-Context-Limit", fmt.Sprintf("%d", contextWindow))
 	c.Header("X-Messages-Trimmed", fmt.Sprintf("%d", trimmedCount))
+	c.Status(http.StatusOK) // Start the response immediately
 
 	// Stream the response
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Minute)

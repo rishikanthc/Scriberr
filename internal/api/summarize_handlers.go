@@ -55,10 +55,13 @@ func (h *Handler) Summarize(c *gin.Context) {
 	start := time.Now()
 	log.Printf("[summarize] start transcription_id=%s provider=%s model=%s content_len=%d", req.TranscriptionID, provider, req.Model, len(req.Content))
 
-	// Stream response
-	c.Header("Content-Type", "text/event-stream")
-	c.Header("Cache-Control", "no-cache")
+	// Stream response with proper headers for real-time delivery
+	c.Header("Content-Type", "text/plain; charset=utf-8")
+	c.Header("Cache-Control", "no-cache, no-store, must-revalidate")
 	c.Header("Connection", "keep-alive")
+	c.Header("Transfer-Encoding", "chunked")
+	c.Header("X-Accel-Buffering", "no") // Disable nginx buffering
+	c.Status(http.StatusOK)             // Start response immediately
 
 	// Allow longer generation time for large transcripts and smaller models
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 60*time.Minute)
