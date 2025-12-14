@@ -1,0 +1,4 @@
+We are building an audio transcription app called Scriberr using Go and React.
+I want you to analyze and udnerstand the react frontend code in web/frontend and fix ALL lint errors in the code.
+<IMPORTANT> Do not break any form function or feature.. UI and UX should remain exactly the same. All features should work.
+DO NOT INTRODUCE REGRESSIONS OR BUGS</IMPORTANT>
