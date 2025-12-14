@@ -228,10 +228,23 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 	const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 	const [selectedFile, setSelectedFile] = useState<AudioFile | null>(null);
 
+	// Calculate queue positions for pending jobs
+	const queuePositions = useMemo(() => {
+		const pendingJobs = data.filter(job => job.status === "pending");
+		// Sort by created_at ascending (FIFO)
+		pendingJobs.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+
+		const positions: Record<string, number> = {};
+		pendingJobs.forEach((job, index) => {
+			positions[job.id] = index + 1;
+		});
+		return positions;
+	}, [data]);
+
 	// Side effects for queue and progress
 	useEffect(() => {
 		if (data.length > 0) {
-			// queuePositions logic removed
+			// queuePositions logic derived above
 
 			// Fetch track progress for processing multi-track jobs
 			const processingMultiTrackJobs = data.filter(job =>
@@ -640,14 +653,28 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 					</Tooltip>
 				);
 			case "pending":
+				const position = queuePositions[file.id];
 				return (
 					<Tooltip>
 						<TooltipTrigger asChild>
-							<div className="cursor-help text-gray-400">
-								<Clock className="h-4 w-4" strokeWidth={2.5} />
+							<div className="flex items-center gap-1.5 cursor-help">
+								<div className="flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 text-[10px] font-bold shadow-sm whitespace-nowrap">
+									#{position || "-"}
+								</div>
 							</div>
 						</TooltipTrigger>
-						<TooltipContent>Queued</TooltipContent>
+						<TooltipContent>Queue Position: #{position}</TooltipContent>
+					</Tooltip>
+				);
+			case "uploaded":
+				return (
+					<Tooltip>
+						<TooltipTrigger asChild>
+							<div className="cursor-help text-gray-300">
+								<Clock className="h-4 w-4" />
+							</div>
+						</TooltipTrigger>
+						<TooltipContent>Uploaded (Ready to Transcribe)</TooltipContent>
 					</Tooltip>
 				);
 			default:
@@ -658,11 +685,11 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 								<Clock className="h-4 w-4" />
 							</div>
 						</TooltipTrigger>
-						<TooltipContent>Uploaded</TooltipContent>
+						<TooltipContent>Unknown Status</TooltipContent>
 					</Tooltip>
 				);
 		}
-	}, [trackProgress]);
+	}, [trackProgress, queuePositions]);
 
 	// formatDuration removed as requested
 
