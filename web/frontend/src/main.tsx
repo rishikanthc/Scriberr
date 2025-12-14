@@ -11,6 +11,7 @@ import { ProtectedRoute } from './components/ProtectedRoute'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { ToastProvider } from '@/components/ui/toast'
 import { ChatEventsProvider } from './contexts/ChatEventsContext'
+import { GlobalUploadProvider } from './contexts/GlobalUploadContext'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
 const queryClient = new QueryClient()
@@ -24,7 +25,9 @@ createRoot(document.getElementById('root')!).render(
             <ToastProvider>
               <ChatEventsProvider>
                 <ProtectedRoute>
-                  <App />
+                  <GlobalUploadProvider>
+                    <App />
+                  </GlobalUploadProvider>
                 </ProtectedRoute>
               </ChatEventsProvider>
             </ToastProvider>

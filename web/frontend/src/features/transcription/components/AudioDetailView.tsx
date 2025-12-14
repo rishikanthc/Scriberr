@@ -186,7 +186,7 @@ export const AudioDetailView = function AudioDetailView({ audioId: propAudioId }
                     <div className="flex-1 overflow-y-auto scrollbar-thin">
                         <div className="mx-auto w-full max-w-[960px] px-4 sm:px-6 py-6 pb-32">
                             <div className="mb-6 pb-6">
-                                <Header onFileSelect={() => { }} />
+                                <Header />
                             </div>
                             <div className="space-y-6 sm:space-y-8">
                                 {/* Title & Metadata */}

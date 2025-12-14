@@ -47,15 +47,9 @@ export function Settings() {
     fetchLLM();
   }, [activeTab, getAuthHeaders]);
 
-
-  // Dummy function for file select (Settings page doesn't upload files)
-  const handleFileSelect = () => {
-    // No file upload in settings
-  };
-
   return (
     <MainLayout
-      header={<Header onFileSelect={handleFileSelect} />}
+      header={<Header />}
     >
       {/* Main Content Container with same styling as Homepage */}
       <div className="bg-[var(--bg-card)] border border-[var(--border-subtle)] shadow-[var(--shadow-card)] rounded-[var(--radius-card)] p-2 sm:p-6 mt-8">

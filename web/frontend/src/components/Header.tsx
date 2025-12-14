@@ -15,6 +15,7 @@ import { YouTubeDownloadDialog } from "@/features/transcription/components/YouTu
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { isVideoFile, isAudioFile } from "../utils/fileProcessor";
+import { useGlobalUpload } from "@/contexts/GlobalUploadContext";
 
 interface FileWithType {
 	file: File;
@@ -22,7 +23,7 @@ interface FileWithType {
 }
 
 interface HeaderProps {
-	onFileSelect: (files: File | File[] | FileWithType | FileWithType[]) => void;
+	onFileSelect?: (files: File | File[] | FileWithType | FileWithType[]) => void;
 	onMultiTrackClick?: () => void;
 	onDownloadComplete?: () => void;
 }
@@ -35,6 +36,14 @@ export function Header({ onFileSelect, onMultiTrackClick, onDownloadComplete }: 
 	const [isRecorderOpen, setIsRecorderOpen] = useState(false);
 	const [isQuickTranscriptionOpen, setIsQuickTranscriptionOpen] = useState(false);
 	const [isYouTubeDialogOpen, setIsYouTubeDialogOpen] = useState(false);
+
+	// Use global upload context as fallback when props are not provided
+	const globalUpload = useGlobalUpload();
+
+	// Determine which handlers to use (prop or global context)
+	const effectiveFileSelect = onFileSelect ?? globalUpload.handleFileSelect;
+	const effectiveMultiTrackClick = onMultiTrackClick ?? globalUpload.openMultiTrackDialog;
+	const effectiveRecordingComplete = globalUpload.handleRecordingComplete;
 
 	const handleUploadClick = () => {
 		fileInputRef.current?.click();
@@ -57,7 +66,7 @@ export function Header({ onFileSelect, onMultiTrackClick, onDownloadComplete }: 
 	};
 
 	const handleMultiTrackClick = () => {
-		onMultiTrackClick?.();
+		effectiveMultiTrackClick();
 	};
 
 	const handleSettingsClick = () => {
@@ -88,7 +97,7 @@ export function Header({ onFileSelect, onMultiTrackClick, onDownloadComplete }: 
 			// Filter to only audio files
 			const audioFiles = fileArray.filter(file => isAudioFile(file));
 			if (audioFiles.length > 0) {
-				onFileSelect(audioFiles.length === 1 ? audioFiles[0] : audioFiles);
+				effectiveFileSelect(audioFiles.length === 1 ? audioFiles[0] : audioFiles);
 				// Reset the input so the same files can be selected again
 				event.target.value = "";
 			} else {
@@ -107,7 +116,7 @@ export function Header({ onFileSelect, onMultiTrackClick, onDownloadComplete }: 
 			if (videoFiles.length > 0) {
 				// Pass video files with type marker
 				const filesWithType: FileWithType[] = videoFiles.map(file => ({ file, isVideo: true }));
-				onFileSelect(filesWithType.length === 1 ? filesWithType[0] : filesWithType);
+				effectiveFileSelect(filesWithType.length === 1 ? filesWithType[0] : filesWithType);
 				// Reset the input so the same files can be selected again
 				event.target.value = "";
 			}
@@ -115,10 +124,10 @@ export function Header({ onFileSelect, onMultiTrackClick, onDownloadComplete }: 
 	};
 
 	const handleRecordingComplete = async (blob: Blob, title: string) => {
-		// Convert blob to file and use existing upload logic
-		const file = new File([blob], `${title}.webm`, { type: blob.type });
-		onFileSelect(file);
+		// Use global recording complete handler
+		await effectiveRecordingComplete(blob, title);
 	};
+
 
 	return (
 		<header className="sticky top-4 sm:top-6 z-50 glass rounded-[var(--radius-card)] px-4 py-3 sm:px-6 sm:py-4 transition-all duration-500 shadow-[var(--shadow-float)] border border-[var(--border-subtle)]">
