@@ -18,16 +18,16 @@ export interface MultiTrackTiming {
 }
 
 export interface ExecutionData {
-    id: string;
+    id?: string;
     transcription_job_id: string;
-    started_at: string;
-    completed_at: string | null;
-    processing_duration: number | null; // milliseconds
+    started_at?: string;
+    completed_at?: string | null;
+    processing_duration?: number | null; // milliseconds
     actual_parameters?: any;
-    status: string;
+    status?: string;
     error_message?: string | null;
-    created_at: string;
-    updated_at: string;
+    created_at?: string;
+    updated_at?: string;
     // Multi-track specific fields
     is_multi_track?: boolean;
     multi_track_timings?: MultiTrackTiming[];
@@ -35,6 +35,16 @@ export interface ExecutionData {
     merge_end_time?: string | null;
     merge_duration?: number | null; // milliseconds
     multi_track_files?: MultiTrackFile[];
+    // Graceful empty response fields
+    available?: boolean;
+    message?: string;
+}
+
+export interface LogsData {
+    job_id: string;
+    available: boolean;
+    content: string;
+    message?: string;
 }
 
 export interface AudioFile {
@@ -109,6 +119,11 @@ export function useTranscript(audioId: string, enabled: boolean) {
             if (!response.ok) throw new Error("Failed to fetch transcript");
             const data = await response.json();
 
+            // Handle graceful empty responses (available=false)
+            if (data.available === false || !data.transcript) {
+                return null; // Return null to indicate no transcript
+            }
+
             // Normalize transcript structure
             if (typeof data.transcript === "string") {
                 return { text: data.transcript } as Transcript;
@@ -159,7 +174,7 @@ export function useLogs(audioId: string) {
                 headers: getAuthHeaders(),
             });
             if (!response.ok) throw new Error("Failed to fetch logs");
-            return response.text();
+            return response.json() as Promise<LogsData>;
         },
         enabled: !!audioId,
     });

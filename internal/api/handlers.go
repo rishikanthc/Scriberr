@@ -821,15 +821,33 @@ func (h *Handler) GetTranscript(c *gin.Context) {
 		return
 	}
 
+	// Return empty transcript gracefully for non-completed jobs
 	if job.Status != models.StatusCompleted {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": fmt.Sprintf("Job not completed, current status: %s", job.Status),
+		c.JSON(http.StatusOK, gin.H{
+			"job_id":     job.ID,
+			"title":      job.Title,
+			"transcript": nil,
+			"status":     job.Status,
+			"available":  false,
+			"message":    fmt.Sprintf("Transcript not ready, current status: %s", job.Status),
+			"created_at": job.CreatedAt,
+			"updated_at": job.UpdatedAt,
 		})
 		return
 	}
 
+	// Return empty transcript gracefully if nil
 	if job.Transcript == nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Transcript not available"})
+		c.JSON(http.StatusOK, gin.H{
+			"job_id":     job.ID,
+			"title":      job.Title,
+			"transcript": nil,
+			"status":     job.Status,
+			"available":  false,
+			"message":    "Transcript not available",
+			"created_at": job.CreatedAt,
+			"updated_at": job.UpdatedAt,
+		})
 		return
 	}
 
@@ -843,6 +861,8 @@ func (h *Handler) GetTranscript(c *gin.Context) {
 		"job_id":     job.ID,
 		"title":      job.Title,
 		"transcript": transcript,
+		"status":     job.Status,
+		"available":  true,
 		"created_at": job.CreatedAt,
 		"updated_at": job.UpdatedAt,
 	})
@@ -1317,7 +1337,13 @@ func (h *Handler) GetJobExecutionData(c *gin.Context) {
 		Order("completed_at DESC").
 		First(&execution).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			c.JSON(http.StatusNotFound, gin.H{"error": "No completed execution found for this job"})
+			// Return graceful empty response instead of 404
+			c.JSON(http.StatusOK, gin.H{
+				"transcription_job_id": jobID,
+				"available":            false,
+				"message":              "No execution data available for this job",
+				"is_multi_track":       job.IsMultiTrack,
+			})
 			return
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get execution data"})
