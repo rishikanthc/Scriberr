@@ -2,12 +2,12 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"math"
 	"net/http"
 	"strings"
 	"time"
-	"encoding/json"
-	"math"
 
 	"scriberr/internal/database"
 	"scriberr/internal/llm"
@@ -451,6 +451,18 @@ func (h *Handler) SendChatMessage(c *gin.Context) {
 	var openaiMessages []llm.ChatMessage
 	var currentTokenCount int
 
+	// Fallback: If transcript wasn't loaded via Preload, fetch it directly from the job repository
+	if session.Transcription.Transcript == nil || *session.Transcription.Transcript == "" {
+		fmt.Printf("Debug: Transcript not loaded via Preload for session %s (TranscriptionID: %s), fetching directly...\n", sessionID, session.TranscriptionID)
+		job, jobErr := h.jobRepo.FindByID(c.Request.Context(), session.TranscriptionID)
+		if jobErr == nil && job != nil && job.Transcript != nil && *job.Transcript != "" {
+			session.Transcription.Transcript = job.Transcript
+			fmt.Printf("Debug: Direct fetch succeeded, transcript length: %d\n", len(*job.Transcript))
+		} else {
+			fmt.Printf("Debug: Direct fetch failed or transcript empty. Error: %v\n", jobErr)
+		}
+	}
+
 	// Add system message with transcript context
 	if session.Transcription.Transcript != nil && *session.Transcription.Transcript != "" {
 		transcript := *session.Transcription.Transcript
@@ -459,10 +471,11 @@ func (h *Handler) SendChatMessage(c *gin.Context) {
 		// Parse transcript json segments and build string with format: [SPEAKER_01] [00:00:17 - 00:00:19] Nej, det var tråkigt att höra.
 		var t Transcript
 		if err := json.Unmarshal([]byte(transcript), &t); err != nil {
-			fmt.Println("Error parsing transcript JSON:", err)
+			fmt.Printf("Error parsing transcript JSON for session %s: %v\n", sessionID, err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse transcript data"})
 			return
 		}
-		
+
 		fmt.Printf("Debug: Parsed %d segments from transcript\n", len(t.Segments))
 
 		var sb strings.Builder
@@ -497,7 +510,7 @@ func (h *Handler) SendChatMessage(c *gin.Context) {
 
 		cleanTranscript := sb.String()
 		fmt.Printf("Debug: Clean transcript length: %d\n", len(cleanTranscript))
-		
+
 		systemContent := fmt.Sprintf("You are a helpful assistant analyzing this transcript. Please answer questions and provide insights based on the following transcript:\n\n%s", cleanTranscript)
 
 		fmt.Printf("Injecting transcript of length %d into chat context for session %s\n", len(systemContent), sessionID)
