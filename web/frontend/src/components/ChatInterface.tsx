@@ -44,9 +44,14 @@ function parseThinkingContent(content: string): { thinking: string | null; respo
   return { thinking: null, response: content };
 }
 
-// Collapsible thinking block component
-function ThinkingBlock({ content }: { content: string }) {
-  const [expanded, setExpanded] = useState(false);
+// Collapsible thinking block component with streaming support
+function ThinkingBlock({ content, isStreaming = false }: { content: string; isStreaming?: boolean }) {
+  const [expanded, setExpanded] = useState(isStreaming); // Auto-expand when streaming
+
+  // Auto-expand when streaming starts
+  useEffect(() => {
+    if (isStreaming) setExpanded(true);
+  }, [isStreaming]);
 
   return (
     <div className="mb-3 border border-purple-500/20 rounded-xl bg-purple-500/5 dark:bg-purple-500/10 overflow-hidden">
@@ -54,13 +59,23 @@ function ThinkingBlock({ content }: { content: string }) {
         onClick={() => setExpanded(!expanded)}
         className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-purple-600 dark:text-purple-400 hover:bg-purple-500/5 transition-colors"
       >
-        <Brain className="h-4 w-4" />
-        <span className="font-medium">Thinking</span>
+        <Brain className={cn("h-4 w-4", isStreaming && "animate-pulse")} />
+        <span className="font-medium">
+          {isStreaming ? "Thinking..." : "Thinking"}
+        </span>
+        {isStreaming && (
+          <span className="flex gap-1 ml-2">
+            <span className="w-1.5 h-1.5 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+            <span className="w-1.5 h-1.5 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+            <span className="w-1.5 h-1.5 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+          </span>
+        )}
         <ChevronDown className={cn("h-4 w-4 ml-auto transition-transform duration-200", expanded && "rotate-180")} />
       </button>
       {expanded && (
         <div className="px-4 pb-3 text-sm text-muted-foreground italic border-t border-purple-500/10 pt-3 whitespace-pre-wrap">
           {content}
+          {isStreaming && <span className="inline-block w-2 h-4 bg-purple-500 ml-0.5 animate-pulse" />}
         </div>
       )}
     </div>
@@ -89,6 +104,7 @@ interface ChatMessage {
   role: "user" | "assistant";
   content: string;
   created_at: string;
+  isStreaming?: boolean; // Track if this message is currently streaming
 }
 
 interface ChatInterfaceProps {
@@ -112,6 +128,7 @@ export const ChatInterface = memo(function ChatInterface({ transcriptionId, acti
   const [selectedModel, setSelectedModel] = useState("gpt-3.5-turbo");
   const [error, setError] = useState<string | null>(null);
   const [contextInfo, setContextInfo] = useState<{ used: number; limit: number; trimmed: number } | null>(null);
+  const [_streamingMessageId, setStreamingMessageId] = useState<number | null>(null); // Track which message is streaming
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -297,12 +314,17 @@ export const ChatInterface = memo(function ChatInterface({ transcriptionId, acti
       let assistantContent = "";
       setStreamingMessage("");
 
+      const messageId = Date.now() + 1;
       const assistantMessage: ChatMessage = {
-        id: Date.now() + 1,
+        id: messageId,
         role: "assistant",
         content: "",
         created_at: new Date().toISOString(),
+        isStreaming: true, // Mark as streaming
       };
+
+      // Set streaming message ID
+      setStreamingMessageId(messageId);
 
       // Use ref to track assistant message index to avoid recreating array
       let assistantMessageIndex = -1;
@@ -318,15 +340,33 @@ export const ChatInterface = memo(function ChatInterface({ transcriptionId, acti
         const chunk = new TextDecoder().decode(value);
         assistantContent += chunk;
 
-        // Optimize by only updating the specific message index instead of mapping entire array
+        // Update message content while streaming
         setMessages(prev => {
           const newMessages = [...prev];
           if (assistantMessageIndex >= 0 && assistantMessageIndex < newMessages.length) {
-            newMessages[assistantMessageIndex] = { ...newMessages[assistantMessageIndex], content: assistantContent };
+            newMessages[assistantMessageIndex] = {
+              ...newMessages[assistantMessageIndex],
+              content: assistantContent,
+              isStreaming: true
+            };
           }
           return newMessages;
         });
       }
+
+      // Mark streaming as complete
+      setStreamingMessageId(null);
+      setMessages(prev => {
+        const newMessages = [...prev];
+        if (assistantMessageIndex >= 0 && assistantMessageIndex < newMessages.length) {
+          newMessages[assistantMessageIndex] = {
+            ...newMessages[assistantMessageIndex],
+            content: assistantContent,
+            isStreaming: false
+          };
+        }
+        return newMessages;
+      });
 
       // Store the complete response before any potential session updates
       const finalAssistantContent = assistantContent;
@@ -459,50 +499,54 @@ export const ChatInterface = memo(function ChatInterface({ transcriptionId, acti
             className="flex-1 overflow-y-auto pb-2.5 flex flex-col justify-between w-full flex-auto max-w-full z-10"
             id="messages-container"
           >
-            <div className="h-full w-full flex flex-col px-3 py-4 space-y-4">
+            <div className="h-full w-full flex flex-col px-3 py-4 space-y-5">
               {(messages || []).map(message => (
                 <div key={message.id} className="group w-full">
                   {message.role === "user" ? (
-                    /* User Message */
+                    /* User Message - Scriberr Design System */
                     <div className="flex justify-end">
                       <div className="flex w-full px-2 mx-auto">
                         <div className="w-full flex justify-end">
-                          <div className="flex space-x-3 max-w-3xl">
+                          <div className="flex gap-3 max-w-3xl">
                             <div className="flex-1 overflow-hidden">
-                              <div className="bg-[#FFAB40]/10 dark:bg-[#FFAB40]/5 text-foreground rounded-3xl rounded-tr-md px-5 py-3 relative border border-[#FFAB40]/20 shadow-sm">
+                              {/* User card with brand gradient accent */}
+                              <div className="relative bg-gradient-to-br from-[#FFAB40]/8 to-[#FF6D20]/5 dark:from-[#FFAB40]/10 dark:to-[#FF6D20]/5 text-[var(--text-primary)] rounded-2xl rounded-tr-sm px-4 py-3 border border-[rgba(0,0,0,0.06)] dark:border-[rgba(255,255,255,0.08)] shadow-[0_2px_4px_rgba(0,0,0,0.04),0_8px_16px_rgba(0,0,0,0.04)] dark:shadow-[0_2px_4px_rgba(0,0,0,0.2),0_8px_16px_rgba(0,0,0,0.1)] hover:shadow-[0_4px_8px_rgba(0,0,0,0.06),0_12px_24px_rgba(0,0,0,0.06)] hover:-translate-y-0.5 transition-all duration-200">
                                 {/* Copy button */}
                                 <Button
                                   variant="ghost"
                                   size="icon"
                                   onClick={async () => { try { await navigator.clipboard.writeText(message.content || ''); } catch { } }}
-                                  className="absolute right-2 top-2 h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity text-[var(--brand-solid)]"
+                                  className="absolute right-2 top-2 h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity text-[var(--brand-solid)] hover:bg-[var(--brand-solid)]/10 rounded-full"
                                   title="Copy message"
                                 >
-                                  <Copy className="h-3 w-3" />
+                                  <Copy className="h-3.5 w-3.5" />
                                 </Button>
-                                <div className="text-sm leading-relaxed pr-6 font-reading">
+                                <div className="text-sm leading-relaxed pr-8 font-reading text-[var(--text-primary)]">
                                   {message.content}
                                 </div>
                               </div>
                             </div>
-                            <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 border border-primary/20">
-                              <User className="h-4 w-4 text-primary" />
+                            {/* User avatar with brand accent */}
+                            <div className="h-9 w-9 rounded-full bg-gradient-to-br from-[#FFAB40] to-[#FF6D20] flex items-center justify-center flex-shrink-0 shadow-md">
+                              <User className="h-4 w-4 text-white" />
                             </div>
                           </div>
                         </div>
                       </div>
                     </div>
                   ) : (
-                    /* Assistant Message */
+                    /* Assistant Message - Scriberr Design System */
                     <div className="flex justify-start">
                       <div className="flex w-full px-2 mx-auto">
                         <div className="w-full flex justify-start">
-                          <div className="flex space-x-3 max-w-5xl w-full">
-                            <div className="h-8 w-8 rounded-full bg-indigo-500/10 dark:bg-indigo-500/20 flex items-center justify-center flex-shrink-0 border border-indigo-500/20">
-                              <Sparkles className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+                          <div className="flex gap-3 max-w-5xl w-full">
+                            {/* AI avatar with subtle glow */}
+                            <div className="h-9 w-9 rounded-full bg-[var(--bg-card)] dark:bg-[#1F1F1F] flex items-center justify-center flex-shrink-0 border border-[rgba(0,0,0,0.06)] dark:border-[rgba(255,255,255,0.08)] shadow-[0_2px_8px_rgba(0,0,0,0.06)]">
+                              <Sparkles className="h-4 w-4 text-[var(--brand-solid)]" />
                             </div>
                             <div className="flex-1 space-y-2 overflow-hidden">
-                              <div className="bg-card dark:bg-zinc-900 border border-border/40 shadow-sm rounded-3xl rounded-tl-md px-5 py-4 relative">
+                              {/* Assistant card with floating design */}
+                              <div className="relative bg-[var(--bg-card)] dark:bg-[#141414] border border-[rgba(0,0,0,0.06)] dark:border-[rgba(255,255,255,0.08)] rounded-2xl rounded-tl-sm px-4 py-4 shadow-[0_2px_4px_rgba(0,0,0,0.04),0_10px_20px_rgba(0,0,0,0.04)] dark:shadow-[0_2px_4px_rgba(0,0,0,0.3),0_10px_20px_rgba(0,0,0,0.15)] hover:shadow-[0_4px_8px_rgba(0,0,0,0.06),0_14px_28px_rgba(0,0,0,0.06)] hover:-translate-y-0.5 transition-all duration-200">
                                 {/* Copy button for assistant message */}
                                 <Button
                                   variant="ghost"
@@ -515,18 +559,52 @@ export const ChatInterface = memo(function ChatInterface({ transcriptionId, acti
                                 </Button>
                                 {(() => {
                                   const { thinking, response } = parseThinkingContent(message.content);
+                                  const isCurrentlyStreaming = message.isStreaming === true;
+
+                                  // During streaming, if we detect thinking pattern but no response yet,
+                                  // show thinking in real-time
+                                  const hasResponse = response && response.length > 0;
+                                  const showThinkingStream = isCurrentlyStreaming && !hasResponse && message.content.length > 0;
+
                                   return (
                                     <>
-                                      {thinking && <ThinkingBlock content={thinking} />}
-                                      <div className="prose prose-sm dark:prose-invert max-w-none text-foreground leading-relaxed font-reading">
-                                        <ReactMarkdown
-                                          remarkPlugins={[remarkMath]}
-                                          rehypePlugins={[rehypeRaw as any, rehypeKatex as any, rehypeHighlight as any]}
-                                          components={{ pre: PreBlock as any }}
-                                        >
-                                          {response}
-                                        </ReactMarkdown>
-                                      </div>
+                                      {/* Show thinking block - either detected thinking or streaming content that looks like thinking */}
+                                      {(thinking || showThinkingStream) && (
+                                        <ThinkingBlock
+                                          content={thinking || message.content}
+                                          isStreaming={isCurrentlyStreaming && !hasResponse}
+                                        />
+                                      )}
+
+                                      {/* Show response content with streaming cursor */}
+                                      {hasResponse && (
+                                        <div className="prose prose-sm dark:prose-invert max-w-none text-foreground leading-relaxed font-reading">
+                                          <ReactMarkdown
+                                            remarkPlugins={[remarkMath]}
+                                            rehypePlugins={[rehypeRaw as any, rehypeKatex as any, rehypeHighlight as any]}
+                                            components={{ pre: PreBlock as any }}
+                                          >
+                                            {response}
+                                          </ReactMarkdown>
+                                          {isCurrentlyStreaming && (
+                                            <span className="inline-block w-2 h-4 bg-[var(--brand-solid)] ml-0.5 animate-pulse align-middle" />
+                                          )}
+                                        </div>
+                                      )}
+
+                                      {/* If no thinking detected and streaming, show content directly with cursor */}
+                                      {!thinking && !showThinkingStream && !hasResponse && isCurrentlyStreaming && message.content.length > 0 && (
+                                        <div className="prose prose-sm dark:prose-invert max-w-none text-foreground leading-relaxed font-reading">
+                                          <ReactMarkdown
+                                            remarkPlugins={[remarkMath]}
+                                            rehypePlugins={[rehypeRaw as any, rehypeKatex as any, rehypeHighlight as any]}
+                                            components={{ pre: PreBlock as any }}
+                                          >
+                                            {message.content}
+                                          </ReactMarkdown>
+                                          <span className="inline-block w-2 h-4 bg-[var(--brand-solid)] ml-0.5 animate-pulse align-middle" />
+                                        </div>
+                                      )}
                                     </>
                                   );
                                 })()}
