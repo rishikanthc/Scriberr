@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { motion, useAnimation, type PanInfo } from "framer-motion";
-import { Trash2, Wand2, Settings2, StopCircle } from "lucide-react";
+import { Trash2, Wand2, StopCircle } from "lucide-react";
+import { WandAdvancedIcon } from "@/components/icons/WandAdvancedIcon";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 interface SwipeableItemProps {
@@ -183,7 +184,7 @@ export function SwipeableItem({
                     className="w-11 h-11 flex items-center justify-center rounded-full bg-gray-100 text-gray-600 shadow-sm active:scale-95 transition-transform cursor-pointer"
                     aria-label="Transcribe Advanced"
                 >
-                    <Settings2 size={18} />
+                    <WandAdvancedIcon className="h-[18px] w-[18px]" />
                 </button>
 
                 {/* Delete or Stop (Destructive - furthest right) */}

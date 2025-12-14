@@ -6,12 +6,12 @@ import {
 	Music,
 	FileAudio,
 	Wand2,
-	Settings2,
 	Check,
 	AlertCircle,
 	Clock,
 	X
 } from "lucide-react";
+import { WandAdvancedIcon } from "@/components/icons/WandAdvancedIcon";
 // Checkbox removed
 
 import {
@@ -795,7 +795,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 																onClick={() => handleTranscribeClick(file.id)}
 																className="h-9 w-9 rounded-lg text-gray-400 hover:text-[var(--brand-solid)] hover:bg-orange-50 cursor-pointer transition-colors"
 															>
-																<Settings2 className="h-5 w-5" strokeWidth={2} />
+																<WandAdvancedIcon className="h-5 w-5" strokeWidth={2} />
 															</Button>
 														</TooltipTrigger>
 														<TooltipContent>Transcribe (Advanced)</TooltipContent>
@@ -885,7 +885,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 									disabled={bulkActionLoading}
 									className="h-9 w-9 rounded-full hover:bg-[var(--brand-light)] hover:text-[var(--brand-solid)] transition-colors"
 								>
-									<Settings2 className="h-4 w-4" />
+									<WandAdvancedIcon className="h-4 w-4" />
 								</Button>
 							</TooltipTrigger>
 							<TooltipContent>Transcribe (Advanced)</TooltipContent>
