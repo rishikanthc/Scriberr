@@ -42,6 +42,7 @@
     "lucide-react": "^0.540.0",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
+    "react-intersection-observer": "^10.0.0",
     "react-markdown": "^10.1.0",
     "react-router-dom": "^7.10.1",
     "rehype-highlight": "^7.0.2",
