@@ -36,9 +36,13 @@ export function LogsDialog({ audioId, isOpen, onClose }: LogsDialogProps) {
                             <div className="h-8 w-8 border-4 border-[var(--brand-solid)] border-t-transparent rounded-full animate-spin" />
                             <span className="text-[var(--text-tertiary)] animate-pulse">Loading logs...</span>
                         </div>
+                    ) : logsContent?.available === false ? (
+                        <div className="py-12 text-center text-[var(--text-tertiary)]">
+                            No logs available for this transcription job.
+                        </div>
                     ) : (
                         <pre className="bg-[#0A0A0A] text-[#EDEDED] p-4 rounded-[var(--radius-card)] overflow-x-auto text-xs sm:text-sm font-mono leading-relaxed whitespace-pre-wrap max-h-[60vh] overflow-y-auto border border-white/10 shadow-inner">
-                            {logsContent || "No logs available."}
+                            {logsContent?.content || "No logs available."}
                         </pre>
                     )}
                 </div>

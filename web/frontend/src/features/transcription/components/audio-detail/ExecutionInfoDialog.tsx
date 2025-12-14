@@ -35,7 +35,7 @@ export function ExecutionInfoDialog({ audioId, isOpen, onClose }: ExecutionInfoD
                         <div className="h-8 w-8 border-4 border-[var(--brand-solid)] border-t-transparent rounded-full animate-spin" />
                         <span className="text-[var(--text-tertiary)] animate-pulse">Loading execution data...</span>
                     </div>
-                ) : executionData ? (
+                ) : executionData && executionData.available !== false ? (
                     <div className="space-y-6 py-4">
                         {/* Overall Processing Time */}
                         <div className="bg-[var(--bg-main)] rounded-[var(--radius-card)] border border-[var(--border-subtle)] p-4 sm:p-6 shadow-sm">
@@ -46,8 +46,8 @@ export function ExecutionInfoDialog({ audioId, isOpen, onClose }: ExecutionInfoD
                             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
                                 <MetricCard
                                     label="Started"
-                                    value={new Date(executionData.started_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                    subtext={new Date(executionData.started_at).toLocaleDateString()}
+                                    value={executionData.started_at ? new Date(executionData.started_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'N/A'}
+                                    subtext={executionData.started_at ? new Date(executionData.started_at).toLocaleDateString() : ''}
                                 />
                                 <MetricCard
                                     label="Completed"

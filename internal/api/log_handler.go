@@ -31,7 +31,13 @@ func (h *Handler) GetJobLogs(c *gin.Context) {
 		return
 	}
 	if !exists {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Logs not found for this job"})
+		// Return graceful empty response instead of 404
+		c.JSON(http.StatusOK, gin.H{
+			"job_id":    jobID,
+			"available": false,
+			"content":   "",
+			"message":   "No logs available for this job",
+		})
 		return
 	}
 
@@ -42,6 +48,10 @@ func (h *Handler) GetJobLogs(c *gin.Context) {
 		return
 	}
 
-	// Return as plain text
-	c.Data(http.StatusOK, "text/plain; charset=utf-8", content)
+	// Return as JSON with content for consistency
+	c.JSON(http.StatusOK, gin.H{
+		"job_id":    jobID,
+		"available": true,
+		"content":   string(content),
+	})
 }
