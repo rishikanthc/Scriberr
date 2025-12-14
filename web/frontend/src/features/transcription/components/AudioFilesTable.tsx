@@ -737,7 +737,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 										"group relative flex justify-between items-center p-4",
 										"bg-[var(--bg-card)] rounded-xl border border-[var(--border-subtle)]",
 										"shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer select-none",
-										rowSelection[file.id as keyof typeof rowSelection] && "border-[var(--brand-solid)] ring-1 ring-[var(--brand-solid)]/10 bg-orange-50/50 dark:bg-orange-900/10"
+										rowSelection[file.id as keyof typeof rowSelection] && "border-[var(--brand-solid)] ring-1 ring-[var(--brand-solid)]/10 bg-orange-50 dark:bg-orange-950"
 									)}
 									onClick={(e) => handleRowClick(file, e)}
 									onMouseDown={(e) => startLongPress(file.id, e)}
