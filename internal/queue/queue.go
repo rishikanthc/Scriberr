@@ -115,21 +115,20 @@ func (tq *TaskQueue) Start() {
 		"workers", workers,
 		"min_workers", tq.minWorkers,
 		"max_workers", tq.maxWorkers,
-		"max_workers", tq.maxWorkers,
 		"auto_scale", tq.autoScale)
 
 	// Reset any zombie jobs from previous runs synchronously before starting workers
 	tq.ResetZombieJobs()
+
+	// One-time recovery: enqueue any pending jobs left from previous server run
+	// This is NOT a polling mechanism - it only runs once at startup
+	tq.recoverPendingJobs()
 
 	// Start initial workers
 	for i := 0; i < workers; i++ {
 		tq.wg.Add(1)
 		go tq.worker(i)
 	}
-
-	// Start the job scanner
-	tq.wg.Add(1)
-	go tq.jobScanner()
 
 	// Start auto-scaling monitor if enabled
 	if tq.autoScale {
@@ -236,46 +235,6 @@ func (tq *TaskQueue) worker(id int) {
 
 		case <-tq.ctx.Done():
 			logger.Debug("Worker stopped", "worker_id", id, "reason", "context_cancelled")
-			return
-		}
-	}
-}
-
-// jobScanner scans for pending jobs and adds them to the queue
-func (tq *TaskQueue) jobScanner() {
-	defer tq.wg.Done()
-
-	ticker := time.NewTicker(10 * time.Second) // Scan every 10 seconds
-	defer ticker.Stop()
-
-	logger.Debug("Job scanner started")
-
-	for {
-		select {
-		case <-ticker.C:
-			tq.scanPendingJobs()
-		case <-tq.ctx.Done():
-			logger.Debug("Job scanner stopped")
-			return
-		}
-	}
-}
-
-// scanPendingJobs finds pending jobs and enqueues them
-func (tq *TaskQueue) scanPendingJobs() {
-	var jobs []models.TranscriptionJob
-
-	if err := database.DB.Where("status = ?", models.StatusPending).Find(&jobs).Error; err != nil {
-		logger.Error("Failed to scan pending jobs", "error", err)
-		return
-	}
-
-	for _, job := range jobs {
-		select {
-		case tq.jobChannel <- job.ID:
-			logger.Debug("Enqueued pending job", "job_id", job.ID)
-		default:
-			logger.Warn("Queue full, skipping job", "job_id", job.ID)
 			return
 		}
 	}
@@ -487,6 +446,32 @@ func (tq *TaskQueue) ResetZombieJobs() {
 		// Update error message
 		if err := tq.updateJobError(job.ID, "Job interrupted by server restart"); err != nil {
 			logger.Error("Failed to update zombie job error message", "job_id", job.ID, "error", err)
+		}
+	}
+}
+
+// recoverPendingJobs enqueues pending jobs from previous server runs
+// This runs ONCE at startup, not repeatedly like the old scanner
+func (tq *TaskQueue) recoverPendingJobs() {
+	var pendingJobs []models.TranscriptionJob
+
+	if err := database.DB.Where("status = ?", models.StatusPending).Find(&pendingJobs).Error; err != nil {
+		logger.Error("Failed to scan for pending jobs during startup recovery", "error", err)
+		return
+	}
+
+	if len(pendingJobs) == 0 {
+		return
+	}
+
+	logger.Info("Recovering pending jobs from previous server run", "count", len(pendingJobs))
+
+	for _, job := range pendingJobs {
+		select {
+		case tq.jobChannel <- job.ID:
+			logger.Debug("Recovered pending job", "job_id", job.ID)
+		default:
+			logger.Warn("Queue full during startup recovery, job will remain pending", "job_id", job.ID)
 		}
 	}
 }
