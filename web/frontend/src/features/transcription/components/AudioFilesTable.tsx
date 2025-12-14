@@ -5,7 +5,6 @@ import {
 	StopCircle,
 	Music,
 	FileAudio,
-	MoreHorizontal,
 	Wand2,
 	Settings2,
 	Check,
@@ -31,13 +30,6 @@ import {
 	AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
-import {
-	DropdownMenu,
-	DropdownMenuContent,
-	DropdownMenuItem,
-	DropdownMenuTrigger,
-	DropdownMenuSeparator
-} from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { TranscriptionConfigDialog, type WhisperXParams } from "@/components/TranscriptionConfigDialog";
 import { TranscribeDDialog } from "@/components/TranscribeDDialog";
@@ -53,7 +45,8 @@ const JobStatusMonitor = memo(({ jobId }: { jobId: string }) => {
 
 
 import { DebouncedSearchInput } from "@/components/DebouncedSearchInput";
-
+import { SwipeableItem } from "@/components/ui/swipeable-item";
+import { useSwipeHint } from "@/hooks/use-swipe-hint";
 
 
 
@@ -67,8 +60,8 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 }: AudioFilesTableProps) {
 	const navigate = useNavigate();
 	const { getAuthHeaders } = useAuth();
+	const { shouldShowHint, markHintShown } = useSwipeHint();
 
-	// Table State
 	// Table State
 	const sorting = [
 		{ id: "created_at", desc: true }
@@ -115,6 +108,12 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 	const [rowSelection, setRowSelection] = useState<Record<string, boolean>>({});
 	const longPressTimer = useRef<NodeJS.Timeout | undefined>(undefined);
 	const isLongPress = useRef(false);
+	const touchStartPos = useRef<{ x: number; y: number } | null>(null);
+	const isSwipingRef = useRef(false);
+	const suppressClickUntil = useRef(0);
+
+	// Threshold to cancel long-press (in pixels)
+	const LONG_PRESS_CANCEL_THRESHOLD = 10;
 
 	const handleAudioClick = useCallback((audioId: string) => {
 		navigate(`/audio/${audioId}`);
@@ -132,7 +131,26 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 		});
 	}, []);
 
+	// Called when swipe starts/ends to coordinate with clicks
+	const handleSwipeStateChange = useCallback((isSwiping: boolean) => {
+		isSwipingRef.current = isSwiping;
+		if (!isSwiping) {
+			// After swipe ends, suppress clicks for 150ms to prevent accidental navigation
+			suppressClickUntil.current = Date.now() + 150;
+		}
+		// Cancel any pending long-press when swiping starts
+		if (isSwiping && longPressTimer.current) {
+			clearTimeout(longPressTimer.current);
+		}
+	}, []);
+
 	const handleRowClick = useCallback((file: AudioFile, e: React.MouseEvent) => {
+		// Suppress click if we just finished a swipe
+		if (Date.now() < suppressClickUntil.current || isSwipingRef.current) {
+			e.stopPropagation();
+			return;
+		}
+
 		if (isLongPress.current) {
 			isLongPress.current = false;
 			return; // Ignore click after long press
@@ -148,20 +166,48 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 		}
 	}, [rowSelection, handleAudioClick, toggleSelection]);
 
-	const startLongPress = useCallback((id: string) => {
+	const startLongPress = useCallback((id: string, e: React.TouchEvent | React.MouseEvent) => {
 		isLongPress.current = false;
+
+		// Record touch start position for movement detection
+		if ('touches' in e) {
+			const touch = e.touches[0];
+			touchStartPos.current = { x: touch.clientX, y: touch.clientY };
+		} else {
+			touchStartPos.current = { x: e.clientX, y: e.clientY };
+		}
+
 		longPressTimer.current = setTimeout(() => {
 			isLongPress.current = true;
 			toggleSelection(id);
-			// Optional: Haptic feedback here if supported
+			// Haptic feedback
 			if (navigator.vibrate) navigator.vibrate(50);
 		}, 600); // 600ms threshold
 	}, [toggleSelection]);
 
+	// Cancel long-press if finger moves beyond threshold
+	const handleTouchMove = useCallback((e: React.TouchEvent) => {
+		if (!touchStartPos.current || !longPressTimer.current) return;
+
+		const touch = e.touches[0];
+		const dx = Math.abs(touch.clientX - touchStartPos.current.x);
+		const dy = Math.abs(touch.clientY - touchStartPos.current.y);
+
+		// If moved beyond threshold, cancel long-press
+		if (dx > LONG_PRESS_CANCEL_THRESHOLD || dy > LONG_PRESS_CANCEL_THRESHOLD) {
+			if (longPressTimer.current) {
+				clearTimeout(longPressTimer.current);
+				longPressTimer.current = undefined;
+			}
+		}
+	}, []);
+
 	const clearLongPress = useCallback(() => {
 		if (longPressTimer.current) {
 			clearTimeout(longPressTimer.current);
+			longPressTimer.current = undefined;
 		}
+		touchStartPos.current = null;
 	}, []);
 
 	const [bulkActionLoading, setBulkActionLoading] = useState(false);
@@ -673,150 +719,128 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 					</div>
 				) : (
 					<div className="space-y-3">
-						{data.map((file) => (
-							<div
+						{data.map((file, index) => (
+							<SwipeableItem
 								key={file.id}
-								className={cn(
-									"group relative flex justify-between items-center p-4",
-									"bg-[var(--bg-card)] rounded-xl border border-[var(--border-subtle)]",
-									"shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer select-none",
-									rowSelection[file.id as keyof typeof rowSelection] && "border-[var(--brand-solid)] ring-1 ring-[var(--brand-solid)]/10 bg-orange-50/50 dark:bg-orange-900/10"
-								)}
-								onClick={(e) => handleRowClick(file, e)}
-								onMouseDown={() => startLongPress(file.id)}
-								onMouseUp={clearLongPress}
-								onMouseLeave={clearLongPress}
-								onTouchStart={() => startLongPress(file.id)}
-								onTouchEnd={clearLongPress}
+								onTranscribe={() => handleTranscribeDClick(file.id)}
+								onTranscribeAdvanced={() => handleTranscribeClick(file.id)}
+								onDelete={() => handleDeleteClick(file)}
+								onStop={() => handleStopClick(file)}
+								isProcessing={file.status === "processing" || file.status === "pending"}
+								isSelectionMode={Object.keys(rowSelection).length > 0}
+								shouldShowHint={shouldShowHint && index === 0}
+								onHintComplete={markHintShown}
+								onSwipeStateChange={handleSwipeStateChange}
 							>
-								<div className="flex items-center gap-4 min-w-0 transition-[padding] duration-200">
-									{/* Icon (Tinted Pastel Square) - Lighter Shade */}
-									<div className="flex-shrink-0 w-12 h-12 flex items-center justify-center rounded-xl bg-[#FFFAF0] text-[#FF6D20] transition-opacity duration-200">
-										<FileAudio className="h-6 w-6" strokeWidth={2} />
+								<div
+									className={cn(
+										"group relative flex justify-between items-center p-4",
+										"bg-[var(--bg-card)] rounded-xl border border-[var(--border-subtle)]",
+										"shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer select-none",
+										rowSelection[file.id as keyof typeof rowSelection] && "border-[var(--brand-solid)] ring-1 ring-[var(--brand-solid)]/10 bg-orange-50/50 dark:bg-orange-900/10"
+									)}
+									onClick={(e) => handleRowClick(file, e)}
+									onMouseDown={(e) => startLongPress(file.id, e)}
+									onMouseUp={clearLongPress}
+									onMouseLeave={clearLongPress}
+									onTouchStart={(e) => startLongPress(file.id, e)}
+									onTouchMove={handleTouchMove}
+									onTouchEnd={clearLongPress}
+								>
+									<div className="flex items-center gap-4 min-w-0 transition-[padding] duration-200">
+										{/* Icon (Tinted Pastel Square) - Lighter Shade */}
+										<div className="flex-shrink-0 w-12 h-12 flex items-center justify-center rounded-xl bg-[#FFFAF0] text-[#FF6D20] transition-opacity duration-200">
+											<FileAudio className="h-6 w-6" strokeWidth={2} />
+										</div>
+
+										{/* Text */}
+										<div className="min-w-0">
+											<h4 className="font-normal text-gray-900 dark:text-gray-100 truncate text-lg leading-tight group-hover:text-[#FF6D20] transition-colors">
+												{file.title || getFileName(file.audio_path)}
+											</h4>
+											<div className="flex items-center gap-1.5 mt-1 text-sm text-gray-500">
+												{formatDate(file.created_at)}
+											</div>
+										</div>
 									</div>
 
-									{/* Text */}
-									<div className="min-w-0">
-										<h4 className="font-normal text-gray-900 dark:text-gray-100 truncate text-lg leading-tight group-hover:text-[#FF6D20] transition-colors">
-											{file.title || getFileName(file.audio_path)}
-										</h4>
-										<div className="flex items-center gap-1.5 mt-1 text-sm text-gray-500">
-											{formatDate(file.created_at)}
+									{/* Right: Cluster (Actions • Status) */}
+									<div className="flex items-center gap-6">
+										{/* Desktop Actions (Hover) - Hidden on mobile */}
+										<div
+											className="hidden md:flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+											onClick={(e) => e.stopPropagation()}
+										>
+											{(file.status !== "processing" && file.status !== "pending") && (
+												<>
+													<Tooltip>
+														<TooltipTrigger asChild>
+															<Button
+																variant="ghost"
+																size="icon"
+																onClick={() => handleTranscribeDClick(file.id)}
+																className="h-9 w-9 rounded-lg text-gray-400 hover:text-[var(--brand-solid)] hover:bg-orange-50 cursor-pointer transition-colors"
+															>
+																<Wand2 className="h-5 w-5" strokeWidth={2} />
+															</Button>
+														</TooltipTrigger>
+														<TooltipContent>Transcribe</TooltipContent>
+													</Tooltip>
+
+													<Tooltip>
+														<TooltipTrigger asChild>
+															<Button
+																variant="ghost"
+																size="icon"
+																onClick={() => handleTranscribeClick(file.id)}
+																className="h-9 w-9 rounded-lg text-gray-400 hover:text-[var(--brand-solid)] hover:bg-orange-50 cursor-pointer transition-colors"
+															>
+																<Settings2 className="h-5 w-5" strokeWidth={2} />
+															</Button>
+														</TooltipTrigger>
+														<TooltipContent>Transcribe (Advanced)</TooltipContent>
+													</Tooltip>
+												</>
+											)}
+
+											{(file.status === "processing" || file.status === "pending") ? (
+												<Tooltip>
+													<TooltipTrigger asChild>
+														<Button
+															variant="ghost"
+															size="icon"
+															onClick={() => handleStopClick(file)}
+															className="h-9 w-9 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 cursor-pointer transition-colors"
+														>
+															<StopCircle className="h-5 w-5" strokeWidth={2} />
+														</Button>
+													</TooltipTrigger>
+													<TooltipContent>Stop Transcription</TooltipContent>
+												</Tooltip>
+											) : (
+												<Tooltip>
+													<TooltipTrigger asChild>
+														<Button
+															variant="ghost"
+															size="icon"
+															onClick={() => handleDeleteClick(file)}
+															className="h-9 w-9 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 cursor-pointer transition-colors"
+														>
+															<Trash2 className="h-5 w-5" strokeWidth={2} />
+														</Button>
+													</TooltipTrigger>
+													<TooltipContent>Delete</TooltipContent>
+												</Tooltip>
+											)}
+										</div>
+
+										{/* Status Icon */}
+										<div className="flex items-center justify-center w-6">
+											{getStatusIcon(file)}
 										</div>
 									</div>
 								</div>
-
-								{/* Right: Cluster (Actions • Status) */}
-								<div className="flex items-center gap-6">
-									{/* Desktop Actions (Hover) */}
-									<div
-										className="hidden md:flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
-										onClick={(e) => e.stopPropagation()}
-									>
-										{(file.status !== "processing" && file.status !== "pending") && (
-											<>
-												<Tooltip>
-													<TooltipTrigger asChild>
-														<Button
-															variant="ghost"
-															size="icon"
-															onClick={() => handleTranscribeDClick(file.id)}
-															className="h-9 w-9 rounded-lg text-gray-400 hover:text-[var(--brand-solid)] hover:bg-orange-50 cursor-pointer transition-colors"
-														>
-															<Wand2 className="h-5 w-5" strokeWidth={2} />
-														</Button>
-													</TooltipTrigger>
-													<TooltipContent>Transcribe</TooltipContent>
-												</Tooltip>
-
-												<Tooltip>
-													<TooltipTrigger asChild>
-														<Button
-															variant="ghost"
-															size="icon"
-															onClick={() => handleTranscribeClick(file.id)}
-															className="h-9 w-9 rounded-lg text-gray-400 hover:text-[var(--brand-solid)] hover:bg-orange-50 cursor-pointer transition-colors"
-														>
-															<Settings2 className="h-5 w-5" strokeWidth={2} />
-														</Button>
-													</TooltipTrigger>
-													<TooltipContent>Transcribe (Advanced)</TooltipContent>
-												</Tooltip>
-											</>
-										)}
-
-										{(file.status === "processing" || file.status === "pending") ? (
-											<Tooltip>
-												<TooltipTrigger asChild>
-													<Button
-														variant="ghost"
-														size="icon"
-														onClick={() => handleStopClick(file)}
-														className="h-9 w-9 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 cursor-pointer transition-colors"
-													>
-														<StopCircle className="h-5 w-5" strokeWidth={2} />
-													</Button>
-												</TooltipTrigger>
-												<TooltipContent>Stop Transcription</TooltipContent>
-											</Tooltip>
-										) : (
-											<Tooltip>
-												<TooltipTrigger asChild>
-													<Button
-														variant="ghost"
-														size="icon"
-														onClick={() => handleDeleteClick(file)}
-														className="h-9 w-9 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 cursor-pointer transition-colors"
-													>
-														<Trash2 className="h-5 w-5" strokeWidth={2} />
-													</Button>
-												</TooltipTrigger>
-												<TooltipContent>Delete</TooltipContent>
-											</Tooltip>
-										)}
-									</div>
-
-									{/* Mobile Actions (Kebab) */}
-									<div
-										className="md:hidden"
-										onClick={(e) => e.stopPropagation()}
-									>
-										<DropdownMenu>
-											<DropdownMenuTrigger asChild>
-												<Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-gray-400 cursor-pointer">
-													<MoreHorizontal className="h-5 w-5" />
-												</Button>
-											</DropdownMenuTrigger>
-											<DropdownMenuContent align="end" className="w-48 rounded-xl">
-												{(file.status !== "processing" && file.status !== "pending") && (
-													<>
-														<DropdownMenuItem onClick={() => handleTranscribeDClick(file.id)} className="cursor-pointer">
-															<Wand2 className="mr-2 h-4 w-4" /> Transcribe
-														</DropdownMenuItem>
-														<DropdownMenuItem onClick={() => handleTranscribeClick(file.id)} className="cursor-pointer">
-															<Settings2 className="mr-2 h-4 w-4" /> Transcribe (Advanced)
-														</DropdownMenuItem>
-													</>
-												)}
-												{(file.status === "processing" || file.status === "pending") && (
-													<DropdownMenuItem onClick={() => handleStopClick(file)} className="cursor-pointer">
-														<StopCircle className="mr-2 h-4 w-4" /> Stop Transcription
-													</DropdownMenuItem>
-												)}
-												<DropdownMenuSeparator />
-												<DropdownMenuItem className="text-red-600 cursor-pointer" onClick={() => handleDeleteClick(file)}>
-													<Trash2 className="mr-2 h-4 w-4" /> Delete
-												</DropdownMenuItem>
-											</DropdownMenuContent>
-										</DropdownMenu>
-									</div>
-
-									{/* Status Icon */}
-									<div className="flex items-center justify-center w-6">
-										{getStatusIcon(file)}
-									</div>
-								</div>
-							</div>
+							</SwipeableItem>
 						))}
 					</div>
 				)}
