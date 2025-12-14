@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, memo, useRef } from "react";
+import { useInView } from "react-intersection-observer";
 import {
 	Loader2,
 	Trash2,
@@ -98,6 +99,18 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 
 	const loading = queryLoading;
 	// Pagination state no longer needed in same way
+
+	// Infinite Scroll Trigger
+	const { ref: scrollRef, inView } = useInView({
+		threshold: 0,
+		rootMargin: '400px', // Start fetching 400px before reaching the bottom
+	});
+
+	useEffect(() => {
+		if (inView && hasNextPage && !isFetchingNextPage) {
+			fetchNextPage();
+		}
+	}, [inView, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
 
 	// Local state for UI
@@ -956,26 +969,32 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 				</div>
 			)}
 
-			{/* Load More Button */}
-			{hasNextPage && (
-				<div className="flex justify-center pt-6 pb-8">
-					<Button
-						variant="outline"
-						onClick={() => fetchNextPage()}
-						disabled={isFetchingNextPage}
-						className="min-w-[200px] rounded-full border-[var(--border-subtle)] hover:bg-[var(--bg-card)] hover:text-[var(--brand-solid)] transition-all"
-					>
-						{isFetchingNextPage ? (
-							<>
-								<Loader2 className="mr-2 h-4 w-4 animate-spin" />
-								Loading...
-							</>
-						) : (
-							"Load older recordings"
-						)}
-					</Button>
-				</div>
-			)}
+			{/* Infinite Scroll & Loading State */}
+			<div ref={scrollRef} className="pt-2 pb-8">
+				{isFetchingNextPage && (
+					<div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
+						{/* Premium Skeleton Loaders - Shimmering Bars */}
+						{Array.from({ length: 3 }).map((_, i) => (
+							<div
+								key={i}
+								className="h-20 w-full rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)]/50 p-4 flex items-center gap-4"
+							>
+								{/* Icon Skeleton */}
+								<div className="h-12 w-12 rounded-xl bg-gray-200 dark:bg-zinc-800 animate-pulse" />
+
+								{/* Text Skeleton */}
+								<div className="space-y-2 flex-1">
+									<div className="h-4 w-1/3 bg-gray-200 dark:bg-zinc-800 rounded animate-pulse" />
+									<div className="h-3 w-1/4 bg-gray-100 dark:bg-zinc-900 rounded animate-pulse" />
+								</div>
+
+								{/* Action Skeleton */}
+								<div className="h-8 w-24 bg-gray-100 dark:bg-zinc-900 rounded-lg animate-pulse opacity-50" />
+							</div>
+						))}
+					</div>
+				)}
+			</div>
 			<AlertDialog open={bulkDeleteDialogOpen} onOpenChange={setBulkDeleteDialogOpen}>
 				<AlertDialogContent>
 					<AlertDialogHeader>
