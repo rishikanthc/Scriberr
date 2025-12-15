@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Work+Sans:wght@300;400;500;600&display=swap');
 @import "tailwindcss";
 
 @theme {
@@ -5,6 +6,8 @@
   --image-brand-gradient: var(--brand-gradient);
 
   --font-sans: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-heading: "Plus Jakarta Sans", sans-serif;
+  --font-body: 'Work Sans', sans-serif;
 
   --animate-fade-in: fadeIn 0.5s ease-out;
   --animate-slide-up: slideUp 0.5s ease-out;
@@ -41,8 +44,6 @@
   --color-bg-primary: #ffffff;
   --color-bg-secondary: #f9fafb;
   --color-text-primary: #111827;
-  --font-heading: 'Plus Jakarta Sans', sans-serif;
-  --font-body: 'Work Sans', sans-serif;
 }
 
 body {

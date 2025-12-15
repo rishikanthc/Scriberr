@@ -7,8 +7,6 @@ import (
 	"scriberr/pkg/middleware"
 
 	"github.com/gin-gonic/gin"
-	swaggerFiles "github.com/swaggo/files"
-	ginSwagger "github.com/swaggo/gin-swagger"
 )
 
 // SetupRoutes sets up all API routes
@@ -45,9 +43,6 @@ func SetupRoutes(handler *Handler, authService *auth.AuthService) *gin.Engine {
 
 	// Health check endpoint (no auth required)
 	router.GET("/health", handler.HealthCheck)
-
-	// Swagger documentation
-	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	// CLI install script alias (root level for easier access)
 	router.GET("/install.sh", handler.GetInstallScript)

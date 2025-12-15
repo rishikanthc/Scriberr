@@ -1044,6 +1044,26 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/events": {
+            "get": {
+                "description": "Subscribe to server-sent events",
+                "produces": [
+                    "text/event-stream"
+                ],
+                "tags": [
+                    "events"
+                ],
+                "summary": "SSE Events",
+                "responses": {
+                    "200": {
+                        "description": "stream",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/llm/config": {
             "get": {
                 "security": [

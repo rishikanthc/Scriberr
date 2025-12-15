@@ -1427,6 +1427,19 @@ paths:
       summary: Validate OpenAI API Key
       tags:
       - config
+  /api/v1/events:
+    get:
+      description: Subscribe to server-sent events
+      produces:
+      - text/event-stream
+      responses:
+        "200":
+          description: stream
+          schema:
+            type: string
+      summary: SSE Events
+      tags:
+      - events
   /api/v1/llm/config:
     get:
       description: Get the current active LLM configuration
