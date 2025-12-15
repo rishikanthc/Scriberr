@@ -25,10 +25,8 @@ export function ScriberrLogo({ className = "", onClick }: { className?: string; 
         }
       }}
     >
-      <ScriberrIcon className="h-8 w-auto select-none transition-all duration-300" />
-
-      {/* Text Logo - Temporarily hidden */}
-      <ScriberrTextLogo className="h-4 sm:h-6 w-auto" />
+      <ScriberrIcon className="h-8 w-auto sm:h-9 select-none transition-all duration-300" />
+      <ScriberrTextLogo className="hidden sm:block sm:h-5 w-auto" />
     </div>
   )
 }

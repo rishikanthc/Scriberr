@@ -63,5 +63,29 @@ export default defineConfig({
     // Improve performance by optimizing chunk sizes
     chunkSizeWarningLimit: 1000,
   },
+  server: {
+    proxy: {
+      '/api': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+      },
+      '/health': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+      },
+      '/swagger': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+      },
+      '/install.sh': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+      },
+      '/install-cli.sh': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+      }
+    }
+  },
   base: "/",
 })

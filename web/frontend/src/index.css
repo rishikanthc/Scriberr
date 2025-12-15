@@ -118,7 +118,8 @@
 :root {
   /* --- BRAND IDENTITY --- */
   /* Extracted from your logo */
-  --brand-gradient: linear-gradient(135deg, #FFAB40 0%, #FF3D00 100%);
+  /* --brand-gradient: linear-gradient(135deg, #FFAB40 0%, #FF3D00 100%); */
+  --brand-gradient: linear-gradient(135deg, #FF9800 0%, #FF3D00 100%);
   --brand-solid: #FF6D20;
   /* The midpoint color for text/icons */
   --brand-light: rgba(255, 171, 64, 0.12);
