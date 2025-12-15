@@ -290,7 +290,7 @@ export const ChatInterface = memo(function ChatInterface({ transcriptionId, acti
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          content: `${messageContent}\n\nTypeset all your answers in markdown and provide the markdown formatted string. Write equations in latex. Your response should contain only the markdown formatted string - nothing else. DO NOT wrap your response in code blocks, backticks, or any other formatting - return the raw markdown content directly.`,
+          content: messageContent,
         }),
       });
 

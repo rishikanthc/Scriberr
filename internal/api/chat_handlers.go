@@ -17,6 +17,8 @@ import (
 	"gorm.io/gorm"
 )
 
+const StylePrompt = "\n\nINSTRUCTIONS: Return your answer as a raw markdown string. \n1. Use LaTeX for equations (e.g., $E=mc^2$). \n2. Do NOT use code block fences (```) around the entire response. \n3. Do NOT include any meta-comments (e.g., \"Here is the markdown...\"). \n4. Just provide the raw content."
+
 // ChatCreateRequest represents a request to create a new chat session
 type ChatCreateRequest struct {
 	TranscriptionID string `json:"transcription_id" binding:"required"`
@@ -542,9 +544,16 @@ func (h *Handler) SendChatMessage(c *gin.Context) {
 			fmt.Printf("Debug: Prepended transcript to first user message\n")
 		}
 		msgTokens := len(msgContent) / 4
+
+		// Inject style prompt for user messages (in-memory only, not saved to DB)
+		finalContent := msgContent
+		if msg.Role == "user" {
+			finalContent += StylePrompt
+		}
+
 		openaiMessages = append(openaiMessages, llm.ChatMessage{
 			Role:    msg.Role,
-			Content: msgContent,
+			Content: finalContent,
 		})
 		currentTokenCount += msgTokens
 	}
