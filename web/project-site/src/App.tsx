@@ -7,12 +7,14 @@ import Features from './docs/Features.mdx';
 import Usage from './docs/Usage.mdx';
 import Configuration from './docs/Configuration.mdx';
 import Installation from './docs/Installation.mdx';
+import ApiPage from './pages/ApiPage';
 
 function App() {
   return (
     <Router>
       <Routes>
         <Route path="/" element={<Layout><Home /></Layout>} />
+        <Route path="/api" element={<ApiPage />} />
         <Route path="/docs/*" element={
           <DocsLayout>
             <Routes>

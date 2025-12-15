@@ -31,7 +31,7 @@ export function Layout({ children }: LayoutProps) {
                     <nav className="hidden md:flex items-center gap-8">
                         <Link to="/#features" className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors">Features</Link>
                         <Link to="/docs/intro" className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors">Documentation</Link>
-                        <a href="#api" className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors">API</a>
+                        <Link to="/api" className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors">API</Link>
                     </nav>
 
                     <div className="flex items-center gap-4">
