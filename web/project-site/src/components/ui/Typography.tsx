@@ -1,5 +1,4 @@
-
-import React, { ElementType } from 'react';
+import React, { type ElementType } from 'react';
 
 interface HeadingProps {
     children: React.ReactNode;
