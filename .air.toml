@@ -1,0 +1,26 @@
+root = "."
+tmp_dir = "tmp"
+
+[build]
+  cmd = "go build -o ./tmp/main ./cmd/server/main.go"
+  bin = "./tmp/main"
+  full_bin = ""
+  include_ext = ["go", "tpl", "tmpl", "html"]
+  exclude_dir = ["data", "full_db_backups", "internal/web/dist", "web", "assets", "tmp", "vendor", "node_modules"]
+  include_dir = []
+  exclude_file = []
+  delay = 1000 # ms
+  stop_on_error = true
+  log = "air_errors.log"
+
+[log]
+  time = true
+
+[color]
+  main = "magenta"
+  watcher = "cyan"
+  build = "yellow"
+  runner = "green"
+
+[misc]
+  clean_on_exit = true
