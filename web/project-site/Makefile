@@ -4,7 +4,7 @@ install:
 	npm install
 
 generate-api:
-	cd ../.. && swag init -g server/main.go -o api-docs --dir cmd,internal
+	cd ../.. && swag init -g server/main.go -o web/project-site/public/api --outputTypes json --dir cmd,internal
 
 build: generate-api
 	npm run build

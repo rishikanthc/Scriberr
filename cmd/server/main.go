@@ -23,8 +23,6 @@ import (
 	"scriberr/internal/transcription/adapters"
 	"scriberr/internal/transcription/registry"
 	"scriberr/pkg/logger"
-
-	_ "scriberr/api-docs" // Import generated Swagger docs
 )
 
 // Version information (set by GoReleaser)

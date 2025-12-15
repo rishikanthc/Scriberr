@@ -22,7 +22,7 @@ export function Home() {
     return (
         <div className="space-y-12">
             {/* Hero Section */}
-            <Section className="min-h-[80vh] flex flex-col items-center justify-center text-center">
+            <Section className="!py-12 sm:py-10 min-h-[auto] md:min-h-[80vh] flex flex-col items-center justify-center text-center">
                 <motion.div
                     initial={{ opacity: 0, y: 30 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -34,7 +34,7 @@ export function Home() {
                             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"></span>
                             <span className="relative inline-flex rounded-full h-2 w-2 bg-orange-500"></span>
                         </span>
-                        v1.0 Now Available
+                        v1.2.0 Now Available
                     </div>
 
                     <Heading level={1}>
@@ -47,12 +47,9 @@ export function Home() {
                         State-of-the-art AI models, running entirely on your machine.
                     </Paragraph>
 
-                    <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
-                        <Link to="/docs/installation">
-                            <Button size="lg">Download Now</Button>
-                        </Link>
+                    <div className="flex items-center justify-center pt-4">
                         <Link to="/docs/intro">
-                            <Button variant="secondary" size="lg">View Documentation</Button>
+                            <Button size="lg" className="px-8">Get Started</Button>
                         </Link>
                     </div>
                 </motion.div>
@@ -62,7 +59,7 @@ export function Home() {
                     initial={{ opacity: 0, y: 50 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 1, delay: 0.2 }}
-                    className="relative w-full max-w-6xl mx-auto mt-20 perspective-1000"
+                    className="relative w-full max-w-6xl mx-auto mt-8 md:mt-20 perspective-1000"
                 >
                     {/* Gradient Glow */}
                     <div className="absolute inset-0 bg-[image:var(--image-brand-gradient)] opacity-20 rounded-[2rem] blur-3xl -z-10 transform scale-90"></div>
@@ -75,11 +72,10 @@ export function Home() {
                         />
                     </div>
 
-                    {/* Floating Mobile Mockup */}
                     <motion.div
                         animate={{ y: [0, -10, 0] }}
                         transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
-                        className="absolute -bottom-12 -right-4 md:-right-12 w-[240px] md:w-[300px] rounded-[2.5rem] border-8 border-gray-900 overflow-hidden shadow-2xl bg-white"
+                        className="hidden md:block absolute -bottom-12 -right-12 w-[300px] rounded-[2.5rem] border-8 border-gray-900 overflow-hidden shadow-2xl bg-white"
                     >
                         <img
                             src="/screenshots/mobile-transcript-light.PNG"
