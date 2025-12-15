@@ -40,7 +40,7 @@ jobs:
         run: go install github.com/swaggo/swag/cmd/swag@latest
 
       - name: Generate API documentation
-        run: swag init -g cmd/server/main.go -o web/project-site/public/api --outputTypes json --dir cmd,internal
+        run: swag init -g server/main.go -o web/project-site/public/api --outputTypes json --dir cmd,internal
 
       - name: Install dependencies
         working-directory: web/project-site
