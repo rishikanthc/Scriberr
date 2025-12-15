@@ -4,8 +4,7 @@ on:
   push:
     branches: [ main ]
     paths:
-      - 'web/landing/**'
-      - 'api-docs/**'
+      - 'web/project-site/**'
       - '.github/workflows/project-website.yml'
   workflow_dispatch:
 
@@ -30,7 +29,7 @@ jobs:
         with:
           node-version: 20
           cache: 'npm'
-          cache-dependency-path: web/landing/package-lock.json
+          cache-dependency-path: web/project-site/package-lock.json
 
       - name: Setup Go
         uses: actions/setup-go@v5
@@ -41,26 +40,31 @@ jobs:
         run: go install github.com/swaggo/swag/cmd/swag@latest
 
       - name: Generate API documentation
-        run: swag init -g cmd/server/main.go -o api-docs
+        run: swag init -g cmd/server/main.go -o web/project-site/public/api --outputTypes json --dir cmd,internal
 
       - name: Install dependencies
-        working-directory: web/landing
+        working-directory: web/project-site
         run: npm ci
 
-      - name: Build landing site
-        working-directory: web/landing
+      - name: Build project site
+        working-directory: web/project-site
         run: npm run build
+
+      - name: Prepare for deployment
+        run: |
+          echo "Copying CNAME..."
+          cp CNAME web/project-site/dist/CNAME
+          echo "Creating 404.html for SPA routing..."
+          cp web/project-site/dist/index.html web/project-site/dist/404.html
 
       - name: Verify build
         run: |
           echo "Build verification:"
-          ls -la docs/
-          echo "Checking docs structure:"
-          ls -la docs/docs/ || echo "No docs subdirectory found"
+          ls -la web/project-site/dist/
           echo "Verifying key files:"
-          test -f docs/index.html && echo "✓ index.html" || echo "✗ index.html missing"
-          test -f docs/api.html && echo "✓ api.html" || echo "✗ api.html missing"
-          test -f docs/docs/intro.html && echo "✓ docs/intro.html" || echo "✗ docs/intro.html missing"
+          test -f web/project-site/dist/index.html && echo "✓ index.html" || echo "✗ index.html missing"
+          test -f web/project-site/dist/404.html && echo "✓ 404.html" || echo "✗ 404.html missing"
+          test -f web/project-site/dist/CNAME && echo "✓ CNAME" || echo "✗ CNAME missing"
 
       - name: Setup GitHub Pages
         uses: actions/configure-pages@v4
@@ -68,7 +72,7 @@ jobs:
       - name: Upload to GitHub Pages
         uses: actions/upload-pages-artifact@v3
         with:
-          path: docs
+          path: web/project-site/dist
 
       - name: Deploy to GitHub Pages
         id: deployment
