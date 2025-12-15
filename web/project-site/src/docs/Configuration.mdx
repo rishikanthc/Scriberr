@@ -1,0 +1,31 @@
+# Configuration
+
+Setting up advanced features like Speaker Diarization.
+
+## Note on Local Execution
+
+While you need to accept user agreements on Hugging Face to download the models, the actual diarization process happens entirely **locally on your machine**. No audio data is sent to Hugging Face or any third party.
+
+## Speaker Diarization Setup
+
+Scriberr uses [pyannote.audio](https://github.com/pyannote/pyannote-audio) for speaker diarization. To use this feature, you need to obtain an access token from Hugging Face.
+
+### Step 1: Hugging Face Account
+
+If you don't have one, create an account on [Hugging Face](https://huggingface.co/join).
+
+### Step 2: Accept User Agreement
+
+Visit the following model page and accept the user agreement:
+[pyannote/speaker-diarization-community-1](https://huggingface.co/pyannote/speaker-diarization-community-1)
+
+*Note: Previous versions required accepting agreements for multiple models. You now only need access to this single community model.*
+
+### Step 3: Create Access Token
+
+You will need to get a Hugging Face access token.
+1. Go to your Hugging Face [Settings](https://huggingface.co/settings/token).
+2. Create a new token with at least `read` access.
+3. Copy this token and add it to your `.env` file or environment variables as `HF_TOKEN`.
+
+After setting up the `HF_TOKEN`, you can enable Speaker Diarization in your Transcription Profiles or Advanced settings within Scriberr.

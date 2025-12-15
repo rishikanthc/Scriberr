@@ -1,0 +1,107 @@
+# Installation
+
+Get Scriberr running on your system in a few minutes.
+
+## Install with Homebrew (macOS & Linux)
+
+The easiest way to install Scriberr is using Homebrew. If you don’t have Homebrew installed, [get it here first](https://brew.sh/).
+
+```bash
+# Add the Scriberr tap
+brew tap rishikanthc/scriberr
+
+# Install Scriberr (automatically installs UV dependency)
+brew install scriberr
+
+# Start the server
+scriberr
+```
+
+Open [http://localhost:8080](http://localhost:8080) in your browser.
+
+## Configuration
+
+Scriberr works out of the box. To customize settings, create a `.env` file:
+
+```bash
+# Server settings
+HOST=localhost
+PORT=8080
+
+# Data storage (optional)
+DATABASE_PATH=./data/scriberr.db
+UPLOAD_DIR=./data/uploads
+WHISPERX_ENV=./data/whisperx-env
+
+# Custom paths (if needed)
+UV_PATH=/custom/path/to/uv
+```
+
+## Docker Deployment
+
+For a containerized setup, you can use Docker. We provide two configurations: one for standard CPU usage and one optimized for NVIDIA GPUs (CUDA).
+
+### Standard Deployment (CPU)
+
+Use this configuration for running Scriberr on any machine without a dedicated NVIDIA GPU.
+
+1.  Create a file named `docker-compose.yml`:
+
+```yaml
+services:
+  scriberr:
+    image: ghcr.io/rishikanthc/scriberr:latest
+    ports:
+      - "8080:8080"
+    volumes:
+      - scriberr_data:/app/data
+    restart: unless-stopped
+
+volumes:
+  scriberr_data:
+```
+
+2.  Run the container:
+
+```bash
+docker compose up -d
+```
+
+### NVIDIA GPU Deployment (CUDA)
+
+If you have a compatible NVIDIA GPU, this configuration enables hardware acceleration for significantly faster transcription.
+
+1.  Ensure you have the [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html) installed.
+2.  Create a file named `docker-compose.cuda.yml`:
+
+```yaml
+version: "3.9"
+services:
+  scriberr:
+    image: ghcr.io/rishikanthc/scriberr:v1.0.4-cuda
+    ports:
+      - "8080:8080"
+    volumes:
+      - scriberr_data:/app/data
+    restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities:
+                - gpu
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+
+volumes:
+  scriberr_data: {}
+```
+
+3.  Run the container with the CUDA configuration:
+
+```bash
+docker compose -f docker-compose.cuda.yml up -d
+```
