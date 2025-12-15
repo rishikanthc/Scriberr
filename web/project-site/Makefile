@@ -3,10 +3,13 @@
 install:
 	npm install
 
-build:
+generate-api:
+	cd ../.. && swag init -g server/main.go -o api-docs --dir cmd,internal
+
+build: generate-api
 	npm run build
 
-dev:
+dev: generate-api
 	npm run dev
 
 clean:

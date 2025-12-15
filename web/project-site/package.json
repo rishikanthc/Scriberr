@@ -4,8 +4,10 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
+    "sync:spec": "mkdir -p public/api && cp -f ../../api-docs/swagger.json public/api/swagger.json || echo 'No swagger.json found, skipping copy'",
+    "sync:undoc": "node ./scripts/gen-endpoints.mjs",
+    "dev": "npm run sync:spec && npm run sync:undoc && vite",
+    "build": "npm run sync:spec && npm run sync:undoc && tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview"
   },
