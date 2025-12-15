@@ -233,61 +233,93 @@ function BaseURL({ doc }: { doc: SwaggerDoc }) {
 function AuthIntro() {
     const origin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:8080';
     const apiBase = `${origin}/api/v1`;
-    const jwtLogin = [
-        'curl -X POST',
-        `'${apiBase}/auth/login'`,
-        "-H 'Content-Type: application/json'",
-        "-d '{\"username\":\"alice\",\"password\":\"your-password\"}'",
-    ].join(' ');
-    const jwtExample = [
-        'curl -X GET',
-        `'${apiBase}/transcription/list'`,
-        "-H 'Authorization: Bearer YOUR_JWT'",
-    ].join(' ');
-    const apiKeyExample = [
-        'curl -X GET',
-        `'${apiBase}/transcription/list'`,
-        "-H 'X-API-Key: YOUR_API_KEY'",
-    ].join(' ');
+
+    const examples = {
+        getJwt: {
+            label: 'Get Token',
+            curl: [
+                'curl -X POST',
+                `'${apiBase}/auth/login'`,
+                "-H 'Content-Type: application/json'",
+                "-d '{\"username\":\"alice\",\"password\":\"your-password\"}'",
+            ].join(' ')
+        },
+        useJwt: {
+            label: 'Use Token',
+            curl: [
+                'curl -X GET',
+                `'${apiBase}/transcription/list'`,
+                "-H 'Authorization: Bearer YOUR_JWT'",
+            ].join(' ')
+        },
+        useApiKey: {
+            label: 'Use API Key',
+            curl: [
+                'curl -X GET',
+                `'${apiBase}/transcription/list'`,
+                "-H 'X-API-Key: YOUR_API_KEY'",
+            ].join(' ')
+        }
+    };
+
+    const [activeExample, setActiveExample] = useState<keyof typeof examples>('getJwt');
 
     return (
-        <section className="mt-8 mb-12">
-            <div className="grid md:grid-cols-2 gap-6">
-                <article className="p-5 rounded-xl bg-white border border-gray-100 shadow-sm hover:shadow-md transition-shadow duration-300">
-                    <h3 className="text-base font-semibold text-gray-900 mb-2 flex items-center gap-2">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-[#FF6D20]"><rect width="18" height="11" x="3" y="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
-                        Authentication
-                    </h3>
-                    <p className="text-sm text-gray-600 mb-3 leading-relaxed">
-                        Protected endpoints accept either a Bearer JWT in the <code className="text-xs bg-gray-100 px-1 py-0.5 rounded">Authorization</code> header or an API key via the <code className="text-xs bg-gray-100 px-1 py-0.5 rounded">X-API-Key</code> header.
-                    </p>
-                    <ul className="text-sm text-gray-600 space-y-1 ml-1">
-                        <li className="flex items-start gap-2">
-                            <span className="text-[#FF6D20] mt-1.5">•</span>
-                            <span><strong>JWT-only:</strong> User settings, LLM config, changing credentials</span>
-                        </li>
-                        <li className="flex items-start gap-2">
-                            <span className="text-[#FF6D20] mt-1.5">•</span>
-                            <span><strong>Flexible:</strong> Transcription, chat, notes, summaries</span>
-                        </li>
-                    </ul>
-                </article>
+        <section className="mt-8 mb-16">
+            <div className="bg-gradient-to-br from-gray-50 to-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
+                <div className="grid lg:grid-cols-5">
+                    <div className="lg:col-span-2 p-6 md:p-8 border-b lg:border-b-0 lg:border-r border-gray-100 flex flex-col justify-center">
+                        <h3 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                            <div className="p-2 rounded-lg bg-orange-100 text-[#FF6D20]">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
+                            </div>
+                            Authentication
+                        </h3>
+                        <p className="text-gray-600 mb-6 leading-relaxed">
+                            The API supports two authentication methods: <strong>Bearer JWT</strong> and <strong>API Key</strong>.
+                            <br /><br />
+                            Most endpoints are flexible, but sensitive user management actions require a JWT session.
+                        </p>
+                        <div className="space-y-3">
+                            <div className="flex items-start gap-3 p-3 rounded-lg bg-white border border-gray-100 shadow-sm">
+                                <span className="text-xs font-bold px-2 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-100 mt-0.5">JWT</span>
+                                <div className="text-xs text-gray-500">
+                                    Required for user settings, LLM config, and account management.
+                                </div>
+                            </div>
+                            <div className="flex items-start gap-3 p-3 rounded-lg bg-white border border-gray-100 shadow-sm">
+                                <span className="text-xs font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-100 mt-0.5">API Key</span>
+                                <div className="text-xs text-gray-500">
+                                    Suitable for server-side integrations: transcription, chat, and data retrieval.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
 
-                <div className="flex flex-col gap-6">
-                    <article className="p-5 rounded-xl bg-white border border-gray-100 shadow-sm">
-                        <h3 className="text-sm font-semibold text-gray-900 mb-3">Get a JWT</h3>
-                        <CodeTabs curl={jwtLogin} js={curlToFetch(jwtLogin)} wrap />
-                    </article>
-
-                    <article className="p-5 rounded-xl bg-white border border-gray-100 shadow-sm">
-                        <h3 className="text-sm font-semibold text-gray-900 mb-3">Use JWT</h3>
-                        <CodeTabs curl={jwtExample} js={curlToFetch(jwtExample)} wrap />
-                    </article>
-
-                    <article className="p-5 rounded-xl bg-white border border-gray-100 shadow-sm">
-                        <h3 className="text-sm font-semibold text-gray-900 mb-3">Use API Key</h3>
-                        <CodeTabs curl={apiKeyExample} js={curlToFetch(apiKeyExample)} wrap />
-                    </article>
+                    <div className="lg:col-span-3 bg-[#0d1117] p-6 md:p-8 flex flex-col">
+                        <div className="flex items-center gap-2 mb-4 overflow-x-auto">
+                            {(Object.keys(examples) as Array<keyof typeof examples>).map((key) => (
+                                <button
+                                    key={key}
+                                    onClick={() => setActiveExample(key)}
+                                    className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-200 ${activeExample === key
+                                        ? 'bg-white/10 text-white shadow-sm ring-1 ring-white/5'
+                                        : 'text-gray-400 hover:text-gray-200 hover:bg-white/5'
+                                        }`}
+                                >
+                                    {examples[key].label}
+                                </button>
+                            ))}
+                        </div>
+                        <div className="flex-1">
+                            <CodeTabs
+                                curl={examples[activeExample].curl}
+                                js={curlToFetch(examples[activeExample].curl)}
+                                wrap
+                                bordered={false}
+                            />
+                        </div>
+                    </div>
                 </div>
             </div>
         </section>
@@ -479,11 +511,11 @@ function CodeBlock({ text, wrap, bordered = true }: { text: any; language?: stri
     );
 }
 
-function CodeTabs({ curl, js, wrap }: { curl: string; js: string; wrap?: boolean }) {
+function CodeTabs({ curl, js, wrap, bordered = true }: { curl: string; js: string; wrap?: boolean; bordered?: boolean }) {
     const [tab, setTab] = useState<'curl' | 'js'>('curl');
     return (
-        <div className="rounded-lg border border-gray-200 bg-[#0d1117] overflow-hidden">
-            <div className="flex border-b border-white/10 px-2 pt-2 gap-1 bg-white/5">
+        <div className={`overflow-hidden ${bordered ? 'rounded-lg border border-gray-200 bg-[#0d1117]' : ''}`}>
+            <div className={`flex px-2 pt-2 gap-1 ${bordered ? 'border-b border-white/10 bg-white/5' : ''}`}>
                 <button
                     onClick={() => setTab('curl')}
                     className={`px-3 py-1.5 text-xs font-medium rounded-t-md transition-colors ${tab === 'curl' ? 'bg-[#0d1117] text-white border-x border-t border-white/10 relative -bottom-px' : 'text-gray-400 hover:text-gray-200 hover:bg-white/5'}`}
