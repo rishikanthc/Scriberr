@@ -28,7 +28,7 @@ export function CLIAuthConfirmation() {
                 } else {
                     setError('You must be logged in to authorize the CLI.')
                 }
-            } catch (err) {
+            } catch {
                 setError('Failed to verify session.')
             } finally {
                 setLoading(false)
@@ -67,7 +67,7 @@ export function CLIAuthConfirmation() {
                 setError('Failed to authorize CLI.')
                 setProcessing(false)
             }
-        } catch (err) {
+        } catch {
             setError('An error occurred.')
             setProcessing(false)
         }
