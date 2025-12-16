@@ -275,6 +275,7 @@ export function GlobalUploadProvider({ children }: PropsWithChildren) {
     );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useGlobalUpload() {
     const ctx = useContext(GlobalUploadContext);
     if (!ctx) {
