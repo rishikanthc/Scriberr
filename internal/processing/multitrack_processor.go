@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 
 	"scriberr/internal/audio"
-	"scriberr/internal/database"
 	"scriberr/internal/models"
+	"scriberr/internal/repository"
 	"scriberr/pkg/logger"
 
 	"gorm.io/gorm"
@@ -18,14 +18,16 @@ type MultiTrackProcessor struct {
 	aupParser   *audio.AupParser
 	audioMerger *audio.AudioMerger
 	db          *gorm.DB
+	jobRepo     repository.JobRepository
 }
 
 // NewMultiTrackProcessor creates a new multi-track processor
-func NewMultiTrackProcessor() *MultiTrackProcessor {
+func NewMultiTrackProcessor(db *gorm.DB, jobRepo repository.JobRepository) *MultiTrackProcessor {
 	return &MultiTrackProcessor{
 		aupParser:   audio.NewAupParser(),
 		audioMerger: audio.NewAudioMerger(),
-		db:          database.DB,
+		db:          db,
+		jobRepo:     jobRepo,
 	}
 }
 

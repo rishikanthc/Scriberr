@@ -12,6 +12,8 @@ import (
 type UserRepository interface {
 	Repository[models.User]
 	FindByUsername(ctx context.Context, username string) (*models.User, error)
+	Count(ctx context.Context) (int64, error)
+	CountWithAutoTranscription(ctx context.Context) (int64, error)
 }
 
 type userRepository struct {
@@ -33,10 +35,24 @@ func (r *userRepository) FindByUsername(ctx context.Context, username string) (*
 	return &user, nil
 }
 
+func (r *userRepository) Count(ctx context.Context) (int64, error) {
+	var count int64
+	err := r.db.WithContext(ctx).Model(&models.User{}).Count(&count).Error
+	return count, err
+}
+
+func (r *userRepository) CountWithAutoTranscription(ctx context.Context) (int64, error) {
+	var count int64
+	err := r.db.WithContext(ctx).Model(&models.User{}).Where("auto_transcription_enabled = ?", true).Count(&count).Error
+	return count, err
+}
+
 // JobRepository handles transcription job operations
 type JobRepository interface {
 	Repository[models.TranscriptionJob]
 	FindWithAssociations(ctx context.Context, id string) (*models.TranscriptionJob, error)
+	FindActiveTrackJobs(ctx context.Context, parentJobID string) ([]models.TranscriptionJob, error)
+	FindLatestCompletedExecution(ctx context.Context, jobID string) (*models.TranscriptionJobExecution, error)
 	ListWithParams(ctx context.Context, offset, limit int, sortBy, sortOrder, searchQuery string, updatedAfter *time.Time) ([]models.TranscriptionJob, int64, error)
 	ListByUser(ctx context.Context, userID uint, offset, limit int) ([]models.TranscriptionJob, int64, error)
 	UpdateTranscript(ctx context.Context, jobID string, transcript string) error
@@ -141,6 +157,26 @@ func (r *jobRepository) DeleteMultiTrackFilesByJobID(ctx context.Context, jobID 
 	return r.db.WithContext(ctx).Where("transcription_job_id = ?", jobID).Delete(&models.MultiTrackFile{}).Error
 }
 
+func (r *jobRepository) FindActiveTrackJobs(ctx context.Context, parentJobID string) ([]models.TranscriptionJob, error) {
+	var jobs []models.TranscriptionJob
+	err := r.db.WithContext(ctx).
+		Where("id LIKE ? AND status IN (?)", "track_"+parentJobID+"_%", []string{"processing", "pending"}).
+		Find(&jobs).Error
+	return jobs, err
+}
+
+func (r *jobRepository) FindLatestCompletedExecution(ctx context.Context, jobID string) (*models.TranscriptionJobExecution, error) {
+	var execution models.TranscriptionJobExecution
+	err := r.db.WithContext(ctx).
+		Where("transcription_job_id = ? AND status = ?", jobID, models.StatusCompleted).
+		Order("created_at DESC").
+		First(&execution).Error
+	if err != nil {
+		return nil, err
+	}
+	return &execution, nil
+}
+
 // APIKeyRepository handles API key operations
 type APIKeyRepository interface {
 	Repository[models.APIKey]
@@ -185,6 +221,7 @@ func (r *apiKeyRepository) Revoke(ctx context.Context, id uint) error {
 type ProfileRepository interface {
 	Repository[models.TranscriptionProfile]
 	FindDefault(ctx context.Context) (*models.TranscriptionProfile, error)
+	FindByName(ctx context.Context, name string) (*models.TranscriptionProfile, error)
 }
 
 type profileRepository struct {
@@ -200,6 +237,15 @@ func NewProfileRepository(db *gorm.DB) ProfileRepository {
 func (r *profileRepository) FindDefault(ctx context.Context) (*models.TranscriptionProfile, error) {
 	var profile models.TranscriptionProfile
 	err := r.db.WithContext(ctx).Where("is_default = ?", true).First(&profile).Error
+	if err != nil {
+		return nil, err
+	}
+	return &profile, nil
+}
+
+func (r *profileRepository) FindByName(ctx context.Context, name string) (*models.TranscriptionProfile, error) {
+	var profile models.TranscriptionProfile
+	err := r.db.WithContext(ctx).Where("name = ?", name).First(&profile).Error
 	if err != nil {
 		return nil, err
 	}
@@ -452,4 +498,41 @@ func (r *speakerMappingRepository) UpdateMappings(ctx context.Context, jobID str
 		}
 		return nil
 	})
+}
+
+// RefreshTokenRepository handles refresh token operations
+type RefreshTokenRepository interface {
+	Create(ctx context.Context, token *models.RefreshToken) error
+	FindByHash(ctx context.Context, hash string) (*models.RefreshToken, error)
+	Revoke(ctx context.Context, id uint) error
+	RevokeByHash(ctx context.Context, hash string) error
+}
+
+type refreshTokenRepository struct {
+	db *gorm.DB
+}
+
+func NewRefreshTokenRepository(db *gorm.DB) RefreshTokenRepository {
+	return &refreshTokenRepository{db: db}
+}
+
+func (r *refreshTokenRepository) Create(ctx context.Context, token *models.RefreshToken) error {
+	return r.db.WithContext(ctx).Create(token).Error
+}
+
+func (r *refreshTokenRepository) FindByHash(ctx context.Context, hash string) (*models.RefreshToken, error) {
+	var token models.RefreshToken
+	err := r.db.WithContext(ctx).Where("hashed = ?", hash).First(&token).Error
+	if err != nil {
+		return nil, err
+	}
+	return &token, nil
+}
+
+func (r *refreshTokenRepository) Revoke(ctx context.Context, id uint) error {
+	return r.db.WithContext(ctx).Model(&models.RefreshToken{}).Where("id = ?", id).Update("revoked", true).Error
+}
+
+func (r *refreshTokenRepository) RevokeByHash(ctx context.Context, hash string) error {
+	return r.db.WithContext(ctx).Model(&models.RefreshToken{}).Where("hashed = ?", hash).Update("revoked", true).Error
 }

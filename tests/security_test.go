@@ -16,6 +16,7 @@ import (
 	"scriberr/internal/auth"
 	"scriberr/internal/config"
 	"scriberr/internal/database"
+	"scriberr/internal/processing"
 	"scriberr/internal/queue"
 	"scriberr/internal/repository"
 	"scriberr/internal/service"
@@ -70,6 +71,7 @@ func (suite *SecurityTestSuite) SetupSuite() {
 	chatRepo := repository.NewChatRepository(database.DB)
 	noteRepo := repository.NewNoteRepository(database.DB)
 	speakerMappingRepo := repository.NewSpeakerMappingRepository(database.DB)
+	refreshTokenRepo := repository.NewRefreshTokenRepository(database.DB)
 
 	// Initialize services
 	userService := service.NewUserService(userRepo, suite.authService)
@@ -86,6 +88,8 @@ func (suite *SecurityTestSuite) SetupSuite() {
 
 	broadcaster := sse.NewBroadcaster()
 
+	multiTrackProcessor := processing.NewMultiTrackProcessor(database.DB, jobRepo)
+
 	suite.handler = api.NewHandler(
 		suite.config,
 		suite.authService,
@@ -100,9 +104,11 @@ func (suite *SecurityTestSuite) SetupSuite() {
 		chatRepo,
 		noteRepo,
 		speakerMappingRepo,
+		refreshTokenRepo,
 		suite.taskQueue,
 		suite.unifiedProcessor,
 		suite.quickTranscriptionService,
+		multiTrackProcessor,
 		broadcaster,
 	)
 
