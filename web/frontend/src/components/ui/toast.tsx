@@ -12,7 +12,7 @@ type ToastContextValue = {
 
 const ToastContext = createContext<ToastContextValue | null>(null)
 
-export function ToastProvider({ children }: PropsWithChildren<{}>) {
+export function ToastProvider({ children }: PropsWithChildren) {
   const [toasts, setToasts] = useState<Toast[]>([])
 
   const toast = useCallback((t: Omit<Toast, 'id'>) => {
@@ -49,6 +49,7 @@ export function ToastProvider({ children }: PropsWithChildren<{}>) {
   )
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useToast() {
   const ctx = useContext(ToastContext)
   if (!ctx) throw new Error('useToast must be used within ToastProvider')
