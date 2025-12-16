@@ -144,7 +144,7 @@ var serviceRunCmd = &cobra.Command{
 
 		if err = s.Run(); err != nil {
 			if logger != nil {
-				logger.Error(err)
+				_ = logger.Error(err)
 			}
 			log.Fatalf("Service failed to run: %v", err)
 		}

@@ -181,7 +181,7 @@ func (qs *QuickTranscriptionService) processQuickJob(jobID string) {
 			if processedJob.Transcript != nil {
 				// Save transcript to temp file for loadTranscriptFromTemp
 				transcriptPath := filepath.Join(qs.tempDir, jobID+"_transcript.json")
-				os.WriteFile(transcriptPath, []byte(*processedJob.Transcript), 0644)
+				_ = os.WriteFile(transcriptPath, []byte(*processedJob.Transcript), 0644)
 			}
 		}
 	}

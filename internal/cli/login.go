@@ -93,7 +93,7 @@ func runLogin(cmd *cobra.Command, args []string) {
 	}
 
 	// Shutdown server
-	server.Shutdown(context.Background())
+	_ = server.Shutdown(context.Background())
 }
 
 func openBrowser(url string) error {

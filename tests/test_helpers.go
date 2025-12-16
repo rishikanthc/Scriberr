@@ -224,21 +224,6 @@ func stringPtr(s string) *string {
 	return &s
 }
 
-// Helper function to create int pointer
-func intPtr(i int) *int {
-	return &i
-}
-
-// Helper function to create float pointer
-func floatPtr(f float64) *float64 {
-	return &f
-}
-
-// Helper function to create bool pointer
-func boolPtr(b bool) *bool {
-	return &b
-}
-
 // MockJobRepository is a mock implementation of JobRepository
 type MockJobRepository struct {
 	mock.Mock

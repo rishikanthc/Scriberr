@@ -123,7 +123,7 @@ func (u *UnifiedTranscriptionService) ProcessJob(ctx context.Context, jobID stri
 			execution.ErrorMessage = &errorMsg
 		}
 
-		u.jobRepo.UpdateExecution(ctx, execution)
+		_ = u.jobRepo.UpdateExecution(ctx, execution)
 
 		// Broadcast update via SSE
 		if u.broadcaster != nil {

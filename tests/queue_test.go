@@ -20,7 +20,6 @@ import (
 type MockJobProcessor struct {
 	mock.Mock
 	processDelay time.Duration
-	shouldFail   bool
 }
 
 func (m *MockJobProcessor) ProcessJob(ctx context.Context, jobID string) error {

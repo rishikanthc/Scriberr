@@ -35,7 +35,6 @@ type TaskQueue struct {
 	processor      JobProcessor
 	runningJobs    map[string]*RunningJob
 	jobsMutex      sync.RWMutex
-	workerMutex    sync.Mutex
 	autoScale      bool
 	lastScaleTime  time.Time
 }
@@ -221,16 +220,26 @@ func (tq *TaskQueue) worker(id int) {
 			if err != nil {
 				if jobCtx.Err() == context.Canceled {
 					logger.Info("Job cancelled", "worker_id", id, "job_id", jobID)
-					tq.updateJobStatus(jobID, models.StatusFailed)
-					tq.updateJobError(jobID, "Job was cancelled by user")
+					if err := tq.updateJobStatus(jobID, models.StatusFailed); err != nil {
+						logger.Error("Failed to update job status", "job_id", jobID, "error", err)
+					}
+					if err := tq.updateJobError(jobID, "Job was cancelled by user"); err != nil {
+						logger.Error("Failed to update job error", "job_id", jobID, "error", err)
+					}
 				} else {
 					logger.Error("Job processing failed", "worker_id", id, "job_id", jobID, "error", err)
-					tq.updateJobStatus(jobID, models.StatusFailed)
-					tq.updateJobError(jobID, err.Error())
+					if err := tq.updateJobStatus(jobID, models.StatusFailed); err != nil {
+						logger.Error("Failed to update job status", "job_id", jobID, "error", err)
+					}
+					if err := tq.updateJobError(jobID, err.Error()); err != nil {
+						logger.Error("Failed to update job error", "job_id", jobID, "error", err)
+					}
 				}
 			} else {
 				logger.Debug("Job processed successfully", "worker_id", id, "job_id", jobID)
-				tq.updateJobStatus(jobID, models.StatusCompleted)
+				if err := tq.updateJobStatus(jobID, models.StatusCompleted); err != nil {
+					logger.Error("Failed to update job status", "job_id", jobID, "error", err)
+				}
 			}
 
 		case <-tq.ctx.Done():
@@ -258,8 +267,12 @@ func (tq *TaskQueue) KillJob(jobID string) error {
 
 		if job.Status == models.StatusProcessing {
 			logger.Info("Found zombie job in DB, marking as failed", "job_id", jobID)
-			tq.updateJobStatus(jobID, models.StatusFailed)
-			tq.updateJobError(jobID, "Job was forcefully terminated by user (zombie process)")
+			if err := tq.updateJobStatus(jobID, models.StatusFailed); err != nil {
+				logger.Error("Failed to update zombie job status", "job_id", jobID, "error", err)
+			}
+			if err := tq.updateJobError(jobID, "Job was forcefully terminated by user (zombie process)"); err != nil {
+				logger.Error("Failed to update zombie job error", "job_id", jobID, "error", err)
+			}
 			return nil
 		}
 

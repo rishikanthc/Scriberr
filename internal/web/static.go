@@ -99,10 +99,7 @@ func SetupStaticRoutes(router *gin.Engine, authService *auth.AuthService) {
 		}
 
 		// Try to serve file from dist directly (for PWA assets like sw.js, manifest.webmanifest)
-		path := c.Request.URL.Path
-		if strings.HasPrefix(path, "/") {
-			path = path[1:]
-		}
+		path := strings.TrimPrefix(c.Request.URL.Path, "/")
 
 		// Prevent directory traversal (basic check, though embed.FS is safe)
 		if strings.Contains(path, "..") {
