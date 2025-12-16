@@ -119,48 +119,6 @@ export const TranscriptView = forwardRef<HTMLDivElement, TranscriptViewProps>(({
         };
     }, []);
 
-    if (!transcript) {
-        return (
-            <div className="flex flex-col items-center justify-center h-64 text-carbon-400">
-                <p>No transcript available.</p>
-            </div>
-        );
-    }
-
-    // Render transcript with word-level highlighting for compact view
-    const renderCompactView = () => {
-        if (!transcript.word_segments || transcript.word_segments.length === 0) {
-            return <p className="text-lg leading-relaxed text-carbon-700 dark:text-carbon-300 whitespace-pre-wrap">{transcript.text}</p>;
-        }
-
-        return (
-            <div
-                ref={containerRef}
-                onClick={isDesktop ? handleWordClick : undefined}
-                className={cn(
-                    "text-lg leading-relaxed text-carbon-700 dark:text-carbon-300 whitespace-pre-wrap font-reading selection:bg-orange-500/30 transition-colors duration-200 select-text",
-                    isDesktop && isModifierPressed ? 'cursor-pointer hover:text-carbon-900 dark:hover:text-carbon-100' : 'cursor-text'
-                )}
-                style={{
-                    // CRITICAL: Enable native text selection on iOS/Android
-                    WebkitUserSelect: 'text',
-                    userSelect: 'text',
-                    // CRITICAL: Remove grey tap highlight on iOS
-                    WebkitTapHighlightColor: 'transparent',
-                    // CRITICAL: Allow text selection gestures while supporting scroll
-                    // 'manipulation' allows pan and pinch-zoom but not double-tap zoom
-                    touchAction: 'pan-y pinch-zoom',
-                    // Ensure text is the selection target, not the container
-                    WebkitTouchCallout: 'default'
-                }}
-            >
-                {/* The hook returns the built text string, so we just render it directly */}
-                {fullText}
-            </div>
-
-        );
-    };
-
     // Expanded View Logic
     const segmentRefs = useRef<(HTMLDivElement | null)[]>([]);
 
@@ -220,7 +178,7 @@ export const TranscriptView = forwardRef<HTMLDivElement, TranscriptViewProps>(({
                             CSS.highlights.set('karaoke-word', highlight);
                             found = true;
                         }
-                    } catch (e) {
+                    } catch {
                         // Ignore range errors
                     }
                 }
@@ -254,6 +212,47 @@ export const TranscriptView = forwardRef<HTMLDivElement, TranscriptViewProps>(({
         }
     }, [expandedData, onSeek]);
 
+    if (!transcript) {
+        return (
+            <div className="flex flex-col items-center justify-center h-64 text-carbon-400">
+                <p>No transcript available.</p>
+            </div>
+        );
+    }
+
+    // Render transcript with word-level highlighting for compact view
+    const renderCompactView = () => {
+        if (!transcript.word_segments || transcript.word_segments.length === 0) {
+            return <p className="text-lg leading-relaxed text-carbon-700 dark:text-carbon-300 whitespace-pre-wrap">{transcript.text}</p>;
+        }
+
+        return (
+            <div
+                ref={containerRef}
+                onClick={isDesktop ? handleWordClick : undefined}
+                className={cn(
+                    "text-lg leading-relaxed text-carbon-700 dark:text-carbon-300 whitespace-pre-wrap font-reading selection:bg-orange-500/30 transition-colors duration-200 select-text",
+                    isDesktop && isModifierPressed ? 'cursor-pointer hover:text-carbon-900 dark:hover:text-carbon-100' : 'cursor-text'
+                )}
+                style={{
+                    // CRITICAL: Enable native text selection on iOS/Android
+                    WebkitUserSelect: 'text',
+                    userSelect: 'text',
+                    // CRITICAL: Remove grey tap highlight on iOS
+                    WebkitTapHighlightColor: 'transparent',
+                    // CRITICAL: Allow text selection gestures while supporting scroll
+                    // 'manipulation' allows pan and pinch-zoom but not double-tap zoom
+                    touchAction: 'pan-y pinch-zoom',
+                    // Ensure text is the selection target, not the container
+                    WebkitTouchCallout: 'default'
+                }}
+            >
+                {/* The hook returns the built text string, so we just render it directly */}
+                {fullText}
+            </div>
+
+        );
+    };
 
     const renderExpandedView = () => {
         if (!transcript?.segments) {
@@ -262,7 +261,7 @@ export const TranscriptView = forwardRef<HTMLDivElement, TranscriptViewProps>(({
 
         return (
             <div className="space-y-4"> {/* Reduced spacing from space-y-6 */}
-                {expandedData.map((segment: any, i: number) => (
+                {expandedData.map((segment, i) => (
                     <div key={i} className="group flex flex-col sm:flex-row items-start gap-4 p-3 rounded-lg hover:bg-carbon-50 dark:hover:bg-carbon-800/50 transition-colors border border-transparent hover:border-carbon-100 dark:hover:border-carbon-800">
                         {/* Timestamp & Speaker */}
                         <div className="flex-shrink-0 w-24 sm:w-28 flex flex-col items-start sm:items-end gap-1 text-xs text-carbon-500 dark:text-carbon-400 select-none mt-1">
