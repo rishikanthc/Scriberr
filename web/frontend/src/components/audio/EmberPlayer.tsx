@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect, forwardRef, useImperativeHandle } from "react";
+import { useRef, useState, useEffect, forwardRef, useImperativeHandle, useCallback } from "react";
 import { Play, Pause, AlertCircle } from "lucide-react";
 import { AudioVisualizer } from "./AudioVisualizer";
 import { cn } from "@/lib/utils";
@@ -79,13 +79,13 @@ export const EmberPlayer = forwardRef<EmberPlayerRef, EmberPlayerProps>(
         };
 
         // --- 4. Advanced Scrubber Logic ---
-        const calculateTimeFromEvent = (e: React.MouseEvent | MouseEvent) => {
+        const calculateTimeFromEvent = useCallback((e: React.MouseEvent | MouseEvent) => {
             if (!progressRef.current || !duration) return 0;
             const rect = progressRef.current.getBoundingClientRect();
             let x = e.clientX - rect.left;
             x = Math.max(0, Math.min(x, rect.width));
             return (x / rect.width) * duration;
-        };
+        }, [duration]);
 
         const handleScrubberMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
             setIsDragging(true);
@@ -119,7 +119,7 @@ export const EmberPlayer = forwardRef<EmberPlayerRef, EmberPlayerProps>(
                 window.removeEventListener("mousemove", handleGlobalMouseMove);
                 window.removeEventListener("mouseup", handleGlobalMouseUp);
             };
-        }, [isDragging, duration]);
+        }, [isDragging, calculateTimeFromEvent]);
 
         const handleHoverMove = (e: React.MouseEvent<HTMLDivElement>) => {
             if (!progressRef.current || !duration) return;
@@ -269,7 +269,5 @@ export const EmberPlayer = forwardRef<EmberPlayerRef, EmberPlayerProps>(
         );
     }
 );
-
-EmberPlayer.displayName = "EmberPlayer";
 
 EmberPlayer.displayName = "EmberPlayer";

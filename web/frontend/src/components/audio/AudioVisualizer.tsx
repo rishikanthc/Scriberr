@@ -69,6 +69,7 @@ export function AudioVisualizer({
 
         const initAudio = () => {
             if (!contextRef.current) {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
                 contextRef.current = new AudioContextClass();
             }
@@ -89,7 +90,7 @@ export function AudioVisualizer({
                     const source = audioSourceMap.get(audioEl)!;
                     source.connect(analyzerRef.current!);
                     analyzerRef.current!.connect(ctx.destination);
-                } catch (e) { /* ignore already connected errors */ }
+                } catch { /* ignore already connected errors */ }
             } else {
                 try {
                     const source = ctx.createMediaElementSource(audioEl);
