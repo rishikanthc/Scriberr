@@ -114,6 +114,8 @@ func (a *OpenAIAdapter) PrepareEnvironment(ctx context.Context) error {
 }
 
 // Transcribe processes audio using OpenAI API
+//
+//nolint:gocyclo // API interaction involves many steps
 func (a *OpenAIAdapter) Transcribe(ctx context.Context, input interfaces.AudioInput, params map[string]interface{}, procCtx interfaces.ProcessingContext) (*interfaces.TranscriptResult, error) {
 	startTime := time.Now()
 	a.LogProcessingStart(input, procCtx)

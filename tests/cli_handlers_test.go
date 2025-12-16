@@ -87,6 +87,10 @@ func (suite *CLIHandlerTestSuite) TearDownSuite() {
 	suite.helper.Cleanup()
 }
 
+func (suite *CLIHandlerTestSuite) SetupTest() {
+	suite.helper.ResetDB(suite.T())
+}
+
 func (suite *CLIHandlerTestSuite) makeAuthenticatedRequest(method, path string, body interface{}) *httptest.ResponseRecorder {
 	var req *http.Request
 	var err error

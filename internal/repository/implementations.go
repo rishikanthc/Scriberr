@@ -343,10 +343,7 @@ func (r *chatRepository) DeleteSession(ctx context.Context, id string) error {
 			return err
 		}
 		// Delete session
-		if err := tx.Delete(&models.ChatSession{}, "id = ?", id).Error; err != nil {
-			return err
-		}
-		return nil
+		return tx.Delete(&models.ChatSession{}, "id = ?", id).Error
 	})
 }
 

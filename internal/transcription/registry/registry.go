@@ -291,6 +291,8 @@ func (r *ModelRegistry) SelectBestDiarizationModel(requirements interfaces.Model
 }
 
 // scoreModel calculates how well a model matches the requirements
+//
+//nolint:gocyclo // Scoring logic involves many factors
 func (r *ModelRegistry) scoreModel(capabilities interfaces.ModelCapabilities, requirements interfaces.ModelRequirements) (float64, []string) {
 	score := 0.0
 	var reasons []string

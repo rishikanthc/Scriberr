@@ -25,6 +25,10 @@ func (suite *DatabaseTestSuite) TearDownSuite() {
 	suite.helper.Cleanup()
 }
 
+func (suite *DatabaseTestSuite) SetupTest() {
+	suite.helper.ResetDB(suite.T())
+}
+
 // Test database initialization
 func (suite *DatabaseTestSuite) TestDatabaseInitialization() {
 	// Test with a new database file

@@ -432,7 +432,7 @@ func (h *Handler) UploadVideo(c *gin.Context) {
 				if err := h.jobRepo.Update(c.Request.Context(), &job); err == nil {
 					if err := h.taskQueue.EnqueueJob(jobID); err != nil {
 						job.Status = models.StatusUploaded
-						h.jobRepo.Update(c.Request.Context(), &job)
+						_ = h.jobRepo.Update(c.Request.Context(), &job)
 					}
 				}
 			}
@@ -960,24 +960,76 @@ func (h *Handler) GetTranscriptionJob(c *gin.Context) {
 func (h *Handler) StartTranscription(c *gin.Context) {
 	jobID := c.Param("id")
 
+	job, err := h.getJobForTranscription(c, jobID)
+	if err != nil {
+		return
+	}
+
+	requestParams, err := h.getValidatedTranscriptionParams(c, job, jobID)
+	if err != nil {
+		return
+	}
+
+	// Update job with parameters
+	job.Parameters = *requestParams
+	job.Diarization = requestParams.Diarize
+	job.Status = models.StatusPending
+
+	// Clear previous results for re-transcription
+	job.Transcript = nil
+	job.Summary = nil
+	job.ErrorMessage = nil
+
+	// Save updated job
+	if err := database.DB.Save(&job).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update job"})
+		return
+	}
+
+	// Enqueue job for transcription
+	if err := h.taskQueue.EnqueueJob(jobID); err != nil {
+		logger.Error("Failed to enqueue job", "job_id", jobID, "error", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to enqueue job"})
+		return
+	}
+
+	// Log job started
+	params := make(map[string]any)
+	params["model"] = requestParams.Model
+	params["model_family"] = requestParams.ModelFamily
+	params["diarization"] = requestParams.Diarize
+	if requestParams.Diarize && requestParams.DiarizeModel != "" {
+		params["diarize_model"] = requestParams.DiarizeModel
+	}
+	params["language"] = requestParams.Language
+	params["device"] = requestParams.Device
+
+	filename := filepath.Base(job.AudioPath)
+	logger.JobStarted(jobID, filename, requestParams.ModelFamily, params)
+
+	c.JSON(http.StatusOK, job)
+}
+
+func (h *Handler) getJobForTranscription(c *gin.Context, jobID string) (*models.TranscriptionJob, error) {
 	var job models.TranscriptionJob
 	if err := database.DB.Where("id = ?", jobID).First(&job).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Job not found"})
-			return
+			return nil, err
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get job"})
-		return
+		return nil, err
 	}
 
 	// Allow transcription for uploaded, completed, and failed jobs (re-transcription)
 	if job.Status != models.StatusUploaded && job.Status != models.StatusCompleted && job.Status != models.StatusFailed {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Cannot start transcription: job is currently processing or pending"})
-		return
+		return nil, fmt.Errorf("invalid job status")
 	}
+	return &job, nil
+}
 
-	// Parse transcription parameters from request body
-	// Parse transcription parameters from request body
+func (h *Handler) getValidatedTranscriptionParams(c *gin.Context, job *models.TranscriptionJob, jobID string) (*models.WhisperXParams, error) {
 	// Set defaults
 	requestParams := models.WhisperXParams{
 		ModelFamily:                    "whisper", // Default to whisper for backward compatibility
@@ -1044,65 +1096,28 @@ func (h *Handler) StartTranscription(c *gin.Context) {
 		// NVIDIA models support diarization via Pyannote integration or NVIDIA Sortformer
 		if requestParams.Diarize && requestParams.DiarizeModel == "pyannote" && (requestParams.HfToken == nil || *requestParams.HfToken == "") {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Hugging Face token (hf_token) is required for Pyannote diarization"})
-			return
+			return nil, fmt.Errorf("hf_token required")
 		}
 	}
 
 	// Validate multi-track compatibility
 	if job.IsMultiTrack && !requestParams.IsMultiTrackEnabled {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Multi-track audio requires multi-track transcription to be enabled in the parameters"})
-		return
+		return nil, fmt.Errorf("multi-track mismatch")
 	}
 
 	if !job.IsMultiTrack && requestParams.IsMultiTrackEnabled {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Multi-track transcription cannot be used with single-track audio files"})
-		return
+		return nil, fmt.Errorf("single-track mismatch")
 	}
 
 	// Multi-track transcription should automatically disable diarization
 	if requestParams.IsMultiTrackEnabled && requestParams.Diarize {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Diarization must be disabled when using multi-track transcription"})
-		return
+		return nil, fmt.Errorf("diarization conflict")
 	}
 
-	// Update job with parameters
-	job.Parameters = requestParams
-	job.Diarization = requestParams.Diarize
-	job.Status = models.StatusPending
-
-	// Clear previous results for re-transcription
-	job.Transcript = nil
-	job.Summary = nil
-	job.ErrorMessage = nil
-
-	// Save updated job
-	if err := database.DB.Save(&job).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update job"})
-		return
-	}
-
-	// Enqueue job for transcription
-	if err := h.taskQueue.EnqueueJob(jobID); err != nil {
-		logger.Error("Failed to enqueue job", "job_id", jobID, "error", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to enqueue job"})
-		return
-	}
-
-	// Log job started
-	params := make(map[string]any)
-	params["model"] = requestParams.Model
-	params["model_family"] = requestParams.ModelFamily
-	params["diarization"] = requestParams.Diarize
-	if requestParams.Diarize && requestParams.DiarizeModel != "" {
-		params["diarize_model"] = requestParams.DiarizeModel
-	}
-	params["language"] = requestParams.Language
-	params["device"] = requestParams.Device
-
-	filename := filepath.Base(job.AudioPath)
-	logger.JobStarted(jobID, filename, requestParams.ModelFamily, params)
-
-	c.JSON(http.StatusOK, job)
+	return &requestParams, nil
 }
 
 // @Summary Kill running transcription job
@@ -1234,14 +1249,14 @@ func (h *Handler) DeleteTranscriptionJob(c *gin.Context) {
 
 	// Delete files
 	if job.IsMultiTrack && job.MultiTrackFolder != nil {
-		h.fileService.RemoveDirectory(*job.MultiTrackFolder)
+		_ = h.fileService.RemoveDirectory(*job.MultiTrackFolder)
 	} else {
-		h.fileService.RemoveFile(job.AudioPath)
+		_ = h.fileService.RemoveFile(job.AudioPath)
 	}
 
 	// Also remove .aup file if exists
 	if job.AupFilePath != nil {
-		h.fileService.RemoveFile(*job.AupFilePath)
+		_ = h.fileService.RemoveFile(*job.AupFilePath)
 	}
 
 	// Manually delete related records to handle legacy DBs without CASCADE constraints
@@ -1843,9 +1858,8 @@ func (h *Handler) ChangeUsername(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request: " + err.Error()})
 		return
 	}
-
 	// Use UserService to change username
-	if err := h.userService.ChangeUsername(c.Request.Context(), userID.(uint), req.Password, req.NewUsername); err != nil {
+	if err := h.userService.ChangeUsername(c.Request.Context(), userID.(uint), req.NewUsername, req.Password); err != nil {
 		if err.Error() == "incorrect password" {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Password is incorrect"})
 			return

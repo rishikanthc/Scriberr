@@ -5,7 +5,7 @@ pre-commit:
   commands:
     go-lint:
       glob: "**/*.go"
-      run: golangci-lint run --new-from-rev=HEAD~ {staged_files}
+      run: golangci-lint run ./...
 
     frontend-lint:
       root: "web/frontend/"

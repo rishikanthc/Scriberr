@@ -67,13 +67,14 @@ func getOptimalWorkerCount() (min, max int) {
 	// since each job is CPU and I/O intensive
 	if numCPU <= 2 {
 		return 1, 2
-	} else if numCPU <= 4 {
-		return 1, 3
-	} else if numCPU <= 8 {
-		return 2, 4
-	} else {
-		return 2, 6 // Cap at 6 for very high CPU systems
 	}
+	if numCPU <= 4 {
+		return 1, 3
+	}
+	if numCPU <= 8 {
+		return 2, 4
+	}
+	return 2, 6 // Cap at 6 for very high CPU systems
 }
 
 // NewTaskQueue creates a new task queue with auto-scaling capabilities
@@ -305,8 +306,8 @@ func (tq *TaskQueue) KillJob(jobID string) error {
 
 	// Immediately update job status without waiting for process to finish
 	go func() {
-		tq.updateJobStatus(jobID, models.StatusFailed)
-		tq.updateJobError(jobID, "Job was forcefully terminated by user")
+		_ = tq.updateJobStatus(jobID, models.StatusFailed)
+		_ = tq.updateJobError(jobID, "Job was forcefully terminated by user")
 	}()
 
 	return nil

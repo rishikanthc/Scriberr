@@ -59,6 +59,10 @@ func (suite *QueueTestSuite) TearDownSuite() {
 	suite.helper.Cleanup()
 }
 
+func (suite *QueueTestSuite) SetupTest() {
+	suite.helper.ResetDB(suite.T())
+}
+
 // Test queue creation
 func (suite *QueueTestSuite) TestNewTaskQueue() {
 	mockProcessor := &MockJobProcessor{}
@@ -179,16 +183,16 @@ func (suite *QueueTestSuite) TestJobCancellation() {
 	err = tq.KillJob(job.ID)
 	assert.NoError(suite.T(), err)
 
-	// Wait for cancellation to complete
-	time.Sleep(100 * time.Millisecond)
+	// Wait for cancellation to complete using Eventually
+	assert.Eventually(suite.T(), func() bool {
+		return !tq.IsJobRunning(job.ID)
+	}, 2*time.Second, 100*time.Millisecond, "Job should stop running after cancellation")
 
-	// Verify job is no longer running
-	assert.False(suite.T(), tq.IsJobRunning(job.ID))
-
-	// Check job status in database
-	updatedJob, err := tq.GetJobStatus(job.ID)
-	assert.NoError(suite.T(), err)
-	assert.Equal(suite.T(), models.StatusFailed, updatedJob.Status)
+	// Check job status in database with Eventually
+	assert.Eventually(suite.T(), func() bool {
+		updatedJob, err := tq.GetJobStatus(job.ID)
+		return err == nil && updatedJob.Status == models.StatusFailed
+	}, 2*time.Second, 100*time.Millisecond, "Job status should update to failed")
 }
 
 // Test killing non-running job
@@ -358,11 +362,10 @@ func (suite *QueueTestSuite) TestIsJobRunning() {
 	// Job should be running now
 	assert.True(suite.T(), tq.IsJobRunning(job.ID))
 
-	// Wait for job to complete
-	time.Sleep(200 * time.Millisecond)
-
-	// Job should no longer be running
-	assert.False(suite.T(), tq.IsJobRunning(job.ID))
+	// Wait for job to complete using Eventually
+	assert.Eventually(suite.T(), func() bool {
+		return !tq.IsJobRunning(job.ID)
+	}, 2*time.Second, 100*time.Millisecond, "Job should stop running after completion")
 }
 
 // Test concurrent access safety

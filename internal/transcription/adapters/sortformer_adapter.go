@@ -81,7 +81,7 @@ func NewSortformerAdapter(envPath string) *SortformerAdapter {
 			Type:        "string",
 			Required:    false,
 			Default:     "rttm",
-			Options:     []string{"rttm", "json"},
+			Options:     []string{"rttm", OutputFormatJSON},
 			Description: "Output format for diarization results",
 			Group:       "advanced",
 		},
@@ -730,7 +730,7 @@ func (s *SortformerAdapter) Diarize(ctx context.Context, input interfaces.AudioI
 func (s *SortformerAdapter) buildSortformerArgs(input interfaces.AudioInput, params map[string]interface{}, tempDir string) ([]string, error) {
 	outputFormat := s.GetStringParameter(params, "output_format")
 	var outputFile string
-	if outputFormat == "json" {
+	if outputFormat == OutputFormatJSON {
 		outputFile = filepath.Join(tempDir, "result.json")
 	} else {
 		outputFile = filepath.Join(tempDir, "result.rttm")
@@ -776,11 +776,10 @@ func (s *SortformerAdapter) buildSortformerArgs(input interfaces.AudioInput, par
 func (s *SortformerAdapter) parseResult(tempDir string, input interfaces.AudioInput, params map[string]interface{}) (*interfaces.DiarizationResult, error) {
 	outputFormat := s.GetStringParameter(params, "output_format")
 
-	if outputFormat == "json" {
+	if outputFormat == OutputFormatJSON {
 		return s.parseJSONResult(tempDir)
-	} else {
-		return s.parseRTTMResult(tempDir, input)
 	}
+	return s.parseRTTMResult(tempDir, input)
 }
 
 // parseJSONResult parses JSON format output

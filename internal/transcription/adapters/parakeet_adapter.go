@@ -140,9 +140,8 @@ func (p *ParakeetAdapter) PrepareEnvironment(ctx context.Context) error {
 				logger.Info("Parakeet environment already ready")
 				p.initialized = true
 				return nil
-			} else {
-				logger.Info("Parakeet model exists but scripts missing, recreating scripts")
 			}
+			logger.Info("Parakeet model exists but scripts missing, recreating scripts")
 		} else {
 			logger.Info("Parakeet model file missing or incomplete, redownloading")
 		}
