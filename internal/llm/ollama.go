@@ -94,7 +94,7 @@ func (s *OllamaService) ChatCompletion(ctx context.Context, model string, messag
 	// Map to Ollama messages
 	msgs := make([]ollamaChatMessage, 0, len(messages))
 	for _, m := range messages {
-		msgs = append(msgs, ollamaChatMessage{Role: m.Role, Content: m.Content})
+		msgs = append(msgs, ollamaChatMessage(m))
 	}
 	reqBody := ollamaChatRequest{
 		Model:    model,
@@ -154,7 +154,7 @@ func (s *OllamaService) ChatCompletionStream(ctx context.Context, model string, 
 
 		msgs := make([]ollamaChatMessage, 0, len(messages))
 		for _, m := range messages {
-			msgs = append(msgs, ollamaChatMessage{Role: m.Role, Content: m.Content})
+			msgs = append(msgs, ollamaChatMessage(m))
 		}
 		reqBody := ollamaChatRequest{Model: model, Messages: msgs, Stream: true}
 		if temperature > 0 {

@@ -260,7 +260,7 @@ func (h *Handler) UploadAudio(c *gin.Context) {
 	// The CLI authenticates using a long-lived JWT token.
 
 	// Parse multipart form
-	header, err := c.FormFile("audio")
+	header, err := c.FormFile(paramAudio)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Audio file is required"})
 		return
@@ -284,13 +284,13 @@ func (h *Handler) UploadAudio(c *gin.Context) {
 		Status:    models.StatusUploaded,
 	}
 
-	if title := c.PostForm("title"); title != "" {
+	if title := c.PostForm(paramTitle); title != "" {
 		job.Title = &title
 	}
 
 	// Save to database using Repository
 	if err := h.jobRepo.Create(c.Request.Context(), &job); err != nil {
-		h.fileService.RemoveFile(filePath) // Clean up file
+		_ = h.fileService.RemoveFile(filePath) // Clean up file
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create job"})
 		return
 	}
@@ -332,7 +332,7 @@ func (h *Handler) UploadAudio(c *gin.Context) {
 					if err := h.taskQueue.EnqueueJob(jobID); err != nil {
 						// If enqueueing fails, revert status but don't fail the upload
 						job.Status = models.StatusUploaded
-						h.jobRepo.Update(c.Request.Context(), &job)
+						_ = h.jobRepo.Update(c.Request.Context(), &job)
 					}
 				}
 			}
@@ -379,7 +379,7 @@ func (h *Handler) UploadVideo(c *gin.Context) {
 	audioPath := strings.TrimSuffix(videoPath, filepath.Ext(videoPath)) + ".mp3"
 	cmd := exec.Command("ffmpeg", "-i", videoPath, "-vn", "-acodec", "libmp3lame", "-q:a", "2", audioPath)
 	if err := cmd.Run(); err != nil {
-		h.fileService.RemoveFile(videoPath)
+		_ = h.fileService.RemoveFile(videoPath)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to extract audio from video"})
 		return
 	}
@@ -391,21 +391,21 @@ func (h *Handler) UploadVideo(c *gin.Context) {
 		Status:    models.StatusUploaded,
 	}
 
-	if title := c.PostForm("title"); title != "" {
+	if title := c.PostForm(paramTitle); title != "" {
 		job.Title = &title
 	}
 
 	// Save to database
 	if err := h.jobRepo.Create(c.Request.Context(), &job); err != nil {
-		h.fileService.RemoveFile(videoPath)
-		h.fileService.RemoveFile(audioPath)
+		_ = h.fileService.RemoveFile(videoPath)
+		_ = h.fileService.RemoveFile(audioPath)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create job"})
 		return
 	}
 
 	// Clean up video file as we only need audio
 	// TODO: Make this configurable? Some users might want to keep the video.
-	h.fileService.RemoveFile(videoPath)
+	_ = h.fileService.RemoveFile(videoPath)
 
 	// Check for auto-transcription (same logic as UploadAudio)
 	if userID, exists := c.Get("user_id"); exists {
@@ -488,7 +488,7 @@ func (h *Handler) UploadMultiTrack(c *gin.Context) {
 		filePath, err := h.fileService.SaveUpload(fileHeader, jobDir)
 		if err != nil {
 			// Cleanup
-			h.fileService.RemoveDirectory(jobDir)
+			_ = h.fileService.RemoveDirectory(jobDir)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to save file %s", fileHeader.Filename)})
 			return
 		}
@@ -510,7 +510,7 @@ func (h *Handler) UploadMultiTrack(c *gin.Context) {
 		MultiTrackFiles: trackFiles,
 	}
 
-	if title := c.PostForm("title"); title != "" {
+	if title := c.PostForm(paramTitle); title != "" {
 		job.Title = &title
 	} else {
 		defaultTitle := fmt.Sprintf("Multi-track Job %s", jobID)
@@ -519,7 +519,7 @@ func (h *Handler) UploadMultiTrack(c *gin.Context) {
 
 	// Save to database
 	if err := h.jobRepo.Create(c.Request.Context(), &job); err != nil {
-		h.fileService.RemoveDirectory(jobDir)
+		_ = h.fileService.RemoveDirectory(jobDir)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create job"})
 		return
 	}
@@ -584,9 +584,7 @@ func (h *Handler) GetTrackProgress(c *gin.Context) {
 	// Get individual transcripts to see which tracks are completed
 	var individualTranscripts map[string]string
 	if job.IndividualTranscripts != nil {
-		if err := json.Unmarshal([]byte(*job.IndividualTranscripts), &individualTranscripts); err == nil {
-			// Successfully parsed individual transcripts
-		}
+		_ = json.Unmarshal([]byte(*job.IndividualTranscripts), &individualTranscripts)
 	}
 
 	// Find active track jobs (temp jobs still in progress)
@@ -637,7 +635,7 @@ func (h *Handler) GetTrackProgress(c *gin.Context) {
 	}
 
 	response := gin.H{
-		"job_id":         jobID,
+		paramJobID:       job.ID,
 		"is_multi_track": true,
 		"overall_status": job.Status,
 		"merge_status":   job.MergeStatus,
@@ -678,7 +676,7 @@ func (h *Handler) GetTrackProgress(c *gin.Context) {
 // @Security BearerAuth
 func (h *Handler) SubmitJob(c *gin.Context) {
 	// Parse multipart form
-	header, err := c.FormFile("audio")
+	header, err := c.FormFile(paramAudio)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Audio file is required"})
 		return
@@ -737,7 +735,7 @@ func (h *Handler) SubmitJob(c *gin.Context) {
 	diarizeModel := getFormValueWithDefault(c, "diarize_model", "pyannote")
 	if diarizeModel != "pyannote" && diarizeModel != "nvidia_sortformer" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid diarize_model. Must be 'pyannote' or 'nvidia_sortformer'"})
-		h.fileService.RemoveFile(filePath)
+		_ = h.fileService.RemoveFile(filePath)
 		return
 	}
 	params.DiarizeModel = diarizeModel
@@ -751,13 +749,13 @@ func (h *Handler) SubmitJob(c *gin.Context) {
 		Parameters:  params,
 	}
 
-	if title := c.PostForm("title"); title != "" {
+	if title := c.PostForm(paramTitle); title != "" {
 		job.Title = &title
 	}
 
 	// Save to database
 	if err := h.jobRepo.Create(c.Request.Context(), &job); err != nil {
-		h.fileService.RemoveFile(filePath)
+		_ = h.fileService.RemoveFile(filePath)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create job"})
 		return
 	}
@@ -904,15 +902,6 @@ func (h *Handler) ListTranscriptionJobs(c *gin.Context) {
 	if updatedAfterStr != "" {
 		if t, err := time.Parse(time.RFC3339, updatedAfterStr); err == nil {
 			updatedAfter = &t
-		} else {
-			// Try other formats or log error? For now, ignore invalid dates or return error?
-			// Spec says RFC3339.
-			// Let's just log it and ignore, or ignore.
-			// Better: strict parsing, maybe return 400?
-			// User request: "Check for Param: Parse updated_after... "
-			// "If provided... filters results"
-			// I'll stick to strict parsing if possible, but let's just proceed with standard behavior if parse fails or maybe strictly fallback?
-			// Given it's a sync API, maybe best to respect valid only.
 		}
 	}
 
@@ -988,10 +977,9 @@ func (h *Handler) StartTranscription(c *gin.Context) {
 	}
 
 	// Parse transcription parameters from request body
-	var requestParams models.WhisperXParams
-
+	// Parse transcription parameters from request body
 	// Set defaults
-	requestParams = models.WhisperXParams{
+	requestParams := models.WhisperXParams{
 		ModelFamily:                    "whisper", // Default to whisper for backward compatibility
 		Model:                          "small",
 		ModelCacheOnly:                 false,
@@ -2701,7 +2689,7 @@ func (h *Handler) GetUserDefaultProfile(c *gin.Context) {
 	}
 
 	// Get the user's default profile
-	profile, err := h.profileRepo.FindByID(c.Request.Context(), fmt.Sprintf("%s", *user.DefaultProfileID))
+	profile, err := h.profileRepo.FindByID(c.Request.Context(), *user.DefaultProfileID)
 	if err != nil {
 		// Default profile no longer exists, fall back to first available
 		profiles, _, err := h.profileRepo.List(c.Request.Context(), 0, 1)
@@ -2746,7 +2734,7 @@ func (h *Handler) SetUserDefaultProfile(c *gin.Context) {
 	}
 
 	// Verify the profile exists
-	_, err := h.profileRepo.FindByID(c.Request.Context(), fmt.Sprintf("%s", req.ProfileID))
+	_, err := h.profileRepo.FindByID(c.Request.Context(), req.ProfileID)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Profile not found"})
 		return

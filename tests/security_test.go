@@ -19,6 +19,7 @@ import (
 	"scriberr/internal/queue"
 	"scriberr/internal/repository"
 	"scriberr/internal/service"
+	"scriberr/internal/sse"
 	"scriberr/internal/transcription"
 
 	"github.com/gin-gonic/gin"
@@ -82,6 +83,9 @@ func (suite *SecurityTestSuite) SetupSuite() {
 		suite.T().Fatal("Failed to initialize quick transcription service:", err)
 	}
 	suite.taskQueue = queue.NewTaskQueue(1, suite.unifiedProcessor)
+
+	broadcaster := sse.NewBroadcaster()
+
 	suite.handler = api.NewHandler(
 		suite.config,
 		suite.authService,
@@ -99,6 +103,7 @@ func (suite *SecurityTestSuite) SetupSuite() {
 		suite.taskQueue,
 		suite.unifiedProcessor,
 		suite.quickTranscriptionService,
+		broadcaster,
 	)
 
 	// Set up router

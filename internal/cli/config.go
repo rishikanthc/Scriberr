@@ -37,9 +37,8 @@ func InitConfig() {
 	viper.SetEnvPrefix("SCRIBERR")
 	viper.AutomaticEnv()
 
-	if err := viper.ReadInConfig(); err == nil {
-		// Config file found and loaded
-	}
+	// Try to read config, ignore error if not found
+	_ = viper.ReadInConfig()
 }
 
 // SaveConfig saves the configuration to ~/.scriberr.yaml and returns the path

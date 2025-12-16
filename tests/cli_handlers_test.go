@@ -13,6 +13,7 @@ import (
 	"scriberr/internal/queue"
 	"scriberr/internal/repository"
 	"scriberr/internal/service"
+	"scriberr/internal/sse"
 	"scriberr/internal/transcription"
 
 	"github.com/gin-gonic/gin"
@@ -55,6 +56,9 @@ func (suite *CLIHandlerTestSuite) SetupSuite() {
 	assert.NoError(suite.T(), err)
 
 	suite.taskQueue = queue.NewTaskQueue(1, suite.unifiedProcessor)
+
+	broadcaster := sse.NewBroadcaster()
+
 	suite.handler = api.NewHandler(
 		suite.helper.Config,
 		suite.helper.AuthService,
@@ -72,6 +76,7 @@ func (suite *CLIHandlerTestSuite) SetupSuite() {
 		suite.taskQueue,
 		suite.unifiedProcessor,
 		suite.quickTranscription,
+		broadcaster,
 	)
 
 	// Set up router

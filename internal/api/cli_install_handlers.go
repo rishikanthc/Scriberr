@@ -140,7 +140,6 @@ func (h *Handler) GetInstallScript(c *gin.Context) {
 		scheme = "https"
 	}
 	host := c.Request.Host
-	serverURL := fmt.Sprintf("%s://%s", scheme, host)
 
 	// If behind a proxy (common in prod), use X-Forwarded-Proto/Host
 	if proto := c.GetHeader("X-Forwarded-Proto"); proto != "" {
@@ -149,7 +148,7 @@ func (h *Handler) GetInstallScript(c *gin.Context) {
 	if forwardedHost := c.GetHeader("X-Forwarded-Host"); forwardedHost != "" {
 		host = forwardedHost
 	}
-	serverURL = fmt.Sprintf("%s://%s", scheme, host)
+	serverURL := fmt.Sprintf("%s://%s", scheme, host)
 
 	tmpl, err := template.New("install").Parse(installScriptTemplate)
 	if err != nil {

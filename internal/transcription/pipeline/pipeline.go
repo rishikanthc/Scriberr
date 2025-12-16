@@ -82,14 +82,14 @@ func (a *AudioFormatPreprocessor) Process(ctx context.Context, input interfaces.
 	requiredSampleRate := 16000
 	requiredChannels := 1
 
-	if strings.ToLower(input.Format) == requiredFormat && 
-	   input.SampleRate == requiredSampleRate && 
-	   input.Channels == requiredChannels {
+	if strings.ToLower(input.Format) == requiredFormat &&
+		input.SampleRate == requiredSampleRate &&
+		input.Channels == requiredChannels {
 		// No conversion needed
 		return input, nil
 	}
 
-	logger.Info("Converting audio format", 
+	logger.Info("Converting audio format",
 		"from_format", input.Format,
 		"to_format", requiredFormat,
 		"from_sample_rate", input.SampleRate,
@@ -127,7 +127,7 @@ func (a *AudioFormatPreprocessor) Process(ctx context.Context, input interfaces.
 		Duration:     input.Duration, // Preserve duration
 		Size:         0,              // Will be set when file is read
 		Metadata:     input.Metadata,
-		TempFilePath: outputPath,     // Mark as temporary
+		TempFilePath: outputPath, // Mark as temporary
 	}
 
 	// Get file size
@@ -135,7 +135,7 @@ func (a *AudioFormatPreprocessor) Process(ctx context.Context, input interfaces.
 		convertedInput.Size = stat.Size()
 	}
 
-	logger.Info("Audio conversion completed", 
+	logger.Info("Audio conversion completed",
 		"output_path", outputPath,
 		"output_size", convertedInput.Size)
 
@@ -148,7 +148,7 @@ type VoiceActivityDetectionPreprocessor struct{}
 // AppliesTo checks if this preprocessor should be used
 func (v *VoiceActivityDetectionPreprocessor) AppliesTo(capabilities interfaces.ModelCapabilities) bool {
 	// Apply to models that benefit from VAD preprocessing
-	return capabilities.Features["vad"] == true
+	return capabilities.Features["vad"]
 }
 
 // GetRequiredFormats returns the output formats this preprocessor can produce
@@ -170,7 +170,7 @@ type NoiseReductionPreprocessor struct{}
 // AppliesTo checks if this preprocessor should be used
 func (n *NoiseReductionPreprocessor) AppliesTo(capabilities interfaces.ModelCapabilities) bool {
 	// Apply to models that would benefit from noise reduction
-	return capabilities.Features["high_quality"] == true
+	return capabilities.Features["high_quality"]
 }
 
 // GetRequiredFormats returns the output formats this preprocessor can produce
@@ -193,7 +193,7 @@ type TextPostprocessor struct{}
 func (t *TextPostprocessor) ProcessTranscript(ctx context.Context, result *interfaces.TranscriptResult, params map[string]interface{}) (*interfaces.TranscriptResult, error) {
 	// Apply text cleaning, formatting, etc.
 	logger.Info("Post-processing transcript", "segments", len(result.Segments))
-	
+
 	// Example post-processing: trim whitespace from segments
 	for i := range result.Segments {
 		result.Segments[i].Text = strings.TrimSpace(result.Segments[i].Text)
