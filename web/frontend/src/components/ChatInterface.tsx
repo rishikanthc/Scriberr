@@ -128,7 +128,7 @@ export const ChatInterface = memo(function ChatInterface({ transcriptionId, acti
   const [selectedModel, setSelectedModel] = useState("gpt-3.5-turbo");
   const [error, setError] = useState<string | null>(null);
   const [contextInfo, setContextInfo] = useState<{ used: number; limit: number; trimmed: number } | null>(null);
-  const [_streamingMessageId, setStreamingMessageId] = useState<number | null>(null); // Track which message is streaming
+
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -151,13 +151,14 @@ export const ChatInterface = memo(function ChatInterface({ transcriptionId, acti
     if (nearBottom) {
       scrollToBottom()
     }
-  }, [messages, streamingMessage])
+  }, [messages, streamingMessage, scrollToBottom])
 
   useEffect(() => {
     if (transcriptionId) {
       loadChatModels();
     }
-  }, [transcriptionId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [transcriptionId]); // loadChatModels ref loop avoidance
 
   // Memoize load functions to prevent recreating on every render
   const loadChatSession = useCallback(async (sessionId: string) => {
@@ -174,7 +175,7 @@ export const ChatInterface = memo(function ChatInterface({ transcriptionId, acti
 
       const data = await response.json();
       setMessages(data.messages || []);
-    } catch (err: any) {
+    } catch (err: any) { // eslint-disable-line @typescript-eslint/no-explicit-any
       console.error("Error loading chat session:", err);
       setError(err.message);
       setMessages([]);
@@ -210,7 +211,7 @@ export const ChatInterface = memo(function ChatInterface({ transcriptionId, acti
           onSessionChange?.(data[0].id);
         }
       }
-    } catch (err: any) {
+    } catch (err: any) { // eslint-disable-line @typescript-eslint/no-explicit-any
       console.error("Error loading chat sessions:", err);
       // Don't set error message for sessions if the main issue is OpenAI config
       if (!err.message.includes("OpenAI")) {
@@ -218,7 +219,7 @@ export const ChatInterface = memo(function ChatInterface({ transcriptionId, acti
       }
       setSessions([]);
     }
-  }, [transcriptionId, getAuthHeaders, activeSessionId, activeSession, onSessionChange]);
+  }, [transcriptionId, getAuthHeaders, activeSessionId, activeSession, onSessionChange, loadChatSession]);
 
   // Respond to external sessionId changes (via router) - optimize to avoid unnecessary re-runs
   useEffect(() => {
@@ -236,7 +237,7 @@ export const ChatInterface = memo(function ChatInterface({ transcriptionId, acti
       loadChatSession(activeSessionId);
       loadChatSessions();
     }
-  }, [activeSessionId, activeSession?.id]);
+  }, [activeSessionId, activeSession?.id, loadChatSession, loadChatSessions, sessions]);
 
   const loadChatModels = async () => {
     try {
@@ -257,7 +258,7 @@ export const ChatInterface = memo(function ChatInterface({ transcriptionId, acti
 
       // Only load chat sessions if models loaded successfully
       loadChatSessions();
-    } catch (err: any) {
+    } catch (err: any) { // eslint-disable-line @typescript-eslint/no-explicit-any
       console.error("Error loading chat models:", err);
       setError(err.message);
       setSessions([]);
@@ -323,8 +324,7 @@ export const ChatInterface = memo(function ChatInterface({ transcriptionId, acti
         isStreaming: true, // Mark as streaming
       };
 
-      // Set streaming message ID
-      setStreamingMessageId(messageId);
+
 
       // Use ref to track assistant message index to avoid recreating array
       let assistantMessageIndex = -1;
@@ -355,7 +355,7 @@ export const ChatInterface = memo(function ChatInterface({ transcriptionId, acti
       }
 
       // Mark streaming as complete
-      setStreamingMessageId(null);
+      // setStreamingMessageId(null);
       setMessages(prev => {
         const newMessages = [...prev];
         if (assistantMessageIndex >= 0 && assistantMessageIndex < newMessages.length) {
@@ -393,7 +393,7 @@ export const ChatInterface = memo(function ChatInterface({ transcriptionId, acti
                 const updated = await res.json();
                 setSessions(prev => prev.map(s => s.id === updated.id ? { ...s, title: updated.title } : s));
                 if ((activeSession && activeSession.id === updated.id) || (!activeSession && sid === updated.id)) {
-                  setActiveSession(prev => prev ? { ...prev, title: updated.title } as any : prev);
+                  setActiveSession(prev => prev ? { ...prev, title: updated.title } as any : prev); // eslint-disable-line @typescript-eslint/no-explicit-any
                 }
                 toast({
                   title: '✨ Chat Renamed',
@@ -427,7 +427,7 @@ export const ChatInterface = memo(function ChatInterface({ transcriptionId, acti
       } catch (error) {
         console.error('Error updating session metadata:', error);
       }
-    } catch (err: any) {
+    } catch (err: any) { // eslint-disable-line @typescript-eslint/no-explicit-any
       console.error("Error sending message:", err);
       setError(err.message);
       // Remove the user message from UI if there was an error
@@ -446,6 +446,7 @@ export const ChatInterface = memo(function ChatInterface({ transcriptionId, acti
   };
 
   // Code block with copy button
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const PreBlock = (props: any) => {
     const preRef = useRef<HTMLPreElement>(null)
     const [copied, setCopied] = useState(false)
@@ -455,7 +456,9 @@ export const ChatInterface = memo(function ChatInterface({ transcriptionId, acti
         await navigator.clipboard.writeText(text)
         setCopied(true)
         setTimeout(() => setCopied(false), 1200)
-      } catch { }
+      } catch {
+        // clipboard write failed - ignore
+      }
     }
     return (
       <div className="relative group">
@@ -515,7 +518,7 @@ export const ChatInterface = memo(function ChatInterface({ transcriptionId, acti
                                 <Button
                                   variant="ghost"
                                   size="icon"
-                                  onClick={async () => { try { await navigator.clipboard.writeText(message.content || ''); } catch { } }}
+                                  onClick={async () => { try { await navigator.clipboard.writeText(message.content || ''); } catch { /* ignore */ } }}
                                   className="absolute right-2 top-2 h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity text-[var(--brand-solid)] hover:bg-[var(--brand-solid)]/10 rounded-full"
                                   title="Copy message"
                                 >
@@ -551,7 +554,7 @@ export const ChatInterface = memo(function ChatInterface({ transcriptionId, acti
                                 <Button
                                   variant="ghost"
                                   size="icon"
-                                  onClick={async () => { try { await navigator.clipboard.writeText(message.content || ''); } catch { } }}
+                                  onClick={async () => { try { await navigator.clipboard.writeText(message.content || ''); } catch { /* ignore */ } }}
                                   className="absolute right-2 top-2 h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
                                   title="Copy message"
                                 >
@@ -581,7 +584,9 @@ export const ChatInterface = memo(function ChatInterface({ transcriptionId, acti
                                         <div className="prose prose-sm dark:prose-invert max-w-none text-foreground leading-relaxed font-reading">
                                           <ReactMarkdown
                                             remarkPlugins={[remarkMath]}
+                                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
                                             rehypePlugins={[rehypeRaw as any, rehypeKatex as any, rehypeHighlight as any]}
+                                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
                                             components={{ pre: PreBlock as any }}
                                           >
                                             {response}
@@ -597,7 +602,9 @@ export const ChatInterface = memo(function ChatInterface({ transcriptionId, acti
                                         <div className="prose prose-sm dark:prose-invert max-w-none text-foreground leading-relaxed font-reading">
                                           <ReactMarkdown
                                             remarkPlugins={[remarkMath]}
+                                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
                                             rehypePlugins={[rehypeRaw as any, rehypeKatex as any, rehypeHighlight as any]}
+                                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
                                             components={{ pre: PreBlock as any }}
                                           >
                                             {message.content}
