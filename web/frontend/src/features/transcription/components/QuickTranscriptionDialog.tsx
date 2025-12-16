@@ -174,7 +174,7 @@ export function QuickTranscriptionDialog({ isOpen, onClose }: QuickTranscription
           </p>
         </div>
       ));
-    } catch (err) {
+    } catch {
       // Fallback for plain text
       return [
         <div key="fallback" className="p-3 bg-[var(--bg-card)] border border-[var(--border-subtle)] rounded-[var(--radius-card)]">

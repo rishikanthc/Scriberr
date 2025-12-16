@@ -74,7 +74,7 @@ export function useSelectionMenu(
 
             // 3. Data Lookup: Map character index to Timestamp
             let startNode: Node = range.startContainer;
-            let startOffset = range.startOffset;
+            const startOffset = range.startOffset;
 
             // If the selection starts in an ELEMENT node (not text node), use its first child or itself
             if (startNode.nodeType !== Node.TEXT_NODE) {

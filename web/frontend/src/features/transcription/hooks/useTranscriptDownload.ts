@@ -100,6 +100,7 @@ export function useTranscriptDownload() {
     ) => {
         if (!transcript) return;
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         let jsonData: any;
 
         if (!options.includeSpeakerLabels && !options.includeTimestamps) {
@@ -112,6 +113,7 @@ export function useTranscriptDownload() {
                 text: transcript.text,
                 format: 'segmented',
                 segments: transcript.segments.map(segment => {
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     const segmentData: any = {
                         text: segment.text.trim()
                     };

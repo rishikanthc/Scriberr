@@ -68,7 +68,7 @@ export function TranscriptSection({
     const highlightedWordRef = useRef<HTMLSpanElement>(null);
 
     // Compute offsets for selection logic
-    const words = transcript?.word_segments || [];
+    const words = useMemo(() => transcript?.word_segments || [], [transcript?.word_segments]);
     const { offsets } = useMemo(() => computeWordOffsets(words), [words]);
 
     // Unified Selection Hook for both desktop and mobile
@@ -127,6 +127,7 @@ export function TranscriptSection({
         if (!transcript?.segments) return [];
         const speakers = new Set<string>();
         // Using any for segment here if strict typing is an issue, or typed via Transcript
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         transcript.segments.forEach((segment: any) => {
             if (segment.speaker) speakers.add(segment.speaker);
         });
