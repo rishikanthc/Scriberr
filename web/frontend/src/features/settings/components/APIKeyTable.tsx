@@ -23,30 +23,30 @@ export function APIKeyTable({ refreshTrigger, onKeyChange }: APIKeyTableProps) {
 	const [deletingId, setDeletingId] = useState<string | null>(null);
 	const { getAuthHeaders } = useAuth();
 
-	const fetchAPIKeys = async () => {
-		try {
-			const response = await fetch("/api/v1/api-keys/", {
-				headers: getAuthHeaders(),
-			});
-
-			if (response.ok) {
-				const data = await response.json();
-				setApiKeys(data.api_keys || []);
-			} else {
-				console.error("Failed to fetch API keys");
-				setApiKeys([]);
-			}
-		} catch (error) {
-			console.error("Error fetching API keys:", error);
-			setApiKeys([]);
-		} finally {
-			setLoading(false);
-		}
-	};
-
 	useEffect(() => {
+		const fetchAPIKeys = async () => {
+			try {
+				const response = await fetch("/api/v1/api-keys/", {
+					headers: getAuthHeaders(),
+				});
+
+				if (response.ok) {
+					const data = await response.json();
+					setApiKeys(data.api_keys || []);
+				} else {
+					console.error("Failed to fetch API keys");
+					setApiKeys([]);
+				}
+			} catch (error) {
+				console.error("Error fetching API keys:", error);
+				setApiKeys([]);
+			} finally {
+				setLoading(false);
+			}
+		};
+
 		fetchAPIKeys();
-	}, [refreshTrigger]);
+	}, [refreshTrigger, getAuthHeaders]);
 
 	const handleDelete = async (id: string) => {
 		if (!confirm("Are you sure you want to delete this API key? This action cannot be undone.")) {
