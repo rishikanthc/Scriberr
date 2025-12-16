@@ -17,7 +17,6 @@ import (
 
 	"scriberr/internal/auth"
 	"scriberr/internal/config"
-	"scriberr/internal/database"
 	"scriberr/internal/models"
 	"scriberr/internal/processing"
 	"scriberr/internal/queue"
@@ -47,6 +46,7 @@ type Handler struct {
 	chatRepo            repository.ChatRepository
 	noteRepo            repository.NoteRepository
 	speakerMappingRepo  repository.SpeakerMappingRepository
+	refreshTokenRepo    repository.RefreshTokenRepository
 	taskQueue           *queue.TaskQueue
 	unifiedProcessor    *transcription.UnifiedJobProcessor
 	quickTranscription  *transcription.QuickTranscriptionService
@@ -69,9 +69,11 @@ func NewHandler(
 	chatRepo repository.ChatRepository,
 	noteRepo repository.NoteRepository,
 	speakerMappingRepo repository.SpeakerMappingRepository,
+	refreshTokenRepo repository.RefreshTokenRepository,
 	taskQueue *queue.TaskQueue,
 	unifiedProcessor *transcription.UnifiedJobProcessor,
 	quickTranscription *transcription.QuickTranscriptionService,
+	multiTrackProcessor *processing.MultiTrackProcessor,
 	broadcaster *sse.Broadcaster,
 ) *Handler {
 	return &Handler{
@@ -88,10 +90,11 @@ func NewHandler(
 		chatRepo:            chatRepo,
 		noteRepo:            noteRepo,
 		speakerMappingRepo:  speakerMappingRepo,
+		refreshTokenRepo:    refreshTokenRepo,
 		taskQueue:           taskQueue,
 		unifiedProcessor:    unifiedProcessor,
 		quickTranscription:  quickTranscription,
-		multiTrackProcessor: processing.NewMultiTrackProcessor(),
+		multiTrackProcessor: multiTrackProcessor,
 		broadcaster:         broadcaster,
 	}
 }
@@ -568,9 +571,9 @@ func (h *Handler) GetMergeStatus(c *gin.Context) {
 func (h *Handler) GetTrackProgress(c *gin.Context) {
 	jobID := c.Param("id")
 
-	// Get the main job details
-	var job models.TranscriptionJob
-	if err := database.DB.Preload("MultiTrackFiles").Where("id = ?", jobID).First(&job).Error; err != nil {
+	// Get the main job details using repository
+	job, err := h.jobRepo.FindWithAssociations(c.Request.Context(), jobID)
+	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Job not found"})
 		return
 	}
@@ -588,8 +591,7 @@ func (h *Handler) GetTrackProgress(c *gin.Context) {
 	}
 
 	// Find active track jobs (temp jobs still in progress)
-	var activeTrackJobs []models.TranscriptionJob
-	database.DB.Where("id LIKE ? AND status IN (?)", "track_"+jobID+"_%", []string{"processing", "pending"}).Find(&activeTrackJobs)
+	activeTrackJobs, _ := h.jobRepo.FindActiveTrackJobs(c.Request.Context(), jobID)
 
 	// Build track progress information
 	trackProgress := make([]map[string]interface{}, 0)
@@ -809,8 +811,8 @@ func (h *Handler) GetJobStatus(c *gin.Context) {
 func (h *Handler) GetTranscript(c *gin.Context) {
 	jobID := c.Param("id")
 
-	var job models.TranscriptionJob
-	if err := database.DB.Where("id = ?", jobID).First(&job).Error; err != nil {
+	job, err := h.jobRepo.FindByID(c.Request.Context(), jobID)
+	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Job not found"})
 			return
@@ -981,7 +983,7 @@ func (h *Handler) StartTranscription(c *gin.Context) {
 	job.ErrorMessage = nil
 
 	// Save updated job
-	if err := database.DB.Save(&job).Error; err != nil {
+	if err := h.jobRepo.Update(c.Request.Context(), job); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update job"})
 		return
 	}
@@ -1011,8 +1013,8 @@ func (h *Handler) StartTranscription(c *gin.Context) {
 }
 
 func (h *Handler) getJobForTranscription(c *gin.Context, jobID string) (*models.TranscriptionJob, error) {
-	var job models.TranscriptionJob
-	if err := database.DB.Where("id = ?", jobID).First(&job).Error; err != nil {
+	job, err := h.jobRepo.FindByID(c.Request.Context(), jobID)
+	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Job not found"})
 			return nil, err
@@ -1026,7 +1028,7 @@ func (h *Handler) getJobForTranscription(c *gin.Context, jobID string) (*models.
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Cannot start transcription: job is currently processing or pending"})
 		return nil, fmt.Errorf("invalid job status")
 	}
-	return &job, nil
+	return job, nil
 }
 
 func (h *Handler) getValidatedTranscriptionParams(c *gin.Context, job *models.TranscriptionJob, jobID string) (*models.WhisperXParams, error) {
@@ -1134,8 +1136,8 @@ func (h *Handler) getValidatedTranscriptionParams(c *gin.Context, job *models.Tr
 func (h *Handler) KillJob(c *gin.Context) {
 	jobID := c.Param("id")
 
-	var job models.TranscriptionJob
-	if err := database.DB.Where("id = ?", jobID).First(&job).Error; err != nil {
+	job, err := h.jobRepo.FindByID(c.Request.Context(), jobID)
+	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Job not found"})
 			return
@@ -1325,8 +1327,8 @@ func (h *Handler) GetJobExecutionData(c *gin.Context) {
 	jobID := c.Param("id")
 
 	// Get the transcription job to check if it's multi-track
-	var job models.TranscriptionJob
-	if err := database.DB.Preload("MultiTrackFiles").Where("id = ?", jobID).First(&job).Error; err != nil {
+	job, err := h.jobRepo.FindWithAssociations(c.Request.Context(), jobID)
+	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Transcription job not found"})
 			return
@@ -1335,10 +1337,8 @@ func (h *Handler) GetJobExecutionData(c *gin.Context) {
 		return
 	}
 
-	var execution models.TranscriptionJobExecution
-	if err := database.DB.Where("transcription_job_id = ? AND status = ?", jobID, models.StatusCompleted).
-		Order("completed_at DESC").
-		First(&execution).Error; err != nil {
+	execution, err := h.jobRepo.FindLatestCompletedExecution(c.Request.Context(), jobID)
+	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			// Return graceful empty response instead of 404
 			c.JSON(http.StatusOK, gin.H{
@@ -1400,8 +1400,8 @@ func (h *Handler) GetJobExecutionData(c *gin.Context) {
 func (h *Handler) GetAudioFile(c *gin.Context) {
 	jobID := c.Param("id")
 
-	var job models.TranscriptionJob
-	if err := database.DB.Where("id = ?", jobID).First(&job).Error; err != nil {
+	job, err := h.jobRepo.FindByID(c.Request.Context(), jobID)
+	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Job not found"})
 			return
@@ -1508,8 +1508,8 @@ func (h *Handler) Login(c *gin.Context) {
 		return
 	}
 
-	var user models.User
-	if err := database.DB.Where("username = ?", req.Username).First(&user).Error; err != nil {
+	user, err := h.userRepo.FindByUsername(c.Request.Context(), req.Username)
+	if err != nil {
 		logger.AuthEvent("login", req.Username, c.ClientIP(), false, "user_not_found")
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
 		return
@@ -1521,7 +1521,8 @@ func (h *Handler) Login(c *gin.Context) {
 		return
 	}
 
-	token, err := h.authService.GenerateToken(&user)
+	token, err := h.authService.GenerateToken(user)
+
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
 		return
@@ -1565,7 +1566,8 @@ func (h *Handler) Login(c *gin.Context) {
 func (h *Handler) Logout(c *gin.Context) {
 	// Best-effort refresh token revocation and cookie clear
 	if cookie, err := c.Cookie("scriberr_refresh_token"); err == nil {
-		h.revokeRefreshToken(cookie)
+		h.revokeRefreshToken(c, cookie)
+
 	}
 	http.SetCookie(c.Writer, &http.Cookie{
 		Name:     "scriberr_refresh_token",
@@ -1598,8 +1600,8 @@ func (h *Handler) Logout(c *gin.Context) {
 // @Success 200 {object} RegistrationStatusResponse
 // @Router /api/v1/auth/registration-status [get]
 func (h *Handler) GetRegistrationStatus(c *gin.Context) {
-	var userCount int64
-	if err := database.DB.Model(&models.User{}).Count(&userCount).Error; err != nil {
+	userCount, err := h.userRepo.Count(c.Request.Context())
+	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to check registration status"})
 		return
 	}
@@ -1623,8 +1625,8 @@ func (h *Handler) GetRegistrationStatus(c *gin.Context) {
 // @Router /api/v1/auth/register [post]
 func (h *Handler) Register(c *gin.Context) {
 	// Check if any users already exist
-	var userCount int64
-	if err := database.DB.Model(&models.User{}).Count(&userCount).Error; err != nil {
+	userCount, err := h.userRepo.Count(c.Request.Context())
+	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to check existing users"})
 		return
 	}
@@ -1659,8 +1661,8 @@ func (h *Handler) Register(c *gin.Context) {
 		Password: hashedPassword,
 	}
 
-	if err := database.DB.Create(&user).Error; err != nil {
-		if database.DB.Error.Error() == "UNIQUE constraint failed: users.username" {
+	if err := h.userRepo.Create(c.Request.Context(), &user); err != nil {
+		if strings.Contains(err.Error(), "UNIQUE constraint failed") {
 			c.JSON(http.StatusConflict, gin.H{"error": "Username already exists"})
 			return
 		}
@@ -1709,12 +1711,13 @@ func (h *Handler) Refresh(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid refresh token"})
 		return
 	}
-	var user models.User
-	if err := database.DB.First(&user, userID).Error; err != nil {
+	user, err := h.userRepo.FindByID(c.Request.Context(), userID)
+	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not found"})
 		return
 	}
-	token, err := h.authService.GenerateToken(&user)
+	token, err := h.authService.GenerateToken(user)
+
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
 		return
@@ -1744,7 +1747,7 @@ func (h *Handler) issueRefreshToken(c *gin.Context, userID uint) error {
 		ExpiresAt: time.Now().Add(14 * 24 * time.Hour),
 		Revoked:   false,
 	}
-	if err := database.DB.Create(&rt).Error; err != nil {
+	if err := h.refreshTokenRepo.Create(c.Request.Context(), &rt); err != nil {
 		return err
 	}
 	http.SetCookie(c.Writer, &http.Cookie{
@@ -1763,15 +1766,15 @@ func (h *Handler) issueRefreshToken(c *gin.Context, userID uint) error {
 // validateAndRotateRefreshToken validates refresh token, revokes old, and issues new
 func (h *Handler) validateAndRotateRefreshToken(c *gin.Context, tokenValue string) (uint, error) {
 	hashed := sha256Hex(tokenValue)
-	var rt models.RefreshToken
-	if err := database.DB.Where("hashed = ?", hashed).First(&rt).Error; err != nil {
+	rt, err := h.refreshTokenRepo.FindByHash(c.Request.Context(), hashed)
+	if err != nil {
 		return 0, err
 	}
 	if rt.Revoked || time.Now().After(rt.ExpiresAt) {
 		return 0, fmt.Errorf("expired or revoked")
 	}
 	// Revoke current
-	_ = database.DB.Model(&rt).Update("revoked", true).Error
+	_ = h.refreshTokenRepo.Revoke(c.Request.Context(), rt.ID)
 	// Issue new
 	if err := h.issueRefreshToken(c, rt.UserID); err != nil {
 		return 0, err
@@ -1779,9 +1782,9 @@ func (h *Handler) validateAndRotateRefreshToken(c *gin.Context, tokenValue strin
 	return rt.UserID, nil
 }
 
-func (h *Handler) revokeRefreshToken(tokenValue string) {
+func (h *Handler) revokeRefreshToken(c *gin.Context, tokenValue string) {
 	hashed := sha256Hex(tokenValue)
-	_ = database.DB.Model(&models.RefreshToken{}).Where("hashed = ?", hashed).Update("revoked", true).Error
+	_ = h.refreshTokenRepo.RevokeByHash(c.Request.Context(), hashed)
 }
 
 func sha256Hex(s string) string {
@@ -2418,8 +2421,8 @@ func (h *Handler) SubmitQuickTranscription(c *gin.Context) {
 	// Check if profile_name was provided
 	if profileName := c.PostForm("profile_name"); profileName != "" {
 		// Load parameters from profile
-		var profile models.TranscriptionProfile
-		if err := database.DB.Where("name = ?", profileName).First(&profile).Error; err != nil {
+		profile, err := h.profileRepo.FindByName(c.Request.Context(), profileName)
+		if err != nil {
 			if err == gorm.ErrRecordNotFound {
 				c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Profile '%s' not found", profileName)})
 				return
@@ -2428,6 +2431,7 @@ func (h *Handler) SubmitQuickTranscription(c *gin.Context) {
 			return
 		}
 		params = profile.Parameters
+
 	} else if parametersJSON := c.PostForm("parameters"); parametersJSON != "" {
 		// Parse parameters from JSON string
 		if err := json.Unmarshal([]byte(parametersJSON), &params); err != nil {
@@ -2651,7 +2655,7 @@ func (h *Handler) DownloadFromYouTube(c *gin.Context) {
 	}
 
 	// Save to database
-	if err := database.DB.Create(&job).Error; err != nil {
+	if err := h.jobRepo.Create(c.Request.Context(), &job); err != nil {
 		// Clean up downloaded file on database error
 		os.Remove(actualFilePath)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save transcription record"})

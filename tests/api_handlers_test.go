@@ -15,6 +15,7 @@ import (
 
 	"scriberr/internal/api"
 	"scriberr/internal/models"
+	"scriberr/internal/processing"
 	"scriberr/internal/queue"
 	"scriberr/internal/repository"
 	"scriberr/internal/service"
@@ -51,6 +52,7 @@ func (suite *APIHandlerTestSuite) SetupSuite() {
 	chatRepo := repository.NewChatRepository(suite.helper.DB)
 	noteRepo := repository.NewNoteRepository(suite.helper.DB)
 	speakerMappingRepo := repository.NewSpeakerMappingRepository(suite.helper.DB)
+	refreshTokenRepo := repository.NewRefreshTokenRepository(suite.helper.DB)
 
 	// Initialize services
 	userService := service.NewUserService(userRepo, suite.helper.AuthService)
@@ -66,6 +68,8 @@ func (suite *APIHandlerTestSuite) SetupSuite() {
 
 	broadcaster := sse.NewBroadcaster()
 
+	multiTrackProcessor := processing.NewMultiTrackProcessor(suite.helper.DB, jobRepo)
+
 	suite.handler = api.NewHandler(
 		suite.helper.Config,
 		suite.helper.AuthService,
@@ -80,9 +84,11 @@ func (suite *APIHandlerTestSuite) SetupSuite() {
 		chatRepo,
 		noteRepo,
 		speakerMappingRepo,
+		refreshTokenRepo,
 		suite.taskQueue,
 		suite.unifiedProcessor,
 		suite.quickTranscription,
+		multiTrackProcessor,
 		broadcaster,
 	)
 

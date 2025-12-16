@@ -89,6 +89,22 @@ func (m *MockJobRepository) ListWithParams(ctx context.Context, offset, limit in
 	return args.Get(0).([]models.TranscriptionJob), args.Get(1).(int64), args.Error(2)
 }
 
+func (m *MockJobRepository) FindActiveTrackJobs(ctx context.Context, parentJobID string) ([]models.TranscriptionJob, error) {
+	args := m.Called(ctx, parentJobID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]models.TranscriptionJob), args.Error(1)
+}
+
+func (m *MockJobRepository) FindLatestCompletedExecution(ctx context.Context, jobID string) (*models.TranscriptionJobExecution, error) {
+	args := m.Called(ctx, jobID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.TranscriptionJobExecution), args.Error(1)
+}
+
 // MockTranscriptionAdapter is a mock implementation of TranscriptionAdapter
 type MockTranscriptionAdapter struct {
 	mock.Mock

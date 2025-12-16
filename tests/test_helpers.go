@@ -321,6 +321,37 @@ func (m *MockJobRepository) UpdateExecution(ctx context.Context, execution *mode
 	return args.Error(0)
 }
 
+func (m *MockJobRepository) DeleteExecutionsByJobID(ctx context.Context, jobID string) error {
+	args := m.Called(ctx, jobID)
+	return args.Error(0)
+}
+
+func (m *MockJobRepository) DeleteMultiTrackFilesByJobID(ctx context.Context, jobID string) error {
+	args := m.Called(ctx, jobID)
+	return args.Error(0)
+}
+
+func (m *MockJobRepository) ListWithParams(ctx context.Context, offset, limit int, sortBy, sortOrder, searchQuery string, updatedAfter *time.Time) ([]models.TranscriptionJob, int64, error) {
+	args := m.Called(ctx, offset, limit, sortBy, sortOrder, searchQuery, updatedAfter)
+	return args.Get(0).([]models.TranscriptionJob), args.Get(1).(int64), args.Error(2)
+}
+
+func (m *MockJobRepository) FindActiveTrackJobs(ctx context.Context, parentJobID string) ([]models.TranscriptionJob, error) {
+	args := m.Called(ctx, parentJobID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]models.TranscriptionJob), args.Error(1)
+}
+
+func (m *MockJobRepository) FindLatestCompletedExecution(ctx context.Context, jobID string) (*models.TranscriptionJobExecution, error) {
+	args := m.Called(ctx, jobID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.TranscriptionJobExecution), args.Error(1)
+}
+
 // NewMockOpenAIServer creates a new mock OpenAI server for testing
 func NewMockOpenAIServer() *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
