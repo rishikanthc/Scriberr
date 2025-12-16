@@ -1,0 +1,15 @@
+# lefthook.yml
+
+pre-commit:
+  commands:
+    # We run this first so the linter checks the final code structure.
+    frontend-format:
+      root: "web/frontend/" # REPLACE with your actual folder name
+      glob: "**/*.{js,jsx,ts,tsx,json,css,scss,md}"
+      run: npx prettier --write {staged_files}
+      stage_fixed: true
+
+    frontend-lint:
+      root: "web/frontend/"
+      glob: "**/*.{js,jsx,ts,tsx}"
+      run: npx eslint {staged_files}
