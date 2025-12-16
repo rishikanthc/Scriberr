@@ -138,31 +138,33 @@ func (b *BaseAdapter) ValidateParameters(params map[string]interface{}) error {
 }
 
 // validateParameterValue validates a single parameter value against its schema
+//
+//nolint:gocyclo // Switch case with type checking is complex
 func (b *BaseAdapter) validateParameterValue(schema interfaces.ParameterSchema, value interface{}) error {
 	// Type validation
 	switch schema.Type {
 	case "int":
-		if intVal, err := b.convertToInt(value); err != nil {
+		intVal, err := b.convertToInt(value)
+		if err != nil {
 			return fmt.Errorf("expected int, got %T", value)
-		} else {
-			if schema.Min != nil && float64(intVal) < *schema.Min {
-				return fmt.Errorf("value %d is below minimum %g", intVal, *schema.Min)
-			}
-			if schema.Max != nil && float64(intVal) > *schema.Max {
-				return fmt.Errorf("value %d is above maximum %g", intVal, *schema.Max)
-			}
+		}
+		if schema.Min != nil && float64(intVal) < *schema.Min {
+			return fmt.Errorf("value %d is below minimum %g", intVal, *schema.Min)
+		}
+		if schema.Max != nil && float64(intVal) > *schema.Max {
+			return fmt.Errorf("value %d is above maximum %g", intVal, *schema.Max)
 		}
 
 	case "float":
-		if floatVal, err := b.convertToFloat(value); err != nil {
+		floatVal, err := b.convertToFloat(value)
+		if err != nil {
 			return fmt.Errorf("expected float, got %T", value)
-		} else {
-			if schema.Min != nil && floatVal < *schema.Min {
-				return fmt.Errorf("value %g is below minimum %g", floatVal, *schema.Min)
-			}
-			if schema.Max != nil && floatVal > *schema.Max {
-				return fmt.Errorf("value %g is above maximum %g", floatVal, *schema.Max)
-			}
+		}
+		if schema.Min != nil && floatVal < *schema.Min {
+			return fmt.Errorf("value %g is below minimum %g", floatVal, *schema.Min)
+		}
+		if schema.Max != nil && floatVal > *schema.Max {
+			return fmt.Errorf("value %g is above maximum %g", floatVal, *schema.Max)
 		}
 
 	case "string":

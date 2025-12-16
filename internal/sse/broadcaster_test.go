@@ -48,8 +48,8 @@ func TestBroadcaster(t *testing.T) {
 	}
 
 	// Check for broadcasted message
-	expectedJson, _ := json.Marshal(Event{Type: "status_update", Payload: testPayload})
-	if !strings.Contains(body, string(expectedJson)) {
-		t.Errorf("Expected message %s not found in body: %s", string(expectedJson), body)
+	expectedJSON, _ := json.Marshal(Event{Type: "status_update", Payload: testPayload})
+	if !strings.Contains(body, string(expectedJSON)) {
+		t.Errorf("Expected message %s not found in body: %s", string(expectedJSON), body)
 	}
 }

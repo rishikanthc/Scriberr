@@ -15,6 +15,8 @@ import (
 	"scriberr/pkg/logger"
 )
 
+const OutputFormatJSON = "json"
+
 // PyAnnoteAdapter implements the DiarizationAdapter interface for PyAnnote
 type PyAnnoteAdapter struct {
 	*BaseAdapter
@@ -97,7 +99,7 @@ func NewPyAnnoteAdapter(envPath string) *PyAnnoteAdapter {
 			Type:        "string",
 			Required:    false,
 			Default:     "rttm",
-			Options:     []string{"rttm", "json"},
+			Options:     []string{"rttm", OutputFormatJSON},
 			Description: "Output format for diarization results",
 			Group:       "advanced",
 		},
@@ -648,7 +650,7 @@ func (p *PyAnnoteAdapter) Diarize(ctx context.Context, input interfaces.AudioInp
 func (p *PyAnnoteAdapter) buildPyAnnoteArgs(input interfaces.AudioInput, params map[string]interface{}, tempDir string) ([]string, error) {
 	outputFormat := p.GetStringParameter(params, "output_format")
 	var outputFile string
-	if outputFormat == "json" {
+	if outputFormat == OutputFormatJSON {
 		outputFile = filepath.Join(tempDir, "result.json")
 	} else {
 		outputFile = filepath.Join(tempDir, "result.rttm")
@@ -687,11 +689,10 @@ func (p *PyAnnoteAdapter) buildPyAnnoteArgs(input interfaces.AudioInput, params 
 func (p *PyAnnoteAdapter) parseResult(tempDir string, input interfaces.AudioInput, params map[string]interface{}) (*interfaces.DiarizationResult, error) {
 	outputFormat := p.GetStringParameter(params, "output_format")
 
-	if outputFormat == "json" {
+	if outputFormat == OutputFormatJSON {
 		return p.parseJSONResult(tempDir)
-	} else {
-		return p.parseRTTMResult(tempDir, input)
 	}
+	return p.parseRTTMResult(tempDir, input)
 }
 
 // parseJSONResult parses JSON format output

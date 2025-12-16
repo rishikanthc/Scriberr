@@ -34,10 +34,12 @@ type APIHandlerTestSuite struct {
 	taskQueue          *queue.TaskQueue
 	unifiedProcessor   *transcription.UnifiedJobProcessor
 	quickTranscription *transcription.QuickTranscriptionService
+	mockOpenAI         *httptest.Server
 }
 
 func (suite *APIHandlerTestSuite) SetupSuite() {
 	suite.helper = NewTestHelper(suite.T(), "api_handlers_test.db")
+	suite.mockOpenAI = NewMockOpenAIServer()
 
 	// Initialize repositories
 	jobRepo := repository.NewJobRepository(suite.helper.DB)
@@ -89,7 +91,24 @@ func (suite *APIHandlerTestSuite) SetupSuite() {
 }
 
 func (suite *APIHandlerTestSuite) TearDownSuite() {
+	if suite.mockOpenAI != nil {
+		suite.mockOpenAI.Close()
+	}
 	suite.helper.Cleanup()
+}
+
+func (suite *APIHandlerTestSuite) SetupTest() {
+	suite.helper.ResetDB(suite.T())
+
+	// Create LLM config pointing to mock server
+	llmConfig := &models.LLMConfig{
+		Provider:      "openai",
+		OpenAIBaseURL: &suite.mockOpenAI.URL,
+		APIKey:        stringPtr("test-api-key"),
+		IsActive:      true,
+	}
+	err := suite.helper.DB.Create(llmConfig).Error
+	assert.NoError(suite.T(), err)
 }
 
 // Helper method to make authenticated requests

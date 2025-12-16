@@ -26,6 +26,10 @@ func (suite *AuthServiceTestSuite) TearDownSuite() {
 	suite.helper.Cleanup()
 }
 
+func (suite *AuthServiceTestSuite) SetupTest() {
+	suite.helper.ResetDB(suite.T())
+}
+
 // Test JWT token generation
 func (suite *AuthServiceTestSuite) TestGenerateToken() {
 	user := &models.User{
