@@ -1,13 +1,11 @@
 # lefthook.yml
 
 pre-commit:
+  parallel: true
   commands:
-    # We run this first so the linter checks the final code structure.
-    frontend-format:
-      root: "web/frontend/" # REPLACE with your actual folder name
-      glob: "**/*.{js,jsx,ts,tsx,json,css,scss,md}"
-      run: npx prettier --write {staged_files}
-      stage_fixed: true
+    go-lint:
+      glob: "**/*.go"
+      run: golangci-lint run --new-from-rev=HEAD~ {staged_files}
 
     frontend-lint:
       root: "web/frontend/"
