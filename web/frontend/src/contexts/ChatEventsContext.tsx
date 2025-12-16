@@ -12,6 +12,7 @@ type ChatEvents = {
 
 const ChatEventsContext = createContext<ChatEvents | null>(null)
 
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export function ChatEventsProvider({ children }: PropsWithChildren<{}>) {
   const titleUpdateListenersRef = useRef(new Set<(p: TitleUpdate) => void>())
   const titleGeneratingListenersRef = useRef(new Set<(p: TitleGenerating) => void>())
@@ -34,8 +35,8 @@ export function ChatEventsProvider({ children }: PropsWithChildren<{}>) {
     return () => titleGeneratingListenersRef.current.delete(fn)
   }, [])
 
-  const value = useMemo<ChatEvents>(() => ({ 
-    emitSessionTitleUpdated, 
+  const value = useMemo<ChatEvents>(() => ({
+    emitSessionTitleUpdated,
     subscribeSessionTitleUpdated,
     emitTitleGenerating,
     subscribeTitleGenerating
@@ -44,6 +45,7 @@ export function ChatEventsProvider({ children }: PropsWithChildren<{}>) {
   return <ChatEventsContext.Provider value={value}>{children}</ChatEventsContext.Provider>
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useChatEvents() {
   const ctx = useContext(ChatEventsContext)
   if (!ctx) throw new Error('useChatEvents must be used within ChatEventsProvider')
