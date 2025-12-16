@@ -146,7 +146,7 @@ export const AudioPlayer = forwardRef<AudioPlayerRef, AudioPlayerProps>(({
                 wavesurferRef.current = null;
             }
         };
-    }, [audioId, theme, getAuthHeaders]);
+    }, [audioId, theme, getAuthHeaders]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Update height when collapsed state changes
     useEffect(() => {
