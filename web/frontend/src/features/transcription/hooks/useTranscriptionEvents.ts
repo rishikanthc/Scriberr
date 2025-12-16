@@ -92,11 +92,13 @@ export const useTranscriptionEvents = (jobId: string | null) => {
             }
         };
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const handleEvent = (event: any) => {
             if (event.type === 'job_update') {
                 const payload = event.payload as JobUpdateEvent['payload'];
 
                 // Optimistically update the list
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 queryClient.setQueriesData({ queryKey: ['audioFiles'] }, (oldData: any) => {
                     if (!oldData) return oldData;
 
@@ -104,6 +106,7 @@ export const useTranscriptionEvents = (jobId: string | null) => {
                     if (oldData.pages) {
                         return {
                             ...oldData,
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
                             pages: oldData.pages.map((page: any) => ({
                                 ...page,
                                 jobs: page.jobs.map((job: AudioFile) => {

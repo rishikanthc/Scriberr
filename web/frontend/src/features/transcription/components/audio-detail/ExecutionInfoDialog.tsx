@@ -123,6 +123,7 @@ function MetricCard({ label, value, subtext, highlight = false, className = "" }
 }
 
 // Helper to display curated params based on model type
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function CuratedParamsDisplay({ params }: { params: any }) {
     // Determine keys to show based on model_family
     // Common keys for all
@@ -174,6 +175,7 @@ function CuratedParamsDisplay({ params }: { params: any }) {
 
     return (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-sm">
+            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
             {displayEntries.map((entry: any) => (
                 <div key={entry.key} className="flex justify-between items-center py-1 border-b border-[var(--border-subtle)] last:border-0 sm:last:border-b">
                     <span className="text-[var(--text-secondary)]">{entry.key}</span>

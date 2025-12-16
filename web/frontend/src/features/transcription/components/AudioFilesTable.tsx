@@ -39,7 +39,7 @@ import { useAuth } from "@/features/auth/hooks/useAuth";
 import { useAudioListInfinite, type AudioFile } from "@/features/transcription/hooks/useAudioFiles";
 import { useTranscriptionEvents } from "@/features/transcription/hooks/useTranscriptionEvents";
 
-const JobStatusMonitor = memo(({ jobId }: { jobId: string }) => {
+const JobStatusMonitor = memo(function JobStatusMonitor({ jobId }: { jobId: string }) {
 	useTranscriptionEvents(jobId);
 	return null;
 });
@@ -234,6 +234,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 	const [transcriptionLoading, setTranscriptionLoading] = useState(false);
 	const [killingJobs, setKillingJobs] = useState<Set<string>>(new Set());
 	const [transcribeDDialogOpen, setTranscribeDDialogOpen] = useState(false);
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	const [trackProgress, setTrackProgress] = useState<Record<string, any>>({});
 
 	// Dialog state management
@@ -265,34 +266,33 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 			);
 
 			if (processingMultiTrackJobs.length > 0) {
+				const fetchTrackProgress = async (jobs: AudioFile[]) => {
+					try {
+						const progressPromises = jobs.map(async (job) => {
+							const response = await fetch(`/api/v1/transcription/${job.id}/track-progress`, {
+								headers: { ...getAuthHeaders() },
+							});
+							if (response.ok) {
+								const progress = await response.json();
+								return { jobId: job.id, progress };
+							}
+							return null;
+						});
+
+						const results = await Promise.all(progressPromises);
+						const progressData: Record<string, any> = {}; // eslint-disable-line @typescript-eslint/no-explicit-any
+						results.forEach(result => {
+							if (result) progressData[result.jobId] = result.progress;
+						});
+						setTrackProgress(prev => ({ ...prev, ...progressData }));
+					} catch (error) {
+						console.error("Failed to fetch track progress:", error);
+					}
+				};
 				fetchTrackProgress(processingMultiTrackJobs);
 			}
 		}
-	}, [data]);
-
-	const fetchTrackProgress = async (jobs: AudioFile[]) => {
-		try {
-			const progressPromises = jobs.map(async (job) => {
-				const response = await fetch(`/api/v1/transcription/${job.id}/track-progress`, {
-					headers: { ...getAuthHeaders() },
-				});
-				if (response.ok) {
-					const progress = await response.json();
-					return { jobId: job.id, progress };
-				}
-				return null;
-			});
-
-			const results = await Promise.all(progressPromises);
-			const progressData: Record<string, any> = {};
-			results.forEach(result => {
-				if (result) progressData[result.jobId] = result.progress;
-			});
-			setTrackProgress(prev => ({ ...prev, ...progressData }));
-		} catch (error) {
-			console.error("Failed to fetch track progress:", error);
-		}
-	};
+	}, [data, getAuthHeaders]);
 
 	// Fetch queue positions removed
 
@@ -355,7 +355,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 		} finally {
 			setTranscriptionLoading(false);
 		}
-	}, [selectedJobId, refetch, onTranscribe]);
+	}, [selectedJobId, refetch, onTranscribe, data, getAuthHeaders]);
 
 	// Handle actual transcription start with profile parameters
 	const handleStartTranscriptionWithProfile = useCallback(async (params: WhisperXParams, _profileId?: string) => {
@@ -401,7 +401,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 		} finally {
 			setTranscriptionLoading(false);
 		}
-	}, [selectedJobId, refetch, onTranscribe]);
+	}, [selectedJobId, refetch, onTranscribe, data, getAuthHeaders]);
 
 	// Modified to verify file exists before opening dialog
 	const handleDeleteClick = useCallback((file: AudioFile) => {
@@ -665,7 +665,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 						<TooltipContent>Failed</TooltipContent>
 					</Tooltip>
 				);
-			case "pending":
+			case "pending": {
 				const position = queuePositions[file.id];
 				return (
 					<Tooltip>
@@ -679,6 +679,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 						<TooltipContent>Queue Position: #{position}</TooltipContent>
 					</Tooltip>
 				);
+			}
 			case "uploaded":
 				return (
 					<Tooltip>
@@ -1093,3 +1094,5 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 		</div >
 	);
 });
+
+AudioFilesTable.displayName = "AudioFilesTable";

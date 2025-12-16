@@ -23,6 +23,7 @@ export interface ExecutionData {
     started_at?: string;
     completed_at?: string | null;
     processing_duration?: number | null; // milliseconds
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     actual_parameters?: any;
     status?: string;
     error_message?: string | null;
@@ -61,6 +62,7 @@ export interface AudioFile {
     merge_error?: string;
     parameters?: {
         diarize?: boolean;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         [key: string]: any;
     };
 }
@@ -135,6 +137,7 @@ export function useTranscript(audioId: string, enabled: boolean) {
                 } as Transcript;
             } else if (data.transcript.segments) {
                 const fullText = data.transcript.segments
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     .map((segment: any) => segment.text)
                     .join(" ");
                 return {

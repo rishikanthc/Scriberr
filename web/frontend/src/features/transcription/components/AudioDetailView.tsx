@@ -66,6 +66,42 @@ export const AudioDetailView = function AudioDetailView({ audioId: propAudioId }
     // Download Logic
     const { downloadSRT } = useTranscriptDownload();
 
+    // State for Split View
+    const [chatOpen, setChatOpen] = useState(false);
+    const [sidebarWidth, setSidebarWidth] = useState(400);
+    const [isResizing, setIsResizing] = useState(false);
+    const splitContainerRef = useRef<HTMLDivElement>(null);
+    const isMobile = useIsMobile();
+
+    // Resizing Logic
+    useEffect(() => {
+        const handleMouseMove = (e: MouseEvent) => {
+            if (!isResizing) return;
+            const containerWidth = splitContainerRef.current?.getBoundingClientRect().width || window.innerWidth;
+            const newWidth = containerWidth - e.clientX;
+            // Constraints
+            if (newWidth > 300 && newWidth < 800) {
+                setSidebarWidth(newWidth);
+            }
+        };
+
+        const handleMouseUp = () => {
+            setIsResizing(false);
+            document.body.style.cursor = 'default';
+        };
+
+        if (isResizing) {
+            window.addEventListener('mousemove', handleMouseMove);
+            window.addEventListener('mouseup', handleMouseUp);
+            document.body.style.cursor = 'col-resize';
+        }
+
+        return () => {
+            window.removeEventListener('mousemove', handleMouseMove);
+            window.removeEventListener('mouseup', handleMouseUp);
+        };
+    }, [isResizing]);
+
     // Helpers
 
 
@@ -99,13 +135,6 @@ export const AudioDetailView = function AudioDetailView({ audioId: propAudioId }
 
     if (!audioId) return <div>Invalid Audio ID</div>;
 
-    // State for Split View
-    const [chatOpen, setChatOpen] = useState(false);
-    const [sidebarWidth, setSidebarWidth] = useState(400);
-    const [isResizing, setIsResizing] = useState(false);
-    const splitContainerRef = useRef<HTMLDivElement>(null);
-    const isMobile = useIsMobile();
-
     // Handler for notes/chat exclusivity
     const handleSetNotesOpen = (open: boolean) => {
         if (open) setChatOpen(false);
@@ -116,35 +145,6 @@ export const AudioDetailView = function AudioDetailView({ audioId: propAudioId }
         if (open) setNotesOpen(false);
         setChatOpen(open);
     };
-
-    // Resizing Logic
-    useEffect(() => {
-        const handleMouseMove = (e: MouseEvent) => {
-            if (!isResizing) return;
-            const containerWidth = splitContainerRef.current?.getBoundingClientRect().width || window.innerWidth;
-            const newWidth = containerWidth - e.clientX;
-            // Constraints
-            if (newWidth > 300 && newWidth < 800) {
-                setSidebarWidth(newWidth);
-            }
-        };
-
-        const handleMouseUp = () => {
-            setIsResizing(false);
-            document.body.style.cursor = 'default';
-        };
-
-        if (isResizing) {
-            window.addEventListener('mousemove', handleMouseMove);
-            window.addEventListener('mouseup', handleMouseUp);
-            document.body.style.cursor = 'col-resize';
-        }
-
-        return () => {
-            window.removeEventListener('mousemove', handleMouseMove);
-            window.removeEventListener('mouseup', handleMouseUp);
-        };
-    }, [isResizing]);
 
 
     if (!audioId) return <div>Invalid Audio ID</div>;
@@ -444,11 +444,12 @@ export const AudioDetailView = function AudioDetailView({ audioId: propAudioId }
 
 // Wrapper to handle transcript word index calculation without polluting main view
 // Wrapper to handle word index calc
-function TranscriptSectionWrapper({ audioId, currentTime, transcript, isPlaying, ...props }: any) {
+function TranscriptSectionWrapper({ audioId, currentTime, transcript, isPlaying, ...props }: any) { // eslint-disable-line @typescript-eslint/no-explicit-any
     // If transcript not passed (loading?), handle it
     let currentWordIndex = null;
     if (transcript?.word_segments) {
         // Simple linear find for now.
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const idx = transcript.word_segments.findIndex((w: any) => w.start <= currentTime && w.end >= currentTime);
         if (idx !== -1) currentWordIndex = idx;
     }
