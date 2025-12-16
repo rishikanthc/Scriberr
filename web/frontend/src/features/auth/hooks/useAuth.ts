@@ -49,6 +49,7 @@ export function useAuth() {
         if (window.location.pathname !== "/") {
             // Force navigation handled by RouterContext or window.location if critical
             window.history.pushState({ route: { path: 'home' } }, "", "/");
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             window.dispatchEvent(new PopStateEvent('popstate', { state: { route: { path: 'home' } } as any }));
         }
     }, [token, storeLogout]);
@@ -81,25 +82,23 @@ export function useAuth() {
         if (!fetchWrapperSetupRef.current) {
             const originalFetch = window.fetch.bind(window);
             const wrappedFetch: typeof window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
-                try {
-                    let res = await originalFetch(input, init);
-                    if (res.status === 401) {
-                        const newToken = await tryRefresh()
-                        if (newToken) {
-                            const newInit: RequestInit | undefined = init ? { ...init } : undefined
-                            if (newInit?.headers && typeof newInit.headers === 'object') {
-                                (newInit.headers as any)['Authorization'] = `Bearer ${newToken}`
-                            }
-                            res = await originalFetch(input, newInit)
-                            if (res.status !== 401) return res
+                let res = await originalFetch(input, init);
+                if (res.status === 401) {
+                    const newToken = await tryRefresh()
+                    if (newToken) {
+                        const newInit: RequestInit | undefined = init ? { ...init } : undefined
+                        if (newInit?.headers && typeof newInit.headers === 'object') {
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                            (newInit.headers as any)['Authorization'] = `Bearer ${newToken}`
                         }
-                        logout()
+                        res = await originalFetch(input, newInit)
+                        if (res.status !== 401) return res
                     }
-                    return res;
-                } catch (err) {
-                    throw err;
+                    logout()
                 }
+                return res;
             };
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             window.fetch = wrappedFetch as any;
             fetchWrapperSetupRef.current = true;
             return () => { window.fetch = originalFetch; };
