@@ -13,3 +13,8 @@ pre-commit:
       root: "web/frontend/"
       glob: "**/*.{js,jsx,ts,tsx}"
       run: npx eslint {staged_files}
+
+    frontend-type-check:
+      root: "web/frontend/"
+      glob: "**/*.{ts,tsx}"
+      run: npm run type-check
