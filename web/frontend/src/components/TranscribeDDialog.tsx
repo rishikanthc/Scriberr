@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   Dialog,
   DialogContent,
@@ -51,14 +51,7 @@ export function TranscribeDDialog({
   const [profilesLoading, setProfilesLoading] = useState(false);
   const [defaultProfile, setDefaultProfile] = useState<TranscriptionProfile | null>(null);
 
-  // Fetch profiles when dialog opens
-  useEffect(() => {
-    if (open) {
-      fetchProfiles();
-    }
-  }, [open]);
-
-  const fetchProfiles = async () => {
+  const fetchProfiles = useCallback(async () => {
     try {
       setProfilesLoading(true);
 
@@ -99,7 +92,14 @@ export function TranscribeDDialog({
     } finally {
       setProfilesLoading(false);
     }
-  };
+  }, [getAuthHeaders]);
+
+  // Fetch profiles when dialog opens
+  useEffect(() => {
+    if (open) {
+      fetchProfiles();
+    }
+  }, [open, fetchProfiles]);
 
   const handleStartTranscription = () => {
     if (!selectedProfileId) return;
