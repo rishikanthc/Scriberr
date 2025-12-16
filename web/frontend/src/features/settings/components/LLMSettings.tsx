@@ -31,30 +31,30 @@ export function LLMSettings() {
 	const { getAuthHeaders } = useAuth();
 
 	useEffect(() => {
-		fetchConfig();
-	}, []);
+		const fetchConfig = async () => {
+			try {
+				const response = await fetch("/api/v1/llm/config", {
+					headers: getAuthHeaders(),
+				});
 
-	const fetchConfig = async () => {
-		try {
-			const response = await fetch("/api/v1/llm/config", {
-				headers: getAuthHeaders(),
-			});
-
-			if (response.ok) {
-				const data = await response.json();
-				setConfig(data);
-				setBaseUrl(data.base_url || "");
-				setOpenAIBaseUrl(data.openai_base_url || "");
-				// Don't set API key from response for security
-			} else if (response.status !== 404) {
-				console.error("Failed to fetch LLM config");
+				if (response.ok) {
+					const data = await response.json();
+					setConfig(data);
+					setBaseUrl(data.base_url || "");
+					setOpenAIBaseUrl(data.openai_base_url || "");
+					// Don't set API key from response for security
+				} else if (response.status !== 404) {
+					console.error("Failed to fetch LLM config");
+				}
+			} catch (error) {
+				console.error("Error fetching LLM config:", error);
+			} finally {
+				setLoading(false);
 			}
-		} catch (error) {
-			console.error("Error fetching LLM config:", error);
-		} finally {
-			setLoading(false);
-		}
-	};
+		};
+
+		fetchConfig();
+	}, [getAuthHeaders]);
 
 	const handleSave = async () => {
 		setSaving(true);

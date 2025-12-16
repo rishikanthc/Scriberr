@@ -176,6 +176,7 @@ export function ProfileSettings() {
 				return;
 			}
 
+			// eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any
 			const { profileName: _pn, profileDescription: _pd, ...paramRest } = payload as any;
 			const body = {
 				name,

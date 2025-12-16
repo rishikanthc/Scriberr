@@ -67,7 +67,7 @@ export function ProfilesTable({
 		} finally {
 			setLoading(false);
 		}
-	}, []);
+	}, [getAuthHeaders]);
 
 	useEffect(() => {
 		fetchProfiles();
@@ -102,7 +102,7 @@ export function ProfilesTable({
 				});
 			}
 		},
-		[onProfileChange],
+		[onProfileChange, getAuthHeaders],
 	);
 
 	const formatDate = useCallback((dateString: string) => {

@@ -30,7 +30,7 @@ export function SummaryTemplatesTable({ onEdit, refreshTrigger = 0, disabled = f
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [getAuthHeaders]);
 
   useEffect(() => { fetchItems(); }, [fetchItems, refreshTrigger]);
 

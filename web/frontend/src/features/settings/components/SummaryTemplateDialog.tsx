@@ -75,7 +75,7 @@ export function SummaryTemplateDialog({ open, onOpenChange, onSave, initial }: S
               setModel(data.models[0]);
             }
           }
-        } catch { }
+        } catch { /* ignore */ }
       })();
     }
   }, [open, initial, getAuthHeaders]);
