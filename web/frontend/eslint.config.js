@@ -27,21 +27,13 @@ export default tseslint.config(
     },
     rules: {
       ...reactHooks.configs.recommended.rules,
-      ...react.configs.recommended.rules,
-      ...react.configs['jsx-runtime'].rules,
 
       'react-refresh/only-export-components': [
         'warn',
         { allowConstantExport: true },
       ],
 
-      // Relaxed Rules
-      '@typescript-eslint/no-explicit-any': 'warn',
-      '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
-      'react/prop-types': 'off',
       'no-console': ['warn', { allow: ['warn', 'error', 'info'] }],
-      'prefer-const': 'warn',
-      'react/no-unescaped-entities': 'off',
     },
   },
 )

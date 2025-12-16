@@ -358,7 +358,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 	}, [selectedJobId, refetch, onTranscribe, data, getAuthHeaders]);
 
 	// Handle actual transcription start with profile parameters
-	const handleStartTranscriptionWithProfile = useCallback(async (params: WhisperXParams, _profileId?: string) => {
+	const handleStartTranscriptionWithProfile = useCallback(async (params: WhisperXParams) => {
 		if (!selectedJobId) return;
 
 		// Validate multi-track compatibility

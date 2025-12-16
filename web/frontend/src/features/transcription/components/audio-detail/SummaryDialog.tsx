@@ -203,14 +203,14 @@ export function SummaryDialog({ audioId, isOpen, onClose, llmReady }: SummaryDia
                                         remarkPlugins={[remarkMath]}
                                         rehypePlugins={[rehypeRaw as any, rehypeKatex as any, rehypeHighlight as any]} // eslint-disable-line @typescript-eslint/no-explicit-any
                                         components={{
-                                            p: ({ node: _node, ...props }) => <p className="text-[#525252] dark:text-[#A3A3A3] leading-7 mb-4" {...props} />,
-                                            h1: ({ node: _node, ...props }) => <h1 className="text-[#171717] dark:text-[#EDEDED] font-bold text-2xl mt-6 mb-4" {...props} />,
-                                            h2: ({ node: _node, ...props }) => <h2 className="text-[#171717] dark:text-[#EDEDED] font-bold text-xl mt-6 mb-3" {...props} />,
-                                            h3: ({ node: _node, ...props }) => <h3 className="text-[#171717] dark:text-[#EDEDED] font-bold text-lg mt-5 mb-2" {...props} />,
-                                            li: ({ node: _node, ...props }) => <li className="text-[#525252] dark:text-[#A3A3A3] mb-1" {...props} />,
-                                            strong: ({ node: _node, ...props }) => <strong className="text-[#171717] dark:text-[#EDEDED] font-bold" {...props} />,
-                                            ul: ({ node: _node, ...props }) => <ul className="list-disc pl-5 mb-4" {...props} />,
-                                            ol: ({ node: _node, ...props }) => <ol className="list-decimal pl-5 mb-4" {...props} />,
+                                            p: ({ ...props }) => <p className="text-[#525252] dark:text-[#A3A3A3] leading-7 mb-4" {...props} />,
+                                            h1: ({ ...props }) => <h1 className="text-[#171717] dark:text-[#EDEDED] font-bold text-2xl mt-6 mb-4" {...props} />,
+                                            h2: ({ ...props }) => <h2 className="text-[#171717] dark:text-[#EDEDED] font-bold text-xl mt-6 mb-3" {...props} />,
+                                            h3: ({ ...props }) => <h3 className="text-[#171717] dark:text-[#EDEDED] font-bold text-lg mt-5 mb-2" {...props} />,
+                                            li: ({ ...props }) => <li className="pl-1 text-[#525252] dark:text-[#A3A3A3] mb-1" {...props} />,
+                                            strong: ({ ...props }) => <strong className="text-[#171717] dark:text-[#EDEDED] font-bold" {...props} />,
+                                            ul: ({ ...props }) => <ul className="list-disc pl-5 mb-4" {...props} />,
+                                            ol: ({ ...props }) => <ol className="list-decimal pl-5 mb-4" {...props} />,
                                         }}
                                     >
                                         {streamContent || existingSummary?.content || ""}
