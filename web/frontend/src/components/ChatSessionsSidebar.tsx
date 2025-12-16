@@ -84,7 +84,7 @@ export function ChatSessionsSidebar({
       const data = await res.json()
       setAvailableModels(data.models || [])
       if (!selectedModel && data.models?.length) setSelectedModel(data.models[0])
-    } catch { }
+    } catch { /* ignore */ }
   }
 
   async function loadSessions() {
@@ -93,7 +93,7 @@ export function ChatSessionsSidebar({
       if (!res.ok) return
       const data = await res.json()
       setSessions(data || [])
-    } catch { }
+    } catch { /* ignore */ }
   }
 
   async function createSession() {
@@ -110,7 +110,7 @@ export function ChatSessionsSidebar({
       onSessionChange(created.id)
       setShowNewSessionDialog(false)
       setNewSessionTitle('')
-    } catch { }
+    } catch { /* ignore */ }
   }
 
   async function updateTitle(id: string, title: string) {
@@ -124,7 +124,7 @@ export function ChatSessionsSidebar({
       const updated = await res.json()
       setSessions(prev => prev.map(s => (s.id === id ? updated : s)))
       setEditingId(null)
-    } catch { }
+    } catch { /* ignore */ }
   }
 
   async function initiateDelete(id: string) {
@@ -152,7 +152,7 @@ export function ChatSessionsSidebar({
           onSessionChange(null)
         }
       }
-    } catch { } finally {
+    } catch { /* ignore */ } finally {
       setDeleteId(null)
     }
   }

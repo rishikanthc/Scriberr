@@ -140,7 +140,7 @@ export function AudioRecorder({
 				activeStream.getTracks().forEach(track => track.stop());
 			}
 		};
-	}, [isOpen]); // Remove wavesurfer and selectedDevice dependencies to avoid recreation loop
+	}, [isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
 
 	// Handle background recording - prevent page unload warnings during recording
 	useEffect(() => {
