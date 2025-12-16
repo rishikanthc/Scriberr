@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -36,14 +36,7 @@ const SpeakerRenameDialog: React.FC<SpeakerRenameDialogProps> = ({
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Initialize speaker mappings when dialog opens
-  useEffect(() => {
-    if (open && transcriptionId) {
-      fetchSpeakerMappings();
-    }
-  }, [open, transcriptionId]);
-
-  const fetchSpeakerMappings = async () => {
+  const fetchSpeakerMappings = useCallback(async () => {
     setIsLoading(true);
     setError(null);
 
@@ -57,10 +50,10 @@ const SpeakerRenameDialog: React.FC<SpeakerRenameDialogProps> = ({
       }
 
       const existingMappings: SpeakerMapping[] = await response.json();
-      
+
       // Create a mapping object from the response
       const mappingObj: Record<string, string> = {};
-      
+
       // Initialize with existing mappings
       existingMappings.forEach(mapping => {
         mappingObj[mapping.original_speaker] = mapping.custom_name;
@@ -77,7 +70,7 @@ const SpeakerRenameDialog: React.FC<SpeakerRenameDialogProps> = ({
     } catch (err) {
       console.error('Error fetching speaker mappings:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch speaker mappings');
-      
+
       // Initialize with default mappings if fetch fails
       const defaultMappings: Record<string, string> = {};
       initialSpeakers.forEach(speaker => {
@@ -87,7 +80,14 @@ const SpeakerRenameDialog: React.FC<SpeakerRenameDialogProps> = ({
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [transcriptionId, getAuthHeaders, initialSpeakers]);
+
+  // Initialize speaker mappings when dialog opens
+  useEffect(() => {
+    if (open && transcriptionId) {
+      fetchSpeakerMappings();
+    }
+  }, [open, transcriptionId, fetchSpeakerMappings]);
 
   const handleSpeakerNameChange = (originalSpeaker: string, customName: string) => {
     setSpeakerMappings(prev => ({
@@ -191,8 +191,8 @@ const SpeakerRenameDialog: React.FC<SpeakerRenameDialogProps> = ({
             <X className="h-4 w-4 mr-1" />
             Cancel
           </Button>
-          <Button 
-            onClick={saveSpeakerMappings} 
+          <Button
+            onClick={saveSpeakerMappings}
             disabled={isSaving || speakers.length === 0}
             className="min-w-[100px]"
           >
