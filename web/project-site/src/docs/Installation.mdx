@@ -21,20 +21,39 @@ Open [http://localhost:8080](http://localhost:8080) in your browser.
 
 ## Configuration
 
-Scriberr works out of the box. To customize settings, create a `.env` file:
+Scriberr works out of the box. However, for Homebrew or manual installations, you can customize the application behavior using environment variables or a `.env` file placed in the same directory as the binary (or where you run the command from).
+
+> **Docker Users:** You can ignore this section if you are using `docker-compose.yml`, as these values are set in the `environment` section there.
+
+### Environment Variables
+
+| Variable | Description | Default |
+| :--- | :--- | :--- |
+| `PORT` | The port the server listens on. | `8080` |
+| `HOST` | The interface to bind to. | `0.0.0.0` |
+| `APP_ENV` | Application environment (`development` or `production`). | `development` |
+| `ALLOWED_ORIGINS` | CORS allowed origins (comma separated). | `http://localhost:5173,http://localhost:8080` |
+| `DATABASE_PATH` | Path to the SQLite database file. | `data/scriberr.db` |
+| `UPLOAD_DIR` | Directory for storing uploaded files. | `data/uploads` |
+| `TRANSCRIPTS_DIR` | Directory for storing transcripts. | `data/transcripts` |
+| `WHISPERX_ENV` | Path to the managed Python environment for models. | `data/whisperx-env` |
+| `OPENAI_API_KEY` | API Key for OpenAI (optional). | `""` |
+| `JWT_SECRET` | Secret for signing JWTs. Auto-generated if not set. | Auto-generated |
+
+**Example `.env` file:**
 
 ```bash
 # Server settings
 HOST=localhost
 PORT=8080
+APP_ENV=production
 
-# Data storage (optional)
-DATABASE_PATH=./data/scriberr.db
-UPLOAD_DIR=./data/uploads
-WHISPERX_ENV=./data/whisperx-env
+# Paths
+DATABASE_PATH=/var/lib/scriberr/data/scriberr.db
+UPLOAD_DIR=/var/lib/scriberr/data/uploads
 
-# Custom paths (if needed)
-UV_PATH=/custom/path/to/uv
+# Security
+JWT_SECRET=your-super-secret-key-change-this
 ```
 
 ## Docker Deployment
