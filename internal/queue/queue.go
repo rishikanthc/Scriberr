@@ -12,8 +12,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"scriberr/internal/database"
 	"scriberr/internal/models"
+	"scriberr/internal/repository"
 	"scriberr/pkg/logger"
 )
 
@@ -37,6 +37,7 @@ type TaskQueue struct {
 	jobsMutex      sync.RWMutex
 	autoScale      bool
 	lastScaleTime  time.Time
+	jobRepo        repository.JobRepository
 }
 
 // JobProcessor defines the interface for processing jobs
@@ -78,7 +79,7 @@ func getOptimalWorkerCount() (min, max int) {
 }
 
 // NewTaskQueue creates a new task queue with auto-scaling capabilities
-func NewTaskQueue(legacyWorkers int, processor JobProcessor) *TaskQueue {
+func NewTaskQueue(legacyWorkers int, processor JobProcessor, jobRepo repository.JobRepository) *TaskQueue {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	// Calculate optimal worker counts, fallback to legacy parameter
@@ -105,6 +106,7 @@ func NewTaskQueue(legacyWorkers int, processor JobProcessor) *TaskQueue {
 		runningJobs:    make(map[string]*RunningJob),
 		autoScale:      autoScale,
 		lastScaleTime:  time.Now(),
+		jobRepo:        jobRepo,
 	}
 }
 
@@ -261,8 +263,8 @@ func (tq *TaskQueue) KillJob(jobID string) error {
 		// We should still mark it as failed in DB
 		logger.Warn("Job not found in running jobs map, checking DB status", "job_id", jobID)
 
-		var job models.TranscriptionJob
-		if err := database.DB.Where("id = ?", jobID).First(&job).Error; err != nil {
+		job, err := tq.jobRepo.FindByID(context.Background(), jobID)
+		if err != nil {
 			return fmt.Errorf("job %s not found: %v", jobID, err)
 		}
 
@@ -324,26 +326,17 @@ func (tq *TaskQueue) IsJobRunning(jobID string) bool {
 
 // updateJobStatus updates the status of a job
 func (tq *TaskQueue) updateJobStatus(jobID string, status models.JobStatus) error {
-	return database.DB.Model(&models.TranscriptionJob{}).
-		Where("id = ?", jobID).
-		Update("status", status).Error
+	return tq.jobRepo.UpdateStatus(context.Background(), jobID, status)
 }
 
 // updateJobError updates the error message of a job
 func (tq *TaskQueue) updateJobError(jobID string, errorMsg string) error {
-	return database.DB.Model(&models.TranscriptionJob{}).
-		Where("id = ?", jobID).
-		Update("error_message", errorMsg).Error
+	return tq.jobRepo.UpdateError(context.Background(), jobID, errorMsg)
 }
 
 // GetJobStatus gets the status of a job
 func (tq *TaskQueue) GetJobStatus(jobID string) (*models.TranscriptionJob, error) {
-	var job models.TranscriptionJob
-	err := database.DB.Where("id = ?", jobID).First(&job).Error
-	if err != nil {
-		return nil, err
-	}
-	return &job, nil
+	return tq.jobRepo.FindByID(context.Background(), jobID)
 }
 
 // autoScaler monitors queue load and adjusts worker count
@@ -406,12 +399,11 @@ func (tq *TaskQueue) checkAndScale() {
 
 // GetQueueStats returns queue statistics
 func (tq *TaskQueue) GetQueueStats() map[string]interface{} {
-	var pendingCount, processingCount, completedCount, failedCount int64
-
-	database.DB.Model(&models.TranscriptionJob{}).Where("status = ?", models.StatusPending).Count(&pendingCount)
-	database.DB.Model(&models.TranscriptionJob{}).Where("status = ?", models.StatusProcessing).Count(&processingCount)
-	database.DB.Model(&models.TranscriptionJob{}).Where("status = ?", models.StatusCompleted).Count(&completedCount)
-	database.DB.Model(&models.TranscriptionJob{}).Where("status = ?", models.StatusFailed).Count(&failedCount)
+	ctx := context.Background()
+	pendingCount, _ := tq.jobRepo.CountByStatus(ctx, models.StatusPending)
+	processingCount, _ := tq.jobRepo.CountByStatus(ctx, models.StatusProcessing)
+	completedCount, _ := tq.jobRepo.CountByStatus(ctx, models.StatusCompleted)
+	failedCount, _ := tq.jobRepo.CountByStatus(ctx, models.StatusFailed)
 
 	tq.jobsMutex.RLock()
 	runningJobsCount := len(tq.runningJobs)
@@ -434,10 +426,9 @@ func (tq *TaskQueue) GetQueueStats() map[string]interface{} {
 
 // ResetZombieJobs finds jobs stuck in processing state from previous runs and marks them as failed
 func (tq *TaskQueue) ResetZombieJobs() {
-	var zombieJobs []models.TranscriptionJob
-
 	// Find all jobs with status "processing"
-	if err := database.DB.Where("status = ?", models.StatusProcessing).Find(&zombieJobs).Error; err != nil {
+	zombieJobs, err := tq.jobRepo.FindByStatus(context.Background(), models.StatusProcessing)
+	if err != nil {
 		logger.Error("Failed to scan for zombie jobs", "error", err)
 		return
 	}
@@ -467,9 +458,8 @@ func (tq *TaskQueue) ResetZombieJobs() {
 // recoverPendingJobs enqueues pending jobs from previous server runs
 // This runs ONCE at startup, not repeatedly like the old scanner
 func (tq *TaskQueue) recoverPendingJobs() {
-	var pendingJobs []models.TranscriptionJob
-
-	if err := database.DB.Where("status = ?", models.StatusPending).Find(&pendingJobs).Error; err != nil {
+	pendingJobs, err := tq.jobRepo.FindByStatus(context.Background(), models.StatusPending)
+	if err != nil {
 		logger.Error("Failed to scan for pending jobs during startup recovery", "error", err)
 		return
 	}

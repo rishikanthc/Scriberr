@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"scriberr/internal/database"
 	"scriberr/internal/llm"
 	"scriberr/internal/models"
 
@@ -242,39 +241,15 @@ func (h *Handler) GetChatSessions(c *gin.Context) {
 	}
 
 	// Batch query for message counts - eliminates N+1 problem
-	type MessageCount struct {
-		SessionID string `json:"session_id"`
-		Count     int64  `json:"count"`
-	}
-	var messageCounts []MessageCount
-	database.DB.Model(&models.ChatMessage{}).
-		Select("chat_session_id as session_id, COUNT(*) as count").
-		Where("chat_session_id IN ?", sessionIDs).
-		Group("chat_session_id").
-		Scan(&messageCounts)
-
-	// Create message count lookup map
-	messageCountMap := make(map[string]int64)
-	for _, mc := range messageCounts {
-		messageCountMap[mc.SessionID] = mc.Count
-	}
+	messageCountMap, _ := h.chatRepo.GetMessageCountsBySessionIDs(c.Request.Context(), sessionIDs)
 
 	// Batch query for last messages - eliminates N+1 problem
-	var lastMessages []models.ChatMessage
-	database.DB.Where(`id IN (
-		SELECT id FROM chat_messages cm1
-		WHERE cm1.chat_session_id IN ? 
-		AND cm1.created_at = (
-			SELECT MAX(cm2.created_at) 
-			FROM chat_messages cm2 
-			WHERE cm2.chat_session_id = cm1.chat_session_id
-		)
-	)`, sessionIDs).Find(&lastMessages)
+	lastMsgsMap, _ := h.chatRepo.GetLastMessagesBySessionIDs(c.Request.Context(), sessionIDs)
 
-	// Create last message lookup map
+	// Create last message response lookup map
 	lastMessageMap := make(map[string]*ChatMessageResponse)
-	for _, msg := range lastMessages {
-		lastMessageMap[msg.ChatSessionID] = &ChatMessageResponse{
+	for sessionID, msg := range lastMsgsMap {
+		lastMessageMap[sessionID] = &ChatMessageResponse{
 			ID:        msg.ID,
 			Role:      msg.Role,
 			Content:   msg.Content,
@@ -855,18 +830,19 @@ func (h *Handler) AutoGenerateChatTitle(c *gin.Context) {
 		return
 	}
 
-	if err := database.DB.Model(&session).Update("title", title).Error; err != nil {
+	session.Title = title
+	if err := h.chatRepo.Update(c.Request.Context(), session); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update title"})
 		return
 	}
 
 	// Reload to return response
-	var updated models.ChatSession
-	if err := database.DB.Where("id = ?", sessionID).First(&updated).Error; err != nil {
+	updated, err := h.chatRepo.FindByID(c.Request.Context(), sessionID)
+	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to load updated session"})
 		return
 	}
-	h.respondWithSession(c, &updated)
+	h.respondWithSession(c, updated)
 }
 
 func (h *Handler) isDefaultTitle(ctx context.Context, session *models.ChatSession) (bool, error) {

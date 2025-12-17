@@ -61,10 +61,10 @@ func (suite *APIHandlerTestSuite) SetupSuite() {
 	// Initialize services
 	suite.unifiedProcessor = transcription.NewUnifiedJobProcessor(jobRepo)
 	var err error
-	suite.quickTranscription, err = transcription.NewQuickTranscriptionService(suite.helper.Config, suite.unifiedProcessor)
+	suite.quickTranscription, err = transcription.NewQuickTranscriptionService(suite.helper.Config, suite.unifiedProcessor, jobRepo)
 	assert.NoError(suite.T(), err)
 
-	suite.taskQueue = queue.NewTaskQueue(1, suite.unifiedProcessor)
+	suite.taskQueue = queue.NewTaskQueue(1, suite.unifiedProcessor, jobRepo)
 
 	broadcaster := sse.NewBroadcaster()
 

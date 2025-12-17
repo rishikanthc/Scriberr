@@ -130,7 +130,7 @@ func main() {
 
 	// Initialize quick transcription service
 	logger.Startup("quick-transcription", "Initializing quick transcription service")
-	quickTranscriptionService, err := transcription.NewQuickTranscriptionService(cfg, unifiedProcessor)
+	quickTranscriptionService, err := transcription.NewQuickTranscriptionService(cfg, unifiedProcessor, jobRepo)
 	if err != nil {
 		logger.Error("Failed to initialize quick transcription service", "error", err)
 		os.Exit(1)
@@ -138,7 +138,7 @@ func main() {
 
 	// Initialize task queue
 	logger.Startup("queue", "Starting background processing")
-	taskQueue := queue.NewTaskQueue(2, unifiedProcessor) // 2 workers
+	taskQueue := queue.NewTaskQueue(2, unifiedProcessor, jobRepo) // 2 workers
 	taskQueue.Start()
 	defer taskQueue.Stop()
 

@@ -60,6 +60,11 @@ type JobRepository interface {
 	UpdateExecution(ctx context.Context, execution *models.TranscriptionJobExecution) error
 	DeleteExecutionsByJobID(ctx context.Context, jobID string) error
 	DeleteMultiTrackFilesByJobID(ctx context.Context, jobID string) error
+	UpdateStatus(ctx context.Context, jobID string, status models.JobStatus) error
+	UpdateError(ctx context.Context, jobID string, errorMsg string) error
+	FindByStatus(ctx context.Context, status models.JobStatus) ([]models.TranscriptionJob, error)
+	CountByStatus(ctx context.Context, status models.JobStatus) (int64, error)
+	UpdateSummary(ctx context.Context, jobID string, summary string) error
 }
 
 type jobRepository struct {
@@ -175,6 +180,33 @@ func (r *jobRepository) FindLatestCompletedExecution(ctx context.Context, jobID 
 		return nil, err
 	}
 	return &execution, nil
+}
+
+func (r *jobRepository) UpdateStatus(ctx context.Context, jobID string, status models.JobStatus) error {
+	return r.db.WithContext(ctx).Model(&models.TranscriptionJob{}).Where("id = ?", jobID).Update("status", status).Error
+}
+
+func (r *jobRepository) UpdateError(ctx context.Context, jobID string, errorMsg string) error {
+	return r.db.WithContext(ctx).Model(&models.TranscriptionJob{}).Where("id = ?", jobID).Update("error_message", errorMsg).Error
+}
+
+func (r *jobRepository) FindByStatus(ctx context.Context, status models.JobStatus) ([]models.TranscriptionJob, error) {
+	var jobs []models.TranscriptionJob
+	err := r.db.WithContext(ctx).Where("status = ?", status).Find(&jobs).Error
+	if err != nil {
+		return nil, err
+	}
+	return jobs, nil
+}
+
+func (r *jobRepository) CountByStatus(ctx context.Context, status models.JobStatus) (int64, error) {
+	var count int64
+	err := r.db.WithContext(ctx).Model(&models.TranscriptionJob{}).Where("status = ?", status).Count(&count).Error
+	return count, err
+}
+
+func (r *jobRepository) UpdateSummary(ctx context.Context, jobID string, summary string) error {
+	return r.db.WithContext(ctx).Model(&models.TranscriptionJob{}).Where("id = ?", jobID).Update("summary", summary).Error
 }
 
 // APIKeyRepository handles API key operations
@@ -339,6 +371,8 @@ type ChatRepository interface {
 	DeleteSession(ctx context.Context, id string) error
 	GetMessages(ctx context.Context, sessionID string, limit int) ([]models.ChatMessage, error)
 	DeleteByJobID(ctx context.Context, jobID string) error
+	GetMessageCountsBySessionIDs(ctx context.Context, sessionIDs []string) (map[string]int64, error)
+	GetLastMessagesBySessionIDs(ctx context.Context, sessionIDs []string) (map[string]*models.ChatMessage, error)
 }
 
 type chatRepository struct {
@@ -420,6 +454,59 @@ func (r *chatRepository) GetMessages(ctx context.Context, sessionID string, limi
 		return nil, err
 	}
 	return messages, nil
+}
+
+func (r *chatRepository) GetMessageCountsBySessionIDs(ctx context.Context, sessionIDs []string) (map[string]int64, error) {
+	if len(sessionIDs) == 0 {
+		return make(map[string]int64), nil
+	}
+
+	type MessageCount struct {
+		SessionID string `gorm:"column:session_id"`
+		Count     int64  `gorm:"column:count"`
+	}
+	var counts []MessageCount
+
+	err := r.db.WithContext(ctx).Model(&models.ChatMessage{}).
+		Select("chat_session_id as session_id, COUNT(*) as count").
+		Where("chat_session_id IN ?", sessionIDs).
+		Group("chat_session_id").
+		Scan(&counts).Error
+	if err != nil {
+		return nil, err
+	}
+
+	result := make(map[string]int64)
+	for _, c := range counts {
+		result[c.SessionID] = c.Count
+	}
+	return result, nil
+}
+
+func (r *chatRepository) GetLastMessagesBySessionIDs(ctx context.Context, sessionIDs []string) (map[string]*models.ChatMessage, error) {
+	if len(sessionIDs) == 0 {
+		return make(map[string]*models.ChatMessage), nil
+	}
+
+	var lastMessages []models.ChatMessage
+	err := r.db.WithContext(ctx).Where(`id IN (
+		SELECT id FROM chat_messages cm1
+		WHERE cm1.chat_session_id IN ? 
+		AND cm1.created_at = (
+			SELECT MAX(cm2.created_at) 
+			FROM chat_messages cm2 
+			WHERE cm2.chat_session_id = cm1.chat_session_id
+		)
+	)`, sessionIDs).Find(&lastMessages).Error
+	if err != nil {
+		return nil, err
+	}
+
+	result := make(map[string]*models.ChatMessage)
+	for i := range lastMessages {
+		result[lastMessages[i].ChatSessionID] = &lastMessages[i]
+	}
+	return result, nil
 }
 
 // NoteRepository handles notes
