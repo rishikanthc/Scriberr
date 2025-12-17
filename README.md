@@ -31,7 +31,7 @@ Recall.ai diarizes by pulling the speaker data and seperate audio streams from t
 ## Introduction
 
 At its core, Scriberr allows you to transcribe audio and video locally on your machine, ensuring no data is ever sent to a third-party cloud provider.
-Leveraging state-of-the-art machine learning models (such as **Whisper**, **NVIDIA Parakeet**, and **Canary**), it delivers high-accuracy text with word-level timing.
+Leveraging state-of-the-art machine learning models (such as **NVIDIA Parakeet**, and **Canary**) or the older more popular **Whisper** models, it delivers high-accuracy text with word-level timing.
 
 Scriberr goes beyond simple transcription and provides various advanced capabilities.
 It combines powerful under-the-hood AI with a polished, fluid user interface that makes managing your recordings feel effortless. Whether you are sorting through voice notes or analyzing long meetings, Scriberr provides a beautiful environment to get work done:
