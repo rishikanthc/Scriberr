@@ -67,6 +67,6 @@ prompt.txt
 .agent/
 agent-bak/
 tmp/
-*.svg
-*.png
+# *.svg
+# *.png
 dhl.txt

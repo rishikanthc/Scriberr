@@ -1,19 +1,23 @@
 <div align="center">
-
-<img alt="Scriberr" src="cropped-main-logo.png" width="480" />
-
-Self‑hostable, secure & private offline transcription. Drop in a recording, get clean transcripts, highlight key moments, take notes or chat with your audio using your favorite LLM — all without sending your data to the cloud.
-
-[Website](https://scriberr.app) • [Docs](https://scriberr.app/docs/intro.html) • [API Reference](https://scriberr.app/api.html) • [Changelog](https://scriberr.app/changelog.html)
-
-<p align="center">
-<a href='https://ko-fi.com/H2H41KQZA3' target='_blank'><img height='36' style='border:0px;height:36px;' src='https://storage.ko-fi.com/cdn/kofi6.png?v=6' border='0' alt='Buy Me a Coffee at ko-fi.com' /></a>
-</p>
+  <img src="logo.svg" height="100" style="vertical-align: middle;" />
+  <img src="logo-text.svg" height="80" style="vertical-align: middle;" />
 </div>
 
-**Collecting feedback on new feature. Drop by https://github.com/rishikanthc/Scriberr/discussions/200 to share your opinions.**
+<p align="center">
+Scriberr is an open-source, and completely offline audio transcription application designed for self-hosters who value privacy and performance.
+</p>
 
----
+<p align="center">
+  <a href="https://scriberr.app">Website</a> •
+  <a href="https://scriberr.app/docs/">Docs</a> •
+  <a href="https://scriberr.app/api">API Reference</a>
+</p>
+
+<div align="center">
+  <img src="screenshots/hero-desktop.png" alt="Scriberr Desktop App" width="800" />
+  <br />
+  <img src="screenshots/hero-mobile.png" alt="Scriberr Mobile App" width="300" />
+</div>
 
 ## Sponsors
 
@@ -21,112 +25,138 @@ Self‑hostable, secure & private offline transcription. Drop in a recording, ge
 If you're looking for a transcription API for meetings, consider checking out [Recall.ai](https://www.recall.ai/?utm_source=github&utm_medium=sponsorship&utm_campaign=rishikanthc-scriberr), an API that works with Zoom, Google Meet, Microsoft Teams, and more.
 Recall.ai diarizes by pulling the speaker data and seperate audio streams from the meeting platforms, which means 100% accurate speaker diarization with actual speaker names.
 
-# Introduction
+## Introduction
 
-Scriberr is a self‑hosted offline transcription app for converting audio into text. Record or upload audio, get it transcribed, and quickly summarize or chat using your preferred LLM provider. Scriberr runs on modern CPUs (no GPU required, though GPUs can accelerate processing) and offers a range of trade‑offs between speed and transcription quality.
+At its core, Scriberr allows you to transcribe audio and video locally on your machine, ensuring no data is ever sent to a third-party cloud provider.
+Leveraging state-of-the-art machine learning models (such as **Whisper**, **NVIDIA Parakeet**, and **Canary**), it delivers high-accuracy text with word-level timing.
 
-- Built with React (frontend) and Go (backend), packaged as a single binary
-- Uses WhisperX with open‑source Whisper models for accurate transcription
-- Clean, distraction‑free UI optimized for reading and working with transcripts
+Scriberr goes beyond simple transcription and provides various advanced capabilities.
+It combines powerful under-the-hood AI with a polished, fluid user interface that makes managing your recordings feel effortless. Whether you are sorting through voice notes or analyzing long meetings, Scriberr provides a beautiful environment to get work done:
 
-<p align="center">
-  <img alt="Scriberr homepage" src="screenshots/scriberr-homepage.png" width="720" />
-</p>
+- **Smart Speaker Detection**: Scriberr automatically detects different speakers (Diarization) and labels exactly who said what.
+- **Chat with your Audio**: Connect seamlessly with Ollama or OpenAI API compatible providers. You can generate summaries, ask questions, or have a full conversation with your transcripts right inside the app.
+- **Built for your Workflow**: With extensive APIs and Folder Watcher that automatically processes new files in a folder, Scriberr fits right into your existing automations (like n8n).
+- **Capture & Organize**: Use the built-in audio recorder to capture thoughts on the fly, and the integrated note-taking features to annotate your transcripts as you listen.
+- **Native Experience everywhere**: Scriberr supports PWA (Progressive Web App) installation, giving you a native app experience on your desktop or mobile device.
+- **A Polished UI**: I’ve focused on the little UI niceties that make the app feel responsive and satisfying to use.
 
-## Features
+[View full list of features →](https://scriberr.app/docs/features)
 
-- Accurate transcription with word‑level timing
-- Speaker diarization (identify and label speakers)
-- Transcript reader with playback follow‑along and seek‑from‑text
-- Highlights and lightweight note‑taking (jump note → audio/transcript)
-- Summarize and chat over transcripts (OpenAI or local models via Ollama)
-- Transcription profiles for re‑usable configurations
-- YouTube video transcription (paste a link and transcribe)
-- Quick transcribe (ephemeral) and batch upload
-- REST API coverage for all major features + API key management
-- Download transcripts as JSON/SRT/TXT (and more)
-- Support for Nvidia GPUs [New - Experimental]
+### Why I built this
+
+The inspiration for Scriberr was born out of privacy paranoia and not wanting to pay for subscription.
+About a year ago, I purchased a [Plaud Note](https://www.plaud.ai/) for recording voice memos. I loved the device itself; the form factor, microphone quality, and workflow were excellent.
+
+However, transcription was done on their cloud servers. As someone who is paranoid about privacy I wasn't comfortable with uploading my recordings to a third party provider.
+Moreover I was hit with subscription costs: $100 a year for 20 hours of transcription per month, or $240 a year for unlimited access. As an avid self-hoster with a background in ML and AI, it felt wrong to pay such a premium for a service I knew I could engineer myself.
+
+I decided to build Scriberr to bridge that gap, creating a powerful, private, and free alternative for everyone.
 
 ## Screenshots
 
 <details>
-  <summary>Show screenshots</summary>
+  <summary>Click to expand</summary>
 
   <p align="center">
-    <img alt="Transcript view" src="screenshots/scriberr-transcript page.png" width="720" />
+    <img alt="Transcript view" src="screenshots/transcript-light.png" width="720" />
   </p>
-  <p align="center"><em>Minimal transcript reader with playback follow‑along and seek‑from‑text.</em></p>
+  <p align="center"><em>Transcript reader with playback follow‑along and seek‑from‑text.</em></p>
 
   <p align="center">
-    <img alt="Summarize transcripts" src="screenshots/scriberr-summarize transcripts.png" width="720" />
+    <img alt="Chat with Audio" src="screenshots/chat.png" width="720" />
   </p>
-  <p align="center"><em>Summarize long recordings and use custom prompts.</em></p>
+  <p align="center"><em>Chat with your transcripts using local LLMs or OpenAI.</em></p>
 
   <p align="center">
-    <img alt="API key management" src="screenshots/scriberr-api-key-management.png" width="720" />
+    <img alt="Notes and Highlights" src="screenshots/notes.png" width="720" />
   </p>
-  <p align="center"><em>Generate and manage API keys for the REST API.</em></p>
+  <p align="center"><em>Highlight key moments and take notes while listening.</em></p>
 
   <p align="center">
-    <img alt="YouTube video transcription" src="screenshots/scriberr-youtube-video.png" width="720" />
+    <img alt="AI Summaries" src="screenshots/ai-summary.png" width="720" />
   </p>
-  <p align="center"><em>Transcribe audio directly from a YouTube link.</em></p>
+  <p align="center"><em>Generate comprehensive summaries of your recordings.</em></p>
+
+  <p align="center">
+    <strong style="font-size: 1.2em;">Dark Mode</strong>
+  </p>
+
+  <p align="center">
+    <img alt="Homepage Dark Mode" src="screenshots/homepage-dark.png" width="720" />
+  </p>
+  <p align="center"><em>Homepage in Dark Mode.</em></p>
+
+  <p align="center">
+    <img alt="Transcript Dark Mode" src="screenshots/transcript-dark.png" width="720" />
+  </p>
+  <p align="center"><em>Transcript view in Dark Mode.</em></p>
+
+  ### Mobile
+
+  <p align="center">
+    <img alt="Mobile Homepage" src="screenshots/homepage-mobile.PNG" width="300" />
+    <img alt="Mobile Homepage Dark" src="screenshots/homepage-mobile-dark.PNG" width="300" />
+  </p>
+  <p align="center"><em>PWA mobile app (Light & Dark).</em></p>
+
+  <p align="center">
+    <img alt="Mobile Transcript" src="screenshots/transcript-mobile.PNG" width="300" />
+    <img alt="Mobile Transcript Dark" src="screenshots/transcript-mobile-dark.PNG" width="300" />
+  </p>
+  <p align="center"><em>Mobile transcript reading experience.</em></p>
 
 </details>
 
 ## Installation
 
-Visit the website for the full guide: https://scriberr.app/docs/installation.html
+Get Scriberr running on your system in a few minutes.
 
-### Homebrew (macOS & Linux)
+### Install with Homebrew (macOS & Linux)
+
+The easiest way to install Scriberr is using Homebrew. If you don’t have Homebrew installed, [get it here first](https://brew.sh/).
 
 ```bash
+# Add the Scriberr tap
 brew tap rishikanthc/scriberr
+
+# Install Scriberr (automatically installs UV dependency)
 brew install scriberr
 
 # Start the server
 scriberr
 ```
 
-Open http://localhost:8080 in your browser.
+Open [http://localhost:8080](http://localhost:8080) in your browser.
 
-Optional configuration via .env (sensible defaults provided):
+### Configuration
 
-```env
-# Server
+Scriberr works out of the box. To customize settings, create a `.env` file:
+
+```bash
+# Server settings
 HOST=localhost
 PORT=8080
 
-# Storage
+# Data storage (optional)
 DATABASE_PATH=./data/scriberr.db
 UPLOAD_DIR=./data/uploads
 WHISPERX_ENV=./data/whisperx-env
-
-# Custom paths (if needed)
-UV_PATH=/custom/path/to/uv
 ```
 
-### Docker
+### Docker Deployment
 
-Run the command below in a shell:
+For a containerized setup, you can use Docker. We provide two configurations: one for standard CPU usage and one optimized for NVIDIA GPUs (CUDA).
 
-```bash
-docker run -d \
-  --name scriberr \
-  -p 8080:8080 \
-  -v scriberr_data:/app/data \
-  --restart unless-stopped \
-  ghcr.io/rishikanthc/scriberr:latest
-```
+#### Standard Deployment (CPU)
 
-#### Docker Compose:
+Use this configuration for running Scriberr on any machine without a dedicated NVIDIA GPU.
+
+1.  Create a file named `docker-compose.yml`:
 
 ```yaml
-version: '3.9'
 services:
   scriberr:
     image: ghcr.io/rishikanthc/scriberr:latest
-    container_name: scriberr
     ports:
       - "8080:8080"
     volumes:
@@ -137,7 +167,19 @@ volumes:
   scriberr_data:
 ```
 
-#### With GPU (CUDA)
+2.  Run the container:
+
+```bash
+docker compose up -d
+```
+
+#### NVIDIA GPU Deployment (CUDA)
+
+If you have a compatible NVIDIA GPU, this configuration enables hardware acceleration for significantly faster transcription.
+
+1.  Ensure you have the [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html) installed.
+2.  Create a file named `docker-compose.cuda.yml`:
+
 ```yaml
 version: "3.9"
 services:
@@ -164,68 +206,16 @@ volumes:
   scriberr_data: {}
 ```
 
-Then open http://localhost:8080.
-
-## Diarization (speaker identification)
-
-Scriberr uses the open‑source pyannote models for local speaker diarization. Models are hosted on Hugging Face and require an access token (only used to download models — diarization runs locally).
-
-1) Create an account on https://huggingface.co
-
-2) Visit and accept the user conditions for these repositories:
-   - https://huggingface.co/pyannote/speaker-diarization-3.0
-   - https://huggingface.co/pyannote/speaker-diarization
-   - https://huggingface.co/pyannote/speaker-diarization-3.1
-   - https://huggingface.co/pyannote/segmentation-3.0
-
-   Verify they appear here: https://huggingface.co/settings/gated-repos
-
-3) Create an access token under Settings → Access Tokens and enable all permissions under “Repositories”. Keep it safe.
-
-4) In Scriberr, when creating a profile or using Transcribe+, open the Diarization tab and paste the token into the “Hugging Face Token” field.
-
-See the full guide: https://scriberr.app/docs/diarization.html
-
-<p align="center">
-  <img alt="Diarization setup" src="screenshots/scriberr-diarization-setup.png" width="420" />
-</p>
-
-## Summarization (Ollama)
-
-Scribber uses different models from Ollama (local, open-source and free) or OpenAi (online, propietary, paid) in order to automatically summarize the transcriptions. To connect, just go to settings and introduce either the Ollama port or the OpenAI API.
-A common error is that if Ollama has been installed through Docker, rather then connecting via "http://localhost:11434" you sohuld instead connect through "http://host.docker.internal:11434" (change the port to whichever you have used, automatically uses that one). That way Scriberr directly connects to the Docker, avoiding a "Failed to fetch model" error and alike.
-
-## API
-
-Scriberr exposes a clean REST API for most features (transcription, chat, notes, summaries, admin, and more). Authentication supports JWT or API keys depending on endpoint.
-
-- API Reference: https://scriberr.app/api.html
-- Quick start examples (cURL and JS) on the API page
-- Generate or manage API keys in the app
-
-## Contributing
-
-Issues and PRs are welcome. Please open an issue to discuss large changes first and keep PRs focused.
-
-Local dev overview:
+3.  Run the container with the CUDA configuration:
 
 ```bash
-# Backend (dev)
-cp -n .env.example .env || true
-go run cmd/server/main.go
-
-# Frontend (dev)
-cd web/frontend
-npm ci
-npm run dev
-
-# Full build (embeds UI in Go binary)
-./build.sh
-./scriberr
+docker compose -f docker-compose.cuda.yml up -d
 ```
 
-Coding style: `go fmt ./...`, `go vet ./...`, and `cd web/frontend && npm run lint`.
+## Post installation
 
-## Donating
+Once you have Scriberr up and running:
 
-<a href='https://ko-fi.com/H2H41KQZA3' target='_blank'><img height='36' style='border:0px;height:36px;' src='https://storage.ko-fi.com/cdn/kofi6.png?v=6' border='0' alt='Buy Me a Coffee at ko-fi.com' /></a>
+- **Configure Diarization**: To enable speaker identification, visit the [Configuration page](https://scriberr.app/docs/configuration).
+- **Usage Guide**: For a detailed usage guide, visit [https://scriberr.app/docs/usage](https://scriberr.app/docs/usage).
+
