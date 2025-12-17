@@ -84,6 +84,28 @@ export function Home() {
                         />
                     </motion.div>
                 </motion.div>
+
+                {/* Sponsor Section */}
+                <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 1.2, duration: 1 }}
+                    className="mt-20 flex flex-col items-center justify-center space-y-4"
+                >
+                    <span className="text-xs font-semibold text-gray-400 uppercase tracking-[0.2em]">Sponsors</span>
+                    <a
+                        href="https://www.recall.ai/?utm_source=github&utm_medium=sponsorship&utm_campaign=rishikanthc-scriberr"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="group transition-all duration-300 hover:-translate-y-0.5"
+                    >
+                        <img
+                            src="https://cdn.prod.website-files.com/620d732b1f1f7b244ac89f0e/66b294e51ee15f18dd2b171e_recall-logo.svg"
+                            alt="Recall.ai"
+                            className="h-7 md:h-8 w-auto hover:opacity-80 transition-opacity duration-300"
+                        />
+                    </a>
+                </motion.div>
             </Section>
 
             {/* Features Grid */}
