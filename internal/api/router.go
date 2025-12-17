@@ -27,9 +27,30 @@ func SetupRoutes(handler *Handler, authService *auth.AuthService) *gin.Engine {
 	// Add compression middleware first for maximum benefit
 	router.Use(middleware.CompressionMiddleware())
 
-	// Add CORS middleware
+	// Add CORS middleware (uses config from handler)
 	router.Use(func(c *gin.Context) {
-		c.Header("Access-Control-Allow-Origin", "*")
+		origin := c.Request.Header.Get("Origin")
+
+		// Determine allowed origin based on config
+		allowOrigin := "*"
+		if handler.config.IsProduction() && len(handler.config.AllowedOrigins) > 0 {
+			// In production, validate against configured origins
+			allowOrigin = ""
+			for _, allowed := range handler.config.AllowedOrigins {
+				if origin == allowed {
+					allowOrigin = origin
+					break
+				}
+			}
+		} else if origin != "" {
+			// In development, echo back the origin for credentials support
+			allowOrigin = origin
+		}
+
+		if allowOrigin != "" {
+			c.Header("Access-Control-Allow-Origin", allowOrigin)
+			c.Header("Access-Control-Allow-Credentials", "true")
+		}
 		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 		c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, X-API-Key")
 

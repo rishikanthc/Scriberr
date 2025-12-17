@@ -56,6 +56,7 @@ ENV PYTHONUNBUFFERED=1 \
     PORT=8080 \
     DATABASE_PATH=/app/data/scriberr.db \
     UPLOAD_DIR=/app/data/uploads \
+    APP_ENV=production \
     PUID=1000 \
     PGID=1000
 

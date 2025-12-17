@@ -567,7 +567,25 @@ func (h *Handler) SendChatMessage(c *gin.Context) {
 	c.Header("Connection", "keep-alive")
 	c.Header("Transfer-Encoding", "chunked")
 	c.Header("X-Accel-Buffering", "no") // Disable nginx buffering
-	c.Header("Access-Control-Allow-Origin", "*")
+
+	// CORS headers for streaming
+	origin := c.Request.Header.Get("Origin")
+	allowOrigin := "*"
+	if h.config.IsProduction() && len(h.config.AllowedOrigins) > 0 {
+		allowOrigin = ""
+		for _, allowed := range h.config.AllowedOrigins {
+			if origin == allowed {
+				allowOrigin = origin
+				break
+			}
+		}
+	} else if origin != "" {
+		allowOrigin = origin
+	}
+	if allowOrigin != "" {
+		c.Header("Access-Control-Allow-Origin", allowOrigin)
+		c.Header("Access-Control-Allow-Credentials", "true")
+	}
 	c.Header("Access-Control-Expose-Headers", "X-Context-Used, X-Context-Limit, X-Messages-Trimmed")
 	c.Header("X-Context-Used", fmt.Sprintf("%d", currentTokenCount))
 	c.Header("X-Context-Limit", fmt.Sprintf("%d", contextWindow))
