@@ -1460,12 +1460,24 @@ func (h *Handler) GetAudioFile(c *gin.Context) {
 
 	// Add CORS headers for audio visualization and streaming
 	origin := c.Request.Header.Get("Origin")
-	if origin != "" {
-		c.Header("Access-Control-Allow-Origin", origin)
+	allowOrigin := "*"
+	if h.config.IsProduction() && len(h.config.AllowedOrigins) > 0 {
+		// In production, validate against configured origins
+		allowOrigin = ""
+		for _, allowed := range h.config.AllowedOrigins {
+			if origin == allowed {
+				allowOrigin = origin
+				break
+			}
+		}
+	} else if origin != "" {
+		// In development, echo back the origin for credentials support
+		allowOrigin = origin
+	}
+
+	if allowOrigin != "" {
+		c.Header("Access-Control-Allow-Origin", allowOrigin)
 		c.Header("Access-Control-Allow-Credentials", "true")
-	} else {
-		// Fallback for non-browser/direct access
-		c.Header("Access-Control-Allow-Origin", "*")
 	}
 	c.Header("Access-Control-Expose-Headers", "Content-Range, Accept-Ranges, Content-Length")
 	c.Header("Accept-Ranges", "bytes")
@@ -1758,7 +1770,7 @@ func (h *Handler) issueRefreshToken(c *gin.Context, userID uint) error {
 		MaxAge:   int((14 * 24 * time.Hour).Seconds()),
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
-		Secure:   false,
+		Secure:   h.config.IsProduction(),
 	})
 	return nil
 }
