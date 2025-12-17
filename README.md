@@ -19,8 +19,6 @@ Scriberr is an open-source, and completely offline audio transcription applicati
 
 <div align="center">
   <img src="screenshots/hero-desktop.png" alt="Scriberr Desktop App" width="800" />
-  <br />
-  <img src="screenshots/hero-mobile.png" alt="Scriberr Mobile App" width="300" />
 </div>
 
 ## Sponsors
