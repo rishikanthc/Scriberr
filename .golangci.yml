@@ -45,7 +45,7 @@ linters-settings:
       - name: errorf
   
   gocyclo:
-    # minimal code complexity to report, 30 by default (25 is reasonable for complex handlers)
+    # minimal code complexity to report, 30 by default (but we want it slightly stricter but still sane)
     min-complexity: 25
 
   goconst:
