@@ -112,7 +112,82 @@ I decided to build Scriberr to bridge that gap, creating a powerful, private, an
 
 ## Installation
 
-Get Scriberr running on your system in a few minutes using Docker.
+Get Scriberr running on your system in a few minutes.
+
+### Migrating from v1.1.0
+
+If you are upgrading from v1.1.0, please follow these steps to ensure a smooth transition. Version 1.2.0 introduces a separation between application data (database, uploads) and model data (Python environments).
+
+#### 1. Update Volume Mounts
+
+You will need to update your Docker volume configuration to split your data:
+
+*   **Application Data:** Bind your existing data folder (containing `scriberr.db`, `jwt_secret`, `transcripts/`, and `uploads/`) to `/app/data`.
+*   **Model Environment:** Create a **new, empty folder** and bind it to `/app/whisperx-env`.
+
+#### 2. Clean Up Old Environments
+
+> **CRITICAL:** You must delete any existing `whisperx-env` folder from your previous installation.
+
+The Python environment and models need to be reinitialized for v1.2.0. If the application detects an old environment, it may attempt to use it, leading to compatibility errors. Starting with a fresh `/app/whisperx-env` volume ensures the correct dependencies are installed.
+
+### Install with Homebrew (macOS & Linux)
+
+The easiest way to install Scriberr is using Homebrew. If you don’t have Homebrew installed, [get it here first](https://brew.sh/).
+
+```bash
+# Add the Scriberr tap
+brew tap rishikanthc/scriberr
+
+# Install Scriberr (automatically installs UV dependency)
+brew install scriberr
+
+# Start the server
+scriberr
+```
+
+Open [http://localhost:8080](http://localhost:8080) in your browser.
+
+### Configuration
+
+Scriberr works out of the box. However, for Homebrew or manual installations, you can customize the application behavior using environment variables or a `.env` file placed in the same directory as the binary (or where you run the command from).
+
+> **Docker Users:** You can ignore this section if you are using `docker-compose.yml`, as these values are already configured with sane defaults.
+
+#### Environment Variables
+
+| Variable | Description | Default |
+| :--- | :--- | :--- |
+| `PORT` | The port the server listens on. | `8080` |
+| `HOST` | The interface to bind to. | `0.0.0.0` |
+| `APP_ENV` | Application environment (`development` or `production`). | `development` |
+| `ALLOWED_ORIGINS` | CORS allowed origins (comma separated). | `http://localhost:5173,http://localhost:8080` |
+| `DATABASE_PATH` | Path to the SQLite database file. | `data/scriberr.db` |
+| `UPLOAD_DIR` | Directory for storing uploaded files. | `data/uploads` |
+| `TRANSCRIPTS_DIR` | Directory for storing transcripts. | `data/transcripts` |
+| `WHISPERX_ENV` | Path to the managed Python environment for models. | `data/whisperx-env` |
+| `OPENAI_API_KEY` | API Key for OpenAI (optional). | `""` |
+| `JWT_SECRET` | Secret for signing JWTs. Auto-generated if not set. | Auto-generated |
+
+**Example `.env` file:**
+
+```bash
+# Server settings
+HOST=localhost
+PORT=8080
+APP_ENV=production
+
+# Paths
+DATABASE_PATH=/var/lib/scriberr/data/scriberr.db
+UPLOAD_DIR=/var/lib/scriberr/data/uploads
+
+# Security
+JWT_SECRET=your-super-secret-key-change-this
+```
+
+### Docker Deployment
+
+For a containerized setup, you can use Docker. We provide two configurations: one for standard CPU usage and one optimized for NVIDIA GPUs (CUDA).
 
 #### Standard Deployment (CPU)
 
@@ -190,6 +265,19 @@ volumes:
 ```bash
 docker compose -f docker-compose.cuda.yml up -d
 ```
+
+### App Startup
+
+When you run Scriberr for the first time, it may take several minutes to start. This is normal!
+
+The application needs to:
+1.  Initialize the Python environments.
+2.  Download the necessary machine learning models (Whisper, PyAnnote, NVIDIA NeMo).
+3.  Configure the database.
+
+**Subsequent runs will be much faster** because all models and environments are persisted to the `env_data` volume (or your local mapped folders).
+
+You will know the application is ready when you see the line: `msg="Scriberr is ready" url=http://0.0.0.0:8080`.
 
 ## Post installation
 
