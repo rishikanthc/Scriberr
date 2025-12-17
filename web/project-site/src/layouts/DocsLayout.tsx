@@ -16,6 +16,7 @@ export function DocsLayout({ children }: DocsLayoutProps) {
 
   const navItems = [
     { path: '/docs/intro', label: 'Introduction' },
+    { path: '/docs/features', label: 'Features' },
     { path: '/docs/installation', label: 'Installation' },
     { path: '/docs/diarization', label: 'Diarization' },
     { path: '/docs/usage', label: 'Usage Guide' },
