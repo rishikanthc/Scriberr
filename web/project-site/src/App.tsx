@@ -5,7 +5,7 @@ import { Home } from './pages/Home';
 import Introduction from './docs/Introduction.mdx';
 import Features from './docs/Features.mdx';
 import Usage from './docs/Usage.mdx';
-import Configuration from './docs/Configuration.mdx';
+import Diarization from './docs/Diarization.mdx';
 import Installation from './docs/Installation.mdx';
 import ApiPage from './pages/ApiPage';
 
@@ -21,7 +21,7 @@ function App() {
               <Route path="intro" element={<Introduction />} />
               <Route path="features" element={<Features />} />
               <Route path="usage" element={<Usage />} />
-              <Route path="configuration" element={<Configuration />} />
+              <Route path="diarization" element={<Diarization />} />
               <Route path="installation" element={<Installation />} />
               <Route path="*" element={<Introduction />} />
             </Routes>
