@@ -198,7 +198,7 @@ Use this configuration for running Scriberr on any machine without a dedicated N
 ```yaml
 services:
   scriberr:
-    image: ghcr.io/rishikanthc/scriberr:latest
+    image: ghcr.io/rishikanthc/scriberr:v1.2.0
     ports:
       - "8080:8080"
     volumes:
@@ -232,7 +232,7 @@ If you have a compatible NVIDIA GPU, this configuration enables hardware acceler
 ```yaml
 services:
   scriberr:
-    image: ghcr.io/rishikanthc/scriberr:v1.0.4-cuda
+    image: ghcr.io/rishikanthc/scriberr-cuda:v1.2.0
     ports:
       - "8080:8080"
     volumes:
