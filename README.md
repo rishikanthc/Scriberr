@@ -1,8 +1,9 @@
 <div align="center">
-  <img src="logo.svg" height="100" style="vertical-align: middle;" />
+  <img src="logo.svg" height="90" style="vertical-align: middle;" />
   <img src="logo-text.svg" height="80" style="vertical-align: middle;" />
 </div>
-
+</br>
+</br>
 <p align="center">
 Scriberr is an open-source, and completely offline audio transcription application designed for self-hosters who value privacy and performance.
 </p>
