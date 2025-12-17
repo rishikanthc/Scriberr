@@ -126,6 +126,8 @@ brews:
     license: MIT
     dependencies:
       - name: uv
+      - name: ffmpeg
+      - name: deno
     install: |
       bin.install "scriberr"
     test: |
