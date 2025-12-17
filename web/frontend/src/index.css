@@ -304,9 +304,9 @@
   }
 
   /* Stable Layout Gutter */
-  html {
+  /* html {
     scrollbar-gutter: stable;
-  }
+  } */
 
   h1,
   h2,
@@ -353,31 +353,30 @@
 */
 
 /* Force scrollbar to always be visible - this is the nuclear option */
-html {
+/* html {
   overflow-y: scroll !important;
   scrollbar-gutter: stable !important;
-}
+} */
 
 /* Override ALL body style manipulation from Radix/react-remove-scroll */
-body,
+/* body,
 body[data-scroll-locked],
 body[data-scroll-locked="1"],
 body[style*="overflow"],
 body[style*="padding"] {
   padding-right: 0 !important;
   margin-right: 0 !important;
-  /* Keep the natural overflow behavior when not locked */
-}
+} */
 
 /* When scroll is locked, only hide overflow, don't add padding */
-body[data-scroll-locked] {
+/* body[data-scroll-locked] {
   overflow: hidden !important;
-}
+} */
 
 /* Also handle any inline style overrides */
-body[style] {
+/* body[style] {
   --removed-body-scroll-bar-size: 0px !important;
-}
+} */
 
 /* Custom Scrollbar - Cross Browser Support */
 /* Firefox */
