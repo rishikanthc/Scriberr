@@ -6,6 +6,7 @@ services:
       - "8080:8080"
     volumes:
       - scriberr_data:/app/data
+      - env_data:/app/whisperx-env
     restart: unless-stopped
     deploy:
       resources:
@@ -25,3 +26,4 @@ services:
 
 volumes:
   scriberr_data: {}
+  env_data: {}

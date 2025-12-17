@@ -5,6 +5,7 @@ services:
       - "8080:8080"
     volumes:
       - scriberr_data:/app/data
+      - env_data:/app/whisperx-env
     environment:
       # Security: already set in container, but can be overridden
       - APP_ENV=production
@@ -13,6 +14,5 @@ services:
     restart: unless-stopped
 
 volumes:
-  scriberr_data:
-
-
+  scriberr_data: {}
+  env_data: {}

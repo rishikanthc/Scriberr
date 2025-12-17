@@ -52,13 +52,14 @@ RUN mkdir -p /out/bin/cli \
 FROM python:3.11-slim AS runtime
 
 ENV PYTHONUNBUFFERED=1 \
-    HOST=0.0.0.0 \
-    PORT=8080 \
-    DATABASE_PATH=/app/data/scriberr.db \
-    UPLOAD_DIR=/app/data/uploads \
-    APP_ENV=production \
-    PUID=1000 \
-    PGID=1000
+  HOST=0.0.0.0 \
+  PORT=8080 \
+  DATABASE_PATH=/app/data/scriberr.db \
+  UPLOAD_DIR=/app/data/uploads \
+  WHISPERX_ENV=/app/whisperx-env \
+  APP_ENV=production \
+  PUID=1000 \
+  PGID=1000
 
 WORKDIR /app
 
@@ -66,8 +67,8 @@ WORKDIR /app
 # Build tools: gcc, g++, make for compiling Python C extensions (needed for NeMo dependencies like texterrors)
 RUN apt-get update \
   && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-       curl ca-certificates ffmpeg git gosu \
-       build-essential gcc g++ make python3-dev unzip\
+  curl ca-certificates ffmpeg git gosu \
+  build-essential gcc g++ make python3-dev unzip\
   && rm -rf /var/lib/apt/lists/*
 
 # Install uv (fast Python package manager) directly to system PATH
