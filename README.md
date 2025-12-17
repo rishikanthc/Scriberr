@@ -13,6 +13,10 @@ Scriberr is an open-source, and completely offline audio transcription applicati
   <a href="https://scriberr.app/api">API Reference</a>
 </p>
 
+<p align="center">
+<a href='https://ko-fi.com/H2H41KQZA3' target='_blank'><img height='36' style='border:0px;height:36px;' src='https://storage.ko-fi.com/cdn/kofi6.png?v=6' border='0' alt='Buy Me a Coffee at ko-fi.com' /></a>
+</p>
+
 <div align="center">
   <img src="screenshots/hero-desktop.png" alt="Scriberr Desktop App" width="800" />
   <br />
@@ -218,4 +222,8 @@ Once you have Scriberr up and running:
 
 - **Configure Diarization**: To enable speaker identification, visit the [Configuration page](https://scriberr.app/docs/configuration).
 - **Usage Guide**: For a detailed usage guide, visit [https://scriberr.app/docs/usage](https://scriberr.app/docs/usage).
+
+## Donating
+
+<a href='https://ko-fi.com/H2H41KQZA3' target='_blank'><img height='36' style='border:0px;height:36px;' src='https://storage.ko-fi.com/cdn/kofi6.png?v=6' border='0' alt='Buy Me a Coffee at ko-fi.com' /></a>
 
