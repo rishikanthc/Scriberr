@@ -112,43 +112,7 @@ I decided to build Scriberr to bridge that gap, creating a powerful, private, an
 
 ## Installation
 
-Get Scriberr running on your system in a few minutes.
-
-### Install with Homebrew (macOS & Linux)
-
-The easiest way to install Scriberr is using Homebrew. If you don’t have Homebrew installed, [get it here first](https://brew.sh/).
-
-```bash
-# Add the Scriberr tap
-brew tap rishikanthc/scriberr
-
-# Install Scriberr (automatically installs UV dependency)
-brew install scriberr
-
-# Start the server
-scriberr
-```
-
-Open [http://localhost:8080](http://localhost:8080) in your browser.
-
-### Configuration
-
-Scriberr works out of the box. To customize settings, create a `.env` file:
-
-```bash
-# Server settings
-HOST=localhost
-PORT=8080
-
-# Data storage (optional)
-DATABASE_PATH=./data/scriberr.db
-UPLOAD_DIR=./data/uploads
-WHISPERX_ENV=./data/whisperx-env
-```
-
-### Docker Deployment
-
-For a containerized setup, you can use Docker. We provide two configurations: one for standard CPU usage and one optimized for NVIDIA GPUs (CUDA).
+Get Scriberr running on your system in a few minutes using Docker.
 
 #### Standard Deployment (CPU)
 
@@ -163,11 +127,18 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      - scriberr_data:/app/data
+      - scriberr_data:/app/data # volume for data
+      - env_data:/app/whisperx-env # volume for models and python envs
+    environment:
+      - APP_ENV=production # DO NOT CHANGE THIS
+      # CORS: comma-separated list of allowed origins for production
+      # - ALLOWED_ORIGINS=https://your-domain.com
+      # - SECURE_COOKIES=false # Uncomment this ONLY if you are not using SSL
     restart: unless-stopped
 
 volumes:
-  scriberr_data:
+  scriberr_data: {}
+  env_data: {}
 ```
 
 2.  Run the container:
@@ -184,14 +155,14 @@ If you have a compatible NVIDIA GPU, this configuration enables hardware acceler
 2.  Create a file named `docker-compose.cuda.yml`:
 
 ```yaml
-version: "3.9"
 services:
   scriberr:
     image: ghcr.io/rishikanthc/scriberr:v1.0.4-cuda
     ports:
       - "8080:8080"
     volumes:
-      - scriberr_data:/app/data
+      - scriberr_data:/app/data # volume for data
+      - env_data:/app/whisperx-env # volume for models and python envs
     restart: unless-stopped
     deploy:
       resources:
@@ -204,9 +175,14 @@ services:
     environment:
       - NVIDIA_VISIBLE_DEVICES=all
       - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+      - APP_ENV=production # DO NOT CHANGE THIS
+      # CORS: comma-separated list of allowed origins for production
+      # - ALLOWED_ORIGINS=https://your-domain.com
+      # - SECURE_COOKIES=false # Uncomment this ONLY if you are not using SSL
 
 volumes:
   scriberr_data: {}
+  env_data: {}
 ```
 
 3.  Run the container with the CUDA configuration:
