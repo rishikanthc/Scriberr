@@ -177,9 +177,68 @@ h6 {
 }
 
 .docs-content blockquote {
-  border-left: 4px solid #FF6D20;
-  padding-left: 1rem;
-  font-style: italic;
-  color: #555555;
-  margin-bottom: 1.25rem;
+  border-left: 4px solid var(--brand-solid);
+  background-color: rgba(255, 109, 32, 0.05);
+  /* Brand tint */
+  padding: 1rem 1.25rem;
+  border-radius: 0 0.5rem 0.5rem 0;
+  color: #1f2937;
+  margin-bottom: 1.5rem;
+  font-style: normal;
+  position: relative;
+}
+
+.docs-content blockquote::before {
+  content: "💡";
+  margin-right: 0.5rem;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+/* Tables */
+.docs-content table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  margin-bottom: 2rem;
+  font-size: 0.95rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+
+.docs-content th {
+  background-color: #f9fafb;
+  font-weight: 600;
+  text-align: left;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #e5e7eb;
+  color: #111827;
+  white-space: nowrap;
+}
+
+.docs-content td {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #e5e7eb;
+  vertical-align: top;
+  line-height: 1.6;
+  color: #374151;
+}
+
+.docs-content tr:last-child td {
+  border-bottom: none;
+}
+
+/* Specific styling for the first column (often keys/vars) to be code-like */
+.docs-content td:first-child {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.9em;
+  color: var(--brand-solid);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* Allow description column to wrap */
+.docs-content td:nth-child(2) {
+  min-width: 200px;
 }
