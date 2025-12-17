@@ -4,7 +4,6 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -30,7 +29,6 @@ type Config struct {
 	TranscriptsDir string
 
 	// Python/WhisperX configuration
-	UVPath      string
 	WhisperXEnv string
 
 	// Environment configuration
@@ -63,7 +61,6 @@ func Load() *Config {
 		JWTSecret:      getJWTSecret(),
 		UploadDir:      getEnv("UPLOAD_DIR", "data/uploads"),
 		TranscriptsDir: getEnv("TRANSCRIPTS_DIR", "data/transcripts"),
-		UVPath:         findUVPath(),
 		WhisperXEnv:    getEnv("WHISPERX_ENV", "data/whisperx-env"),
 		SecureCookies:  getEnv("SECURE_COOKIES", defaultSecure) == "true",
 		OpenAIAPIKey:   getEnv("OPENAI_API_KEY", ""),
@@ -105,19 +102,4 @@ func getJWTSecret() string {
 	_ = os.WriteFile(secretFile, []byte(secret), 0600)
 	logger.Debug("Generated persistent JWT secret", "path", secretFile)
 	return secret
-}
-
-// findUVPath finds UV package manager in common locations
-func findUVPath() string {
-	if uvPath := os.Getenv("UV_PATH"); uvPath != "" {
-		return uvPath
-	}
-
-	if path, err := exec.LookPath("uv"); err == nil {
-		logger.Debug("Found UV package manager", "path", path)
-		return path
-	}
-
-	logger.Warn("UV package manager not found in PATH, using fallback", "fallback", "uv")
-	return "uv"
 }

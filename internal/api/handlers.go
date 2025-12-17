@@ -2584,15 +2584,17 @@ func (h *Handler) DownloadFromYouTube(c *gin.Context) {
 	if req.Title != nil && *req.Title != "" {
 		title = *req.Title
 	} else {
-		// Get title from yt-dlp
+		// Get title first using standalone yt-dlp
 		titleStart := time.Now()
-		cmd := exec.Command(h.config.UVPath, "run", "--native-tls", "--project", h.config.WhisperXEnv, "python", "-m", "yt_dlp", "--get-title", req.URL)
-		titleBytes, err := cmd.Output()
+		cmd := exec.Command("yt-dlp", "--get-title", req.URL)
+		var out bytes.Buffer
+		cmd.Stdout = &out
+		err := cmd.Run()
 		if err != nil {
 			title = "YouTube Audio"
 			logger.Warn("Failed to get YouTube title", "url", req.URL, "error", err.Error(), "duration", time.Since(titleStart))
 		} else {
-			title = strings.TrimSpace(string(titleBytes))
+			title = strings.TrimSpace(out.String())
 			logger.Info("YouTube title retrieved", "title", title, "duration", time.Since(titleStart))
 		}
 	}
@@ -2601,7 +2603,8 @@ func (h *Handler) DownloadFromYouTube(c *gin.Context) {
 	logger.Info("Starting YouTube download", "url", req.URL, "job_id", jobID)
 	downloadStart := time.Now()
 
-	ytDlpCmd := exec.Command(h.config.UVPath, "run", "--native-tls", "--project", h.config.WhisperXEnv, "python", "-m", "yt_dlp",
+	// Executing yt-dlp directly (standalone binary)
+	ytDlpCmd := exec.Command("yt-dlp",
 		"--extract-audio",
 		"--audio-format", "mp3",
 		"--audio-quality", "0", // best quality

@@ -50,8 +50,8 @@ func (suite *SecurityTestSuite) SetupSuite() {
 		DatabasePath: "security_test.db",
 		JWTSecret:    "test-secret",
 		UploadDir:    "security_test_uploads",
-		UVPath:       "uv",
-		WhisperXEnv:  "test_whisperx_env",
+
+		WhisperXEnv: "test_whisperx_env",
 	}
 
 	// Initialize test database
