@@ -105,6 +105,34 @@ func (m *MockJobRepository) FindLatestCompletedExecution(ctx context.Context, jo
 	return args.Get(0).(*models.TranscriptionJobExecution), args.Error(1)
 }
 
+func (m *MockJobRepository) UpdateStatus(ctx context.Context, jobID string, status models.JobStatus) error {
+	args := m.Called(ctx, jobID, status)
+	return args.Error(0)
+}
+
+func (m *MockJobRepository) UpdateError(ctx context.Context, jobID string, errorMsg string) error {
+	args := m.Called(ctx, jobID, errorMsg)
+	return args.Error(0)
+}
+
+func (m *MockJobRepository) FindByStatus(ctx context.Context, status models.JobStatus) ([]models.TranscriptionJob, error) {
+	args := m.Called(ctx, status)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]models.TranscriptionJob), args.Error(1)
+}
+
+func (m *MockJobRepository) CountByStatus(ctx context.Context, status models.JobStatus) (int64, error) {
+	args := m.Called(ctx, status)
+	return args.Get(0).(int64), args.Error(1)
+}
+
+func (m *MockJobRepository) UpdateSummary(ctx context.Context, jobID string, summary string) error {
+	args := m.Called(ctx, jobID, summary)
+	return args.Error(0)
+}
+
 // MockTranscriptionAdapter is a mock implementation of TranscriptionAdapter
 type MockTranscriptionAdapter struct {
 	mock.Mock

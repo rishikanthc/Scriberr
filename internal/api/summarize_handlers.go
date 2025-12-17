@@ -8,7 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"scriberr/internal/database"
 	"scriberr/internal/llm"
 	"scriberr/internal/models"
 
@@ -178,10 +177,10 @@ func (h *Handler) persistSummary(req SummarizeRequest, content string) {
 	}
 	if err := h.summaryRepo.SaveSummary(context.Background(), sum); err != nil {
 		// Fallback: store on the transcription job record
-		_ = database.DB.Model(&models.TranscriptionJob{}).Where("id = ?", req.TranscriptionID).Update("summary", content).Error
+		_ = h.jobRepo.UpdateSummary(context.Background(), req.TranscriptionID, content)
 	} else {
 		// Also cache on the transcription job for quick access
-		_ = database.DB.Model(&models.TranscriptionJob{}).Where("id = ?", req.TranscriptionID).Update("summary", content).Error
+		_ = h.jobRepo.UpdateSummary(context.Background(), req.TranscriptionID, content)
 	}
 }
 

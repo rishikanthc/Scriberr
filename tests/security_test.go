@@ -80,11 +80,11 @@ func (suite *SecurityTestSuite) SetupSuite() {
 	// Initialize services
 	suite.unifiedProcessor = transcription.NewUnifiedJobProcessor(jobRepo)
 	var err error
-	suite.quickTranscriptionService, err = transcription.NewQuickTranscriptionService(suite.config, suite.unifiedProcessor)
+	suite.quickTranscriptionService, err = transcription.NewQuickTranscriptionService(suite.config, suite.unifiedProcessor, jobRepo)
 	if err != nil {
 		suite.T().Fatal("Failed to initialize quick transcription service:", err)
 	}
-	suite.taskQueue = queue.NewTaskQueue(1, suite.unifiedProcessor)
+	suite.taskQueue = queue.NewTaskQueue(1, suite.unifiedProcessor, jobRepo)
 
 	broadcaster := sse.NewBroadcaster()
 

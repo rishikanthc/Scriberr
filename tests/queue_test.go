@@ -10,6 +10,7 @@ import (
 
 	"scriberr/internal/models"
 	"scriberr/internal/queue"
+	"scriberr/internal/repository"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -48,11 +49,13 @@ func (m *MockJobProcessor) ProcessJobWithProcess(ctx context.Context, jobID stri
 
 type QueueTestSuite struct {
 	suite.Suite
-	helper *TestHelper
+	helper  *TestHelper
+	jobRepo repository.JobRepository
 }
 
 func (suite *QueueTestSuite) SetupSuite() {
 	suite.helper = NewTestHelper(suite.T(), "queue_test.db")
+	suite.jobRepo = repository.NewJobRepository(suite.helper.DB)
 }
 
 func (suite *QueueTestSuite) TearDownSuite() {
@@ -67,7 +70,7 @@ func (suite *QueueTestSuite) SetupTest() {
 func (suite *QueueTestSuite) TestNewTaskQueue() {
 	mockProcessor := &MockJobProcessor{}
 
-	tq := queue.NewTaskQueue(2, mockProcessor)
+	tq := queue.NewTaskQueue(2, mockProcessor, suite.jobRepo)
 
 	assert.NotNil(suite.T(), tq)
 
@@ -81,7 +84,7 @@ func (suite *QueueTestSuite) TestNewTaskQueue() {
 // Test enqueuing jobs
 func (suite *QueueTestSuite) TestEnqueueJob() {
 	mockProcessor := &MockJobProcessor{}
-	tq := queue.NewTaskQueue(1, mockProcessor)
+	tq := queue.NewTaskQueue(1, mockProcessor, suite.jobRepo)
 
 	// Test successful enqueue
 	err := tq.EnqueueJob("test-job-1")
@@ -100,7 +103,7 @@ func (suite *QueueTestSuite) TestJobProcessing() {
 	mockProcessor := &MockJobProcessor{}
 	mockProcessor.On("ProcessJobWithProcess", mock.Anything, job.ID).Return(nil)
 
-	tq := queue.NewTaskQueue(1, mockProcessor)
+	tq := queue.NewTaskQueue(1, mockProcessor, suite.jobRepo)
 
 	// Start the queue
 	tq.Start()
@@ -130,7 +133,7 @@ func (suite *QueueTestSuite) TestJobProcessingFailure() {
 	// Create test job in database
 	job := suite.helper.CreateTestTranscriptionJob(suite.T(), "Test Job Failure")
 
-	tq := queue.NewTaskQueue(1, mockProcessor)
+	tq := queue.NewTaskQueue(1, mockProcessor, suite.jobRepo)
 
 	// Start the queue
 	tq.Start()
@@ -163,7 +166,7 @@ func (suite *QueueTestSuite) TestJobCancellation() {
 	// Create test job in database
 	job := suite.helper.CreateTestTranscriptionJob(suite.T(), "Test Job Cancellation")
 
-	tq := queue.NewTaskQueue(1, mockProcessor)
+	tq := queue.NewTaskQueue(1, mockProcessor, suite.jobRepo)
 
 	// Start the queue
 	tq.Start()
@@ -198,7 +201,7 @@ func (suite *QueueTestSuite) TestJobCancellation() {
 // Test killing non-running job
 func (suite *QueueTestSuite) TestKillNonRunningJob() {
 	mockProcessor := &MockJobProcessor{}
-	tq := queue.NewTaskQueue(1, mockProcessor)
+	tq := queue.NewTaskQueue(1, mockProcessor, suite.jobRepo)
 
 	err := tq.KillJob("non-existent-job")
 	assert.Error(suite.T(), err)
@@ -210,7 +213,7 @@ func (suite *QueueTestSuite) TestKillNonRunningJob() {
 // Test queue stats
 func (suite *QueueTestSuite) TestGetQueueStats() {
 	mockProcessor := &MockJobProcessor{}
-	tq := queue.NewTaskQueue(3, mockProcessor)
+	tq := queue.NewTaskQueue(3, mockProcessor, suite.jobRepo)
 
 	// Create test jobs with different statuses
 	suite.helper.CreateTestTranscriptionJob(suite.T(), "Pending Job")
@@ -251,7 +254,7 @@ func (suite *QueueTestSuite) TestMultipleWorkers() {
 		jobs[i] = suite.helper.CreateTestTranscriptionJob(suite.T(), fmt.Sprintf("Concurrent Job %d", i))
 	}
 
-	tq := queue.NewTaskQueue(3, mockProcessor) // 3 workers
+	tq := queue.NewTaskQueue(3, mockProcessor, suite.jobRepo) // 3 workers
 
 	// Start the queue
 	tq.Start()
@@ -277,7 +280,7 @@ func (suite *QueueTestSuite) TestQueueShutdown() {
 	mockProcessor := &MockJobProcessor{}
 	mockProcessor.On("ProcessJobWithProcess", mock.Anything, mock.Anything).Return(nil)
 
-	tq := queue.NewTaskQueue(2, mockProcessor)
+	tq := queue.NewTaskQueue(2, mockProcessor, suite.jobRepo)
 
 	// Start and then stop
 	tq.Start()
@@ -303,7 +306,7 @@ func (suite *QueueTestSuite) TestQueueOverflow() {
 	mockProcessor.processDelay = 5 * time.Second
 	mockProcessor.On("ProcessJobWithProcess", mock.Anything, mock.Anything).Return(nil)
 
-	tq := queue.NewTaskQueue(1, mockProcessor)
+	tq := queue.NewTaskQueue(1, mockProcessor, suite.jobRepo)
 
 	// Fill up the queue (capacity is 200)
 	for i := 0; i < 200; i++ {
@@ -321,7 +324,7 @@ func (suite *QueueTestSuite) TestQueueOverflow() {
 // Test job status retrieval
 func (suite *QueueTestSuite) TestGetJobStatus() {
 	mockProcessor := &MockJobProcessor{}
-	tq := queue.NewTaskQueue(1, mockProcessor)
+	tq := queue.NewTaskQueue(1, mockProcessor, suite.jobRepo)
 
 	// Create a test job
 	job := suite.helper.CreateTestTranscriptionJob(suite.T(), "Status Test Job")
@@ -345,7 +348,7 @@ func (suite *QueueTestSuite) TestIsJobRunning() {
 
 	job := suite.helper.CreateTestTranscriptionJob(suite.T(), "Running Check Job")
 
-	tq := queue.NewTaskQueue(1, mockProcessor)
+	tq := queue.NewTaskQueue(1, mockProcessor, suite.jobRepo)
 	tq.Start()
 	defer tq.Stop()
 
@@ -373,7 +376,7 @@ func (suite *QueueTestSuite) TestConcurrentAccess() {
 	mockProcessor := &MockJobProcessor{}
 	mockProcessor.On("ProcessJobWithProcess", mock.Anything, mock.Anything).Return(nil)
 
-	tq := queue.NewTaskQueue(5, mockProcessor)
+	tq := queue.NewTaskQueue(5, mockProcessor, suite.jobRepo)
 	tq.Start()
 	defer tq.Stop()
 
@@ -417,7 +420,7 @@ func TestQueueTestSuite(t *testing.T) {
 // Test ResetZombieJobs
 func (suite *QueueTestSuite) TestResetZombieJobs() {
 	mockProcessor := &MockJobProcessor{}
-	tq := queue.NewTaskQueue(1, mockProcessor)
+	tq := queue.NewTaskQueue(1, mockProcessor, suite.jobRepo)
 
 	// Create a "zombie" job (one that is processing in DB but not running)
 	job := suite.helper.CreateTestTranscriptionJob(suite.T(), "Zombie Job")
