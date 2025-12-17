@@ -2,6 +2,23 @@
 
 Get Scriberr running on your system in a few minutes.
 
+## Migrating from v1.1.0
+
+If you are upgrading from v1.1.0, please follow these steps to ensure a smooth transition. Version 1.2.0 introduces a separation between application data (database, uploads) and model data (Python environments).
+
+### 1. Update Volume Mounts
+
+You will need to update your Docker volume configuration to split your data:
+
+*   **Application Data:** Bind your existing data folder (containing `scriberr.db`, `jwt_secret`, `transcripts/`, and `uploads/`) to `/app/data`.
+*   **Model Environment:** Create a **new, empty folder** and bind it to `/app/whisperx-env`.
+
+### 2. Clean Up Old Environments
+
+> **CRITICAL:** You must delete any existing `whisperx-env` folder from your previous installation.
+
+The Python environment and models need to be reinitialized for v1.2.0. If the application detects an old environment, it may attempt to use it, leading to compatibility errors. Starting with a fresh `/app/whisperx-env` volume ensures the correct dependencies are installed.
+
 ## Install with Homebrew (macOS & Linux)
 
 The easiest way to install Scriberr is using Homebrew. If you don’t have Homebrew installed, [get it here first](https://brew.sh/).
