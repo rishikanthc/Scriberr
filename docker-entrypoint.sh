@@ -43,25 +43,6 @@ setup_user() {
     fi
 }
 
-# Function to initialize python environment and dependencies
-initialize_python_env() {
-    local env_dir="${WHISPERX_ENV:-/app/whisperx-env}"
-    echo "Checking Python environment in $env_dir..."
-
-    # Ensure venv exists
-    if [ ! -f "$env_dir/pyvenv.cfg" ]; then
-        echo "Creating virtual environment..."
-        uv venv "$env_dir"
-    fi
-
-    # Check for whisperx
-    # Note: Using git install as it's often more up to date for this library
-    if [ ! -f "$env_dir/bin/whisperx" ]; then
-         echo "Installing whisperx..."
-         uv pip install -p "$env_dir" git+https://github.com/m-bain/whisperx.git
-    fi
-}
-
 # Setup the user (only if running as root)
 if [ "$(id -u)" = "0" ]; then
     setup_user "$PUID" "$PGID"
@@ -70,10 +51,6 @@ if [ "$(id -u)" = "0" ]; then
     echo "Setting up data directories..."
     mkdir -p /app/data/uploads /app/data/transcripts /app/whisperx-env
     chown -R "$PUID:$PGID" /app/data /app/whisperx-env
-
-    echo "Initializing dependencies as appuser..."
-    # Run initialization as the app user to ensure permissions are correct
-    gosu appuser bash -c "$(declare -f initialize_python_env); initialize_python_env"
 
     echo "=== Setup Complete ==="
     echo "Switching to user appuser (UID=$PUID, GID=$PGID) and starting application..."
@@ -85,9 +62,6 @@ else
 
     # Just ensure directories exist
     mkdir -p /app/data/uploads /app/data/transcripts /app/whisperx-env 2>/dev/null || true
-
-    echo "Initializing dependencies..."
-    initialize_python_env
 
     echo "=== Setup Complete ==="
     echo "Starting Scriberr application..."
