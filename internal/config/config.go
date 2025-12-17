@@ -36,6 +36,7 @@ type Config struct {
 	// Environment configuration
 	Environment    string
 	AllowedOrigins []string
+	SecureCookies  bool // Explicit control over Secure flag (for HTTPS deployments)
 	// OpenAI configuration
 	OpenAIAPIKey string
 }
@@ -45,6 +46,12 @@ func Load() *Config {
 	// Load .env file if it exists
 	if err := godotenv.Load(); err != nil {
 		logger.Debug("No .env file found, using system environment variables")
+	}
+
+	// Default SecureCookies to true in production, false otherwise
+	defaultSecure := "false"
+	if strings.ToLower(getEnv("APP_ENV", "development")) == "production" {
+		defaultSecure = "true"
 	}
 
 	return &Config{
@@ -58,6 +65,7 @@ func Load() *Config {
 		TranscriptsDir: getEnv("TRANSCRIPTS_DIR", "data/transcripts"),
 		UVPath:         findUVPath(),
 		WhisperXEnv:    getEnv("WHISPERX_ENV", "data/whisperx-env"),
+		SecureCookies:  getEnv("SECURE_COOKIES", defaultSecure) == "true",
 		OpenAIAPIKey:   getEnv("OPENAI_API_KEY", ""),
 	}
 }

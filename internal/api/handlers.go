@@ -1547,17 +1547,15 @@ func (h *Handler) Login(c *gin.Context) {
 	}
 
 	// Set access token cookie for streaming/media access
-	// We use Lax mode to allow top-level navigation authentication if needed, but Strict is safer for API.
-	// Since we use this for <audio> src which is a cross-origin-like request (even if same origin technically),
-	// SameSite=Strict should work for same-site.
+	// Use Lax mode because Strict mode blocks <audio>/<video> subresource requests on mobile browsers.
 	http.SetCookie(c.Writer, &http.Cookie{
 		Name:     "scriberr_access_token",
 		Value:    token,
 		Path:     "/",
 		Expires:  time.Now().Add(24 * time.Hour), // Match your token duration constant
 		HttpOnly: true,
-		Secure:   h.config.IsProduction(), // Secure in production
-		SameSite: http.SameSiteStrictMode,
+		Secure:   h.config.SecureCookies, // Use explicit secure flag
+		SameSite: http.SameSiteLaxMode,
 	})
 
 	response := LoginResponse{Token: token}
@@ -1589,7 +1587,7 @@ func (h *Handler) Logout(c *gin.Context) {
 		MaxAge:   -1,
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
-		Secure:   h.config.IsProduction(),
+		Secure:   h.config.SecureCookies,
 	})
 	// Also clear access token
 	http.SetCookie(c.Writer, &http.Cookie{
@@ -1599,8 +1597,8 @@ func (h *Handler) Logout(c *gin.Context) {
 		Expires:  time.Unix(0, 0),
 		MaxAge:   -1,
 		HttpOnly: true,
-		SameSite: http.SameSiteStrictMode,
-		Secure:   h.config.IsProduction(),
+		SameSite: http.SameSiteLaxMode,
+		Secure:   h.config.SecureCookies,
 	})
 	c.JSON(http.StatusOK, gin.H{"message": "Logged out successfully"})
 }
@@ -1742,8 +1740,8 @@ func (h *Handler) Refresh(c *gin.Context) {
 		Path:     "/",
 		Expires:  time.Now().Add(24 * time.Hour),
 		HttpOnly: true,
-		Secure:   h.config.IsProduction(),
-		SameSite: http.SameSiteStrictMode,
+		Secure:   h.config.SecureCookies,
+		SameSite: http.SameSiteLaxMode,
 	})
 
 	c.JSON(http.StatusOK, RefreshTokenResponse{Token: token})
@@ -1770,7 +1768,7 @@ func (h *Handler) issueRefreshToken(c *gin.Context, userID uint) error {
 		MaxAge:   int((14 * 24 * time.Hour).Seconds()),
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
-		Secure:   h.config.IsProduction(),
+		Secure:   h.config.SecureCookies,
 	})
 	return nil
 }
