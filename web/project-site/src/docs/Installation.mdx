@@ -77,6 +77,10 @@ JWT_SECRET=your-super-secret-key-change-this
 
 For a containerized setup, you can use Docker. We provide two configurations: one for standard CPU usage and one optimized for NVIDIA GPUs (CUDA).
 
+> **Permissions:** Ensure you set the `PUID` and `PGID` environment variables to your host user's UID and GID (typically `1000` on Linux) to avoid permission issues with the SQLite database. You can find your UID/GID by running `id` on your host.
+>
+> **HTTP vs HTTPS:** By default, Scriberr enables **Secure Cookies** in production. If you are accessing the app via plain HTTP (not HTTPS), you MUST set `SECURE_COOKIES=false` in your environment variables, otherwise you will encounter "Unable to load audio stream" errors.
+
 ### Standard Deployment (CPU)
 
 Use this configuration for running Scriberr on any machine without a dedicated NVIDIA GPU.
@@ -93,6 +97,8 @@ services:
       - scriberr_data:/app/data # volume for data
       - env_data:/app/whisperx-env # volume for models and python envs
     environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
       - APP_ENV=production # DO NOT CHANGE THIS
       # CORS: comma-separated list of allowed origins for production
       # - ALLOWED_ORIGINS=https://your-domain.com
@@ -138,6 +144,8 @@ services:
     environment:
       - NVIDIA_VISIBLE_DEVICES=all
       - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
       - APP_ENV=production # DO NOT CHANGE THIS
       # CORS: comma-separated list of allowed origins for production
       # - ALLOWED_ORIGINS=https://your-domain.com

@@ -64,7 +64,7 @@ internal/web/dist
 
 # Development files
 prompt.txt
-.agent/
+# .agent/
 agent-bak/
 tmp/
 # *.svg

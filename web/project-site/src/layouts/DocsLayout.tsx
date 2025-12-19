@@ -20,6 +20,7 @@ export function DocsLayout({ children }: DocsLayoutProps) {
     { path: '/docs/installation', label: 'Installation' },
     { path: '/docs/diarization', label: 'Diarization' },
     { path: '/docs/usage', label: 'Usage Guide' },
+    { path: '/docs/troubleshooting', label: 'Troubleshooting' },
   ];
 
   return (

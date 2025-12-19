@@ -25,8 +25,8 @@ services:
       #   - PORT=8080
       #   - DATABASE_PATH=/app/data/scriberr.db
       #   - UPLOAD_DIR=/app/data/uploads
-      - PUID=${PUID:-10001}
-      - PGID=${PGID:-10001}
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
       # Security: already set in container, but can be overridden
       - APP_ENV=production
       # CORS: comma-separated list of allowed origins for production

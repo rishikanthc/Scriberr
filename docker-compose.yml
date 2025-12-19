@@ -7,6 +7,8 @@ services:
       - scriberr_data:/app/data
       - env_data:/app/whisperx-env
     environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
       # Security: already set in container, but can be overridden
       - APP_ENV=production
       # CORS: comma-separated list of allowed origins for production

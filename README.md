@@ -189,6 +189,11 @@ JWT_SECRET=your-super-secret-key-change-this
 
 For a containerized setup, you can use Docker. We provide two configurations: one for standard CPU usage and one optimized for NVIDIA GPUs (CUDA).
 
+> [!IMPORTANT]
+> **Permissions:** Ensure you set the `PUID` and `PGID` environment variables to your host user's UID and GID (typically `1000` on Linux) to avoid permission issues with the SQLite database. You can find your UID/GID by running `id` on your host.
+>
+> **HTTP vs HTTPS:** By default, Scriberr enables **Secure Cookies** in production. If you are accessing the app via plain HTTP (not HTTPS), you MUST set `SECURE_COOKIES=false` in your environment variables, otherwise you will encounter "Unable to load audio stream" errors.
+
 #### Standard Deployment (CPU)
 
 Use this configuration for running Scriberr on any machine without a dedicated NVIDIA GPU.
@@ -205,6 +210,8 @@ services:
       - scriberr_data:/app/data # volume for data
       - env_data:/app/whisperx-env # volume for models and python envs
     environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
       - APP_ENV=production # DO NOT CHANGE THIS
       # CORS: comma-separated list of allowed origins for production
       # - ALLOWED_ORIGINS=https://your-domain.com
@@ -250,6 +257,8 @@ services:
     environment:
       - NVIDIA_VISIBLE_DEVICES=all
       - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
       - APP_ENV=production # DO NOT CHANGE THIS
       # CORS: comma-separated list of allowed origins for production
       # - ALLOWED_ORIGINS=https://your-domain.com
@@ -278,6 +287,39 @@ The application needs to:
 **Subsequent runs will be much faster** because all models and environments are persisted to the `env_data` volume (or your local mapped folders).
 
 You will know the application is ready when you see the line: `msg="Scriberr is ready" url=http://0.0.0.0:8080`.
+
+### Troubleshooting
+
+#### 1. SQLite OOM Error (out of memory)
+
+If you see an "out of memory (14)" error from SQLite (specifically `SQLITE_CANTOPEN`), it usually means a permissions issue. The database engine cannot create temporary files in the data directory.
+
+You can fix this by setting the `PUID` and `PGID` in your `docker-compose.yml` to match your host user's UID and GID, or by manually changing the ownership of the mapped folders on your host:
+
+```bash
+# If you used a named volume (e.g., 'scriberr_scriberr_data'):
+sudo chown -R 1000:1000 /var/lib/docker/volumes/scriberr_scriberr_data/_data
+
+# If you mapped a specific host folder (e.g., ./scriberr_data):
+sudo chown -R 1000:1000 ./scriberr_data
+sudo chown -R 1000:1000 ./env_data
+```
+
+Replace `1000` with the value you set for `PUID`/`PGID` (default is `1000`).
+
+#### 2. "Unable to load audio stream"
+
+If the application loads but you cannot play or see the audio waveform (receiving "Unable to load audio stream"), this is often due to the **Secure Cookies** security flag.
+
+By default, when `APP_ENV=production`, Scriberr enables `SECURE_COOKIES=true`. This prevents cookies from being sent over insecure (HTTP) connections.
+
+**Solutions:**
+- **Recommended:** Deploy Scriberr behind a Reverse Proxy (like Nginx, Caddy, or Traefik) and use SSL/TLS (HTTPS).
+- **Alternative:** If you must access over plain HTTP, set the following environment variable in your `docker-compose.yml`:
+  ```yaml
+  environment:
+    - SECURE_COOKIES=false
+  ```
 
 ## Post installation
 
