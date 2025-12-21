@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ScriberrLogo } from './ScriberrLogo';
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 type SwaggerDoc = {
     openapi?: string;
     swagger?: string;

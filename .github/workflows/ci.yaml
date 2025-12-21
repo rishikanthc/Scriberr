@@ -77,3 +77,6 @@ jobs:
       - name: Run project site lint
         working-directory: web/project-site
         run: npm run lint
+
+      # Fail if any changes were written to any source files or generated untracked files
+      - run: git add -A && git diff --cached --exit-code
