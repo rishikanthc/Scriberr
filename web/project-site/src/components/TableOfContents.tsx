@@ -29,8 +29,7 @@ export function TableOfContents() {
             };
         });
 
-        // Defer the state update to avoid "setState in effect" warning and render cascades
-        const timeoutId = setTimeout(() => setHeadings(items), 0);
+        setHeadings(items);
 
         const observer = new IntersectionObserver(
             (entries) => {
@@ -45,10 +44,7 @@ export function TableOfContents() {
 
         elements.forEach((elem) => observer.observe(elem));
 
-        return () => {
-            clearTimeout(timeoutId);
-            observer.disconnect();
-        };
+        return () => observer.disconnect();
     }, [location.pathname]);
 
     if (headings.length === 0) return null;
