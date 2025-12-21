@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [ main, master ]
+#    branches: [ main ]
   pull_request:
-    branches: [ main, master ]
+
 
 jobs:
   build:
@@ -21,6 +21,7 @@ jobs:
           cache: 'npm'
           cache-dependency-path: web/frontend/package-lock.json
 
+    # frontend build and test steps
       - name: Install Frontend Dependencies
         working-directory: web/frontend
         run: npm ci
@@ -29,21 +30,50 @@ jobs:
         working-directory: web/frontend
         run: npm run build
 
-      - name: Copy Frontend Assets
-        run: |
-          # Create destination directory (files are embedded from internal/web/dist)
-          mkdir -p internal/web
-          # Copy built assets from web/frontend/dist to internal/web/dist
-          cp -r web/frontend/dist internal/web/
+      - name: Run Frontend Lint
+        working-directory: web/frontend
+        run: npm run lint
 
+    # Backend
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.24.0'
+          go-version: '1.24.1'
           cache: true
+
+      - name: Copy Frontend Assets
+        run: |
+          mkdir -p internal/web
+          cp -r web/frontend/dist internal/web/
 
       - name: Build Go Project
         run: go build -v ./...
 
       - name: Run Go Tests
         run: go test -v ./...
+
+    # Project site
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: web/project-site/package-lock.json
+
+      - name: Install swag
+        run: go install github.com/swaggo/swag/cmd/swag@latest
+
+      - name: Generate API documentation
+        run: swag init -g server/main.go -o web/project-site/public/api --outputTypes json --dir cmd,internal
+
+      - name: Install dependencies
+        working-directory: web/project-site
+        run: npm ci
+
+      - name: Build project site
+        working-directory: web/project-site
+        run: npm run build
+
+      - name: Run project site lint
+        working-directory: web/project-site
+        run: npm run lint
