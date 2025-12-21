@@ -75,14 +75,16 @@ export interface WordSegment {
     speaker?: string;
 }
 
+export interface TranscriptSegment {
+    start: number;
+    end: number;
+    text: string;
+    speaker?: string;
+}
+
 export interface Transcript {
     text: string;
-    segments?: Array<{
-        start: number;
-        end: number;
-        text: string;
-        speaker?: string;
-    }>;
+    segments?: TranscriptSegment[];
     word_segments?: WordSegment[];
 }
 
