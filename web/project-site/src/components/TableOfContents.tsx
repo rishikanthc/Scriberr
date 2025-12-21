@@ -29,7 +29,10 @@ export function TableOfContents() {
             };
         });
 
-        setHeadings(items);
+        // Update headings state in a microtask to avoid cascading renders
+        queueMicrotask(() => {
+            setHeadings(items);
+        });
 
         const observer = new IntersectionObserver(
             (entries) => {
