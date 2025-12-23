@@ -216,10 +216,10 @@ func (p *PyAnnoteAdapter) setupPyAnnoteEnvironment() error {
 		return fmt.Errorf("failed to create pyannote directory: %w", err)
 	}
 
-	// Create pyproject.toml for PyAnnote
+	// Create pyproject.toml with configurable PyTorch CUDA version
 	// Note: We explicitly pin torch and torchaudio to 2.1.2 to ensure compatibility with pyannote.audio 3.1
 	// Newer versions of torchaudio (2.2+) removed AudioMetaData which causes crashes
-	pyprojectContent := `[project]
+	pyprojectContent := fmt.Sprintf(`[project]
 name = "pyannote-diarization"
 version = "0.1.0"
 description = "Audio diarization using PyAnnote"
@@ -245,14 +245,14 @@ torchaudio = [
 
 [[tool.uv.index]]
 name = "pytorch"
-url = "https://download.pytorch.org/whl/cu126"
+url = "%s"
 explicit = true
 
 [[tool.uv.index]]
 name = "pytorch-cpu"
 url = "https://download.pytorch.org/whl/cpu"
 explicit = true
-`
+`, GetPyTorchWheelURL())
 	pyprojectPath := filepath.Join(p.envPath, "pyproject.toml")
 	if err := os.WriteFile(pyprojectPath, []byte(pyprojectContent), 0644); err != nil {
 		return fmt.Errorf("failed to write pyproject.toml: %w", err)

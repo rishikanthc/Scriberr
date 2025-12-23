@@ -27,6 +27,22 @@ var (
 	requestGroup  singleflight.Group
 )
 
+// GetPyTorchCUDAVersion returns the PyTorch CUDA wheel version to use.
+// This is configurable via the PYTORCH_CUDA_VERSION environment variable.
+// Defaults to "cu126" for CUDA 12.6 (legacy GPUs: GTX 10-series through RTX 40-series).
+// Set to "cu128" for CUDA 12.8 (Blackwell GPUs: RTX 50-series).
+func GetPyTorchCUDAVersion() string {
+	if cudaVersion := os.Getenv("PYTORCH_CUDA_VERSION"); cudaVersion != "" {
+		return cudaVersion
+	}
+	return "cu126" // Default to CUDA 12.6 for legacy compatibility
+}
+
+// GetPyTorchWheelURL returns the full PyTorch wheel URL for the configured CUDA version.
+func GetPyTorchWheelURL() string {
+	return fmt.Sprintf("https://download.pytorch.org/whl/%s", GetPyTorchCUDAVersion())
+}
+
 // CheckEnvironmentReady checks if a UV environment is ready with caching and singleflight
 func CheckEnvironmentReady(envPath, importStatement string) bool {
 	cacheKey := fmt.Sprintf("%s:%s", envPath, importStatement)

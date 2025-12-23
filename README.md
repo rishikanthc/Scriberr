@@ -275,6 +275,30 @@ volumes:
 docker compose -f docker-compose.cuda.yml up -d
 ```
 
+#### GPU Compatibility
+
+Scriberr provides separate Docker images for different NVIDIA GPU generations due to CUDA/PyTorch compatibility requirements:
+
+| GPU Generation | Compute Capability | Docker Image | Docker Compose File |
+|:---|:---|:---|:---|
+| GTX 10-series (Pascal) | sm_61 | `scriberr-cuda` | `docker-compose.cuda.yml` |
+| RTX 20-series (Turing) | sm_75 | `scriberr-cuda` | `docker-compose.cuda.yml` |
+| RTX 30-series (Ampere) | sm_86 | `scriberr-cuda` | `docker-compose.cuda.yml` |
+| RTX 40-series (Ada Lovelace) | sm_89 | `scriberr-cuda` | `docker-compose.cuda.yml` |
+| **RTX 50-series (Blackwell)** | sm_120 | `scriberr-cuda-blackwell` | `docker-compose.blackwell.yml` |
+
+**RTX 50-series users (RTX 5080, 5090, etc.):** You must use the Blackwell-specific image. The standard CUDA image will not work due to PyTorch CUDA compatibility requirements. Use:
+
+```bash
+docker compose -f docker-compose.blackwell.yml up -d
+```
+
+Or for local builds:
+
+```bash
+docker compose -f docker-compose.build.blackwell.yml up -d
+```
+
 ### App Startup
 
 When you run Scriberr for the first time, it may take several minutes to start. This is normal!

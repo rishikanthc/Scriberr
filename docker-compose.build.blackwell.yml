@@ -1,0 +1,37 @@
+# Docker Compose for building Scriberr with Blackwell GPU support locally
+# Uses Dockerfile.cuda.12.9 for RTX 50-series (Blackwell architecture, sm_120)
+# For legacy GPUs (GTX 10-series through RTX 40-series), use docker-compose.build.cuda.yml instead
+services:
+  scriberr:
+    build:
+      context: .
+      dockerfile: Dockerfile.cuda.12.9
+    image: scriberr:local-blackwell
+    container_name: scriberr-blackwell
+    ports:
+      - "8080:8080"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities:
+                - gpu
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      # Security: already set in container, but can be overridden
+      - APP_ENV=production
+      # CORS: comma-separated list of allowed origins for production
+      # - ALLOWED_ORIGINS=https://your-domain.com
+    volumes:
+      - ./scriberr_data:/app/data
+      - ./env-data:/app/whisperx-env
+    restart: unless-stopped
+
+volumes:
+  scriberr_data:
+  env-data:
