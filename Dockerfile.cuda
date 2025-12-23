@@ -59,7 +59,9 @@ ENV PYTHONUNBUFFERED=1 \
   PUID=1000 \
   PGID=1000 \
   NVIDIA_VISIBLE_DEVICES=all \
-  NVIDIA_DRIVER_CAPABILITIES=compute,utility
+  NVIDIA_DRIVER_CAPABILITIES=compute,utility \
+  # PyTorch CUDA wheel version: cu126 for legacy GPUs (GTX 10-series through RTX 40-series)
+  PYTORCH_CUDA_VERSION=cu126
 
 WORKDIR /app
 

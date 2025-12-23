@@ -179,8 +179,8 @@ func (p *ParakeetAdapter) setupParakeetEnvironment() error {
 		return fmt.Errorf("failed to create parakeet directory: %w", err)
 	}
 
-	// Create pyproject.toml
-	pyprojectContent := `[project]
+	// Create pyproject.toml with configurable PyTorch CUDA version
+	pyprojectContent := fmt.Sprintf(`[project]
 name = "parakeet-transcription"
 version = "0.1.0"
 description = "Audio transcription using NVIDIA Parakeet models"
@@ -213,14 +213,14 @@ triton = [
 
 [[tool.uv.index]]
 name = "pytorch"
-url = "https://download.pytorch.org/whl/cu126"
+url = "%s"
 explicit = true
 
 [[tool.uv.index]]
 name = "pytorch-cpu"
 url = "https://download.pytorch.org/whl/cpu"
 explicit = true
-`
+`, GetPyTorchWheelURL())
 	pyprojectPath := filepath.Join(p.envPath, "pyproject.toml")
 	if err := os.WriteFile(pyprojectPath, []byte(pyprojectContent), 0644); err != nil {
 		return fmt.Errorf("failed to write pyproject.toml: %w", err)

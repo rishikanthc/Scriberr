@@ -207,8 +207,8 @@ func (c *CanaryAdapter) setupCanaryEnvironment() error {
 		return nil
 	}
 
-	// Create pyproject.toml (same as Parakeet since they share environment)
-	pyprojectContent := `[project]
+	// Create pyproject.toml with configurable PyTorch CUDA version
+	pyprojectContent := fmt.Sprintf(`[project]
 name = "parakeet-transcription"
 version = "0.1.0"
 description = "Audio transcription using NVIDIA Parakeet models"
@@ -241,14 +241,14 @@ triton = [
 
 [[tool.uv.index]]
 name = "pytorch"
-url = "https://download.pytorch.org/whl/cu126"
+url = "%s"
 explicit = true
 
 [[tool.uv.index]]
 name = "pytorch-cpu"
 url = "https://download.pytorch.org/whl/cpu"
 explicit = true
-`
+`, GetPyTorchWheelURL())
 	if err := os.WriteFile(pyprojectPath, []byte(pyprojectContent), 0644); err != nil {
 		return fmt.Errorf("failed to write pyproject.toml: %w", err)
 	}

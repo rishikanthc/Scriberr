@@ -1,4 +1,6 @@
-# Multi-stage build for Scriberr with CUDA support
+# Multi-stage build for Scriberr with CUDA 12.9 support (Blackwell GPUs)
+# This Dockerfile targets NVIDIA RTX 50-series (Blackwell architecture, sm_120)
+# For legacy GPUs (GTX 10-series through RTX 40-series), use Dockerfile.cuda instead
 # Builds React UI and Go server, then ships with NVIDIA CUDA runtime
 
 ########################
@@ -54,10 +56,14 @@ ENV PYTHONUNBUFFERED=1 \
     PORT=8080 \
     DATABASE_PATH=/app/data/scriberr.db \
     UPLOAD_DIR=/app/data/uploads \
+    WHISPERX_ENV=/app/whisperx-env \
+    APP_ENV=production \
     PUID=1000 \
     PGID=1000 \
     NVIDIA_VISIBLE_DEVICES=all \
-    NVIDIA_DRIVER_CAPABILITIES=compute,utility
+    NVIDIA_DRIVER_CAPABILITIES=compute,utility \
+    # PyTorch CUDA wheel version: cu128 for Blackwell GPUs (RTX 50-series, sm_120)
+    PYTORCH_CUDA_VERSION=cu128
 
 WORKDIR /app
 
@@ -75,6 +81,11 @@ RUN curl -LsSf https://astral.sh/uv/install.sh | sh \
   && cp /root/.local/bin/uv /usr/local/bin/uv \
   && chmod 755 /usr/local/bin/uv \
   && uv --version
+
+# Install yt-dlp standalone binary (required by API handlers for YouTube URL processing)
+RUN curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp \
+  && chmod a+rx /usr/local/bin/yt-dlp \
+  && yt-dlp --version
 
 # Install Deno (JavaScript runtime required for yt-dlp YouTube downloads)
 # YouTube now requires JS execution for video cipher decryption
