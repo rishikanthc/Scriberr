@@ -471,10 +471,10 @@ export function SystemAudioRecorder({
 		onClose();
 	};
 
-	// Render browser compatibility error
+	// Don't render anything if there's a compatibility error - show it in a separate dialog
 	if (compatibilityError) {
 		return (
-			<Dialog open={isOpen} onOpenChange={(open) => {
+			<Dialog open={true} onOpenChange={(open) => {
 				if (!open) {
 					setCompatibilityError(null);
 					onClose();
@@ -483,7 +483,7 @@ export function SystemAudioRecorder({
 				<DialogContent className="sm:max-w-[600px] bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700">
 					<DialogHeader>
 						<DialogTitle className="flex items-center gap-2 text-carbon-900 dark:text-carbon-100">
-							<MonitorSpeaker className="h-5 w-5 text-cyan-600" />
+							<MonitorSpeaker className="h-5 w-5 text-blue-600" />
 							Record System Audio
 						</DialogTitle>
 					</DialogHeader>
@@ -520,6 +520,11 @@ export function SystemAudioRecorder({
 		);
 	}
 
+	// If dialog not open, don't render anything
+	if (!isOpen) {
+		return null;
+	}
+
 	// Render permission denied error
 	if (permissionDenied && !isRecording) {
 		return (
@@ -527,7 +532,7 @@ export function SystemAudioRecorder({
 				<DialogContent className="sm:max-w-[600px] bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700">
 					<DialogHeader>
 						<DialogTitle className="flex items-center gap-2 text-carbon-900 dark:text-carbon-100">
-							<MonitorSpeaker className="h-5 w-5 text-cyan-600" />
+							<MonitorSpeaker className="h-5 w-5 text-blue-600" />
 							Record System Audio
 						</DialogTitle>
 					</DialogHeader>
@@ -562,7 +567,7 @@ export function SystemAudioRecorder({
 								setPermissionDenied(false);
 								startRecording();
 							}}
-							className="bg-cyan-500 hover:bg-cyan-600 text-white"
+							className="bg-blue-500 hover:bg-blue-600 text-white"
 						>
 							Try Again
 						</Button>
@@ -579,7 +584,7 @@ export function SystemAudioRecorder({
 				<DialogContent className="sm:max-w-[600px] bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700">
 					<DialogHeader>
 						<DialogTitle className="flex items-center gap-2 text-carbon-900 dark:text-carbon-100">
-							<MonitorSpeaker className="h-5 w-5 text-cyan-600" />
+							<MonitorSpeaker className="h-5 w-5 text-blue-600" />
 							Recording Complete
 						</DialogTitle>
 					</DialogHeader>
@@ -615,7 +620,7 @@ export function SystemAudioRecorder({
 						<Button
 							onClick={handleUpload}
 							disabled={isUploading}
-							className="w-full bg-cyan-500 hover:bg-cyan-600 text-white px-8 py-3 rounded-xl font-medium transition-all duration-300 hover:scale-105"
+							className="w-full bg-blue-500 hover:bg-blue-600 text-white px-8 py-3 rounded-xl font-medium transition-all duration-300 hover:scale-105"
 						>
 							{isUploading ? (
 								<>
@@ -642,20 +647,20 @@ export function SystemAudioRecorder({
 				<DialogContent className="sm:max-w-[700px] bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700">
 					<DialogHeader>
 						<DialogTitle className="flex items-center gap-2 text-carbon-900 dark:text-carbon-100">
-							<MonitorSpeaker className="h-5 w-5 text-cyan-600" />
+							<MonitorSpeaker className="h-5 w-5 text-blue-600" />
 							Recording System Audio
 						</DialogTitle>
 					</DialogHeader>
 
 					<div className="space-y-6 py-4">
 						{/* Recording Status Banner */}
-						<div className="flex items-center gap-3 p-4 bg-cyan-500/10 rounded-lg border border-cyan-200 dark:border-cyan-800">
+						<div className="flex items-center gap-3 p-4 bg-blue-500/10 rounded-lg border border-blue-200 dark:border-blue-800">
 							<div className="h-3 w-3 bg-red-500 rounded-full animate-pulse flex-shrink-0" />
 							<div>
-								<h3 className="font-semibold text-cyan-900 dark:text-cyan-100">
+								<h3 className="font-semibold text-blue-900 dark:text-blue-100">
 									Recording System Audio{micAvailable ? " + Microphone" : " Only"}
 								</h3>
-								<p className="text-xs text-cyan-700 dark:text-cyan-300">
+								<p className="text-xs text-blue-700 dark:text-blue-300">
 									Recording continues even if you switch tabs
 								</p>
 							</div>
@@ -677,7 +682,7 @@ export function SystemAudioRecorder({
 							<div className="grid grid-cols-2 gap-4">
 								<div className="space-y-2">
 									<div className="flex items-center gap-2">
-										<MonitorSpeaker className="h-4 w-4 text-cyan-600" />
+										<MonitorSpeaker className="h-4 w-4 text-blue-600" />
 										<label className="text-sm font-medium text-carbon-700 dark:text-carbon-300">
 											System Audio
 										</label>
@@ -696,7 +701,7 @@ export function SystemAudioRecorder({
 								</div>
 								<div className="space-y-2">
 									<div className="flex items-center gap-2">
-										<Mic className="h-4 w-4 text-cyan-600" />
+										<Mic className="h-4 w-4 text-blue-600" />
 										<label className="text-sm font-medium text-carbon-700 dark:text-carbon-300">
 											Microphone
 										</label>
@@ -739,7 +744,7 @@ export function SystemAudioRecorder({
 			<DialogContent className="sm:max-w-[700px] bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700">
 				<DialogHeader>
 					<DialogTitle className="flex items-center gap-2 text-carbon-900 dark:text-carbon-100 text-xl font-bold">
-						<MonitorSpeaker className="h-5 w-5 text-cyan-600" />
+						<MonitorSpeaker className="h-5 w-5 text-blue-600" />
 						Record System Audio
 					</DialogTitle>
 					<DialogDescription className="text-carbon-600 dark:text-carbon-400">
@@ -750,20 +755,20 @@ export function SystemAudioRecorder({
 
 				<div className="space-y-6 py-4">
 					{/* Instructions Card */}
-					<Card className="bg-cyan-500/5 border-cyan-200 dark:border-cyan-800">
+					<Card className="bg-blue-500/5 border-blue-200 dark:border-blue-800">
 						<CardContent className="pt-6">
-							<h3 className="font-semibold mb-3 text-cyan-900 dark:text-cyan-100">
+							<h3 className="font-semibold mb-3 text-blue-900 dark:text-blue-100">
 								How it works:
 							</h3>
 							<ol className="space-y-3 text-sm text-carbon-700 dark:text-carbon-300">
 								<li className="flex gap-3">
-									<span className="font-bold text-cyan-600 flex-shrink-0">
+									<span className="font-bold text-blue-600 flex-shrink-0">
 										1.
 									</span>
 									<span>Click "Start Recording" below</span>
 								</li>
 								<li className="flex gap-3">
-									<span className="font-bold text-cyan-600 flex-shrink-0">
+									<span className="font-bold text-blue-600 flex-shrink-0">
 										2.
 									</span>
 									<span>
@@ -771,7 +776,7 @@ export function SystemAudioRecorder({
 									</span>
 								</li>
 								<li className="flex gap-3">
-									<span className="font-bold text-cyan-600 flex-shrink-0">
+									<span className="font-bold text-blue-600 flex-shrink-0">
 										3.
 									</span>
 									<span>
@@ -779,7 +784,7 @@ export function SystemAudioRecorder({
 									</span>
 								</li>
 								<li className="flex gap-3">
-									<span className="font-bold text-cyan-600 flex-shrink-0">
+									<span className="font-bold text-blue-600 flex-shrink-0">
 										4.
 									</span>
 									<span>Allow microphone access when prompted (optional)</span>
@@ -848,7 +853,7 @@ export function SystemAudioRecorder({
 												</div>
 											</div>
 											{selectedDevice === device.deviceId && (
-												<div className="h-2 w-2 bg-cyan-500 rounded-full"></div>
+												<div className="h-2 w-2 bg-blue-500 rounded-full"></div>
 											)}
 										</DropdownMenuItem>
 									))}
@@ -861,7 +866,7 @@ export function SystemAudioRecorder({
 					<Button
 						onClick={startRecording}
 						size="lg"
-						className="w-full bg-cyan-500 hover:bg-cyan-600 text-white px-8 py-3 rounded-xl font-medium transition-all duration-300 hover:scale-105"
+						className="w-full bg-blue-500 hover:bg-blue-600 text-white px-8 py-3 rounded-xl font-medium transition-all duration-300 hover:scale-105"
 					>
 						<MonitorSpeaker className="h-5 w-5 mr-2" />
 						Start Recording
