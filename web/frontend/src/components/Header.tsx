@@ -6,10 +6,11 @@ import {
 	DropdownMenuItem,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Upload, Mic, Settings, LogOut, Home, Plus, Grip, Zap, Youtube, Video, Users } from "lucide-react";
+import { Upload, Mic, Settings, LogOut, Home, Plus, Grip, Zap, Youtube, Video, Users, MonitorSpeaker } from "lucide-react";
 import { ScriberrLogo } from "./ScriberrLogo";
 import { ThemeSwitcher } from "./ThemeSwitcher";
 import { AudioRecorder } from "./AudioRecorder";
+import { SystemAudioRecorder } from "./SystemAudioRecorder";
 import { QuickTranscriptionDialog } from "@/features/transcription/components/QuickTranscriptionDialog";
 import { YouTubeDownloadDialog } from "@/features/transcription/components/YouTubeDownloadDialog";
 import { useNavigate } from "react-router-dom";
@@ -34,6 +35,7 @@ export function Header({ onFileSelect, onMultiTrackClick, onDownloadComplete }: 
 	const fileInputRef = useRef<HTMLInputElement>(null);
 	const videoFileInputRef = useRef<HTMLInputElement>(null);
 	const [isRecorderOpen, setIsRecorderOpen] = useState(false);
+	const [isSystemRecorderOpen, setIsSystemRecorderOpen] = useState(false);
 	const [isQuickTranscriptionOpen, setIsQuickTranscriptionOpen] = useState(false);
 	const [isYouTubeDialogOpen, setIsYouTubeDialogOpen] = useState(false);
 
@@ -55,6 +57,10 @@ export function Header({ onFileSelect, onMultiTrackClick, onDownloadComplete }: 
 
 	const handleRecordClick = () => {
 		setIsRecorderOpen(true);
+	};
+
+	const handleSystemRecordClick = () => {
+		setIsSystemRecorderOpen(true);
 	};
 
 	const handleQuickTranscriptionClick = () => {
@@ -224,6 +230,20 @@ export function Header({ onFileSelect, onMultiTrackClick, onDownloadComplete }: 
 								</div>
 							</DropdownMenuItem>
 							<DropdownMenuItem
+								onClick={handleSystemRecordClick}
+								className="group flex items-center gap-3 px-3 py-3 cursor-pointer rounded-[var(--radius-btn)] focus:bg-[var(--brand-light)] focus:text-[var(--brand-solid)] transition-colors"
+							>
+								<div className="p-2 bg-cyan-500/10 rounded-[var(--radius-btn)] text-cyan-600 group-focus:text-[var(--brand-solid)]">
+									<MonitorSpeaker className="h-4 w-4" />
+								</div>
+								<div>
+									<div className="font-medium text-sm">Record System Audio</div>
+									<div className="text-xs text-[var(--text-secondary)]">
+										Capture screen + microphone
+									</div>
+								</div>
+							</DropdownMenuItem>
+							<DropdownMenuItem
 								onClick={handleMultiTrackClick}
 								className="group flex items-center gap-3 px-3 py-3 cursor-pointer rounded-[var(--radius-btn)] focus:bg-[var(--brand-light)] focus:text-[var(--brand-solid)] transition-colors"
 							>
@@ -298,6 +318,13 @@ export function Header({ onFileSelect, onMultiTrackClick, onDownloadComplete }: 
 				isOpen={isRecorderOpen}
 				onClose={() => setIsRecorderOpen(false)}
 				onRecordingComplete={handleRecordingComplete}
+			/>
+
+			{/* System Audio Recorder Dialog */}
+			<SystemAudioRecorder
+				isOpen={isSystemRecorderOpen}
+				onClose={() => setIsSystemRecorderOpen(false)}
+				onRecordingComplete={effectiveRecordingComplete}
 			/>
 
 			{/* Quick Transcription Dialog */}
