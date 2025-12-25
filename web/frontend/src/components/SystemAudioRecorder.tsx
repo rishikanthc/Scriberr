@@ -73,15 +73,33 @@ export function SystemAudioRecorder({
 
 	const { toast } = useToast();
 
-	// Browser compatibility check
+	// Browser compatibility check - only Chromium browsers supported
 	const checkCompatibility = (): { supported: boolean; error?: string } => {
+		// Check if browser supports getDisplayMedia at all
 		if (!navigator.mediaDevices?.getDisplayMedia) {
 			return {
 				supported: false,
 				error:
-					"Your browser doesn't support system audio capture. Please use Chrome, Edge, or Firefox.",
+					"Your browser doesn't support screen capture. Please use Chrome, Edge, or Brave.",
 			};
 		}
+
+		// Check if it's a Chromium-based browser
+		const userAgent = navigator.userAgent.toLowerCase();
+		const isChromium = userAgent.includes('chrome') ||
+		                   userAgent.includes('chromium') ||
+		                   userAgent.includes('edg/') ||
+		                   userAgent.includes('brave');
+
+		if (!isChromium) {
+			return {
+				supported: false,
+				error:
+					"System audio recording is only supported on Chromium-based browsers (Chrome, Edge, Brave). " +
+					"Please switch to one of these browsers to use this feature.",
+			};
+		}
+
 		return { supported: true };
 	};
 
@@ -247,6 +265,13 @@ export function SystemAudioRecorder({
 				},
 			});
 
+			// Debug: Log what tracks we got
+			console.log("Display stream tracks:", {
+				video: displayStream.getVideoTracks().length,
+				audio: displayStream.getAudioTracks().length,
+				allTracks: displayStream.getTracks().map(t => ({ kind: t.kind, label: t.label }))
+			});
+
 			// Stop the video track immediately since we only want audio
 			const videoTrack = displayStream.getVideoTracks()[0];
 			if (videoTrack) {
@@ -257,7 +282,15 @@ export function SystemAudioRecorder({
 			// Create a new MediaStream with only audio tracks
 			const audioTracks = displayStream.getAudioTracks();
 			if (audioTracks.length === 0) {
-				throw new Error("NotFoundError");
+				alert(
+					"No audio track found!\n\n" +
+					"Make sure to:\n" +
+					"1. Select a Chrome TAB (not window or screen)\n" +
+					"2. Check the 'Share tab audio' checkbox\n" +
+					"3. Choose a tab that's actually playing audio"
+				);
+				cleanupStreams();
+				return;
 			}
 			const sysStream = new MediaStream(audioTracks);
 
@@ -441,7 +474,12 @@ export function SystemAudioRecorder({
 	// Render browser compatibility error
 	if (compatibilityError) {
 		return (
-			<Dialog open={isOpen} onOpenChange={handleClose}>
+			<Dialog open={isOpen} onOpenChange={(open) => {
+				if (!open) {
+					setCompatibilityError(null);
+					onClose();
+				}
+			}}>
 				<DialogContent className="sm:max-w-[600px] bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700">
 					<DialogHeader>
 						<DialogTitle className="flex items-center gap-2 text-carbon-900 dark:text-carbon-100">
@@ -470,7 +508,10 @@ export function SystemAudioRecorder({
 					</Card>
 
 					<div className="flex justify-end">
-						<Button variant="outline" onClick={handleClose}>
+						<Button variant="outline" onClick={() => {
+							setCompatibilityError(null);
+							onClose();
+						}}>
 							Close
 						</Button>
 					</div>
@@ -725,18 +766,21 @@ export function SystemAudioRecorder({
 									<span className="font-bold text-cyan-600 flex-shrink-0">
 										2.
 									</span>
-									<div className="flex-1">
-										<div className="mb-2">
-											<strong className="text-amber-700 dark:text-amber-500">Chrome/Edge:</strong> Select "Chrome Tab", choose your tab, and check "Share tab audio"
-										</div>
-										<div>
-											<strong className="text-amber-700 dark:text-amber-500">Firefox:</strong> Select "Application Window", choose the window with audio (e.g., browser window), and check "Share system audio"
-										</div>
-									</div>
+									<span>
+										Select a <strong>Chrome Tab</strong> from the browser picker (not window or screen)
+									</span>
 								</li>
 								<li className="flex gap-3">
 									<span className="font-bold text-cyan-600 flex-shrink-0">
 										3.
+									</span>
+									<span>
+										<strong>Check "Share tab audio"</strong> checkbox at the bottom
+									</span>
+								</li>
+								<li className="flex gap-3">
+									<span className="font-bold text-cyan-600 flex-shrink-0">
+										4.
 									</span>
 									<span>Allow microphone access when prompted (optional)</span>
 								</li>
