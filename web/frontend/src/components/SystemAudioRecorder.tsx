@@ -312,7 +312,8 @@ export function SystemAudioRecorder({
 				mStream = await navigator.mediaDevices.getUserMedia({
 					audio: {
 						deviceId: selectedDevice ? { exact: selectedDevice } : undefined,
-						echoCancellation: true,  // CRITICAL: Prevent mic from capturing system audio output
+						// @ts-expect-error - Chrome/Edge support "remote-only" for echo cancellation
+						echoCancellation: "remote-only",  // Only cancel remote echo, allow mic during local playback
 						noiseSuppression: true,   // Remove background noise
 						autoGainControl: true,    // Normalize volume levels
 					},
