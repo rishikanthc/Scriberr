@@ -26,7 +26,6 @@ import {
 	DropdownMenuItem,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Card, CardContent } from "@/components/ui/card";
 import { Slider } from "@/components/ui/slider";
 import { useToast } from "@/components/ui/toast";
 
@@ -283,10 +282,10 @@ export function SystemAudioRecorder({
 			const audioTracks = displayStream.getAudioTracks();
 			if (audioTracks.length === 0) {
 				alert(
-					"No audio track found!\n\n" +
-					"Make sure to:\n" +
-					"1. Select a Chrome TAB (not window or screen)\n" +
-					"2. Check the 'Share tab audio' checkbox\n" +
+					"No audio track found!\\n\\n" +
+					"Make sure to:\\n" +
+					"1. Select a Chrome TAB (not window or screen)\\n" +
+					"2. Check the 'Share tab audio' checkbox\\n" +
 					"3. Choose a tab that's actually playing audio"
 				);
 				cleanupStreams();
@@ -480,32 +479,28 @@ export function SystemAudioRecorder({
 					onClose();
 				}
 			}}>
-				<DialogContent className="sm:max-w-[600px] bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700">
+				<DialogContent className="sm:max-w-[600px]">
 					<DialogHeader>
-						<DialogTitle className="flex items-center gap-2 text-carbon-900 dark:text-carbon-100">
-							<MonitorSpeaker className="h-5 w-5 text-blue-600" />
+						<DialogTitle className="flex items-center gap-2">
+							<MonitorSpeaker className="h-5 w-5 text-[var(--brand-solid)]" />
 							Record System Audio
 						</DialogTitle>
 					</DialogHeader>
 
-					<Card className="bg-red-500/10 border-red-200 dark:border-red-800">
-						<CardContent className="pt-6">
-							<div className="flex gap-4">
-								<XCircle className="h-6 w-6 text-red-600 flex-shrink-0" />
-								<div>
-									<h3 className="font-semibold mb-2 text-carbon-900 dark:text-carbon-100">
-										Browser Not Supported
-									</h3>
-									<p className="text-sm mb-3 text-carbon-700 dark:text-carbon-300">
-										{compatibilityError}
-									</p>
-									<p className="text-xs text-carbon-600 dark:text-carbon-400">
-										You can use "Record Audio" for microphone-only recording.
-									</p>
-								</div>
-							</div>
-						</CardContent>
-					</Card>
+					<div className="flex items-center gap-3 p-4 bg-[var(--error)]/10 border border-[var(--error)]/20 rounded-[var(--radius-card)]">
+						<XCircle className="h-6 w-6 text-[var(--error)] flex-shrink-0" />
+						<div>
+							<h3 className="font-semibold mb-2 text-[var(--text-primary)]">
+								Browser Not Supported
+							</h3>
+							<p className="text-sm mb-3 text-[var(--text-secondary)]">
+								{compatibilityError}
+							</p>
+							<p className="text-xs text-[var(--text-tertiary)]">
+								You can use "Record Audio" for microphone-only recording.
+							</p>
+						</div>
+					</div>
 
 					<div className="flex justify-end">
 						<Button variant="outline" onClick={() => {
@@ -529,34 +524,30 @@ export function SystemAudioRecorder({
 	if (permissionDenied && !isRecording) {
 		return (
 			<Dialog open={isOpen} onOpenChange={handleClose}>
-				<DialogContent className="sm:max-w-[600px] bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700">
+				<DialogContent className="sm:max-w-[600px]">
 					<DialogHeader>
-						<DialogTitle className="flex items-center gap-2 text-carbon-900 dark:text-carbon-100">
-							<MonitorSpeaker className="h-5 w-5 text-blue-600" />
+						<DialogTitle className="flex items-center gap-2">
+							<MonitorSpeaker className="h-5 w-5 text-[var(--brand-solid)]" />
 							Record System Audio
 						</DialogTitle>
 					</DialogHeader>
 
-					<Card className="bg-amber-500/10 border-amber-200 dark:border-amber-800">
-						<CardContent className="pt-6">
-							<div className="flex gap-4">
-								<AlertCircle className="h-6 w-6 text-amber-600 flex-shrink-0" />
-								<div>
-									<h3 className="font-semibold mb-2 text-carbon-900 dark:text-carbon-100">
-										Screen Sharing Permission Required
-									</h3>
-									<p className="text-sm mb-3 text-carbon-700 dark:text-carbon-300">
-										You denied screen sharing permission. Please click "Try Again"
-										and allow access when prompted.
-									</p>
-									<p className="text-xs font-medium text-amber-700 dark:text-amber-600">
-										Make sure to check "Share system audio" or "Share tab audio"
-										in the browser picker!
-									</p>
-								</div>
-							</div>
-						</CardContent>
-					</Card>
+					<div className="flex items-center gap-3 p-4 bg-[var(--warning-translucent)] border border-[var(--warning-solid)]/20 rounded-[var(--radius-card)]">
+						<AlertCircle className="h-6 w-6 text-[var(--warning-solid)] flex-shrink-0" />
+						<div>
+							<h3 className="font-semibold mb-2 text-[var(--text-primary)]">
+								Screen Sharing Permission Required
+							</h3>
+							<p className="text-sm mb-3 text-[var(--text-secondary)]">
+								You denied screen sharing permission. Please click "Try Again"
+								and allow access when prompted.
+							</p>
+							<p className="text-xs font-medium text-[var(--warning-solid)]">
+								Make sure to check "Share system audio" or "Share tab audio"
+								in the browser picker!
+							</p>
+						</div>
+					</div>
 
 					<div className="flex justify-end gap-3">
 						<Button variant="outline" onClick={handleClose}>
@@ -567,7 +558,6 @@ export function SystemAudioRecorder({
 								setPermissionDenied(false);
 								startRecording();
 							}}
-							className="bg-blue-500 hover:bg-blue-600 text-white"
 						>
 							Try Again
 						</Button>
@@ -581,23 +571,23 @@ export function SystemAudioRecorder({
 	if (recordedBlob && !isRecording) {
 		return (
 			<Dialog open={isOpen} onOpenChange={handleClose}>
-				<DialogContent className="sm:max-w-[600px] bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700">
+				<DialogContent className="sm:max-w-[600px]">
 					<DialogHeader>
-						<DialogTitle className="flex items-center gap-2 text-carbon-900 dark:text-carbon-100">
-							<MonitorSpeaker className="h-5 w-5 text-blue-600" />
+						<DialogTitle className="flex items-center gap-2">
+							<MonitorSpeaker className="h-5 w-5 text-[var(--brand-solid)]" />
 							Recording Complete
 						</DialogTitle>
 					</DialogHeader>
 
 					<div className="space-y-6 py-4">
 						{/* Success Message */}
-						<div className="flex items-center gap-3 p-4 bg-green-500/10 rounded-lg border border-green-200 dark:border-green-800">
-							<CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0" />
+						<div className="flex items-center gap-3 p-4 bg-[var(--success-translucent)] border border-[var(--success-solid)]/20 rounded-[var(--radius-card)]">
+							<CheckCircle className="h-5 w-5 text-[var(--success-solid)] flex-shrink-0" />
 							<div>
-								<h3 className="font-semibold text-carbon-900 dark:text-carbon-100">
+								<h3 className="font-semibold text-[var(--text-primary)]">
 									Recording Complete!
 								</h3>
-								<p className="text-sm text-carbon-600 dark:text-carbon-400">
+								<p className="text-sm text-[var(--text-secondary)]">
 									Duration: {formatTime(recordingTime)}
 								</p>
 							</div>
@@ -605,14 +595,13 @@ export function SystemAudioRecorder({
 
 						{/* Title Input */}
 						<div className="space-y-2">
-							<label className="text-sm font-medium text-carbon-700 dark:text-carbon-300">
+							<label className="text-sm font-medium text-[var(--text-primary)]">
 								Recording Title
 							</label>
 							<Input
 								value={title}
 								onChange={(e) => setTitle(e.target.value)}
 								placeholder="Enter a title for your recording..."
-								className="bg-white dark:bg-carbon-800 border-carbon-300 dark:border-carbon-600 text-carbon-900 dark:text-carbon-100"
 							/>
 						</div>
 
@@ -620,7 +609,7 @@ export function SystemAudioRecorder({
 						<Button
 							onClick={handleUpload}
 							disabled={isUploading}
-							className="w-full bg-blue-500 hover:bg-blue-600 text-white px-8 py-3 rounded-xl font-medium transition-all duration-300 hover:scale-105"
+							className="w-full"
 						>
 							{isUploading ? (
 								<>
@@ -644,23 +633,23 @@ export function SystemAudioRecorder({
 	if (isRecording) {
 		return (
 			<Dialog open={isOpen} onOpenChange={handleClose}>
-				<DialogContent className="sm:max-w-[700px] bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700">
+				<DialogContent className="sm:max-w-[700px]">
 					<DialogHeader>
-						<DialogTitle className="flex items-center gap-2 text-carbon-900 dark:text-carbon-100">
-							<MonitorSpeaker className="h-5 w-5 text-blue-600" />
+						<DialogTitle className="flex items-center gap-2">
+							<MonitorSpeaker className="h-5 w-5 text-[var(--brand-solid)]" />
 							Recording System Audio
 						</DialogTitle>
 					</DialogHeader>
 
 					<div className="space-y-6 py-4">
 						{/* Recording Status Banner */}
-						<div className="flex items-center gap-3 p-4 bg-blue-500/10 rounded-lg border border-blue-200 dark:border-blue-800">
-							<div className="h-3 w-3 bg-red-500 rounded-full animate-pulse flex-shrink-0" />
+						<div className="flex items-center gap-3 p-4 bg-[var(--brand-light)] border border-[var(--brand-solid)]/20 rounded-[var(--radius-card)]">
+							<div className="h-3 w-3 bg-[var(--error)] rounded-full animate-pulse flex-shrink-0" />
 							<div>
-								<h3 className="font-semibold text-blue-900 dark:text-blue-100">
+								<h3 className="font-semibold text-[var(--text-primary)]">
 									Recording System Audio{micAvailable ? " + Microphone" : " Only"}
 								</h3>
-								<p className="text-xs text-blue-700 dark:text-blue-300">
+								<p className="text-xs text-[var(--text-secondary)]">
 									Recording continues even if you switch tabs
 								</p>
 							</div>
@@ -668,11 +657,11 @@ export function SystemAudioRecorder({
 
 						{/* Recording Time */}
 						<div className="text-center">
-							<div className="text-6xl font-mono font-bold text-carbon-900 dark:text-carbon-100 mb-2">
+							<div className="text-6xl font-mono font-bold text-[var(--text-primary)] mb-2">
 								{formatTime(recordingTime)}
 							</div>
-							<div className="flex items-center justify-center gap-2 text-sm text-carbon-600 dark:text-carbon-400">
-								<div className="h-2 w-2 bg-red-500 rounded-full animate-pulse" />
+							<div className="flex items-center justify-center gap-2 text-sm text-[var(--text-secondary)]">
+								<div className="h-2 w-2 bg-[var(--error)] rounded-full animate-pulse" />
 								<span>Recording...</span>
 							</div>
 						</div>
@@ -682,8 +671,8 @@ export function SystemAudioRecorder({
 							<div className="grid grid-cols-2 gap-4">
 								<div className="space-y-2">
 									<div className="flex items-center gap-2">
-										<MonitorSpeaker className="h-4 w-4 text-blue-600" />
-										<label className="text-sm font-medium text-carbon-700 dark:text-carbon-300">
+										<MonitorSpeaker className="h-4 w-4 text-[var(--brand-solid)]" />
+										<label className="text-sm font-medium text-[var(--text-primary)]">
 											System Audio
 										</label>
 									</div>
@@ -695,14 +684,14 @@ export function SystemAudioRecorder({
 										onValueChange={updateSystemVolume}
 										className="cursor-pointer"
 									/>
-									<span className="text-xs text-carbon-500 dark:text-carbon-400">
+									<span className="text-xs text-[var(--text-tertiary)]">
 										{systemVolume}%
 									</span>
 								</div>
 								<div className="space-y-2">
 									<div className="flex items-center gap-2">
-										<Mic className="h-4 w-4 text-blue-600" />
-										<label className="text-sm font-medium text-carbon-700 dark:text-carbon-300">
+										<Mic className="h-4 w-4 text-[var(--brand-solid)]" />
+										<label className="text-sm font-medium text-[var(--text-primary)]">
 											Microphone
 										</label>
 									</div>
@@ -714,7 +703,7 @@ export function SystemAudioRecorder({
 										onValueChange={updateMicVolume}
 										className="cursor-pointer"
 									/>
-									<span className="text-xs text-carbon-500 dark:text-carbon-400">
+									<span className="text-xs text-[var(--text-tertiary)]">
 										{micVolume}%
 									</span>
 								</div>
@@ -726,7 +715,7 @@ export function SystemAudioRecorder({
 							<Button
 								onClick={stopRecording}
 								size="lg"
-								className="bg-carbon-600 hover:bg-carbon-700 text-white px-8 py-3 rounded-xl"
+								variant="secondary"
 							>
 								<Square className="h-5 w-5 mr-2" />
 								Stop Recording
@@ -741,13 +730,13 @@ export function SystemAudioRecorder({
 	// Render initial instructions state
 	return (
 		<Dialog open={isOpen} onOpenChange={handleClose}>
-			<DialogContent className="sm:max-w-[700px] bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700">
+			<DialogContent className="sm:max-w-[700px]">
 				<DialogHeader>
-					<DialogTitle className="flex items-center gap-2 text-carbon-900 dark:text-carbon-100 text-xl font-bold">
-						<MonitorSpeaker className="h-5 w-5 text-blue-600" />
+					<DialogTitle className="flex items-center gap-2">
+						<MonitorSpeaker className="h-5 w-5 text-[var(--brand-solid)]" />
 						Record System Audio
 					</DialogTitle>
-					<DialogDescription className="text-carbon-600 dark:text-carbon-400">
+					<DialogDescription>
 						Capture system audio from your screen/tab along with your microphone
 						for meeting recordings.
 					</DialogDescription>
@@ -755,59 +744,56 @@ export function SystemAudioRecorder({
 
 				<div className="space-y-6 py-4">
 					{/* Instructions Card */}
-					<Card className="bg-blue-500/5 border-blue-200 dark:border-blue-800">
-						<CardContent className="pt-6">
-							<h3 className="font-semibold mb-3 text-blue-900 dark:text-blue-100">
-								How it works:
-							</h3>
-							<ol className="space-y-3 text-sm text-carbon-700 dark:text-carbon-300">
-								<li className="flex gap-3">
-									<span className="font-bold text-blue-600 flex-shrink-0">
-										1.
-									</span>
-									<span>Click "Start Recording" below</span>
-								</li>
-								<li className="flex gap-3">
-									<span className="font-bold text-blue-600 flex-shrink-0">
-										2.
-									</span>
-									<span>
-										Select a <strong>Chrome Tab</strong> from the browser picker (not window or screen)
-									</span>
-								</li>
-								<li className="flex gap-3">
-									<span className="font-bold text-blue-600 flex-shrink-0">
-										3.
-									</span>
-									<span>
-										<strong>Check "Share tab audio"</strong> checkbox at the bottom
-									</span>
-								</li>
-								<li className="flex gap-3">
-									<span className="font-bold text-blue-600 flex-shrink-0">
-										4.
-									</span>
-									<span>Allow microphone access when prompted (optional)</span>
-								</li>
-							</ol>
-							<div className="mt-4 p-3 bg-amber-500/10 rounded-lg border border-amber-200 dark:border-amber-800">
-								<p className="text-xs text-amber-800 dark:text-amber-300">
-									<strong>💡 Tip:</strong> Use headphones to prevent echo and ensure the best recording quality!
-								</p>
-							</div>
-						</CardContent>
-					</Card>
+					<div className="p-4 bg-[var(--brand-light)] border border-[var(--brand-solid)]/20 rounded-[var(--radius-card)]">
+						<h3 className="font-semibold mb-3 text-[var(--text-primary)]">
+							How it works:
+						</h3>
+						<ol className="space-y-3 text-sm text-[var(--text-secondary)]">
+							<li className="flex gap-3">
+								<span className="font-bold text-[var(--brand-solid)] flex-shrink-0">
+									1.
+								</span>
+								<span>Click "Start Recording" below</span>
+							</li>
+							<li className="flex gap-3">
+								<span className="font-bold text-[var(--brand-solid)] flex-shrink-0">
+									2.
+								</span>
+								<span>
+									Select a <strong>Chrome Tab</strong> from the browser picker (not window or screen)
+								</span>
+							</li>
+							<li className="flex gap-3">
+								<span className="font-bold text-[var(--brand-solid)] flex-shrink-0">
+									3.
+								</span>
+								<span>
+									<strong>Check "Share tab audio"</strong> checkbox at the bottom
+								</span>
+							</li>
+							<li className="flex gap-3">
+								<span className="font-bold text-[var(--brand-solid)] flex-shrink-0">
+									4.
+								</span>
+								<span>Allow microphone access when prompted (optional)</span>
+							</li>
+						</ol>
+						<div className="mt-4 p-3 bg-[var(--warning-translucent)] border border-[var(--warning-solid)]/20 rounded-[var(--radius-btn)]">
+							<p className="text-xs text-[var(--text-secondary)]">
+								<strong>💡 Tip:</strong> Use headphones to prevent echo and ensure the best recording quality!
+							</p>
+						</div>
+					</div>
 
 					{/* Title Input */}
 					<div className="space-y-2">
-						<label className="text-sm font-medium text-carbon-700 dark:text-carbon-300">
+						<label className="text-sm font-medium text-[var(--text-primary)]">
 							Recording Title (Optional)
 						</label>
 						<Input
 							value={title}
 							onChange={(e) => setTitle(e.target.value)}
 							placeholder="Enter a title for your recording..."
-							className="bg-white dark:bg-carbon-800 border-carbon-300 dark:border-carbon-600 text-carbon-900 dark:text-carbon-100"
 							disabled={isRecording}
 						/>
 					</div>
@@ -815,14 +801,14 @@ export function SystemAudioRecorder({
 					{/* Microphone Selection */}
 					{availableDevices.length > 1 && (
 						<div className="space-y-2">
-							<label className="text-sm font-medium text-carbon-700 dark:text-carbon-300">
+							<label className="text-sm font-medium text-[var(--text-primary)]">
 								Microphone
 							</label>
 							<DropdownMenu>
 								<DropdownMenuTrigger asChild disabled={isRecording}>
 									<Button
 										variant="outline"
-										className="w-full justify-between bg-white dark:bg-carbon-800 border-carbon-300 dark:border-carbon-600 hover:bg-carbon-50 dark:hover:bg-carbon-700"
+										className="w-full justify-between"
 									>
 										<div className="flex items-center gap-2">
 											<Settings className="h-4 w-4" />
@@ -835,25 +821,25 @@ export function SystemAudioRecorder({
 										<ChevronDown className="h-4 w-4 opacity-50" />
 									</Button>
 								</DropdownMenuTrigger>
-								<DropdownMenuContent className="w-full min-w-[400px] bg-white dark:bg-carbon-900 border-carbon-200 dark:border-carbon-700">
+								<DropdownMenuContent className="w-full min-w-[400px]">
 									{availableDevices.map((device) => (
 										<DropdownMenuItem
 											key={device.deviceId}
 											onClick={() => setSelectedDevice(device.deviceId)}
-											className="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-carbon-100 dark:hover:bg-carbon-700"
+											className="flex items-center gap-3 px-3 py-2 cursor-pointer"
 										>
-											<Mic className="h-4 w-4 text-carbon-500" />
+											<Mic className="h-4 w-4 text-[var(--text-tertiary)]" />
 											<div className="flex-1">
-												<div className="text-sm font-medium text-carbon-900 dark:text-carbon-100">
+												<div className="text-sm font-medium text-[var(--text-primary)]">
 													{device.label ||
 														`Microphone ${device.deviceId.slice(0, 8)}`}
 												</div>
-												<div className="text-xs text-carbon-500 dark:text-carbon-400">
+												<div className="text-xs text-[var(--text-tertiary)]">
 													Device ID: {device.deviceId.slice(0, 20)}...
 												</div>
 											</div>
 											{selectedDevice === device.deviceId && (
-												<div className="h-2 w-2 bg-blue-500 rounded-full"></div>
+												<div className="h-2 w-2 bg-[var(--brand-solid)] rounded-full"></div>
 											)}
 										</DropdownMenuItem>
 									))}
@@ -866,7 +852,7 @@ export function SystemAudioRecorder({
 					<Button
 						onClick={startRecording}
 						size="lg"
-						className="w-full bg-blue-500 hover:bg-blue-600 text-white px-8 py-3 rounded-xl font-medium transition-all duration-300 hover:scale-105"
+						className="w-full rounded-xl text-white cursor-pointer bg-gradient-to-r from-[#FFAB40] to-[#FF3D00] hover:opacity-90 active:scale-[0.98] transition-all shadow-lg shadow-orange-500/20"
 					>
 						<MonitorSpeaker className="h-5 w-5 mr-2" />
 						Start Recording
