@@ -27,6 +27,7 @@ import {
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Slider } from "@/components/ui/slider";
+import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/components/ui/toast";
 
 interface SystemAudioRecorderProps {
@@ -64,6 +65,9 @@ export function SystemAudioRecorder({
 	// Device Selection
 	const [availableDevices, setAvailableDevices] = useState<MediaDeviceInfo[]>([]);
 	const [selectedDevice, setSelectedDevice] = useState("");
+
+	// Audio Settings
+	const [autoGainControl, setAutoGainControl] = useState(true);
 
 	// Error & Compatibility
 	const [compatibilityError, setCompatibilityError] = useState<string | null>(null);
@@ -315,7 +319,7 @@ export function SystemAudioRecorder({
 						// @ts-expect-error - Chrome/Edge support "remote-only" for echo cancellation
 						echoCancellation: "remote-only",  // Only cancel remote echo, allow mic during local playback
 						noiseSuppression: true,   // Remove background noise
-						autoGainControl: true,    // Normalize volume levels
+						autoGainControl: autoGainControl,    // Normalize volume levels (user configurable)
 					},
 				});
 
@@ -848,6 +852,28 @@ export function SystemAudioRecorder({
 							</DropdownMenu>
 						</div>
 					)}
+
+					{/* Audio Settings */}
+					<div className="space-y-3">
+						<label className="text-sm font-medium text-[var(--text-primary)]">
+							Audio Settings
+						</label>
+						<div className="flex items-center justify-between p-3 bg-[var(--bg-card)] border border-[var(--border-subtle)] rounded-[var(--radius-card)]">
+							<div className="flex-1">
+								<div className="text-sm font-medium text-[var(--text-primary)]">
+									Automatic Gain Control
+								</div>
+								<p className="text-xs text-[var(--text-tertiary)] mt-1">
+									Automatically adjusts microphone volume for consistent audio levels
+								</p>
+							</div>
+							<Switch
+								id="agc-toggle"
+								checked={autoGainControl}
+								onCheckedChange={setAutoGainControl}
+							/>
+						</div>
+					</div>
 
 					{/* Start Button */}
 					<Button
