@@ -65,6 +65,5 @@ docker-compose*.yml
 .npmrc
 .goreleaser.yaml
 Makefile
-run_tests.sh
 build.sh
 install_*.sh

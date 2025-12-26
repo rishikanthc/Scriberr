@@ -40,3 +40,11 @@ build-cli: ## Build CLI binaries for Linux, macOS, and Windows
 	GOOS=darwin GOARCH=arm64 go build -o bin/cli/scriberr-darwin-arm64 ./cmd/scriberr-cli
 	GOOS=windows GOARCH=amd64 go build -o bin/cli/scriberr-windows-amd64.exe ./cmd/scriberr-cli
 	@echo "✓ CLI binaries built in bin/cli/"
+
+test: ## Run tests using gotestsum (via go tool)
+	@echo "Running tests..."
+	go tool gotestsum --format pkgname -- -v ./...
+
+test-watch: ## Run tests in watch mode using gotestsum (via go tool)
+	@echo "Running tests in watch mode..."
+	go tool gotestsum --watch -- -v ./...
