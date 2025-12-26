@@ -609,7 +609,7 @@ export function SystemAudioRecorder({
 						<Button
 							onClick={handleUpload}
 							disabled={isUploading}
-							className="w-full"
+							className="w-full rounded-xl text-white cursor-pointer bg-gradient-to-r from-[#FFAB40] to-[#FF3D00] hover:opacity-90 active:scale-[0.98] transition-all shadow-lg shadow-orange-500/20"
 						>
 							{isUploading ? (
 								<>
