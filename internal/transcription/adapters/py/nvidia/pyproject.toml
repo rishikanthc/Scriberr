@@ -1,0 +1,47 @@
+[project]
+name = "nvidia-transcription"
+version = "0.1.0"
+description = "Audio transcription and diarization using NVIDIA models (Canary, Parakeet, Sortformer)"
+requires-python = ">=3.11"
+dependencies = [
+    "nemo-toolkit[asr]",
+    "torch",
+    "torchaudio",
+    "librosa",
+    "soundfile",
+    "ml-dtypes>=0.3.1,<0.5.0",
+    "onnx>=1.15.0,<1.18.0",
+    # "pyannote.audio" # needed for sortformer or no?
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-mock>=3.12.0",
+]
+
+[tool.uv.sources]
+nemo-toolkit = { git = "https://github.com/NVIDIA/NeMo.git", tag = "v2.5.3" }
+torch = [
+    { index = "pytorch-cpu", marker = "sys_platform == 'darwin'" },
+    { index = "pytorch-cpu", marker = "platform_machine != 'x86_64' and sys_platform != 'darwin'" },
+    { index = "pytorch", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
+]
+torchaudio = [
+    { index = "pytorch-cpu", marker = "sys_platform == 'darwin'" },
+    { index = "pytorch-cpu", marker = "platform_machine != 'x86_64' and sys_platform != 'darwin'" },
+    { index = "pytorch", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
+]
+triton = [
+    { index = "pytorch", marker = "sys_platform == 'linux'" }
+]
+
+[[tool.uv.index]]
+name = "pytorch"
+url = "https://download.pytorch.org/whl/cu126"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
