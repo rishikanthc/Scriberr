@@ -70,3 +70,4 @@ tmp/
 # *.svg
 # *.png
 dhl.txt
+__pycache__/

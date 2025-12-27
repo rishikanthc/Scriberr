@@ -128,8 +128,8 @@ func (p *ParakeetAdapter) PrepareEnvironment(ctx context.Context) error {
 	// Check if environment is already ready (using cache to speed up repeated checks)
 	if CheckEnvironmentReady(p.envPath, "import nemo.collections.asr") {
 		modelPath := filepath.Join(p.envPath, "parakeet-tdt-0.6b-v3.nemo")
-		scriptPath := filepath.Join(p.envPath, "transcribe.py")
-		bufferedScriptPath := filepath.Join(p.envPath, "transcribe_buffered.py")
+		scriptPath := filepath.Join(p.envPath, "parakeet_transcribe.py")
+		bufferedScriptPath := filepath.Join(p.envPath, "parakeet_transcribe_buffered.py")
 
 		// Check model, standard script, and buffered script all exist
 		if stat, err := os.Stat(modelPath); err == nil && stat.Size() > 1024*1024 {
@@ -160,7 +160,7 @@ func (p *ParakeetAdapter) PrepareEnvironment(ctx context.Context) error {
 	}
 
 	// Create transcription scripts (standard and buffered)
-	if err := p.createTranscriptionScript(); err != nil {
+	if err := p.copyTranscriptionScript(); err != nil {
 		return fmt.Errorf("failed to create transcription script: %w", err)
 	}
 
@@ -179,50 +179,23 @@ func (p *ParakeetAdapter) setupParakeetEnvironment() error {
 		return fmt.Errorf("failed to create parakeet directory: %w", err)
 	}
 
-	// Create pyproject.toml with configurable PyTorch CUDA version
-	pyprojectContent := fmt.Sprintf(`[project]
-name = "parakeet-transcription"
-version = "0.1.0"
-description = "Audio transcription using NVIDIA Parakeet models"
-requires-python = ">=3.11"
-dependencies = [
-    "nemo-toolkit[asr]",
-    "torch",
-    "torchaudio",
-    "librosa",
-    "soundfile",
-    "ml-dtypes>=0.3.1,<0.5.0",
-    "onnx>=1.15.0,<1.18.0",
-]
+	// Read pyproject.toml
+	pyprojectContent, err := nvidiaScripts.ReadFile("py/nvidia/pyproject.toml")
+	if err != nil {
+		return fmt.Errorf("failed to read embedded pyproject.toml: %w", err)
+	}
 
-[tool.uv.sources]
-nemo-toolkit = { git = "https://github.com/NVIDIA/NeMo.git", tag = "v2.5.3" }
-torch = [
-    { index = "pytorch-cpu", marker = "sys_platform == 'darwin'" },
-    { index = "pytorch-cpu", marker = "platform_machine != 'x86_64' and sys_platform != 'darwin'" },
-    { index = "pytorch", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
-]
-torchaudio = [
-    { index = "pytorch-cpu", marker = "sys_platform == 'darwin'" },
-    { index = "pytorch-cpu", marker = "platform_machine != 'x86_64' and sys_platform != 'darwin'" },
-    { index = "pytorch", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
-]
-triton = [
-    { index = "pytorch", marker = "sys_platform == 'linux'" }
-]
+	// Replace the hardcoded PyTorch URL with the dynamic one based on environment
+	// The static file contains the default cu126 URL
+	contentStr := strings.Replace(
+		string(pyprojectContent),
+		"https://download.pytorch.org/whl/cu126",
+		GetPyTorchWheelURL(),
+		1,
+	)
 
-[[tool.uv.index]]
-name = "pytorch"
-url = "%s"
-explicit = true
-
-[[tool.uv.index]]
-name = "pytorch-cpu"
-url = "https://download.pytorch.org/whl/cpu"
-explicit = true
-`, GetPyTorchWheelURL())
 	pyprojectPath := filepath.Join(p.envPath, "pyproject.toml")
-	if err := os.WriteFile(pyprojectPath, []byte(pyprojectContent), 0644); err != nil {
+	if err := os.WriteFile(pyprojectPath, []byte(contentStr), 0644); err != nil {
 		return fmt.Errorf("failed to write pyproject.toml: %w", err)
 	}
 
@@ -272,200 +245,15 @@ func (p *ParakeetAdapter) downloadParakeetModel() error {
 	return nil
 }
 
-// createTranscriptionScript creates the Python script for Parakeet transcription
-func (p *ParakeetAdapter) createTranscriptionScript() error {
-	scriptContent := `#!/usr/bin/env python3
-"""
-NVIDIA Parakeet transcription script with timestamp support.
-"""
+// copyTranscriptionScript creates the Python script for Parakeet transcription
+func (p *ParakeetAdapter) copyTranscriptionScript() error {
+	scriptContent, err := nvidiaScripts.ReadFile("py/nvidia/parakeet_transcribe.py")
+	if err != nil {
+		return fmt.Errorf("failed to read embedded transcribe.py: %w", err)
+	}
 
-import argparse
-import json
-import sys
-import os
-from pathlib import Path
-import nemo.collections.asr as nemo_asr
-
-
-def transcribe_audio(
-    audio_path: str,
-    timestamps: bool = True,
-    output_file: str = None,
-    context_left: int = 256,
-    context_right: int = 256,
-    include_confidence: bool = True,
-):
-    """
-    Transcribe audio using NVIDIA Parakeet model.
-    """
-    # Get the directory where this script is located
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    model_path = os.path.join(script_dir, "parakeet-tdt-0.6b-v3.nemo")
-    
-    print(f"Script directory: {script_dir}")
-    print(f"Looking for model at: {model_path}")
-    
-    if not os.path.exists(model_path):
-        print(f"Error during transcription: Can't find {model_path}")
-        # List files in the directory to help debug
-        try:
-            files = os.listdir(script_dir)
-            print(f"Files in {script_dir}: {files}")
-        except Exception as e:
-            print(f"Could not list directory: {e}")
-        sys.exit(1)
-    
-    print(f"Loading NVIDIA Parakeet model from: {model_path}")
-    asr_model = nemo_asr.models.ASRModel.restore_from(model_path)
-
-    # Disable CUDA graphs to fix Error 35 on RTX 2000e Ada GPU
-    # Uses change_decoding_strategy() to properly reconfigure the TDT decoder
-    from omegaconf import OmegaConf, open_dict
-
-    print("Disabling CUDA graphs in TDT decoder...")
-    dec_cfg = asr_model.cfg.decoding
-
-    # Add use_cuda_graph_decoder parameter to greedy config
-    with open_dict(dec_cfg.greedy):
-        dec_cfg.greedy['use_cuda_graph_decoder'] = False
-
-    # Apply the new decoding strategy (this rebuilds the decoder with our config)
-    asr_model.change_decoding_strategy(dec_cfg)
-    print("✓ CUDA graphs disabled successfully")
-
-    # Configure for long-form audio if context sizes are not default
-    if context_left != 256 or context_right != 256:
-        print(f"Configuring attention context: left={context_left}, right={context_right}")
-        try:
-            asr_model.change_attention_model(
-                self_attention_model="rel_pos_local_attn",
-                att_context_size=[context_left, context_right]
-            )
-            print("Long-form audio mode enabled")
-        except Exception as e:
-            print(f"Warning: Failed to configure attention model: {e}")
-            print("Continuing with default attention settings")
-    
-    print(f"Transcribing: {audio_path}")
-    
-    if timestamps:
-        output = asr_model.transcribe([audio_path], timestamps=True)
-        
-        # Extract text and timestamps
-        result_data = output[0]
-        text = result_data.text
-        word_timestamps = result_data.timestamp.get("word", [])
-        segment_timestamps = result_data.timestamp.get("segment", [])
-        
-        print(f"Transcription: {text}")
-        
-        # Prepare output data
-        output_data = {
-            "transcription": text,
-            "language": "en",
-            "word_timestamps": word_timestamps,
-            "segment_timestamps": segment_timestamps,
-            "audio_file": audio_path,
-            "model": "parakeet-tdt-0.6b-v3",
-            "context": {
-                "left": context_left,
-                "right": context_right
-            }
-        }
-        
-        if include_confidence:
-            # Add confidence scores if available
-            if hasattr(result_data, 'confidence') and result_data.confidence:
-                output_data["confidence"] = result_data.confidence
-        
-        # Save to file
-        if output_file:
-            with open(output_file, 'w', encoding='utf-8') as f:
-                json.dump(output_data, f, indent=2, ensure_ascii=False)
-            print(f"Results saved to: {output_file}")
-        else:
-            print(json.dumps(output_data, indent=2, ensure_ascii=False))
-    
-    else:
-        # Simple transcription without timestamps
-        output = asr_model.transcribe([audio_path])
-        text = output[0].text
-        
-        output_data = {
-            "transcription": text,
-            "language": "en", 
-            "audio_file": audio_path,
-            "model": "parakeet-tdt-0.6b-v3"
-        }
-        
-        if output_file:
-            with open(output_file, 'w', encoding='utf-8') as f:
-                json.dump(output_data, f, indent=2, ensure_ascii=False)
-            print(f"Results saved to: {output_file}")
-        else:
-            print(json.dumps(output_data, indent=2, ensure_ascii=False))
-
-
-def main():
-    parser = argparse.ArgumentParser(
-        description="Transcribe audio using NVIDIA Parakeet model"
-    )
-    parser.add_argument("audio_file", help="Path to audio file")
-    parser.add_argument(
-        "--timestamps", action="store_true", default=True,
-        help="Include word and segment level timestamps"
-    )
-    parser.add_argument(
-        "--no-timestamps", dest="timestamps", action="store_false",
-        help="Disable timestamps"
-    )
-    parser.add_argument(
-        "--output", "-o", help="Output file path"
-    )
-    parser.add_argument(
-        "--context-left", type=int, default=256,
-        help="Left attention context size (default: 256)"
-    )
-    parser.add_argument(
-        "--context-right", type=int, default=256,
-        help="Right attention context size (default: 256)"
-    )
-    parser.add_argument(
-        "--include-confidence", action="store_true", default=True,
-        help="Include confidence scores"
-    )
-    parser.add_argument(
-        "--no-confidence", dest="include_confidence", action="store_false",
-        help="Exclude confidence scores"
-    )
-    
-    args = parser.parse_args()
-    
-    # Validate input file
-    if not os.path.exists(args.audio_file):
-        print(f"Error: Audio file not found: {args.audio_file}")
-        sys.exit(1)
-    
-    try:
-        transcribe_audio(
-            audio_path=args.audio_file,
-            timestamps=args.timestamps,
-            output_file=args.output,
-            context_left=args.context_left,
-            context_right=args.context_right,
-            include_confidence=args.include_confidence,
-        )
-    except Exception as e:
-        print(f"Error during transcription: {e}")
-        sys.exit(1)
-
-
-if __name__ == "__main__":
-    main()
-`
-
-	scriptPath := filepath.Join(p.envPath, "transcribe.py")
-	if err := os.WriteFile(scriptPath, []byte(scriptContent), 0755); err != nil {
+	scriptPath := filepath.Join(p.envPath, "parakeet_transcribe.py")
+	if err := os.WriteFile(scriptPath, scriptContent, 0755); err != nil {
 		return fmt.Errorf("failed to write transcription script: %w", err)
 	}
 
@@ -684,7 +472,7 @@ func (p *ParakeetAdapter) transcribeBuffered(ctx context.Context, input interfac
 func (p *ParakeetAdapter) buildParakeetArgs(input interfaces.AudioInput, params map[string]interface{}, tempDir string) ([]string, error) {
 	outputFile := filepath.Join(tempDir, "result.json")
 
-	scriptPath := filepath.Join(p.envPath, "transcribe.py")
+	scriptPath := filepath.Join(p.envPath, "parakeet_transcribe.py")
 	args := []string{
 		"run", "--native-tls", "--project", p.envPath, "python", scriptPath,
 		input.FilePath,
@@ -771,181 +559,13 @@ func (p *ParakeetAdapter) parseResult(tempDir string, input interfaces.AudioInpu
 
 // createBufferedScript creates the Python script for NeMo buffered inference
 func (p *ParakeetAdapter) createBufferedScript() error {
-	scriptContent := `#!/usr/bin/env python3
-"""
-NVIDIA Parakeet buffered inference for long audio files.
-Splits audio into chunks to avoid GPU memory issues.
-"""
+	scriptContent, err := nvidiaScripts.ReadFile("py/nvidia/parakeet_transcribe_buffered.py")
+	if err != nil {
+		return fmt.Errorf("failed to read embedded transcribe_buffered.py: %w", err)
+	}
 
-import argparse
-import json
-import sys
-import os
-import librosa
-import soundfile as sf
-import numpy as np
-from pathlib import Path
-import nemo.collections.asr as nemo_asr
-
-
-def split_audio_file(audio_path, chunk_duration_secs=300):
-    """Split audio file into chunks of specified duration."""
-    audio, sr = librosa.load(audio_path, sr=None, mono=True)
-    total_duration = len(audio) / sr
-    chunk_samples = int(chunk_duration_secs * sr)
-
-    chunks = []
-    for start_sample in range(0, len(audio), chunk_samples):
-        end_sample = min(start_sample + chunk_samples, len(audio))
-        chunk_audio = audio[start_sample:end_sample]
-        start_time = start_sample / sr
-        chunks.append({
-            'audio': chunk_audio,
-            'start_time': start_time,
-            'duration': len(chunk_audio) / sr
-        })
-
-    return chunks, sr
-
-
-def transcribe_buffered(
-    audio_path: str,
-    output_file: str = None,
-    chunk_duration_secs: float = 300,  # 5 minutes default
-):
-    """
-    Transcribe long audio by splitting into chunks and merging results.
-    """
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    model_path = os.path.join(script_dir, "parakeet-tdt-0.6b-v3.nemo")
-
-    print(f"Loading NVIDIA Parakeet model from: {model_path}")
-    if not os.path.exists(model_path):
-        print(f"Error: Model not found at {model_path}")
-        sys.exit(1)
-
-    asr_model = nemo_asr.models.ASRModel.restore_from(model_path)
-
-    # Disable CUDA graphs to fix Error 35 on RTX 2000e Ada GPU
-    # Uses change_decoding_strategy() to properly reconfigure the TDT decoder
-    from omegaconf import OmegaConf, open_dict
-
-    print("Disabling CUDA graphs in TDT decoder...")
-    dec_cfg = asr_model.cfg.decoding
-
-    # Add use_cuda_graph_decoder parameter to greedy config
-    with open_dict(dec_cfg.greedy):
-        dec_cfg.greedy['use_cuda_graph_decoder'] = False
-
-    # Apply the new decoding strategy (this rebuilds the decoder with our config)
-    asr_model.change_decoding_strategy(dec_cfg)
-    print("✓ CUDA graphs disabled successfully")
-
-    print(f"Splitting audio into {chunk_duration_secs}s chunks...")
-    chunks, sr = split_audio_file(audio_path, chunk_duration_secs)
-    print(f"Created {len(chunks)} chunks")
-
-    all_words = []
-    all_segments = []
-    full_text = []
-
-    for i, chunk_info in enumerate(chunks):
-        print(f"Transcribing chunk {i+1}/{len(chunks)} (duration: {chunk_info['duration']:.1f}s)...")
-
-        # Save chunk to temporary file
-        chunk_path = f"/tmp/chunk_{i}.wav"
-        sf.write(chunk_path, chunk_info['audio'], sr)
-
-        try:
-            # Transcribe chunk
-            output = asr_model.transcribe(
-                [chunk_path],
-                batch_size=1,
-                timestamps=True,
-            )
-
-            result_data = output[0]
-            chunk_text = result_data.text
-            full_text.append(chunk_text)
-
-            # Extract and adjust timestamps
-            if hasattr(result_data, 'timestamp') and result_data.timestamp:
-                chunk_words = result_data.timestamp.get("word", [])
-                chunk_segments = result_data.timestamp.get("segment", [])
-
-                # Adjust timestamps by chunk start time
-                for word in chunk_words:
-                    word_copy = dict(word)
-                    word_copy['start'] += chunk_info['start_time']
-                    word_copy['end'] += chunk_info['start_time']
-                    all_words.append(word_copy)
-
-                for segment in chunk_segments:
-                    seg_copy = dict(segment)
-                    seg_copy['start'] += chunk_info['start_time']
-                    seg_copy['end'] += chunk_info['start_time']
-                    all_segments.append(seg_copy)
-
-            print(f"Chunk {i+1} complete: {len(chunk_text)} characters")
-
-        finally:
-            # Clean up temp file
-            if os.path.exists(chunk_path):
-                os.remove(chunk_path)
-
-    final_text = " ".join(full_text)
-    print(f"Transcription complete: {len(final_text)} characters total")
-
-    output_data = {
-        "transcription": final_text,
-        "language": "en",
-        "word_timestamps": all_words,
-        "segment_timestamps": all_segments,
-        "audio_file": audio_path,
-        "model": "parakeet-tdt-0.6b-v3",
-        "buffered": True,
-        "chunk_duration_secs": chunk_duration_secs,
-        "num_chunks": len(chunks),
-    }
-
-    if output_file:
-        with open(output_file, 'w', encoding='utf-8') as f:
-            json.dump(output_data, f, indent=2, ensure_ascii=False)
-        print(f"Results saved to: {output_file}")
-    else:
-        print(json.dumps(output_data, indent=2, ensure_ascii=False))
-
-
-def main():
-    parser = argparse.ArgumentParser(
-        description="Transcribe long audio using NVIDIA Parakeet with chunking"
-    )
-    parser.add_argument("audio_file", help="Path to audio file")
-    parser.add_argument("--output", "-o", help="Output file path", required=True)
-    parser.add_argument(
-        "--chunk-len", type=float, default=300,
-        help="Chunk duration in seconds (default: 300 = 5 minutes)"
-    )
-
-    args = parser.parse_args()
-
-    if not os.path.exists(args.audio_file):
-        print(f"Error: Audio file not found: {args.audio_file}")
-        sys.exit(1)
-
-    transcribe_buffered(
-        audio_path=args.audio_file,
-        output_file=args.output,
-        chunk_duration_secs=args.chunk_len,
-    )
-
-
-if __name__ == "__main__":
-    main()
-`
-
-	scriptPath := filepath.Join(p.envPath, "transcribe_buffered.py")
-	if err := os.WriteFile(scriptPath, []byte(scriptContent), 0755); err != nil {
+	scriptPath := filepath.Join(p.envPath, "parakeet_transcribe_buffered.py")
+	if err := os.WriteFile(scriptPath, scriptContent, 0755); err != nil {
 		return fmt.Errorf("failed to write buffered script: %w", err)
 	}
 
@@ -963,7 +583,7 @@ func (p *ParakeetAdapter) buildBufferedArgs(input interfaces.AudioInput, params 
 		chunkDuration = thresholdStr
 	}
 
-	scriptPath := filepath.Join(p.envPath, "transcribe_buffered.py")
+	scriptPath := filepath.Join(p.envPath, "parakeet_transcribe_buffered.py")
 	args := []string{
 		"run", "--native-tls", "--project", p.envPath, "python", scriptPath,
 		input.FilePath,
