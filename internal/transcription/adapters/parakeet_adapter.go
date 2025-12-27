@@ -125,6 +125,15 @@ func (p *ParakeetAdapter) GetSupportedModels() []string {
 func (p *ParakeetAdapter) PrepareEnvironment(ctx context.Context) error {
 	logger.Info("Preparing NVIDIA Parakeet environment", "env_path", p.envPath)
 
+	// Copy transcription scripts (standard and buffered)
+	if err := p.copyTranscriptionScript(); err != nil {
+		return fmt.Errorf("failed to copy transcription script: %w", err)
+	}
+
+	if err := p.copyBufferedScript(); err != nil {
+		return fmt.Errorf("failed to create buffered script: %w", err)
+	}
+
 	// Check if environment is already ready (using cache to speed up repeated checks)
 	if CheckEnvironmentReady(p.envPath, "import nemo.collections.asr") {
 		modelPath := filepath.Join(p.envPath, "parakeet-tdt-0.6b-v3.nemo")
@@ -157,15 +166,6 @@ func (p *ParakeetAdapter) PrepareEnvironment(ctx context.Context) error {
 	// Download model
 	if err := p.downloadParakeetModel(); err != nil {
 		return fmt.Errorf("failed to download Parakeet model: %w", err)
-	}
-
-	// Create transcription scripts (standard and buffered)
-	if err := p.copyTranscriptionScript(); err != nil {
-		return fmt.Errorf("failed to create transcription script: %w", err)
-	}
-
-	if err := p.createBufferedScript(); err != nil {
-		return fmt.Errorf("failed to create buffered script: %w", err)
 	}
 
 	p.initialized = true
@@ -557,8 +557,8 @@ func (p *ParakeetAdapter) parseResult(tempDir string, input interfaces.AudioInpu
 	return result, nil
 }
 
-// createBufferedScript creates the Python script for NeMo buffered inference
-func (p *ParakeetAdapter) createBufferedScript() error {
+// copyBufferedScript creates the Python script for NeMo buffered inference
+func (p *ParakeetAdapter) copyBufferedScript() error {
 	scriptContent, err := nvidiaScripts.ReadFile("py/nvidia/parakeet_transcribe_buffered.py")
 	if err != nil {
 		return fmt.Errorf("failed to read embedded transcribe_buffered.py: %w", err)

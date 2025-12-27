@@ -168,6 +168,11 @@ func (c *CanaryAdapter) GetSupportedModels() []string {
 func (c *CanaryAdapter) PrepareEnvironment(ctx context.Context) error {
 	logger.Info("Preparing NVIDIA Canary environment", "env_path", c.envPath)
 
+	// Copy transcription script
+	if err := c.copyTranscriptionScript(); err != nil {
+		return fmt.Errorf("failed to copy transcription script: %w", err)
+	}
+
 	// Check if environment is already ready (using cache to speed up repeated checks)
 	if CheckEnvironmentReady(c.envPath, "import nemo.collections.asr") {
 		modelPath := filepath.Join(c.envPath, "canary-1b-v2.nemo")
@@ -186,11 +191,6 @@ func (c *CanaryAdapter) PrepareEnvironment(ctx context.Context) error {
 	// Download model
 	if err := c.downloadCanaryModel(); err != nil {
 		return fmt.Errorf("failed to download Canary model: %w", err)
-	}
-
-	// Create transcription script
-	if err := c.copyTranscriptionScript(); err != nil {
-		return fmt.Errorf("failed to create transcription script: %w", err)
 	}
 
 	c.initialized = true

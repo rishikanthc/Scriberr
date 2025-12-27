@@ -182,6 +182,11 @@ func (p *PyAnnoteAdapter) GetMinSpeakers() int {
 func (p *PyAnnoteAdapter) PrepareEnvironment(ctx context.Context) error {
 	logger.Info("Preparing PyAnnote environment", "env_path", p.envPath)
 
+	// Always ensure diarization script exists
+	if err := p.copyDiarizationScript(); err != nil {
+		return fmt.Errorf("failed to create diarization script: %w", err)
+	}
+
 	// Check if PyAnnote is already available (using cache to speed up repeated checks)
 	if CheckEnvironmentReady(p.envPath, "from pyannote.audio import Pipeline") {
 		logger.Info("PyAnnote already available in environment")
@@ -196,11 +201,6 @@ func (p *PyAnnoteAdapter) PrepareEnvironment(ctx context.Context) error {
 	// Create environment if it doesn't exist or is incomplete
 	if err := p.setupPyAnnoteEnvironment(); err != nil {
 		return fmt.Errorf("failed to setup PyAnnote environment: %w", err)
-	}
-
-	// Always ensure diarization script exists
-	if err := p.copyDiarizationScript(); err != nil {
-		return fmt.Errorf("failed to create diarization script: %w", err)
 	}
 
 	// Verify PyAnnote is now available

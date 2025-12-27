@@ -152,6 +152,11 @@ func (s *SortformerAdapter) GetMinSpeakers() int {
 func (s *SortformerAdapter) PrepareEnvironment(ctx context.Context) error {
 	logger.Info("Preparing NVIDIA Sortformer environment", "env_path", s.envPath)
 
+	// Copy diarization script
+	if err := s.copyDiarizationScript(); err != nil {
+		return fmt.Errorf("failed to copy diarization script: %w", err)
+	}
+
 	// Check if environment is already ready (using cache to speed up repeated checks)
 	if CheckEnvironmentReady(s.envPath, "from nemo.collections.asr.models import SortformerEncLabelModel") {
 		modelPath := filepath.Join(s.envPath, "diar_streaming_sortformer_4spk-v2.nemo")
@@ -177,11 +182,6 @@ func (s *SortformerAdapter) PrepareEnvironment(ctx context.Context) error {
 	// Download model
 	if err := s.downloadSortformerModel(); err != nil {
 		return fmt.Errorf("failed to download Sortformer model: %w", err)
-	}
-
-	// Create diarization script
-	if err := s.copyDiarizationScript(); err != nil {
-		return fmt.Errorf("failed to create diarization script: %w", err)
 	}
 
 	s.initialized = true
