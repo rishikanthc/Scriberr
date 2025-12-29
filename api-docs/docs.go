@@ -132,6 +132,9 @@ const docTemplate = `{
                     }
                 ],
                 "description": "Delete an API key",
+                "produces": [
+                    "application/json"
+                ],
                 "tags": [
                     "api-keys"
                 ],

@@ -1934,6 +1934,7 @@ func (h *Handler) CreateAPIKey(c *gin.Context) {
 // @Summary Delete API key
 // @Description Delete an API key
 // @Tags api-keys
+// @Produce json
 // @Param id path int true "API Key ID"
 // @Success 200 {object} map[string]string
 // @Failure 400 {object} map[string]string
