@@ -2029,31 +2029,15 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Get a list of all transcription jobs with optional search and filtering\nGet a list of all transcription jobs with optional search and filtering",
+                "description": "Get a list of all transcription jobs with optional search and filtering",
                 "produces": [
-                    "application/json",
                     "application/json"
                 ],
                 "tags": [
-                    "transcription",
                     "transcription"
                 ],
                 "summary": "List all transcription records",
                 "parameters": [
-                    {
-                        "type": "integer",
-                        "default": 1,
-                        "description": "Page number",
-                        "name": "page",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "default": 10,
-                        "description": "Items per page",
-                        "name": "limit",
-                        "in": "query"
-                    },
                     {
                         "type": "integer",
                         "default": 1,
@@ -2704,32 +2688,17 @@ const docTemplate = `{
                     },
                     {
                         "BearerAuth": []
-                    },
-                    {
-                        "ApiKeyAuth": []
-                    },
-                    {
-                        "BearerAuth": []
                     }
                 ],
-                "description": "Delete a transcription job and its associated files\nDelete a transcription job and its associated files",
+                "description": "Delete a transcription job and its associated files",
                 "produces": [
-                    "application/json",
                     "application/json"
                 ],
                 "tags": [
-                    "transcription",
                     "transcription"
                 ],
                 "summary": "Delete transcription job",
                 "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Job ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
                     {
                         "type": "string",
                         "description": "Job ID",

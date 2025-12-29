@@ -2033,22 +2033,14 @@ paths:
       - summarize
   /api/v1/transcription/{id}:
     delete:
-      description: |-
-        Delete a transcription job and its associated files
-        Delete a transcription job and its associated files
+      description: Delete a transcription job and its associated files
       parameters:
       - description: Job ID
         in: path
         name: id
         required: true
         type: string
-      - description: Job ID
-        in: path
-        name: id
-        required: true
-        type: string
       produces:
-      - application/json
       - application/json
       responses:
         "200":
@@ -2072,11 +2064,8 @@ paths:
       security:
       - ApiKeyAuth: []
       - BearerAuth: []
-      - ApiKeyAuth: []
-      - BearerAuth: []
       summary: Delete transcription job
       tags:
-      - transcription
       - transcription
     get:
       description: Get details of a specific transcription job
@@ -2619,20 +2608,8 @@ paths:
       - transcription
   /api/v1/transcription/list:
     get:
-      description: |-
-        Get a list of all transcription jobs with optional search and filtering
-        Get a list of all transcription jobs with optional search and filtering
+      description: Get a list of all transcription jobs with optional search and filtering
       parameters:
-      - default: 1
-        description: Page number
-        in: query
-        name: page
-        type: integer
-      - default: 10
-        description: Items per page
-        in: query
-        name: limit
-        type: integer
       - default: 1
         description: Page number
         in: query
@@ -2665,7 +2642,6 @@ paths:
         type: string
       produces:
       - application/json
-      - application/json
       responses:
         "200":
           description: OK
@@ -2683,7 +2659,6 @@ paths:
       - BearerAuth: []
       summary: List all transcription records
       tags:
-      - transcription
       - transcription
   /api/v1/transcription/models:
     get:
