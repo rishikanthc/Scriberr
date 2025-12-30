@@ -155,13 +155,6 @@
       "tag": "transcription"
     },
     {
-      "method": "DELETE",
-      "path": "/api/v1/transcription/{id}",
-      "summary": "Delete transcription job",
-      "description": "Delete a transcription job and its associated files",
-      "tag": "transcription"
-    },
-    {
       "method": "GET",
       "path": "/api/v1/transcription/{id}/execution",
       "summary": "Get transcription job execution data",
