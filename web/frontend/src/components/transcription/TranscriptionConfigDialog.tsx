@@ -84,6 +84,7 @@ export interface WhisperXParams {
     attention_context_right: number;
     is_multi_track_enabled: boolean;
     api_key?: string;
+    max_new_tokens?: number;
 }
 
 interface TranscriptionConfigDialogProps {
@@ -1037,10 +1038,10 @@ function VoxtralConfig({ params, updateParam }: ConfigProps) {
                         <FormField label="Max Tokens" description="Maximum number of tokens to generate. Higher values allow longer transcriptions.">
                             <Input
                                 type="number"
-                                min={100}
-                                max={2000}
-                                value={params.max_line_width || 500}
-                                onChange={(e) => updateParam('max_line_width', parseInt(e.target.value) || 500)}
+                                min={512}
+                                max={8192}
+                                value={params.max_new_tokens || 4096}
+                                onChange={(e) => updateParam('max_new_tokens', parseInt(e.target.value) || 4096)}
                                 className={inputClassName}
                             />
                         </FormField>
