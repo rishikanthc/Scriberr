@@ -279,6 +279,11 @@ func (c *CanaryAdapter) downloadCanaryModel() error {
 
 // copyTranscriptionScript creates the Python script for Canary transcription
 func (c *CanaryAdapter) copyTranscriptionScript() error {
+	// Ensure directory exists before writing script
+	if err := os.MkdirAll(c.envPath, 0755); err != nil {
+		return fmt.Errorf("failed to create directory: %w", err)
+	}
+
 	scriptContent, err := nvidiaScripts.ReadFile("py/nvidia/canary_transcribe.py")
 	if err != nil {
 		return fmt.Errorf("failed to read embedded canary_transcribe.py: %w", err)
