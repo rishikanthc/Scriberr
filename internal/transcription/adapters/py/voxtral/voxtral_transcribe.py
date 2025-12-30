@@ -18,7 +18,7 @@ def transcribe_audio(
     language: str = "en",
     model_id: str = "mistralai/Voxtral-mini",
     device: str = "auto",
-    max_new_tokens: int = 4096,
+    max_new_tokens: int = 8192,
 ) -> dict:
     """
     Transcribe audio using Voxtral-mini model.
@@ -148,8 +148,8 @@ def main():
     parser.add_argument(
         "--max-new-tokens",
         type=int,
-        default=4096,
-        help="Maximum number of tokens to generate (default: 4096)"
+        default=8192,
+        help="Maximum number of tokens to generate (default: 8192)"
     )
 
     args = parser.parse_args()

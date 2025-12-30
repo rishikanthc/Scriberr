@@ -1035,13 +1035,13 @@ function VoxtralConfig({ params, updateParam }: ConfigProps) {
                         Advanced Settings
                     </AccordionTrigger>
                     <AccordionContent className="pb-4 space-y-4">
-                        <FormField label="Max Tokens" description="Maximum number of tokens to generate. Higher values allow longer transcriptions.">
+                        <FormField label="Max Tokens" description="Maximum number of tokens to generate. Voxtral has a 32k context window and handles up to 30-40 minutes of audio.">
                             <Input
                                 type="number"
-                                min={512}
-                                max={8192}
-                                value={params.max_new_tokens || 4096}
-                                onChange={(e) => updateParam('max_new_tokens', parseInt(e.target.value) || 4096)}
+                                min={1024}
+                                max={16384}
+                                value={params.max_new_tokens || 8192}
+                                onChange={(e) => updateParam('max_new_tokens', parseInt(e.target.value) || 8192)}
                                 className={inputClassName}
                             />
                         </FormField>
