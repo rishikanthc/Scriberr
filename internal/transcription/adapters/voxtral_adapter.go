@@ -159,13 +159,14 @@ func (v *VoxtralAdapter) setupVoxtralEnvironment() error {
 	return nil
 }
 
-// copyTranscriptionScript creates the Python script for Voxtral transcription
+// copyTranscriptionScript creates the Python scripts for Voxtral transcription
 func (v *VoxtralAdapter) copyTranscriptionScript() error {
 	// Ensure directory exists before writing script
 	if err := os.MkdirAll(v.envPath, 0755); err != nil {
 		return fmt.Errorf("failed to create directory: %w", err)
 	}
 
+	// Copy regular transcription script
 	scriptContent, err := voxtralScripts.ReadFile("py/voxtral/voxtral_transcribe.py")
 	if err != nil {
 		return fmt.Errorf("failed to read embedded voxtral_transcribe.py: %w", err)
@@ -174,6 +175,17 @@ func (v *VoxtralAdapter) copyTranscriptionScript() error {
 	scriptPath := filepath.Join(v.envPath, "voxtral_transcribe.py")
 	if err := os.WriteFile(scriptPath, scriptContent, 0755); err != nil {
 		return fmt.Errorf("failed to write transcription script: %w", err)
+	}
+
+	// Copy buffered transcription script for long audio files
+	bufferedContent, err := voxtralScripts.ReadFile("py/voxtral/voxtral_transcribe_buffered.py")
+	if err != nil {
+		return fmt.Errorf("failed to read embedded voxtral_transcribe_buffered.py: %w", err)
+	}
+
+	bufferedPath := filepath.Join(v.envPath, "voxtral_transcribe_buffered.py")
+	if err := os.WriteFile(bufferedPath, bufferedContent, 0755); err != nil {
+		return fmt.Errorf("failed to write buffered transcription script: %w", err)
 	}
 
 	return nil
@@ -262,7 +274,18 @@ func (v *VoxtralAdapter) Transcribe(ctx context.Context, input interfaces.AudioI
 func (v *VoxtralAdapter) buildVoxtralArgs(input interfaces.AudioInput, params map[string]interface{}, tempDir string) ([]string, error) {
 	outputFile := filepath.Join(tempDir, "result.json")
 
-	scriptPath := filepath.Join(v.envPath, "voxtral_transcribe.py")
+	// Determine if we should use buffered mode based on audio duration
+	// Voxtral handles 30-40 minutes natively, use buffered mode for longer files
+	useBuffered := input.Duration > 30*60 // More than 30 minutes
+
+	var scriptPath string
+	if useBuffered {
+		scriptPath = filepath.Join(v.envPath, "voxtral_transcribe_buffered.py")
+		logger.Info("Using buffered Voxtral for long audio", "duration", input.Duration)
+	} else {
+		scriptPath = filepath.Join(v.envPath, "voxtral_transcribe.py")
+	}
+
 	args := []string{
 		"run", "--native-tls", "--project", v.envPath, "python", scriptPath,
 		input.FilePath,
@@ -280,6 +303,11 @@ func (v *VoxtralAdapter) buildVoxtralArgs(input interfaces.AudioInput, params ma
 	// Add max tokens
 	if maxTokens := v.GetIntParameter(params, "max_new_tokens"); maxTokens > 0 {
 		args = append(args, "--max-new-tokens", fmt.Sprintf("%d", maxTokens))
+	}
+
+	// Add chunk length for buffered mode (default: 25 minutes = 1500 seconds)
+	if useBuffered {
+		args = append(args, "--chunk-len", "1500")
 	}
 
 	return args, nil
