@@ -247,6 +247,11 @@ func (p *ParakeetAdapter) downloadParakeetModel() error {
 
 // copyTranscriptionScript creates the Python script for Parakeet transcription
 func (p *ParakeetAdapter) copyTranscriptionScript() error {
+	// Ensure directory exists before writing script
+	if err := os.MkdirAll(p.envPath, 0755); err != nil {
+		return fmt.Errorf("failed to create directory: %w", err)
+	}
+
 	scriptContent, err := nvidiaScripts.ReadFile("py/nvidia/parakeet_transcribe.py")
 	if err != nil {
 		return fmt.Errorf("failed to read embedded transcribe.py: %w", err)
@@ -559,6 +564,11 @@ func (p *ParakeetAdapter) parseResult(tempDir string, input interfaces.AudioInpu
 
 // copyBufferedScript creates the Python script for NeMo buffered inference
 func (p *ParakeetAdapter) copyBufferedScript() error {
+	// Ensure directory exists before writing script
+	if err := os.MkdirAll(p.envPath, 0755); err != nil {
+		return fmt.Errorf("failed to create directory: %w", err)
+	}
+
 	scriptContent, err := nvidiaScripts.ReadFile("py/nvidia/parakeet_transcribe_buffered.py")
 	if err != nil {
 		return fmt.Errorf("failed to read embedded transcribe_buffered.py: %w", err)

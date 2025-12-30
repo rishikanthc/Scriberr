@@ -19,18 +19,38 @@ docs-clean: ## Clean generated API documentation
 
 website-dev: docs ## Start local development server for project website
 	@echo "Starting website development server..."
-	cd web/landing && npm run dev
+	cd web/project-site && npm run dev
 
 website-build: docs ## Build project website for GitHub Pages
 	@echo "Building project website..."
-	cd web/landing && npm run build
+	cd web/project-site && npm run build
 	@echo "✓ Website built to /docs directory"
 
 website-serve: website-build ## Build and preview project website locally
 	@echo "Previewing website..."
-	cd web/landing && npm run preview
+	cd web/project-site && npm run preview
 
 docs-serve: website-serve ## Alias for website-serve
+
+build: ## Build Scriberr binary with embedded frontend
+	@echo "Starting Scriberr build process..."
+	@echo "Cleaning old build files..."
+	@rm -f scriberr
+	@rm -rf internal/web/dist
+	@cd web/frontend && rm -rf dist/ && rm -rf assets/ 2>/dev/null || true
+	@echo "✓ Build files cleaned"
+	@echo "Building React frontend..."
+	@cd web/frontend && npm run build
+	@echo "✓ Frontend built"
+	@echo "Copying frontend assets for embedding..."
+	@rm -rf internal/web/dist
+	@cp -r web/frontend/dist internal/web/
+	@echo "✓ Assets copied"
+	@echo "Building Go binary..."
+	@go clean -cache
+	@go build -o scriberr cmd/server/main.go
+	@echo "✓ Binary built successfully"
+	@echo "Build complete. Run './scriberr' to start the server"
 
 build-cli: ## Build CLI binaries for Linux, macOS, and Windows
 	@echo "Building CLI binaries..."
