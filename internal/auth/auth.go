@@ -44,6 +44,21 @@ func (as *AuthService) GenerateToken(user *models.User) (string, error) {
 	return token.SignedString(as.jwtSecret)
 }
 
+// GenerateLongLivedToken generates a JWT token for a user that expires in 1 year
+func (as *AuthService) GenerateLongLivedToken(user *models.User) (string, error) {
+	claims := &Claims{
+		UserID:   user.ID,
+		Username: user.Username,
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(365 * 24 * time.Hour)),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+		},
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	return token.SignedString(as.jwtSecret)
+}
+
 // ValidateToken validates a JWT token and returns claims
 func (as *AuthService) ValidateToken(tokenString string) (*Claims, error) {
 	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (interface{}, error) {

@@ -15,6 +15,7 @@ export function SidebarProvider({ children, defaultOpen = true, width = 320 }: P
   return <SidebarContext.Provider value={value}>{children}</SidebarContext.Provider>
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useSidebar() {
   const ctx = useContext(SidebarContext)
   if (!ctx) throw new Error('useSidebar must be used within SidebarProvider')

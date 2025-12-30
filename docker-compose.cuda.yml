@@ -6,6 +6,7 @@ services:
       - "8080:8080"
     volumes:
       - scriberr_data:/app/data
+      - env_data:/app/whisperx-env
     restart: unless-stopped
     deploy:
       resources:
@@ -18,6 +19,13 @@ services:
     environment:
       - NVIDIA_VISIBLE_DEVICES=all
       - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      # Security: already set in container, but can be overridden
+      - APP_ENV=production
+      # CORS: comma-separated list of allowed origins for production
+      # - ALLOWED_ORIGINS=https://your-domain.com
 
 volumes:
   scriberr_data: {}
+  env_data: {}

@@ -1,0 +1,18 @@
+# lefthook.yml
+
+pre-commit:
+  parallel: true
+  commands:
+    go-lint:
+      glob: "**/*.go"
+      run: golangci-lint run ./...
+
+    frontend-lint:
+      root: "web/frontend/"
+      glob: "**/*.{js,jsx,ts,tsx}"
+      run: npx eslint {staged_files}
+
+    frontend-type-check:
+      root: "web/frontend/"
+      glob: "**/*.{ts,tsx}"
+      run: npm run type-check

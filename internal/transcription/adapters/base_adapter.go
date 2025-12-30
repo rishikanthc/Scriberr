@@ -3,6 +3,8 @@ package adapters
 import (
 	"context"
 	"fmt"
+
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -14,18 +16,37 @@ import (
 
 	"scriberr/internal/transcription/interfaces"
 	"scriberr/pkg/logger"
+
+	"golang.org/x/sync/singleflight"
 )
 
 // Environment readiness cache to avoid repeated expensive UV checks
 var (
 	envCacheMutex sync.RWMutex
 	envCache      = make(map[string]bool)
+	requestGroup  singleflight.Group
 )
 
-// CheckEnvironmentReady checks if a UV environment is ready with caching
+// GetPyTorchCUDAVersion returns the PyTorch CUDA wheel version to use.
+// This is configurable via the PYTORCH_CUDA_VERSION environment variable.
+// Defaults to "cu126" for CUDA 12.6 (legacy GPUs: GTX 10-series through RTX 40-series).
+// Set to "cu128" for CUDA 12.8 (Blackwell GPUs: RTX 50-series).
+func GetPyTorchCUDAVersion() string {
+	if cudaVersion := os.Getenv("PYTORCH_CUDA_VERSION"); cudaVersion != "" {
+		return cudaVersion
+	}
+	return "cu126" // Default to CUDA 12.6 for legacy compatibility
+}
+
+// GetPyTorchWheelURL returns the full PyTorch wheel URL for the configured CUDA version.
+func GetPyTorchWheelURL() string {
+	return fmt.Sprintf("https://download.pytorch.org/whl/%s", GetPyTorchCUDAVersion())
+}
+
+// CheckEnvironmentReady checks if a UV environment is ready with caching and singleflight
 func CheckEnvironmentReady(envPath, importStatement string) bool {
 	cacheKey := fmt.Sprintf("%s:%s", envPath, importStatement)
-	
+
 	// Check cache first
 	envCacheMutex.RLock()
 	if ready, exists := envCache[cacheKey]; exists {
@@ -33,17 +54,30 @@ func CheckEnvironmentReady(envPath, importStatement string) bool {
 		return ready
 	}
 	envCacheMutex.RUnlock()
-	
-	// Run the actual check
-	testCmd := exec.Command("uv", "run", "--native-tls", "--project", envPath, "python", "-c", importStatement)
-	ready := testCmd.Run() == nil
-	
-	// Cache the result
-	envCacheMutex.Lock()
-	envCache[cacheKey] = ready
-	envCacheMutex.Unlock()
-	
-	return ready
+
+	// Use singleflight to prevent duplicate checks
+	result, _, _ := requestGroup.Do(cacheKey, func() (interface{}, error) {
+		// Check cache again (double-checked locking)
+		envCacheMutex.RLock()
+		if ready, exists := envCache[cacheKey]; exists {
+			envCacheMutex.RUnlock()
+			return ready, nil
+		}
+		envCacheMutex.RUnlock()
+
+		// Run the actual check
+		testCmd := exec.Command("uv", "run", "--native-tls", "--project", envPath, "python", "-c", importStatement)
+		ready := testCmd.Run() == nil
+
+		// Cache the result
+		envCacheMutex.Lock()
+		envCache[cacheKey] = ready
+		envCacheMutex.Unlock()
+
+		return ready, nil
+	})
+
+	return result.(bool)
 }
 
 // BaseAdapter provides common functionality for all model adapters
@@ -88,7 +122,7 @@ func (b *BaseAdapter) ValidateParameters(params map[string]interface{}) error {
 	// Check for required parameters
 	for _, paramSchema := range b.schema {
 		value, exists := params[paramSchema.Name]
-		
+
 		if paramSchema.Required && !exists {
 			return fmt.Errorf("required parameter missing: %s", paramSchema.Name)
 		}
@@ -120,31 +154,33 @@ func (b *BaseAdapter) ValidateParameters(params map[string]interface{}) error {
 }
 
 // validateParameterValue validates a single parameter value against its schema
+//
+//nolint:gocyclo // Switch case with type checking is complex
 func (b *BaseAdapter) validateParameterValue(schema interfaces.ParameterSchema, value interface{}) error {
 	// Type validation
 	switch schema.Type {
 	case "int":
-		if intVal, err := b.convertToInt(value); err != nil {
+		intVal, err := b.convertToInt(value)
+		if err != nil {
 			return fmt.Errorf("expected int, got %T", value)
-		} else {
-			if schema.Min != nil && float64(intVal) < *schema.Min {
-				return fmt.Errorf("value %d is below minimum %g", intVal, *schema.Min)
-			}
-			if schema.Max != nil && float64(intVal) > *schema.Max {
-				return fmt.Errorf("value %d is above maximum %g", intVal, *schema.Max)
-			}
+		}
+		if schema.Min != nil && float64(intVal) < *schema.Min {
+			return fmt.Errorf("value %d is below minimum %g", intVal, *schema.Min)
+		}
+		if schema.Max != nil && float64(intVal) > *schema.Max {
+			return fmt.Errorf("value %d is above maximum %g", intVal, *schema.Max)
 		}
 
 	case "float":
-		if floatVal, err := b.convertToFloat(value); err != nil {
+		floatVal, err := b.convertToFloat(value)
+		if err != nil {
 			return fmt.Errorf("expected float, got %T", value)
-		} else {
-			if schema.Min != nil && floatVal < *schema.Min {
-				return fmt.Errorf("value %g is below minimum %g", floatVal, *schema.Min)
-			}
-			if schema.Max != nil && floatVal > *schema.Max {
-				return fmt.Errorf("value %g is above maximum %g", floatVal, *schema.Max)
-			}
+		}
+		if schema.Min != nil && floatVal < *schema.Min {
+			return fmt.Errorf("value %g is below minimum %g", floatVal, *schema.Min)
+		}
+		if schema.Max != nil && floatVal > *schema.Max {
+			return fmt.Errorf("value %g is above maximum %g", floatVal, *schema.Max)
 		}
 
 	case "string":
@@ -260,7 +296,7 @@ func (b *BaseAdapter) IsReady(ctx context.Context) bool {
 func (b *BaseAdapter) GetEstimatedProcessingTime(input interfaces.AudioInput) time.Duration {
 	// Basic estimation: processing time is typically 10-50% of audio duration
 	// This can be overridden by specific adapters for more accurate estimates
-	
+
 	audioDuration := input.Duration
 	if audioDuration == 0 {
 		// Fallback estimation based on file size (rough approximation)
@@ -379,15 +415,15 @@ func (b *BaseAdapter) CleanupTempDirectory(tempDir string) {
 func (b *BaseAdapter) ConvertAudioFormat(ctx context.Context, input interfaces.AudioInput, targetFormat string, targetSampleRate int) (interfaces.AudioInput, error) {
 	// This is a placeholder for audio conversion functionality
 	// In a real implementation, this would use FFmpeg or similar to convert audio
-	
-	if strings.ToLower(input.Format) == strings.ToLower(targetFormat) && 
-	   (targetSampleRate == 0 || input.SampleRate == targetSampleRate) {
+
+	if strings.EqualFold(input.Format, targetFormat) &&
+		(targetSampleRate == 0 || input.SampleRate == targetSampleRate) {
 		// No conversion needed
 		return input, nil
 	}
 
-	logger.Info("Audio conversion needed", 
-		"from_format", input.Format, 
+	logger.Info("Audio conversion needed",
+		"from_format", input.Format,
 		"to_format", targetFormat,
 		"from_sample_rate", input.SampleRate,
 		"to_sample_rate", targetSampleRate)
@@ -396,6 +432,40 @@ func (b *BaseAdapter) ConvertAudioFormat(ctx context.Context, input interfaces.A
 	// For now, return the original input and log a warning
 	logger.Warn("Audio conversion not yet implemented, using original format")
 	return input, nil
+}
+
+// ReadLogTail reads the last maxBytes from the log file
+func (b *BaseAdapter) ReadLogTail(logPath string, maxBytes int64) (string, error) {
+	file, err := os.Open(logPath)
+	if err != nil {
+		return "", err
+	}
+	defer file.Close()
+
+	stat, err := file.Stat()
+	if err != nil {
+		return "", err
+	}
+
+	fileSize := stat.Size()
+	if fileSize <= maxBytes {
+		bytes, err := io.ReadAll(file)
+		return string(bytes), err
+	}
+
+	start := fileSize - maxBytes
+	_, err = file.Seek(start, 0)
+	if err != nil {
+		return "", err
+	}
+
+	bytes := make([]byte, maxBytes)
+	_, err = file.Read(bytes)
+	if err != nil {
+		return "", err
+	}
+
+	return string(bytes), nil
 }
 
 // ValidateAudioInput checks if the audio input meets model requirements
@@ -415,7 +485,7 @@ func (b *BaseAdapter) ValidateAudioInput(input interfaces.AudioInput) error {
 			}
 		}
 		if !formatSupported {
-			return fmt.Errorf("audio format %s not supported by model %s. Supported formats: %v", 
+			return fmt.Errorf("audio format %s not supported by model %s. Supported formats: %v",
 				input.Format, b.modelID, b.capabilities.SupportedFormats)
 		}
 	}

@@ -5,8 +5,16 @@ services:
       - "8080:8080"
     volumes:
       - scriberr_data:/app/data
+      - env_data:/app/whisperx-env
+    environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      # Security: already set in container, but can be overridden
+      - APP_ENV=production
+      # CORS: comma-separated list of allowed origins for production
+      # - ALLOWED_ORIGINS=https://your-domain.com
     restart: unless-stopped
 
 volumes:
-  scriberr_data:
-
+  scriberr_data: {}
+  env_data: {}

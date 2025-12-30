@@ -15,6 +15,8 @@ import (
 	"scriberr/pkg/logger"
 )
 
+const OutputFormatJSON = "json"
+
 // PyAnnoteAdapter implements the DiarizationAdapter interface for PyAnnote
 type PyAnnoteAdapter struct {
 	*BaseAdapter
@@ -26,9 +28,9 @@ func NewPyAnnoteAdapter(envPath string) *PyAnnoteAdapter {
 	capabilities := interfaces.ModelCapabilities{
 		ModelID:            "pyannote",
 		ModelFamily:        "pyannote",
-		DisplayName:        "PyAnnote Speaker Diarization 3.1",
-		Description:        "PyAnnote audio speaker diarization with configurable speaker constraints",
-		Version:            "3.1.0",
+		DisplayName:        "PyAnnote Speaker Diarization Community 1",
+		Description:        "PyAnnote community model for speaker diarization",
+		Version:            "1.0.0",
 		SupportedLanguages: []string{"*"}, // Language-agnostic
 		SupportedFormats:   []string{"wav", "mp3", "flac", "m4a", "ogg"},
 		RequiresGPU:        false, // Optional GPU support
@@ -41,11 +43,11 @@ func NewPyAnnoteAdapter(envPath string) *PyAnnoteAdapter {
 			"flexible_speakers":   true,
 		},
 		Metadata: map[string]string{
-			"engine":     "pyannote_audio",
-			"framework":  "pytorch",
-			"license":    "MIT",
-			"requires":   "huggingface_token",
-			"model_hub":  "huggingface",
+			"engine":    "pyannote_audio",
+			"framework": "pytorch",
+			"license":   "MIT",
+			"requires":  "huggingface_token",
+			"model_hub": "huggingface",
 		},
 	}
 
@@ -63,8 +65,8 @@ func NewPyAnnoteAdapter(envPath string) *PyAnnoteAdapter {
 			Name:        "model",
 			Type:        "string",
 			Required:    false,
-			Default:     "pyannote/speaker-diarization-3.1",
-			Options:     []string{"pyannote/speaker-diarization-3.1", "pyannote/speaker-diarization-3.0"},
+			Default:     "pyannote/speaker-diarization-community-1",
+			Options:     []string{"pyannote/speaker-diarization-community-1"},
 			Description: "PyAnnote model to use",
 			Group:       "basic",
 		},
@@ -97,7 +99,7 @@ func NewPyAnnoteAdapter(envPath string) *PyAnnoteAdapter {
 			Type:        "string",
 			Required:    false,
 			Default:     "rttm",
-			Options:     []string{"rttm", "json"},
+			Options:     []string{"rttm", OutputFormatJSON},
 			Description: "Output format for diarization results",
 			Group:       "advanced",
 		},
@@ -115,9 +117,9 @@ func NewPyAnnoteAdapter(envPath string) *PyAnnoteAdapter {
 			Name:        "device",
 			Type:        "string",
 			Required:    false,
-			Default:     "cpu",
-			Options:     []string{"cpu", "cuda", "mps"},
-			Description: "Device to use for computation (cpu, cuda for NVIDIA GPUs, mps for Apple Silicon)",
+			Default:     "auto",
+			Options:     []string{"auto", "cpu", "cuda"},
+			Description: "Device to use for computation (auto, cpu, or cuda)",
 			Group:       "advanced",
 		},
 
@@ -142,10 +144,18 @@ func NewPyAnnoteAdapter(envPath string) *PyAnnoteAdapter {
 			Description: "Voice activity detection offset threshold",
 			Group:       "advanced",
 		},
+		{
+			Name:        "auto_convert_audio",
+			Type:        "bool",
+			Required:    false,
+			Default:     true,
+			Description: "Automatically convert audio to supported format",
+			Group:       "advanced",
+		},
 	}
 
 	baseAdapter := NewBaseAdapter("pyannote", envPath, capabilities, schema)
-	
+
 	adapter := &PyAnnoteAdapter{
 		BaseAdapter: baseAdapter,
 		envPath:     envPath,
@@ -164,7 +174,7 @@ func (p *PyAnnoteAdapter) GetMinSpeakers() int {
 	return 1
 }
 
-// PrepareEnvironment sets up the PyAnnote environment (shared with NVIDIA models)
+// PrepareEnvironment sets up the dedicated PyAnnote environment
 func (p *PyAnnoteAdapter) PrepareEnvironment(ctx context.Context) error {
 	logger.Info("Preparing PyAnnote environment", "env_path", p.envPath)
 
@@ -179,19 +189,9 @@ func (p *PyAnnoteAdapter) PrepareEnvironment(ctx context.Context) error {
 		return nil
 	}
 
-	// Check if the shared environment exists (created by NVIDIA adapters)
-	pyprojectPath := filepath.Join(p.envPath, "pyproject.toml")
-	if _, err := os.Stat(pyprojectPath); err != nil {
-		// Create environment if it doesn't exist
-		if err := p.setupPyAnnoteEnvironment(); err != nil {
-			return fmt.Errorf("failed to setup PyAnnote environment: %w", err)
-		}
-	} else {
-		// Environment exists but PyAnnote not available - add PyAnnote to existing environment
-		logger.Info("Adding PyAnnote to existing environment")
-		if err := p.addPyAnnoteToEnvironment(); err != nil {
-			return fmt.Errorf("failed to add PyAnnote to environment: %w", err)
-		}
+	// Create environment if it doesn't exist or is incomplete
+	if err := p.setupPyAnnoteEnvironment(); err != nil {
+		return fmt.Errorf("failed to setup PyAnnote environment: %w", err)
 	}
 
 	// Always ensure diarization script exists
@@ -210,32 +210,49 @@ func (p *PyAnnoteAdapter) PrepareEnvironment(ctx context.Context) error {
 	return nil
 }
 
-// setupPyAnnoteEnvironment creates the Python environment if it doesn't exist
+// setupPyAnnoteEnvironment creates the Python environment
 func (p *PyAnnoteAdapter) setupPyAnnoteEnvironment() error {
 	if err := os.MkdirAll(p.envPath, 0755); err != nil {
 		return fmt.Errorf("failed to create pyannote directory: %w", err)
 	}
 
-	// Create pyproject.toml (same as NVIDIA models but with pyannote.audio added)
-	pyprojectContent := `[project]
-name = "parakeet-transcription"
+	// Create pyproject.toml with configurable PyTorch CUDA version
+	// Note: We explicitly pin torch and torchaudio to 2.1.2 to ensure compatibility with pyannote.audio 3.1
+	// Newer versions of torchaudio (2.2+) removed AudioMetaData which causes crashes
+	pyprojectContent := fmt.Sprintf(`[project]
+name = "pyannote-diarization"
 version = "0.1.0"
-description = "Audio transcription using NVIDIA Parakeet models"
-requires-python = ">=3.11"
+description = "Audio diarization using PyAnnote"
+requires-python = ">=3.10"
 dependencies = [
-    "nemo-toolkit[asr]",
-    "torch",
-    "torchaudio",
-    "librosa",
-    "soundfile",
-    "ml-dtypes>=0.3.1,<0.5.0",
-    "onnx>=1.15.0,<1.18.0",
-    "pyannote.audio"
+    "torch>=2.5.0",
+    "torchaudio>=2.5.0",
+    "huggingface-hub>=0.28.1",
+    "pyannote.audio==4.0.2"
 ]
 
 [tool.uv.sources]
-nemo-toolkit = { git = "https://github.com/NVIDIA/NeMo.git" }
-`
+torch = [
+    { index = "pytorch-cpu", marker = "sys_platform == 'darwin'" },
+    { index = "pytorch-cpu", marker = "platform_machine != 'x86_64' and sys_platform != 'darwin'" },
+    { index = "pytorch", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
+]
+torchaudio = [
+    { index = "pytorch-cpu", marker = "sys_platform == 'darwin'" },
+    { index = "pytorch-cpu", marker = "platform_machine != 'x86_64' and sys_platform != 'darwin'" },
+    { index = "pytorch", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
+]
+
+[[tool.uv.index]]
+name = "pytorch"
+url = "%s"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+`, GetPyTorchWheelURL())
 	pyprojectPath := filepath.Join(p.envPath, "pyproject.toml")
 	if err := os.WriteFile(pyprojectPath, []byte(pyprojectContent), 0644); err != nil {
 		return fmt.Errorf("failed to write pyproject.toml: %w", err)
@@ -253,73 +270,19 @@ nemo-toolkit = { git = "https://github.com/NVIDIA/NeMo.git" }
 	return nil
 }
 
-// addPyAnnoteToEnvironment adds pyannote.audio to an existing environment
-func (p *PyAnnoteAdapter) addPyAnnoteToEnvironment() error {
-	// Read existing pyproject.toml
-	pyprojectPath := filepath.Join(p.envPath, "pyproject.toml")
-	data, err := os.ReadFile(pyprojectPath)
-	if err != nil {
-		return fmt.Errorf("failed to read pyproject.toml: %w", err)
-	}
-
-	content := string(data)
-	logger.Info("Current pyproject.toml content", "content", content)
-	
-	// Check if pyannote.audio is already in dependencies
-	if strings.Contains(content, "pyannote.audio") {
-		logger.Info("pyannote.audio already in dependencies, running sync")
-	} else {
-		// Instead of complex string manipulation, let's recreate the file with pyannote.audio
-		logger.Info("Adding pyannote.audio to dependencies by recreating pyproject.toml")
-		
-		// Create updated pyproject.toml with pyannote.audio included
-		updatedContent := `[project]
-name = "parakeet-transcription"
-version = "0.1.0"
-description = "Audio transcription using NVIDIA Parakeet models"
-requires-python = ">=3.11"
-dependencies = [
-    "nemo-toolkit[asr]",
-    "torch",
-    "torchaudio",
-    "librosa",
-    "soundfile",
-    "ml-dtypes>=0.3.1,<0.5.0",
-    "onnx>=1.15.0,<1.18.0",
-    "pyannote.audio"
-]
-
-[tool.uv.sources]
-nemo-toolkit = { git = "https://github.com/NVIDIA/NeMo.git" }
-`
-		
-		// Write updated pyproject.toml
-		if err := os.WriteFile(pyprojectPath, []byte(updatedContent), 0644); err != nil {
-			return fmt.Errorf("failed to write updated pyproject.toml: %w", err)
-		}
-		logger.Info("Updated pyproject.toml with pyannote.audio")
-	}
-
-	// Run uv sync to install pyannote.audio
-	logger.Info("Installing PyAnnote dependencies")
-	cmd := exec.Command("uv", "sync", "--native-tls")
-	cmd.Dir = p.envPath
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("uv sync failed: %w: %s", err, strings.TrimSpace(string(out)))
-	}
-
-	return nil
-}
-
 // createDiarizationScript creates the Python script for PyAnnote diarization
 func (p *PyAnnoteAdapter) createDiarizationScript() error {
-	scriptPath := filepath.Join(p.envPath, "pyannote_diarize.py")
-	
-	// Check if script already exists
-	if _, err := os.Stat(scriptPath); err == nil {
-		return nil
+	// Ensure the directory exists first
+	if err := os.MkdirAll(p.envPath, 0755); err != nil {
+		return fmt.Errorf("failed to create pyannote directory: %w", err)
 	}
+
+	scriptPath := filepath.Join(p.envPath, "pyannote_diarize.py")
+
+	// Always recreate the script to ensure it's up to date with the adapter code
+	// if _, err := os.Stat(scriptPath); err == nil {
+	// 	return nil
+	// }
 
 	scriptContent := `#!/usr/bin/env python3
 """
@@ -333,17 +296,30 @@ import sys
 import os
 from pathlib import Path
 from pyannote.audio import Pipeline
+import torch
+
+# Fix for PyTorch 2.6+ which defaults weights_only=True
+# We need to allowlist PyAnnote's custom classes
+try:
+    from pyannote.audio.core.task import Specifications, Problem, Resolution
+    if hasattr(torch.serialization, "add_safe_globals"):
+        torch.serialization.add_safe_globals([Specifications, Problem, Resolution])
+except ImportError:
+    pass
+except Exception as e:
+    print(f"Warning: Could not add safe globals: {e}")
 
 
 def diarize_audio(
     audio_path: str,
     output_file: str,
     hf_token: str,
-    model: str = "pyannote/speaker-diarization-3.1",
+    model: str = "pyannote/speaker-diarization-community-1",
     min_speakers: int = None,
     max_speakers: int = None,
     output_format: str = "rttm",
-    device: str = "cpu"
+
+    device: str = "auto"
 ):
     """
     Perform speaker diarization on audio file using PyAnnote.
@@ -354,30 +330,23 @@ def diarize_audio(
         # Initialize the diarization pipeline
         pipeline = Pipeline.from_pretrained(
             model,
-            use_auth_token=hf_token
+            token=hf_token
         )
         
         # Move to specified device
-        if device == "cuda":
-            try:
-                import torch
-                if torch.cuda.is_available():
-                    pipeline = pipeline.to(torch.device("cuda"))
-                    print("Using CUDA for diarization")
-                else:
-                    print("CUDA not available, falling back to CPU")
-            except ImportError:
-                print("PyTorch not available for CUDA, using CPU")
-        elif device == "mps":
-            try:
-                import torch
-                if torch.backends.mps.is_available():
-                    pipeline = pipeline.to(torch.device("mps"))
-                    print("Using MPS (Apple Silicon) for diarization")
-                else:
-                    print("MPS not available, falling back to CPU")
-            except (ImportError, AttributeError):
-                print("PyTorch MPS not available, using CPU")
+        # if device == "auto" or device == "cuda":
+        try:
+            if torch.cuda.is_available():
+                pipeline = pipeline.to(torch.device("cuda"))
+                print("Using CUDA for diarization")
+            elif device == "cuda":
+                print("CUDA requested but not available, falling back to CPU")
+            else:
+                print("CUDA not available, using CPU")
+        except ImportError:
+            print("PyTorch not available for CUDA, using CPU")
+        except Exception as e:
+            print(f"Error moving to device: {e}, using CPU")
         
         print("Pipeline loaded successfully")
     except Exception as e:
@@ -416,9 +385,22 @@ def diarize_audio(
         speakers = set()
         total_speech_time = 0.0
         
-        for segment, track, speaker in diarization.itertracks(yield_label=True):
-            speakers.add(speaker)
-            total_speech_time += segment.duration
+        # Iterate over speaker diarization
+        # PyAnnote 4.x returns a DiarizeOutput object with a speaker_diarization attribute
+        if hasattr(diarization, "speaker_diarization"):
+            for turn, speaker in diarization.speaker_diarization:
+                speakers.add(speaker)
+                total_speech_time += turn.duration
+        elif hasattr(diarization, "itertracks"):
+            # Fallback for older versions
+            for segment, track, speaker in diarization.itertracks(yield_label=True):
+                speakers.add(speaker)
+                total_speech_time += segment.duration
+        else:
+            # Try iterating directly (some versions return Annotation directly)
+            for segment, track, speaker in diarization.itertracks(yield_label=True):
+                speakers.add(speaker)
+                total_speech_time += segment.duration
         
         print(f"\nDiarization Summary:")
         print(f"  Speakers detected: {len(speakers)}")
@@ -436,22 +418,35 @@ def save_json_format(diarization, output_file: str, audio_path: str):
     segments = []
     speakers = set()
     
-    for segment, track, speaker in diarization.itertracks(yield_label=True):
-        segments.append({
-            "start": segment.start,
-            "end": segment.end,
-            "speaker": speaker,
-            "confidence": 1.0,  # PyAnnote doesn't provide per-segment confidence
-            "duration": segment.duration
-        })
-        speakers.add(speaker)
+    # PyAnnote 4.x
+    if hasattr(diarization, "speaker_diarization"):
+        for turn, speaker in diarization.speaker_diarization:
+            segments.append({
+                "start": turn.start,
+                "end": turn.end,
+                "speaker": speaker,
+                "confidence": 1.0,
+                "duration": turn.duration
+            })
+            speakers.add(speaker)
+    # Older versions
+    elif hasattr(diarization, "itertracks"):
+        for segment, track, speaker in diarization.itertracks(yield_label=True):
+            segments.append({
+                "start": segment.start,
+                "end": segment.end,
+                "speaker": speaker,
+                "confidence": 1.0,
+                "duration": segment.duration
+            })
+            speakers.add(speaker)
     
     # Sort segments by start time
     segments.sort(key=lambda x: x["start"])
     
     results = {
         "audio_file": audio_path,
-        "model": "pyannote/speaker-diarization-3.1",
+        "model": "pyannote/speaker-diarization-community-1",
         "segments": segments,
         "speakers": sorted(speakers),
         "speaker_count": len(speakers),
@@ -486,7 +481,7 @@ def main():
     )
     parser.add_argument(
         "--model",
-        default="pyannote/speaker-diarization-3.1",
+        default="pyannote/speaker-diarization-community-1",
         help="PyAnnote model to use"
     )
     parser.add_argument(
@@ -507,8 +502,8 @@ def main():
     )
     parser.add_argument(
         "--device",
-        choices=["cpu", "cuda", "mps"],
-        default="cpu",
+        choices=["cpu", "cuda", "auto"],
+        default="auto",
         help="Device to use for computation"
     )
 
@@ -605,15 +600,32 @@ func (p *PyAnnoteAdapter) Diarize(ctx context.Context, input interfaces.AudioInp
 	cmd := exec.CommandContext(ctx, "uv", args...)
 	cmd.Env = append(os.Environ(), "PYTHONUNBUFFERED=1")
 
-	logger.Info("Executing PyAnnote command", "args", strings.Join(args, " "))
-	
-	output, err := cmd.CombinedOutput()
-	if ctx.Err() == context.Canceled {
-		return nil, fmt.Errorf("diarization was cancelled")
-	}
+	// Setup log file
+	logFile, err := os.OpenFile(filepath.Join(procCtx.OutputDirectory, "transcription.log"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
-		logger.Error("PyAnnote execution failed", "output", string(output), "error", err)
-		return nil, fmt.Errorf("PyAnnote execution failed: %w", err)
+		logger.Warn("Failed to create log file", "error", err)
+	} else {
+		defer logFile.Close()
+		cmd.Stdout = logFile
+		cmd.Stderr = logFile
+	}
+
+	logger.Info("Executing PyAnnote command", "args", strings.Join(args, " "))
+
+	if err := cmd.Run(); err != nil {
+		if ctx.Err() == context.Canceled {
+			return nil, fmt.Errorf("diarization was cancelled")
+		}
+
+		// Read tail of log file for context
+		logPath := filepath.Join(procCtx.OutputDirectory, "transcription.log")
+		logTail, readErr := p.ReadLogTail(logPath, 2048)
+		if readErr != nil {
+			logger.Warn("Failed to read log tail", "error", readErr)
+		}
+
+		logger.Error("PyAnnote execution failed", "error", err)
+		return nil, fmt.Errorf("PyAnnote execution failed: %w\nLogs:\n%s", err, logTail)
 	}
 
 	// Parse result
@@ -626,7 +638,7 @@ func (p *PyAnnoteAdapter) Diarize(ctx context.Context, input interfaces.AudioInp
 	result.ModelUsed = p.GetStringParameter(params, "model")
 	result.Metadata = p.CreateDefaultMetadata(params)
 
-	logger.Info("PyAnnote diarization completed", 
+	logger.Info("PyAnnote diarization completed",
 		"segments", len(result.Segments),
 		"speakers", result.SpeakerCount,
 		"processing_time", result.ProcessingTime)
@@ -638,12 +650,12 @@ func (p *PyAnnoteAdapter) Diarize(ctx context.Context, input interfaces.AudioInp
 func (p *PyAnnoteAdapter) buildPyAnnoteArgs(input interfaces.AudioInput, params map[string]interface{}, tempDir string) ([]string, error) {
 	outputFormat := p.GetStringParameter(params, "output_format")
 	var outputFile string
-	if outputFormat == "json" {
+	if outputFormat == OutputFormatJSON {
 		outputFile = filepath.Join(tempDir, "result.json")
 	} else {
 		outputFile = filepath.Join(tempDir, "result.rttm")
 	}
-	
+
 	scriptPath := filepath.Join(p.envPath, "pyannote_diarize.py")
 	args := []string{
 		"run", "--native-tls", "--project", p.envPath, "python", scriptPath,
@@ -668,10 +680,7 @@ func (p *PyAnnoteAdapter) buildPyAnnoteArgs(input interfaces.AudioInput, params 
 	// Add output format
 	args = append(args, "--output-format", outputFormat)
 
-	// Add device
-	if device := p.GetStringParameter(params, "device"); device != "" {
-		args = append(args, "--device", device)
-	}
+	// Device is handled automatically by the script
 
 	return args, nil
 }
@@ -679,27 +688,26 @@ func (p *PyAnnoteAdapter) buildPyAnnoteArgs(input interfaces.AudioInput, params 
 // parseResult parses the PyAnnote output
 func (p *PyAnnoteAdapter) parseResult(tempDir string, input interfaces.AudioInput, params map[string]interface{}) (*interfaces.DiarizationResult, error) {
 	outputFormat := p.GetStringParameter(params, "output_format")
-	
-	if outputFormat == "json" {
+
+	if outputFormat == OutputFormatJSON {
 		return p.parseJSONResult(tempDir)
-	} else {
-		return p.parseRTTMResult(tempDir, input)
 	}
+	return p.parseRTTMResult(tempDir, input)
 }
 
 // parseJSONResult parses JSON format output
 func (p *PyAnnoteAdapter) parseJSONResult(tempDir string) (*interfaces.DiarizationResult, error) {
 	resultFile := filepath.Join(tempDir, "result.json")
-	
+
 	data, err := os.ReadFile(resultFile)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read result file: %w", err)
 	}
 
 	var pyannoteResult struct {
-		AudioFile   string `json:"audio_file"`
-		Model       string `json:"model"`
-		Segments    []struct {
+		AudioFile string `json:"audio_file"`
+		Model     string `json:"model"`
+		Segments  []struct {
 			Start      float64 `json:"start"`
 			End        float64 `json:"end"`
 			Speaker    string  `json:"speaker"`
@@ -737,7 +745,7 @@ func (p *PyAnnoteAdapter) parseJSONResult(tempDir string) (*interfaces.Diarizati
 // parseRTTMResult parses RTTM format output
 func (p *PyAnnoteAdapter) parseRTTMResult(tempDir string, input interfaces.AudioInput) (*interfaces.DiarizationResult, error) {
 	resultFile := filepath.Join(tempDir, "result.rttm")
-	
+
 	data, err := os.ReadFile(resultFile)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read result file: %w", err)

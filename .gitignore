@@ -39,11 +39,12 @@ AGENTS.md
 scriberr-data
 whisperx-env
 
-internal/web
+# internal/web
 env-data
 # main
 results.json
 # server
+!cmd/server/main.go
 test_word_conversion.go
 debug_whisperx_parsing.go
 debug_parsing.go
@@ -52,3 +53,20 @@ tests/database_test.db-shm
 
 # Project documentation (local only)
 project-docs
+!internal/web/static.go
+feats.txt
+log.txt
+manifest_and_icons
+manifest_and_icons.zip
+tests/database_test.db-wal
+internal/web/dist
+
+
+# Development files
+prompt.txt
+# .agent/
+agent-bak/
+tmp/
+# *.svg
+# *.png
+dhl.txt

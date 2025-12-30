@@ -1,9 +1,10 @@
 package models
 
 import (
+	"time"
+
 	"github.com/google/uuid"
 	"gorm.io/gorm"
-	"time"
 )
 
 // SummaryTemplate represents a saved summarization prompt/template
@@ -40,6 +41,9 @@ type Summary struct {
 	Content         string    `json:"content" gorm:"type:text;not null"`
 	CreatedAt       time.Time `json:"created_at" gorm:"autoCreateTime"`
 	UpdatedAt       time.Time `json:"updated_at" gorm:"autoUpdateTime"`
+
+	// Relationships
+	Transcription TranscriptionJob `json:"transcription,omitempty" gorm:"foreignKey:TranscriptionID;constraint:OnDelete:CASCADE"`
 }
 
 // BeforeCreate ensures Summary has a UUID primary key

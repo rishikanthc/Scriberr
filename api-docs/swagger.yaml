@@ -165,6 +165,11 @@ definitions:
       name:
         type: string
     type: object
+  api.ErrorResponse:
+    properties:
+      error:
+        type: string
+    type: object
   api.LLMConfigRequest:
     properties:
       api_key:
@@ -173,6 +178,8 @@ definitions:
         type: string
       is_active:
         type: boolean
+      openai_base_url:
+        type: string
       provider:
         enum:
         - ollama
@@ -194,6 +201,8 @@ definitions:
         type: integer
       is_active:
         type: boolean
+      openai_base_url:
+        type: string
       provider:
         type: string
       updated_at:
@@ -375,6 +384,11 @@ definitions:
       default_profile_id:
         type: string
     type: object
+  api.ValidateOpenAIKeyRequest:
+    properties:
+      api_key:
+        type: string
+    type: object
   api.YouTubeDownloadRequest:
     properties:
       title:
@@ -456,6 +470,10 @@ definitions:
       start_word_index:
         description: Indexed selection into transcript by word positions
         type: integer
+      transcription:
+        allOf:
+        - $ref: '#/definitions/models.TranscriptionJob'
+        description: Relationships
       transcription_id:
         type: string
       updated_at:
@@ -473,6 +491,10 @@ definitions:
         type: string
       template_id:
         type: string
+      transcription:
+        allOf:
+        - $ref: '#/definitions/models.TranscriptionJob'
+        description: Relationships
       transcription_id:
         type: string
       updated_at:
@@ -502,6 +524,8 @@ definitions:
       aup_file_path:
         type: string
       created_at:
+        type: string
+      deleted_at:
         type: string
       diarization:
         type: boolean
@@ -610,6 +634,9 @@ definitions:
       align_model:
         description: Alignment settings
         type: string
+      api_key:
+        description: OpenAI settings
+        type: string
       attention_context_left:
         description: NVIDIA Parakeet-specific parameters for long-form audio
         type: integer
@@ -621,6 +648,9 @@ definitions:
         type: integer
       best_of:
         type: integer
+      callback_url:
+        description: Webhook settings
+        type: string
       chunk_size:
         type: integer
       compression_ratio_threshold:
@@ -1352,6 +1382,64 @@ paths:
       summary: Get chat sessions for a transcription
       tags:
       - chat
+  /api/v1/config/openai/validate:
+    post:
+      consumes:
+      - application/json
+      description: Validate the provided OpenAI API key and return available Whisper
+        models
+      parameters:
+      - description: API Key
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/api.ValidateOpenAIKeyRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - ApiKeyAuth: []
+      - BearerAuth: []
+      summary: Validate OpenAI API Key
+      tags:
+      - config
+  /api/v1/events:
+    get:
+      description: Subscribe to server-sent events
+      produces:
+      - text/event-stream
+      responses:
+        "200":
+          description: stream
+          schema:
+            type: string
+      summary: SSE Events
+      tags:
+      - events
   /api/v1/llm/config:
     get:
       description: Get the current active LLM configuration
@@ -1945,14 +2033,22 @@ paths:
       - summarize
   /api/v1/transcription/{id}:
     delete:
-      description: Delete a transcription job and its associated files
+      description: |-
+        Delete a transcription job and its associated files
+        Delete a transcription job and its associated files
       parameters:
       - description: Job ID
         in: path
         name: id
         required: true
         type: string
+      - description: Job ID
+        in: path
+        name: id
+        required: true
+        type: string
       produces:
+      - application/json
       - application/json
       responses:
         "200":
@@ -1976,11 +2072,14 @@ paths:
       security:
       - ApiKeyAuth: []
       - BearerAuth: []
+      - ApiKeyAuth: []
+      - BearerAuth: []
       summary: Delete transcription job
       tags:
       - transcription
+      - transcription
     get:
-      description: Get a specific transcription record by its ID
+      description: Get details of a specific transcription job
       parameters:
       - description: Job ID
         in: path
@@ -2003,8 +2102,7 @@ paths:
       security:
       - ApiKeyAuth: []
       - BearerAuth: []
-      - BearerAuth: []
-      summary: Get transcription record by ID
+      summary: Get transcription job details
       tags:
       - transcription
   /api/v1/transcription/{id}/audio:
@@ -2209,8 +2307,6 @@ paths:
       - notes
   /api/v1/transcription/{id}/speakers:
     get:
-      consumes:
-      - application/json
       description: Retrieves all custom speaker names for a transcription job
       parameters:
       - description: Transcription Job ID
@@ -2452,6 +2548,7 @@ paths:
       security:
       - ApiKeyAuth: []
       - BearerAuth: []
+      - BearerAuth: []
       summary: Update transcription title
       tags:
       - transcription
@@ -2522,7 +2619,9 @@ paths:
       - transcription
   /api/v1/transcription/list:
     get:
-      description: Get a list of all transcription jobs with optional search and filtering
+      description: |-
+        Get a list of all transcription jobs with optional search and filtering
+        Get a list of all transcription jobs with optional search and filtering
       parameters:
       - default: 1
         description: Page number
@@ -2534,6 +2633,24 @@ paths:
         in: query
         name: limit
         type: integer
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: Items per page
+        in: query
+        name: limit
+        type: integer
+      - description: Sort By
+        in: query
+        name: sort_by
+        type: string
+      - description: Sort Order (asc/desc)
+        in: query
+        name: sort_order
+        type: string
       - description: Filter by status
         in: query
         name: status
@@ -2542,7 +2659,12 @@ paths:
         in: query
         name: q
         type: string
+      - description: Filter by updated_at > timestamp (RFC3339)
+        in: query
+        name: updated_after
+        type: string
       produces:
+      - application/json
       - application/json
       responses:
         "200":
@@ -2550,11 +2672,18 @@ paths:
           schema:
             additionalProperties: true
             type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
       security:
       - ApiKeyAuth: []
       - BearerAuth: []
       summary: List all transcription records
       tags:
+      - transcription
       - transcription
   /api/v1/transcription/models:
     get:
@@ -2780,21 +2909,15 @@ paths:
     post:
       consumes:
       - multipart/form-data
-      description: Upload multiple audio files with an .aup file for multi-track transcription
+      description: Upload multiple audio files for multi-track transcription
       parameters:
-      - description: Job title (required)
+      - description: Job title
         in: formData
         name: title
-        required: true
         type: string
-      - description: .aup Audacity project file
-        in: formData
-        name: aup
-        required: true
-        type: file
       - description: Audio track files
         in: formData
-        name: tracks
+        name: files
         required: true
         type: file
       produces:
@@ -3041,6 +3164,33 @@ paths:
       summary: Health check
       tags:
       - health
+  /transcription/{id}/logs:
+    get:
+      description: Get the raw transcription logs for a job
+      parameters:
+      - description: Job ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - text/plain
+      responses:
+        "200":
+          description: Log content
+          schema:
+            type: string
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      summary: Get transcription logs
+      tags:
+      - transcription
 securityDefinitions:
   ApiKeyAuth:
     in: header

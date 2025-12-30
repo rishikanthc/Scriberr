@@ -974,6 +974,96 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/config/openai/validate": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Validate the provided OpenAI API key and return available Whisper models",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "config"
+                ],
+                "summary": "Validate OpenAI API Key",
+                "parameters": [
+                    {
+                        "description": "API Key",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.ValidateOpenAIKeyRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/events": {
+            "get": {
+                "description": "Subscribe to server-sent events",
+                "produces": [
+                    "text/event-stream"
+                ],
+                "tags": [
+                    "events"
+                ],
+                "summary": "SSE Events",
+                "responses": {
+                    "200": {
+                        "description": "stream",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/llm/config": {
             "get": {
                 "security": [
@@ -1939,11 +2029,13 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Get a list of all transcription jobs with optional search and filtering",
+                "description": "Get a list of all transcription jobs with optional search and filtering\nGet a list of all transcription jobs with optional search and filtering",
                 "produces": [
+                    "application/json",
                     "application/json"
                 ],
                 "tags": [
+                    "transcription",
                     "transcription"
                 ],
                 "summary": "List all transcription records",
@@ -1963,6 +2055,32 @@ const docTemplate = `{
                         "in": "query"
                     },
                     {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "Page number",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Items per page",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Sort By",
+                        "name": "sort_by",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Sort Order (asc/desc)",
+                        "name": "sort_order",
+                        "in": "query"
+                    },
+                    {
                         "type": "string",
                         "description": "Filter by status",
                         "name": "status",
@@ -1973,6 +2091,12 @@ const docTemplate = `{
                         "description": "Search in title and audio filename",
                         "name": "q",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by updated_at \u003e timestamp (RFC3339)",
+                        "name": "updated_after",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -1981,6 +2105,15 @@ const docTemplate = `{
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
                         }
                     }
                 }
@@ -2341,7 +2474,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Upload multiple audio files with an .aup file for multi-track transcription",
+                "description": "Upload multiple audio files for multi-track transcription",
                 "consumes": [
                     "multipart/form-data"
                 ],
@@ -2355,22 +2488,14 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Job title (required)",
+                        "description": "Job title",
                         "name": "title",
-                        "in": "formData",
-                        "required": true
-                    },
-                    {
-                        "type": "file",
-                        "description": ".aup Audacity project file",
-                        "name": "aup",
-                        "in": "formData",
-                        "required": true
+                        "in": "formData"
                     },
                     {
                         "type": "file",
                         "description": "Audio track files",
-                        "name": "tracks",
+                        "name": "files",
                         "in": "formData",
                         "required": true
                     }
@@ -2535,19 +2660,16 @@ const docTemplate = `{
                     },
                     {
                         "BearerAuth": []
-                    },
-                    {
-                        "BearerAuth": []
                     }
                 ],
-                "description": "Get a specific transcription record by its ID",
+                "description": "Get details of a specific transcription job",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "transcription"
                 ],
-                "summary": "Get transcription record by ID",
+                "summary": "Get transcription job details",
                 "parameters": [
                     {
                         "type": "string",
@@ -2582,17 +2704,32 @@ const docTemplate = `{
                     },
                     {
                         "BearerAuth": []
+                    },
+                    {
+                        "ApiKeyAuth": []
+                    },
+                    {
+                        "BearerAuth": []
                     }
                 ],
-                "description": "Delete a transcription job and its associated files",
+                "description": "Delete a transcription job and its associated files\nDelete a transcription job and its associated files",
                 "produces": [
+                    "application/json",
                     "application/json"
                 ],
                 "tags": [
+                    "transcription",
                     "transcription"
                 ],
                 "summary": "Delete transcription job",
                 "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Job ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
                     {
                         "type": "string",
                         "description": "Job ID",
@@ -2962,9 +3099,6 @@ const docTemplate = `{
                     }
                 ],
                 "description": "Retrieves all custom speaker names for a transcription job",
-                "consumes": [
-                    "application/json"
-                ],
                 "produces": [
                     "application/json"
                 ],
@@ -3280,6 +3414,9 @@ const docTemplate = `{
                 "security": [
                     {
                         "ApiKeyAuth": []
+                    },
+                    {
+                        "BearerAuth": []
                     },
                     {
                         "BearerAuth": []
@@ -3670,6 +3807,47 @@ const docTemplate = `{
                     }
                 }
             }
+        },
+        "/transcription/{id}/logs": {
+            "get": {
+                "description": "Get the raw transcription logs for a job",
+                "produces": [
+                    "text/plain"
+                ],
+                "tags": [
+                    "transcription"
+                ],
+                "summary": "Get transcription logs",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Job ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Log content",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
@@ -3922,6 +4100,14 @@ const docTemplate = `{
                 }
             }
         },
+        "api.ErrorResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string"
+                }
+            }
+        },
         "api.LLMConfigRequest": {
             "type": "object",
             "required": [
@@ -3936,6 +4122,9 @@ const docTemplate = `{
                 },
                 "is_active": {
                     "type": "boolean"
+                },
+                "openai_base_url": {
+                    "type": "string"
                 },
                 "provider": {
                     "type": "string",
@@ -3964,6 +4153,9 @@ const docTemplate = `{
                 },
                 "is_active": {
                     "type": "boolean"
+                },
+                "openai_base_url": {
+                    "type": "string"
                 },
                 "provider": {
                     "type": "string"
@@ -4232,6 +4424,14 @@ const docTemplate = `{
                 }
             }
         },
+        "api.ValidateOpenAIKeyRequest": {
+            "type": "object",
+            "properties": {
+                "api_key": {
+                    "type": "string"
+                }
+            }
+        },
         "api.YouTubeDownloadRequest": {
             "type": "object",
             "required": [
@@ -4347,6 +4547,14 @@ const docTemplate = `{
                     "description": "Indexed selection into transcript by word positions",
                     "type": "integer"
                 },
+                "transcription": {
+                    "description": "Relationships",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.TranscriptionJob"
+                        }
+                    ]
+                },
                 "transcription_id": {
                     "type": "string"
                 },
@@ -4372,6 +4580,14 @@ const docTemplate = `{
                 },
                 "template_id": {
                     "type": "string"
+                },
+                "transcription": {
+                    "description": "Relationships",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.TranscriptionJob"
+                        }
+                    ]
                 },
                 "transcription_id": {
                     "type": "string"
@@ -4417,6 +4633,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "created_at": {
+                    "type": "string"
+                },
+                "deleted_at": {
                     "type": "string"
                 },
                 "diarization": {
@@ -4583,6 +4802,10 @@ const docTemplate = `{
                     "description": "Alignment settings",
                     "type": "string"
                 },
+                "api_key": {
+                    "description": "OpenAI settings",
+                    "type": "string"
+                },
                 "attention_context_left": {
                     "description": "NVIDIA Parakeet-specific parameters for long-form audio",
                     "type": "integer"
@@ -4598,6 +4821,10 @@ const docTemplate = `{
                 },
                 "best_of": {
                     "type": "integer"
+                },
+                "callback_url": {
+                    "description": "Webhook settings",
+                    "type": "string"
                 },
                 "chunk_size": {
                     "type": "integer"

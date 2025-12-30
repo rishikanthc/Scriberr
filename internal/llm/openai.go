@@ -21,10 +21,14 @@ type OpenAIService struct {
 }
 
 // NewOpenAIService creates a new OpenAI service
-func NewOpenAIService(apiKey string) *OpenAIService {
+func NewOpenAIService(apiKey string, baseURL *string) *OpenAIService {
+	url := "https://api.openai.com/v1"
+	if baseURL != nil && *baseURL != "" {
+		url = *baseURL
+	}
 	return &OpenAIService{
 		apiKey:  apiKey,
-		baseURL: "https://api.openai.com/v1",
+		baseURL: url,
 		client: &http.Client{
 			Timeout: 300 * time.Second,
 		},
@@ -119,12 +123,18 @@ func (s *OpenAIService) GetModels(ctx context.Context) ([]string, error) {
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
 
-	// Filter for chat models (GPT models)
+	useDefault := s.baseURL == "https://api.openai.com/v1"
 	var chatModels []string
 	for _, model := range modelsResp.Data {
-		if strings.Contains(model.ID, "gpt") {
+		if useDefault {
+			// Filter for chat models (GPT models) if default OpenAI baseURL
+			if strings.Contains(model.ID, "gpt") {
+				chatModels = append(chatModels, model.ID)
+			}
+		} else {
+			// If custom baseURL → return all models
 			chatModels = append(chatModels, model.ID)
-		}
+    	}
 	}
 
 	return chatModels, nil
@@ -309,4 +319,25 @@ func (s *OpenAIService) ValidateAPIKey(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+// GetContextWindow returns the context window size for a given OpenAI model
+func (s *OpenAIService) GetContextWindow(ctx context.Context, model string) (int, error) {
+	// Known context windows for OpenAI models
+	// As of late 2024/early 2025
+	switch {
+	case strings.HasPrefix(model, "gpt-4-turbo"), strings.HasPrefix(model, "gpt-4o"):
+		return 128000, nil
+	case strings.HasPrefix(model, "gpt-4-32k"):
+		return 32768, nil
+	case strings.HasPrefix(model, "gpt-4"):
+		return 8192, nil
+	case strings.HasPrefix(model, "gpt-3.5-turbo-16k"):
+		return 16385, nil
+	case strings.HasPrefix(model, "gpt-3.5-turbo"):
+		return 16385, nil // Most recent gpt-3.5-turbo is 16k
+	default:
+		// Default fallback
+		return 4096, nil
+	}
 }

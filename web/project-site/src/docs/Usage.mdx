@@ -1,0 +1,122 @@
+import { BrowserFrame } from '../components/BrowserFrame';
+
+# Usage Guide
+
+## 1. Uploading Files
+Getting media into Scriberr is simple. You can drag and drop files directly onto the homepage, or use the **`+`** button in the top navigation bar to open the upload menu.
+
+<div className="grid grid-cols-1 md:grid-cols-2 gap-6 my-6">
+    <BrowserFrame className="my-0">
+        <img src="/screenshots/usage-guide/upload-menu.png" alt="Upload Menu" className="w-full" />
+    </BrowserFrame>
+     <BrowserFrame className="my-0">
+        <img src="/screenshots/usage-guide/drag-and-drop.png" alt="Drag and Drop" className="w-full" />
+    </BrowserFrame>
+</div>
+
+**Supported Upload Methods:**
+
+* **File Picker:** Upload standard audio or video files from your device.
+* **Quick Transcribe:** Upload a file and immediately start processing (ephemeral mode).
+* **YouTube:** Paste a video URL to download and transcribe it directly.
+* **Audio Recorder:** Record voice notes directly within the browser.
+* **Multi-track Project:** Upload Audacity (`.aup`) project files to handle multi-track recordings (one file per speaker).
+
+## 2. Transcribing Audio
+Once a file is uploaded, it appears as a recording card on your homepage. You can start a transcription job in two ways:
+
+<BrowserFrame>
+    <img src="/screenshots/usage-guide/actions-menu.png" alt="Transcription Actions" className="w-full" />
+</BrowserFrame>
+
+### Starting a Job
+* **On Desktop:** Hover over the recording card to reveal the action buttons.
+    * **Magic Wand 🪄:** Starts a transcription immediately using your default **Profile** (Recommended).
+    * **Magic Wand + 🪄➕:** Opens the **Advanced Parameters** dialog, allowing you to tweak settings specific to this one job.
+* **On Mobile:** Swipe left on the recording card to reveal these options.
+
+### Transcription Profiles
+Profiles allow you to save your favorite settings (like language, model size, or prompt) as presets.
+
+<BrowserFrame>
+    <img src="/screenshots/usage-guide/settings-transcription.png" alt="Transcription Settings" className="w-full" />
+</BrowserFrame>
+
+1. Go to **Settings > Transcription**.
+2. Click **Create New Profile**.
+3. Adjust your parameters and save.
+4. (Optional) Mark a profile as "Default" to use it for all quick actions.
+
+### Automatic Transcription
+If you prefer a hands-off approach, you can enable **Auto-transcribe on Upload** in the *Settings > Transcription* tab. Scriberr will automatically process every new file using your default profile.
+
+### Speaker Diarization
+To distinguish between different speakers in your transcript:
+
+1. Ensure **Speaker Diarization** is enabled in your Profile or Advanced settings.
+2. **Note:** This requires a Hugging Face API key and acceptance of user conditions for the requested models (PyAnnote or NVIDIA Sortformer). Please refer to the [Diarization Page](/docs/diarization) for setup details.
+
+## 3. The Transcript View
+Clicking on a recording card opens the full Transcript View. Here you can read, listen, and manage your content.
+
+<BrowserFrame>
+    <img src="/screenshots/usage-guide/transcript-actions.png" alt="Transcript View" className="w-full" />
+</BrowserFrame>
+
+### Playback & Navigation
+* **Timeline vs. Compact:** Toggle between a time-coded view (showing segments and speaker labels) and a compact text view using the view switcher.
+* **Click-to-Seek:**
+    * **Desktop:** Hold `Cmd/Ctrl` + `Click` on any word to jump the audio to that exact moment.
+    * **Mobile:** Highlight text and select **Listen** from the popup menu.
+
+### Taking Notes
+You can annotate your transcript while listening.
+
+* **How to Note:** Highlight any text in the transcript to reveal the popup menu, then select **Add Note**.
+* **View Notes:** Click the **Action Menu (⋮)** (top right) and select **Notes** to see a list of all annotations for the file.
+
+### Managing the Recording
+Use the **Action Menu (⋮)** at the top right of the page to:
+
+<BrowserFrame>
+    <img src="/screenshots/usage-guide/transcript-actions.png" alt="Actions Menu" className="w-full" />
+</BrowserFrame>
+
+* Download the transcript (JSON, SRT, TXT).
+* View execution logs and technical info.
+* Rename the recording (or simply click the title to edit).
+
+## 4. AI & LLM Features
+Scriberr can connect to an LLM to Summarize or Chat with your audio.
+
+### Configuration
+Before using these features, go to **Settings > LLM**:
+
+<BrowserFrame>
+    <img src="/screenshots/usage-guide/settings-llm.png" alt="LLM Settings" className="w-full" />
+</BrowserFrame>
+
+1. **Select Provider:** Choose between **Ollama** (Local) or **OpenAI** (Cloud/API Compatible).
+2. **OpenAI Compatible:** If using a non-OpenAI provider (like a local server mimicking the OpenAI API), enter your custom **Base URL**.
+
+### AI Summaries
+To generate summaries, you must first create a **Template** in settings (defined by a Name and a System Prompt). Once configured, select **Summarize** from the Action Menu inside a transcript.
+
+### Chat with Transcript
+You can have an interactive conversation with your audio (e.g., "What were the main action items discussed?").
+
+1. Click the **Chat Icon** 💬 at the top right of the transcript page.
+2. Click **`+`** to start a new session.
+3. Select your desired model and start chatting.
+
+## 5. Bulk Actions
+You can delete or queue transcription for multiple files at once.
+
+<BrowserFrame>
+    <img src="/screenshots/usage-guide/bulk-actions-menu.png" alt="Bulk Actions" className="w-full" />
+</BrowserFrame>
+
+* **Desktop:** Hold `Shift` + `Click` on a recording to enter bulk mode, then click additional recordings to select them.
+* **Mobile:** Long-press on a recording to enter selection mode.
+
+Once items are selected, a floating action bar will appear at the bottom of the screen with your available options.

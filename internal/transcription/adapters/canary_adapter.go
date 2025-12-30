@@ -207,8 +207,8 @@ func (c *CanaryAdapter) setupCanaryEnvironment() error {
 		return nil
 	}
 
-	// Create pyproject.toml (same as Parakeet since they share environment)
-	pyprojectContent := `[project]
+	// Create pyproject.toml with configurable PyTorch CUDA version
+	pyprojectContent := fmt.Sprintf(`[project]
 name = "parakeet-transcription"
 version = "0.1.0"
 description = "Audio transcription using NVIDIA Parakeet models"
@@ -224,8 +224,31 @@ dependencies = [
 ]
 
 [tool.uv.sources]
-nemo-toolkit = { git = "https://github.com/NVIDIA/NeMo.git" }
-`
+nemo-toolkit = { git = "https://github.com/NVIDIA/NeMo.git", tag = "v2.5.3" }
+torch = [
+    { index = "pytorch-cpu", marker = "sys_platform == 'darwin'" },
+    { index = "pytorch-cpu", marker = "platform_machine != 'x86_64' and sys_platform != 'darwin'" },
+    { index = "pytorch", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
+]
+torchaudio = [
+    { index = "pytorch-cpu", marker = "sys_platform == 'darwin'" },
+    { index = "pytorch-cpu", marker = "platform_machine != 'x86_64' and sys_platform != 'darwin'" },
+    { index = "pytorch", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
+]
+triton = [
+    { index = "pytorch", marker = "sys_platform == 'linux'" }
+]
+
+[[tool.uv.index]]
+name = "pytorch"
+url = "%s"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+`, GetPyTorchWheelURL())
 	if err := os.WriteFile(pyprojectPath, []byte(pyprojectContent), 0644); err != nil {
 		return fmt.Errorf("failed to write pyproject.toml: %w", err)
 	}
@@ -537,15 +560,32 @@ func (c *CanaryAdapter) Transcribe(ctx context.Context, input interfaces.AudioIn
 		"PYTHONUNBUFFERED=1",
 		"PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True")
 
+	// Setup log file
+	logFile, err := os.OpenFile(filepath.Join(procCtx.OutputDirectory, "transcription.log"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		logger.Warn("Failed to create log file", "error", err)
+	} else {
+		defer logFile.Close()
+		cmd.Stdout = logFile
+		cmd.Stderr = logFile
+	}
+
 	logger.Info("Executing Canary command", "args", strings.Join(args, " "))
 
-	output, err := cmd.CombinedOutput()
-	if ctx.Err() == context.Canceled {
-		return nil, fmt.Errorf("transcription was cancelled")
-	}
-	if err != nil {
-		logger.Error("Canary execution failed", "output", string(output), "error", err)
-		return nil, fmt.Errorf("Canary execution failed: %w", err)
+	if err := cmd.Run(); err != nil {
+		if ctx.Err() == context.Canceled {
+			return nil, fmt.Errorf("transcription was cancelled")
+		}
+
+		// Read tail of log file for context
+		logPath := filepath.Join(procCtx.OutputDirectory, "transcription.log")
+		logTail, readErr := c.ReadLogTail(logPath, 2048)
+		if readErr != nil {
+			logger.Warn("Failed to read log tail", "error", readErr)
+		}
+
+		logger.Error("Canary execution failed", "error", err)
+		return nil, fmt.Errorf("Canary execution failed: %w\nLogs:\n%s", err, logTail)
 	}
 
 	// Parse result

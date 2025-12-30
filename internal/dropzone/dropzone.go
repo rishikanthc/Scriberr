@@ -1,6 +1,7 @@
 package dropzone
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"log"
@@ -10,8 +11,8 @@ import (
 	"time"
 
 	"scriberr/internal/config"
-	"scriberr/internal/database"
 	"scriberr/internal/models"
+	"scriberr/internal/repository"
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/google/uuid"
@@ -28,14 +29,18 @@ type Service struct {
 	watcher      *fsnotify.Watcher
 	dropzonePath string
 	taskQueue    TaskQueue
+	jobRepo      repository.JobRepository
+	userRepo     repository.UserRepository
 }
 
 // NewService creates a new dropzone service
-func NewService(cfg *config.Config, taskQueue TaskQueue) *Service {
+func NewService(cfg *config.Config, taskQueue TaskQueue, jobRepo repository.JobRepository, userRepo repository.UserRepository) *Service {
 	return &Service{
 		config:       cfg,
 		taskQueue:    taskQueue,
 		dropzonePath: filepath.Join("data", "dropzone"),
+		jobRepo:      jobRepo,
+		userRepo:     userRepo,
 	}
 }
 
@@ -209,8 +214,19 @@ func (s *Service) processFile(filePath string) {
 	}
 
 	// Delete the original file from dropzone after successful upload
-	if err := os.Remove(filePath); err != nil {
-		log.Printf("Warning: Failed to delete file from dropzone %s: %v", filePath, err)
+	// Retry a few times in case of file locks
+	var deleteErr error
+	for i := 0; i < 5; i++ {
+		deleteErr = os.Remove(filePath)
+		if deleteErr == nil {
+			break
+		}
+		// If it's a permission error or similar, wait and retry
+		time.Sleep(500 * time.Millisecond)
+	}
+
+	if deleteErr != nil {
+		log.Printf("Warning: Failed to delete file from dropzone %s after retries: %v", filePath, deleteErr)
 	} else {
 		log.Printf("Successfully processed and removed file: %s", filename)
 	}
@@ -244,7 +260,7 @@ func (s *Service) uploadFile(sourcePath, originalFilename string) error {
 	}
 
 	// Save to database
-	if err := database.DB.Create(&job).Error; err != nil {
+	if err := s.jobRepo.Create(context.Background(), &job); err != nil {
 		os.Remove(destPath) // Clean up file on database error
 		return fmt.Errorf("failed to create job record: %v", err)
 	}
@@ -258,7 +274,8 @@ func (s *Service) uploadFile(sourcePath, originalFilename string) error {
 			log.Printf("Auto-transcription enabled, enqueueing job %s", jobID)
 
 			// Update job status to pending before enqueueing
-			if err := database.DB.Model(&job).Update("status", models.StatusPending).Error; err != nil {
+			job.Status = models.StatusPending
+			if err := s.jobRepo.Update(context.Background(), &job); err != nil {
 				log.Printf("Warning: Failed to update job status to pending: %v", err)
 			}
 
@@ -277,13 +294,7 @@ func (s *Service) uploadFile(sourcePath, originalFilename string) error {
 
 // isAutoTranscriptionEnabled checks if auto-transcription is enabled for any user
 func (s *Service) isAutoTranscriptionEnabled() bool {
-	var count int64
-
-	// Check if there are any users with auto-transcription enabled
-	err := database.DB.Model(&models.User{}).
-		Where("auto_transcription_enabled = ?", true).
-		Count(&count).Error
-
+	count, err := s.userRepo.CountWithAutoTranscription(context.Background())
 	if err != nil {
 		log.Printf("Error checking auto-transcription settings: %v", err)
 		return false

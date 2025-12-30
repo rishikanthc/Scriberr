@@ -74,7 +74,7 @@
       "method": "POST",
       "path": "/api/v1/transcription/upload-multitrack",
       "summary": "Upload multi-track audio files",
-      "description": "Upload multiple audio files with an .aup file for multi-track transcription",
+      "description": "Upload multiple audio files for multi-track transcription",
       "tag": "transcription"
     },
     {
@@ -120,6 +120,20 @@
       "tag": "transcription"
     },
     {
+      "method": "GET",
+      "path": "/api/v1/transcription/list",
+      "summary": "List all transcription records",
+      "description": "Get a list of all transcription jobs with optional search and filtering",
+      "tag": "transcription"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/transcription/{id}",
+      "summary": "Get transcription job details",
+      "description": "Get details of a specific transcription job",
+      "tag": "transcription"
+    },
+    {
       "method": "POST",
       "path": "/api/v1/transcription/{id}/start",
       "summary": "Start transcription for uploaded file",
@@ -148,10 +162,10 @@
       "tag": "transcription"
     },
     {
-      "method": "GET",
+      "method": "DELETE",
       "path": "/api/v1/transcription/{id}",
-      "summary": "Get transcription record by ID",
-      "description": "Get a specific transcription record by its ID",
+      "summary": "Delete transcription job",
+      "description": "Delete a transcription job and its associated files",
       "tag": "transcription"
     },
     {
@@ -366,16 +380,9 @@
     },
     {
       "method": "GET",
-      "path": "/api/v1/transcription/{id}/speakers",
-      "summary": "Get speaker mappings for a transcription",
-      "description": "Retrieves all custom speaker names for a transcription job",
-      "tag": "transcription"
-    },
-    {
-      "method": "POST",
-      "path": "/api/v1/transcription/{id}/speakers",
-      "summary": "Update speaker mappings for a transcription",
-      "description": "Updates or creates custom speaker names for a transcription job",
+      "path": "/transcription/{id}/logs",
+      "summary": "Get transcription logs",
+      "description": "Get the raw transcription logs for a job",
       "tag": "transcription"
     },
     {
@@ -412,6 +419,20 @@
       "summary": "Delete a note",
       "description": "Delete a note by its ID",
       "tag": "notes"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/transcription/{id}/speakers",
+      "summary": "Get speaker mappings for a transcription",
+      "description": "Retrieves all custom speaker names for a transcription job",
+      "tag": "transcription"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/transcription/{id}/speakers",
+      "summary": "Update speaker mappings for a transcription",
+      "description": "Updates or creates custom speaker names for a transcription job",
+      "tag": "transcription"
     },
     {
       "method": "POST",

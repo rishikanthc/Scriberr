@@ -12,8 +12,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"scriberr/internal/database"
 	"scriberr/internal/models"
+	"scriberr/internal/repository"
 	"scriberr/pkg/logger"
 )
 
@@ -25,19 +25,19 @@ type RunningJob struct {
 
 // TaskQueue manages transcription job processing
 type TaskQueue struct {
-	minWorkers    int
-	maxWorkers    int
+	minWorkers     int
+	maxWorkers     int
 	currentWorkers int64 // Use atomic for thread-safe access
-	jobChannel    chan string
-	ctx           context.Context
-	cancel        context.CancelFunc
-	wg            sync.WaitGroup
-	processor     JobProcessor
-	runningJobs   map[string]*RunningJob
-	jobsMutex     sync.RWMutex
-	workerMutex   sync.Mutex
-	autoScale     bool
-	lastScaleTime time.Time
+	jobChannel     chan string
+	ctx            context.Context
+	cancel         context.CancelFunc
+	wg             sync.WaitGroup
+	processor      JobProcessor
+	runningJobs    map[string]*RunningJob
+	jobsMutex      sync.RWMutex
+	autoScale      bool
+	lastScaleTime  time.Time
+	jobRepo        repository.JobRepository
 }
 
 // JobProcessor defines the interface for processing jobs
@@ -56,7 +56,7 @@ type MultiTrackJobProcessor interface {
 // getOptimalWorkerCount calculates optimal worker count based on system resources
 func getOptimalWorkerCount() (min, max int) {
 	numCPU := runtime.NumCPU()
-	
+
 	// Check for environment variable override
 	if workerStr := os.Getenv("QUEUE_WORKERS"); workerStr != "" {
 		if workers, err := strconv.Atoi(workerStr); err == nil && workers > 0 {
@@ -68,19 +68,20 @@ func getOptimalWorkerCount() (min, max int) {
 	// since each job is CPU and I/O intensive
 	if numCPU <= 2 {
 		return 1, 2
-	} else if numCPU <= 4 {
-		return 1, 3
-	} else if numCPU <= 8 {
-		return 2, 4
-	} else {
-		return 2, 6 // Cap at 6 for very high CPU systems
 	}
+	if numCPU <= 4 {
+		return 1, 3
+	}
+	if numCPU <= 8 {
+		return 2, 4
+	}
+	return 2, 6 // Cap at 6 for very high CPU systems
 }
 
 // NewTaskQueue creates a new task queue with auto-scaling capabilities
-func NewTaskQueue(legacyWorkers int, processor JobProcessor) *TaskQueue {
+func NewTaskQueue(legacyWorkers int, processor JobProcessor, jobRepo repository.JobRepository) *TaskQueue {
 	ctx, cancel := context.WithCancel(context.Background())
-	
+
 	// Calculate optimal worker counts, fallback to legacy parameter
 	min, max := getOptimalWorkerCount()
 	if legacyWorkers > 0 {
@@ -105,27 +106,31 @@ func NewTaskQueue(legacyWorkers int, processor JobProcessor) *TaskQueue {
 		runningJobs:    make(map[string]*RunningJob),
 		autoScale:      autoScale,
 		lastScaleTime:  time.Now(),
+		jobRepo:        jobRepo,
 	}
 }
 
 // Start starts the task queue workers
 func (tq *TaskQueue) Start() {
 	workers := int(atomic.LoadInt64(&tq.currentWorkers))
-	logger.Debug("Starting task queue", 
-		"workers", workers, 
-		"min_workers", tq.minWorkers, 
-		"max_workers", tq.maxWorkers, 
+	logger.Debug("Starting task queue",
+		"workers", workers,
+		"min_workers", tq.minWorkers,
+		"max_workers", tq.maxWorkers,
 		"auto_scale", tq.autoScale)
+
+	// Reset any zombie jobs from previous runs synchronously before starting workers
+	tq.ResetZombieJobs()
+
+	// One-time recovery: enqueue any pending jobs left from previous server run
+	// This is NOT a polling mechanism - it only runs once at startup
+	tq.recoverPendingJobs()
 
 	// Start initial workers
 	for i := 0; i < workers; i++ {
 		tq.wg.Add(1)
 		go tq.worker(i)
 	}
-
-	// Start the job scanner
-	tq.wg.Add(1)
-	go tq.jobScanner()
 
 	// Start auto-scaling monitor if enabled
 	if tq.autoScale {
@@ -137,14 +142,23 @@ func (tq *TaskQueue) Start() {
 // Stop stops the task queue
 func (tq *TaskQueue) Stop() {
 	logger.Debug("Stopping task queue")
+	logger.Debug("Stopping task queue")
 	tq.cancel()
-	close(tq.jobChannel)
+	// Do not close jobChannel here as it causes panics in EnqueueJob
+	// The channel will be garbage collected when the queue is no longer referenced
 	tq.wg.Wait()
 	logger.Debug("Task queue stopped")
 }
 
 // EnqueueJob adds a job to the queue
 func (tq *TaskQueue) EnqueueJob(jobID string) error {
+	// Check if queue is already shut down
+	select {
+	case <-tq.ctx.Done():
+		return fmt.Errorf("queue is shutting down")
+	default:
+	}
+
 	select {
 	case tq.jobChannel <- jobID:
 		return nil
@@ -209,61 +223,31 @@ func (tq *TaskQueue) worker(id int) {
 			if err != nil {
 				if jobCtx.Err() == context.Canceled {
 					logger.Info("Job cancelled", "worker_id", id, "job_id", jobID)
-					tq.updateJobStatus(jobID, models.StatusFailed)
-					tq.updateJobError(jobID, "Job was cancelled by user")
+					if err := tq.updateJobStatus(jobID, models.StatusFailed); err != nil {
+						logger.Error("Failed to update job status", "job_id", jobID, "error", err)
+					}
+					if err := tq.updateJobError(jobID, "Job was cancelled by user"); err != nil {
+						logger.Error("Failed to update job error", "job_id", jobID, "error", err)
+					}
 				} else {
 					logger.Error("Job processing failed", "worker_id", id, "job_id", jobID, "error", err)
-					tq.updateJobStatus(jobID, models.StatusFailed)
-					tq.updateJobError(jobID, err.Error())
+					if err := tq.updateJobStatus(jobID, models.StatusFailed); err != nil {
+						logger.Error("Failed to update job status", "job_id", jobID, "error", err)
+					}
+					if err := tq.updateJobError(jobID, err.Error()); err != nil {
+						logger.Error("Failed to update job error", "job_id", jobID, "error", err)
+					}
 				}
 			} else {
 				logger.Debug("Job processed successfully", "worker_id", id, "job_id", jobID)
-				tq.updateJobStatus(jobID, models.StatusCompleted)
+				if err := tq.updateJobStatus(jobID, models.StatusCompleted); err != nil {
+					logger.Error("Failed to update job status", "job_id", jobID, "error", err)
+				}
 			}
 
 		case <-tq.ctx.Done():
 			logger.Debug("Worker stopped", "worker_id", id, "reason", "context_cancelled")
 			return
-		}
-	}
-}
-
-// jobScanner scans for pending jobs and adds them to the queue
-func (tq *TaskQueue) jobScanner() {
-	defer tq.wg.Done()
-
-	ticker := time.NewTicker(10 * time.Second) // Scan every 10 seconds
-	defer ticker.Stop()
-
-	logger.Debug("Job scanner started")
-
-	for {
-		select {
-		case <-ticker.C:
-			tq.scanPendingJobs()
-		case <-tq.ctx.Done():
-			logger.Debug("Job scanner stopped")
-			return
-		}
-	}
-}
-
-// scanPendingJobs finds pending jobs and enqueues them
-func (tq *TaskQueue) scanPendingJobs() {
-	var jobs []models.TranscriptionJob
-
-	if err := database.DB.Where("status = ?", models.StatusPending).Find(&jobs).Error; err != nil {
-		logger.Error("Failed to scan pending jobs", "error", err)
-		return
-	}
-
-	for _, job := range jobs {
-		select {
-		case tq.jobChannel <- job.ID:
-			logger.Debug("Enqueued pending job", "job_id", job.ID)
-		default:
-			logger.Warn("Queue full, skipping job", "job_id", job.ID)
-			break
 		}
 	}
 }
@@ -275,6 +259,26 @@ func (tq *TaskQueue) KillJob(jobID string) error {
 
 	runningJob, exists := tq.runningJobs[jobID]
 	if !exists {
+		// If job is not in memory but exists in DB as processing, it's a zombie
+		// We should still mark it as failed in DB
+		logger.Warn("Job not found in running jobs map, checking DB status", "job_id", jobID)
+
+		job, err := tq.jobRepo.FindByID(context.Background(), jobID)
+		if err != nil {
+			return fmt.Errorf("job %s not found: %v", jobID, err)
+		}
+
+		if job.Status == models.StatusProcessing {
+			logger.Info("Found zombie job in DB, marking as failed", "job_id", jobID)
+			if err := tq.updateJobStatus(jobID, models.StatusFailed); err != nil {
+				logger.Error("Failed to update zombie job status", "job_id", jobID, "error", err)
+			}
+			if err := tq.updateJobError(jobID, "Job was forcefully terminated by user (zombie process)"); err != nil {
+				logger.Error("Failed to update zombie job error", "job_id", jobID, "error", err)
+			}
+			return nil
+		}
+
 		return fmt.Errorf("job %s is not currently running", jobID)
 	}
 
@@ -283,7 +287,7 @@ func (tq *TaskQueue) KillJob(jobID string) error {
 	// Check if this is a multi-track job and handle accordingly
 	if mtProcessor, ok := tq.processor.(MultiTrackJobProcessor); ok && mtProcessor.IsMultiTrackJob(jobID) {
 		logger.Debug("Terminating multi-track job", "job_id", jobID)
-		
+
 		// Terminate all individual track jobs
 		if err := mtProcessor.TerminateMultiTrackJob(jobID); err != nil {
 			logger.Error("Failed to terminate multi-track job", "job_id", jobID, "error", err)
@@ -304,8 +308,8 @@ func (tq *TaskQueue) KillJob(jobID string) error {
 
 	// Immediately update job status without waiting for process to finish
 	go func() {
-		tq.updateJobStatus(jobID, models.StatusFailed)
-		tq.updateJobError(jobID, "Job was forcefully terminated by user")
+		_ = tq.updateJobStatus(jobID, models.StatusFailed)
+		_ = tq.updateJobError(jobID, "Job was forcefully terminated by user")
 	}()
 
 	return nil
@@ -322,26 +326,17 @@ func (tq *TaskQueue) IsJobRunning(jobID string) bool {
 
 // updateJobStatus updates the status of a job
 func (tq *TaskQueue) updateJobStatus(jobID string, status models.JobStatus) error {
-	return database.DB.Model(&models.TranscriptionJob{}).
-		Where("id = ?", jobID).
-		Update("status", status).Error
+	return tq.jobRepo.UpdateStatus(context.Background(), jobID, status)
 }
 
 // updateJobError updates the error message of a job
 func (tq *TaskQueue) updateJobError(jobID string, errorMsg string) error {
-	return database.DB.Model(&models.TranscriptionJob{}).
-		Where("id = ?", jobID).
-		Update("error_message", errorMsg).Error
+	return tq.jobRepo.UpdateError(context.Background(), jobID, errorMsg)
 }
 
 // GetJobStatus gets the status of a job
 func (tq *TaskQueue) GetJobStatus(jobID string) (*models.TranscriptionJob, error) {
-	var job models.TranscriptionJob
-	err := database.DB.Where("id = ?", jobID).First(&job).Error
-	if err != nil {
-		return nil, err
-	}
-	return &job, nil
+	return tq.jobRepo.FindByID(context.Background(), jobID)
 }
 
 // autoScaler monitors queue load and adjusts worker count
@@ -373,7 +368,7 @@ func (tq *TaskQueue) checkAndScale() {
 
 	queueSize := len(tq.jobChannel)
 	currentWorkers := int(atomic.LoadInt64(&tq.currentWorkers))
-	
+
 	tq.jobsMutex.RLock()
 	runningJobsCount := len(tq.runningJobs)
 	tq.jobsMutex.RUnlock()
@@ -382,50 +377,105 @@ func (tq *TaskQueue) checkAndScale() {
 	if queueSize > 10 && currentWorkers < tq.maxWorkers {
 		newWorkerCount := currentWorkers + 1
 		log.Printf("Scaling up workers: %d -> %d (queue size: %d)", currentWorkers, newWorkerCount, queueSize)
-		
+
 		atomic.StoreInt64(&tq.currentWorkers, int64(newWorkerCount))
 		tq.wg.Add(1)
 		go tq.worker(newWorkerCount - 1)
 		tq.lastScaleTime = time.Now()
-		
-	// Scale down if queue is empty and minimal jobs running
+
+		// Scale down if queue is empty and minimal jobs running
 	} else if queueSize == 0 && runningJobsCount <= 1 && currentWorkers > tq.minWorkers {
 		newWorkerCount := currentWorkers - 1
-		log.Printf("Scaling down workers: %d -> %d (queue size: %d, running: %d)", 
+		log.Printf("Scaling down workers: %d -> %d (queue size: %d, running: %d)",
 			currentWorkers, newWorkerCount, queueSize, runningJobsCount)
-		
+
 		atomic.StoreInt64(&tq.currentWorkers, int64(newWorkerCount))
 		tq.lastScaleTime = time.Now()
-		
-		// Note: We don't actively stop workers here. They will naturally exit 
+
+		// Note: We don't actively stop workers here. They will naturally exit
 		// when no more jobs are available and the queue empties.
 	}
 }
 
 // GetQueueStats returns queue statistics
 func (tq *TaskQueue) GetQueueStats() map[string]interface{} {
-	var pendingCount, processingCount, completedCount, failedCount int64
-
-	database.DB.Model(&models.TranscriptionJob{}).Where("status = ?", models.StatusPending).Count(&pendingCount)
-	database.DB.Model(&models.TranscriptionJob{}).Where("status = ?", models.StatusProcessing).Count(&processingCount)
-	database.DB.Model(&models.TranscriptionJob{}).Where("status = ?", models.StatusCompleted).Count(&completedCount)
-	database.DB.Model(&models.TranscriptionJob{}).Where("status = ?", models.StatusFailed).Count(&failedCount)
+	ctx := context.Background()
+	pendingCount, _ := tq.jobRepo.CountByStatus(ctx, models.StatusPending)
+	processingCount, _ := tq.jobRepo.CountByStatus(ctx, models.StatusProcessing)
+	completedCount, _ := tq.jobRepo.CountByStatus(ctx, models.StatusCompleted)
+	failedCount, _ := tq.jobRepo.CountByStatus(ctx, models.StatusFailed)
 
 	tq.jobsMutex.RLock()
 	runningJobsCount := len(tq.runningJobs)
 	tq.jobsMutex.RUnlock()
 
 	return map[string]interface{}{
-		"queue_size":       len(tq.jobChannel),
-		"queue_capacity":   cap(tq.jobChannel),
-		"current_workers":  int(atomic.LoadInt64(&tq.currentWorkers)),
-		"min_workers":      tq.minWorkers,
-		"max_workers":      tq.maxWorkers,
-		"auto_scale":       tq.autoScale,
-		"running_jobs":     runningJobsCount,
-		"pending_jobs":     pendingCount,
-		"processing_jobs":  processingCount,
-		"completed_jobs":   completedCount,
-		"failed_jobs":      failedCount,
+		"queue_size":      len(tq.jobChannel),
+		"queue_capacity":  cap(tq.jobChannel),
+		"current_workers": int(atomic.LoadInt64(&tq.currentWorkers)),
+		"min_workers":     tq.minWorkers,
+		"max_workers":     tq.maxWorkers,
+		"auto_scale":      tq.autoScale,
+		"running_jobs":    runningJobsCount,
+		"pending_jobs":    pendingCount,
+		"processing_jobs": processingCount,
+		"completed_jobs":  completedCount,
+		"failed_jobs":     failedCount,
+	}
+}
+
+// ResetZombieJobs finds jobs stuck in processing state from previous runs and marks them as failed
+func (tq *TaskQueue) ResetZombieJobs() {
+	// Find all jobs with status "processing"
+	zombieJobs, err := tq.jobRepo.FindByStatus(context.Background(), models.StatusProcessing)
+	if err != nil {
+		logger.Error("Failed to scan for zombie jobs", "error", err)
+		return
+	}
+
+	if len(zombieJobs) == 0 {
+		return
+	}
+
+	logger.Info("Found zombie jobs from previous run", "count", len(zombieJobs))
+
+	for _, job := range zombieJobs {
+		logger.Info("Resetting zombie job", "job_id", job.ID)
+
+		// Mark as failed
+		if err := tq.updateJobStatus(job.ID, models.StatusFailed); err != nil {
+			logger.Error("Failed to update zombie job status", "job_id", job.ID, "error", err)
+			continue
+		}
+
+		// Update error message
+		if err := tq.updateJobError(job.ID, "Job interrupted by server restart"); err != nil {
+			logger.Error("Failed to update zombie job error message", "job_id", job.ID, "error", err)
+		}
+	}
+}
+
+// recoverPendingJobs enqueues pending jobs from previous server runs
+// This runs ONCE at startup, not repeatedly like the old scanner
+func (tq *TaskQueue) recoverPendingJobs() {
+	pendingJobs, err := tq.jobRepo.FindByStatus(context.Background(), models.StatusPending)
+	if err != nil {
+		logger.Error("Failed to scan for pending jobs during startup recovery", "error", err)
+		return
+	}
+
+	if len(pendingJobs) == 0 {
+		return
+	}
+
+	logger.Info("Recovering pending jobs from previous server run", "count", len(pendingJobs))
+
+	for _, job := range pendingJobs {
+		select {
+		case tq.jobChannel <- job.ID:
+			logger.Debug("Recovered pending job", "job_id", job.ID)
+		default:
+			logger.Warn("Queue full during startup recovery, job will remain pending", "job_id", job.ID)
+		}
 	}
 }

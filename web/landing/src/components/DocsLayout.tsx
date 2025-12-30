@@ -2,7 +2,7 @@ import { ReactNode, useState } from 'react';
 import GithubBadge from './GithubBadge';
 
 type DocsLayoutProps = {
-  active?: 'intro' | 'installation' | 'diarization' | 'contributing';
+  active?: 'intro' | 'features' | 'installation' | 'configuration' | 'usage' | 'contributing';
   children: ReactNode;
 };
 
@@ -48,10 +48,16 @@ export default function DocsLayout({ active = 'intro', children }: DocsLayoutPro
                     <a href="/docs/intro.html" className={linkCls(active === 'intro')}>Introduction</a>
                   </li>
                   <li>
+                    <a href="/docs/features.html" className={linkCls(active === 'features')}>Features</a>
+                  </li>
+                  <li>
                     <a href="/docs/installation.html" className={linkCls(active === 'installation')}>Installation</a>
                   </li>
                   <li>
-                    <a href="/docs/diarization.html" className={linkCls(active === 'diarization')}>Diarization</a>
+                    <a href="/docs/configuration.html" className={linkCls(active === 'configuration')}>Configuration</a>
+                  </li>
+                  <li>
+                    <a href="/docs/usage.html" className={linkCls(active === 'usage')}>Usage Guide</a>
                   </li>
                   <li>
                     <a href="/docs/contributing.html" className={linkCls(active === 'contributing')}>Contributing</a>
@@ -82,12 +88,18 @@ function MobileNav({ active, onClick }: { active?: DocsLayoutProps['active']; on
           <a href="/docs/intro.html" className={linkCls(active === 'intro')} onClick={onClick}>Introduction</a>
         </li>
         <li>
+          <a href="/docs/features.html" className={linkCls(active === 'features')} onClick={onClick}>Features</a>
+        </li>
+        <li>
           <a href="/docs/installation.html" className={linkCls(active === 'installation')} onClick={onClick}>Installation</a>
         </li>
         <li>
-          <a href="/docs/diarization.html" className={linkCls(active === 'diarization')} onClick={onClick}>Diarization</a>
+          <a href="/docs/configuration.html" className={linkCls(active === 'configuration')} onClick={onClick}>Configuration</a>
         </li>
-        <li className="col-span-2">
+        <li>
+          <a href="/docs/usage.html" className={linkCls(active === 'usage')} onClick={onClick}>Usage Guide</a>
+        </li>
+        <li>
           <a href="/docs/contributing.html" className={linkCls(active === 'contributing')} onClick={onClick}>Contributing</a>
         </li>
       </ul>

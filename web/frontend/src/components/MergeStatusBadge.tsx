@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { CheckCircle, AlertCircle, Loader2, Clock } from "lucide-react";
-import { useAuth } from "../contexts/AuthContext";
+import { useAuth } from "@/features/auth/hooks/useAuth";
 
 interface MergeStatusBadgeProps {
 	jobId: string;

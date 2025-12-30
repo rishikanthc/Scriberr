@@ -38,6 +38,13 @@ COPY --from=ui-builder /web/frontend/dist internal/web/dist
 RUN CGO_ENABLED=0 \
   go build -o /out/scriberr cmd/server/main.go
 
+# Build CLI binaries (cross-platform)
+RUN mkdir -p /out/bin/cli \
+  && GOOS=linux GOARCH=amd64 go build -o /out/bin/cli/scriberr-linux-amd64 ./cmd/scriberr-cli \
+  && GOOS=darwin GOARCH=amd64 go build -o /out/bin/cli/scriberr-darwin-amd64 ./cmd/scriberr-cli \
+  && GOOS=darwin GOARCH=arm64 go build -o /out/bin/cli/scriberr-darwin-arm64 ./cmd/scriberr-cli \
+  && GOOS=windows GOARCH=amd64 go build -o /out/bin/cli/scriberr-windows-amd64.exe ./cmd/scriberr-cli
+
 
 ########################
 # Runtime stage
@@ -45,12 +52,14 @@ RUN CGO_ENABLED=0 \
 FROM python:3.11-slim AS runtime
 
 ENV PYTHONUNBUFFERED=1 \
-    HOST=0.0.0.0 \
-    PORT=8080 \
-    DATABASE_PATH=/app/data/scriberr.db \
-    UPLOAD_DIR=/app/data/uploads \
-    PUID=1000 \
-    PGID=1000
+  HOST=0.0.0.0 \
+  PORT=8080 \
+  DATABASE_PATH=/app/data/scriberr.db \
+  UPLOAD_DIR=/app/data/uploads \
+  WHISPERX_ENV=/app/whisperx-env \
+  APP_ENV=production \
+  PUID=1000 \
+  PGID=1000
 
 WORKDIR /app
 
@@ -58,8 +67,8 @@ WORKDIR /app
 # Build tools: gcc, g++, make for compiling Python C extensions (needed for NeMo dependencies like texterrors)
 RUN apt-get update \
   && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-       curl ca-certificates ffmpeg git gosu \
-       build-essential gcc g++ make python3-dev \
+  curl ca-certificates ffmpeg git gosu \
+  build-essential gcc g++ make python3-dev unzip\
   && rm -rf /var/lib/apt/lists/*
 
 # Install uv (fast Python package manager) directly to system PATH
@@ -67,6 +76,11 @@ RUN curl -LsSf https://astral.sh/uv/install.sh | sh \
   && cp /root/.local/bin/uv /usr/local/bin/uv \
   && chmod 755 /usr/local/bin/uv \
   && uv --version
+
+# Install yt-dlp standalone binary
+RUN curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp \
+  && chmod a+rx /usr/local/bin/yt-dlp \
+  && yt-dlp --version
 
 # Install Deno (JavaScript runtime required for yt-dlp YouTube downloads)
 # YouTube now requires JS execution for video cipher decryption
@@ -84,6 +98,7 @@ RUN groupadd -g 1000 appuser \
 
 # Copy binary and entrypoint script
 COPY --from=go-builder /out/scriberr /app/scriberr
+COPY --from=go-builder /out/bin/cli /app/bin/cli
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 
 # Make entrypoint script executable and set up basic permissions

@@ -1,0 +1,508 @@
+{
+  "endpoints": [
+    {
+      "method": "GET",
+      "path": "/api/v1/chat/models",
+      "summary": "Get available chat models",
+      "description": "Get list of available OpenAI chat models",
+      "tag": "chat"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/chat/sessions",
+      "summary": "Create a new chat session",
+      "description": "Create a new chat session for a transcription",
+      "tag": "chat"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/chat/transcriptions/{transcription_id}/sessions",
+      "summary": "Get chat sessions for a transcription",
+      "description": "Get all chat sessions for a specific transcription",
+      "tag": "chat"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/chat/sessions/{session_id}",
+      "summary": "Get a chat session with messages",
+      "description": "Get a specific chat session with all its messages",
+      "tag": "chat"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/chat/sessions/{session_id}/messages",
+      "summary": "Send a message to a chat session",
+      "description": "Send a message to a chat session and get streaming response",
+      "tag": "chat"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/chat/sessions/{session_id}/title",
+      "summary": "Update chat session title",
+      "description": "Update the title of a chat session",
+      "tag": "chat"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/chat/sessions/{session_id}",
+      "summary": "Delete a chat session",
+      "description": "Delete a chat session and all its messages",
+      "tag": "chat"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/chat/sessions/{session_id}/title/auto",
+      "summary": "Auto-generate chat session title",
+      "description": "Uses the configured LLM to summarize the first exchange into a concise title. Only updates if the current title appears default/user-unset.",
+      "tag": "chat"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/transcription/upload",
+      "summary": "Upload audio file",
+      "description": "Upload an audio file without starting transcription",
+      "tag": "transcription"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/transcription/upload-video",
+      "summary": "Upload video file for transcription",
+      "description": "Upload a video file, extract audio from it using ffmpeg, and create a transcription job",
+      "tag": "transcription"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/transcription/upload-multitrack",
+      "summary": "Upload multi-track audio files",
+      "description": "Upload multiple audio files for multi-track transcription",
+      "tag": "transcription"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/transcription/{id}/merge-status",
+      "summary": "Get multi-track merge status",
+      "description": "Get the current merge status for a multi-track job",
+      "tag": "transcription"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/transcription/{id}/track-progress",
+      "summary": "Get multi-track job progress",
+      "description": "Get real-time progress information for individual tracks in a multi-track job",
+      "tag": "transcription"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/transcription/submit",
+      "summary": "Submit a transcription job",
+      "description": "Submit an audio file for transcription with WhisperX",
+      "tag": "transcription"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/transcription/{id}/status",
+      "summary": "Get job status",
+      "description": "Get the current status of a transcription job",
+      "tag": "transcription"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/transcription/{id}/transcript",
+      "summary": "Get transcript",
+      "description": "Get the transcript for a completed transcription job",
+      "tag": "transcription"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/transcription/list",
+      "summary": "List all transcription records",
+      "description": "Get a list of all transcription jobs with optional search and filtering",
+      "tag": "transcription"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/transcription/{id}",
+      "summary": "Get transcription job details",
+      "description": "Get details of a specific transcription job",
+      "tag": "transcription"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/transcription/{id}/start",
+      "summary": "Start transcription for uploaded file",
+      "description": "Start transcription for an already uploaded audio file",
+      "tag": "transcription"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/transcription/{id}/kill",
+      "summary": "Kill running transcription job",
+      "description": "Cancel a currently running transcription job",
+      "tag": "transcription"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/transcription/{id}/title",
+      "summary": "Update transcription title",
+      "description": "Update the title of an audio file / transcription",
+      "tag": "transcription"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/transcription/{id}",
+      "summary": "Delete transcription job",
+      "description": "Delete a transcription job and its associated files",
+      "tag": "transcription"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/transcription/{id}",
+      "summary": "Delete transcription job",
+      "description": "Delete a transcription job and its associated files",
+      "tag": "transcription"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/transcription/{id}/execution",
+      "summary": "Get transcription job execution data",
+      "description": "Get execution parameters and timing for a transcription job",
+      "tag": "transcription"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/transcription/{id}/audio",
+      "summary": "Get audio file",
+      "description": "Serve the audio file for a transcription job",
+      "tag": "transcription"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/auth/login",
+      "summary": "Login",
+      "description": "Authenticate user and return JWT token",
+      "tag": "auth"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/auth/logout",
+      "summary": "Logout user",
+      "description": "Logout user and invalidate token (client-side action)",
+      "tag": "auth"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/auth/registration-status",
+      "summary": "Check registration status",
+      "description": "Check if the application requires initial user registration",
+      "tag": "auth"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/auth/register",
+      "summary": "Register initial admin user",
+      "description": "Register the initial admin user (only allowed when no users exist)",
+      "tag": "auth"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/auth/refresh",
+      "summary": "Refresh access token",
+      "description": "Rotate refresh token and return new access token",
+      "tag": "auth"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/auth/change-password",
+      "summary": "Change user password",
+      "description": "Change the current user's password",
+      "tag": "auth"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/auth/change-username",
+      "summary": "Change username",
+      "description": "Change the current user's username",
+      "tag": "auth"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/api-keys",
+      "summary": "List API keys",
+      "description": "Get all API keys for the current user (without exposing the actual keys)",
+      "tag": "api-keys"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/api-keys",
+      "summary": "Create API key",
+      "description": "Create a new API key for external API access",
+      "tag": "api-keys"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/api-keys/{id}",
+      "summary": "Delete API key",
+      "description": "Delete an API key",
+      "tag": "api-keys"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/llm/config",
+      "summary": "Get LLM configuration",
+      "description": "Get the current active LLM configuration",
+      "tag": "llm"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/llm/config",
+      "summary": "Create or update LLM configuration",
+      "description": "Create or update LLM configuration settings",
+      "tag": "llm"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/queue/stats",
+      "summary": "Get queue statistics",
+      "description": "Get current queue statistics",
+      "tag": "admin"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/transcription/models",
+      "summary": "Get supported models",
+      "description": "Get list of supported WhisperX models",
+      "tag": "transcription"
+    },
+    {
+      "method": "GET",
+      "path": "/health",
+      "summary": "Health check",
+      "description": "Check if the API is healthy",
+      "tag": "health"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/profiles",
+      "summary": "List transcription profiles",
+      "description": "Get list of all transcription profiles",
+      "tag": "profiles"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/profiles",
+      "summary": "Create transcription profile",
+      "description": "Create a new transcription profile",
+      "tag": "profiles"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/profiles/{id}",
+      "summary": "Get transcription profile",
+      "description": "Get a transcription profile by ID",
+      "tag": "profiles"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/profiles/{id}",
+      "summary": "Update transcription profile",
+      "description": "Update a transcription profile",
+      "tag": "profiles"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/profiles/{id}",
+      "summary": "Delete transcription profile",
+      "description": "Delete a transcription profile",
+      "tag": "profiles"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/profiles/{id}/set-default",
+      "summary": "Set default transcription profile",
+      "description": "Mark the specified profile as the default profile",
+      "tag": "profiles"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/transcription/quick",
+      "summary": "Submit quick transcription job",
+      "description": "Submit an audio file for temporary transcription (data discarded after 6 hours)",
+      "tag": "transcription"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/transcription/quick/{id}",
+      "summary": "Get quick transcription status",
+      "description": "Get the current status of a quick transcription job",
+      "tag": "transcription"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/transcription/youtube",
+      "summary": "Download audio from YouTube URL",
+      "description": "Download audio from a YouTube video URL and prepare it for transcription",
+      "tag": "transcription"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/user/default-profile",
+      "summary": "Get user's default profile",
+      "description": "Get the default transcription profile for the current user",
+      "tag": "profiles"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/user/default-profile",
+      "summary": "Set user's default profile",
+      "description": "Set the default transcription profile for the current user",
+      "tag": "profiles"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/user/settings",
+      "summary": "Get user settings",
+      "description": "Get the current user's settings including auto-transcription preference",
+      "tag": "user"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/user/settings",
+      "summary": "Update user settings",
+      "description": "Update the current user's settings",
+      "tag": "user"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/events",
+      "summary": "SSE Events",
+      "description": "Subscribe to server-sent events",
+      "tag": "events"
+    },
+    {
+      "method": "GET",
+      "path": "/transcription/{id}/logs",
+      "summary": "Get transcription logs",
+      "description": "Get the raw transcription logs for a job",
+      "tag": "transcription"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/transcription/{id}/notes",
+      "summary": "List notes for a transcription",
+      "description": "Get all notes attached to a transcription, ordered by time and creation",
+      "tag": "notes"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/transcription/{id}/notes",
+      "summary": "Create a note for a transcription",
+      "description": "Create a new note attached to the specified transcription",
+      "tag": "notes"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/notes/{note_id}",
+      "summary": "Get a note",
+      "description": "Get a note by its ID",
+      "tag": "notes"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/notes/{note_id}",
+      "summary": "Update a note",
+      "description": "Update the content of a note",
+      "tag": "notes"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/notes/{note_id}",
+      "summary": "Delete a note",
+      "description": "Delete a note by its ID",
+      "tag": "notes"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/config/openai/validate",
+      "summary": "Validate OpenAI API Key",
+      "description": "Validate the provided OpenAI API key and return available Whisper models",
+      "tag": "config"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/transcription/{id}/speakers",
+      "summary": "Get speaker mappings for a transcription",
+      "description": "Retrieves all custom speaker names for a transcription job",
+      "tag": "transcription"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/transcription/{id}/speakers",
+      "summary": "Update speaker mappings for a transcription",
+      "description": "Updates or creates custom speaker names for a transcription job",
+      "tag": "transcription"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/summarize",
+      "summary": "Summarize content",
+      "description": "Stream an LLM-generated summary for provided content; persists latest summary for the transcription",
+      "tag": "summarize"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/transcription/{id}/summary",
+      "summary": "Get latest summary for transcription",
+      "description": "Get the most recent saved summary for the given transcription",
+      "tag": "summarize"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/summaries",
+      "summary": "List summarization templates",
+      "description": "Get all summarization templates",
+      "tag": "summaries"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/summaries",
+      "summary": "Create summarization template",
+      "description": "Create a new summarization template",
+      "tag": "summaries"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/summaries/{id}",
+      "summary": "Get summarization template",
+      "description": "Get a summarization template by ID",
+      "tag": "summaries"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/summaries/{id}",
+      "summary": "Update summarization template",
+      "description": "Update a summarization template by ID",
+      "tag": "summaries"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/summaries/{id}",
+      "summary": "Delete summarization template",
+      "description": "Delete a summarization template by ID",
+      "tag": "summaries"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/summaries/settings",
+      "summary": "Get summary settings",
+      "description": "Get global summarization settings",
+      "tag": "summaries"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/summaries/settings",
+      "summary": "Save summary settings",
+      "description": "Create or update global summarization settings",
+      "tag": "summaries"
+    }
+  ]
+}

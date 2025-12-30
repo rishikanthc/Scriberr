@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"scriberr/internal/config"
-	"scriberr/internal/database"
 	"scriberr/internal/models"
+	"scriberr/internal/repository"
 
 	"github.com/google/uuid"
 )
@@ -32,6 +32,7 @@ type QuickTranscriptionJob struct {
 type QuickTranscriptionService struct {
 	config           *config.Config
 	unifiedProcessor *UnifiedJobProcessor
+	jobRepo          repository.JobRepository
 	jobs             map[string]*QuickTranscriptionJob
 	jobsMutex        sync.RWMutex
 	tempDir          string
@@ -40,7 +41,7 @@ type QuickTranscriptionService struct {
 }
 
 // NewQuickTranscriptionService creates a new quick transcription service
-func NewQuickTranscriptionService(cfg *config.Config, unifiedProcessor *UnifiedJobProcessor) (*QuickTranscriptionService, error) {
+func NewQuickTranscriptionService(cfg *config.Config, unifiedProcessor *UnifiedJobProcessor, jobRepo repository.JobRepository) (*QuickTranscriptionService, error) {
 	// Create temporary directory for quick transcriptions
 	tempDir := filepath.Join(cfg.UploadDir, "quick_transcriptions")
 	if err := os.MkdirAll(tempDir, 0755); err != nil {
@@ -50,6 +51,7 @@ func NewQuickTranscriptionService(cfg *config.Config, unifiedProcessor *UnifiedJ
 	service := &QuickTranscriptionService{
 		config:           cfg,
 		unifiedProcessor: unifiedProcessor,
+		jobRepo:          jobRepo,
 		jobs:             make(map[string]*QuickTranscriptionJob),
 		tempDir:          tempDir,
 		stopCleanup:      make(chan bool),
@@ -157,9 +159,9 @@ func (qs *QuickTranscriptionService) processQuickJob(jobID string) {
 
 	// Create a temporary database entry for unified processing
 	ctx := context.Background()
-	
+
 	// Save temporary job to database for processing
-	if err := database.DB.Create(&tempJob).Error; err != nil {
+	if err := qs.jobRepo.Create(ctx, &tempJob); err != nil {
 		qs.jobsMutex.Lock()
 		if job, exists := qs.jobs[jobID]; exists {
 			job.Status = models.StatusFailed
@@ -169,25 +171,24 @@ func (qs *QuickTranscriptionService) processQuickJob(jobID string) {
 		qs.jobsMutex.Unlock()
 		return
 	}
-	
+
 	// Process with unified service
 	err := qs.unifiedProcessor.ProcessJob(ctx, jobID)
-	
+
 	// Load the processed result back
-	var processedJob models.TranscriptionJob
-	if loadErr := database.DB.Where("id = ?", jobID).First(&processedJob).Error; loadErr == nil {
+	if processedJob, loadErr := qs.jobRepo.FindByID(ctx, jobID); loadErr == nil {
 		// Copy result back to quick job if successful
-		if err == nil && processedJob.Status == models.StatusCompleted {
+		if err == nil {
 			if processedJob.Transcript != nil {
 				// Save transcript to temp file for loadTranscriptFromTemp
 				transcriptPath := filepath.Join(qs.tempDir, jobID+"_transcript.json")
-				os.WriteFile(transcriptPath, []byte(*processedJob.Transcript), 0644)
+				_ = os.WriteFile(transcriptPath, []byte(*processedJob.Transcript), 0644)
 			}
 		}
 	}
-	
+
 	// Clean up temporary database entry
-	database.DB.Delete(&models.TranscriptionJob{}, "id = ?", jobID)
+	_ = qs.jobRepo.Delete(ctx, jobID)
 
 	// Update job with results
 	qs.jobsMutex.Lock()
@@ -256,7 +257,6 @@ func (qs *QuickTranscriptionService) cleanupExpiredJobs() {
 		}
 	}
 }
-
 
 // Close stops the cleanup routine
 func (qs *QuickTranscriptionService) Close() {

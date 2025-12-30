@@ -1,0 +1,45 @@
+import { BrowserFrame } from '../components/BrowserFrame';
+import { PhoneFrame } from '../components/PhoneFrame';
+
+# Introduction
+
+Scriberr is a robust, open-source, and completely offline audio transcription application designed for self-hosters who value privacy and performance.
+
+<div className="relative isolate mt-10 mb-32">
+    <div className="relative">
+         <BrowserFrame className="max-w-[90%] md:max-w-[75%]">
+            <img src="/screenshots/homepage-light.png" alt="Scriberr Desktop View" className="w-full" />
+         </BrowserFrame>
+    </div>
+    
+    <div className="absolute top-1/2 right-0 transform -translate-y-1/3 md:translate-x-0 hidden sm:block">
+         <PhoneFrame className="shadow-2xl">
+            <img src="/screenshots/mobile-homepage-light.PNG" alt="Scriberr Mobile View" className="w-full h-full object-cover" />
+         </PhoneFrame>
+    </div>
+</div>
+
+At its core, Scriberr allows you to transcribe audio and video locally on your machine, ensuring no data is ever sent to a third-party cloud provider.
+Leveraging state-of-the-art machine learning models (such as **Whisper**, **NVIDIA Parakeet**, and **Canary**), it delivers high-accuracy text with word-level timing.
+
+Scriberr goes beyond simple transcription and provides various advanced capabilities.
+It combines powerful under-the-hood AI with a polished, fluid user interface that makes managing your recordings feel effortless. Whether you are sorting through voice notes or analyzing long meetings, Scriberr provides a beautiful environment to get work done:
+
+- **Smart Speaker Detection**: It doesn’t just output a block of text—Scriberr automatically detects different speakers (Diarization) and labels exactly who said what.
+- **Chat with your Audio**: Connect seamlessly with Ollama or OpenAI. You can generate summaries, ask questions, or have a full conversation with your transcripts right inside the app.
+- **Built for your Workflow**: With extensive APIs and a clever "File Watcher" that automatically processes new files in a folder, Scriberr fits right into your existing automations (like n8n).
+- **Capture & Organize**: Use the built-in audio recorder to capture thoughts on the fly, and use the integrated note-taking features to annotate your transcripts as you listen.
+- **Native Experience everywhere**: Scriberr supports PWA (Progressive Web App) installation, giving you a native app experience on your desktop or mobile device.
+- **A Polished UI**: From dark mode to smooth animations, I’ve focused on the little UI niceties that make the app feel responsive and satisfying to use.
+
+[View full list of features →](/docs/features)
+
+## Why I built this
+
+The inspiration for Scriberr was born out of privacy paranoia not wanting to pay for subscription.
+About a year ago, I purchased a [Plaud Note](https://www.plaud.ai/) for recording voice memos. I loved the device itself; the form factor, microphone quality, and workflow were excellent.
+
+However, transcription was done on their cloud servers. As someone who is paranoid about privacy I wasn't comfortable with uploading my recordings to a third party provider.
+Moreover I was hit with subscription costs: $100 a year for 20 hours of transcription per month, or $240 a year for unlimited access. As an avid self-hoster with a background in ML and AI, it felt wrong to pay such a premium for a service I knew I could engineer myself.
+
+I decided to build Scriberr to bridge that gap, creating a powerful, private, and free alternative for everyone.

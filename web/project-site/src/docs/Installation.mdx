@@ -1,0 +1,235 @@
+# Installation
+
+Get Scriberr running on your system in a few minutes.
+
+## Migrating from v1.1.0
+
+If you are upgrading from v1.1.0, please follow these steps to ensure a smooth transition. Version 1.2.0 introduces a separation between application data (database, uploads) and model data (Python environments).
+
+### 1. Update Volume Mounts
+
+You will need to update your Docker volume configuration to split your data:
+
+*   **Application Data:** Bind your existing data folder (containing `scriberr.db`, `jwt_secret`, `transcripts/`, and `uploads/`) to `/app/data`.
+*   **Model Environment:** Create a **new, empty folder** and bind it to `/app/whisperx-env`.
+
+### 2. Clean Up Old Environments
+
+> **CRITICAL:** You must delete any existing `whisperx-env` folder from your previous installation.
+
+The Python environment and models need to be reinitialized for v1.2.0. If the application detects an old environment, it may attempt to use it, leading to compatibility errors. Starting with a fresh `/app/whisperx-env` volume ensures the correct dependencies are installed.
+
+## Install with Homebrew (macOS & Linux)
+
+The easiest way to install Scriberr is using Homebrew. If you don’t have Homebrew installed, [get it here first](https://brew.sh/).
+
+```bash
+# Add the Scriberr tap
+brew tap rishikanthc/scriberr
+
+# Install Scriberr (automatically installs UV dependency)
+brew install scriberr
+
+# Start the server
+scriberr
+```
+
+Open [http://localhost:8080](http://localhost:8080) in your browser.
+
+## Configuration
+
+Scriberr works out of the box. However, for Homebrew or manual installations, you can customize the application behavior using environment variables or a `.env` file placed in the same directory as the binary (or where you run the command from).
+
+> **Docker Users:** You can ignore this section if you are using `docker-compose.yml`, as these values are already configured with sane defaults.
+
+### Environment Variables
+
+| Variable | Description | Default |
+| :--- | :--- | :--- |
+| `PORT` | The port the server listens on. | `8080` |
+| `HOST` | The interface to bind to. | `0.0.0.0` |
+| `APP_ENV` | Application environment (`development` or `production`). | `development` |
+| `ALLOWED_ORIGINS` | CORS allowed origins (comma separated). | `http://localhost:5173,http://localhost:8080` |
+| `DATABASE_PATH` | Path to the SQLite database file. | `data/scriberr.db` |
+| `UPLOAD_DIR` | Directory for storing uploaded files. | `data/uploads` |
+| `TRANSCRIPTS_DIR` | Directory for storing transcripts. | `data/transcripts` |
+| `WHISPERX_ENV` | Path to the managed Python environment for models. | `data/whisperx-env` |
+| `OPENAI_API_KEY` | API Key for OpenAI (optional). | `""` |
+| `JWT_SECRET` | Secret for signing JWTs. Auto-generated if not set. | Auto-generated |
+
+**Example `.env` file:**
+
+```bash
+# Server settings
+HOST=localhost
+PORT=8080
+APP_ENV=production
+
+# Paths
+DATABASE_PATH=/var/lib/scriberr/data/scriberr.db
+UPLOAD_DIR=/var/lib/scriberr/data/uploads
+
+# Security
+JWT_SECRET=your-super-secret-key-change-this
+```
+
+## Docker Deployment
+
+For a containerized setup, you can use Docker. We provide two configurations: one for standard CPU usage and one optimized for NVIDIA GPUs (CUDA).
+
+> **Permissions:** Ensure you set the `PUID` and `PGID` environment variables to your host user's UID and GID (typically `1000` on Linux) to avoid permission issues with the SQLite database. You can find your UID/GID by running `id` on your host.
+>
+> **HTTP vs HTTPS:** By default, Scriberr enables **Secure Cookies** in production. If you are accessing the app via plain HTTP (not HTTPS), you MUST set `SECURE_COOKIES=false` in your environment variables, otherwise you will encounter "Unable to load audio stream" errors.
+
+### Standard Deployment (CPU)
+
+Use this configuration for running Scriberr on any machine without a dedicated NVIDIA GPU.
+
+1.  Create a file named `docker-compose.yml`:
+
+```yaml
+services:
+  scriberr:
+    image: ghcr.io/rishikanthc/scriberr:v1.2.0
+    ports:
+      - "8080:8080"
+    volumes:
+      - scriberr_data:/app/data # volume for data
+      - env_data:/app/whisperx-env # volume for models and python envs
+    environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      - APP_ENV=production # DO NOT CHANGE THIS
+      # CORS: comma-separated list of allowed origins for production
+      # - ALLOWED_ORIGINS=https://your-domain.com
+      # - SECURE_COOKIES=false # Uncomment this ONLY if you are not using SSL
+    restart: unless-stopped
+
+volumes:
+  scriberr_data: {}
+  env_data: {}
+```
+
+2.  Run the container:
+
+```bash
+docker compose up -d
+```
+
+### NVIDIA GPU Deployment (CUDA)
+
+If you have a compatible NVIDIA GPU, this configuration enables hardware acceleration for significantly faster transcription.
+
+1.  Ensure you have the [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html) installed.
+2.  Create a file named `docker-compose.cuda.yml`:
+
+```yaml
+services:
+  scriberr:
+    image: ghcr.io/rishikanthc/scriberr-cuda:v1.2.0
+    ports:
+      - "8080:8080"
+    volumes:
+      - scriberr_data:/app/data # volume for data
+      - env_data:/app/whisperx-env # volume for models and python envs
+    restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities:
+                - gpu
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      - APP_ENV=production # DO NOT CHANGE THIS
+      # CORS: comma-separated list of allowed origins for production
+      # - ALLOWED_ORIGINS=https://your-domain.com
+      # - SECURE_COOKIES=false # Uncomment this ONLY if you are not using SSL
+
+volumes:
+  scriberr_data: {}
+  env_data: {}
+```
+
+3.  Run the container with the CUDA configuration:
+
+```bash
+docker compose -f docker-compose.cuda.yml up -d
+```
+
+## App Startup
+
+When you run Scriberr for the first time, it may take several minutes to start. This is normal!
+
+The application needs to initialize the Python environments and download the necessary machine learning models (NVIDIA Sortformer, NVIDIA Canary, NVIDIA Parakeet).
+
+**Subsequent runs will be much faster** because all models and environments are persisted to the `env_data` volume (or your local mapped folders).
+
+You will know the application is ready when you see the line: `msg="Scriberr is ready" url=http://0.0.0.0:8080`.
+
+**Example Startup Log:**
+
+```text
+scriberr  | === Scriberr Container Setup ===
+scriberr  | Requested UID: 10001, GID: 10001
+scriberr  | Setting up custom user with UID=10001, GID=10001...
+scriberr  | Group with GID 10001 already exists, using it
+scriberr  | usermod: no changes
+scriberr  | Setting up data directories...
+scriberr  | === Setup Complete ===
+scriberr  | Switching to user appuser (UID=10001, GID=10001) and starting application...
+scriberr  | time=02:50:36 level="INFO " msg="Starting Scriberr" version=dev
+scriberr  | [+] Loading configuration
+scriberr  | time=02:50:36 level="INFO " msg="Registering adapters with environment path" whisperx_env=/app/whisperx-env
+scriberr  | time=02:50:36 level="INFO " msg="Adapter registration complete"
+scriberr  | [+] Connecting to database
+scriberr  | [+] Setting up authentication
+scriberr  | [+] Initializing SSE broadcaster
+scriberr  | [+] Initializing repositories
+scriberr  | [+] Initializing services
+scriberr  | [+] Initializing transcription service
+scriberr  | [+] Initializing transcription service
+scriberr  | [+] Preparing Python environment
+scriberr  | time=02:50:36 level="INFO " msg="Initializing unified transcription service"
+scriberr  | time=02:50:36 level="INFO " msg="Initializing registered models in parallel..."
+scriberr  | time=02:50:36 level="INFO " msg="Preparing NVIDIA Sortformer environment" env_path=/app/whisperx-env/parakeet
+scriberr  | time=02:50:36 level="INFO " msg="transcription model initialized" model_id=openai_whisper
+scriberr  | time=02:50:36 level="INFO " msg="Preparing NVIDIA Canary environment" env_path=/app/whisperx-env/parakeet
+scriberr  | time=02:50:36 level="INFO " msg="Preparing PyAnnote environment" env_path=/app/whisperx-env/pyannote
+scriberr  | time=02:50:36 level="INFO " msg="Preparing NVIDIA Parakeet environment" env_path=/app/whisperx-env/parakeet
+scriberr  | time=02:50:36 level="INFO " msg="Preparing WhisperX environment" env_path=/app/whisperx-env
+scriberr  | time=02:50:36 level="INFO " msg="Installing PyAnnote dependencies"
+scriberr  | time=02:50:36 level="INFO " msg="Parakeet environment not ready, setting up"
+scriberr  | time=02:50:36 level="INFO " msg="Installing Canary dependencies"
+scriberr  | time=02:50:36 level="INFO " msg="Installing Parakeet dependencies"
+scriberr  | time=02:50:36 level="INFO " msg="Downloading Sortformer model" path=/app/whisperx-env/parakeet/diar_streaming_sortformer_4spk-v2.nemo
+Downloading diar_streaming_sortformer_4spk-v2.nemo: 100% (449.5 MB / 449.5 MB)
+scriberr  | time=02:50:53 level="INFO " msg="Successfully downloaded Sortformer model" size=471367680
+scriberr  | time=02:50:53 level="INFO " msg="Sortformer environment prepared successfully"
+scriberr  | time=02:50:53 level="INFO " msg="diarization model initialized" model_id=sortformer
+scriberr  | time=02:53:11 level="INFO " msg="WhisperX environment prepared successfully"
+scriberr  | time=02:53:11 level="INFO " msg="transcription model initialized" model_id=whisperx
+scriberr  | time=02:53:14 level="INFO " msg="PyAnnote environment prepared successfully"
+scriberr  | time=02:53:14 level="INFO " msg="diarization model initialized" model_id=pyannote
+scriberr  | time=02:53:28 level="INFO " msg="Downloading Canary model" path=/app/whisperx-env/parakeet/canary-1b-v2.nemo
+scriberr  | time=02:53:28 level="INFO " msg="Downloading Parakeet model" path=/app/whisperx-env/parakeet/parakeet-tdt-0.6b-v3.nemo
+Downloading parakeet-tdt-0.6b-v3.nemo: 100% (2.3 GB / 2.3 GB)
+scriberr  | time=02:54:37 level="INFO " msg="Successfully downloaded Parakeet model" size=2509332480
+scriberr  | time=02:54:37 level="INFO " msg="Created buffered transcription script" path=/app/whisperx-env/parakeet/transcribe_buffered.py
+scriberr  | time=02:54:37 level="INFO " msg="Parakeet environment prepared successfully"
+scriberr  | time=02:54:37 level="INFO " msg="transcription model initialized" model_id=parakeet
+Downloading canary-1b-v2.nemo: 100% (5.9 GB / 5.9 GB)
+scriberr  | time=02:55:54 level="INFO " msg="Successfully downloaded Canary model" size=6358958080
+scriberr  | time=02:55:54 level="INFO " msg="Canary environment prepared successfully"
+scriberr  | time=02:55:54 level="INFO " msg="transcription model initialized" model_id=canary
+scriberr  | time=02:55:54 level="INFO " msg="Model initialization completed"
+scriberr  | time=02:55:54 level="INFO " msg="Unified transcription service initialized successfully"
+scriberr  | [+] Initializing quick transcription service
+scriberr  | [+] Starting background processing
+scriberr  | time=02:55:54 level="INFO " msg="Scriberr is ready" url=http://0.0.0.0:8080
+```

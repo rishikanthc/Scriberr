@@ -1,11 +1,13 @@
 import { lazy, Suspense } from 'react'
-import { useRouter } from './contexts/RouterContext'
+import { Routes, Route, Navigate } from 'react-router-dom'
 
 // Lazy load route components for better performance
-const Homepage = lazy(() => import('./components/Homepage').then(module => ({ default: module.Homepage })))
-const AudioDetailView = lazy(() => import('./components/AudioDetailView').then(module => ({ default: module.AudioDetailView })))
-const Settings = lazy(() => import('./pages/Settings').then(module => ({ default: module.Settings })))
-const ChatPage = lazy(() => import('./pages/ChatPage').then(module => ({ default: module.ChatPage })))
+const Dashboard = lazy(() => import("@/features/transcription/components/Dashboard").then(module => ({ default: module.Dashboard })));
+const AudioDetailView = lazy(() => import("@/features/transcription/components/AudioDetailView").then(module => ({ default: module.AudioDetailView })));
+const Settings = lazy(() => import('@/features/settings/pages/SettingsPage').then(module => ({ default: module.Settings })))
+const CLISettings = lazy(() => import('@/features/settings/pages/CLISettingsPage').then(module => ({ default: module.CLISettings })))
+const CLIAuthConfirmation = lazy(() => import('./features/auth/components/CLIAuthConfirmation').then(module => ({ default: module.CLIAuthConfirmation })))
+
 
 // Loading component
 const PageLoader = () => (
@@ -15,19 +17,19 @@ const PageLoader = () => (
 )
 
 function App() {
-  const { currentRoute } = useRouter()
-
   return (
     <Suspense fallback={<PageLoader />}>
-      {currentRoute.path === 'audio-detail' && currentRoute.params?.id ? (
-        <AudioDetailView audioId={currentRoute.params.id} />
-      ) : currentRoute.path === 'settings' ? (
-        <Settings />
-      ) : currentRoute.path === 'chat' ? (
-        <ChatPage />
-      ) : (
-        <Homepage />
-      )}
+      <Routes>
+        <Route path="/" element={<Dashboard />} />
+        <Route path="/audio/:audioId" element={<AudioDetailView />} />
+
+        <Route path="/settings" element={<Settings />} />
+        <Route path="/settings/cli" element={<CLISettings />} />
+        <Route path="/auth/cli/authorize" element={<CLIAuthConfirmation />} />
+
+        {/* Fallback */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
     </Suspense>
   )
 }

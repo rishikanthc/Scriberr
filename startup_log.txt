@@ -1,0 +1,57 @@
+scriberr  | === Scriberr Container Setup ===
+scriberr  | Requested UID: 10001, GID: 10001
+scriberr  | Setting up custom user with UID=10001, GID=10001...
+scriberr  | Group with GID 10001 already exists, using it
+scriberr  | usermod: no changes
+scriberr  | Setting up data directories...
+scriberr  | === Setup Complete ===
+scriberr  | Switching to user appuser (UID=10001, GID=10001) and starting application...
+scriberr  | time=02:50:36 level="INFO " msg="Starting Scriberr" version=dev
+scriberr  | [+] Loading configuration
+scriberr  | time=02:50:36 level="INFO " msg="Registering adapters with environment path" whisperx_env=/app/whisperx-env
+scriberr  | time=02:50:36 level="INFO " msg="Adapter registration complete"
+scriberr  | [+] Connecting to database
+scriberr  | [+] Setting up authentication
+scriberr  | [+] Initializing SSE broadcaster
+scriberr  | [+] Initializing repositories
+scriberr  | [+] Initializing services
+scriberr  | [+] Initializing transcription service
+scriberr  | [+] Initializing transcription service
+scriberr  | [+] Preparing Python environment
+scriberr  | time=02:50:36 level="INFO " msg="Initializing unified transcription service"
+scriberr  | time=02:50:36 level="INFO " msg="Initializing registered models in parallel..."
+scriberr  | time=02:50:36 level="INFO " msg="Preparing NVIDIA Sortformer environment" env_path=/app/whisperx-env/parakeet
+scriberr  | time=02:50:36 level="INFO " msg="transcription model initialized" model_id=openai_whisper
+scriberr  | time=02:50:36 level="INFO " msg="Preparing NVIDIA Canary environment" env_path=/app/whisperx-env/parakeet
+scriberr  | time=02:50:36 level="INFO " msg="Preparing PyAnnote environment" env_path=/app/whisperx-env/pyannote
+scriberr  | time=02:50:36 level="INFO " msg="Preparing NVIDIA Parakeet environment" env_path=/app/whisperx-env/parakeet
+scriberr  | time=02:50:36 level="INFO " msg="Preparing WhisperX environment" env_path=/app/whisperx-env
+scriberr  | time=02:50:36 level="INFO " msg="Installing PyAnnote dependencies"
+scriberr  | time=02:50:36 level="INFO " msg="Parakeet environment not ready, setting up"
+scriberr  | time=02:50:36 level="INFO " msg="Installing Canary dependencies"
+scriberr  | time=02:50:36 level="INFO " msg="Installing Parakeet dependencies"
+scriberr  | time=02:50:36 level="INFO " msg="Downloading Sortformer model" path=/app/whisperx-env/parakeet/diar_streaming_sortformer_4spk-v2.nemo
+Downloading diar_streaming_sortformer_4spk-v2.nemo: 100% (449.5 MB / 449.5 MB)
+scriberr  | time=02:50:53 level="INFO " msg="Successfully downloaded Sortformer model" size=471367680
+scriberr  | time=02:50:53 level="INFO " msg="Sortformer environment prepared successfully"
+scriberr  | time=02:50:53 level="INFO " msg="diarization model initialized" model_id=sortformer
+scriberr  | time=02:53:11 level="INFO " msg="WhisperX environment prepared successfully"
+scriberr  | time=02:53:11 level="INFO " msg="transcription model initialized" model_id=whisperx
+scriberr  | time=02:53:14 level="INFO " msg="PyAnnote environment prepared successfully"
+scriberr  | time=02:53:14 level="INFO " msg="diarization model initialized" model_id=pyannote
+scriberr  | time=02:53:28 level="INFO " msg="Downloading Canary model" path=/app/whisperx-env/parakeet/canary-1b-v2.nemo
+scriberr  | time=02:53:28 level="INFO " msg="Downloading Parakeet model" path=/app/whisperx-env/parakeet/parakeet-tdt-0.6b-v3.nemo
+Downloading parakeet-tdt-0.6b-v3.nemo: 100% (2.3 GB / 2.3 GB)
+scriberr  | time=02:54:37 level="INFO " msg="Successfully downloaded Parakeet model" size=2509332480
+scriberr  | time=02:54:37 level="INFO " msg="Created buffered transcription script" path=/app/whisperx-env/parakeet/transcribe_buffered.py
+scriberr  | time=02:54:37 level="INFO " msg="Parakeet environment prepared successfully"
+scriberr  | time=02:54:37 level="INFO " msg="transcription model initialized" model_id=parakeet
+Downloading canary-1b-v2.nemo: 100% (5.9 GB / 5.9 GB)
+scriberr  | time=02:55:54 level="INFO " msg="Successfully downloaded Canary model" size=6358958080
+scriberr  | time=02:55:54 level="INFO " msg="Canary environment prepared successfully"
+scriberr  | time=02:55:54 level="INFO " msg="transcription model initialized" model_id=canary
+scriberr  | time=02:55:54 level="INFO " msg="Model initialization completed"
+scriberr  | time=02:55:54 level="INFO " msg="Unified transcription service initialized successfully"
+scriberr  | [+] Initializing quick transcription service
+scriberr  | [+] Starting background processing
+scriberr  | time=02:55:54 level="INFO " msg="Scriberr is ready" url=http://0.0.0.0:8080

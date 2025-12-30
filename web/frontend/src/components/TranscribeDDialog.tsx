@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   Dialog,
   DialogContent,
@@ -18,7 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
 import type { WhisperXParams } from "./TranscriptionConfigDialog";
-import { useAuth } from "../contexts/AuthContext";
+import { useAuth } from "@/features/auth/hooks/useAuth";
 
 interface TranscriptionProfile {
   id: string;
@@ -35,6 +35,7 @@ interface TranscribeDDialogProps {
   onOpenChange: (open: boolean) => void;
   onStartTranscription: (params: WhisperXParams, profileId?: string) => void;
   loading?: boolean;
+  title?: string;
 }
 
 export function TranscribeDDialog({
@@ -42,6 +43,7 @@ export function TranscribeDDialog({
   onOpenChange,
   onStartTranscription,
   loading = false,
+  title,
 }: TranscribeDDialogProps) {
   const { getAuthHeaders } = useAuth();
   const [profiles, setProfiles] = useState<TranscriptionProfile[]>([]);
@@ -49,17 +51,10 @@ export function TranscribeDDialog({
   const [profilesLoading, setProfilesLoading] = useState(false);
   const [defaultProfile, setDefaultProfile] = useState<TranscriptionProfile | null>(null);
 
-  // Fetch profiles when dialog opens
-  useEffect(() => {
-    if (open) {
-      fetchProfiles();
-    }
-  }, [open]);
-
-  const fetchProfiles = async () => {
+  const fetchProfiles = useCallback(async () => {
     try {
       setProfilesLoading(true);
-      
+
       // Fetch all profiles
       const profilesResponse = await fetch("/api/v1/profiles", {
         headers: {
@@ -70,14 +65,14 @@ export function TranscribeDDialog({
       if (profilesResponse.ok) {
         const profilesData: TranscriptionProfile[] = await profilesResponse.json();
         setProfiles(profilesData);
-        
+
         // Fetch user's default profile
         const defaultResponse = await fetch("/api/v1/user/default-profile", {
           headers: {
             ...getAuthHeaders(),
           },
         });
-        
+
         if (defaultResponse.ok) {
           const defaultData: TranscriptionProfile = await defaultResponse.json();
           setDefaultProfile(defaultData);
@@ -97,7 +92,14 @@ export function TranscribeDDialog({
     } finally {
       setProfilesLoading(false);
     }
-  };
+  }, [getAuthHeaders]);
+
+  // Fetch profiles when dialog opens
+  useEffect(() => {
+    if (open) {
+      fetchProfiles();
+    }
+  }, [open, fetchProfiles]);
 
   const handleStartTranscription = () => {
     if (!selectedProfileId) return;
@@ -112,68 +114,64 @@ export function TranscribeDDialog({
     setSelectedProfileId(value);
   };
 
-  const getSelectedProfileName = () => {
-    const profile = profiles.find(p => p.id === selectedProfileId);
-    if (profile && defaultProfile && profile.id === defaultProfile.id) {
-      return `${profile.name} (Default)`;
-    }
-    return profile?.name || "";
-  };
+
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
-        <DialogHeader>
-          <DialogTitle className="text-gray-900 dark:text-gray-100">
-            Transcribe with Profile
+      <DialogContent className="sm:max-w-md glass-card rounded-[var(--radius-card)] p-0 gap-0 overflow-hidden border border-[var(--border-subtle)] shadow-[var(--shadow-float)]">
+        <DialogHeader className="p-6 pb-2">
+          <DialogTitle className="text-xl font-bold tracking-tight text-[var(--text-primary)]">
+            {title || "Transcribe with Profile"}
           </DialogTitle>
-          <DialogDescription className="text-gray-600 dark:text-gray-400">
+          <DialogDescription className="text-[var(--text-secondary)] text-sm mt-1.5">
             Choose a saved profile to start transcription with your preferred settings.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 py-4">
+
+
+        <div className="space-y-4 px-6 py-2">
           <div className="space-y-2">
-            <Label htmlFor="profile" className="text-gray-700 dark:text-gray-300 font-medium">
+            <Label htmlFor="profile" className="text-[var(--text-secondary)] font-medium">
               Select Profile
             </Label>
-            
+
             {profilesLoading ? (
-              <div className="flex items-center space-x-2 p-3 bg-gray-50 dark:bg-gray-800 rounded-md border border-gray-200 dark:border-gray-700">
-                <Loader2 className="h-4 w-4 animate-spin text-gray-500 dark:text-gray-400" />
-                <span className="text-sm text-gray-600 dark:text-gray-400">Loading profiles...</span>
+              <div className="flex items-center space-x-2 p-3 bg-[var(--bg-main)]/50 rounded-[var(--radius-btn)] border border-[var(--border-subtle)]">
+                <Loader2 className="h-4 w-4 animate-spin text-[var(--text-tertiary)]" />
+                <span className="text-sm text-[var(--text-secondary)]">Loading profiles...</span>
               </div>
             ) : profiles.length === 0 ? (
-              <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-md border border-gray-200 dark:border-gray-700">
-                <span className="text-sm text-gray-600 dark:text-gray-400">No profiles available</span>
+              <div className="p-3 bg-[var(--bg-main)]/50 rounded-[var(--radius-btn)] border border-[var(--border-subtle)]">
+                <span className="text-sm text-[var(--text-secondary)]">No profiles available</span>
               </div>
             ) : (
               <Select
                 value={selectedProfileId}
                 onValueChange={handleProfileChange}
               >
-                <SelectTrigger className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400">
+                <SelectTrigger className="h-11 rounded-[var(--radius-btn)] bg-[var(--bg-main)] border border-[var(--border-subtle)] text-[var(--text-primary)] focus:ring-[var(--brand-light)] focus:border-[var(--brand-solid)] shadow-none">
                   <SelectValue placeholder="Choose a profile..." />
                 </SelectTrigger>
-                <SelectContent className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 max-h-60">
+                <SelectContent className="glass-card rounded-[var(--radius-btn)] border border-[var(--border-subtle)] shadow-[var(--shadow-float)]">
                   {/* All profiles */}
                   {profiles.map((profile) => (
-                    <SelectItem 
-                      key={profile.id} 
+                    <SelectItem
+                      key={profile.id}
                       value={profile.id}
-                      className="text-gray-900 dark:text-gray-100 focus:bg-gray-100 dark:focus:bg-gray-700"
+                      className="text-[var(--text-primary)] focus:bg-[var(--brand-light)] focus:text-[var(--brand-solid)] rounded-[8px] my-1 mx-1 cursor-pointer"
                     >
                       <div className="flex flex-col space-y-1">
                         <div className="flex items-center space-x-2">
                           <span>{profile.name}</span>
                           {defaultProfile && profile.id === defaultProfile.id && (
-                            <span className="text-xs text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/30 px-1.5 py-0.5 rounded">
+                            <span className="text-xs text-[var(--success-solid)] bg-[var(--success-translucent)] px-1.5 py-0.5 rounded">
                               Default
                             </span>
                           )}
                         </div>
                         {profile.description && (
-                          <span className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                          <span className="text-xs text-[var(--text-tertiary)] truncate">
                             {profile.description}
                           </span>
                         )}
@@ -185,37 +183,21 @@ export function TranscribeDDialog({
             )}
           </div>
 
-          {/* Show selected profile details */}
-          {selectedProfileId && !profilesLoading && (
-            <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-md border border-gray-200 dark:border-gray-700">
-              <div className="text-sm">
-                <span className="font-medium text-gray-700 dark:text-gray-300">Selected: </span>
-                <span className="text-gray-600 dark:text-gray-400">{getSelectedProfileName()}</span>
-              </div>
-              {(() => {
-                const profile = profiles.find(p => p.id === selectedProfileId);
-                return profile?.description ? (
-                  <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    {profile.description}
-                  </div>
-                ) : null;
-              })()}
-            </div>
-          )}
+
         </div>
 
-        <DialogFooter className="gap-2">
-          <Button 
-            variant="outline" 
+        <DialogFooter className="p-6 pt-2 gap-3">
+          <Button
+            variant="ghost"
             onClick={() => onOpenChange(false)}
-            className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
+            className="rounded-[var(--radius-btn)] text-[var(--text-secondary)] hover:bg-[var(--secondary)] hover:text-[var(--text-primary)]"
           >
             Cancel
           </Button>
-          <Button 
-            onClick={handleStartTranscription} 
+          <Button
+            onClick={handleStartTranscription}
             disabled={loading || !selectedProfileId || profilesLoading || profiles.length === 0}
-            className="bg-blue-600 dark:bg-blue-700 hover:bg-blue-700 dark:hover:bg-blue-800 text-white min-w-[120px]"
+            className="min-w-[140px] !bg-[var(--brand-gradient)] hover:!opacity-90 !text-black dark:!text-white border-none shadow-lg shadow-orange-500/20"
           >
             {loading ? (
               <>
@@ -228,6 +210,6 @@ export function TranscribeDDialog({
           </Button>
         </DialogFooter>
       </DialogContent>
-    </Dialog>
+    </Dialog >
   );
 }

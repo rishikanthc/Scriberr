@@ -17,19 +17,19 @@ export default {
       },
       fontFamily: {
         sans: [
-          'Inter var',
           'Inter',
           'ui-sans-serif',
           'system-ui',
-          'Segoe UI',
-          'Roboto',
-          'Helvetica Neue',
-          'Arial',
-          'Noto Sans',
-          'Apple Color Emoji',
-          'Segoe UI Emoji',
-          'Segoe UI Symbol',
-          'Noto Color Emoji'
+          'sans-serif',
+        ],
+        display: [
+          'Plus Jakarta Sans',
+          'Inter',
+          'sans-serif',
+        ],
+        accent: [
+          'Inter',
+          'sans-serif',
         ]
       },
       boxShadow: {
@@ -47,5 +47,8 @@ export default {
       }
     }
   },
-  darkMode: 'class'
+  darkMode: 'class',
+  plugins: [
+    require('@tailwindcss/typography'),
+  ],
 } satisfies Config;

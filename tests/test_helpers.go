@@ -10,8 +10,17 @@ import (
 	"scriberr/internal/database"
 	"scriberr/internal/models"
 
+	"context"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"time"
+
+	"scriberr/internal/llm"
+
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"gorm.io/gorm"
 )
 
@@ -37,8 +46,8 @@ func NewTestHelper(t *testing.T, dbName string) *TestHelper {
 		DatabasePath: dbName,
 		JWTSecret:    "test-secret-key-for-unit-tests",
 		UploadDir:    "test_uploads_" + dbName,
-		UVPath:       "uv",
-		WhisperXEnv:  "test_whisperx_env",
+
+		WhisperXEnv: "test_whisperx_env",
 	}
 
 	// Initialize test database
@@ -50,7 +59,7 @@ func NewTestHelper(t *testing.T, dbName string) *TestHelper {
 	testDB := database.DB
 
 	// Create upload directory
-	os.MkdirAll(cfg.UploadDir, 0755)
+	_ = os.MkdirAll(cfg.UploadDir, 0755)
 
 	// Initialize auth service
 	authService := auth.NewAuthService(cfg.JWTSecret)
@@ -77,6 +86,36 @@ func (h *TestHelper) Cleanup() {
 	database.Close()
 	os.Remove(h.Config.DatabasePath)
 	os.RemoveAll(h.Config.UploadDir)
+}
+
+// ResetDB cleans all tables in the database to ensure a clean state for each test
+func (h *TestHelper) ResetDB(t *testing.T) {
+	// List of models to clean
+	modelsToClean := []interface{}{
+		&models.Note{},
+		&models.ChatSession{},
+		&models.TranscriptionJobExecution{}, // Assuming this exists based on MockJobRepository
+		&models.TranscriptionJob{},
+		&models.TranscriptionProfile{},
+		&models.SummaryTemplate{},
+		&models.LLMConfig{},
+		&models.APIKey{},
+		&models.User{},
+	}
+
+	for _, model := range modelsToClean {
+		// specific check to see if table exists before trying to delete
+		if h.DB.Migrator().HasTable(model) {
+			if err := h.DB.Session(&gorm.Session{AllowGlobalUpdate: true}).Delete(model).Error; err != nil {
+				// Ignore errors if table doesn't exist or other non-critical issues during cleanup
+				// But log it just in case
+				t.Logf("Failed to clean table for model %T: %v", model, err)
+			}
+		}
+	}
+
+	// Re-create test credentials as they are deleted by the cleanup
+	h.createTestCredentials(t)
 }
 
 // createTestCredentials creates a test user and API key for testing
@@ -221,17 +260,245 @@ func stringPtr(s string) *string {
 	return &s
 }
 
-// Helper function to create int pointer
-func intPtr(i int) *int {
-	return &i
+// MockJobRepository is a mock implementation of JobRepository
+type MockJobRepository struct {
+	mock.Mock
 }
 
-// Helper function to create float pointer
-func floatPtr(f float64) *float64 {
-	return &f
+func (m *MockJobRepository) Create(ctx context.Context, entity *models.TranscriptionJob) error {
+	args := m.Called(ctx, entity)
+	return args.Error(0)
 }
 
-// Helper function to create bool pointer
-func boolPtr(b bool) *bool {
-	return &b
+func (m *MockJobRepository) FindByID(ctx context.Context, id interface{}) (*models.TranscriptionJob, error) {
+	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.TranscriptionJob), args.Error(1)
+}
+
+func (m *MockJobRepository) Update(ctx context.Context, entity *models.TranscriptionJob) error {
+	args := m.Called(ctx, entity)
+	return args.Error(0)
+}
+
+func (m *MockJobRepository) Delete(ctx context.Context, id interface{}) error {
+	args := m.Called(ctx, id)
+	return args.Error(0)
+}
+
+func (m *MockJobRepository) List(ctx context.Context, offset, limit int) ([]models.TranscriptionJob, int64, error) {
+	args := m.Called(ctx, offset, limit)
+	return args.Get(0).([]models.TranscriptionJob), args.Get(1).(int64), args.Error(2)
+}
+
+func (m *MockJobRepository) FindWithAssociations(ctx context.Context, id string) (*models.TranscriptionJob, error) {
+	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.TranscriptionJob), args.Error(1)
+}
+
+func (m *MockJobRepository) ListByUser(ctx context.Context, userID uint, offset, limit int) ([]models.TranscriptionJob, int64, error) {
+	args := m.Called(ctx, userID, offset, limit)
+	return args.Get(0).([]models.TranscriptionJob), args.Get(1).(int64), args.Error(2)
+}
+
+func (m *MockJobRepository) UpdateTranscript(ctx context.Context, jobID string, transcript string) error {
+	args := m.Called(ctx, jobID, transcript)
+	return args.Error(0)
+}
+
+func (m *MockJobRepository) CreateExecution(ctx context.Context, execution *models.TranscriptionJobExecution) error {
+	args := m.Called(ctx, execution)
+	return args.Error(0)
+}
+
+func (m *MockJobRepository) UpdateExecution(ctx context.Context, execution *models.TranscriptionJobExecution) error {
+	args := m.Called(ctx, execution)
+	return args.Error(0)
+}
+
+func (m *MockJobRepository) DeleteExecutionsByJobID(ctx context.Context, jobID string) error {
+	args := m.Called(ctx, jobID)
+	return args.Error(0)
+}
+
+func (m *MockJobRepository) DeleteMultiTrackFilesByJobID(ctx context.Context, jobID string) error {
+	args := m.Called(ctx, jobID)
+	return args.Error(0)
+}
+
+func (m *MockJobRepository) ListWithParams(ctx context.Context, offset, limit int, sortBy, sortOrder, searchQuery string, updatedAfter *time.Time) ([]models.TranscriptionJob, int64, error) {
+	args := m.Called(ctx, offset, limit, sortBy, sortOrder, searchQuery, updatedAfter)
+	return args.Get(0).([]models.TranscriptionJob), args.Get(1).(int64), args.Error(2)
+}
+
+func (m *MockJobRepository) FindActiveTrackJobs(ctx context.Context, parentJobID string) ([]models.TranscriptionJob, error) {
+	args := m.Called(ctx, parentJobID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]models.TranscriptionJob), args.Error(1)
+}
+
+func (m *MockJobRepository) FindLatestCompletedExecution(ctx context.Context, jobID string) (*models.TranscriptionJobExecution, error) {
+	args := m.Called(ctx, jobID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.TranscriptionJobExecution), args.Error(1)
+}
+
+func (m *MockJobRepository) UpdateStatus(ctx context.Context, jobID string, status models.JobStatus) error {
+	args := m.Called(ctx, jobID, status)
+	return args.Error(0)
+}
+
+func (m *MockJobRepository) UpdateError(ctx context.Context, jobID string, errorMsg string) error {
+	args := m.Called(ctx, jobID, errorMsg)
+	return args.Error(0)
+}
+
+func (m *MockJobRepository) FindByStatus(ctx context.Context, status models.JobStatus) ([]models.TranscriptionJob, error) {
+	args := m.Called(ctx, status)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]models.TranscriptionJob), args.Error(1)
+}
+
+func (m *MockJobRepository) CountByStatus(ctx context.Context, status models.JobStatus) (int64, error) {
+	args := m.Called(ctx, status)
+	return args.Get(0).(int64), args.Error(1)
+}
+
+func (m *MockJobRepository) UpdateSummary(ctx context.Context, jobID string, summary string) error {
+	args := m.Called(ctx, jobID, summary)
+	return args.Error(0)
+}
+
+// NewMockOpenAIServer creates a new mock OpenAI server for testing
+func NewMockOpenAIServer() *httptest.Server {
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/models":
+			handleModelsRequest(w, r)
+		case "/chat/completions":
+			handleChatCompletionRequest(w, r)
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+}
+
+func handleModelsRequest(w http.ResponseWriter, r *http.Request) {
+	// Return mock models response
+	response := llm.ModelsResponse{
+		Data: []struct {
+			ID      string `json:"id"`
+			Object  string `json:"object"`
+			Created int64  `json:"created"`
+			OwnedBy string `json:"owned_by"`
+		}{
+			{ID: "gpt-3.5-turbo", Object: "model", Created: 1677610602, OwnedBy: "openai"},
+			{ID: "gpt-4", Object: "model", Created: 1687882411, OwnedBy: "openai"},
+		},
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(response)
+}
+
+func handleChatCompletionRequest(w http.ResponseWriter, r *http.Request) {
+	// Parse request body
+	var chatReq llm.ChatRequest
+	if err := json.NewDecoder(r.Body).Decode(&chatReq); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(`{"error": {"message": "Invalid request"}}`))
+		return
+	}
+
+	if chatReq.Stream {
+		handleStreamingResponse(w, chatReq)
+	} else {
+		handleNonStreamingResponse(w, chatReq)
+	}
+}
+
+func handleNonStreamingResponse(w http.ResponseWriter, chatReq llm.ChatRequest) {
+	response := llm.ChatResponse{
+		ID:      "chatcmpl-test123",
+		Object:  "chat.completion",
+		Created: time.Now().Unix(),
+		Model:   chatReq.Model,
+		Choices: []struct {
+			Index   int `json:"index"`
+			Message struct {
+				Role    string `json:"role"`
+				Content string `json:"content"`
+			} `json:"message"`
+			FinishReason string `json:"finish_reason"`
+		}{
+			{
+				Index: 0,
+				Message: struct {
+					Role    string `json:"role"`
+					Content string `json:"content"`
+				}{
+					Role:    "assistant",
+					Content: "This is a test response from the mock OpenAI service.",
+				},
+				FinishReason: "stop",
+			},
+		},
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(response)
+}
+
+func handleStreamingResponse(w http.ResponseWriter, chatReq llm.ChatRequest) {
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+
+	tokens := []string{"This", " is", " a", " test", " streaming", " response", "."}
+
+	for _, token := range tokens {
+		response := llm.ChatStreamResponse{
+			ID:      "chatcmpl-stream123",
+			Object:  "chat.completion.chunk",
+			Created: time.Now().Unix(),
+			Model:   chatReq.Model,
+			Choices: []struct {
+				Index int `json:"index"`
+				Delta struct {
+					Role    string `json:"role,omitempty"`
+					Content string `json:"content,omitempty"`
+				} `json:"delta"`
+				FinishReason string `json:"finish_reason"`
+			}{
+				{
+					Index: 0,
+					Delta: struct {
+						Role    string `json:"role,omitempty"`
+						Content string `json:"content,omitempty"`
+					}{
+						Content: token,
+					},
+				},
+			},
+		}
+
+		data, _ := json.Marshal(response)
+		_, _ = w.Write([]byte("data: " + string(data) + "\n\n"))
+		w.(http.Flusher).Flush()
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	_, _ = w.Write([]byte("data: [DONE]\n\n"))
+	w.(http.Flusher).Flush()
 }

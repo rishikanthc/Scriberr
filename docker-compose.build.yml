@@ -19,6 +19,11 @@ services:
     #   - UPLOAD_DIR=/app/data/uploads
     #   - PUID=${PUID:-1000}
     #   - PGID=${PGID:-1000}
+    environment:
+      # Security: already set in container, but can be overridden
+      - APP_ENV=production
+      # CORS: comma-separated list of allowed origins for production
+      # - ALLOWED_ORIGINS=https://your-domain.com
     volumes:
       - ./scriberr-data:/app/data
       - ./env-data:/app/whisperx-env

@@ -81,7 +81,7 @@ func NewSortformerAdapter(envPath string) *SortformerAdapter {
 			Type:        "string",
 			Required:    false,
 			Default:     "rttm",
-			Options:     []string{"rttm", "json"},
+			Options:     []string{"rttm", OutputFormatJSON},
 			Description: "Output format for diarization results",
 			Group:       "advanced",
 		},
@@ -92,8 +92,8 @@ func NewSortformerAdapter(envPath string) *SortformerAdapter {
 			Type:        "string",
 			Required:    false,
 			Default:     "auto",
-			Options:     []string{"cpu", "cuda", "mps", "auto"},
-			Description: "Device to use for computation (cpu, cuda for NVIDIA GPUs, mps for Apple Silicon, auto for automatic detection)",
+			Options:     []string{"cpu", "cuda", "auto"},
+			Description: "Device to use for computation (cpu, cuda for NVIDIA GPUs, auto for automatic detection)",
 			Group:       "advanced",
 		},
 
@@ -195,8 +195,8 @@ func (s *SortformerAdapter) setupSortformerEnvironment() error {
 		return fmt.Errorf("failed to create sortformer directory: %w", err)
 	}
 
-	// Create pyproject.toml (same as other NVIDIA models)
-	pyprojectContent := `[project]
+	// Create pyproject.toml with configurable PyTorch CUDA version
+	pyprojectContent := fmt.Sprintf(`[project]
 name = "parakeet-transcription"
 version = "0.1.0"
 description = "Audio transcription using NVIDIA Parakeet models"
@@ -213,8 +213,31 @@ dependencies = [
 ]
 
 [tool.uv.sources]
-nemo-toolkit = { git = "https://github.com/NVIDIA/NeMo.git" }
-`
+nemo-toolkit = { git = "https://github.com/NVIDIA/NeMo.git", tag = "v2.5.3" }
+torch = [
+    { index = "pytorch-cpu", marker = "sys_platform == 'darwin'" },
+    { index = "pytorch-cpu", marker = "platform_machine != 'x86_64' and sys_platform != 'darwin'" },
+    { index = "pytorch", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
+]
+torchaudio = [
+    { index = "pytorch-cpu", marker = "sys_platform == 'darwin'" },
+    { index = "pytorch-cpu", marker = "platform_machine != 'x86_64' and sys_platform != 'darwin'" },
+    { index = "pytorch", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
+]
+triton = [
+    { index = "pytorch", marker = "sys_platform == 'linux'" }
+]
+
+[[tool.uv.index]]
+name = "pytorch"
+url = "%s"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+`, GetPyTorchWheelURL())
 	pyprojectPath := filepath.Join(s.envPath, "pyproject.toml")
 	if err := os.WriteFile(pyprojectPath, []byte(pyprojectContent), 0644); err != nil {
 		return fmt.Errorf("failed to write pyproject.toml: %w", err)
@@ -311,8 +334,7 @@ def diarize_audio(
     if device is None or device == "auto":
         if torch.cuda.is_available():
             device = "cuda"
-        elif hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
-            device = "mps"
+
         else:
             device = "cpu"
 
@@ -560,7 +582,7 @@ Note: This script requires diar_streaming_sortformer_4spk-v2.nemo to be in the s
     parser.add_argument("audio_file", help="Path to input audio file (WAV, FLAC, etc.)")
     parser.add_argument("output_file", help="Path to output file (.json for JSON format, .rttm for RTTM format)")
     parser.add_argument("--batch-size", type=int, default=1, help="Batch size for processing (default: 1)")
-    parser.add_argument("--device", choices=["cuda", "mps", "cpu", "auto"], default="auto", help="Device to use for inference (default: auto-detect)")
+    parser.add_argument("--device", choices=["cuda", "cpu", "auto"], default="auto", help="Device to use for inference (default: auto-detect)")
     parser.add_argument("--max-speakers", type=int, default=4, help="Maximum number of speakers (default: 4, optimized for this model)")
     parser.add_argument("--output-format", choices=["json", "rttm"], help="Output format (auto-detected from file extension if not specified)")
     parser.add_argument("--streaming", action="store_true", help="Enable streaming mode")
@@ -658,15 +680,32 @@ func (s *SortformerAdapter) Diarize(ctx context.Context, input interfaces.AudioI
 	cmd := exec.CommandContext(ctx, "uv", args...)
 	cmd.Env = append(os.Environ(), "PYTHONUNBUFFERED=1")
 
+	// Setup log file
+	logFile, err := os.OpenFile(filepath.Join(procCtx.OutputDirectory, "transcription.log"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		logger.Warn("Failed to create log file", "error", err)
+	} else {
+		defer logFile.Close()
+		cmd.Stdout = logFile
+		cmd.Stderr = logFile
+	}
+
 	logger.Info("Executing Sortformer command", "args", strings.Join(args, " "))
 
-	output, err := cmd.CombinedOutput()
-	if ctx.Err() == context.Canceled {
-		return nil, fmt.Errorf("diarization was cancelled")
-	}
-	if err != nil {
-		logger.Error("Sortformer execution failed", "output", string(output), "error", err)
-		return nil, fmt.Errorf("Sortformer execution failed: %w", err)
+	if err := cmd.Run(); err != nil {
+		if ctx.Err() == context.Canceled {
+			return nil, fmt.Errorf("diarization was cancelled")
+		}
+
+		// Read tail of log file for context
+		logPath := filepath.Join(procCtx.OutputDirectory, "transcription.log")
+		logTail, readErr := s.ReadLogTail(logPath, 2048)
+		if readErr != nil {
+			logger.Warn("Failed to read log tail", "error", readErr)
+		}
+
+		logger.Error("Sortformer execution failed", "error", err)
+		return nil, fmt.Errorf("Sortformer execution failed: %w\nLogs:\n%s", err, logTail)
 	}
 
 	// Parse result
@@ -691,7 +730,7 @@ func (s *SortformerAdapter) Diarize(ctx context.Context, input interfaces.AudioI
 func (s *SortformerAdapter) buildSortformerArgs(input interfaces.AudioInput, params map[string]interface{}, tempDir string) ([]string, error) {
 	outputFormat := s.GetStringParameter(params, "output_format")
 	var outputFile string
-	if outputFormat == "json" {
+	if outputFormat == OutputFormatJSON {
 		outputFile = filepath.Join(tempDir, "result.json")
 	} else {
 		outputFile = filepath.Join(tempDir, "result.rttm")
@@ -737,11 +776,10 @@ func (s *SortformerAdapter) buildSortformerArgs(input interfaces.AudioInput, par
 func (s *SortformerAdapter) parseResult(tempDir string, input interfaces.AudioInput, params map[string]interface{}) (*interfaces.DiarizationResult, error) {
 	outputFormat := s.GetStringParameter(params, "output_format")
 
-	if outputFormat == "json" {
+	if outputFormat == OutputFormatJSON {
 		return s.parseJSONResult(tempDir)
-	} else {
-		return s.parseRTTMResult(tempDir, input)
 	}
+	return s.parseRTTMResult(tempDir, input)
 }
 
 // parseJSONResult parses JSON format output

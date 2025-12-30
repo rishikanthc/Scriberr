@@ -70,9 +70,9 @@ function Installation() {
 
       <section>
         <h2 className="mt-12">Install with Docker</h2>
-        <p className="mt-2">Run Scriberr in a container with all dependencies included.</p>
+        <p className="mt-2">Run Scriberr in a container with all dependencies included. We provide images for both CPU and NVIDIA GPU (CUDA) environments.</p>
 
-        <h3 className="mt-4">Quick start</h3>
+        <h3 className="mt-4">CPU Version (Standard)</h3>
         <div className="bg-gray-50 rounded-lg p-4 font-mono text-sm mt-2 overflow-x-auto">
           <span className="text-green-600"># Run with Docker (data persisted in volume)</span>
           <pre className="mt-2">{`docker run -d \\
@@ -83,24 +83,45 @@ function Installation() {
   ghcr.io/rishikanthc/scriberr:latest`}</pre>
         </div>
 
-        <h3 className="mt-6">Docker Compose</h3>
+        <h3 className="mt-8">NVIDIA GPU Version (CUDA)</h3>
+        <p className="mt-2">
+          For hardware acceleration, use the CUDA image. Requires <a href="https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html" target="_blank" rel="noopener noreferrer">NVIDIA Container Toolkit</a> to be installed on your host.
+        </p>
+        <div className="bg-gray-50 rounded-lg p-4 font-mono text-sm mt-2 overflow-x-auto">
+          <pre className="mt-2">{`docker run -d \\
+  --name scriberr-cuda \\
+  --gpus all \\
+  -p 8080:8080 \\
+  -v scriberr_data:/app/data \\
+  --restart unless-stopped \\
+  ghcr.io/rishikanthc/scriberr:cuda-latest`}</pre>
+        </div>
+
+        <h3 className="mt-8">Docker Compose</h3>
         <p className="mt-2">Create a <code className="bg-gray-100 px-1 rounded">docker-compose.yml</code> with the following:</p>
         <div className="bg-gray-50 rounded-lg p-4 font-mono text-sm mt-2 overflow-x-auto">
-          <pre>{`
-version: '3.9'
+          <pre>{`version: '3.9'
 services:
   scriberr:
+    # Use ghcr.io/rishikanthc/scriberr:cuda-latest for GPU support
     image: ghcr.io/rishikanthc/scriberr:latest
     container_name: scriberr
     ports:
       - "8080:8080"
     volumes:
       - scriberr_data:/app/data
+    # Uncomment for GPU support
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
     restart: unless-stopped
 
 volumes:
-  scriberr_data:
-`}</pre>
+  scriberr_data:`}</pre>
         </div>
         <div className="bg-gray-50 rounded-lg p-4 font-mono text-sm mt-2">
           <div className="text-gray-800">
@@ -114,7 +135,7 @@ volumes:
 
       <section>
         <p className="mt-10">
-          To configure speaker diarization, see the <a href="/docs/diarization.html">Diarization setup guide</a>.
+          To configure speaker diarization, see the <a href="/docs/configuration.html">Configuration guide</a>.
         </p>
       </section>
     </DocsLayout>
