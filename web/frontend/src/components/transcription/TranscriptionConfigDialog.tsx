@@ -383,6 +383,9 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
                                 <SelectItem value="nvidia_canary" className={selectItemClassName}>
                                     NVIDIA Canary
                                 </SelectItem>
+                                <SelectItem value="mistral_voxtral" className={selectItemClassName}>
+                                    Mistral Voxtral
+                                </SelectItem>
                                 <SelectItem value="openai" className={selectItemClassName}>
                                     OpenAI
                                 </SelectItem>
@@ -431,6 +434,13 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
                             validationMessage={validationMessage}
                             availableModels={availableModels}
                             onValidate={validateAPIKey}
+                        />
+                    )}
+
+                    {params.model_family === "mistral_voxtral" && (
+                        <VoxtralConfig
+                            params={params}
+                            updateParam={updateParam}
                         />
                     )}
                 </div>
@@ -990,6 +1000,53 @@ function OpenAIConfig({
                     Word-level timestamps are only supported by whisper-1. Synchronized playback won't be available.
                 </InfoBanner>
             )}
+        </div>
+    );
+}
+
+function VoxtralConfig({ params, updateParam }: ConfigProps) {
+    return (
+        <div className="space-y-6">
+            {/* Voxtral Warning Banner */}
+            <InfoBanner variant="warning" title="Limited Features">
+                Voxtral does not support word-level timestamps. Synchronized playback, audio seeking, and timestamp-based features won't be available.
+            </InfoBanner>
+
+            <Section title="Language Settings">
+                <FormField label="Language" description="Source language for transcription">
+                    <Select value={params.language || "en"} onValueChange={(v) => updateParam('language', v)}>
+                        <SelectTrigger className={selectTriggerClassName}>
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className={selectContentClassName}>
+                            {LANGUAGES.map((l) => (
+                                <SelectItem key={l.value} value={l.value} className={selectItemClassName}>{l.label}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </FormField>
+            </Section>
+
+            {/* Advanced Settings */}
+            <Accordion type="single" collapsible className="w-full">
+                <AccordionItem value="advanced" className="border border-[var(--border-subtle)] rounded-xl px-4">
+                    <AccordionTrigger className="text-sm font-medium text-[var(--text-primary)] hover:no-underline py-4">
+                        Advanced Settings
+                    </AccordionTrigger>
+                    <AccordionContent className="pb-4 space-y-4">
+                        <FormField label="Max Tokens" description="Maximum number of tokens to generate. Higher values allow longer transcriptions.">
+                            <Input
+                                type="number"
+                                min={100}
+                                max={2000}
+                                value={params.max_line_width || 500}
+                                onChange={(e) => updateParam('max_line_width', parseInt(e.target.value) || 500)}
+                                className={inputClassName}
+                            />
+                        </FormField>
+                    </AccordionContent>
+                </AccordionItem>
+            </Accordion>
         </div>
     );
 }
