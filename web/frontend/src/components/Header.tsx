@@ -233,7 +233,7 @@ export function Header({ onFileSelect, onMultiTrackClick, onDownloadComplete }: 
 								onClick={handleSystemRecordClick}
 								className="group flex items-center gap-3 px-3 py-3 cursor-pointer rounded-[var(--radius-btn)] focus:bg-[var(--brand-light)] focus:text-[var(--brand-solid)] transition-colors"
 							>
-								<div className="p-2 bg-cyan-500/10 rounded-[var(--radius-btn)] text-cyan-600 group-focus:text-[var(--brand-solid)]">
+								<div className="p-2 bg-blue-500/10 rounded-[var(--radius-btn)] text-blue-600 group-focus:text-[var(--brand-solid)]">
 									<MonitorSpeaker className="h-4 w-4" />
 								</div>
 								<div>
