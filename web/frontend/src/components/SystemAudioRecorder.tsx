@@ -269,7 +269,7 @@ export function SystemAudioRecorder({
 			});
 
 			// Debug: Log what tracks we got
-			console.log("Display stream tracks:", {
+			console.info("Display stream tracks:", {
 				video: displayStream.getVideoTracks().length,
 				audio: displayStream.getAudioTracks().length,
 				allTracks: displayStream.getTracks().map(t => ({ kind: t.kind, label: t.label }))
