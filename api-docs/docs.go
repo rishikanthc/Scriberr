@@ -4861,6 +4861,10 @@ const docTemplate = `{
                     "description": "Output formatting",
                     "type": "integer"
                 },
+                "max_new_tokens": {
+                    "description": "Voxtral settings",
+                    "type": "integer"
+                },
                 "max_speakers": {
                     "type": "integer"
                 },
