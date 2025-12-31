@@ -295,10 +295,18 @@ export const AudioDetailView = function AudioDetailView({ audioId: propAudioId }
                                                 </DropdownMenuTrigger>
                                                 <DropdownMenuContent align="end" className="w-56 glass-card rounded-[var(--radius-card)] shadow-[var(--shadow-float)] border-[var(--border-subtle)] p-1.5">
                                                     {/* ... (Menu Items same as before, update handlers) ... */}
-                                                    <DropdownMenuItem onClick={() => setTranscriptMode(transcriptMode === 'compact' ? 'expanded' : 'compact')} className="rounded-[8px] cursor-pointer">
-                                                        {transcriptMode === 'compact' ? <List className="mr-2 h-4 w-4 opacity-70" /> : <AlignLeft className="mr-2 h-4 w-4 opacity-70" />}
-                                                        {transcriptMode === 'compact' ? 'Timeline View' : 'Compact View'}
-                                                    </DropdownMenuItem>
+                                                    {/* Only show timeline view toggle if transcript has word-level timestamps */}
+                                                    {transcript?.word_segments && transcript.word_segments.length > 0 ? (
+                                                        <DropdownMenuItem onClick={() => setTranscriptMode(transcriptMode === 'compact' ? 'expanded' : 'compact')} className="rounded-[8px] cursor-pointer">
+                                                            {transcriptMode === 'compact' ? <List className="mr-2 h-4 w-4 opacity-70" /> : <AlignLeft className="mr-2 h-4 w-4 opacity-70" />}
+                                                            {transcriptMode === 'compact' ? 'Timeline View' : 'Compact View'}
+                                                        </DropdownMenuItem>
+                                                    ) : (
+                                                        <DropdownMenuItem disabled className="rounded-[8px] opacity-50 cursor-not-allowed">
+                                                            <List className="mr-2 h-4 w-4 opacity-70" />
+                                                            Timeline View (No timestamps)
+                                                        </DropdownMenuItem>
+                                                    )}
                                                     <DropdownMenuItem onClick={() => setAutoScrollEnabled(!autoScrollEnabled)} className="rounded-[8px] cursor-pointer">
                                                         <ArrowDownCircle className={cn("mr-2 h-4 w-4 opacity-70", autoScrollEnabled && "text-[var(--brand-solid)]")} />
                                                         Auto Scroll {autoScrollEnabled ? 'On' : 'Off'}
