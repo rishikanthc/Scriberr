@@ -308,7 +308,7 @@ export const TranscriptView = forwardRef<HTMLDivElement, TranscriptViewProps>(({
     return (
         <div
             ref={ref}
-            className={cn("w-full max-w-none font-inter mt-4", className)}
+            className={cn("w-full max-w-none font-literata mt-4", className)}
         >
             {mode === 'compact' ? renderCompactView() : renderExpandedView()}
 
