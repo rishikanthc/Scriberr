@@ -35,8 +35,9 @@ def transcribe_audio(
         Dictionary containing transcription results
     """
     # Determine device
-    if device == "auto":
-        device = "cuda" if torch.cuda.is_available() else "cpu"
+    # if device == "auto":
+    #     device = "cuda" if torch.cuda.is_available() else "cpu"
+    device = "cuda" if torch.cuda.is_available() else "cpu"
 
     print(f"Loading Voxtral model on {device}...", file=sys.stderr)
 
@@ -57,9 +58,7 @@ def transcribe_audio(
 
     # Prepare transcription request using the proper method
     inputs = processor.apply_transcription_request(
-        language=language,
-        audio=audio_path,
-        model_id=model_id
+        language=language, audio=audio_path, model_id=model_id
     )
 
     # Move inputs to device with correct dtype
@@ -76,8 +75,7 @@ def transcribe_audio(
 
     # Decode only the newly generated tokens (skip the input prompt)
     decoded_outputs = processor.batch_decode(
-        outputs[:, inputs.input_ids.shape[1]:],
-        skip_special_tokens=True
+        outputs[:, inputs.input_ids.shape[1] :], skip_special_tokens=True
     )
 
     transcription_text = decoded_outputs[0]
@@ -94,7 +92,7 @@ def transcribe_audio(
                 "start": 0.0,
                 "end": 0.0,  # Duration unknown without audio analysis
                 "text": transcription_text,
-                "words": []  # Voxtral doesn't provide word-level timestamps
+                "words": [],  # Voxtral doesn't provide word-level timestamps
             }
         ],
         "language": language,
@@ -104,7 +102,7 @@ def transcribe_audio(
 
     # Write output
     output_file = Path(output_path)
-    with output_file.open('w', encoding='utf-8') as f:
+    with output_file.open("w", encoding="utf-8") as f:
         json.dump(result, f, ensure_ascii=False, indent=2)
 
     print(f"Results written to {output_path}", file=sys.stderr)
@@ -116,40 +114,29 @@ def main():
     parser = argparse.ArgumentParser(
         description="Transcribe audio using Voxtral-mini model"
     )
+    parser.add_argument("audio_path", type=str, help="Path to input audio file")
+    parser.add_argument("output_path", type=str, help="Path to output JSON file")
     parser.add_argument(
-        "audio_path",
-        type=str,
-        help="Path to input audio file"
-    )
-    parser.add_argument(
-        "output_path",
-        type=str,
-        help="Path to output JSON file"
-    )
-    parser.add_argument(
-        "--language",
-        type=str,
-        default="en",
-        help="Language code (default: en)"
+        "--language", type=str, default="en", help="Language code (default: en)"
     )
     parser.add_argument(
         "--model-id",
         type=str,
         default="mistralai/Voxtral-mini",
-        help="HuggingFace model ID (default: mistralai/Voxtral-mini)"
+        help="HuggingFace model ID (default: mistralai/Voxtral-mini)",
     )
     parser.add_argument(
         "--device",
         type=str,
         default="auto",
         choices=["cpu", "cuda", "auto"],
-        help="Device to use (default: auto)"
+        help="Device to use (default: auto)",
     )
     parser.add_argument(
         "--max-new-tokens",
         type=int,
         default=8192,
-        help="Maximum number of tokens to generate (default: 8192)"
+        help="Maximum number of tokens to generate (default: 8192)",
     )
 
     args = parser.parse_args()
@@ -166,6 +153,7 @@ def main():
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)
         import traceback
+
         traceback.print_exc(file=sys.stderr)
         sys.exit(1)
 
