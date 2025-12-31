@@ -105,8 +105,9 @@ func (v *VoxtralAdapter) PrepareEnvironment(ctx context.Context) error {
 		return fmt.Errorf("failed to copy transcription script: %w", err)
 	}
 
-	// Check if environment is already ready
-	if CheckEnvironmentReady(v.envPath, "from transformers import VoxtralForConditionalGeneration") {
+	// Check if environment is already ready (check both transformers AND mistral-common)
+	if CheckEnvironmentReady(v.envPath, "from transformers import VoxtralForConditionalGeneration") &&
+		CheckEnvironmentReady(v.envPath, "import mistral_common") {
 		logger.Info("Voxtral environment already ready")
 		v.initialized = true
 		return nil

@@ -128,6 +128,9 @@ type WhisperXParams struct {
 
 	// OpenAI settings
 	APIKey *string `json:"api_key,omitempty" gorm:"type:text"`
+
+	// Voxtral settings
+	MaxNewTokens *int `json:"max_new_tokens,omitempty" gorm:"type:int"`
 }
 
 // BeforeCreate sets the ID if not already set
