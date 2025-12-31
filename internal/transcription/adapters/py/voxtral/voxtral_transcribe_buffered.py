@@ -207,7 +207,7 @@ def main():
     try:
         transcribe_buffered(
             audio_path=args.audio_path,
-            output_path=args.output_path,
+            output_file=args.output_path,
             language=args.language,
             model_id=args.model_id,
             device=args.device,

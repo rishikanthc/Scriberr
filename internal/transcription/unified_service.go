@@ -28,11 +28,13 @@ const (
 	ModelCanary          = "canary"
 	ModelSortformer      = "sortformer"
 	ModelOpenAI          = "openai_whisper"
+	ModelVoxtral         = "voxtral"
 	ModelDiarization31   = "pyannote/speaker-diarization-3.1"
 	FamilyNvidiaCanary   = "nvidia_canary"
 	FamilyNvidiaParakeet = "nvidia_parakeet"
 	FamilyWhisper        = "whisper"
 	FamilyOpenAI         = "openai"
+	FamilyMistralVoxtral = "mistral_voxtral"
 	DiarizeSortformer    = "nvidia_sortformer"
 	OutputFormatJSON     = "json"
 )
@@ -383,6 +385,8 @@ func (u *UnifiedTranscriptionService) selectModels(params models.WhisperXParams)
 		transcriptionModelID = ModelWhisperX
 	case FamilyOpenAI:
 		transcriptionModelID = ModelOpenAI
+	case FamilyMistralVoxtral:
+		transcriptionModelID = ModelVoxtral
 	default:
 		transcriptionModelID = ModelWhisperX // Default fallback
 	}
@@ -559,6 +563,8 @@ func (u *UnifiedTranscriptionService) convertParametersForModel(params models.Wh
 		return u.convertToSortformerParams(params)
 	case ModelOpenAI:
 		return u.convertToOpenAIParams(params)
+	case ModelVoxtral:
+		return u.convertToVoxtralParams(params)
 	default:
 		// Fallback to legacy conversion
 		return u.parametersToMap(params)
@@ -582,6 +588,25 @@ func (u *UnifiedTranscriptionService) convertToOpenAIParams(params models.Whispe
 	// Add API key if provided in params (e.g. from UI override)
 	if params.APIKey != nil && *params.APIKey != "" {
 		paramMap["api_key"] = *params.APIKey
+	}
+
+	return paramMap
+}
+
+// convertToVoxtralParams converts to Voxtral-specific parameters
+func (u *UnifiedTranscriptionService) convertToVoxtralParams(params models.WhisperXParams) map[string]interface{} {
+	paramMap := map[string]interface{}{}
+
+	// Language
+	if params.Language != nil {
+		paramMap["language"] = *params.Language
+	} else {
+		paramMap["language"] = "en"
+	}
+
+	// Max new tokens
+	if params.MaxNewTokens != nil {
+		paramMap["max_new_tokens"] = *params.MaxNewTokens
 	}
 
 	return paramMap

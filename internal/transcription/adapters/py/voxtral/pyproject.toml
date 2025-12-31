@@ -10,6 +10,7 @@ dependencies = [
     "accelerate",
     "librosa",
     "soundfile",
+    "mistral-common",
 ]
 
 [tool.uv.sources]
