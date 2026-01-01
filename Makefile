@@ -55,7 +55,9 @@ docs: ## Generate API documentation from Go code annotations
 	@echo "Generating API documentation..."
 	@command -v swag >/dev/null 2>&1 || { echo "Error: swag not installed. Run: go install github.com/swaggo/swag/cmd/swag@latest"; exit 1; }
 	swag init -g cmd/server/main.go -o api-docs
-	@echo "✓ API documentation generated in api-docs/"
+	@echo "Syncing to project site..."
+	swag init -g server/main.go -o web/project-site/public/api --outputTypes json --dir cmd,internal
+	@echo "✓ API documentation generated in api-docs/ and web/project-site/public/api/"
 
 docs-clean: ## Clean generated API documentation
 	@echo "Cleaning API documentation..."
