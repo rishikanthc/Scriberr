@@ -34,7 +34,7 @@ func TestWebhookIntegration_Failure(t *testing.T) {
 	defer server.Close()
 
 	// Setup service
-	service := NewUnifiedTranscriptionService(mockRepo)
+	service := NewUnifiedTranscriptionService(mockRepo, "data/temp", "data/transcripts")
 
 	// Setup test job
 	callbackURL := server.URL
