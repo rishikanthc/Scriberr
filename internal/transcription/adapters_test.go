@@ -466,7 +466,7 @@ func TestUnifiedTranscriptionService(t *testing.T) {
 
 	// Create unified service with mock repo
 	mockRepo := new(MockJobRepository)
-	service := NewUnifiedTranscriptionService(mockRepo)
+	service := NewUnifiedTranscriptionService(mockRepo, "data/temp", "data/transcripts")
 
 	// Test model discovery
 	models := service.GetSupportedModels()
@@ -486,7 +486,7 @@ func TestUnifiedTranscriptionService(t *testing.T) {
 
 func TestAudioInputCreation(t *testing.T) {
 	mockRepo := new(MockJobRepository)
-	service := NewUnifiedTranscriptionService(mockRepo)
+	service := NewUnifiedTranscriptionService(mockRepo, "data/temp", "data/transcripts")
 
 	// Test creating audio input from a hypothetical file
 	audioPath := "/tmp/test.wav"
@@ -500,7 +500,7 @@ func TestAudioInputCreation(t *testing.T) {
 
 func TestParameterConversion(t *testing.T) {
 	mockRepo := new(MockJobRepository)
-	service := NewUnifiedTranscriptionService(mockRepo)
+	service := NewUnifiedTranscriptionService(mockRepo, "data/temp", "data/transcripts")
 
 	// Test converting WhisperX parameters to generic map
 	params := models.WhisperXParams{

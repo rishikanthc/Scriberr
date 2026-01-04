@@ -55,14 +55,14 @@ type UnifiedTranscriptionService struct {
 }
 
 // NewUnifiedTranscriptionService creates a new unified transcription service
-func NewUnifiedTranscriptionService(jobRepo repository.JobRepository) *UnifiedTranscriptionService {
+func NewUnifiedTranscriptionService(jobRepo repository.JobRepository, tempDir, outputDir string) *UnifiedTranscriptionService {
 	return &UnifiedTranscriptionService{
 		registry:        registry.GetRegistry(),
 		pipeline:        pipeline.NewProcessingPipeline(),
 		preprocessors:   make(map[string]interfaces.Preprocessor),
 		postprocessors:  make(map[string]interfaces.Postprocessor),
-		tempDirectory:   "data/temp",
-		outputDirectory: "data/transcripts",
+		tempDirectory:   tempDir,
+		outputDirectory: outputDir,
 		defaultModelIDs: map[string]string{
 			"transcription": ModelWhisperX,
 			"diarization":   ModelPyannote,
