@@ -246,6 +246,7 @@ export const TranscriptView = forwardRef<HTMLDivElement, TranscriptViewProps>(({
                     // Ensure text is the selection target, not the container
                     WebkitTouchCallout: 'default'
                 }}
+                data-transcript-text
             >
                 {/* The hook returns the built text string, so we just render it directly */}
                 {fullText}
@@ -296,6 +297,7 @@ export const TranscriptView = forwardRef<HTMLDivElement, TranscriptViewProps>(({
                                 touchAction: 'pan-y pinch-zoom',
                                 WebkitTouchCallout: 'default'
                             }}
+                            data-transcript-text
                         >
                             {segment.fullText || segment.text}
                         </div>
