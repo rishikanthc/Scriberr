@@ -55,13 +55,13 @@ interface TranscriptViewProps {
 export const TranscriptView = forwardRef<HTMLDivElement, TranscriptViewProps>(({
     transcript,
     mode,
-    // currentWordIndex, 
+    // currentWordIndex,
     currentTime,
     isPlaying,
-    // notes, 
+    // notes,
     // highlightedWordRef,
     speakerMappings,
-    // autoScrollEnabled,
+    autoScrollEnabled,
     onSeek,
     className
 }, ref) => {
@@ -142,6 +142,33 @@ export const TranscriptView = forwardRef<HTMLDivElement, TranscriptViewProps>(({
             };
         });
     }, [transcript]);
+
+    // Compute which segment is currently active based on playback time
+    const activeSegmentIndex = useMemo(() => {
+        if (!expandedData.length) return -1;
+        // Find the latest segment that has started (search backwards)
+        for (let i = expandedData.length - 1; i >= 0; i--) {
+            if (expandedData[i].start <= currentTime) return i;
+        }
+        return 0;
+    }, [expandedData, currentTime]);
+
+    // Track previous active segment to only scroll on segment change
+    const prevActiveSegmentRef = useRef<number>(-1);
+
+    // Auto-scroll to active segment during playback
+    useEffect(() => {
+        if (mode !== 'expanded' || !autoScrollEnabled || !isPlaying) return;
+        if (activeSegmentIndex < 0) return;
+        // Only scroll when the segment actually changes
+        if (activeSegmentIndex === prevActiveSegmentRef.current) return;
+        prevActiveSegmentRef.current = activeSegmentIndex;
+
+        const el = segmentRefs.current[activeSegmentIndex];
+        if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    }, [activeSegmentIndex, autoScrollEnabled, isPlaying, mode]);
 
     // 2. Highlight Effect for Expanded View
     useEffect(() => {
@@ -262,7 +289,15 @@ export const TranscriptView = forwardRef<HTMLDivElement, TranscriptViewProps>(({
         return (
             <div className="space-y-4"> {/* Reduced spacing from space-y-6 */}
                 {expandedData.map((segment, i) => (
-                    <div key={i} className="group flex flex-col sm:flex-row items-start gap-4 p-3 rounded-lg hover:bg-carbon-50 dark:hover:bg-carbon-800/50 transition-colors border border-transparent hover:border-carbon-100 dark:hover:border-carbon-800">
+                    <div
+                        key={i}
+                        className={cn(
+                            "group flex flex-col sm:flex-row items-start gap-4 p-3 rounded-lg transition-colors border",
+                            i === activeSegmentIndex && isPlaying
+                                ? "bg-carbon-50 dark:bg-carbon-800/40 border-carbon-200 dark:border-carbon-700"
+                                : "hover:bg-carbon-50 dark:hover:bg-carbon-800/50 border-transparent hover:border-carbon-100 dark:hover:border-carbon-800"
+                        )}
+                    >
                         {/* Timestamp & Speaker */}
                         <div className="flex-shrink-0 w-24 sm:w-28 flex flex-col items-start sm:items-end gap-1 text-xs text-carbon-500 dark:text-carbon-400 select-none mt-1">
                             <span className="font-mono bg-carbon-100 dark:bg-carbon-800/80 px-1.5 py-0.5 rounded text-[10px] sm:text-xs">
