@@ -725,6 +725,15 @@ func (u *UnifiedTranscriptionService) convertToPyannoteParams(params models.Whis
 		paramMap["hf_token"] = *params.HfToken
 	}
 
+	// Map VAD thresholds to Pyannote segmentation parameters
+	// These control voice activity detection sensitivity for diarization
+	if params.VadOnset > 0 {
+		paramMap["segmentation_onset"] = params.VadOnset
+	}
+	if params.VadOffset > 0 {
+		paramMap["segmentation_offset"] = params.VadOffset
+	}
+
 	return paramMap
 }
 

@@ -393,6 +393,14 @@ func (p *PyAnnoteAdapter) buildPyAnnoteArgs(input interfaces.AudioInput, params 
 	// Add output format
 	args = append(args, "--output-format", outputFormat)
 
+	// Add segmentation thresholds if provided
+	if onset := p.GetFloatParameter(params, "segmentation_onset"); onset > 0 {
+		args = append(args, "--segmentation-onset", fmt.Sprintf("%.3f", onset))
+	}
+	if offset := p.GetFloatParameter(params, "segmentation_offset"); offset > 0 {
+		args = append(args, "--segmentation-offset", fmt.Sprintf("%.3f", offset))
+	}
+
 	// Device is handled automatically by the script
 
 	return args, nil
