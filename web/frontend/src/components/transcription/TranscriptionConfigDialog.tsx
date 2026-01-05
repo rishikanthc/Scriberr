@@ -256,6 +256,8 @@ const PARAM_DESCRIPTIONS = {
     vad_method: "Voice detection: Pyannote (accurate) or Silero (fast).",
     initial_prompt: "Context text to guide transcription style.",
     hf_token: "Required for Pyannote diarization models.",
+    vad_onset: "Voice detection sensitivity. Lower values (0.3-0.4) catch quieter/distant speakers.",
+    vad_offset: "Speech ending sensitivity. Lower values detect speech endings more precisely.",
 };
 
 // ============================================================================
@@ -655,6 +657,34 @@ function WhisperConfig({ params, updateParam, isMultiTrack }: ConfigProps) {
                                         className={inputClassName}
                                     />
                                 </FormField>
+
+                                <div className="pt-3 border-t border-[var(--border-subtle)]">
+                                    <p className="text-xs text-[var(--text-tertiary)] mb-3">Voice Detection Tuning (for noisy/distant audio)</p>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <FormField label="VAD Onset" description={PARAM_DESCRIPTIONS.vad_onset}>
+                                            <Input
+                                                type="number"
+                                                min={0.1}
+                                                max={0.9}
+                                                step={0.05}
+                                                value={params.vad_onset}
+                                                onChange={(e) => updateParam('vad_onset', parseFloat(e.target.value) || 0.5)}
+                                                className={inputClassName}
+                                            />
+                                        </FormField>
+                                        <FormField label="VAD Offset" description={PARAM_DESCRIPTIONS.vad_offset}>
+                                            <Input
+                                                type="number"
+                                                min={0.1}
+                                                max={0.9}
+                                                step={0.05}
+                                                value={params.vad_offset}
+                                                onChange={(e) => updateParam('vad_offset', parseFloat(e.target.value) || 0.363)}
+                                                className={inputClassName}
+                                            />
+                                        </FormField>
+                                    </div>
+                                </div>
                             </div>
                         )}
                     </div>
@@ -868,15 +898,45 @@ function ParakeetConfig({ params, updateParam, isMultiTrack }: ConfigProps) {
                                 </div>
 
                                 {params.diarize_model === "pyannote" && (
-                                    <FormField label="Hugging Face Token">
-                                        <Input
-                                            type="password"
-                                            placeholder="hf_..."
-                                            value={params.hf_token || ""}
-                                            onChange={(e) => updateParam('hf_token', e.target.value || undefined)}
-                                            className={inputClassName}
-                                        />
-                                    </FormField>
+                                    <>
+                                        <FormField label="Hugging Face Token">
+                                            <Input
+                                                type="password"
+                                                placeholder="hf_..."
+                                                value={params.hf_token || ""}
+                                                onChange={(e) => updateParam('hf_token', e.target.value || undefined)}
+                                                className={inputClassName}
+                                            />
+                                        </FormField>
+
+                                        <div className="pt-3 border-t border-[var(--border-subtle)]">
+                                            <p className="text-xs text-[var(--text-tertiary)] mb-3">Voice Detection Tuning (for noisy/distant audio)</p>
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <FormField label="VAD Onset" description={PARAM_DESCRIPTIONS.vad_onset}>
+                                                    <Input
+                                                        type="number"
+                                                        min={0.1}
+                                                        max={0.9}
+                                                        step={0.05}
+                                                        value={params.vad_onset}
+                                                        onChange={(e) => updateParam('vad_onset', parseFloat(e.target.value) || 0.5)}
+                                                        className={inputClassName}
+                                                    />
+                                                </FormField>
+                                                <FormField label="VAD Offset" description={PARAM_DESCRIPTIONS.vad_offset}>
+                                                    <Input
+                                                        type="number"
+                                                        min={0.1}
+                                                        max={0.9}
+                                                        step={0.05}
+                                                        value={params.vad_offset}
+                                                        onChange={(e) => updateParam('vad_offset', parseFloat(e.target.value) || 0.363)}
+                                                        className={inputClassName}
+                                                    />
+                                                </FormField>
+                                            </div>
+                                        </div>
+                                    </>
                                 )}
                             </div>
                         )}
@@ -960,15 +1020,45 @@ function CanaryConfig({ params, updateParam, isMultiTrack }: ConfigProps) {
                                 </div>
 
                                 {params.diarize_model === "pyannote" && (
-                                    <FormField label="Hugging Face Token">
-                                        <Input
-                                            type="password"
-                                            placeholder="hf_..."
-                                            value={params.hf_token || ""}
-                                            onChange={(e) => updateParam('hf_token', e.target.value || undefined)}
-                                            className={inputClassName}
-                                        />
-                                    </FormField>
+                                    <>
+                                        <FormField label="Hugging Face Token">
+                                            <Input
+                                                type="password"
+                                                placeholder="hf_..."
+                                                value={params.hf_token || ""}
+                                                onChange={(e) => updateParam('hf_token', e.target.value || undefined)}
+                                                className={inputClassName}
+                                            />
+                                        </FormField>
+
+                                        <div className="pt-3 border-t border-[var(--border-subtle)]">
+                                            <p className="text-xs text-[var(--text-tertiary)] mb-3">Voice Detection Tuning (for noisy/distant audio)</p>
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <FormField label="VAD Onset" description={PARAM_DESCRIPTIONS.vad_onset}>
+                                                    <Input
+                                                        type="number"
+                                                        min={0.1}
+                                                        max={0.9}
+                                                        step={0.05}
+                                                        value={params.vad_onset}
+                                                        onChange={(e) => updateParam('vad_onset', parseFloat(e.target.value) || 0.5)}
+                                                        className={inputClassName}
+                                                    />
+                                                </FormField>
+                                                <FormField label="VAD Offset" description={PARAM_DESCRIPTIONS.vad_offset}>
+                                                    <Input
+                                                        type="number"
+                                                        min={0.1}
+                                                        max={0.9}
+                                                        step={0.05}
+                                                        value={params.vad_offset}
+                                                        onChange={(e) => updateParam('vad_offset', parseFloat(e.target.value) || 0.363)}
+                                                        className={inputClassName}
+                                                    />
+                                                </FormField>
+                                            </div>
+                                        </div>
+                                    </>
                                 )}
                             </div>
                         )}
