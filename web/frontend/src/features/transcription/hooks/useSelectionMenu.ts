@@ -86,10 +86,17 @@ export function useSelectionMenu(
             }
 
             // Calculate absolute character index using TreeWalker
+            // Only count text nodes inside elements marked with data-transcript-text
+            // This prevents timestamps and speaker names from throwing off the character index
             const walker = document.createTreeWalker(
                 containerRef.current,
                 NodeFilter.SHOW_TEXT,
-                null
+                {
+                    acceptNode: (node) => {
+                        const parent = node.parentElement?.closest('[data-transcript-text]');
+                        return parent ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP;
+                    }
+                }
             );
 
             let charIndex = 0;
