@@ -182,7 +182,7 @@ func NewWhisperXAdapter(envPath string) *WhisperXAdapter {
 			Type:        "string",
 			Required:    false,
 			Default:     nil,
-			Description: "HuggingFace token for diarization models",
+			Description: "HuggingFace token for diarization models (optional if HF_TOKEN env var is set)",
 			Group:       "advanced",
 		},
 
@@ -553,8 +553,12 @@ func (w *WhisperXAdapter) buildWhisperXArgs(input interfaces.AudioInput, params 
 	args = append(args, "--beam_size", strconv.Itoa(w.GetIntParameter(params, "beam_size")))
 	args = append(args, "--patience", fmt.Sprintf("%.2f", w.GetFloatParameter(params, "patience")))
 
-	// HuggingFace token
-	if hfToken := w.GetStringParameter(params, "hf_token"); hfToken != "" {
+	// HuggingFace token - use param first, then fall back to environment variable
+	hfToken := w.GetStringParameter(params, "hf_token")
+	if hfToken == "" {
+		hfToken = os.Getenv("HF_TOKEN")
+	}
+	if hfToken != "" {
 		args = append(args, "--hf_token", hfToken)
 	}
 
