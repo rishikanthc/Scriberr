@@ -30,4 +30,6 @@ Visit the following model pages and accept the user agreements for each:
 You will need to get a Hugging Face access token.
 1. Go to your Hugging Face [Settings](https://huggingface.co/settings/token).
 2. Create a new token with at least `read` access.
-3. Copy this token and pase it in the UI under Diarization settings in the transcription profile.
+3. Configure the token using one of these methods:
+   - **Environment Variable:** Set `HF_TOKEN` (recommended for Docker deployments)
+   - **UI Input:** Paste the token in the Diarization settings within your transcription profile

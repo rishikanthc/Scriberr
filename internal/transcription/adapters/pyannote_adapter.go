@@ -60,9 +60,9 @@ func NewPyAnnoteAdapter(envPath string) *PyAnnoteAdapter {
 		{
 			Name:        "hf_token",
 			Type:        "string",
-			Required:    true,
+			Required:    false,
 			Default:     nil,
-			Description: "HuggingFace token for model access (required)",
+			Description: "HuggingFace token for model access (optional if HF_TOKEN env var is set)",
 			Group:       "basic",
 		},
 		{
@@ -290,11 +290,16 @@ func (p *PyAnnoteAdapter) Diarize(ctx context.Context, input interfaces.AudioInp
 		return nil, fmt.Errorf("invalid parameters: %w", err)
 	}
 
-	// Check for required HF token
+	// Check for HF token - use param first, then fall back to environment variable
 	hfToken := p.GetStringParameter(params, "hf_token")
 	if hfToken == "" {
-		return nil, fmt.Errorf("HuggingFace token is required for PyAnnote diarization")
+		hfToken = os.Getenv("HF_TOKEN")
 	}
+	if hfToken == "" {
+		return nil, fmt.Errorf("HuggingFace token is required for PyAnnote diarization. Set HF_TOKEN environment variable or provide it in the UI")
+	}
+	// Store resolved token in params for buildPyAnnoteArgs
+	params["hf_token"] = hfToken
 
 	// Create temporary directory
 	tempDir, err := p.CreateTempDirectory(procCtx)

@@ -28,6 +28,14 @@ Visit the following model pages and accept the user agreements for each:
 You will need to get a Hugging Face access token.
 1. Go to your Hugging Face [Settings](https://huggingface.co/settings/token).
 2. Create a new token with at least `read` access.
-3. Copy this token and add it to your `.env` file or environment variables as `HF_TOKEN`.
+3. Configure the token using one of these methods:
 
-After setting up the `HF_TOKEN`, you can enable Speaker Diarization in your Transcription Profiles or Advanced settings within Scriberr.
+**Option A: Environment Variable (Recommended for Docker)**
+Set the `HF_TOKEN` environment variable. For Docker users, add `-e HF_TOKEN=your_token_here` to your docker run command or add it to your docker-compose.yml.
+
+**Option B: UI Input**
+Enter the token directly in the Scriberr UI under Transcription Profile settings when configuring diarization.
+
+> **Note:** If the `HF_TOKEN` environment variable is set, you don't need to enter the token in the UI - it will be used automatically as a fallback.
+
+After setting up the token, you can enable Speaker Diarization in your Transcription Profiles or Advanced settings within Scriberr.
