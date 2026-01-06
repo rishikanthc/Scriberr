@@ -189,8 +189,10 @@ export const AudioDetailView = function AudioDetailView({ audioId: propAudioId }
                                 <Header />
                             </div>
                             <div className="space-y-6 sm:space-y-8">
-                                {/* Title & Metadata */}
-                                <div className="space-y-4">
+                                {/* Sticky header: Title + Audio Player */}
+                                <div className="sticky top-0 z-10">
+                                    {/* Title & Metadata */}
+                                    <div className="space-y-4 pb-4 bg-[var(--bg-main)]">
                                     <div className="flex items-start justify-between gap-4">
                                         <div className="space-y-3 flex-1 min-w-0">
                                             {/* Title Edit Logic */}
@@ -352,14 +354,15 @@ export const AudioDetailView = function AudioDetailView({ audioId: propAudioId }
                                     </div>
                                 </div>
 
-                                {/* Audio Player */}
-                                <div className="sticky top-0 z-10 glass-card rounded-[var(--radius-card)] border-[var(--border-subtle)] shadow-[var(--shadow-card)] p-4 md:p-6 mb-8 transition-all duration-300 hover:shadow-[var(--shadow-float)]">
-                                    <EmberPlayer
-                                        ref={audioPlayerRef}
-                                        audioId={audioId}
-                                        onTimeUpdate={handleTimeUpdate}
-                                        onPlayStateChange={setIsPlaying}
-                                    />
+                                    {/* Audio Player */}
+                                    <div className="glass-card rounded-[var(--radius-card)] border-[var(--border-subtle)] shadow-[var(--shadow-card)] p-4 md:p-6 mb-8 transition-all duration-300 hover:shadow-[var(--shadow-float)]">
+                                        <EmberPlayer
+                                            ref={audioPlayerRef}
+                                            audioId={audioId}
+                                            onTimeUpdate={handleTimeUpdate}
+                                            onPlayStateChange={setIsPlaying}
+                                        />
+                                    </div>
                                 </div>
 
                                 {/* Transcript */}
