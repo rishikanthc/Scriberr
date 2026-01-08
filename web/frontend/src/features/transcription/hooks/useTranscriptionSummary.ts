@@ -7,6 +7,7 @@ export interface SummaryTemplate {
     name: string;
     model: string;
     prompt: string;
+    include_speaker_info?: boolean;
 }
 
 export function useSummaryTemplates() {
@@ -46,12 +47,15 @@ export function useSummarizer(audioId: string) {
     const [streamContent, setStreamContent] = useState("");
     const [error, setError] = useState<string | null>(null);
 
-    const generateSummary = async (templateId: string, model: string, prompt: string, transcriptText: string) => {
+    const generateSummary = async (templateId: string, model: string, prompt: string, transcriptText: string, includeSpeakerInfo?: boolean) => {
         setIsStreaming(true);
         setStreamContent("");
         setError(null);
 
-        const combinedContent = `Transcript:\n${transcriptText}\n\nInstructions:\n${prompt}`;
+        const transcriptLabel = includeSpeakerInfo
+            ? 'Transcript (with speaker labels - each line is prefixed with [SPEAKER_NAME]):'
+            : 'Transcript:';
+        const combinedContent = `${transcriptLabel}\n${transcriptText}\n\nInstructions:\n${prompt}`;
 
         try {
             const res = await fetch('/api/v1/summarize', {
