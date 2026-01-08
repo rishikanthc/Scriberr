@@ -4363,6 +4363,9 @@ const docTemplate = `{
                 "description": {
                     "type": "string"
                 },
+                "include_speaker_info": {
+                    "type": "boolean"
+                },
                 "model": {
                     "type": "string",
                     "minLength": 1
@@ -4580,6 +4583,9 @@ const docTemplate = `{
                 },
                 "id": {
                     "type": "string"
+                },
+                "include_speaker_info": {
+                    "type": "boolean"
                 },
                 "model": {
                     "type": "string"

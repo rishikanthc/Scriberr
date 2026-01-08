@@ -11,10 +11,11 @@ import (
 )
 
 type SummaryTemplateRequest struct {
-	Name        string  `json:"name" binding:"required,min=1"`
-	Description *string `json:"description"`
-	Model       string  `json:"model" binding:"required,min=1"`
-	Prompt      string  `json:"prompt" binding:"required,min=1"`
+	Name               string  `json:"name" binding:"required,min=1"`
+	Description        *string `json:"description"`
+	Model              string  `json:"model" binding:"required,min=1"`
+	Prompt             string  `json:"prompt" binding:"required,min=1"`
+	IncludeSpeakerInfo *bool   `json:"include_speaker_info"`
 }
 
 type SummarySettingsRequest struct {
@@ -72,6 +73,9 @@ func (h *Handler) CreateSummaryTemplate(c *gin.Context) {
 		Prompt:      req.Prompt,
 		CreatedAt:   time.Now(),
 		UpdatedAt:   time.Now(),
+	}
+	if req.IncludeSpeakerInfo != nil {
+		item.IncludeSpeakerInfo = *req.IncludeSpeakerInfo
 	}
 	if err := h.summaryRepo.Create(c.Request.Context(), item); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create template"})
@@ -135,6 +139,9 @@ func (h *Handler) UpdateSummaryTemplate(c *gin.Context) {
 	item.Description = req.Description
 	item.Model = req.Model
 	item.Prompt = req.Prompt
+	if req.IncludeSpeakerInfo != nil {
+		item.IncludeSpeakerInfo = *req.IncludeSpeakerInfo
+	}
 	item.UpdatedAt = time.Now()
 	if err := h.summaryRepo.Update(c.Request.Context(), item); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update template"})
