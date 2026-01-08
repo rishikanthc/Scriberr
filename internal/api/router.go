@@ -241,6 +241,28 @@ func SetupRoutes(handler *Handler, authService *auth.AuthService) *gin.Engine {
 			summarize.POST("/", handler.Summarize)
 		}
 
+		// CSV Batch processing routes (require authentication)
+		csvBatch := v1.Group("/csv-batch")
+		csvBatch.Use(middleware.AuthMiddleware(authService))
+		{
+			csvBatchHandler := NewCSVBatchHandler(handler, handler.GetCSVBatchProcessor())
+
+			// Upload routes - disable compression for uploads
+			uploadRoutes := csvBatch.Group("")
+			uploadRoutes.Use(middleware.NoCompressionMiddleware())
+			{
+				uploadRoutes.POST("/upload", csvBatchHandler.UploadCSV)
+			}
+
+			// Regular routes
+			csvBatch.GET("", csvBatchHandler.ListBatches)
+			csvBatch.GET("/:id/status", csvBatchHandler.GetBatchStatus)
+			csvBatch.GET("/:id/rows", csvBatchHandler.GetBatchRows)
+			csvBatch.POST("/:id/start", csvBatchHandler.StartBatch)
+			csvBatch.POST("/:id/stop", csvBatchHandler.StopBatch)
+			csvBatch.DELETE("/:id", csvBatchHandler.DeleteBatch)
+			csvBatch.GET("/:id/output/:row_id", csvBatchHandler.DownloadOutput)
+			csvBatch.GET("/:id/outputs", csvBatchHandler.ListOutputs)
 		// Config routes (require authentication)
 		config := v1.Group("/config")
 		config.Use(middleware.AuthMiddleware(authService))

@@ -50,6 +50,19 @@ It combines powerful under-the-hood AI with a polished, fluid user interface tha
 The inspiration for Scriberr was born out of privacy paranoia and not wanting to pay for subscription.
 About a year ago, I purchased a [Plaud Note](https://www.plaud.ai/) for recording voice memos. I loved the device itself; the form factor, microphone quality, and workflow were excellent.
 
+- Accurate transcription with word‑level timing
+- Speaker diarization (identify and label speakers)
+- Transcript reader with playback follow‑along and seek‑from‑text
+- Highlights and lightweight note‑taking (jump note → audio/transcript)
+- Summarize and chat over transcripts (OpenAI or local models via Ollama)
+- Transcription profiles for re‑usable configurations
+- YouTube video transcription (paste a link and transcribe)
+- **CSV Batch Import** - Import a CSV list of YouTube URLs for sequential batch transcription
+- Quick transcribe (ephemeral) and batch upload
+- REST API coverage for all major features + API key management
+- Download transcripts as JSON/SRT/TXT (and more)
+- Support for Nvidia GPUs [New - Experimental]
+
 However, transcription was done on their cloud servers. As someone who is paranoid about privacy I wasn't comfortable with uploading my recordings to a third party provider.
 Moreover I was hit with subscription costs: $100 a year for 20 hours of transcription per month, or $240 a year for unlimited access. As an avid self-hoster with a background in ML and AI, it felt wrong to pay such a premium for a service I knew I could engineer myself.
 
@@ -307,6 +320,58 @@ The application needs to:
 1.  Initialize the Python environments.
 2.  Download the necessary machine learning models (Whisper, PyAnnote, NVIDIA NeMo).
 3.  Configure the database.
+
+## CSV Batch Import
+
+Scriberr supports importing a CSV file containing YouTube URLs for batch transcription. This is useful for processing multiple videos sequentially.
+
+### CSV Format
+
+Create a CSV file with YouTube URLs (one per row):
+
+```csv
+url
+https://www.youtube.com/watch?v=VIDEO_ID_1
+https://www.youtube.com/watch?v=VIDEO_ID_2
+https://youtu.be/VIDEO_ID_3
+```
+
+### How It Works
+
+1. **Upload CSV** - POST your CSV file to `/api/v1/csv-batch/upload`
+2. **Start Processing** - POST to `/api/v1/csv-batch/{batchId}/start` with your transcription profile
+3. **Monitor Progress** - GET `/api/v1/csv-batch/{batchId}/status` to check progress
+4. **Get Results** - Each video produces a JSON file: `{rowId}-{videoFilename}.json`
+
+### Processing Flow
+
+For each row in the CSV:
+1. Download the YouTube video
+2. Extract and convert audio to compatible format
+3. Delete the video file (saves disk space)
+4. Transcribe the audio using configured settings
+5. Save JSON output as `{rowId}-{videoFilename}.json`
+6. Mark row as completed and proceed to next
+
+### API Example
+
+```bash
+# Upload CSV
+curl -X POST http://localhost:8080/api/v1/csv-batch/upload \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -F "file=@youtube_urls.csv"
+
+# Start processing with default profile
+curl -X POST http://localhost:8080/api/v1/csv-batch/{batchId}/start \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json"
+
+# Check status
+curl http://localhost:8080/api/v1/csv-batch/{batchId}/status \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+## API
 
 **Subsequent runs will be much faster** because all models and environments are persisted to the `env_data` volume (or your local mapped folders).
 
