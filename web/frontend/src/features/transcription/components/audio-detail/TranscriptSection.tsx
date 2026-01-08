@@ -1,5 +1,6 @@
 import { useRef, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { TranscriptView } from "@/components/transcript/TranscriptView";
 import { useNotes, useCreateNote, useUpdateNote, useDeleteNote } from "@/features/transcription/hooks/useTranscriptionNotes";
 import { useSelectionMenu } from "@/features/transcription/hooks/useSelectionMenu";
@@ -56,6 +57,7 @@ export function TranscriptSection({
 }: TranscriptSectionProps & { className?: string }) {
     const isMobile = useIsMobile();
     const isDesktop = useIsDesktop();
+    const queryClient = useQueryClient();
 
     // Data hooks
     const { data: notes = [] } = useNotes(audioId);
@@ -212,7 +214,9 @@ export function TranscriptSection({
                 onOpenChange={setSpeakerRenameOpen}
                 transcriptionId={audioId}
                 initialSpeakers={getDetectedSpeakers()}
-                onSpeakerMappingsUpdate={() => { }}
+                onSpeakerMappingsUpdate={() => {
+                    queryClient.invalidateQueries({ queryKey: ["speakerMappings", audioId] });
+                }}
             />
             {/* Portals */}
             {createPortal(

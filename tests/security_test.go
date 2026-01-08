@@ -78,7 +78,7 @@ func (suite *SecurityTestSuite) SetupSuite() {
 	fileService := service.NewFileService()
 
 	// Initialize services
-	suite.unifiedProcessor = transcription.NewUnifiedJobProcessor(jobRepo)
+	suite.unifiedProcessor = transcription.NewUnifiedJobProcessor(jobRepo, suite.config.TempDir, suite.config.TranscriptsDir)
 	var err error
 	suite.quickTranscriptionService, err = transcription.NewQuickTranscriptionService(suite.config, suite.unifiedProcessor, jobRepo)
 	if err != nil {

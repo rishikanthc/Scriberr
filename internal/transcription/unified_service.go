@@ -55,14 +55,14 @@ type UnifiedTranscriptionService struct {
 }
 
 // NewUnifiedTranscriptionService creates a new unified transcription service
-func NewUnifiedTranscriptionService(jobRepo repository.JobRepository) *UnifiedTranscriptionService {
+func NewUnifiedTranscriptionService(jobRepo repository.JobRepository, tempDir, outputDir string) *UnifiedTranscriptionService {
 	return &UnifiedTranscriptionService{
 		registry:        registry.GetRegistry(),
 		pipeline:        pipeline.NewProcessingPipeline(),
 		preprocessors:   make(map[string]interfaces.Preprocessor),
 		postprocessors:  make(map[string]interfaces.Postprocessor),
-		tempDirectory:   "data/temp",
-		outputDirectory: "data/transcripts",
+		tempDirectory:   tempDir,
+		outputDirectory: outputDir,
 		defaultModelIDs: map[string]string{
 			"transcription": ModelWhisperX,
 			"diarization":   ModelPyannote,
@@ -723,6 +723,15 @@ func (u *UnifiedTranscriptionService) convertToPyannoteParams(params models.Whis
 	}
 	if params.HfToken != nil {
 		paramMap["hf_token"] = *params.HfToken
+	}
+
+	// Map VAD thresholds to Pyannote segmentation parameters
+	// These control voice activity detection sensitivity for diarization
+	if params.VadOnset > 0 {
+		paramMap["segmentation_onset"] = params.VadOnset
+	}
+	if params.VadOffset > 0 {
+		paramMap["segmentation_offset"] = params.VadOffset
 	}
 
 	return paramMap

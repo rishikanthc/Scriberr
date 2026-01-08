@@ -27,6 +27,7 @@ type Config struct {
 	// File storage
 	UploadDir      string
 	TranscriptsDir string
+	TempDir        string
 
 	// Python/WhisperX configuration
 	WhisperXEnv string
@@ -37,6 +38,9 @@ type Config struct {
 	SecureCookies  bool // Explicit control over Secure flag (for HTTPS deployments)
 	// OpenAI configuration
 	OpenAIAPIKey string
+
+	// Hugging Face configuration
+	HFToken string
 }
 
 // Load loads configuration from environment variables and .env file
@@ -61,9 +65,11 @@ func Load() *Config {
 		JWTSecret:      getJWTSecret(),
 		UploadDir:      getEnv("UPLOAD_DIR", "data/uploads"),
 		TranscriptsDir: getEnv("TRANSCRIPTS_DIR", "data/transcripts"),
+		TempDir:        getEnv("TEMP_DIR", "data/temp"),
 		WhisperXEnv:    getEnv("WHISPERX_ENV", "data/whisperx-env"),
 		SecureCookies:  getEnv("SECURE_COOKIES", defaultSecure) == "true",
 		OpenAIAPIKey:   getEnv("OPENAI_API_KEY", ""),
+		HFToken:        getEnv("HF_TOKEN", ""),
 	}
 }
 
