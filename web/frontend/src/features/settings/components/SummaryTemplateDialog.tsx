@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { FormField } from "@/components/transcription/FormHelpers";
 import { Loader2 } from "lucide-react";
@@ -14,6 +15,7 @@ export interface SummaryTemplate {
   description?: string;
   model?: string;
   prompt: string;
+  include_speaker_info?: boolean;
   created_at?: string;
   updated_at?: string;
 }
@@ -54,6 +56,7 @@ export function SummaryTemplateDialog({ open, onOpenChange, onSave, initial }: S
   const [description, setDescription] = useState("");
   const [model, setModel] = useState("");
   const [prompt, setPrompt] = useState("");
+  const [includeSpeakerInfo, setIncludeSpeakerInfo] = useState(false);
   const [saving, setSaving] = useState(false);
   const [models, setModels] = useState<string[]>([]);
   const { getAuthHeaders } = useAuth();
@@ -64,6 +67,7 @@ export function SummaryTemplateDialog({ open, onOpenChange, onSave, initial }: S
       setDescription(initial?.description || "");
       setModel(initial?.model || "");
       setPrompt(initial?.prompt || "");
+      setIncludeSpeakerInfo(initial?.include_speaker_info || false);
       // Load models when dialog opens
       (async () => {
         try {
@@ -89,7 +93,8 @@ export function SummaryTemplateDialog({ open, onOpenChange, onSave, initial }: S
         name: name.trim(),
         description: description.trim() || undefined,
         model: model.trim(),
-        prompt: prompt.trim()
+        prompt: prompt.trim(),
+        include_speaker_info: includeSpeakerInfo
       });
       onOpenChange(false);
     } finally {
@@ -174,6 +179,17 @@ export function SummaryTemplateDialog({ open, onOpenChange, onSave, initial }: S
 
 Example:
 Summarize the following transcript into concise bullet points. Focus on key decisions, action items, and important discussion topics."
+            />
+          </FormField>
+
+          {/* Include Speaker Info Toggle */}
+          <FormField
+            label="Include Speaker Identification"
+            description="When enabled, speaker labels will be included in the transcript sent to the model. Useful for meeting notes and multi-speaker content."
+          >
+            <Switch
+              checked={includeSpeakerInfo}
+              onCheckedChange={setIncludeSpeakerInfo}
             />
           </FormField>
         </div>

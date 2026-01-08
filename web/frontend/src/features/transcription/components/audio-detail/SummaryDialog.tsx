@@ -29,9 +29,27 @@ import rehypeKatex from 'rehype-katex';
 import rehypeHighlight from 'rehype-highlight';
 import { useSummaryTemplates, useSummarizer, useExistingSummary } from "@/features/transcription/hooks/useTranscriptionSummary";
 
-import { useTranscript, useAudioDetail } from "@/features/transcription/hooks/useAudioDetail";
+import { useTranscript, useAudioDetail, type Transcript } from "@/features/transcription/hooks/useAudioDetail";
+import { useSpeakerMappings } from "@/features/transcription/hooks/useTranscriptionSpeakers";
 
 import { Sparkles, Download, Copy, RefreshCw, ChevronDown, FileText } from "lucide-react";
+
+// Helper function to format transcript with speaker labels
+function formatTranscriptWithSpeakers(
+    transcript: Transcript,
+    speakerMappings: Record<string, string>
+): string {
+    // If no segments, fall back to plain text
+    if (!transcript.segments || transcript.segments.length === 0) {
+        return transcript.text || '';
+    }
+
+    // Format each segment with speaker label
+    return transcript.segments.map(segment => {
+        const speaker = speakerMappings[segment.speaker || ''] || segment.speaker || 'UNKNOWN';
+        return `[${speaker}] ${segment.text.trim()}`;
+    }).join('\n');
+}
 
 interface SummaryDialogProps {
     audioId: string;
@@ -46,6 +64,7 @@ export function SummaryDialog({ audioId, isOpen, onClose, llmReady }: SummaryDia
     const { data: existingSummary, isLoading: summaryLoading } = useExistingSummary(audioId);
     const { data: transcript } = useTranscript(audioId, true);
     const { data: audioFile } = useAudioDetail(audioId);
+    const { data: speakerMappings = {} } = useSpeakerMappings(audioId, true);
 
     // Hooks
     const { generateSummary, isStreaming, streamContent, error } = useSummarizer(audioId);
@@ -77,8 +96,12 @@ export function SummaryDialog({ audioId, isOpen, onClose, llmReady }: SummaryDia
         if (!selectedTemplate || !transcript) return;
 
         setShowOutput(true);
-        const transcriptText = transcript.text || '';
-        generateSummary(selectedTemplate.id, selectedTemplate.model, selectedTemplate.prompt, transcriptText);
+        // Use formatted transcript with speaker info if template has it enabled
+        const includeSpeakers = selectedTemplate.include_speaker_info ?? false;
+        const transcriptText = includeSpeakers
+            ? formatTranscriptWithSpeakers(transcript, speakerMappings)
+            : (transcript.text || '');
+        generateSummary(selectedTemplate.id, selectedTemplate.model, selectedTemplate.prompt, transcriptText, includeSpeakers);
     };
 
     const handleCopy = async () => {
