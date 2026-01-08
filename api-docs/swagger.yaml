@@ -358,6 +358,8 @@ definitions:
     properties:
       description:
         type: string
+      include_speaker_info:
+        type: boolean
       model:
         minLength: 1
         type: string
@@ -508,6 +510,8 @@ definitions:
         type: string
       id:
         type: string
+      include_speaker_info:
+        type: boolean
       model:
         type: string
       name:
