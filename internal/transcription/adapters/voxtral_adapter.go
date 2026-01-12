@@ -33,7 +33,11 @@ func NewVoxtralAdapter(envPath string) *VoxtralAdapter {
 		Description: "Mistral's multilingual audio transcription model",
 		Version:     "1.0.0",
 		SupportedLanguages: []string{
-			"en", "es", "fr", "de", "it", "pt", "nl", "pl", "ru", "zh", "ja", "ko",
+			"af", "ar", "hy", "az", "be", "bs", "bg", "ca", "zh", "hr", "cs", "da", "nl",
+			"en", "et", "fi", "fr", "gl", "de", "el", "he", "hi", "hu", "is", "id", "it",
+			"ja", "kn", "kk", "ko", "lv", "lt", "mk", "ms", "mr", "mi", "ne", "no", "fa",
+			"pl", "pt", "ro", "ru", "sr", "sk", "sl", "es", "sw", "sv", "tl", "ta", "th",
+			"tr", "uk", "ur", "vi", "cy", "auto",
 			// Voxtral supports many languages
 		},
 		SupportedFormats:  []string{"wav", "mp3", "flac", "m4a", "ogg"},
@@ -59,11 +63,17 @@ func NewVoxtralAdapter(envPath string) *VoxtralAdapter {
 	schema := []interfaces.ParameterSchema{
 		// Language selection
 		{
-			Name:        "language",
-			Type:        "string",
-			Required:    false,
-			Default:     "en",
-			Options:     []string{"en", "es", "fr", "de", "it", "pt", "nl", "pl", "ru", "zh", "ja", "ko"},
+			Name:     "language",
+			Type:     "string",
+			Required: false,
+			Default:  "en",
+			Options: []string{
+				"af", "ar", "hy", "az", "be", "bs", "bg", "ca", "zh", "hr", "cs", "da", "nl",
+				"en", "et", "fi", "fr", "gl", "de", "el", "he", "hi", "hu", "is", "id", "it",
+				"ja", "kn", "kk", "ko", "lv", "lt", "mk", "ms", "mr", "mi", "ne", "no", "fa",
+				"pl", "pt", "ro", "ru", "sr", "sk", "sl", "es", "sw", "sv", "tl", "ta", "th",
+				"tr", "uk", "ur", "vi", "cy", "auto",
+			},
 			Description: "Language of the audio",
 			Group:       "basic",
 		},
@@ -277,7 +287,7 @@ func (v *VoxtralAdapter) buildVoxtralArgs(input interfaces.AudioInput, params ma
 
 	// Determine if we should use buffered mode based on audio duration
 	// Voxtral handles 30-40 minutes natively, use buffered mode for longer files
-	useBuffered := input.Duration > 30*60 // More than 30 minutes
+	useBuffered := input.Duration > 30*time.Minute // More than 30 minutes
 
 	var scriptPath string
 	if useBuffered {
@@ -294,7 +304,7 @@ func (v *VoxtralAdapter) buildVoxtralArgs(input interfaces.AudioInput, params ma
 	}
 
 	// Add language
-	if language := v.GetStringParameter(params, "language"); language != "" {
+	if language := v.GetStringParameter(params, "language"); language != "" && language != "auto" {
 		args = append(args, "--language", language)
 	}
 
