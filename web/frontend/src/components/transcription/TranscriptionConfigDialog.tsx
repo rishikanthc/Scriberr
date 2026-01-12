@@ -216,32 +216,6 @@ const CANARY_LANGUAGES = [
     { value: "fr", label: "French" },
 ];
 
-const VOXTRAL_LANGUAGES = [
-    { value: "auto", label: "Auto-detect" },
-    { value: "en", label: "English" },
-    { value: "zh", label: "Chinese" },
-    { value: "de", label: "German" },
-    { value: "es", label: "Spanish" },
-    { value: "ru", label: "Russian" },
-    { value: "ko", label: "Korean" },
-    { value: "fr", label: "French" },
-    { value: "ja", label: "Japanese" },
-    { value: "pt", label: "Portuguese" },
-    { value: "tr", label: "Turkish" },
-    { value: "pl", label: "Polish" },
-    { value: "nl", label: "Dutch" },
-    { value: "ar", label: "Arabic" },
-    { value: "sv", label: "Swedish" },
-    { value: "it", label: "Italian" },
-    { value: "id", label: "Indonesian" },
-    { value: "hi", label: "Hindi" },
-    { value: "fi", label: "Finnish" },
-    { value: "vi", label: "Vietnamese" },
-    { value: "he", label: "Hebrew" },
-    { value: "uk", label: "Ukrainian" },
-    { value: "el", label: "Greek" },
-];
-
 const PARAM_DESCRIPTIONS = {
     model: "Size of the Whisper model. Larger = more accurate but slower.",
     language: "Source language. Auto-detect works for most cases.",
@@ -1171,7 +1145,7 @@ function VoxtralConfig({ params, updateParam }: ConfigProps) {
                             <SelectValue />
                         </SelectTrigger>
                         <SelectContent className={selectContentClassName}>
-                            {VOXTRAL_LANGUAGES.map((l) => (
+                            {LANGUAGES.map((l) => (
                                 <SelectItem key={l.value} value={l.value} className={selectItemClassName}>{l.label}</SelectItem>
                             ))}
                         </SelectContent>
