@@ -63,7 +63,8 @@ export function useAuth() {
 
     const tryRefresh = useCallback(async (): Promise<string | null> => {
         try {
-            const res = await fetch('/api/v1/auth/refresh', { method: 'POST' })
+            const fetchToUse = (window as any).__scriberr_original_fetch || window.fetch;
+            const res = await fetchToUse('/api/v1/auth/refresh', { method: 'POST' })
             if (!res.ok) return null
             const data = await res.json()
             if (data?.token) {
@@ -80,10 +81,17 @@ export function useAuth() {
     // Consolidated token management
     useEffect(() => {
         if (!fetchWrapperSetupRef.current) {
-            const originalFetch = window.fetch.bind(window);
+            if (!(window as any).__scriberr_original_fetch) {
+                (window as any).__scriberr_original_fetch = window.fetch.bind(window);
+            }
+            
+            const originalFetch = (window as any).__scriberr_original_fetch;
             const wrappedFetch: typeof window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+                const url = typeof input === 'string' ? input : (input instanceof URL ? input.href : input.url);
+                const isAuthEndpoint = url.includes('/api/v1/auth/');
+
                 let res = await originalFetch(input, init);
-                if (res.status === 401) {
+                if (res.status === 401 && !isAuthEndpoint) {
                     const newToken = await tryRefresh()
                     if (newToken) {
                         const newInit: RequestInit | undefined = init ? { ...init } : undefined
@@ -101,7 +109,9 @@ export function useAuth() {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             window.fetch = wrappedFetch as any;
             fetchWrapperSetupRef.current = true;
-            return () => { window.fetch = originalFetch; };
+            // Note: We don't restore originalFetch on unmount because other components 
+            // also use useAuth and expect the wrapped version. This is a bit hacky 
+            // but safer than multiple re-wrapping/unwrapping.
         }
 
         if (tokenCheckIntervalRef.current) clearInterval(tokenCheckIntervalRef.current);
