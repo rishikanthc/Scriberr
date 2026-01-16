@@ -1,11 +1,7 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { useAuthStore } from '../store/authStore';
-
-declare global {
-    interface Window {
-        __scriberr_original_fetch?: typeof window.fetch;
-    }
-}
+import { refreshToken, navigateToHome } from '../../../lib/authHelpers';
+import '../../../lib/authTypes';
 
 export function useAuth() {
     const {
@@ -51,11 +47,7 @@ export function useAuth() {
             },
         }).catch(() => { });
 
-        if (window.location.pathname !== "/") {
-            // Force navigation handled by RouterContext or window.location if critical
-            window.history.pushState({ route: { path: 'home' } }, "", "/");
-            window.dispatchEvent(new PopStateEvent('popstate', { state: { route: { path: 'home' } } }));
-        }
+        navigateToHome();
     }, [token, storeLogout]);
 
 
@@ -64,7 +56,6 @@ export function useAuth() {
         setRequiresRegistration(false);
     }, [setToken, setRequiresRegistration]);
 
-    // Consolidated token management
     useEffect(() => {
         if (tokenCheckIntervalRef.current) clearInterval(tokenCheckIntervalRef.current);
 
@@ -72,21 +63,8 @@ export function useAuth() {
             const checkTokenExpiry = async () => {
                 if (!token) return;
                 if (isTokenExpired(token)) {
-                    // Refresh is handled by the fetch interceptor
-                    // We just need to trigger a request to an auth-protected endpoint if we want to force it
-                    // or we can call the refresh endpoint directly here if we prefer to keep the timer.
-                    try {
-                        const originalFetch = window.__scriberr_original_fetch || window.fetch;
-                        const res = await originalFetch('/api/v1/auth/refresh', { method: 'POST' });
-                        if (res.ok) {
-                            const data = await res.json();
-                            if (data?.token) {
-                                login(data.token);
-                            }
-                        } else {
-                            logout();
-                        }
-                    } catch {
+                    const newToken = await refreshToken();
+                    if (!newToken) {
                         logout();
                     }
                 }
@@ -98,33 +76,25 @@ export function useAuth() {
         return () => {
             if (tokenCheckIntervalRef.current) clearInterval(tokenCheckIntervalRef.current);
         };
-    }, [token, isTokenExpired, logout, login]);
+    }, [token, isTokenExpired, logout]);
 
-    // Initial check (equivalent to old AuthProvider mount effect)
     useEffect(() => {
         const initializeAuth = async () => {
-            if (isInitialized) return; // Don't run if already initialized
+            if (isInitialized) return;
 
             try {
                 const response = await fetch("/api/v1/auth/registration-status");
                 if (response.ok) {
                     const data = await response.json();
-                    const regEnabled = typeof data.registration_enabled === 'boolean' ? data.registration_enabled : !!data.requiresRegistration;
+                    const regEnabled = typeof data.registration_enabled === 'boolean'
+                        ? data.registration_enabled
+                        : !!data.requiresRegistration;
                     setRequiresRegistration(regEnabled);
 
-                    if (!regEnabled) {
-                        // Check token validity if present
-                        if (token && isTokenExpired(token)) {
-                            // Fetch interceptor will handle the 401 if it happens, 
-                            // but we can be proactive here.
-                            const originalFetch = window.__scriberr_original_fetch || window.fetch;
-                            const res = await originalFetch('/api/v1/auth/refresh', { method: 'POST' });
-                            if (res.ok) {
-                                const data = await res.json();
-                                if (data?.token) login(data.token);
-                            } else {
-                                logout();
-                            }
+                    if (!regEnabled && token && isTokenExpired(token)) {
+                        const newToken = await refreshToken();
+                        if (!newToken) {
+                            logout();
                         }
                     }
                 }
@@ -135,7 +105,7 @@ export function useAuth() {
             }
         };
         initializeAuth();
-    }, [isInitialized, setRequiresRegistration, setInitialized, token, isTokenExpired, logout, login]);
+    }, [isInitialized, setRequiresRegistration, setInitialized, token, isTokenExpired, logout]);
 
     return {
         token,

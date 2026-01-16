@@ -1,24 +1,19 @@
 import { useAuthStore } from '../features/auth/store/authStore';
+import { refreshToken, navigateToHome, parseRequestUrl } from './authHelpers';
+import './authTypes';
 
-declare global {
-    interface Window {
-        __scriberr_original_fetch?: typeof window.fetch;
-    }
-}
-
-export function setupAuthInterceptor() {
+export function setupAuthInterceptor(): void {
     if (window.__scriberr_original_fetch) {
-        return; // Already setup
+        return;
     }
 
     const originalFetch = window.fetch.bind(window);
     window.__scriberr_original_fetch = originalFetch;
 
     const wrappedFetch: typeof window.fetch = async (input, init) => {
-        const url = typeof input === 'string' ? input : (input instanceof URL ? input.href : input.url);
+        const url = parseRequestUrl(input);
         const isAuthEndpoint = url.includes('/api/v1/auth/');
 
-        // 1. Auto-inject Authorization header if not present and we have a token
         const state = useAuthStore.getState();
         const token = state.token;
 
@@ -31,55 +26,26 @@ export function setupAuthInterceptor() {
             }
         }
 
-        // 2. Perform the request
-        let res = await originalFetch(input, requestInit);
+        let response = await originalFetch(input, requestInit);
 
-        // 3. Handle 401 Unauthorized
-        if (res.status === 401 && !isAuthEndpoint) {
-            // Try to refresh the token
-            const newToken = await tryRefresh();
-            
+        if (response.status === 401 && !isAuthEndpoint) {
+            const newToken = await refreshToken();
+
             if (newToken) {
-                // Retry the original request with the new token
-                const retryInit = { ...requestInit };
-                const retryHeaders = new Headers(retryInit.headers);
+                const retryHeaders = new Headers(requestInit.headers);
                 retryHeaders.set('Authorization', `Bearer ${newToken}`);
-                retryInit.headers = retryHeaders;
-                
-                res = await originalFetch(input, retryInit);
-                if (res.status !== 401) return res;
+                const retryInit = { ...requestInit, headers: retryHeaders };
+
+                response = await originalFetch(input, retryInit);
+                if (response.status !== 401) return response;
             }
 
-            // If refresh failed or retry still 401, logout
             state.logout();
-            if (window.location.pathname !== "/") {
-                window.history.pushState({ route: { path: 'home' } }, "", "/");
-                window.dispatchEvent(new PopStateEvent('popstate', { state: { route: { path: 'home' } } }));
-            }
+            navigateToHome();
         }
 
-        return res;
+        return response;
     };
 
     window.fetch = wrappedFetch;
-}
-
-async function tryRefresh(): Promise<string | null> {
-    const originalFetch = window.__scriberr_original_fetch || window.fetch;
-    const state = useAuthStore.getState();
-
-    try {
-        const res = await originalFetch('/api/v1/auth/refresh', { method: 'POST' });
-        if (!res.ok) return null;
-
-        const data = await res.json();
-        if (data?.token) {
-            state.setToken(data.token);
-            state.setRequiresRegistration(false);
-            return data.token as string;
-        }
-        return null;
-    } catch {
-        return null;
-    }
 }
