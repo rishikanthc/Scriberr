@@ -21,7 +21,6 @@ export function useAuth() {
     const isAuthenticated = !!token;
 
     const tokenCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
-    const fetchWrapperSetupRef = useRef(false);
 
     const getAuthHeaders = useCallback((): Record<string, string> => {
         if (token) {
@@ -65,67 +64,31 @@ export function useAuth() {
         setRequiresRegistration(false);
     }, [setToken, setRequiresRegistration]);
 
-
-    const tryRefresh = useCallback(async (): Promise<string | null> => {
-        try {
-            const fetchToUse = window.__scriberr_original_fetch || window.fetch;
-            const res = await fetchToUse('/api/v1/auth/refresh', { method: 'POST' })
-            if (!res.ok) return null
-            const data = await res.json()
-            if (data?.token) {
-                login(data.token)
-                return data.token as string
-            }
-            return null
-        } catch {
-            return null
-        }
-    }, [login])
-
-
     // Consolidated token management
     useEffect(() => {
-        if (!fetchWrapperSetupRef.current) {
-            if (!window.__scriberr_original_fetch) {
-                window.__scriberr_original_fetch = window.fetch.bind(window);
-            }
-
-            const originalFetch = window.__scriberr_original_fetch!;
-            const wrappedFetch: typeof window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
-                const url = typeof input === 'string' ? input : (input instanceof URL ? input.href : input.url);
-                const isAuthEndpoint = url.includes('/api/v1/auth/');
-
-                let res = await originalFetch(input, init);
-                if (res.status === 401 && !isAuthEndpoint) {
-                    const newToken = await tryRefresh()
-                    if (newToken) {
-                        const newInit: RequestInit = init ? { ...init } : {};
-                        const headers = new Headers(newInit.headers);
-                        headers.set('Authorization', `Bearer ${newToken}`);
-                        newInit.headers = headers;
-
-                        res = await originalFetch(input, newInit)
-                        if (res.status !== 401) return res
-                    }
-                    logout()
-                }
-                return res;
-            };
-            window.fetch = wrappedFetch;
-            fetchWrapperSetupRef.current = true;
-            // Note: We don't restore originalFetch on unmount because other components
-            // also use useAuth and expect the wrapped version. This is a bit hacky
-            // but safer than multiple re-wrapping/unwrapping.
-        }
-
         if (tokenCheckIntervalRef.current) clearInterval(tokenCheckIntervalRef.current);
 
         if (token) {
             const checkTokenExpiry = async () => {
                 if (!token) return;
                 if (isTokenExpired(token)) {
-                    const newToken = await tryRefresh();
-                    if (!newToken) logout();
+                    // Refresh is handled by the fetch interceptor
+                    // We just need to trigger a request to an auth-protected endpoint if we want to force it
+                    // or we can call the refresh endpoint directly here if we prefer to keep the timer.
+                    try {
+                        const originalFetch = window.__scriberr_original_fetch || window.fetch;
+                        const res = await originalFetch('/api/v1/auth/refresh', { method: 'POST' });
+                        if (res.ok) {
+                            const data = await res.json();
+                            if (data?.token) {
+                                login(data.token);
+                            }
+                        } else {
+                            logout();
+                        }
+                    } catch {
+                        logout();
+                    }
                 }
             };
             tokenCheckIntervalRef.current = setInterval(checkTokenExpiry, 60000);
@@ -135,7 +98,7 @@ export function useAuth() {
         return () => {
             if (tokenCheckIntervalRef.current) clearInterval(tokenCheckIntervalRef.current);
         };
-    }, [token, isTokenExpired, logout, tryRefresh]);
+    }, [token, isTokenExpired, logout, login]);
 
     // Initial check (equivalent to old AuthProvider mount effect)
     useEffect(() => {
@@ -152,9 +115,16 @@ export function useAuth() {
                     if (!regEnabled) {
                         // Check token validity if present
                         if (token && isTokenExpired(token)) {
-                            // Try refresh or logout
-                            const Refreshed = await tryRefresh();
-                            if (!Refreshed) logout();
+                            // Fetch interceptor will handle the 401 if it happens, 
+                            // but we can be proactive here.
+                            const originalFetch = window.__scriberr_original_fetch || window.fetch;
+                            const res = await originalFetch('/api/v1/auth/refresh', { method: 'POST' });
+                            if (res.ok) {
+                                const data = await res.json();
+                                if (data?.token) login(data.token);
+                            } else {
+                                logout();
+                            }
                         }
                     }
                 }
@@ -165,7 +135,7 @@ export function useAuth() {
             }
         };
         initializeAuth();
-    }, [isInitialized, setRequiresRegistration, setInitialized, token, isTokenExpired, tryRefresh, logout]);
+    }, [isInitialized, setRequiresRegistration, setInitialized, token, isTokenExpired, logout, login]);
 
     return {
         token,
