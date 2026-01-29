@@ -149,14 +149,29 @@ function CuratedParamsDisplay({ params }: { params: any }) {
         ];
     } else if (params.model_family === 'nvidia_parakeet') {
         specificKeys = [
+            'model',
             'attention_context_left',
             'attention_context_right',
+            'vad_preset',
+            'vad_speech_pad_ms',
+            'vad_min_silence_ms',
+            'vad_min_speech_ms',
+            'vad_max_speech_s',
             ...(params.diarize ? ['diarize_model'] : [])
         ];
     } else if (params.model_family === 'openai') {
         specificKeys = ['model', 'api_key']; // api_key should ideally be masked or hidden
     } else if (params.model_family === 'nvidia_canary') {
-        specificKeys = ['model']; // Canary usually simpler
+        specificKeys = [
+            'model',
+            'target_language',
+            'pnc',
+            'vad_preset',
+            'vad_speech_pad_ms',
+            'vad_min_silence_ms',
+            'vad_min_speech_ms',
+            'vad_max_speech_s'
+        ];
     }
 
     const keysToShow = [...commonKeys, ...specificKeys];

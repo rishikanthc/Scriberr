@@ -1,0 +1,34 @@
+[project]
+name = "asr-engine"
+version = "0.1.0"
+description = "ASR engine daemon with gRPC and onnx-asr Parakeet/Canary models"
+requires-python = ">=3.10"
+readme = "README.md"
+dependencies = [
+  "numpy>=1.26",
+  "soundfile>=0.13.1",
+  "onnx-asr[cpu,hub]>=0.4.0",
+  "onnxruntime>=1.17",
+  "grpcio>=1.62",
+  "protobuf>=4.25",
+  "pytest>=7.4",
+]
+
+[project.scripts]
+asr-engine-server = "asr_engine.server:main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+packages = ["asr_engine", "asr_engine.proto"]
+
+
+[tool.uv]
+index-strategy = "unsafe-best-match"

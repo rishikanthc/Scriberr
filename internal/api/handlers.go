@@ -1073,6 +1073,7 @@ func (h *Handler) getValidatedTranscriptionParams(c *gin.Context, job *models.Tr
 		VadOnset:                       0.5,
 		VadOffset:                      0.363,
 		ChunkSize:                      30,
+		VadPreset:                      "balanced",
 		Diarize:                        false,
 		DiarizeModel:                   "pyannote/speaker-diarization-3.1",
 		SpeakerEmbeddings:              false,
@@ -1095,6 +1096,8 @@ func (h *Handler) getValidatedTranscriptionParams(c *gin.Context, job *models.Tr
 		AttentionContextRight:          256,
 		IsMultiTrackEnabled:            false,
 	}
+	defaultPnc := true
+	requestParams.Pnc = &defaultPnc
 
 	// Parse request body parameters, overriding defaults
 	if err := c.ShouldBindJSON(&requestParams); err != nil {

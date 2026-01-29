@@ -47,6 +47,8 @@ export interface WhisperXParams {
     verbose: boolean;
     task: string;
     language?: string;
+    target_language?: string;
+    pnc?: boolean;
     align_model?: string;
     interpolate_method: string;
     no_align: boolean;
@@ -55,6 +57,11 @@ export interface WhisperXParams {
     vad_onset: number;
     vad_offset: number;
     chunk_size: number;
+    vad_preset: string;
+    vad_speech_pad_ms?: number;
+    vad_min_silence_ms?: number;
+    vad_min_speech_ms?: number;
+    vad_max_speech_s?: number;
     diarize: boolean;
     min_speakers?: number;
     max_speakers?: number;
@@ -119,6 +126,7 @@ const DEFAULT_PARAMS: WhisperXParams = {
     vad_onset: 0.5,
     vad_offset: 0.363,
     chunk_size: 30,
+    vad_preset: "balanced",
     diarize: false,
     diarize_model: "pyannote",
     speaker_embeddings: false,
@@ -141,11 +149,22 @@ const DEFAULT_PARAMS: WhisperXParams = {
     attention_context_right: 256,
     is_multi_track_enabled: false,
     api_key: "",
+    target_language: "en",
+    pnc: true,
 };
 
 const WHISPER_MODELS = [
     "tiny", "tiny.en", "base", "base.en", "small", "small.en",
     "medium", "medium.en", "large", "large-v1", "large-v2", "large-v3"
+];
+
+const PARAKEET_MODELS = [
+    "nemo-parakeet-tdt-0.6b-v2",
+    "nemo-parakeet-tdt-0.6b-v3"
+];
+
+const CANARY_MODELS = [
+    "nemo-canary-1b-v2"
 ];
 
 const LANGUAGES = [
@@ -258,6 +277,8 @@ const PARAM_DESCRIPTIONS = {
     hf_token: "Required for Pyannote diarization models.",
     vad_onset: "Voice detection sensitivity. Lower values (0.3-0.4) catch quieter/distant speakers.",
     vad_offset: "Speech ending sensitivity. Lower values detect speech endings more precisely.",
+    vad_preset: "Preset for voice activity detection (segmenting long audio).",
+    pnc: "Output punctuation and capitalization (Canary only).",
 };
 
 // ============================================================================
@@ -317,7 +338,7 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
     // Reset when dialog opens
     useEffect(() => {
         if (open) {
-            const baseParams = initialParams || DEFAULT_PARAMS;
+            const baseParams = { ...DEFAULT_PARAMS, ...(initialParams || {}) };
             setParams({
                 ...baseParams,
                 is_multi_track_enabled: isMultiTrack,
@@ -331,8 +352,15 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
     const updateParam = <K extends keyof WhisperXParams>(key: K, value: WhisperXParams[K]) => {
         setParams(prev => {
             const newParams = { ...prev, [key]: value };
-            if (key === 'model_family' && value === 'whisper') {
-                newParams.diarize_model = 'pyannote';
+            if (key === 'model_family') {
+                if (value === 'whisper') {
+                    newParams.diarize_model = 'pyannote';
+                    newParams.model = DEFAULT_PARAMS.model;
+                } else if (value === 'nvidia_parakeet') {
+                    newParams.model = "nemo-parakeet-tdt-0.6b-v3";
+                } else if (value === 'nvidia_canary') {
+                    newParams.model = "nemo-canary-1b-v2";
+                }
             }
             return newParams;
         });
@@ -802,6 +830,21 @@ function WhisperConfig({ params, updateParam, isMultiTrack }: ConfigProps) {
 function ParakeetConfig({ params, updateParam, isMultiTrack }: ConfigProps) {
     return (
         <div className="space-y-6">
+            <Section title="Model Selection" description="Choose the Parakeet model variant">
+                <FormField label="Model">
+                    <Select value={params.model} onValueChange={(v) => updateParam('model', v)}>
+                        <SelectTrigger className={selectTriggerClassName}>
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className={selectContentClassName}>
+                            {PARAKEET_MODELS.map((model) => (
+                                <SelectItem key={model} value={model} className={selectItemClassName}>{model}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </FormField>
+            </Section>
+
             {/* Long-form Audio Settings */}
             <Section title="Audio Context" description="Configure how much context the model uses for long audio files">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
@@ -838,6 +881,66 @@ function ParakeetConfig({ params, updateParam, isMultiTrack }: ConfigProps) {
                                 <span className="font-medium text-[var(--text-primary)]">{params.attention_context_right}</span>
                                 <span>512</span>
                             </div>
+                        </FormField>
+                    </div>
+                </div>
+            </Section>
+
+            <Section title="ASR VAD" description="Control how audio is segmented before recognition">
+                <div className="space-y-4">
+                    <FormField label="VAD Preset" description={PARAM_DESCRIPTIONS.vad_preset}>
+                        <Select value={params.vad_preset} onValueChange={(v) => updateParam('vad_preset', v)}>
+                            <SelectTrigger className={selectTriggerClassName}>
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent className={selectContentClassName}>
+                                <SelectItem value="conservative" className={selectItemClassName}>Conservative</SelectItem>
+                                <SelectItem value="balanced" className={selectItemClassName}>Balanced</SelectItem>
+                                <SelectItem value="aggressive" className={selectItemClassName}>Aggressive</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </FormField>
+
+                    <div className="grid grid-cols-2 gap-4">
+                        <FormField label="Speech Pad (ms)" optional>
+                            <Input
+                                type="number"
+                                min={0}
+                                placeholder="Default"
+                                value={params.vad_speech_pad_ms ?? ""}
+                                onChange={(e) => updateParam('vad_speech_pad_ms', e.target.value ? parseInt(e.target.value) : undefined)}
+                                className={inputClassName}
+                            />
+                        </FormField>
+                        <FormField label="Min Silence (ms)" optional>
+                            <Input
+                                type="number"
+                                min={0}
+                                placeholder="Default"
+                                value={params.vad_min_silence_ms ?? ""}
+                                onChange={(e) => updateParam('vad_min_silence_ms', e.target.value ? parseInt(e.target.value) : undefined)}
+                                className={inputClassName}
+                            />
+                        </FormField>
+                        <FormField label="Min Speech (ms)" optional>
+                            <Input
+                                type="number"
+                                min={0}
+                                placeholder="Default"
+                                value={params.vad_min_speech_ms ?? ""}
+                                onChange={(e) => updateParam('vad_min_speech_ms', e.target.value ? parseInt(e.target.value) : undefined)}
+                                className={inputClassName}
+                            />
+                        </FormField>
+                        <FormField label="Max Speech (s)" optional>
+                            <Input
+                                type="number"
+                                min={1}
+                                placeholder="Default"
+                                value={params.vad_max_speech_s ?? ""}
+                                onChange={(e) => updateParam('vad_max_speech_s', e.target.value ? parseInt(e.target.value) : undefined)}
+                                className={inputClassName}
+                            />
                         </FormField>
                     </div>
                 </div>
@@ -950,19 +1053,136 @@ function ParakeetConfig({ params, updateParam, isMultiTrack }: ConfigProps) {
 function CanaryConfig({ params, updateParam, isMultiTrack }: ConfigProps) {
     return (
         <div className="space-y-6">
-            <Section title="Language Settings">
-                <FormField label="Source Language">
-                    <Select value={params.language || "en"} onValueChange={(v) => updateParam('language', v)}>
+            <Section title="Model Selection" description="Choose the Canary model variant">
+                <FormField label="Model">
+                    <Select value={params.model} onValueChange={(v) => updateParam('model', v)}>
                         <SelectTrigger className={selectTriggerClassName}>
                             <SelectValue />
                         </SelectTrigger>
                         <SelectContent className={selectContentClassName}>
-                            {CANARY_LANGUAGES.map((l) => (
-                                <SelectItem key={l.value} value={l.value} className={selectItemClassName}>{l.label}</SelectItem>
+                            {CANARY_MODELS.map((model) => (
+                                <SelectItem key={model} value={model} className={selectItemClassName}>{model}</SelectItem>
                             ))}
                         </SelectContent>
                     </Select>
                 </FormField>
+            </Section>
+
+            <Section title="Language Settings">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <FormField label="Source Language">
+                        <Select value={params.language || "en"} onValueChange={(v) => updateParam('language', v)}>
+                            <SelectTrigger className={selectTriggerClassName}>
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent className={selectContentClassName}>
+                                {CANARY_LANGUAGES.map((l) => (
+                                    <SelectItem key={l.value} value={l.value} className={selectItemClassName}>{l.label}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </FormField>
+
+                    <FormField label="Task">
+                        <Select value={params.task} onValueChange={(v) => updateParam('task', v)}>
+                            <SelectTrigger className={selectTriggerClassName}>
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent className={selectContentClassName}>
+                                <SelectItem value="transcribe" className={selectItemClassName}>Transcribe</SelectItem>
+                                <SelectItem value="translate" className={selectItemClassName}>Translate</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </FormField>
+                </div>
+
+                {params.task === "translate" && (
+                    <FormField label="Target Language">
+                        <Select value={params.target_language || "en"} onValueChange={(v) => updateParam('target_language', v)}>
+                            <SelectTrigger className={selectTriggerClassName}>
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent className={selectContentClassName}>
+                                {CANARY_LANGUAGES.map((l) => (
+                                    <SelectItem key={l.value} value={l.value} className={selectItemClassName}>{l.label}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </FormField>
+                )}
+            </Section>
+
+            <Section title="Output Formatting">
+                <div className="flex items-center gap-3">
+                    <Switch
+                        id="canary_pnc"
+                        checked={params.pnc ?? true}
+                        onCheckedChange={(v) => updateParam('pnc', v)}
+                    />
+                    <label htmlFor="canary_pnc" className="text-sm text-[var(--text-primary)] cursor-pointer">
+                        Enable punctuation and capitalization
+                    </label>
+                </div>
+            </Section>
+
+            <Section title="ASR VAD" description="Control how audio is segmented before recognition">
+                <div className="space-y-4">
+                    <FormField label="VAD Preset" description={PARAM_DESCRIPTIONS.vad_preset}>
+                        <Select value={params.vad_preset} onValueChange={(v) => updateParam('vad_preset', v)}>
+                            <SelectTrigger className={selectTriggerClassName}>
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent className={selectContentClassName}>
+                                <SelectItem value="conservative" className={selectItemClassName}>Conservative</SelectItem>
+                                <SelectItem value="balanced" className={selectItemClassName}>Balanced</SelectItem>
+                                <SelectItem value="aggressive" className={selectItemClassName}>Aggressive</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </FormField>
+
+                    <div className="grid grid-cols-2 gap-4">
+                        <FormField label="Speech Pad (ms)" optional>
+                            <Input
+                                type="number"
+                                min={0}
+                                placeholder="Default"
+                                value={params.vad_speech_pad_ms ?? ""}
+                                onChange={(e) => updateParam('vad_speech_pad_ms', e.target.value ? parseInt(e.target.value) : undefined)}
+                                className={inputClassName}
+                            />
+                        </FormField>
+                        <FormField label="Min Silence (ms)" optional>
+                            <Input
+                                type="number"
+                                min={0}
+                                placeholder="Default"
+                                value={params.vad_min_silence_ms ?? ""}
+                                onChange={(e) => updateParam('vad_min_silence_ms', e.target.value ? parseInt(e.target.value) : undefined)}
+                                className={inputClassName}
+                            />
+                        </FormField>
+                        <FormField label="Min Speech (ms)" optional>
+                            <Input
+                                type="number"
+                                min={0}
+                                placeholder="Default"
+                                value={params.vad_min_speech_ms ?? ""}
+                                onChange={(e) => updateParam('vad_min_speech_ms', e.target.value ? parseInt(e.target.value) : undefined)}
+                                className={inputClassName}
+                            />
+                        </FormField>
+                        <FormField label="Max Speech (s)" optional>
+                            <Input
+                                type="number"
+                                min={1}
+                                placeholder="Default"
+                                value={params.vad_max_speech_s ?? ""}
+                                onChange={(e) => updateParam('vad_max_speech_s', e.target.value ? parseInt(e.target.value) : undefined)}
+                                className={inputClassName}
+                            />
+                        </FormField>
+                    </div>
+                </div>
             </Section>
 
             {/* Diarization for Canary */}

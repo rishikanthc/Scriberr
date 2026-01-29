@@ -3,7 +3,6 @@ package adapters
 import (
 	"context"
 	"embed"
-	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -11,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"scriberr/internal/asrengine"
+	"scriberr/internal/asrengine/pb"
 	"scriberr/internal/transcription/interfaces"
 	"scriberr/pkg/downloader"
 	"scriberr/pkg/logger"
@@ -60,9 +61,18 @@ func NewCanaryAdapter(envPath string) *CanaryAdapter {
 	}
 
 	schema := []interfaces.ParameterSchema{
+		{
+			Name:        "model",
+			Type:        "string",
+			Required:    false,
+			Default:     "nemo-canary-1b-v2",
+			Options:     []string{"nemo-canary-1b-v2"},
+			Description: "Canary model variant",
+			Group:       "basic",
+		},
 		// Language settings
 		{
-			Name:        "source_lang",
+			Name:        "language",
 			Type:        "string",
 			Required:    false,
 			Default:     "en",
@@ -71,7 +81,7 @@ func NewCanaryAdapter(envPath string) *CanaryAdapter {
 			Group:       "basic",
 		},
 		{
-			Name:        "target_lang",
+			Name:        "target_language",
 			Type:        "string",
 			Required:    false,
 			Default:     "en",
@@ -147,6 +157,56 @@ func NewCanaryAdapter(envPath string) *CanaryAdapter {
 			Description: "Preserve punctuation and capitalization",
 			Group:       "advanced",
 		},
+		{
+			Name:        "pnc",
+			Type:        "bool",
+			Required:    false,
+			Default:     true,
+			Description: "Output punctuation and capitalization",
+			Group:       "advanced",
+		},
+		// VAD tuning (onnx-asr)
+		{
+			Name:        "vad_preset",
+			Type:        "string",
+			Required:    false,
+			Default:     "balanced",
+			Options:     []string{"conservative", "balanced", "aggressive"},
+			Description: "VAD preset for speech segmentation",
+			Group:       "advanced",
+		},
+		{
+			Name:        "vad_speech_pad_ms",
+			Type:        "int",
+			Required:    false,
+			Default:     nil,
+			Description: "VAD speech pad (ms)",
+			Group:       "advanced",
+		},
+		{
+			Name:        "vad_min_silence_ms",
+			Type:        "int",
+			Required:    false,
+			Default:     nil,
+			Description: "VAD min silence duration (ms)",
+			Group:       "advanced",
+		},
+		{
+			Name:        "vad_min_speech_ms",
+			Type:        "int",
+			Required:    false,
+			Default:     nil,
+			Description: "VAD min speech duration (ms)",
+			Group:       "advanced",
+		},
+		{
+			Name:        "vad_max_speech_s",
+			Type:        "int",
+			Required:    false,
+			Default:     nil,
+			Description: "VAD max speech duration (s)",
+			Group:       "advanced",
+		},
 	}
 
 	baseAdapter := NewBaseAdapter("canary", envPath, capabilities, schema)
@@ -161,40 +221,16 @@ func NewCanaryAdapter(envPath string) *CanaryAdapter {
 
 // GetSupportedModels returns the specific Canary model available
 func (c *CanaryAdapter) GetSupportedModels() []string {
-	return []string{"canary-1b-v2"}
+	return []string{"nemo-canary-1b-v2"}
 }
 
 // PrepareEnvironment sets up the Canary environment (shared with Parakeet)
 func (c *CanaryAdapter) PrepareEnvironment(ctx context.Context) error {
 	logger.Info("Preparing NVIDIA Canary environment", "env_path", c.envPath)
-
-	// Copy transcription script
-	if err := c.copyTranscriptionScript(); err != nil {
-		return fmt.Errorf("failed to copy transcription script: %w", err)
+	if err := asrengine.Default().EnsureRunning(ctx); err != nil {
+		return fmt.Errorf("failed to start ASR engine: %w", err)
 	}
-
-	// Check if environment is already ready (using cache to speed up repeated checks)
-	if CheckEnvironmentReady(c.envPath, "import nemo.collections.asr") {
-		modelPath := filepath.Join(c.envPath, "canary-1b-v2.nemo")
-		if stat, err := os.Stat(modelPath); err == nil && stat.Size() > 1024*1024 {
-			logger.Info("Canary environment already ready")
-			c.initialized = true
-			return nil
-		}
-	}
-
-	// Setup environment (reuse Parakeet setup since they share the same environment)
-	if err := c.setupCanaryEnvironment(); err != nil {
-		return fmt.Errorf("failed to setup Canary environment: %w", err)
-	}
-
-	// Download model
-	if err := c.downloadCanaryModel(); err != nil {
-		return fmt.Errorf("failed to download Canary model: %w", err)
-	}
-
 	c.initialized = true
-	logger.Info("Canary environment prepared successfully")
 	return nil
 }
 
@@ -333,54 +369,16 @@ func (c *CanaryAdapter) Transcribe(ctx context.Context, input interfaces.AudioIn
 		}
 	}
 
-	// Build command arguments
-	args, err := c.buildCanaryArgs(audioInput, params, tempDir)
+	result, err := c.transcribeWithEngine(ctx, audioInput, params, procCtx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to build command: %w", err)
-	}
-
-	// Execute Canary
-	cmd := exec.CommandContext(ctx, "uv", args...)
-	cmd.Env = append(os.Environ(),
-		"PYTHONUNBUFFERED=1",
-		"PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True")
-
-	// Setup log file
-	logFile, err := os.OpenFile(filepath.Join(procCtx.OutputDirectory, "transcription.log"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		logger.Warn("Failed to create log file", "error", err)
-	} else {
-		defer logFile.Close()
-		cmd.Stdout = logFile
-		cmd.Stderr = logFile
-	}
-
-	logger.Info("Executing Canary command", "args", strings.Join(args, " "))
-
-	if err := cmd.Run(); err != nil {
-		if ctx.Err() == context.Canceled {
-			return nil, fmt.Errorf("transcription was cancelled")
-		}
-
-		// Read tail of log file for context
-		logPath := filepath.Join(procCtx.OutputDirectory, "transcription.log")
-		logTail, readErr := c.ReadLogTail(logPath, 2048)
-		if readErr != nil {
-			logger.Warn("Failed to read log tail", "error", readErr)
-		}
-
-		logger.Error("Canary execution failed", "error", err)
-		return nil, fmt.Errorf("Canary execution failed: %w\nLogs:\n%s", err, logTail)
-	}
-
-	// Parse result
-	result, err := c.parseResult(tempDir, audioInput, params)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse result: %w", err)
+		return nil, err
 	}
 
 	result.ProcessingTime = time.Since(startTime)
-	result.ModelUsed = "canary-1b-v2"
+	result.ModelUsed = c.GetStringParameter(params, "model")
+	if result.ModelUsed == "" {
+		result.ModelUsed = "nemo-canary-1b-v2"
+	}
 	result.Metadata = c.CreateDefaultMetadata(params)
 
 	logger.Info("Canary transcription completed",
@@ -392,122 +390,93 @@ func (c *CanaryAdapter) Transcribe(ctx context.Context, input interfaces.AudioIn
 	return result, nil
 }
 
-// buildCanaryArgs builds the command arguments for Canary
-func (c *CanaryAdapter) buildCanaryArgs(input interfaces.AudioInput, params map[string]interface{}, tempDir string) ([]string, error) {
-	outputFile := filepath.Join(tempDir, "result.json")
-
-	scriptPath := filepath.Join(c.envPath, "canary_transcribe.py")
-	args := []string{
-		"run", "--native-tls", "--project", c.envPath, "python", scriptPath,
-		input.FilePath,
-		"--output", outputFile,
+func (c *CanaryAdapter) transcribeWithEngine(ctx context.Context, input interfaces.AudioInput, params map[string]interface{}, procCtx interfaces.ProcessingContext) (*interfaces.TranscriptResult, error) {
+	manager := asrengine.Default()
+	if err := os.MkdirAll(procCtx.OutputDirectory, 0755); err != nil {
+		return nil, fmt.Errorf("failed to prepare output directory: %w", err)
+	}
+	spec := pb.ModelSpec{
+		ModelId:   "canary",
+		ModelName: "nemo-canary-1b-v2",
+	}
+	if modelName := c.GetStringParameter(params, "model"); modelName != "" {
+		if modelName == "nemo-canary-1b-v2" {
+			spec.ModelName = modelName
+		}
+	}
+	if modelPath := strings.TrimSpace(os.Getenv("ASR_ENGINE_CANARY_MODEL_PATH")); modelPath != "" {
+		spec.ModelPath = modelPath
 	}
 
-	// Add language settings
-	args = append(args, "--source-lang", c.GetStringParameter(params, "source_lang"))
-	args = append(args, "--target-lang", c.GetStringParameter(params, "target_lang"))
-	args = append(args, "--task", c.GetStringParameter(params, "task"))
-
-	// Add timestamps flag
-	if c.GetBoolParameter(params, "timestamps") {
-		args = append(args, "--timestamps")
-	} else {
-		args = append(args, "--no-timestamps")
+	if err := manager.LoadModel(ctx, spec); err != nil {
+		return nil, fmt.Errorf("failed to load canary model: %w", err)
 	}
 
-	// Add confidence flag
-	if c.GetBoolParameter(params, "include_confidence") {
-		args = append(args, "--include-confidence")
-	} else {
-		args = append(args, "--no-confidence")
-	}
+	engineParams := buildEngineParams(params)
+	engineParams["model_family"] = "nvidia_canary"
 
-	// Add formatting flag
-	if c.GetBoolParameter(params, "preserve_formatting") {
-		args = append(args, "--preserve-formatting")
-	}
+	jobCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	go func() {
+		<-ctx.Done()
+		manager.StopJob(context.Background(), procCtx.JobID)
+	}()
 
-	return args, nil
-}
-
-// parseResult parses the Canary output
-func (c *CanaryAdapter) parseResult(tempDir string, input interfaces.AudioInput, params map[string]interface{}) (*interfaces.TranscriptResult, error) {
-	resultFile := filepath.Join(tempDir, "result.json")
-
-	data, err := os.ReadFile(resultFile)
+	status, err := manager.RunJob(jobCtx, procCtx.JobID, input.FilePath, procCtx.OutputDirectory, engineParams)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read result file: %w", err)
+		return nil, fmt.Errorf("canary engine job failed: %w", err)
+	}
+	if status.State == pb.JobState_JOB_STATE_FAILED {
+		return nil, fmt.Errorf("canary engine failed: %s", status.Message)
+	}
+	if status.State == pb.JobState_JOB_STATE_CANCELLED {
+		return nil, fmt.Errorf("canary transcription was cancelled")
 	}
 
-	var canaryResult struct {
-		Transcription  string `json:"transcription"`
-		SourceLanguage string `json:"source_language"`
-		TargetLanguage string `json:"target_language"`
-		Task           string `json:"task"`
-		WordTimestamps []struct {
-			Word        string  `json:"word"`
-			StartOffset int     `json:"start_offset"`
-			EndOffset   int     `json:"end_offset"`
-			Start       float64 `json:"start"`
-			End         float64 `json:"end"`
-		} `json:"word_timestamps"`
-		SegmentTimestamps []struct {
-			Segment     string  `json:"segment"`
-			StartOffset int     `json:"start_offset"`
-			EndOffset   int     `json:"end_offset"`
-			Start       float64 `json:"start"`
-			End         float64 `json:"end"`
-		} `json:"segment_timestamps"`
-		Confidence interface{} `json:"confidence,omitempty"`
+	transcriptPath := status.Outputs["transcript"]
+	if transcriptPath == "" {
+		return nil, fmt.Errorf("canary engine missing transcript output")
+	}
+	text, err := readEngineTranscript(transcriptPath)
+	if err != nil {
+		return nil, err
 	}
 
-	if err := json.Unmarshal(data, &canaryResult); err != nil {
-		return nil, fmt.Errorf("failed to parse JSON result: %w", err)
+	var segments []interfaces.TranscriptSegment
+	if path := status.Outputs["segments"]; path != "" {
+		segments, err = readEngineSegments(path)
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	// Determine the language for the result
-	resultLanguage := canaryResult.TargetLanguage
-	if canaryResult.Task == "transcribe" {
-		resultLanguage = canaryResult.SourceLanguage
+	var words []interfaces.TranscriptWord
+	if path := status.Outputs["words"]; path != "" {
+		words, err = readEngineWords(path)
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	// Convert to standard format
-	result := &interfaces.TranscriptResult{
-		Text:         canaryResult.Transcription,
+	resultLanguage := c.GetStringParameter(params, "language")
+	if c.GetStringParameter(params, "task") == "translate" {
+		if target := c.GetStringParameter(params, "target_language"); target != "" {
+			resultLanguage = target
+		}
+	}
+	if resultLanguage == "" {
+		resultLanguage = "en"
+	}
+
+	for i := range segments {
+		segments[i].Language = &resultLanguage
+	}
+
+	return &interfaces.TranscriptResult{
+		Text:         text,
 		Language:     resultLanguage,
-		Segments:     make([]interfaces.TranscriptSegment, len(canaryResult.SegmentTimestamps)),
-		WordSegments: make([]interfaces.TranscriptWord, len(canaryResult.WordTimestamps)),
-		Confidence:   0.0, // Default confidence
-	}
-
-	// Convert segments
-	for i, seg := range canaryResult.SegmentTimestamps {
-		result.Segments[i] = interfaces.TranscriptSegment{
-			Start:    seg.Start,
-			End:      seg.End,
-			Text:     seg.Segment,
-			Language: &resultLanguage,
-		}
-	}
-
-	// Convert words
-	for i, word := range canaryResult.WordTimestamps {
-		result.WordSegments[i] = interfaces.TranscriptWord{
-			Start: word.Start,
-			End:   word.End,
-			Word:  word.Word,
-			Score: 1.0, // Canary doesn't provide word-level scores
-		}
-	}
-
-	return result, nil
-}
-
-// GetEstimatedProcessingTime provides Canary-specific time estimation
-func (c *CanaryAdapter) GetEstimatedProcessingTime(input interfaces.AudioInput) time.Duration {
-	// Canary is typically slower than Parakeet due to its multilingual capabilities
-	baseTime := c.BaseAdapter.GetEstimatedProcessingTime(input)
-
-	// Canary typically processes at about 40-50% of audio duration
-	return time.Duration(float64(baseTime) * 2.0)
+		Segments:     segments,
+		WordSegments: words,
+		Confidence:   0.0,
+	}, nil
 }

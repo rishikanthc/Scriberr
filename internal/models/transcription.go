@@ -52,7 +52,7 @@ type WhisperXParams struct {
 	ModelFamily string `json:"model_family" gorm:"type:varchar(20);default:'whisper'"`
 
 	// Model parameters
-	Model          string  `json:"model" gorm:"type:varchar(50);default:'small'"`
+	Model          string  `json:"model" gorm:"type:varchar(100);default:'small'"`
 	ModelCacheOnly bool    `json:"model_cache_only" gorm:"type:boolean;default:false"`
 	ModelDir       *string `json:"model_dir,omitempty" gorm:"type:text"`
 
@@ -68,8 +68,10 @@ type WhisperXParams struct {
 	Verbose      bool   `json:"verbose" gorm:"type:boolean;default:true"`
 
 	// Task and language
-	Task     string  `json:"task" gorm:"type:varchar(20);default:'transcribe'"`
-	Language *string `json:"language,omitempty" gorm:"type:varchar(10)"`
+	Task           string  `json:"task" gorm:"type:varchar(20);default:'transcribe'"`
+	Language       *string `json:"language,omitempty" gorm:"type:varchar(10)"`
+	TargetLanguage *string `json:"target_language,omitempty" gorm:"type:varchar(10)"`
+	Pnc            *bool   `json:"pnc,omitempty" gorm:"type:boolean"`
 
 	// Alignment settings
 	AlignModel           *string `json:"align_model,omitempty" gorm:"type:varchar(100)"`
@@ -78,10 +80,15 @@ type WhisperXParams struct {
 	ReturnCharAlignments bool    `json:"return_char_alignments" gorm:"type:boolean;default:false"`
 
 	// VAD (Voice Activity Detection) settings
-	VadMethod string  `json:"vad_method" gorm:"type:varchar(20);default:'pyannote'"`
-	VadOnset  float64 `json:"vad_onset" gorm:"type:real;default:0.5"`
-	VadOffset float64 `json:"vad_offset" gorm:"type:real;default:0.363"`
-	ChunkSize int     `json:"chunk_size" gorm:"type:int;default:30"`
+	VadMethod       string  `json:"vad_method" gorm:"type:varchar(20);default:'pyannote'"`
+	VadOnset        float64 `json:"vad_onset" gorm:"type:real;default:0.5"`
+	VadOffset       float64 `json:"vad_offset" gorm:"type:real;default:0.363"`
+	ChunkSize       int     `json:"chunk_size" gorm:"type:int;default:30"`
+	VadPreset       string  `json:"vad_preset" gorm:"type:varchar(20);default:'balanced'"`
+	VadSpeechPadMs  *int    `json:"vad_speech_pad_ms,omitempty" gorm:"type:int"`
+	VadMinSilenceMs *int    `json:"vad_min_silence_ms,omitempty" gorm:"type:int"`
+	VadMinSpeechMs  *int    `json:"vad_min_speech_ms,omitempty" gorm:"type:int"`
+	VadMaxSpeechS   *int    `json:"vad_max_speech_s,omitempty" gorm:"type:int"`
 
 	// Diarization settings
 	Diarize           bool   `json:"diarize" gorm:"type:boolean;default:false"`
@@ -207,10 +214,10 @@ func (tp *TranscriptionProfile) BeforeSave(tx *gorm.DB) error {
 // LLMConfig represents LLM configuration settings
 type LLMConfig struct {
 	ID            uint      `json:"id" gorm:"primaryKey"`
-	Provider      string    `json:"provider" gorm:"not null;type:varchar(50)"` // "ollama" or "openai"
-	BaseURL       *string   `json:"base_url,omitempty" gorm:"type:text"`       // For Ollama
+	Provider      string    `json:"provider" gorm:"not null;type:varchar(50)"`  // "ollama" or "openai"
+	BaseURL       *string   `json:"base_url,omitempty" gorm:"type:text"`        // For Ollama
 	OpenAIBaseURL *string   `json:"openai_base_url,omitempty" gorm:"type:text"` // For OpenAI custom endpoint
-	APIKey        *string   `json:"api_key,omitempty" gorm:"type:text"`        // For OpenAI (encrypted)
+	APIKey        *string   `json:"api_key,omitempty" gorm:"type:text"`         // For OpenAI (encrypted)
 	IsActive      bool      `json:"is_active" gorm:"type:boolean;default:false"`
 	CreatedAt     time.Time `json:"created_at" gorm:"autoCreateTime"`
 	UpdatedAt     time.Time `json:"updated_at" gorm:"autoUpdateTime"`

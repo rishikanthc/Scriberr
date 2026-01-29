@@ -333,9 +333,9 @@ func TestCanaryAdapter(t *testing.T) {
 
 	// Test parameter validation with language settings
 	validParams := map[string]interface{}{
-		"source_lang": "en",
-		"target_lang": "es",
-		"task":        "translate",
+		"language":        "en",
+		"target_language": "es",
+		"task":            "translate",
 	}
 
 	if err := adapter.ValidateParameters(validParams); err != nil {

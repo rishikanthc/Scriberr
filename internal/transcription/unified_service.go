@@ -614,18 +614,50 @@ func (u *UnifiedTranscriptionService) convertToVoxtralParams(params models.Whisp
 
 // convertToParakeetParams converts to Parakeet-specific parameters
 func (u *UnifiedTranscriptionService) convertToParakeetParams(params models.WhisperXParams) map[string]interface{} {
-	return map[string]interface{}{
+	modelName := params.Model
+	if !strings.HasPrefix(modelName, "nemo-parakeet-tdt-0.6b") {
+		modelName = "nemo-parakeet-tdt-0.6b-v3"
+	}
+	paramMap := map[string]interface{}{
+		"model":              modelName,
 		"timestamps":         true,
 		"context_left":       params.AttentionContextLeft,
 		"context_right":      params.AttentionContextRight,
 		"output_format":      OutputFormatJSON,
 		"auto_convert_audio": true,
 	}
+
+	if params.VadPreset != "" {
+		paramMap["vad_preset"] = params.VadPreset
+	}
+	if params.VadSpeechPadMs != nil {
+		paramMap["vad_speech_pad_ms"] = *params.VadSpeechPadMs
+	}
+	if params.VadMinSilenceMs != nil {
+		paramMap["vad_min_silence_ms"] = *params.VadMinSilenceMs
+	}
+	if params.VadMinSpeechMs != nil {
+		paramMap["vad_min_speech_ms"] = *params.VadMinSpeechMs
+	}
+	if params.VadMaxSpeechS != nil {
+		paramMap["vad_max_speech_s"] = *params.VadMaxSpeechS
+	}
+
+	if params.Language != nil {
+		paramMap["language"] = *params.Language
+	}
+
+	return paramMap
 }
 
 // convertToCanaryParams converts to Canary-specific parameters
 func (u *UnifiedTranscriptionService) convertToCanaryParams(params models.WhisperXParams) map[string]interface{} {
+	modelName := params.Model
+	if modelName != "nemo-canary-1b-v2" {
+		modelName = "nemo-canary-1b-v2"
+	}
 	paramMap := map[string]interface{}{
+		"model":              modelName,
 		"timestamps":         true,
 		"output_format":      OutputFormatJSON,
 		"auto_convert_audio": true,
@@ -634,14 +666,38 @@ func (u *UnifiedTranscriptionService) convertToCanaryParams(params models.Whispe
 
 	// Set source language
 	if params.Language != nil {
-		paramMap["source_lang"] = *params.Language
+		paramMap["language"] = *params.Language
 	} else {
-		paramMap["source_lang"] = "en"
+		paramMap["language"] = "en"
 	}
 
 	// Set target language for translation
 	if params.Task == "translate" {
-		paramMap["target_lang"] = "en"
+		if params.TargetLanguage != nil {
+			paramMap["target_language"] = *params.TargetLanguage
+		} else {
+			paramMap["target_language"] = "en"
+		}
+	}
+
+	if params.Pnc != nil {
+		paramMap["pnc"] = *params.Pnc
+	}
+
+	if params.VadPreset != "" {
+		paramMap["vad_preset"] = params.VadPreset
+	}
+	if params.VadSpeechPadMs != nil {
+		paramMap["vad_speech_pad_ms"] = *params.VadSpeechPadMs
+	}
+	if params.VadMinSilenceMs != nil {
+		paramMap["vad_min_silence_ms"] = *params.VadMinSilenceMs
+	}
+	if params.VadMinSpeechMs != nil {
+		paramMap["vad_min_speech_ms"] = *params.VadMinSpeechMs
+	}
+	if params.VadMaxSpeechS != nil {
+		paramMap["vad_max_speech_s"] = *params.VadMaxSpeechS
 	}
 
 	return paramMap
@@ -681,6 +737,12 @@ func (u *UnifiedTranscriptionService) convertToWhisperXParams(params models.Whis
 	// Handle pointer fields - only add if not nil
 	if params.Language != nil {
 		paramMap["language"] = *params.Language
+	}
+	if params.TargetLanguage != nil {
+		paramMap["target_language"] = *params.TargetLanguage
+	}
+	if params.Pnc != nil {
+		paramMap["pnc"] = *params.Pnc
 	}
 	if params.MinSpeakers != nil {
 		paramMap["min_speakers"] = *params.MinSpeakers
@@ -798,6 +860,19 @@ func (u *UnifiedTranscriptionService) parametersToMap(params models.WhisperXPara
 	paramMap["vad_method"] = params.VadMethod
 	paramMap["vad_onset"] = params.VadOnset
 	paramMap["vad_offset"] = params.VadOffset
+	paramMap["vad_preset"] = params.VadPreset
+	if params.VadSpeechPadMs != nil {
+		paramMap["vad_speech_pad_ms"] = *params.VadSpeechPadMs
+	}
+	if params.VadMinSilenceMs != nil {
+		paramMap["vad_min_silence_ms"] = *params.VadMinSilenceMs
+	}
+	if params.VadMinSpeechMs != nil {
+		paramMap["vad_min_speech_ms"] = *params.VadMinSpeechMs
+	}
+	if params.VadMaxSpeechS != nil {
+		paramMap["vad_max_speech_s"] = *params.VadMaxSpeechS
+	}
 	paramMap["context_left"] = params.AttentionContextLeft
 	paramMap["context_right"] = params.AttentionContextRight
 	paramMap["timestamps"] = true
@@ -807,15 +882,19 @@ func (u *UnifiedTranscriptionService) parametersToMap(params models.WhisperXPara
 	// For Canary model, set source and target languages
 	if params.ModelFamily == FamilyNvidiaCanary {
 		if params.Language != nil {
-			paramMap["source_lang"] = *params.Language
+			paramMap["language"] = *params.Language
 		} else {
-			paramMap["source_lang"] = "en"
+			paramMap["language"] = "en"
 		}
 
 		if params.Task == "translate" {
-			paramMap["target_lang"] = "en" // Default target for translation
+			if params.TargetLanguage != nil {
+				paramMap["target_language"] = *params.TargetLanguage
+			} else {
+				paramMap["target_language"] = "en"
+			}
 		} else {
-			paramMap["target_lang"] = paramMap["source_lang"]
+			paramMap["target_language"] = paramMap["language"]
 		}
 	}
 

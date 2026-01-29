@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Realtime ASR Demo (Parakeet TDT + onnx-asr)</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <main class="container">
+      <header>
+        <h1>Realtime ASR Demo</h1>
+        <p>Parakeet TDT (onnx-asr) + Silero VAD</p>
+      </header>
+
+      <section class="controls">
+        <button id="startBtn">Start</button>
+        <button id="stopBtn" disabled>Stop</button>
+        <span id="status">Idle</span>
+      </section>
+
+      <section class="panel">
+        <h2>Transcript</h2>
+        <div id="transcript"></div>
+      </section>
+    </main>
+
+    <script src="/static/app.js"></script>
+  </body>
+</html>

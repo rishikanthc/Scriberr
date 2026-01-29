@@ -71,3 +71,5 @@ tmp/
 # *.png
 dhl.txt
 __pycache__/
+.claude/
+pr
