@@ -40,6 +40,7 @@ dev: ## Start development environment with Air (backend) and Vite (frontend)
 	\
 	echo "🧠 Starting ASR engine..."; \
 	ASR_ENGINE_SOCKET=$${ASR_ENGINE_SOCKET:-/tmp/scriberr-asr.sock}; \
+	ASR_ENGINE_CMD=$${ASR_ENGINE_CMD:-"uv run --project asr-engines/scriberr-asr-onnx asr-engine-server"}; \
 	if command -v uv >/dev/null 2>&1; then \
 		if [ -z "$${ASR_ENGINE_SKIP_SYNC}" ]; then \
 			echo "📦 Syncing ASR engine deps (set ASR_ENGINE_SKIP_SYNC=1 to skip)..."; \
@@ -52,10 +53,10 @@ dev: ## Start development environment with Air (backend) and Vite (frontend)
 	\
 	if [ "$$USE_GO_RUN" = true ]; then \
 		echo "🔧 Starting Go backend (standard run)..."; \
-		ASR_ENGINE_SOCKET=$$ASR_ENGINE_SOCKET go run cmd/server/main.go & \
+		ASR_ENGINE_SOCKET=$$ASR_ENGINE_SOCKET ASR_ENGINE_CMD="$$ASR_ENGINE_CMD" go run cmd/server/main.go & \
 	else \
 		echo "🔥 Starting Go backend (with Air live reload)..."; \
-		ASR_ENGINE_SOCKET=$$ASR_ENGINE_SOCKET air & \
+		ASR_ENGINE_SOCKET=$$ASR_ENGINE_SOCKET ASR_ENGINE_CMD="$$ASR_ENGINE_CMD" air & \
 	fi; \
 	\
 	echo "⚛️  Starting React frontend (Vite)..."; \

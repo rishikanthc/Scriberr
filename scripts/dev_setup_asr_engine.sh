@@ -21,8 +21,17 @@ if [ ! -d "$ENGINE_DIR" ]; then
   exit 1
 fi
 
+if [ -d "$ENGINE_DIR/.venv" ]; then
+  if ! "$ENGINE_DIR/.venv/bin/python3" -c "import sys" >/dev/null 2>&1; then
+    echo "⚠️  Detected broken .venv. Recreating..."
+    rm -rf "$ENGINE_DIR/.venv"
+  fi
+fi
+
 echo "📦 Syncing ASR engine deps..."
 cd "$ENGINE_DIR"
+uv python install 3.11 >/dev/null 2>&1 || true
+uv venv --python 3.11 >/dev/null 2>&1 || true
 uv sync
 
 echo "✅ ASR engine dev setup complete"

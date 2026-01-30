@@ -6,7 +6,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 
@@ -332,7 +331,15 @@ func (p *ParakeetAdapter) Transcribe(ctx context.Context, input interfaces.Audio
 
 func (p *ParakeetAdapter) transcribeWithEngine(ctx context.Context, input interfaces.AudioInput, params map[string]interface{}, procCtx interfaces.ProcessingContext) (*interfaces.TranscriptResult, error) {
 	manager := asrengine.Default()
-	if err := os.MkdirAll(procCtx.OutputDirectory, 0755); err != nil {
+	outputDir := procCtx.OutputDirectory
+	if absOutput, err := filepath.Abs(outputDir); err == nil {
+		outputDir = absOutput
+	}
+	inputPath := input.FilePath
+	if absInput, err := filepath.Abs(inputPath); err == nil {
+		inputPath = absInput
+	}
+	if err := os.MkdirAll(outputDir, 0755); err != nil {
 		return nil, fmt.Errorf("failed to prepare output directory: %w", err)
 	}
 	spec := pb.ModelSpec{
@@ -362,7 +369,7 @@ func (p *ParakeetAdapter) transcribeWithEngine(ctx context.Context, input interf
 		manager.StopJob(context.Background(), procCtx.JobID)
 	}()
 
-	status, err := manager.RunJob(jobCtx, procCtx.JobID, input.FilePath, procCtx.OutputDirectory, engineParams)
+	status, err := manager.RunJob(jobCtx, procCtx.JobID, inputPath, outputDir, engineParams)
 	if err != nil {
 		return nil, fmt.Errorf("parakeet engine job failed: %w", err)
 	}

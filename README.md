@@ -325,6 +325,7 @@ Notes:
 - Set `ASR_ENGINE_SKIP_SYNC=1` to skip `uv sync` on every `make dev`.
 - You can run just the engine with `make asr-engine-dev`.
 - One-time setup helper: `make asr-engine-setup`.
+- The backend uses `ASR_ENGINE_CMD` to start the daemon if needed (default: `uv run --project asr-engines/scriberr-asr-onnx asr-engine-server`).
 
 ### Build (local)
 
