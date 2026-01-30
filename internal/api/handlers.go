@@ -1567,7 +1567,7 @@ func (h *Handler) Login(c *gin.Context) {
 		Path:     "/",
 		Expires:  time.Now().Add(24 * time.Hour), // Match your token duration constant
 		HttpOnly: true,
-		Secure:   h.config.SecureCookies, // Use explicit secure flag
+		Secure:   h.cookieSecure(c),
 		SameSite: http.SameSiteLaxMode,
 	})
 
@@ -1600,7 +1600,7 @@ func (h *Handler) Logout(c *gin.Context) {
 		MaxAge:   -1,
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
-		Secure:   h.config.SecureCookies,
+		Secure:   h.cookieSecure(c),
 	})
 	// Also clear access token
 	http.SetCookie(c.Writer, &http.Cookie{
@@ -1611,7 +1611,7 @@ func (h *Handler) Logout(c *gin.Context) {
 		MaxAge:   -1,
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
-		Secure:   h.config.SecureCookies,
+		Secure:   h.cookieSecure(c),
 	})
 	c.JSON(http.StatusOK, gin.H{"message": "Logged out successfully"})
 }
@@ -1753,7 +1753,7 @@ func (h *Handler) Refresh(c *gin.Context) {
 		Path:     "/",
 		Expires:  time.Now().Add(24 * time.Hour),
 		HttpOnly: true,
-		Secure:   h.config.SecureCookies,
+		Secure:   h.cookieSecure(c),
 		SameSite: http.SameSiteLaxMode,
 	})
 
@@ -1781,7 +1781,7 @@ func (h *Handler) issueRefreshToken(c *gin.Context, userID uint) error {
 		MaxAge:   int((14 * 24 * time.Hour).Seconds()),
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
-		Secure:   h.config.SecureCookies,
+		Secure:   h.cookieSecure(c),
 	})
 	return nil
 }

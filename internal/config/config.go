@@ -33,9 +33,10 @@ type Config struct {
 	WhisperXEnv string
 
 	// Environment configuration
-	Environment    string
-	AllowedOrigins []string
-	SecureCookies  bool // Explicit control over Secure flag (for HTTPS deployments)
+	Environment       string
+	AllowedOrigins    []string
+	SecureCookiesMode string // "auto" (default), "true"/"false"
+	TrustProxyHeaders bool   // Whether to trust X-Forwarded-Proto/Forwarded
 	// OpenAI configuration
 	OpenAIAPIKey string
 
@@ -50,26 +51,26 @@ func Load() *Config {
 		logger.Debug("No .env file found, using system environment variables")
 	}
 
-	// Default SecureCookies to true in production, false otherwise
-	defaultSecure := "false"
-	if strings.ToLower(getEnv("APP_ENV", "development")) == "production" {
-		defaultSecure = "true"
+	defaultSecureMode := strings.ToLower(getEnv("SECURE_COOKIES", "auto"))
+	if defaultSecureMode == "" {
+		defaultSecureMode = "auto"
 	}
 
 	return &Config{
-		Port:           getEnv("PORT", "8080"),
-		Host:           getEnv("HOST", "0.0.0.0"),
-		Environment:    getEnv("APP_ENV", "development"),
-		AllowedOrigins: strings.Split(getEnv("ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:8080"), ","),
-		DatabasePath:   getEnv("DATABASE_PATH", "data/scriberr.db"),
-		JWTSecret:      getJWTSecret(),
-		UploadDir:      getEnv("UPLOAD_DIR", "data/uploads"),
-		TranscriptsDir: getEnv("TRANSCRIPTS_DIR", "data/transcripts"),
-		TempDir:        getEnv("TEMP_DIR", "data/temp"),
-		WhisperXEnv:    getEnv("WHISPERX_ENV", "data/whisperx-env"),
-		SecureCookies:  getEnv("SECURE_COOKIES", defaultSecure) == "true",
-		OpenAIAPIKey:   getEnv("OPENAI_API_KEY", ""),
-		HFToken:        getEnv("HF_TOKEN", ""),
+		Port:              getEnv("PORT", "8080"),
+		Host:              getEnv("HOST", "0.0.0.0"),
+		Environment:       getEnv("APP_ENV", "development"),
+		AllowedOrigins:    strings.Split(getEnv("ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:8080"), ","),
+		DatabasePath:      getEnv("DATABASE_PATH", "data/scriberr.db"),
+		JWTSecret:         getJWTSecret(),
+		UploadDir:         getEnv("UPLOAD_DIR", "data/uploads"),
+		TranscriptsDir:    getEnv("TRANSCRIPTS_DIR", "data/transcripts"),
+		TempDir:           getEnv("TEMP_DIR", "data/temp"),
+		WhisperXEnv:       getEnv("WHISPERX_ENV", "data/whisperx-env"),
+		SecureCookiesMode: defaultSecureMode,
+		TrustProxyHeaders: strings.ToLower(getEnv("TRUST_PROXY_HEADERS", "true")) == "true",
+		OpenAIAPIKey:      getEnv("OPENAI_API_KEY", ""),
+		HFToken:           getEnv("HF_TOKEN", ""),
 	}
 }
 

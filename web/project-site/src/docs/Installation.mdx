@@ -79,7 +79,7 @@ For a containerized setup, you can use Docker. We provide two configurations: on
 
 > **Permissions:** Ensure you set the `PUID` and `PGID` environment variables to your host user's UID and GID (typically `1000` on Linux) to avoid permission issues with the SQLite database. You can find your UID/GID by running `id` on your host.
 >
-> **HTTP vs HTTPS:** By default, Scriberr enables **Secure Cookies** in production. If you are accessing the app via plain HTTP (not HTTPS), you MUST set `SECURE_COOKIES=false` in your environment variables, otherwise you will encounter "Unable to load audio stream" errors.
+> **HTTP vs HTTPS:** Scriberr auto-detects secure cookies based on TLS or proxy headers (`X-Forwarded-Proto` / `Forwarded`). If you're behind a proxy, keep `TRUST_PROXY_HEADERS=true` (default). To force a mode, set `SECURE_COOKIES=true` (always secure) or `SECURE_COOKIES=false` (always insecure).
 
 ### Standard Deployment (CPU)
 
@@ -102,7 +102,8 @@ services:
       - APP_ENV=production # DO NOT CHANGE THIS
       # CORS: comma-separated list of allowed origins for production
       # - ALLOWED_ORIGINS=https://your-domain.com
-      # - SECURE_COOKIES=false # Uncomment this ONLY if you are not using SSL
+      # - TRUST_PROXY_HEADERS=true # Default; set false if you don't trust proxy headers
+      # - SECURE_COOKIES=false # Force insecure cookies (not recommended in production)
     restart: unless-stopped
 
 volumes:
@@ -149,7 +150,8 @@ services:
       - APP_ENV=production # DO NOT CHANGE THIS
       # CORS: comma-separated list of allowed origins for production
       # - ALLOWED_ORIGINS=https://your-domain.com
-      # - SECURE_COOKIES=false # Uncomment this ONLY if you are not using SSL
+      # - TRUST_PROXY_HEADERS=true # Default; set false if you don't trust proxy headers
+      # - SECURE_COOKIES=false # Force insecure cookies (not recommended in production)
 
 volumes:
   scriberr_data: {}

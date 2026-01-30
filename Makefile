@@ -36,7 +36,8 @@ dev: ## Start development environment with Air (backend) and Vite (frontend)
 		echo "placeholder" > internal/web/dist/dummy_asset; \
 	fi; \
 	\
-	trap 'echo ""; echo "🛑 Stopping development servers..."; kill 0; exit 0' INT TERM; \
+	pids=""; \
+	trap 'echo ""; echo "🛑 Stopping development servers..."; for pid in $$pids; do kill $$pid 2>/dev/null || true; done; wait $$pids 2>/dev/null || true; exit 0' INT TERM; \
 	\
 	echo "🧠 Starting ASR engine..."; \
 	ASR_ENGINE_SOCKET=$${ASR_ENGINE_SOCKET:-/tmp/scriberr-asr.sock}; \
@@ -47,6 +48,7 @@ dev: ## Start development environment with Air (backend) and Vite (frontend)
 			( cd asr-engines/scriberr-asr-onnx && uv sync ) || true; \
 		fi; \
 		( cd asr-engines/scriberr-asr-onnx && uv run asr-engine-server --socket $$ASR_ENGINE_SOCKET ) & \
+		pids="$$pids $$!"; \
 	else \
 		echo "⚠️  'uv' not found. ASR engine will not start. Install uv or run make asr-engine-dev separately."; \
 	fi; \
@@ -54,13 +56,16 @@ dev: ## Start development environment with Air (backend) and Vite (frontend)
 	if [ "$$USE_GO_RUN" = true ]; then \
 		echo "🔧 Starting Go backend (standard run)..."; \
 		ASR_ENGINE_SOCKET=$$ASR_ENGINE_SOCKET ASR_ENGINE_CMD="$$ASR_ENGINE_CMD" go run cmd/server/main.go & \
+		pids="$$pids $$!"; \
 	else \
 		echo "🔥 Starting Go backend (with Air live reload)..."; \
 		ASR_ENGINE_SOCKET=$$ASR_ENGINE_SOCKET ASR_ENGINE_CMD="$$ASR_ENGINE_CMD" air & \
+		pids="$$pids $$!"; \
 	fi; \
 	\
 	echo "⚛️  Starting React frontend (Vite)..."; \
 	cd web/frontend && npm run dev & \
+	pids="$$pids $$!"; \
 	\
 	wait
 

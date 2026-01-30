@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -76,6 +77,11 @@ func main() {
 	// Load configuration
 	logger.Startup("config", "Loading configuration")
 	cfg := config.Load()
+	if strings.EqualFold(cfg.SecureCookiesMode, "false") {
+		logger.Warn("Secure cookies disabled; auth cookies will be sent over HTTP", "env", cfg.Environment)
+	} else if strings.EqualFold(cfg.SecureCookiesMode, "auto") && !cfg.TrustProxyHeaders {
+		logger.Warn("Secure cookies auto-detect without proxy headers; HTTPS required for auth cookies", "env", cfg.Environment)
+	}
 
 	// Register adapters with config-based paths
 	registerAdapters(cfg)
