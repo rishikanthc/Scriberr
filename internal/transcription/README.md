@@ -25,9 +25,9 @@ The new architecture implements a plugin-style system where:
 - Parameter validation coordination
 
 ### Model Adapters (`adapters/`)
-- `WhisperXAdapter`: OpenAI Whisper models with diarization
-- `ParakeetAdapter`: NVIDIA Parakeet English transcription
-- `CanaryAdapter`: NVIDIA Canary multilingual transcription
+- `WhisperAdapter`: OpenAI Whisper models via ASR engine (onnx-asr under the hood)
+- `ParakeetAdapter`: NVIDIA Parakeet transcription via ASR engine
+- `CanaryAdapter`: NVIDIA Canary transcription via ASR engine
 - `PyAnnoteAdapter`: PyAnnote speaker diarization
 - `SortformerAdapter`: NVIDIA Sortformer diarization
 
@@ -152,7 +152,7 @@ err := adapter.ValidateParameters(params)
 
 | Model ID | Family | Languages | Features |
 |----------|--------|-----------|----------|
-| `whisperx` | `whisper` | 90+ languages | Timestamps, Diarization, Translation |
+| `whisper` | `whisper` | 90+ languages | Timestamps, Diarization, Translation |
 | `parakeet` | `nvidia_parakeet` | English only | Timestamps, Long-form, High Quality |
 | `canary` | `nvidia_canary` | 12 languages | Timestamps, Translation, Multilingual |
 
@@ -167,36 +167,15 @@ err := adapter.ValidateParameters(params)
 
 The new system provides backward compatibility:
 
-### Option 1: Drop-in Replacement
 ```go
-// Replace this:
-processor := transcription.NewWhisperXService(config)
-
-// With this:
+// Use the unified processor
 processor := transcription.NewUnifiedJobProcessor()
-```
-
-### Option 2: Gradual Migration
-```go
-// Use feature flags to switch between systems
-if useNewArchitecture {
-    processor = transcription.NewUnifiedJobProcessor()
-} else {
-    processor = transcription.NewWhisperXService(config)
-}
-```
-
-### Option 3: Direct Access
-```go
-// Access new features while maintaining compatibility
-unified := transcription.NewUnifiedJobProcessor()
-capabilities := unified.GetSupportedModels()
-status := unified.GetModelStatus(ctx)
+capabilities := processor.GetUnifiedService().GetSupportedModels()
 ```
 
 ## Environment Setup
 
-Models automatically set up their environments on first use:
+Models automatically prepare their runtimes on first use:
 
 ```go
 // Initialize all models
@@ -209,10 +188,9 @@ err := service.Initialize(ctx) // Downloads and sets up all models
 Models can be configured via parameters:
 
 ```go
-// WhisperX with diarization
+// Whisper (ONNX) with diarization
 params := map[string]interface{}{
-    "model": "large-v3",
-    "device": "cuda", 
+    "model": "onnx-community/whisper-large-v3",
     "diarize": true,
     "diarize_model": "pyannote",
     "hf_token": "your_token",
@@ -220,8 +198,8 @@ params := map[string]interface{}{
 
 // NVIDIA Canary with translation
 params := map[string]interface{}{
-    "source_lang": "es",
-    "target_lang": "en", 
+    "language": "es",
+    "target_language": "en",
     "task": "translate",
 }
 ```

@@ -149,7 +149,7 @@ func (qs *QuickTranscriptionService) processQuickJob(jobID string) {
 		return
 	}
 
-	// Create temporary transcription job for WhisperX processing
+	// Create temporary transcription job for local ASR processing
 	tempJob := models.TranscriptionJob{
 		ID:         jobID,
 		AudioPath:  job.AudioPath,

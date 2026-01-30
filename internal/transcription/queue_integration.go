@@ -84,7 +84,7 @@ func (u *UnifiedJobProcessor) ValidateModelParameters(modelID string, params map
 	return u.unifiedService.ValidateModelParameters(modelID, params)
 }
 
-// InitEmbeddedPythonEnv initializes the Python environment for all adapters
+// InitEmbeddedPythonEnv initializes the adapter runtime (legacy name kept for compatibility)
 func (u *UnifiedJobProcessor) InitEmbeddedPythonEnv() error {
 	ctx := context.Background()
 	return u.unifiedService.Initialize(ctx)
@@ -123,7 +123,7 @@ func (u *UnifiedJobProcessor) GetSupportedLanguages() []string {
 	return languages
 }
 
-// ensurePythonEnv ensures Python environment is ready (for compatibility)
+// ensurePythonEnv ensures adapter runtime is ready (legacy name kept for compatibility)
 func (u *UnifiedJobProcessor) ensurePythonEnv() error {
 	ctx := context.Background()
 	return u.unifiedService.Initialize(ctx)

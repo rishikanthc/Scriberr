@@ -680,7 +680,7 @@ func (h *Handler) GetTrackProgress(c *gin.Context) {
 }
 
 // @Summary Submit a transcription job
-// @Description Submit an audio file for transcription with WhisperX
+// @Description Submit an audio file for transcription
 // @Tags transcription
 // @Accept multipart/form-data
 // @Produce json
@@ -731,7 +731,7 @@ func (h *Handler) SubmitJob(c *gin.Context) {
 		diarize = getFormBoolWithDefault(c, "diarize", false)
 	}
 	params := models.WhisperXParams{
-		Model:       getFormValueWithDefault(c, "model", "base"),
+		Model:       getFormValueWithDefault(c, "model", "onnx-community/whisper-small"),
 		BatchSize:   getFormIntWithDefault(c, "batch_size", 16),
 		ComputeType: getFormValueWithDefault(c, "compute_type", "int8"),
 		Device:      getFormValueWithDefault(c, "device", "cpu"),
@@ -1056,7 +1056,7 @@ func (h *Handler) getValidatedTranscriptionParams(c *gin.Context, job *models.Tr
 	// Set defaults
 	requestParams := models.WhisperXParams{
 		ModelFamily:                    "whisper", // Default to whisper for backward compatibility
-		Model:                          "small",
+		Model:                          "onnx-community/whisper-small",
 		ModelCacheOnly:                 false,
 		Device:                         "cpu",
 		DeviceIndex:                    0,
@@ -1075,7 +1075,7 @@ func (h *Handler) getValidatedTranscriptionParams(c *gin.Context, job *models.Tr
 		ChunkSize:                      30,
 		VadPreset:                      "balanced",
 		Diarize:                        false,
-		DiarizeModel:                   "pyannote/speaker-diarization-3.1",
+		DiarizeModel:                   "pyannote",
 		SpeakerEmbeddings:              false,
 		Temperature:                    0,
 		BestOf:                         5,
@@ -2150,7 +2150,7 @@ func (h *Handler) GetQueueStats(c *gin.Context) {
 }
 
 // @Summary Get supported models
-// @Description Get list of supported WhisperX models
+// @Description Get list of supported models
 // @Tags transcription
 // @Produce json
 // @Success 200 {object} map[string]interface{}

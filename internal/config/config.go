@@ -29,7 +29,7 @@ type Config struct {
 	TranscriptsDir string
 	TempDir        string
 
-	// Python/WhisperX configuration
+	// Python diarization configuration
 	WhisperXEnv string
 
 	// Environment configuration

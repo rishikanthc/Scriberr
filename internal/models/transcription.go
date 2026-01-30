@@ -28,7 +28,7 @@ type TranscriptionJob struct {
 	UpdatedAt             time.Time      `json:"updated_at" gorm:"autoUpdateTime"`
 	DeletedAt             gorm.DeletedAt `json:"deleted_at,omitempty" gorm:"index" swaggertype:"string"`
 
-	// WhisperX parameters
+	// Transcription parameters (legacy name)
 	Parameters WhisperXParams `json:"parameters" gorm:"embedded"`
 
 	// Relationships
@@ -46,7 +46,7 @@ const (
 	StatusFailed     JobStatus = "failed"
 )
 
-// WhisperXParams contains parameters for WhisperX transcription
+// WhisperXParams contains transcription parameters (legacy name kept for API compatibility)
 type WhisperXParams struct {
 	// Model family (whisper or nvidia)
 	ModelFamily string `json:"model_family" gorm:"type:varchar(20);default:'whisper'"`

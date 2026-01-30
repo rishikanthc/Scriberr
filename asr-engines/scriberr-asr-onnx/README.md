@@ -1,6 +1,6 @@
 # ASR Engine (onnx-asr + gRPC)
 
-A structured ASR engine daemon that exposes a gRPC API to transcribe audio using onnx-asr (Parakeet/Canary).
+A structured ASR engine daemon that exposes a gRPC API to transcribe audio using onnx-asr (Whisper/Parakeet/Canary).
 
 ## Layout
 

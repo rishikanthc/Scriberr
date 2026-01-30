@@ -22,7 +22,7 @@ import (
 )
 
 const (
-	ModelWhisperX        = "whisperx"
+	ModelWhisper         = "whisper"
 	ModelPyannote        = "pyannote"
 	ModelParakeet        = "parakeet"
 	ModelCanary          = "canary"
@@ -64,7 +64,7 @@ func NewUnifiedTranscriptionService(jobRepo repository.JobRepository, tempDir, o
 		tempDirectory:   tempDir,
 		outputDirectory: outputDir,
 		defaultModelIDs: map[string]string{
-			"transcription": ModelWhisperX,
+			"transcription": ModelWhisper,
 			"diarization":   ModelPyannote,
 		},
 		jobRepo:        jobRepo,
@@ -382,13 +382,13 @@ func (u *UnifiedTranscriptionService) selectModels(params models.WhisperXParams)
 	case FamilyNvidiaCanary:
 		transcriptionModelID = ModelCanary
 	case FamilyWhisper:
-		transcriptionModelID = ModelWhisperX
+		transcriptionModelID = ModelWhisper
 	case FamilyOpenAI:
 		transcriptionModelID = ModelOpenAI
 	case FamilyMistralVoxtral:
 		transcriptionModelID = ModelVoxtral
 	default:
-		transcriptionModelID = ModelWhisperX // Default fallback
+		transcriptionModelID = ModelWhisper // Default fallback
 	}
 
 	// Determine diarization model if needed
@@ -414,18 +414,6 @@ func (u *UnifiedTranscriptionService) selectModels(params models.WhisperXParams)
 
 // transcriptionIncludesDiarization checks if the transcription model already includes diarization
 func (u *UnifiedTranscriptionService) transcriptionIncludesDiarization(modelID string, params models.WhisperXParams) bool {
-	// WhisperX includes diarization when enabled
-	// WhisperX includes diarization when enabled
-	if modelID == ModelWhisperX {
-		if params.Diarize {
-			// Check if it's using nvidia_sortformer (which requires separate processing)
-			if params.DiarizeModel == DiarizeSortformer {
-				return false
-			}
-			return true
-		}
-	}
-
 	return false
 }
 
@@ -555,7 +543,7 @@ func (u *UnifiedTranscriptionService) convertParametersForModel(params models.Wh
 		return u.convertToParakeetParams(params)
 	case ModelCanary:
 		return u.convertToCanaryParams(params)
-	case ModelWhisperX:
+	case ModelWhisper:
 		return u.convertToWhisperXParams(params)
 	case ModelPyannote:
 		return u.convertToPyannoteParams(params)
@@ -705,65 +693,28 @@ func (u *UnifiedTranscriptionService) convertToCanaryParams(params models.Whispe
 
 // convertToWhisperXParams converts to WhisperX-specific parameters
 func (u *UnifiedTranscriptionService) convertToWhisperXParams(params models.WhisperXParams) map[string]interface{} {
-	// For WhisperX, we use the standard WhisperX parameters (no NVIDIA-specific ones)
+	// For Whisper ONNX, pass only parameters supported by the ASR engine.
 	paramMap := map[string]interface{}{
-		// Core parameters
-		"model":        params.Model,
-		"device":       params.Device,
-		"device_index": params.DeviceIndex,
-		"batch_size":   params.BatchSize,
-		"compute_type": params.ComputeType,
-		"threads":      params.Threads,
-
-		// Task and language
-		"task": params.Task,
-
-		// Diarization
-		"diarize":       params.Diarize,
-		"diarize_model": params.DiarizeModel,
-
-		// Quality settings
-		"temperature": params.Temperature,
-		"best_of":     params.BestOf,
-		"beam_size":   params.BeamSize,
-		"patience":    params.Patience,
-
-		// VAD settings
-		"vad_method": params.VadMethod,
-		"vad_onset":  params.VadOnset,
-		"vad_offset": params.VadOffset,
+		"model":              params.Model,
+		"timestamps":         true,
+		"vad_preset":         params.VadPreset,
+		"auto_convert_audio": true,
 	}
 
-	// Handle pointer fields - only add if not nil
-	if params.Language != nil {
+	if params.Language != nil && *params.Language != "auto" {
 		paramMap["language"] = *params.Language
 	}
-	if params.TargetLanguage != nil {
-		paramMap["target_language"] = *params.TargetLanguage
+	if params.VadSpeechPadMs != nil {
+		paramMap["vad_speech_pad_ms"] = *params.VadSpeechPadMs
 	}
-	if params.Pnc != nil {
-		paramMap["pnc"] = *params.Pnc
+	if params.VadMinSilenceMs != nil {
+		paramMap["vad_min_silence_ms"] = *params.VadMinSilenceMs
 	}
-	if params.MinSpeakers != nil {
-		paramMap["min_speakers"] = *params.MinSpeakers
+	if params.VadMinSpeechMs != nil {
+		paramMap["vad_min_speech_ms"] = *params.VadMinSpeechMs
 	}
-	if params.MaxSpeakers != nil {
-		paramMap["max_speakers"] = *params.MaxSpeakers
-	}
-	if params.HfToken != nil {
-		paramMap["hf_token"] = *params.HfToken
-	}
-	if params.ModelDir != nil {
-		paramMap["model_dir"] = *params.ModelDir
-	}
-	if params.AlignModel != nil {
-		paramMap["align_model"] = *params.AlignModel
-	}
-	if params.SuppressTokens != nil {
-		paramMap["suppress_tokens"] = *params.SuppressTokens
-	}
-	if params.InitialPrompt != nil {
-		paramMap["initial_prompt"] = *params.InitialPrompt
+	if params.VadMaxSpeechS != nil {
+		paramMap["vad_max_speech_s"] = *params.VadMaxSpeechS
 	}
 
 	return paramMap
@@ -810,25 +761,21 @@ func (u *UnifiedTranscriptionService) convertToSortformerParams(params models.Wh
 
 func (u *UnifiedTranscriptionService) parametersToMap(params models.WhisperXParams) map[string]interface{} {
 	paramMap := map[string]interface{}{
-		// Core parameters
+		"model_family": params.ModelFamily,
 		"model":        params.Model,
-		"device":       params.Device,
-		"device_index": params.DeviceIndex,
-		"batch_size":   params.BatchSize,
-		"compute_type": params.ComputeType,
-		"threads":      params.Threads,
-
-		// Language and task
-		"task": params.Task,
-
-		// Diarization
-		"diarize":       params.Diarize,
-		"diarize_model": params.DiarizeModel,
+		"diarize":      params.Diarize,
+		"vad_preset":   params.VadPreset,
 	}
 
 	// Handle pointer fields - only add if not nil
 	if params.Language != nil {
 		paramMap["language"] = *params.Language
+	}
+	if params.TargetLanguage != nil {
+		paramMap["target_language"] = *params.TargetLanguage
+	}
+	if params.Pnc != nil {
+		paramMap["pnc"] = *params.Pnc
 	}
 	if params.MinSpeakers != nil {
 		paramMap["min_speakers"] = *params.MinSpeakers
@@ -839,28 +786,6 @@ func (u *UnifiedTranscriptionService) parametersToMap(params models.WhisperXPara
 	if params.HfToken != nil {
 		paramMap["hf_token"] = *params.HfToken
 	}
-	if params.ModelDir != nil {
-		paramMap["model_dir"] = *params.ModelDir
-	}
-	if params.AlignModel != nil {
-		paramMap["align_model"] = *params.AlignModel
-	}
-	if params.SuppressTokens != nil {
-		paramMap["suppress_tokens"] = *params.SuppressTokens
-	}
-	if params.InitialPrompt != nil {
-		paramMap["initial_prompt"] = *params.InitialPrompt
-	}
-
-	// Add remaining non-pointer fields
-	paramMap["temperature"] = params.Temperature
-	paramMap["best_of"] = params.BestOf
-	paramMap["beam_size"] = params.BeamSize
-	paramMap["patience"] = params.Patience
-	paramMap["vad_method"] = params.VadMethod
-	paramMap["vad_onset"] = params.VadOnset
-	paramMap["vad_offset"] = params.VadOffset
-	paramMap["vad_preset"] = params.VadPreset
 	if params.VadSpeechPadMs != nil {
 		paramMap["vad_speech_pad_ms"] = *params.VadSpeechPadMs
 	}
@@ -873,29 +798,8 @@ func (u *UnifiedTranscriptionService) parametersToMap(params models.WhisperXPara
 	if params.VadMaxSpeechS != nil {
 		paramMap["vad_max_speech_s"] = *params.VadMaxSpeechS
 	}
-	paramMap["context_left"] = params.AttentionContextLeft
-	paramMap["context_right"] = params.AttentionContextRight
-	paramMap["timestamps"] = true
-	paramMap["output_format"] = OutputFormatJSON
-	paramMap["auto_convert_audio"] = true
-
-	// For Canary model, set source and target languages
-	if params.ModelFamily == FamilyNvidiaCanary {
-		if params.Language != nil {
-			paramMap["language"] = *params.Language
-		} else {
-			paramMap["language"] = "en"
-		}
-
-		if params.Task == "translate" {
-			if params.TargetLanguage != nil {
-				paramMap["target_language"] = *params.TargetLanguage
-			} else {
-				paramMap["target_language"] = "en"
-			}
-		} else {
-			paramMap["target_language"] = paramMap["language"]
-		}
+	if params.DiarizeModel != "" {
+		paramMap["diarize_model"] = params.DiarizeModel
 	}
 
 	return paramMap

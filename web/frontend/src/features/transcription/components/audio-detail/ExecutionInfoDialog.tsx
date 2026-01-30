@@ -129,12 +129,7 @@ function CuratedParamsDisplay({ params }: { params: any }) {
     // Common keys for all
     const commonKeys = [
         'model_family',
-        'task',
         'language',
-        'output_format',
-        'device',
-        'compute_type',
-        'batch_size',
         'diarize'
     ];
 
@@ -143,8 +138,11 @@ function CuratedParamsDisplay({ params }: { params: any }) {
     if (params.model_family === 'whisper') {
         specificKeys = [
             'model',
-            'no_align',
-            'vad_method',
+            'vad_preset',
+            'vad_speech_pad_ms',
+            'vad_min_silence_ms',
+            'vad_min_speech_ms',
+            'vad_max_speech_s',
             ...(params.diarize ? ['diarize_model', 'min_speakers', 'max_speakers', 'hf_token'] : [])
         ];
     } else if (params.model_family === 'nvidia_parakeet') {
@@ -164,6 +162,7 @@ function CuratedParamsDisplay({ params }: { params: any }) {
     } else if (params.model_family === 'nvidia_canary') {
         specificKeys = [
             'model',
+            'task',
             'target_language',
             'pnc',
             'vad_preset',

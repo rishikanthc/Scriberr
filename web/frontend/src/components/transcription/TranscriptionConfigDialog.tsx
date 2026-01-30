@@ -109,7 +109,7 @@ interface TranscriptionConfigDialogProps {
 
 const DEFAULT_PARAMS: WhisperXParams = {
     model_family: "whisper",
-    model: "small",
+    model: "onnx-community/whisper-small",
     model_cache_only: false,
     device: "cpu",
     device_index: 0,
@@ -154,8 +154,16 @@ const DEFAULT_PARAMS: WhisperXParams = {
 };
 
 const WHISPER_MODELS = [
-    "tiny", "tiny.en", "base", "base.en", "small", "small.en",
-    "medium", "medium.en", "large", "large-v1", "large-v2", "large-v3"
+    "onnx-community/whisper-tiny",
+    "onnx-community/whisper-base",
+    "onnx-community/whisper-small",
+    "onnx-community/whisper-medium",
+    "onnx-community/whisper-large-v2",
+    "onnx-community/whisper-large-v3",
+    "onnx-community/whisper-large-v3-turbo",
+    "whisper-base-ort",
+    "whisper-ort",
+    "whisper-base"
 ];
 
 const PARAKEET_MODELS = [
@@ -262,7 +270,7 @@ const VOXTRAL_LANGUAGES = [
 ];
 
 const PARAM_DESCRIPTIONS = {
-    model: "Size of the Whisper model. Larger = more accurate but slower.",
+    model: "ONNX Whisper model name. Larger = more accurate but slower.",
     language: "Source language. Auto-detect works for most cases.",
     task: "Transcribe in original language or translate to English.",
     device: "CPU (universal), GPU (faster, CUDA required), or AUTO.",
@@ -582,7 +590,7 @@ function WhisperConfig({ params, updateParam, isMultiTrack }: ConfigProps) {
             {/* Essential Settings */}
             <Section title="Model Settings">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <FormField label="Model Size" description={PARAM_DESCRIPTIONS.model}>
+                    <FormField label="Model" description={PARAM_DESCRIPTIONS.model}>
                         <Select value={params.model} onValueChange={(v) => updateParam('model', v)}>
                             <SelectTrigger className={selectTriggerClassName}>
                                 <SelectValue />
@@ -607,30 +615,66 @@ function WhisperConfig({ params, updateParam, isMultiTrack }: ConfigProps) {
                             </SelectContent>
                         </Select>
                     </FormField>
+                </div>
+            </Section>
 
-                    <FormField label="Task" description={PARAM_DESCRIPTIONS.task}>
-                        <Select value={params.task} onValueChange={(v) => updateParam('task', v)}>
+            <Section title="ASR VAD" description="Control how audio is segmented before recognition">
+                <div className="space-y-4">
+                    <FormField label="VAD Preset" description={PARAM_DESCRIPTIONS.vad_preset}>
+                        <Select value={params.vad_preset} onValueChange={(v) => updateParam('vad_preset', v)}>
                             <SelectTrigger className={selectTriggerClassName}>
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent className={selectContentClassName}>
-                                <SelectItem value="transcribe" className={selectItemClassName}>Transcribe</SelectItem>
-                                <SelectItem value="translate" className={selectItemClassName}>Translate to English</SelectItem>
+                                <SelectItem value="conservative" className={selectItemClassName}>Conservative</SelectItem>
+                                <SelectItem value="balanced" className={selectItemClassName}>Balanced</SelectItem>
+                                <SelectItem value="aggressive" className={selectItemClassName}>Aggressive</SelectItem>
                             </SelectContent>
                         </Select>
                     </FormField>
 
-                    <FormField label="Device" description={PARAM_DESCRIPTIONS.device}>
-                        <Select value={params.device} onValueChange={(v) => updateParam('device', v)}>
-                            <SelectTrigger className={selectTriggerClassName}>
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent className={selectContentClassName}>
-                                <SelectItem value="cpu" className={selectItemClassName}>CPU</SelectItem>
-                                <SelectItem value="cuda" className={selectItemClassName}>GPU (CUDA)</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </FormField>
+                    <div className="grid grid-cols-2 gap-4">
+                        <FormField label="Speech Pad (ms)" optional>
+                            <Input
+                                type="number"
+                                min={0}
+                                placeholder="Default"
+                                value={params.vad_speech_pad_ms ?? ""}
+                                onChange={(e) => updateParam('vad_speech_pad_ms', e.target.value ? parseInt(e.target.value) : undefined)}
+                                className={inputClassName}
+                            />
+                        </FormField>
+                        <FormField label="Min Silence (ms)" optional>
+                            <Input
+                                type="number"
+                                min={0}
+                                placeholder="Default"
+                                value={params.vad_min_silence_ms ?? ""}
+                                onChange={(e) => updateParam('vad_min_silence_ms', e.target.value ? parseInt(e.target.value) : undefined)}
+                                className={inputClassName}
+                            />
+                        </FormField>
+                        <FormField label="Min Speech (ms)" optional>
+                            <Input
+                                type="number"
+                                min={0}
+                                placeholder="Default"
+                                value={params.vad_min_speech_ms ?? ""}
+                                onChange={(e) => updateParam('vad_min_speech_ms', e.target.value ? parseInt(e.target.value) : undefined)}
+                                className={inputClassName}
+                            />
+                        </FormField>
+                        <FormField label="Max Speech (s)" optional>
+                            <Input
+                                type="number"
+                                min={1}
+                                placeholder="Default"
+                                value={params.vad_max_speech_s ?? ""}
+                                onChange={(e) => updateParam('vad_max_speech_s', e.target.value ? parseInt(e.target.value) : undefined)}
+                                className={inputClassName}
+                            />
+                        </FormField>
+                    </div>
                 </div>
             </Section>
 
@@ -651,6 +695,18 @@ function WhisperConfig({ params, updateParam, isMultiTrack }: ConfigProps) {
 
                         {params.diarize && (
                             <div className="p-4 bg-[var(--bg-main)] rounded-xl border border-[var(--border-subtle)] space-y-4">
+                                <FormField label="Diarization Model">
+                                    <Select value={params.diarize_model} onValueChange={(v) => updateParam('diarize_model', v)}>
+                                        <SelectTrigger className={selectTriggerClassName}>
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent className={selectContentClassName}>
+                                            <SelectItem value="pyannote" className={selectItemClassName}>Pyannote</SelectItem>
+                                            <SelectItem value="nvidia_sortformer" className={selectItemClassName}>NVIDIA Sortformer</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </FormField>
+
                                 <div className="grid grid-cols-2 gap-4">
                                     <FormField label="Min Speakers" optional>
                                         <Input
@@ -676,153 +732,52 @@ function WhisperConfig({ params, updateParam, isMultiTrack }: ConfigProps) {
                                     </FormField>
                                 </div>
 
-                                <FormField label="Hugging Face Token" description={PARAM_DESCRIPTIONS.hf_token}>
-                                    <Input
-                                        type="password"
-                                        placeholder="hf_..."
-                                        value={params.hf_token || ""}
-                                        onChange={(e) => updateParam('hf_token', e.target.value || undefined)}
-                                        className={inputClassName}
-                                    />
-                                </FormField>
+                                {params.diarize_model === "pyannote" && (
+                                    <>
+                                        <FormField label="Hugging Face Token" description={PARAM_DESCRIPTIONS.hf_token}>
+                                            <Input
+                                                type="password"
+                                                placeholder="hf_..."
+                                                value={params.hf_token || ""}
+                                                onChange={(e) => updateParam('hf_token', e.target.value || undefined)}
+                                                className={inputClassName}
+                                            />
+                                        </FormField>
 
-                                <div className="pt-3 border-t border-[var(--border-subtle)]">
-                                    <p className="text-xs text-[var(--text-tertiary)] mb-3">Voice Detection Tuning (for noisy/distant audio)</p>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <FormField label="VAD Onset" description={PARAM_DESCRIPTIONS.vad_onset}>
-                                            <Input
-                                                type="number"
-                                                min={0.1}
-                                                max={0.9}
-                                                step={0.05}
-                                                value={params.vad_onset}
-                                                onChange={(e) => updateParam('vad_onset', parseFloat(e.target.value) || 0.5)}
-                                                className={inputClassName}
-                                            />
-                                        </FormField>
-                                        <FormField label="VAD Offset" description={PARAM_DESCRIPTIONS.vad_offset}>
-                                            <Input
-                                                type="number"
-                                                min={0.1}
-                                                max={0.9}
-                                                step={0.05}
-                                                value={params.vad_offset}
-                                                onChange={(e) => updateParam('vad_offset', parseFloat(e.target.value) || 0.363)}
-                                                className={inputClassName}
-                                            />
-                                        </FormField>
-                                    </div>
-                                </div>
+                                        <div className="pt-3 border-t border-[var(--border-subtle)]">
+                                            <p className="text-xs text-[var(--text-tertiary)] mb-3">Voice Detection Tuning (for noisy/distant audio)</p>
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <FormField label="VAD Onset" description={PARAM_DESCRIPTIONS.vad_onset}>
+                                                    <Input
+                                                        type="number"
+                                                        min={0.1}
+                                                        max={0.9}
+                                                        step={0.05}
+                                                        value={params.vad_onset}
+                                                        onChange={(e) => updateParam('vad_onset', parseFloat(e.target.value) || 0.5)}
+                                                        className={inputClassName}
+                                                    />
+                                                </FormField>
+                                                <FormField label="VAD Offset" description={PARAM_DESCRIPTIONS.vad_offset}>
+                                                    <Input
+                                                        type="number"
+                                                        min={0.1}
+                                                        max={0.9}
+                                                        step={0.05}
+                                                        value={params.vad_offset}
+                                                        onChange={(e) => updateParam('vad_offset', parseFloat(e.target.value) || 0.363)}
+                                                        className={inputClassName}
+                                                    />
+                                                </FormField>
+                                            </div>
+                                        </div>
+                                    </>
+                                )}
                             </div>
                         )}
                     </div>
                 </Section>
             )}
-
-            {/* Advanced Settings (Accordion) */}
-            <Accordion type="single" collapsible className="w-full">
-                <AccordionItem value="advanced" className="border border-[var(--border-subtle)] rounded-xl px-4">
-                    <AccordionTrigger className="text-sm font-medium text-[var(--text-primary)] hover:no-underline py-4">
-                        Advanced Settings
-                    </AccordionTrigger>
-                    <AccordionContent className="pb-4 space-y-4">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <FormField label="Compute Type" description={PARAM_DESCRIPTIONS.compute_type}>
-                                <Select value={params.compute_type} onValueChange={(v) => updateParam('compute_type', v)}>
-                                    <SelectTrigger className={selectTriggerClassName}>
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent className={selectContentClassName}>
-                                        <SelectItem value="float32" className={selectItemClassName}>Float32 (Accurate)</SelectItem>
-                                        <SelectItem value="float16" className={selectItemClassName}>Float16 (Fast)</SelectItem>
-                                        <SelectItem value="int8" className={selectItemClassName}>Int8 (Fastest)</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </FormField>
-
-                            <FormField label="Batch Size" description={PARAM_DESCRIPTIONS.batch_size}>
-                                <Input
-                                    type="number"
-                                    min={1}
-                                    max={64}
-                                    value={params.batch_size}
-                                    onChange={(e) => updateParam('batch_size', parseInt(e.target.value) || 8)}
-                                    className={inputClassName}
-                                />
-                            </FormField>
-
-                            <FormField label="Beam Size" description={PARAM_DESCRIPTIONS.beam_size}>
-                                <Input
-                                    type="number"
-                                    min={1}
-                                    max={10}
-                                    value={params.beam_size}
-                                    onChange={(e) => updateParam('beam_size', parseInt(e.target.value) || 5)}
-                                    className={inputClassName}
-                                />
-                            </FormField>
-
-                            <FormField label="Temperature" description={PARAM_DESCRIPTIONS.temperature}>
-                                <Input
-                                    type="number"
-                                    min={0}
-                                    max={1}
-                                    step={0.1}
-                                    value={params.temperature}
-                                    onChange={(e) => updateParam('temperature', parseFloat(e.target.value) || 0)}
-                                    className={inputClassName}
-                                />
-                            </FormField>
-                        </div>
-
-                        <FormField label="Initial Prompt" description={PARAM_DESCRIPTIONS.initial_prompt} optional>
-                            <Textarea
-                                placeholder="Optional context to guide transcription..."
-                                value={params.initial_prompt || ""}
-                                onChange={(e) => updateParam('initial_prompt', e.target.value || undefined)}
-                                className={`${inputClassName} resize-none min-h-[80px]`}
-                                rows={2}
-                            />
-                        </FormField>
-
-                        <div className="flex items-center gap-3">
-                            <Switch
-                                id="suppress_numerals"
-                                checked={params.suppress_numerals}
-                                onCheckedChange={(v) => updateParam('suppress_numerals', v)}
-                            />
-                            <label htmlFor="suppress_numerals" className="text-sm text-[var(--text-primary)] cursor-pointer">
-                                Suppress numerals (write numbers as words)
-                            </label>
-                        </div>
-
-                        {/* Alignment Settings */}
-                        <div className="pt-2 border-t border-[var(--border-subtle)] space-y-4">
-                            <div className="flex items-center gap-3">
-                                <Switch
-                                    id="no_align"
-                                    checked={params.no_align}
-                                    onCheckedChange={(v) => updateParam('no_align', v)}
-                                />
-                                <label htmlFor="no_align" className="text-sm text-[var(--text-primary)] cursor-pointer">
-                                    Skip word alignment (faster, less precise timestamps)
-                                </label>
-                            </div>
-
-                            {!params.no_align && (
-                                <FormField label="Custom Alignment Model" description="WhisperX-compatible alignment model (e.g., KBLab/wav2vec2-large-voxrex-swedish). Leave empty for default." optional>
-                                    <Input
-                                        placeholder="model/path or HuggingFace ID"
-                                        value={params.align_model || ""}
-                                        onChange={(e) => updateParam('align_model', e.target.value || undefined)}
-                                        className={inputClassName}
-                                    />
-                                </FormField>
-                            )}
-                        </div>
-                    </AccordionContent>
-                </AccordionItem>
-            </Accordion>
         </div>
     );
 }

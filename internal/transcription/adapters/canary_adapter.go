@@ -2,10 +2,8 @@ package adapters
 
 import (
 	"context"
-	"embed"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -13,17 +11,12 @@ import (
 	"scriberr/internal/asrengine"
 	"scriberr/internal/asrengine/pb"
 	"scriberr/internal/transcription/interfaces"
-	"scriberr/pkg/downloader"
 	"scriberr/pkg/logger"
 )
-
-//go:embed py/nvidia/*
-var nvidiaScripts embed.FS
 
 // CanaryAdapter implements the TranscriptionAdapter interface for NVIDIA Canary
 type CanaryAdapter struct {
 	*BaseAdapter
-	envPath string
 }
 
 // NewCanaryAdapter creates a new Canary adapter
@@ -213,7 +206,6 @@ func NewCanaryAdapter(envPath string) *CanaryAdapter {
 
 	adapter := &CanaryAdapter{
 		BaseAdapter: baseAdapter,
-		envPath:     envPath,
 	}
 
 	return adapter
@@ -226,110 +218,10 @@ func (c *CanaryAdapter) GetSupportedModels() []string {
 
 // PrepareEnvironment sets up the Canary environment (shared with Parakeet)
 func (c *CanaryAdapter) PrepareEnvironment(ctx context.Context) error {
-	logger.Info("Preparing NVIDIA Canary environment", "env_path", c.envPath)
 	if err := asrengine.Default().EnsureRunning(ctx); err != nil {
 		return fmt.Errorf("failed to start ASR engine: %w", err)
 	}
 	c.initialized = true
-	return nil
-}
-
-// setupCanaryEnvironment creates the Python environment (shared with Parakeet)
-func (c *CanaryAdapter) setupCanaryEnvironment() error {
-	if err := os.MkdirAll(c.envPath, 0755); err != nil {
-		return fmt.Errorf("failed to create canary directory: %w", err)
-	}
-
-	// Check if pyproject.toml already exists from Parakeet setup
-	pyprojectPath := filepath.Join(c.envPath, "pyproject.toml")
-	if _, err := os.Stat(pyprojectPath); err == nil {
-		logger.Info("Environment already configured by Parakeet")
-		return nil
-	}
-
-	// Read pyproject.toml
-	pyprojectContent, err := nvidiaScripts.ReadFile("py/nvidia/pyproject.toml")
-	if err != nil {
-		return fmt.Errorf("failed to read embedded pyproject.toml: %w", err)
-	}
-
-	// Replace the hardcoded PyTorch URL with the dynamic one based on environment
-	// The static file contains the default cu126 URL
-	contentStr := strings.Replace(
-		string(pyprojectContent),
-		"https://download.pytorch.org/whl/cu126",
-		GetPyTorchWheelURL(),
-		1,
-	)
-
-	pyprojectPath = filepath.Join(c.envPath, "pyproject.toml")
-	if err := os.WriteFile(pyprojectPath, []byte(contentStr), 0644); err != nil {
-		return fmt.Errorf("failed to write pyproject.toml: %w", err)
-	}
-
-	// Run uv sync
-	logger.Info("Installing Canary dependencies")
-	cmd := exec.Command("uv", "sync", "--native-tls")
-	cmd.Dir = c.envPath
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("uv sync failed: %w: %s", err, strings.TrimSpace(string(out)))
-	}
-
-	return nil
-}
-
-// downloadCanaryModel downloads the Canary model file
-func (c *CanaryAdapter) downloadCanaryModel() error {
-	modelFileName := "canary-1b-v2.nemo"
-	modelPath := filepath.Join(c.envPath, modelFileName)
-
-	// Check if model already exists
-	if stat, err := os.Stat(modelPath); err == nil && stat.Size() > 1024*1024 {
-		logger.Info("Canary model already exists", "path", modelPath, "size", stat.Size())
-		return nil
-	}
-
-	logger.Info("Downloading Canary model", "path", modelPath)
-
-	modelURL := "https://huggingface.co/nvidia/canary-1b-v2/resolve/main/canary-1b-v2.nemo?download=true"
-
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
-	defer cancel()
-
-	if err := downloader.DownloadFile(ctx, modelURL, modelPath); err != nil {
-		return fmt.Errorf("failed to download Canary model: %w", err)
-	}
-
-	stat, err := os.Stat(modelPath)
-	if err != nil {
-		return fmt.Errorf("downloaded model file not found: %w", err)
-	}
-	if stat.Size() < 1024*1024 {
-		return fmt.Errorf("downloaded model file appears incomplete (size: %d bytes)", stat.Size())
-	}
-
-	logger.Info("Successfully downloaded Canary model", "size", stat.Size())
-	return nil
-}
-
-// copyTranscriptionScript creates the Python script for Canary transcription
-func (c *CanaryAdapter) copyTranscriptionScript() error {
-	// Ensure directory exists before writing script
-	if err := os.MkdirAll(c.envPath, 0755); err != nil {
-		return fmt.Errorf("failed to create directory: %w", err)
-	}
-
-	scriptContent, err := nvidiaScripts.ReadFile("py/nvidia/canary_transcribe.py")
-	if err != nil {
-		return fmt.Errorf("failed to read embedded canary_transcribe.py: %w", err)
-	}
-
-	scriptPath := filepath.Join(c.envPath, "canary_transcribe.py")
-	if err := os.WriteFile(scriptPath, scriptContent, 0755); err != nil {
-		return fmt.Errorf("failed to write transcription script: %w", err)
-	}
-
 	return nil
 }
 

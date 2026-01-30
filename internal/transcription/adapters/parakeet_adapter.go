@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -12,14 +11,12 @@ import (
 	"scriberr/internal/asrengine"
 	"scriberr/internal/asrengine/pb"
 	"scriberr/internal/transcription/interfaces"
-	"scriberr/pkg/downloader"
 	"scriberr/pkg/logger"
 )
 
 // ParakeetAdapter implements the TranscriptionAdapter interface for NVIDIA Parakeet
 type ParakeetAdapter struct {
 	*BaseAdapter
-	envPath string
 }
 
 // NewParakeetAdapter creates a new Parakeet adapter
@@ -161,7 +158,6 @@ func NewParakeetAdapter(envPath string) *ParakeetAdapter {
 
 	adapter := &ParakeetAdapter{
 		BaseAdapter: baseAdapter,
-		envPath:     envPath,
 	}
 
 	return adapter
@@ -174,103 +170,10 @@ func (p *ParakeetAdapter) GetSupportedModels() []string {
 
 // PrepareEnvironment sets up the Parakeet environment
 func (p *ParakeetAdapter) PrepareEnvironment(ctx context.Context) error {
-	logger.Info("Preparing NVIDIA Parakeet environment", "env_path", p.envPath)
 	if err := asrengine.Default().EnsureRunning(ctx); err != nil {
 		return fmt.Errorf("failed to start ASR engine: %w", err)
 	}
 	p.initialized = true
-	return nil
-}
-
-// setupParakeetEnvironment creates the Python environment for Parakeet
-func (p *ParakeetAdapter) setupParakeetEnvironment() error {
-	if err := os.MkdirAll(p.envPath, 0755); err != nil {
-		return fmt.Errorf("failed to create parakeet directory: %w", err)
-	}
-
-	// Read pyproject.toml
-	pyprojectContent, err := nvidiaScripts.ReadFile("py/nvidia/pyproject.toml")
-	if err != nil {
-		return fmt.Errorf("failed to read embedded pyproject.toml: %w", err)
-	}
-
-	// Replace the hardcoded PyTorch URL with the dynamic one based on environment
-	// The static file contains the default cu126 URL
-	contentStr := strings.Replace(
-		string(pyprojectContent),
-		"https://download.pytorch.org/whl/cu126",
-		GetPyTorchWheelURL(),
-		1,
-	)
-
-	pyprojectPath := filepath.Join(p.envPath, "pyproject.toml")
-	if err := os.WriteFile(pyprojectPath, []byte(contentStr), 0644); err != nil {
-		return fmt.Errorf("failed to write pyproject.toml: %w", err)
-	}
-
-	// Run uv sync
-	logger.Info("Installing Parakeet dependencies")
-	cmd := exec.Command("uv", "sync", "--native-tls")
-	cmd.Dir = p.envPath
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("uv sync failed: %w: %s", err, strings.TrimSpace(string(out)))
-	}
-
-	return nil
-}
-
-// downloadParakeetModel downloads the Parakeet model file
-func (p *ParakeetAdapter) downloadParakeetModel() error {
-	modelFileName := "parakeet-tdt-0.6b-v3.nemo"
-	modelPath := filepath.Join(p.envPath, modelFileName)
-
-	// Check if model already exists
-	if stat, err := os.Stat(modelPath); err == nil && stat.Size() > 1024*1024 {
-		logger.Info("Parakeet model already exists", "path", modelPath, "size", stat.Size())
-		return nil
-	}
-
-	logger.Info("Downloading Parakeet model", "path", modelPath)
-
-	modelURL := "https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3/resolve/main/parakeet-tdt-0.6b-v3.nemo?download=true"
-
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
-	defer cancel()
-
-	if err := downloader.DownloadFile(ctx, modelURL, modelPath); err != nil {
-		return fmt.Errorf("failed to download Parakeet model: %w", err)
-	}
-
-	stat, err := os.Stat(modelPath)
-	if err != nil {
-		return fmt.Errorf("downloaded model file not found: %w", err)
-	}
-	if stat.Size() < 1024*1024 {
-		return fmt.Errorf("downloaded model file appears incomplete (size: %d bytes)", stat.Size())
-	}
-
-	logger.Info("Successfully downloaded Parakeet model", "size", stat.Size())
-	return nil
-}
-
-// copyTranscriptionScript creates the Python script for Parakeet transcription
-func (p *ParakeetAdapter) copyTranscriptionScript() error {
-	// Ensure directory exists before writing script
-	if err := os.MkdirAll(p.envPath, 0755); err != nil {
-		return fmt.Errorf("failed to create directory: %w", err)
-	}
-
-	scriptContent, err := nvidiaScripts.ReadFile("py/nvidia/parakeet_transcribe.py")
-	if err != nil {
-		return fmt.Errorf("failed to read embedded transcribe.py: %w", err)
-	}
-
-	scriptPath := filepath.Join(p.envPath, "parakeet_transcribe.py")
-	if err := os.WriteFile(scriptPath, scriptContent, 0755); err != nil {
-		return fmt.Errorf("failed to write transcription script: %w", err)
-	}
-
 	return nil
 }
 

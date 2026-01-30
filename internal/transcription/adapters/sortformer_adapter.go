@@ -2,6 +2,7 @@ package adapters
 
 import (
 	"context"
+	"embed"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -15,6 +16,9 @@ import (
 	"scriberr/pkg/downloader"
 	"scriberr/pkg/logger"
 )
+
+//go:embed py/nvidia/*
+var nvidiaScripts embed.FS
 
 // SortformerAdapter implements the DiarizationAdapter interface for NVIDIA Sortformer
 type SortformerAdapter struct {

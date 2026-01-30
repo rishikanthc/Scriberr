@@ -36,7 +36,7 @@ var (
 
 // @title Scriberr API
 // @version 1.0
-// @description Audio transcription service using WhisperX
+// @description Audio transcription service using local ASR engines
 // @termsOfService http://swagger.io/terms/
 
 // @contact.name API Support
@@ -223,9 +223,9 @@ func main() {
 
 // registerAdapters registers all transcription and diarization adapters with config-based paths
 func registerAdapters(cfg *config.Config) {
-	logger.Info("Registering adapters with environment path", "whisperx_env", cfg.WhisperXEnv)
+	logger.Info("Registering adapters with environment path", "model_env", cfg.WhisperXEnv)
 
-	// Shared environment path for NVIDIA models (NeMo-based)
+	// Shared environment path for NVIDIA diarization models (NeMo-based)
 	nvidiaEnvPath := filepath.Join(cfg.WhisperXEnv, "parakeet")
 
 	// Dedicated environment path for PyAnnote (to avoid dependency conflicts)
@@ -235,8 +235,8 @@ func registerAdapters(cfg *config.Config) {
 	voxtralEnvPath := filepath.Join(cfg.WhisperXEnv, "voxtral")
 
 	// Register transcription adapters
-	registry.RegisterTranscriptionAdapter("whisperx",
-		adapters.NewWhisperXAdapter(cfg.WhisperXEnv))
+	registry.RegisterTranscriptionAdapter("whisper",
+		adapters.NewWhisperAdapter(cfg.WhisperXEnv))
 	registry.RegisterTranscriptionAdapter("parakeet",
 		adapters.NewParakeetAdapter(nvidiaEnvPath))
 	registry.RegisterTranscriptionAdapter("canary",

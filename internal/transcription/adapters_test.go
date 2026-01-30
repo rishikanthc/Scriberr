@@ -223,20 +223,20 @@ func TestModelRegistry(t *testing.T) {
 	t.Logf("Registered diarization models: %v", diarizationModels)
 }
 
-func TestWhisperXAdapter(t *testing.T) {
+func TestWhisperAdapter(t *testing.T) {
 	reg := registry.GetRegistry()
-	registry.RegisterTranscriptionAdapter("whisperx", adapters.NewWhisperXAdapter("/tmp/whisperx"))
+	registry.RegisterTranscriptionAdapter("whisper", adapters.NewWhisperAdapter("/tmp/whisperx"))
 
-	// Get WhisperX adapter
-	adapter, err := reg.GetTranscriptionAdapter("whisperx")
+	// Get Whisper adapter
+	adapter, err := reg.GetTranscriptionAdapter("whisper")
 	if err != nil {
 		t.Fatalf("Failed to get WhisperX adapter: %v", err)
 	}
 
 	// Test capabilities
 	capabilities := adapter.GetCapabilities()
-	if capabilities.ModelID != "whisperx" {
-		t.Errorf("Expected model ID 'whisperx', got '%s'", capabilities.ModelID)
+	if capabilities.ModelID != "whisper" {
+		t.Errorf("Expected model ID 'whisper', got '%s'", capabilities.ModelID)
 	}
 
 	if capabilities.ModelFamily != "whisper" {
@@ -251,10 +251,9 @@ func TestWhisperXAdapter(t *testing.T) {
 
 	// Test parameter validation
 	validParams := map[string]interface{}{
-		"model":      "small",
-		"device":     "cpu",
-		"batch_size": 8,
-		"diarize":    false,
+		"model":      "onnx-community/whisper-small",
+		"language":   "en",
+		"timestamps": true,
 	}
 
 	if err := adapter.ValidateParameters(validParams); err != nil {
@@ -263,8 +262,7 @@ func TestWhisperXAdapter(t *testing.T) {
 
 	// Test invalid parameters
 	invalidParams := map[string]interface{}{
-		"model":      "invalid_model",
-		"batch_size": -1,
+		"model": "invalid_model",
 	}
 
 	if err := adapter.ValidateParameters(invalidParams); err == nil {
@@ -427,7 +425,7 @@ func TestSortformerAdapter(t *testing.T) {
 
 func TestModelSelection(t *testing.T) {
 	reg := registry.GetRegistry()
-	registry.RegisterTranscriptionAdapter("whisperx", adapters.NewWhisperXAdapter("/tmp/whisperx"))
+	registry.RegisterTranscriptionAdapter("whisper", adapters.NewWhisperAdapter("/tmp/whisperx"))
 	registry.RegisterDiarizationAdapter("pyannote", adapters.NewPyAnnoteAdapter("/tmp/pyannote"))
 
 	// Test selecting best transcription model
@@ -505,7 +503,7 @@ func TestParameterConversion(t *testing.T) {
 
 	// Test converting WhisperX parameters to generic map
 	params := models.WhisperXParams{
-		Model:       "small",
+		Model:       "onnx-community/whisper-small",
 		Device:      "cpu",
 		BatchSize:   8,
 		Language:    stringPtr("en"),
@@ -520,10 +518,6 @@ func TestParameterConversion(t *testing.T) {
 	// Verify key parameters are present
 	if paramMap["model"] != "small" {
 		t.Errorf("Expected model 'small', got '%v'", paramMap["model"])
-	}
-
-	if paramMap["device"] != "cpu" {
-		t.Errorf("Expected device 'cpu', got '%v'", paramMap["device"])
 	}
 
 	if paramMap["diarize"] != true {
@@ -546,7 +540,7 @@ func BenchmarkModelRegistryLookup(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_, err := reg.GetTranscriptionAdapter("whisperx")
+		_, err := reg.GetTranscriptionAdapter("whisper")
 		if err != nil {
 			b.Fatalf("Failed to get adapter: %v", err)
 		}
@@ -555,7 +549,7 @@ func BenchmarkModelRegistryLookup(b *testing.B) {
 
 func BenchmarkParameterValidation(b *testing.B) {
 	reg := registry.GetRegistry()
-	adapter, err := reg.GetTranscriptionAdapter("whisperx")
+	adapter, err := reg.GetTranscriptionAdapter("whisper")
 	if err != nil {
 		b.Fatalf("Failed to get adapter: %v", err)
 	}
