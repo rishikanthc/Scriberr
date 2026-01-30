@@ -48,6 +48,11 @@ class JobParams:
     fifo_len: int = 40
     spkcache_update_period: int = 300
     exclusive: bool = False
+    segmentation_batch_size: int | None = None
+    embedding_batch_size: int | None = None
+    embedding_exclude_overlap: bool | None = None
+    torch_threads: int | None = None
+    torch_interop_threads: int | None = None
 
     @classmethod
     def from_kv(cls, params: dict[str, str]) -> "JobParams":
@@ -69,6 +74,15 @@ class JobParams:
             spkcache_update_period=_parse_int(params.get("spkcache_update_period"), 300)
             or 300,
             exclusive=_parse_bool(params.get("exclusive"), False),
+            segmentation_batch_size=_parse_int(params.get("segmentation_batch_size"), None),
+            embedding_batch_size=_parse_int(params.get("embedding_batch_size"), None),
+            embedding_exclude_overlap=(
+                _parse_bool(params.get("embedding_exclude_overlap"), False)
+                if params.get("embedding_exclude_overlap") is not None
+                else None
+            ),
+            torch_threads=_parse_int(params.get("torch_threads"), None),
+            torch_interop_threads=_parse_int(params.get("torch_interop_threads"), None),
         )
 
 

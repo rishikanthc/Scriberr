@@ -163,6 +163,11 @@ def _run_pyannote(loaded: LoadedModel, input_path: str, params: JobParams) -> li
     else:
         pipeline = pipeline.to(torch.device("cpu"))
 
+    if params.torch_threads:
+        torch.set_num_threads(params.torch_threads)
+    if params.torch_interop_threads:
+        torch.set_num_interop_threads(params.torch_interop_threads)
+
     _apply_pyannote_segmentation_thresholds(
         pipeline, params.segmentation_onset, params.segmentation_offset
     )
@@ -172,6 +177,12 @@ def _run_pyannote(loaded: LoadedModel, input_path: str, params: JobParams) -> li
         diarization_params["min_speakers"] = params.min_speakers
     if params.max_speakers is not None:
         diarization_params["max_speakers"] = params.max_speakers
+    if params.segmentation_batch_size is not None:
+        diarization_params["segmentation_batch_size"] = params.segmentation_batch_size
+    if params.embedding_batch_size is not None:
+        diarization_params["embedding_batch_size"] = params.embedding_batch_size
+    if params.embedding_exclude_overlap is not None:
+        diarization_params["embedding_exclude_overlap"] = params.embedding_exclude_overlap
 
     if params.exclusive:
         diarization_params["exclusive"] = True

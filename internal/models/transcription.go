@@ -91,11 +91,16 @@ type TranscriptionParams struct {
 	VadMaxSpeechS   *int    `json:"vad_max_speech_s,omitempty" gorm:"type:int"`
 
 	// Diarization settings
-	Diarize           bool   `json:"diarize" gorm:"type:boolean;default:false"`
-	MinSpeakers       *int   `json:"min_speakers,omitempty" gorm:"type:int"`
-	MaxSpeakers       *int   `json:"max_speakers,omitempty" gorm:"type:int"`
-	DiarizeModel      string `json:"diarize_model" gorm:"type:varchar(50);default:'pyannote'"` // Options: 'pyannote', 'nvidia_sortformer'
-	SpeakerEmbeddings bool   `json:"speaker_embeddings" gorm:"type:boolean;default:false"`
+	Diarize                 bool   `json:"diarize" gorm:"type:boolean;default:false"`
+	MinSpeakers             *int   `json:"min_speakers,omitempty" gorm:"type:int"`
+	MaxSpeakers             *int   `json:"max_speakers,omitempty" gorm:"type:int"`
+	DiarizeModel            string `json:"diarize_model" gorm:"type:varchar(50);default:'pyannote'"` // Options: 'pyannote', 'nvidia_sortformer'
+	SpeakerEmbeddings       bool   `json:"speaker_embeddings" gorm:"type:boolean;default:false"`
+	SegmentationBatchSize   *int   `json:"segmentation_batch_size,omitempty" gorm:"type:int"`
+	EmbeddingBatchSize      *int   `json:"embedding_batch_size,omitempty" gorm:"type:int"`
+	EmbeddingExcludeOverlap *bool  `json:"embedding_exclude_overlap,omitempty" gorm:"type:boolean"`
+	TorchThreads            *int   `json:"torch_threads,omitempty" gorm:"type:int"`
+	TorchInteropThreads     *int   `json:"torch_interop_threads,omitempty" gorm:"type:int"`
 
 	// Transcription quality settings
 	Temperature                    float64 `json:"temperature" gorm:"type:real;default:0"`

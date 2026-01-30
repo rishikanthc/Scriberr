@@ -135,6 +135,54 @@ func NewPyAnnoteAdapter(_ string) *PyAnnoteAdapter {
 			Group:       "advanced",
 		},
 		{
+			Name:        "segmentation_batch_size",
+			Type:        "int",
+			Required:    false,
+			Default:     8,
+			Min:         &[]float64{1}[0],
+			Max:         &[]float64{32}[0],
+			Description: "Batch size for segmentation (CPU tuning)",
+			Group:       "advanced",
+		},
+		{
+			Name:        "embedding_batch_size",
+			Type:        "int",
+			Required:    false,
+			Default:     8,
+			Min:         &[]float64{1}[0],
+			Max:         &[]float64{32}[0],
+			Description: "Batch size for embeddings (CPU tuning)",
+			Group:       "advanced",
+		},
+		{
+			Name:        "embedding_exclude_overlap",
+			Type:        "bool",
+			Required:    false,
+			Default:     true,
+			Description: "Exclude overlap regions when computing embeddings (faster on CPU)",
+			Group:       "advanced",
+		},
+		{
+			Name:        "torch_threads",
+			Type:        "int",
+			Required:    false,
+			Default:     8,
+			Min:         &[]float64{1}[0],
+			Max:         &[]float64{64}[0],
+			Description: "PyTorch intra-op threads for diarization",
+			Group:       "advanced",
+		},
+		{
+			Name:        "torch_interop_threads",
+			Type:        "int",
+			Required:    false,
+			Default:     1,
+			Min:         &[]float64{1}[0],
+			Max:         &[]float64{8}[0],
+			Description: "PyTorch inter-op threads for diarization",
+			Group:       "advanced",
+		},
+		{
 			Name:        "auto_convert_audio",
 			Type:        "bool",
 			Required:    false,
@@ -323,6 +371,21 @@ func buildDiarEngineParams(adapter *BaseAdapter, params map[string]interface{}) 
 	}
 	if val := adapter.GetBoolParameter(params, "exclusive"); val {
 		engineParams["exclusive"] = "true"
+	}
+	if val := adapter.GetIntParameter(params, "segmentation_batch_size"); val > 0 {
+		engineParams["segmentation_batch_size"] = fmt.Sprintf("%d", val)
+	}
+	if val := adapter.GetIntParameter(params, "embedding_batch_size"); val > 0 {
+		engineParams["embedding_batch_size"] = fmt.Sprintf("%d", val)
+	}
+	if val := adapter.GetBoolParameter(params, "embedding_exclude_overlap"); val {
+		engineParams["embedding_exclude_overlap"] = "true"
+	}
+	if val := adapter.GetIntParameter(params, "torch_threads"); val > 0 {
+		engineParams["torch_threads"] = fmt.Sprintf("%d", val)
+	}
+	if val := adapter.GetIntParameter(params, "torch_interop_threads"); val > 0 {
+		engineParams["torch_interop_threads"] = fmt.Sprintf("%d", val)
 	}
 
 	return engineParams

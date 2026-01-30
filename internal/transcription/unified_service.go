@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -747,6 +748,45 @@ func (u *UnifiedTranscriptionService) convertToPyannoteParams(params models.Tran
 	}
 	if params.VadOffset > 0 {
 		paramMap["segmentation_offset"] = params.VadOffset
+	}
+
+	if params.SegmentationBatchSize != nil {
+		paramMap["segmentation_batch_size"] = *params.SegmentationBatchSize
+	}
+	if params.EmbeddingBatchSize != nil {
+		paramMap["embedding_batch_size"] = *params.EmbeddingBatchSize
+	}
+	if params.EmbeddingExcludeOverlap != nil {
+		paramMap["embedding_exclude_overlap"] = *params.EmbeddingExcludeOverlap
+	}
+	if params.TorchThreads != nil {
+		paramMap["torch_threads"] = *params.TorchThreads
+	}
+	if params.TorchInteropThreads != nil {
+		paramMap["torch_interop_threads"] = *params.TorchInteropThreads
+	}
+
+	device := strings.ToLower(strings.TrimSpace(params.Device))
+	if device == "" || device == "cpu" {
+		cpuThreads := runtime.NumCPU()
+		if cpuThreads > 8 {
+			cpuThreads = 8
+		}
+		if _, ok := paramMap["segmentation_batch_size"]; !ok {
+			paramMap["segmentation_batch_size"] = 8
+		}
+		if _, ok := paramMap["embedding_batch_size"]; !ok {
+			paramMap["embedding_batch_size"] = 8
+		}
+		if _, ok := paramMap["embedding_exclude_overlap"]; !ok {
+			paramMap["embedding_exclude_overlap"] = true
+		}
+		if _, ok := paramMap["torch_threads"]; !ok {
+			paramMap["torch_threads"] = cpuThreads
+		}
+		if _, ok := paramMap["torch_interop_threads"]; !ok {
+			paramMap["torch_interop_threads"] = 1
+		}
 	}
 
 	return paramMap

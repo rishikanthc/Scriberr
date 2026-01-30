@@ -168,6 +168,11 @@ def main() -> None:
     parser.add_argument("--asr-model", default="nemo-parakeet-tdt-0.6b-v3")
     parser.add_argument("--diar-model", default="nvidia/diar_sortformer_4spk-v1")
     parser.add_argument("--run-pyannote", action="store_true")
+    parser.add_argument("--pyannote-seg-batch", type=int, default=None)
+    parser.add_argument("--pyannote-emb-batch", type=int, default=None)
+    parser.add_argument("--pyannote-exclude-overlap", action="store_true")
+    parser.add_argument("--torch-threads", type=int, default=None)
+    parser.add_argument("--torch-interop-threads", type=int, default=None)
     args = parser.parse_args()
 
     audio = Path(args.audio).resolve()
@@ -235,17 +240,29 @@ def main() -> None:
         diar_job = f"diar-pyannote-{uuid.uuid4()}"
         diar_dir = out_dir / "diar_pyannote"
         diar_dir.mkdir(parents=True, exist_ok=True)
+        pyannote_params = {
+            "output_format": "json",
+            "device": "auto",
+            "max_speakers": "4",
+            "exclusive": "true",
+        }
+        if args.pyannote_seg_batch:
+            pyannote_params["segmentation_batch_size"] = str(args.pyannote_seg_batch)
+        if args.pyannote_emb_batch:
+            pyannote_params["embedding_batch_size"] = str(args.pyannote_emb_batch)
+        if args.pyannote_exclude_overlap:
+            pyannote_params["embedding_exclude_overlap"] = "true"
+        if args.torch_threads:
+            pyannote_params["torch_threads"] = str(args.torch_threads)
+        if args.torch_interop_threads:
+            pyannote_params["torch_interop_threads"] = str(args.torch_interop_threads)
+
         diar_status = _run_job(
             diar_stub,
             diar_job,
             str(audio),
             str(diar_dir),
-            {
-                "output_format": "json",
-                "device": "auto",
-                "max_speakers": "4",
-                "exclusive": "true",
-            },
+            pyannote_params,
         )
         diar_path = Path(diar_status.outputs["diarization"])
         diar_segments = _load_diarization(diar_path)

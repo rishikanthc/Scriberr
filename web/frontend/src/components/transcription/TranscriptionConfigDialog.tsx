@@ -67,6 +67,11 @@ export interface TranscriptionParams {
     max_speakers?: number;
     diarize_model: string;
     speaker_embeddings: boolean;
+    segmentation_batch_size?: number;
+    embedding_batch_size?: number;
+    embedding_exclude_overlap?: boolean;
+    torch_threads?: number;
+    torch_interop_threads?: number;
     temperature: number;
     best_of: number;
     beam_size: number;
@@ -130,6 +135,11 @@ const DEFAULT_PARAMS: TranscriptionParams = {
     diarize: false,
     diarize_model: "pyannote",
     speaker_embeddings: false,
+    segmentation_batch_size: 8,
+    embedding_batch_size: 8,
+    embedding_exclude_overlap: true,
+    torch_threads: 8,
+    torch_interop_threads: 1,
     temperature: 0,
     best_of: 5,
     beam_size: 5,
@@ -286,6 +296,11 @@ const PARAM_DESCRIPTIONS = {
     vad_onset: "Voice detection sensitivity. Lower values (0.3-0.4) catch quieter/distant speakers.",
     vad_offset: "Speech ending sensitivity. Lower values detect speech endings more precisely.",
     vad_preset: "Preset for voice activity detection (segmenting long audio).",
+    segmentation_batch_size: "Segmentation batch size (CPU tuning). Higher can be faster but uses more memory.",
+    embedding_batch_size: "Embedding batch size (CPU tuning). Higher can be faster but uses more memory.",
+    embedding_exclude_overlap: "Skip overlap regions when computing embeddings (faster on CPU).",
+    torch_threads: "PyTorch intra-op threads (CPU tuning).",
+    torch_interop_threads: "PyTorch inter-op threads (CPU tuning).",
     pnc: "Output punctuation and capitalization (Canary only).",
 };
 
@@ -768,6 +783,64 @@ function WhisperConfig({ params, updateParam, isMultiTrack }: ConfigProps) {
                                                         onChange={(e) => updateParam('vad_offset', parseFloat(e.target.value) || 0.363)}
                                                         className={inputClassName}
                                                     />
+                                                </FormField>
+                                            </div>
+                                        </div>
+
+                                        <div className="pt-3 border-t border-[var(--border-subtle)]">
+                                            <p className="text-xs text-[var(--text-tertiary)] mb-3">CPU Performance Tuning</p>
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <FormField label="Segmentation Batch" description={PARAM_DESCRIPTIONS.segmentation_batch_size}>
+                                                    <Input
+                                                        type="number"
+                                                        min={1}
+                                                        max={32}
+                                                        value={params.segmentation_batch_size ?? ""}
+                                                        onChange={(e) => updateParam('segmentation_batch_size', e.target.value ? parseInt(e.target.value) : undefined)}
+                                                        className={inputClassName}
+                                                    />
+                                                </FormField>
+                                                <FormField label="Embedding Batch" description={PARAM_DESCRIPTIONS.embedding_batch_size}>
+                                                    <Input
+                                                        type="number"
+                                                        min={1}
+                                                        max={32}
+                                                        value={params.embedding_batch_size ?? ""}
+                                                        onChange={(e) => updateParam('embedding_batch_size', e.target.value ? parseInt(e.target.value) : undefined)}
+                                                        className={inputClassName}
+                                                    />
+                                                </FormField>
+                                                <FormField label="Torch Threads" description={PARAM_DESCRIPTIONS.torch_threads}>
+                                                    <Input
+                                                        type="number"
+                                                        min={1}
+                                                        max={64}
+                                                        value={params.torch_threads ?? ""}
+                                                        onChange={(e) => updateParam('torch_threads', e.target.value ? parseInt(e.target.value) : undefined)}
+                                                        className={inputClassName}
+                                                    />
+                                                </FormField>
+                                                <FormField label="Torch Interop Threads" description={PARAM_DESCRIPTIONS.torch_interop_threads}>
+                                                    <Input
+                                                        type="number"
+                                                        min={1}
+                                                        max={8}
+                                                        value={params.torch_interop_threads ?? ""}
+                                                        onChange={(e) => updateParam('torch_interop_threads', e.target.value ? parseInt(e.target.value) : undefined)}
+                                                        className={inputClassName}
+                                                    />
+                                                </FormField>
+                                            </div>
+
+                                            <div className="pt-3">
+                                                <FormField label="Exclude Overlap in Embeddings" description={PARAM_DESCRIPTIONS.embedding_exclude_overlap}>
+                                                    <div className="flex items-center gap-3">
+                                                        <Switch
+                                                            checked={params.embedding_exclude_overlap ?? true}
+                                                            onCheckedChange={(value) => updateParam('embedding_exclude_overlap', value)}
+                                                        />
+                                                        <span className="text-sm text-[var(--text-primary)]">Faster on CPU</span>
+                                                    </div>
                                                 </FormField>
                                             </div>
                                         </div>
