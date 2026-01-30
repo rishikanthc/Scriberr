@@ -225,12 +225,12 @@ func TestModelRegistry(t *testing.T) {
 
 func TestWhisperAdapter(t *testing.T) {
 	reg := registry.GetRegistry()
-	registry.RegisterTranscriptionAdapter("whisper", adapters.NewWhisperAdapter("/tmp/whisperx"))
+	registry.RegisterTranscriptionAdapter("whisper", adapters.NewWhisperAdapter("/tmp/model-env"))
 
 	// Get Whisper adapter
 	adapter, err := reg.GetTranscriptionAdapter("whisper")
 	if err != nil {
-		t.Fatalf("Failed to get WhisperX adapter: %v", err)
+		t.Fatalf("Failed to get Whisper adapter: %v", err)
 	}
 
 	// Test capabilities
@@ -425,7 +425,7 @@ func TestSortformerAdapter(t *testing.T) {
 
 func TestModelSelection(t *testing.T) {
 	reg := registry.GetRegistry()
-	registry.RegisterTranscriptionAdapter("whisper", adapters.NewWhisperAdapter("/tmp/whisperx"))
+	registry.RegisterTranscriptionAdapter("whisper", adapters.NewWhisperAdapter("/tmp/model-env"))
 	registry.RegisterDiarizationAdapter("pyannote", adapters.NewPyAnnoteAdapter("/tmp/pyannote"))
 
 	// Test selecting best transcription model
@@ -501,8 +501,8 @@ func TestParameterConversion(t *testing.T) {
 	mockRepo := new(MockJobRepository)
 	service := NewUnifiedTranscriptionService(mockRepo, "data/temp", "data/transcripts")
 
-	// Test converting WhisperX parameters to generic map
-	params := models.WhisperXParams{
+	// Test converting transcription parameters to generic map
+	params := models.TranscriptionParams{
 		Model:       "onnx-community/whisper-small",
 		Device:      "cpu",
 		BatchSize:   8,

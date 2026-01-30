@@ -14,14 +14,14 @@ import {
 	AlertDialogTitle,
 	AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import type { WhisperXParams } from "@/components/TranscriptionConfigDialog";
+import type { TranscriptionParams } from "@/components/TranscriptionConfigDialog";
 
 interface TranscriptionProfile {
 	id: string;
 	name: string;
 	description?: string;
 	is_default: boolean;
-	parameters: WhisperXParams;
+	parameters: TranscriptionParams;
 	created_at: string;
 	updated_at: string;
 }

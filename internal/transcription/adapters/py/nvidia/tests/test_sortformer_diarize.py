@@ -18,7 +18,7 @@ def test_sortformer_diarization_output():
 
     # Locate project root and paths
     project_root = Path(__file__).resolve().parents[6]
-    env_path = project_root / "data/whisperx-env/parakeet"
+    env_path = project_root / "data/model-env/parakeet"
     script_path = SCRIPT_DIR / "sortformer_diarize.py"
 
     assert env_path.exists(), f"Environment not found at: {env_path}"

@@ -18,14 +18,14 @@ import (
 
 // QuickTranscriptionJob represents a temporary transcription job
 type QuickTranscriptionJob struct {
-	ID           string                `json:"id"`
-	Status       models.JobStatus      `json:"status"`
-	AudioPath    string                `json:"audio_path"`
-	Transcript   *string               `json:"transcript,omitempty"`
-	Parameters   models.WhisperXParams `json:"parameters"`
-	CreatedAt    time.Time             `json:"created_at"`
-	ExpiresAt    time.Time             `json:"expires_at"`
-	ErrorMessage *string               `json:"error_message,omitempty"`
+	ID           string                     `json:"id"`
+	Status       models.JobStatus           `json:"status"`
+	AudioPath    string                     `json:"audio_path"`
+	Transcript   *string                    `json:"transcript,omitempty"`
+	Parameters   models.TranscriptionParams `json:"parameters"`
+	CreatedAt    time.Time                  `json:"created_at"`
+	ExpiresAt    time.Time                  `json:"expires_at"`
+	ErrorMessage *string                    `json:"error_message,omitempty"`
 }
 
 // QuickTranscriptionService handles temporary transcriptions without database persistence
@@ -64,7 +64,7 @@ func NewQuickTranscriptionService(cfg *config.Config, unifiedProcessor *UnifiedJ
 }
 
 // SubmitQuickJob creates and processes a temporary transcription job
-func (qs *QuickTranscriptionService) SubmitQuickJob(audioData io.Reader, filename string, params models.WhisperXParams) (*QuickTranscriptionJob, error) {
+func (qs *QuickTranscriptionService) SubmitQuickJob(audioData io.Reader, filename string, params models.TranscriptionParams) (*QuickTranscriptionJob, error) {
 	// Generate unique job ID
 	jobID := uuid.New().String()
 
@@ -208,8 +208,6 @@ func (qs *QuickTranscriptionService) processQuickJob(jobID string) {
 		}
 	}
 }
-
-// processWithWhisperX processes the job using WhisperX service
 
 // loadTranscriptFromTemp loads transcript from temporary file
 func (qs *QuickTranscriptionService) loadTranscriptFromTemp(jobID string) (string, error) {

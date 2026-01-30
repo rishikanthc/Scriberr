@@ -768,7 +768,7 @@ func (mt *MultiTrackTranscriber) createMultiTrackExecutionRecord(
 	trackTimings []models.MultiTrackTiming,
 	mergeStartTime, mergeEndTime time.Time,
 	mergeDuration int64,
-	parameters models.WhisperXParams) error {
+	parameters models.TranscriptionParams) error {
 
 	// Serialize track timings to JSON
 	trackTimingsJSON, err := json.Marshal(trackTimings)

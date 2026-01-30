@@ -17,7 +17,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
-import type { WhisperXParams } from "./TranscriptionConfigDialog";
+import type { TranscriptionParams } from "./TranscriptionConfigDialog";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 
 interface TranscriptionProfile {
@@ -25,7 +25,7 @@ interface TranscriptionProfile {
   name: string;
   description?: string;
   is_default: boolean;
-  parameters: WhisperXParams;
+  parameters: TranscriptionParams;
   created_at: string;
   updated_at: string;
 }
@@ -33,7 +33,7 @@ interface TranscriptionProfile {
 interface TranscribeDDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onStartTranscription: (params: WhisperXParams, profileId?: string) => void;
+  onStartTranscription: (params: TranscriptionParams, profileId?: string) => void;
   loading?: boolean;
   title?: string;
 }

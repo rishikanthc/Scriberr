@@ -29,7 +29,7 @@ type TranscriptionJob struct {
 	DeletedAt             gorm.DeletedAt `json:"deleted_at,omitempty" gorm:"index" swaggertype:"string"`
 
 	// Transcription parameters (legacy name)
-	Parameters WhisperXParams `json:"parameters" gorm:"embedded"`
+	Parameters TranscriptionParams `json:"parameters" gorm:"embedded"`
 
 	// Relationships
 	MultiTrackFiles []MultiTrackFile `json:"multi_track_files,omitempty" gorm:"foreignKey:TranscriptionJobID"`
@@ -46,13 +46,13 @@ const (
 	StatusFailed     JobStatus = "failed"
 )
 
-// WhisperXParams contains transcription parameters (legacy name kept for API compatibility)
-type WhisperXParams struct {
+// TranscriptionParams contains transcription parameters (legacy name kept for API compatibility)
+type TranscriptionParams struct {
 	// Model family (whisper or nvidia)
 	ModelFamily string `json:"model_family" gorm:"type:varchar(20);default:'whisper'"`
 
 	// Model parameters
-	Model          string  `json:"model" gorm:"type:varchar(100);default:'small'"`
+	Model          string  `json:"model" gorm:"type:varchar(100);default:'onnx-community/whisper-small'"`
 	ModelCacheOnly bool    `json:"model_cache_only" gorm:"type:boolean;default:false"`
 	ModelDir       *string `json:"model_dir,omitempty" gorm:"type:text"`
 
@@ -183,13 +183,13 @@ func (ak *APIKey) BeforeCreate(tx *gorm.DB) error {
 
 // TranscriptionProfile represents a saved transcription configuration profile
 type TranscriptionProfile struct {
-	ID          string         `json:"id" gorm:"primaryKey;type:varchar(36)"`
-	Name        string         `json:"name" gorm:"type:varchar(255);not null"`
-	Description *string        `json:"description,omitempty" gorm:"type:text"`
-	IsDefault   bool           `json:"is_default" gorm:"type:boolean;default:false"`
-	Parameters  WhisperXParams `json:"parameters" gorm:"embedded"`
-	CreatedAt   time.Time      `json:"created_at" gorm:"autoCreateTime"`
-	UpdatedAt   time.Time      `json:"updated_at" gorm:"autoUpdateTime"`
+	ID          string              `json:"id" gorm:"primaryKey;type:varchar(36)"`
+	Name        string              `json:"name" gorm:"type:varchar(255);not null"`
+	Description *string             `json:"description,omitempty" gorm:"type:text"`
+	IsDefault   bool                `json:"is_default" gorm:"type:boolean;default:false"`
+	Parameters  TranscriptionParams `json:"parameters" gorm:"embedded"`
+	CreatedAt   time.Time           `json:"created_at" gorm:"autoCreateTime"`
+	UpdatedAt   time.Time           `json:"updated_at" gorm:"autoUpdateTime"`
 }
 
 // BeforeCreate sets the ID if not already set
@@ -316,7 +316,7 @@ type TranscriptionJobExecution struct {
 	MergeDuration     *int64     `json:"merge_duration,omitempty"` // Merge phase duration in milliseconds
 
 	// Parameters used for this execution (may differ from job parameters due to profiles)
-	ActualParameters WhisperXParams `json:"actual_parameters" gorm:"embedded;embeddedPrefix:actual_"`
+	ActualParameters TranscriptionParams `json:"actual_parameters" gorm:"embedded;embeddedPrefix:actual_"`
 
 	// Execution results
 	Status       JobStatus `json:"status" gorm:"type:varchar(20);not null"`

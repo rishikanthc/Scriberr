@@ -374,7 +374,7 @@ func (u *UnifiedTranscriptionService) IsMultiTrackJob(jobID string) bool {
 }
 
 // selectModels determines which models to use based on job parameters
-func (u *UnifiedTranscriptionService) selectModels(params models.WhisperXParams) (transcriptionModelID, diarizationModelID string, err error) {
+func (u *UnifiedTranscriptionService) selectModels(params models.TranscriptionParams) (transcriptionModelID, diarizationModelID string, err error) {
 	// Determine transcription model
 	switch params.ModelFamily {
 	case FamilyNvidiaParakeet:
@@ -413,7 +413,7 @@ func (u *UnifiedTranscriptionService) selectModels(params models.WhisperXParams)
 }
 
 // transcriptionIncludesDiarization checks if the transcription model already includes diarization
-func (u *UnifiedTranscriptionService) transcriptionIncludesDiarization(modelID string, params models.WhisperXParams) bool {
+func (u *UnifiedTranscriptionService) transcriptionIncludesDiarization(modelID string, params models.TranscriptionParams) bool {
 	return false
 }
 
@@ -535,16 +535,16 @@ func (u *UnifiedTranscriptionService) createAudioInput(audioPath string) (interf
 	return audioInput, nil
 }
 
-// parametersToMap converts WhisperXParams to a generic parameter map
-// convertParametersForModel converts WhisperX parameters to model-specific parameters
-func (u *UnifiedTranscriptionService) convertParametersForModel(params models.WhisperXParams, modelID string) map[string]interface{} {
+// parametersToMap converts TranscriptionParams to a generic parameter map
+// convertParametersForModel converts transcription parameters to model-specific parameters
+func (u *UnifiedTranscriptionService) convertParametersForModel(params models.TranscriptionParams, modelID string) map[string]interface{} {
 	switch modelID {
 	case ModelParakeet:
 		return u.convertToParakeetParams(params)
 	case ModelCanary:
 		return u.convertToCanaryParams(params)
 	case ModelWhisper:
-		return u.convertToWhisperXParams(params)
+		return u.convertToTranscriptionParams(params)
 	case ModelPyannote:
 		return u.convertToPyannoteParams(params)
 	case ModelSortformer:
@@ -560,7 +560,7 @@ func (u *UnifiedTranscriptionService) convertParametersForModel(params models.Wh
 }
 
 // convertToOpenAIParams converts to OpenAI-specific parameters
-func (u *UnifiedTranscriptionService) convertToOpenAIParams(params models.WhisperXParams) map[string]interface{} {
+func (u *UnifiedTranscriptionService) convertToOpenAIParams(params models.TranscriptionParams) map[string]interface{} {
 	paramMap := map[string]interface{}{
 		"model":       params.Model,
 		"temperature": params.Temperature,
@@ -582,7 +582,7 @@ func (u *UnifiedTranscriptionService) convertToOpenAIParams(params models.Whispe
 }
 
 // convertToVoxtralParams converts to Voxtral-specific parameters
-func (u *UnifiedTranscriptionService) convertToVoxtralParams(params models.WhisperXParams) map[string]interface{} {
+func (u *UnifiedTranscriptionService) convertToVoxtralParams(params models.TranscriptionParams) map[string]interface{} {
 	paramMap := map[string]interface{}{}
 
 	// Language
@@ -601,7 +601,7 @@ func (u *UnifiedTranscriptionService) convertToVoxtralParams(params models.Whisp
 }
 
 // convertToParakeetParams converts to Parakeet-specific parameters
-func (u *UnifiedTranscriptionService) convertToParakeetParams(params models.WhisperXParams) map[string]interface{} {
+func (u *UnifiedTranscriptionService) convertToParakeetParams(params models.TranscriptionParams) map[string]interface{} {
 	modelName := params.Model
 	if !strings.HasPrefix(modelName, "nemo-parakeet-tdt-0.6b") {
 		modelName = "nemo-parakeet-tdt-0.6b-v3"
@@ -639,7 +639,7 @@ func (u *UnifiedTranscriptionService) convertToParakeetParams(params models.Whis
 }
 
 // convertToCanaryParams converts to Canary-specific parameters
-func (u *UnifiedTranscriptionService) convertToCanaryParams(params models.WhisperXParams) map[string]interface{} {
+func (u *UnifiedTranscriptionService) convertToCanaryParams(params models.TranscriptionParams) map[string]interface{} {
 	modelName := params.Model
 	if modelName != "nemo-canary-1b-v2" {
 		modelName = "nemo-canary-1b-v2"
@@ -691,8 +691,8 @@ func (u *UnifiedTranscriptionService) convertToCanaryParams(params models.Whispe
 	return paramMap
 }
 
-// convertToWhisperXParams converts to WhisperX-specific parameters
-func (u *UnifiedTranscriptionService) convertToWhisperXParams(params models.WhisperXParams) map[string]interface{} {
+// convertToTranscriptionParams converts to Whisper-specific parameters
+func (u *UnifiedTranscriptionService) convertToTranscriptionParams(params models.TranscriptionParams) map[string]interface{} {
 	// For Whisper ONNX, pass only parameters supported by the ASR engine.
 	paramMap := map[string]interface{}{
 		"model":              params.Model,
@@ -721,7 +721,7 @@ func (u *UnifiedTranscriptionService) convertToWhisperXParams(params models.Whis
 }
 
 // convertToPyannoteParams converts to PyAnnote-specific parameters
-func (u *UnifiedTranscriptionService) convertToPyannoteParams(params models.WhisperXParams) map[string]interface{} {
+func (u *UnifiedTranscriptionService) convertToPyannoteParams(params models.TranscriptionParams) map[string]interface{} {
 	paramMap := map[string]interface{}{
 		"output_format":      OutputFormatJSON,
 		"auto_convert_audio": true,
@@ -751,7 +751,7 @@ func (u *UnifiedTranscriptionService) convertToPyannoteParams(params models.Whis
 }
 
 // convertToSortformerParams converts to Sortformer-specific parameters
-func (u *UnifiedTranscriptionService) convertToSortformerParams(params models.WhisperXParams) map[string]interface{} {
+func (u *UnifiedTranscriptionService) convertToSortformerParams(params models.TranscriptionParams) map[string]interface{} {
 	return map[string]interface{}{
 		"output_format":      OutputFormatJSON,
 		"auto_convert_audio": true,
@@ -759,7 +759,7 @@ func (u *UnifiedTranscriptionService) convertToSortformerParams(params models.Wh
 	}
 }
 
-func (u *UnifiedTranscriptionService) parametersToMap(params models.WhisperXParams) map[string]interface{} {
+func (u *UnifiedTranscriptionService) parametersToMap(params models.TranscriptionParams) map[string]interface{} {
 	paramMap := map[string]interface{}{
 		"model_family": params.ModelFamily,
 		"model":        params.Model,

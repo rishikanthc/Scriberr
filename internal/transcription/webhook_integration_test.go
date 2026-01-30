@@ -43,7 +43,7 @@ func TestWebhookIntegration_Failure(t *testing.T) {
 		ID:        jobID,
 		AudioPath: "/non/existent/file.wav", // This will cause processing to fail
 		Status:    models.StatusPending,
-		Parameters: models.WhisperXParams{
+		Parameters: models.TranscriptionParams{
 			CallbackURL: &callbackURL,
 			ModelFamily: "whisper",
 		},

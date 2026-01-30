@@ -32,7 +32,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { TranscriptionConfigDialog, type WhisperXParams } from "@/components/TranscriptionConfigDialog";
+import { TranscriptionConfigDialog, type TranscriptionParams } from "@/components/TranscriptionConfigDialog";
 import { TranscribeDDialog } from "@/components/TranscribeDDialog";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/features/auth/hooks/useAuth";
@@ -310,7 +310,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 	}, []);
 
 	// Handle actual transcription start with parameters
-	const handleStartTranscription = useCallback(async (params: WhisperXParams) => {
+	const handleStartTranscription = useCallback(async (params: TranscriptionParams) => {
 		if (!selectedJobId) return;
 
 		// Validate multi-track compatibility
@@ -358,7 +358,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 	}, [selectedJobId, refetch, onTranscribe, data, getAuthHeaders]);
 
 	// Handle actual transcription start with profile parameters
-	const handleStartTranscriptionWithProfile = useCallback(async (params: WhisperXParams) => {
+	const handleStartTranscriptionWithProfile = useCallback(async (params: TranscriptionParams) => {
 		if (!selectedJobId) return;
 
 		// Validate multi-track compatibility
@@ -472,7 +472,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 	}, [selectedFile, getAuthHeaders, refetch]);
 
 	// Bulk Actions Handlers
-	const handleBulkTranscribe = useCallback(async (params: WhisperXParams) => {
+	const handleBulkTranscribe = useCallback(async (params: TranscriptionParams) => {
 		const selectedIds = Object.keys(rowSelection);
 		if (selectedIds.length === 0) return;
 
@@ -541,7 +541,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 	}, [rowSelection, getAuthHeaders, refetch]);
 
 	// Modified handlers to support bulk actions
-	const onStartTranscribe = (params: WhisperXParams) => {
+	const onStartTranscribe = (params: TranscriptionParams) => {
 		if (Object.keys(rowSelection).length > 0) {
 			handleBulkTranscribe(params);
 		} else {
@@ -549,7 +549,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 		}
 	};
 
-	const onStartTranscribeWithProfile = (params: WhisperXParams) => {
+	const onStartTranscribeWithProfile = (params: TranscriptionParams) => {
 		if (Object.keys(rowSelection).length > 0) {
 			handleBulkTranscribe(params);
 		} else {

@@ -33,7 +33,7 @@ import { FormField, Section, InfoBanner } from "@/components/transcription/FormH
 // Types & Constants
 // ============================================================================
 
-export interface WhisperXParams {
+export interface TranscriptionParams {
     model_family: string;
     model: string;
     model_cache_only: boolean;
@@ -97,17 +97,17 @@ export interface WhisperXParams {
 interface TranscriptionConfigDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    onStartTranscription: (params: WhisperXParams & { profileName?: string; profileDescription?: string }) => void;
+    onStartTranscription: (params: TranscriptionParams & { profileName?: string; profileDescription?: string }) => void;
     loading?: boolean;
     isProfileMode?: boolean;
-    initialParams?: WhisperXParams;
+    initialParams?: TranscriptionParams;
     initialName?: string;
     initialDescription?: string;
     isMultiTrack?: boolean;
     title?: string;
 }
 
-const DEFAULT_PARAMS: WhisperXParams = {
+const DEFAULT_PARAMS: TranscriptionParams = {
     model_family: "whisper",
     model: "onnx-community/whisper-small",
     model_cache_only: false,
@@ -332,7 +332,7 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
     isMultiTrack = false,
     title,
 }: TranscriptionConfigDialogProps) {
-    const [params, setParams] = useState<WhisperXParams>(DEFAULT_PARAMS);
+    const [params, setParams] = useState<TranscriptionParams>(DEFAULT_PARAMS);
     const [profileName, setProfileName] = useState("");
     const [profileDescription, setProfileDescription] = useState("");
 
@@ -357,7 +357,7 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
         }
     }, [open, initialParams, initialName, initialDescription, isMultiTrack]);
 
-    const updateParam = <K extends keyof WhisperXParams>(key: K, value: WhisperXParams[K]) => {
+    const updateParam = <K extends keyof TranscriptionParams>(key: K, value: TranscriptionParams[K]) => {
         setParams(prev => {
             const newParams = { ...prev, [key]: value };
             if (key === 'model_family') {
@@ -579,8 +579,8 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
 // ============================================================================
 
 interface ConfigProps {
-    params: WhisperXParams;
-    updateParam: <K extends keyof WhisperXParams>(key: K, value: WhisperXParams[K]) => void;
+    params: TranscriptionParams;
+    updateParam: <K extends keyof TranscriptionParams>(key: K, value: TranscriptionParams[K]) => void;
     isMultiTrack?: boolean;
 }
 

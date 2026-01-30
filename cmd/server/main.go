@@ -223,20 +223,20 @@ func main() {
 
 // registerAdapters registers all transcription and diarization adapters with config-based paths
 func registerAdapters(cfg *config.Config) {
-	logger.Info("Registering adapters with environment path", "model_env", cfg.WhisperXEnv)
+	logger.Info("Registering adapters with environment path", "model_env", cfg.ModelEnv)
 
 	// Shared environment path for NVIDIA diarization models (NeMo-based)
-	nvidiaEnvPath := filepath.Join(cfg.WhisperXEnv, "parakeet")
+	nvidiaEnvPath := filepath.Join(cfg.ModelEnv, "parakeet")
 
 	// Dedicated environment path for PyAnnote (to avoid dependency conflicts)
-	pyannoteEnvPath := filepath.Join(cfg.WhisperXEnv, "pyannote")
+	pyannoteEnvPath := filepath.Join(cfg.ModelEnv, "pyannote")
 
 	// Dedicated environment path for Voxtral (Mistral AI model)
-	voxtralEnvPath := filepath.Join(cfg.WhisperXEnv, "voxtral")
+	voxtralEnvPath := filepath.Join(cfg.ModelEnv, "voxtral")
 
 	// Register transcription adapters
 	registry.RegisterTranscriptionAdapter("whisper",
-		adapters.NewWhisperAdapter(cfg.WhisperXEnv))
+		adapters.NewWhisperAdapter(cfg.ModelEnv))
 	registry.RegisterTranscriptionAdapter("parakeet",
 		adapters.NewParakeetAdapter(nvidiaEnvPath))
 	registry.RegisterTranscriptionAdapter("canary",

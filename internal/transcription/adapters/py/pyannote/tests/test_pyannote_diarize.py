@@ -8,7 +8,7 @@ SCRIPT_DIR = Path(__file__).parent.parent
 SCRIPT_PATH = SCRIPT_DIR / "pyannote_diarize.py"
 
 # TODO: Add proper diarization testing once a dummy HF token or mock pipeline is available.
-# uv run --project data/whisperx-env/pyannote/ python internal/transcription/adapters/py/pyannote/pyannote_diarize.py --output=/tmp/pyan.json --hf-token $HF_TOKEN tests/data/AMI-Corpus-IB4002.Mix-Headset-clip.wav
+# uv run --project data/model-env/pyannote/ python internal/transcription/adapters/py/pyannote/pyannote_diarize.py --output=/tmp/pyan.json --hf-token $HF_TOKEN tests/data/AMI-Corpus-IB4002.Mix-Headset-clip.wav
 def test_pyannote_diarize_exists():
     """Verify pyannote_diarize.py exists."""
     assert SCRIPT_PATH.exists(), "pyannote_diarize.py should exist"
@@ -20,7 +20,7 @@ def test_pyannote_diarize_help():
     # Locate project root (Scriberr directory)
     # This file is in internal/transcription/adapters/py/pyannote/tests/
     project_root = Path(__file__).resolve().parents[6]
-    env_path = project_root / "data/whisperx-env/pyannote"
+    env_path = project_root / "data/model-env/pyannote"
 
     assert env_path.exists(), f"Environment not found at: {env_path}"
 

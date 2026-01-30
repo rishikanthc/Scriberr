@@ -101,9 +101,9 @@ func NewHandler(
 
 // SubmitJobRequest represents the submit job request
 type SubmitJobRequest struct {
-	Title       *string               `json:"title,omitempty"`
-	Diarization bool                  `json:"diarization"`
-	Parameters  models.WhisperXParams `json:"parameters"`
+	Title       *string                    `json:"title,omitempty"`
+	Diarization bool                       `json:"diarization"`
+	Parameters  models.TranscriptionParams `json:"parameters"`
 }
 
 // LoginRequest represents the login request
@@ -730,7 +730,7 @@ func (h *Handler) SubmitJob(c *gin.Context) {
 	} else {
 		diarize = getFormBoolWithDefault(c, "diarize", false)
 	}
-	params := models.WhisperXParams{
+	params := models.TranscriptionParams{
 		Model:       getFormValueWithDefault(c, "model", "onnx-community/whisper-small"),
 		BatchSize:   getFormIntWithDefault(c, "batch_size", 16),
 		ComputeType: getFormValueWithDefault(c, "compute_type", "int8"),
@@ -973,7 +973,7 @@ func (h *Handler) GetTranscriptionJob(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param id path string true "Job ID"
-// @Param parameters body models.WhisperXParams true "Transcription parameters"
+// @Param parameters body models.TranscriptionParams true "Transcription parameters"
 // @Success 200 {object} models.TranscriptionJob
 // @Failure 400 {object} map[string]string
 // @Failure 404 {object} map[string]string
@@ -1052,9 +1052,9 @@ func (h *Handler) getJobForTranscription(c *gin.Context, jobID string) (*models.
 	return job, nil
 }
 
-func (h *Handler) getValidatedTranscriptionParams(c *gin.Context, job *models.TranscriptionJob, jobID string) (*models.WhisperXParams, error) {
+func (h *Handler) getValidatedTranscriptionParams(c *gin.Context, job *models.TranscriptionJob, jobID string) (*models.TranscriptionParams, error) {
 	// Set defaults
-	requestParams := models.WhisperXParams{
+	requestParams := models.TranscriptionParams{
 		ModelFamily:                    "whisper", // Default to whisper for backward compatibility
 		Model:                          "onnx-community/whisper-small",
 		ModelCacheOnly:                 false,
@@ -2413,8 +2413,8 @@ func (h *Handler) SetDefaultProfile(c *gin.Context) {
 
 // QuickTranscriptionRequest represents the quick transcription request
 type QuickTranscriptionRequest struct {
-	Parameters  *models.WhisperXParams `json:"parameters,omitempty"`
-	ProfileName *string                `json:"profile_name,omitempty"`
+	Parameters  *models.TranscriptionParams `json:"parameters,omitempty"`
+	ProfileName *string                     `json:"profile_name,omitempty"`
 }
 
 // @Summary Submit quick transcription job
@@ -2440,7 +2440,7 @@ func (h *Handler) SubmitQuickTranscription(c *gin.Context) {
 	}
 	defer file.Close()
 
-	var params models.WhisperXParams
+	var params models.TranscriptionParams
 
 	// Check if profile_name was provided
 	if profileName := c.PostForm("profile_name"); profileName != "" {
@@ -2464,7 +2464,7 @@ func (h *Handler) SubmitQuickTranscription(c *gin.Context) {
 		}
 	} else {
 		// Use default parameters with all required fields
-		params = models.WhisperXParams{
+		params = models.TranscriptionParams{
 			// Model parameters
 			Model:          "small",
 			ModelCacheOnly: false,

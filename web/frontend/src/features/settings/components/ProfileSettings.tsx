@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { ProfilesTable } from "./ProfilesTable";
-import { TranscriptionConfigDialog, type WhisperXParams } from "@/components/TranscriptionConfigDialog";
+import { TranscriptionConfigDialog, type TranscriptionParams } from "@/components/TranscriptionConfigDialog";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Settings } from "lucide-react";
@@ -13,7 +13,7 @@ interface TranscriptionProfile {
 	name: string;
 	description?: string;
 	is_default: boolean;
-	parameters: WhisperXParams;
+	parameters: TranscriptionParams;
 	created_at: string;
 	updated_at: string;
 }
@@ -167,7 +167,7 @@ export function ProfileSettings() {
 		setProfileDialogOpen(true);
 	}, []);
 
-	const handleProfileSaved = useCallback(async (payload: WhisperXParams & { profileName?: string; profileDescription?: string }) => {
+	const handleProfileSaved = useCallback(async (payload: TranscriptionParams & { profileName?: string; profileDescription?: string }) => {
 		try {
 			const name = (payload.profileName || "").trim();
 			const description = (payload.profileDescription || "").trim();
@@ -181,7 +181,7 @@ export function ProfileSettings() {
 			const body = {
 				name,
 				description: description || undefined,
-				parameters: paramRest as WhisperXParams,
+				parameters: paramRest as TranscriptionParams,
 			};
 
 			let res: Response;

@@ -11,13 +11,13 @@ If you are upgrading from v1.1.0, please follow these steps to ensure a smooth t
 You will need to update your Docker volume configuration to split your data:
 
 *   **Application Data:** Bind your existing data folder (containing `scriberr.db`, `jwt_secret`, `transcripts/`, and `uploads/`) to `/app/data`.
-*   **Model Environment:** Create a **new, empty folder** and bind it to `/app/whisperx-env`.
+*   **Model Environment:** Create a **new, empty folder** and bind it to `/app/model-env`.
 
 ### 2. Clean Up Old Environments
 
-> **CRITICAL:** You must delete any existing `whisperx-env` folder from your previous installation.
+> **CRITICAL:** You must delete any existing `model-env` folder from your previous installation.
 
-The Python environment and models need to be reinitialized for v1.2.0. If the application detects an old environment, it may attempt to use it, leading to compatibility errors. Starting with a fresh `/app/whisperx-env` volume ensures the correct dependencies are installed.
+The Python environment and models need to be reinitialized for v1.2.0. If the application detects an old environment, it may attempt to use it, leading to compatibility errors. Starting with a fresh `/app/model-env` volume ensures the correct dependencies are installed.
 
 ## Install with Homebrew (macOS & Linux)
 
@@ -42,6 +42,8 @@ Scriberr works out of the box. However, for Homebrew or manual installations, yo
 
 > **Docker Users:** You can ignore this section if you are using `docker-compose.yml`, as these values are already configured with sane defaults.
 
+> **Legacy compatibility:** `WHISPERX_ENV` is still accepted but deprecated. Prefer `MODEL_ENV`.
+
 ### Environment Variables
 
 | Variable | Description | Default |
@@ -53,7 +55,7 @@ Scriberr works out of the box. However, for Homebrew or manual installations, yo
 | `DATABASE_PATH` | Path to the SQLite database file. | `data/scriberr.db` |
 | `UPLOAD_DIR` | Directory for storing uploaded files. | `data/uploads` |
 | `TRANSCRIPTS_DIR` | Directory for storing transcripts. | `data/transcripts` |
-| `WHISPERX_ENV` | Path to the managed Python environment for models. | `data/whisperx-env` |
+| `MODEL_ENV` | Path to the managed Python environment for models. | `data/model-env` |
 | `OPENAI_API_KEY` | API Key for OpenAI (optional). | `""` |
 | `JWT_SECRET` | Secret for signing JWTs. Auto-generated if not set. | Auto-generated |
 
@@ -95,7 +97,7 @@ services:
       - "8080:8080"
     volumes:
       - scriberr_data:/app/data # volume for data
-      - env_data:/app/whisperx-env # volume for models and python envs
+      - env_data:/app/model-env # volume for models and python envs
     environment:
       - PUID=${PUID:-1000}
       - PGID=${PGID:-1000}
@@ -132,7 +134,7 @@ services:
       - "8080:8080"
     volumes:
       - scriberr_data:/app/data # volume for data
-      - env_data:/app/whisperx-env # volume for models and python envs
+      - env_data:/app/model-env # volume for models and python envs
     restart: unless-stopped
     deploy:
       resources:
@@ -187,7 +189,7 @@ scriberr  | === Setup Complete ===
 scriberr  | Switching to user appuser (UID=10001, GID=10001) and starting application...
 scriberr  | time=02:50:36 level="INFO " msg="Starting Scriberr" version=dev
 scriberr  | [+] Loading configuration
-scriberr  | time=02:50:36 level="INFO " msg="Registering adapters with environment path" model_env=/app/whisperx-env
+scriberr  | time=02:50:36 level="INFO " msg="Registering adapters with environment path" model_env=/app/model-env
 scriberr  | time=02:50:36 level="INFO " msg="Adapter registration complete"
 scriberr  | [+] Connecting to database
 scriberr  | [+] Setting up authentication
@@ -199,17 +201,17 @@ scriberr  | [+] Initializing transcription service
 scriberr  | [+] Preparing Python environment
 scriberr  | time=02:50:36 level="INFO " msg="Initializing unified transcription service"
 scriberr  | time=02:50:36 level="INFO " msg="Initializing registered models in parallel..."
-scriberr  | time=02:50:36 level="INFO " msg="Preparing NVIDIA Sortformer environment" env_path=/app/whisperx-env/parakeet
+scriberr  | time=02:50:36 level="INFO " msg="Preparing NVIDIA Sortformer environment" env_path=/app/model-env/parakeet
 scriberr  | time=02:50:36 level="INFO " msg="transcription model initialized" model_id=openai_whisper
-scriberr  | time=02:50:36 level="INFO " msg="Preparing NVIDIA Canary environment" env_path=/app/whisperx-env/parakeet
-scriberr  | time=02:50:36 level="INFO " msg="Preparing PyAnnote environment" env_path=/app/whisperx-env/pyannote
-scriberr  | time=02:50:36 level="INFO " msg="Preparing NVIDIA Parakeet environment" env_path=/app/whisperx-env/parakeet
-scriberr  | time=02:50:36 level="INFO " msg="Preparing Whisper environment" env_path=/app/whisperx-env
+scriberr  | time=02:50:36 level="INFO " msg="Preparing NVIDIA Canary environment" env_path=/app/model-env/parakeet
+scriberr  | time=02:50:36 level="INFO " msg="Preparing PyAnnote environment" env_path=/app/model-env/pyannote
+scriberr  | time=02:50:36 level="INFO " msg="Preparing NVIDIA Parakeet environment" env_path=/app/model-env/parakeet
+scriberr  | time=02:50:36 level="INFO " msg="Preparing Whisper environment" env_path=/app/model-env
 scriberr  | time=02:50:36 level="INFO " msg="Installing PyAnnote dependencies"
 scriberr  | time=02:50:36 level="INFO " msg="Parakeet environment not ready, setting up"
 scriberr  | time=02:50:36 level="INFO " msg="Installing Canary dependencies"
 scriberr  | time=02:50:36 level="INFO " msg="Installing Parakeet dependencies"
-scriberr  | time=02:50:36 level="INFO " msg="Downloading Sortformer model" path=/app/whisperx-env/parakeet/diar_streaming_sortformer_4spk-v2.nemo
+scriberr  | time=02:50:36 level="INFO " msg="Downloading Sortformer model" path=/app/model-env/parakeet/diar_streaming_sortformer_4spk-v2.nemo
 Downloading diar_streaming_sortformer_4spk-v2.nemo: 100% (449.5 MB / 449.5 MB)
 scriberr  | time=02:50:53 level="INFO " msg="Successfully downloaded Sortformer model" size=471367680
 scriberr  | time=02:50:53 level="INFO " msg="Sortformer environment prepared successfully"
@@ -218,8 +220,8 @@ scriberr  | time=02:53:11 level="INFO " msg="Whisper environment prepared succes
 scriberr  | time=02:53:11 level="INFO " msg="transcription model initialized" model_id=whisper
 scriberr  | time=02:53:14 level="INFO " msg="PyAnnote environment prepared successfully"
 scriberr  | time=02:53:14 level="INFO " msg="diarization model initialized" model_id=pyannote
-scriberr  | time=02:53:28 level="INFO " msg="Downloading Canary model" path=/app/whisperx-env/parakeet/canary-1b-v2.nemo
-scriberr  | time=02:53:28 level="INFO " msg="Downloading Parakeet model" path=/app/whisperx-env/parakeet/parakeet-tdt-0.6b-v3.nemo
+scriberr  | time=02:53:28 level="INFO " msg="Downloading Canary model" path=/app/model-env/parakeet/canary-1b-v2.nemo
+scriberr  | time=02:53:28 level="INFO " msg="Downloading Parakeet model" path=/app/model-env/parakeet/parakeet-tdt-0.6b-v3.nemo
 Downloading parakeet-tdt-0.6b-v3.nemo: 100% (2.3 GB / 2.3 GB)
 scriberr  | time=02:54:37 level="INFO " msg="Successfully downloaded Parakeet model" size=2509332480
 scriberr  | time=02:54:37 level="INFO " msg="ASR engine ready" socket=/tmp/scriberr-asr.sock

@@ -123,13 +123,13 @@ If you are upgrading from v1.1.0, please follow these steps to ensure a smooth t
 You will need to update your Docker volume configuration to split your data:
 
 *   **Application Data:** Bind your existing data folder (containing `scriberr.db`, `jwt_secret`, `transcripts/`, and `uploads/`) to `/app/data`.
-*   **Model Environment:** Create a **new, empty folder** and bind it to `/app/whisperx-env`.
+*   **Model Environment:** Create a **new, empty folder** and bind it to `/app/model-env`.
 
 #### 2. Clean Up Old Environments
 
-> **CRITICAL:** You must delete any existing `whisperx-env` folder from your previous installation.
+> **CRITICAL:** You must delete any existing `model-env` folder from your previous installation.
 
-The Python environment and models need to be reinitialized for v1.2.0. If the application detects an old environment, it may attempt to use it, leading to compatibility errors. Starting with a fresh `/app/whisperx-env` volume ensures the correct dependencies are installed.
+The Python environment and models need to be reinitialized for v1.2.0. If the application detects an old environment, it may attempt to use it, leading to compatibility errors. Starting with a fresh `/app/model-env` volume ensures the correct dependencies are installed.
 
 ### Install with Homebrew (macOS & Linux)
 
@@ -165,9 +165,11 @@ Scriberr works out of the box. However, for Homebrew or manual installations, yo
 | `DATABASE_PATH` | Path to the SQLite database file. | `data/scriberr.db` |
 | `UPLOAD_DIR` | Directory for storing uploaded files. | `data/uploads` |
 | `TRANSCRIPTS_DIR` | Directory for storing transcripts. | `data/transcripts` |
-| `WHISPERX_ENV` | Path to the managed Python environment for models. | `data/whisperx-env` |
+| `MODEL_ENV` | Path to the managed Python environment for models. | `data/model-env` |
 | `OPENAI_API_KEY` | API Key for OpenAI (optional). | `""` |
 | `JWT_SECRET` | Secret for signing JWTs. Auto-generated if not set. | Auto-generated |
+
+> **Legacy compatibility:** `WHISPERX_ENV` is still accepted but deprecated. Prefer `MODEL_ENV`.
 
 **Example `.env` file:**
 
@@ -208,7 +210,7 @@ services:
       - "8080:8080"
     volumes:
       - scriberr_data:/app/data # volume for data
-      - env_data:/app/whisperx-env # volume for models and python envs
+      - env_data:/app/model-env # volume for models and python envs
     environment:
       - PUID=${PUID:-1000}
       - PGID=${PGID:-1000}
@@ -245,7 +247,7 @@ services:
       - "8080:8080"
     volumes:
       - scriberr_data:/app/data # volume for data
-      - env_data:/app/whisperx-env # volume for models and python envs
+      - env_data:/app/model-env # volume for models and python envs
     restart: unless-stopped
     deploy:
       resources:
