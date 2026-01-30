@@ -1,4 +1,4 @@
-.PHONY: help docs docs-serve docs-clean website website-dev website-build dev asr-engine-dev
+.PHONY: help docs docs-serve docs-clean website website-dev website-build dev asr-engine-dev asr-engine-setup
 
 help: ## Show this help message
 	@echo 'Usage: make [target]'
@@ -76,6 +76,10 @@ asr-engine-dev: ## Start ASR engine daemon for local development
 	fi; \
 	echo "🔌 ASR engine socket: $$ASR_ENGINE_SOCKET"; \
 	cd asr-engines/scriberr-asr-onnx && uv run asr-engine-server --socket $$ASR_ENGINE_SOCKET
+
+asr-engine-setup: ## Install uv and sync ASR engine dependencies
+	@echo "🧠 Setting up ASR engine dev environment..."
+	@bash scripts/dev_setup_asr_engine.sh
 
 docs: ## Generate API documentation from Go code annotations
 	@echo "Generating API documentation..."

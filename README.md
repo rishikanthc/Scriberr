@@ -324,6 +324,7 @@ Notes:
 - The ASR engine uses a Unix socket at `/tmp/scriberr-asr.sock` by default.
 - Set `ASR_ENGINE_SKIP_SYNC=1` to skip `uv sync` on every `make dev`.
 - You can run just the engine with `make asr-engine-dev`.
+- One-time setup helper: `make asr-engine-setup`.
 
 ### Build (local)
 
