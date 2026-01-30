@@ -312,6 +312,27 @@ The application needs to:
 
 You will know the application is ready when you see the line: `msg="Scriberr is ready" url=http://0.0.0.0:8080`.
 
+### Development (local)
+
+Run the full dev stack (backend + frontend + ASR engine):
+
+```bash
+make dev
+```
+
+Notes:
+- The ASR engine uses a Unix socket at `/tmp/scriberr-asr.sock` by default.
+- Set `ASR_ENGINE_SKIP_SYNC=1` to skip `uv sync` on every `make dev`.
+- You can run just the engine with `make asr-engine-dev`.
+
+### Build (local)
+
+Build the Scriberr binary with embedded frontend:
+
+```bash
+make build
+```
+
 ### Troubleshooting
 
 #### 1. SQLite OOM Error (out of memory)
@@ -359,4 +380,3 @@ This project was developed using AI agents as pair programmer. It was NOT vibe c
 ## Donating
 
 <a href='https://ko-fi.com/H2H41KQZA3' target='_blank'><img height='36' style='border:0px;height:36px;' src='https://storage.ko-fi.com/cdn/kofi6.png?v=6' border='0' alt='Buy Me a Coffee at ko-fi.com' /></a>
-

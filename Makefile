@@ -1,4 +1,4 @@
-.PHONY: help docs docs-serve docs-clean website website-dev website-build dev
+.PHONY: help docs docs-serve docs-clean website website-dev website-build dev asr-engine-dev
 
 help: ## Show this help message
 	@echo 'Usage: make [target]'
@@ -38,18 +38,44 @@ dev: ## Start development environment with Air (backend) and Vite (frontend)
 	\
 	trap 'echo ""; echo "🛑 Stopping development servers..."; kill 0; exit 0' INT TERM; \
 	\
+	echo "🧠 Starting ASR engine..."; \
+	ASR_ENGINE_SOCKET=$${ASR_ENGINE_SOCKET:-/tmp/scriberr-asr.sock}; \
+	if command -v uv >/dev/null 2>&1; then \
+		if [ -z "$${ASR_ENGINE_SKIP_SYNC}" ]; then \
+			echo "📦 Syncing ASR engine deps (set ASR_ENGINE_SKIP_SYNC=1 to skip)..."; \
+			( cd asr-engines/scriberr-asr-onnx && uv sync ) || true; \
+		fi; \
+		( cd asr-engines/scriberr-asr-onnx && uv run asr-engine-server --socket $$ASR_ENGINE_SOCKET ) & \
+	else \
+		echo "⚠️  'uv' not found. ASR engine will not start. Install uv or run make asr-engine-dev separately."; \
+	fi; \
+	\
 	if [ "$$USE_GO_RUN" = true ]; then \
 		echo "🔧 Starting Go backend (standard run)..."; \
-		go run cmd/server/main.go & \
+		ASR_ENGINE_SOCKET=$$ASR_ENGINE_SOCKET go run cmd/server/main.go & \
 	else \
 		echo "🔥 Starting Go backend (with Air live reload)..."; \
-		air & \
+		ASR_ENGINE_SOCKET=$$ASR_ENGINE_SOCKET air & \
 	fi; \
 	\
 	echo "⚛️  Starting React frontend (Vite)..."; \
 	cd web/frontend && npm run dev & \
 	\
 	wait
+
+asr-engine-dev: ## Start ASR engine daemon for local development
+	@echo "🧠 Starting ASR engine (onnx-asr)..."
+	@if ! command -v uv >/dev/null 2>&1; then \
+		echo "⚠️  'uv' not found. Install uv to run the ASR engine locally."; \
+		exit 1; \
+	fi; \
+	ASR_ENGINE_SOCKET=$${ASR_ENGINE_SOCKET:-/tmp/scriberr-asr.sock}; \
+	if [ -z "$${ASR_ENGINE_SKIP_SYNC}" ]; then \
+		echo "📦 Syncing ASR engine deps (set ASR_ENGINE_SKIP_SYNC=1 to skip)..."; \
+		cd asr-engines/scriberr-asr-onnx && uv sync; \
+	fi; \
+	echo "🔌 ASR engine socket: $$ASR_ENGINE_SOCKET"; \
+	cd asr-engines/scriberr-asr-onnx && uv run asr-engine-server --socket $$ASR_ENGINE_SOCKET
 
 docs: ## Generate API documentation from Go code annotations
 	@echo "Generating API documentation..."
