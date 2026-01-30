@@ -225,11 +225,8 @@ func main() {
 func registerAdapters(cfg *config.Config) {
 	logger.Info("Registering adapters with environment path", "model_env", cfg.ModelEnv)
 
-	// Shared environment path for NVIDIA diarization models (NeMo-based)
+	// Shared environment path for NVIDIA ASR models (NeMo-based)
 	nvidiaEnvPath := filepath.Join(cfg.ModelEnv, "parakeet")
-
-	// Dedicated environment path for PyAnnote (to avoid dependency conflicts)
-	pyannoteEnvPath := filepath.Join(cfg.ModelEnv, "pyannote")
 
 	// Dedicated environment path for Voxtral (Mistral AI model)
 	voxtralEnvPath := filepath.Join(cfg.ModelEnv, "voxtral")
@@ -248,9 +245,9 @@ func registerAdapters(cfg *config.Config) {
 
 	// Register diarization adapters
 	registry.RegisterDiarizationAdapter("pyannote",
-		adapters.NewPyAnnoteAdapter(pyannoteEnvPath)) // Dedicated environment
+		adapters.NewPyAnnoteAdapter(""))
 	registry.RegisterDiarizationAdapter("sortformer",
-		adapters.NewSortformerAdapter(nvidiaEnvPath)) // Shares with Parakeet
+		adapters.NewSortformerAdapter(""))
 
 	logger.Info("Adapter registration complete")
 }

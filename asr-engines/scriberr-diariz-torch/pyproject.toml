@@ -1,0 +1,35 @@
+[project]
+name = "diar-engine"
+version = "0.1.0"
+description = "Diarization engine daemon with gRPC for PyAnnote and NVIDIA Sortformer"
+requires-python = ">=3.10"
+readme = "README.md"
+dependencies = [
+  "grpcio>=1.62",
+  "protobuf>=4.25",
+  "huggingface_hub>=0.20",
+  "numpy>=1.26",
+  "pyannote.audio>=3.1",
+  "soundfile>=0.13.1",
+  "torch>=2.1",
+  "nemo_toolkit[asr]>=1.23.0",
+  "pytest>=7.4",
+]
+
+[project.scripts]
+diar-engine-server = "diar_engine.server:main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+packages = ["diar_engine", "diar_engine.proto"]
+
+[tool.uv]
+index-strategy = "unsafe-best-match"

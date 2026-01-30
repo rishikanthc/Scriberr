@@ -16,6 +16,20 @@ func buildEngineParams(params map[string]interface{}) map[string]string {
 		engineParams["include_words"] = "true"
 	}
 
+	if diarize, ok := params["diarize"].(bool); ok && diarize {
+		if _, has := params["vad_enabled"]; !has {
+			engineParams["vad_enabled"] = "false"
+		}
+	}
+
+	if val, ok := params["vad_enabled"].(bool); ok {
+		if val {
+			engineParams["vad_enabled"] = "true"
+		} else {
+			engineParams["vad_enabled"] = "false"
+		}
+	}
+
 	if val, ok := params["vad_preset"].(string); ok && val != "" {
 		engineParams["vad_preset"] = val
 	}

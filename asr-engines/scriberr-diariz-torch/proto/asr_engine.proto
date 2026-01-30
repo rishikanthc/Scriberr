@@ -1,0 +1,108 @@
+syntax = "proto3";
+
+package asrengine;
+option go_package = "scriberr/internal/asrengine/pb;pb";
+
+service AsrEngine {
+  rpc LoadModel(LoadModelRequest) returns (LoadModelResponse);
+  rpc UnloadModel(UnloadModelRequest) returns (UnloadModelResponse);
+  rpc StartJob(StartJobRequest) returns (StartJobResponse);
+  rpc StopJob(StopJobRequest) returns (StopJobResponse);
+  rpc GetJobStatus(GetJobStatusRequest) returns (JobStatus);
+  rpc StreamJobStatus(StreamJobStatusRequest) returns (stream JobStatus);
+  rpc ListLoadedModels(ListLoadedModelsRequest) returns (ListLoadedModelsResponse);
+  rpc GetEngineInfo(GetEngineInfoRequest) returns (GetEngineInfoResponse);
+}
+
+enum JobState {
+  JOB_STATE_UNSPECIFIED = 0;
+  JOB_STATE_QUEUED = 1;
+  JOB_STATE_RUNNING = 2;
+  JOB_STATE_COMPLETED = 3;
+  JOB_STATE_FAILED = 4;
+  JOB_STATE_CANCELLED = 5;
+}
+
+message ModelSpec {
+  string model_id = 1;
+  string model_name = 2;
+  string model_path = 3;
+  repeated string providers = 4;
+  int32 intra_op_threads = 5;
+  string vad_backend = 6;
+}
+
+message LoadModelRequest {
+  ModelSpec spec = 1;
+}
+
+message LoadModelResponse {
+  string model_id = 1;
+  bool ok = 2;
+  string message = 3;
+}
+
+message UnloadModelRequest {
+  string model_id = 1;
+}
+
+message UnloadModelResponse {
+  bool ok = 1;
+  string message = 2;
+}
+
+message StartJobRequest {
+  string job_id = 1;
+  string input_path = 2;
+  string output_dir = 3;
+  string model_id = 4;
+  map<string, string> params = 5;
+}
+
+message StartJobResponse {
+  string job_id = 1;
+  bool accepted = 2;
+  string message = 3;
+}
+
+message StopJobRequest {
+  string job_id = 1;
+}
+
+message StopJobResponse {
+  bool ok = 1;
+  string message = 2;
+}
+
+message GetJobStatusRequest {
+  string job_id = 1;
+}
+
+message StreamJobStatusRequest {
+  string job_id = 1;
+}
+
+message JobStatus {
+  string job_id = 1;
+  JobState state = 2;
+  string message = 3;
+  double progress = 4;
+  map<string, string> outputs = 5;
+  int64 started_unix_ms = 6;
+  int64 finished_unix_ms = 7;
+}
+
+message ListLoadedModelsRequest {}
+
+message ListLoadedModelsResponse {
+  repeated ModelSpec models = 1;
+}
+
+message GetEngineInfoRequest {}
+
+message GetEngineInfoResponse {
+  bool busy = 1;
+  string active_job_id = 2;
+  string loaded_model_id = 3;
+  int64 rss_bytes = 4;
+}

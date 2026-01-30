@@ -7,9 +7,15 @@ def test_get_vad_params_defaults():
     assert params["min_silence_duration_ms"] == 600
 
 
+def test_job_params_defaults():
+    job = JobParams.from_kv({})
+    assert job.vad_enabled is True
+
+
 def test_job_params_override():
     job = JobParams.from_kv(
         {
+            "vad_enabled": "false",
             "vad_preset": "aggressive",
             "vad_speech_pad_ms": "999",
             "include_words": "false",
@@ -18,6 +24,7 @@ def test_job_params_override():
             "sample_rate": "8000",
         }
     )
+    assert job.vad_enabled is False
     vad = job.resolved_vad_params()
     assert vad["speech_pad_ms"] == 999
     assert job.include_words is False

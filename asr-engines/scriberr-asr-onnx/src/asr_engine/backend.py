@@ -13,7 +13,13 @@ from .audio_io import load_audio
 from .model_manager import ModelManager
 from .params import JobParams, ensure_output_dir
 from .postprocess import Segment, merge_short_segments
-from .timestamps import write_segments_jsonl, write_transcript, write_words_jsonl
+from .timestamps import (
+    word_timestamps_from_segment,
+    word_timestamps_from_tokens,
+    write_segments_jsonl,
+    write_transcript,
+    write_words_jsonl_from_entries,
+)
 
 
 class CancelledError(RuntimeError):
@@ -65,10 +71,18 @@ class AsrBackend:
         audio = audio.astype(np.float32)
         audio_seconds = len(audio) / float(sr) if sr else 0.0
 
-        vad_params = params.resolved_vad_params()
-        asr = loaded.asr_base.with_vad(loaded.vad, **vad_params)
+        if params.vad_enabled:
+            vad_params = params.resolved_vad_params()
+            asr = loaded.asr_base.with_vad(loaded.vad, **vad_params)
+        else:
+            asr = loaded.asr_base
+
+        if params.include_words and hasattr(asr, "with_timestamps"):
+            asr = asr.with_timestamps()
 
         segments: list[Segment] = []
+        word_entries: list[dict[str, float | str | int]] = []
+        segment_index = 0
         recognize_kwargs: dict[str, Any] = {"sample_rate": sr}
         if params.language:
             recognize_kwargs["language"] = params.language
@@ -94,6 +108,24 @@ class AsrBackend:
             start = getattr(seg, "start", None)
             end = getattr(seg, "end", None)
             segments.append(Segment(text=text, start=start, end=end))
+            segment_index += 1
+
+            if params.include_words:
+                tokens = getattr(seg, "tokens", None)
+                timestamps = getattr(seg, "timestamps", None)
+                words = word_timestamps_from_tokens(tokens, timestamps, start, end)
+                if not words:
+                    words = word_timestamps_from_segment(text, start, end)
+                for wi, wrec in enumerate(words, start=1):
+                    rec = {
+                        "global_word_index": len(word_entries) + 1,
+                        "segment_index": segment_index,
+                        "word_index_in_segment": wi,
+                        "word": wrec["word"],
+                        "start": wrec["start"],
+                        "end": wrec["end"],
+                    }
+                    word_entries.append(rec)
             if progress_cb and end is not None and audio_seconds > 0:
                 progress = min(1.0, max(0.0, float(end) / audio_seconds))
                 progress_cb(progress, "RUNNING")
@@ -118,7 +150,7 @@ class AsrBackend:
             segments_path = None
 
         if params.include_words:
-            write_words_jsonl(words_path, segments)
+            write_words_jsonl_from_entries(words_path, word_entries)
         else:
             words_path = None
 
@@ -134,7 +166,8 @@ class AsrBackend:
                 "language": params.language,
                 "target_language": params.target_language,
                 "pnc": params.pnc,
-                "vad_preset": params.vad_preset,
+            "vad_enabled": params.vad_enabled,
+            "vad_preset": params.vad_preset,
                 "vad_speech_pad_ms": params.vad_speech_pad_ms,
                 "vad_min_silence_ms": params.vad_min_silence_ms,
                 "vad_min_speech_ms": params.vad_min_speech_ms,

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -726,6 +727,7 @@ func (u *UnifiedTranscriptionService) convertToPyannoteParams(params models.Tran
 		"output_format":      OutputFormatJSON,
 		"auto_convert_audio": true,
 		"device":             "auto",
+		"exclusive":          true,
 	}
 
 	if params.MinSpeakers != nil {
@@ -811,30 +813,42 @@ func (u *UnifiedTranscriptionService) mergeDiarizationWithTranscription(transcri
 		"transcript_segments", len(transcript.Segments),
 		"diarization_segments", len(diarization.Segments))
 
+	alignedSegments := diarization.Segments
+	if len(transcript.WordSegments) > 0 {
+		if offset := u.estimateDiarizationOffset(transcript.WordSegments, diarization.Segments); offset != 0 {
+			logger.Info("Applying diarization time offset", "offset_s", offset)
+			alignedSegments = u.shiftDiarizationSegments(diarization.Segments, offset)
+		}
+	}
+
 	// Create a copy of the transcript to avoid modifying the original
 	mergedTranscript := *transcript
 	mergedTranscript.Segments = make([]interfaces.TranscriptSegment, len(transcript.Segments))
 	copy(mergedTranscript.Segments, transcript.Segments)
 
-	// Assign speakers to transcript segments based on timing overlap
-	for i := range mergedTranscript.Segments {
-		segment := &mergedTranscript.Segments[i]
-		bestSpeaker := u.findBestSpeakerForSegment(segment.Start, segment.End, diarization.Segments)
-		if bestSpeaker != "" {
-			segment.Speaker = &bestSpeaker
-		}
-	}
-
-	// Also assign speakers to words if available
+	// Assign speakers to words if available, then rebuild segments from words.
 	if len(transcript.WordSegments) > 0 {
 		mergedTranscript.WordSegments = make([]interfaces.TranscriptWord, len(transcript.WordSegments))
 		copy(mergedTranscript.WordSegments, transcript.WordSegments)
 
 		for i := range mergedTranscript.WordSegments {
 			word := &mergedTranscript.WordSegments[i]
-			bestSpeaker := u.findBestSpeakerForSegment(word.Start, word.End, diarization.Segments)
+			bestSpeaker := u.findBestSpeakerForSegment(word.Start, word.End, alignedSegments)
 			if bestSpeaker != "" {
 				word.Speaker = &bestSpeaker
+			}
+		}
+
+		if rebuilt := u.buildSpeakerSegmentsFromWords(mergedTranscript.WordSegments); len(rebuilt) > 0 {
+			mergedTranscript.Segments = rebuilt
+		}
+	} else {
+		// Assign speakers to transcript segments based on timing overlap
+		for i := range mergedTranscript.Segments {
+			segment := &mergedTranscript.Segments[i]
+			bestSpeaker := u.findBestSpeakerForSegment(segment.Start, segment.End, alignedSegments)
+			if bestSpeaker != "" {
+				segment.Speaker = &bestSpeaker
 			}
 		}
 	}
@@ -842,10 +856,71 @@ func (u *UnifiedTranscriptionService) mergeDiarizationWithTranscription(transcri
 	return &mergedTranscript
 }
 
+func (u *UnifiedTranscriptionService) buildSpeakerSegmentsFromWords(words []interfaces.TranscriptWord) []interfaces.TranscriptSegment {
+	if len(words) == 0 {
+		return nil
+	}
+
+	const maxGapSeconds = 1.0
+
+	var segments []interfaces.TranscriptSegment
+	var currentSpeaker *string
+	var currentWords []interfaces.TranscriptWord
+
+	flush := func() {
+		if len(currentWords) == 0 {
+			return
+		}
+		start := currentWords[0].Start
+		end := currentWords[len(currentWords)-1].End
+		text := joinWords(currentWords)
+		segments = append(segments, interfaces.TranscriptSegment{
+			Start:   start,
+			End:     end,
+			Text:    text,
+			Speaker: currentSpeaker,
+		})
+		currentWords = nil
+	}
+
+	for i, word := range words {
+		if i == 0 {
+			currentSpeaker = word.Speaker
+			currentWords = append(currentWords, word)
+			continue
+		}
+
+		prev := words[i-1]
+		gap := word.Start - prev.End
+		speakerChanged := currentSpeaker == nil || word.Speaker == nil || *word.Speaker != *currentSpeaker
+		if speakerChanged || gap > maxGapSeconds {
+			flush()
+			currentSpeaker = word.Speaker
+		}
+		currentWords = append(currentWords, word)
+	}
+
+	flush()
+	return segments
+}
+
+func joinWords(words []interfaces.TranscriptWord) string {
+	var b strings.Builder
+	for i, word := range words {
+		if i > 0 {
+			b.WriteString(" ")
+		}
+		b.WriteString(strings.TrimSpace(word.Word))
+	}
+	return b.String()
+}
+
 // findBestSpeakerForSegment finds the speaker with maximum overlap for a given time segment
 func (u *UnifiedTranscriptionService) findBestSpeakerForSegment(start, end float64, diarizationSegments []interfaces.DiarizationSegment) string {
 	maxOverlap := 0.0
 	bestSpeaker := ""
+	bestGap := math.MaxFloat64
+	const gapTolerance = 0.2
 
 	for _, diarSeg := range diarizationSegments {
 		// Calculate overlap
@@ -857,9 +932,99 @@ func (u *UnifiedTranscriptionService) findBestSpeakerForSegment(start, end float
 			maxOverlap = overlap
 			bestSpeaker = diarSeg.Speaker
 		}
+
+		if overlap == 0 {
+			gap := segmentGap(start, end, diarSeg.Start, diarSeg.End)
+			if gap < bestGap && gap <= gapTolerance {
+				bestGap = gap
+				bestSpeaker = diarSeg.Speaker
+			}
+		}
 	}
 
 	return bestSpeaker
+}
+
+func (u *UnifiedTranscriptionService) estimateDiarizationOffset(words []interfaces.TranscriptWord, diarization []interfaces.DiarizationSegment) float64 {
+	if len(words) == 0 || len(diarization) == 0 {
+		return 0
+	}
+
+	base := u.coverageForOffset(words, diarization, 0)
+	bestOffset := 0.0
+	bestCoverage := base
+
+	const startOffset = -2.0
+	const endOffset = 2.0
+	const step = 0.05
+
+	for offset := startOffset; offset <= endOffset+1e-6; offset += step {
+		coverage := u.coverageForOffset(words, diarization, offset)
+		if coverage > bestCoverage {
+			bestCoverage = coverage
+			bestOffset = offset
+		}
+	}
+
+	minGain := int(math.Max(2, float64(len(words))*0.05))
+	if bestCoverage-base < minGain {
+		return 0
+	}
+	return roundFloat(bestOffset, 3)
+}
+
+func (u *UnifiedTranscriptionService) coverageForOffset(words []interfaces.TranscriptWord, diarization []interfaces.DiarizationSegment, offset float64) int {
+	count := 0
+	for _, word := range words {
+		mid := (word.Start + word.End) / 2
+		if mid == 0 {
+			mid = word.Start
+		}
+		if hasOverlap(mid, diarization, offset) {
+			count++
+		}
+	}
+	return count
+}
+
+func hasOverlap(mid float64, diarization []interfaces.DiarizationSegment, offset float64) bool {
+	for _, seg := range diarization {
+		if mid >= seg.Start+offset && mid <= seg.End+offset {
+			return true
+		}
+	}
+	return false
+}
+
+func (u *UnifiedTranscriptionService) shiftDiarizationSegments(segments []interfaces.DiarizationSegment, offset float64) []interfaces.DiarizationSegment {
+	if offset == 0 {
+		return segments
+	}
+	shifted := make([]interfaces.DiarizationSegment, len(segments))
+	for i, seg := range segments {
+		shifted[i] = interfaces.DiarizationSegment{
+			Start:      seg.Start + offset,
+			End:        seg.End + offset,
+			Speaker:    seg.Speaker,
+			Confidence: seg.Confidence,
+		}
+	}
+	return shifted
+}
+
+func segmentGap(aStart, aEnd, bStart, bEnd float64) float64 {
+	if aEnd < bStart {
+		return bStart - aEnd
+	}
+	if bEnd < aStart {
+		return aStart - bEnd
+	}
+	return 0
+}
+
+func roundFloat(val float64, digits int) float64 {
+	pow := math.Pow(10, float64(digits))
+	return math.Round(val*pow) / pow
 }
 
 // saveTranscriptionResults saves the transcription results to the database

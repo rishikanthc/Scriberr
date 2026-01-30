@@ -318,7 +318,7 @@ You will know the application is ready when you see the line: `msg="Scriberr is 
 
 ### Development (local)
 
-Run the full dev stack (backend + frontend + ASR engine):
+Run the full dev stack (backend + frontend + ASR + diarization engines):
 
 ```bash
 make dev
@@ -326,10 +326,11 @@ make dev
 
 Notes:
 - The ASR engine uses a Unix socket at `/tmp/scriberr-asr.sock` by default.
-- Set `ASR_ENGINE_SKIP_SYNC=1` to skip `uv sync` on every `make dev`.
-- You can run just the engine with `make asr-engine-dev`.
-- One-time setup helper: `make asr-engine-setup`.
-- The backend uses `ASR_ENGINE_CMD` to start the daemon if needed (default: `uv run --project asr-engines/scriberr-asr-onnx asr-engine-server`).
+- The diarization engine uses a Unix socket at `/tmp/scriberr-diar.sock` by default.
+- Set `ASR_ENGINE_SKIP_SYNC=1` or `DIAR_ENGINE_SKIP_SYNC=1` to skip `uv sync` on every `make dev`.
+- You can run just the engines with `make asr-engine-dev` or `make diar-engine-dev`.
+- One-time setup helpers: `make asr-engine-setup` and `make diar-engine-setup`.
+- The backend uses `ASR_ENGINE_CMD` / `DIAR_ENGINE_CMD` to start daemons if needed (defaults shown in Makefile).
 
 ### Build (local)
 

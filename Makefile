@@ -1,4 +1,4 @@
-.PHONY: help docs docs-serve docs-clean website website-dev website-build dev asr-engine-dev asr-engine-setup
+.PHONY: help docs docs-serve docs-clean website website-dev website-build dev asr-engine-dev asr-engine-setup diar-engine-dev diar-engine-setup
 
 help: ## Show this help message
 	@echo 'Usage: make [target]'
@@ -53,13 +53,31 @@ dev: ## Start development environment with Air (backend) and Vite (frontend)
 		echo "⚠️  'uv' not found. ASR engine will not start. Install uv or run make asr-engine-dev separately."; \
 	fi; \
 	\
+	echo "🧠 Starting diarization engine..."; \
+	DIAR_ENGINE_SOCKET=$${DIAR_ENGINE_SOCKET:-/tmp/scriberr-diar.sock}; \
+	DIAR_ENGINE_CMD=$${DIAR_ENGINE_CMD:-"uv run --project asr-engines/scriberr-diariz-torch diar-engine-server"}; \
+	if command -v uv >/dev/null 2>&1; then \
+		if [ -z "$${DIAR_ENGINE_SKIP_SYNC}" ]; then \
+			echo "📦 Syncing diarization engine deps (set DIAR_ENGINE_SKIP_SYNC=1 to skip)..."; \
+			( cd asr-engines/scriberr-diariz-torch && uv sync ) || true; \
+		fi; \
+		( cd asr-engines/scriberr-diariz-torch && uv run diar-engine-server --socket $$DIAR_ENGINE_SOCKET ) & \
+		pids="$$pids $$!"; \
+	else \
+		echo "⚠️  'uv' not found. Diarization engine will not start. Install uv or run make diar-engine-dev separately."; \
+	fi; \
+	\
 	if [ "$$USE_GO_RUN" = true ]; then \
 		echo "🔧 Starting Go backend (standard run)..."; \
-		ASR_ENGINE_SOCKET=$$ASR_ENGINE_SOCKET ASR_ENGINE_CMD="$$ASR_ENGINE_CMD" go run cmd/server/main.go & \
+		ASR_ENGINE_SOCKET=$$ASR_ENGINE_SOCKET ASR_ENGINE_CMD="$$ASR_ENGINE_CMD" \
+		DIAR_ENGINE_SOCKET=$$DIAR_ENGINE_SOCKET DIAR_ENGINE_CMD="$$DIAR_ENGINE_CMD" \
+		go run cmd/server/main.go & \
 		pids="$$pids $$!"; \
 	else \
 		echo "🔥 Starting Go backend (with Air live reload)..."; \
-		ASR_ENGINE_SOCKET=$$ASR_ENGINE_SOCKET ASR_ENGINE_CMD="$$ASR_ENGINE_CMD" air & \
+		ASR_ENGINE_SOCKET=$$ASR_ENGINE_SOCKET ASR_ENGINE_CMD="$$ASR_ENGINE_CMD" \
+		DIAR_ENGINE_SOCKET=$$DIAR_ENGINE_SOCKET DIAR_ENGINE_CMD="$$DIAR_ENGINE_CMD" \
+		air & \
 		pids="$$pids $$!"; \
 	fi; \
 	\
@@ -86,6 +104,24 @@ asr-engine-dev: ## Start ASR engine daemon for local development
 asr-engine-setup: ## Install uv and sync ASR engine dependencies
 	@echo "🧠 Setting up ASR engine dev environment..."
 	@bash scripts/dev_setup_asr_engine.sh
+
+diar-engine-dev: ## Start diarization engine daemon for local development
+	@echo "🧠 Starting diarization engine..."
+	@if ! command -v uv >/dev/null 2>&1; then \
+		echo "⚠️  'uv' not found. Install uv to run the diarization engine locally."; \
+		exit 1; \
+	fi; \
+	DIAR_ENGINE_SOCKET=$${DIAR_ENGINE_SOCKET:-/tmp/scriberr-diar.sock}; \
+	if [ -z "$${DIAR_ENGINE_SKIP_SYNC}" ]; then \
+		echo "📦 Syncing diarization engine deps (set DIAR_ENGINE_SKIP_SYNC=1 to skip)..."; \
+		cd asr-engines/scriberr-diariz-torch && uv sync; \
+	fi; \
+	echo "🔌 Diarization engine socket: $$DIAR_ENGINE_SOCKET"; \
+	cd asr-engines/scriberr-diariz-torch && uv run diar-engine-server --socket $$DIAR_ENGINE_SOCKET
+
+diar-engine-setup: ## Install uv and sync diarization engine dependencies
+	@echo "🧠 Setting up diarization engine dev environment..."
+	@bash scripts/dev_setup_diar_engine.sh
 
 docs: ## Generate API documentation from Go code annotations
 	@echo "Generating API documentation..."

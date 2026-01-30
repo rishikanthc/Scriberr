@@ -65,6 +65,7 @@ def _parse_pnc(value: str | None) -> str | bool | None:
 
 @dataclass
 class JobParams:
+    vad_enabled: bool = True
     vad_preset: str = "balanced"
     vad_speech_pad_ms: int | None = None
     vad_min_silence_ms: int | None = None
@@ -85,6 +86,7 @@ class JobParams:
     @classmethod
     def from_kv(cls, params: dict[str, str]) -> "JobParams":
         return cls(
+            vad_enabled=_parse_bool(params.get("vad_enabled"), True),
             vad_preset=params.get("vad_preset", "balanced"),
             vad_speech_pad_ms=_parse_int(params.get("vad_speech_pad_ms"), None),
             vad_min_silence_ms=_parse_int(params.get("vad_min_silence_ms"), None),
