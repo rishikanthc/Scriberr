@@ -2116,7 +2116,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Get list of supported WhisperX models",
+                "description": "Get list of supported models",
                 "produces": [
                     "application/json"
                 ],
@@ -2261,7 +2261,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Submit an audio file for transcription with WhisperX",
+                "description": "Submit an audio file for transcription",
                 "consumes": [
                     "multipart/form-data"
                 ],
@@ -3239,7 +3239,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/models.WhisperXParams"
+                            "$ref": "#/definitions/models.TranscriptionParams"
                         }
                     }
                 ],
@@ -4647,10 +4647,10 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "parameters": {
-                    "description": "WhisperX parameters",
+                    "description": "Transcription parameters (legacy name)",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/models.WhisperXParams"
+                            "$ref": "#/definitions/models.TranscriptionParams"
                         }
                     ]
                 },
@@ -4678,7 +4678,7 @@ const docTemplate = `{
                     "description": "Parameters used for this execution (may differ from job parameters due to profiles)",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/models.WhisperXParams"
+                            "$ref": "#/definitions/models.TranscriptionParams"
                         }
                     ]
                 },
@@ -4741,33 +4741,7 @@ const docTemplate = `{
                 }
             }
         },
-        "models.TranscriptionProfile": {
-            "type": "object",
-            "properties": {
-                "created_at": {
-                    "type": "string"
-                },
-                "description": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "is_default": {
-                    "type": "boolean"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "parameters": {
-                    "$ref": "#/definitions/models.WhisperXParams"
-                },
-                "updated_at": {
-                    "type": "string"
-                }
-            }
-        },
-        "models.WhisperXParams": {
+        "models.TranscriptionParams": {
             "type": "object",
             "properties": {
                 "align_model": {
@@ -4817,6 +4791,9 @@ const docTemplate = `{
                 "device_index": {
                     "type": "integer"
                 },
+                "diarization_perf_preset": {
+                    "type": "string"
+                },
                 "diarize": {
                     "description": "Diarization settings",
                     "type": "boolean"
@@ -4824,6 +4801,12 @@ const docTemplate = `{
                 "diarize_model": {
                     "description": "Options: 'pyannote', 'nvidia_sortformer'",
                     "type": "string"
+                },
+                "embedding_batch_size": {
+                    "type": "integer"
+                },
+                "embedding_exclude_overlap": {
+                    "type": "boolean"
                 },
                 "fp16": {
                     "type": "boolean"
@@ -4861,10 +4844,6 @@ const docTemplate = `{
                     "description": "Output formatting",
                     "type": "integer"
                 },
-                "max_new_tokens": {
-                    "description": "Voxtral settings",
-                    "type": "integer"
-                },
                 "max_speakers": {
                     "type": "integer"
                 },
@@ -4898,6 +4877,9 @@ const docTemplate = `{
                 "patience": {
                     "type": "number"
                 },
+                "pnc": {
+                    "type": "boolean"
+                },
                 "print_progress": {
                     "type": "boolean"
                 },
@@ -4907,6 +4889,9 @@ const docTemplate = `{
                 "segment_resolution": {
                     "type": "string"
                 },
+                "segmentation_batch_size": {
+                    "type": "integer"
+                },
                 "speaker_embeddings": {
                     "type": "boolean"
                 },
@@ -4914,6 +4899,9 @@ const docTemplate = `{
                     "type": "boolean"
                 },
                 "suppress_tokens": {
+                    "type": "string"
+                },
+                "target_language": {
                     "type": "string"
                 },
                 "task": {
@@ -4930,9 +4918,24 @@ const docTemplate = `{
                 "threads": {
                     "type": "integer"
                 },
+                "torch_interop_threads": {
+                    "type": "integer"
+                },
+                "torch_threads": {
+                    "type": "integer"
+                },
+                "vad_max_speech_s": {
+                    "type": "integer"
+                },
                 "vad_method": {
                     "description": "VAD (Voice Activity Detection) settings",
                     "type": "string"
+                },
+                "vad_min_silence_ms": {
+                    "type": "integer"
+                },
+                "vad_min_speech_ms": {
+                    "type": "integer"
                 },
                 "vad_offset": {
                     "type": "number"
@@ -4940,8 +4943,40 @@ const docTemplate = `{
                 "vad_onset": {
                     "type": "number"
                 },
+                "vad_preset": {
+                    "type": "string"
+                },
+                "vad_speech_pad_ms": {
+                    "type": "integer"
+                },
                 "verbose": {
                     "type": "boolean"
+                }
+            }
+        },
+        "models.TranscriptionProfile": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "is_default": {
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "parameters": {
+                    "$ref": "#/definitions/models.TranscriptionParams"
+                },
+                "updated_at": {
+                    "type": "string"
                 }
             }
         },
@@ -4964,7 +4999,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "parameters": {
-                    "$ref": "#/definitions/models.WhisperXParams"
+                    "$ref": "#/definitions/models.TranscriptionParams"
                 },
                 "status": {
                     "$ref": "#/definitions/models.JobStatus"
@@ -4997,7 +5032,7 @@ var SwaggerInfo = &swag.Spec{
 	BasePath:         "/api/v1",
 	Schemes:          []string{},
 	Title:            "Scriberr API",
-	Description:      "Audio transcription service using WhisperX",
+	Description:      "Audio transcription service using local ASR engines",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
 	LeftDelim:        "{{",

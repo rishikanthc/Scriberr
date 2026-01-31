@@ -95,7 +95,7 @@
       "method": "POST",
       "path": "/api/v1/transcription/submit",
       "summary": "Submit a transcription job",
-      "description": "Submit an audio file for transcription with WhisperX",
+      "description": "Submit an audio file for transcription",
       "tag": "transcription"
     },
     {
@@ -263,7 +263,7 @@
       "method": "GET",
       "path": "/api/v1/transcription/models",
       "summary": "Get supported models",
-      "description": "Get list of supported WhisperX models",
+      "description": "Get list of supported models",
       "tag": "transcription"
     },
     {

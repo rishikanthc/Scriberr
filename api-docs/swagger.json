@@ -1,7 +1,7 @@
 {
     "swagger": "2.0",
     "info": {
-        "description": "Audio transcription service using WhisperX",
+        "description": "Audio transcription service using local ASR engines",
         "title": "Scriberr API",
         "termsOfService": "http://swagger.io/terms/",
         "contact": {
@@ -2110,7 +2110,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "Get list of supported WhisperX models",
+                "description": "Get list of supported models",
                 "produces": [
                     "application/json"
                 ],
@@ -2255,7 +2255,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "Submit an audio file for transcription with WhisperX",
+                "description": "Submit an audio file for transcription",
                 "consumes": [
                     "multipart/form-data"
                 ],
@@ -3233,7 +3233,7 @@
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/models.WhisperXParams"
+                            "$ref": "#/definitions/models.TranscriptionParams"
                         }
                     }
                 ],
@@ -4641,10 +4641,10 @@
                     "type": "string"
                 },
                 "parameters": {
-                    "description": "WhisperX parameters",
+                    "description": "Transcription parameters (legacy name)",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/models.WhisperXParams"
+                            "$ref": "#/definitions/models.TranscriptionParams"
                         }
                     ]
                 },
@@ -4672,7 +4672,7 @@
                     "description": "Parameters used for this execution (may differ from job parameters due to profiles)",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/models.WhisperXParams"
+                            "$ref": "#/definitions/models.TranscriptionParams"
                         }
                     ]
                 },
@@ -4735,33 +4735,7 @@
                 }
             }
         },
-        "models.TranscriptionProfile": {
-            "type": "object",
-            "properties": {
-                "created_at": {
-                    "type": "string"
-                },
-                "description": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "is_default": {
-                    "type": "boolean"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "parameters": {
-                    "$ref": "#/definitions/models.WhisperXParams"
-                },
-                "updated_at": {
-                    "type": "string"
-                }
-            }
-        },
-        "models.WhisperXParams": {
+        "models.TranscriptionParams": {
             "type": "object",
             "properties": {
                 "align_model": {
@@ -4811,6 +4785,9 @@
                 "device_index": {
                     "type": "integer"
                 },
+                "diarization_perf_preset": {
+                    "type": "string"
+                },
                 "diarize": {
                     "description": "Diarization settings",
                     "type": "boolean"
@@ -4818,6 +4795,12 @@
                 "diarize_model": {
                     "description": "Options: 'pyannote', 'nvidia_sortformer'",
                     "type": "string"
+                },
+                "embedding_batch_size": {
+                    "type": "integer"
+                },
+                "embedding_exclude_overlap": {
+                    "type": "boolean"
                 },
                 "fp16": {
                     "type": "boolean"
@@ -4855,10 +4838,6 @@
                     "description": "Output formatting",
                     "type": "integer"
                 },
-                "max_new_tokens": {
-                    "description": "Voxtral settings",
-                    "type": "integer"
-                },
                 "max_speakers": {
                     "type": "integer"
                 },
@@ -4892,6 +4871,9 @@
                 "patience": {
                     "type": "number"
                 },
+                "pnc": {
+                    "type": "boolean"
+                },
                 "print_progress": {
                     "type": "boolean"
                 },
@@ -4901,6 +4883,9 @@
                 "segment_resolution": {
                     "type": "string"
                 },
+                "segmentation_batch_size": {
+                    "type": "integer"
+                },
                 "speaker_embeddings": {
                     "type": "boolean"
                 },
@@ -4908,6 +4893,9 @@
                     "type": "boolean"
                 },
                 "suppress_tokens": {
+                    "type": "string"
+                },
+                "target_language": {
                     "type": "string"
                 },
                 "task": {
@@ -4924,9 +4912,24 @@
                 "threads": {
                     "type": "integer"
                 },
+                "torch_interop_threads": {
+                    "type": "integer"
+                },
+                "torch_threads": {
+                    "type": "integer"
+                },
+                "vad_max_speech_s": {
+                    "type": "integer"
+                },
                 "vad_method": {
                     "description": "VAD (Voice Activity Detection) settings",
                     "type": "string"
+                },
+                "vad_min_silence_ms": {
+                    "type": "integer"
+                },
+                "vad_min_speech_ms": {
+                    "type": "integer"
                 },
                 "vad_offset": {
                     "type": "number"
@@ -4934,8 +4937,40 @@
                 "vad_onset": {
                     "type": "number"
                 },
+                "vad_preset": {
+                    "type": "string"
+                },
+                "vad_speech_pad_ms": {
+                    "type": "integer"
+                },
                 "verbose": {
                     "type": "boolean"
+                }
+            }
+        },
+        "models.TranscriptionProfile": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "is_default": {
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "parameters": {
+                    "$ref": "#/definitions/models.TranscriptionParams"
+                },
+                "updated_at": {
+                    "type": "string"
                 }
             }
         },
@@ -4958,7 +4993,7 @@
                     "type": "string"
                 },
                 "parameters": {
-                    "$ref": "#/definitions/models.WhisperXParams"
+                    "$ref": "#/definitions/models.TranscriptionParams"
                 },
                 "status": {
                     "$ref": "#/definitions/models.JobStatus"

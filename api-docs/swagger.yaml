@@ -554,8 +554,8 @@ definitions:
         type: string
       parameters:
         allOf:
-        - $ref: '#/definitions/models.WhisperXParams'
-        description: WhisperX parameters
+        - $ref: '#/definitions/models.TranscriptionParams'
+        description: Transcription parameters (legacy name)
       status:
         $ref: '#/definitions/models.JobStatus'
       summary:
@@ -571,7 +571,7 @@ definitions:
     properties:
       actual_parameters:
         allOf:
-        - $ref: '#/definitions/models.WhisperXParams'
+        - $ref: '#/definitions/models.TranscriptionParams'
         description: Parameters used for this execution (may differ from job parameters
           due to profiles)
       completed_at:
@@ -612,24 +612,7 @@ definitions:
       updated_at:
         type: string
     type: object
-  models.TranscriptionProfile:
-    properties:
-      created_at:
-        type: string
-      description:
-        type: string
-      id:
-        type: string
-      is_default:
-        type: boolean
-      name:
-        type: string
-      parameters:
-        $ref: '#/definitions/models.WhisperXParams'
-      updated_at:
-        type: string
-    type: object
-  models.WhisperXParams:
+  models.TranscriptionParams:
     properties:
       align_model:
         description: Alignment settings
@@ -664,12 +647,18 @@ definitions:
         type: string
       device_index:
         type: integer
+      diarization_perf_preset:
+        type: string
       diarize:
         description: Diarization settings
         type: boolean
       diarize_model:
         description: 'Options: ''pyannote'', ''nvidia_sortformer'''
         type: string
+      embedding_batch_size:
+        type: integer
+      embedding_exclude_overlap:
+        type: boolean
       fp16:
         type: boolean
       hf_token:
@@ -695,9 +684,6 @@ definitions:
       max_line_width:
         description: Output formatting
         type: integer
-      max_new_tokens:
-        description: Voxtral settings
-        type: integer
       max_speakers:
         type: integer
       min_speakers:
@@ -721,17 +707,23 @@ definitions:
         type: string
       patience:
         type: number
+      pnc:
+        type: boolean
       print_progress:
         type: boolean
       return_char_alignments:
         type: boolean
       segment_resolution:
         type: string
+      segmentation_batch_size:
+        type: integer
       speaker_embeddings:
         type: boolean
       suppress_numerals:
         type: boolean
       suppress_tokens:
+        type: string
+      target_language:
         type: string
       task:
         description: Task and language
@@ -743,15 +735,46 @@ definitions:
         type: number
       threads:
         type: integer
+      torch_interop_threads:
+        type: integer
+      torch_threads:
+        type: integer
+      vad_max_speech_s:
+        type: integer
       vad_method:
         description: VAD (Voice Activity Detection) settings
         type: string
+      vad_min_silence_ms:
+        type: integer
+      vad_min_speech_ms:
+        type: integer
       vad_offset:
         type: number
       vad_onset:
         type: number
+      vad_preset:
+        type: string
+      vad_speech_pad_ms:
+        type: integer
       verbose:
         type: boolean
+    type: object
+  models.TranscriptionProfile:
+    properties:
+      created_at:
+        type: string
+      description:
+        type: string
+      id:
+        type: string
+      is_default:
+        type: boolean
+      name:
+        type: string
+      parameters:
+        $ref: '#/definitions/models.TranscriptionParams'
+      updated_at:
+        type: string
     type: object
   transcription.QuickTranscriptionJob:
     properties:
@@ -766,7 +789,7 @@ definitions:
       id:
         type: string
       parameters:
-        $ref: '#/definitions/models.WhisperXParams'
+        $ref: '#/definitions/models.TranscriptionParams'
       status:
         $ref: '#/definitions/models.JobStatus'
       transcript:
@@ -778,7 +801,7 @@ info:
     email: support@swagger.io
     name: API Support
     url: http://www.swagger.io/support
-  description: Audio transcription service using WhisperX
+  description: Audio transcription service using local ASR engines
   license:
     name: MIT
     url: https://opensource.org/licenses/MIT
@@ -2406,7 +2429,7 @@ paths:
         name: parameters
         required: true
         schema:
-          $ref: '#/definitions/models.WhisperXParams'
+          $ref: '#/definitions/models.TranscriptionParams'
       produces:
       - application/json
       responses:
@@ -2667,7 +2690,7 @@ paths:
       - transcription
   /api/v1/transcription/models:
     get:
-      description: Get list of supported WhisperX models
+      description: Get list of supported models
       produces:
       - application/json
       responses:
@@ -2759,7 +2782,7 @@ paths:
     post:
       consumes:
       - multipart/form-data
-      description: Submit an audio file for transcription with WhisperX
+      description: Submit an audio file for transcription
       parameters:
       - description: Audio file
         in: formData

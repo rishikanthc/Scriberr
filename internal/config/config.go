@@ -29,9 +29,6 @@ type Config struct {
 	TranscriptsDir string
 	TempDir        string
 
-	// Python diarization configuration
-	ModelEnv string
-
 	// Environment configuration
 	Environment       string
 	AllowedOrigins    []string
@@ -66,7 +63,6 @@ func Load() *Config {
 		UploadDir:         getEnv("UPLOAD_DIR", "data/uploads"),
 		TranscriptsDir:    getEnv("TRANSCRIPTS_DIR", "data/transcripts"),
 		TempDir:           getEnv("TEMP_DIR", "data/temp"),
-		ModelEnv:          resolveModelEnv(),
 		SecureCookiesMode: defaultSecureMode,
 		TrustProxyHeaders: strings.ToLower(getEnv("TRUST_PROXY_HEADERS", "true")) == "true",
 		OpenAIAPIKey:      getEnv("OPENAI_API_KEY", ""),
@@ -85,22 +81,6 @@ func getEnv(key, defaultValue string) string {
 		return value
 	}
 	return defaultValue
-}
-
-func resolveModelEnv() string {
-	if value := os.Getenv("MODEL_ENV"); value != "" {
-		return value
-	}
-	if value := os.Getenv("WHISPERX_ENV"); value != "" {
-		logger.Warn("WHISPERX_ENV is deprecated; use MODEL_ENV instead")
-		return value
-	}
-	legacy := filepath.Join("data", "whisperx-env")
-	if _, err := os.Stat(legacy); err == nil {
-		logger.Warn("Using legacy model env path; set MODEL_ENV to override", "path", legacy)
-		return legacy
-	}
-	return filepath.Join("data", "model-env")
 }
 
 // getJWTSecret gets JWT secret from env or generates a secure random one

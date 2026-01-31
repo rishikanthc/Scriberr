@@ -6,79 +6,15 @@ import (
 
 	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"reflect"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"scriberr/internal/transcription/interfaces"
 	"scriberr/pkg/logger"
-
-	"golang.org/x/sync/singleflight"
 )
-
-// Environment readiness cache to avoid repeated expensive UV checks
-var (
-	envCacheMutex sync.RWMutex
-	envCache      = make(map[string]bool)
-	requestGroup  singleflight.Group
-)
-
-// GetPyTorchCUDAVersion returns the PyTorch CUDA wheel version to use.
-// This is configurable via the PYTORCH_CUDA_VERSION environment variable.
-// Defaults to "cu126" for CUDA 12.6 (legacy GPUs: GTX 10-series through RTX 40-series).
-// Set to "cu128" for CUDA 12.8 (Blackwell GPUs: RTX 50-series).
-func GetPyTorchCUDAVersion() string {
-	if cudaVersion := os.Getenv("PYTORCH_CUDA_VERSION"); cudaVersion != "" {
-		return cudaVersion
-	}
-	return "cu126" // Default to CUDA 12.6 for legacy compatibility
-}
-
-// GetPyTorchWheelURL returns the full PyTorch wheel URL for the configured CUDA version.
-func GetPyTorchWheelURL() string {
-	return fmt.Sprintf("https://download.pytorch.org/whl/%s", GetPyTorchCUDAVersion())
-}
-
-// CheckEnvironmentReady checks if a UV environment is ready with caching and singleflight
-func CheckEnvironmentReady(envPath, importStatement string) bool {
-	cacheKey := fmt.Sprintf("%s:%s", envPath, importStatement)
-
-	// Check cache first
-	envCacheMutex.RLock()
-	if ready, exists := envCache[cacheKey]; exists {
-		envCacheMutex.RUnlock()
-		return ready
-	}
-	envCacheMutex.RUnlock()
-
-	// Use singleflight to prevent duplicate checks
-	result, _, _ := requestGroup.Do(cacheKey, func() (interface{}, error) {
-		// Check cache again (double-checked locking)
-		envCacheMutex.RLock()
-		if ready, exists := envCache[cacheKey]; exists {
-			envCacheMutex.RUnlock()
-			return ready, nil
-		}
-		envCacheMutex.RUnlock()
-
-		// Run the actual check
-		testCmd := exec.Command("uv", "run", "--native-tls", "--project", envPath, "python", "-c", importStatement)
-		ready := testCmd.Run() == nil
-
-		// Cache the result
-		envCacheMutex.Lock()
-		envCache[cacheKey] = ready
-		envCacheMutex.Unlock()
-
-		return ready, nil
-	})
-
-	return result.(bool)
-}
 
 // BaseAdapter provides common functionality for all model adapters
 type BaseAdapter struct {

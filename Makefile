@@ -9,14 +9,14 @@ help: ## Show this help message
 dev: ## Start development environment with Air (backend) and Vite (frontend)
 	@echo "🚀 Starting development environment..."
 	@# Ensure air is installed
-	@if ! command -v air >/dev/null 2>&1; then \
+	@GOPATH=$$(go env GOPATH); \
+	if [[ ":$$PATH:" != *":$$GOPATH/bin:"* ]]; then \
+		echo "⚠️  $$GOPATH/bin is not in your PATH. Adding it temporarily..."; \
+		export PATH=$$PATH:$$GOPATH/bin; \
+	fi; \
+	if ! command -v air >/dev/null 2>&1; then \
 		echo "⚠️  'air' command not found."; \
 		echo "📦 Auto-installing 'air' for live reload..."; \
-		GOPATH=$$(go env GOPATH); \
-		if [[ ":$$PATH:" != *":$$GOPATH/bin:"* ]]; then \
-			echo "⚠️  $$GOPATH/bin is not in your PATH. Adding it temporarily..."; \
-			export PATH=$$PATH:$$GOPATH/bin; \
-		fi; \
 		go install github.com/air-verse/air@latest; \
 		if ! command -v air >/dev/null 2>&1; then \
 			echo "❌ Failed to install 'air'. Falling back to 'go run'..."; \
@@ -126,9 +126,9 @@ diar-engine-setup: ## Install uv and sync diarization engine dependencies
 docs: ## Generate API documentation from Go code annotations
 	@echo "Generating API documentation..."
 	@command -v swag >/dev/null 2>&1 || { echo "Error: swag not installed. Run: go install github.com/swaggo/swag/cmd/swag@latest"; exit 1; }
-	swag init -g cmd/server/main.go -o api-docs
+	swag init -g main.go -o api-docs --dir cmd/server,internal
 	@echo "Syncing to project site..."
-	swag init -g server/main.go -o web/project-site/public/api --outputTypes json --dir cmd,internal
+	swag init -g main.go -o web/project-site/public/api --outputTypes json --dir cmd/server,internal
 	@echo "✓ API documentation generated in api-docs/ and web/project-site/public/api/"
 
 docs-clean: ## Clean generated API documentation

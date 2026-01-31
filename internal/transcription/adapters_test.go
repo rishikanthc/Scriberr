@@ -225,7 +225,7 @@ func TestModelRegistry(t *testing.T) {
 
 func TestWhisperAdapter(t *testing.T) {
 	reg := registry.GetRegistry()
-	registry.RegisterTranscriptionAdapter("whisper", adapters.NewWhisperAdapter("/tmp/model-env"))
+	registry.RegisterTranscriptionAdapter("whisper", adapters.NewWhisperAdapter(""))
 
 	// Get Whisper adapter
 	adapter, err := reg.GetTranscriptionAdapter("whisper")
@@ -425,7 +425,7 @@ func TestSortformerAdapter(t *testing.T) {
 
 func TestModelSelection(t *testing.T) {
 	reg := registry.GetRegistry()
-	registry.RegisterTranscriptionAdapter("whisper", adapters.NewWhisperAdapter("/tmp/model-env"))
+	registry.RegisterTranscriptionAdapter("whisper", adapters.NewWhisperAdapter(""))
 	registry.RegisterDiarizationAdapter("pyannote", adapters.NewPyAnnoteAdapter("/tmp/pyannote"))
 
 	// Test selecting best transcription model

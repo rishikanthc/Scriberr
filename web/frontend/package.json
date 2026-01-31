@@ -60,6 +60,7 @@
 		"@types/react-dom": "^19.1.7",
 		"@vitejs/plugin-react": "^5.0.0",
 		"autoprefixer": "^10.4.21",
+		"baseline-browser-mapping": "^2.9.19",
 		"eslint": "^9.33.0",
 		"eslint-plugin-react": "^7.37.5",
 		"eslint-plugin-react-hooks": "^5.2.0",
@@ -72,6 +73,7 @@
 		"typescript": "~5.8.3",
 		"typescript-eslint": "^8.39.1",
 		"vite": "^7.1.2",
-		"vite-plugin-pwa": "^1.1.0"
+		"vite-plugin-pwa": "^1.2.0",
+		"workbox-build": "^7.4.0"
 	}
 }

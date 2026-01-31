@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -223,23 +222,13 @@ func main() {
 
 // registerAdapters registers all transcription and diarization adapters with config-based paths
 func registerAdapters(cfg *config.Config) {
-	logger.Info("Registering adapters with environment path", "model_env", cfg.ModelEnv)
-
-	// Shared environment path for NVIDIA ASR models (NeMo-based)
-	nvidiaEnvPath := filepath.Join(cfg.ModelEnv, "parakeet")
-
-	// Dedicated environment path for Voxtral (Mistral AI model)
-	voxtralEnvPath := filepath.Join(cfg.ModelEnv, "voxtral")
-
 	// Register transcription adapters
 	registry.RegisterTranscriptionAdapter("whisper",
-		adapters.NewWhisperAdapter(cfg.ModelEnv))
+		adapters.NewWhisperAdapter(""))
 	registry.RegisterTranscriptionAdapter("parakeet",
-		adapters.NewParakeetAdapter(nvidiaEnvPath))
+		adapters.NewParakeetAdapter(""))
 	registry.RegisterTranscriptionAdapter("canary",
-		adapters.NewCanaryAdapter(nvidiaEnvPath)) // Shares with Parakeet
-	registry.RegisterTranscriptionAdapter("voxtral",
-		adapters.NewVoxtralAdapter(voxtralEnvPath))
+		adapters.NewCanaryAdapter("")) // Shares with Parakeet
 	registry.RegisterTranscriptionAdapter("openai_whisper",
 		adapters.NewOpenAIAdapter(cfg.OpenAIAPIKey))
 
