@@ -10,8 +10,17 @@ from pathlib import Path
 
 import grpc
 
-from asr_engine.proto import asr_engine_pb2 as pb2
-from asr_engine.proto import asr_engine_pb2_grpc as pb2_grpc
+try:
+    from asr_engine.proto import asr_engine_pb2 as pb2
+    from asr_engine.proto import asr_engine_pb2_grpc as pb2_grpc
+except ModuleNotFoundError:
+    import sys
+
+    repo_root = Path(__file__).resolve().parents[1]
+    asr_src = repo_root / "asr-engines" / "scriberr-asr-onnx" / "src"
+    sys.path.append(str(asr_src))
+    from asr_engine.proto import asr_engine_pb2 as pb2
+    from asr_engine.proto import asr_engine_pb2_grpc as pb2_grpc
 
 
 def _dial(socket_path: str) -> pb2_grpc.AsrEngineStub:
@@ -159,6 +168,17 @@ def _write_alignment(path: Path, words_with_speakers: list[dict], offset: float)
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
+def _write_alignment_text(path: Path, words_with_speakers: list[dict]) -> None:
+    lines = []
+    for w in words_with_speakers:
+        speaker = w.get("speaker") or "UNKNOWN"
+        word = str(w.get("word", "")).strip()
+        if not word:
+            continue
+        lines.append(f"{speaker} - {word}")
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--audio", required=True, help="Path to audio file")
@@ -168,6 +188,12 @@ def main() -> None:
     parser.add_argument("--asr-model", default="nemo-parakeet-tdt-0.6b-v3")
     parser.add_argument("--diar-model", default="nvidia/diar_sortformer_4spk-v1")
     parser.add_argument("--run-pyannote", action="store_true")
+    parser.add_argument("--sortformer-streaming", action="store_true")
+    parser.add_argument("--sortformer-batch", type=int, default=1)
+    parser.add_argument("--chunk-len", type=int, default=340)
+    parser.add_argument("--chunk-right-context", type=int, default=40)
+    parser.add_argument("--fifo-len", type=int, default=40)
+    parser.add_argument("--spkcache-update-period", type=int, default=300)
     parser.add_argument("--pyannote-seg-batch", type=int, default=None)
     parser.add_argument("--pyannote-emb-batch", type=int, default=None)
     parser.add_argument("--pyannote-exclude-overlap", action="store_true")
@@ -199,6 +225,7 @@ def main() -> None:
     asr_dir.mkdir(parents=True, exist_ok=True)
     diar_dir.mkdir(parents=True, exist_ok=True)
 
+    asr_start = time.time()
     asr_status = _run_job(
         asr_stub,
         asr_job,
@@ -211,18 +238,30 @@ def main() -> None:
             "vad_enabled": "true",
         },
     )
+    asr_elapsed = time.time() - asr_start
 
+    diar_params = {
+        "output_format": "json",
+        "device": "auto",
+        "max_speakers": "4",
+        "batch_size": str(args.sortformer_batch),
+    }
+    if args.sortformer_streaming:
+        diar_params["streaming_mode"] = "true"
+        diar_params["chunk_len"] = str(args.chunk_len)
+        diar_params["chunk_right_context"] = str(args.chunk_right_context)
+        diar_params["fifo_len"] = str(args.fifo_len)
+        diar_params["spkcache_update_period"] = str(args.spkcache_update_period)
+
+    diar_start = time.time()
     diar_status = _run_job(
         diar_stub,
         diar_job,
         str(audio),
         str(diar_dir),
-        {
-            "output_format": "json",
-            "device": "auto",
-            "max_speakers": "4",
-        },
+        diar_params,
     )
+    diar_elapsed = time.time() - diar_start
 
     words_path = Path(asr_status.outputs["words"])
     diar_path = Path(diar_status.outputs["diarization"])
@@ -233,6 +272,7 @@ def main() -> None:
     offset = _estimate_offset(words, diar_segments)
     aligned = _assign_speakers(words, diar_segments, offset=offset)
     _write_alignment(out_dir / "align_sortformer.json", aligned, offset)
+    _write_alignment_text(out_dir / "align_sortformer.txt", aligned)
 
     if args.run_pyannote:
         diar_spec = pb2.ModelSpec(model_id="pyannote", model_name="pyannote/speaker-diarization-community-1")
@@ -269,10 +309,10 @@ def main() -> None:
         offset = _estimate_offset(words, diar_segments)
         aligned = _assign_speakers(words, diar_segments, offset=offset)
         _write_alignment(out_dir / "align_pyannote.json", aligned, offset)
+        _write_alignment_text(out_dir / "align_pyannote.txt", aligned)
 
-
-    print(f"ASR outputs: {asr_dir}")
-    print(f"Diar outputs: {out_dir}")
+    print(f"ASR outputs: {asr_dir} (elapsed {asr_elapsed:.2f}s)")
+    print(f"Diar outputs: {out_dir} (elapsed {diar_elapsed:.2f}s)")
 
 
 if __name__ == "__main__":

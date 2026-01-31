@@ -16,6 +16,7 @@ import (
 	"scriberr/internal/models"
 	"scriberr/internal/repository"
 	"scriberr/internal/sse"
+	"scriberr/internal/systeminfo"
 	"scriberr/internal/transcription/interfaces"
 	"scriberr/internal/transcription/pipeline"
 	"scriberr/internal/transcription/registry"
@@ -767,26 +768,20 @@ func (u *UnifiedTranscriptionService) convertToPyannoteParams(params models.Tran
 	}
 
 	device := strings.ToLower(strings.TrimSpace(params.Device))
-	if device == "" || device == "cpu" {
-		cpuThreads := runtime.NumCPU()
-		if cpuThreads > 8 {
-			cpuThreads = 8
+	if device == "" || device == "cpu" || device == "auto" {
+		preset := normalizeDiarizationPreset(params.DiarizationPerfPreset)
+		if preset == "custom" || (preset == "auto" && hasExplicitPerfTuning(params)) {
+			return paramMap
 		}
-		if _, ok := paramMap["segmentation_batch_size"]; !ok {
-			paramMap["segmentation_batch_size"] = 8
+		if preset == "auto" {
+			preset = pickDiarizationPreset(runtime.NumCPU())
 		}
-		if _, ok := paramMap["embedding_batch_size"]; !ok {
-			paramMap["embedding_batch_size"] = 8
-		}
-		if _, ok := paramMap["embedding_exclude_overlap"]; !ok {
-			paramMap["embedding_exclude_overlap"] = true
-		}
-		if _, ok := paramMap["torch_threads"]; !ok {
-			paramMap["torch_threads"] = cpuThreads
-		}
-		if _, ok := paramMap["torch_interop_threads"]; !ok {
-			paramMap["torch_interop_threads"] = 1
-		}
+		settings := diarizationPresetSettings(preset, runtime.NumCPU())
+		paramMap["segmentation_batch_size"] = settings.segmentationBatch
+		paramMap["embedding_batch_size"] = settings.embeddingBatch
+		paramMap["embedding_exclude_overlap"] = settings.excludeOverlap
+		paramMap["torch_threads"] = settings.torchThreads
+		paramMap["torch_interop_threads"] = settings.torchInteropThreads
 	}
 
 	return paramMap
@@ -799,6 +794,94 @@ func (u *UnifiedTranscriptionService) convertToSortformerParams(params models.Tr
 		"auto_convert_audio": true,
 		// Sortformer is optimized for 4 speakers, no additional config needed
 	}
+}
+
+type diarizationPresetConfig struct {
+	segmentationBatch   int
+	embeddingBatch      int
+	excludeOverlap      bool
+	torchThreads        int
+	torchInteropThreads int
+}
+
+func normalizeDiarizationPreset(preset string) string {
+	preset = strings.ToLower(strings.TrimSpace(preset))
+	if preset == "" {
+		return "auto"
+	}
+	switch preset {
+	case "auto", "low", "medium", "high", "custom":
+		return preset
+	default:
+		return "auto"
+	}
+}
+
+func pickDiarizationPreset(cpuCount int) string {
+	totalMemBytes, err := systeminfo.TotalMemoryBytes()
+	if err != nil {
+		totalMemBytes = 0
+	}
+	if cpuCount <= 0 {
+		cpuCount = 1
+	}
+	memGB := float64(totalMemBytes) / (1024 * 1024 * 1024)
+	if totalMemBytes == 0 {
+		if cpuCount <= 4 {
+			return "low"
+		}
+		if cpuCount <= 8 {
+			return "medium"
+		}
+		return "high"
+	}
+	if memGB <= 8 || cpuCount <= 4 {
+		return "low"
+	}
+	if memGB <= 16 || cpuCount <= 8 {
+		return "medium"
+	}
+	return "high"
+}
+
+func diarizationPresetSettings(preset string, cpuCount int) diarizationPresetConfig {
+	if cpuCount <= 0 {
+		cpuCount = 1
+	}
+	switch preset {
+	case "low":
+		return diarizationPresetConfig{
+			segmentationBatch:   4,
+			embeddingBatch:      4,
+			excludeOverlap:      true,
+			torchThreads:        minInt(cpuCount, 4),
+			torchInteropThreads: 1,
+		}
+	case "high":
+		return diarizationPresetConfig{
+			segmentationBatch:   12,
+			embeddingBatch:      12,
+			excludeOverlap:      true,
+			torchThreads:        minInt(cpuCount, 12),
+			torchInteropThreads: 2,
+		}
+	default:
+		return diarizationPresetConfig{
+			segmentationBatch:   8,
+			embeddingBatch:      8,
+			excludeOverlap:      true,
+			torchThreads:        minInt(cpuCount, 8),
+			torchInteropThreads: 1,
+		}
+	}
+}
+
+func hasExplicitPerfTuning(params models.TranscriptionParams) bool {
+	return params.SegmentationBatchSize != nil ||
+		params.EmbeddingBatchSize != nil ||
+		params.EmbeddingExcludeOverlap != nil ||
+		params.TorchThreads != nil ||
+		params.TorchInteropThreads != nil
 }
 
 func (u *UnifiedTranscriptionService) parametersToMap(params models.TranscriptionParams) map[string]interface{} {
@@ -1119,6 +1202,13 @@ func max(a, b float64) float64 {
 }
 
 func min(a, b float64) float64 {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+func minInt(a, b int) int {
 	if a < b {
 		return a
 	}

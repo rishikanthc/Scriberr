@@ -135,6 +135,15 @@ func NewPyAnnoteAdapter(_ string) *PyAnnoteAdapter {
 			Group:       "advanced",
 		},
 		{
+			Name:        "diarization_perf_preset",
+			Type:        "string",
+			Required:    false,
+			Default:     "auto",
+			Options:     []string{"auto", "low", "medium", "high", "custom"},
+			Description: "CPU performance preset for diarization tuning",
+			Group:       "advanced",
+		},
+		{
 			Name:        "segmentation_batch_size",
 			Type:        "int",
 			Required:    false,

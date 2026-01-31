@@ -739,6 +739,9 @@ func (h *Handler) SubmitJob(c *gin.Context) {
 		VadOffset:   getFormFloatWithDefault(c, "vad_offset", 0.363),
 		Diarize:     diarize,
 	}
+	if perfPreset := c.PostForm("diarization_perf_preset"); perfPreset != "" {
+		params.DiarizationPerfPreset = perfPreset
+	}
 
 	if lang := c.PostForm("language"); lang != "" {
 		params.Language = &lang
@@ -758,6 +761,30 @@ func (h *Handler) SubmitJob(c *gin.Context) {
 
 	if hfToken := c.PostForm("hf_token"); hfToken != "" {
 		params.HfToken = &hfToken
+	}
+	if segmentationBatch := c.PostForm("segmentation_batch_size"); segmentationBatch != "" {
+		if value, err := strconv.Atoi(segmentationBatch); err == nil {
+			params.SegmentationBatchSize = &value
+		}
+	}
+	if embeddingBatch := c.PostForm("embedding_batch_size"); embeddingBatch != "" {
+		if value, err := strconv.Atoi(embeddingBatch); err == nil {
+			params.EmbeddingBatchSize = &value
+		}
+	}
+	if embeddingExclude := c.PostForm("embedding_exclude_overlap"); embeddingExclude != "" {
+		value := strings.EqualFold(embeddingExclude, "true") || embeddingExclude == "1"
+		params.EmbeddingExcludeOverlap = &value
+	}
+	if torchThreads := c.PostForm("torch_threads"); torchThreads != "" {
+		if value, err := strconv.Atoi(torchThreads); err == nil {
+			params.TorchThreads = &value
+		}
+	}
+	if torchInteropThreads := c.PostForm("torch_interop_threads"); torchInteropThreads != "" {
+		if value, err := strconv.Atoi(torchInteropThreads); err == nil {
+			params.TorchInteropThreads = &value
+		}
 	}
 
 	// Parse and validate diarization model
@@ -1076,6 +1103,7 @@ func (h *Handler) getValidatedTranscriptionParams(c *gin.Context, job *models.Tr
 		VadPreset:                      "balanced",
 		Diarize:                        false,
 		DiarizeModel:                   "pyannote",
+		DiarizationPerfPreset:          "auto",
 		SpeakerEmbeddings:              false,
 		Temperature:                    0,
 		BestOf:                         5,
@@ -2495,9 +2523,10 @@ func (h *Handler) SubmitQuickTranscription(c *gin.Context) {
 			ChunkSize: 30,
 
 			// Diarization settings
-			Diarize:           false,
-			DiarizeModel:      "pyannote/speaker-diarization-3.1",
-			SpeakerEmbeddings: false,
+			Diarize:               false,
+			DiarizeModel:          "pyannote/speaker-diarization-3.1",
+			DiarizationPerfPreset: "auto",
+			SpeakerEmbeddings:     false,
 
 			// Transcription quality settings
 			Temperature:                    0,

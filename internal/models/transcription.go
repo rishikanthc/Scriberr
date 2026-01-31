@@ -96,6 +96,7 @@ type TranscriptionParams struct {
 	MaxSpeakers             *int   `json:"max_speakers,omitempty" gorm:"type:int"`
 	DiarizeModel            string `json:"diarize_model" gorm:"type:varchar(50);default:'pyannote'"` // Options: 'pyannote', 'nvidia_sortformer'
 	SpeakerEmbeddings       bool   `json:"speaker_embeddings" gorm:"type:boolean;default:false"`
+	DiarizationPerfPreset   string `json:"diarization_perf_preset" gorm:"type:varchar(20);default:'auto'"`
 	SegmentationBatchSize   *int   `json:"segmentation_batch_size,omitempty" gorm:"type:int"`
 	EmbeddingBatchSize      *int   `json:"embedding_batch_size,omitempty" gorm:"type:int"`
 	EmbeddingExcludeOverlap *bool  `json:"embedding_exclude_overlap,omitempty" gorm:"type:boolean"`

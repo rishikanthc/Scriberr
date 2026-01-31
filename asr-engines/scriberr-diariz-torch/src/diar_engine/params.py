@@ -47,7 +47,7 @@ class JobParams:
     chunk_right_context: int = 40
     fifo_len: int = 40
     spkcache_update_period: int = 300
-    exclusive: bool = False
+    exclusive: bool = True
     segmentation_batch_size: int | None = None
     embedding_batch_size: int | None = None
     embedding_exclude_overlap: bool | None = None
