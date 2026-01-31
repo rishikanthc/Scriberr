@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ENGINE_DIR="$ROOT_DIR/asr-engines/scriberr-asr-onnx"
 
-echo "🧠 ASR engine dev setup"
+echo "ASR engine dev setup"
 
 if ! command -v uv >/dev/null 2>&1; then
   echo "⚠️  'uv' not found. Installing via official installer..."
@@ -28,7 +28,7 @@ if [ -d "$ENGINE_DIR/.venv" ]; then
   fi
 fi
 
-echo "📦 Syncing ASR engine deps..."
+echo "Syncing ASR engine deps..."
 cd "$ENGINE_DIR"
 uv python install 3.11 >/dev/null 2>&1 || true
 uv venv --python 3.11 >/dev/null 2>&1 || true
