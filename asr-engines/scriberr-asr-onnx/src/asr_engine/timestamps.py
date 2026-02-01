@@ -46,13 +46,12 @@ def word_timestamps_from_tokens(
     if not tokens or not timestamps or len(tokens) != len(timestamps):
         return []
 
-    offset = segment_start or 0.0
     words: list[dict[str, float | str]] = []
     current = ""
     current_start: float | None = None
 
     for token, ts in zip(tokens, timestamps, strict=False):
-        t = float(ts) + offset
+        t = float(ts)
         if current_start is None:
             current_start = t
 

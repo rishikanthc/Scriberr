@@ -1,4 +1,8 @@
-from asr_engine.timestamps import format_ts, word_timestamps_from_segment
+from asr_engine.timestamps import (
+    format_ts,
+    word_timestamps_from_segment,
+    word_timestamps_from_tokens,
+)
 
 
 def test_format_ts():
@@ -11,3 +15,12 @@ def test_word_timestamps():
     assert len(words) == 2
     assert words[0]["word"] == "hello"
     assert words[-1]["end"] == 2.0
+
+
+def test_word_timestamps_from_tokens_absolute():
+    tokens = [" hello", " world"]
+    timestamps = [1.2, 1.8]
+    words = word_timestamps_from_tokens(tokens, timestamps, 1.2, 1.8)
+    assert len(words) == 2
+    assert words[0]["start"] == 1.2
+    assert words[1]["end"] == 1.8

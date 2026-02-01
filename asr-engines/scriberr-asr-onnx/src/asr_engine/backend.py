@@ -137,12 +137,14 @@ class AsrBackend:
 
                 if tokens and timestamps:
                     try:
-                        seg_start = start_s + float(min(timestamps))
-                        seg_end = start_s + float(max(timestamps))
+                        abs_timestamps = [start_s + float(ts) for ts in timestamps]
+                        seg_start = float(min(abs_timestamps))
+                        seg_end = float(max(abs_timestamps))
                     except Exception:
+                        abs_timestamps = []
                         seg_start = start_s
                         seg_end = end_s
-                    words_local = word_timestamps_from_tokens(tokens, timestamps, seg_start, seg_end)
+                    words_local = word_timestamps_from_tokens(tokens, abs_timestamps, seg_start, seg_end)
 
                 if not words_local:
                     words_local = word_timestamps_from_segment(text, seg_start, seg_end)

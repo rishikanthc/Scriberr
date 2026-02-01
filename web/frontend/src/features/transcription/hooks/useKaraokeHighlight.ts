@@ -53,21 +53,31 @@ export function findActiveWordIndex(
     offsets: { startTime: number; endTime: number; }[],
     currentTime: number
 ): number {
+    if (!offsets.length) return -1;
+    const epsilon = 0.05;
+
     let low = 0;
     let high = offsets.length - 1;
-    let result = -1;
+    let candidate = -1;
 
     while (low <= high) {
         const mid = Math.floor((low + high) / 2);
-        if (offsets[mid].startTime <= currentTime) {
-            result = mid; // Candidate found, look effectively later for a tighter match? 
-            // Actually, since sorted by startTime, we want the LARGEST startTime <= currentTime.
+        if (offsets[mid].startTime <= currentTime + epsilon) {
+            candidate = mid;
             low = mid + 1;
         } else {
             high = mid - 1;
         }
     }
-    return result;
+
+    if (candidate == -1) return -1;
+    const active = offsets[candidate];
+    if (currentTime <= active.endTime + epsilon) {
+        return candidate;
+    }
+
+    // If we're between words, don't keep highlighting the previous word.
+    return -1;
 }
 
 export function useKaraokeHighlight(

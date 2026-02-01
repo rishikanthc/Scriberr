@@ -92,12 +92,14 @@ dev: ## Start development environment with Air (backend) and Vite (frontend)
 		echo "Starting Go backend (standard run)..."; \
 		ASR_ENGINE_SOCKET=$$ASR_ENGINE_SOCKET ASR_ENGINE_CMD="$$ASR_ENGINE_CMD" \
 		DIAR_ENGINE_SOCKET=$$DIAR_ENGINE_SOCKET DIAR_ENGINE_CMD="$$DIAR_ENGINE_CMD" \
+		SECURE_COOKIES=false \
 		go run cmd/server/main.go & \
 		pids="$$pids $$!"; \
 	else \
 		echo "Starting Go backend (with Air live reload)..."; \
 		ASR_ENGINE_SOCKET=$$ASR_ENGINE_SOCKET ASR_ENGINE_CMD="$$ASR_ENGINE_CMD" \
 		DIAR_ENGINE_SOCKET=$$DIAR_ENGINE_SOCKET DIAR_ENGINE_CMD="$$DIAR_ENGINE_CMD" \
+		SECURE_COOKIES=false \
 		air & \
 		pids="$$pids $$!"; \
 	fi; \

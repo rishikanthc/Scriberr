@@ -938,13 +938,17 @@ func (u *UnifiedTranscriptionService) mergeDiarizationWithTranscription(transcri
 		mergedTranscript.WordSegments = make([]interfaces.TranscriptWord, len(transcript.WordSegments))
 		copy(mergedTranscript.WordSegments, transcript.WordSegments)
 
+		var prevSpeaker *string
 		for i := range mergedTranscript.WordSegments {
 			word := &mergedTranscript.WordSegments[i]
-			bestSpeaker := u.findBestSpeakerForSegment(word.Start, word.End, alignedSegments)
+			bestSpeaker := u.findSpeakerForWord(word.Start, word.End, alignedSegments, prevSpeaker)
 			if bestSpeaker != "" {
 				word.Speaker = &bestSpeaker
+				prevSpeaker = word.Speaker
 			}
 		}
+
+		u.smoothWordSpeakers(mergedTranscript.WordSegments)
 
 		if rebuilt := u.buildSpeakerSegmentsFromWords(mergedTranscript.WordSegments); len(rebuilt) > 0 {
 			mergedTranscript.Segments = rebuilt
@@ -961,6 +965,57 @@ func (u *UnifiedTranscriptionService) mergeDiarizationWithTranscription(transcri
 	}
 
 	return &mergedTranscript
+}
+
+func (u *UnifiedTranscriptionService) findSpeakerForWord(start, end float64, diarizationSegments []interfaces.DiarizationSegment, prevSpeaker *string) string {
+	if len(diarizationSegments) == 0 {
+		return ""
+	}
+	mid := (start + end) / 2
+	if mid == 0 {
+		mid = start
+	}
+
+	bestSpeaker := ""
+	bestConfidence := -1.0
+	bestCenterDist := math.MaxFloat64
+	for _, seg := range diarizationSegments {
+		if mid < seg.Start || mid > seg.End {
+			continue
+		}
+		center := (seg.Start + seg.End) / 2
+		dist := math.Abs(mid - center)
+		conf := seg.Confidence
+		if conf == 0 {
+			conf = 0.5
+		}
+		if conf > bestConfidence || (conf == bestConfidence && dist < bestCenterDist) {
+			bestConfidence = conf
+			bestCenterDist = dist
+			bestSpeaker = seg.Speaker
+		}
+	}
+
+	if bestSpeaker != "" {
+		return bestSpeaker
+	}
+
+	// Fallback to nearest segment within a small gap tolerance.
+	const gapTolerance = 0.2
+	bestGap := math.MaxFloat64
+	for _, seg := range diarizationSegments {
+		gap := segmentGap(start, end, seg.Start, seg.End)
+		if gap < bestGap && gap <= gapTolerance {
+			bestGap = gap
+			bestSpeaker = seg.Speaker
+		}
+	}
+
+	// If we still didn't find anything, keep the previous speaker to avoid rapid flips.
+	if bestSpeaker == "" && prevSpeaker != nil {
+		return *prevSpeaker
+	}
+	return bestSpeaker
 }
 
 func (u *UnifiedTranscriptionService) buildSpeakerSegmentsFromWords(words []interfaces.TranscriptWord) []interfaces.TranscriptSegment {
@@ -1009,6 +1064,78 @@ func (u *UnifiedTranscriptionService) buildSpeakerSegmentsFromWords(words []inte
 
 	flush()
 	return segments
+}
+
+func (u *UnifiedTranscriptionService) smoothWordSpeakers(words []interfaces.TranscriptWord) {
+	if len(words) < 3 {
+		return
+	}
+
+	const minRunSeconds = 0.6
+	const minRunWords = 2
+
+	type run struct {
+		start int
+		end   int
+	}
+
+	var runs []run
+	runStart := 0
+	for i := 1; i < len(words); i++ {
+		prev := words[i-1].Speaker
+		curr := words[i].Speaker
+		same := (prev == nil && curr == nil) || (prev != nil && curr != nil && *prev == *curr)
+		if !same {
+			runs = append(runs, run{start: runStart, end: i - 1})
+			runStart = i
+		}
+	}
+	runs = append(runs, run{start: runStart, end: len(words) - 1})
+
+	assignRun := func(r run, speaker *string) {
+		for i := r.start; i <= r.end; i++ {
+			words[i].Speaker = speaker
+		}
+	}
+
+	for i := 0; i < len(runs); i++ {
+		r := runs[i]
+		runSpeaker := words[r.start].Speaker
+		runWords := r.end - r.start + 1
+		runStartTime := words[r.start].Start
+		runEndTime := words[r.end].End
+		runDuration := runEndTime - runStartTime
+
+		if runWords >= minRunWords && runDuration >= minRunSeconds {
+			continue
+		}
+
+		var prevSpeaker *string
+		var nextSpeaker *string
+		if i > 0 {
+			prevSpeaker = words[runs[i-1].start].Speaker
+		}
+		if i+1 < len(runs) {
+			nextSpeaker = words[runs[i+1].start].Speaker
+		}
+
+		// Prefer merging into matching neighbors.
+		if prevSpeaker != nil && nextSpeaker != nil && *prevSpeaker == *nextSpeaker {
+			assignRun(r, prevSpeaker)
+			continue
+		}
+		if prevSpeaker != nil && (nextSpeaker == nil || *prevSpeaker != *nextSpeaker) {
+			assignRun(r, prevSpeaker)
+			continue
+		}
+		if nextSpeaker != nil {
+			assignRun(r, nextSpeaker)
+			continue
+		}
+
+		// If neighbors are missing, keep as-is.
+		_ = runSpeaker
+	}
 }
 
 func joinWords(words []interfaces.TranscriptWord) string {
