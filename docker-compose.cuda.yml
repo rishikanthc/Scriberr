@@ -1,12 +1,14 @@
 version: "3.9"
 services:
   scriberr:
-    image: ghcr.io/rishikanthc/scriberr:v1.0.4-cuda
+    image: ghcr.io/rishikanthc/scriberr-cuda:latest
     ports:
       - "8080:8080"
     volumes:
-      - scriberr_data:/app/data
-      - env_data:/app/whisperx-env
+      - scriberr_data:/var/lib/scriberr
+      - scriberr_models:/opt/scriberr/models
+      - scriberr_env:/opt/scriberr/env
+      - scriberr_state:/opt/scriberr
     restart: unless-stopped
     deploy:
       resources:
@@ -21,11 +23,18 @@ services:
       - NVIDIA_DRIVER_CAPABILITIES=compute,utility
       - PUID=${PUID:-1000}
       - PGID=${PGID:-1000}
-      # Security: already set in container, but can be overridden
       - APP_ENV=production
+      - SCRIBERR_DATA_DIR=/var/lib/scriberr
+      - SCRIBERR_MODELS_DIR=/opt/scriberr/models
+      - SCRIBERR_ENV_DIR=/opt/scriberr/env
+      - SCRIBERR_STATE_DIR=/opt/scriberr
+      - ASR_ENGINE_EXTRA=${ASR_ENGINE_EXTRA:-gpu}
+      - DIAR_ENGINE_EXTRA=${DIAR_ENGINE_EXTRA:-gpu}
       # CORS: comma-separated list of allowed origins for production
       # - ALLOWED_ORIGINS=https://your-domain.com
 
 volumes:
   scriberr_data: {}
-  env_data: {}
+  scriberr_models: {}
+  scriberr_env: {}
+  scriberr_state: {}
