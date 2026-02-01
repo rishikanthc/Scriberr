@@ -1,7 +1,9 @@
 .PHONY: sync server test unit integration goldens
 
+ASR_ENGINE_EXTRA ?= cpu
+
 sync:
-	uv sync
+	uv sync --extra $(ASR_ENGINE_EXTRA)
 
 server:
 	uv run asr-engine-server --socket /tmp/asr-engine.sock

@@ -1,3 +1,5 @@
+SHELL := /usr/bin/env bash
+
 .PHONY: help docs docs-serve docs-clean website website-dev website-build dev init asr-engine-dev asr-engine-setup diar-engine-dev diar-engine-setup
 
 help: ## Show this help message
@@ -45,10 +47,18 @@ dev: ## Start development environment with Air (backend) and Vite (frontend)
 	echo "Starting ASR engine..."; \
 	ASR_ENGINE_SOCKET=$${ASR_ENGINE_SOCKET:-/tmp/scriberr-asr.sock}; \
 	ASR_ENGINE_CMD=$${ASR_ENGINE_CMD:-"uv run --project asr-engines/scriberr-asr-onnx asr-engine-server"}; \
+	ASR_ENGINE_EXTRA=$${ASR_ENGINE_EXTRA:-$${ASR_ENGINE_DEVICE:-}}; \
+	if [ -z "$$ASR_ENGINE_EXTRA" ]; then \
+		if command -v nvidia-smi >/dev/null 2>&1 || [ -e /dev/nvidia0 ] || [ -e /dev/nvidiactl ]; then \
+			ASR_ENGINE_EXTRA=gpu; \
+		else \
+			ASR_ENGINE_EXTRA=cpu; \
+		fi; \
+	fi; \
 	if command -v uv >/dev/null 2>&1; then \
 		if [ -z "$${ASR_ENGINE_SKIP_SYNC}" ]; then \
 			echo "Syncing ASR engine deps (set ASR_ENGINE_SKIP_SYNC=1 to skip)..."; \
-			( cd asr-engines/scriberr-asr-onnx && uv sync ) || true; \
+			( cd asr-engines/scriberr-asr-onnx && uv sync --extra $$ASR_ENGINE_EXTRA ) || true; \
 		fi; \
 		( cd asr-engines/scriberr-asr-onnx && uv run asr-engine-server --socket $$ASR_ENGINE_SOCKET ) & \
 		pids="$$pids $$!"; \
@@ -59,10 +69,18 @@ dev: ## Start development environment with Air (backend) and Vite (frontend)
 	echo "Starting diarization engine..."; \
 	DIAR_ENGINE_SOCKET=$${DIAR_ENGINE_SOCKET:-/tmp/scriberr-diar.sock}; \
 	DIAR_ENGINE_CMD=$${DIAR_ENGINE_CMD:-"uv run --project asr-engines/scriberr-diariz-torch diar-engine-server"}; \
+	DIAR_ENGINE_EXTRA=$${DIAR_ENGINE_EXTRA:-$${DIAR_ENGINE_DEVICE:-}}; \
+	if [ -z "$$DIAR_ENGINE_EXTRA" ]; then \
+		if command -v nvidia-smi >/dev/null 2>&1 || [ -e /dev/nvidia0 ] || [ -e /dev/nvidiactl ]; then \
+			DIAR_ENGINE_EXTRA=gpu; \
+		else \
+			DIAR_ENGINE_EXTRA=cpu; \
+		fi; \
+	fi; \
 	if command -v uv >/dev/null 2>&1; then \
 		if [ -z "$${DIAR_ENGINE_SKIP_SYNC}" ]; then \
 			echo "Syncing diarization engine deps (set DIAR_ENGINE_SKIP_SYNC=1 to skip)..."; \
-			( cd asr-engines/scriberr-diariz-torch && uv sync ) || true; \
+			( cd asr-engines/scriberr-diariz-torch && uv sync --extra $$DIAR_ENGINE_EXTRA ) || true; \
 		fi; \
 		( cd asr-engines/scriberr-diariz-torch && uv run diar-engine-server --socket $$DIAR_ENGINE_SOCKET ) & \
 		pids="$$pids $$!"; \
@@ -85,6 +103,10 @@ dev: ## Start development environment with Air (backend) and Vite (frontend)
 	fi; \
 	\
 	echo "⚛️  Starting React frontend (Vite)..."; \
+	if [ ! -x web/frontend/node_modules/.bin/vite ]; then \
+		echo "Installing frontend dependencies (vite not found)..."; \
+		( cd web/frontend && npm install ); \
+	fi; \
 	cd web/frontend && npm run dev & \
 	pids="$$pids $$!"; \
 	\
@@ -97,9 +119,17 @@ asr-engine-dev: ## Start ASR engine daemon for local development
 		exit 1; \
 	fi; \
 	ASR_ENGINE_SOCKET=$${ASR_ENGINE_SOCKET:-/tmp/scriberr-asr.sock}; \
+	ASR_ENGINE_EXTRA=$${ASR_ENGINE_EXTRA:-$${ASR_ENGINE_DEVICE:-}}; \
+	if [ -z "$$ASR_ENGINE_EXTRA" ]; then \
+		if command -v nvidia-smi >/dev/null 2>&1 || [ -e /dev/nvidia0 ] || [ -e /dev/nvidiactl ]; then \
+			ASR_ENGINE_EXTRA=gpu; \
+		else \
+			ASR_ENGINE_EXTRA=cpu; \
+		fi; \
+	fi; \
 	if [ -z "$${ASR_ENGINE_SKIP_SYNC}" ]; then \
 		echo "Syncing ASR engine deps (set ASR_ENGINE_SKIP_SYNC=1 to skip)..."; \
-		cd asr-engines/scriberr-asr-onnx && uv sync; \
+		cd asr-engines/scriberr-asr-onnx && uv sync --extra $$ASR_ENGINE_EXTRA; \
 	fi; \
 	echo "ASR engine socket: $$ASR_ENGINE_SOCKET"; \
 	cd asr-engines/scriberr-asr-onnx && uv run asr-engine-server --socket $$ASR_ENGINE_SOCKET
@@ -115,9 +145,17 @@ diar-engine-dev: ## Start diarization engine daemon for local development
 		exit 1; \
 	fi; \
 	DIAR_ENGINE_SOCKET=$${DIAR_ENGINE_SOCKET:-/tmp/scriberr-diar.sock}; \
+	DIAR_ENGINE_EXTRA=$${DIAR_ENGINE_EXTRA:-$${DIAR_ENGINE_DEVICE:-}}; \
+	if [ -z "$$DIAR_ENGINE_EXTRA" ]; then \
+		if command -v nvidia-smi >/dev/null 2>&1 || [ -e /dev/nvidia0 ] || [ -e /dev/nvidiactl ]; then \
+			DIAR_ENGINE_EXTRA=gpu; \
+		else \
+			DIAR_ENGINE_EXTRA=cpu; \
+		fi; \
+	fi; \
 	if [ -z "$${DIAR_ENGINE_SKIP_SYNC}" ]; then \
 		echo "Syncing diarization engine deps (set DIAR_ENGINE_SKIP_SYNC=1 to skip)..."; \
-		cd asr-engines/scriberr-diariz-torch && uv sync; \
+		cd asr-engines/scriberr-diariz-torch && uv sync --extra $$DIAR_ENGINE_EXTRA; \
 	fi; \
 	echo "Diarization engine socket: $$DIAR_ENGINE_SOCKET"; \
 	cd asr-engines/scriberr-diariz-torch && uv run diar-engine-server --socket $$DIAR_ENGINE_SOCKET

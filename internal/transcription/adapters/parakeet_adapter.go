@@ -35,7 +35,6 @@ func NewParakeetAdapter(envPath string) *ParakeetAdapter {
 			"timestamps":        true,
 			"word_level":        true,
 			"long_form":         true,
-			"attention_context": true,
 			"high_quality":      true,
 		},
 		Metadata: map[string]string{
@@ -77,28 +76,6 @@ func NewParakeetAdapter(envPath string) *ParakeetAdapter {
 			Group:       "basic",
 		},
 
-		// Long-form audio settings (Parakeet specific)
-		{
-			Name:        "context_left",
-			Type:        "int",
-			Required:    false,
-			Default:     256,
-			Min:         &[]float64{0}[0],
-			Max:         &[]float64{1024}[0],
-			Description: "Left attention context size for long-form audio",
-			Group:       "advanced",
-		},
-		{
-			Name:        "context_right",
-			Type:        "int",
-			Required:    false,
-			Default:     256,
-			Min:         &[]float64{0}[0],
-			Max:         &[]float64{1024}[0],
-			Description: "Right attention context size for long-form audio",
-			Group:       "advanced",
-		},
-
 		// Audio preprocessing
 		{
 			Name:        "auto_convert_audio",
@@ -108,46 +85,35 @@ func NewParakeetAdapter(envPath string) *ParakeetAdapter {
 			Description: "Automatically convert audio to 16kHz mono WAV",
 			Group:       "advanced",
 		},
-		// VAD tuning (onnx-asr)
+		// Chunked transcription (onnx-asr)
 		{
-			Name:        "vad_preset",
-			Type:        "string",
+			Name:        "chunk_len_s",
+			Type:        "float",
 			Required:    false,
-			Default:     "balanced",
-			Options:     []string{"conservative", "balanced", "aggressive"},
-			Description: "VAD preset for speech segmentation",
+			Default:     300.0,
+			Min:         &[]float64{10}[0],
+			Max:         &[]float64{3600}[0],
+			Description: "Chunk length in seconds for long audio",
 			Group:       "advanced",
 		},
 		{
-			Name:        "vad_speech_pad_ms",
+			Name:        "chunk_batch_size",
 			Type:        "int",
 			Required:    false,
-			Default:     nil,
-			Description: "VAD speech pad (ms)",
+			Default:     8,
+			Min:         &[]float64{1}[0],
+			Max:         &[]float64{64}[0],
+			Description: "Batch size for chunked transcription",
 			Group:       "advanced",
 		},
 		{
-			Name:        "vad_min_silence_ms",
-			Type:        "int",
+			Name:        "segment_gap_s",
+			Type:        "float",
 			Required:    false,
 			Default:     nil,
-			Description: "VAD min silence duration (ms)",
-			Group:       "advanced",
-		},
-		{
-			Name:        "vad_min_speech_ms",
-			Type:        "int",
-			Required:    false,
-			Default:     nil,
-			Description: "VAD min speech duration (ms)",
-			Group:       "advanced",
-		},
-		{
-			Name:        "vad_max_speech_s",
-			Type:        "int",
-			Required:    false,
-			Default:     nil,
-			Description: "VAD max speech duration (s)",
+			Min:         &[]float64{0}[0],
+			Max:         &[]float64{10}[0],
+			Description: "Optional gap threshold (seconds) for segmenting by pauses",
 			Group:       "advanced",
 		},
 
@@ -261,6 +227,9 @@ func (p *ParakeetAdapter) transcribeWithEngine(ctx context.Context, input interf
 	if err := manager.LoadModel(ctx, spec); err != nil {
 		return nil, fmt.Errorf("failed to load parakeet model: %w", err)
 	}
+	defer func() {
+		_ = manager.UnloadModel(context.Background(), spec.ModelId)
+	}()
 
 	engineParams := buildEngineParams(params)
 	engineParams["model_family"] = "nvidia_parakeet"

@@ -24,9 +24,22 @@ Notes:
 ## Quick start (uv)
 
 ```bash
-uv sync
+uv sync --extra cpu
 uv run diar-engine-server --socket /tmp/diar-engine.sock
 ```
+
+### GPU setup
+
+Install the GPU dependency profile when CUDA is available:
+
+```bash
+uv sync --extra gpu
+```
+
+Notes:
+- The engine will use CUDA when `torch.cuda.is_available()` is true.
+- In the repo root, `make dev` and `make diar-engine-dev` will auto-select `cpu` or `gpu`.
+  Override with `DIAR_ENGINE_EXTRA=cpu|gpu` or `DIAR_ENGINE_DEVICE=cpu|gpu`.
 
 ## Tests
 

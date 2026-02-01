@@ -2,30 +2,6 @@ from dataclasses import dataclass
 from typing import Any
 
 
-def get_vad_params(preset: str = "balanced") -> dict[str, int | float]:
-    presets = {
-        "conservative": {
-            "speech_pad_ms": 400,
-            "min_silence_duration_ms": 800,
-            "min_speech_duration_ms": 300,
-            "max_speech_duration_s": 30,
-        },
-        "balanced": {
-            "speech_pad_ms": 300,
-            "min_silence_duration_ms": 600,
-            "min_speech_duration_ms": 200,
-            "max_speech_duration_s": 25,
-        },
-        "aggressive": {
-            "speech_pad_ms": 150,
-            "min_silence_duration_ms": 300,
-            "min_speech_duration_ms": 120,
-            "max_speech_duration_s": 20,
-        },
-    }
-    return presets.get(preset, presets["balanced"]).copy()
-
-
 def _parse_bool(value: str | None, default: bool) -> bool:
     if value is None:
         return default
@@ -50,6 +26,17 @@ def _parse_float(value: str | None, default: float | None) -> float | None:
         return default
 
 
+def _parse_optional_float(value: str | None) -> float | None:
+    if value is None:
+        return None
+    if value.strip() == "":
+        return None
+    try:
+        return float(value)
+    except ValueError:
+        return None
+
+
 def _parse_pnc(value: str | None) -> str | bool | None:
     if value is None:
         return None
@@ -65,12 +52,9 @@ def _parse_pnc(value: str | None) -> str | bool | None:
 
 @dataclass
 class JobParams:
-    vad_enabled: bool = True
-    vad_preset: str = "balanced"
-    vad_speech_pad_ms: int | None = None
-    vad_min_silence_ms: int | None = None
-    vad_min_speech_ms: int | None = None
-    vad_max_speech_s: int | None = None
+    chunk_len_s: float = 300.0
+    chunk_batch_size: int = 8
+    segment_gap_s: float | None = None
 
     include_segments: bool = True
     include_words: bool = True
@@ -86,12 +70,9 @@ class JobParams:
     @classmethod
     def from_kv(cls, params: dict[str, str]) -> "JobParams":
         return cls(
-            vad_enabled=_parse_bool(params.get("vad_enabled"), True),
-            vad_preset=params.get("vad_preset", "balanced"),
-            vad_speech_pad_ms=_parse_int(params.get("vad_speech_pad_ms"), None),
-            vad_min_silence_ms=_parse_int(params.get("vad_min_silence_ms"), None),
-            vad_min_speech_ms=_parse_int(params.get("vad_min_speech_ms"), None),
-            vad_max_speech_s=_parse_int(params.get("vad_max_speech_s"), None),
+            chunk_len_s=_parse_float(params.get("chunk_len_s"), 300.0) or 300.0,
+            chunk_batch_size=_parse_int(params.get("chunk_batch_size"), 8) or 8,
+            segment_gap_s=_parse_optional_float(params.get("segment_gap_s")),
             include_segments=_parse_bool(params.get("include_segments"), True),
             include_words=_parse_bool(params.get("include_words"), True),
             merge_short_segments=_parse_bool(params.get("merge_short_segments"), True),
@@ -103,18 +84,6 @@ class JobParams:
             target_language=params.get("target_language") or None,
             pnc=_parse_pnc(params.get("pnc")),
         )
-
-    def resolved_vad_params(self) -> dict[str, int | float]:
-        vad_params = get_vad_params(self.vad_preset)
-        if self.vad_speech_pad_ms is not None:
-            vad_params["speech_pad_ms"] = self.vad_speech_pad_ms
-        if self.vad_min_silence_ms is not None:
-            vad_params["min_silence_duration_ms"] = self.vad_min_silence_ms
-        if self.vad_min_speech_ms is not None:
-            vad_params["min_speech_duration_ms"] = self.vad_min_speech_ms
-        if self.vad_max_speech_s is not None:
-            vad_params["max_speech_duration_s"] = self.vad_max_speech_s
-        return vad_params
 
 
 def normalize_text(text: str) -> str:

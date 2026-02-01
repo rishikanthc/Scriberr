@@ -119,3 +119,65 @@ def write_words_jsonl_from_entries(
     with open(path, "w", encoding="utf-8") as f:
         for rec in word_entries:
             f.write(json.dumps(rec, ensure_ascii=False) + "\n")
+
+
+def split_segments_from_words(
+    words: list[dict[str, float | str]],
+    delimiters: set[str] | None = None,
+    gap_s: float | None = None,
+) -> list[dict[str, float | str]]:
+    if not words:
+        return []
+    if delimiters is None:
+        delimiters = {".", "!", "?"}
+
+    segments: list[dict[str, float | str]] = []
+    cur_words: list[dict[str, float | str]] = []
+    cur_start = float(words[0]["start"])
+    cur_end = float(words[0]["end"])
+
+    for idx, w in enumerate(words):
+        w_start = float(w["start"])
+        w_end = float(w["end"])
+        w_text = str(w["word"])
+
+        if gap_s is not None and cur_words:
+            prev_end = float(words[idx - 1]["end"])
+            if w_start - prev_end >= gap_s:
+                segments.append(
+                    {
+                        "text": " ".join(str(x["word"]) for x in cur_words),
+                        "start": cur_start,
+                        "end": cur_end,
+                        "words": list(cur_words),
+                    }
+                )
+                cur_words = []
+
+        if not cur_words:
+            cur_start = w_start
+        cur_words.append(w)
+        cur_end = w_end
+
+        if w_text and w_text[-1] in delimiters:
+            segments.append(
+                {
+                    "text": " ".join(str(x["word"]) for x in cur_words),
+                    "start": cur_start,
+                    "end": cur_end,
+                    "words": list(cur_words),
+                }
+            )
+            cur_words = []
+
+    if cur_words:
+        segments.append(
+            {
+                "text": " ".join(str(x["word"]) for x in cur_words),
+                "start": cur_start,
+                "end": cur_end,
+                "words": list(cur_words),
+            }
+        )
+
+    return segments

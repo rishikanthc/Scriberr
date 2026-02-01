@@ -150,6 +150,14 @@ func (m *Manager) LoadModel(ctx context.Context, spec pb.ModelSpec) error {
 	return err
 }
 
+func (m *Manager) UnloadModel(ctx context.Context, modelID string) error {
+	if err := m.EnsureRunning(ctx); err != nil {
+		return err
+	}
+	_, err := m.stub.UnloadModel(ctx, &pb.UnloadModelRequest{ModelId: modelID})
+	return err
+}
+
 func (m *Manager) RunJob(ctx context.Context, jobID, inputPath, outputDir string, params map[string]string) (*pb.JobStatus, error) {
 	m.jobMu.Lock()
 	defer m.jobMu.Unlock()

@@ -311,6 +311,9 @@ func (c *CanaryAdapter) transcribeWithEngine(ctx context.Context, input interfac
 	if err := manager.LoadModel(ctx, spec); err != nil {
 		return nil, fmt.Errorf("failed to load canary model: %w", err)
 	}
+	defer func() {
+		_ = manager.UnloadModel(context.Background(), spec.ModelId)
+	}()
 
 	engineParams := buildEngineParams(params)
 	engineParams["model_family"] = "nvidia_canary"

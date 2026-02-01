@@ -7,11 +7,19 @@ readme = "README.md"
 dependencies = [
   "numpy>=1.26",
   "soundfile>=0.13.1",
-  "onnx-asr[cpu,hub]>=0.4.0",
-  "onnxruntime>=1.17",
   "grpcio>=1.62",
   "protobuf>=4.25",
   "pytest>=7.4",
+]
+
+[project.optional-dependencies]
+cpu = [
+  "onnx-asr[cpu,hub]>=0.4.0",
+  "onnxruntime>=1.17",
+]
+gpu = [
+  "onnx-asr[gpu,hub]>=0.4.0",
+  "onnxruntime-gpu>=1.17",
 ]
 
 [project.scripts]

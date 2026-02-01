@@ -12,9 +12,22 @@ A structured ASR engine daemon that exposes a gRPC API to transcribe audio using
 ## Quick start (uv)
 
 ```bash
-uv sync
+uv sync --extra cpu
 uv run asr-engine-server --socket /tmp/asr-engine.sock
 ```
+
+### GPU setup
+
+Install the GPU dependency profile when CUDA is available:
+
+```bash
+uv sync --extra gpu
+```
+
+Notes:
+- The engine selects CUDA automatically if the CUDA execution provider is available.
+- In the repo root, `make dev` and `make asr-engine-dev` will auto-select `cpu` or `gpu`.
+  Override with `ASR_ENGINE_EXTRA=cpu|gpu` or `ASR_ENGINE_DEVICE=cpu|gpu`.
 
 ## Tests
 

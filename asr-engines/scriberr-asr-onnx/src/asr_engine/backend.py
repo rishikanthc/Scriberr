@@ -14,6 +14,7 @@ from .model_manager import ModelManager
 from .params import JobParams, ensure_output_dir
 from .postprocess import Segment, merge_short_segments
 from .timestamps import (
+    split_segments_from_words,
     word_timestamps_from_segment,
     word_timestamps_from_tokens,
     write_segments_jsonl,
@@ -70,14 +71,8 @@ class AsrBackend:
         audio, sr = load_audio(input_path, sample_rate=params.sample_rate)
         audio = audio.astype(np.float32)
         audio_seconds = len(audio) / float(sr) if sr else 0.0
-
-        if params.vad_enabled:
-            vad_params = params.resolved_vad_params()
-            asr = loaded.asr_base.with_vad(loaded.vad, **vad_params)
-        else:
-            asr = loaded.asr_base
-
-        if params.include_words and hasattr(asr, "with_timestamps"):
+        asr = loaded.asr_base
+        if (params.include_words or params.include_segments) and hasattr(asr, "with_timestamps"):
             asr = asr.with_timestamps()
 
         segments: list[Segment] = []
@@ -100,35 +95,99 @@ class AsrBackend:
                 k: v for k, v in recognize_kwargs.items() if k in sig.parameters
             }
 
-        results = asr.recognize(audio, **recognize_kwargs)
-        for seg in results:
-            if cancel_token and cancel_token.is_cancelled():
-                raise CancelledError("Job cancelled")
-            text = getattr(seg, "text", "").strip()
-            start = getattr(seg, "start", None)
-            end = getattr(seg, "end", None)
-            segments.append(Segment(text=text, start=start, end=end))
-            segment_index += 1
+        chunk_len_s = max(1.0, float(params.chunk_len_s))
+        batch_size = max(1, int(params.chunk_batch_size))
+        chunk_samples = int(chunk_len_s * sr)
+        chunks: list[tuple[np.ndarray, float, float]] = []
+        for start in range(0, len(audio), chunk_samples):
+            end = min(start + chunk_samples, len(audio))
+            if end <= start:
+                continue
+            chunk = np.ascontiguousarray(audio[start:end], dtype=np.float32)
+            start_s = start / float(sr)
+            end_s = end / float(sr)
+            chunks.append((chunk, start_s, end_s))
 
-            if params.include_words:
-                tokens = getattr(seg, "tokens", None)
-                timestamps = getattr(seg, "timestamps", None)
-                words = word_timestamps_from_tokens(tokens, timestamps, start, end)
-                if not words:
-                    words = word_timestamps_from_segment(text, start, end)
-                for wi, wrec in enumerate(words, start=1):
-                    rec = {
-                        "global_word_index": len(word_entries) + 1,
-                        "segment_index": segment_index,
-                        "word_index_in_segment": wi,
-                        "word": wrec["word"],
-                        "start": wrec["start"],
-                        "end": wrec["end"],
-                    }
-                    word_entries.append(rec)
-            if progress_cb and end is not None and audio_seconds > 0:
-                progress = min(1.0, max(0.0, float(end) / audio_seconds))
-                progress_cb(progress, "RUNNING")
+        for batch_start in range(0, len(chunks), batch_size):
+            batch = chunks[batch_start : batch_start + batch_size]
+            batch_audio = [c[0] for c in batch]
+            results = asr.recognize(batch_audio, **recognize_kwargs)
+            if not isinstance(results, list):
+                results = [results]
+
+            for (chunk_audio, start_s, end_s), res in zip(batch, results, strict=False):
+                if cancel_token and cancel_token.is_cancelled():
+                    raise CancelledError("Job cancelled")
+
+                if isinstance(res, str):
+                    text = res.strip()
+                    tokens = None
+                    timestamps = None
+                else:
+                    text = getattr(res, "text", "").strip()
+                    tokens = getattr(res, "tokens", None)
+                    timestamps = getattr(res, "timestamps", None)
+
+                if not text:
+                    continue
+
+                seg_start = start_s
+                seg_end = end_s
+                words_local: list[dict[str, float | str]] = []
+
+                if tokens and timestamps:
+                    try:
+                        seg_start = start_s + float(min(timestamps))
+                        seg_end = start_s + float(max(timestamps))
+                    except Exception:
+                        seg_start = start_s
+                        seg_end = end_s
+                    words_local = word_timestamps_from_tokens(tokens, timestamps, seg_start, seg_end)
+
+                if not words_local:
+                    words_local = word_timestamps_from_segment(text, seg_start, seg_end)
+
+                segments_local = split_segments_from_words(
+                    words_local,
+                    gap_s=params.segment_gap_s,
+                )
+                if not segments_local:
+                    segments_local = [{"text": text, "start": seg_start, "end": seg_end, "words": words_local}]
+
+                if params.include_words:
+                    for seg in segments_local:
+                        segments.append(
+                            Segment(
+                                text=str(seg["text"]),
+                                start=float(seg["start"]),
+                                end=float(seg["end"]),
+                            )
+                        )
+                        segment_index += 1
+                        for wi, wrec in enumerate(seg["words"], start=1):
+                            rec = {
+                                "global_word_index": len(word_entries) + 1,
+                                "segment_index": segment_index,
+                                "word_index_in_segment": wi,
+                                "word": wrec["word"],
+                                "start": wrec["start"],
+                                "end": wrec["end"],
+                            }
+                            word_entries.append(rec)
+                else:
+                    for seg in segments_local:
+                        segments.append(
+                            Segment(
+                                text=str(seg["text"]),
+                                start=float(seg["start"]),
+                                end=float(seg["end"]),
+                            )
+                        )
+                        segment_index += 1
+
+                if progress_cb and audio_seconds > 0:
+                    progress = min(1.0, max(0.0, float(end_s) / audio_seconds))
+                    progress_cb(progress, "RUNNING")
 
         if params.merge_short_segments:
             segments = merge_short_segments(
@@ -166,12 +225,9 @@ class AsrBackend:
                 "language": params.language,
                 "target_language": params.target_language,
                 "pnc": params.pnc,
-            "vad_enabled": params.vad_enabled,
-            "vad_preset": params.vad_preset,
-                "vad_speech_pad_ms": params.vad_speech_pad_ms,
-                "vad_min_silence_ms": params.vad_min_silence_ms,
-                "vad_min_speech_ms": params.vad_min_speech_ms,
-                "vad_max_speech_s": params.vad_max_speech_s,
+                "chunk_len_s": params.chunk_len_s,
+                "chunk_batch_size": params.chunk_batch_size,
+                "segment_gap_s": params.segment_gap_s,
             },
             "outputs": {
                 "transcript": transcript_path,

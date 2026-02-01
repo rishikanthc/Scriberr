@@ -9,11 +9,22 @@ dependencies = [
   "protobuf>=4.25",
   "huggingface_hub>=0.20",
   "numpy>=1.26",
-  "pyannote.audio>=3.1",
   "soundfile>=0.13.1",
-  "torch>=2.1",
-  "nemo_toolkit[asr]>=1.23.0",
   "pytest>=7.4",
+]
+
+[project.optional-dependencies]
+cpu = [
+  "torch>=2.1",
+  "torchaudio>=2.1",
+  "pyannote.audio>=3.1",
+  "nemo_toolkit[asr]>=1.23.0",
+]
+gpu = [
+  "torch>=2.1",
+  "torchaudio>=2.1",
+  "pyannote.audio>=3.1",
+  "nemo_toolkit[asr]>=1.23.0",
 ]
 
 [project.scripts]

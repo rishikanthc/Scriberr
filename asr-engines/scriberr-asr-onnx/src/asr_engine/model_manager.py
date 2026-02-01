@@ -23,7 +23,6 @@ class ModelSpec:
 class LoadedModel:
     spec: ModelSpec
     asr_base: Any
-    vad: Any
     loaded_at: float
 
 
@@ -63,8 +62,6 @@ class ModelManager:
             else:
                 providers = ["CPUExecutionProvider"]
 
-        vad = onnx_asr.load_vad(spec.vad_backend, providers=providers)
-
         load_kwargs: dict[str, Any] = {
             "model": spec.model_name,
             "providers": providers,
@@ -74,4 +71,4 @@ class ModelManager:
             load_kwargs["path"] = spec.model_path
 
         asr_base = onnx_asr.load_model(**load_kwargs)
-        return LoadedModel(spec=spec, asr_base=asr_base, vad=vad, loaded_at=time.time())
+        return LoadedModel(spec=spec, asr_base=asr_base, loaded_at=time.time())

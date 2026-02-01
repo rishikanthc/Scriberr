@@ -120,8 +120,11 @@ setup_engines() {
 
 main() {
   if [[ "${EUID:-$(id -u)}" -eq 0 ]]; then
-    warn "Running as root is not recommended. Please run as your user."
-    exit 1
+    if [[ "${ALLOW_ROOT:-}" != "1" ]]; then
+      warn "Running as root is not recommended. Re-run with ALLOW_ROOT=1 if this is intentional."
+      exit 1
+    fi
+    warn "Running as root (ALLOW_ROOT=1 set). Proceeding."
   fi
   local os
   os="$(detect_os)"

@@ -148,13 +148,9 @@ function CuratedParamsDisplay({ params }: { params: any }) {
     } else if (params.model_family === 'nvidia_parakeet') {
         specificKeys = [
             'model',
-            'attention_context_left',
-            'attention_context_right',
-            'vad_preset',
-            'vad_speech_pad_ms',
-            'vad_min_silence_ms',
-            'vad_min_speech_ms',
-            'vad_max_speech_s',
+            'chunk_len_s',
+            'chunk_batch_size',
+            'segment_gap_s',
             ...(params.diarize ? ['diarize_model'] : [])
         ];
     } else if (params.model_family === 'openai') {

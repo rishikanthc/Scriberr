@@ -17,40 +17,22 @@ func buildEngineParams(params map[string]interface{}) map[string]string {
 	}
 
 	if diarize, ok := params["diarize"].(bool); ok && diarize {
-		if _, has := params["vad_enabled"]; !has {
-			engineParams["vad_enabled"] = "false"
-		}
+		_ = diarize
 	}
 
-	if val, ok := params["vad_enabled"].(bool); ok {
-		if val {
-			engineParams["vad_enabled"] = "true"
-		} else {
-			engineParams["vad_enabled"] = "false"
+	if val, ok := params["chunk_len_s"]; ok {
+		if floatVal, err := toFloat(val); err == nil {
+			engineParams["chunk_len_s"] = strconv.FormatFloat(floatVal, 'f', -1, 64)
 		}
 	}
-
-	if val, ok := params["vad_preset"].(string); ok && val != "" {
-		engineParams["vad_preset"] = val
-	}
-	if val, ok := params["vad_speech_pad_ms"]; ok {
+	if val, ok := params["chunk_batch_size"]; ok {
 		if intVal, err := toInt(val); err == nil {
-			engineParams["vad_speech_pad_ms"] = strconv.Itoa(intVal)
+			engineParams["chunk_batch_size"] = strconv.Itoa(intVal)
 		}
 	}
-	if val, ok := params["vad_min_silence_ms"]; ok {
-		if intVal, err := toInt(val); err == nil {
-			engineParams["vad_min_silence_ms"] = strconv.Itoa(intVal)
-		}
-	}
-	if val, ok := params["vad_min_speech_ms"]; ok {
-		if intVal, err := toInt(val); err == nil {
-			engineParams["vad_min_speech_ms"] = strconv.Itoa(intVal)
-		}
-	}
-	if val, ok := params["vad_max_speech_s"]; ok {
-		if intVal, err := toInt(val); err == nil {
-			engineParams["vad_max_speech_s"] = strconv.Itoa(intVal)
+	if val, ok := params["segment_gap_s"]; ok {
+		if floatVal, err := toFloat(val); err == nil {
+			engineParams["segment_gap_s"] = strconv.FormatFloat(floatVal, 'f', -1, 64)
 		}
 	}
 
@@ -89,5 +71,24 @@ func toInt(val interface{}) (int, error) {
 		return strconv.Atoi(v)
 	default:
 		return 0, fmt.Errorf("unsupported int type %T", val)
+	}
+}
+
+func toFloat(val interface{}) (float64, error) {
+	switch v := val.(type) {
+	case float32:
+		return float64(v), nil
+	case float64:
+		return v, nil
+	case int:
+		return float64(v), nil
+	case int32:
+		return float64(v), nil
+	case int64:
+		return float64(v), nil
+	case string:
+		return strconv.ParseFloat(v, 64)
+	default:
+		return 0, fmt.Errorf("unsupported float type %T", val)
 	}
 }

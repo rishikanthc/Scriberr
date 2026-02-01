@@ -300,6 +300,9 @@ func (p *PyAnnoteAdapter) diarizeWithEngine(ctx context.Context, input interface
 	if err := manager.LoadModel(ctx, spec); err != nil {
 		return nil, fmt.Errorf("failed to load pyannote model: %w", err)
 	}
+	defer func() {
+		_ = manager.UnloadModel(context.Background(), spec.ModelId)
+	}()
 
 	engineParams := buildDiarEngineParams(p.BaseAdapter, params)
 	engineParams["model_family"] = "pyannote"

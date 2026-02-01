@@ -89,6 +89,9 @@ export interface TranscriptionParams {
     print_progress: boolean;
     attention_context_left: number;
     attention_context_right: number;
+    chunk_len_s: number;
+    chunk_batch_size: number;
+    segment_gap_s?: number;
     is_multi_track_enabled: boolean;
     api_key?: string;
 }
@@ -147,6 +150,9 @@ const DEFAULT_PARAMS: TranscriptionParams = {
     print_progress: false,
     attention_context_left: 256,
     attention_context_right: 256,
+    chunk_len_s: 300,
+    chunk_batch_size: 8,
+    segment_gap_s: undefined,
     is_multi_track_enabled: false,
     api_key: "",
     target_language: "en",
@@ -260,6 +266,9 @@ const PARAM_DESCRIPTIONS = {
     vad_onset: "Voice detection sensitivity. Lower values (0.3-0.4) catch quieter/distant speakers.",
     vad_offset: "Speech ending sensitivity. Lower values detect speech endings more precisely.",
     vad_preset: "Preset for voice activity detection (segmenting long audio).",
+    chunk_len_s: "Chunk length in seconds for long audio (onnx-asr).",
+    chunk_batch_size: "Batch size for chunked transcription (onnx-asr).",
+    segment_gap_s: "Optional pause threshold (seconds) to split segments (NeMo-style).",
     segmentation_batch_size: "Segmentation batch size (CPU tuning). Higher can be faster but uses more memory.",
     embedding_batch_size: "Embedding batch size (CPU tuning). Higher can be faster but uses more memory.",
     embedding_exclude_overlap: "Skip overlap regions when computing embeddings (faster on CPU).",
@@ -868,104 +877,39 @@ function ParakeetConfig({ params, updateParam, isMultiTrack }: ConfigProps) {
                 </FormField>
             </Section>
 
-            {/* Long-form Audio Settings */}
-            <Section title="Audio Context" description="Configure how much context the model uses for long audio files">
+            <Section title="Chunking" description="Control how long audio is split before recognition">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                    <div className="space-y-3">
-                        <FormField label="Left Context">
-                            <Slider
-                                value={[params.attention_context_left]}
-                                onValueChange={(v) => updateParam('attention_context_left', v[0])}
-                                max={512}
-                                min={64}
-                                step={64}
-                                className="w-full"
-                            />
-                            <div className="flex justify-between text-xs text-[var(--text-tertiary)]">
-                                <span>64</span>
-                                <span className="font-medium text-[var(--text-primary)]">{params.attention_context_left}</span>
-                                <span>512</span>
-                            </div>
-                        </FormField>
-                    </div>
-
-                    <div className="space-y-3">
-                        <FormField label="Right Context">
-                            <Slider
-                                value={[params.attention_context_right]}
-                                onValueChange={(v) => updateParam('attention_context_right', v[0])}
-                                max={512}
-                                min={64}
-                                step={64}
-                                className="w-full"
-                            />
-                            <div className="flex justify-between text-xs text-[var(--text-tertiary)]">
-                                <span>64</span>
-                                <span className="font-medium text-[var(--text-primary)]">{params.attention_context_right}</span>
-                                <span>512</span>
-                            </div>
-                        </FormField>
-                    </div>
-                </div>
-            </Section>
-
-            <Section title="ASR VAD" description="Control how audio is segmented before recognition">
-                <div className="space-y-4">
-                    <FormField label="VAD Preset" description={PARAM_DESCRIPTIONS.vad_preset}>
-                        <Select value={params.vad_preset} onValueChange={(v) => updateParam('vad_preset', v)}>
-                            <SelectTrigger className={selectTriggerClassName}>
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent className={selectContentClassName}>
-                                <SelectItem value="conservative" className={selectItemClassName}>Conservative</SelectItem>
-                                <SelectItem value="balanced" className={selectItemClassName}>Balanced</SelectItem>
-                                <SelectItem value="aggressive" className={selectItemClassName}>Aggressive</SelectItem>
-                            </SelectContent>
-                        </Select>
+                    <FormField label="Chunk Length (seconds)" description={PARAM_DESCRIPTIONS.chunk_len_s}>
+                        <Input
+                            type="number"
+                            min={10}
+                            step={10}
+                            value={params.chunk_len_s}
+                            onChange={(e) => updateParam('chunk_len_s', parseFloat(e.target.value) || 300)}
+                            className={inputClassName}
+                        />
                     </FormField>
-
-                    <div className="grid grid-cols-2 gap-4">
-                        <FormField label="Speech Pad (ms)" optional>
-                            <Input
-                                type="number"
-                                min={0}
-                                placeholder="Default"
-                                value={params.vad_speech_pad_ms ?? ""}
-                                onChange={(e) => updateParam('vad_speech_pad_ms', e.target.value ? parseInt(e.target.value) : undefined)}
-                                className={inputClassName}
-                            />
-                        </FormField>
-                        <FormField label="Min Silence (ms)" optional>
-                            <Input
-                                type="number"
-                                min={0}
-                                placeholder="Default"
-                                value={params.vad_min_silence_ms ?? ""}
-                                onChange={(e) => updateParam('vad_min_silence_ms', e.target.value ? parseInt(e.target.value) : undefined)}
-                                className={inputClassName}
-                            />
-                        </FormField>
-                        <FormField label="Min Speech (ms)" optional>
-                            <Input
-                                type="number"
-                                min={0}
-                                placeholder="Default"
-                                value={params.vad_min_speech_ms ?? ""}
-                                onChange={(e) => updateParam('vad_min_speech_ms', e.target.value ? parseInt(e.target.value) : undefined)}
-                                className={inputClassName}
-                            />
-                        </FormField>
-                        <FormField label="Max Speech (s)" optional>
-                            <Input
-                                type="number"
-                                min={1}
-                                placeholder="Default"
-                                value={params.vad_max_speech_s ?? ""}
-                                onChange={(e) => updateParam('vad_max_speech_s', e.target.value ? parseInt(e.target.value) : undefined)}
-                                className={inputClassName}
-                            />
-                        </FormField>
-                    </div>
+                    <FormField label="Chunk Batch Size" description={PARAM_DESCRIPTIONS.chunk_batch_size}>
+                        <Input
+                            type="number"
+                            min={1}
+                            step={1}
+                            value={params.chunk_batch_size}
+                            onChange={(e) => updateParam('chunk_batch_size', parseInt(e.target.value) || 8)}
+                            className={inputClassName}
+                        />
+                    </FormField>
+                    <FormField label="Segment Gap (seconds)" optional description={PARAM_DESCRIPTIONS.segment_gap_s}>
+                        <Input
+                            type="number"
+                            min={0}
+                            step={0.1}
+                            placeholder="None"
+                            value={params.segment_gap_s ?? ""}
+                            onChange={(e) => updateParam('segment_gap_s', e.target.value ? parseFloat(e.target.value) : undefined)}
+                            className={inputClassName}
+                        />
+                    </FormField>
                 </div>
             </Section>
 
