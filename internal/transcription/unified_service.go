@@ -715,6 +715,15 @@ func (u *UnifiedTranscriptionService) convertToPyannoteParams(params models.Tran
 	}
 	if params.HfToken != nil {
 		paramMap["hf_token"] = *params.HfToken
+		logger.Debug("Pyannote hf_token received",
+			"length", len(*params.HfToken),
+			"suffix", func() string {
+				token := *params.HfToken
+				if len(token) <= 4 {
+					return token
+				}
+				return token[len(token)-4:]
+			}())
 	}
 
 	// Map VAD thresholds to Pyannote segmentation parameters

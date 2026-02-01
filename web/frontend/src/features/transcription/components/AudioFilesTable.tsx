@@ -333,6 +333,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 				headers: {
 					...getAuthHeaders(),
 					"Content-Type": "application/json",
+					...(params.hf_token ? { "X-HF-Token": params.hf_token } : {}),
 				},
 				body: JSON.stringify(params),
 			});
@@ -381,6 +382,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 				headers: {
 					...getAuthHeaders(),
 					"Content-Type": "application/json",
+					...(params.hf_token ? { "X-HF-Token": params.hf_token } : {}),
 				},
 				body: JSON.stringify(params),
 			});

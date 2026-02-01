@@ -26,7 +26,7 @@ func NewSortformerAdapter(_ string) *SortformerAdapter {
 		ModelFamily:        "nvidia_sortformer",
 		DisplayName:        "NVIDIA Sortformer Diarization",
 		Description:        "NVIDIA's Sortformer model optimized for 4-speaker diarization",
-		Version:            "diar_sortformer_4spk-v1",
+		Version:            "diar_streaming_sortformer_4spk-v2",
 		SupportedLanguages: []string{"*"},
 		SupportedFormats:   []string{"wav", "mp3", "flac", "m4a", "ogg"},
 		RequiresGPU:        true,
@@ -209,7 +209,7 @@ func (s *SortformerAdapter) Diarize(ctx context.Context, input interfaces.AudioI
 	}
 
 	result.ProcessingTime = time.Since(startTime)
-	result.ModelUsed = "nvidia/diar_sortformer_4spk-v1"
+	result.ModelUsed = "nvidia/diar_streaming_sortformer_4spk-v2"
 	result.Metadata = s.CreateDefaultMetadata(params)
 
 	logger.Info("Sortformer diarization completed",
@@ -236,7 +236,7 @@ func (s *SortformerAdapter) diarizeWithEngine(ctx context.Context, input interfa
 
 	spec := pb.ModelSpec{
 		ModelId:   "sortformer",
-		ModelName: "nvidia/diar_sortformer_4spk-v1",
+		ModelName: "nvidia/diar_streaming_sortformer_4spk-v2",
 	}
 	if modelPath := strings.TrimSpace(os.Getenv("DIAR_ENGINE_SORTFORMER_MODEL_PATH")); modelPath != "" {
 		spec.ModelPath = modelPath

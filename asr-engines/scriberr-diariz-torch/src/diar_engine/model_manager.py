@@ -89,6 +89,11 @@ def _load_pyannote(spec: ModelSpec, token: str | None) -> LoadedModel:
     if not model_ref:
         raise ValueError("model_name is required for pyannote")
 
+    if token:
+        print(f"[pyannote] hf_token received (len={len(token)} suffix={token[-4:]})")
+    else:
+        print("[pyannote] hf_token missing/empty")
+
     try:
         if token:
             pipeline = Pipeline.from_pretrained(model_ref, token=token)
@@ -141,7 +146,7 @@ def _resolve_sortformer_model_path(spec: ModelSpec) -> str:
     if spec.model_path:
         return spec.model_path
 
-    model_name = spec.model_name or "nvidia/diar_sortformer_4spk-v1"
+    model_name = spec.model_name or "nvidia/diar_streaming_sortformer_4spk-v2"
     if model_name.endswith(".nemo") and os.path.exists(model_name):
         return model_name
 

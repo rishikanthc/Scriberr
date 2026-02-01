@@ -1132,6 +1132,13 @@ func (h *Handler) getValidatedTranscriptionParams(c *gin.Context, job *models.Tr
 		// Use defaults if JSON parsing fails
 		logger.Debug("Failed to parse JSON parameters, using defaults", "error", err)
 	}
+	if requestParams.HfToken == nil || *requestParams.HfToken == "" {
+		if headerToken := strings.TrimSpace(c.GetHeader("X-HF-Token")); headerToken != "" {
+			requestParams.HfToken = &headerToken
+		} else if headerToken := strings.TrimSpace(c.GetHeader("X-HuggingFace-Token")); headerToken != "" {
+			requestParams.HfToken = &headerToken
+		}
+	}
 
 	// Debug: log what we received
 	logger.Debug("Parsed transcription parameters",
@@ -1140,7 +1147,18 @@ func (h *Handler) getValidatedTranscriptionParams(c *gin.Context, job *models.Tr
 		"model", requestParams.Model,
 		"diarization", requestParams.Diarize,
 		"diarize_model", requestParams.DiarizeModel,
-		"language", requestParams.Language)
+		"language", requestParams.Language,
+		"hf_token_set", requestParams.HfToken != nil && *requestParams.HfToken != "",
+		"hf_token_suffix", func() string {
+			if requestParams.HfToken == nil || *requestParams.HfToken == "" {
+				return ""
+			}
+			token := *requestParams.HfToken
+			if len(token) <= 4 {
+				return token
+			}
+			return token[len(token)-4:]
+		}())
 
 	// Validate NVIDIA-specific constraints
 	if requestParams.ModelFamily == "nvidia_parakeet" || requestParams.ModelFamily == "nvidia_canary" {
