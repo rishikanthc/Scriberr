@@ -54,6 +54,18 @@ type UnifiedTranscriptionService struct {
 	broadcaster           *sse.Broadcaster
 }
 
+// PipelineStatusPayload is emitted via SSE and returned by the pipeline-status endpoint.
+type PipelineStatusPayload struct {
+	JobID       string               `json:"job_id"`
+	ExecutionID string               `json:"execution_id,omitempty"`
+	Stage       models.PipelineStage `json:"stage"`
+	Progress    float64              `json:"progress"`
+	StepMessage string               `json:"step_message,omitempty"`
+	Error       *string              `json:"error,omitempty"`
+	StartedAt   time.Time            `json:"started_at"`
+	UpdatedAt   time.Time            `json:"updated_at"`
+}
+
 // NewUnifiedTranscriptionService creates a new unified transcription service
 func NewUnifiedTranscriptionService(jobRepo repository.JobRepository, tempDir, outputDir string) *UnifiedTranscriptionService {
 	return &UnifiedTranscriptionService{
@@ -75,6 +87,45 @@ func NewUnifiedTranscriptionService(jobRepo repository.JobRepository, tempDir, o
 // SetBroadcaster sets the SSE broadcaster for the service
 func (u *UnifiedTranscriptionService) SetBroadcaster(b *sse.Broadcaster) {
 	u.broadcaster = b
+}
+
+func (u *UnifiedTranscriptionService) emitPipelineUpdate(
+	ctx context.Context,
+	execution *models.TranscriptionJobExecution,
+	stage models.PipelineStage,
+	progress float64,
+	stepMessage string,
+	errorMsg *string,
+) {
+	now := time.Now()
+	execution.PipelineStage = stage
+	execution.PipelineProgress = progress
+	execution.PipelineUpdatedAt = &now
+	if stepMessage != "" {
+		execution.PipelineMessage = &stepMessage
+	}
+	if errorMsg != nil {
+		execution.ErrorMessage = errorMsg
+	}
+
+	if err := u.jobRepo.UpdateExecution(ctx, execution); err != nil {
+		logger.Warn("Failed to persist pipeline status", "job_id", execution.TranscriptionJobID, "error", err)
+	}
+
+	if u.broadcaster == nil {
+		return
+	}
+
+	u.broadcaster.Broadcast(execution.TranscriptionJobID, "pipeline_update", PipelineStatusPayload{
+		JobID:       execution.TranscriptionJobID,
+		ExecutionID: execution.ID,
+		Stage:       stage,
+		Progress:    progress,
+		StepMessage: stepMessage,
+		Error:       errorMsg,
+		StartedAt:   execution.StartedAt,
+		UpdatedAt:   now,
+	})
 }
 
 // Initialize prepares all registered models for use
@@ -118,11 +169,15 @@ func (u *UnifiedTranscriptionService) ProcessJob(ctx context.Context, jobID stri
 		StartedAt:          startTime,
 		ActualParameters:   job.Parameters,
 		Status:             models.StatusProcessing,
+		PipelineStage:      models.StageQueued,
+		PipelineProgress:   0,
 	}
 
 	if err := u.jobRepo.CreateExecution(ctx, execution); err != nil {
 		return fmt.Errorf("failed to create execution record: %w", err)
 	}
+
+	u.emitPipelineUpdate(ctx, execution, models.StageQueued, 0, "Job accepted by worker", nil)
 
 	// Broadcast initial processing status
 	if u.broadcaster != nil {
@@ -144,6 +199,18 @@ func (u *UnifiedTranscriptionService) ProcessJob(ctx context.Context, jobID stri
 		}
 
 		_ = u.jobRepo.UpdateExecution(ctx, execution)
+
+		finalStage := models.StageCompleted
+		finalProgress := 100.0
+		if status == models.StatusFailed {
+			finalStage = models.StageFailed
+			finalProgress = execution.PipelineProgress
+		}
+		if errorMsg != "" {
+			u.emitPipelineUpdate(ctx, execution, finalStage, finalProgress, "Job finished", &errorMsg)
+		} else {
+			u.emitPipelineUpdate(ctx, execution, finalStage, finalProgress, "Job finished", nil)
+		}
 
 		// Broadcast update via SSE
 		if u.broadcaster != nil {
@@ -186,15 +253,17 @@ func (u *UnifiedTranscriptionService) ProcessJob(ctx context.Context, jobID stri
 
 	// Check for multi-track processing
 	if job.IsMultiTrack && job.Parameters.IsMultiTrackEnabled {
+		u.emitPipelineUpdate(ctx, execution, models.StagePreprocessing, 10, "Preparing multi-track merge", nil)
 		logger.Info("Processing multi-track job", "job_id", jobID)
-		if err := u.processMultiTrackJob(ctx, job); err != nil {
+		if err := u.processMultiTrackJob(ctx, job, execution); err != nil {
 			errMsg := fmt.Sprintf("multi-track processing failed: %v", err)
 			updateExecutionStatus(models.StatusFailed, errMsg)
 			return fmt.Errorf("%s", errMsg)
 		}
 	} else {
+		u.emitPipelineUpdate(ctx, execution, models.StagePreprocessing, 10, "Preparing audio input", nil)
 		// Process single track
-		if err := u.processSingleTrackJob(ctx, job); err != nil {
+		if err := u.processSingleTrackJob(ctx, job, execution); err != nil {
 			errMsg := fmt.Sprintf("single-track processing failed: %v", err)
 			updateExecutionStatus(models.StatusFailed, errMsg)
 			return fmt.Errorf("%s", errMsg)
@@ -210,7 +279,11 @@ func (u *UnifiedTranscriptionService) ProcessJob(ctx context.Context, jobID stri
 // processSingleTrackJob handles single audio file transcription
 //
 //nolint:gocyclo // Orchestrator function with multiple steps
-func (u *UnifiedTranscriptionService) processSingleTrackJob(ctx context.Context, job *models.TranscriptionJob) error {
+func (u *UnifiedTranscriptionService) processSingleTrackJob(
+	ctx context.Context,
+	job *models.TranscriptionJob,
+	execution *models.TranscriptionJobExecution,
+) error {
 	logger.Info("Processing single-track job", "job_id", job.ID, "model_family", job.Parameters.ModelFamily)
 
 	// Create processing context
@@ -255,6 +328,7 @@ func (u *UnifiedTranscriptionService) processSingleTrackJob(ctx context.Context,
 	}
 
 	// Apply preprocessing
+	u.emitPipelineUpdate(ctx, execution, models.StagePreprocessing, 15, "Normalizing audio format", nil)
 	preprocessedInput, err = u.pipeline.ProcessAudio(ctx, audioInput, capabilities)
 	if err != nil {
 		logger.Warn("Audio preprocessing failed, using original", "error", err)
@@ -289,6 +363,7 @@ func (u *UnifiedTranscriptionService) processSingleTrackJob(ctx context.Context,
 
 	// Perform transcription using the preprocessed audio
 	if transcriptionModelID != "" {
+		u.emitPipelineUpdate(ctx, execution, models.StageTranscribing, 30, "Running transcription model", nil)
 		logger.Info("Running transcription", "model_id", transcriptionModelID)
 		transcriptionAdapter, err := u.registry.GetTranscriptionAdapter(transcriptionModelID)
 		if err != nil {
@@ -310,6 +385,7 @@ func (u *UnifiedTranscriptionService) processSingleTrackJob(ctx context.Context,
 		diarizationParams := u.convertParametersForModel(job.Parameters, diarizationModelID)
 
 		if !u.transcriptionIncludesDiarization(transcriptionModelID, job.Parameters) {
+			u.emitPipelineUpdate(ctx, execution, models.StageDiarizing, 70, "Running speaker diarization", nil)
 			logger.Info("Running separate diarization", "model_id", diarizationModelID)
 			diarizationAdapter, err := u.registry.GetDiarizationAdapter(diarizationModelID)
 			if err != nil {
@@ -324,6 +400,7 @@ func (u *UnifiedTranscriptionService) processSingleTrackJob(ctx context.Context,
 
 			// Merge diarization results with transcription
 			if transcriptResult != nil && diarizationResult != nil {
+				u.emitPipelineUpdate(ctx, execution, models.StageMerging, 90, "Merging speakers into transcript", nil)
 				transcriptResult = u.mergeDiarizationWithTranscription(transcriptResult, diarizationResult)
 			}
 		}
@@ -331,6 +408,7 @@ func (u *UnifiedTranscriptionService) processSingleTrackJob(ctx context.Context,
 
 	// Save results to database
 	if transcriptResult != nil {
+		u.emitPipelineUpdate(ctx, execution, models.StagePersisting, 95, "Finalizing outputs", nil)
 		if err := u.saveTranscriptionResults(job.ID, transcriptResult); err != nil {
 			return fmt.Errorf("failed to save transcription results: %w", err)
 		}
@@ -340,7 +418,11 @@ func (u *UnifiedTranscriptionService) processSingleTrackJob(ctx context.Context,
 }
 
 // processMultiTrackJob handles multi-track audio processing
-func (u *UnifiedTranscriptionService) processMultiTrackJob(ctx context.Context, job *models.TranscriptionJob) error {
+func (u *UnifiedTranscriptionService) processMultiTrackJob(
+	ctx context.Context,
+	job *models.TranscriptionJob,
+	execution *models.TranscriptionJobExecution,
+) error {
 	logger.Info("Processing multi-track job", "job_id", job.ID, "track_count", len(job.MultiTrackFiles))
 
 	// Create unified processor for this service
@@ -353,7 +435,12 @@ func (u *UnifiedTranscriptionService) processMultiTrackJob(ctx context.Context, 
 	u.multiTrackTranscriber = transcriber
 
 	// Process the multi-track transcription
-	return transcriber.ProcessMultiTrackTranscription(ctx, job.ID)
+	u.emitPipelineUpdate(ctx, execution, models.StageTranscribing, 40, "Processing tracks", nil)
+	if err := transcriber.ProcessMultiTrackTranscription(ctx, job.ID); err != nil {
+		return err
+	}
+	u.emitPipelineUpdate(ctx, execution, models.StagePersisting, 95, "Finalizing multi-track transcript", nil)
+	return nil
 }
 
 // TerminateMultiTrackJob terminates a multi-track job and all its individual track jobs

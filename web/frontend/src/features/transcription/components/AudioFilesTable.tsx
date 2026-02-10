@@ -715,6 +715,41 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 		});
 	}, []);
 
+	const getPipelineLabel = useCallback((stage?: string) => {
+		if (!stage) return undefined;
+		switch (stage) {
+			case "queued":
+				return "Queued";
+			case "preprocessing":
+				return "Preprocessing";
+			case "transcribing":
+				return "Transcribing";
+			case "diarizing":
+				return "Diarizing";
+			case "merging":
+				return "Merging";
+			case "persisting":
+				return "Saving";
+			case "completed":
+				return "Completed";
+			case "failed":
+				return "Failed";
+			default:
+				return undefined;
+		}
+	}, []);
+
+	const getDisplayProgress = useCallback((file: AudioFile) => {
+		if (typeof file.pipeline_progress === "number") {
+			return Math.max(0, Math.min(100, Math.round(file.pipeline_progress)));
+		}
+		const mt = trackProgress[file.id];
+		if (file.is_multi_track && mt?.progress?.percentage != null) {
+			return Math.max(0, Math.min(100, Math.round(mt.progress.percentage)));
+		}
+		return undefined;
+	}, [trackProgress]);
+
 
 
 
@@ -801,7 +836,31 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 											</h4>
 											<div className="flex items-center gap-1.5 mt-1 text-sm text-gray-500">
 												{formatDate(file.created_at)}
+												{(file.status === "processing" || file.status === "pending") && getPipelineLabel(file.pipeline_stage) && (
+													<>
+														<span className="w-1 h-1 rounded-full bg-gray-400" />
+														<span className="text-xs">{getPipelineLabel(file.pipeline_stage)}</span>
+													</>
+												)}
 											</div>
+											{(file.status === "processing" || file.status === "pending") && getDisplayProgress(file) !== undefined && (
+												<div className="mt-1.5 w-36 sm:w-44">
+													<div className="h-1.5 rounded-full bg-gray-200 dark:bg-zinc-700 overflow-hidden">
+														<div
+															className="h-full bg-[#FF6D20] transition-all duration-300"
+															style={{ width: `${getDisplayProgress(file)}%` }}
+														/>
+													</div>
+													<div className="mt-0.5 text-[11px] text-gray-500 tabular-nums">
+														{getDisplayProgress(file)}%
+													</div>
+												</div>
+											)}
+											{(file.status === "processing" || file.status === "pending") && file.pipeline_message && (
+												<div className="mt-1 text-[11px] text-gray-500 truncate max-w-64">
+													{file.pipeline_message}
+												</div>
+											)}
 										</div>
 									</div>
 

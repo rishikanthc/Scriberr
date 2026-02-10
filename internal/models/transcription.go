@@ -46,6 +46,20 @@ const (
 	StatusFailed     JobStatus = "failed"
 )
 
+// PipelineStage represents fine-grained pipeline progress for a job execution.
+type PipelineStage string
+
+const (
+	StageQueued        PipelineStage = "queued"
+	StagePreprocessing PipelineStage = "preprocessing"
+	StageTranscribing  PipelineStage = "transcribing"
+	StageDiarizing     PipelineStage = "diarizing"
+	StageMerging       PipelineStage = "merging"
+	StagePersisting    PipelineStage = "persisting"
+	StageCompleted     PipelineStage = "completed"
+	StageFailed        PipelineStage = "failed"
+)
+
 // WhisperXParams contains parameters for WhisperX transcription
 type WhisperXParams struct {
 	// Model family (whisper or nvidia)
@@ -312,8 +326,12 @@ type TranscriptionJobExecution struct {
 	ActualParameters WhisperXParams `json:"actual_parameters" gorm:"embedded;embeddedPrefix:actual_"`
 
 	// Execution results
-	Status       JobStatus `json:"status" gorm:"type:varchar(20);not null"`
-	ErrorMessage *string   `json:"error_message,omitempty" gorm:"type:text"`
+	Status            JobStatus     `json:"status" gorm:"type:varchar(20);not null"`
+	ErrorMessage      *string       `json:"error_message,omitempty" gorm:"type:text"`
+	PipelineStage     PipelineStage `json:"pipeline_stage" gorm:"type:varchar(32);default:'queued'"`
+	PipelineProgress  float64       `json:"pipeline_progress" gorm:"type:real;default:0"`
+	PipelineMessage   *string       `json:"pipeline_message,omitempty" gorm:"type:text"`
+	PipelineUpdatedAt *time.Time    `json:"pipeline_updated_at,omitempty" gorm:"type:datetime"`
 
 	// Metadata
 	CreatedAt time.Time `json:"created_at" gorm:"autoCreateTime"`
