@@ -97,6 +97,14 @@ func (m *MockJobRepository) FindActiveTrackJobs(ctx context.Context, parentJobID
 	return args.Get(0).([]models.TranscriptionJob), args.Error(1)
 }
 
+func (m *MockJobRepository) FindLatestExecution(ctx context.Context, jobID string) (*models.TranscriptionJobExecution, error) {
+	args := m.Called(ctx, jobID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.TranscriptionJobExecution), args.Error(1)
+}
+
 func (m *MockJobRepository) FindLatestCompletedExecution(ctx context.Context, jobID string) (*models.TranscriptionJobExecution, error) {
 	args := m.Called(ctx, jobID)
 	if args.Get(0) == nil {
