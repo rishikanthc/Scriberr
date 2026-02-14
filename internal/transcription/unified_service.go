@@ -18,6 +18,7 @@ import (
 	"scriberr/internal/transcription/pipeline"
 	"scriberr/internal/transcription/registry"
 	"scriberr/internal/webhook"
+	"scriberr/pkg/binaries"
 	"scriberr/pkg/logger"
 )
 
@@ -466,7 +467,7 @@ func (u *UnifiedTranscriptionService) createAudioInput(audioPath string) (interf
 	}
 
 	// Run ffprobe to get audio metadata
-	cmd := exec.Command("ffprobe",
+	cmd := exec.Command(binaries.FFprobe(),
 		"-v", "quiet",
 		"-print_format", "json",
 		"-show_format",

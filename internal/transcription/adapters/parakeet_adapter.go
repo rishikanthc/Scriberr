@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"scriberr/internal/transcription/interfaces"
+	"scriberr/pkg/binaries"
 	"scriberr/pkg/downloader"
 	"scriberr/pkg/logger"
 )
@@ -201,7 +202,7 @@ func (p *ParakeetAdapter) setupParakeetEnvironment() error {
 
 	// Run uv sync
 	logger.Info("Installing Parakeet dependencies")
-	cmd := exec.Command("uv", "sync", "--native-tls")
+	cmd := exec.Command(binaries.UV(), "sync", "--native-tls")
 	cmd.Dir = p.envPath
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -355,7 +356,7 @@ func (p *ParakeetAdapter) Transcribe(ctx context.Context, input interfaces.Audio
 
 // detectAudioDuration uses ffprobe to detect audio duration
 func (p *ParakeetAdapter) detectAudioDuration(audioPath string) (float64, error) {
-	cmd := exec.Command("ffprobe",
+	cmd := exec.Command(binaries.FFprobe(),
 		"-v", "error",
 		"-show_entries", "format=duration",
 		"-of", "default=noprint_wrappers=1:nokey=1",
@@ -384,7 +385,7 @@ func (p *ParakeetAdapter) transcribeStandard(ctx context.Context, input interfac
 	}
 
 	// Execute Parakeet
-	cmd := exec.CommandContext(ctx, "uv", args...)
+	cmd := exec.CommandContext(ctx, binaries.UV(), args...)
 	cmd.Env = append(os.Environ(), "PYTHONUNBUFFERED=1")
 
 	// Setup log file
@@ -433,7 +434,7 @@ func (p *ParakeetAdapter) transcribeBuffered(ctx context.Context, input interfac
 	}
 
 	// Execute buffered inference
-	cmd := exec.CommandContext(ctx, "uv", args...)
+	cmd := exec.CommandContext(ctx, binaries.UV(), args...)
 	cmd.Env = append(os.Environ(), "PYTHONUNBUFFERED=1")
 
 	// Setup log file

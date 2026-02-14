@@ -6,6 +6,8 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+
+	"scriberr/pkg/binaries"
 )
 
 // TrackInfo represents information needed for merging a track
@@ -33,7 +35,7 @@ type AudioMerger struct {
 // NewAudioMerger creates a new audio merger instance
 func NewAudioMerger() *AudioMerger {
 	return &AudioMerger{
-		ffmpegPath: "ffmpeg", // Assumes ffmpeg is in PATH
+		ffmpegPath: binaries.FFmpeg(),
 	}
 }
 

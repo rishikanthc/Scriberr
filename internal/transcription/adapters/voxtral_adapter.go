@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"scriberr/internal/transcription/interfaces"
+	"scriberr/pkg/binaries"
 	"scriberr/pkg/logger"
 )
 
@@ -150,7 +151,7 @@ func (v *VoxtralAdapter) setupVoxtralEnvironment() error {
 
 	// Run uv sync
 	logger.Info("Installing Voxtral dependencies")
-	cmd := exec.Command("uv", "sync", "--native-tls")
+	cmd := exec.Command(binaries.UV(), "sync", "--native-tls")
 	cmd.Dir = v.envPath
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -224,7 +225,7 @@ func (v *VoxtralAdapter) Transcribe(ctx context.Context, input interfaces.AudioI
 	}
 
 	// Execute Voxtral
-	cmd := exec.CommandContext(ctx, "uv", args...)
+	cmd := exec.CommandContext(ctx, binaries.UV(), args...)
 	cmd.Env = append(os.Environ(), "PYTHONUNBUFFERED=1")
 
 	// Setup log file

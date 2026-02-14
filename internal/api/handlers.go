@@ -24,6 +24,7 @@ import (
 	"scriberr/internal/service"
 	"scriberr/internal/sse"
 	"scriberr/internal/transcription"
+	"scriberr/pkg/binaries"
 	"scriberr/pkg/logger"
 
 	"github.com/gin-gonic/gin"
@@ -290,7 +291,7 @@ func (h *Handler) UploadAudio(c *gin.Context) {
 		// -af loudnorm: normalize audio levels (prevents muffled/quiet recordings)
 		// -acodec libmp3lame: MP3 encoder
 		// -b:a 320k: high quality constant bitrate (better than VBR for recordings)
-		cmd := exec.Command("ffmpeg", "-i", filePath, "-vn", "-af", "loudnorm", "-acodec", "libmp3lame", "-b:a", "320k", mp3Path)
+		cmd := exec.Command(binaries.FFmpeg(), "-i", filePath, "-vn", "-af", "loudnorm", "-acodec", "libmp3lame", "-b:a", "320k", mp3Path)
 		if err := cmd.Run(); err != nil {
 			_ = h.fileService.RemoveFile(filePath)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to convert WebM audio to MP3"})
@@ -407,7 +408,7 @@ func (h *Handler) UploadVideo(c *gin.Context) {
 
 	// Extract audio using ffmpeg (keep this logic here for now, or move to a MediaService)
 	audioPath := strings.TrimSuffix(videoPath, filepath.Ext(videoPath)) + ".mp3"
-	cmd := exec.Command("ffmpeg", "-i", videoPath, "-vn", "-acodec", "libmp3lame", "-q:a", "2", audioPath)
+	cmd := exec.Command(binaries.FFmpeg(), "-i", videoPath, "-vn", "-acodec", "libmp3lame", "-q:a", "2", audioPath)
 	if err := cmd.Run(); err != nil {
 		_ = h.fileService.RemoveFile(videoPath)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to extract audio from video"})
@@ -2597,7 +2598,7 @@ func (h *Handler) DownloadFromYouTube(c *gin.Context) {
 	} else {
 		// Get title first using standalone yt-dlp
 		titleStart := time.Now()
-		cmd := exec.Command("yt-dlp", "--get-title", req.URL)
+		cmd := exec.Command(binaries.YtDLP(), "--get-title", req.URL)
 		var out bytes.Buffer
 		cmd.Stdout = &out
 		err := cmd.Run()
@@ -2615,7 +2616,7 @@ func (h *Handler) DownloadFromYouTube(c *gin.Context) {
 	downloadStart := time.Now()
 
 	// Executing yt-dlp directly (standalone binary)
-	ytDlpCmd := exec.Command("yt-dlp",
+	ytDlpCmd := exec.Command(binaries.YtDLP(),
 		"--extract-audio",
 		"--audio-format", "mp3",
 		"--audio-quality", "0", // best quality

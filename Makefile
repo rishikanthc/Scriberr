@@ -1,4 +1,4 @@
-.PHONY: help docs docs-serve docs-clean website website-dev website-build dev
+.PHONY: help docs docs-serve docs-clean website website-dev website-build dev desktop-backend desktop-tools desktop-dev desktop-dist-mac
 
 help: ## Show this help message
 	@echo 'Usage: make [target]'
@@ -115,3 +115,16 @@ test: ## Run tests using gotestsum (via go tool)
 test-watch: ## Run tests in watch mode using gotestsum (via go tool)
 	@echo "Running tests in watch mode..."
 	go tool gotestsum --watch -- -v ./...
+
+desktop-backend: ## Build backend artifact used by Electron packaging
+	@./scripts/build-desktop-backend.sh
+
+desktop-tools: ## Bundle external tool binaries for Electron packaging
+	@./scripts/prepare-desktop-tools.sh
+
+desktop-dev: ## Run Electron shell against local backend binary
+	@go build -o scriberr cmd/server/main.go
+	@cd desktop/electron && npm run dev
+
+desktop-dist-mac: ## Build macOS DMG with Electron
+	@cd desktop/electron && npm run dist:mac

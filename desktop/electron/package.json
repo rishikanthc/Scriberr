@@ -1,0 +1,46 @@
+{
+  "name": "scriberr-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Electron shell for Scriberr desktop distribution",
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "npm run build && electron .",
+    "prepare:backend": "cd ../.. && ./scripts/build-desktop-backend.sh",
+    "prepare:tools": "cd ../.. && ./scripts/prepare-desktop-tools.sh",
+    "dist:mac": "npm run build && npm run prepare:backend && npm run prepare:tools && electron-builder --mac dmg"
+  },
+  "build": {
+    "appId": "app.scriberr.desktop",
+    "productName": "Scriberr",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "../../dist/desktop-backend/scriberr",
+        "to": "backend/scriberr"
+      },
+      {
+        "from": "../../dist/desktop-tools",
+        "to": "tools"
+      }
+    ],
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "category": "public.app-category.productivity"
+    }
+  },
+  "devDependencies": {
+    "@types/node": "^24.5.0",
+    "electron": "^40.0.0",
+    "electron-builder": "^26.0.12",
+    "typescript": "^5.9.2"
+  }
+}

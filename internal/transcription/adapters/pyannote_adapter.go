@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"scriberr/internal/transcription/interfaces"
+	"scriberr/pkg/binaries"
 	"scriberr/pkg/logger"
 )
 
@@ -204,7 +205,7 @@ func (p *PyAnnoteAdapter) PrepareEnvironment(ctx context.Context) error {
 	}
 
 	// Verify PyAnnote is now available
-	testCmd := exec.Command("uv", "run", "--native-tls", "--project", p.envPath, "python", "-c", "from pyannote.audio import Pipeline")
+	testCmd := exec.Command(binaries.UV(), "run", "--native-tls", "--project", p.envPath, "python", "-c", "from pyannote.audio import Pipeline")
 	if testCmd.Run() != nil {
 		logger.Warn("PyAnnote environment test still failed after setup")
 	}
@@ -242,7 +243,7 @@ func (p *PyAnnoteAdapter) setupPyAnnoteEnvironment() error {
 
 	// Run uv sync
 	logger.Info("Installing PyAnnote dependencies")
-	cmd := exec.Command("uv", "sync", "--native-tls")
+	cmd := exec.Command(binaries.UV(), "sync", "--native-tls")
 	cmd.Dir = p.envPath
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -315,7 +316,7 @@ func (p *PyAnnoteAdapter) Diarize(ctx context.Context, input interfaces.AudioInp
 	}
 
 	// Execute PyAnnote
-	cmd := exec.CommandContext(ctx, "uv", args...)
+	cmd := exec.CommandContext(ctx, binaries.UV(), args...)
 	cmd.Env = append(os.Environ(), "PYTHONUNBUFFERED=1")
 
 	// Setup log file

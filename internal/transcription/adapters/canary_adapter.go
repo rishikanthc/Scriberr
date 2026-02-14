@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"scriberr/internal/transcription/interfaces"
+	"scriberr/pkg/binaries"
 	"scriberr/pkg/downloader"
 	"scriberr/pkg/logger"
 )
@@ -233,7 +234,7 @@ func (c *CanaryAdapter) setupCanaryEnvironment() error {
 
 	// Run uv sync
 	logger.Info("Installing Canary dependencies")
-	cmd := exec.Command("uv", "sync", "--native-tls")
+	cmd := exec.Command(binaries.UV(), "sync", "--native-tls")
 	cmd.Dir = c.envPath
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -340,7 +341,7 @@ func (c *CanaryAdapter) Transcribe(ctx context.Context, input interfaces.AudioIn
 	}
 
 	// Execute Canary
-	cmd := exec.CommandContext(ctx, "uv", args...)
+	cmd := exec.CommandContext(ctx, binaries.UV(), args...)
 	cmd.Env = append(os.Environ(),
 		"PYTHONUNBUFFERED=1",
 		"PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True")

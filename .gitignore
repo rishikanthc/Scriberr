@@ -60,6 +60,8 @@ manifest_and_icons
 manifest_and_icons.zip
 tests/database_test.db-wal
 internal/web/dist
+dist/desktop-backend
+dist/desktop-tools
 
 
 # Development files

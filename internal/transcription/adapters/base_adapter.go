@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"scriberr/internal/transcription/interfaces"
+	"scriberr/pkg/binaries"
 	"scriberr/pkg/logger"
 
 	"golang.org/x/sync/singleflight"
@@ -66,7 +67,7 @@ func CheckEnvironmentReady(envPath, importStatement string) bool {
 		envCacheMutex.RUnlock()
 
 		// Run the actual check
-		testCmd := exec.Command("uv", "run", "--native-tls", "--project", envPath, "python", "-c", importStatement)
+		testCmd := exec.Command(binaries.UV(), "run", "--native-tls", "--project", envPath, "python", "-c", importStatement)
 		ready := testCmd.Run() == nil
 
 		// Cache the result

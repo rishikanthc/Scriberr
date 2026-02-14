@@ -1,9 +1,12 @@
 package adapters
 
 import (
+	"archive/zip"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -12,6 +15,7 @@ import (
 	"time"
 
 	"scriberr/internal/transcription/interfaces"
+	"scriberr/pkg/binaries"
 	"scriberr/pkg/logger"
 )
 
@@ -331,12 +335,126 @@ func (w *WhisperXAdapter) PrepareEnvironment(ctx context.Context) error {
 
 // cloneWhisperX clones the WhisperX repository
 func (w *WhisperXAdapter) cloneWhisperX() error {
-	cmd := exec.Command("git", "clone", "https://github.com/m-bain/WhisperX.git")
-	cmd.Dir = w.envPath
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("git clone failed: %w: %s", err, strings.TrimSpace(string(out)))
+	downloadURL := os.Getenv("SCRIBERR_WHISPERX_ZIP_URL")
+	if downloadURL == "" {
+		downloadURL = "https://github.com/m-bain/WhisperX/archive/refs/heads/main.zip"
 	}
+
+	tempZipPath := filepath.Join(w.envPath, "whisperx.zip")
+	targetDir := filepath.Join(w.envPath, "WhisperX")
+	tempExtractDir := filepath.Join(w.envPath, "whisperx-extract")
+
+	if err := os.RemoveAll(tempExtractDir); err != nil {
+		return fmt.Errorf("failed to clean temporary extract directory: %w", err)
+	}
+	if err := os.Remove(tempZipPath); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("failed to clean previous whisperx zip: %w", err)
+	}
+
+	resp, err := http.Get(downloadURL) //nolint:gosec // URL can be overridden intentionally for mirrors
+	if err != nil {
+		return fmt.Errorf("failed to download whisperx source: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return fmt.Errorf("failed to download whisperx source: status %d", resp.StatusCode)
+	}
+
+	zipFile, err := os.Create(tempZipPath)
+	if err != nil {
+		return fmt.Errorf("failed to create temporary whisperx zip: %w", err)
+	}
+	if _, err := io.Copy(zipFile, resp.Body); err != nil {
+		_ = zipFile.Close()
+		return fmt.Errorf("failed to save whisperx zip: %w", err)
+	}
+	if err := zipFile.Close(); err != nil {
+		return fmt.Errorf("failed to finalize whisperx zip: %w", err)
+	}
+
+	reader, err := zip.OpenReader(tempZipPath)
+	if err != nil {
+		return fmt.Errorf("failed to open whisperx zip: %w", err)
+	}
+	defer reader.Close()
+
+	if err := os.MkdirAll(tempExtractDir, 0755); err != nil {
+		return fmt.Errorf("failed to create whisperx extract directory: %w", err)
+	}
+
+	for _, file := range reader.File {
+		extractPath := filepath.Join(tempExtractDir, file.Name)
+		cleanExtractPath := filepath.Clean(extractPath)
+		if !strings.HasPrefix(cleanExtractPath, filepath.Clean(tempExtractDir)+string(filepath.Separator)) &&
+			cleanExtractPath != filepath.Clean(tempExtractDir) {
+			return fmt.Errorf("invalid path in whisperx zip: %s", file.Name)
+		}
+
+		if file.FileInfo().IsDir() {
+			if err := os.MkdirAll(cleanExtractPath, file.Mode()); err != nil {
+				return fmt.Errorf("failed to create whisperx directory: %w", err)
+			}
+			continue
+		}
+
+		if err := os.MkdirAll(filepath.Dir(cleanExtractPath), 0755); err != nil {
+			return fmt.Errorf("failed to create whisperx parent directory: %w", err)
+		}
+
+		src, err := file.Open()
+		if err != nil {
+			return fmt.Errorf("failed to open file in whisperx zip: %w", err)
+		}
+
+		dst, err := os.OpenFile(cleanExtractPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, file.Mode())
+		if err != nil {
+			_ = src.Close()
+			return fmt.Errorf("failed to create extracted whisperx file: %w", err)
+		}
+
+		if _, err := io.Copy(dst, src); err != nil {
+			_ = src.Close()
+			_ = dst.Close()
+			return fmt.Errorf("failed to extract whisperx file: %w", err)
+		}
+
+		if err := src.Close(); err != nil {
+			_ = dst.Close()
+			return fmt.Errorf("failed to close whisperx source file: %w", err)
+		}
+		if err := dst.Close(); err != nil {
+			return fmt.Errorf("failed to close whisperx destination file: %w", err)
+		}
+	}
+
+	entries, err := os.ReadDir(tempExtractDir)
+	if err != nil {
+		return fmt.Errorf("failed to inspect extracted whisperx contents: %w", err)
+	}
+	if len(entries) == 0 {
+		return fmt.Errorf("whisperx archive extraction produced no files")
+	}
+
+	extractedRoot := filepath.Join(tempExtractDir, entries[0].Name())
+	if len(entries) > 1 {
+		for _, entry := range entries {
+			if entry.IsDir() && strings.HasPrefix(entry.Name(), "WhisperX-") {
+				extractedRoot = filepath.Join(tempExtractDir, entry.Name())
+				break
+			}
+		}
+	}
+
+	if err := os.RemoveAll(targetDir); err != nil {
+		return fmt.Errorf("failed to remove previous whisperx directory: %w", err)
+	}
+	if err := os.Rename(extractedRoot, targetDir); err != nil {
+		return fmt.Errorf("failed to move whisperx directory into place: %w", err)
+	}
+
+	_ = os.Remove(tempZipPath)
+	_ = os.RemoveAll(tempExtractDir)
 	return nil
 }
 
@@ -373,7 +491,7 @@ func (w *WhisperXAdapter) updateWhisperXDependencies(whisperxPath string) error 
 
 // uvSyncWhisperX runs uv sync for WhisperX
 func (w *WhisperXAdapter) uvSyncWhisperX(whisperxPath string) error {
-	cmd := exec.Command("uv", "sync", "--all-extras", "--dev", "--native-tls")
+	cmd := exec.Command(binaries.UV(), "sync", "--all-extras", "--dev", "--native-tls")
 	cmd.Dir = whisperxPath
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -414,7 +532,7 @@ func (w *WhisperXAdapter) Transcribe(ctx context.Context, input interfaces.Audio
 	}
 
 	// Execute WhisperX
-	cmd := exec.CommandContext(ctx, "uv", args...)
+	cmd := exec.CommandContext(ctx, binaries.UV(), args...)
 
 	// Add nvidia libraries to LD_LIBRARY_PATH
 	env := os.Environ()

@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"scriberr/internal/transcription/interfaces"
+	"scriberr/pkg/binaries"
 	"scriberr/pkg/downloader"
 	"scriberr/pkg/logger"
 )
@@ -217,7 +218,7 @@ func (s *SortformerAdapter) setupSortformerEnvironment() error {
 
 	// Run uv sync
 	logger.Info("Installing Sortformer dependencies")
-	cmd := exec.Command("uv", "sync", "--native-tls")
+	cmd := exec.Command(binaries.UV(), "sync", "--native-tls")
 	cmd.Dir = s.envPath
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -324,7 +325,7 @@ func (s *SortformerAdapter) Diarize(ctx context.Context, input interfaces.AudioI
 	}
 
 	// Execute Sortformer
-	cmd := exec.CommandContext(ctx, "uv", args...)
+	cmd := exec.CommandContext(ctx, binaries.UV(), args...)
 	cmd.Env = append(os.Environ(), "PYTHONUNBUFFERED=1")
 
 	// Setup log file
