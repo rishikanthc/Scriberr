@@ -137,18 +137,6 @@ func (qs *QuickTranscriptionService) processQuickJob(jobID string) {
 	job.Status = models.StatusProcessing
 	qs.jobsMutex.Unlock()
 
-	// Ensure Python environment and embedded assets are ready
-	if err := qs.unifiedProcessor.ensurePythonEnv(); err != nil {
-		qs.jobsMutex.Lock()
-		if job, exists := qs.jobs[jobID]; exists {
-			job.Status = models.StatusFailed
-			msg := fmt.Sprintf("env setup failed: %v", err)
-			job.ErrorMessage = &msg
-		}
-		qs.jobsMutex.Unlock()
-		return
-	}
-
 	// Create temporary transcription job for WhisperX processing
 	tempJob := models.TranscriptionJob{
 		ID:         jobID,

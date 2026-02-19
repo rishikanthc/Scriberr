@@ -204,6 +204,7 @@ func (p *ParakeetAdapter) setupParakeetEnvironment() error {
 	logger.Info("Installing Parakeet dependencies")
 	cmd := exec.Command(binaries.UV(), "sync", "--native-tls")
 	cmd.Dir = p.envPath
+	cmd.Env = append(os.Environ(), "UV_PYTHON=3.11")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("uv sync failed: %w: %s", err, strings.TrimSpace(string(out)))
@@ -386,7 +387,10 @@ func (p *ParakeetAdapter) transcribeStandard(ctx context.Context, input interfac
 
 	// Execute Parakeet
 	cmd := exec.CommandContext(ctx, binaries.UV(), args...)
-	cmd.Env = append(os.Environ(), "PYTHONUNBUFFERED=1")
+	cmd.Env = append(os.Environ(),
+		"PYTHONUNBUFFERED=1",
+		"UV_PYTHON=3.11",
+	)
 
 	// Setup log file
 	logFile, err := os.OpenFile(filepath.Join(outputDir, "transcription.log"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
@@ -435,7 +439,10 @@ func (p *ParakeetAdapter) transcribeBuffered(ctx context.Context, input interfac
 
 	// Execute buffered inference
 	cmd := exec.CommandContext(ctx, binaries.UV(), args...)
-	cmd.Env = append(os.Environ(), "PYTHONUNBUFFERED=1")
+	cmd.Env = append(os.Environ(),
+		"PYTHONUNBUFFERED=1",
+		"UV_PYTHON=3.11",
+	)
 
 	// Setup log file
 	logFile, err := os.OpenFile(filepath.Join(outputDir, "transcription.log"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)

@@ -236,6 +236,7 @@ func (c *CanaryAdapter) setupCanaryEnvironment() error {
 	logger.Info("Installing Canary dependencies")
 	cmd := exec.Command(binaries.UV(), "sync", "--native-tls")
 	cmd.Dir = c.envPath
+	cmd.Env = append(os.Environ(), "UV_PYTHON=3.11")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("uv sync failed: %w: %s", err, strings.TrimSpace(string(out)))
@@ -344,6 +345,7 @@ func (c *CanaryAdapter) Transcribe(ctx context.Context, input interfaces.AudioIn
 	cmd := exec.CommandContext(ctx, binaries.UV(), args...)
 	cmd.Env = append(os.Environ(),
 		"PYTHONUNBUFFERED=1",
+		"UV_PYTHON=3.11",
 		"PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True")
 
 	// Setup log file

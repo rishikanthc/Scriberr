@@ -15,6 +15,13 @@ let backendUrl = "";
 let backendReady = false;
 let isQuitting = false;
 
+function isNavigationAbortError(error: unknown): boolean {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+  return error.message.includes("ERR_ABORTED");
+}
+
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -134,13 +141,41 @@ function getMissingBundledTools(): string[] {
   return missing;
 }
 
+function buildPathValue(preferredEntries: string[], basePath?: string): string {
+  const seen = new Set<string>();
+  const ordered: string[] = [];
+
+  const addEntries = (value?: string): void => {
+    if (!value) {
+      return;
+    }
+
+    for (const entry of value.split(path.delimiter)) {
+      const trimmed = entry.trim();
+      if (!trimmed || seen.has(trimmed)) {
+        continue;
+      }
+      seen.add(trimmed);
+      ordered.push(trimmed);
+    }
+  };
+
+  for (const entry of preferredEntries) {
+    addEntries(entry);
+  }
+  addEntries(basePath);
+
+  return ordered.join(path.delimiter);
+}
+
 function buildBackendEnv(port: number): NodeJS.ProcessEnv {
   const paths = getDataPaths();
   const uvPath = resolveBundledToolPath("uv");
   const ffmpegPath = resolveBundledToolPath("ffmpeg");
   const ffprobePath = resolveBundledToolPath("ffprobe");
   const ytDlpPath = resolveBundledToolPath("yt-dlp");
-  const hasBundledTools = fs.existsSync(uvPath) && fs.existsSync(ffmpegPath) && fs.existsSync(ffprobePath) && fs.existsSync(ytDlpPath);
+  const bundledToolPaths = [uvPath, ffmpegPath, ffprobePath, ytDlpPath].filter((toolPath) => fs.existsSync(toolPath));
+  const bundledToolDirs = Array.from(new Set(bundledToolPaths.map((toolPath) => path.dirname(toolPath))));
 
   const env: NodeJS.ProcessEnv = {
     ...process.env,
@@ -155,12 +190,21 @@ function buildBackendEnv(port: number): NodeJS.ProcessEnv {
     TRANSCRIPTS_DIR: paths.transcripts,
     TEMP_DIR: paths.temp,
     WHISPERX_ENV: paths.whisperxEnv,
+    SCRIBERR_DEFER_MODEL_INIT: "true",
+    UV_PYTHON: "3.11",
+    PATH: buildPathValue([...bundledToolDirs, "/opt/homebrew/bin", "/usr/local/bin"], process.env.PATH),
   };
 
-  if (hasBundledTools) {
+  if (fs.existsSync(uvPath)) {
     env.SCRIBERR_UV_BIN = uvPath;
+  }
+  if (fs.existsSync(ffmpegPath)) {
     env.SCRIBERR_FFMPEG_BIN = ffmpegPath;
+  }
+  if (fs.existsSync(ffprobePath)) {
     env.SCRIBERR_FFPROBE_BIN = ffprobePath;
+  }
+  if (fs.existsSync(ytDlpPath)) {
     env.SCRIBERR_YTDLP_BIN = ytDlpPath;
   }
 
@@ -314,7 +358,25 @@ function renderStartupHtml(title: string, detail: string): string {
 
 async function loadStartupScreen(window: BrowserWindow, title: string, detail: string): Promise<void> {
   const html = renderStartupHtml(title, detail);
-  await window.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+  try {
+    await window.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+  } catch (error) {
+    if (isNavigationAbortError(error)) {
+      return;
+    }
+    throw error;
+  }
+}
+
+async function loadWindowURL(window: BrowserWindow, url: string): Promise<void> {
+  try {
+    await window.loadURL(url);
+  } catch (error) {
+    if (isNavigationAbortError(error)) {
+      return;
+    }
+    throw error;
+  }
 }
 
 function attachBackendLogs(processHandle: ChildProcessByStdio<null, Readable, Readable>): void {
@@ -465,9 +527,10 @@ async function boot(): Promise<void> {
   startBackend(port);
   const backendLogPath = getDataPaths().backendLogPath;
   let lastStartupSignature = "";
+  let startupScreenEnabled = true;
 
   const updateTimer = setInterval(() => {
-    if (!mainWindow || mainWindow.isDestroyed()) {
+    if (!startupScreenEnabled || !mainWindow || mainWindow.isDestroyed()) {
       return;
     }
     const tail = getLogTail(backendLogPath);
@@ -484,13 +547,14 @@ async function boot(): Promise<void> {
     await waitForBackendHealthy(backendUrl);
     backendReady = true;
   } finally {
+    startupScreenEnabled = false;
     clearInterval(updateTimer);
   }
 
   if (!mainWindow || mainWindow.isDestroyed()) {
     return;
   }
-  await mainWindow.loadURL(backendUrl);
+  await loadWindowURL(mainWindow, backendUrl);
 }
 
 app.on("before-quit", () => {
@@ -510,7 +574,7 @@ app.on("activate", async () => {
 
   if (backendReady && backendUrl) {
     mainWindow = createMainWindow();
-    await mainWindow.loadURL(backendUrl);
+    await loadWindowURL(mainWindow, backendUrl);
     return;
   }
 

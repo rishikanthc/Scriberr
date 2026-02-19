@@ -558,6 +558,22 @@ func (w *WhisperXAdapter) Transcribe(ctx context.Context, input interfaces.Audio
 		logger.Debug("Updated LD_LIBRARY_PATH for WhisperX", "path", newPath)
 	}
 
+	// WhisperX shells out to "ffmpeg" directly; ensure bundled/custom ffmpeg is discoverable.
+	ffmpegBinary := binaries.FFmpeg()
+	env = append(env, "FFMPEG_BINARY="+ffmpegBinary)
+	if strings.Contains(ffmpegBinary, string(os.PathSeparator)) {
+		ffmpegDir := filepath.Dir(ffmpegBinary)
+		if ffmpegDir != "" && ffmpegDir != "." {
+			pathValue := os.Getenv("PATH")
+			if pathValue != "" {
+				pathValue = ffmpegDir + string(os.PathListSeparator) + pathValue
+			} else {
+				pathValue = ffmpegDir
+			}
+			env = append(env, "PATH="+pathValue)
+		}
+	}
+
 	cmd.Env = append(env, "PYTHONUNBUFFERED=1")
 
 	// Setup log file

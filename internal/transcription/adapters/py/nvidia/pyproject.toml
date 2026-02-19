@@ -2,7 +2,7 @@
 name = "nvidia-transcription"
 version = "0.1.0"
 description = "Audio transcription and diarization using NVIDIA models (Canary, Parakeet, Sortformer)"
-requires-python = ">=3.11"
+requires-python = ">=3.11,<3.13"
 dependencies = [
     "nemo-toolkit[asr]",
     "torch",

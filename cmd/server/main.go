@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -119,11 +120,17 @@ func main() {
 	unifiedProcessor := transcription.NewUnifiedJobProcessor(jobRepo, cfg.TempDir, cfg.TranscriptsDir)
 	unifiedProcessor.GetUnifiedService().SetBroadcaster(broadcaster)
 
-	// Bootstrap embedded Python environment (for all adapters)
-	logger.Startup("python", "Preparing Python environment")
-	if err := unifiedProcessor.InitEmbeddedPythonEnv(); err != nil {
-		logger.Error("Failed to prepare Python environment", "error", err)
-		os.Exit(1)
+	// Bootstrap embedded Python environment (for all adapters) unless deferred.
+	// Desktop builds can set SCRIBERR_DEFER_MODEL_INIT=true to avoid long first-run startup delays.
+	deferModelInit := strings.EqualFold(os.Getenv("SCRIBERR_DEFER_MODEL_INIT"), "true")
+	if deferModelInit {
+		logger.Startup("python", "Deferring Python environment setup until first transcription request")
+	} else {
+		logger.Startup("python", "Preparing Python environment")
+		if err := unifiedProcessor.InitEmbeddedPythonEnv(); err != nil {
+			logger.Error("Failed to prepare Python environment", "error", err)
+			os.Exit(1)
+		}
 	}
 
 	// Initialize quick transcription service
