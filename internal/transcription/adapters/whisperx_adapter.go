@@ -352,6 +352,10 @@ func (w *WhisperXAdapter) updateWhisperXDependencies(whisperxPath string) error 
 	content := string(data)
 	content = strings.ReplaceAll(content, "ctranslate2<4.5.0", "ctranslate2==4.6.0")
 
+	// torchcodec>=0.6.0 (upstream default) resolves to 0.10.0+ which requires PyTorch 2.9.
+	// Pin to 0.7.x which is compatible with the PyTorch 2.8.x used here.
+	content = strings.ReplaceAll(content, "torchcodec>=0.6.0", "torchcodec~=0.7.0")
+
 	if !strings.Contains(content, "yt-dlp") {
 		content = strings.ReplaceAll(content,
 			`"transformers>=4.48.0",`,
