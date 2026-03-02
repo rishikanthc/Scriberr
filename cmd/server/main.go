@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"syscall"
 	"time"
 
@@ -21,7 +20,6 @@ import (
 	"scriberr/internal/service"
 	"scriberr/internal/sse"
 	"scriberr/internal/transcription"
-	"scriberr/internal/transcription/adapters"
 	"scriberr/internal/transcription/registry"
 	"scriberr/pkg/logger"
 )
@@ -45,7 +43,7 @@ var (
 // @license.name MIT
 // @license.url https://opensource.org/licenses/MIT
 
-// @host localhost:8080
+// @host localhost:5318
 // @BasePath /api/v1
 
 // @securityDefinitions.apikey ApiKeyAuth
@@ -78,7 +76,7 @@ func main() {
 	cfg := config.Load()
 
 	// Register adapters with config-based paths
-	registerAdapters(cfg)
+	registry.RegisterStandardAdapters(cfg)
 
 	// Initialize database
 	logger.Startup("database", "Connecting to database")
@@ -113,6 +111,7 @@ func main() {
 	logger.Startup("service", "Initializing services")
 	userService := service.NewUserService(userRepo, authService)
 	fileService := service.NewFileService()
+	speakerService := service.NewSpeakerService(jobRepo)
 
 	// Initialize unified transcription processor
 	logger.Startup("transcription", "Initializing transcription service")
@@ -162,6 +161,7 @@ func main() {
 		taskQueue,
 		unifiedProcessor,
 		quickTranscriptionService,
+		speakerService,
 		multiTrackProcessor,
 		broadcaster,
 	)
@@ -213,38 +213,4 @@ func main() {
 	}
 
 	logger.Info("Server stopped")
-}
-
-// registerAdapters registers all transcription and diarization adapters with config-based paths
-func registerAdapters(cfg *config.Config) {
-	logger.Info("Registering adapters with environment path", "whisperx_env", cfg.WhisperXEnv)
-
-	// Shared environment path for NVIDIA models (NeMo-based)
-	nvidiaEnvPath := filepath.Join(cfg.WhisperXEnv, "parakeet")
-
-	// Dedicated environment path for PyAnnote (to avoid dependency conflicts)
-	pyannoteEnvPath := filepath.Join(cfg.WhisperXEnv, "pyannote")
-
-	// Dedicated environment path for Voxtral (Mistral AI model)
-	voxtralEnvPath := filepath.Join(cfg.WhisperXEnv, "voxtral")
-
-	// Register transcription adapters
-	registry.RegisterTranscriptionAdapter("whisperx",
-		adapters.NewWhisperXAdapter(cfg.WhisperXEnv))
-	registry.RegisterTranscriptionAdapter("parakeet",
-		adapters.NewParakeetAdapter(nvidiaEnvPath))
-	registry.RegisterTranscriptionAdapter("canary",
-		adapters.NewCanaryAdapter(nvidiaEnvPath)) // Shares with Parakeet
-	registry.RegisterTranscriptionAdapter("voxtral",
-		adapters.NewVoxtralAdapter(voxtralEnvPath))
-	registry.RegisterTranscriptionAdapter("openai_whisper",
-		adapters.NewOpenAIAdapter(cfg.OpenAIAPIKey))
-
-	// Register diarization adapters
-	registry.RegisterDiarizationAdapter("pyannote",
-		adapters.NewPyAnnoteAdapter(pyannoteEnvPath)) // Dedicated environment
-	registry.RegisterDiarizationAdapter("sortformer",
-		adapters.NewSortformerAdapter(nvidiaEnvPath)) // Shares with Parakeet
-
-	logger.Info("Adapter registration complete")
 }

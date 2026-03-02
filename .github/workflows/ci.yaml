@@ -80,3 +80,33 @@ jobs:
 
       # Fail if any changes were written to any source files or generated untracked files
       - run: git add -A && git diff --cached --exit-code
+
+  python-adapters:
+    name: python-adapters
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Cache models
+        uses: actions/cache@v4
+        with:
+          path: data/whisperx-env/parakeet/*.nemo
+          key: ${{ runner.os }}-models-${{ hashFiles('Makefile') }}
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+
+      - name: Run Python Adapter Tests
+        run: |
+          # The tests require a lot of RAM and might fail on standard runners
+          # We'll see how it goes
+          make test-python-adapters

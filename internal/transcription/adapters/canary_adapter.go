@@ -174,7 +174,7 @@ func (c *CanaryAdapter) PrepareEnvironment(ctx context.Context) error {
 	}
 
 	// Check if environment is already ready (using cache to speed up repeated checks)
-	if CheckEnvironmentReady(c.envPath, "import nemo.collections.asr") {
+	if CheckEnvironmentReady(c.envPath, "import nemo") {
 		modelPath := filepath.Join(c.envPath, "canary-1b-v2.nemo")
 		if stat, err := os.Stat(modelPath); err == nil && stat.Size() > 1024*1024 {
 			logger.Info("Canary environment already ready")
@@ -184,7 +184,7 @@ func (c *CanaryAdapter) PrepareEnvironment(ctx context.Context) error {
 	}
 
 	// Setup environment (reuse Parakeet setup since they share the same environment)
-	if err := c.setupCanaryEnvironment(); err != nil {
+	if err := EnsureEnvironment(c.envPath, c.setupCanaryEnvironment); err != nil {
 		return fmt.Errorf("failed to setup Canary environment: %w", err)
 	}
 

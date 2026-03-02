@@ -195,8 +195,9 @@ def main():
             include_confidence=args.include_confidence,
             preserve_formatting=args.preserve_formatting,
         )
-    except Exception as e:
-        print(f"Error during transcription: {e}")
+    except Exception:
+        import traceback
+        traceback.print_exc()
         sys.exit(1)
 
 

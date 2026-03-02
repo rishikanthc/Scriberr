@@ -115,3 +115,13 @@ test: ## Run tests using gotestsum (via go tool)
 test-watch: ## Run tests in watch mode using gotestsum (via go tool)
 	@echo "Running tests in watch mode..."
 	go tool gotestsum --watch -- -v ./...
+
+setup-python-tests: ## Set up Python environments and download models for tests
+	@echo "Setting up Python environments using Go setup tool..."
+	go run cmd/setup-adapters/main.go
+
+test-python-adapters: setup-python-tests ## Run Python adapter tests
+	@echo "Running Parakeet adapter tests..."
+	uv run --with pytest --project data/whisperx-env/parakeet pytest internal/transcription/adapters/py/nvidia/tests/
+	@echo "Running PyAnnote adapter tests..."
+	uv run --with pytest --project data/whisperx-env/pyannote pytest internal/transcription/adapters/py/pyannote/tests/

@@ -65,9 +65,19 @@ func CheckEnvironmentReady(envPath, importStatement string) bool {
 		}
 		envCacheMutex.RUnlock()
 
+		start := time.Now()
+		logger.Debug("Checking environment readiness", "env_path", envPath, "import", importStatement)
+
 		// Run the actual check
 		testCmd := exec.Command("uv", "run", "--native-tls", "--project", envPath, "python", "-c", importStatement)
 		ready := testCmd.Run() == nil
+
+		duration := time.Since(start)
+		logger.Info("Environment readiness check completed", 
+			"env_path", envPath, 
+			"import", importStatement, 
+			"ready", ready, 
+			"duration", duration.String())
 
 		// Cache the result
 		envCacheMutex.Lock()
@@ -78,6 +88,15 @@ func CheckEnvironmentReady(envPath, importStatement string) bool {
 	})
 
 	return result.(bool)
+}
+
+// EnsureEnvironment ensures an environment is fully set up using singleflight to prevent redundant work
+func EnsureEnvironment(envPath string, setupFn func() error) error {
+	key := "setup:" + envPath
+	_, err, _ := requestGroup.Do(key, func() (interface{}, error) {
+		return nil, setupFn()
+	})
+	return err
 }
 
 // BaseAdapter provides common functionality for all model adapters

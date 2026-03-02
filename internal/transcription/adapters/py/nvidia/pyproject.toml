@@ -11,6 +11,7 @@ dependencies = [
     "soundfile",
     "ml-dtypes>=0.3.1,<0.5.0",
     "onnx>=1.15.0,<1.18.0",
+    "qdrant-client",
     # "pyannote.audio" # needed for sortformer or no?
 ]
 
@@ -23,12 +24,10 @@ dev = [
 [tool.uv.sources]
 nemo-toolkit = { git = "https://github.com/NVIDIA/NeMo.git", tag = "v2.5.3" }
 torch = [
-    { index = "pytorch-cpu", marker = "sys_platform == 'darwin'" },
     { index = "pytorch-cpu", marker = "platform_machine != 'x86_64' and sys_platform != 'darwin'" },
     { index = "pytorch", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
 ]
 torchaudio = [
-    { index = "pytorch-cpu", marker = "sys_platform == 'darwin'" },
     { index = "pytorch-cpu", marker = "platform_machine != 'x86_64' and sys_platform != 'darwin'" },
     { index = "pytorch", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
 ]

@@ -188,7 +188,7 @@ func (p *PyAnnoteAdapter) PrepareEnvironment(ctx context.Context) error {
 	}
 
 	// Check if PyAnnote is already available (using cache to speed up repeated checks)
-	if CheckEnvironmentReady(p.envPath, "from pyannote.audio import Pipeline") {
+	if CheckEnvironmentReady(p.envPath, "import pyannote") {
 		logger.Info("PyAnnote already available in environment")
 		// Still ensure script exists
 		if err := p.copyDiarizationScript(); err != nil {
@@ -199,13 +199,12 @@ func (p *PyAnnoteAdapter) PrepareEnvironment(ctx context.Context) error {
 	}
 
 	// Create environment if it doesn't exist or is incomplete
-	if err := p.setupPyAnnoteEnvironment(); err != nil {
+	if err := EnsureEnvironment(p.envPath, p.setupPyAnnoteEnvironment); err != nil {
 		return fmt.Errorf("failed to setup PyAnnote environment: %w", err)
 	}
 
 	// Verify PyAnnote is now available
-	testCmd := exec.Command("uv", "run", "--native-tls", "--project", p.envPath, "python", "-c", "from pyannote.audio import Pipeline")
-	if testCmd.Run() != nil {
+	if !CheckEnvironmentReady(p.envPath, "import pyannote") {
 		logger.Warn("PyAnnote environment test still failed after setup")
 	}
 
