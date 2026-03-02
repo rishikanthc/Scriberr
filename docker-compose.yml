@@ -2,7 +2,7 @@ services:
   scriberr:
     image: ghcr.io/rishikanthc/scriberr:latest
     ports:
-      - "8080:8080"
+      - "5318:5318"
     volumes:
       - scriberr_data:/app/data
       - env_data:/app/whisperx-env
@@ -14,7 +14,18 @@ services:
       # CORS: comma-separated list of allowed origins for production
       # - ALLOWED_ORIGINS=https://your-domain.com
     restart: unless-stopped
+    depends_on:
+      - qdrant
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    ports:
+      - "6333:6333"
+    volumes:
+      - qdrant_storage:/qdrant/storage
+    restart: unless-stopped
 
 volumes:
   scriberr_data: {}
+  qdrant_storage:
   env_data: {}

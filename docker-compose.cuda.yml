@@ -3,11 +3,13 @@ services:
   scriberr:
     image: ghcr.io/rishikanthc/scriberr:v1.0.4-cuda
     ports:
-      - "8080:8080"
+      - "5318:5318"
     volumes:
       - scriberr_data:/app/data
       - env_data:/app/whisperx-env
     restart: unless-stopped
+    depends_on:
+      - qdrant
     deploy:
       resources:
         reservations:
@@ -19,6 +21,15 @@ services:
     environment:
       - NVIDIA_VISIBLE_DEVICES=all
       - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+      - QDRANT_HOST=qdrant
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    ports:
+      - "6333:6333"
+    volumes:
+      - qdrant_storage:/qdrant/storage
+    restart: unless-stopped
       - PUID=${PUID:-1000}
       - PGID=${PGID:-1000}
       # Security: already set in container, but can be overridden
@@ -28,4 +39,5 @@ services:
 
 volumes:
   scriberr_data: {}
+  qdrant_storage: {}
   env_data: {}

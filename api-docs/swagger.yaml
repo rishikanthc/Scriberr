@@ -291,6 +291,13 @@ definitions:
         description: Match tests expecting snake_case key
         type: boolean
     type: object
+  api.RenameSpeakerRequest:
+    properties:
+      name:
+        type: string
+    required:
+    - name
+    type: object
   api.SetUserDefaultProfileRequest:
     properties:
       profile_id:
@@ -479,6 +486,54 @@ definitions:
       updated_at:
         type: string
     type: object
+  models.SpeakerMapping:
+    properties:
+      created_at:
+        type: string
+      custom_name:
+        description: e.g., "John Doe"
+        type: string
+      id:
+        type: integer
+      original_speaker:
+        description: e.g., "speaker_00"
+        type: string
+      transcription_job:
+        allOf:
+        - $ref: '#/definitions/models.TranscriptionJob'
+        description: Relationships
+      transcription_job_id:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  models.SpeakerSegment:
+    properties:
+      created_at:
+        type: string
+      embedding:
+        description: JSON-serialized float32 array
+        items:
+          type: integer
+        type: array
+      end:
+        type: number
+      id:
+        type: integer
+      speaker_id:
+        description: The global speaker ID (UUID) or local name
+        type: string
+      start:
+        type: number
+      text:
+        type: string
+      transcription_job:
+        allOf:
+        - $ref: '#/definitions/models.TranscriptionJob'
+        description: Relationships
+      transcription_job_id:
+        type: string
+    type: object
   models.Summary:
     properties:
       content:
@@ -556,6 +611,10 @@ definitions:
         allOf:
         - $ref: '#/definitions/models.WhisperXParams'
         description: WhisperX parameters
+      speaker_mappings:
+        items:
+          $ref: '#/definitions/models.SpeakerMapping'
+        type: array
       status:
         $ref: '#/definitions/models.JobStatus'
       summary:
@@ -1777,6 +1836,111 @@ paths:
       summary: Set default transcription profile
       tags:
       - profiles
+  /api/v1/speakers:
+    get:
+      description: Get a list of all identified speakers
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items: {}
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      summary: List speakers
+      tags:
+      - speakers
+  /api/v1/speakers/{id}:
+    delete:
+      description: Delete a speaker identity
+      parameters:
+      - description: Speaker ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      summary: Delete speaker
+      tags:
+      - speakers
+    put:
+      consumes:
+      - application/json
+      description: Rename an identified speaker and update past transcripts
+      parameters:
+      - description: Speaker ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: New Name
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/api.RenameSpeakerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      summary: Rename speaker
+      tags:
+      - speakers
+  /api/v1/speakers/{id}/segments:
+    get:
+      description: Get all audio segments and their associated transcription jobs
+        for a speaker
+      parameters:
+      - description: Speaker ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.SpeakerSegment'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      summary: Get speaker segments
+      tags:
+      - speakers
   /api/v1/summaries:
     get:
       description: Get all summarization templates

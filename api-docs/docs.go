@@ -1602,6 +1602,163 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/speakers": {
+            "get": {
+                "description": "Get a list of all identified speakers",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "speakers"
+                ],
+                "summary": "List speakers",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {}
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/speakers/{id}": {
+            "put": {
+                "description": "Rename an identified speaker and update past transcripts",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "speakers"
+                ],
+                "summary": "Rename speaker",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Speaker ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "New Name",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.RenameSpeakerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Delete a speaker identity",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "speakers"
+                ],
+                "summary": "Delete speaker",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Speaker ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/speakers/{id}/segments": {
+            "get": {
+                "description": "Get all audio segments and their associated transcription jobs for a speaker",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "speakers"
+                ],
+                "summary": "Get speaker segments",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Speaker ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.SpeakerSegment"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/summaries": {
             "get": {
                 "security": [
@@ -4256,6 +4413,17 @@ const docTemplate = `{
                 }
             }
         },
+        "api.RenameSpeakerRequest": {
+            "type": "object",
+            "required": [
+                "name"
+            ],
+            "properties": {
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
         "api.SetUserDefaultProfileRequest": {
             "type": "object",
             "required": [
@@ -4535,6 +4703,81 @@ const docTemplate = `{
                 }
             }
         },
+        "models.SpeakerMapping": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "custom_name": {
+                    "description": "e.g., \"John Doe\"",
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "original_speaker": {
+                    "description": "e.g., \"speaker_00\"",
+                    "type": "string"
+                },
+                "transcription_job": {
+                    "description": "Relationships",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.TranscriptionJob"
+                        }
+                    ]
+                },
+                "transcription_job_id": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.SpeakerSegment": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "embedding": {
+                    "description": "JSON-serialized float32 array",
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "end": {
+                    "type": "number"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "speaker_id": {
+                    "description": "The global speaker ID (UUID) or local name",
+                    "type": "string"
+                },
+                "start": {
+                    "type": "number"
+                },
+                "text": {
+                    "type": "string"
+                },
+                "transcription_job": {
+                    "description": "Relationships",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.TranscriptionJob"
+                        }
+                    ]
+                },
+                "transcription_job_id": {
+                    "type": "string"
+                }
+            }
+        },
         "models.Summary": {
             "type": "object",
             "properties": {
@@ -4653,6 +4896,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/models.WhisperXParams"
                         }
                     ]
+                },
+                "speaker_mappings": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.SpeakerMapping"
+                    }
                 },
                 "status": {
                     "$ref": "#/definitions/models.JobStatus"

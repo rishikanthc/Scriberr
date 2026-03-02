@@ -11,10 +11,10 @@ services:
     # image: ghcr.io/rishikanthc/scriberr:v1.0.0
     container_name: scriberr
     ports:
-      - "8080:8080"
+      - "5318:5318"
     # environment:
     #   - HOST=0.0.0.0
-    #   - PORT=8080
+    #   - PORT=5318
     #   - DATABASE_PATH=/app/data/scriberr.db
     #   - UPLOAD_DIR=/app/data/uploads
     #   - PUID=${PUID:-1000}

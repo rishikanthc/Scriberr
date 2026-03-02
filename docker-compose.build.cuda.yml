@@ -8,7 +8,7 @@ services:
     image: scriberr:local-cuda
     container_name: scriberr
     ports:
-      - "8080:8080"
+      - "5318:5318"
     deploy:
       resources:
         reservations:
@@ -22,7 +22,7 @@ services:
       - NVIDIA_DRIVER_CAPABILITIES=compute,utility
       # environment:
       #   - HOST=0.0.0.0
-      #   - PORT=8080
+      #   - PORT=5318
       #   - DATABASE_PATH=/app/data/scriberr.db
       #   - UPLOAD_DIR=/app/data/uploads
       - PUID=${PUID:-1000}

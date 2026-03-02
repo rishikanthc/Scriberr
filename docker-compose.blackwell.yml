@@ -6,7 +6,7 @@ services:
   scriberr:
     image: ghcr.io/rishikanthc/scriberr-cuda-blackwell:latest
     ports:
-      - "8080:8080"
+      - "5318:5318"
     volumes:
       - scriberr_data:/app/data
       - env_data:/app/whisperx-env

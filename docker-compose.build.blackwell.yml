@@ -9,7 +9,7 @@ services:
     image: scriberr:local-blackwell
     container_name: scriberr-blackwell
     ports:
-      - "8080:8080"
+      - "5318:5318"
     deploy:
       resources:
         reservations:
