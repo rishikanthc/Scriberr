@@ -52,6 +52,7 @@ type JobRepository interface {
 	Repository[models.TranscriptionJob]
 	FindWithAssociations(ctx context.Context, id string) (*models.TranscriptionJob, error)
 	FindActiveTrackJobs(ctx context.Context, parentJobID string) ([]models.TranscriptionJob, error)
+	FindLatestExecution(ctx context.Context, jobID string) (*models.TranscriptionJobExecution, error)
 	FindLatestCompletedExecution(ctx context.Context, jobID string) (*models.TranscriptionJobExecution, error)
 	ListWithParams(ctx context.Context, offset, limit int, sortBy, sortOrder, searchQuery string, updatedAfter *time.Time) ([]models.TranscriptionJob, int64, error)
 	ListByUser(ctx context.Context, userID uint, offset, limit int) ([]models.TranscriptionJob, int64, error)
@@ -174,6 +175,18 @@ func (r *jobRepository) FindLatestCompletedExecution(ctx context.Context, jobID 
 	var execution models.TranscriptionJobExecution
 	err := r.db.WithContext(ctx).
 		Where("transcription_job_id = ? AND status = ?", jobID, models.StatusCompleted).
+		Order("created_at DESC").
+		First(&execution).Error
+	if err != nil {
+		return nil, err
+	}
+	return &execution, nil
+}
+
+func (r *jobRepository) FindLatestExecution(ctx context.Context, jobID string) (*models.TranscriptionJobExecution, error) {
+	var execution models.TranscriptionJobExecution
+	err := r.db.WithContext(ctx).
+		Where("transcription_job_id = ?", jobID).
 		Order("created_at DESC").
 		First(&execution).Error
 	if err != nil {
