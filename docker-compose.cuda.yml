@@ -1,7 +1,7 @@
 version: "3.9"
 services:
   scriberr:
-    image: ghcr.io/rishikanthc/scriberr:v1.0.4-cuda
+    image: ghcr.io/rishikanthc/scriberr-cuda:latest
     ports:
       - "8080:8080"
     volumes:
