@@ -13,6 +13,10 @@ import { ToastProvider } from '@/components/ui/toast'
 import { ChatEventsProvider } from './contexts/ChatEventsContext'
 import { GlobalUploadProvider } from './contexts/GlobalUploadContext'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { setupAuthInterceptor } from './lib/authInterceptor'
+
+// Initialize the global fetch interceptor for auth
+setupAuthInterceptor();
 
 const queryClient = new QueryClient()
 
