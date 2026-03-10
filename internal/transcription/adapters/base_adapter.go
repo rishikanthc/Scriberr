@@ -38,8 +38,20 @@ func GetPyTorchCUDAVersion() string {
 	return "cu126" // Default to CUDA 12.6 for legacy compatibility
 }
 
-// GetPyTorchWheelURL returns the full PyTorch wheel URL for the configured CUDA version.
+// GetPyTorchROCmVersion returns the AMD ROCm version for PyTorch wheels, if configured.
+// Set PYTORCH_ROCM_VERSION (e.g. "6.3") to enable ROCm/HIP-backed PyTorch.
+// When set, ROCm wheels take priority over CUDA wheels.
+// Required for AMD GPUs such as RX 5700 XT (gfx1010 / RDNA 1).
+func GetPyTorchROCmVersion() string {
+	return os.Getenv("PYTORCH_ROCM_VERSION")
+}
+
+// GetPyTorchWheelURL returns the full PyTorch wheel index URL for the configured backend.
+// Priority: ROCm (AMD) > CUDA (NVIDIA) > default CUDA 12.6.
 func GetPyTorchWheelURL() string {
+	if rocmVersion := GetPyTorchROCmVersion(); rocmVersion != "" {
+		return fmt.Sprintf("https://download.pytorch.org/whl/rocm%s", rocmVersion)
+	}
 	return fmt.Sprintf("https://download.pytorch.org/whl/%s", GetPyTorchCUDAVersion())
 }
 
