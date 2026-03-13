@@ -2,6 +2,7 @@ package tests
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -36,6 +37,23 @@ type APIHandlerTestSuite struct {
 	unifiedProcessor   *transcription.UnifiedJobProcessor
 	quickTranscription *transcription.QuickTranscriptionService
 	mockOpenAI         *httptest.Server
+	openClawRunner     *fakeOpenClawRunner
+}
+
+type fakeOpenClawRunner struct {
+	calls []string
+}
+
+func (r *fakeOpenClawRunner) Run(_ context.Context, name string, _ []string, _ []byte) ([]byte, error) {
+	r.calls = append(r.calls, name)
+	switch name {
+	case "scp":
+		return []byte("scp-ok"), nil
+	case "ssh":
+		return []byte("ssh-ok"), nil
+	default:
+		return []byte(""), nil
+	}
 }
 
 func (suite *APIHandlerTestSuite) SetupSuite() {
@@ -52,11 +70,14 @@ func (suite *APIHandlerTestSuite) SetupSuite() {
 	chatRepo := repository.NewChatRepository(suite.helper.DB)
 	noteRepo := repository.NewNoteRepository(suite.helper.DB)
 	speakerMappingRepo := repository.NewSpeakerMappingRepository(suite.helper.DB)
+	openClawProfileRepo := repository.NewOpenClawProfileRepository(suite.helper.DB)
 	refreshTokenRepo := repository.NewRefreshTokenRepository(suite.helper.DB)
 
 	// Initialize services
 	userService := service.NewUserService(userRepo, suite.helper.AuthService)
 	fileService := service.NewFileService()
+	suite.openClawRunner = &fakeOpenClawRunner{}
+	openClawService := service.NewOpenClawServiceWithRunner(suite.openClawRunner)
 
 	// Initialize services
 	suite.unifiedProcessor = transcription.NewUnifiedJobProcessor(jobRepo, suite.helper.Config.TempDir, suite.helper.Config.TranscriptsDir)
@@ -84,7 +105,9 @@ func (suite *APIHandlerTestSuite) SetupSuite() {
 		chatRepo,
 		noteRepo,
 		speakerMappingRepo,
+		openClawProfileRepo,
 		refreshTokenRepo,
+		openClawService,
 		suite.taskQueue,
 		suite.unifiedProcessor,
 		suite.quickTranscription,
@@ -105,6 +128,7 @@ func (suite *APIHandlerTestSuite) TearDownSuite() {
 
 func (suite *APIHandlerTestSuite) SetupTest() {
 	suite.helper.ResetDB(suite.T())
+	suite.openClawRunner.calls = nil
 
 	// Create LLM config pointing to mock server
 	llmConfig := &models.LLMConfig{
@@ -503,6 +527,114 @@ func (suite *APIHandlerTestSuite) TestProfileManagement() {
 	// Delete profile
 	w = suite.makeAuthenticatedRequest("DELETE", fmt.Sprintf("/api/v1/profiles/%s", createResponse.ID), nil, false)
 	assert.Equal(suite.T(), 200, w.Code)
+}
+
+func (suite *APIHandlerTestSuite) TestOpenClawProfileManagement() {
+	profileData := map[string]interface{}{
+		"name":      "OpenClaw Test",
+		"ip":        "user@example-host",
+		"ssh_key":   "ssh-key",
+		"hook_key":  "hook-key",
+		"hook_name": "Dashboard",
+		"message":   "Summarize this meeting",
+	}
+
+	w := suite.makeAuthenticatedRequest("POST", "/api/v1/openclaw/profiles", profileData, true)
+	assert.Equal(suite.T(), 200, w.Code)
+
+	var created map[string]interface{}
+	err := json.Unmarshal(w.Body.Bytes(), &created)
+	assert.NoError(suite.T(), err)
+	assert.Equal(suite.T(), "OpenClaw Test", created["name"])
+	assert.Equal(suite.T(), true, created["has_ssh_key"])
+	assert.Equal(suite.T(), true, created["has_hook_key"])
+	assert.NotContains(suite.T(), created, "ssh_key")
+	assert.NotContains(suite.T(), created, "hook_key")
+
+	profileID, _ := created["id"].(string)
+	w = suite.makeAuthenticatedRequest("GET", "/api/v1/openclaw/profiles", nil, true)
+	assert.Equal(suite.T(), 200, w.Code)
+
+	var list []map[string]interface{}
+	err = json.Unmarshal(w.Body.Bytes(), &list)
+	assert.NoError(suite.T(), err)
+	assert.GreaterOrEqual(suite.T(), len(list), 1)
+
+	updateData := map[string]interface{}{
+		"name":      "OpenClaw Updated",
+		"ip":        "user@example-host",
+		"hook_name": "Dashboard",
+		"message":   "Summarize now",
+	}
+	w = suite.makeAuthenticatedRequest("PUT", fmt.Sprintf("/api/v1/openclaw/profiles/%s", profileID), updateData, true)
+	assert.Equal(suite.T(), 200, w.Code)
+
+	w = suite.makeAuthenticatedRequest("DELETE", fmt.Sprintf("/api/v1/openclaw/profiles/%s", profileID), nil, true)
+	assert.Equal(suite.T(), 200, w.Code)
+}
+
+func (suite *APIHandlerTestSuite) TestSendTranscriptionToOpenClaw() {
+	title := "Weekly Sync"
+	transcript := `{"segments":[{"start":0.0,"end":1.2,"text":"Hello team","speaker":"speaker_00"}]}`
+	job := models.TranscriptionJob{
+		ID:         "job-openclaw-send",
+		Title:      &title,
+		Status:     models.StatusCompleted,
+		AudioPath:  "test/path/audio.mp3",
+		Transcript: &transcript,
+	}
+	assert.NoError(suite.T(), suite.helper.DB.Create(&job).Error)
+
+	profile := models.OpenClawProfile{
+		ID:       "openclaw-profile-send",
+		Name:     "OpenClaw Prod",
+		IP:       "user@example-host",
+		SSHKey:   "ssh-key",
+		HookKey:  "hook-key",
+		HookName: "Dashboard",
+		Message:  "Summarize this",
+	}
+	assert.NoError(suite.T(), suite.helper.DB.Create(&profile).Error)
+
+	reqBody := map[string]string{"profile_id": profile.ID}
+	w := suite.makeAuthenticatedRequest("POST", fmt.Sprintf("/api/v1/transcription/%s/send-openclaw", job.ID), reqBody, true)
+	assert.Equal(suite.T(), 200, w.Code)
+
+	var response map[string]interface{}
+	err := json.Unmarshal(w.Body.Bytes(), &response)
+	assert.NoError(suite.T(), err)
+	assert.Equal(suite.T(), "Sent to OpenClaw", response["message"])
+	assert.Contains(suite.T(), response, "remote_path")
+	assert.Equal(suite.T(), "OpenClaw Prod", response["profile_name"])
+	assert.Equal(suite.T(), []string{"scp", "ssh"}, suite.openClawRunner.calls)
+}
+
+func (suite *APIHandlerTestSuite) TestSendTranscriptionToOpenClawRequiresJWT() {
+	title := "JWT Required"
+	transcript := `{"segments":[{"start":0.0,"end":1.0,"text":"Hello"}]}`
+	job := models.TranscriptionJob{
+		ID:         "job-openclaw-jwt",
+		Title:      &title,
+		Status:     models.StatusCompleted,
+		AudioPath:  "test/path/audio.mp3",
+		Transcript: &transcript,
+	}
+	assert.NoError(suite.T(), suite.helper.DB.Create(&job).Error)
+
+	profile := models.OpenClawProfile{
+		ID:       "openclaw-profile-jwt",
+		Name:     "OpenClaw JWT",
+		IP:       "user@example-host",
+		SSHKey:   "ssh-key",
+		HookKey:  "hook-key",
+		HookName: "Dashboard",
+		Message:  "Summarize this",
+	}
+	assert.NoError(suite.T(), suite.helper.DB.Create(&profile).Error)
+
+	reqBody := map[string]string{"profile_id": profile.ID}
+	w := suite.makeAuthenticatedRequest("POST", fmt.Sprintf("/api/v1/transcription/%s/send-openclaw", job.ID), reqBody, false)
+	assert.Equal(suite.T(), 401, w.Code)
 }
 
 // Test notes management
