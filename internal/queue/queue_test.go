@@ -6,6 +6,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// TestGetOptimalWorkerCount_DefaultBehavior verifies that without QUEUE_WORKERS,
+// the function returns positive CPU-based defaults with min <= max.
 func TestGetOptimalWorkerCount_DefaultBehavior(t *testing.T) {
 	t.Setenv("QUEUE_WORKERS", "")
 
@@ -16,6 +18,8 @@ func TestGetOptimalWorkerCount_DefaultBehavior(t *testing.T) {
 	assert.LessOrEqual(t, min, max, "min should be <= max")
 }
 
+// TestGetOptimalWorkerCount_RespectsEnvVar verifies that QUEUE_WORKERS env var
+// pins both min and max to the exact value specified.
 func TestGetOptimalWorkerCount_RespectsEnvVar(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -39,6 +43,9 @@ func TestGetOptimalWorkerCount_RespectsEnvVar(t *testing.T) {
 	}
 }
 
+// TestGetOptimalWorkerCount_IgnoresInvalidEnvVar verifies that non-numeric,
+// zero, and negative QUEUE_WORKERS values are ignored, falling back to
+// CPU-based defaults rather than crashing or using bad values.
 func TestGetOptimalWorkerCount_IgnoresInvalidEnvVar(t *testing.T) {
 	tests := []struct {
 		name     string
