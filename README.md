@@ -35,6 +35,8 @@ That said, if anyone in the community is interested in contributing or helping m
 I really appreciate all the support, interest, and encouragement this project has received so far. It genuinely means a lot, and I’m looking forward to continuing work on Scriberr once things stabilize on my end.
 Thanks again for your patience and support, I truly appreciate it.
 
+In the meantime, if you happen to know of any opportunities in AI/ML engineering or research, I’d be incredibly grateful for any referrals or connections. You can find more about my work and experience here: https://rishikanthc.com
+
 ## Sponsors
 
 ![recall.ai-logo](https://cdn.prod.website-files.com/620d732b1f1f7b244ac89f0e/66b294e51ee15f18dd2b171e_recall-logo.svg) Meeting Transcription API   
