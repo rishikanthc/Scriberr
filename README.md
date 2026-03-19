@@ -22,6 +22,19 @@ Scriberr is an open-source, and completely offline audio transcription applicati
   <img src="screenshots/hero.png" alt="Scriberr Desktop App" width="800" />
 </div>
 
+## Update on project status
+Hi everyone,
+It’s been a while since the last update, so I wanted to share what’s been going on with Scriberr.
+
+Recently, I was affected by layoffs at eBay (around 800 roles were impacted), and I unfortunately was one of them. The past few weeks have been a bit overwhelming as I’ve been focused on figuring out next steps and actively searching for new opportunities.
+
+Because of that, I haven’t been able to spend time on Scriberr lately. As much as I’d love to keep pushing it forward, I need to prioritize getting back on my feet first. Development is paused for now, but **definitely not abandoned. I still have a lot of ideas and plans I’m excited to come back to.**
+
+That said, if anyone in the community is interested in contributing or helping move the project forward during this time, I’d be very open to collaborating. I’d love to see Scriberr continue to evolve even while I’m temporarily away from active development.
+
+I really appreciate all the support, interest, and encouragement this project has received so far. It genuinely means a lot, and I’m looking forward to continuing work on Scriberr once things stabilize on my end.
+Thanks again for your patience and support, I truly appreciate it.
+
 ## Sponsors
 
 ![recall.ai-logo](https://cdn.prod.website-files.com/620d732b1f1f7b244ac89f0e/66b294e51ee15f18dd2b171e_recall-logo.svg) Meeting Transcription API   
