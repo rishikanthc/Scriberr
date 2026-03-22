@@ -67,6 +67,21 @@ export interface AudioFile {
     };
 }
 
+export interface PipelineStatusData {
+    job_id: string;
+    available: boolean;
+    job_status?: string;
+    execution_id?: string;
+    status?: {
+        stage?: string;
+        progress?: number;
+        step_message?: string | null;
+        error?: string | null;
+        started_at?: string;
+        updated_at?: string;
+    };
+}
+
 export interface WordSegment {
     start: number;
     end: number;
@@ -167,6 +182,34 @@ export function useExecutionData(audioId: string) {
             return response.json() as Promise<ExecutionData>;
         },
         enabled: !!audioId,
+    });
+}
+
+export function usePipelineStatus(audioId: string, enabled = true) {
+    const { getAuthHeaders } = useAuth();
+
+    return useQuery({
+        queryKey: ["pipelineStatus", audioId],
+        queryFn: async () => {
+            const response = await fetch(`/api/v1/transcription/${audioId}/pipeline-status`, {
+                headers: getAuthHeaders(),
+            });
+            if (!response.ok) throw new Error("Failed to fetch pipeline status");
+            return response.json() as Promise<PipelineStatusData>;
+        },
+        enabled: enabled && !!audioId,
+        refetchInterval: (query) => {
+            const data = query.state.data;
+            if (!data?.available) {
+                const jobStatus = data?.job_status;
+                if (jobStatus === "processing" || jobStatus === "pending") return 2000;
+                return false;
+            }
+            const stage = query.state.data?.status?.stage;
+            if (!stage) return 3000;
+            if (stage === "completed" || stage === "failed") return false;
+            return 2000;
+        },
     });
 }
 
