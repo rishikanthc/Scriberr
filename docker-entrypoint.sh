@@ -22,6 +22,10 @@ setup_user() {
         # Check if group already exists with different GID
         if getent group "$target_gid" >/dev/null 2>&1; then
             echo "Group with GID $target_gid already exists, using it"
+	    if [ "$target_uid" != "0" ]; then  # there is no need to assign target_gid to appuser if we are not going to use appuser
+		# assign appuser to the existing group (this lets you use other groups that exist in the base image (like 0 (root)) or others that got setup in the dockerfile)
+		usermod -g "$target_gid" appuser 2>/dev/null || true
+	    fi
         else
             # Modify existing group or create new one
             groupmod -g "$target_gid" appuser 2>/dev/null || {
@@ -31,9 +35,12 @@ setup_user() {
         fi
 
         # Modify user UID
-        usermod -u "$target_uid" appuser 2>/dev/null || {
-            echo "Warning: Could not change user ID, continuing with existing user"
-        }
+        # only attempt to change the appuser UID if the target UID is NOT 0 (root) because that UID is already used by user root
+        if [ "$target_uid" != "0" ]; then
+            usermod -u "$target_uid" appuser 2>/dev/null || {
+                echo "Warning: Could not change user ID, continuing with existing user"
+            }
+        fi
 
         # Update ownership of app directory
         chown -R "$target_uid:$target_gid" /app 2>/dev/null || true
@@ -53,10 +60,16 @@ if [ "$(id -u)" = "0" ]; then
     chown -R "$PUID:$PGID" /app/data /app/whisperx-env
 
     echo "=== Setup Complete ==="
-    echo "Switching to user appuser (UID=$PUID, GID=$PGID) and starting application..."
+    echo "Starting application as (UID=$PUID, GID=$PGID)..."
 
-    # Switch to the appuser and execute the command
-    exec gosu appuser "$@"
+    # If the requested UID is not 0 (root) switch to the appuser (or root/custom GID) and execute the command
+    if [ "$PUID" != "0" ]; then
+        exec gosu appuser "$@"
+    # If the requested UID is 0 (root) it means that setup_user did not change the UID of appuser becuase 0 is already used by user root
+    # it did create the requested group (if specified) tho, so we start the main app as user 0 (root) but with the requested group
+    else
+        exec gosu "0:$PGID" "$@"
+    fi
 else
     echo "Running as non-root user UID=$(id -u), GID=$(id -g)"
 
