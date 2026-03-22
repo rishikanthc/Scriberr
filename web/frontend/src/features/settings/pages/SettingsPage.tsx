@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { MainLayout } from "@/components/layout/MainLayout";
-import { User, Settings as SettingsIcon, Key, Bot, FileText, Plus, Terminal } from "lucide-react";
+import { User, Settings as SettingsIcon, Key, Bot, FileText, Plus, Terminal, Send } from "lucide-react";
 import {
   Tabs,
   TabsContent,
@@ -17,6 +17,7 @@ import { LLMSettings } from "../components/LLMSettings";
 import { SummaryTemplateDialog, type SummaryTemplate } from "../components/SummaryTemplateDialog";
 import { SummaryTemplatesTable } from "../components/SummaryTemplatesTable";
 import { CLISettingsTab } from "../components/CLISettingsTab";
+import { OpenClawProfileSettings } from "../components/OpenClawProfileSettings";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 
 export function Settings() {
@@ -68,7 +69,7 @@ export function Settings() {
           onValueChange={setActiveTab}
           className="space-y-4 sm:space-y-6"
         >
-          <TabsList className="grid w-full grid-cols-6 items-center h-auto bg-[var(--bg-main)]/50 border border-[var(--border-subtle)] p-1 rounded-xl">
+          <TabsList className="grid w-full grid-cols-7 items-center h-auto bg-[var(--bg-main)]/50 border border-[var(--border-subtle)] p-1 rounded-xl">
             <TabsTrigger
               value="transcription"
               aria-label="Transcription"
@@ -108,6 +109,14 @@ export function Settings() {
             >
               <FileText className="h-4 w-4" />
               <span className="hidden sm:inline">Summary</span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="openclaw"
+              aria-label="OpenClaw"
+              className="flex items-center justify-center gap-2 h-9 py-1.5 data-[state=active]:bg-[var(--bg-card)] data-[state=active]:shadow-sm data-[state=active]:text-[var(--text-primary)] text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] font-medium rounded-lg text-xs sm:text-sm transition-all"
+            >
+              <Send className="h-4 w-4" />
+              <span className="hidden sm:inline">OpenClaw</span>
             </TabsTrigger>
             <TabsTrigger
               value="cli"
@@ -188,6 +197,11 @@ export function Settings() {
                 }
               }}
             />
+          </TabsContent>
+
+          {/* OpenClaw Tab */}
+          <TabsContent value="openclaw" className="space-y-6">
+            <OpenClawProfileSettings />
           </TabsContent>
 
           {/* CLI Watcher Tab */}

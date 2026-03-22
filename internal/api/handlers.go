@@ -46,7 +46,9 @@ type Handler struct {
 	chatRepo            repository.ChatRepository
 	noteRepo            repository.NoteRepository
 	speakerMappingRepo  repository.SpeakerMappingRepository
+	openClawProfileRepo repository.OpenClawProfileRepository
 	refreshTokenRepo    repository.RefreshTokenRepository
+	openClawService     *service.OpenClawService
 	taskQueue           *queue.TaskQueue
 	unifiedProcessor    *transcription.UnifiedJobProcessor
 	quickTranscription  *transcription.QuickTranscriptionService
@@ -69,7 +71,9 @@ func NewHandler(
 	chatRepo repository.ChatRepository,
 	noteRepo repository.NoteRepository,
 	speakerMappingRepo repository.SpeakerMappingRepository,
+	openClawProfileRepo repository.OpenClawProfileRepository,
 	refreshTokenRepo repository.RefreshTokenRepository,
+	openClawService *service.OpenClawService,
 	taskQueue *queue.TaskQueue,
 	unifiedProcessor *transcription.UnifiedJobProcessor,
 	quickTranscription *transcription.QuickTranscriptionService,
@@ -90,7 +94,9 @@ func NewHandler(
 		chatRepo:            chatRepo,
 		noteRepo:            noteRepo,
 		speakerMappingRepo:  speakerMappingRepo,
+		openClawProfileRepo: openClawProfileRepo,
 		refreshTokenRepo:    refreshTokenRepo,
+		openClawService:     openClawService,
 		taskQueue:           taskQueue,
 		unifiedProcessor:    unifiedProcessor,
 		quickTranscription:  quickTranscription,
@@ -1002,6 +1008,8 @@ func (h *Handler) StartTranscription(c *gin.Context) {
 	job.Transcript = nil
 	job.Summary = nil
 	job.ErrorMessage = nil
+	job.OpenClawSentAt = nil
+	job.OpenClawProfileName = nil
 
 	// Save updated job
 	if err := h.jobRepo.Update(c.Request.Context(), job); err != nil {
