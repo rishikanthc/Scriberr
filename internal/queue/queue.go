@@ -84,7 +84,9 @@ func NewTaskQueue(legacyWorkers int, processor JobProcessor, jobRepo repository.
 
 	// Calculate optimal worker counts, fallback to legacy parameter
 	min, max := getOptimalWorkerCount()
-	if legacyWorkers > 0 {
+	// Only use legacy parameter as fallback when QUEUE_WORKERS env var is not set
+	// TODO: Deprecate `legacyWorkers` and rely on `getOptimalWorkerCount` instead.
+	if os.Getenv("QUEUE_WORKERS") == "" && legacyWorkers > 0 {
 		min = legacyWorkers
 		max = legacyWorkers
 	}
