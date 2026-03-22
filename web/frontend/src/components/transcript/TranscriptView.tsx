@@ -70,6 +70,11 @@ export const TranscriptView = forwardRef<HTMLDivElement, TranscriptViewProps>(({
         return speakerMappings[originalSpeaker] || originalSpeaker;
     };
 
+    // Click-to-seek handler for timestamp/speaker area in expanded view
+    const handleSegmentSeek = useCallback((segmentStart: number) => {
+        onSeek(segmentStart);
+    }, [onSeek]);
+
     const containerRef = useRef<HTMLDivElement>(null);
     const [isModifierPressed, setIsModifierPressed] = useState(false);
     const isDesktop = useIsDesktop();
@@ -299,15 +304,26 @@ export const TranscriptView = forwardRef<HTMLDivElement, TranscriptViewProps>(({
                                 : "hover:bg-carbon-50 dark:hover:bg-carbon-800/50 border-transparent hover:border-carbon-100 dark:hover:border-carbon-800"
                         )}
                     >
-                        {/* Timestamp & Speaker */}
-                        <div className="flex-shrink-0 w-24 sm:w-28 flex flex-col items-start sm:items-end gap-1 text-xs text-carbon-500 dark:text-carbon-400 select-none mt-1">
+                        {/* Timestamp & Speaker - Clickable to seek */}
+                        <div
+                            className="flex-shrink-0 w-24 sm:w-28 flex flex-col items-start sm:items-end gap-1 text-xs text-carbon-500 dark:text-carbon-400 select-none mt-1 cursor-pointer rounded-md p-1 -m-1 hover:bg-carbon-100 dark:hover:bg-carbon-700/50 transition-colors"
+                            onClick={() => handleSegmentSeek(segment.start)}
+                            role="button"
+                            tabIndex={0}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                    e.preventDefault();
+                                    handleSegmentSeek(segment.start);
+                                }
+                            }}
+                            title="Click to jump to this point"
+                        >
                             <span className="font-mono bg-carbon-100 dark:bg-carbon-800/80 px-1.5 py-0.5 rounded text-[10px] sm:text-xs">
                                 {new Date(segment.start * 1000).toISOString().substr(11, 8)}
                             </span>
                             {segment.speaker && (
                                 <span
                                     className="font-medium text-carbon-700 dark:text-carbon-300 truncate max-w-full"
-                                    title={getDisplaySpeakerName(segment.speaker)}
                                 >
                                     {getDisplaySpeakerName(segment.speaker)}
                                 </span>
