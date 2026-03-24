@@ -45,6 +45,12 @@ func TestAdapterEnvPathInjection(t *testing.T) {
 	if pyannote == nil {
 		t.Fatal("NewPyAnnoteAdapter returned nil")
 	}
+
+	// Test WhisperAPI adapter
+	whisperAPI := adapters.NewWhisperAPIAdapter("http://localhost:9000/v1/audio/transcriptions", "")
+	if whisperAPI == nil {
+		t.Fatal("NewWhisperAPIAdapter returned nil")
+	}
 }
 
 // TestRegisterAdapters tests that registerAdapters correctly registers all adapters
@@ -67,6 +73,8 @@ func TestRegisterAdapters(t *testing.T) {
 		adapters.NewParakeetAdapter(nvidiaEnvPath))
 	registry.RegisterTranscriptionAdapter("canary",
 		adapters.NewCanaryAdapter(nvidiaEnvPath))
+	registry.RegisterTranscriptionAdapter("whisper_api",
+		adapters.NewWhisperAPIAdapter("", ""))
 
 	registry.RegisterDiarizationAdapter("pyannote",
 		adapters.NewPyAnnoteAdapter(nvidiaEnvPath))
@@ -75,8 +83,8 @@ func TestRegisterAdapters(t *testing.T) {
 
 	// Verify registrations
 	transcriptionAdapters := registry.GetTranscriptionAdapters()
-	if len(transcriptionAdapters) != 3 {
-		t.Errorf("Expected 3 transcription adapters, got %d", len(transcriptionAdapters))
+	if len(transcriptionAdapters) != 4 {
+		t.Errorf("Expected 4 transcription adapters, got %d", len(transcriptionAdapters))
 	}
 
 	// Check specific adapters are registered
@@ -88,6 +96,9 @@ func TestRegisterAdapters(t *testing.T) {
 	}
 	if _, exists := transcriptionAdapters["canary"]; !exists {
 		t.Error("canary adapter not registered")
+	}
+	if _, exists := transcriptionAdapters["whisper_api"]; !exists {
+		t.Error("whisper_api adapter not registered")
 	}
 
 	diarizationAdapters := registry.GetDiarizationAdapters()
@@ -131,6 +142,11 @@ func TestAdaptersUseConfigPaths(t *testing.T) {
 	}
 	if pyannote == nil {
 		t.Error("PyAnnote adapter should accept custom path")
+	}
+
+	whisperAPI := adapters.NewWhisperAPIAdapter("http://custom.host/v1/audio/transcriptions", "key")
+	if whisperAPI == nil {
+		t.Error("WhisperAPI adapter should accept custom URL and key")
 	}
 }
 

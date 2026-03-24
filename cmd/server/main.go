@@ -239,6 +239,8 @@ func registerAdapters(cfg *config.Config) {
 		adapters.NewVoxtralAdapter(voxtralEnvPath))
 	registry.RegisterTranscriptionAdapter("openai_whisper",
 		adapters.NewOpenAIAdapter(cfg.OpenAIAPIKey))
+	registry.RegisterTranscriptionAdapter("whisper_api",
+		adapters.NewWhisperAPIAdapter(cfg.WhisperAPIURL, cfg.WhisperAPIKey))
 
 	// Register diarization adapters
 	registry.RegisterDiarizationAdapter("pyannote",

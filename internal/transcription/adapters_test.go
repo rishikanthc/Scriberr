@@ -531,6 +531,94 @@ func TestParameterConversion(t *testing.T) {
 	}
 }
 
+func TestWhisperAPIAdapter(t *testing.T) {
+	reg := registry.GetRegistry()
+	registry.RegisterTranscriptionAdapter("whisper_api", adapters.NewWhisperAPIAdapter("http://localhost:9000/v1/audio/transcriptions", "test-key"))
+
+	adapter, err := reg.GetTranscriptionAdapter("whisper_api")
+	if err != nil {
+		t.Fatalf("Failed to get WhisperAPI adapter: %v", err)
+	}
+
+	capabilities := adapter.GetCapabilities()
+	if capabilities.ModelFamily != "whisper_api" {
+		t.Errorf("Expected model family 'whisper_api', got '%s'", capabilities.ModelFamily)
+	}
+	if !capabilities.Features["timestamps"] {
+		t.Error("Expected timestamps feature")
+	}
+	if capabilities.RequiresGPU {
+		t.Error("Expected RequiresGPU to be false")
+	}
+
+	schema := adapter.GetParameterSchema()
+	if len(schema) == 0 {
+		t.Error("Expected non-empty parameter schema")
+	}
+
+	// api_url must be present in schema
+	var hasAPIURL bool
+	for _, p := range schema {
+		if p.Name == "api_url" {
+			hasAPIURL = true
+			break
+		}
+	}
+	if !hasAPIURL {
+		t.Error("Expected api_url in parameter schema")
+	}
+
+	validParams := map[string]interface{}{
+		"api_url": "http://localhost:9000/v1/audio/transcriptions",
+		"model":   "large-v3",
+	}
+	if err := adapter.ValidateParameters(validParams); err != nil {
+		t.Errorf("Valid parameters failed validation: %v", err)
+	}
+}
+
+func TestWhisperAPIParamConversion(t *testing.T) {
+	mockRepo := new(MockJobRepository)
+	service := NewUnifiedTranscriptionService(mockRepo, "data/temp", "data/transcripts")
+
+	apiURL := "http://localhost:9000/v1/audio/transcriptions"
+	apiKey := "secret"
+	lang := "fr"
+
+	params := models.WhisperXParams{
+		Model:   "large-v3",
+		APIURL:  &apiURL,
+		APIKey:  &apiKey,
+		Language: &lang,
+	}
+
+	m := service.convertToWhisperAPIParams(params)
+
+	if m["model"] != "large-v3" {
+		t.Errorf("Expected model 'large-v3', got '%v'", m["model"])
+	}
+	if m["api_url"] != apiURL {
+		t.Errorf("Expected api_url '%s', got '%v'", apiURL, m["api_url"])
+	}
+	if m["api_key"] != apiKey {
+		t.Errorf("Expected api_key '%s', got '%v'", apiKey, m["api_key"])
+	}
+	if m["language"] != lang {
+		t.Errorf("Expected language '%s', got '%v'", lang, m["language"])
+	}
+
+	// Empty optional fields should not be present
+	emptyURL := ""
+	paramsNoURL := models.WhisperXParams{Model: "whisper-1", APIURL: &emptyURL}
+	m2 := service.convertToWhisperAPIParams(paramsNoURL)
+	if _, ok := m2["api_url"]; ok {
+		t.Error("Empty api_url should not appear in param map")
+	}
+	if _, ok := m2["language"]; ok {
+		t.Error("Nil language should not appear in param map")
+	}
+}
+
 // Helper functions
 func stringPtr(s string) *string {
 	return &s

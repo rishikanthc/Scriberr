@@ -41,6 +41,10 @@ type Config struct {
 
 	// Hugging Face configuration
 	HFToken string
+
+	// Whisper API configuration
+	WhisperAPIURL string
+	WhisperAPIKey string
 }
 
 // Load loads configuration from environment variables and .env file
@@ -70,6 +74,8 @@ func Load() *Config {
 		SecureCookies:  getEnv("SECURE_COOKIES", defaultSecure) == "true",
 		OpenAIAPIKey:   getEnv("OPENAI_API_KEY", ""),
 		HFToken:        getEnv("HF_TOKEN", ""),
+		WhisperAPIURL:  getEnv("WHISPER_API_URL", ""),
+		WhisperAPIKey:  getEnv("WHISPER_API_KEY", ""),
 	}
 }
 
