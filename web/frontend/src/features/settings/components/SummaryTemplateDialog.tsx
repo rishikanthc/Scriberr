@@ -3,10 +3,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
 import { useAuth } from "@/features/auth/hooks/useAuth";
-import { FormField } from "@/components/transcription/FormHelpers";
+import { FormField, SelectField, SwitchField, inputClassName } from "@/components/transcription/FormHelpers";
 import { Loader2 } from "lucide-react";
 
 export interface SummaryTemplate {
@@ -26,30 +24,6 @@ interface SummaryTemplateDialogProps {
   onSave: (tpl: Omit<SummaryTemplate, 'created_at' | 'updated_at'>) => Promise<void> | void;
   initial?: SummaryTemplate | null;
 }
-
-// Styled class constants
-const inputClassName = `
-  h-11 bg-[var(--bg-main)] border border-[var(--border-subtle)] rounded-xl
-  text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)]
-  focus:border-[var(--brand-solid)] focus:ring-2 focus:ring-[var(--brand-solid)]/20
-  transition-all duration-200
-  [color-scheme:light] dark:[color-scheme:dark]
-`;
-
-const selectTriggerClassName = `
-  h-11 bg-[var(--bg-main)] border border-[var(--border-subtle)] rounded-xl
-  text-[var(--text-primary)] shadow-none
-  focus:border-[var(--brand-solid)] focus:ring-2 focus:ring-[var(--brand-solid)]/20
-`;
-
-const selectContentClassName = `
-  bg-[var(--bg-card)] border border-[var(--border-subtle)] rounded-xl
-`;
-
-const selectItemClassName = `
-  text-[var(--text-primary)] rounded-lg mx-1 cursor-pointer
-  focus:bg-[var(--brand-light)] focus:text-[var(--brand-solid)]
-`;
 
 export function SummaryTemplateDialog({ open, onOpenChange, onSave, initial }: SummaryTemplateDialogProps) {
   const [name, setName] = useState("");
@@ -134,23 +108,13 @@ export function SummaryTemplateDialog({ open, onOpenChange, onSave, initial }: S
           </FormField>
 
           {/* Model Selection */}
-          <FormField
+          <SelectField
             label="Model"
             description="Choose the LLM model to use for generating summaries."
-          >
-            <Select value={model} onValueChange={setModel}>
-              <SelectTrigger className={selectTriggerClassName}>
-                <SelectValue placeholder={models.length ? 'Select a model' : 'No models available'} />
-              </SelectTrigger>
-              <SelectContent className={selectContentClassName}>
-                {models.map((m) => (
-                  <SelectItem key={m} value={m} className={selectItemClassName}>
-                    {m}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </FormField>
+            value={model}
+            onValueChange={setModel}
+            options={models}
+          />
 
           {/* Description Field */}
           <FormField label="Description" htmlFor="templateDesc" optional>
@@ -183,15 +147,12 @@ Summarize the following transcript into concise bullet points. Focus on key deci
           </FormField>
 
           {/* Include Speaker Info Toggle */}
-          <FormField
-            label="Include Speaker Identification"
-            description="When enabled, speaker labels will be included in the transcript sent to the model. Useful for meeting notes and multi-speaker content."
-          >
-            <Switch
-              checked={includeSpeakerInfo}
-              onCheckedChange={setIncludeSpeakerInfo}
-            />
-          </FormField>
+          <SwitchField
+            id="includeSpeakerInfo"
+            label="Include speaker identification in transcript"
+            checked={includeSpeakerInfo}
+            onCheckedChange={setIncludeSpeakerInfo}
+          />
         </div>
 
         {/* Footer */}
