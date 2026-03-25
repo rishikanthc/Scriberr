@@ -10,24 +10,12 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Switch } from "@/components/ui/switch";
-import { Slider } from "@/components/ui/slider";
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select";
-import {
-    Accordion,
-    AccordionContent,
-    AccordionItem,
-    AccordionTrigger,
-} from "@/components/ui/accordion";
 import { Loader2, Check, XCircle } from "lucide-react";
 import { useAuth } from "@/features/auth/hooks/useAuth";
-import { FormField, Section, InfoBanner } from "@/components/transcription/FormHelpers";
+import {
+    FormField, Section, InfoBanner, SelectField, SwitchField, SliderField, AdvancedAccordion,
+    inputClassName,
+} from "@/components/transcription/FormHelpers";
 
 // ============================================================================
 // Types & Constants
@@ -235,33 +223,6 @@ const PARAM_DESCRIPTIONS = {
 };
 
 // ============================================================================
-// Styled Input/Select Components 
-// ============================================================================
-
-const inputClassName = `
-  h-11 bg-[var(--bg-main)] border border-[var(--border-subtle)] rounded-xl
-  text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)]
-  focus:border-[var(--brand-solid)] focus:ring-2 focus:ring-[var(--brand-solid)]/20
-  transition-all duration-200
-  [color-scheme:light] dark:[color-scheme:dark]
-`;
-
-const selectTriggerClassName = `
-  h-11 bg-[var(--bg-main)] border border-[var(--border-subtle)] rounded-xl
-  text-[var(--text-primary)] shadow-none
-  focus:border-[var(--brand-solid)] focus:ring-2 focus:ring-[var(--brand-solid)]/20
-`;
-
-const selectContentClassName = `
-  bg-[var(--bg-card)] border border-[var(--border-subtle)] rounded-xl
-`;
-
-const selectItemClassName = `
-  text-[var(--text-primary)] rounded-lg mx-1 cursor-pointer
-  focus:bg-[var(--brand-light)] focus:text-[var(--brand-solid)]
-`;
-
-// ============================================================================
 // Main Component
 // ============================================================================
 
@@ -400,36 +361,19 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
                     )}
 
                     {/* Model Family Selection */}
-                    <FormField
+                    <SelectField
                         label="Model Family"
                         description="Choose the AI model for transcription. Each has different capabilities and requirements."
-                    >
-                        <Select
-                            value={params.model_family}
-                            onValueChange={(v) => updateParam('model_family', v)}
-                        >
-                            <SelectTrigger className={selectTriggerClassName}>
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent className={selectContentClassName}>
-                                <SelectItem value="whisper" className={selectItemClassName}>
-                                    Whisper
-                                </SelectItem>
-                                <SelectItem value="nvidia_parakeet" className={selectItemClassName}>
-                                    NVIDIA Parakeet
-                                </SelectItem>
-                                <SelectItem value="nvidia_canary" className={selectItemClassName}>
-                                    NVIDIA Canary
-                                </SelectItem>
-                                <SelectItem value="mistral_voxtral" className={selectItemClassName}>
-                                    Mistral Voxtral
-                                </SelectItem>
-                                <SelectItem value="openai" className={selectItemClassName}>
-                                    OpenAI
-                                </SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </FormField>
+                        value={params.model_family}
+                        onValueChange={(v) => updateParam('model_family', v)}
+                        options={[
+                            { value: "whisper", label: "Whisper" },
+                            { value: "nvidia_parakeet", label: "NVIDIA Parakeet" },
+                            { value: "nvidia_canary", label: "NVIDIA Canary" },
+                            { value: "mistral_voxtral", label: "Mistral Voxtral" },
+                            { value: "openai", label: "OpenAI" },
+                        ]}
+                    />
 
                     {/* Multi-track notice */}
                     {isMultiTrack && (
@@ -440,46 +384,24 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
 
                     {/* Model-Specific Configuration */}
                     {params.model_family === "whisper" && (
-                        <WhisperConfig
-                            params={params}
-                            updateParam={updateParam}
-                            isMultiTrack={isMultiTrack}
-                        />
+                        <WhisperConfig params={params} updateParam={updateParam} isMultiTrack={isMultiTrack} />
                     )}
-
                     {params.model_family === "nvidia_parakeet" && (
-                        <ParakeetConfig
-                            params={params}
-                            updateParam={updateParam}
-                            isMultiTrack={isMultiTrack}
-                        />
+                        <ParakeetConfig params={params} updateParam={updateParam} isMultiTrack={isMultiTrack} />
                     )}
-
                     {params.model_family === "nvidia_canary" && (
-                        <CanaryConfig
-                            params={params}
-                            updateParam={updateParam}
-                            isMultiTrack={isMultiTrack}
-                        />
+                        <CanaryConfig params={params} updateParam={updateParam} isMultiTrack={isMultiTrack} />
                     )}
-
                     {params.model_family === "openai" && (
                         <OpenAIConfig
-                            params={params}
-                            updateParam={updateParam}
-                            isValidating={isValidating}
-                            validationStatus={validationStatus}
-                            validationMessage={validationMessage}
-                            availableModels={availableModels}
+                            params={params} updateParam={updateParam}
+                            isValidating={isValidating} validationStatus={validationStatus}
+                            validationMessage={validationMessage} availableModels={availableModels}
                             onValidate={validateAPIKey}
                         />
                     )}
-
                     {params.model_family === "mistral_voxtral" && (
-                        <VoxtralConfig
-                            params={params}
-                            updateParam={updateParam}
-                        />
+                        <VoxtralConfig params={params} updateParam={updateParam} />
                     )}
                 </div>
 
@@ -513,6 +435,93 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
 });
 
 // ============================================================================
+// Shared Diarization Section
+// ============================================================================
+
+function DiarizationSection({ id, params, updateParam, description }: {
+    id: string;
+    params: WhisperXParams;
+    updateParam: <K extends keyof WhisperXParams>(key: K, value: WhisperXParams[K]) => void;
+    description?: string;
+}) {
+    return (
+        <Section title="Speaker Diarization" description={description}>
+            <div className="space-y-4">
+                <SwitchField id={id} label="Enable speaker identification" checked={params.diarize} onCheckedChange={(v) => updateParam('diarize', v)} />
+
+                {params.diarize && (
+                    <div className="p-4 bg-[var(--bg-main)] rounded-xl border border-[var(--border-subtle)] space-y-4">
+                        <SelectField
+                            label="Diarization Model"
+                            value={params.diarize_model}
+                            onValueChange={(v) => updateParam('diarize_model', v)}
+                            options={[
+                                { value: "pyannote", label: "Pyannote" },
+                                { value: "nvidia_sortformer", label: "NVIDIA Sortformer" },
+                            ]}
+                        />
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <FormField label="Min Speakers" optional>
+                                <Input
+                                    type="number" min={1} max={20} placeholder="Auto"
+                                    value={params.min_speakers || ""}
+                                    onChange={(e) => updateParam('min_speakers', e.target.value ? parseInt(e.target.value) : undefined)}
+                                    className={inputClassName}
+                                />
+                            </FormField>
+                            <FormField label="Max Speakers" optional>
+                                <Input
+                                    type="number" min={1} max={20} placeholder="Auto"
+                                    value={params.max_speakers || ""}
+                                    onChange={(e) => updateParam('max_speakers', e.target.value ? parseInt(e.target.value) : undefined)}
+                                    className={inputClassName}
+                                />
+                            </FormField>
+                        </div>
+
+                        {params.diarize_model === "pyannote" && (
+                            <>
+                                <FormField label="Hugging Face Token" description={PARAM_DESCRIPTIONS.hf_token}>
+                                    <Input
+                                        type="password" placeholder="hf_..."
+                                        value={params.hf_token || ""}
+                                        onChange={(e) => updateParam('hf_token', e.target.value || undefined)}
+                                        className={inputClassName}
+                                    />
+                                </FormField>
+
+                                <div className="pt-3 border-t border-[var(--border-subtle)]">
+                                    <p className="text-xs text-[var(--text-tertiary)] mb-3">Voice Detection Tuning (for noisy/distant audio)</p>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <FormField label="VAD Onset" description={PARAM_DESCRIPTIONS.vad_onset}>
+                                            <Input
+                                                type="number" min={0.1} max={0.9} step={0.05}
+                                                value={params.vad_onset}
+                                                onChange={(e) => updateParam('vad_onset', parseFloat(e.target.value) || 0.5)}
+                                                className={inputClassName}
+                                            />
+                                        </FormField>
+                                        <FormField label="VAD Offset" description={PARAM_DESCRIPTIONS.vad_offset}>
+                                            <Input
+                                                type="number" min={0.1} max={0.9} step={0.05}
+                                                value={params.vad_offset}
+                                                onChange={(e) => updateParam('vad_offset', parseFloat(e.target.value) || 0.363)}
+                                                className={inputClassName}
+                                            />
+                                        </FormField>
+                                    </div>
+                                </div>
+                            </>
+                        )}
+                    </div>
+                )}
+            </div>
+        </Section>
+    );
+}
+
+// ============================================================================
 // Model-Specific Configuration Components
 // ============================================================================
 
@@ -525,250 +534,60 @@ interface ConfigProps {
 function WhisperConfig({ params, updateParam, isMultiTrack }: ConfigProps) {
     return (
         <div className="space-y-6">
-            {/* Essential Settings */}
             <Section title="Model Settings">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <FormField label="Model Size" description={PARAM_DESCRIPTIONS.model}>
-                        <Select value={params.model} onValueChange={(v) => updateParam('model', v)}>
-                            <SelectTrigger className={selectTriggerClassName}>
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent className={selectContentClassName}>
-                                {WHISPER_MODELS.map((m) => (
-                                    <SelectItem key={m} value={m} className={selectItemClassName}>{m}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </FormField>
-
-                    <FormField label="Language" description={PARAM_DESCRIPTIONS.language}>
-                        <Select value={params.language || "auto"} onValueChange={(v) => updateParam('language', v === "auto" ? undefined : v)}>
-                            <SelectTrigger className={selectTriggerClassName}>
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent className={selectContentClassName}>
-                                {LANGUAGES.map((l) => (
-                                    <SelectItem key={l.value} value={l.value} className={selectItemClassName}>{l.label}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </FormField>
-
-                    <FormField label="Task" description={PARAM_DESCRIPTIONS.task}>
-                        <Select value={params.task} onValueChange={(v) => updateParam('task', v)}>
-                            <SelectTrigger className={selectTriggerClassName}>
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent className={selectContentClassName}>
-                                <SelectItem value="transcribe" className={selectItemClassName}>Transcribe</SelectItem>
-                                <SelectItem value="translate" className={selectItemClassName}>Translate to English</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </FormField>
-
-                    <FormField label="Device" description={PARAM_DESCRIPTIONS.device}>
-                        <Select value={params.device} onValueChange={(v) => updateParam('device', v)}>
-                            <SelectTrigger className={selectTriggerClassName}>
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent className={selectContentClassName}>
-                                <SelectItem value="cpu" className={selectItemClassName}>CPU</SelectItem>
-                                <SelectItem value="cuda" className={selectItemClassName}>GPU (CUDA)</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </FormField>
+                    <SelectField label="Model Size" description={PARAM_DESCRIPTIONS.model} value={params.model} onValueChange={(v) => updateParam('model', v)} options={WHISPER_MODELS} />
+                    <SelectField label="Language" description={PARAM_DESCRIPTIONS.language} value={params.language || "auto"} onValueChange={(v) => updateParam('language', v === "auto" ? undefined : v)} options={LANGUAGES} />
+                    <SelectField label="Task" description={PARAM_DESCRIPTIONS.task} value={params.task} onValueChange={(v) => updateParam('task', v)} options={[{ value: "transcribe", label: "Transcribe" }, { value: "translate", label: "Translate to English" }]} />
+                    <SelectField label="Device" description={PARAM_DESCRIPTIONS.device} value={params.device} onValueChange={(v) => updateParam('device', v)} options={[{ value: "cpu", label: "CPU" }, { value: "cuda", label: "GPU (CUDA)" }]} />
                 </div>
             </Section>
 
-            {/* Speaker Diarization */}
             {!isMultiTrack && (
-                <Section title="Speaker Diarization" description="Identify and separate different speakers in the audio">
-                    <div className="space-y-4">
-                        <div className="flex items-center gap-3">
-                            <Switch
-                                id="diarize"
-                                checked={params.diarize}
-                                onCheckedChange={(v) => updateParam('diarize', v)}
-                            />
-                            <label htmlFor="diarize" className="text-sm text-[var(--text-primary)] cursor-pointer">
-                                Enable speaker identification
-                            </label>
-                        </div>
-
-                        {params.diarize && (
-                            <div className="p-4 bg-[var(--bg-main)] rounded-xl border border-[var(--border-subtle)] space-y-4">
-                                <div className="grid grid-cols-2 gap-4">
-                                    <FormField label="Min Speakers" optional>
-                                        <Input
-                                            type="number"
-                                            min={1}
-                                            max={20}
-                                            placeholder="Auto"
-                                            value={params.min_speakers || ""}
-                                            onChange={(e) => updateParam('min_speakers', e.target.value ? parseInt(e.target.value) : undefined)}
-                                            className={inputClassName}
-                                        />
-                                    </FormField>
-                                    <FormField label="Max Speakers" optional>
-                                        <Input
-                                            type="number"
-                                            min={1}
-                                            max={20}
-                                            placeholder="Auto"
-                                            value={params.max_speakers || ""}
-                                            onChange={(e) => updateParam('max_speakers', e.target.value ? parseInt(e.target.value) : undefined)}
-                                            className={inputClassName}
-                                        />
-                                    </FormField>
-                                </div>
-
-                                <FormField label="Hugging Face Token" description={PARAM_DESCRIPTIONS.hf_token}>
-                                    <Input
-                                        type="password"
-                                        placeholder="hf_..."
-                                        value={params.hf_token || ""}
-                                        onChange={(e) => updateParam('hf_token', e.target.value || undefined)}
-                                        className={inputClassName}
-                                    />
-                                </FormField>
-
-                                <div className="pt-3 border-t border-[var(--border-subtle)]">
-                                    <p className="text-xs text-[var(--text-tertiary)] mb-3">Voice Detection Tuning (for noisy/distant audio)</p>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <FormField label="VAD Onset" description={PARAM_DESCRIPTIONS.vad_onset}>
-                                            <Input
-                                                type="number"
-                                                min={0.1}
-                                                max={0.9}
-                                                step={0.05}
-                                                value={params.vad_onset}
-                                                onChange={(e) => updateParam('vad_onset', parseFloat(e.target.value) || 0.5)}
-                                                className={inputClassName}
-                                            />
-                                        </FormField>
-                                        <FormField label="VAD Offset" description={PARAM_DESCRIPTIONS.vad_offset}>
-                                            <Input
-                                                type="number"
-                                                min={0.1}
-                                                max={0.9}
-                                                step={0.05}
-                                                value={params.vad_offset}
-                                                onChange={(e) => updateParam('vad_offset', parseFloat(e.target.value) || 0.363)}
-                                                className={inputClassName}
-                                            />
-                                        </FormField>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                </Section>
+                <DiarizationSection id="diarize" params={params} updateParam={updateParam} description="Identify and separate different speakers in the audio" />
             )}
 
-            {/* Advanced Settings (Accordion) */}
-            <Accordion type="single" collapsible className="w-full">
-                <AccordionItem value="advanced" className="border border-[var(--border-subtle)] rounded-xl px-4">
-                    <AccordionTrigger className="text-sm font-medium text-[var(--text-primary)] hover:no-underline py-4">
-                        Advanced Settings
-                    </AccordionTrigger>
-                    <AccordionContent className="pb-4 space-y-4">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <FormField label="Compute Type" description={PARAM_DESCRIPTIONS.compute_type}>
-                                <Select value={params.compute_type} onValueChange={(v) => updateParam('compute_type', v)}>
-                                    <SelectTrigger className={selectTriggerClassName}>
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent className={selectContentClassName}>
-                                        <SelectItem value="float32" className={selectItemClassName}>Float32 (Accurate)</SelectItem>
-                                        <SelectItem value="float16" className={selectItemClassName}>Float16 (Fast)</SelectItem>
-                                        <SelectItem value="int8" className={selectItemClassName}>Int8 (Fastest)</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </FormField>
+            <AdvancedAccordion>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <SelectField label="Compute Type" description={PARAM_DESCRIPTIONS.compute_type} value={params.compute_type} onValueChange={(v) => updateParam('compute_type', v)} options={[{ value: "float32", label: "Float32 (Accurate)" }, { value: "float16", label: "Float16 (Fast)" }, { value: "int8", label: "Int8 (Fastest)" }]} />
+                    <FormField label="Batch Size" description={PARAM_DESCRIPTIONS.batch_size}>
+                        <Input type="number" min={1} max={64} value={params.batch_size} onChange={(e) => updateParam('batch_size', parseInt(e.target.value) || 8)} className={inputClassName} />
+                    </FormField>
+                    <FormField label="Beam Size" description={PARAM_DESCRIPTIONS.beam_size}>
+                        <Input type="number" min={1} max={10} value={params.beam_size} onChange={(e) => updateParam('beam_size', parseInt(e.target.value) || 5)} className={inputClassName} />
+                    </FormField>
+                    <FormField label="Temperature" description={PARAM_DESCRIPTIONS.temperature}>
+                        <Input type="number" min={0} max={1} step={0.1} value={params.temperature} onChange={(e) => updateParam('temperature', parseFloat(e.target.value) || 0)} className={inputClassName} />
+                    </FormField>
+                </div>
 
-                            <FormField label="Batch Size" description={PARAM_DESCRIPTIONS.batch_size}>
-                                <Input
-                                    type="number"
-                                    min={1}
-                                    max={64}
-                                    value={params.batch_size}
-                                    onChange={(e) => updateParam('batch_size', parseInt(e.target.value) || 8)}
-                                    className={inputClassName}
-                                />
-                            </FormField>
+                <FormField label="Initial Prompt" description={PARAM_DESCRIPTIONS.initial_prompt} optional>
+                    <Textarea
+                        placeholder="Optional context to guide transcription..."
+                        value={params.initial_prompt || ""}
+                        onChange={(e) => updateParam('initial_prompt', e.target.value || undefined)}
+                        className={`${inputClassName} resize-none min-h-[80px]`}
+                        rows={2}
+                    />
+                </FormField>
 
-                            <FormField label="Beam Size" description={PARAM_DESCRIPTIONS.beam_size}>
-                                <Input
-                                    type="number"
-                                    min={1}
-                                    max={10}
-                                    value={params.beam_size}
-                                    onChange={(e) => updateParam('beam_size', parseInt(e.target.value) || 5)}
-                                    className={inputClassName}
-                                />
-                            </FormField>
+                <SwitchField id="suppress_numerals" label="Suppress numerals (write numbers as words)" checked={params.suppress_numerals} onCheckedChange={(v) => updateParam('suppress_numerals', v)} />
 
-                            <FormField label="Temperature" description={PARAM_DESCRIPTIONS.temperature}>
-                                <Input
-                                    type="number"
-                                    min={0}
-                                    max={1}
-                                    step={0.1}
-                                    value={params.temperature}
-                                    onChange={(e) => updateParam('temperature', parseFloat(e.target.value) || 0)}
-                                    className={inputClassName}
-                                />
-                            </FormField>
-                        </div>
+                <div className="pt-2 border-t border-[var(--border-subtle)] space-y-4">
+                    <SwitchField id="no_align" label="Skip word alignment (faster, less precise timestamps)" checked={params.no_align} onCheckedChange={(v) => updateParam('no_align', v)} />
 
-                        <FormField label="Initial Prompt" description={PARAM_DESCRIPTIONS.initial_prompt} optional>
-                            <Textarea
-                                placeholder="Optional context to guide transcription..."
-                                value={params.initial_prompt || ""}
-                                onChange={(e) => updateParam('initial_prompt', e.target.value || undefined)}
-                                className={`${inputClassName} resize-none min-h-[80px]`}
-                                rows={2}
+                    {!params.no_align && (
+                        <FormField label="Custom Alignment Model" description="WhisperX-compatible alignment model (e.g., KBLab/wav2vec2-large-voxrex-swedish). Leave empty for default." optional>
+                            <Input
+                                placeholder="model/path or HuggingFace ID"
+                                value={params.align_model || ""}
+                                onChange={(e) => updateParam('align_model', e.target.value || undefined)}
+                                className={inputClassName}
                             />
                         </FormField>
-
-                        <div className="flex items-center gap-3">
-                            <Switch
-                                id="suppress_numerals"
-                                checked={params.suppress_numerals}
-                                onCheckedChange={(v) => updateParam('suppress_numerals', v)}
-                            />
-                            <label htmlFor="suppress_numerals" className="text-sm text-[var(--text-primary)] cursor-pointer">
-                                Suppress numerals (write numbers as words)
-                            </label>
-                        </div>
-
-                        {/* Alignment Settings */}
-                        <div className="pt-2 border-t border-[var(--border-subtle)] space-y-4">
-                            <div className="flex items-center gap-3">
-                                <Switch
-                                    id="no_align"
-                                    checked={params.no_align}
-                                    onCheckedChange={(v) => updateParam('no_align', v)}
-                                />
-                                <label htmlFor="no_align" className="text-sm text-[var(--text-primary)] cursor-pointer">
-                                    Skip word alignment (faster, less precise timestamps)
-                                </label>
-                            </div>
-
-                            {!params.no_align && (
-                                <FormField label="Custom Alignment Model" description="WhisperX-compatible alignment model (e.g., KBLab/wav2vec2-large-voxrex-swedish). Leave empty for default." optional>
-                                    <Input
-                                        placeholder="model/path or HuggingFace ID"
-                                        value={params.align_model || ""}
-                                        onChange={(e) => updateParam('align_model', e.target.value || undefined)}
-                                        className={inputClassName}
-                                    />
-                                </FormField>
-                            )}
-                        </div>
-                    </AccordionContent>
-                </AccordionItem>
-            </Accordion>
+                    )}
+                </div>
+            </AdvancedAccordion>
         </div>
     );
 }
@@ -776,146 +595,15 @@ function WhisperConfig({ params, updateParam, isMultiTrack }: ConfigProps) {
 function ParakeetConfig({ params, updateParam, isMultiTrack }: ConfigProps) {
     return (
         <div className="space-y-6">
-            {/* Long-form Audio Settings */}
             <Section title="Audio Context" description="Configure how much context the model uses for long audio files">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                    <div className="space-y-3">
-                        <FormField label="Left Context">
-                            <Slider
-                                value={[params.attention_context_left]}
-                                onValueChange={(v) => updateParam('attention_context_left', v[0])}
-                                max={512}
-                                min={64}
-                                step={64}
-                                className="w-full"
-                            />
-                            <div className="flex justify-between text-xs text-[var(--text-tertiary)]">
-                                <span>64</span>
-                                <span className="font-medium text-[var(--text-primary)]">{params.attention_context_left}</span>
-                                <span>512</span>
-                            </div>
-                        </FormField>
-                    </div>
-
-                    <div className="space-y-3">
-                        <FormField label="Right Context">
-                            <Slider
-                                value={[params.attention_context_right]}
-                                onValueChange={(v) => updateParam('attention_context_right', v[0])}
-                                max={512}
-                                min={64}
-                                step={64}
-                                className="w-full"
-                            />
-                            <div className="flex justify-between text-xs text-[var(--text-tertiary)]">
-                                <span>64</span>
-                                <span className="font-medium text-[var(--text-primary)]">{params.attention_context_right}</span>
-                                <span>512</span>
-                            </div>
-                        </FormField>
-                    </div>
+                    <SliderField label="Left Context" value={params.attention_context_left} onValueChange={(v) => updateParam('attention_context_left', v)} min={64} max={512} step={64} />
+                    <SliderField label="Right Context" value={params.attention_context_right} onValueChange={(v) => updateParam('attention_context_right', v)} min={64} max={512} step={64} />
                 </div>
             </Section>
 
-            {/* Diarization for Parakeet */}
             {!isMultiTrack && (
-                <Section title="Speaker Diarization">
-                    <div className="space-y-4">
-                        <div className="flex items-center gap-3">
-                            <Switch
-                                id="parakeet_diarize"
-                                checked={params.diarize}
-                                onCheckedChange={(v) => updateParam('diarize', v)}
-                            />
-                            <label htmlFor="parakeet_diarize" className="text-sm text-[var(--text-primary)] cursor-pointer">
-                                Enable speaker identification
-                            </label>
-                        </div>
-
-                        {params.diarize && (
-                            <div className="p-4 bg-[var(--bg-main)] rounded-xl border border-[var(--border-subtle)] space-y-4">
-                                <FormField label="Diarization Model">
-                                    <Select value={params.diarize_model} onValueChange={(v) => updateParam('diarize_model', v)}>
-                                        <SelectTrigger className={selectTriggerClassName}>
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent className={selectContentClassName}>
-                                            <SelectItem value="pyannote" className={selectItemClassName}>Pyannote</SelectItem>
-                                            <SelectItem value="nvidia_sortformer" className={selectItemClassName}>NVIDIA Sortformer</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </FormField>
-
-                                <div className="grid grid-cols-2 gap-4">
-                                    <FormField label="Min Speakers" optional>
-                                        <Input
-                                            type="number"
-                                            min={1}
-                                            max={20}
-                                            placeholder="Auto"
-                                            value={params.min_speakers || ""}
-                                            onChange={(e) => updateParam('min_speakers', e.target.value ? parseInt(e.target.value) : undefined)}
-                                            className={inputClassName}
-                                        />
-                                    </FormField>
-                                    <FormField label="Max Speakers" optional>
-                                        <Input
-                                            type="number"
-                                            min={1}
-                                            max={20}
-                                            placeholder="Auto"
-                                            value={params.max_speakers || ""}
-                                            onChange={(e) => updateParam('max_speakers', e.target.value ? parseInt(e.target.value) : undefined)}
-                                            className={inputClassName}
-                                        />
-                                    </FormField>
-                                </div>
-
-                                {params.diarize_model === "pyannote" && (
-                                    <>
-                                        <FormField label="Hugging Face Token">
-                                            <Input
-                                                type="password"
-                                                placeholder="hf_..."
-                                                value={params.hf_token || ""}
-                                                onChange={(e) => updateParam('hf_token', e.target.value || undefined)}
-                                                className={inputClassName}
-                                            />
-                                        </FormField>
-
-                                        <div className="pt-3 border-t border-[var(--border-subtle)]">
-                                            <p className="text-xs text-[var(--text-tertiary)] mb-3">Voice Detection Tuning (for noisy/distant audio)</p>
-                                            <div className="grid grid-cols-2 gap-4">
-                                                <FormField label="VAD Onset" description={PARAM_DESCRIPTIONS.vad_onset}>
-                                                    <Input
-                                                        type="number"
-                                                        min={0.1}
-                                                        max={0.9}
-                                                        step={0.05}
-                                                        value={params.vad_onset}
-                                                        onChange={(e) => updateParam('vad_onset', parseFloat(e.target.value) || 0.5)}
-                                                        className={inputClassName}
-                                                    />
-                                                </FormField>
-                                                <FormField label="VAD Offset" description={PARAM_DESCRIPTIONS.vad_offset}>
-                                                    <Input
-                                                        type="number"
-                                                        min={0.1}
-                                                        max={0.9}
-                                                        step={0.05}
-                                                        value={params.vad_offset}
-                                                        onChange={(e) => updateParam('vad_offset', parseFloat(e.target.value) || 0.363)}
-                                                        className={inputClassName}
-                                                    />
-                                                </FormField>
-                                            </div>
-                                        </div>
-                                    </>
-                                )}
-                            </div>
-                        )}
-                    </div>
-                </Section>
+                <DiarizationSection id="parakeet_diarize" params={params} updateParam={updateParam} />
             )}
         </div>
     );
@@ -925,119 +613,11 @@ function CanaryConfig({ params, updateParam, isMultiTrack }: ConfigProps) {
     return (
         <div className="space-y-6">
             <Section title="Language Settings">
-                <FormField label="Source Language">
-                    <Select value={params.language || "en"} onValueChange={(v) => updateParam('language', v)}>
-                        <SelectTrigger className={selectTriggerClassName}>
-                            <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent className={selectContentClassName}>
-                            {CANARY_LANGUAGES.map((l) => (
-                                <SelectItem key={l.value} value={l.value} className={selectItemClassName}>{l.label}</SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                </FormField>
+                <SelectField label="Source Language" value={params.language || "en"} onValueChange={(v) => updateParam('language', v)} options={CANARY_LANGUAGES} />
             </Section>
 
-            {/* Diarization for Canary */}
             {!isMultiTrack && (
-                <Section title="Speaker Diarization">
-                    <div className="space-y-4">
-                        <div className="flex items-center gap-3">
-                            <Switch
-                                id="canary_diarize"
-                                checked={params.diarize}
-                                onCheckedChange={(v) => updateParam('diarize', v)}
-                            />
-                            <label htmlFor="canary_diarize" className="text-sm text-[var(--text-primary)] cursor-pointer">
-                                Enable speaker identification
-                            </label>
-                        </div>
-
-                        {params.diarize && (
-                            <div className="p-4 bg-[var(--bg-main)] rounded-xl border border-[var(--border-subtle)] space-y-4">
-                                <FormField label="Diarization Model">
-                                    <Select value={params.diarize_model} onValueChange={(v) => updateParam('diarize_model', v)}>
-                                        <SelectTrigger className={selectTriggerClassName}>
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent className={selectContentClassName}>
-                                            <SelectItem value="pyannote" className={selectItemClassName}>Pyannote</SelectItem>
-                                            <SelectItem value="nvidia_sortformer" className={selectItemClassName}>NVIDIA Sortformer</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </FormField>
-
-                                <div className="grid grid-cols-2 gap-4">
-                                    <FormField label="Min Speakers" optional>
-                                        <Input
-                                            type="number"
-                                            min={1}
-                                            max={20}
-                                            placeholder="Auto"
-                                            value={params.min_speakers || ""}
-                                            onChange={(e) => updateParam('min_speakers', e.target.value ? parseInt(e.target.value) : undefined)}
-                                            className={inputClassName}
-                                        />
-                                    </FormField>
-                                    <FormField label="Max Speakers" optional>
-                                        <Input
-                                            type="number"
-                                            min={1}
-                                            max={20}
-                                            placeholder="Auto"
-                                            value={params.max_speakers || ""}
-                                            onChange={(e) => updateParam('max_speakers', e.target.value ? parseInt(e.target.value) : undefined)}
-                                            className={inputClassName}
-                                        />
-                                    </FormField>
-                                </div>
-
-                                {params.diarize_model === "pyannote" && (
-                                    <>
-                                        <FormField label="Hugging Face Token">
-                                            <Input
-                                                type="password"
-                                                placeholder="hf_..."
-                                                value={params.hf_token || ""}
-                                                onChange={(e) => updateParam('hf_token', e.target.value || undefined)}
-                                                className={inputClassName}
-                                            />
-                                        </FormField>
-
-                                        <div className="pt-3 border-t border-[var(--border-subtle)]">
-                                            <p className="text-xs text-[var(--text-tertiary)] mb-3">Voice Detection Tuning (for noisy/distant audio)</p>
-                                            <div className="grid grid-cols-2 gap-4">
-                                                <FormField label="VAD Onset" description={PARAM_DESCRIPTIONS.vad_onset}>
-                                                    <Input
-                                                        type="number"
-                                                        min={0.1}
-                                                        max={0.9}
-                                                        step={0.05}
-                                                        value={params.vad_onset}
-                                                        onChange={(e) => updateParam('vad_onset', parseFloat(e.target.value) || 0.5)}
-                                                        className={inputClassName}
-                                                    />
-                                                </FormField>
-                                                <FormField label="VAD Offset" description={PARAM_DESCRIPTIONS.vad_offset}>
-                                                    <Input
-                                                        type="number"
-                                                        min={0.1}
-                                                        max={0.9}
-                                                        step={0.05}
-                                                        value={params.vad_offset}
-                                                        onChange={(e) => updateParam('vad_offset', parseFloat(e.target.value) || 0.363)}
-                                                        className={inputClassName}
-                                                    />
-                                                </FormField>
-                                            </div>
-                                        </div>
-                                    </>
-                                )}
-                            </div>
-                        )}
-                    </div>
-                </Section>
+                <DiarizationSection id="canary_diarize" params={params} updateParam={updateParam} />
             )}
         </div>
     );
@@ -1052,13 +632,8 @@ interface OpenAIConfigProps extends ConfigProps {
 }
 
 function OpenAIConfig({
-    params,
-    updateParam,
-    isValidating,
-    validationStatus,
-    validationMessage,
-    availableModels,
-    onValidate
+    params, updateParam,
+    isValidating, validationStatus, validationMessage, availableModels, onValidate
 }: OpenAIConfigProps) {
     return (
         <div className="space-y-6">
@@ -1067,57 +642,28 @@ function OpenAIConfig({
                     <FormField label="OpenAI API Key" description="Your API key. Leave empty to use server default if configured.">
                         <div className="flex gap-2">
                             <Input
-                                type="password"
-                                placeholder="sk-..."
+                                type="password" placeholder="sk-..."
                                 value={params.api_key || ""}
-                                onChange={(e) => {
-                                    updateParam('api_key', e.target.value);
-                                }}
+                                onChange={(e) => updateParam('api_key', e.target.value)}
                                 className={`${inputClassName} flex-1`}
                             />
                             <Button
-                                variant="outline"
-                                onClick={onValidate}
-                                disabled={isValidating}
+                                variant="outline" onClick={onValidate} disabled={isValidating}
                                 className="shrink-0 rounded-xl border-[var(--border-subtle)] cursor-pointer"
                             >
                                 {isValidating ? <Loader2 className="h-4 w-4 animate-spin" /> : "Validate"}
                             </Button>
                         </div>
                         {validationStatus !== 'idle' && (
-                            <div className={`flex items-center gap-2 text-sm mt-2 ${validationStatus === 'valid' ? 'text-[var(--success-solid)]' : 'text-[var(--error)]'
-                                }`}>
+                            <div className={`flex items-center gap-2 text-sm mt-2 ${validationStatus === 'valid' ? 'text-[var(--success-solid)]' : 'text-[var(--error)]'}`}>
                                 {validationStatus === 'valid' ? <Check className="h-4 w-4" /> : <XCircle className="h-4 w-4" />}
                                 <span>{validationMessage}</span>
                             </div>
                         )}
                     </FormField>
 
-                    <FormField label="Model">
-                        <Select value={params.model || "whisper-1"} onValueChange={(v) => updateParam('model', v)}>
-                            <SelectTrigger className={selectTriggerClassName}>
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent className={selectContentClassName}>
-                                {availableModels.map((m) => (
-                                    <SelectItem key={m} value={m} className={selectItemClassName}>{m}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </FormField>
-
-                    <FormField label="Language">
-                        <Select value={params.language || "auto"} onValueChange={(v) => updateParam('language', v === "auto" ? undefined : v)}>
-                            <SelectTrigger className={selectTriggerClassName}>
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent className={selectContentClassName}>
-                                {LANGUAGES.map((l) => (
-                                    <SelectItem key={l.value} value={l.value} className={selectItemClassName}>{l.label}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </FormField>
+                    <SelectField label="Model" value={params.model || "whisper-1"} onValueChange={(v) => updateParam('model', v)} options={availableModels} />
+                    <SelectField label="Language" value={params.language || "auto"} onValueChange={(v) => updateParam('language', v === "auto" ? undefined : v)} options={LANGUAGES} />
                 </div>
             </Section>
 
@@ -1133,46 +679,24 @@ function OpenAIConfig({
 function VoxtralConfig({ params, updateParam }: ConfigProps) {
     return (
         <div className="space-y-6">
-            {/* Voxtral Warning Banner */}
             <InfoBanner variant="warning" title="Limited Features">
                 Voxtral does not support word-level timestamps. Synchronized playback, audio seeking, and timestamp-based features won't be available.
             </InfoBanner>
 
             <Section title="Language Settings">
-                <FormField label="Language" description="Source language for transcription">
-                    <Select value={params.language || "en"} onValueChange={(v) => updateParam('language', v)}>
-                        <SelectTrigger className={selectTriggerClassName}>
-                            <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent className={selectContentClassName}>
-                            {LANGUAGES.map((l) => (
-                                <SelectItem key={l.value} value={l.value} className={selectItemClassName}>{l.label}</SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                </FormField>
+                <SelectField label="Language" description="Source language for transcription" value={params.language || "en"} onValueChange={(v) => updateParam('language', v)} options={LANGUAGES} />
             </Section>
 
-            {/* Advanced Settings */}
-            <Accordion type="single" collapsible className="w-full">
-                <AccordionItem value="advanced" className="border border-[var(--border-subtle)] rounded-xl px-4">
-                    <AccordionTrigger className="text-sm font-medium text-[var(--text-primary)] hover:no-underline py-4">
-                        Advanced Settings
-                    </AccordionTrigger>
-                    <AccordionContent className="pb-4 space-y-4">
-                        <FormField label="Max Tokens" description="Maximum number of tokens to generate. Voxtral has a 32k context window and handles up to 30-40 minutes of audio.">
-                            <Input
-                                type="number"
-                                min={1024}
-                                max={16384}
-                                value={params.max_new_tokens || 8192}
-                                onChange={(e) => updateParam('max_new_tokens', parseInt(e.target.value) || 8192)}
-                                className={inputClassName}
-                            />
-                        </FormField>
-                    </AccordionContent>
-                </AccordionItem>
-            </Accordion>
+            <AdvancedAccordion>
+                <FormField label="Max Tokens" description="Maximum number of tokens to generate. Voxtral has a 32k context window and handles up to 30-40 minutes of audio.">
+                    <Input
+                        type="number" min={1024} max={16384}
+                        value={params.max_new_tokens || 8192}
+                        onChange={(e) => updateParam('max_new_tokens', parseInt(e.target.value) || 8192)}
+                        className={inputClassName}
+                    />
+                </FormField>
+            </AdvancedAccordion>
         </div>
     );
 }
