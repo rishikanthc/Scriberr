@@ -84,6 +84,8 @@ export interface WhisperXParams {
     attention_context_right: number;
     is_multi_track_enabled: boolean;
     api_key?: string;
+    api_url?: string;
+    timeout_minutes?: number;
     max_new_tokens?: number;
 }
 
@@ -467,6 +469,7 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
                         <OpenAIConfig
                             params={params}
                             updateParam={updateParam}
+                            isMultiTrack={isMultiTrack}
                             isValidating={isValidating}
                             validationStatus={validationStatus}
                             validationMessage={validationMessage}
@@ -1054,6 +1057,7 @@ interface OpenAIConfigProps extends ConfigProps {
 function OpenAIConfig({
     params,
     updateParam,
+    isMultiTrack,
     isValidating,
     validationStatus,
     validationMessage,
@@ -1064,27 +1068,37 @@ function OpenAIConfig({
         <div className="space-y-6">
             <Section title="API Configuration">
                 <div className="space-y-4">
-                    <FormField label="OpenAI API Key" description="Your API key. Leave empty to use server default if configured.">
+                    <FormField label="Base URL" description="Leave empty for the official OpenAI API. Set to point at a self-hosted Whisper-compatible endpoint (e.g. http://host/v1).">
+                        <Input
+                            type="text"
+                            placeholder="https://your-whisper-server/v1"
+                            value={params.api_url || ""}
+                            onChange={(e) => updateParam('api_url', e.target.value || undefined)}
+                            className={inputClassName}
+                        />
+                    </FormField>
+
+                    <FormField label="API Key" description="Your API key. Leave empty to use server default if configured.">
                         <div className="flex gap-2">
                             <Input
                                 type="password"
                                 placeholder="sk-..."
                                 value={params.api_key || ""}
-                                onChange={(e) => {
-                                    updateParam('api_key', e.target.value);
-                                }}
+                                onChange={(e) => updateParam('api_key', e.target.value)}
                                 className={`${inputClassName} flex-1`}
                             />
-                            <Button
-                                variant="outline"
-                                onClick={onValidate}
-                                disabled={isValidating}
-                                className="shrink-0 rounded-xl border-[var(--border-subtle)] cursor-pointer"
-                            >
-                                {isValidating ? <Loader2 className="h-4 w-4 animate-spin" /> : "Validate"}
-                            </Button>
+                            {!params.api_url && (
+                                <Button
+                                    variant="outline"
+                                    onClick={onValidate}
+                                    disabled={isValidating}
+                                    className="shrink-0 rounded-xl border-[var(--border-subtle)] cursor-pointer"
+                                >
+                                    {isValidating ? <Loader2 className="h-4 w-4 animate-spin" /> : "Validate"}
+                                </Button>
+                            )}
                         </div>
-                        {validationStatus !== 'idle' && (
+                        {validationStatus !== 'idle' && !params.api_url && (
                             <div className={`flex items-center gap-2 text-sm mt-2 ${validationStatus === 'valid' ? 'text-[var(--success-solid)]' : 'text-[var(--error)]'
                                 }`}>
                                 {validationStatus === 'valid' ? <Check className="h-4 w-4" /> : <XCircle className="h-4 w-4" />}
@@ -1094,16 +1108,26 @@ function OpenAIConfig({
                     </FormField>
 
                     <FormField label="Model">
-                        <Select value={params.model || "whisper-1"} onValueChange={(v) => updateParam('model', v)}>
-                            <SelectTrigger className={selectTriggerClassName}>
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent className={selectContentClassName}>
-                                {availableModels.map((m) => (
-                                    <SelectItem key={m} value={m} className={selectItemClassName}>{m}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                        {params.api_url ? (
+                            <Input
+                                type="text"
+                                placeholder="whisper-1"
+                                value={params.model || ""}
+                                onChange={(e) => updateParam('model', e.target.value)}
+                                className={inputClassName}
+                            />
+                        ) : (
+                            <Select value={params.model || "whisper-1"} onValueChange={(v) => updateParam('model', v)}>
+                                <SelectTrigger className={selectTriggerClassName}>
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent className={selectContentClassName}>
+                                    {availableModels.map((m) => (
+                                        <SelectItem key={m} value={m} className={selectItemClassName}>{m}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        )}
                     </FormField>
 
                     <FormField label="Language">
@@ -1118,10 +1142,123 @@ function OpenAIConfig({
                             </SelectContent>
                         </Select>
                     </FormField>
+
+                    {params.api_url && (
+                        <FormField label="Timeout (minutes)" description="Request timeout. Increase for large files on slower self-hosted servers.">
+                            <Input
+                                type="number"
+                                min={1}
+                                placeholder="30"
+                                value={params.timeout_minutes || ""}
+                                onChange={(e) => updateParam('timeout_minutes', e.target.value ? parseInt(e.target.value) : undefined)}
+                                className={inputClassName}
+                            />
+                        </FormField>
+                    )}
                 </div>
             </Section>
 
-            {params.model && params.model !== "whisper-1" && (
+            {!isMultiTrack && (
+                <Section title="Speaker Diarization">
+                    <div className="space-y-4">
+                        <div className="flex items-center gap-3">
+                            <Switch
+                                id="openai_diarize"
+                                checked={params.diarize}
+                                onCheckedChange={(v) => updateParam('diarize', v)}
+                            />
+                            <label htmlFor="openai_diarize" className="text-sm text-[var(--text-primary)] cursor-pointer">
+                                Enable speaker identification
+                            </label>
+                        </div>
+
+                        {params.diarize && (
+                            <div className="p-4 bg-[var(--bg-main)] rounded-xl border border-[var(--border-subtle)] space-y-4">
+                                <FormField label="Diarization Model">
+                                    <Select value={params.diarize_model} onValueChange={(v) => updateParam('diarize_model', v)}>
+                                        <SelectTrigger className={selectTriggerClassName}>
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent className={selectContentClassName}>
+                                            <SelectItem value="pyannote" className={selectItemClassName}>Pyannote</SelectItem>
+                                            <SelectItem value="nvidia_sortformer" className={selectItemClassName}>NVIDIA Sortformer</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </FormField>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <FormField label="Min Speakers" optional>
+                                        <Input
+                                            type="number"
+                                            min={1}
+                                            max={20}
+                                            placeholder="Auto"
+                                            value={params.min_speakers || ""}
+                                            onChange={(e) => updateParam('min_speakers', e.target.value ? parseInt(e.target.value) : undefined)}
+                                            className={inputClassName}
+                                        />
+                                    </FormField>
+                                    <FormField label="Max Speakers" optional>
+                                        <Input
+                                            type="number"
+                                            min={1}
+                                            max={20}
+                                            placeholder="Auto"
+                                            value={params.max_speakers || ""}
+                                            onChange={(e) => updateParam('max_speakers', e.target.value ? parseInt(e.target.value) : undefined)}
+                                            className={inputClassName}
+                                        />
+                                    </FormField>
+                                </div>
+
+                                {params.diarize_model === "pyannote" && (
+                                    <>
+                                        <FormField label="Hugging Face Token" description={PARAM_DESCRIPTIONS.hf_token}>
+                                            <Input
+                                                type="password"
+                                                placeholder="hf_..."
+                                                value={params.hf_token || ""}
+                                                onChange={(e) => updateParam('hf_token', e.target.value || undefined)}
+                                                className={inputClassName}
+                                            />
+                                        </FormField>
+
+                                        <div className="pt-3 border-t border-[var(--border-subtle)]">
+                                            <p className="text-xs text-[var(--text-tertiary)] mb-3">Voice Detection Tuning (for noisy/distant audio)</p>
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <FormField label="VAD Onset" description={PARAM_DESCRIPTIONS.vad_onset}>
+                                                    <Input
+                                                        type="number"
+                                                        min={0.1}
+                                                        max={0.9}
+                                                        step={0.05}
+                                                        value={params.vad_onset}
+                                                        onChange={(e) => updateParam('vad_onset', parseFloat(e.target.value) || 0.5)}
+                                                        className={inputClassName}
+                                                    />
+                                                </FormField>
+                                                <FormField label="VAD Offset" description={PARAM_DESCRIPTIONS.vad_offset}>
+                                                    <Input
+                                                        type="number"
+                                                        min={0.1}
+                                                        max={0.9}
+                                                        step={0.05}
+                                                        value={params.vad_offset}
+                                                        onChange={(e) => updateParam('vad_offset', parseFloat(e.target.value) || 0.363)}
+                                                        className={inputClassName}
+                                                    />
+                                                </FormField>
+                                            </div>
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                </Section>
+            )}
+
+            {params.model && params.model !== "whisper-1" && !params.api_url && (
                 <InfoBanner variant="warning" title="Limited Features">
                     Word-level timestamps are only supported by whisper-1. Synchronized playback won't be available.
                 </InfoBanner>

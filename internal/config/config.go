@@ -68,7 +68,7 @@ func Load() *Config {
 		TempDir:        getEnv("TEMP_DIR", "data/temp"),
 		WhisperXEnv:    getEnv("WHISPERX_ENV", "data/whisperx-env"),
 		SecureCookies:  getEnv("SECURE_COOKIES", defaultSecure) == "true",
-		OpenAIAPIKey:   getEnv("OPENAI_API_KEY", ""),
+		OpenAIAPIKey: getEnv("OPENAI_API_KEY", ""),
 		HFToken:        getEnv("HF_TOKEN", ""),
 	}
 }

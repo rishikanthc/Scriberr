@@ -40,7 +40,7 @@ func NewOpenAIAdapter(apiKey string) *OpenAIAdapter {
 		Features: map[string]bool{
 			"timestamps":         true,  // Verbose JSON response includes segments
 			"word_level":         false, // Not supported by standard API yet (unless using verbose_json with timestamp_granularities which is beta)
-			"diarization":        false, // Not supported by OpenAI API
+			"diarization":        true,  // Post-processing via pyannote/sortformer pipeline
 			"translation":        true,
 			"language_detection": true,
 			"vad":                true, // Implicit
@@ -60,12 +60,18 @@ func NewOpenAIAdapter(apiKey string) *OpenAIAdapter {
 			Group:       "authentication",
 		},
 		{
+			Name:        "base_url",
+			Type:        "string",
+			Required:    false,
+			Description: "Custom transcription API base URL (overrides server default)",
+			Group:       "authentication",
+		},
+		{
 			Name:        "model",
 			Type:        "string",
 			Required:    false,
 			Default:     "whisper-1",
-			Options:     []string{"whisper-1"},
-			Description: "ID of the model to use",
+			Description: "Model name (e.g. whisper-1, or any model exposed by a custom endpoint)",
 			Group:       "basic",
 		},
 		{
@@ -91,6 +97,15 @@ func NewOpenAIAdapter(apiKey string) *OpenAIAdapter {
 			Max:         &[]float64{1.0}[0],
 			Description: "Sampling temperature",
 			Group:       "quality",
+		},
+		{
+			Name:        "timeout_minutes",
+			Type:        "int",
+			Required:    false,
+			Default:     10,
+			Min:         &[]float64{1}[0],
+			Description: "HTTP request timeout in minutes (increase for large files on self-hosted endpoints)",
+			Group:       "advanced",
 		},
 	}
 
@@ -153,7 +168,14 @@ func (a *OpenAIAdapter) Transcribe(ctx context.Context, input interfaces.AudioIn
 		apiKey = key
 	}
 
-	if apiKey == "" {
+	const officialURL = "https://api.openai.com/v1/audio/transcriptions"
+	endpointURL := officialURL
+	if url := a.GetStringParameter(params, "base_url"); url != "" {
+		endpointURL = strings.TrimRight(url, "/") + "/audio/transcriptions"
+	}
+	isOfficialEndpoint := endpointURL == officialURL
+
+	if apiKey == "" && isOfficialEndpoint {
 		writeLog("Error: OpenAI API key is required but not provided")
 		return nil, fmt.Errorf("OpenAI API key is required but not provided")
 	}
@@ -188,7 +210,7 @@ func (a *OpenAIAdapter) Transcribe(ctx context.Context, input interfaces.AudioIn
 	writeLog("Model: %s", model)
 	_ = writer.WriteField("model", model)
 
-	if strings.HasPrefix(model, "gpt-4o") {
+	if isOfficialEndpoint && strings.HasPrefix(model, "gpt-4o") {
 		if strings.Contains(model, "diarize") {
 			_ = writer.WriteField("response_format", "diarized_json")
 		} else {
@@ -197,7 +219,6 @@ func (a *OpenAIAdapter) Transcribe(ctx context.Context, input interfaces.AudioIn
 		// gpt-4o models don't support timestamp_granularities with these formats
 	} else {
 		_ = writer.WriteField("response_format", "verbose_json")
-		// timestamp_granularities is only supported for whisper-1
 		if model == "whisper-1" {
 			_ = writer.WriteField("timestamp_granularities[]", "word")    // Request word timestamps
 			_ = writer.WriteField("timestamp_granularities[]", "segment") // Request segment timestamps
@@ -224,8 +245,8 @@ func (a *OpenAIAdapter) Transcribe(ctx context.Context, input interfaces.AudioIn
 	}
 
 	// Create request
-	writeLog("Sending request to OpenAI API...")
-	req, err := http.NewRequestWithContext(ctx, "POST", "https://api.openai.com/v1/audio/transcriptions", body)
+	writeLog("Sending request to %s...", endpointURL)
+	req, err := http.NewRequestWithContext(ctx, "POST", endpointURL, body)
 	if err != nil {
 		writeLog("Error: Failed to create request: %v", err)
 		return nil, fmt.Errorf("failed to create request: %w", err)
@@ -235,9 +256,14 @@ func (a *OpenAIAdapter) Transcribe(ctx context.Context, input interfaces.AudioIn
 	req.Header.Set("Authorization", "Bearer "+apiKey)
 
 	// Execute request
-	client := &http.Client{
-		Timeout: 10 * time.Minute, // Generous timeout for large files
+	timeout := 10 * time.Minute
+	if !isOfficialEndpoint {
+		timeout = 30 * time.Minute // Default for self-hosted endpoints
 	}
+	if t := a.GetIntParameter(params, "timeout_minutes"); t > 0 {
+		timeout = time.Duration(t) * time.Minute
+	}
+	client := &http.Client{Timeout: timeout}
 	resp, err := client.Do(req)
 	if err != nil {
 		writeLog("Error: Request failed: %v", err)
@@ -247,8 +273,8 @@ func (a *OpenAIAdapter) Transcribe(ctx context.Context, input interfaces.AudioIn
 
 	if resp.StatusCode != http.StatusOK {
 		respBody, _ := io.ReadAll(resp.Body)
-		writeLog("Error: OpenAI API error (status %d): %s", resp.StatusCode, string(respBody))
-		return nil, fmt.Errorf("OpenAI API error (status %d): %s", resp.StatusCode, string(respBody))
+		writeLog("Error: transcription API error (status %d): %s", resp.StatusCode, string(respBody))
+		return nil, fmt.Errorf("transcription API error (status %d): %s", resp.StatusCode, string(respBody))
 	}
 
 	writeLog("Response received. Parsing...")

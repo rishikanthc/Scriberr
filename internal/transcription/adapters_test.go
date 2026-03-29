@@ -553,6 +553,49 @@ func BenchmarkModelRegistryLookup(b *testing.B) {
 	}
 }
 
+func TestOpenAIAdapter(t *testing.T) {
+	a := adapters.NewOpenAIAdapter("sk-test")
+	if a == nil {
+		t.Fatal("NewOpenAIAdapter returned nil")
+	}
+
+	caps := a.GetCapabilities()
+	if caps.ModelID != "openai_whisper" {
+		t.Errorf("expected model ID 'openai_whisper', got %q", caps.ModelID)
+	}
+	if caps.ModelFamily != "openai" {
+		t.Errorf("expected model family 'openai', got %q", caps.ModelFamily)
+	}
+	if !caps.Features["diarization"] {
+		t.Error("diarization capability must be true")
+	}
+
+	schema := a.GetParameterSchema()
+	hasBaseURL := false
+	for _, p := range schema {
+		if p.Name == "base_url" {
+			hasBaseURL = true
+		}
+		if p.Name == "model" && len(p.Options) > 0 {
+			t.Errorf("model parameter must not have a fixed Options list, got %v", p.Options)
+		}
+	}
+	if !hasBaseURL {
+		t.Error("schema must include base_url parameter")
+	}
+}
+
+func TestOpenAIAdapterWithBaseURL(t *testing.T) {
+	a := adapters.NewOpenAIAdapter("")
+	if a == nil {
+		t.Fatal("NewOpenAIAdapter returned nil")
+	}
+	caps := a.GetCapabilities()
+	if !caps.Features["diarization"] {
+		t.Error("diarization capability must be true")
+	}
+}
+
 func BenchmarkParameterValidation(b *testing.B) {
 	reg := registry.GetRegistry()
 	adapter, err := reg.GetTranscriptionAdapter("whisperx")

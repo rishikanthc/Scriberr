@@ -589,6 +589,12 @@ func (u *UnifiedTranscriptionService) convertToOpenAIParams(params models.Whispe
 	if params.APIKey != nil && *params.APIKey != "" {
 		paramMap["api_key"] = *params.APIKey
 	}
+	if params.APIURL != nil && *params.APIURL != "" {
+		paramMap["base_url"] = *params.APIURL
+	}
+	if params.TimeoutMinutes != nil && *params.TimeoutMinutes > 0 {
+		paramMap["timeout_minutes"] = *params.TimeoutMinutes
+	}
 
 	return paramMap
 }
