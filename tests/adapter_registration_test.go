@@ -47,6 +47,19 @@ func TestAdapterEnvPathInjection(t *testing.T) {
 	}
 }
 
+// TestOpenAIAdapterConstruction tests the OpenAI adapter constructor
+func TestOpenAIAdapterConstruction(t *testing.T) {
+	a := adapters.NewOpenAIAdapter("")
+	if a == nil {
+		t.Fatal("NewOpenAIAdapter returned nil with empty key")
+	}
+
+	a = adapters.NewOpenAIAdapter("sk-test")
+	if !a.GetCapabilities().Features["diarization"] {
+		t.Error("diarization capability must be true")
+	}
+}
+
 // TestRegisterAdapters tests that registerAdapters correctly registers all adapters
 func TestRegisterAdapters(t *testing.T) {
 	// Clear registry before test
@@ -67,6 +80,8 @@ func TestRegisterAdapters(t *testing.T) {
 		adapters.NewParakeetAdapter(nvidiaEnvPath))
 	registry.RegisterTranscriptionAdapter("canary",
 		adapters.NewCanaryAdapter(nvidiaEnvPath))
+	registry.RegisterTranscriptionAdapter("openai_whisper",
+		adapters.NewOpenAIAdapter(""))
 
 	registry.RegisterDiarizationAdapter("pyannote",
 		adapters.NewPyAnnoteAdapter(nvidiaEnvPath))
@@ -75,8 +90,8 @@ func TestRegisterAdapters(t *testing.T) {
 
 	// Verify registrations
 	transcriptionAdapters := registry.GetTranscriptionAdapters()
-	if len(transcriptionAdapters) != 3 {
-		t.Errorf("Expected 3 transcription adapters, got %d", len(transcriptionAdapters))
+	if len(transcriptionAdapters) != 4 {
+		t.Errorf("Expected 4 transcription adapters, got %d", len(transcriptionAdapters))
 	}
 
 	// Check specific adapters are registered
@@ -88,6 +103,9 @@ func TestRegisterAdapters(t *testing.T) {
 	}
 	if _, exists := transcriptionAdapters["canary"]; !exists {
 		t.Error("canary adapter not registered")
+	}
+	if _, exists := transcriptionAdapters["openai_whisper"]; !exists {
+		t.Error("openai_whisper adapter not registered")
 	}
 
 	diarizationAdapters := registry.GetDiarizationAdapters()

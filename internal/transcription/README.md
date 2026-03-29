@@ -155,6 +155,7 @@ err := adapter.ValidateParameters(params)
 | `whisperx` | `whisper` | 90+ languages | Timestamps, Diarization, Translation |
 | `parakeet` | `nvidia_parakeet` | English only | Timestamps, Long-form, High Quality |
 | `canary` | `nvidia_canary` | 12 languages | Timestamps, Translation, Multilingual |
+| `openai_whisper` | `openai` | 57 languages | Timestamps, Diarization, Translation, Custom Endpoint |
 
 ### Diarization Models
 
@@ -221,8 +222,17 @@ params := map[string]interface{}{
 // NVIDIA Canary with translation
 params := map[string]interface{}{
     "source_lang": "es",
-    "target_lang": "en", 
+    "target_lang": "en",
     "task": "translate",
+}
+
+// OpenAI with custom self-hosted endpoint
+params := map[string]interface{}{
+    "base_url":        "http://localhost:8000/v1",
+    "model":           "Systran/faster-whisper-large-v3",
+    "timeout_minutes": 30,
+    "diarize":         true,
+    "diarize_model":   "pyannote",
 }
 ```
 

@@ -641,6 +641,9 @@ definitions:
       api_key:
         description: OpenAI settings
         type: string
+      api_url:
+        description: Custom transcription API base URL (OpenAI adapter only)
+        type: string
       attention_context_left:
         description: NVIDIA Parakeet-specific parameters for long-form audio
         type: integer
@@ -746,6 +749,9 @@ definitions:
       temperature_increment_on_fallback:
         type: number
       threads:
+        type: integer
+      timeout_minutes:
+        description: HTTP request timeout in minutes (OpenAI adapter with custom base URL)
         type: integer
       vad_method:
         description: VAD (Voice Activity Detection) settings
