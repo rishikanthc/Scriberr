@@ -80,7 +80,7 @@ func NewSortformerAdapter(envPath string) *SortformerAdapter {
 			Name:        "output_format",
 			Type:        "string",
 			Required:    false,
-			Default:     "rttm",
+			Default:     OutputFormatJSON,
 			Options:     []string{"rttm", OutputFormatJSON},
 			Description: "Output format for diarization results",
 			Group:       "advanced",
