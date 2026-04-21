@@ -107,12 +107,14 @@ func main() {
 	chatRepo := repository.NewChatRepository(database.DB)
 	noteRepo := repository.NewNoteRepository(database.DB)
 	speakerMappingRepo := repository.NewSpeakerMappingRepository(database.DB)
+	openClawProfileRepo := repository.NewOpenClawProfileRepository(database.DB)
 	refreshTokenRepo := repository.NewRefreshTokenRepository(database.DB)
 
 	// Initialize services
 	logger.Startup("service", "Initializing services")
 	userService := service.NewUserService(userRepo, authService)
 	fileService := service.NewFileService()
+	openClawService := service.NewOpenClawService()
 
 	// Initialize unified transcription processor
 	logger.Startup("transcription", "Initializing transcription service")
@@ -158,7 +160,9 @@ func main() {
 		chatRepo,
 		noteRepo,
 		speakerMappingRepo,
+		openClawProfileRepo,
 		refreshTokenRepo,
+		openClawService,
 		taskQueue,
 		unifiedProcessor,
 		quickTranscriptionService,

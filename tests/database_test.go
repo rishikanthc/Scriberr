@@ -258,6 +258,44 @@ func (suite *DatabaseTestSuite) TestTranscriptionProfileCRUD() {
 	assert.NoError(suite.T(), result.Error)
 }
 
+// Test OpenClawProfile model CRUD operations
+func (suite *DatabaseTestSuite) TestOpenClawProfileCRUD() {
+	db := suite.helper.GetDB()
+
+	profile := models.OpenClawProfile{
+		ID:       "openclaw-profile-crud-123",
+		Name:     "OpenClaw Prod",
+		IP:       "user@example-host",
+		SSHKey:   "ssh-private-key-content",
+		HookKey:  "hook-secret",
+		HookName: "Dashboard",
+		Message:  "Summarize this meeting",
+	}
+
+	result := db.Create(&profile)
+	assert.NoError(suite.T(), result.Error)
+	assert.NotZero(suite.T(), profile.CreatedAt)
+
+	var found models.OpenClawProfile
+	result = db.Where("id = ?", profile.ID).First(&found)
+	assert.NoError(suite.T(), result.Error)
+	assert.Equal(suite.T(), profile.Name, found.Name)
+	assert.Equal(suite.T(), profile.IP, found.IP)
+	assert.Equal(suite.T(), profile.HookName, found.HookName)
+
+	found.Message = "Updated message"
+	result = db.Save(&found)
+	assert.NoError(suite.T(), result.Error)
+
+	var updated models.OpenClawProfile
+	result = db.Where("id = ?", profile.ID).First(&updated)
+	assert.NoError(suite.T(), result.Error)
+	assert.Equal(suite.T(), "Updated message", updated.Message)
+
+	result = db.Delete(&updated)
+	assert.NoError(suite.T(), result.Error)
+}
+
 // Test Note model CRUD operations
 func (suite *DatabaseTestSuite) TestNoteCRUD() {
 	db := suite.helper.GetDB()
