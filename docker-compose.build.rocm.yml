@@ -1,0 +1,41 @@
+# Docker Compose for building Scriberr locally with AMD ROCm support
+# Builds from Dockerfile.rocm and tags the image as scriberr:local-rocm
+#
+# Usage: docker compose -f docker-compose.build.rocm.yml up --build
+version: "3.9"
+services:
+  scriberr:
+    build:
+      context: .
+      dockerfile: Dockerfile.rocm
+    image: scriberr:local-rocm
+    container_name: scriberr
+    ports:
+      - "8080:8080"
+    # AMD GPU access: expose the kernel fusion driver (/dev/kfd) and DRM render nodes (/dev/dri).
+    devices:
+      - /dev/kfd:/dev/kfd
+      - /dev/dri:/dev/dri
+    group_add:
+      - video
+      - render
+    environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      - APP_ENV=production
+      # ROCm: PyTorch wheel version. Maps to https://download.pytorch.org/whl/rocm6.3
+      - PYTORCH_ROCM_VERSION=6.3
+      # RX 5700 XT (gfx1010 / RDNA 1) compatibility override.
+      # Instructs the ROCm runtime to use gfx1030 (RDNA 2) kernels.
+      # Remove or adjust for other AMD GPU generations (see docker-compose.rocm.yml).
+      - HSA_OVERRIDE_GFX_VERSION=10.3.0
+      # Optionally restrict to a specific GPU index (default: all)
+      # - ROCR_VISIBLE_DEVICES=0
+    volumes:
+      - ./scriberr_data:/app/data
+      - ./env-data:/app/whisperx-env
+    restart: unless-stopped
+
+volumes:
+  scriberr_data:
+  env-data:
