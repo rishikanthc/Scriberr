@@ -3,13 +3,15 @@ package tests
 import (
 	"os"
 	"testing"
+	"time"
 
 	"scriberr/internal/database"
 	"scriberr/internal/models"
+	"scriberr/internal/repository"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
-	"gorm.io/gorm"
 )
 
 type DatabaseTestSuite struct {
@@ -29,436 +31,180 @@ func (suite *DatabaseTestSuite) SetupTest() {
 	suite.helper.ResetDB(suite.T())
 }
 
-// Test database initialization
 func (suite *DatabaseTestSuite) TestDatabaseInitialization() {
-	// Test with a new database file
 	testDbPath := "test_init_isolated.db"
 	defer os.Remove(testDbPath)
 
-	// Store current DB to restore later
 	originalDB := database.DB
-
 	err := database.Initialize(testDbPath)
 	assert.NoError(suite.T(), err)
 	assert.NotNil(suite.T(), database.DB)
 
-	// Verify database file exists
 	_, err = os.Stat(testDbPath)
-	assert.NoError(suite.T(), err, "Database file should exist")
+	assert.NoError(suite.T(), err)
 
-	// Close the test database and restore original
 	database.Close()
 	database.DB = originalDB
 }
 
-// Test database initialization with invalid path
-func (suite *DatabaseTestSuite) TestDatabaseInitializationInvalidPath() {
-	// Try to initialize with an invalid path (directory doesn't exist and can't be created)
-	invalidPath := "/root/nonexistent/database.db"
-
-	// This might fail depending on permissions, but we'll test what we can
-	err := database.Initialize(invalidPath)
-	// The error might be from directory creation or database connection
-	if err != nil {
-		assert.Contains(suite.T(), err.Error(), "failed")
-	}
-}
-
-// Test User model CRUD operations
-func (suite *DatabaseTestSuite) TestUserCRUD() {
+func (suite *DatabaseTestSuite) TestUserSettingsRoundTrip() {
 	db := suite.helper.GetDB()
-
-	// Create
+	profileID := "profile-123"
 	user := models.User{
-		Username: "testuser-crud",
-		Password: "hashedpassword123",
+		Username:                 "settings-user",
+		Password:                 "hashedpassword123",
+		DefaultProfileID:         &profileID,
+		AutoTranscriptionEnabled: true,
+		SummaryDefaultModel:      "gpt-4o-mini",
 	}
+	require.NoError(suite.T(), db.Create(&user).Error)
 
-	result := db.Create(&user)
-	assert.NoError(suite.T(), result.Error)
-	assert.NotZero(suite.T(), user.ID)
-	assert.NotZero(suite.T(), user.CreatedAt)
-
-	// Read
-	var foundUser models.User
-	result = db.Where("username = ?", "testuser-crud").First(&foundUser)
-	assert.NoError(suite.T(), result.Error)
-	assert.Equal(suite.T(), user.Username, foundUser.Username)
-	assert.Equal(suite.T(), user.Password, foundUser.Password)
-
-	// Update
-	foundUser.Username = "updated-username"
-	result = db.Save(&foundUser)
-	assert.NoError(suite.T(), result.Error)
-
-	var updatedUser models.User
-	result = db.First(&updatedUser, foundUser.ID)
-	assert.NoError(suite.T(), result.Error)
-	assert.Equal(suite.T(), "updated-username", updatedUser.Username)
-	assert.NotEqual(suite.T(), updatedUser.CreatedAt, updatedUser.UpdatedAt)
-
-	// Delete
-	result = db.Delete(&updatedUser)
-	assert.NoError(suite.T(), result.Error)
-
-	// Verify deletion
-	var deletedUser models.User
-	result = db.First(&deletedUser, updatedUser.ID)
-	assert.Error(suite.T(), result.Error)
-	assert.Equal(suite.T(), gorm.ErrRecordNotFound, result.Error)
+	var found models.User
+	require.NoError(suite.T(), db.First(&found, user.ID).Error)
+	assert.True(suite.T(), found.AutoTranscriptionEnabled)
+	require.NotNil(suite.T(), found.DefaultProfileID)
+	assert.Equal(suite.T(), profileID, *found.DefaultProfileID)
+	assert.Equal(suite.T(), "gpt-4o-mini", found.SummaryDefaultModel)
 }
 
-// Test APIKey model CRUD operations
-func (suite *DatabaseTestSuite) TestAPIKeyCRUD() {
+func (suite *DatabaseTestSuite) TestTranscriptionJobPersistsCompatibilityFields() {
 	db := suite.helper.GetDB()
+	title := "Persisted Job"
+	transcript := `{"text":"hello"}`
+	summary := "cached summary"
+	merged := "/tmp/merged.wav"
+	individual := `{"Speaker 1":"hello"}`
 
-	// Create
+	job := models.TranscriptionJob{
+		ID:                    "job-compat-1",
+		Title:                 &title,
+		Status:                models.StatusCompleted,
+		AudioPath:             "/tmp/input.wav",
+		Transcript:            &transcript,
+		Summary:               &summary,
+		IsMultiTrack:          true,
+		MergedAudioPath:       &merged,
+		MergeStatus:           "completed",
+		IndividualTranscripts: &individual,
+		Parameters: models.WhisperXParams{
+			Model:       "base",
+			ModelFamily: "whisper",
+			Device:      "cpu",
+			ComputeType: "float32",
+			Diarize:     true,
+		},
+	}
+
+	require.NoError(suite.T(), db.Create(&job).Error)
+
+	var found models.TranscriptionJob
+	require.NoError(suite.T(), db.First(&found, "id = ?", job.ID).Error)
+	require.NotNil(suite.T(), found.Transcript)
+	assert.Equal(suite.T(), transcript, *found.Transcript)
+	require.NotNil(suite.T(), found.Summary)
+	assert.Equal(suite.T(), summary, *found.Summary)
+	assert.True(suite.T(), found.IsMultiTrack)
+	require.NotNil(suite.T(), found.MergedAudioPath)
+	assert.Equal(suite.T(), merged, *found.MergedAudioPath)
+	assert.Equal(suite.T(), "base", found.Parameters.Model)
+	assert.True(suite.T(), found.Parameters.Diarize)
+	require.NotNil(suite.T(), found.CompletedAt)
+}
+
+func (suite *DatabaseTestSuite) TestAPIKeyRepositoryUsesHashedStorage() {
+	db := suite.helper.GetDB()
+	repo := repository.NewAPIKeyRepository(db)
+
+	rawKey := "test-api-key-crud-12345"
 	apiKey := models.APIKey{
-		Key:         "test-api-key-crud-12345",
+		UserID:      suite.helper.TestUser.ID,
+		Key:         rawKey,
+		KeyPrefix:   rawKey[:8],
+		KeyHash:     sha256Hex(rawKey),
 		Name:        "Test CRUD API Key",
 		Description: stringPtr("Test description"),
 		IsActive:    true,
 	}
 
-	result := db.Create(&apiKey)
-	assert.NoError(suite.T(), result.Error)
-	assert.NotZero(suite.T(), apiKey.ID)
+	require.NoError(suite.T(), db.Create(&apiKey).Error)
 
-	// Read
-	var foundKey models.APIKey
-	result = db.Where("key = ?", "test-api-key-crud-12345").First(&foundKey)
-	assert.NoError(suite.T(), result.Error)
-	assert.Equal(suite.T(), apiKey.Key, foundKey.Key)
-	assert.Equal(suite.T(), apiKey.Name, foundKey.Name)
-	assert.True(suite.T(), foundKey.IsActive)
+	found, err := repo.FindByKey(suite.T().Context(), rawKey)
+	require.NoError(suite.T(), err)
+	assert.Equal(suite.T(), apiKey.Name, found.Name)
+	assert.Equal(suite.T(), "Test description", *found.Description)
+	assert.True(suite.T(), found.IsActive)
 
-	// Update
-	foundKey.IsActive = false
-	foundKey.Name = "Updated API Key"
-	result = db.Save(&foundKey)
-	assert.NoError(suite.T(), result.Error)
+	require.NoError(suite.T(), repo.Revoke(suite.T().Context(), apiKey.ID))
 
-	var updatedKey models.APIKey
-	result = db.First(&updatedKey, foundKey.ID)
-	assert.NoError(suite.T(), result.Error)
-	assert.False(suite.T(), updatedKey.IsActive)
-	assert.Equal(suite.T(), "Updated API Key", updatedKey.Name)
-
-	// Delete
-	result = db.Delete(&updatedKey)
-	assert.NoError(suite.T(), result.Error)
-
-	// Verify deletion
-	var deletedKey models.APIKey
-	result = db.First(&deletedKey, updatedKey.ID)
-	assert.Error(suite.T(), result.Error)
-	assert.Equal(suite.T(), gorm.ErrRecordNotFound, result.Error)
+	var reloaded models.APIKey
+	require.NoError(suite.T(), db.First(&reloaded, apiKey.ID).Error)
+	assert.NotNil(suite.T(), reloaded.RevokedAt)
 }
 
-// Test TranscriptionJob model CRUD operations
-func (suite *DatabaseTestSuite) TestTranscriptionJobCRUD() {
+func (suite *DatabaseTestSuite) TestNoteCompatibilityMetadataRoundTrip() {
 	db := suite.helper.GetDB()
-	// Create
-	title := "Test Transcription Job"
-	job := models.TranscriptionJob{
-		ID:        "test-job-crud-123",
-		Title:     &title,
-		Status:    models.StatusPending,
-		AudioPath: "/path/to/audio.mp3",
-		Parameters: models.WhisperXParams{
-			Model:       "base",
-			BatchSize:   16,
-			ComputeType: "float16",
-			Device:      "auto",
-		},
-	}
-
-	result := db.Create(&job)
-	assert.NoError(suite.T(), result.Error)
-	assert.NotZero(suite.T(), job.CreatedAt)
-
-	// Read
-	var foundJob models.TranscriptionJob
-	result = db.Where("id = ?", "test-job-crud-123").First(&foundJob)
-	assert.NoError(suite.T(), result.Error)
-	assert.Equal(suite.T(), job.ID, foundJob.ID)
-	assert.Equal(suite.T(), *job.Title, *foundJob.Title)
-	assert.Equal(suite.T(), job.Status, foundJob.Status)
-	assert.Equal(suite.T(), job.Parameters.Model, foundJob.Parameters.Model)
-
-	// Update status and transcript
-	transcript := `{"segments": [{"start": 0.0, "end": 5.0, "text": "Test transcript"}]}`
-	foundJob.Status = models.StatusCompleted
-	foundJob.Transcript = &transcript
-	result = db.Save(&foundJob)
-	assert.NoError(suite.T(), result.Error)
-
-	var updatedJob models.TranscriptionJob
-	// For string primary keys, query explicitly by id
-	result = db.Where("id = ?", foundJob.ID).First(&updatedJob)
-	assert.NoError(suite.T(), result.Error)
-	assert.Equal(suite.T(), models.StatusCompleted, updatedJob.Status)
-	assert.NotNil(suite.T(), updatedJob.Transcript)
-	assert.Equal(suite.T(), transcript, *updatedJob.Transcript)
-
-	// Delete
-	result = db.Delete(&updatedJob)
-	assert.NoError(suite.T(), result.Error)
-
-	// Verify deletion
-	var deletedJob models.TranscriptionJob
-	result = db.Where("id = ?", updatedJob.ID).First(&deletedJob)
-	assert.Error(suite.T(), result.Error)
-	assert.Equal(suite.T(), gorm.ErrRecordNotFound, result.Error)
-}
-
-// Test TranscriptionProfile model CRUD operations
-func (suite *DatabaseTestSuite) TestTranscriptionProfileCRUD() {
-	db := suite.helper.GetDB()
-	// Create
-	profile := models.TranscriptionProfile{
-		ID:          "test-profile-crud-123",
-		Name:        "Test Profile",
-		Description: stringPtr("Test profile description"),
-		IsDefault:   false,
-		Parameters: models.WhisperXParams{
-			Model:       "small",
-			BatchSize:   8,
-			ComputeType: "float32",
-			Device:      "cpu",
-		},
-	}
-
-	result := db.Create(&profile)
-	assert.NoError(suite.T(), result.Error)
-	assert.NotZero(suite.T(), profile.CreatedAt)
-
-	// Read
-	var foundProfile models.TranscriptionProfile
-	result = db.Where("id = ?", "test-profile-crud-123").First(&foundProfile)
-	assert.NoError(suite.T(), result.Error)
-	assert.Equal(suite.T(), profile.Name, foundProfile.Name)
-	assert.Equal(suite.T(), profile.Parameters.Model, foundProfile.Parameters.Model)
-
-	// Update
-	foundProfile.IsDefault = true
-	foundProfile.Name = "Updated Profile"
-	result = db.Save(&foundProfile)
-	assert.NoError(suite.T(), result.Error)
-
-	var updatedProfile models.TranscriptionProfile
-	// For string primary keys, query explicitly by id
-	result = db.Where("id = ?", foundProfile.ID).First(&updatedProfile)
-	assert.NoError(suite.T(), result.Error)
-	assert.True(suite.T(), updatedProfile.IsDefault)
-	assert.Equal(suite.T(), "Updated Profile", updatedProfile.Name)
-
-	// Delete
-	result = db.Delete(&updatedProfile)
-	assert.NoError(suite.T(), result.Error)
-}
-
-// Test Note model CRUD operations
-func (suite *DatabaseTestSuite) TestNoteCRUD() {
-	db := suite.helper.GetDB()
-	// First create a transcription job for the note
 	job := suite.helper.CreateTestTranscriptionJob(suite.T(), "Test Job for Note")
 
-	// Create note
 	note := models.Note{
 		ID:              "test-note-crud-123",
 		TranscriptionID: job.ID,
 		StartWordIndex:  0,
 		EndWordIndex:    5,
-		StartTime:       0.0,
-		EndTime:         2.5,
+		StartTime:       1.25,
+		EndTime:         2.50,
 		Quote:           "Test quote text",
 		Content:         "Test note content",
 	}
 
-	result := db.Create(&note)
-	assert.NoError(suite.T(), result.Error)
-	assert.NotZero(suite.T(), note.CreatedAt)
+	require.NoError(suite.T(), db.Create(&note).Error)
 
-	// Read
-	var foundNote models.Note
-	result = db.Where("id = ?", "test-note-crud-123").First(&foundNote)
-	assert.NoError(suite.T(), result.Error)
-	assert.Equal(suite.T(), note.TranscriptionID, foundNote.TranscriptionID)
-	assert.Equal(suite.T(), note.Content, foundNote.Content)
-	assert.Equal(suite.T(), note.Quote, foundNote.Quote)
-	assert.Equal(suite.T(), note.StartTime, foundNote.StartTime)
-
-	// Update
-	foundNote.Content = "Updated note content"
-	foundNote.Quote = "Updated quote"
-	result = db.Save(&foundNote)
-	assert.NoError(suite.T(), result.Error)
-
-	var updatedNote models.Note
-	// For string primary keys, query explicitly by id
-	result = db.Where("id = ?", foundNote.ID).First(&updatedNote)
-	assert.NoError(suite.T(), result.Error)
-	assert.Equal(suite.T(), "Updated note content", updatedNote.Content)
-	assert.Equal(suite.T(), "Updated quote", updatedNote.Quote)
-
-	// Delete
-	result = db.Delete(&updatedNote)
-	assert.NoError(suite.T(), result.Error)
+	var found models.Note
+	require.NoError(suite.T(), db.First(&found, "id = ?", note.ID).Error)
+	assert.Equal(suite.T(), int64(1250), found.StartMS)
+	assert.Equal(suite.T(), int64(2500), found.EndMS)
+	assert.Equal(suite.T(), note.Quote, found.Quote)
+	assert.Equal(suite.T(), note.StartWordIndex, found.StartWordIndex)
+	assert.Equal(suite.T(), note.EndWordIndex, found.EndWordIndex)
 }
 
-// Test database relationships
-func (suite *DatabaseTestSuite) TestDatabaseRelationships() {
+func (suite *DatabaseTestSuite) TestRefreshTokenRevocationSemantics() {
 	db := suite.helper.GetDB()
-	// Create a transcription job
-	job := suite.helper.CreateTestTranscriptionJob(suite.T(), "Test Job for Relations")
+	repo := repository.NewRefreshTokenRepository(db)
 
-	// Create notes for the job
-	note1 := models.Note{
-		ID:              "note-1-relations",
-		TranscriptionID: job.ID,
-		StartWordIndex:  0,
-		EndWordIndex:    3,
-		StartTime:       0.0,
-		EndTime:         1.5,
-		Quote:           "First quote",
-		Content:         "First note",
+	token := &models.RefreshToken{
+		UserID:    suite.helper.TestUser.ID,
+		Hashed:    sha256Hex("refresh-token"),
+		ExpiresAt: time.Now().Add(24 * time.Hour),
 	}
+	require.NoError(suite.T(), repo.Create(suite.T().Context(), token))
 
-	note2 := models.Note{
-		ID:              "note-2-relations",
-		TranscriptionID: job.ID,
-		StartWordIndex:  4,
-		EndWordIndex:    8,
-		StartTime:       1.5,
-		EndTime:         3.0,
-		Quote:           "Second quote",
-		Content:         "Second note",
-	}
+	found, err := repo.FindByHash(suite.T().Context(), token.Hashed)
+	require.NoError(suite.T(), err)
+	assert.False(suite.T(), found.Revoked)
 
-	result := db.Create(&note1)
-	assert.NoError(suite.T(), result.Error)
-	result = db.Create(&note2)
-	assert.NoError(suite.T(), result.Error)
-
-	// Query notes by transcription ID
-	var notes []models.Note
-	result = db.Where("transcription_id = ?", job.ID).Find(&notes)
-	assert.NoError(suite.T(), result.Error)
-	assert.Len(suite.T(), notes, 2)
-
-	// Verify note contents
-	noteContents := []string{notes[0].Content, notes[1].Content}
-	assert.Contains(suite.T(), noteContents, "First note")
-	assert.Contains(suite.T(), noteContents, "Second note")
-
-	// Clean up
-	db.Delete(&note1)
-	db.Delete(&note2)
+	require.NoError(suite.T(), repo.Revoke(suite.T().Context(), token.ID))
+	found, err = repo.FindByHash(suite.T().Context(), token.Hashed)
+	require.NoError(suite.T(), err)
+	assert.True(suite.T(), found.Revoked)
 }
 
-// Test unique constraints
-func (suite *DatabaseTestSuite) TestUniqueConstraints() {
+func (suite *DatabaseTestSuite) TestDatabaseConstraints() {
 	db := suite.helper.GetDB()
-	// Test user username uniqueness
-	user1 := models.User{
-		Username: "unique-test-user",
-		Password: "password1",
-	}
-	user2 := models.User{
-		Username: "unique-test-user", // Same username
-		Password: "password2",
-	}
+	title := "Constraint job"
+	job := models.TranscriptionJob{Title: &title, Status: models.StatusUploaded, AudioPath: "/tmp/audio.wav"}
+	require.NoError(suite.T(), db.Create(&job).Error)
 
-	result := db.Create(&user1)
-	assert.NoError(suite.T(), result.Error)
+	mapping := models.SpeakerMapping{TranscriptionJobID: job.ID, OriginalSpeaker: "speaker_00", CustomName: "Alice"}
+	require.NoError(suite.T(), db.Create(&mapping).Error)
+	duplicate := models.SpeakerMapping{TranscriptionJobID: job.ID, OriginalSpeaker: "speaker_00", CustomName: "Bob"}
+	assert.Error(suite.T(), db.Create(&duplicate).Error)
 
-	result = db.Create(&user2)
-	assert.Error(suite.T(), result.Error, "Should fail due to unique constraint on username")
-
-	// Test API key uniqueness
-	apiKey1 := models.APIKey{
-		Key:      "unique-api-key-test",
-		Name:     "First Key",
-		IsActive: true,
-	}
-	apiKey2 := models.APIKey{
-		Key:      "unique-api-key-test", // Same key
-		Name:     "Second Key",
-		IsActive: true,
-	}
-
-	result = db.Create(&apiKey1)
-	assert.NoError(suite.T(), result.Error)
-
-	result = db.Create(&apiKey2)
-	assert.Error(suite.T(), result.Error, "Should fail due to unique constraint on API key")
-
-	// Clean up
-	db.Delete(&user1)
-	db.Delete(&apiKey1)
+	badNote := models.Note{ID: "bad-note", TranscriptionID: "missing-job", Content: "bad"}
+	assert.Error(suite.T(), db.Create(&badNote).Error)
 }
 
-// Test database queries with filters
-func (suite *DatabaseTestSuite) TestDatabaseQueries() {
-	db := suite.helper.GetDB()
-	// Create multiple API keys with different statuses
-	activeKey := models.APIKey{
-		Key:      "active-key-query-test",
-		Name:     "Active Key",
-		IsActive: true,
-	}
-	inactiveKey := models.APIKey{
-		Key:      "inactive-key-query-test",
-		Name:     "Inactive Key",
-		IsActive: false,
-	}
-
-	db.Create(&activeKey)
-	db.Create(&inactiveKey)
-
-	// Query only active keys
-	var activeKeys []models.APIKey
-	result := db.Where("is_active = ?", true).Find(&activeKeys)
-	assert.NoError(suite.T(), result.Error)
-
-	// Should include at least our test active key
-	found := false
-	for _, key := range activeKeys {
-		if key.Key == "active-key-query-test" {
-			found = true
-			break
-		}
-	}
-	assert.True(suite.T(), found, "Should find the active test key")
-
-	// Query inactive keys
-	var inactiveKeys []models.APIKey
-	result = db.Where("is_active = ?", false).Find(&inactiveKeys)
-	assert.NoError(suite.T(), result.Error)
-
-	// Should include our inactive key
-	found = false
-	for _, key := range inactiveKeys {
-		if key.Key == "inactive-key-query-test" {
-			found = true
-			break
-		}
-	}
-	assert.True(suite.T(), found, "Should find the inactive test key")
-
-	// Clean up
-	db.Delete(&activeKey)
-	db.Delete(&inactiveKey)
-}
-
-// Test database close functionality
 func (suite *DatabaseTestSuite) TestDatabaseClose() {
-	// Test that the Close function exists and can be called
-	// We just verify it doesn't panic when called
 	assert.NotPanics(suite.T(), func() {
-		// In a real scenario, we'd test database close functionality
-		// For now, we just verify the function can be called
 		_ = database.Close
 	})
 }

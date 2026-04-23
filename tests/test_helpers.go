@@ -1,6 +1,8 @@
 package tests
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"os"
 	"strings"
 	"testing"
@@ -93,12 +95,17 @@ func (h *TestHelper) ResetDB(t *testing.T) {
 	// List of models to clean
 	modelsToClean := []interface{}{
 		&models.Note{},
+		&models.SpeakerMapping{},
+		&models.MultiTrackFile{},
+		&models.ChatMessage{},
 		&models.ChatSession{},
-		&models.TranscriptionJobExecution{}, // Assuming this exists based on MockJobRepository
+		&models.Summary{},
+		&models.TranscriptionJobExecution{},
 		&models.TranscriptionJob{},
 		&models.TranscriptionProfile{},
 		&models.SummaryTemplate{},
 		&models.LLMConfig{},
+		&models.RefreshToken{},
 		&models.APIKey{},
 		&models.User{},
 	}
@@ -106,7 +113,7 @@ func (h *TestHelper) ResetDB(t *testing.T) {
 	for _, model := range modelsToClean {
 		// specific check to see if table exists before trying to delete
 		if h.DB.Migrator().HasTable(model) {
-			if err := h.DB.Session(&gorm.Session{AllowGlobalUpdate: true}).Delete(model).Error; err != nil {
+			if err := h.DB.Session(&gorm.Session{AllowGlobalUpdate: true}).Unscoped().Delete(model).Error; err != nil {
 				// Ignore errors if table doesn't exist or other non-critical issues during cleanup
 				// But log it just in case
 				t.Logf("Failed to clean table for model %T: %v", model, err)
@@ -140,9 +147,12 @@ func (h *TestHelper) createTestCredentials(t *testing.T) {
 
 	// Create test API key
 	apiKey := models.APIKey{
-		Key:      "test-api-key-" + strings.ReplaceAll(t.Name(), "/", "_"),
-		Name:     "Test API Key for " + strings.ReplaceAll(t.Name(), "/", "_"),
-		IsActive: true,
+		UserID:    user.ID,
+		Key:       "test-api-key-" + strings.ReplaceAll(t.Name(), "/", "_"),
+		KeyPrefix: "test-api",
+		KeyHash:   sha256Hex("test-api-key-" + strings.ReplaceAll(t.Name(), "/", "_")),
+		Name:      "Test API Key for " + strings.ReplaceAll(t.Name(), "/", "_"),
+		IsActive:  true,
 	}
 
 	result = h.DB.Create(&apiKey)
@@ -244,10 +254,12 @@ func (h *TestHelper) CreateTestChatSession(t *testing.T, transcriptionID string)
 // CreateTestLLMConfig creates a test LLM configuration
 func (h *TestHelper) CreateTestLLMConfig(t *testing.T, provider string) *models.LLMConfig {
 	config := &models.LLMConfig{
-		Provider: provider,
-		BaseURL:  stringPtr("https://api.test.com"),
-		APIKey:   stringPtr("test-llm-api-key"),
-		IsActive: true,
+		UserID:    h.TestUser.ID,
+		Name:      provider + "-default",
+		Provider:  provider,
+		BaseURL:   stringPtr("https://api.test.com"),
+		APIKey:    stringPtr("test-llm-api-key"),
+		IsDefault: true,
 	}
 
 	result := h.DB.Create(config)
@@ -258,6 +270,11 @@ func (h *TestHelper) CreateTestLLMConfig(t *testing.T, provider string) *models.
 // Helper function to create string pointer
 func stringPtr(s string) *string {
 	return &s
+}
+
+func sha256Hex(s string) string {
+	sum := sha256.Sum256([]byte(s))
+	return hex.EncodeToString(sum[:])
 }
 
 // MockJobRepository is a mock implementation of JobRepository

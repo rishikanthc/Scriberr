@@ -108,10 +108,12 @@ func (suite *APIHandlerTestSuite) SetupTest() {
 
 	// Create LLM config pointing to mock server
 	llmConfig := &models.LLMConfig{
+		UserID:        suite.helper.TestUser.ID,
+		Name:          "openai-default",
 		Provider:      "openai",
 		OpenAIBaseURL: &suite.mockOpenAI.URL,
 		APIKey:        stringPtr("test-api-key"),
-		IsActive:      true,
+		IsDefault:     true,
 	}
 	err := suite.helper.DB.Create(llmConfig).Error
 	assert.NoError(suite.T(), err)
