@@ -302,6 +302,46 @@ func TestSchemaUpgradeRunsVersionedBackfill(t *testing.T) {
 	assert.Equal(t, "large-v3", reloadedB.Parameters.Model)
 }
 
+func TestSchemaUpgradePreservesUpdatedAt(t *testing.T) {
+	db := openUnmigratedTestDB(t, "schema-upgrade-updated-at.db")
+
+	originalUpdatedAt := time.Date(2024, 12, 31, 12, 0, 0, 0, time.UTC)
+	user := models.User{
+		ID:        77,
+		Username:  "preserve-updated-at",
+		Password:  "pw",
+		UpdatedAt: originalUpdatedAt,
+	}
+	require.NoError(t, db.Session(&gorm.Session{SkipHooks: true}).Create(&user).Error)
+	require.NoError(t, recordSchemaVersion(db, 1))
+	require.NoError(t, db.Exec("UPDATE users SET settings_json = '' WHERE id = ?", user.ID).Error)
+
+	require.NoError(t, Migrate(db))
+
+	var reloaded models.User
+	require.NoError(t, db.First(&reloaded, "id = ?", user.ID).Error)
+	assert.True(t, reloaded.UpdatedAt.Equal(originalUpdatedAt))
+}
+
+func TestDetectLegacySchemaWithLegacySameNameTables(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "legacy-same-name.db")
+	createLegacyDatabase(t, dbPath, false)
+
+	db, err := Open(dbPath)
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, closeDB(db)) })
+
+	require.NoError(t, db.Exec("DROP TABLE transcription_jobs").Error)
+	require.NoError(t, db.Exec("DROP TABLE transcription_job_executions").Error)
+	require.NoError(t, db.Exec("DROP TABLE multi_track_files").Error)
+	require.NoError(t, db.Exec("DROP TABLE llm_configs").Error)
+	require.NoError(t, db.Exec("DROP TABLE summary_settings").Error)
+
+	legacy, err := detectLegacySchema(db)
+	require.NoError(t, err)
+	assert.True(t, legacy)
+}
+
 func TestLegacyMigrationPreservesData(t *testing.T) {
 	dbPath := filepath.Join(t.TempDir(), "legacy.db")
 	createLegacyDatabase(t, dbPath, true)

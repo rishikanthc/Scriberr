@@ -71,6 +71,66 @@ func detectLegacySchema(db *gorm.DB) (bool, error) {
 		}
 	}
 
+	sameNameTables := []string{
+		"users",
+		"api_keys",
+		"refresh_tokens",
+		"transcription_profiles",
+		"speaker_mappings",
+		"summary_templates",
+		"summaries",
+		"notes",
+		"chat_sessions",
+		"chat_messages",
+	}
+	for _, table := range sameNameTables {
+		if !db.Migrator().HasTable(table) {
+			continue
+		}
+		legacyLike, err := isLegacySameNameTable(db, table)
+		if err != nil {
+			return false, err
+		}
+		if legacyLike {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
+
+func isLegacySameNameTable(db *gorm.DB, table string) (bool, error) {
+	columns, err := db.Migrator().ColumnTypes(table)
+	if err != nil {
+		return false, fmt.Errorf("inspect columns for %s: %w", table, err)
+	}
+	columnNames := make(map[string]struct{}, len(columns))
+	for _, column := range columns {
+		columnNames[column.Name()] = struct{}{}
+	}
+
+	requiredCurrentColumns := map[string][]string{
+		"users":                  {"settings_json", "password_hash"},
+		"api_keys":               {"key_hash", "metadata_json"},
+		"refresh_tokens":         {"token_hash", "revoked_at"},
+		"transcription_profiles": {"config_json", "user_id"},
+		"speaker_mappings":       {"display_name", "user_id", "transcription_id"},
+		"summary_templates":      {"config_json", "user_id"},
+		"summaries":              {"model_name", "user_id"},
+		"notes":                  {"start_ms", "end_ms", "metadata_json", "user_id"},
+		"chat_sessions":          {"system_prompt", "user_id"},
+		"chat_messages":          {"chat_session_id", "user_id"},
+	}
+
+	required := requiredCurrentColumns[table]
+	if len(required) == 0 {
+		return false, nil
+	}
+	for _, column := range required {
+		if _, ok := columnNames[column]; !ok {
+			return true, nil
+		}
+	}
 	return false, nil
 }
 
