@@ -4,7 +4,10 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
+	"fmt"
 	"scriberr/internal/models"
+	"strings"
 	"time"
 
 	"gorm.io/gorm"
@@ -161,7 +164,74 @@ func (r *jobRepository) UpdateTranscript(ctx context.Context, jobID string, tran
 }
 
 func (r *jobRepository) CreateExecution(ctx context.Context, execution *models.TranscriptionJobExecution) error {
-	return r.db.WithContext(ctx).Create(execution).Error
+	const maxCreateExecutionRetries = 5
+	var lastErr error
+	for attempt := 0; attempt < maxCreateExecutionRetries; attempt++ {
+		lastErr = r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+			return createExecutionInTx(tx, execution)
+		})
+		if lastErr == nil {
+			return nil
+		}
+		if !isExecutionNumberConflict(lastErr) {
+			return lastErr
+		}
+	}
+	return fmt.Errorf("unable to allocate execution number for transcription %s: %w", execution.TranscriptionJobID, lastErr)
+}
+
+func createExecutionInTx(tx *gorm.DB, execution *models.TranscriptionJobExecution) error {
+	var job models.TranscriptionJob
+	if err := tx.Select("id", "user_id").Where("id = ?", execution.TranscriptionJobID).First(&job).Error; err != nil {
+		return err
+	}
+
+	execution.UserID = job.UserID
+
+	var nextExecutionNumber int
+	if err := tx.Model(&models.TranscriptionJobExecution{}).
+		Where("transcription_id = ?", execution.TranscriptionJobID).
+		Select("COALESCE(MAX(execution_number), 0) + 1").
+		Scan(&nextExecutionNumber).Error; err != nil {
+		return err
+	}
+	execution.ExecutionNumber = nextExecutionNumber
+
+	if err := tx.Create(execution).Error; err != nil {
+		return err
+	}
+
+	return tx.Model(&models.TranscriptionJob{}).
+		Where("id = ?", execution.TranscriptionJobID).
+		Update("latest_execution_id", execution.ID).Error
+}
+
+func isExecutionNumberConflict(err error) bool {
+	if !errors.Is(err, gorm.ErrDuplicatedKey) {
+		return false
+	}
+	errMsg := strings.ToLower(err.Error())
+	return strings.Contains(errMsg, "transcription_executions") && strings.Contains(errMsg, "execution_number")
+}
+
+func resolveLegacySingletonUserID(ctx context.Context, db *gorm.DB) (uint, error) {
+	const scopeError = "legacy repository method requires explicit user-scoped method"
+	var users []models.User
+	if err := db.WithContext(ctx).
+		Model(&models.User{}).
+		Select("id").
+		Order("id ASC").
+		Limit(2).
+		Find(&users).Error; err != nil {
+		return 0, err
+	}
+	if len(users) == 0 {
+		return 0, fmt.Errorf("%s: no users exist", scopeError)
+	}
+	if len(users) > 1 {
+		return 0, fmt.Errorf("%s: multiple users exist", scopeError)
+	}
+	return users[0].ID, nil
 }
 
 func (r *jobRepository) UpdateExecution(ctx context.Context, execution *models.TranscriptionJobExecution) error {
@@ -179,7 +249,7 @@ func (r *jobRepository) DeleteMultiTrackFilesByJobID(ctx context.Context, jobID 
 func (r *jobRepository) FindActiveTrackJobs(ctx context.Context, parentJobID string) ([]models.TranscriptionJob, error) {
 	var jobs []models.TranscriptionJob
 	err := r.db.WithContext(ctx).
-		Where("id LIKE ? AND status IN (?)", "track_"+parentJobID+"_%", []string{"processing", "pending"}).
+		Where("id LIKE ? AND status IN ?", "track_"+parentJobID+"_%", []models.JobStatus{models.StatusProcessing, models.StatusPending}).
 		Find(&jobs).Error
 	return jobs, err
 }
@@ -232,8 +302,13 @@ func (r *jobRepository) UpdateSummary(ctx context.Context, jobID string, summary
 type APIKeyRepository interface {
 	Repository[models.APIKey]
 	FindByKey(ctx context.Context, key string) (*models.APIKey, error)
+	// Deprecated: Legacy global access. Use ListActiveByUser instead.
 	ListActive(ctx context.Context) ([]models.APIKey, error)
+	ListActiveByUser(ctx context.Context, userID uint) ([]models.APIKey, error)
+	FindByIDForUser(ctx context.Context, id, userID uint) (*models.APIKey, error)
+	// Deprecated: Legacy global access. Use RevokeForUser instead.
 	Revoke(ctx context.Context, id uint) error
+	RevokeForUser(ctx context.Context, id, userID uint) error
 }
 
 type apiKeyRepository struct {
@@ -259,24 +334,57 @@ func (r *apiKeyRepository) FindByKey(ctx context.Context, key string) (*models.A
 }
 
 func (r *apiKeyRepository) ListActive(ctx context.Context) ([]models.APIKey, error) {
-	var apiKeys []models.APIKey
-	err := r.db.WithContext(ctx).Where("revoked_at IS NULL").Find(&apiKeys).Error
+	userID, err := resolveLegacySingletonUserID(ctx, r.db)
 	if err != nil {
+		return nil, err
+	}
+	return r.ListActiveByUser(ctx, userID)
+}
+
+func (r *apiKeyRepository) ListActiveByUser(ctx context.Context, userID uint) ([]models.APIKey, error) {
+	var apiKeys []models.APIKey
+	if err := r.db.WithContext(ctx).Where("user_id = ? AND revoked_at IS NULL", userID).Find(&apiKeys).Error; err != nil {
 		return nil, err
 	}
 	return apiKeys, nil
 }
 
+func (r *apiKeyRepository) FindByIDForUser(ctx context.Context, id, userID uint) (*models.APIKey, error) {
+	var apiKey models.APIKey
+	if err := r.db.WithContext(ctx).Where("id = ? AND user_id = ?", id, userID).First(&apiKey).Error; err != nil {
+		return nil, err
+	}
+	return &apiKey, nil
+}
+
 func (r *apiKeyRepository) Revoke(ctx context.Context, id uint) error {
+	// Revoke is intentionally global for backward compatibility.
+	// Prefer RevokeForUser with explicit user ID for all new call sites.
+	userID, err := resolveLegacySingletonUserID(ctx, r.db)
+	if err != nil {
+		return err
+	}
+	return r.RevokeForUser(ctx, id, userID)
+}
+
+func (r *apiKeyRepository) RevokeForUser(ctx context.Context, id, userID uint) error {
 	now := time.Now()
-	return r.db.WithContext(ctx).Model(&models.APIKey{}).Where("id = ?", id).Update("revoked_at", &now).Error
+	return r.db.WithContext(ctx).Model(&models.APIKey{}).
+		Where("id = ? AND user_id = ?", id, userID).
+		Update("revoked_at", &now).Error
 }
 
 // ProfileRepository handles transcription profile operations
 type ProfileRepository interface {
 	Repository[models.TranscriptionProfile]
+	// Deprecated: Legacy global access. Use FindDefaultByUser instead.
 	FindDefault(ctx context.Context) (*models.TranscriptionProfile, error)
+	// Deprecated: Legacy global access. Use FindByNameForUser instead.
 	FindByName(ctx context.Context, name string) (*models.TranscriptionProfile, error)
+	ListByUser(ctx context.Context, userID uint, offset, limit int) ([]models.TranscriptionProfile, int64, error)
+	FindByIDForUser(ctx context.Context, id string, userID uint) (*models.TranscriptionProfile, error)
+	FindDefaultByUser(ctx context.Context, userID uint) (*models.TranscriptionProfile, error)
+	FindByNameForUser(ctx context.Context, userID uint, name string) (*models.TranscriptionProfile, error)
 }
 
 type profileRepository struct {
@@ -290,18 +398,54 @@ func NewProfileRepository(db *gorm.DB) ProfileRepository {
 }
 
 func (r *profileRepository) FindDefault(ctx context.Context) (*models.TranscriptionProfile, error) {
-	var profile models.TranscriptionProfile
-	err := r.db.WithContext(ctx).Where("is_default = ?", true).First(&profile).Error
+	userID, err := resolveLegacySingletonUserID(ctx, r.db)
 	if err != nil {
+		return nil, err
+	}
+	return r.FindDefaultByUser(ctx, userID)
+}
+
+func (r *profileRepository) ListByUser(ctx context.Context, userID uint, offset, limit int) ([]models.TranscriptionProfile, int64, error) {
+	var profiles []models.TranscriptionProfile
+	var count int64
+
+	query := r.db.WithContext(ctx).Model(&models.TranscriptionProfile{}).Where("user_id = ?", userID)
+	if err := query.Count(&count).Error; err != nil {
+		return nil, 0, err
+	}
+	if err := query.Order("created_at DESC").Offset(offset).Limit(limit).Find(&profiles).Error; err != nil {
+		return nil, 0, err
+	}
+	return profiles, count, nil
+}
+
+func (r *profileRepository) FindByIDForUser(ctx context.Context, id string, userID uint) (*models.TranscriptionProfile, error) {
+	var profile models.TranscriptionProfile
+	if err := r.db.WithContext(ctx).Where("id = ? AND user_id = ?", id, userID).First(&profile).Error; err != nil {
+		return nil, err
+	}
+	return &profile, nil
+}
+
+func (r *profileRepository) FindDefaultByUser(ctx context.Context, userID uint) (*models.TranscriptionProfile, error) {
+	var profile models.TranscriptionProfile
+	if err := r.db.WithContext(ctx).Where("user_id = ? AND is_default = ?", userID, true).First(&profile).Error; err != nil {
 		return nil, err
 	}
 	return &profile, nil
 }
 
 func (r *profileRepository) FindByName(ctx context.Context, name string) (*models.TranscriptionProfile, error) {
-	var profile models.TranscriptionProfile
-	err := r.db.WithContext(ctx).Where("name = ?", name).First(&profile).Error
+	userID, err := resolveLegacySingletonUserID(ctx, r.db)
 	if err != nil {
+		return nil, err
+	}
+	return r.FindByNameForUser(ctx, userID, name)
+}
+
+func (r *profileRepository) FindByNameForUser(ctx context.Context, userID uint, name string) (*models.TranscriptionProfile, error) {
+	var profile models.TranscriptionProfile
+	if err := r.db.WithContext(ctx).Where("user_id = ? AND name = ?", userID, name).First(&profile).Error; err != nil {
 		return nil, err
 	}
 	return &profile, nil
@@ -310,7 +454,9 @@ func (r *profileRepository) FindByName(ctx context.Context, name string) (*model
 // LLMConfigRepository handles LLM configuration operations
 type LLMConfigRepository interface {
 	Repository[models.LLMConfig]
+	// Deprecated: Legacy global access. Use GetActiveByUser instead.
 	GetActive(ctx context.Context) (*models.LLMConfig, error)
+	GetActiveByUser(ctx context.Context, userID uint) (*models.LLMConfig, error)
 }
 
 type llmConfigRepository struct {
@@ -324,9 +470,16 @@ func NewLLMConfigRepository(db *gorm.DB) LLMConfigRepository {
 }
 
 func (r *llmConfigRepository) GetActive(ctx context.Context) (*models.LLMConfig, error) {
-	var config models.LLMConfig
-	err := r.db.WithContext(ctx).Where("is_default = ?", true).First(&config).Error
+	userID, err := resolveLegacySingletonUserID(ctx, r.db)
 	if err != nil {
+		return nil, err
+	}
+	return r.GetActiveByUser(ctx, userID)
+}
+
+func (r *llmConfigRepository) GetActiveByUser(ctx context.Context, userID uint) (*models.LLMConfig, error) {
+	var config models.LLMConfig
+	if err := r.db.WithContext(ctx).Where("user_id = ? AND is_default = ?", userID, true).First(&config).Error; err != nil {
 		return nil, err
 	}
 	return &config, nil
@@ -335,8 +488,14 @@ func (r *llmConfigRepository) GetActive(ctx context.Context) (*models.LLMConfig,
 // SummaryRepository handles summary templates and settings
 type SummaryRepository interface {
 	Repository[models.SummaryTemplate]
+	// Deprecated: Legacy global access. Use GetSettingsByUser/SaveSettingsByUser instead.
 	GetSettings(ctx context.Context) (*models.SummarySetting, error)
+	// Deprecated: Legacy global access. Use GetSettingsByUser/SaveSettingsByUser instead.
 	SaveSettings(ctx context.Context, settings *models.SummarySetting) error
+	ListByUser(ctx context.Context, userID uint, offset, limit int) ([]models.SummaryTemplate, int64, error)
+	FindByIDForUser(ctx context.Context, id string, userID uint) (*models.SummaryTemplate, error)
+	GetSettingsByUser(ctx context.Context, userID uint) (*models.SummarySetting, error)
+	SaveSettingsByUser(ctx context.Context, userID uint, settings *models.SummarySetting) error
 	SaveSummary(ctx context.Context, summary *models.Summary) error
 	GetLatestSummary(ctx context.Context, transcriptionID string) (*models.Summary, error)
 	DeleteByTranscriptionID(ctx context.Context, transcriptionID string) error
@@ -353,17 +512,54 @@ func NewSummaryRepository(db *gorm.DB) SummaryRepository {
 }
 
 func (r *summaryRepository) GetSettings(ctx context.Context) (*models.SummarySetting, error) {
-	var user models.User
-	err := r.db.WithContext(ctx).Order("id ASC").First(&user).Error
+	userID, err := resolveLegacySingletonUserID(ctx, r.db)
 	if err != nil {
+		return nil, err
+	}
+	return r.GetSettingsByUser(ctx, userID)
+}
+
+func (r *summaryRepository) SaveSettings(ctx context.Context, settings *models.SummarySetting) error {
+	userID, err := resolveLegacySingletonUserID(ctx, r.db)
+	if err != nil {
+		return err
+	}
+	return r.SaveSettingsByUser(ctx, userID, settings)
+}
+
+func (r *summaryRepository) ListByUser(ctx context.Context, userID uint, offset, limit int) ([]models.SummaryTemplate, int64, error) {
+	var templates []models.SummaryTemplate
+	var count int64
+
+	query := r.db.WithContext(ctx).Model(&models.SummaryTemplate{}).Where("user_id = ?", userID)
+	if err := query.Count(&count).Error; err != nil {
+		return nil, 0, err
+	}
+	if err := query.Order("created_at DESC").Offset(offset).Limit(limit).Find(&templates).Error; err != nil {
+		return nil, 0, err
+	}
+	return templates, count, nil
+}
+
+func (r *summaryRepository) FindByIDForUser(ctx context.Context, id string, userID uint) (*models.SummaryTemplate, error) {
+	var template models.SummaryTemplate
+	if err := r.db.WithContext(ctx).Where("id = ? AND user_id = ?", id, userID).First(&template).Error; err != nil {
+		return nil, err
+	}
+	return &template, nil
+}
+
+func (r *summaryRepository) GetSettingsByUser(ctx context.Context, userID uint) (*models.SummarySetting, error) {
+	var user models.User
+	if err := r.db.WithContext(ctx).Where("id = ?", userID).First(&user).Error; err != nil {
 		return nil, err
 	}
 	return &models.SummarySetting{DefaultModel: user.SummaryDefaultModel}, nil
 }
 
-func (r *summaryRepository) SaveSettings(ctx context.Context, settings *models.SummarySetting) error {
+func (r *summaryRepository) SaveSettingsByUser(ctx context.Context, userID uint, settings *models.SummarySetting) error {
 	var user models.User
-	if err := r.db.WithContext(ctx).Order("id ASC").First(&user).Error; err != nil {
+	if err := r.db.WithContext(ctx).Where("id = ?", userID).First(&user).Error; err != nil {
 		return err
 	}
 	user.SummaryDefaultModel = settings.DefaultModel
