@@ -39,13 +39,13 @@ func (schemaMigration) TableName() string { return "schema_migrations" }
 func createTargetSchema(tx *gorm.DB) error {
 	for _, model := range schemaModels {
 		if err := tx.AutoMigrate(model); err != nil {
-			if !isIgnorableSQLiteAlreadyExistsError(err) {
+			if !isIgnorableSQLiteDuplicateIndexError(err) {
 				return fmt.Errorf("auto migrate target schema: %w", err)
 			}
 		}
 	}
 	if err := tx.AutoMigrate(&schemaMigration{}); err != nil {
-		if !isIgnorableSQLiteAlreadyExistsError(err) {
+		if !isIgnorableSQLiteDuplicateIndexError(err) {
 			return fmt.Errorf("auto migrate schema state: %w", err)
 		}
 	}
@@ -73,12 +73,21 @@ func createTargetSchema(tx *gorm.DB) error {
 	return nil
 }
 
-func isIgnorableSQLiteAlreadyExistsError(err error) bool {
+func isIgnorableSQLiteDuplicateIndexError(err error) bool {
 	if err == nil {
 		return false
 	}
 	errMsg := strings.ToLower(err.Error())
-	return strings.Contains(errMsg, "already exists") && strings.Contains(errMsg, "index")
+	if !strings.Contains(errMsg, "sql logic error") {
+		return false
+	}
+	if !strings.Contains(errMsg, "already exists") {
+		return false
+	}
+	if !strings.Contains(errMsg, "index idx_") {
+		return false
+	}
+	return true
 }
 
 func ensureSingleDefaultPerUser(tx *gorm.DB) error {

@@ -45,28 +45,32 @@ func Migrate(db *gorm.DB) error {
 }
 
 func detectLegacySchema(db *gorm.DB) (bool, error) {
-	legacyTables := []string{
-		"users",
-		"api_keys",
-		"refresh_tokens",
+	currentTables := []string{
+		"transcriptions",
+		"transcription_executions",
+		"transcription_tracks",
+		"llm_profiles",
+		"schema_migrations",
+	}
+	for _, table := range currentTables {
+		if db.Migrator().HasTable(table) {
+			return false, nil
+		}
+	}
+
+	legacyOnlyTables := []string{
 		"transcription_jobs",
 		"transcription_job_executions",
 		"multi_track_files",
 		"llm_configs",
 		"summary_settings",
-		"transcription_profiles",
-		"speaker_mappings",
-		"summary_templates",
-		"summaries",
-		"notes",
-		"chat_sessions",
-		"chat_messages",
 	}
-	for _, table := range legacyTables {
+	for _, table := range legacyOnlyTables {
 		if db.Migrator().HasTable(table) {
 			return true, nil
 		}
 	}
+
 	return false, nil
 }
 
@@ -84,7 +88,7 @@ func currentSchemaVersion(tx *gorm.DB) (int, error) {
 
 func recordSchemaVersion(tx *gorm.DB, version int) error {
 	if err := tx.AutoMigrate(&schemaMigration{}); err != nil {
-		if !isIgnorableSQLiteAlreadyExistsError(err) {
+		if !isIgnorableSQLiteDuplicateIndexError(err) {
 			return fmt.Errorf("ensure schema migrations table: %w", err)
 		}
 	}
