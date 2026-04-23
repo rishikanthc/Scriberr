@@ -380,6 +380,32 @@ func TestDetectLegacySchemaWithLegacySameNameTables(t *testing.T) {
 	assert.True(t, legacy)
 }
 
+func TestExtractNormalizedWherePredicateAcceptsEquivalentPartialIndexPredicates(t *testing.T) {
+	cases := []struct {
+		name string
+		sql  string
+	}{
+		{
+			name: "quoted identifier",
+			sql:  `CREATE UNIQUE INDEX idx_profiles_default ON transcription_profiles(user_id) WHERE ("is_default" = 1)`,
+		},
+		{
+			name: "true literal",
+			sql:  `CREATE UNIQUE INDEX idx_profiles_default ON transcription_profiles(user_id) WHERE is_default = TRUE`,
+		},
+		{
+			name: "newline before where",
+			sql:  "CREATE UNIQUE INDEX idx_profiles_default ON transcription_profiles(user_id)\nWHERE is_default = 1",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, "is_default=1", extractNormalizedWherePredicate(tc.sql))
+		})
+	}
+}
+
 func TestLegacyMigrationPreservesData(t *testing.T) {
 	dbPath := filepath.Join(t.TempDir(), "legacy.db")
 	createLegacyDatabase(t, dbPath, true)
