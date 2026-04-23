@@ -78,7 +78,8 @@ func (mt *MultiTrackTranscriber) ProcessMultiTrackTranscription(ctx context.Cont
 	mt.trackJobsMutex.Unlock()
 
 	// Clear any existing individual transcripts to ensure clean progress tracking from 0/N
-	if err := mt.db.Model(&models.TranscriptionJob{}).Where("id = ?", jobID).Update("individual_transcripts", nil).Error; err != nil {
+	job.IndividualTranscripts = nil
+	if err := mt.db.Save(&job).Error; err != nil {
 		logger.Warn("Failed to clear individual transcripts at start", "job_id", jobID, "error", err)
 	}
 
@@ -139,7 +140,8 @@ func (mt *MultiTrackTranscriber) ProcessMultiTrackTranscription(ctx context.Cont
 			logger.Warn("Failed to serialize individual transcripts for progress update", "error", err)
 		} else {
 			individualTranscriptsStr := string(individualTranscriptsJSON)
-			if err := mt.db.Model(&models.TranscriptionJob{}).Where("id = ?", jobID).Update("individual_transcripts", &individualTranscriptsStr).Error; err != nil {
+			job.IndividualTranscripts = &individualTranscriptsStr
+			if err := mt.db.Save(&job).Error; err != nil {
 				logger.Warn("Failed to update individual transcripts progress", "job_id", jobID, "error", err)
 			}
 		}
@@ -195,13 +197,10 @@ func (mt *MultiTrackTranscriber) ProcessMultiTrackTranscription(ctx context.Cont
 	}
 
 	// Save results to database
-	updates := map[string]interface{}{
-		"transcript":             &mergedTranscriptStr,
-		"individual_transcripts": &individualTranscriptsStr,
-		"status":                 models.StatusCompleted,
-	}
-
-	if err := mt.db.Model(&models.TranscriptionJob{}).Where("id = ?", jobID).Updates(updates).Error; err != nil {
+	job.Transcript = &mergedTranscriptStr
+	job.IndividualTranscripts = &individualTranscriptsStr
+	job.Status = models.StatusCompleted
+	if err := mt.db.Save(&job).Error; err != nil {
 		return fmt.Errorf("failed to save transcription results: %w", err)
 	}
 
@@ -342,12 +341,12 @@ func (mt *MultiTrackTranscriber) transcribeIndividualTrack(ctx context.Context, 
 // cleanupTempJob properly deletes a temporary job and all associated records
 func (mt *MultiTrackTranscriber) cleanupTempJob(jobID string) {
 	// Delete execution records first (foreign key constraint)
-	if err := mt.db.Where("transcription_job_id = ?", jobID).Delete(&models.TranscriptionJobExecution{}).Error; err != nil {
+	if err := mt.db.Where("transcription_id = ?", jobID).Delete(&models.TranscriptionJobExecution{}).Error; err != nil {
 		logger.Warn("Failed to delete temp job execution records", "job_id", jobID, "error", err)
 	}
 
 	// Delete speaker mappings if any
-	if err := mt.db.Where("transcription_job_id = ?", jobID).Delete(&models.SpeakerMapping{}).Error; err != nil {
+	if err := mt.db.Where("transcription_id = ?", jobID).Delete(&models.SpeakerMapping{}).Error; err != nil {
 		logger.Warn("Failed to delete temp job speaker mappings", "job_id", jobID, "error", err)
 	}
 
@@ -387,13 +386,16 @@ func (mt *MultiTrackTranscriber) TerminateMultiTrackJob(jobID string) error {
 	mt.trackJobsMutex.Unlock()
 
 	// Update main job status to failed
-	if err := mt.db.Model(&models.TranscriptionJob{}).
-		Where("id = ?", jobID).
-		Updates(map[string]interface{}{
-			"status":        models.StatusFailed,
-			"error_message": "Job was terminated by user",
-		}).Error; err != nil {
-		logger.Warn("Failed to update main job status after termination", "job_id", jobID, "error", err)
+	var job models.TranscriptionJob
+	if err := mt.db.Where("id = ?", jobID).First(&job).Error; err != nil {
+		logger.Warn("Failed to load main job after termination", "job_id", jobID, "error", err)
+	} else {
+		errMsg := "Job was terminated by user"
+		job.Status = models.StatusFailed
+		job.ErrorMessage = &errMsg
+		if err := mt.db.Save(&job).Error; err != nil {
+			logger.Warn("Failed to update main job status after termination", "job_id", jobID, "error", err)
+		}
 	}
 
 	logger.Info("Multi-track job terminated successfully", "job_id", jobID)
@@ -535,7 +537,7 @@ func getBaseFileName(filename string) string {
 // GetIndividualTranscripts returns the individual track transcripts for a job
 func (mt *MultiTrackTranscriber) GetIndividualTranscripts(jobID string) (map[string]string, error) {
 	var job models.TranscriptionJob
-	if err := mt.db.Select("individual_transcripts").Where("id = ?", jobID).First(&job).Error; err != nil {
+	if err := mt.db.Where("id = ?", jobID).First(&job).Error; err != nil {
 		return nil, fmt.Errorf("failed to load job: %w", err)
 	}
 
@@ -731,7 +733,7 @@ func (mt *MultiTrackTranscriber) logIndividualTranscript(fileName string, result
 // This allows users to rename speakers in the UI
 func (mt *MultiTrackTranscriber) createSpeakerMappings(jobID string, trackTranscripts []TrackTranscript) error {
 	// Clear any existing speaker mappings for this job
-	if err := mt.db.Where("transcription_job_id = ?", jobID).Delete(&models.SpeakerMapping{}).Error; err != nil {
+	if err := mt.db.Where("transcription_id = ?", jobID).Delete(&models.SpeakerMapping{}).Error; err != nil {
 		return fmt.Errorf("failed to clear existing speaker mappings: %w", err)
 	}
 

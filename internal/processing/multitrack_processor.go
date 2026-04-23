@@ -70,7 +70,7 @@ func (p *MultiTrackProcessor) ProcessMultiTrackJob(ctx context.Context, jobID st
 
 	// Get updated track files from database
 	var trackFiles []models.MultiTrackFile
-	if err := p.db.Where("transcription_job_id = ?", jobID).Order("track_index").Find(&trackFiles).Error; err != nil {
+	if err := p.db.Where("transcription_id = ?", jobID).Order("track_index").Find(&trackFiles).Error; err != nil {
 		errMsg := err.Error()
 		_ = p.updateMergeStatus(jobID, "failed", &errMsg)
 		return fmt.Errorf("failed to get track files: %w", err)
@@ -105,14 +105,11 @@ func (p *MultiTrackProcessor) ProcessMultiTrackJob(ctx context.Context, jobID st
 	}
 
 	// Update job with merged audio path
-	updates := map[string]interface{}{
-		"merged_audio_path": outputPath,
-		"merge_status":      "completed",
-		"merge_error":       nil,
-		"audio_path":        outputPath, // Update main audio path to point to merged file
-	}
-
-	if err := p.db.Model(&models.TranscriptionJob{}).Where("id = ?", jobID).Updates(updates).Error; err != nil {
+	job.MergedAudioPath = &outputPath
+	job.MergeStatus = "completed"
+	job.MergeError = nil
+	job.AudioPath = outputPath
+	if err := p.db.Save(&job).Error; err != nil {
 		errMsg := err.Error()
 		_ = p.updateMergeStatus(jobID, "failed", &errMsg)
 		return fmt.Errorf("failed to update job with merged path: %w", err)
@@ -124,24 +121,20 @@ func (p *MultiTrackProcessor) ProcessMultiTrackJob(ctx context.Context, jobID st
 
 // updateMergeStatus updates the merge status of a job
 func (p *MultiTrackProcessor) updateMergeStatus(jobID, status string, errorMsg *string) error {
-	updates := map[string]interface{}{
-		"merge_status": status,
+	var job models.TranscriptionJob
+	if err := p.db.Where("id = ?", jobID).First(&job).Error; err != nil {
+		return err
 	}
-
-	if errorMsg != nil {
-		updates["merge_error"] = *errorMsg
-	} else {
-		updates["merge_error"] = nil
-	}
-
-	return p.db.Model(&models.TranscriptionJob{}).Where("id = ?", jobID).Updates(updates).Error
+	job.MergeStatus = status
+	job.MergeError = errorMsg
+	return p.db.Save(&job).Error
 }
 
 // updateTrackOffsets updates the MultiTrackFile records with information from .aup file
 func (p *MultiTrackProcessor) updateTrackOffsets(jobID string, aupTracks []audio.AupTrack) error {
 	// Get existing track files
 	var trackFiles []models.MultiTrackFile
-	if err := p.db.Where("transcription_job_id = ?", jobID).Find(&trackFiles).Error; err != nil {
+	if err := p.db.Where("transcription_id = ?", jobID).Find(&trackFiles).Error; err != nil {
 		return fmt.Errorf("failed to get existing track files: %w", err)
 	}
 
@@ -158,14 +151,11 @@ func (p *MultiTrackProcessor) updateTrackOffsets(jobID string, aupTracks []audio
 		// Try to find matching aup track
 		originalFilename := trackFile.FileName + filepath.Ext(trackFile.FilePath)
 		if aupTrack, exists := aupTrackMap[originalFilename]; exists {
-			updates := map[string]interface{}{
-				"offset": aupTrack.Offset,
-				"gain":   aupTrack.Gain,
-				"pan":    aupTrack.Pan,
-				"mute":   aupTrack.Mute == 1, // Convert int to bool
-			}
-
-			if err := p.db.Model(&models.MultiTrackFile{}).Where("id = ?", trackFile.ID).Updates(updates).Error; err != nil {
+			trackFile.Offset = aupTrack.Offset
+			trackFile.Gain = aupTrack.Gain
+			trackFile.Pan = aupTrack.Pan
+			trackFile.Mute = aupTrack.Mute == 1
+			if err := p.db.Save(&trackFile).Error; err != nil {
 				return fmt.Errorf("failed to update track file %d: %w", trackFile.ID, err)
 			}
 
@@ -178,14 +168,11 @@ func (p *MultiTrackProcessor) updateTrackOffsets(jobID string, aupTracks []audio
 				"mute", aupTrack.Mute == 1)
 		} else {
 			logger.Warn("No matching AUP track found for file", "filename", originalFilename, "track_id", trackFile.ID)
-			// Set default values for tracks not found in AUP
-			updates := map[string]interface{}{
-				"offset": 0.0,
-				"gain":   1.0,
-				"pan":    0.0,
-				"mute":   false,
-			}
-			if err := p.db.Model(&models.MultiTrackFile{}).Where("id = ?", trackFile.ID).Updates(updates).Error; err != nil {
+			trackFile.Offset = 0
+			trackFile.Gain = 1
+			trackFile.Pan = 0
+			trackFile.Mute = false
+			if err := p.db.Save(&trackFile).Error; err != nil {
 				return fmt.Errorf("failed to set default values for track file %d: %w", trackFile.ID, err)
 			}
 		}
@@ -197,7 +184,7 @@ func (p *MultiTrackProcessor) updateTrackOffsets(jobID string, aupTracks []audio
 // GetMergeStatus returns the current merge status of a job
 func (p *MultiTrackProcessor) GetMergeStatus(jobID string) (string, *string, error) {
 	var job models.TranscriptionJob
-	if err := p.db.Select("merge_status", "merge_error").Where("id = ?", jobID).First(&job).Error; err != nil {
+	if err := p.db.Where("id = ?", jobID).First(&job).Error; err != nil {
 		return "", nil, fmt.Errorf("failed to get job: %w", err)
 	}
 	return job.MergeStatus, job.MergeError, nil

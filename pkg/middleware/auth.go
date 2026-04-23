@@ -1,6 +1,8 @@
 package middleware
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"net/http"
 	"strings"
 	"time"
@@ -67,7 +69,7 @@ func AuthMiddleware(authService *auth.AuthService) gin.HandlerFunc {
 // validateAPIKey validates an API key against the database and updates last used timestamp
 func validateAPIKey(key string) bool {
 	var apiKey models.APIKey
-	result := database.DB.Where("key = ? AND is_active = ?", key, true).First(&apiKey)
+	result := database.DB.Where("key_hash = ? AND revoked_at IS NULL", hashAPIKey(key)).First(&apiKey)
 	if result.Error != nil {
 		return false
 	}
@@ -78,6 +80,11 @@ func validateAPIKey(key string) bool {
 	database.DB.Save(&apiKey)
 
 	return true
+}
+
+func hashAPIKey(key string) string {
+	sum := sha256.Sum256([]byte(key))
+	return hex.EncodeToString(sum[:])
 }
 
 // APIKeyOnlyMiddleware only allows API key authentication

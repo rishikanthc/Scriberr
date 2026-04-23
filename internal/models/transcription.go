@@ -1,254 +1,485 @@
 package models
 
 import (
+	"encoding/json"
+	"path/filepath"
 	"time"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
-// TranscriptionJob represents a transcription job record
-type TranscriptionJob struct {
-	ID                    string         `json:"id" gorm:"primaryKey;type:varchar(36)"`
-	Title                 *string        `json:"title,omitempty" gorm:"type:text"`
-	Status                JobStatus      `json:"status" gorm:"type:varchar(20);not null;default:'pending'"`
-	AudioPath             string         `json:"audio_path" gorm:"type:text;not null"`
-	Transcript            *string        `json:"transcript,omitempty" gorm:"type:text"`
-	Diarization           bool           `json:"diarization" gorm:"type:boolean;default:false"`
-	Summary               *string        `json:"summary,omitempty" gorm:"type:text"`
-	ErrorMessage          *string        `json:"error_message,omitempty" gorm:"type:text"`
-	IsMultiTrack          bool           `json:"is_multi_track" gorm:"type:boolean;default:false"`
-	AupFilePath           *string        `json:"aup_file_path,omitempty" gorm:"type:text"`
-	MultiTrackFolder      *string        `json:"multi_track_folder,omitempty" gorm:"type:text"`
-	MergedAudioPath       *string        `json:"merged_audio_path,omitempty" gorm:"type:text"`
-	MergeStatus           string         `json:"merge_status" gorm:"type:varchar(20);default:'none'"` // none, pending, processing, completed, failed
-	MergeError            *string        `json:"merge_error,omitempty" gorm:"type:text"`
-	IndividualTranscripts *string        `json:"individual_transcripts,omitempty" gorm:"type:text"` // JSON-serialized map[string]*string
-	CreatedAt             time.Time      `json:"created_at" gorm:"autoCreateTime"`
-	UpdatedAt             time.Time      `json:"updated_at" gorm:"autoUpdateTime"`
-	DeletedAt             gorm.DeletedAt `json:"deleted_at,omitempty" gorm:"index" swaggertype:"string"`
+const primaryUserID uint = 1
 
-	// WhisperX parameters
-	Parameters WhisperXParams `json:"parameters" gorm:"embedded"`
-
-	// Relationships
-	MultiTrackFiles []MultiTrackFile `json:"multi_track_files,omitempty" gorm:"foreignKey:TranscriptionJobID"`
-}
-
-// JobStatus represents the status of a transcription job
+// JobStatus represents the status of a transcription job.
 type JobStatus string
 
 const (
 	StatusUploaded   JobStatus = "uploaded"
-	StatusPending    JobStatus = "pending"
+	StatusPending    JobStatus = "queued"
 	StatusProcessing JobStatus = "processing"
 	StatusCompleted  JobStatus = "completed"
 	StatusFailed     JobStatus = "failed"
+	StatusCanceled   JobStatus = "canceled"
 )
 
-// WhisperXParams contains parameters for WhisperX transcription
+// WhisperXParams contains parameters for transcription execution.
 type WhisperXParams struct {
-	// Model family (whisper or nvidia)
-	ModelFamily string `json:"model_family" gorm:"type:varchar(20);default:'whisper'"`
-
-	// Model parameters
-	Model          string  `json:"model" gorm:"type:varchar(50);default:'small'"`
-	ModelCacheOnly bool    `json:"model_cache_only" gorm:"type:boolean;default:false"`
-	ModelDir       *string `json:"model_dir,omitempty" gorm:"type:text"`
-
-	// Device and computation
-	Device      string `json:"device" gorm:"type:varchar(20);default:'cpu'"`
-	DeviceIndex int    `json:"device_index" gorm:"type:int;default:0"`
-	BatchSize   int    `json:"batch_size" gorm:"type:int;default:8"`
-	ComputeType string `json:"compute_type" gorm:"type:varchar(20);default:'float32'"`
-	Threads     int    `json:"threads" gorm:"type:int;default:0"`
-
-	// Output settings
-	OutputFormat string `json:"output_format" gorm:"type:varchar(20);default:'all'"`
-	Verbose      bool   `json:"verbose" gorm:"type:boolean;default:true"`
-
-	// Task and language
-	Task     string  `json:"task" gorm:"type:varchar(20);default:'transcribe'"`
-	Language *string `json:"language,omitempty" gorm:"type:varchar(10)"`
-
-	// Alignment settings
-	AlignModel           *string `json:"align_model,omitempty" gorm:"type:varchar(100)"`
-	InterpolateMethod    string  `json:"interpolate_method" gorm:"type:varchar(20);default:'nearest'"`
-	NoAlign              bool    `json:"no_align" gorm:"type:boolean;default:false"`
-	ReturnCharAlignments bool    `json:"return_char_alignments" gorm:"type:boolean;default:false"`
-
-	// VAD (Voice Activity Detection) settings
-	VadMethod string  `json:"vad_method" gorm:"type:varchar(20);default:'pyannote'"`
-	VadOnset  float64 `json:"vad_onset" gorm:"type:real;default:0.5"`
-	VadOffset float64 `json:"vad_offset" gorm:"type:real;default:0.363"`
-	ChunkSize int     `json:"chunk_size" gorm:"type:int;default:30"`
-
-	// Diarization settings
-	Diarize           bool   `json:"diarize" gorm:"type:boolean;default:false"`
-	MinSpeakers       *int   `json:"min_speakers,omitempty" gorm:"type:int"`
-	MaxSpeakers       *int   `json:"max_speakers,omitempty" gorm:"type:int"`
-	DiarizeModel      string `json:"diarize_model" gorm:"type:varchar(50);default:'pyannote'"` // Options: 'pyannote', 'nvidia_sortformer'
-	SpeakerEmbeddings bool   `json:"speaker_embeddings" gorm:"type:boolean;default:false"`
-
-	// Transcription quality settings
-	Temperature                    float64 `json:"temperature" gorm:"type:real;default:0"`
-	BestOf                         int     `json:"best_of" gorm:"type:int;default:5"`
-	BeamSize                       int     `json:"beam_size" gorm:"type:int;default:5"`
-	Patience                       float64 `json:"patience" gorm:"type:real;default:1.0"`
-	LengthPenalty                  float64 `json:"length_penalty" gorm:"type:real;default:1.0"`
-	SuppressTokens                 *string `json:"suppress_tokens,omitempty" gorm:"type:text"`
-	SuppressNumerals               bool    `json:"suppress_numerals" gorm:"type:boolean;default:false"`
-	InitialPrompt                  *string `json:"initial_prompt,omitempty" gorm:"type:text"`
-	ConditionOnPreviousText        bool    `json:"condition_on_previous_text" gorm:"type:boolean;default:false"`
-	Fp16                           bool    `json:"fp16" gorm:"type:boolean;default:true"`
-	TemperatureIncrementOnFallback float64 `json:"temperature_increment_on_fallback" gorm:"type:real;default:0.2"`
-	CompressionRatioThreshold      float64 `json:"compression_ratio_threshold" gorm:"type:real;default:2.4"`
-	LogprobThreshold               float64 `json:"logprob_threshold" gorm:"type:real;default:-1.0"`
-	NoSpeechThreshold              float64 `json:"no_speech_threshold" gorm:"type:real;default:0.6"`
-
-	// Output formatting
-	MaxLineWidth      *int   `json:"max_line_width,omitempty" gorm:"type:int"`
-	MaxLineCount      *int   `json:"max_line_count,omitempty" gorm:"type:int"`
-	HighlightWords    bool   `json:"highlight_words" gorm:"type:boolean;default:false"`
-	SegmentResolution string `json:"segment_resolution" gorm:"type:varchar(20);default:'sentence'"`
-
-	// Token and progress
-	HfToken       *string `json:"hf_token,omitempty" gorm:"type:text"`
-	PrintProgress bool    `json:"print_progress" gorm:"type:boolean;default:false"`
-
-	// NVIDIA Parakeet-specific parameters for long-form audio
-	AttentionContextLeft  int `json:"attention_context_left" gorm:"type:int;default:256"`
-	AttentionContextRight int `json:"attention_context_right" gorm:"type:int;default:256"`
-
-	// Multi-track transcription settings
-	IsMultiTrackEnabled bool `json:"is_multi_track_enabled" gorm:"type:boolean;default:false"`
-
-	// Webhook settings
-	CallbackURL *string `json:"callback_url,omitempty" gorm:"type:text"`
-
-	// OpenAI settings
-	APIKey *string `json:"api_key,omitempty" gorm:"type:text"`
-
-	// Voxtral settings
-	MaxNewTokens *int `json:"max_new_tokens,omitempty" gorm:"type:int"`
+	ModelFamily                    string  `json:"model_family,omitempty"`
+	Model                          string  `json:"model,omitempty"`
+	ModelCacheOnly                 bool    `json:"model_cache_only,omitempty"`
+	ModelDir                       *string `json:"model_dir,omitempty"`
+	Device                         string  `json:"device,omitempty"`
+	DeviceIndex                    int     `json:"device_index,omitempty"`
+	BatchSize                      int     `json:"batch_size,omitempty"`
+	ComputeType                    string  `json:"compute_type,omitempty"`
+	Threads                        int     `json:"threads,omitempty"`
+	OutputFormat                   string  `json:"output_format,omitempty"`
+	Verbose                        bool    `json:"verbose,omitempty"`
+	Task                           string  `json:"task,omitempty"`
+	Language                       *string `json:"language,omitempty"`
+	AlignModel                     *string `json:"align_model,omitempty"`
+	InterpolateMethod              string  `json:"interpolate_method,omitempty"`
+	NoAlign                        bool    `json:"no_align,omitempty"`
+	ReturnCharAlignments           bool    `json:"return_char_alignments,omitempty"`
+	VadMethod                      string  `json:"vad_method,omitempty"`
+	VadOnset                       float64 `json:"vad_onset,omitempty"`
+	VadOffset                      float64 `json:"vad_offset,omitempty"`
+	ChunkSize                      int     `json:"chunk_size,omitempty"`
+	Diarize                        bool    `json:"diarize,omitempty"`
+	MinSpeakers                    *int    `json:"min_speakers,omitempty"`
+	MaxSpeakers                    *int    `json:"max_speakers,omitempty"`
+	DiarizeModel                   string  `json:"diarize_model,omitempty"`
+	SpeakerEmbeddings              bool    `json:"speaker_embeddings,omitempty"`
+	Temperature                    float64 `json:"temperature,omitempty"`
+	BestOf                         int     `json:"best_of,omitempty"`
+	BeamSize                       int     `json:"beam_size,omitempty"`
+	Patience                       float64 `json:"patience,omitempty"`
+	LengthPenalty                  float64 `json:"length_penalty,omitempty"`
+	SuppressTokens                 *string `json:"suppress_tokens,omitempty"`
+	SuppressNumerals               bool    `json:"suppress_numerals,omitempty"`
+	InitialPrompt                  *string `json:"initial_prompt,omitempty"`
+	ConditionOnPreviousText        bool    `json:"condition_on_previous_text,omitempty"`
+	Fp16                           bool    `json:"fp16,omitempty"`
+	TemperatureIncrementOnFallback float64 `json:"temperature_increment_on_fallback,omitempty"`
+	CompressionRatioThreshold      float64 `json:"compression_ratio_threshold,omitempty"`
+	LogprobThreshold               float64 `json:"logprob_threshold,omitempty"`
+	NoSpeechThreshold              float64 `json:"no_speech_threshold,omitempty"`
+	MaxLineWidth                   *int    `json:"max_line_width,omitempty"`
+	MaxLineCount                   *int    `json:"max_line_count,omitempty"`
+	HighlightWords                 bool    `json:"highlight_words,omitempty"`
+	SegmentResolution              string  `json:"segment_resolution,omitempty"`
+	HfToken                        *string `json:"hf_token,omitempty"`
+	PrintProgress                  bool    `json:"print_progress,omitempty"`
+	AttentionContextLeft           int     `json:"attention_context_left,omitempty"`
+	AttentionContextRight          int     `json:"attention_context_right,omitempty"`
+	IsMultiTrackEnabled            bool    `json:"is_multi_track_enabled,omitempty"`
+	CallbackURL                    *string `json:"callback_url,omitempty"`
+	APIKey                         *string `json:"api_key,omitempty"`
+	MaxNewTokens                   *int    `json:"max_new_tokens,omitempty"`
 }
 
-// BeforeCreate sets the ID if not already set
+type transcriptionMetadata struct {
+	Diarization           bool           `json:"diarization,omitempty"`
+	IsMultiTrack          bool           `json:"is_multi_track,omitempty"`
+	AupFilePath           *string        `json:"aup_file_path,omitempty"`
+	MultiTrackFolder      *string        `json:"multi_track_folder,omitempty"`
+	MergedAudioPath       *string        `json:"merged_audio_path,omitempty"`
+	MergeStatus           string         `json:"merge_status,omitempty"`
+	MergeError            *string        `json:"merge_error,omitempty"`
+	IndividualTranscripts *string        `json:"individual_transcripts,omitempty"`
+	Summary               *string        `json:"summary,omitempty"`
+	Parameters            WhisperXParams `json:"parameters,omitempty"`
+}
+
+// TranscriptionJob represents the durable transcription record.
+type TranscriptionJob struct {
+	ID                string         `json:"id" gorm:"primaryKey;type:varchar(36)"`
+	UserID            uint           `json:"user_id" gorm:"not null;index;default:1"`
+	Title             *string        `json:"title,omitempty" gorm:"type:text"`
+	Status            JobStatus      `json:"status" gorm:"column:status;type:varchar(20);not null;default:'uploaded';index"`
+	AudioPath         string         `json:"audio_path" gorm:"column:source_file_path;type:text;not null"`
+	SourceFileName    string         `json:"source_file_name,omitempty" gorm:"type:text"`
+	SourceFileHash    *string        `json:"source_file_hash,omitempty" gorm:"type:varchar(128);index"`
+	SourceDurationMs  *int64         `json:"source_duration_ms,omitempty" gorm:"type:integer"`
+	Language          *string        `json:"language,omitempty" gorm:"type:varchar(32)"`
+	Transcript        *string        `json:"transcript,omitempty" gorm:"column:transcript_text;type:text"`
+	OutputJSONPath    *string        `json:"output_json_path,omitempty" gorm:"column:output_json_path;type:text"`
+	OutputSRTPath     *string        `json:"output_srt_path,omitempty" gorm:"column:output_srt_path;type:text"`
+	OutputVTTPath     *string        `json:"output_vtt_path,omitempty" gorm:"column:output_vtt_path;type:text"`
+	LatestExecutionID *string        `json:"latest_execution_id,omitempty" gorm:"type:varchar(36);index"`
+	ErrorMessage      *string        `json:"error_message,omitempty" gorm:"column:last_error;type:text"`
+	MetadataJSON      string         `json:"-" gorm:"column:metadata_json;type:json"`
+	CompletedAt       *time.Time     `json:"completed_at,omitempty"`
+	CreatedAt         time.Time      `json:"created_at" gorm:"autoCreateTime"`
+	UpdatedAt         time.Time      `json:"updated_at" gorm:"autoUpdateTime"`
+	DeletedAt         gorm.DeletedAt `json:"deleted_at,omitempty" gorm:"index" swaggertype:"string"`
+
+	Diarization           bool           `json:"diarization" gorm:"-"`
+	Summary               *string        `json:"summary,omitempty" gorm:"-"`
+	IsMultiTrack          bool           `json:"is_multi_track" gorm:"-"`
+	AupFilePath           *string        `json:"aup_file_path,omitempty" gorm:"-"`
+	MultiTrackFolder      *string        `json:"multi_track_folder,omitempty" gorm:"-"`
+	MergedAudioPath       *string        `json:"merged_audio_path,omitempty" gorm:"-"`
+	MergeStatus           string         `json:"merge_status,omitempty" gorm:"-"`
+	MergeError            *string        `json:"merge_error,omitempty" gorm:"-"`
+	IndividualTranscripts *string        `json:"individual_transcripts,omitempty" gorm:"-"`
+	Parameters            WhisperXParams `json:"parameters" gorm:"-"`
+
+	MultiTrackFiles []MultiTrackFile `json:"multi_track_files,omitempty" gorm:"foreignKey:TranscriptionJobID;references:ID"`
+}
+
+func (TranscriptionJob) TableName() string { return "transcriptions" }
+
 func (tj *TranscriptionJob) BeforeCreate(tx *gorm.DB) error {
 	if tj.ID == "" {
 		tj.ID = uuid.New().String()
 	}
+	tj.applyDefaults()
+	tj.syncColumnsFromCompat()
 	return nil
 }
 
-// User represents a user for authentication
-type User struct {
-	ID                       uint      `json:"id" gorm:"primaryKey"`
-	Username                 string    `json:"username" gorm:"uniqueIndex;not null;type:varchar(50)"`
-	Password                 string    `json:"-" gorm:"not null;type:varchar(255)"`
-	DefaultProfileID         *string   `json:"default_profile_id,omitempty" gorm:"type:varchar(36)"`
-	AutoTranscriptionEnabled bool      `json:"auto_transcription_enabled" gorm:"not null;default:false"`
-	CreatedAt                time.Time `json:"created_at" gorm:"autoCreateTime"`
-	UpdatedAt                time.Time `json:"updated_at" gorm:"autoUpdateTime"`
+func (tj *TranscriptionJob) BeforeSave(tx *gorm.DB) error {
+	tj.applyDefaults()
+	tj.syncColumnsFromCompat()
+	return nil
 }
 
-// APIKey represents an API key for external authentication
-type APIKey struct {
-	ID          uint    `json:"id" gorm:"primaryKey"`
-	Key         string  `json:"key" gorm:"uniqueIndex;not null;type:varchar(255)"`
-	Name        string  `json:"name" gorm:"not null;type:varchar(100)"`
-	Description *string `json:"description,omitempty" gorm:"type:text"`
-	// IsActive should persist explicit false values; avoid default tag to prevent
-	// GORM from overriding false with DB defaults during inserts.
-	IsActive  bool       `json:"is_active" gorm:"type:boolean;not null"`
-	LastUsed  *time.Time `json:"last_used,omitempty"`
-	CreatedAt time.Time  `json:"created_at" gorm:"autoCreateTime"`
-	UpdatedAt time.Time  `json:"updated_at" gorm:"autoUpdateTime"`
+func (tj *TranscriptionJob) AfterFind(tx *gorm.DB) error {
+	tj.syncCompatFromColumns()
+	return nil
 }
 
-// BeforeCreate sets the API key if not already set
-func (ak *APIKey) BeforeCreate(tx *gorm.DB) error {
-	if ak.Key == "" {
-		ak.Key = uuid.New().String()
+func (tj *TranscriptionJob) applyDefaults() {
+	if tj.UserID == 0 {
+		tj.UserID = primaryUserID
 	}
-	return nil
-}
-
-// TranscriptionProfile represents a saved transcription configuration profile
-type TranscriptionProfile struct {
-	ID          string         `json:"id" gorm:"primaryKey;type:varchar(36)"`
-	Name        string         `json:"name" gorm:"type:varchar(255);not null"`
-	Description *string        `json:"description,omitempty" gorm:"type:text"`
-	IsDefault   bool           `json:"is_default" gorm:"type:boolean;default:false"`
-	Parameters  WhisperXParams `json:"parameters" gorm:"embedded"`
-	CreatedAt   time.Time      `json:"created_at" gorm:"autoCreateTime"`
-	UpdatedAt   time.Time      `json:"updated_at" gorm:"autoUpdateTime"`
-}
-
-// BeforeCreate sets the ID if not already set
-func (tp *TranscriptionProfile) BeforeCreate(tx *gorm.DB) error {
-	if tp.ID == "" {
-		tp.ID = uuid.New().String()
+	if tj.SourceFileName == "" && tj.AudioPath != "" {
+		tj.SourceFileName = filepath.Base(tj.AudioPath)
 	}
-	return nil
+	if tj.MergeStatus == "" {
+		tj.MergeStatus = "none"
+	}
 }
 
-// BeforeSave ensures only one profile can be default
-func (tp *TranscriptionProfile) BeforeSave(tx *gorm.DB) error {
-	if tp.IsDefault {
-		// Set all other profiles to not default
-		if err := tx.Model(&TranscriptionProfile{}).Where("id != ?", tp.ID).Update("is_default", false).Error; err != nil {
-			return err
+func (tj *TranscriptionJob) syncColumnsFromCompat() {
+	if tj.Parameters.Language != nil {
+		tj.Language = tj.Parameters.Language
+	}
+	if tj.Status == StatusCompleted && tj.CompletedAt == nil {
+		now := time.Now()
+		tj.CompletedAt = &now
+	}
+	if tj.Status != StatusCompleted {
+		tj.CompletedAt = nil
+	}
+
+	metadata := transcriptionMetadata{
+		Diarization:           tj.Diarization || tj.Parameters.Diarize,
+		IsMultiTrack:          tj.IsMultiTrack,
+		AupFilePath:           tj.AupFilePath,
+		MultiTrackFolder:      tj.MultiTrackFolder,
+		MergedAudioPath:       tj.MergedAudioPath,
+		MergeStatus:           tj.MergeStatus,
+		MergeError:            tj.MergeError,
+		IndividualTranscripts: tj.IndividualTranscripts,
+		Summary:               tj.Summary,
+		Parameters:            tj.Parameters,
+	}
+	bytes, _ := json.Marshal(metadata)
+	tj.MetadataJSON = string(bytes)
+}
+
+func (tj *TranscriptionJob) syncCompatFromColumns() {
+	tj.SourceFileName = coalesceString(tj.SourceFileName, filepath.Base(tj.AudioPath))
+	if tj.MetadataJSON == "" {
+		tj.MergeStatus = coalesceString(tj.MergeStatus, "none")
+		if tj.Language != nil {
+			tj.Parameters.Language = tj.Language
 		}
+		return
+	}
+	var metadata transcriptionMetadata
+	if err := json.Unmarshal([]byte(tj.MetadataJSON), &metadata); err != nil {
+		tj.MergeStatus = "none"
+		return
+	}
+	tj.Diarization = metadata.Diarization
+	tj.Summary = metadata.Summary
+	tj.IsMultiTrack = metadata.IsMultiTrack
+	tj.AupFilePath = metadata.AupFilePath
+	tj.MultiTrackFolder = metadata.MultiTrackFolder
+	tj.MergedAudioPath = metadata.MergedAudioPath
+	tj.MergeStatus = coalesceString(metadata.MergeStatus, "none")
+	tj.MergeError = metadata.MergeError
+	tj.IndividualTranscripts = metadata.IndividualTranscripts
+	tj.Parameters = metadata.Parameters
+	if tj.Language != nil && tj.Parameters.Language == nil {
+		tj.Parameters.Language = tj.Language
+	}
+}
+
+func coalesceString(current, fallback string) string {
+	if current != "" {
+		return current
+	}
+	return fallback
+}
+
+// MultiTrackTiming represents timing data for individual track processing.
+type MultiTrackTiming struct {
+	TrackName string    `json:"track_name"`
+	StartTime time.Time `json:"start_time"`
+	EndTime   time.Time `json:"end_time"`
+	Duration  int64     `json:"duration"`
+}
+
+type executionPayload struct {
+	Parameters            WhisperXParams     `json:"parameters,omitempty"`
+	MultiTrackTimings     []MultiTrackTiming `json:"multi_track_timings,omitempty"`
+	ProcessingDuration    *int64             `json:"processing_duration,omitempty"`
+	MergeStartTime        *time.Time         `json:"merge_start_time,omitempty"`
+	MergeEndTime          *time.Time         `json:"merge_end_time,omitempty"`
+	MergeDuration         *int64             `json:"merge_duration,omitempty"`
+	IndividualTranscripts map[string]string  `json:"individual_transcripts,omitempty"`
+}
+
+// TranscriptionJobExecution represents execution metadata for a transcription.
+type TranscriptionJobExecution struct {
+	ID                 string     `json:"id" gorm:"primaryKey;type:varchar(36)"`
+	TranscriptionJobID string     `json:"transcription_job_id" gorm:"column:transcription_id;type:varchar(36);not null;index"`
+	UserID             uint       `json:"user_id" gorm:"not null;index;default:1"`
+	ExecutionNumber    int        `json:"execution_number" gorm:"not null;default:1"`
+	TriggerType        string     `json:"trigger_type" gorm:"type:varchar(20);not null;default:'manual'"`
+	Status             JobStatus  `json:"status" gorm:"type:varchar(20);not null;index"`
+	ProfileID          *string    `json:"profile_id,omitempty" gorm:"type:varchar(36);index"`
+	ModelName          string     `json:"model_name,omitempty" gorm:"type:varchar(100)"`
+	ModelFamily        string     `json:"model_family,omitempty" gorm:"type:varchar(50)"`
+	Provider           string     `json:"provider,omitempty" gorm:"type:varchar(50)"`
+	Device             string     `json:"device,omitempty" gorm:"type:varchar(50)"`
+	ComputeType        string     `json:"compute_type,omitempty" gorm:"type:varchar(50)"`
+	RequestJSON        string     `json:"-" gorm:"column:request_json;type:json"`
+	ConfigJSON         string     `json:"-" gorm:"column:config_json;type:json"`
+	StartedAt          time.Time  `json:"started_at" gorm:"not null"`
+	CompletedAt        *time.Time `json:"completed_at,omitempty"`
+	FailedAt           *time.Time `json:"failed_at,omitempty"`
+	ErrorMessage       *string    `json:"error_message,omitempty" gorm:"type:text"`
+	LogsPath           *string    `json:"logs_path,omitempty" gorm:"type:text"`
+	MergedFilePath     *string    `json:"merged_file_path,omitempty" gorm:"type:text"`
+	OutputJSONPath     *string    `json:"output_json_path,omitempty" gorm:"type:text"`
+	CreatedAt          time.Time  `json:"created_at" gorm:"autoCreateTime"`
+
+	ProcessingDuration *int64         `json:"processing_duration,omitempty" gorm:"-"`
+	MultiTrackTimings  *string        `json:"multi_track_timings,omitempty" gorm:"-"`
+	MergeStartTime     *time.Time     `json:"merge_start_time,omitempty" gorm:"-"`
+	MergeEndTime       *time.Time     `json:"merge_end_time,omitempty" gorm:"-"`
+	MergeDuration      *int64         `json:"merge_duration,omitempty" gorm:"-"`
+	ActualParameters   WhisperXParams `json:"actual_parameters" gorm:"-"`
+
+	TranscriptionJob TranscriptionJob `json:"transcription_job,omitempty" gorm:"foreignKey:TranscriptionJobID;references:ID;constraint:OnDelete:CASCADE"`
+}
+
+func (TranscriptionJobExecution) TableName() string { return "transcription_executions" }
+
+func (tje *TranscriptionJobExecution) BeforeCreate(tx *gorm.DB) error {
+	if tje.ID == "" {
+		tje.ID = uuid.New().String()
+	}
+	tje.syncColumnsFromCompat()
+	return nil
+}
+
+func (tje *TranscriptionJobExecution) BeforeSave(tx *gorm.DB) error {
+	tje.syncColumnsFromCompat()
+	return nil
+}
+
+func (tje *TranscriptionJobExecution) AfterFind(tx *gorm.DB) error {
+	tje.syncCompatFromColumns()
+	return nil
+}
+
+func (tje *TranscriptionJobExecution) syncColumnsFromCompat() {
+	if tje.UserID == 0 {
+		tje.UserID = primaryUserID
+	}
+	if tje.ModelName == "" {
+		tje.ModelName = tje.ActualParameters.Model
+	}
+	if tje.ModelFamily == "" {
+		tje.ModelFamily = tje.ActualParameters.ModelFamily
+	}
+	if tje.Device == "" {
+		tje.Device = tje.ActualParameters.Device
+	}
+	if tje.ComputeType == "" {
+		tje.ComputeType = tje.ActualParameters.ComputeType
+	}
+	payload := executionPayload{Parameters: tje.ActualParameters, ProcessingDuration: tje.ProcessingDuration, MergeStartTime: tje.MergeStartTime, MergeEndTime: tje.MergeEndTime, MergeDuration: tje.MergeDuration}
+	if tje.MultiTrackTimings != nil && *tje.MultiTrackTimings != "" {
+		_ = json.Unmarshal([]byte(*tje.MultiTrackTimings), &payload.MultiTrackTimings)
+	}
+	reqBytes, _ := json.Marshal(payload)
+	tje.RequestJSON = string(reqBytes)
+	if tje.ConfigJSON == "" {
+		tje.ConfigJSON = tje.RequestJSON
+	}
+	if tje.Status == StatusCompleted {
+		tje.FailedAt = nil
+	}
+	if tje.Status == StatusFailed && tje.FailedAt == nil {
+		now := time.Now()
+		tje.FailedAt = &now
+	}
+}
+
+func (tje *TranscriptionJobExecution) syncCompatFromColumns() {
+	if tje.RequestJSON == "" {
+		return
+	}
+	var payload executionPayload
+	if err := json.Unmarshal([]byte(tje.RequestJSON), &payload); err != nil {
+		return
+	}
+	tje.ActualParameters = payload.Parameters
+	tje.ProcessingDuration = payload.ProcessingDuration
+	tje.MergeStartTime = payload.MergeStartTime
+	tje.MergeEndTime = payload.MergeEndTime
+	tje.MergeDuration = payload.MergeDuration
+	if len(payload.MultiTrackTimings) > 0 {
+		bytes, _ := json.Marshal(payload.MultiTrackTimings)
+		str := string(bytes)
+		tje.MultiTrackTimings = &str
+	}
+}
+
+// CalculateProcessingDuration calculates and sets the processing duration.
+func (tje *TranscriptionJobExecution) CalculateProcessingDuration() {
+	if tje.CompletedAt != nil {
+		duration := tje.CompletedAt.Sub(tje.StartedAt).Milliseconds()
+		tje.ProcessingDuration = &duration
+	}
+}
+
+// SpeakerMapping represents transcript-local speaker naming.
+type SpeakerMapping struct {
+	ID                 uint      `json:"id" gorm:"primaryKey;autoIncrement"`
+	UserID             uint      `json:"user_id" gorm:"not null;index;default:1"`
+	TranscriptionJobID string    `json:"transcription_job_id" gorm:"column:transcription_id;type:varchar(36);not null;index"`
+	OriginalSpeaker    string    `json:"original_speaker" gorm:"type:varchar(100);not null"`
+	CustomName         string    `json:"custom_name" gorm:"column:display_name;type:varchar(255);not null"`
+	CreatedAt          time.Time `json:"created_at" gorm:"autoCreateTime"`
+	UpdatedAt          time.Time `json:"updated_at" gorm:"autoUpdateTime"`
+
+	TranscriptionJob TranscriptionJob `json:"transcription_job,omitempty" gorm:"foreignKey:TranscriptionJobID;references:ID;constraint:OnDelete:CASCADE"`
+}
+
+func (SpeakerMapping) TableName() string { return "speaker_mappings" }
+
+func (sm *SpeakerMapping) BeforeCreate(tx *gorm.DB) error {
+	if sm.UserID == 0 {
+		sm.UserID = primaryUserID
 	}
 	return nil
 }
 
-// LLMConfig represents LLM configuration settings
-type LLMConfig struct {
-	ID            uint      `json:"id" gorm:"primaryKey"`
-	Provider      string    `json:"provider" gorm:"not null;type:varchar(50)"` // "ollama" or "openai"
-	BaseURL       *string   `json:"base_url,omitempty" gorm:"type:text"`       // For Ollama
-	OpenAIBaseURL *string   `json:"openai_base_url,omitempty" gorm:"type:text"` // For OpenAI custom endpoint
-	APIKey        *string   `json:"api_key,omitempty" gorm:"type:text"`        // For OpenAI (encrypted)
-	IsActive      bool      `json:"is_active" gorm:"type:boolean;default:false"`
-	CreatedAt     time.Time `json:"created_at" gorm:"autoCreateTime"`
-	UpdatedAt     time.Time `json:"updated_at" gorm:"autoUpdateTime"`
+// MultiTrackFile represents an individual track in a multi-track recording.
+type MultiTrackFile struct {
+	ID                 uint      `json:"id" gorm:"primaryKey;autoIncrement"`
+	UserID             uint      `json:"user_id" gorm:"not null;index;default:1"`
+	TranscriptionJobID string    `json:"transcription_job_id" gorm:"column:transcription_id;type:varchar(36);not null;index"`
+	FileName           string    `json:"file_name" gorm:"type:varchar(255);not null"`
+	FilePath           string    `json:"file_path" gorm:"type:text;not null"`
+	TrackIndex         int       `json:"track_index" gorm:"type:int;not null"`
+	Label              *string   `json:"label,omitempty" gorm:"type:text"`
+	SpeakerHint        *string   `json:"speaker_hint,omitempty" gorm:"type:text"`
+	MetadataJSON       string    `json:"-" gorm:"column:metadata_json;type:json"`
+	CreatedAt          time.Time `json:"created_at" gorm:"autoCreateTime"`
+
+	Offset float64 `json:"offset" gorm:"-"`
+	Gain   float64 `json:"gain" gorm:"-"`
+	Pan    float64 `json:"pan" gorm:"-"`
+	Mute   bool    `json:"mute" gorm:"-"`
+
+	TranscriptionJob TranscriptionJob `json:"transcription_job,omitempty" gorm:"foreignKey:TranscriptionJobID;references:ID;constraint:OnDelete:CASCADE"`
 }
 
-// BeforeSave ensures only one LLM config can be active
-func (lc *LLMConfig) BeforeSave(tx *gorm.DB) error {
-	if lc.IsActive {
-		// Set all other configs to not active
-		if err := tx.Model(&LLMConfig{}).Where("id != ?", lc.ID).Update("is_active", false).Error; err != nil {
-			return err
-		}
+func (MultiTrackFile) TableName() string { return "transcription_tracks" }
+
+func (mtf *MultiTrackFile) BeforeCreate(tx *gorm.DB) error {
+	if mtf.UserID == 0 {
+		mtf.UserID = primaryUserID
 	}
+	mtf.syncColumnsFromCompat()
 	return nil
 }
 
-// ChatSession represents a chat session with a transcript
+func (mtf *MultiTrackFile) BeforeSave(tx *gorm.DB) error {
+	mtf.syncColumnsFromCompat()
+	return nil
+}
+
+func (mtf *MultiTrackFile) AfterFind(tx *gorm.DB) error {
+	if mtf.MetadataJSON == "" {
+		return nil
+	}
+	var metadata struct {
+		Offset float64 `json:"offset,omitempty"`
+		Gain   float64 `json:"gain,omitempty"`
+		Pan    float64 `json:"pan,omitempty"`
+		Mute   bool    `json:"mute,omitempty"`
+	}
+	if err := json.Unmarshal([]byte(mtf.MetadataJSON), &metadata); err != nil {
+		return nil
+	}
+	mtf.Offset = metadata.Offset
+	mtf.Gain = metadata.Gain
+	mtf.Pan = metadata.Pan
+	mtf.Mute = metadata.Mute
+	return nil
+}
+
+func (mtf *MultiTrackFile) syncColumnsFromCompat() {
+	bytes, _ := json.Marshal(map[string]any{
+		"offset": mtf.Offset,
+		"gain":   mtf.Gain,
+		"pan":    mtf.Pan,
+		"mute":   mtf.Mute,
+	})
+	mtf.MetadataJSON = string(bytes)
+	if mtf.Label == nil {
+		mtf.Label = &mtf.FileName
+	}
+	if mtf.SpeakerHint == nil {
+		mtf.SpeakerHint = &mtf.FileName
+	}
+}
+
+// ChatSession represents a chat session tied to a transcription.
 type ChatSession struct {
-	ID              string     `json:"id" gorm:"primaryKey;type:varchar(36)"`
-	JobID           string     `json:"job_id" gorm:"type:varchar(36);not null"`
-	TranscriptionID string     `json:"transcription_id" gorm:"type:varchar(36);not null;index"`
-	Title           string     `json:"title" gorm:"type:varchar(255);not null"`
-	Model           string     `json:"model" gorm:"type:varchar(100);not null"`
-	Provider        string     `json:"provider" gorm:"type:varchar(50);not null;default:'openai'"`
-	SystemContext   *string    `json:"system_context,omitempty" gorm:"type:text"`
-	MessageCount    int        `json:"message_count" gorm:"type:integer;default:0"`
-	LastActivityAt  *time.Time `json:"last_activity_at,omitempty" gorm:"type:datetime"`
-	IsActive        bool       `json:"is_active" gorm:"type:boolean;default:true"`
-	CreatedAt       time.Time  `json:"created_at" gorm:"autoCreateTime"`
-	UpdatedAt       time.Time  `json:"updated_at" gorm:"autoUpdateTime"`
+	ID              string    `json:"id" gorm:"primaryKey;type:varchar(36)"`
+	UserID          uint      `json:"user_id" gorm:"not null;index;default:1"`
+	TranscriptionID string    `json:"transcription_id" gorm:"type:varchar(36);not null;index"`
+	Title           string    `json:"title" gorm:"type:varchar(255);not null"`
+	Model           string    `json:"model" gorm:"column:model_name;type:varchar(100);not null"`
+	Provider        string    `json:"provider" gorm:"type:varchar(50);not null;default:'openai'"`
+	SystemContext   *string   `json:"system_context,omitempty" gorm:"column:system_prompt;type:text"`
+	MetadataJSON    string    `json:"-" gorm:"column:metadata_json;type:json"`
+	CreatedAt       time.Time `json:"created_at" gorm:"autoCreateTime"`
+	UpdatedAt       time.Time `json:"updated_at" gorm:"autoUpdateTime"`
 
-	// Relationships
-	Transcription TranscriptionJob `json:"transcription,omitempty" gorm:"foreignKey:TranscriptionID;constraint:OnDelete:CASCADE"`
-	Job           TranscriptionJob `json:"job,omitempty" gorm:"foreignKey:JobID;constraint:OnDelete:CASCADE"`
-	Messages      []ChatMessage    `json:"messages,omitempty" gorm:"foreignKey:ChatSessionID;constraint:OnDelete:CASCADE"`
+	JobID          string     `json:"job_id" gorm:"-"`
+	MessageCount   int        `json:"message_count" gorm:"-"`
+	LastActivityAt *time.Time `json:"last_activity_at,omitempty" gorm:"-"`
+	IsActive       bool       `json:"is_active" gorm:"-"`
+
+	Transcription TranscriptionJob `json:"transcription,omitempty" gorm:"foreignKey:TranscriptionID;references:ID;constraint:OnDelete:CASCADE"`
+	Messages      []ChatMessage    `json:"messages,omitempty" gorm:"foreignKey:ChatSessionID;references:ID;constraint:OnDelete:CASCADE"`
 }
 
-// BeforeCreate sets the ID if not already set
+func (ChatSession) TableName() string { return "chat_sessions" }
+
 func (cs *ChatSession) BeforeCreate(tx *gorm.DB) error {
 	if cs.ID == "" {
 		cs.ID = uuid.New().String()
@@ -256,122 +487,236 @@ func (cs *ChatSession) BeforeCreate(tx *gorm.DB) error {
 	if cs.Title == "" {
 		cs.Title = "New Chat Session"
 	}
+	if cs.UserID == 0 {
+		cs.UserID = primaryUserID
+	}
+	return cs.BeforeSave(tx)
+}
+
+func (cs *ChatSession) BeforeSave(tx *gorm.DB) error {
+	if cs.UserID == 0 {
+		cs.UserID = primaryUserID
+	}
+	if cs.JobID == "" {
+		cs.JobID = cs.TranscriptionID
+	}
+	bytes, _ := json.Marshal(map[string]any{
+		"message_count":    cs.MessageCount,
+		"last_activity_at": cs.LastActivityAt,
+		"is_active":        cs.IsActive,
+	})
+	cs.MetadataJSON = string(bytes)
 	return nil
 }
 
-// ChatMessage represents a message in a chat session
-type ChatMessage struct {
-	ID            uint      `json:"id" gorm:"primaryKey;autoIncrement"`
-	SessionID     string    `json:"session_id" gorm:"type:varchar(36);not null;index"`
-	ChatSessionID string    `json:"chat_session_id" gorm:"type:varchar(36);not null;index"`
-	Role          string    `json:"role" gorm:"type:varchar(20);not null"` // "user" or "assistant"
-	Content       string    `json:"content" gorm:"type:text;not null"`
-	TokensUsed    *int      `json:"tokens_used,omitempty" gorm:"type:integer"`
-	CreatedAt     time.Time `json:"created_at" gorm:"autoCreateTime"`
-
-	// Relationships
-	ChatSession ChatSession `json:"chat_session,omitempty" gorm:"foreignKey:ChatSessionID;constraint:OnDelete:CASCADE"`
+func (cs *ChatSession) AfterFind(tx *gorm.DB) error {
+	cs.JobID = cs.TranscriptionID
+	if cs.MetadataJSON == "" {
+		cs.IsActive = true
+		return nil
+	}
+	var metadata struct {
+		MessageCount   int        `json:"message_count,omitempty"`
+		LastActivityAt *time.Time `json:"last_activity_at,omitempty"`
+		IsActive       bool       `json:"is_active,omitempty"`
+	}
+	if err := json.Unmarshal([]byte(cs.MetadataJSON), &metadata); err != nil {
+		cs.IsActive = true
+		return nil
+	}
+	cs.MessageCount = metadata.MessageCount
+	cs.LastActivityAt = metadata.LastActivityAt
+	cs.IsActive = metadata.IsActive || cs.MetadataJSON == "{}"
+	return nil
 }
 
-// BeforeCreate sets both session IDs to the same value for compatibility
+// ChatMessage represents a message in a chat session.
+type ChatMessage struct {
+	ID            uint      `json:"id" gorm:"primaryKey;autoIncrement"`
+	UserID        uint      `json:"user_id" gorm:"not null;index;default:1"`
+	ChatSessionID string    `json:"chat_session_id" gorm:"type:varchar(36);not null;index"`
+	Role          string    `json:"role" gorm:"type:varchar(20);not null"`
+	Content       string    `json:"content" gorm:"type:text;not null"`
+	MetadataJSON  string    `json:"-" gorm:"column:metadata_json;type:json"`
+	CreatedAt     time.Time `json:"created_at" gorm:"autoCreateTime"`
+
+	SessionID  string `json:"session_id" gorm:"-"`
+	TokensUsed *int   `json:"tokens_used,omitempty" gorm:"-"`
+
+	ChatSession ChatSession `json:"chat_session,omitempty" gorm:"foreignKey:ChatSessionID;references:ID;constraint:OnDelete:CASCADE"`
+}
+
+func (ChatMessage) TableName() string { return "chat_messages" }
+
 func (cm *ChatMessage) BeforeCreate(tx *gorm.DB) error {
+	if cm.UserID == 0 {
+		cm.UserID = primaryUserID
+	}
 	if cm.SessionID == "" {
 		cm.SessionID = cm.ChatSessionID
 	}
 	if cm.ChatSessionID == "" {
 		cm.ChatSessionID = cm.SessionID
 	}
+	return cm.BeforeSave(tx)
+}
+
+func (cm *ChatMessage) BeforeSave(tx *gorm.DB) error {
+	if cm.UserID == 0 {
+		cm.UserID = primaryUserID
+	}
+	if cm.SessionID == "" {
+		cm.SessionID = cm.ChatSessionID
+	}
+	if cm.ChatSessionID == "" {
+		cm.ChatSessionID = cm.SessionID
+	}
+	bytes, _ := json.Marshal(map[string]any{
+		"tokens_used": cm.TokensUsed,
+	})
+	cm.MetadataJSON = string(bytes)
 	return nil
 }
 
-// MultiTrackTiming represents timing data for individual track processing
-type MultiTrackTiming struct {
-	TrackName string    `json:"track_name"`
-	StartTime time.Time `json:"start_time"`
-	EndTime   time.Time `json:"end_time"`
-	Duration  int64     `json:"duration"` // Duration in milliseconds
+func (cm *ChatMessage) AfterFind(tx *gorm.DB) error {
+	cm.SessionID = cm.ChatSessionID
+	if cm.MetadataJSON == "" {
+		return nil
+	}
+	var metadata struct {
+		TokensUsed *int `json:"tokens_used,omitempty"`
+	}
+	if err := json.Unmarshal([]byte(cm.MetadataJSON), &metadata); err != nil {
+		return nil
+	}
+	cm.TokensUsed = metadata.TokensUsed
+	return nil
 }
 
-// TranscriptionJobExecution represents execution metadata for completed transcription jobs
-type TranscriptionJobExecution struct {
-	ID                 string `json:"id" gorm:"primaryKey;type:varchar(36)"`
-	TranscriptionJobID string `json:"transcription_job_id" gorm:"type:varchar(36);not null;index"`
+// TranscriptionProfile represents a saved transcription profile.
+type TranscriptionProfile struct {
+	ID                 string    `json:"id" gorm:"primaryKey;type:varchar(36)"`
+	UserID             uint      `json:"user_id" gorm:"not null;index;default:1"`
+	Name               string    `json:"name" gorm:"type:varchar(255);not null"`
+	Description        *string   `json:"description,omitempty" gorm:"type:text"`
+	ModelName          string    `json:"model_name,omitempty" gorm:"type:varchar(100)"`
+	ModelFamily        string    `json:"model_family,omitempty" gorm:"type:varchar(50)"`
+	Provider           string    `json:"provider,omitempty" gorm:"type:varchar(50)"`
+	Language           *string   `json:"language,omitempty" gorm:"type:varchar(32)"`
+	DiarizationEnabled bool      `json:"diarization_enabled" gorm:"not null;default:false"`
+	Device             string    `json:"device,omitempty" gorm:"type:varchar(50)"`
+	ComputeType        string    `json:"compute_type,omitempty" gorm:"type:varchar(50)"`
+	ConfigJSON         string    `json:"-" gorm:"column:config_json;type:json"`
+	IsDefault          bool      `json:"is_default" gorm:"not null;default:false;index"`
+	CreatedAt          time.Time `json:"created_at" gorm:"autoCreateTime"`
+	UpdatedAt          time.Time `json:"updated_at" gorm:"autoUpdateTime"`
 
-	// Execution timing
-	StartedAt          time.Time  `json:"started_at" gorm:"not null"`
-	CompletedAt        *time.Time `json:"completed_at,omitempty"`
-	ProcessingDuration *int64     `json:"processing_duration,omitempty"` // Duration in milliseconds
-
-	// Multi-track specific timing data
-	MultiTrackTimings *string    `json:"multi_track_timings,omitempty" gorm:"type:text"` // JSON-serialized []MultiTrackTiming
-	MergeStartTime    *time.Time `json:"merge_start_time,omitempty" gorm:"type:datetime"`
-	MergeEndTime      *time.Time `json:"merge_end_time,omitempty" gorm:"type:datetime"`
-	MergeDuration     *int64     `json:"merge_duration,omitempty"` // Merge phase duration in milliseconds
-
-	// Parameters used for this execution (may differ from job parameters due to profiles)
-	ActualParameters WhisperXParams `json:"actual_parameters" gorm:"embedded;embeddedPrefix:actual_"`
-
-	// Execution results
-	Status       JobStatus `json:"status" gorm:"type:varchar(20);not null"`
-	ErrorMessage *string   `json:"error_message,omitempty" gorm:"type:text"`
-
-	// Metadata
-	CreatedAt time.Time `json:"created_at" gorm:"autoCreateTime"`
-	UpdatedAt time.Time `json:"updated_at" gorm:"autoUpdateTime"`
-
-	// Relationship
-	TranscriptionJob TranscriptionJob `json:"transcription_job,omitempty" gorm:"foreignKey:TranscriptionJobID;constraint:OnDelete:CASCADE"`
+	Parameters WhisperXParams `json:"parameters" gorm:"-"`
 }
 
-// BeforeCreate sets the ID if not already set
-func (tje *TranscriptionJobExecution) BeforeCreate(tx *gorm.DB) error {
-	if tje.ID == "" {
-		tje.ID = uuid.New().String()
+func (TranscriptionProfile) TableName() string { return "transcription_profiles" }
+
+func (tp *TranscriptionProfile) BeforeCreate(tx *gorm.DB) error {
+	if tp.ID == "" {
+		tp.ID = uuid.New().String()
+	}
+	return tp.BeforeSave(tx)
+}
+
+func (tp *TranscriptionProfile) BeforeSave(tx *gorm.DB) error {
+	if tp.UserID == 0 {
+		tp.UserID = primaryUserID
+	}
+	tp.ModelName = tp.Parameters.Model
+	tp.ModelFamily = tp.Parameters.ModelFamily
+	tp.Language = tp.Parameters.Language
+	tp.DiarizationEnabled = tp.Parameters.Diarize
+	tp.Device = tp.Parameters.Device
+	tp.ComputeType = tp.Parameters.ComputeType
+	bytes, _ := json.Marshal(tp.Parameters)
+	tp.ConfigJSON = string(bytes)
+	if tp.IsDefault {
+		if err := tx.Model(&TranscriptionProfile{}).Where("id != ?", tp.ID).Update("is_default", false).Error; err != nil {
+			return err
+		}
 	}
 	return nil
 }
 
-// CalculateProcessingDuration calculates and sets the processing duration
-func (tje *TranscriptionJobExecution) CalculateProcessingDuration() {
-	if tje.CompletedAt != nil {
-		duration := tje.CompletedAt.Sub(tje.StartedAt)
-		durationMs := duration.Milliseconds()
-		tje.ProcessingDuration = &durationMs
+func (tp *TranscriptionProfile) AfterFind(tx *gorm.DB) error {
+	if tp.ConfigJSON != "" {
+		_ = json.Unmarshal([]byte(tp.ConfigJSON), &tp.Parameters)
 	}
+	if tp.Parameters.Model == "" {
+		tp.Parameters.Model = tp.ModelName
+	}
+	if tp.Parameters.ModelFamily == "" {
+		tp.Parameters.ModelFamily = tp.ModelFamily
+	}
+	if tp.Parameters.Language == nil {
+		tp.Parameters.Language = tp.Language
+	}
+	tp.Parameters.Diarize = tp.DiarizationEnabled
+	if tp.Parameters.Device == "" {
+		tp.Parameters.Device = tp.Device
+	}
+	if tp.Parameters.ComputeType == "" {
+		tp.Parameters.ComputeType = tp.ComputeType
+	}
+	return nil
 }
 
-// SpeakerMapping represents custom speaker names for a transcription job
-type SpeakerMapping struct {
-	ID                 uint      `json:"id" gorm:"primaryKey;autoIncrement"`
-	TranscriptionJobID string    `json:"transcription_job_id" gorm:"type:varchar(36);not null;index"`
-	OriginalSpeaker    string    `json:"original_speaker" gorm:"type:varchar(50);not null"` // e.g., "speaker_00"
-	CustomName         string    `json:"custom_name" gorm:"type:varchar(100);not null"`     // e.g., "John Doe"
-	CreatedAt          time.Time `json:"created_at" gorm:"autoCreateTime"`
-	UpdatedAt          time.Time `json:"updated_at" gorm:"autoUpdateTime"`
+// LLMConfig represents a saved LLM profile.
+type LLMConfig struct {
+	ID         uint      `json:"id" gorm:"primaryKey"`
+	UserID     uint      `json:"user_id" gorm:"not null;index;default:1"`
+	Name       string    `json:"name" gorm:"type:varchar(255);not null;default:'default'"`
+	Provider   string    `json:"provider" gorm:"not null;type:varchar(50)"`
+	ModelName  string    `json:"model_name,omitempty" gorm:"type:varchar(100)"`
+	BaseURL    *string   `json:"base_url,omitempty" gorm:"type:text"`
+	ConfigJSON string    `json:"-" gorm:"column:config_json;type:json"`
+	IsDefault  bool      `json:"is_default" gorm:"not null;default:false;index"`
+	CreatedAt  time.Time `json:"created_at" gorm:"autoCreateTime"`
+	UpdatedAt  time.Time `json:"updated_at" gorm:"autoUpdateTime"`
 
-	// Relationships
-	TranscriptionJob TranscriptionJob `json:"transcription_job,omitempty" gorm:"foreignKey:TranscriptionJobID;constraint:OnDelete:CASCADE"`
+	OpenAIBaseURL *string `json:"openai_base_url,omitempty" gorm:"-"`
+	APIKey        *string `json:"api_key,omitempty" gorm:"-"`
+	IsActive      bool    `json:"is_active" gorm:"-"`
 }
 
-// Ensure unique constraint on job_id + original_speaker combination
-func (SpeakerMapping) TableName() string {
-	return "speaker_mappings"
+func (LLMConfig) TableName() string { return "llm_profiles" }
+
+func (lc *LLMConfig) BeforeSave(tx *gorm.DB) error {
+	if lc.UserID == 0 {
+		lc.UserID = primaryUserID
+	}
+	bytes, _ := json.Marshal(map[string]any{
+		"openai_base_url": lc.OpenAIBaseURL,
+		"api_key":         lc.APIKey,
+	})
+	lc.ConfigJSON = string(bytes)
+	lc.IsActive = lc.IsDefault
+	if lc.IsDefault {
+		if err := tx.Model(&LLMConfig{}).Where("id != ?", lc.ID).Update("is_default", false).Error; err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
-// MultiTrackFile represents an individual audio track in a multi-track recording
-type MultiTrackFile struct {
-	ID                 uint      `json:"id" gorm:"primaryKey;autoIncrement"`
-	TranscriptionJobID string    `json:"transcription_job_id" gorm:"type:varchar(36);not null;index"`
-	FileName           string    `json:"file_name" gorm:"type:varchar(255);not null"` // Original filename (used as speaker name)
-	FilePath           string    `json:"file_path" gorm:"type:text;not null"`         // Full path to audio file
-	TrackIndex         int       `json:"track_index" gorm:"type:int;not null"`        // Order of the track
-	Offset             float64   `json:"offset" gorm:"type:real;default:0"`           // Offset in seconds from .aup file
-	Gain               float64   `json:"gain" gorm:"type:real;default:1.0"`           // Gain value from .aup file
-	Pan                float64   `json:"pan" gorm:"type:real;default:0.0"`            // Pan value from .aup file (-1.0 to 1.0)
-	Mute               bool      `json:"mute" gorm:"type:boolean;default:false"`      // Whether track is muted
-	CreatedAt          time.Time `json:"created_at" gorm:"autoCreateTime"`
-	UpdatedAt          time.Time `json:"updated_at" gorm:"autoUpdateTime"`
-
-	// Relationships
-	TranscriptionJob TranscriptionJob `json:"transcription_job,omitempty" gorm:"foreignKey:TranscriptionJobID;constraint:OnDelete:CASCADE"`
+func (lc *LLMConfig) AfterFind(tx *gorm.DB) error {
+	lc.IsActive = lc.IsDefault
+	if lc.ConfigJSON == "" {
+		return nil
+	}
+	var cfg struct {
+		OpenAIBaseURL *string `json:"openai_base_url,omitempty"`
+		APIKey        *string `json:"api_key,omitempty"`
+	}
+	if err := json.Unmarshal([]byte(lc.ConfigJSON), &cfg); err != nil {
+		return nil
+	}
+	lc.OpenAIBaseURL = cfg.OpenAIBaseURL
+	lc.APIKey = cfg.APIKey
+	return nil
 }

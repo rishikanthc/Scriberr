@@ -221,6 +221,8 @@ func transformAPIKeyForList(apiKey models.APIKey) APIKeyListResponse {
 		keyPreview = apiKey.Key[:8] + "..."
 	} else if apiKey.Key != "" {
 		keyPreview = apiKey.Key + "..."
+	} else if apiKey.KeyPrefix != "" {
+		keyPreview = apiKey.KeyPrefix + "..."
 	}
 
 	lastUsed := ""
@@ -1765,7 +1767,6 @@ func (h *Handler) issueRefreshToken(c *gin.Context, userID uint) error {
 		UserID:    userID,
 		Hashed:    hashed,
 		ExpiresAt: time.Now().Add(14 * 24 * time.Hour),
-		Revoked:   false,
 	}
 	if err := h.refreshTokenRepo.Create(c.Request.Context(), &rt); err != nil {
 		return err
@@ -1932,6 +1933,12 @@ func (h *Handler) ListAPIKeys(c *gin.Context) {
 // @Security BearerAuth
 // @Router /api/v1/api-keys [post]
 func (h *Handler) CreateAPIKey(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		return
+	}
+
 	var req CreateAPIKeyRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request: " + err.Error()})
@@ -1943,7 +1950,10 @@ func (h *Handler) CreateAPIKey(c *gin.Context) {
 
 	// Create the API key record
 	newKey := models.APIKey{
+		UserID:      userID.(uint),
 		Key:         apiKey,
+		KeyPrefix:   apiKeyPrefix(apiKey),
+		KeyHash:     sha256Hex(apiKey),
 		Name:        req.Name,
 		Description: &req.Description,
 		IsActive:    true,
@@ -2036,6 +2046,12 @@ func (h *Handler) GetLLMConfig(c *gin.Context) {
 // @Security BearerAuth
 // @Router /api/v1/llm/config [post]
 func (h *Handler) SaveLLMConfig(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		return
+	}
+
 	var req LLMConfigRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request: " + err.Error()})
@@ -2076,11 +2092,13 @@ func (h *Handler) SaveLLMConfig(c *gin.Context) {
 	if err == gorm.ErrRecordNotFound {
 		// No existing active config, create new one
 		config = &models.LLMConfig{
+			UserID:        userID.(uint),
+			Name:          "default",
 			Provider:      req.Provider,
 			BaseURL:       req.BaseURL,
 			OpenAIBaseURL: req.OpenAIBaseURL,
 			APIKey:        apiKeyToSave,
-			IsActive:      req.IsActive,
+			IsDefault:     req.IsActive,
 		}
 
 		if err := h.llmConfigRepo.Create(c.Request.Context(), config); err != nil {
@@ -2093,7 +2111,7 @@ func (h *Handler) SaveLLMConfig(c *gin.Context) {
 		existingConfig.BaseURL = req.BaseURL
 		existingConfig.OpenAIBaseURL = req.OpenAIBaseURL
 		existingConfig.APIKey = apiKeyToSave
-		existingConfig.IsActive = req.IsActive
+		existingConfig.IsDefault = req.IsActive
 
 		if err := h.llmConfigRepo.Update(c.Request.Context(), existingConfig); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update LLM configuration"})
@@ -2114,6 +2132,13 @@ func (h *Handler) SaveLLMConfig(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, response)
+}
+
+func apiKeyPrefix(key string) string {
+	if len(key) <= 8 {
+		return key
+	}
+	return key[:8]
 }
 
 // generateSecureAPIKey generates a cryptographically secure API key

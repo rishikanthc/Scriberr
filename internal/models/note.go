@@ -1,31 +1,76 @@
 package models
 
 import (
+	"encoding/json"
 	"time"
+
+	"gorm.io/gorm"
 )
 
-// Note represents an annotation attached to a transcription
+// Note represents an annotation attached to a transcription.
 type Note struct {
-	ID              string `json:"id" gorm:"primaryKey;type:varchar(36)"`
-	TranscriptionID string `json:"transcription_id" gorm:"type:varchar(36);not null;index"`
+	ID              string         `json:"id" gorm:"primaryKey;type:varchar(36)"`
+	UserID          uint           `json:"user_id" gorm:"not null;index;default:1"`
+	TranscriptionID string         `json:"transcription_id" gorm:"type:varchar(36);not null;index"`
+	Content         string         `json:"content" gorm:"type:text;not null"`
+	StartMS         int64          `json:"start_ms" gorm:"column:start_ms;type:integer;not null;default:0"`
+	EndMS           int64          `json:"end_ms" gorm:"column:end_ms;type:integer;not null;default:0"`
+	MetadataJSON    string         `json:"-" gorm:"column:metadata_json;type:json"`
+	CreatedAt       time.Time      `json:"created_at" gorm:"autoCreateTime"`
+	UpdatedAt       time.Time      `json:"updated_at" gorm:"autoUpdateTime"`
+	DeletedAt       gorm.DeletedAt `json:"deleted_at,omitempty" gorm:"index" swaggertype:"string"`
 
-	// Indexed selection into transcript by word positions
-	StartWordIndex int `json:"start_word_index" gorm:"type:int;not null"`
-	EndWordIndex   int `json:"end_word_index" gorm:"type:int;not null"`
+	StartWordIndex int     `json:"start_word_index" gorm:"-"`
+	EndWordIndex   int     `json:"end_word_index" gorm:"-"`
+	StartTime      float64 `json:"start_time" gorm:"-"`
+	EndTime        float64 `json:"end_time" gorm:"-"`
+	Quote          string  `json:"quote" gorm:"-"`
 
-	// Time bounds for the selection (in seconds)
-	StartTime float64 `json:"start_time" gorm:"type:real;not null"`
-	EndTime   float64 `json:"end_time" gorm:"type:real;not null"`
+	Transcription TranscriptionJob `json:"transcription,omitempty" gorm:"foreignKey:TranscriptionID;references:ID;constraint:OnDelete:CASCADE"`
+}
 
-	// The exact quoted text chosen by the user
-	Quote string `json:"quote" gorm:"type:text;not null"`
+func (Note) TableName() string { return "notes" }
 
-	// The user's note content (markdown/plain)
-	Content string `json:"content" gorm:"type:text;not null"`
+func (n *Note) BeforeCreate(tx *gorm.DB) error {
+	if n.UserID == 0 {
+		n.UserID = primaryUserID
+	}
+	n.syncColumnsFromCompat()
+	return nil
+}
 
-	CreatedAt time.Time `json:"created_at" gorm:"autoCreateTime"`
-	UpdatedAt time.Time `json:"updated_at" gorm:"autoUpdateTime"`
+func (n *Note) BeforeSave(tx *gorm.DB) error {
+	n.syncColumnsFromCompat()
+	return nil
+}
 
-	// Relationships
-	Transcription TranscriptionJob `json:"transcription,omitempty" gorm:"foreignKey:TranscriptionID;constraint:OnDelete:CASCADE"`
+func (n *Note) AfterFind(tx *gorm.DB) error {
+	n.StartTime = float64(n.StartMS) / 1000
+	n.EndTime = float64(n.EndMS) / 1000
+	if n.MetadataJSON == "" {
+		return nil
+	}
+	var metadata struct {
+		StartWordIndex int    `json:"start_word_index,omitempty"`
+		EndWordIndex   int    `json:"end_word_index,omitempty"`
+		Quote          string `json:"quote,omitempty"`
+	}
+	if err := json.Unmarshal([]byte(n.MetadataJSON), &metadata); err != nil {
+		return nil
+	}
+	n.StartWordIndex = metadata.StartWordIndex
+	n.EndWordIndex = metadata.EndWordIndex
+	n.Quote = metadata.Quote
+	return nil
+}
+
+func (n *Note) syncColumnsFromCompat() {
+	n.StartMS = int64(n.StartTime * 1000)
+	n.EndMS = int64(n.EndTime * 1000)
+	bytes, _ := json.Marshal(map[string]any{
+		"start_word_index": n.StartWordIndex,
+		"end_word_index":   n.EndWordIndex,
+		"quote":            n.Quote,
+	})
+	n.MetadataJSON = string(bytes)
 }
