@@ -192,6 +192,39 @@ func (tj *TranscriptionJob) syncColumnsFromCompat() error {
 	return nil
 }
 
+func (tj *TranscriptionJob) SyncColumnsForMigration() error {
+	if tj.UserID == 0 {
+		tj.UserID = primaryUserID
+	}
+	if tj.SourceFileName == "" && tj.AudioPath != "" {
+		tj.SourceFileName = filepath.Base(tj.AudioPath)
+	}
+	if tj.Parameters.Language != nil {
+		tj.Language = tj.Parameters.Language
+	}
+	if tj.MergeStatus == "" {
+		tj.MergeStatus = "none"
+	}
+	metadata := transcriptionMetadata{
+		Diarization:           tj.Diarization || tj.Parameters.Diarize,
+		IsMultiTrack:          tj.IsMultiTrack,
+		AupFilePath:           tj.AupFilePath,
+		MultiTrackFolder:      tj.MultiTrackFolder,
+		MergedAudioPath:       tj.MergedAudioPath,
+		MergeStatus:           tj.MergeStatus,
+		MergeError:            tj.MergeError,
+		IndividualTranscripts: tj.IndividualTranscripts,
+		Summary:               tj.Summary,
+		Parameters:            tj.Parameters,
+	}
+	metadataJSON, err := marshalJSONColumn("transcriptions.metadata_json", metadata)
+	if err != nil {
+		return err
+	}
+	tj.MetadataJSON = metadataJSON
+	return nil
+}
+
 func (tj *TranscriptionJob) syncCompatFromColumns() error {
 	tj.SourceFileName = coalesceString(tj.SourceFileName, filepath.Base(tj.AudioPath))
 	if tj.MetadataJSON == "" {
@@ -334,6 +367,45 @@ func (tje *TranscriptionJobExecution) syncColumnsFromCompat() error {
 	if tje.Status == StatusFailed && tje.FailedAt == nil {
 		now := time.Now()
 		tje.FailedAt = &now
+	}
+	return nil
+}
+
+func (tje *TranscriptionJobExecution) SyncColumnsForMigration() error {
+	if tje.UserID == 0 {
+		tje.UserID = primaryUserID
+	}
+	if tje.ModelName == "" {
+		tje.ModelName = tje.ActualParameters.Model
+	}
+	if tje.ModelFamily == "" {
+		tje.ModelFamily = tje.ActualParameters.ModelFamily
+	}
+	if tje.Device == "" {
+		tje.Device = tje.ActualParameters.Device
+	}
+	if tje.ComputeType == "" {
+		tje.ComputeType = tje.ActualParameters.ComputeType
+	}
+	payload := executionPayload{
+		Parameters:         tje.ActualParameters,
+		ProcessingDuration: tje.ProcessingDuration,
+		MergeStartTime:     tje.MergeStartTime,
+		MergeEndTime:       tje.MergeEndTime,
+		MergeDuration:      tje.MergeDuration,
+	}
+	if tje.MultiTrackTimings != nil && *tje.MultiTrackTimings != "" {
+		if err := unmarshalJSONColumn("transcription_executions.multi_track_timings", *tje.MultiTrackTimings, &payload.MultiTrackTimings); err != nil {
+			return err
+		}
+	}
+	requestJSON, err := marshalJSONColumn("transcription_executions.request_json", payload)
+	if err != nil {
+		return err
+	}
+	tje.RequestJSON = requestJSON
+	if tje.ConfigJSON == "" {
+		tje.ConfigJSON = tje.RequestJSON
 	}
 	return nil
 }

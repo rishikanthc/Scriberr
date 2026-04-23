@@ -323,6 +323,44 @@ func TestSchemaUpgradePreservesUpdatedAt(t *testing.T) {
 	assert.True(t, reloaded.UpdatedAt.Equal(originalUpdatedAt))
 }
 
+func TestSchemaUpgradeDoesNotInventCompletionOrFailureTimestamps(t *testing.T) {
+	db := openMigratedTestDB(t, "schema-upgrade-no-invented-timestamps.db")
+
+	title := "legacy-completed-without-timestamp"
+	job := models.TranscriptionJob{
+		ID:        "job-no-completed-at",
+		UserID:    1,
+		Title:     &title,
+		Status:    models.StatusCompleted,
+		AudioPath: "/tmp/audio.wav",
+	}
+	require.NoError(t, db.Session(&gorm.Session{SkipHooks: true}).Create(&job).Error)
+	require.NoError(t, db.Exec("UPDATE transcriptions SET completed_at = NULL, metadata_json = '' WHERE id = ?", job.ID).Error)
+
+	execution := models.TranscriptionJobExecution{
+		ID:                 "exec-no-failed-at",
+		TranscriptionJobID: job.ID,
+		UserID:             1,
+		ExecutionNumber:    1,
+		Status:             models.StatusFailed,
+		StartedAt:          time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC),
+	}
+	require.NoError(t, db.Session(&gorm.Session{SkipHooks: true}).Create(&execution).Error)
+	require.NoError(t, db.Exec("UPDATE transcription_executions SET failed_at = NULL, request_json = '', config_json = '' WHERE id = ?", execution.ID).Error)
+
+	require.NoError(t, db.Exec("DELETE FROM schema_migrations").Error)
+	require.NoError(t, recordSchemaVersion(db, 1))
+	require.NoError(t, Migrate(db))
+
+	var reloadedJob models.TranscriptionJob
+	require.NoError(t, db.First(&reloadedJob, "id = ?", job.ID).Error)
+	assert.Nil(t, reloadedJob.CompletedAt)
+
+	var reloadedExec models.TranscriptionJobExecution
+	require.NoError(t, db.First(&reloadedExec, "id = ?", execution.ID).Error)
+	assert.Nil(t, reloadedExec.FailedAt)
+}
+
 func TestDetectLegacySchemaWithLegacySameNameTables(t *testing.T) {
 	dbPath := filepath.Join(t.TempDir(), "legacy-same-name.db")
 	createLegacyDatabase(t, dbPath, false)

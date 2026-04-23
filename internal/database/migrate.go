@@ -148,7 +148,7 @@ func currentSchemaVersion(tx *gorm.DB) (int, error) {
 
 func recordSchemaVersion(tx *gorm.DB, version int) error {
 	if err := tx.AutoMigrate(&schemaMigration{}); err != nil {
-		if !isIgnorableSQLiteDuplicateIndexError(err) {
+		if !isIgnorableSQLiteDuplicateIndexError(tx, err) {
 			return fmt.Errorf("ensure schema migrations table: %w", err)
 		}
 	}

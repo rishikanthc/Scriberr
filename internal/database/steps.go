@@ -105,7 +105,7 @@ func backfillAPIKeys(tx *gorm.DB) error {
 			"key_prefix":    row.KeyPrefix,
 			"metadata_json": row.MetadataJSON,
 		}
-		if err := withPreservedUpdatedAt(tx.Model(&models.APIKey{}).Where("id = ?", row.ID), updates, row.CreatedAt).
+		if err := withPreservedUpdatedAt(tx.Model(&models.APIKey{}).Where("id = ?", row.ID), updates, time.Time{}).
 			Updates(updates).Error; err != nil {
 			return err
 		}
@@ -147,7 +147,7 @@ func backfillTranscriptionJobs(tx *gorm.DB) error {
 		return err
 	}
 	for _, row := range rows {
-		if err := row.BeforeSave(tx); err != nil {
+		if err := row.SyncColumnsForMigration(); err != nil {
 			return err
 		}
 		updates := map[string]any{
@@ -182,7 +182,7 @@ func backfillTranscriptionExecutions(tx *gorm.DB) error {
 		return err
 	}
 	for _, row := range rows {
-		if err := row.BeforeSave(tx); err != nil {
+		if err := row.SyncColumnsForMigration(); err != nil {
 			return err
 		}
 		updates := map[string]any{
@@ -206,7 +206,7 @@ func backfillTranscriptionExecutions(tx *gorm.DB) error {
 			"merged_file_path": row.MergedFilePath,
 			"output_json_path": row.OutputJSONPath,
 		}
-		if err := withPreservedUpdatedAt(tx.Model(&models.TranscriptionJobExecution{}).Where("id = ?", row.ID), updates, row.CreatedAt).
+		if err := withPreservedUpdatedAt(tx.Model(&models.TranscriptionJobExecution{}).Where("id = ?", row.ID), updates, time.Time{}).
 			Updates(updates).Error; err != nil {
 			return err
 		}
@@ -232,7 +232,7 @@ func backfillMultiTrackFiles(tx *gorm.DB) error {
 			"speaker_hint": row.SpeakerHint,
 			"metadata_json": row.MetadataJSON,
 		}
-		if err := withPreservedUpdatedAt(tx.Model(&models.MultiTrackFile{}).Where("id = ?", row.ID), updates, row.CreatedAt).
+		if err := withPreservedUpdatedAt(tx.Model(&models.MultiTrackFile{}).Where("id = ?", row.ID), updates, time.Time{}).
 			Updates(updates).Error; err != nil {
 			return err
 		}
@@ -320,5 +320,5 @@ func withPreservedUpdatedAt(db *gorm.DB, updates map[string]any, updatedAt time.
 	if !updatedAt.IsZero() {
 		updates["updated_at"] = updatedAt
 	}
-	return db.Set("gorm:update_track_time", false)
+	return db.Session(&gorm.Session{SkipHooks: true}).Set("gorm:update_track_time", false)
 }
