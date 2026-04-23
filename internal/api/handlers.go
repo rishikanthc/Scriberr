@@ -1376,7 +1376,7 @@ func (h *Handler) GetJobExecutionData(c *gin.Context) {
 		"status":               execution.Status,
 		"error_message":        execution.ErrorMessage,
 		"created_at":           execution.CreatedAt,
-		"updated_at":           execution.UpdatedAt,
+		"updated_at":           execution.CompletedAt,
 		"is_multi_track":       job.IsMultiTrack,
 	}
 

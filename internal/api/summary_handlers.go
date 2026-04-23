@@ -214,17 +214,7 @@ func (h *Handler) SaveSummarySettings(c *gin.Context) {
 		if err == gorm.ErrRecordNotFound {
 			s = &models.SummarySetting{
 				DefaultModel: req.DefaultModel,
-				UpdatedAt:    time.Now(),
 			}
-			// We can't use Create from BaseRepository because it expects *T, but GetSettings returns *T.
-			// BaseRepository.Create expects *T.
-			// Actually BaseRepository[T] Create takes *T.
-			// But here T is models.SummaryTemplate, NOT models.SummarySetting.
-			// SummaryRepository handles SummaryTemplate.
-			// But GetSettings returns SummarySetting.
-			// So I can't use h.summaryRepo.Create(s) because s is SummarySetting, not SummaryTemplate.
-			// I need to add SaveSettings to SummaryRepository which handles creation too.
-			// I added SaveSettings(ctx, settings).
 			if err := h.summaryRepo.SaveSettings(c.Request.Context(), s); err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save settings"})
 				return
@@ -236,7 +226,6 @@ func (h *Handler) SaveSummarySettings(c *gin.Context) {
 		return
 	}
 	s.DefaultModel = req.DefaultModel
-	s.UpdatedAt = time.Now()
 	if err := h.summaryRepo.SaveSettings(c.Request.Context(), s); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save settings"})
 		return

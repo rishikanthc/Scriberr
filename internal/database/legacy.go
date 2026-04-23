@@ -741,13 +741,14 @@ func migrateAPIKeys(tx *gorm.DB, userID uint) error {
 	}
 	for _, legacyKey := range keys {
 		migrated := models.APIKey{
-			ID:        legacyKey.ID,
-			UserID:    userID,
-			Name:      legacyKey.Name,
-			KeyPrefix: apiKeyPrefix(legacyKey.Key),
-			KeyHash:   hashToken(legacyKey.Key),
-			LastUsed:  legacyKey.LastUsed,
-			CreatedAt: legacyKey.CreatedAt,
+			ID:          legacyKey.ID,
+			UserID:      userID,
+			Name:        legacyKey.Name,
+			KeyPrefix:   apiKeyPrefix(legacyKey.Key),
+			KeyHash:     hashToken(legacyKey.Key),
+			Description: legacyKey.Description,
+			LastUsed:    legacyKey.LastUsed,
+			CreatedAt:   legacyKey.CreatedAt,
 		}
 		if !legacyKey.IsActive {
 			revokedAt := legacyKey.UpdatedAt
