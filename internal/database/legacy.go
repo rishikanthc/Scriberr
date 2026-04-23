@@ -340,6 +340,7 @@ func legacyHasOwnedData(tx *gorm.DB) (bool, error) {
 		legacyPrefix + "chat_sessions",
 		"llm_configs",
 		legacyPrefix + "api_keys",
+		legacyPrefix + "refresh_tokens",
 	}
 	for _, table := range tables {
 		if !tx.Migrator().HasTable(table) {
@@ -742,6 +743,9 @@ func migrateAPIKeys(tx *gorm.DB, userID uint) error {
 	if err := tx.Table(source).Order("created_at ASC").Find(&keys).Error; err != nil {
 		return fmt.Errorf("load legacy api keys: %w", err)
 	}
+	if userID == 0 && len(keys) > 0 {
+		return fmt.Errorf("migrate api keys: missing user for %d rows", len(keys))
+	}
 	for _, legacyKey := range keys {
 		migrated := models.APIKey{
 			ID:          legacyKey.ID,
@@ -774,9 +778,13 @@ func migrateRefreshTokens(tx *gorm.DB, userID uint) error {
 		return fmt.Errorf("load legacy refresh tokens: %w", err)
 	}
 	for _, legacyToken := range tokens {
+		resolvedUserID := chooseUserID(legacyToken.UserID, userID)
+		if resolvedUserID == 0 {
+			return fmt.Errorf("migrate refresh token %d: missing user", legacyToken.ID)
+		}
 		token := models.RefreshToken{
 			ID:        legacyToken.ID,
-			UserID:    chooseUserID(legacyToken.UserID, userID),
+			UserID:    resolvedUserID,
 			Hashed:    legacyToken.Hashed,
 			ExpiresAt: legacyToken.ExpiresAt,
 			CreatedAt: legacyToken.CreatedAt,

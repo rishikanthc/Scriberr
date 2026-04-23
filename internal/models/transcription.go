@@ -136,19 +136,16 @@ func (tj *TranscriptionJob) BeforeCreate(tx *gorm.DB) error {
 		tj.ID = uuid.New().String()
 	}
 	tj.applyDefaults()
-	tj.syncColumnsFromCompat()
-	return nil
+	return tj.syncColumnsFromCompat()
 }
 
 func (tj *TranscriptionJob) BeforeSave(tx *gorm.DB) error {
 	tj.applyDefaults()
-	tj.syncColumnsFromCompat()
-	return nil
+	return tj.syncColumnsFromCompat()
 }
 
 func (tj *TranscriptionJob) AfterFind(tx *gorm.DB) error {
-	tj.syncCompatFromColumns()
-	return nil
+	return tj.syncCompatFromColumns()
 }
 
 func (tj *TranscriptionJob) applyDefaults() {
@@ -163,7 +160,7 @@ func (tj *TranscriptionJob) applyDefaults() {
 	}
 }
 
-func (tj *TranscriptionJob) syncColumnsFromCompat() {
+func (tj *TranscriptionJob) syncColumnsFromCompat() error {
 	if tj.Parameters.Language != nil {
 		tj.Language = tj.Parameters.Language
 	}
@@ -187,23 +184,26 @@ func (tj *TranscriptionJob) syncColumnsFromCompat() {
 		Summary:               tj.Summary,
 		Parameters:            tj.Parameters,
 	}
-	bytes, _ := json.Marshal(metadata)
-	tj.MetadataJSON = string(bytes)
+	metadataJSON, err := marshalJSONColumn("transcriptions.metadata_json", metadata)
+	if err != nil {
+		return err
+	}
+	tj.MetadataJSON = metadataJSON
+	return nil
 }
 
-func (tj *TranscriptionJob) syncCompatFromColumns() {
+func (tj *TranscriptionJob) syncCompatFromColumns() error {
 	tj.SourceFileName = coalesceString(tj.SourceFileName, filepath.Base(tj.AudioPath))
 	if tj.MetadataJSON == "" {
 		tj.MergeStatus = coalesceString(tj.MergeStatus, "none")
 		if tj.Language != nil {
 			tj.Parameters.Language = tj.Language
 		}
-		return
+		return nil
 	}
 	var metadata transcriptionMetadata
-	if err := json.Unmarshal([]byte(tj.MetadataJSON), &metadata); err != nil {
-		tj.MergeStatus = "none"
-		return
+	if err := unmarshalJSONColumn("transcriptions.metadata_json", tj.MetadataJSON, &metadata); err != nil {
+		return err
 	}
 	tj.Diarization = metadata.Diarization
 	tj.Summary = metadata.Summary
@@ -218,6 +218,7 @@ func (tj *TranscriptionJob) syncCompatFromColumns() {
 	if tj.Language != nil && tj.Parameters.Language == nil {
 		tj.Parameters.Language = tj.Language
 	}
+	return nil
 }
 
 func coalesceString(current, fallback string) string {
@@ -286,21 +287,18 @@ func (tje *TranscriptionJobExecution) BeforeCreate(tx *gorm.DB) error {
 	if tje.ID == "" {
 		tje.ID = uuid.New().String()
 	}
-	tje.syncColumnsFromCompat()
-	return nil
+	return tje.syncColumnsFromCompat()
 }
 
 func (tje *TranscriptionJobExecution) BeforeSave(tx *gorm.DB) error {
-	tje.syncColumnsFromCompat()
-	return nil
+	return tje.syncColumnsFromCompat()
 }
 
 func (tje *TranscriptionJobExecution) AfterFind(tx *gorm.DB) error {
-	tje.syncCompatFromColumns()
-	return nil
+	return tje.syncCompatFromColumns()
 }
 
-func (tje *TranscriptionJobExecution) syncColumnsFromCompat() {
+func (tje *TranscriptionJobExecution) syncColumnsFromCompat() error {
 	if tje.UserID == 0 {
 		tje.UserID = primaryUserID
 	}
@@ -318,10 +316,15 @@ func (tje *TranscriptionJobExecution) syncColumnsFromCompat() {
 	}
 	payload := executionPayload{Parameters: tje.ActualParameters, ProcessingDuration: tje.ProcessingDuration, MergeStartTime: tje.MergeStartTime, MergeEndTime: tje.MergeEndTime, MergeDuration: tje.MergeDuration}
 	if tje.MultiTrackTimings != nil && *tje.MultiTrackTimings != "" {
-		_ = json.Unmarshal([]byte(*tje.MultiTrackTimings), &payload.MultiTrackTimings)
+		if err := unmarshalJSONColumn("transcription_executions.multi_track_timings", *tje.MultiTrackTimings, &payload.MultiTrackTimings); err != nil {
+			return err
+		}
 	}
-	reqBytes, _ := json.Marshal(payload)
-	tje.RequestJSON = string(reqBytes)
+	requestJSON, err := marshalJSONColumn("transcription_executions.request_json", payload)
+	if err != nil {
+		return err
+	}
+	tje.RequestJSON = requestJSON
 	if tje.ConfigJSON == "" {
 		tje.ConfigJSON = tje.RequestJSON
 	}
@@ -332,15 +335,16 @@ func (tje *TranscriptionJobExecution) syncColumnsFromCompat() {
 		now := time.Now()
 		tje.FailedAt = &now
 	}
+	return nil
 }
 
-func (tje *TranscriptionJobExecution) syncCompatFromColumns() {
+func (tje *TranscriptionJobExecution) syncCompatFromColumns() error {
 	if tje.RequestJSON == "" {
-		return
+		return nil
 	}
 	var payload executionPayload
-	if err := json.Unmarshal([]byte(tje.RequestJSON), &payload); err != nil {
-		return
+	if err := unmarshalJSONColumn("transcription_executions.request_json", tje.RequestJSON, &payload); err != nil {
+		return err
 	}
 	tje.ActualParameters = payload.Parameters
 	tje.ProcessingDuration = payload.ProcessingDuration
@@ -348,10 +352,14 @@ func (tje *TranscriptionJobExecution) syncCompatFromColumns() {
 	tje.MergeEndTime = payload.MergeEndTime
 	tje.MergeDuration = payload.MergeDuration
 	if len(payload.MultiTrackTimings) > 0 {
-		bytes, _ := json.Marshal(payload.MultiTrackTimings)
-		str := string(bytes)
+		multiTrackTimingsJSON, err := marshalJSONColumn("transcription_executions.multi_track_timings", payload.MultiTrackTimings)
+		if err != nil {
+			return err
+		}
+		str := multiTrackTimingsJSON
 		tje.MultiTrackTimings = &str
 	}
+	return nil
 }
 
 // CalculateProcessingDuration calculates and sets the processing duration.
@@ -411,13 +419,11 @@ func (mtf *MultiTrackFile) BeforeCreate(tx *gorm.DB) error {
 	if mtf.UserID == 0 {
 		mtf.UserID = primaryUserID
 	}
-	mtf.syncColumnsFromCompat()
-	return nil
+	return mtf.syncColumnsFromCompat()
 }
 
 func (mtf *MultiTrackFile) BeforeSave(tx *gorm.DB) error {
-	mtf.syncColumnsFromCompat()
-	return nil
+	return mtf.syncColumnsFromCompat()
 }
 
 func (mtf *MultiTrackFile) AfterFind(tx *gorm.DB) error {
@@ -430,8 +436,8 @@ func (mtf *MultiTrackFile) AfterFind(tx *gorm.DB) error {
 		Pan    float64 `json:"pan,omitempty"`
 		Mute   bool    `json:"mute,omitempty"`
 	}
-	if err := json.Unmarshal([]byte(mtf.MetadataJSON), &metadata); err != nil {
-		return nil
+	if err := unmarshalJSONColumn("transcription_tracks.metadata_json", mtf.MetadataJSON, &metadata); err != nil {
+		return err
 	}
 	mtf.Offset = metadata.Offset
 	mtf.Gain = metadata.Gain
@@ -440,20 +446,24 @@ func (mtf *MultiTrackFile) AfterFind(tx *gorm.DB) error {
 	return nil
 }
 
-func (mtf *MultiTrackFile) syncColumnsFromCompat() {
-	bytes, _ := json.Marshal(map[string]any{
+func (mtf *MultiTrackFile) syncColumnsFromCompat() error {
+	metadataJSON, err := marshalJSONColumn("transcription_tracks.metadata_json", map[string]any{
 		"offset": mtf.Offset,
 		"gain":   mtf.Gain,
 		"pan":    mtf.Pan,
 		"mute":   mtf.Mute,
 	})
-	mtf.MetadataJSON = string(bytes)
+	if err != nil {
+		return err
+	}
+	mtf.MetadataJSON = metadataJSON
 	if mtf.Label == nil {
 		mtf.Label = &mtf.FileName
 	}
 	if mtf.SpeakerHint == nil {
 		mtf.SpeakerHint = &mtf.FileName
 	}
+	return nil
 }
 
 // ChatSession represents a chat session tied to a transcription.
@@ -633,10 +643,13 @@ func (tp *TranscriptionProfile) BeforeSave(tx *gorm.DB) error {
 	tp.DiarizationEnabled = tp.Parameters.Diarize
 	tp.Device = tp.Parameters.Device
 	tp.ComputeType = tp.Parameters.ComputeType
-	bytes, _ := json.Marshal(tp.Parameters)
-	tp.ConfigJSON = string(bytes)
+	configJSON, err := marshalJSONColumn("transcription_profiles.config_json", tp.Parameters)
+	if err != nil {
+		return err
+	}
+	tp.ConfigJSON = configJSON
 	if tp.IsDefault {
-		if err := tx.Model(&TranscriptionProfile{}).Where("id != ?", tp.ID).Update("is_default", false).Error; err != nil {
+		if err := clearOtherDefaultsForUser(tx, &TranscriptionProfile{}, tp.UserID, tp.ID); err != nil {
 			return err
 		}
 	}
@@ -645,7 +658,9 @@ func (tp *TranscriptionProfile) BeforeSave(tx *gorm.DB) error {
 
 func (tp *TranscriptionProfile) AfterFind(tx *gorm.DB) error {
 	if tp.ConfigJSON != "" {
-		_ = json.Unmarshal([]byte(tp.ConfigJSON), &tp.Parameters)
+		if err := unmarshalJSONColumn("transcription_profiles.config_json", tp.ConfigJSON, &tp.Parameters); err != nil {
+			return err
+		}
 	}
 	if tp.Parameters.Model == "" {
 		tp.Parameters.Model = tp.ModelName
@@ -690,14 +705,17 @@ func (lc *LLMConfig) BeforeSave(tx *gorm.DB) error {
 	if lc.UserID == 0 {
 		lc.UserID = primaryUserID
 	}
-	bytes, _ := json.Marshal(map[string]any{
+	configJSON, err := marshalJSONColumn("llm_profiles.config_json", map[string]any{
 		"openai_base_url": lc.OpenAIBaseURL,
 		"api_key":         lc.APIKey,
 	})
-	lc.ConfigJSON = string(bytes)
+	if err != nil {
+		return err
+	}
+	lc.ConfigJSON = configJSON
 	lc.IsActive = lc.IsDefault
 	if lc.IsDefault {
-		if err := tx.Model(&LLMConfig{}).Where("id != ?", lc.ID).Update("is_default", false).Error; err != nil {
+		if err := clearOtherDefaultsForUser(tx, &LLMConfig{}, lc.UserID, lc.ID); err != nil {
 			return err
 		}
 	}
@@ -713,8 +731,8 @@ func (lc *LLMConfig) AfterFind(tx *gorm.DB) error {
 		OpenAIBaseURL *string `json:"openai_base_url,omitempty"`
 		APIKey        *string `json:"api_key,omitempty"`
 	}
-	if err := json.Unmarshal([]byte(lc.ConfigJSON), &cfg); err != nil {
-		return nil
+	if err := unmarshalJSONColumn("llm_profiles.config_json", lc.ConfigJSON, &cfg); err != nil {
+		return err
 	}
 	lc.OpenAIBaseURL = cfg.OpenAIBaseURL
 	lc.APIKey = cfg.APIKey

@@ -1,7 +1,6 @@
 package models
 
 import (
-	"encoding/json"
 	"time"
 
 	"gorm.io/gorm"
@@ -35,13 +34,11 @@ func (n *Note) BeforeCreate(tx *gorm.DB) error {
 	if n.UserID == 0 {
 		n.UserID = primaryUserID
 	}
-	n.syncColumnsFromCompat()
-	return nil
+	return n.syncColumnsFromCompat()
 }
 
 func (n *Note) BeforeSave(tx *gorm.DB) error {
-	n.syncColumnsFromCompat()
-	return nil
+	return n.syncColumnsFromCompat()
 }
 
 func (n *Note) AfterFind(tx *gorm.DB) error {
@@ -55,8 +52,8 @@ func (n *Note) AfterFind(tx *gorm.DB) error {
 		EndWordIndex   int    `json:"end_word_index,omitempty"`
 		Quote          string `json:"quote,omitempty"`
 	}
-	if err := json.Unmarshal([]byte(n.MetadataJSON), &metadata); err != nil {
-		return nil
+	if err := unmarshalJSONColumn("notes.metadata_json", n.MetadataJSON, &metadata); err != nil {
+		return err
 	}
 	n.StartWordIndex = metadata.StartWordIndex
 	n.EndWordIndex = metadata.EndWordIndex
@@ -64,13 +61,17 @@ func (n *Note) AfterFind(tx *gorm.DB) error {
 	return nil
 }
 
-func (n *Note) syncColumnsFromCompat() {
+func (n *Note) syncColumnsFromCompat() error {
 	n.StartMS = int64(n.StartTime * 1000)
 	n.EndMS = int64(n.EndTime * 1000)
-	bytes, _ := json.Marshal(map[string]any{
+	metadataJSON, err := marshalJSONColumn("notes.metadata_json", map[string]any{
 		"start_word_index": n.StartWordIndex,
 		"end_word_index":   n.EndWordIndex,
 		"quote":            n.Quote,
 	})
-	n.MetadataJSON = string(bytes)
+	if err != nil {
+		return err
+	}
+	n.MetadataJSON = metadataJSON
+	return nil
 }

@@ -1,7 +1,6 @@
 package models
 
 import (
-	"encoding/json"
 	"time"
 
 	"github.com/google/uuid"
@@ -38,13 +37,16 @@ func (st *SummaryTemplate) BeforeSave(tx *gorm.DB) error {
 	if st.UserID == 0 {
 		st.UserID = primaryUserID
 	}
-	bytes, _ := json.Marshal(map[string]any{
+	configJSON, err := marshalJSONColumn("summary_templates.config_json", map[string]any{
 		"model":                st.Model,
 		"include_speaker_info": st.IncludeSpeakerInfo,
 	})
-	st.ConfigJSON = string(bytes)
+	if err != nil {
+		return err
+	}
+	st.ConfigJSON = configJSON
 	if st.IsDefault {
-		if err := tx.Model(&SummaryTemplate{}).Where("id != ?", st.ID).Update("is_default", false).Error; err != nil {
+		if err := clearOtherDefaultsForUser(tx, &SummaryTemplate{}, st.UserID, st.ID); err != nil {
 			return err
 		}
 	}
@@ -59,8 +61,8 @@ func (st *SummaryTemplate) AfterFind(tx *gorm.DB) error {
 		Model              string `json:"model,omitempty"`
 		IncludeSpeakerInfo bool   `json:"include_speaker_info,omitempty"`
 	}
-	if err := json.Unmarshal([]byte(st.ConfigJSON), &cfg); err != nil {
-		return nil
+	if err := unmarshalJSONColumn("summary_templates.config_json", st.ConfigJSON, &cfg); err != nil {
+		return err
 	}
 	st.Model = cfg.Model
 	st.IncludeSpeakerInfo = cfg.IncludeSpeakerInfo

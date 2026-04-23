@@ -205,6 +205,7 @@ func TestDefaultRecordsAreScopedPerUser(t *testing.T) {
 	require.NoError(t, db.Session(&gorm.Session{SkipHooks: true}).Create(&llmASecond).Error)
 	require.NoError(t, db.Session(&gorm.Session{SkipHooks: true}).Create(&llmB).Error)
 
+	require.NoError(t, recordSchemaVersion(db, 1))
 	require.NoError(t, Migrate(db))
 
 	var profileA, profileBDef models.TranscriptionProfile
@@ -243,6 +244,62 @@ func TestDefaultRecordsAreScopedPerUser(t *testing.T) {
 	userBActiveLLM, err := llmRepo.GetActiveByUser(t.Context(), userB.ID)
 	require.NoError(t, err)
 	assert.Equal(t, "provider-c", userBActiveLLM.Provider)
+}
+
+func TestSchemaUpgradeRunsVersionedBackfill(t *testing.T) {
+	db := openUnmigratedTestDB(t, "schema-upgrade.db")
+
+	userA := models.User{Username: "upgrade-a", Password: "pw-a"}
+	userB := models.User{Username: "upgrade-b", Password: "pw-b"}
+	require.NoError(t, db.Create(&userA).Error)
+	require.NoError(t, db.Create(&userB).Error)
+
+	base := time.Now().Truncate(time.Second)
+	profileA := models.TranscriptionProfile{
+		ID:        "upgrade-profile-a",
+		UserID:    userA.ID,
+		Name:      "profile-a",
+		IsDefault: true,
+		Parameters: models.WhisperXParams{
+			Model:       "medium",
+			ModelFamily: "whisper",
+			Device:      "cpu",
+			ComputeType: "float32",
+		},
+		CreatedAt: base,
+		UpdatedAt: base,
+	}
+	profileB := models.TranscriptionProfile{
+		ID:        "upgrade-profile-b",
+		UserID:    userB.ID,
+		Name:      "profile-b",
+		IsDefault: true,
+		Parameters: models.WhisperXParams{
+			Model:       "large-v3",
+			ModelFamily: "whisper",
+			Device:      "cuda",
+			ComputeType: "float16",
+		},
+		CreatedAt: base,
+		UpdatedAt: base,
+	}
+	require.NoError(t, db.Create(&profileA).Error)
+	require.NoError(t, db.Create(&profileB).Error)
+
+	require.NoError(t, recordSchemaVersion(db, 1))
+	require.NoError(t, db.Exec("UPDATE transcription_profiles SET config_json = ''").Error)
+
+	require.NoError(t, Migrate(db))
+
+	assert.Equal(t, latestSchemaVersion, schemaVersion(t, db))
+
+	var reloadedA, reloadedB models.TranscriptionProfile
+	require.NoError(t, db.First(&reloadedA, "id = ?", profileA.ID).Error)
+	require.NoError(t, db.First(&reloadedB, "id = ?", profileB.ID).Error)
+	assert.True(t, reloadedA.IsDefault)
+	assert.True(t, reloadedB.IsDefault)
+	assert.Equal(t, "medium", reloadedA.Parameters.Model)
+	assert.Equal(t, "large-v3", reloadedB.Parameters.Model)
 }
 
 func TestLegacyMigrationPreservesData(t *testing.T) {

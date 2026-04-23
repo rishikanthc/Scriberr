@@ -2,6 +2,7 @@ package database
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"scriberr/internal/models"
@@ -36,11 +37,17 @@ type schemaMigration struct {
 func (schemaMigration) TableName() string { return "schema_migrations" }
 
 func createTargetSchema(tx *gorm.DB) error {
-	if err := tx.AutoMigrate(schemaModels...); err != nil {
-		return fmt.Errorf("auto migrate target schema: %w", err)
+	for _, model := range schemaModels {
+		if err := tx.AutoMigrate(model); err != nil {
+			if !isIgnorableSQLiteAlreadyExistsError(err) {
+				return fmt.Errorf("auto migrate target schema: %w", err)
+			}
+		}
 	}
 	if err := tx.AutoMigrate(&schemaMigration{}); err != nil {
-		return fmt.Errorf("auto migrate schema state: %w", err)
+		if !isIgnorableSQLiteAlreadyExistsError(err) {
+			return fmt.Errorf("auto migrate schema state: %w", err)
+		}
 	}
 	if err := ensureSingleDefaultPerUser(tx); err != nil {
 		return fmt.Errorf("enforce default-selection invariants: %w", err)
@@ -64,6 +71,14 @@ func createTargetSchema(tx *gorm.DB) error {
 		}
 	}
 	return nil
+}
+
+func isIgnorableSQLiteAlreadyExistsError(err error) bool {
+	if err == nil {
+		return false
+	}
+	errMsg := strings.ToLower(err.Error())
+	return strings.Contains(errMsg, "already exists") && strings.Contains(errMsg, "index")
 }
 
 func ensureSingleDefaultPerUser(tx *gorm.DB) error {

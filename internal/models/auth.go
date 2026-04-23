@@ -1,7 +1,6 @@
 package models
 
 import (
-	"encoding/json"
 	"time"
 
 	"gorm.io/gorm"
@@ -56,12 +55,15 @@ func (u *User) BeforeSave(tx *gorm.DB) error {
 	if u.Role == "" {
 		u.Role = "admin"
 	}
-	bytes, _ := json.Marshal(userSettings{
+	settingsJSON, err := marshalJSONColumn("users.settings_json", userSettings{
 		DefaultProfileID:         u.DefaultProfileID,
 		AutoTranscriptionEnabled: u.AutoTranscriptionEnabled,
 		SummaryDefaultModel:      u.SummaryDefaultModel,
 	})
-	u.SettingsJSON = string(bytes)
+	if err != nil {
+		return err
+	}
+	u.SettingsJSON = settingsJSON
 	return nil
 }
 
@@ -70,8 +72,8 @@ func (u *User) AfterFind(tx *gorm.DB) error {
 		return nil
 	}
 	var settings userSettings
-	if err := json.Unmarshal([]byte(u.SettingsJSON), &settings); err != nil {
-		return nil
+	if err := unmarshalJSONColumn("users.settings_json", u.SettingsJSON, &settings); err != nil {
+		return err
 	}
 	u.DefaultProfileID = settings.DefaultProfileID
 	u.AutoTranscriptionEnabled = settings.AutoTranscriptionEnabled
@@ -103,10 +105,23 @@ func (APIKey) TableName() string { return "api_keys" }
 func (ak *APIKey) BeforeCreate(tx *gorm.DB) error { return ak.BeforeSave(tx) }
 
 func (ak *APIKey) BeforeSave(tx *gorm.DB) error {
-	bytes, _ := json.Marshal(map[string]any{
+	if ak.KeyHash == "" && ak.Key != "" {
+		ak.KeyHash = sha256Hex(ak.Key)
+	}
+	if ak.KeyPrefix == "" && ak.Key != "" {
+		if len(ak.Key) <= 8 {
+			ak.KeyPrefix = ak.Key
+		} else {
+			ak.KeyPrefix = ak.Key[:8]
+		}
+	}
+	metadataJSON, err := marshalJSONColumn("api_keys.metadata_json", map[string]any{
 		"description": ak.Description,
 	})
-	ak.MetadataJSON = string(bytes)
+	if err != nil {
+		return err
+	}
+	ak.MetadataJSON = metadataJSON
 	return nil
 }
 
@@ -117,9 +132,10 @@ func (ak *APIKey) AfterFind(tx *gorm.DB) error {
 		var metadata struct {
 			Description *string `json:"description,omitempty"`
 		}
-		if err := json.Unmarshal([]byte(ak.MetadataJSON), &metadata); err == nil {
-			ak.Description = metadata.Description
+		if err := unmarshalJSONColumn("api_keys.metadata_json", ak.MetadataJSON, &metadata); err != nil {
+			return err
 		}
+		ak.Description = metadata.Description
 	}
 	return nil
 }
