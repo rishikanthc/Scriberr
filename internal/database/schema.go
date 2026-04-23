@@ -99,54 +99,59 @@ func isIgnorableSQLiteDuplicateIndexError(tx *gorm.DB, err error) bool {
 var duplicateIndexRegexp = regexp.MustCompile(`index ([^ ]+) already exists`)
 
 type expectedSQLiteIndex struct {
-	Table   string
-	Columns []string
-	Unique  bool
+	Table          string
+	Columns        []string
+	Unique         bool
+	Partial        bool
+	WherePredicate string
 }
 
 var expectedSQLiteIndexes = map[string]expectedSQLiteIndex{
-	"idx_users_deleted_at":                  {Table: "users", Columns: []string{"deleted_at"}, Unique: false},
-	"idx_users_username":                    {Table: "users", Columns: []string{"username"}, Unique: true},
-	"idx_users_email":                       {Table: "users", Columns: []string{"email"}, Unique: true},
-	"idx_refresh_tokens_user_id":            {Table: "refresh_tokens", Columns: []string{"user_id"}, Unique: false},
-	"idx_refresh_tokens_token_hash":         {Table: "refresh_tokens", Columns: []string{"token_hash"}, Unique: true},
-	"idx_refresh_tokens_expires_at":         {Table: "refresh_tokens", Columns: []string{"expires_at"}, Unique: false},
-	"idx_refresh_tokens_revoked_at":         {Table: "refresh_tokens", Columns: []string{"revoked_at"}, Unique: false},
-	"idx_api_keys_user_id":                  {Table: "api_keys", Columns: []string{"user_id"}, Unique: false},
-	"idx_api_keys_key_prefix":               {Table: "api_keys", Columns: []string{"key_prefix"}, Unique: false},
-	"idx_api_keys_key_hash":                 {Table: "api_keys", Columns: []string{"key_hash"}, Unique: true},
-	"idx_api_keys_expires_at":               {Table: "api_keys", Columns: []string{"expires_at"}, Unique: false},
-	"idx_api_keys_revoked_at":               {Table: "api_keys", Columns: []string{"revoked_at"}, Unique: false},
-	"idx_transcription_profiles_user_id":    {Table: "transcription_profiles", Columns: []string{"user_id"}, Unique: false},
-	"idx_transcription_profiles_is_default": {Table: "transcription_profiles", Columns: []string{"is_default"}, Unique: false},
-	"idx_transcriptions_user_id":            {Table: "transcriptions", Columns: []string{"user_id"}, Unique: false},
-	"idx_transcriptions_status":             {Table: "transcriptions", Columns: []string{"status"}, Unique: false},
-	"idx_transcriptions_source_file_hash":   {Table: "transcriptions", Columns: []string{"source_file_hash"}, Unique: false},
+	"idx_users_deleted_at":                   {Table: "users", Columns: []string{"deleted_at"}, Unique: false},
+	"idx_users_username":                     {Table: "users", Columns: []string{"username"}, Unique: true},
+	"idx_users_email":                        {Table: "users", Columns: []string{"email"}, Unique: true},
+	"idx_refresh_tokens_user_id":             {Table: "refresh_tokens", Columns: []string{"user_id"}, Unique: false},
+	"idx_refresh_tokens_token_hash":          {Table: "refresh_tokens", Columns: []string{"token_hash"}, Unique: true},
+	"idx_refresh_tokens_expires_at":          {Table: "refresh_tokens", Columns: []string{"expires_at"}, Unique: false},
+	"idx_refresh_tokens_revoked_at":          {Table: "refresh_tokens", Columns: []string{"revoked_at"}, Unique: false},
+	"idx_api_keys_user_id":                   {Table: "api_keys", Columns: []string{"user_id"}, Unique: false},
+	"idx_api_keys_key_prefix":                {Table: "api_keys", Columns: []string{"key_prefix"}, Unique: false},
+	"idx_api_keys_key_hash":                  {Table: "api_keys", Columns: []string{"key_hash"}, Unique: true},
+	"idx_api_keys_expires_at":                {Table: "api_keys", Columns: []string{"expires_at"}, Unique: false},
+	"idx_api_keys_revoked_at":                {Table: "api_keys", Columns: []string{"revoked_at"}, Unique: false},
+	"idx_transcription_profiles_user_id":     {Table: "transcription_profiles", Columns: []string{"user_id"}, Unique: false},
+	"idx_transcription_profiles_is_default":  {Table: "transcription_profiles", Columns: []string{"is_default"}, Unique: false},
+	"idx_transcription_profiles_user_default_unique": {Table: "transcription_profiles", Columns: []string{"user_id"}, Unique: true, Partial: true, WherePredicate: "is_default=1"},
+	"idx_transcriptions_user_id":             {Table: "transcriptions", Columns: []string{"user_id"}, Unique: false},
+	"idx_transcriptions_status":              {Table: "transcriptions", Columns: []string{"status"}, Unique: false},
+	"idx_transcriptions_source_file_hash":    {Table: "transcriptions", Columns: []string{"source_file_hash"}, Unique: false},
 	"idx_transcriptions_latest_execution_id": {Table: "transcriptions", Columns: []string{"latest_execution_id"}, Unique: false},
-	"idx_transcriptions_deleted_at":         {Table: "transcriptions", Columns: []string{"deleted_at"}, Unique: false},
+	"idx_transcriptions_deleted_at":          {Table: "transcriptions", Columns: []string{"deleted_at"}, Unique: false},
 	"idx_transcription_executions_transcription_job_id": {Table: "transcription_executions", Columns: []string{"transcription_id"}, Unique: false},
-	"idx_transcription_executions_user_id":  {Table: "transcription_executions", Columns: []string{"user_id"}, Unique: false},
-	"idx_transcription_executions_status":   {Table: "transcription_executions", Columns: []string{"status"}, Unique: false},
+	"idx_transcription_executions_user_id":   {Table: "transcription_executions", Columns: []string{"user_id"}, Unique: false},
+	"idx_transcription_executions_status":    {Table: "transcription_executions", Columns: []string{"status"}, Unique: false},
 	"idx_transcription_executions_profile_id": {Table: "transcription_executions", Columns: []string{"profile_id"}, Unique: false},
-	"idx_speaker_mappings_user_id":          {Table: "speaker_mappings", Columns: []string{"user_id"}, Unique: false},
+	"idx_speaker_mappings_user_id":           {Table: "speaker_mappings", Columns: []string{"user_id"}, Unique: false},
 	"idx_speaker_mappings_transcription_job_id": {Table: "speaker_mappings", Columns: []string{"transcription_id"}, Unique: false},
-	"idx_transcription_tracks_user_id":      {Table: "transcription_tracks", Columns: []string{"user_id"}, Unique: false},
+	"idx_transcription_tracks_user_id":       {Table: "transcription_tracks", Columns: []string{"user_id"}, Unique: false},
 	"idx_transcription_tracks_transcription_job_id": {Table: "transcription_tracks", Columns: []string{"transcription_id"}, Unique: false},
-	"idx_summary_templates_user_id":         {Table: "summary_templates", Columns: []string{"user_id"}, Unique: false},
-	"idx_summary_templates_is_default":      {Table: "summary_templates", Columns: []string{"is_default"}, Unique: false},
-	"idx_summary_templates_deleted_at":      {Table: "summary_templates", Columns: []string{"deleted_at"}, Unique: false},
-	"idx_summaries_transcription_id":        {Table: "summaries", Columns: []string{"transcription_id"}, Unique: false},
-	"idx_summaries_user_id":                 {Table: "summaries", Columns: []string{"user_id"}, Unique: false},
-	"idx_summaries_template_id":             {Table: "summaries", Columns: []string{"template_id"}, Unique: false},
-	"idx_notes_user_id":                     {Table: "notes", Columns: []string{"user_id"}, Unique: false},
-	"idx_notes_transcription_id":            {Table: "notes", Columns: []string{"transcription_id"}, Unique: false},
-	"idx_notes_deleted_at":                  {Table: "notes", Columns: []string{"deleted_at"}, Unique: false},
-	"idx_chat_sessions_user_id":             {Table: "chat_sessions", Columns: []string{"user_id"}, Unique: false},
-	"idx_chat_sessions_transcription_id":    {Table: "chat_sessions", Columns: []string{"transcription_id"}, Unique: false},
-	"idx_chat_messages_user_id":             {Table: "chat_messages", Columns: []string{"user_id"}, Unique: false},
-	"idx_chat_messages_chat_session_id":     {Table: "chat_messages", Columns: []string{"chat_session_id"}, Unique: false},
-	"idx_llm_profiles_user_id":              {Table: "llm_profiles", Columns: []string{"user_id"}, Unique: false},
-	"idx_llm_profiles_is_default":           {Table: "llm_profiles", Columns: []string{"is_default"}, Unique: false},
+	"idx_summary_templates_user_id":          {Table: "summary_templates", Columns: []string{"user_id"}, Unique: false},
+	"idx_summary_templates_is_default":       {Table: "summary_templates", Columns: []string{"is_default"}, Unique: false},
+	"idx_summary_templates_deleted_at":       {Table: "summary_templates", Columns: []string{"deleted_at"}, Unique: false},
+	"idx_summary_templates_user_default_unique": {Table: "summary_templates", Columns: []string{"user_id"}, Unique: true, Partial: true, WherePredicate: "is_default=1"},
+	"idx_summaries_transcription_id":         {Table: "summaries", Columns: []string{"transcription_id"}, Unique: false},
+	"idx_summaries_user_id":                  {Table: "summaries", Columns: []string{"user_id"}, Unique: false},
+	"idx_summaries_template_id":              {Table: "summaries", Columns: []string{"template_id"}, Unique: false},
+	"idx_notes_user_id":                      {Table: "notes", Columns: []string{"user_id"}, Unique: false},
+	"idx_notes_transcription_id":             {Table: "notes", Columns: []string{"transcription_id"}, Unique: false},
+	"idx_notes_deleted_at":                   {Table: "notes", Columns: []string{"deleted_at"}, Unique: false},
+	"idx_chat_sessions_user_id":              {Table: "chat_sessions", Columns: []string{"user_id"}, Unique: false},
+	"idx_chat_sessions_transcription_id":     {Table: "chat_sessions", Columns: []string{"transcription_id"}, Unique: false},
+	"idx_chat_messages_user_id":              {Table: "chat_messages", Columns: []string{"user_id"}, Unique: false},
+	"idx_chat_messages_chat_session_id":      {Table: "chat_messages", Columns: []string{"chat_session_id"}, Unique: false},
+	"idx_llm_profiles_user_id":               {Table: "llm_profiles", Columns: []string{"user_id"}, Unique: false},
+	"idx_llm_profiles_is_default":            {Table: "llm_profiles", Columns: []string{"is_default"}, Unique: false},
+	"idx_llm_profiles_user_default_unique":   {Table: "llm_profiles", Columns: []string{"user_id"}, Unique: true, Partial: true, WherePredicate: "is_default=1"},
 }
 
 func duplicateIndexName(errMsg string) string {
@@ -155,6 +160,35 @@ func duplicateIndexName(errMsg string) string {
 		return ""
 	}
 	return strings.Trim(matches[1], "`\"")
+}
+
+func normalizeIndexPredicate(predicate string) string {
+	normalized := strings.ToLower(strings.TrimSpace(predicate))
+	replacer := strings.NewReplacer(
+		"`", "",
+		`"`, "",
+		"[", "",
+		"]", "",
+		"(", "",
+		")", "",
+		" ", "",
+		"\t", "",
+		"\n", "",
+		"\r", "",
+	)
+	normalized = replacer.Replace(normalized)
+	normalized = strings.ReplaceAll(normalized, "true", "1")
+	normalized = strings.ReplaceAll(normalized, "==", "=")
+	return normalized
+}
+
+func extractNormalizedWherePredicate(createIndexSQL string) string {
+	sql := strings.ToLower(strings.TrimSpace(createIndexSQL))
+	whereIndex := strings.Index(sql, " where ")
+	if whereIndex == -1 {
+		return ""
+	}
+	return normalizeIndexPredicate(sql[whereIndex+len(" where "):])
 }
 
 func existingIndexMatches(tx *gorm.DB, indexName string, expected expectedSQLiteIndex) bool {
@@ -169,8 +203,9 @@ func existingIndexMatches(tx *gorm.DB, indexName string, expected expectedSQLite
 		return false
 	}
 	type indexListRow struct {
-		Name   string `gorm:"column:name"`
-		Unique int    `gorm:"column:unique"`
+		Name    string `gorm:"column:name"`
+		Unique  int    `gorm:"column:unique"`
+		Partial int    `gorm:"column:partial"`
 	}
 	var listRows []indexListRow
 	if err := tx.Raw("PRAGMA index_list('" + expected.Table + "')").Scan(&listRows).Error; err != nil {
@@ -180,6 +215,9 @@ func existingIndexMatches(tx *gorm.DB, indexName string, expected expectedSQLite
 	for _, row := range listRows {
 		if row.Name == indexName {
 			if (row.Unique == 1) != expected.Unique {
+				return false
+			}
+			if (row.Partial == 1) != expected.Partial {
 				return false
 			}
 			found = true
@@ -201,6 +239,18 @@ func existingIndexMatches(tx *gorm.DB, indexName string, expected expectedSQLite
 	}
 	for i, row := range infoRows {
 		if row.Name != expected.Columns[i] {
+			return false
+		}
+	}
+	if expected.Partial {
+		type sqliteMasterSQLRow struct {
+			SQL string `gorm:"column:sql"`
+		}
+		var sqlRow sqliteMasterSQLRow
+		if err := tx.Raw("SELECT sql FROM sqlite_master WHERE type = 'index' AND name = ?", indexName).Scan(&sqlRow).Error; err != nil {
+			return false
+		}
+		if extractNormalizedWherePredicate(sqlRow.SQL) != normalizeIndexPredicate(expected.WherePredicate) {
 			return false
 		}
 	}
