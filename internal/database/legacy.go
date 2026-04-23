@@ -262,6 +262,9 @@ func migrateLegacy(db *gorm.DB) error {
 		if err := migrateSummarySettings(tx, userID); err != nil {
 			return err
 		}
+		if err := ensureSingleDefaultPerUser(tx); err != nil {
+			return err
+		}
 		if err := updateLatestExecutions(tx); err != nil {
 			return err
 		}

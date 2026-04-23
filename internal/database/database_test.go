@@ -102,26 +102,147 @@ func TestFreshSchemaInitialization(t *testing.T) {
 	assert.True(t, hasIndex(t, db, "speaker_mappings", "idx_speaker_mappings_unique"))
 	assert.True(t, hasIndex(t, db, "transcription_tracks", "idx_transcription_tracks_unique"))
 	assert.True(t, hasIndex(t, db, "transcription_executions", "idx_transcription_executions_unique"))
+	assert.True(t, hasIndex(t, db, "transcription_profiles", "idx_transcription_profiles_user_default_unique"))
+	assert.True(t, hasIndex(t, db, "summary_templates", "idx_summary_templates_user_default_unique"))
+	assert.True(t, hasIndex(t, db, "llm_profiles", "idx_llm_profiles_user_default_unique"))
 
 	title := "Fresh transcription"
-	job := models.TranscriptionJob{Title: &title, Status: models.StatusUploaded, AudioPath: "/tmp/audio.wav"}
+	job := models.TranscriptionJob{UserID: 1, Title: &title, Status: models.StatusUploaded, AudioPath: "/tmp/audio.wav"}
 	require.NoError(t, db.Create(&job).Error)
 
-	note := models.Note{ID: "note-1", TranscriptionID: job.ID, Content: "hello", StartTime: 1.2, EndTime: 2.4}
+	note := models.Note{ID: "note-1", UserID: job.UserID, TranscriptionID: job.ID, Content: "hello", StartTime: 1.2, EndTime: 2.4}
 	require.NoError(t, db.Create(&note).Error)
 
-	invalidNote := models.Note{ID: "note-invalid", TranscriptionID: "missing", Content: "bad"}
+	invalidNote := models.Note{ID: "note-invalid", UserID: job.UserID, TranscriptionID: "missing", Content: "bad"}
 	require.Error(t, db.Create(&invalidNote).Error)
 
-	mapping1 := models.SpeakerMapping{TranscriptionJobID: job.ID, OriginalSpeaker: "SPEAKER_00", CustomName: "Alice"}
+	mapping1 := models.SpeakerMapping{UserID: job.UserID, TranscriptionJobID: job.ID, OriginalSpeaker: "SPEAKER_00", CustomName: "Alice"}
 	require.NoError(t, db.Create(&mapping1).Error)
-	mapping2 := models.SpeakerMapping{TranscriptionJobID: job.ID, OriginalSpeaker: "SPEAKER_00", CustomName: "Bob"}
+	mapping2 := models.SpeakerMapping{UserID: job.UserID, TranscriptionJobID: job.ID, OriginalSpeaker: "SPEAKER_00", CustomName: "Bob"}
 	require.Error(t, db.Create(&mapping2).Error)
 
-	track1 := models.MultiTrackFile{TranscriptionJobID: job.ID, FileName: "track1.wav", FilePath: "/tmp/track1.wav", TrackIndex: 0}
+	track1 := models.MultiTrackFile{UserID: job.UserID, TranscriptionJobID: job.ID, FileName: "track1.wav", FilePath: "/tmp/track1.wav", TrackIndex: 0}
 	require.NoError(t, db.Create(&track1).Error)
-	track2 := models.MultiTrackFile{TranscriptionJobID: job.ID, FileName: "track2.wav", FilePath: "/tmp/track2.wav", TrackIndex: 0}
+	track2 := models.MultiTrackFile{UserID: job.UserID, TranscriptionJobID: job.ID, FileName: "track2.wav", FilePath: "/tmp/track2.wav", TrackIndex: 0}
 	require.Error(t, db.Create(&track2).Error)
+}
+
+func TestCreateExecutionAssignsSequentialNumbers(t *testing.T) {
+	db := openMigratedTestDB(t, "execution-sequence.db")
+
+	user := models.User{Username: "execution-user", Password: "pw"}
+	require.NoError(t, db.Create(&user).Error)
+
+	title := "Execution job"
+	job := models.TranscriptionJob{UserID: user.ID, Title: &title, Status: models.StatusUploaded, AudioPath: "/tmp/audio.wav"}
+	require.NoError(t, db.Create(&job).Error)
+
+	jobRepo := repository.NewJobRepository(db)
+
+	execution1 := &models.TranscriptionJobExecution{
+		TranscriptionJobID: job.ID,
+		UserID:             user.ID,
+		Status:             models.StatusProcessing,
+		StartedAt:          time.Now(),
+	}
+	require.NoError(t, jobRepo.CreateExecution(t.Context(), execution1))
+	assert.Equal(t, 1, execution1.ExecutionNumber)
+
+	var persistedJob models.TranscriptionJob
+	require.NoError(t, db.First(&persistedJob, "id = ?", job.ID).Error)
+	assert.NotNil(t, persistedJob.LatestExecutionID)
+	assert.Equal(t, execution1.ID, *persistedJob.LatestExecutionID)
+
+	execution2 := &models.TranscriptionJobExecution{
+		TranscriptionJobID: job.ID,
+		UserID:             user.ID,
+		Status:             models.StatusFailed,
+		StartedAt:          time.Now(),
+	}
+	require.NoError(t, jobRepo.CreateExecution(t.Context(), execution2))
+	assert.Equal(t, 2, execution2.ExecutionNumber)
+
+	require.NoError(t, db.First(&persistedJob, "id = ?", job.ID).Error)
+	assert.NotNil(t, persistedJob.LatestExecutionID)
+	assert.Equal(t, execution2.ID, *persistedJob.LatestExecutionID)
+
+	var executions []models.TranscriptionJobExecution
+	require.NoError(t, db.Where("transcription_id = ?", job.ID).Order("execution_number ASC").Find(&executions).Error)
+	require.Len(t, executions, 2)
+	assert.Equal(t, 1, executions[0].ExecutionNumber)
+	assert.Equal(t, 2, executions[1].ExecutionNumber)
+}
+
+func TestDefaultRecordsAreScopedPerUser(t *testing.T) {
+	db := openUnmigratedTestDB(t, "default-records.db")
+
+	userA := models.User{Username: "default-user-a", Password: "pw-a"}
+	userB := models.User{Username: "default-user-b", Password: "pw-b"}
+	require.NoError(t, db.Create(&userA).Error)
+	require.NoError(t, db.Create(&userB).Error)
+
+	base := time.Now().Truncate(time.Second)
+
+	// Create duplicate per-user defaults for legacy cleanup to normalize.
+	profileAFirst := models.TranscriptionProfile{ID: "profile-a-old", UserID: userA.ID, Name: "profile-old", IsDefault: true, CreatedAt: base, UpdatedAt: base}
+	profileASecond := models.TranscriptionProfile{ID: "profile-a-new", UserID: userA.ID, Name: "profile-new", IsDefault: true, CreatedAt: base.Add(time.Minute), UpdatedAt: base.Add(time.Minute)}
+	profileB := models.TranscriptionProfile{ID: "profile-b", UserID: userB.ID, Name: "profile-b", IsDefault: true, CreatedAt: base, UpdatedAt: base}
+	require.NoError(t, db.Session(&gorm.Session{SkipHooks: true}).Create(&profileAFirst).Error)
+	require.NoError(t, db.Session(&gorm.Session{SkipHooks: true}).Create(&profileASecond).Error)
+	require.NoError(t, db.Session(&gorm.Session{SkipHooks: true}).Create(&profileB).Error)
+
+	summaryTemplateAFirst := models.SummaryTemplate{ID: "template-a-old", UserID: userA.ID, Name: "template-old", Prompt: "prompt", IsDefault: true, Model: "gpt", CreatedAt: base, UpdatedAt: base}
+	summaryTemplateASecond := models.SummaryTemplate{ID: "template-a-new", UserID: userA.ID, Name: "template-new", Prompt: "prompt", IsDefault: true, Model: "gpt", CreatedAt: base.Add(time.Minute), UpdatedAt: base.Add(time.Minute)}
+	summaryTemplateB := models.SummaryTemplate{ID: "template-b", UserID: userB.ID, Name: "template-b", Prompt: "prompt", IsDefault: true, Model: "gpt", CreatedAt: base, UpdatedAt: base}
+	require.NoError(t, db.Session(&gorm.Session{SkipHooks: true}).Create(&summaryTemplateAFirst).Error)
+	require.NoError(t, db.Session(&gorm.Session{SkipHooks: true}).Create(&summaryTemplateASecond).Error)
+	require.NoError(t, db.Session(&gorm.Session{SkipHooks: true}).Create(&summaryTemplateB).Error)
+
+	llmAFirst := models.LLMConfig{ID: 1000, UserID: userA.ID, Provider: "provider-a", APIKey: ptr("k1"), IsDefault: true, CreatedAt: base, UpdatedAt: base}
+	llmASecond := models.LLMConfig{ID: 1001, UserID: userA.ID, Provider: "provider-b", APIKey: ptr("k2"), IsDefault: true, CreatedAt: base.Add(time.Minute), UpdatedAt: base.Add(time.Minute)}
+	llmB := models.LLMConfig{ID: 1002, UserID: userB.ID, Provider: "provider-c", APIKey: ptr("k3"), IsDefault: true, CreatedAt: base, UpdatedAt: base}
+	require.NoError(t, db.Session(&gorm.Session{SkipHooks: true}).Create(&llmAFirst).Error)
+	require.NoError(t, db.Session(&gorm.Session{SkipHooks: true}).Create(&llmASecond).Error)
+	require.NoError(t, db.Session(&gorm.Session{SkipHooks: true}).Create(&llmB).Error)
+
+	require.NoError(t, Migrate(db))
+
+	var profileA, profileBDef models.TranscriptionProfile
+	require.NoError(t, db.Where("user_id = ? AND id = ?", userA.ID, "profile-a-new").First(&profileA).Error)
+	require.NoError(t, db.Where("user_id = ?", userB.ID).Where("is_default = ?", true).First(&profileBDef).Error)
+	assert.True(t, profileA.IsDefault)
+	assert.True(t, profileBDef.IsDefault)
+
+	var summaryCountA int64
+	require.NoError(t, db.Model(&models.SummaryTemplate{}).Where("user_id = ? AND is_default = ?", userA.ID, true).Count(&summaryCountA).Error)
+	assert.Equal(t, int64(1), summaryCountA)
+
+	var llmCountA int64
+	require.NoError(t, db.Model(&models.LLMConfig{}).Where("user_id = ? AND is_default = ?", userA.ID, true).Count(&llmCountA).Error)
+	assert.Equal(t, int64(1), llmCountA)
+
+	profileRepo := repository.NewProfileRepository(db)
+	llmRepo := repository.NewLLMConfigRepository(db)
+
+	userADefProfile, err := profileRepo.FindDefaultByUser(t.Context(), userA.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "profile-a-new", userADefProfile.ID)
+
+	userBDefProfile, err := profileRepo.FindDefaultByUser(t.Context(), userB.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "profile-b", userBDefProfile.ID)
+
+	var userADefTemplate models.SummaryTemplate
+	require.NoError(t, db.Where("user_id = ? AND is_default = ?", userA.ID, true).First(&userADefTemplate).Error)
+	assert.Equal(t, "template-a-new", userADefTemplate.ID)
+
+	userAActiveLLM, err := llmRepo.GetActiveByUser(t.Context(), userA.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "provider-b", userAActiveLLM.Provider)
+
+	userBActiveLLM, err := llmRepo.GetActiveByUser(t.Context(), userB.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "provider-c", userBActiveLLM.Provider)
 }
 
 func TestLegacyMigrationPreservesData(t *testing.T) {
@@ -255,6 +376,21 @@ func openMigratedTestDB(t *testing.T, name string) *gorm.DB {
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, closeDB(db)) })
 	require.NoError(t, Migrate(db))
+	return db
+}
+
+func openUnmigratedTestDB(t *testing.T, name string) *gorm.DB {
+	t.Helper()
+	dbPath := filepath.Join(t.TempDir(), name)
+	db, err := Open(dbPath)
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, closeDB(db)) })
+	require.NoError(t, db.AutoMigrate(
+		&models.User{},
+		&models.TranscriptionProfile{},
+		&models.SummaryTemplate{},
+		&models.LLMConfig{},
+	))
 	return db
 }
 
