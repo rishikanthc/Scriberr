@@ -182,13 +182,15 @@ func normalizeIndexPredicate(predicate string) string {
 	return normalized
 }
 
+var whereTokenRegexp = regexp.MustCompile(`(?i)\bwhere\b`)
+
 func extractNormalizedWherePredicate(createIndexSQL string) string {
-	sql := strings.ToLower(strings.TrimSpace(createIndexSQL))
-	whereIndex := strings.Index(sql, " where ")
-	if whereIndex == -1 {
+	sql := strings.TrimSpace(createIndexSQL)
+	whereLoc := whereTokenRegexp.FindStringIndex(sql)
+	if whereLoc == nil {
 		return ""
 	}
-	return normalizeIndexPredicate(sql[whereIndex+len(" where "):])
+	return normalizeIndexPredicate(sql[whereLoc[1]:])
 }
 
 func existingIndexMatches(tx *gorm.DB, indexName string, expected expectedSQLiteIndex) bool {
