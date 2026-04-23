@@ -1398,6 +1398,72 @@ func (h *Handler) GetJobExecutionData(c *gin.Context) {
 	c.JSON(http.StatusOK, response)
 }
 
+// @Summary Get transcription pipeline status
+// @Description Get the latest fine-grained pipeline status for a transcription job
+// @Tags transcription
+// @Produce json
+// @Param id path string true "Job ID"
+// @Success 200 {object} map[string]interface{}
+// @Failure 404 {object} map[string]string
+// @Router /api/v1/transcription/{id}/pipeline-status [get]
+// @Security ApiKeyAuth
+// @Security BearerAuth
+func (h *Handler) GetPipelineStatus(c *gin.Context) {
+	jobID := c.Param("id")
+
+	job, err := h.jobRepo.FindByID(c.Request.Context(), jobID)
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Transcription job not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get transcription job"})
+		return
+	}
+
+	execution, err := h.jobRepo.FindLatestExecution(c.Request.Context(), jobID)
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			c.JSON(http.StatusOK, gin.H{
+				"job_id":     jobID,
+				"available":  false,
+				"job_status": job.Status,
+			})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get pipeline status"})
+		return
+	}
+
+	// During re-run enqueue, the job is pending before a new execution row exists.
+	// If the latest execution predates this job update, treat it as stale snapshot data.
+	if job.Status == models.StatusPending && execution.CreatedAt.Before(job.UpdatedAt) {
+		c.JSON(http.StatusOK, gin.H{
+			"job_id":     jobID,
+			"available":  false,
+			"job_status": job.Status,
+		})
+		return
+	}
+
+	response := gin.H{
+		"job_id":       jobID,
+		"available":    true,
+		"job_status":   job.Status,
+		"execution_id": execution.ID,
+		"status": gin.H{
+			"stage":        execution.PipelineStage,
+			"progress":     execution.PipelineProgress,
+			"step_message": execution.PipelineMessage,
+			"error":        execution.ErrorMessage,
+			"started_at":   execution.StartedAt,
+			"updated_at":   execution.PipelineUpdatedAt,
+		},
+	}
+
+	c.JSON(http.StatusOK, response)
+}
+
 // @Summary Get audio file
 // @Description Serve the audio file for a transcription job
 // @Tags transcription
