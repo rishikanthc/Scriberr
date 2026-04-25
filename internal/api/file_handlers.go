@@ -79,7 +79,10 @@ func (h *Handler) startYouTubeImport(jobID, rawURL, title, storagePath string) {
 	if importer == nil {
 		importer = ytDLPImporter{}
 	}
+	h.asyncJobs.Add(1)
 	go func() {
+		defer h.asyncJobs.Done()
+
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Hour)
 		defer cancel()
 

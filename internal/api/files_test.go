@@ -24,6 +24,8 @@ import (
 
 type fakeYouTubeImporter struct {
 	mu        sync.Mutex
+	once      sync.Once
+	doneOnce  sync.Once
 	calls     []youtubeImportJob
 	content   []byte
 	filename  string
@@ -46,7 +48,7 @@ func (f *fakeYouTubeImporter) Import(ctx context.Context, job youtubeImportJob) 
 	}
 	defer func() {
 		if f.completed != nil {
-			close(f.completed)
+			f.doneOnce.Do(func() { close(f.completed) })
 		}
 	}()
 	if f.err != nil {
@@ -71,6 +73,12 @@ func (f *fakeYouTubeImporter) Import(ctx context.Context, job youtubeImportJob) 
 		mimeType = "audio/mpeg"
 	}
 	return youtubeImportResult{Filename: filename, MimeType: mimeType}, nil
+}
+
+func (f *fakeYouTubeImporter) unblock() {
+	if f.block != nil {
+		f.once.Do(func() { close(f.block) })
+	}
 }
 
 func (f *fakeYouTubeImporter) callCount() int {

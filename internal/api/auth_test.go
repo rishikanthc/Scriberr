@@ -44,7 +44,12 @@ func newAuthTestServer(t *testing.T) *authTestServer {
 		UploadDir:   uploadDir,
 	}, authService)
 	handler.readinessCheck = func() error { return nil }
-	handler.youtubeImporter = &fakeYouTubeImporter{block: make(chan struct{})}
+	youtubeImporter := &fakeYouTubeImporter{block: make(chan struct{})}
+	handler.youtubeImporter = youtubeImporter
+	t.Cleanup(func() {
+		youtubeImporter.unblock()
+		handler.asyncJobs.Wait()
+	})
 
 	return &authTestServer{router: SetupRoutes(handler, authService), auth: authService, uploadDir: uploadDir, handler: handler}
 }

@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"path"
 	"strings"
+	"sync"
 	"time"
 
 	"scriberr/internal/auth"
@@ -24,6 +25,7 @@ type Handler struct {
 	events          *eventBroker
 	youtubeImporter YouTubeImporter
 	eventHeartbeat  time.Duration
+	asyncJobs       sync.WaitGroup
 }
 
 func NewHandler(cfg *config.Config, authService *auth.AuthService, _ ...any) *Handler {
