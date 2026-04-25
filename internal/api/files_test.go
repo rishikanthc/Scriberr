@@ -86,6 +86,21 @@ func TestFileUploadListGetPatchDelete(t *testing.T) {
 	items := body["items"].([]any)
 	require.Len(t, items, 1)
 
+	resp, body = s.request(t, http.MethodPost, "/api/v1/transcriptions", map[string]any{
+		"file_id": fileID,
+		"title":   "Team sync transcript",
+	}, token, "")
+	require.Equal(t, http.StatusAccepted, resp.Code)
+	transcriptionID := body["id"].(string)
+
+	resp, body = s.request(t, http.MethodGet, "/api/v1/files", nil, token, "")
+	require.Equal(t, http.StatusOK, resp.Code)
+	items = body["items"].([]any)
+	require.Len(t, items, 1)
+
+	resp, _ = s.request(t, http.MethodGet, "/api/v1/files/"+strings.Replace(transcriptionID, "tr_", "file_", 1), nil, token, "")
+	require.Equal(t, http.StatusNotFound, resp.Code)
+
 	resp, body = s.request(t, http.MethodGet, "/api/v1/files/"+fileID, nil, token, "")
 	require.Equal(t, http.StatusOK, resp.Code)
 	require.Equal(t, fileID, body["id"])

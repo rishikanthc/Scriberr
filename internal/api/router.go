@@ -685,7 +685,7 @@ func (h *Handler) listFiles(c *gin.Context) {
 		return
 	}
 	var jobs []models.TranscriptionJob
-	if err := database.DB.Where("user_id = ?", userID).Order("created_at DESC").Find(&jobs).Error; err != nil {
+	if err := database.DB.Where("user_id = ? AND source_file_hash IS NULL", userID).Order("created_at DESC").Find(&jobs).Error; err != nil {
 		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not list files", nil)
 		return
 	}
@@ -775,7 +775,7 @@ func (h *Handler) fileByPublicID(c *gin.Context) (*models.TranscriptionJob, bool
 		return nil, false
 	}
 	var job models.TranscriptionJob
-	if err := database.DB.Where("id = ? AND user_id = ?", id, userID).First(&job).Error; err != nil {
+	if err := database.DB.Where("id = ? AND user_id = ? AND source_file_hash IS NULL", id, userID).First(&job).Error; err != nil {
 		writeError(c, http.StatusNotFound, "NOT_FOUND", "file not found", nil)
 		return nil, false
 	}
