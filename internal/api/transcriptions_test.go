@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"scriberr/internal/database"
 	"scriberr/internal/models"
@@ -164,4 +165,71 @@ func TestTranscriptionValidationTranscriptRetryAndAudioAlias(t *testing.T) {
 	require.Equal(t, transcriptionID, body["source_transcription_id"])
 	require.Equal(t, "queued", body["status"])
 	require.True(t, strings.HasPrefix(body["id"].(string), "tr_"))
+}
+
+func TestTranscriptionListFiltersSortingPaginationAndValidation(t *testing.T) {
+	s := newAuthTestServer(t)
+	token := registerForFileTests(t, s)
+
+	fileID, _ := createUploadedFileForTranscription(t, s, token)
+	transcriptions := []struct {
+		title  string
+		status models.JobStatus
+	}{
+		{title: "Alpha transcript", status: models.StatusCompleted},
+		{title: "Bravo transcript", status: models.StatusPending},
+		{title: "Charlie transcript", status: models.StatusFailed},
+	}
+	for _, transcription := range transcriptions {
+		resp, body := s.request(t, http.MethodPost, "/api/v1/transcriptions", map[string]any{
+			"file_id": fileID,
+			"title":   transcription.title,
+		}, token, "")
+		require.Equal(t, http.StatusAccepted, resp.Code)
+		id := strings.TrimPrefix(body["id"].(string), "tr_")
+		require.NoError(t, database.DB.Model(&models.TranscriptionJob{}).Where("id = ?", id).Update("status", transcription.status).Error)
+	}
+
+	resp, body := s.request(t, http.MethodGet, "/api/v1/transcriptions?status=completed&q=alpha", nil, token, "")
+	require.Equal(t, http.StatusOK, resp.Code)
+	items := body["items"].([]any)
+	require.Len(t, items, 1)
+	require.Equal(t, "Alpha transcript", items[0].(map[string]any)["title"])
+	require.Equal(t, "completed", items[0].(map[string]any)["status"])
+
+	future := time.Now().Add(time.Hour).Format(time.RFC3339)
+	resp, body = s.request(t, http.MethodGet, "/api/v1/transcriptions?updated_after="+future, nil, token, "")
+	require.Equal(t, http.StatusOK, resp.Code)
+	require.Empty(t, body["items"].([]any))
+
+	resp, body = s.request(t, http.MethodGet, "/api/v1/transcriptions?limit=2&sort=-title", nil, token, "")
+	require.Equal(t, http.StatusOK, resp.Code)
+	firstPage := body["items"].([]any)
+	require.Len(t, firstPage, 2)
+	require.Equal(t, "Charlie transcript", firstPage[0].(map[string]any)["title"])
+	require.Equal(t, "Bravo transcript", firstPage[1].(map[string]any)["title"])
+	nextCursor, ok := body["next_cursor"].(string)
+	require.True(t, ok)
+	require.NotEmpty(t, nextCursor)
+
+	resp, body = s.request(t, http.MethodGet, "/api/v1/transcriptions?limit=2&sort=-title&cursor="+nextCursor, nil, token, "")
+	require.Equal(t, http.StatusOK, resp.Code)
+	secondPage := body["items"].([]any)
+	require.Len(t, secondPage, 1)
+	require.Equal(t, "Alpha transcript", secondPage[0].(map[string]any)["title"])
+	require.Nil(t, body["next_cursor"])
+
+	validationCases := []string{
+		"/api/v1/transcriptions?limit=200",
+		"/api/v1/transcriptions?status=uploaded",
+		"/api/v1/transcriptions?sort=size",
+		"/api/v1/transcriptions?updated_after=not-a-time",
+		"/api/v1/transcriptions?cursor=not-a-cursor",
+	}
+	for _, path := range validationCases {
+		resp, body := s.request(t, http.MethodGet, path, nil, token, "")
+		require.Equal(t, http.StatusUnprocessableEntity, resp.Code, path)
+		errBody := body["error"].(map[string]any)
+		require.NotEmpty(t, errBody["field"])
+	}
 }

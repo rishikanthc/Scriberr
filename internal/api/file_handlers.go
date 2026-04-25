@@ -134,17 +134,39 @@ func (h *Handler) listFiles(c *gin.Context) {
 		writeError(c, http.StatusUnauthorized, "UNAUTHORIZED", "missing or invalid authentication", nil)
 		return
 	}
+	opts, ok := parseListQuery(c, allowedResourceSorts())
+	if !ok {
+		return
+	}
+	kind := strings.TrimSpace(c.Query("kind"))
+	if kind != "" && kind != "audio" && kind != "video" && kind != "youtube" {
+		writeError(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "kind is invalid", stringPtr("kind"))
+		return
+	}
+
 	var jobs []models.TranscriptionJob
-	if err := database.DB.Where("user_id = ? AND source_file_hash IS NULL", userID).Order("created_at DESC").Find(&jobs).Error; err != nil {
+	query := database.DB.Where("user_id = ? AND source_file_hash IS NULL", userID)
+	switch kind {
+	case "youtube":
+		query = query.Where("source_file_name LIKE ?", "youtube:%")
+	case "audio":
+		query = query.Where("source_file_name NOT LIKE ?", "youtube:%")
+		query = query.Where("LOWER(source_file_name) LIKE ? OR LOWER(source_file_name) LIKE ? OR LOWER(source_file_name) LIKE ? OR LOWER(source_file_name) LIKE ?", "%.wav", "%.mp3", "%.m4a", "%.flac")
+	case "video":
+		query = query.Where("source_file_name NOT LIKE ?", "youtube:%")
+		query = query.Where("LOWER(source_file_name) LIKE ? OR LOWER(source_file_name) LIKE ?", "%.mp4", "%.mov")
+	}
+	if err := applyListQuery(query, opts).Find(&jobs).Error; err != nil {
 		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not list files", nil)
 		return
 	}
+	jobs, nextCursor := trimListPage(jobs, opts)
 	items := make([]gin.H, 0, len(jobs))
 	for i := range jobs {
 		mimeType := mediaType("", jobs[i].SourceFileName)
 		items = append(items, fileResponse(&jobs[i], mimeType, fileKind(mimeType)))
 	}
-	c.JSON(http.StatusOK, gin.H{"items": items, "next_cursor": nil})
+	c.JSON(http.StatusOK, gin.H{"items": items, "next_cursor": nextCursor})
 }
 func (h *Handler) getFile(c *gin.Context) {
 	job, ok := h.fileByPublicID(c)

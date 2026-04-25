@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"scriberr/internal/database"
 	"scriberr/internal/models"
@@ -161,6 +162,79 @@ func TestYouTubeImportReturnsProcessingPlaceholder(t *testing.T) {
 	require.Equal(t, http.StatusUnprocessableEntity, resp.Code)
 	errBody := body["error"].(map[string]any)
 	require.Equal(t, "url", errBody["field"])
+}
+
+func TestFileListFiltersSortingPaginationAndValidation(t *testing.T) {
+	s := newAuthTestServer(t)
+	token := registerForFileTests(t, s)
+
+	uploads := []struct {
+		filename string
+		title    string
+	}{
+		{filename: "alpha.wav", title: "Alpha meeting"},
+		{filename: "bravo.mp3", title: "Bravo notes"},
+		{filename: "charlie.wav", title: "Charlie sync"},
+	}
+	for _, upload := range uploads {
+		resp, _ := uploadMultipart(t, s, token, "file", upload.filename, "audio/wav", []byte("RIFF----WAVEfmt data"), upload.title)
+		require.Equal(t, http.StatusCreated, resp.Code)
+	}
+	resp, _ := s.request(t, http.MethodPost, "/api/v1/files:import-youtube", map[string]any{
+		"url":   "https://www.youtube.com/watch?v=abc123",
+		"title": "YouTube talk",
+	}, token, "")
+	require.Equal(t, http.StatusAccepted, resp.Code)
+
+	resp, body := s.request(t, http.MethodGet, "/api/v1/files?kind=audio&q=bravo&sort=title", nil, token, "")
+	require.Equal(t, http.StatusOK, resp.Code)
+	items := body["items"].([]any)
+	require.Len(t, items, 1)
+	require.Equal(t, "Bravo notes", items[0].(map[string]any)["title"])
+	require.Equal(t, "audio", items[0].(map[string]any)["kind"])
+
+	resp, body = s.request(t, http.MethodGet, "/api/v1/files?kind=youtube", nil, token, "")
+	require.Equal(t, http.StatusOK, resp.Code)
+	items = body["items"].([]any)
+	require.Len(t, items, 1)
+	require.Equal(t, "youtube", items[0].(map[string]any)["kind"])
+
+	future := time.Now().Add(time.Hour).Format(time.RFC3339)
+	resp, body = s.request(t, http.MethodGet, "/api/v1/files?updated_after="+future, nil, token, "")
+	require.Equal(t, http.StatusOK, resp.Code)
+	require.Empty(t, body["items"].([]any))
+
+	resp, body = s.request(t, http.MethodGet, "/api/v1/files?limit=2&sort=title", nil, token, "")
+	require.Equal(t, http.StatusOK, resp.Code)
+	firstPage := body["items"].([]any)
+	require.Len(t, firstPage, 2)
+	require.Equal(t, "Alpha meeting", firstPage[0].(map[string]any)["title"])
+	require.Equal(t, "Bravo notes", firstPage[1].(map[string]any)["title"])
+	nextCursor, ok := body["next_cursor"].(string)
+	require.True(t, ok)
+	require.NotEmpty(t, nextCursor)
+
+	resp, body = s.request(t, http.MethodGet, "/api/v1/files?limit=2&sort=title&cursor="+nextCursor, nil, token, "")
+	require.Equal(t, http.StatusOK, resp.Code)
+	secondPage := body["items"].([]any)
+	require.Len(t, secondPage, 2)
+	require.Equal(t, "Charlie sync", secondPage[0].(map[string]any)["title"])
+	require.Equal(t, "YouTube talk", secondPage[1].(map[string]any)["title"])
+	require.Nil(t, body["next_cursor"])
+
+	validationCases := []string{
+		"/api/v1/files?limit=0",
+		"/api/v1/files?kind=document",
+		"/api/v1/files?sort=size",
+		"/api/v1/files?updated_after=not-a-time",
+		"/api/v1/files?cursor=not-a-cursor",
+	}
+	for _, path := range validationCases {
+		resp, body := s.request(t, http.MethodGet, path, nil, token, "")
+		require.Equal(t, http.StatusUnprocessableEntity, resp.Code, path)
+		errBody := body["error"].(map[string]any)
+		require.NotEmpty(t, errBody["field"])
+	}
 }
 
 func TestFileAudioRangeStreaming(t *testing.T) {

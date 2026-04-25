@@ -131,6 +131,10 @@ func (h *Handler) listTranscriptions(c *gin.Context) {
 		writeError(c, http.StatusUnauthorized, "UNAUTHORIZED", "missing or invalid authentication", nil)
 		return
 	}
+	opts, ok := parseListQuery(c, allowedResourceSorts())
+	if !ok {
+		return
+	}
 	query := database.DB.Where("user_id = ? AND source_file_hash IS NOT NULL", userID)
 	if status := strings.TrimSpace(c.Query("status")); status != "" {
 		if !validTranscriptionStatus(status) {
@@ -140,15 +144,16 @@ func (h *Handler) listTranscriptions(c *gin.Context) {
 		query = query.Where("status = ?", status)
 	}
 	var jobs []models.TranscriptionJob
-	if err := query.Order("created_at DESC").Find(&jobs).Error; err != nil {
+	if err := applyListQuery(query, opts).Find(&jobs).Error; err != nil {
 		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not list transcriptions", nil)
 		return
 	}
+	jobs, nextCursor := trimListPage(jobs, opts)
 	items := make([]gin.H, 0, len(jobs))
 	for i := range jobs {
 		items = append(items, transcriptionListResponse(&jobs[i]))
 	}
-	c.JSON(http.StatusOK, gin.H{"items": items, "next_cursor": nil})
+	c.JSON(http.StatusOK, gin.H{"items": items, "next_cursor": nextCursor})
 }
 func (h *Handler) getTranscription(c *gin.Context) {
 	job, ok := h.transcriptionByPublicID(c, c.Param("id"))
