@@ -204,6 +204,19 @@ func TestFileUploadValidationAndSecurity(t *testing.T) {
 	require.NotContains(t, errBody["message"], "/")
 }
 
+func TestFileUploadSizeLimit(t *testing.T) {
+	s := newAuthTestServer(t)
+	s.handler.maxUploadBytes = 128
+	token := registerForFileTests(t, s)
+
+	resp, body := uploadMultipart(t, s, token, "file", "large.wav", "audio/wav", bytes.Repeat([]byte("x"), 1024), "")
+	require.Equal(t, http.StatusRequestEntityTooLarge, resp.Code)
+	errBody := body["error"].(map[string]any)
+	require.Equal(t, "PAYLOAD_TOO_LARGE", errBody["code"])
+	require.Equal(t, "file", errBody["field"])
+	require.NotContains(t, errBody["message"], s.uploadDir)
+}
+
 func TestYouTubeImportDownloadsWithFakeImporterAndStreamsResult(t *testing.T) {
 	s := newAuthTestServer(t)
 	importer := &fakeYouTubeImporter{content: []byte("ID3 youtube audio"), completed: make(chan struct{})}

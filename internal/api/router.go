@@ -26,6 +26,7 @@ type Handler struct {
 	youtubeImporter YouTubeImporter
 	eventHeartbeat  time.Duration
 	asyncJobs       sync.WaitGroup
+	maxUploadBytes  int64
 }
 
 func NewHandler(cfg *config.Config, authService *auth.AuthService, _ ...any) *Handler {
@@ -40,6 +41,7 @@ func NewHandler(cfg *config.Config, authService *auth.AuthService, _ ...any) *Ha
 		events:          newEventBroker(),
 		youtubeImporter: ytDLPImporter{},
 		eventHeartbeat:  25 * time.Second,
+		maxUploadBytes:  defaultMaxUploadSizeBytes,
 	}
 }
 func SetupRoutes(handler *Handler, _ *auth.AuthService) *gin.Engine {

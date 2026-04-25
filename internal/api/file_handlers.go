@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"errors"
 	"io"
 	"net/http"
 	"net/url"
@@ -136,8 +137,20 @@ func validYouTubeURL(rawURL string) bool {
 	}
 }
 func (h *Handler) storeUploadedFile(c *gin.Context, userID uint) (*models.TranscriptionJob, string, string, bool) {
+	limit := uploadSizeLimit(h)
+	if c.Request.ContentLength > limit {
+		writeError(c, http.StatusRequestEntityTooLarge, "PAYLOAD_TOO_LARGE", "upload is too large", stringPtr("file"))
+		return nil, "", "", false
+	}
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, limit)
+
 	header, err := c.FormFile("file")
 	if err != nil {
+		var maxBytesErr *http.MaxBytesError
+		if errors.As(err, &maxBytesErr) {
+			writeError(c, http.StatusRequestEntityTooLarge, "PAYLOAD_TOO_LARGE", "upload is too large", stringPtr("file"))
+			return nil, "", "", false
+		}
 		writeError(c, http.StatusBadRequest, "INVALID_REQUEST", "file is required", stringPtr("file"))
 		return nil, "", "", false
 	}

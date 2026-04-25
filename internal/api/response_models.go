@@ -16,6 +16,8 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+const defaultMaxUploadSizeBytes int64 = 50 << 30
+
 func userResponse(user *models.User) gin.H {
 	return gin.H{
 		"id":       "user_self",
@@ -237,5 +239,11 @@ func settingsResponse(h *Handler, user *models.User) gin.H {
 	}
 }
 func maxUploadSizeMB(h *Handler) int {
-	return 2048
+	return int(uploadSizeLimit(h) / (1 << 20))
+}
+func uploadSizeLimit(h *Handler) int64 {
+	if h != nil && h.maxUploadBytes > 0 {
+		return h.maxUploadBytes
+	}
+	return defaultMaxUploadSizeBytes
 }
