@@ -1,263 +1,830 @@
 package api
 
 import (
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
+	"fmt"
+	"net/http"
+	"path"
+	"strconv"
+	"strings"
+	"time"
+
 	"scriberr/internal/auth"
+	"scriberr/internal/config"
+	"scriberr/internal/database"
+	"scriberr/internal/models"
 	"scriberr/internal/web"
 	"scriberr/pkg/logger"
 	"scriberr/pkg/middleware"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
-// SetupRoutes sets up all API routes
-func SetupRoutes(handler *Handler, authService *auth.AuthService) *gin.Engine {
-	// Suppress all GIN debug output
+const requestIDKey = "request_id"
+
+type Handler struct {
+	config         *config.Config
+	authService    *auth.AuthService
+	readinessCheck func() error
+}
+
+type ErrorBody struct {
+	Error APIError `json:"error"`
+}
+
+type APIError struct {
+	Code      string  `json:"code"`
+	Message   string  `json:"message"`
+	Field     *string `json:"field,omitempty"`
+	RequestID string  `json:"request_id"`
+}
+
+type registerRequest struct {
+	Username        string `json:"username"`
+	Password        string `json:"password"`
+	ConfirmPassword string `json:"confirm_password"`
+}
+
+type loginRequest struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+}
+
+type refreshRequest struct {
+	RefreshToken string `json:"refresh_token"`
+}
+
+type changePasswordRequest struct {
+	CurrentPassword string `json:"current_password"`
+	NewPassword     string `json:"new_password"`
+	ConfirmPassword string `json:"confirm_password"`
+}
+
+type changeUsernameRequest struct {
+	NewUsername string `json:"new_username"`
+	Password    string `json:"password"`
+}
+
+type createAPIKeyRequest struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
+}
+
+func NewHandler(cfg *config.Config, authService *auth.AuthService, _ ...any) *Handler {
+	if cfg == nil {
+		cfg = &config.Config{}
+	}
+	return &Handler{
+		config:         cfg,
+		authService:    authService,
+		readinessCheck: database.HealthCheck,
+	}
+}
+
+func SetupRoutes(handler *Handler, _ *auth.AuthService) *gin.Engine {
 	gin.SetMode(gin.ReleaseMode)
 	logger.SetGinOutput()
 
-	// Create Gin router without default middleware
 	router := gin.New()
-
-	// Add recovery middleware
-	router.Use(gin.Recovery())
-
-	// Add custom logger middleware
+	router.Use(recoveryMiddleware())
+	router.Use(requestIDMiddleware())
 	router.Use(logger.GinLogger())
-
-	// Add compression middleware first for maximum benefit
 	router.Use(middleware.CompressionMiddleware())
+	router.Use(corsMiddleware(handler.config))
 
-	// Add CORS middleware (uses config from handler)
-	router.Use(func(c *gin.Context) {
+	router.GET("/health", handler.health)
+
+	v1 := router.Group("/api/v1")
+	{
+		v1.GET("/health", handler.health)
+		v1.GET("/ready", handler.ready)
+
+		authRoutes := v1.Group("/auth")
+		{
+			authRoutes.GET("/registration-status", handler.registrationStatus)
+			authRoutes.POST("/register", handler.register)
+			authRoutes.POST("/login", handler.login)
+			authRoutes.POST("/refresh", handler.refresh)
+			authRoutes.POST("/logout", handler.logout)
+
+			protected := authRoutes.Group("")
+			protected.Use(handler.jwtRequired())
+			{
+				protected.GET("/me", handler.me)
+				protected.POST("/change-password", handler.changePassword)
+				protected.POST("/change-username", handler.changeUsername)
+			}
+		}
+
+		apiKeys := v1.Group("/api-keys")
+		apiKeys.Use(handler.jwtRequired())
+		{
+			apiKeys.GET("", handler.listAPIKeys)
+			apiKeys.POST("", handler.createAPIKey)
+			apiKeys.DELETE("/:id", handler.deleteAPIKey)
+		}
+
+		files := v1.Group("/files")
+		files.Use(handler.authRequired())
+		{
+			files.POST("", handler.notImplemented("file upload"))
+			files.GET("", handler.notImplemented("file list"))
+			files.GET("/:id", handler.notImplemented("file get"))
+			files.PATCH("/:id", handler.bindJSONPlaceholder("file update"))
+			files.DELETE("/:id", handler.notImplemented("file delete"))
+			files.GET("/:id/audio", handler.notImplemented("file audio stream"))
+		}
+		transcriptions := v1.Group("/transcriptions")
+		transcriptions.Use(handler.authRequired())
+		{
+			transcriptions.POST("", handler.bindJSONPlaceholder("transcription create"))
+			transcriptions.GET("", handler.notImplemented("transcription list"))
+			transcriptions.GET("/:id", handler.notImplemented("transcription get"))
+			transcriptions.PATCH("/:id", handler.bindJSONPlaceholder("transcription update"))
+			transcriptions.DELETE("/:id", handler.notImplemented("transcription delete"))
+			transcriptions.POST("/:idAction", handler.transcriptionCommand)
+			transcriptions.GET("/:id/transcript", handler.notImplemented("transcript get"))
+			transcriptions.GET("/:id/audio", handler.notImplemented("transcription audio stream"))
+			transcriptions.GET("/:id/events", handler.notImplemented("transcription events"))
+			transcriptions.GET("/:id/logs", handler.notImplemented("transcription logs"))
+			transcriptions.GET("/:id/executions", handler.notImplemented("transcription executions"))
+		}
+
+		profiles := v1.Group("/profiles")
+		profiles.Use(handler.authRequired())
+		{
+			profiles.GET("", handler.notImplemented("profile list"))
+			profiles.POST("", handler.bindJSONPlaceholder("profile create"))
+			profiles.GET("/:id", handler.notImplemented("profile get"))
+			profiles.PATCH("/:id", handler.bindJSONPlaceholder("profile update"))
+			profiles.DELETE("/:id", handler.notImplemented("profile delete"))
+			profiles.POST("/:idAction", handler.profileCommand)
+		}
+
+		settings := v1.Group("/settings")
+		settings.Use(handler.authRequired())
+		{
+			settings.GET("", handler.notImplemented("settings get"))
+			settings.PATCH("", handler.bindJSONPlaceholder("settings update"))
+		}
+
+		v1.GET("/events", handler.authRequired(), handler.notImplemented("global events"))
+		v1.GET("/models/transcription", handler.authRequired(), handler.notImplemented("transcription model capabilities"))
+		v1.GET("/admin/queue", handler.authRequired(), handler.notImplemented("queue stats"))
+	}
+
+	web.SetupStaticRoutes(router, handler.authService)
+	router.NoRoute(func(c *gin.Context) {
+		if handler.handleCommandRoute(c) {
+			return
+		}
+		if strings.HasPrefix(c.Request.URL.Path, "/api") {
+			writeError(c, http.StatusNotFound, "NOT_FOUND", "API endpoint not found", nil)
+			return
+		}
+		cleanPath := strings.TrimPrefix(path.Clean(c.Request.URL.Path), "/")
+		if strings.Contains(cleanPath, "..") {
+			c.Status(http.StatusForbidden)
+			return
+		}
+		if cleanPath != "" && strings.Contains(path.Base(cleanPath), ".") {
+			web.GetStaticHandler().ServeHTTP(c.Writer, c.Request)
+			return
+		}
+		indexHTML, err := web.GetIndexHTML()
+		if err != nil {
+			c.String(http.StatusInternalServerError, "Error loading page")
+			return
+		}
+		c.Data(http.StatusOK, "text/html; charset=utf-8", indexHTML)
+	})
+
+	return router
+}
+
+func requestIDMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		requestID := strings.TrimSpace(c.GetHeader("X-Request-ID"))
+		if requestID == "" {
+			requestID = newRequestID()
+		}
+		c.Set(requestIDKey, requestID)
+		c.Header("X-Request-ID", requestID)
+		c.Next()
+	}
+}
+
+func recoveryMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		defer func() {
+			if recovered := recover(); recovered != nil {
+				logger.Error("API panic recovered", "request_id", requestID(c), "panic", recovered)
+				writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "internal server error", nil)
+				c.Abort()
+			}
+		}()
+		c.Next()
+	}
+}
+
+func corsMiddleware(cfg *config.Config) gin.HandlerFunc {
+	return func(c *gin.Context) {
 		origin := c.Request.Header.Get("Origin")
-
-		// Determine allowed origin based on config
 		allowOrigin := "*"
-		if handler.config.IsProduction() && len(handler.config.AllowedOrigins) > 0 {
-			// In production, validate against configured origins
+		if cfg != nil && cfg.IsProduction() && len(cfg.AllowedOrigins) > 0 {
 			allowOrigin = ""
-			for _, allowed := range handler.config.AllowedOrigins {
+			for _, allowed := range cfg.AllowedOrigins {
 				if origin == allowed {
 					allowOrigin = origin
 					break
 				}
 			}
 		} else if origin != "" {
-			// In development, echo back the origin for credentials support
 			allowOrigin = origin
 		}
-
 		if allowOrigin != "" {
 			c.Header("Access-Control-Allow-Origin", allowOrigin)
 			c.Header("Access-Control-Allow-Credentials", "true")
 		}
-		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-		c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, X-API-Key")
-
-		if c.Request.Method == "OPTIONS" {
-			c.AbortWithStatus(204)
+		c.Header("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS")
+		c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, X-API-Key, X-Request-ID, Idempotency-Key")
+		if c.Request.Method == http.MethodOptions {
+			c.AbortWithStatus(http.StatusNoContent)
 			return
 		}
-
 		c.Next()
-	})
+	}
+}
 
-	// Health check endpoint (no auth required)
-	router.GET("/health", handler.HealthCheck)
+func (h *Handler) health(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{"status": "ok"})
+}
 
-	// CLI install script alias (root level for easier access)
-	router.GET("/install.sh", handler.GetInstallScript)
-	router.GET("/install-cli.sh", handler.GetInstallScript)
-
-	// API v1 routes
-	v1 := router.Group("/api/v1")
-	{
-		// Authentication routes (no auth required)
-		auth := v1.Group("/auth")
-		{
-			auth.GET("/registration-status", handler.GetRegistrationStatus)
-			auth.POST("/register", handler.Register)
-			auth.POST("/login", handler.Login)
-			auth.POST("/refresh", handler.Refresh)
-			auth.POST("/logout", handler.Logout)
-
-			// Account management routes (require authentication)
-			authProtected := auth.Group("")
-			// Account management must require JWT (API keys do not represent a user)
-			authProtected.Use(middleware.JWTOnlyMiddleware(authService))
-			{
-				authProtected.POST("/change-password", handler.ChangePassword)
-				authProtected.POST("/change-username", handler.ChangeUsername)
-
-				// CLI Authentication routes
-				cliAuth := authProtected.Group("/cli")
-				{
-					cliAuth.GET("/authorize", handler.AuthorizeCLI)
-					cliAuth.POST("/authorize", handler.ConfirmCLIAuthorization)
-				}
-			}
-		}
-
-		// Public CLI routes (no auth required to download, script handles auth)
-		cliPublic := v1.Group("/cli")
-		{
-			cliPublic.GET("/download", handler.DownloadCLIBinary)
-			cliPublic.GET("/install", handler.GetInstallScript)
-		}
-		// API Key management routes (require authentication)
-		apiKeys := v1.Group("/api-keys")
-		// API key management restricted to JWT-authenticated users
-		apiKeys.Use(middleware.JWTOnlyMiddleware(authService))
-		{
-			apiKeys.GET("/", handler.ListAPIKeys)
-			apiKeys.POST("/", handler.CreateAPIKey)
-			apiKeys.DELETE("/:id", handler.DeleteAPIKey)
-		}
-
-		// Transcription routes (require authentication)
-		transcription := v1.Group("/transcription")
-		transcription.Use(middleware.AuthMiddleware(authService))
-		{
-			// File upload routes - disable compression for these
-			uploadRoutes := transcription.Group("")
-			uploadRoutes.Use(middleware.NoCompressionMiddleware())
-			{
-				uploadRoutes.POST("/upload", handler.UploadAudio)
-				uploadRoutes.POST("/upload-video", handler.UploadVideo)
-				uploadRoutes.POST("/upload-multitrack", handler.UploadMultiTrack)
-				uploadRoutes.GET("/:id/audio", handler.GetAudioFile) // Audio streaming shouldn't be compressed
-			}
-
-			// Regular API routes with compression
-			transcription.POST("/youtube", handler.DownloadFromYouTube)
-			transcription.POST("/submit", handler.SubmitJob)
-			transcription.POST("/:id/start", handler.StartTranscription)
-			transcription.POST("/:id/kill", handler.KillJob)
-			transcription.GET("/:id/logs", handler.GetJobLogs)
-			transcription.GET("/:id/status", handler.GetJobStatus)
-			transcription.GET("/:id/transcript", handler.GetTranscript)
-			transcription.GET("/:id/execution", handler.GetJobExecutionData)
-			transcription.GET("/:id/merge-status", handler.GetMergeStatus)
-			transcription.GET("/:id/track-progress", handler.GetTrackProgress)
-			transcription.PUT("/:id/title", handler.UpdateTranscriptionTitle)
-			transcription.GET("/:id/summary", handler.GetSummaryForTranscription)
-			transcription.GET("/:id", handler.GetTranscriptionJob)
-			transcription.DELETE("/:id", handler.DeleteTranscriptionJob)
-			transcription.GET("/list", handler.ListTranscriptionJobs)
-			transcription.GET("/models", handler.GetSupportedModels)
-			// Notes for a transcription
-			transcription.GET("/:id/notes", handler.ListNotes)
-			transcription.POST("/:id/notes", handler.CreateNote)
-
-			// Speaker mappings for a transcription
-			transcription.GET("/:id/speakers", handler.GetSpeakerMappings)
-			transcription.POST("/:id/speakers", handler.UpdateSpeakerMappings)
-
-			// Quick transcription endpoints
-			transcription.POST("/quick", handler.SubmitQuickTranscription)
-			transcription.GET("/quick/:id", handler.GetQuickTranscriptionStatus)
-		}
-
-		// Profile routes (require authentication)
-		profiles := v1.Group("/profiles")
-		profiles.Use(middleware.AuthMiddleware(authService))
-		{
-			profiles.GET("/", handler.ListProfiles)
-			profiles.POST("/", handler.CreateProfile)
-			profiles.GET("/:id", handler.GetProfile)
-			profiles.PUT("/:id", handler.UpdateProfile)
-			profiles.DELETE("/:id", handler.DeleteProfile)
-			profiles.POST("/:id/set-default", handler.SetDefaultProfile)
-		}
-
-		// User routes (require authentication)
-		user := v1.Group("/user")
-		user.Use(middleware.JWTOnlyMiddleware(authService))
-		{
-			user.GET("/default-profile", handler.GetUserDefaultProfile)
-			user.POST("/default-profile", handler.SetUserDefaultProfile)
-			user.GET("/settings", handler.GetUserSettings)
-			user.PUT("/settings", handler.UpdateUserSettings)
-		}
-
-		// Admin routes (require authentication)
-		admin := v1.Group("/admin")
-		admin.Use(middleware.AuthMiddleware(authService))
-		{
-			queue := admin.Group("/queue")
-			{
-				queue.GET("/stats", handler.GetQueueStats)
-			}
-		}
-
-		// LLM configuration routes (require authentication)
-		llm := v1.Group("/llm")
-		llm.Use(middleware.AuthMiddleware(authService))
-		{
-			llm.GET("/config", handler.GetLLMConfig)
-			llm.POST("/config", handler.SaveLLMConfig)
-		}
-
-		// Summarization templates routes (require authentication)
-		summaries := v1.Group("/summaries")
-		summaries.Use(middleware.AuthMiddleware(authService))
-		{
-			summaries.GET("/", handler.ListSummaryTemplates)
-			summaries.POST("/", handler.CreateSummaryTemplate)
-			summaries.GET("/:id", handler.GetSummaryTemplate)
-			summaries.PUT("/:id", handler.UpdateSummaryTemplate)
-			summaries.DELETE("/:id", handler.DeleteSummaryTemplate)
-			summaries.GET("/settings", handler.GetSummarySettings)
-			summaries.POST("/settings", handler.SaveSummarySettings)
-		}
-
-		// Chat routes (require authentication)
-		chat := v1.Group("/chat")
-		chat.Use(middleware.AuthMiddleware(authService))
-		{
-			chat.GET("/models", handler.GetChatModels)
-			chat.POST("/sessions", handler.CreateChatSession)
-			chat.GET("/transcriptions/:transcription_id/sessions", handler.GetChatSessions)
-			chat.GET("/sessions/:session_id", handler.GetChatSession)
-			chat.POST("/sessions/:session_id/messages", handler.SendChatMessage)
-			chat.PUT("/sessions/:session_id/title", handler.UpdateChatSessionTitle)
-			chat.POST("/sessions/:session_id/title/auto", handler.AutoGenerateChatTitle)
-			chat.DELETE("/sessions/:session_id", handler.DeleteChatSession)
-		}
-
-		// Notes routes (require authentication)
-		notes := v1.Group("/notes")
-		notes.Use(middleware.AuthMiddleware(authService))
-		{
-			notes.GET("/:note_id", handler.GetNote)
-			notes.PUT("/:note_id", handler.UpdateNote)
-			notes.DELETE("/:note_id", handler.DeleteNote)
-		}
-
-		// Summarization route (require authentication)
-		summarize := v1.Group("/summarize")
-		summarize.Use(middleware.AuthMiddleware(authService))
-		{
-			summarize.POST("/", handler.Summarize)
-		}
-
-		// Config routes (require authentication)
-		config := v1.Group("/config")
-		config.Use(middleware.AuthMiddleware(authService))
-		{
-			config.POST("/openai/validate", handler.ValidateOpenAIKey)
-		}
-
-		// SSE Events (require authentication)
-		events := v1.Group("/events")
-		events.Use(middleware.AuthMiddleware(authService))
-		{
-			events.GET("/", handler.Events)
+func (h *Handler) ready(c *gin.Context) {
+	if h.readinessCheck != nil {
+		if err := h.readinessCheck(); err != nil {
+			writeError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "service is not ready", nil)
+			return
 		}
 	}
+	c.JSON(http.StatusOK, gin.H{"status": "ready", "database": "ok"})
+}
 
-	// Set up static file serving for React app
-	web.SetupStaticRoutes(router, authService)
+func (h *Handler) notImplemented(feature string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		writeError(c, http.StatusNotImplemented, "NOT_IMPLEMENTED", feature+" is not implemented yet", nil)
+	}
+}
 
-	return router
+func (h *Handler) bindJSONPlaceholder(feature string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if c.Request.Body != nil && c.Request.ContentLength != 0 {
+			var body map[string]any
+			if err := c.ShouldBindJSON(&body); err != nil {
+				writeError(c, http.StatusBadRequest, "INVALID_REQUEST", "request body must be valid JSON", nil)
+				return
+			}
+		}
+		writeError(c, http.StatusNotImplemented, "NOT_IMPLEMENTED", feature+" is not implemented yet", nil)
+	}
+}
+
+func (h *Handler) registrationStatus(c *gin.Context) {
+	var count int64
+	if err := database.DB.Model(&models.User{}).Count(&count).Error; err != nil {
+		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not read registration status", nil)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"registration_enabled": count == 0})
+}
+
+func (h *Handler) register(c *gin.Context) {
+	var req registerRequest
+	if !bindJSON(c, &req) {
+		return
+	}
+	if req.Username == "" || len(req.Username) < 3 || req.Password == "" || len(req.Password) < 8 || req.Password != req.ConfirmPassword {
+		writeError(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "username and password are invalid", nil)
+		return
+	}
+
+	var count int64
+	if err := database.DB.Model(&models.User{}).Count(&count).Error; err != nil {
+		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not register user", nil)
+		return
+	}
+	if count > 0 {
+		writeError(c, http.StatusConflict, "CONFLICT", "registration is already complete", nil)
+		return
+	}
+
+	passwordHash, err := auth.HashPassword(req.Password)
+	if err != nil {
+		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not register user", nil)
+		return
+	}
+	user := models.User{Username: req.Username, Password: passwordHash}
+	if err := database.DB.Create(&user).Error; err != nil {
+		writeError(c, http.StatusConflict, "CONFLICT", "username is already in use", nil)
+		return
+	}
+	h.writeTokenResponse(c, http.StatusOK, &user)
+}
+
+func (h *Handler) login(c *gin.Context) {
+	var req loginRequest
+	if !bindJSON(c, &req) {
+		return
+	}
+	if req.Username == "" || req.Password == "" {
+		writeError(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "username and password are required", nil)
+		return
+	}
+
+	var user models.User
+	if err := database.DB.Where("username = ?", req.Username).First(&user).Error; err != nil {
+		writeError(c, http.StatusUnauthorized, "UNAUTHORIZED", "invalid username or password", nil)
+		return
+	}
+	if !auth.CheckPassword(req.Password, user.Password) {
+		writeError(c, http.StatusUnauthorized, "UNAUTHORIZED", "invalid username or password", nil)
+		return
+	}
+	h.writeTokenResponse(c, http.StatusOK, &user)
+}
+
+func (h *Handler) refresh(c *gin.Context) {
+	var req refreshRequest
+	if !bindJSON(c, &req) {
+		return
+	}
+	refreshToken, err := h.findUsableRefreshToken(req.RefreshToken)
+	if err != nil {
+		writeError(c, http.StatusUnauthorized, "UNAUTHORIZED", "invalid refresh token", nil)
+		return
+	}
+
+	now := time.Now()
+	if err := database.DB.Model(&models.RefreshToken{}).Where("id = ?", refreshToken.ID).Update("revoked_at", &now).Error; err != nil {
+		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not rotate refresh token", nil)
+		return
+	}
+
+	var user models.User
+	if err := database.DB.First(&user, refreshToken.UserID).Error; err != nil {
+		writeError(c, http.StatusUnauthorized, "UNAUTHORIZED", "invalid refresh token", nil)
+		return
+	}
+	h.writeTokenResponse(c, http.StatusOK, &user)
+}
+
+func (h *Handler) logout(c *gin.Context) {
+	var req refreshRequest
+	if !bindJSON(c, &req) {
+		return
+	}
+	if req.RefreshToken != "" {
+		now := time.Now()
+		_ = database.DB.Model(&models.RefreshToken{}).
+			Where("token_hash = ? AND revoked_at IS NULL", sha256Hex(req.RefreshToken)).
+			Update("revoked_at", &now).Error
+	}
+	c.JSON(http.StatusOK, gin.H{"ok": true})
+}
+
+func (h *Handler) me(c *gin.Context) {
+	userID, ok := currentUserID(c)
+	if !ok {
+		writeError(c, http.StatusUnauthorized, "UNAUTHORIZED", "missing or invalid bearer token", nil)
+		return
+	}
+	var user models.User
+	if err := database.DB.First(&user, userID).Error; err != nil {
+		writeError(c, http.StatusUnauthorized, "UNAUTHORIZED", "missing or invalid bearer token", nil)
+		return
+	}
+	c.JSON(http.StatusOK, userResponse(&user))
+}
+
+func (h *Handler) changePassword(c *gin.Context) {
+	user, ok := h.currentUser(c)
+	if !ok {
+		writeError(c, http.StatusUnauthorized, "UNAUTHORIZED", "missing or invalid bearer token", nil)
+		return
+	}
+	var req changePasswordRequest
+	if !bindJSON(c, &req) {
+		return
+	}
+	if req.NewPassword == "" || len(req.NewPassword) < 8 || req.NewPassword != req.ConfirmPassword {
+		writeError(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "new password is invalid", nil)
+		return
+	}
+	if !auth.CheckPassword(req.CurrentPassword, user.Password) {
+		writeError(c, http.StatusUnauthorized, "UNAUTHORIZED", "current password is invalid", nil)
+		return
+	}
+	passwordHash, err := auth.HashPassword(req.NewPassword)
+	if err != nil {
+		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not change password", nil)
+		return
+	}
+	if err := database.DB.Model(&models.User{}).Where("id = ?", user.ID).Update("password_hash", passwordHash).Error; err != nil {
+		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not change password", nil)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"ok": true})
+}
+
+func (h *Handler) changeUsername(c *gin.Context) {
+	user, ok := h.currentUser(c)
+	if !ok {
+		writeError(c, http.StatusUnauthorized, "UNAUTHORIZED", "missing or invalid bearer token", nil)
+		return
+	}
+	var req changeUsernameRequest
+	if !bindJSON(c, &req) {
+		return
+	}
+	if len(req.NewUsername) < 3 || !auth.CheckPassword(req.Password, user.Password) {
+		writeError(c, http.StatusUnauthorized, "UNAUTHORIZED", "username change is not authorized", nil)
+		return
+	}
+	if err := database.DB.Model(&models.User{}).Where("id = ?", user.ID).Update("username", req.NewUsername).Error; err != nil {
+		writeError(c, http.StatusConflict, "CONFLICT", "username is already in use", nil)
+		return
+	}
+	user.Username = req.NewUsername
+	c.JSON(http.StatusOK, userResponse(user))
+}
+
+func (h *Handler) listAPIKeys(c *gin.Context) {
+	userID, ok := currentUserID(c)
+	if !ok {
+		writeError(c, http.StatusUnauthorized, "UNAUTHORIZED", "missing or invalid bearer token", nil)
+		return
+	}
+	var keys []models.APIKey
+	if err := database.DB.Where("user_id = ? AND revoked_at IS NULL", userID).Order("created_at DESC").Find(&keys).Error; err != nil {
+		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not list api keys", nil)
+		return
+	}
+	items := make([]gin.H, 0, len(keys))
+	for _, key := range keys {
+		description := ""
+		if key.Description != nil {
+			description = *key.Description
+		}
+		items = append(items, gin.H{
+			"id":           publicAPIKeyID(key.ID),
+			"name":         key.Name,
+			"description":  description,
+			"key_preview":  keyPreview(key.KeyPrefix),
+			"is_active":    key.RevokedAt == nil,
+			"last_used_at": key.LastUsed,
+			"created_at":   key.CreatedAt,
+			"updated_at":   key.CreatedAt,
+		})
+	}
+	c.JSON(http.StatusOK, gin.H{"items": items, "next_cursor": nil})
+}
+
+func (h *Handler) createAPIKey(c *gin.Context) {
+	userID, ok := currentUserID(c)
+	if !ok {
+		writeError(c, http.StatusUnauthorized, "UNAUTHORIZED", "missing or invalid bearer token", nil)
+		return
+	}
+	var req createAPIKeyRequest
+	if !bindJSON(c, &req) {
+		return
+	}
+	if strings.TrimSpace(req.Name) == "" {
+		writeError(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "name is required", stringPtr("name"))
+		return
+	}
+	rawKey := "sk_" + randomHex(32)
+	description := req.Description
+	key := models.APIKey{
+		UserID:      userID,
+		Name:        strings.TrimSpace(req.Name),
+		Key:         rawKey,
+		KeyPrefix:   rawKey[:8],
+		KeyHash:     sha256Hex(rawKey),
+		Description: &description,
+	}
+	if err := database.DB.Create(&key).Error; err != nil {
+		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not create api key", nil)
+		return
+	}
+	c.JSON(http.StatusCreated, gin.H{
+		"id":          publicAPIKeyID(key.ID),
+		"name":        key.Name,
+		"description": req.Description,
+		"key":         rawKey,
+		"key_preview": keyPreview(key.KeyPrefix),
+		"created_at":  key.CreatedAt,
+	})
+}
+
+func (h *Handler) deleteAPIKey(c *gin.Context) {
+	userID, ok := currentUserID(c)
+	if !ok {
+		writeError(c, http.StatusUnauthorized, "UNAUTHORIZED", "missing or invalid bearer token", nil)
+		return
+	}
+	id, ok := parseAPIKeyID(c.Param("id"))
+	if !ok {
+		writeError(c, http.StatusNotFound, "NOT_FOUND", "api key not found", nil)
+		return
+	}
+	now := time.Now()
+	result := database.DB.Model(&models.APIKey{}).
+		Where("id = ? AND user_id = ? AND revoked_at IS NULL", id, userID).
+		Update("revoked_at", &now)
+	if result.Error != nil {
+		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not delete api key", nil)
+		return
+	}
+	if result.RowsAffected == 0 {
+		writeError(c, http.StatusNotFound, "NOT_FOUND", "api key not found", nil)
+		return
+	}
+	c.Status(http.StatusNoContent)
+}
+
+func (h *Handler) transcriptionCommand(c *gin.Context) {
+	action := c.Param("idAction")
+	switch {
+	case strings.HasSuffix(action, ":cancel"):
+		writeError(c, http.StatusNotImplemented, "NOT_IMPLEMENTED", "transcription cancel is not implemented yet", nil)
+	case strings.HasSuffix(action, ":retry"):
+		writeError(c, http.StatusNotImplemented, "NOT_IMPLEMENTED", "transcription retry is not implemented yet", nil)
+	default:
+		writeError(c, http.StatusNotFound, "NOT_FOUND", "API endpoint not found", nil)
+	}
+}
+
+func (h *Handler) profileCommand(c *gin.Context) {
+	if strings.HasSuffix(c.Param("idAction"), ":set-default") {
+		writeError(c, http.StatusNotImplemented, "NOT_IMPLEMENTED", "profile set default is not implemented yet", nil)
+		return
+	}
+	writeError(c, http.StatusNotFound, "NOT_FOUND", "API endpoint not found", nil)
+}
+
+func (h *Handler) handleCommandRoute(c *gin.Context) bool {
+	if c.Request.Method != http.MethodPost {
+		return false
+	}
+	switch c.Request.URL.Path {
+	case "/api/v1/files:import-youtube":
+		if !h.requireAuthForNoRoute(c) {
+			return true
+		}
+		h.bindJSONPlaceholder("youtube import")(c)
+		return true
+	case "/api/v1/transcriptions:submit":
+		if !h.requireAuthForNoRoute(c) {
+			return true
+		}
+		h.notImplemented("transcription submit")(c)
+		return true
+	default:
+		return false
+	}
+}
+
+func (h *Handler) requireAuthForNoRoute(c *gin.Context) bool {
+	if h.authenticateAPIKey(c) || h.authenticateJWT(c) {
+		return true
+	}
+	writeError(c, http.StatusUnauthorized, "UNAUTHORIZED", "missing or invalid authentication", nil)
+	return false
+}
+
+func (h *Handler) authRequired() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if h.authenticateAPIKey(c) || h.authenticateJWT(c) {
+			c.Next()
+			return
+		}
+		writeError(c, http.StatusUnauthorized, "UNAUTHORIZED", "missing or invalid authentication", nil)
+		c.Abort()
+	}
+}
+
+func (h *Handler) jwtRequired() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if h.authenticateJWT(c) {
+			c.Next()
+			return
+		}
+		writeError(c, http.StatusUnauthorized, "UNAUTHORIZED", "missing or invalid bearer token", nil)
+		c.Abort()
+	}
+}
+
+func (h *Handler) authenticateJWT(c *gin.Context) bool {
+	if h.authService == nil {
+		return false
+	}
+	token := bearerToken(c.GetHeader("Authorization"))
+	if token == "" {
+		if cookie, err := c.Cookie("scriberr_access_token"); err == nil {
+			token = cookie
+		}
+	}
+	if token == "" {
+		return false
+	}
+	claims, err := h.authService.ValidateToken(token)
+	if err != nil {
+		return false
+	}
+	c.Set("auth_type", "jwt")
+	c.Set("user_id", claims.UserID)
+	c.Set("username", claims.Username)
+	return true
+}
+
+func (h *Handler) authenticateAPIKey(c *gin.Context) bool {
+	key := strings.TrimSpace(c.GetHeader("X-API-Key"))
+	if key == "" || database.DB == nil {
+		return false
+	}
+
+	var apiKey models.APIKey
+	if err := database.DB.Where("key_hash = ? AND revoked_at IS NULL", sha256Hex(key)).First(&apiKey).Error; err != nil {
+		return false
+	}
+	now := time.Now()
+	apiKey.LastUsed = &now
+	_ = database.DB.Save(&apiKey).Error
+
+	c.Set("auth_type", "api_key")
+	c.Set("user_id", apiKey.UserID)
+	c.Set("api_key_id", apiKey.ID)
+	return true
+}
+
+func (h *Handler) writeTokenResponse(c *gin.Context, status int, user *models.User) {
+	accessToken, err := h.authService.GenerateToken(user)
+	if err != nil {
+		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not issue access token", nil)
+		return
+	}
+	refreshToken := "rt_" + randomHex(32)
+	stored := models.RefreshToken{
+		UserID:    user.ID,
+		Hashed:    sha256Hex(refreshToken),
+		ExpiresAt: time.Now().Add(30 * 24 * time.Hour),
+	}
+	if err := database.DB.Create(&stored).Error; err != nil {
+		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not issue refresh token", nil)
+		return
+	}
+	c.JSON(status, gin.H{
+		"access_token":  accessToken,
+		"refresh_token": refreshToken,
+		"user":          userResponse(user),
+	})
+}
+
+func (h *Handler) findUsableRefreshToken(raw string) (*models.RefreshToken, error) {
+	if raw == "" {
+		return nil, gorm.ErrRecordNotFound
+	}
+	var refreshToken models.RefreshToken
+	err := database.DB.
+		Where("token_hash = ? AND revoked_at IS NULL AND expires_at > ?", sha256Hex(raw), time.Now()).
+		First(&refreshToken).Error
+	if err != nil {
+		return nil, err
+	}
+	return &refreshToken, nil
+}
+
+func (h *Handler) currentUser(c *gin.Context) (*models.User, bool) {
+	userID, ok := currentUserID(c)
+	if !ok {
+		return nil, false
+	}
+	var user models.User
+	if err := database.DB.First(&user, userID).Error; err != nil {
+		return nil, false
+	}
+	return &user, true
+}
+
+func currentUserID(c *gin.Context) (uint, bool) {
+	value, ok := c.Get("user_id")
+	if !ok {
+		return 0, false
+	}
+	switch typed := value.(type) {
+	case uint:
+		return typed, true
+	case int:
+		return uint(typed), typed > 0
+	case float64:
+		return uint(typed), typed > 0
+	default:
+		return 0, false
+	}
+}
+
+func bearerToken(header string) string {
+	parts := strings.SplitN(header, " ", 2)
+	if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
+		return ""
+	}
+	return strings.TrimSpace(parts[1])
+}
+
+func writeError(c *gin.Context, status int, code, message string, field *string) {
+	if c.Writer.Written() {
+		return
+	}
+	c.JSON(status, ErrorBody{Error: APIError{
+		Code:      code,
+		Message:   message,
+		Field:     field,
+		RequestID: requestID(c),
+	}})
+}
+
+func requestID(c *gin.Context) string {
+	if value, ok := c.Get(requestIDKey); ok {
+		if requestID, ok := value.(string); ok {
+			return requestID
+		}
+	}
+	return ""
+}
+
+func newRequestID() string {
+	var b [12]byte
+	if _, err := rand.Read(b[:]); err != nil {
+		return "req_fallback"
+	}
+	return "req_" + hex.EncodeToString(b[:])
+}
+
+func sha256Hex(value string) string {
+	sum := sha256.Sum256([]byte(value))
+	return hex.EncodeToString(sum[:])
+}
+
+func bindJSON(c *gin.Context, dest any) bool {
+	if err := c.ShouldBindJSON(dest); err != nil {
+		writeError(c, http.StatusBadRequest, "INVALID_REQUEST", "request body must be valid JSON", nil)
+		return false
+	}
+	return true
+}
+
+func userResponse(user *models.User) gin.H {
+	return gin.H{
+		"id":       "user_self",
+		"username": user.Username,
+	}
+}
+
+func publicAPIKeyID(id uint) string {
+	return fmt.Sprintf("key_%d", id)
+}
+
+func parseAPIKeyID(raw string) (uint, bool) {
+	trimmed := strings.TrimPrefix(raw, "key_")
+	id, err := strconv.ParseUint(trimmed, 10, 64)
+	if err != nil || id == 0 {
+		return 0, false
+	}
+	return uint(id), true
+}
+
+func randomHex(size int) string {
+	bytes := make([]byte, size)
+	if _, err := rand.Read(bytes); err != nil {
+		return fmt.Sprintf("%d", time.Now().UnixNano())
+	}
+	return hex.EncodeToString(bytes)
+}
+
+func keyPreview(prefix string) string {
+	if prefix == "" {
+		return "sk_..."
+	}
+	if len(prefix) > 4 {
+		return prefix[:4] + "..." + prefix[len(prefix)-4:]
+	}
+	return prefix + "..."
+}
+
+func stringPtr(value string) *string {
+	return &value
 }
