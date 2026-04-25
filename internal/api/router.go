@@ -93,6 +93,32 @@ type updateTranscriptionRequest struct {
 	Title string `json:"title"`
 }
 
+type profileOptionsRequest struct {
+	Model       string `json:"model"`
+	Language    string `json:"language"`
+	Diarization bool   `json:"diarization"`
+	Device      string `json:"device"`
+}
+
+type createProfileRequest struct {
+	Name        string                `json:"name"`
+	Description string                `json:"description"`
+	IsDefault   bool                  `json:"is_default"`
+	Options     profileOptionsRequest `json:"options"`
+}
+
+type updateProfileRequest struct {
+	Name        string                `json:"name"`
+	Description string                `json:"description"`
+	IsDefault   *bool                 `json:"is_default"`
+	Options     profileOptionsRequest `json:"options"`
+}
+
+type updateSettingsRequest struct {
+	AutoTranscriptionEnabled *bool   `json:"auto_transcription_enabled"`
+	DefaultProfileID         *string `json:"default_profile_id"`
+}
+
 func NewHandler(cfg *config.Config, authService *auth.AuthService, _ ...any) *Handler {
 	if cfg == nil {
 		cfg = &config.Config{}
@@ -176,24 +202,24 @@ func SetupRoutes(handler *Handler, _ *auth.AuthService) *gin.Engine {
 		profiles := v1.Group("/profiles")
 		profiles.Use(handler.authRequired())
 		{
-			profiles.GET("", handler.notImplemented("profile list"))
-			profiles.POST("", handler.bindJSONPlaceholder("profile create"))
-			profiles.GET("/:id", handler.notImplemented("profile get"))
-			profiles.PATCH("/:id", handler.bindJSONPlaceholder("profile update"))
-			profiles.DELETE("/:id", handler.notImplemented("profile delete"))
+			profiles.GET("", handler.listProfiles)
+			profiles.POST("", handler.createProfile)
+			profiles.GET("/:id", handler.getProfile)
+			profiles.PATCH("/:id", handler.updateProfile)
+			profiles.DELETE("/:id", handler.deleteProfile)
 			profiles.POST("/:idAction", handler.profileCommand)
 		}
 
 		settings := v1.Group("/settings")
 		settings.Use(handler.authRequired())
 		{
-			settings.GET("", handler.notImplemented("settings get"))
-			settings.PATCH("", handler.bindJSONPlaceholder("settings update"))
+			settings.GET("", handler.getSettings)
+			settings.PATCH("", handler.updateSettings)
 		}
 
 		v1.GET("/events", handler.authRequired(), handler.notImplemented("global events"))
-		v1.GET("/models/transcription", handler.authRequired(), handler.notImplemented("transcription model capabilities"))
-		v1.GET("/admin/queue", handler.authRequired(), handler.notImplemented("queue stats"))
+		v1.GET("/models/transcription", handler.authRequired(), handler.listTranscriptionModels)
+		v1.GET("/admin/queue", handler.authRequired(), handler.queueStats)
 	}
 
 	web.SetupStaticRoutes(router, handler.authService)
@@ -994,12 +1020,247 @@ func (h *Handler) transcriptionCommand(c *gin.Context) {
 	}
 }
 
+func (h *Handler) listProfiles(c *gin.Context) {
+	userID, ok := currentUserID(c)
+	if !ok {
+		writeError(c, http.StatusUnauthorized, "UNAUTHORIZED", "missing or invalid authentication", nil)
+		return
+	}
+	var profiles []models.TranscriptionProfile
+	if err := database.DB.Where("user_id = ?", userID).Order("created_at DESC").Find(&profiles).Error; err != nil {
+		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not list profiles", nil)
+		return
+	}
+	items := make([]gin.H, 0, len(profiles))
+	for i := range profiles {
+		items = append(items, profileResponse(&profiles[i]))
+	}
+	c.JSON(http.StatusOK, gin.H{"items": items, "next_cursor": nil})
+}
+
+func (h *Handler) createProfile(c *gin.Context) {
+	userID, ok := currentUserID(c)
+	if !ok {
+		writeError(c, http.StatusUnauthorized, "UNAUTHORIZED", "missing or invalid authentication", nil)
+		return
+	}
+	var req createProfileRequest
+	if !bindJSON(c, &req) {
+		return
+	}
+	if !validateProfileInput(c, req.Name, req.Options) {
+		return
+	}
+	description := strings.TrimSpace(req.Description)
+	profile := models.TranscriptionProfile{
+		ID:          randomHex(16),
+		UserID:      userID,
+		Name:        strings.TrimSpace(req.Name),
+		Description: &description,
+		IsDefault:   req.IsDefault,
+		Parameters:  profileParams(req.Options),
+	}
+	if err := database.DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(&profile).Error; err != nil {
+			return err
+		}
+		if profile.IsDefault {
+			return saveUserDefaultProfile(tx, userID, &profile.ID)
+		}
+		return nil
+	}); err != nil {
+		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not create profile", nil)
+		return
+	}
+	c.JSON(http.StatusCreated, profileResponse(&profile))
+}
+
+func (h *Handler) getProfile(c *gin.Context) {
+	profile, ok := h.profileByPublicID(c, c.Param("id"))
+	if !ok {
+		return
+	}
+	c.JSON(http.StatusOK, profileResponse(profile))
+}
+
+func (h *Handler) updateProfile(c *gin.Context) {
+	profile, ok := h.profileByPublicID(c, c.Param("id"))
+	if !ok {
+		return
+	}
+	var req updateProfileRequest
+	if !bindJSON(c, &req) {
+		return
+	}
+	if !validateProfileInput(c, req.Name, req.Options) {
+		return
+	}
+	description := strings.TrimSpace(req.Description)
+	profile.Name = strings.TrimSpace(req.Name)
+	profile.Description = &description
+	profile.Parameters = profileParams(req.Options)
+	if req.IsDefault != nil {
+		profile.IsDefault = *req.IsDefault
+	}
+	if err := database.DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Save(profile).Error; err != nil {
+			return err
+		}
+		if req.IsDefault != nil {
+			if *req.IsDefault {
+				return saveUserDefaultProfile(tx, profile.UserID, &profile.ID)
+			}
+			return clearUserDefaultProfileIfMatches(tx, profile.UserID, profile.ID)
+		}
+		return nil
+	}); err != nil {
+		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not update profile", nil)
+		return
+	}
+	c.JSON(http.StatusOK, profileResponse(profile))
+}
+
+func (h *Handler) deleteProfile(c *gin.Context) {
+	profile, ok := h.profileByPublicID(c, c.Param("id"))
+	if !ok {
+		return
+	}
+	if err := database.DB.Delete(&models.TranscriptionProfile{}, "id = ? AND user_id = ?", profile.ID, profile.UserID).Error; err != nil {
+		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not delete profile", nil)
+		return
+	}
+	var user models.User
+	if err := database.DB.First(&user, profile.UserID).Error; err == nil && user.DefaultProfileID != nil && *user.DefaultProfileID == profile.ID {
+		user.DefaultProfileID = nil
+		_ = database.DB.Save(&user).Error
+	}
+	c.Status(http.StatusNoContent)
+}
+
+func (h *Handler) setDefaultProfile(c *gin.Context, publicID string) {
+	profile, ok := h.profileByPublicID(c, publicID)
+	if !ok {
+		return
+	}
+	if err := database.DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Model(&models.TranscriptionProfile{}).
+			Where("user_id = ? AND id <> ?", profile.UserID, profile.ID).
+			Update("is_default", false).Error; err != nil {
+			return err
+		}
+		if err := tx.Model(&models.TranscriptionProfile{}).
+			Where("id = ? AND user_id = ?", profile.ID, profile.UserID).
+			Update("is_default", true).Error; err != nil {
+			return err
+		}
+		return saveUserDefaultProfile(tx, profile.UserID, &profile.ID)
+	}); err != nil {
+		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not set default profile", nil)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"id": publicIDForProfile(profile.ID), "is_default": true})
+}
+
 func (h *Handler) profileCommand(c *gin.Context) {
 	if strings.HasSuffix(c.Param("idAction"), ":set-default") {
-		writeError(c, http.StatusNotImplemented, "NOT_IMPLEMENTED", "profile set default is not implemented yet", nil)
+		h.setDefaultProfile(c, strings.TrimSuffix(c.Param("idAction"), ":set-default"))
 		return
 	}
 	writeError(c, http.StatusNotFound, "NOT_FOUND", "API endpoint not found", nil)
+}
+
+func (h *Handler) getSettings(c *gin.Context) {
+	user, ok := h.currentUser(c)
+	if !ok {
+		writeError(c, http.StatusUnauthorized, "UNAUTHORIZED", "missing or invalid authentication", nil)
+		return
+	}
+	c.JSON(http.StatusOK, settingsResponse(h, user))
+}
+
+func (h *Handler) updateSettings(c *gin.Context) {
+	user, ok := h.currentUser(c)
+	if !ok {
+		writeError(c, http.StatusUnauthorized, "UNAUTHORIZED", "missing or invalid authentication", nil)
+		return
+	}
+	var req updateSettingsRequest
+	if !bindJSON(c, &req) {
+		return
+	}
+	defaultProfileID := user.DefaultProfileID
+	if req.DefaultProfileID != nil {
+		rawProfileID := strings.TrimSpace(*req.DefaultProfileID)
+		if rawProfileID == "" {
+			defaultProfileID = nil
+		} else {
+			parsedID, ok := parseProfileID(rawProfileID)
+			if !ok || !profileExistsForUser(user.ID, parsedID) {
+				writeError(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "default_profile_id is invalid", stringPtr("default_profile_id"))
+				return
+			}
+			defaultProfileID = &parsedID
+		}
+	}
+	autoTranscription := user.AutoTranscriptionEnabled
+	if req.AutoTranscriptionEnabled != nil {
+		autoTranscription = *req.AutoTranscriptionEnabled
+	}
+	user.DefaultProfileID = defaultProfileID
+	user.AutoTranscriptionEnabled = autoTranscription
+	if err := database.DB.Save(user).Error; err != nil {
+		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not update settings", nil)
+		return
+	}
+	c.JSON(http.StatusOK, settingsResponse(h, user))
+}
+
+func (h *Handler) listTranscriptionModels(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{
+		"items": []gin.H{
+			{
+				"id":           "base",
+				"name":         "Whisper base",
+				"provider":     "local",
+				"capabilities": []string{"transcription"},
+			},
+		},
+	})
+}
+
+func (h *Handler) queueStats(c *gin.Context) {
+	userID, ok := currentUserID(c)
+	if !ok {
+		writeError(c, http.StatusUnauthorized, "UNAUTHORIZED", "missing or invalid authentication", nil)
+		return
+	}
+	stats := gin.H{"queued": 0, "processing": 0, "completed": 0, "failed": 0}
+	type statusCount struct {
+		Status models.JobStatus
+		Count  int64
+	}
+	var counts []statusCount
+	if err := database.DB.Model(&models.TranscriptionJob{}).
+		Select("status, count(*) as count").
+		Where("user_id = ? AND source_file_hash IS NOT NULL", userID).
+		Group("status").
+		Find(&counts).Error; err != nil {
+		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not read queue stats", nil)
+		return
+	}
+	for _, count := range counts {
+		switch count.Status {
+		case models.StatusPending:
+			stats["queued"] = count.Count
+		case models.StatusProcessing:
+			stats["processing"] = count.Count
+		case models.StatusCompleted:
+			stats["completed"] = count.Count
+		case models.StatusFailed:
+			stats["failed"] = count.Count
+		}
+	}
+	c.JSON(http.StatusOK, stats)
 }
 
 func (h *Handler) handleCommandRoute(c *gin.Context) bool {
@@ -1398,4 +1659,133 @@ func validTranscriptionStatus(status string) bool {
 	default:
 		return false
 	}
+}
+
+func validateProfileInput(c *gin.Context, name string, options profileOptionsRequest) bool {
+	if strings.TrimSpace(name) == "" {
+		writeError(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "name is required", stringPtr("name"))
+		return false
+	}
+	if options.Language != "" && !validLanguage(options.Language) {
+		writeError(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "language is invalid", stringPtr("options.language"))
+		return false
+	}
+	return true
+}
+
+func profileParams(options profileOptionsRequest) models.WhisperXParams {
+	params := models.WhisperXParams{
+		Model:   strings.TrimSpace(options.Model),
+		Device:  strings.TrimSpace(options.Device),
+		Diarize: options.Diarization,
+	}
+	if params.Device == "" {
+		params.Device = "auto"
+	}
+	if options.Language != "" {
+		language := strings.TrimSpace(options.Language)
+		params.Language = &language
+	}
+	return params
+}
+
+func (h *Handler) profileByPublicID(c *gin.Context, publicID string) (*models.TranscriptionProfile, bool) {
+	userID, ok := currentUserID(c)
+	if !ok {
+		writeError(c, http.StatusUnauthorized, "UNAUTHORIZED", "missing or invalid authentication", nil)
+		return nil, false
+	}
+	id, ok := parseProfileID(publicID)
+	if !ok {
+		writeError(c, http.StatusNotFound, "NOT_FOUND", "profile not found", nil)
+		return nil, false
+	}
+	var profile models.TranscriptionProfile
+	if err := database.DB.Where("id = ? AND user_id = ?", id, userID).First(&profile).Error; err != nil {
+		writeError(c, http.StatusNotFound, "NOT_FOUND", "profile not found", nil)
+		return nil, false
+	}
+	return &profile, true
+}
+
+func parseProfileID(publicID string) (string, bool) {
+	id := strings.TrimPrefix(publicID, "profile_")
+	if id == publicID || id == "" {
+		return "", false
+	}
+	return id, true
+}
+
+func publicIDForProfile(id string) string {
+	return "profile_" + id
+}
+
+func profileExistsForUser(userID uint, profileID string) bool {
+	var count int64
+	return database.DB.Model(&models.TranscriptionProfile{}).
+		Where("id = ? AND user_id = ?", profileID, userID).
+		Count(&count).Error == nil && count == 1
+}
+
+func saveUserDefaultProfile(tx *gorm.DB, userID uint, profileID *string) error {
+	var user models.User
+	if err := tx.First(&user, userID).Error; err != nil {
+		return err
+	}
+	user.DefaultProfileID = profileID
+	return tx.Save(&user).Error
+}
+
+func clearUserDefaultProfileIfMatches(tx *gorm.DB, userID uint, profileID string) error {
+	var user models.User
+	if err := tx.First(&user, userID).Error; err != nil {
+		return err
+	}
+	if user.DefaultProfileID == nil || *user.DefaultProfileID != profileID {
+		return nil
+	}
+	user.DefaultProfileID = nil
+	return tx.Save(&user).Error
+}
+
+func profileResponse(profile *models.TranscriptionProfile) gin.H {
+	description := ""
+	if profile.Description != nil {
+		description = *profile.Description
+	}
+	language := any(nil)
+	if profile.Parameters.Language != nil {
+		language = *profile.Parameters.Language
+	}
+	return gin.H{
+		"id":          publicIDForProfile(profile.ID),
+		"name":        profile.Name,
+		"description": description,
+		"is_default":  profile.IsDefault,
+		"options": gin.H{
+			"model":       profile.Parameters.Model,
+			"language":    language,
+			"diarization": profile.Parameters.Diarize,
+			"device":      profile.Parameters.Device,
+		},
+		"created_at": profile.CreatedAt,
+		"updated_at": profile.UpdatedAt,
+	}
+}
+
+func settingsResponse(h *Handler, user *models.User) gin.H {
+	defaultProfileID := any(nil)
+	if user.DefaultProfileID != nil && *user.DefaultProfileID != "" {
+		defaultProfileID = publicIDForProfile(*user.DefaultProfileID)
+	}
+	return gin.H{
+		"auto_transcription_enabled": user.AutoTranscriptionEnabled,
+		"default_profile_id":         defaultProfileID,
+		"local_only":                 true,
+		"max_upload_size_mb":         maxUploadSizeMB(h),
+	}
+}
+
+func maxUploadSizeMB(h *Handler) int {
+	return 2048
 }
