@@ -134,6 +134,35 @@ func TestFileUploadValidationAndSecurity(t *testing.T) {
 	require.NotContains(t, errBody["message"], "/")
 }
 
+func TestYouTubeImportReturnsProcessingPlaceholder(t *testing.T) {
+	s := newAuthTestServer(t)
+	token := registerForFileTests(t, s)
+
+	resp, body := s.request(t, http.MethodPost, "/api/v1/files:import-youtube", map[string]any{
+		"url":   "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+		"title": "Talk",
+	}, token, "")
+	require.Equal(t, http.StatusAccepted, resp.Code)
+	require.True(t, strings.HasPrefix(body["id"].(string), "file_"))
+	require.Equal(t, "Talk", body["title"])
+	require.Equal(t, "youtube", body["kind"])
+	require.Equal(t, "processing", body["status"])
+	require.NotContains(t, body, "source_file_path")
+
+	resp, body = s.request(t, http.MethodGet, "/api/v1/files", nil, token, "")
+	require.Equal(t, http.StatusOK, resp.Code)
+	items := body["items"].([]any)
+	require.Len(t, items, 1)
+	require.Equal(t, "youtube", items[0].(map[string]any)["kind"])
+
+	resp, body = s.request(t, http.MethodPost, "/api/v1/files:import-youtube", map[string]any{
+		"url": "file:///etc/passwd",
+	}, token, "")
+	require.Equal(t, http.StatusUnprocessableEntity, resp.Code)
+	errBody := body["error"].(map[string]any)
+	require.Equal(t, "url", errBody["field"])
+}
+
 func TestFileAudioRangeStreaming(t *testing.T) {
 	s := newAuthTestServer(t)
 	token := registerForFileTests(t, s)

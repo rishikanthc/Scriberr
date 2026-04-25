@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -80,10 +81,16 @@ type updateFileRequest struct {
 	Title string `json:"title"`
 }
 
+type importYouTubeRequest struct {
+	URL   string `json:"url"`
+	Title string `json:"title"`
+}
+
 type createTranscriptionRequest struct {
-	FileID  string `json:"file_id"`
-	Title   string `json:"title"`
-	Options struct {
+	FileID    string `json:"file_id"`
+	Title     string `json:"title"`
+	ProfileID string `json:"profile_id"`
+	Options   struct {
 		Language    string `json:"language"`
 		Diarization bool   `json:"diarization"`
 	} `json:"options"`
@@ -608,15 +615,57 @@ func (h *Handler) uploadFile(c *gin.Context) {
 		writeError(c, http.StatusUnauthorized, "UNAUTHORIZED", "missing or invalid authentication", nil)
 		return
 	}
+	job, mimeType, kind, ok := h.storeUploadedFile(c, userID)
+	if !ok {
+		return
+	}
+	c.JSON(http.StatusCreated, fileResponse(job, mimeType, kind))
+}
+
+func (h *Handler) importYouTube(c *gin.Context) {
+	userID, ok := currentUserID(c)
+	if !ok {
+		writeError(c, http.StatusUnauthorized, "UNAUTHORIZED", "missing or invalid authentication", nil)
+		return
+	}
+	var req importYouTubeRequest
+	if !bindJSON(c, &req) {
+		return
+	}
+	rawURL := strings.TrimSpace(req.URL)
+	if !strings.HasPrefix(rawURL, "https://") && !strings.HasPrefix(rawURL, "http://") {
+		writeError(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "url is invalid", stringPtr("url"))
+		return
+	}
+	title := strings.TrimSpace(req.Title)
+	if title == "" {
+		title = "YouTube import"
+	}
+	job := models.TranscriptionJob{
+		ID:             randomHex(16),
+		UserID:         userID,
+		Title:          &title,
+		Status:         models.StatusProcessing,
+		AudioPath:      "",
+		SourceFileName: "youtube:" + rawURL,
+	}
+	if err := database.DB.Create(&job).Error; err != nil {
+		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not create youtube import", nil)
+		return
+	}
+	c.JSON(http.StatusAccepted, fileResponse(&job, "", "youtube"))
+}
+
+func (h *Handler) storeUploadedFile(c *gin.Context, userID uint) (*models.TranscriptionJob, string, string, bool) {
 	header, err := c.FormFile("file")
 	if err != nil {
 		writeError(c, http.StatusBadRequest, "INVALID_REQUEST", "file is required", stringPtr("file"))
-		return
+		return nil, "", "", false
 	}
 	source, err := header.Open()
 	if err != nil {
 		writeError(c, http.StatusBadRequest, "INVALID_REQUEST", "file could not be read", stringPtr("file"))
-		return
+		return nil, "", "", false
 	}
 	defer source.Close()
 
@@ -624,7 +673,7 @@ func (h *Handler) uploadFile(c *gin.Context) {
 	kind := fileKind(mimeType)
 	if kind == "" {
 		writeError(c, http.StatusUnsupportedMediaType, "UNSUPPORTED_MEDIA_TYPE", "unsupported media type", stringPtr("file"))
-		return
+		return nil, "", "", false
 	}
 
 	uploadDir := h.config.UploadDir
@@ -633,7 +682,7 @@ func (h *Handler) uploadFile(c *gin.Context) {
 	}
 	if err := os.MkdirAll(uploadDir, 0755); err != nil {
 		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not prepare file storage", nil)
-		return
+		return nil, "", "", false
 	}
 
 	jobID := randomHex(16)
@@ -646,16 +695,16 @@ func (h *Handler) uploadFile(c *gin.Context) {
 	destination, err := os.OpenFile(storagePath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
 	if err != nil {
 		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not store file", nil)
-		return
+		return nil, "", "", false
 	}
 	if _, err := io.Copy(destination, source); err != nil {
 		_ = destination.Close()
 		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not store file", nil)
-		return
+		return nil, "", "", false
 	}
 	if err := destination.Close(); err != nil {
 		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not store file", nil)
-		return
+		return nil, "", "", false
 	}
 
 	title := strings.TrimSpace(c.PostForm("title"))
@@ -673,9 +722,9 @@ func (h *Handler) uploadFile(c *gin.Context) {
 	if err := database.DB.Create(&job).Error; err != nil {
 		_ = os.Remove(storagePath)
 		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not create file record", nil)
-		return
+		return nil, "", "", false
 	}
-	c.JSON(http.StatusCreated, fileResponse(&job, mimeType, kind))
+	return &job, mimeType, kind, true
 }
 
 func (h *Handler) listFiles(c *gin.Context) {
@@ -832,6 +881,69 @@ func (h *Handler) createTranscription(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusAccepted, transcriptionResponse(&job))
+}
+
+func (h *Handler) submitTranscription(c *gin.Context) {
+	userID, ok := currentUserID(c)
+	if !ok {
+		writeError(c, http.StatusUnauthorized, "UNAUTHORIZED", "missing or invalid authentication", nil)
+		return
+	}
+	var options struct {
+		Language    string `json:"language"`
+		Diarization bool   `json:"diarization"`
+	}
+	if rawOptions := strings.TrimSpace(c.PostForm("options")); rawOptions != "" {
+		if err := json.Unmarshal([]byte(rawOptions), &options); err != nil {
+			writeError(c, http.StatusBadRequest, "INVALID_REQUEST", "options must be valid JSON", stringPtr("options"))
+			return
+		}
+	}
+	if options.Language != "" && !validLanguage(options.Language) {
+		writeError(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "language is invalid", stringPtr("options.language"))
+		return
+	}
+	if profileID := strings.TrimSpace(c.PostForm("profile_id")); profileID != "" {
+		parsedID, ok := parseProfileID(profileID)
+		if !ok || !profileExistsForUser(userID, parsedID) {
+			writeError(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "profile_id is invalid", stringPtr("profile_id"))
+			return
+		}
+	}
+
+	source, _, _, ok := h.storeUploadedFile(c, userID)
+	if !ok {
+		return
+	}
+
+	title := strings.TrimSpace(c.PostForm("title"))
+	if title == "" && source.Title != nil {
+		title = *source.Title
+	}
+	sourceFileID := source.ID
+	job := models.TranscriptionJob{
+		ID:             randomHex(16),
+		UserID:         userID,
+		Title:          &title,
+		Status:         models.StatusPending,
+		AudioPath:      source.AudioPath,
+		SourceFileName: source.SourceFileName,
+		SourceFileHash: &sourceFileID,
+		Diarization:    options.Diarization,
+	}
+	if options.Language != "" {
+		job.Language = &options.Language
+		job.Parameters.Language = &options.Language
+	}
+	if err := database.DB.Create(&job).Error; err != nil {
+		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not create transcription", nil)
+		return
+	}
+	c.JSON(http.StatusAccepted, gin.H{
+		"id":      "tr_" + job.ID,
+		"file_id": "file_" + source.ID,
+		"status":  string(job.Status),
+	})
 }
 
 func (h *Handler) listTranscriptions(c *gin.Context) {
@@ -1272,13 +1384,13 @@ func (h *Handler) handleCommandRoute(c *gin.Context) bool {
 		if !h.requireAuthForNoRoute(c) {
 			return true
 		}
-		h.bindJSONPlaceholder("youtube import")(c)
+		h.importYouTube(c)
 		return true
 	case "/api/v1/transcriptions:submit":
 		if !h.requireAuthForNoRoute(c) {
 			return true
 		}
-		h.notImplemented("transcription submit")(c)
+		h.submitTranscription(c)
 		return true
 	default:
 		return false
@@ -1528,6 +1640,12 @@ func fileResponse(job *models.TranscriptionJob, mimeType, kind string) gin.H {
 	status := "uploaded"
 	if job.Status == models.StatusUploaded {
 		status = "ready"
+	} else if job.Status != "" {
+		status = string(job.Status)
+	}
+	if strings.HasPrefix(job.SourceFileName, "youtube:") {
+		kind = "youtube"
+		mimeType = ""
 	}
 	durationSeconds := any(nil)
 	if job.SourceDurationMs != nil {

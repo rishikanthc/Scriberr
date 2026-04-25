@@ -216,8 +216,11 @@
       "post": {
         "summary": "Import YouTube media",
         "responses": {
-          "501": {
-            "description": "Deferred placeholder"
+          "202": {
+            "description": "YouTube import accepted"
+          },
+          "422": {
+            "description": "Validation error"
           }
         }
       }
@@ -298,8 +301,14 @@
       "post": {
         "summary": "Upload and create transcription",
         "responses": {
-          "501": {
-            "description": "Deferred placeholder"
+          "202": {
+            "description": "File uploaded and transcription queued"
+          },
+          "400": {
+            "description": "Invalid multipart request"
+          },
+          "415": {
+            "description": "Unsupported media type"
           }
         }
       }

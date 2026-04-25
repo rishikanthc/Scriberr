@@ -1,6 +1,8 @@
 package api
 
 import (
+	"bytes"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -19,6 +21,46 @@ func createUploadedFileForTranscription(t *testing.T, s *authTestServer, token s
 	resp, body := uploadMultipart(t, s, token, "file", "source.wav", "audio/wav", content, "Source audio")
 	require.Equal(t, http.StatusCreated, resp.Code)
 	return body["id"].(string), content
+}
+
+func TestTranscriptionSubmitUploadsFileAndQueuesTranscription(t *testing.T) {
+	s := newAuthTestServer(t)
+	token := registerForFileTests(t, s)
+
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	part, err := writer.CreateFormFile("file", "submit.wav")
+	require.NoError(t, err)
+	_, err = part.Write([]byte("RIFF----WAVEfmt submit-source"))
+	require.NoError(t, err)
+	require.NoError(t, writer.WriteField("title", "Submitted transcript"))
+	require.NoError(t, writer.WriteField("options", `{"language":"en","diarization":true}`))
+	require.NoError(t, writer.Close())
+
+	req, err := http.NewRequest(http.MethodPost, "/api/v1/transcriptions:submit", &body)
+	require.NoError(t, err)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	req.Header.Set("Authorization", "Bearer "+token)
+	recorder := httptest.NewRecorder()
+	s.router.ServeHTTP(recorder, req)
+	require.Equal(t, http.StatusAccepted, recorder.Code)
+
+	response := decodeBody(t, recorder)
+	transcriptionID := response["id"].(string)
+	fileID := response["file_id"].(string)
+	require.True(t, strings.HasPrefix(transcriptionID, "tr_"))
+	require.True(t, strings.HasPrefix(fileID, "file_"))
+	require.Equal(t, "queued", response["status"])
+
+	resp, list := s.request(t, http.MethodGet, "/api/v1/files", nil, token, "")
+	require.Equal(t, http.StatusOK, resp.Code)
+	require.Len(t, list["items"].([]any), 1)
+
+	resp, transcription := s.request(t, http.MethodGet, "/api/v1/transcriptions/"+transcriptionID, nil, token, "")
+	require.Equal(t, http.StatusOK, resp.Code)
+	require.Equal(t, fileID, transcription["file_id"])
+	require.Equal(t, "en", transcription["language"])
+	require.Equal(t, true, transcription["diarization"])
 }
 
 func TestTranscriptionCreateListGetPatchCancelDelete(t *testing.T) {
