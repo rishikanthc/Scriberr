@@ -143,4 +143,20 @@ func TestAPIDocsContainOnlyCanonicalRoutes(t *testing.T) {
 	require.Contains(t, doc.Paths, "/api/v1/transcriptions")
 	require.Contains(t, doc.Paths, "/api/v1/profiles")
 	require.Contains(t, doc.Paths, "/api/v1/settings")
+
+	globalEvents := doc.Paths["/api/v1/events"]["get"].(map[string]any)
+	globalEventResponses := globalEvents["responses"].(map[string]any)
+	require.Contains(t, globalEventResponses, "200")
+	require.NotContains(t, globalEventResponses, "501")
+
+	transcriptionEvents := doc.Paths["/api/v1/transcriptions/{id}/events"]["get"].(map[string]any)
+	transcriptionEventResponses := transcriptionEvents["responses"].(map[string]any)
+	require.Contains(t, transcriptionEventResponses, "200")
+	require.NotContains(t, transcriptionEventResponses, "501")
+
+	filesList := doc.Paths["/api/v1/files"]["get"].(map[string]any)
+	require.NotEmpty(t, filesList["parameters"], "files list docs must describe pagination/filter/sort query params")
+
+	importYouTube := doc.Paths["/api/v1/files:import-youtube"]["post"].(map[string]any)
+	require.NotEmpty(t, importYouTube["description"], "youtube import docs must describe async lifecycle")
 }

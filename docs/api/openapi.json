@@ -156,6 +156,18 @@
       },
       "post": {
         "summary": "Create API key",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "description": "Optional retry key. Exact retries return the original successful response; mismatched reuse returns 409.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          }
+        ],
         "responses": {
           "201": {
             "description": "API key created"
@@ -185,17 +197,77 @@
     "/api/v1/files": {
       "get": {
         "summary": "List files",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "description": "Opaque pagination cursor returned as next_cursor."
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "description": "Case-insensitive title search."
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": ["audio", "video", "youtube"]
+            }
+          },
+          {
+            "name": "updated_after",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": ["created_at", "-created_at", "updated_at", "-updated_at", "title", "-title"]
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "File list"
           },
           "401": {
             "description": "Authentication required"
+          },
+          "422": {
+            "description": "Invalid query parameter"
           }
         }
       },
       "post": {
         "summary": "Upload file",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "description": "Optional retry key for upload creation.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          }
+        ],
         "responses": {
           "201": {
             "description": "File uploaded"
@@ -206,6 +278,9 @@
           "401": {
             "description": "Authentication required"
           },
+          "413": {
+            "description": "Upload too large"
+          },
           "415": {
             "description": "Unsupported media type"
           }
@@ -215,12 +290,31 @@
     "/api/v1/files:import-youtube": {
       "post": {
         "summary": "Import YouTube media",
+        "description": "Creates a processing YouTube file resource, downloads media asynchronously through the configured importer, then transitions the file to ready or failed. Events are published as file.processing, file.ready, or file.failed.",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "description": "Optional retry key for YouTube import creation.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          }
+        ],
         "responses": {
           "202": {
-            "description": "YouTube import accepted"
+            "description": "YouTube import accepted with status processing"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "409": {
+            "description": "Idempotency key conflict"
           },
           "422": {
-            "description": "Validation error"
+            "description": "Validation error, including unsupported URL host or scheme"
           }
         }
       }
@@ -276,14 +370,77 @@
     "/api/v1/transcriptions": {
       "get": {
         "summary": "List transcriptions",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "description": "Opaque pagination cursor returned as next_cursor."
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "description": "Case-insensitive title search."
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": ["queued", "processing", "completed", "failed", "canceled"]
+            }
+          },
+          {
+            "name": "updated_after",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": ["created_at", "-created_at", "updated_at", "-updated_at", "title", "-title"]
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Transcription list"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "422": {
+            "description": "Invalid query parameter"
           }
         }
       },
       "post": {
         "summary": "Create transcription",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "description": "Optional retry key for transcription creation.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          }
+        ],
         "responses": {
           "202": {
             "description": "Transcription queued"
@@ -300,6 +457,18 @@
     "/api/v1/transcriptions:submit": {
       "post": {
         "summary": "Upload and create transcription",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "description": "Optional retry key for combined upload and transcription creation.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          }
+        ],
         "responses": {
           "202": {
             "description": "File uploaded and transcription queued"
@@ -345,6 +514,18 @@
     "/api/v1/transcriptions/{id}:cancel": {
       "post": {
         "summary": "Cancel transcription",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "description": "Optional retry key for cancel command.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Transcription canceled"
@@ -358,6 +539,18 @@
     "/api/v1/transcriptions/{id}:retry": {
       "post": {
         "summary": "Retry transcription",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "description": "Optional retry key for retry command.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          }
+        ],
         "responses": {
           "202": {
             "description": "Retry queued"
@@ -390,10 +583,17 @@
     },
     "/api/v1/transcriptions/{id}/events": {
       "get": {
-        "summary": "Get transcription events",
+        "summary": "Stream transcription events",
+        "description": "Authenticated Server-Sent Events stream filtered to the requested transcription. Replay with Last-Event-ID is not supported yet.",
         "responses": {
-          "501": {
-            "description": "Deferred placeholder"
+          "200": {
+            "description": "SSE stream using text/event-stream"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "404": {
+            "description": "Transcription not found"
           }
         }
       }
@@ -429,6 +629,18 @@
       },
       "post": {
         "summary": "Create profile",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "description": "Optional retry key for profile creation.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          }
+        ],
         "responses": {
           "201": {
             "description": "Profile created"
@@ -471,6 +683,18 @@
     "/api/v1/profiles/{id}:set-default": {
       "post": {
         "summary": "Set default profile",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "description": "Optional retry key for set-default command.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Profile set as default"
@@ -501,10 +725,14 @@
     },
     "/api/v1/events": {
       "get": {
-        "summary": "Global events",
+        "summary": "Stream global events",
+        "description": "Authenticated Server-Sent Events stream for API-visible file, transcription, profile, and settings changes. Replay with Last-Event-ID is not supported yet.",
         "responses": {
-          "501": {
-            "description": "Deferred placeholder"
+          "200": {
+            "description": "SSE stream using text/event-stream"
+          },
+          "401": {
+            "description": "Authentication required"
           }
         }
       }
