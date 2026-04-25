@@ -71,9 +71,7 @@ func (h *Handler) getProfile(c *gin.Context) {
 	if !ok {
 		return
 	}
-	response := profileResponse(profile)
-	h.publishEvent("profile.updated", gin.H{"id": response["id"]})
-	c.JSON(http.StatusOK, response)
+	c.JSON(http.StatusOK, profileResponse(profile))
 }
 func (h *Handler) updateProfile(c *gin.Context) {
 	profile, ok := h.profileByPublicID(c, c.Param("id"))

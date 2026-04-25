@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 
 	"scriberr/internal/database"
 	"scriberr/internal/models"
@@ -114,6 +115,32 @@ func TestProfileValidationAndAuth(t *testing.T) {
 
 	resp, _ = s.request(t, http.MethodGet, "/api/v1/profiles/profile_missing", nil, token, "")
 	require.Equal(t, http.StatusNotFound, resp.Code)
+}
+
+func TestGetProfileDoesNotPublishUpdateEvent(t *testing.T) {
+	s := newAuthTestServer(t)
+	token := registerForFileTests(t, s)
+
+	resp, body := s.request(t, http.MethodPost, "/api/v1/profiles", map[string]any{
+		"name": "Read only profile",
+		"options": map[string]any{
+			"model": "base",
+		},
+	}, token, "")
+	require.Equal(t, http.StatusCreated, resp.Code)
+	profileID := body["id"].(string)
+
+	sub, unsubscribe := s.handler.events.subscribe("")
+	defer unsubscribe()
+
+	resp, _ = s.request(t, http.MethodGet, "/api/v1/profiles/"+profileID, nil, token, "")
+	require.Equal(t, http.StatusOK, resp.Code)
+
+	select {
+	case event := <-sub.ch:
+		t.Fatalf("GET profile unexpectedly published %s", event.Name)
+	case <-time.After(25 * time.Millisecond):
+	}
 }
 
 func TestSettingsPartialUpdateAndValidation(t *testing.T) {
