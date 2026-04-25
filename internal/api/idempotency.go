@@ -27,6 +27,7 @@ type idempotencyEntry struct {
 	status      int
 	header      http.Header
 	body        []byte
+	done        chan struct{}
 }
 
 func newIdempotencyStore() *idempotencyStore {
@@ -76,15 +77,27 @@ func (h *Handler) handleIdempotency(c *gin.Context, next func()) bool {
 
 	storeKey := idempotencyStoreKey(userID, c.Request.Method, c.Request.URL.Path, key)
 	fingerprint := idempotencyFingerprint(c, body)
-	if entry := h.idempotency.get(storeKey); entry != nil {
-		if entry.fingerprint != fingerprint {
-			writeError(c, http.StatusConflict, "IDEMPOTENCY_CONFLICT", "Idempotency-Key was already used with a different request", stringPtr("Idempotency-Key"))
+	entry, owner, conflict := h.idempotency.reserve(storeKey, fingerprint)
+	if conflict {
+		writeError(c, http.StatusConflict, "IDEMPOTENCY_CONFLICT", "Idempotency-Key was already used with a different request", stringPtr("Idempotency-Key"))
+		return false
+	}
+	if !owner {
+		<-entry.done
+		if entry.cached() {
+			writeCachedIdempotencyResponse(c, entry)
 			return false
 		}
-		writeCachedIdempotencyResponse(c, entry)
+		c.Request.Body = io.NopCloser(bytes.NewReader(body))
+		h.executeAndMaybeCacheIdempotent(c, next, storeKey, fingerprint)
 		return false
 	}
 
+	h.executeAndMaybeCacheIdempotent(c, next, storeKey, fingerprint)
+	return false
+}
+
+func (h *Handler) executeAndMaybeCacheIdempotent(c *gin.Context, next func(), storeKey, fingerprint string) {
 	recorder := &idempotencyResponseWriter{ResponseWriter: c.Writer, body: bytes.Buffer{}}
 	c.Writer = recorder
 	next()
@@ -92,14 +105,15 @@ func (h *Handler) handleIdempotency(c *gin.Context, next func()) bool {
 		recorder.status = http.StatusOK
 	}
 	if recorder.status >= 200 && recorder.status < 300 {
-		h.idempotency.put(storeKey, &idempotencyEntry{
+		h.idempotency.complete(storeKey, &idempotencyEntry{
 			fingerprint: fingerprint,
 			status:      recorder.status,
 			header:      recorder.Header().Clone(),
 			body:        append([]byte(nil), recorder.body.Bytes()...),
 		})
+		return
 	}
-	return false
+	h.idempotency.forget(storeKey)
 }
 
 type idempotencyResponseWriter struct {
@@ -123,16 +137,46 @@ func (w *idempotencyResponseWriter) WriteString(data string) (int, error) {
 	return w.ResponseWriter.WriteString(data)
 }
 
-func (s *idempotencyStore) get(key string) *idempotencyEntry {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return s.entries[key]
+func (e *idempotencyEntry) cached() bool {
+	return e.status >= 200 && e.status < 300
 }
 
-func (s *idempotencyStore) put(key string, entry *idempotencyEntry) {
+func (s *idempotencyStore) reserve(key, fingerprint string) (*idempotencyEntry, bool, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if entry := s.entries[key]; entry != nil {
+		return entry, false, entry.fingerprint != fingerprint
+	}
+	entry := &idempotencyEntry{
+		fingerprint: fingerprint,
+		done:        make(chan struct{}),
+	}
 	s.entries[key] = entry
+	return entry, true, false
+}
+
+func (s *idempotencyStore) complete(key string, completed *idempotencyEntry) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	entry := s.entries[key]
+	if entry == nil {
+		return
+	}
+	entry.status = completed.status
+	entry.header = completed.header
+	entry.body = completed.body
+	close(entry.done)
+}
+
+func (s *idempotencyStore) forget(key string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	entry := s.entries[key]
+	if entry == nil {
+		return
+	}
+	delete(s.entries, key)
+	close(entry.done)
 }
 
 func idempotencyStoreKey(userID uint, method, path, key string) string {

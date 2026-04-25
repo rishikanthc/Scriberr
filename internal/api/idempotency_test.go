@@ -6,6 +6,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"sync"
 	"testing"
 
 	"scriberr/internal/database"
@@ -98,6 +99,73 @@ func TestIdempotencyCachesJSONCreateAndRejectsBodyMismatch(t *testing.T) {
 	require.Equal(t, http.StatusConflict, resp.Code)
 	errBody := body["error"].(map[string]any)
 	require.Equal(t, "IDEMPOTENCY_CONFLICT", errBody["code"])
+}
+
+func TestIdempotencyCoalescesConcurrentCreates(t *testing.T) {
+	s := newAuthTestServer(t)
+	token := registerForFileTests(t, s)
+
+	const workers = 8
+	start := make(chan struct{})
+	type result struct {
+		status int
+		body   map[string]any
+		err    error
+	}
+	responses := make(chan result, workers)
+	var wg sync.WaitGroup
+	for range workers {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			<-start
+			payload, err := json.Marshal(map[string]any{
+				"name":        "Concurrent CLI",
+				"description": "same payload",
+			})
+			if err != nil {
+				responses <- result{err: err}
+				return
+			}
+			req, err := http.NewRequest(http.MethodPost, "/api/v1/api-keys", bytes.NewReader(payload))
+			if err != nil {
+				responses <- result{err: err}
+				return
+			}
+			req.Header.Set("Content-Type", "application/json")
+			req.Header.Set("Authorization", "Bearer "+token)
+			req.Header.Set("Idempotency-Key", "idem-concurrent-api-key")
+
+			recorder := httptest.NewRecorder()
+			s.router.ServeHTTP(recorder, req)
+
+			var body map[string]any
+			if err := json.NewDecoder(recorder.Body).Decode(&body); err != nil {
+				responses <- result{status: recorder.Code, err: err}
+				return
+			}
+			responses <- result{status: recorder.Code, body: body}
+		}()
+	}
+	close(start)
+	wg.Wait()
+	close(responses)
+
+	var firstID string
+	for response := range responses {
+		require.NoError(t, response.err)
+		require.Equal(t, http.StatusCreated, response.status)
+		id := response.body["id"].(string)
+		if firstID == "" {
+			firstID = id
+		}
+		require.Equal(t, firstID, id)
+		require.NotEmpty(t, response.body["key"])
+	}
+
+	var count int64
+	require.NoError(t, database.DB.Model(&models.APIKey{}).Count(&count).Error)
+	require.Equal(t, int64(1), count)
 }
 
 func TestIdempotencyCachesMultipartUpload(t *testing.T) {

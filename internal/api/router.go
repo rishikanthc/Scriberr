@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"path"
 	"strings"
+	"time"
 
 	"scriberr/internal/auth"
 	"scriberr/internal/config"
@@ -22,6 +23,7 @@ type Handler struct {
 	idempotency     *idempotencyStore
 	events          *eventBroker
 	youtubeImporter YouTubeImporter
+	eventHeartbeat  time.Duration
 }
 
 func NewHandler(cfg *config.Config, authService *auth.AuthService, _ ...any) *Handler {
@@ -35,6 +37,7 @@ func NewHandler(cfg *config.Config, authService *auth.AuthService, _ ...any) *Ha
 		idempotency:     newIdempotencyStore(),
 		events:          newEventBroker(),
 		youtubeImporter: ytDLPImporter{},
+		eventHeartbeat:  25 * time.Second,
 	}
 }
 func SetupRoutes(handler *Handler, _ *auth.AuthService) *gin.Engine {

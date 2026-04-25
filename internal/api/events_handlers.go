@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -102,10 +103,20 @@ func (h *Handler) streamEventChannel(c *gin.Context, transcriptionID string) {
 	_, _ = c.Writer.Write([]byte(": connected\n\n"))
 	flusher.Flush()
 
+	heartbeatInterval := h.eventHeartbeat
+	if heartbeatInterval <= 0 {
+		heartbeatInterval = 25 * time.Second
+	}
+	heartbeat := time.NewTicker(heartbeatInterval)
+	defer heartbeat.Stop()
+
 	for {
 		select {
 		case <-c.Request.Context().Done():
 			return
+		case <-heartbeat.C:
+			_, _ = c.Writer.Write([]byte(": heartbeat\n\n"))
+			flusher.Flush()
 		case event, ok := <-sub.ch:
 			if !ok {
 				return

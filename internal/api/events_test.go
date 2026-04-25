@@ -110,3 +110,15 @@ func TestSSERequiresAuthentication(t *testing.T) {
 	errBody := body["error"].(map[string]any)
 	require.Equal(t, "UNAUTHORIZED", errBody["code"])
 }
+
+func TestSSESendsHeartbeat(t *testing.T) {
+	s := newAuthTestServer(t)
+	s.handler.eventHeartbeat = 10 * time.Millisecond
+	token := registerForFileTests(t, s)
+
+	recorder, cancel, done := startEventStream(t, s, token, "/api/v1/events")
+	require.Eventually(t, func() bool {
+		return strings.Contains(recorder.Body.String(), ": heartbeat")
+	}, time.Second, 10*time.Millisecond)
+	stopEventStream(t, cancel, done)
+}
