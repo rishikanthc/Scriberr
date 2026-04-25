@@ -1,0 +1,537 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Scriberr API",
+    "version": "v1"
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "summary": "Health check",
+        "responses": {
+          "200": {
+            "description": "Service is alive"
+          }
+        }
+      }
+    },
+    "/api/v1/health": {
+      "get": {
+        "summary": "API health check",
+        "responses": {
+          "200": {
+            "description": "API is alive"
+          }
+        }
+      }
+    },
+    "/api/v1/ready": {
+      "get": {
+        "summary": "Readiness check",
+        "responses": {
+          "200": {
+            "description": "Service is ready"
+          },
+          "503": {
+            "description": "Service is not ready"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/registration-status": {
+      "get": {
+        "summary": "Get registration status",
+        "responses": {
+          "200": {
+            "description": "Registration status"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/register": {
+      "post": {
+        "summary": "Register the local user",
+        "responses": {
+          "200": {
+            "description": "Token response"
+          },
+          "409": {
+            "description": "Registration already completed"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/login": {
+      "post": {
+        "summary": "Log in",
+        "responses": {
+          "200": {
+            "description": "Token response"
+          },
+          "401": {
+            "description": "Invalid credentials"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/refresh": {
+      "post": {
+        "summary": "Rotate refresh token",
+        "responses": {
+          "200": {
+            "description": "Token response"
+          },
+          "401": {
+            "description": "Invalid refresh token"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/logout": {
+      "post": {
+        "summary": "Revoke refresh token",
+        "responses": {
+          "200": {
+            "description": "Logout accepted"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/me": {
+      "get": {
+        "summary": "Get current user",
+        "responses": {
+          "200": {
+            "description": "Current user"
+          },
+          "401": {
+            "description": "Authentication required"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/change-password": {
+      "post": {
+        "summary": "Change password",
+        "responses": {
+          "200": {
+            "description": "Password changed"
+          },
+          "401": {
+            "description": "Authentication failed"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/change-username": {
+      "post": {
+        "summary": "Change username",
+        "responses": {
+          "200": {
+            "description": "Username changed"
+          },
+          "401": {
+            "description": "Authentication failed"
+          }
+        }
+      }
+    },
+    "/api/v1/api-keys": {
+      "get": {
+        "summary": "List API keys",
+        "responses": {
+          "200": {
+            "description": "API key list"
+          },
+          "401": {
+            "description": "JWT required"
+          }
+        }
+      },
+      "post": {
+        "summary": "Create API key",
+        "responses": {
+          "201": {
+            "description": "API key created"
+          },
+          "401": {
+            "description": "JWT required"
+          }
+        }
+      }
+    },
+    "/api/v1/api-keys/{id}": {
+      "delete": {
+        "summary": "Delete API key",
+        "responses": {
+          "204": {
+            "description": "API key deleted"
+          },
+          "401": {
+            "description": "JWT required"
+          },
+          "404": {
+            "description": "API key not found"
+          }
+        }
+      }
+    },
+    "/api/v1/files": {
+      "get": {
+        "summary": "List files",
+        "responses": {
+          "200": {
+            "description": "File list"
+          },
+          "401": {
+            "description": "Authentication required"
+          }
+        }
+      },
+      "post": {
+        "summary": "Upload file",
+        "responses": {
+          "201": {
+            "description": "File uploaded"
+          },
+          "400": {
+            "description": "Invalid upload"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "415": {
+            "description": "Unsupported media type"
+          }
+        }
+      }
+    },
+    "/api/v1/files:import-youtube": {
+      "post": {
+        "summary": "Import YouTube media",
+        "responses": {
+          "501": {
+            "description": "Deferred placeholder"
+          }
+        }
+      }
+    },
+    "/api/v1/files/{id}": {
+      "get": {
+        "summary": "Get file",
+        "responses": {
+          "200": {
+            "description": "File"
+          },
+          "404": {
+            "description": "File not found"
+          }
+        }
+      },
+      "patch": {
+        "summary": "Update file metadata",
+        "responses": {
+          "200": {
+            "description": "File updated"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete file",
+        "responses": {
+          "204": {
+            "description": "File deleted"
+          }
+        }
+      }
+    },
+    "/api/v1/files/{id}/audio": {
+      "get": {
+        "summary": "Stream file audio",
+        "responses": {
+          "200": {
+            "description": "Audio stream"
+          },
+          "206": {
+            "description": "Partial audio stream"
+          },
+          "416": {
+            "description": "Invalid range"
+          }
+        }
+      }
+    },
+    "/api/v1/transcriptions": {
+      "get": {
+        "summary": "List transcriptions",
+        "responses": {
+          "200": {
+            "description": "Transcription list"
+          }
+        }
+      },
+      "post": {
+        "summary": "Create transcription",
+        "responses": {
+          "202": {
+            "description": "Transcription queued"
+          },
+          "404": {
+            "description": "Source file not found"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        }
+      }
+    },
+    "/api/v1/transcriptions:submit": {
+      "post": {
+        "summary": "Upload and create transcription",
+        "responses": {
+          "501": {
+            "description": "Deferred placeholder"
+          }
+        }
+      }
+    },
+    "/api/v1/transcriptions/{id}": {
+      "get": {
+        "summary": "Get transcription",
+        "responses": {
+          "200": {
+            "description": "Transcription"
+          },
+          "404": {
+            "description": "Transcription not found"
+          }
+        }
+      },
+      "patch": {
+        "summary": "Update transcription metadata",
+        "responses": {
+          "200": {
+            "description": "Transcription updated"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete transcription",
+        "responses": {
+          "204": {
+            "description": "Transcription deleted"
+          }
+        }
+      }
+    },
+    "/api/v1/transcriptions/{id}:cancel": {
+      "post": {
+        "summary": "Cancel transcription",
+        "responses": {
+          "200": {
+            "description": "Transcription canceled"
+          },
+          "409": {
+            "description": "State conflict"
+          }
+        }
+      }
+    },
+    "/api/v1/transcriptions/{id}:retry": {
+      "post": {
+        "summary": "Retry transcription",
+        "responses": {
+          "202": {
+            "description": "Retry queued"
+          }
+        }
+      }
+    },
+    "/api/v1/transcriptions/{id}/transcript": {
+      "get": {
+        "summary": "Get transcript",
+        "responses": {
+          "200": {
+            "description": "Transcript"
+          }
+        }
+      }
+    },
+    "/api/v1/transcriptions/{id}/audio": {
+      "get": {
+        "summary": "Stream transcription audio",
+        "responses": {
+          "200": {
+            "description": "Audio stream"
+          },
+          "206": {
+            "description": "Partial audio stream"
+          }
+        }
+      }
+    },
+    "/api/v1/transcriptions/{id}/events": {
+      "get": {
+        "summary": "Get transcription events",
+        "responses": {
+          "501": {
+            "description": "Deferred placeholder"
+          }
+        }
+      }
+    },
+    "/api/v1/transcriptions/{id}/logs": {
+      "get": {
+        "summary": "Get transcription logs",
+        "responses": {
+          "501": {
+            "description": "Deferred placeholder"
+          }
+        }
+      }
+    },
+    "/api/v1/transcriptions/{id}/executions": {
+      "get": {
+        "summary": "Get transcription executions",
+        "responses": {
+          "501": {
+            "description": "Deferred placeholder"
+          }
+        }
+      }
+    },
+    "/api/v1/profiles": {
+      "get": {
+        "summary": "List profiles",
+        "responses": {
+          "200": {
+            "description": "Profile list"
+          }
+        }
+      },
+      "post": {
+        "summary": "Create profile",
+        "responses": {
+          "201": {
+            "description": "Profile created"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        }
+      }
+    },
+    "/api/v1/profiles/{id}": {
+      "get": {
+        "summary": "Get profile",
+        "responses": {
+          "200": {
+            "description": "Profile"
+          },
+          "404": {
+            "description": "Profile not found"
+          }
+        }
+      },
+      "patch": {
+        "summary": "Update profile",
+        "responses": {
+          "200": {
+            "description": "Profile updated"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete profile",
+        "responses": {
+          "204": {
+            "description": "Profile deleted"
+          }
+        }
+      }
+    },
+    "/api/v1/profiles/{id}:set-default": {
+      "post": {
+        "summary": "Set default profile",
+        "responses": {
+          "200": {
+            "description": "Profile set as default"
+          }
+        }
+      }
+    },
+    "/api/v1/settings": {
+      "get": {
+        "summary": "Get settings",
+        "responses": {
+          "200": {
+            "description": "Settings"
+          }
+        }
+      },
+      "patch": {
+        "summary": "Update settings",
+        "responses": {
+          "200": {
+            "description": "Settings updated"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        }
+      }
+    },
+    "/api/v1/events": {
+      "get": {
+        "summary": "Global events",
+        "responses": {
+          "501": {
+            "description": "Deferred placeholder"
+          }
+        }
+      }
+    },
+    "/api/v1/models/transcription": {
+      "get": {
+        "summary": "List transcription models",
+        "responses": {
+          "200": {
+            "description": "Model capabilities"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/queue": {
+      "get": {
+        "summary": "Queue stats",
+        "responses": {
+          "200": {
+            "description": "Queue stats"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer"
+      },
+      "apiKeyAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-API-Key"
+      }
+    }
+  }
+}

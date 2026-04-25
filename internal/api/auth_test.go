@@ -18,27 +18,31 @@ import (
 	"scriberr/internal/models"
 
 	"github.com/stretchr/testify/require"
+	gormlogger "gorm.io/gorm/logger"
 )
 
 type authTestServer struct {
-	router http.Handler
-	auth   *auth.AuthService
+	router    http.Handler
+	auth      *auth.AuthService
+	uploadDir string
 }
 
 func newAuthTestServer(t *testing.T) *authTestServer {
 	t.Helper()
 
 	require.NoError(t, database.Initialize(filepath.Join(t.TempDir(), "scriberr.db")))
+	database.DB.Logger = gormlogger.Default.LogMode(gormlogger.Silent)
 	t.Cleanup(func() { _ = database.Close() })
 
 	authService := auth.NewAuthService("test-secret")
+	uploadDir := filepath.Join(t.TempDir(), "uploads")
 	handler := NewHandler(&config.Config{
 		Environment: "test",
-		UploadDir:   filepath.Join(t.TempDir(), "uploads"),
+		UploadDir:   uploadDir,
 	}, authService)
 	handler.readinessCheck = func() error { return nil }
 
-	return &authTestServer{router: SetupRoutes(handler, authService), auth: authService}
+	return &authTestServer{router: SetupRoutes(handler, authService), auth: authService, uploadDir: uploadDir}
 }
 
 func (s *authTestServer) request(t *testing.T, method, path string, body any, token string, apiKey string) (*httptest.ResponseRecorder, map[string]any) {
