@@ -1,0 +1,125 @@
+package api
+
+import (
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
+
+	"scriberr/internal/database"
+	"scriberr/internal/models"
+
+	"github.com/stretchr/testify/require"
+)
+
+func createUploadedFileForTranscription(t *testing.T, s *authTestServer, token string) (string, []byte) {
+	t.Helper()
+
+	content := []byte("RIFF----WAVEfmt transcription-source")
+	resp, body := uploadMultipart(t, s, token, "file", "source.wav", "audio/wav", content, "Source audio")
+	require.Equal(t, http.StatusCreated, resp.Code)
+	return body["id"].(string), content
+}
+
+func TestTranscriptionCreateListGetPatchCancelDelete(t *testing.T) {
+	s := newAuthTestServer(t)
+	token := registerForFileTests(t, s)
+	fileID, _ := createUploadedFileForTranscription(t, s, token)
+
+	resp, body := s.request(t, http.MethodPost, "/api/v1/transcriptions", map[string]any{
+		"file_id": fileID,
+		"title":   "Team sync transcript",
+		"options": map[string]any{
+			"language":    "en",
+			"diarization": true,
+		},
+	}, token, "")
+	require.Equal(t, http.StatusAccepted, resp.Code)
+	transcriptionID := body["id"].(string)
+	require.True(t, strings.HasPrefix(transcriptionID, "tr_"))
+	require.Equal(t, fileID, body["file_id"])
+	require.Equal(t, "queued", body["status"])
+
+	resp, body = s.request(t, http.MethodGet, "/api/v1/transcriptions", nil, token, "")
+	require.Equal(t, http.StatusOK, resp.Code)
+	items := body["items"].([]any)
+	require.Len(t, items, 1)
+	item := items[0].(map[string]any)
+	require.Equal(t, transcriptionID, item["id"])
+	require.Equal(t, fileID, item["file_id"])
+
+	resp, body = s.request(t, http.MethodGet, "/api/v1/transcriptions/"+transcriptionID, nil, token, "")
+	require.Equal(t, http.StatusOK, resp.Code)
+	require.Equal(t, "Team sync transcript", body["title"])
+	require.Equal(t, "en", body["language"])
+	require.Equal(t, true, body["diarization"])
+
+	resp, body = s.request(t, http.MethodPatch, "/api/v1/transcriptions/"+transcriptionID, map[string]any{"title": "Renamed transcript"}, token, "")
+	require.Equal(t, http.StatusOK, resp.Code)
+	require.Equal(t, "Renamed transcript", body["title"])
+
+	resp, body = s.request(t, http.MethodPost, "/api/v1/transcriptions/"+transcriptionID+":cancel", nil, token, "")
+	require.Equal(t, http.StatusOK, resp.Code)
+	require.Equal(t, "canceled", body["status"])
+
+	resp, _ = s.request(t, http.MethodDelete, "/api/v1/transcriptions/"+transcriptionID, nil, token, "")
+	require.Equal(t, http.StatusNoContent, resp.Code)
+
+	resp, _ = s.request(t, http.MethodGet, "/api/v1/transcriptions/"+transcriptionID, nil, token, "")
+	require.Equal(t, http.StatusNotFound, resp.Code)
+}
+
+func TestTranscriptionValidationTranscriptRetryAndAudioAlias(t *testing.T) {
+	s := newAuthTestServer(t)
+	token := registerForFileTests(t, s)
+	fileID, content := createUploadedFileForTranscription(t, s, token)
+
+	resp, _ := s.request(t, http.MethodPost, "/api/v1/transcriptions", map[string]any{
+		"file_id": "file_missing",
+	}, token, "")
+	require.Equal(t, http.StatusNotFound, resp.Code)
+
+	resp, _ = s.request(t, http.MethodPost, "/api/v1/transcriptions", map[string]any{
+		"file_id": fileID,
+		"options": map[string]any{"language": "english"},
+	}, token, "")
+	require.Equal(t, http.StatusUnprocessableEntity, resp.Code)
+
+	resp, body := s.request(t, http.MethodPost, "/api/v1/transcriptions", map[string]any{
+		"file_id": fileID,
+		"title":   "Transcript",
+		"options": map[string]any{"language": "en"},
+	}, token, "")
+	require.Equal(t, http.StatusAccepted, resp.Code)
+	transcriptionID := body["id"].(string)
+
+	var job models.TranscriptionJob
+	require.NoError(t, database.DB.First(&job, "id = ?", strings.TrimPrefix(transcriptionID, "tr_")).Error)
+	transcript := "hello world"
+	require.NoError(t, database.DB.Model(&models.TranscriptionJob{}).Where("id = ?", job.ID).Updates(map[string]any{
+		"status":          models.StatusCompleted,
+		"transcript_text": transcript,
+	}).Error)
+
+	resp, body = s.request(t, http.MethodGet, "/api/v1/transcriptions/"+transcriptionID+"/transcript", nil, token, "")
+	require.Equal(t, http.StatusOK, resp.Code)
+	require.Equal(t, transcriptionID, body["transcription_id"])
+	require.Equal(t, transcript, body["text"])
+	require.Empty(t, body["segments"])
+	require.Empty(t, body["words"])
+
+	req, err := http.NewRequest(http.MethodGet, "/api/v1/transcriptions/"+transcriptionID+"/audio", nil)
+	require.NoError(t, err)
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Range", "bytes=0-3")
+	audio := httptest.NewRecorder()
+	s.router.ServeHTTP(audio, req)
+	require.Equal(t, http.StatusPartialContent, audio.Code)
+	require.Equal(t, content[:4], audio.Body.Bytes())
+
+	resp, body = s.request(t, http.MethodPost, "/api/v1/transcriptions/"+transcriptionID+":retry", nil, token, "")
+	require.Equal(t, http.StatusAccepted, resp.Code)
+	require.Equal(t, transcriptionID, body["source_transcription_id"])
+	require.Equal(t, "queued", body["status"])
+	require.True(t, strings.HasPrefix(body["id"].(string), "tr_"))
+}
