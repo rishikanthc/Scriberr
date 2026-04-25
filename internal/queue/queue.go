@@ -46,13 +46,6 @@ type JobProcessor interface {
 	ProcessJobWithProcess(ctx context.Context, jobID string, registerProcess func(*exec.Cmd)) error
 }
 
-// MultiTrackJobProcessor extends JobProcessor with multi-track specific methods
-type MultiTrackJobProcessor interface {
-	JobProcessor
-	TerminateMultiTrackJob(jobID string) error
-	IsMultiTrackJob(jobID string) bool
-}
-
 // getOptimalWorkerCount calculates optimal worker count based on system resources
 func getOptimalWorkerCount() (min, max int) {
 	numCPU := runtime.NumCPU()
@@ -285,16 +278,6 @@ func (tq *TaskQueue) KillJob(jobID string) error {
 	}
 
 	logger.Info("Killing job", "job_id", jobID)
-
-	// Check if this is a multi-track job and handle accordingly
-	if mtProcessor, ok := tq.processor.(MultiTrackJobProcessor); ok && mtProcessor.IsMultiTrackJob(jobID) {
-		logger.Debug("Terminating multi-track job", "job_id", jobID)
-
-		// Terminate all individual track jobs
-		if err := mtProcessor.TerminateMultiTrackJob(jobID); err != nil {
-			logger.Error("Failed to terminate multi-track job", "job_id", jobID, "error", err)
-		}
-	}
 
 	// First, try to kill the OS process group (or process on non-Unix)
 	if runningJob.Process != nil && runningJob.Process.Process != nil {

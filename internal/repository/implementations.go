@@ -64,7 +64,6 @@ func (r *userRepository) CountWithAutoTranscription(ctx context.Context) (int64,
 type JobRepository interface {
 	Repository[models.TranscriptionJob]
 	FindWithAssociations(ctx context.Context, id string) (*models.TranscriptionJob, error)
-	FindActiveTrackJobs(ctx context.Context, parentJobID string) ([]models.TranscriptionJob, error)
 	FindLatestCompletedExecution(ctx context.Context, jobID string) (*models.TranscriptionJobExecution, error)
 	ListWithParams(ctx context.Context, offset, limit int, sortBy, sortOrder, searchQuery string, updatedAfter *time.Time) ([]models.TranscriptionJob, int64, error)
 	ListByUser(ctx context.Context, userID uint, offset, limit int) ([]models.TranscriptionJob, int64, error)
@@ -72,7 +71,6 @@ type JobRepository interface {
 	CreateExecution(ctx context.Context, execution *models.TranscriptionJobExecution) error
 	UpdateExecution(ctx context.Context, execution *models.TranscriptionJobExecution) error
 	DeleteExecutionsByJobID(ctx context.Context, jobID string) error
-	DeleteMultiTrackFilesByJobID(ctx context.Context, jobID string) error
 	UpdateStatus(ctx context.Context, jobID string, status models.JobStatus) error
 	UpdateError(ctx context.Context, jobID string, errorMsg string) error
 	FindByStatus(ctx context.Context, status models.JobStatus) ([]models.TranscriptionJob, error)
@@ -93,7 +91,6 @@ func NewJobRepository(db *gorm.DB) JobRepository {
 func (r *jobRepository) FindWithAssociations(ctx context.Context, id string) (*models.TranscriptionJob, error) {
 	var job models.TranscriptionJob
 	err := r.db.WithContext(ctx).
-		Preload("MultiTrackFiles").
 		Where("id = ?", id).
 		First(&job).Error
 	if err != nil {
@@ -240,18 +237,6 @@ func (r *jobRepository) UpdateExecution(ctx context.Context, execution *models.T
 
 func (r *jobRepository) DeleteExecutionsByJobID(ctx context.Context, jobID string) error {
 	return r.db.WithContext(ctx).Where("transcription_id = ?", jobID).Delete(&models.TranscriptionJobExecution{}).Error
-}
-
-func (r *jobRepository) DeleteMultiTrackFilesByJobID(ctx context.Context, jobID string) error {
-	return r.db.WithContext(ctx).Where("transcription_id = ?", jobID).Delete(&models.MultiTrackFile{}).Error
-}
-
-func (r *jobRepository) FindActiveTrackJobs(ctx context.Context, parentJobID string) ([]models.TranscriptionJob, error) {
-	var jobs []models.TranscriptionJob
-	err := r.db.WithContext(ctx).
-		Where("id LIKE ? AND status IN ?", "track_"+parentJobID+"_%", []models.JobStatus{models.StatusProcessing, models.StatusPending}).
-		Find(&jobs).Error
-	return jobs, err
 }
 
 func (r *jobRepository) FindLatestCompletedExecution(ctx context.Context, jobID string) (*models.TranscriptionJobExecution, error) {

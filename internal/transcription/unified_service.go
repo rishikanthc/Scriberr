@@ -41,17 +41,16 @@ const (
 
 // UnifiedTranscriptionService provides a unified interface for all transcription and diarization models
 type UnifiedTranscriptionService struct {
-	registry              *registry.ModelRegistry
-	pipeline              *pipeline.ProcessingPipeline
-	preprocessors         map[string]interfaces.Preprocessor
-	postprocessors        map[string]interfaces.Postprocessor
-	tempDirectory         string
-	outputDirectory       string
-	defaultModelIDs       map[string]string      // Default model IDs for each task type
-	multiTrackTranscriber *MultiTrackTranscriber // For termination support
-	jobRepo               repository.JobRepository
-	webhookService        *webhook.Service
-	broadcaster           *sse.Broadcaster
+	registry        *registry.ModelRegistry
+	pipeline        *pipeline.ProcessingPipeline
+	preprocessors   map[string]interfaces.Preprocessor
+	postprocessors  map[string]interfaces.Postprocessor
+	tempDirectory   string
+	outputDirectory string
+	defaultModelIDs map[string]string // Default model IDs for each task type
+	jobRepo         repository.JobRepository
+	webhookService  *webhook.Service
+	broadcaster     *sse.Broadcaster
 }
 
 // NewUnifiedTranscriptionService creates a new unified transcription service
@@ -184,21 +183,10 @@ func (u *UnifiedTranscriptionService) ProcessJob(ctx context.Context, jobID stri
 		}
 	}
 
-	// Check for multi-track processing
-	if job.IsMultiTrack && job.Parameters.IsMultiTrackEnabled {
-		logger.Info("Processing multi-track job", "job_id", jobID)
-		if err := u.processMultiTrackJob(ctx, job); err != nil {
-			errMsg := fmt.Sprintf("multi-track processing failed: %v", err)
-			updateExecutionStatus(models.StatusFailed, errMsg)
-			return fmt.Errorf("%s", errMsg)
-		}
-	} else {
-		// Process single track
-		if err := u.processSingleTrackJob(ctx, job); err != nil {
-			errMsg := fmt.Sprintf("single-track processing failed: %v", err)
-			updateExecutionStatus(models.StatusFailed, errMsg)
-			return fmt.Errorf("%s", errMsg)
-		}
+	if err := u.processSingleTrackJob(ctx, job); err != nil {
+		errMsg := fmt.Sprintf("single-track processing failed: %v", err)
+		updateExecutionStatus(models.StatusFailed, errMsg)
+		return fmt.Errorf("%s", errMsg)
 	}
 
 	// Success
@@ -337,40 +325,6 @@ func (u *UnifiedTranscriptionService) processSingleTrackJob(ctx context.Context,
 	}
 
 	return nil
-}
-
-// processMultiTrackJob handles multi-track audio processing
-func (u *UnifiedTranscriptionService) processMultiTrackJob(ctx context.Context, job *models.TranscriptionJob) error {
-	logger.Info("Processing multi-track job", "job_id", job.ID, "track_count", len(job.MultiTrackFiles))
-
-	// Create unified processor for this service
-	unifiedProcessor := &UnifiedJobProcessor{
-		unifiedService: u,
-	}
-
-	// Create multi-track transcriber with unified processor and store reference for termination
-	transcriber := NewMultiTrackTranscriber(unifiedProcessor)
-	u.multiTrackTranscriber = transcriber
-
-	// Process the multi-track transcription
-	return transcriber.ProcessMultiTrackTranscription(ctx, job.ID)
-}
-
-// TerminateMultiTrackJob terminates a multi-track job and all its individual track jobs
-func (u *UnifiedTranscriptionService) TerminateMultiTrackJob(jobID string) error {
-	if u.multiTrackTranscriber == nil {
-		return fmt.Errorf("no multi-track transcriber available")
-	}
-	return u.multiTrackTranscriber.TerminateMultiTrackJob(jobID)
-}
-
-// IsMultiTrackJob checks if a job is a multi-track job
-func (u *UnifiedTranscriptionService) IsMultiTrackJob(jobID string) bool {
-	job, err := u.jobRepo.FindByID(context.Background(), jobID)
-	if err != nil || job == nil {
-		return false
-	}
-	return job.IsMultiTrack
 }
 
 // selectModels determines which models to use based on job parameters

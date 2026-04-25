@@ -57,25 +57,18 @@ type legacyTranscriptionProfile struct {
 }
 
 type legacyTranscriptionJob struct {
-	ID                    string
-	Title                 *string
-	Status                string
-	AudioPath             string
-	Transcript            *string
-	Diarization           bool
-	Summary               *string
-	ErrorMessage          *string
-	IsMultiTrack          bool
-	AupFilePath           *string
-	MultiTrackFolder      *string
-	MergedAudioPath       *string
-	MergeStatus           string
-	MergeError            *string
-	IndividualTranscripts *string
-	CreatedAt             time.Time
-	UpdatedAt             time.Time
-	DeletedAt             gorm.DeletedAt
-	Parameters            models.WhisperXParams `gorm:"embedded"`
+	ID           string
+	Title        *string
+	Status       string
+	AudioPath    string
+	Transcript   *string
+	Diarization  bool
+	Summary      *string
+	ErrorMessage *string
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
+	DeletedAt    gorm.DeletedAt
+	Parameters   models.WhisperXParams `gorm:"embedded"`
 }
 
 type legacyTranscriptionExecution struct {
@@ -84,10 +77,6 @@ type legacyTranscriptionExecution struct {
 	StartedAt          time.Time
 	CompletedAt        *time.Time
 	ProcessingDuration *int64
-	MultiTrackTimings  *string
-	MergeStartTime     *time.Time
-	MergeEndTime       *time.Time
-	MergeDuration      *int64
 	ActualParameters   models.WhisperXParams `gorm:"embedded;embeddedPrefix:actual_"`
 	Status             string
 	ErrorMessage       *string
@@ -100,20 +89,6 @@ type legacySpeakerMapping struct {
 	TranscriptionJobID string
 	OriginalSpeaker    string
 	CustomName         string
-	CreatedAt          time.Time
-	UpdatedAt          time.Time
-}
-
-type legacyMultiTrackFile struct {
-	ID                 uint
-	TranscriptionJobID string
-	FileName           string
-	FilePath           string
-	TrackIndex         int
-	Offset             float64
-	Gain               float64
-	Pan                float64
-	Mute               bool
 	CreatedAt          time.Time
 	UpdatedAt          time.Time
 }
@@ -227,9 +202,6 @@ func migrateLegacy(db *gorm.DB) error {
 			return err
 		}
 		if err := migrateExecutions(tx, userID); err != nil {
-			return err
-		}
-		if err := migrateTracks(tx, userID); err != nil {
 			return err
 		}
 		if err := migrateSpeakerMappings(tx, userID); err != nil {
@@ -411,26 +383,19 @@ func migrateTranscriptions(tx *gorm.DB, userID uint) error {
 	for _, legacyJob := range jobs {
 		status := mapLegacyStatus(legacyJob.Status)
 		job := models.TranscriptionJob{
-			ID:                    legacyJob.ID,
-			UserID:                userID,
-			Title:                 legacyJob.Title,
-			Status:                status,
-			AudioPath:             legacyJob.AudioPath,
-			Transcript:            legacyJob.Transcript,
-			ErrorMessage:          legacyJob.ErrorMessage,
-			CreatedAt:             legacyJob.CreatedAt,
-			UpdatedAt:             legacyJob.UpdatedAt,
-			DeletedAt:             legacyJob.DeletedAt,
-			Diarization:           legacyJob.Diarization,
-			Summary:               legacyJob.Summary,
-			IsMultiTrack:          legacyJob.IsMultiTrack,
-			AupFilePath:           legacyJob.AupFilePath,
-			MultiTrackFolder:      legacyJob.MultiTrackFolder,
-			MergedAudioPath:       legacyJob.MergedAudioPath,
-			MergeStatus:           legacyJob.MergeStatus,
-			MergeError:            legacyJob.MergeError,
-			IndividualTranscripts: legacyJob.IndividualTranscripts,
-			Parameters:            legacyJob.Parameters,
+			ID:           legacyJob.ID,
+			UserID:       userID,
+			Title:        legacyJob.Title,
+			Status:       status,
+			AudioPath:    legacyJob.AudioPath,
+			Transcript:   legacyJob.Transcript,
+			ErrorMessage: legacyJob.ErrorMessage,
+			CreatedAt:    legacyJob.CreatedAt,
+			UpdatedAt:    legacyJob.UpdatedAt,
+			DeletedAt:    legacyJob.DeletedAt,
+			Diarization:  legacyJob.Diarization,
+			Summary:      legacyJob.Summary,
+			Parameters:   legacyJob.Parameters,
 		}
 		if status == models.StatusCompleted {
 			completedAt := legacyJob.UpdatedAt
@@ -466,10 +431,6 @@ func migrateExecutions(tx *gorm.DB, userID uint) error {
 			ErrorMessage:       legacyExec.ErrorMessage,
 			CreatedAt:          legacyExec.CreatedAt,
 			ProcessingDuration: legacyExec.ProcessingDuration,
-			MultiTrackTimings:  legacyExec.MultiTrackTimings,
-			MergeStartTime:     legacyExec.MergeStartTime,
-			MergeEndTime:       legacyExec.MergeEndTime,
-			MergeDuration:      legacyExec.MergeDuration,
 			ActualParameters:   legacyExec.ActualParameters,
 		}
 		if exec.Status == models.StatusFailed && legacyExec.CompletedAt != nil {
@@ -477,35 +438,6 @@ func migrateExecutions(tx *gorm.DB, userID uint) error {
 		}
 		if err := tx.Create(&exec).Error; err != nil {
 			return fmt.Errorf("create migrated execution %s: %w", legacyExec.ID, err)
-		}
-	}
-	return nil
-}
-
-func migrateTracks(tx *gorm.DB, userID uint) error {
-	if !tx.Migrator().HasTable("multi_track_files") {
-		return nil
-	}
-	var tracks []legacyMultiTrackFile
-	if err := tx.Table("multi_track_files").Order("transcription_job_id ASC, track_index ASC, id ASC").Find(&tracks).Error; err != nil {
-		return fmt.Errorf("load legacy tracks: %w", err)
-	}
-	for _, legacyTrack := range tracks {
-		track := models.MultiTrackFile{
-			ID:                 legacyTrack.ID,
-			UserID:             userID,
-			TranscriptionJobID: legacyTrack.TranscriptionJobID,
-			FileName:           legacyTrack.FileName,
-			FilePath:           legacyTrack.FilePath,
-			TrackIndex:         legacyTrack.TrackIndex,
-			Offset:             legacyTrack.Offset,
-			Gain:               legacyTrack.Gain,
-			Pan:                legacyTrack.Pan,
-			Mute:               legacyTrack.Mute,
-			CreatedAt:          legacyTrack.CreatedAt,
-		}
-		if err := tx.Create(&track).Error; err != nil {
-			return fmt.Errorf("create migrated track %d: %w", legacyTrack.ID, err)
 		}
 	}
 	return nil

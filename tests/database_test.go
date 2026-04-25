@@ -72,20 +72,14 @@ func (suite *DatabaseTestSuite) TestTranscriptionJobPersistsCompatibilityFields(
 	title := "Persisted Job"
 	transcript := `{"text":"hello"}`
 	summary := "cached summary"
-	merged := "/tmp/merged.wav"
-	individual := `{"Speaker 1":"hello"}`
 
 	job := models.TranscriptionJob{
-		ID:                    "job-compat-1",
-		Title:                 &title,
-		Status:                models.StatusCompleted,
-		AudioPath:             "/tmp/input.wav",
-		Transcript:            &transcript,
-		Summary:               &summary,
-		IsMultiTrack:          true,
-		MergedAudioPath:       &merged,
-		MergeStatus:           "completed",
-		IndividualTranscripts: &individual,
+		ID:         "job-compat-1",
+		Title:      &title,
+		Status:     models.StatusCompleted,
+		AudioPath:  "/tmp/input.wav",
+		Transcript: &transcript,
+		Summary:    &summary,
 		Parameters: models.WhisperXParams{
 			Model:       "base",
 			ModelFamily: "whisper",
@@ -103,9 +97,6 @@ func (suite *DatabaseTestSuite) TestTranscriptionJobPersistsCompatibilityFields(
 	assert.Equal(suite.T(), transcript, *found.Transcript)
 	require.NotNil(suite.T(), found.Summary)
 	assert.Equal(suite.T(), summary, *found.Summary)
-	assert.True(suite.T(), found.IsMultiTrack)
-	require.NotNil(suite.T(), found.MergedAudioPath)
-	assert.Equal(suite.T(), merged, *found.MergedAudioPath)
 	assert.Equal(suite.T(), "base", found.Parameters.Model)
 	assert.True(suite.T(), found.Parameters.Diarize)
 	require.NotNil(suite.T(), found.CompletedAt)

@@ -15,7 +15,6 @@ import (
 	"scriberr/internal/auth"
 	"scriberr/internal/config"
 	"scriberr/internal/database"
-	"scriberr/internal/processing"
 	"scriberr/internal/queue"
 	"scriberr/internal/repository"
 	"scriberr/internal/service"
@@ -140,9 +139,6 @@ func main() {
 	taskQueue.Start()
 	defer taskQueue.Stop()
 
-	// Initialize multi-track processor
-	multiTrackProcessor := processing.NewMultiTrackProcessor(database.DB, jobRepo)
-
 	// Initialize API handlers
 	handler := api.NewHandler(
 		cfg,
@@ -162,7 +158,6 @@ func main() {
 		taskQueue,
 		unifiedProcessor,
 		quickTranscriptionService,
-		multiTrackProcessor,
 		broadcaster,
 	)
 

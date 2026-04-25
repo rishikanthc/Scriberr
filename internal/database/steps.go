@@ -56,9 +56,6 @@ func backfillCompatibilityColumns(tx *gorm.DB) error {
 	if err := backfillTranscriptionExecutions(tx); err != nil {
 		return err
 	}
-	if err := backfillMultiTrackFiles(tx); err != nil {
-		return err
-	}
 	if err := backfillSummaryTemplates(tx); err != nil {
 		return err
 	}
@@ -123,15 +120,15 @@ func backfillTranscriptionProfiles(tx *gorm.DB) error {
 			return err
 		}
 		updates := map[string]any{
-			"user_id":              row.UserID,
-			"model_name":           row.ModelName,
-			"model_family":         row.ModelFamily,
-			"language":             row.Language,
-			"diarization_enabled":  row.DiarizationEnabled,
-			"device":               row.Device,
-			"compute_type":         row.ComputeType,
-			"config_json":          row.ConfigJSON,
-			"is_default":           row.IsDefault,
+			"user_id":             row.UserID,
+			"model_name":          row.ModelName,
+			"model_family":        row.ModelFamily,
+			"language":            row.Language,
+			"diarization_enabled": row.DiarizationEnabled,
+			"device":              row.Device,
+			"compute_type":        row.ComputeType,
+			"config_json":         row.ConfigJSON,
+			"is_default":          row.IsDefault,
 		}
 		if err := withPreservedUpdatedAt(tx.Model(&models.TranscriptionProfile{}).Where("id = ?", row.ID), updates, row.UpdatedAt).
 			Updates(updates).Error; err != nil {
@@ -151,22 +148,22 @@ func backfillTranscriptionJobs(tx *gorm.DB) error {
 			return err
 		}
 		updates := map[string]any{
-			"user_id":            row.UserID,
-			"source_file_path":   row.AudioPath,
-			"source_file_name":   row.SourceFileName,
-			"source_file_hash":   row.SourceFileHash,
-			"source_duration_ms": row.SourceDurationMs,
-			"language":           row.Language,
-			"transcript_text":    row.Transcript,
-			"output_json_path":   row.OutputJSONPath,
-			"output_srt_path":    row.OutputSRTPath,
-			"output_vtt_path":    row.OutputVTTPath,
+			"user_id":             row.UserID,
+			"source_file_path":    row.AudioPath,
+			"source_file_name":    row.SourceFileName,
+			"source_file_hash":    row.SourceFileHash,
+			"source_duration_ms":  row.SourceDurationMs,
+			"language":            row.Language,
+			"transcript_text":     row.Transcript,
+			"output_json_path":    row.OutputJSONPath,
+			"output_srt_path":     row.OutputSRTPath,
+			"output_vtt_path":     row.OutputVTTPath,
 			"latest_execution_id": row.LatestExecutionID,
-			"last_error":         row.ErrorMessage,
-			"metadata_json":      row.MetadataJSON,
-			"completed_at":       row.CompletedAt,
-			"status":             row.Status,
-			"title":              row.Title,
+			"last_error":          row.ErrorMessage,
+			"metadata_json":       row.MetadataJSON,
+			"completed_at":        row.CompletedAt,
+			"status":              row.Status,
+			"title":               row.Title,
 		}
 		if err := withPreservedUpdatedAt(tx.Model(&models.TranscriptionJob{}).Where("id = ?", row.ID), updates, row.UpdatedAt).
 			Updates(updates).Error; err != nil {
@@ -203,36 +200,9 @@ func backfillTranscriptionExecutions(tx *gorm.DB) error {
 			"failed_at":        row.FailedAt,
 			"error_message":    row.ErrorMessage,
 			"logs_path":        row.LogsPath,
-			"merged_file_path": row.MergedFilePath,
 			"output_json_path": row.OutputJSONPath,
 		}
 		if err := withPreservedUpdatedAt(tx.Model(&models.TranscriptionJobExecution{}).Where("id = ?", row.ID), updates, time.Time{}).
-			Updates(updates).Error; err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func backfillMultiTrackFiles(tx *gorm.DB) error {
-	var rows []models.MultiTrackFile
-	if err := tx.Find(&rows).Error; err != nil {
-		return err
-	}
-	for _, row := range rows {
-		if err := row.BeforeSave(tx); err != nil {
-			return err
-		}
-		updates := map[string]any{
-			"user_id":      row.UserID,
-			"file_name":    row.FileName,
-			"file_path":    row.FilePath,
-			"track_index":  row.TrackIndex,
-			"label":        row.Label,
-			"speaker_hint": row.SpeakerHint,
-			"metadata_json": row.MetadataJSON,
-		}
-		if err := withPreservedUpdatedAt(tx.Model(&models.MultiTrackFile{}).Where("id = ?", row.ID), updates, time.Time{}).
 			Updates(updates).Error; err != nil {
 			return err
 		}
@@ -275,12 +245,12 @@ func backfillNotes(tx *gorm.DB) error {
 			return err
 		}
 		updates := map[string]any{
-			"user_id":       row.UserID,
+			"user_id":          row.UserID,
 			"transcription_id": row.TranscriptionID,
-			"content":       row.Content,
-			"start_ms":      row.StartMS,
-			"end_ms":        row.EndMS,
-			"metadata_json": row.MetadataJSON,
+			"content":          row.Content,
+			"start_ms":         row.StartMS,
+			"end_ms":           row.EndMS,
+			"metadata_json":    row.MetadataJSON,
 		}
 		if err := withPreservedUpdatedAt(tx.Model(&models.Note{}).Where("id = ?", row.ID), updates, row.UpdatedAt).
 			Updates(updates).Error; err != nil {

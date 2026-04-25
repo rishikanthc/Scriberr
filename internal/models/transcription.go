@@ -73,23 +73,15 @@ type WhisperXParams struct {
 	PrintProgress                  bool    `json:"print_progress,omitempty"`
 	AttentionContextLeft           int     `json:"attention_context_left,omitempty"`
 	AttentionContextRight          int     `json:"attention_context_right,omitempty"`
-	IsMultiTrackEnabled            bool    `json:"is_multi_track_enabled,omitempty"`
 	CallbackURL                    *string `json:"callback_url,omitempty"`
 	APIKey                         *string `json:"api_key,omitempty"`
 	MaxNewTokens                   *int    `json:"max_new_tokens,omitempty"`
 }
 
 type transcriptionMetadata struct {
-	Diarization           bool           `json:"diarization,omitempty"`
-	IsMultiTrack          bool           `json:"is_multi_track,omitempty"`
-	AupFilePath           *string        `json:"aup_file_path,omitempty"`
-	MultiTrackFolder      *string        `json:"multi_track_folder,omitempty"`
-	MergedAudioPath       *string        `json:"merged_audio_path,omitempty"`
-	MergeStatus           string         `json:"merge_status,omitempty"`
-	MergeError            *string        `json:"merge_error,omitempty"`
-	IndividualTranscripts *string        `json:"individual_transcripts,omitempty"`
-	Summary               *string        `json:"summary,omitempty"`
-	Parameters            WhisperXParams `json:"parameters,omitempty"`
+	Diarization bool           `json:"diarization,omitempty"`
+	Summary     *string        `json:"summary,omitempty"`
+	Parameters  WhisperXParams `json:"parameters,omitempty"`
 }
 
 // TranscriptionJob represents the durable transcription record.
@@ -115,18 +107,9 @@ type TranscriptionJob struct {
 	UpdatedAt         time.Time      `json:"updated_at" gorm:"autoUpdateTime"`
 	DeletedAt         gorm.DeletedAt `json:"deleted_at,omitempty" gorm:"index" swaggertype:"string"`
 
-	Diarization           bool           `json:"diarization" gorm:"-"`
-	Summary               *string        `json:"summary,omitempty" gorm:"-"`
-	IsMultiTrack          bool           `json:"is_multi_track" gorm:"-"`
-	AupFilePath           *string        `json:"aup_file_path,omitempty" gorm:"-"`
-	MultiTrackFolder      *string        `json:"multi_track_folder,omitempty" gorm:"-"`
-	MergedAudioPath       *string        `json:"merged_audio_path,omitempty" gorm:"-"`
-	MergeStatus           string         `json:"merge_status,omitempty" gorm:"-"`
-	MergeError            *string        `json:"merge_error,omitempty" gorm:"-"`
-	IndividualTranscripts *string        `json:"individual_transcripts,omitempty" gorm:"-"`
-	Parameters            WhisperXParams `json:"parameters" gorm:"-"`
-
-	MultiTrackFiles []MultiTrackFile `json:"multi_track_files,omitempty" gorm:"foreignKey:TranscriptionJobID;references:ID"`
+	Diarization bool           `json:"diarization" gorm:"-"`
+	Summary     *string        `json:"summary,omitempty" gorm:"-"`
+	Parameters  WhisperXParams `json:"parameters" gorm:"-"`
 }
 
 func (TranscriptionJob) TableName() string { return "transcriptions" }
@@ -155,9 +138,6 @@ func (tj *TranscriptionJob) applyDefaults() {
 	if tj.SourceFileName == "" && tj.AudioPath != "" {
 		tj.SourceFileName = filepath.Base(tj.AudioPath)
 	}
-	if tj.MergeStatus == "" {
-		tj.MergeStatus = "none"
-	}
 }
 
 func (tj *TranscriptionJob) syncColumnsFromCompat() error {
@@ -173,16 +153,9 @@ func (tj *TranscriptionJob) syncColumnsFromCompat() error {
 	}
 
 	metadata := transcriptionMetadata{
-		Diarization:           tj.Diarization || tj.Parameters.Diarize,
-		IsMultiTrack:          tj.IsMultiTrack,
-		AupFilePath:           tj.AupFilePath,
-		MultiTrackFolder:      tj.MultiTrackFolder,
-		MergedAudioPath:       tj.MergedAudioPath,
-		MergeStatus:           tj.MergeStatus,
-		MergeError:            tj.MergeError,
-		IndividualTranscripts: tj.IndividualTranscripts,
-		Summary:               tj.Summary,
-		Parameters:            tj.Parameters,
+		Diarization: tj.Diarization || tj.Parameters.Diarize,
+		Summary:     tj.Summary,
+		Parameters:  tj.Parameters,
 	}
 	metadataJSON, err := marshalJSONColumn("transcriptions.metadata_json", metadata)
 	if err != nil {
@@ -202,20 +175,10 @@ func (tj *TranscriptionJob) SyncColumnsForMigration() error {
 	if tj.Parameters.Language != nil {
 		tj.Language = tj.Parameters.Language
 	}
-	if tj.MergeStatus == "" {
-		tj.MergeStatus = "none"
-	}
 	metadata := transcriptionMetadata{
-		Diarization:           tj.Diarization || tj.Parameters.Diarize,
-		IsMultiTrack:          tj.IsMultiTrack,
-		AupFilePath:           tj.AupFilePath,
-		MultiTrackFolder:      tj.MultiTrackFolder,
-		MergedAudioPath:       tj.MergedAudioPath,
-		MergeStatus:           tj.MergeStatus,
-		MergeError:            tj.MergeError,
-		IndividualTranscripts: tj.IndividualTranscripts,
-		Summary:               tj.Summary,
-		Parameters:            tj.Parameters,
+		Diarization: tj.Diarization || tj.Parameters.Diarize,
+		Summary:     tj.Summary,
+		Parameters:  tj.Parameters,
 	}
 	metadataJSON, err := marshalJSONColumn("transcriptions.metadata_json", metadata)
 	if err != nil {
@@ -228,7 +191,6 @@ func (tj *TranscriptionJob) SyncColumnsForMigration() error {
 func (tj *TranscriptionJob) syncCompatFromColumns() error {
 	tj.SourceFileName = coalesceString(tj.SourceFileName, filepath.Base(tj.AudioPath))
 	if tj.MetadataJSON == "" {
-		tj.MergeStatus = coalesceString(tj.MergeStatus, "none")
 		if tj.Language != nil {
 			tj.Parameters.Language = tj.Language
 		}
@@ -240,13 +202,6 @@ func (tj *TranscriptionJob) syncCompatFromColumns() error {
 	}
 	tj.Diarization = metadata.Diarization
 	tj.Summary = metadata.Summary
-	tj.IsMultiTrack = metadata.IsMultiTrack
-	tj.AupFilePath = metadata.AupFilePath
-	tj.MultiTrackFolder = metadata.MultiTrackFolder
-	tj.MergedAudioPath = metadata.MergedAudioPath
-	tj.MergeStatus = coalesceString(metadata.MergeStatus, "none")
-	tj.MergeError = metadata.MergeError
-	tj.IndividualTranscripts = metadata.IndividualTranscripts
 	tj.Parameters = metadata.Parameters
 	if tj.Language != nil && tj.Parameters.Language == nil {
 		tj.Parameters.Language = tj.Language
@@ -261,22 +216,9 @@ func coalesceString(current, fallback string) string {
 	return fallback
 }
 
-// MultiTrackTiming represents timing data for individual track processing.
-type MultiTrackTiming struct {
-	TrackName string    `json:"track_name"`
-	StartTime time.Time `json:"start_time"`
-	EndTime   time.Time `json:"end_time"`
-	Duration  int64     `json:"duration"`
-}
-
 type executionPayload struct {
-	Parameters            WhisperXParams     `json:"parameters,omitempty"`
-	MultiTrackTimings     []MultiTrackTiming `json:"multi_track_timings,omitempty"`
-	ProcessingDuration    *int64             `json:"processing_duration,omitempty"`
-	MergeStartTime        *time.Time         `json:"merge_start_time,omitempty"`
-	MergeEndTime          *time.Time         `json:"merge_end_time,omitempty"`
-	MergeDuration         *int64             `json:"merge_duration,omitempty"`
-	IndividualTranscripts map[string]string  `json:"individual_transcripts,omitempty"`
+	Parameters         WhisperXParams `json:"parameters,omitempty"`
+	ProcessingDuration *int64         `json:"processing_duration,omitempty"`
 }
 
 // TranscriptionJobExecution represents execution metadata for a transcription.
@@ -300,15 +242,10 @@ type TranscriptionJobExecution struct {
 	FailedAt           *time.Time `json:"failed_at,omitempty"`
 	ErrorMessage       *string    `json:"error_message,omitempty" gorm:"type:text"`
 	LogsPath           *string    `json:"logs_path,omitempty" gorm:"type:text"`
-	MergedFilePath     *string    `json:"merged_file_path,omitempty" gorm:"type:text"`
 	OutputJSONPath     *string    `json:"output_json_path,omitempty" gorm:"type:text"`
 	CreatedAt          time.Time  `json:"created_at" gorm:"autoCreateTime"`
 
 	ProcessingDuration *int64         `json:"processing_duration,omitempty" gorm:"-"`
-	MultiTrackTimings  *string        `json:"multi_track_timings,omitempty" gorm:"-"`
-	MergeStartTime     *time.Time     `json:"merge_start_time,omitempty" gorm:"-"`
-	MergeEndTime       *time.Time     `json:"merge_end_time,omitempty" gorm:"-"`
-	MergeDuration      *int64         `json:"merge_duration,omitempty" gorm:"-"`
 	ActualParameters   WhisperXParams `json:"actual_parameters" gorm:"-"`
 
 	TranscriptionJob TranscriptionJob `json:"transcription_job,omitempty" gorm:"foreignKey:TranscriptionJobID;references:ID;constraint:OnDelete:CASCADE"`
@@ -347,12 +284,7 @@ func (tje *TranscriptionJobExecution) syncColumnsFromCompat() error {
 	if tje.ComputeType == "" {
 		tje.ComputeType = tje.ActualParameters.ComputeType
 	}
-	payload := executionPayload{Parameters: tje.ActualParameters, ProcessingDuration: tje.ProcessingDuration, MergeStartTime: tje.MergeStartTime, MergeEndTime: tje.MergeEndTime, MergeDuration: tje.MergeDuration}
-	if tje.MultiTrackTimings != nil && *tje.MultiTrackTimings != "" {
-		if err := unmarshalJSONColumn("transcription_executions.multi_track_timings", *tje.MultiTrackTimings, &payload.MultiTrackTimings); err != nil {
-			return err
-		}
-	}
+	payload := executionPayload{Parameters: tje.ActualParameters, ProcessingDuration: tje.ProcessingDuration}
 	requestJSON, err := marshalJSONColumn("transcription_executions.request_json", payload)
 	if err != nil {
 		return err
@@ -390,14 +322,6 @@ func (tje *TranscriptionJobExecution) SyncColumnsForMigration() error {
 	payload := executionPayload{
 		Parameters:         tje.ActualParameters,
 		ProcessingDuration: tje.ProcessingDuration,
-		MergeStartTime:     tje.MergeStartTime,
-		MergeEndTime:       tje.MergeEndTime,
-		MergeDuration:      tje.MergeDuration,
-	}
-	if tje.MultiTrackTimings != nil && *tje.MultiTrackTimings != "" {
-		if err := unmarshalJSONColumn("transcription_executions.multi_track_timings", *tje.MultiTrackTimings, &payload.MultiTrackTimings); err != nil {
-			return err
-		}
 	}
 	requestJSON, err := marshalJSONColumn("transcription_executions.request_json", payload)
 	if err != nil {
@@ -420,17 +344,6 @@ func (tje *TranscriptionJobExecution) syncCompatFromColumns() error {
 	}
 	tje.ActualParameters = payload.Parameters
 	tje.ProcessingDuration = payload.ProcessingDuration
-	tje.MergeStartTime = payload.MergeStartTime
-	tje.MergeEndTime = payload.MergeEndTime
-	tje.MergeDuration = payload.MergeDuration
-	if len(payload.MultiTrackTimings) > 0 {
-		multiTrackTimingsJSON, err := marshalJSONColumn("transcription_executions.multi_track_timings", payload.MultiTrackTimings)
-		if err != nil {
-			return err
-		}
-		str := multiTrackTimingsJSON
-		tje.MultiTrackTimings = &str
-	}
 	return nil
 }
 
@@ -460,80 +373,6 @@ func (SpeakerMapping) TableName() string { return "speaker_mappings" }
 func (sm *SpeakerMapping) BeforeCreate(tx *gorm.DB) error {
 	if sm.UserID == 0 {
 		sm.UserID = primaryUserID
-	}
-	return nil
-}
-
-// MultiTrackFile represents an individual track in a multi-track recording.
-type MultiTrackFile struct {
-	ID                 uint      `json:"id" gorm:"primaryKey;autoIncrement"`
-	UserID             uint      `json:"user_id" gorm:"not null;index;default:1"`
-	TranscriptionJobID string    `json:"transcription_job_id" gorm:"column:transcription_id;type:varchar(36);not null;index"`
-	FileName           string    `json:"file_name" gorm:"type:varchar(255);not null"`
-	FilePath           string    `json:"file_path" gorm:"type:text;not null"`
-	TrackIndex         int       `json:"track_index" gorm:"type:int;not null"`
-	Label              *string   `json:"label,omitempty" gorm:"type:text"`
-	SpeakerHint        *string   `json:"speaker_hint,omitempty" gorm:"type:text"`
-	MetadataJSON       string    `json:"-" gorm:"column:metadata_json;type:json"`
-	CreatedAt          time.Time `json:"created_at" gorm:"autoCreateTime"`
-
-	Offset float64 `json:"offset" gorm:"-"`
-	Gain   float64 `json:"gain" gorm:"-"`
-	Pan    float64 `json:"pan" gorm:"-"`
-	Mute   bool    `json:"mute" gorm:"-"`
-
-	TranscriptionJob TranscriptionJob `json:"transcription_job,omitempty" gorm:"foreignKey:TranscriptionJobID;references:ID;constraint:OnDelete:CASCADE"`
-}
-
-func (MultiTrackFile) TableName() string { return "transcription_tracks" }
-
-func (mtf *MultiTrackFile) BeforeCreate(tx *gorm.DB) error {
-	if mtf.UserID == 0 {
-		mtf.UserID = primaryUserID
-	}
-	return mtf.syncColumnsFromCompat()
-}
-
-func (mtf *MultiTrackFile) BeforeSave(tx *gorm.DB) error {
-	return mtf.syncColumnsFromCompat()
-}
-
-func (mtf *MultiTrackFile) AfterFind(tx *gorm.DB) error {
-	if mtf.MetadataJSON == "" {
-		return nil
-	}
-	var metadata struct {
-		Offset float64 `json:"offset,omitempty"`
-		Gain   float64 `json:"gain,omitempty"`
-		Pan    float64 `json:"pan,omitempty"`
-		Mute   bool    `json:"mute,omitempty"`
-	}
-	if err := unmarshalJSONColumn("transcription_tracks.metadata_json", mtf.MetadataJSON, &metadata); err != nil {
-		return err
-	}
-	mtf.Offset = metadata.Offset
-	mtf.Gain = metadata.Gain
-	mtf.Pan = metadata.Pan
-	mtf.Mute = metadata.Mute
-	return nil
-}
-
-func (mtf *MultiTrackFile) syncColumnsFromCompat() error {
-	metadataJSON, err := marshalJSONColumn("transcription_tracks.metadata_json", map[string]any{
-		"offset": mtf.Offset,
-		"gain":   mtf.Gain,
-		"pan":    mtf.Pan,
-		"mute":   mtf.Mute,
-	})
-	if err != nil {
-		return err
-	}
-	mtf.MetadataJSON = metadataJSON
-	if mtf.Label == nil {
-		mtf.Label = &mtf.FileName
-	}
-	if mtf.SpeakerHint == nil {
-		mtf.SpeakerHint = &mtf.FileName
 	}
 	return nil
 }

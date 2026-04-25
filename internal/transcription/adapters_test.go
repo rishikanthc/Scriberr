@@ -79,11 +79,6 @@ func (m *MockJobRepository) DeleteExecutionsByJobID(ctx context.Context, jobID s
 	return args.Error(0)
 }
 
-func (m *MockJobRepository) DeleteMultiTrackFilesByJobID(ctx context.Context, jobID string) error {
-	args := m.Called(ctx, jobID)
-	return args.Error(0)
-}
-
 func (m *MockJobRepository) ListWithParams(ctx context.Context, offset, limit int, sortBy, sortOrder, searchQuery string, updatedAfter *time.Time) ([]models.TranscriptionJob, int64, error) {
 	args := m.Called(ctx, offset, limit, sortBy, sortOrder, searchQuery, updatedAfter)
 	return args.Get(0).([]models.TranscriptionJob), args.Get(1).(int64), args.Error(2)

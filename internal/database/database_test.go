@@ -41,10 +41,6 @@ type legacySpeakerMappingTable legacySpeakerMapping
 
 func (legacySpeakerMappingTable) TableName() string { return "speaker_mappings" }
 
-type legacyMultiTrackFileTable legacyMultiTrackFile
-
-func (legacyMultiTrackFileTable) TableName() string { return "multi_track_files" }
-
 type legacySummaryTemplateTable legacySummaryTemplate
 
 func (legacySummaryTemplateTable) TableName() string { return "summary_templates" }
@@ -84,7 +80,6 @@ func TestFreshSchemaInitialization(t *testing.T) {
 		"transcription_profiles",
 		"transcriptions",
 		"transcription_executions",
-		"transcription_tracks",
 		"speaker_mappings",
 		"summary_templates",
 		"summaries",
@@ -100,7 +95,6 @@ func TestFreshSchemaInitialization(t *testing.T) {
 	assert.Equal(t, latestSchemaVersion, schemaVersion(t, db))
 	assert.Equal(t, "wal", pragmaString(t, db, "journal_mode"))
 	assert.True(t, hasIndex(t, db, "speaker_mappings", "idx_speaker_mappings_unique"))
-	assert.True(t, hasIndex(t, db, "transcription_tracks", "idx_transcription_tracks_unique"))
 	assert.True(t, hasIndex(t, db, "transcription_executions", "idx_transcription_executions_unique"))
 	assert.True(t, hasIndex(t, db, "transcription_profiles", "idx_transcription_profiles_user_default_unique"))
 	assert.True(t, hasIndex(t, db, "summary_templates", "idx_summary_templates_user_default_unique"))
@@ -121,10 +115,6 @@ func TestFreshSchemaInitialization(t *testing.T) {
 	mapping2 := models.SpeakerMapping{UserID: job.UserID, TranscriptionJobID: job.ID, OriginalSpeaker: "SPEAKER_00", CustomName: "Bob"}
 	require.Error(t, db.Create(&mapping2).Error)
 
-	track1 := models.MultiTrackFile{UserID: job.UserID, TranscriptionJobID: job.ID, FileName: "track1.wav", FilePath: "/tmp/track1.wav", TrackIndex: 0}
-	require.NoError(t, db.Create(&track1).Error)
-	track2 := models.MultiTrackFile{UserID: job.UserID, TranscriptionJobID: job.ID, FileName: "track2.wav", FilePath: "/tmp/track2.wav", TrackIndex: 0}
-	require.Error(t, db.Create(&track2).Error)
 }
 
 func TestCreateExecutionAssignsSequentialNumbers(t *testing.T) {
@@ -371,7 +361,6 @@ func TestDetectLegacySchemaWithLegacySameNameTables(t *testing.T) {
 
 	require.NoError(t, db.Exec("DROP TABLE transcription_jobs").Error)
 	require.NoError(t, db.Exec("DROP TABLE transcription_job_executions").Error)
-	require.NoError(t, db.Exec("DROP TABLE multi_track_files").Error)
 	require.NoError(t, db.Exec("DROP TABLE llm_configs").Error)
 	require.NoError(t, db.Exec("DROP TABLE summary_settings").Error)
 
@@ -436,7 +425,6 @@ func TestLegacyMigrationPreservesData(t *testing.T) {
 	assert.Equal(t, "/legacy/audio.wav", transcription.AudioPath)
 	require.NotNil(t, transcription.Transcript)
 	assert.Contains(t, *transcription.Transcript, "hello world")
-	assert.True(t, transcription.IsMultiTrack)
 	require.NotNil(t, transcription.Summary)
 	assert.Equal(t, "legacy summary cache", *transcription.Summary)
 	assert.Equal(t, "medium", transcription.Parameters.Model)
@@ -448,14 +436,6 @@ func TestLegacyMigrationPreservesData(t *testing.T) {
 	assert.Equal(t, 1, execution.ExecutionNumber)
 	assert.Equal(t, models.StatusCompleted, execution.Status)
 	assert.Equal(t, "medium", execution.ActualParameters.Model)
-	require.NotNil(t, execution.MultiTrackTimings)
-
-	var tracks []models.MultiTrackFile
-	require.NoError(t, db.Where("transcription_id = ?", "job-1").Order("track_index ASC").Find(&tracks).Error)
-	require.Len(t, tracks, 2)
-	assert.Equal(t, 1.5, tracks[0].Offset)
-	assert.Equal(t, 0.5, tracks[1].Pan)
-
 	var mappings []models.SpeakerMapping
 	require.NoError(t, db.Where("transcription_id = ?", "job-1").Find(&mappings).Error)
 	require.Len(t, mappings, 1)
@@ -598,7 +578,6 @@ func createLegacyDatabase(t *testing.T, dbPath string, withData bool) {
 		&legacyTranscriptionJobTable{},
 		&legacyTranscriptionExecutionTable{},
 		&legacySpeakerMappingTable{},
-		&legacyMultiTrackFileTable{},
 		&legacySummaryTemplateTable{},
 		&legacySummarySettingTable{},
 		&legacySummaryTable{},
@@ -615,13 +594,8 @@ func createLegacyDatabase(t *testing.T, dbPath string, withData bool) {
 	defaultProfileID := "profile-1"
 	now := time.Now().UTC().Truncate(time.Second)
 	completedAt := now.Add(10 * time.Minute)
-	mergeStart := now.Add(8 * time.Minute)
-	mergeEnd := now.Add(9 * time.Minute)
 	processingDuration := int64(600000)
-	mergeDuration := int64(60000)
-	multiTrackTimings := `[{"track_name":"Speaker_1.wav","start_time":"2026-01-01T00:00:00Z","end_time":"2026-01-01T00:01:00Z","duration":60000}]`
 	transcriptJSON := `{"text":"hello world","segments":[{"start":0,"end":1,"text":"hello world"}]}`
-	individualTranscripts := `{"Speaker_1.wav":"{\"text\":\"hello\"}"}`
 	title := "Legacy job"
 	profileDescription := "legacy profile"
 	summaryDescription := "legacy summary template"
@@ -636,16 +610,11 @@ func createLegacyDatabase(t *testing.T, dbPath string, withData bool) {
 	profile := legacyTranscriptionProfile{ID: "profile-1", Name: "Legacy Profile", Description: &profileDescription, IsDefault: true, Parameters: models.WhisperXParams{Model: "medium", ModelFamily: "whisper", Device: "cpu", ComputeType: "float32", Diarize: true}, CreatedAt: now, UpdatedAt: now}
 	require.NoError(t, db.Table("transcription_profiles").Create(&profile).Error)
 
-	job := legacyTranscriptionJob{ID: "job-1", Title: &title, Status: "pending", AudioPath: "/legacy/audio.wav", Transcript: &transcriptJSON, Diarization: true, Summary: ptr("legacy summary cache"), ErrorMessage: &errorMessage, IsMultiTrack: true, AupFilePath: ptr("/legacy/project.aup"), MultiTrackFolder: ptr("/legacy"), MergedAudioPath: ptr("/legacy/merged.wav"), MergeStatus: "completed", IndividualTranscripts: &individualTranscripts, CreatedAt: now, UpdatedAt: completedAt, Parameters: models.WhisperXParams{Model: "medium", ModelFamily: "whisper", Device: "cpu", ComputeType: "float32", Diarize: true}}
+	job := legacyTranscriptionJob{ID: "job-1", Title: &title, Status: "pending", AudioPath: "/legacy/audio.wav", Transcript: &transcriptJSON, Diarization: true, Summary: ptr("legacy summary cache"), ErrorMessage: &errorMessage, CreatedAt: now, UpdatedAt: completedAt, Parameters: models.WhisperXParams{Model: "medium", ModelFamily: "whisper", Device: "cpu", ComputeType: "float32", Diarize: true}}
 	require.NoError(t, db.Table("transcription_jobs").Create(&job).Error)
 
-	execution := legacyTranscriptionExecution{ID: "exec-1", TranscriptionJobID: "job-1", StartedAt: now, CompletedAt: &completedAt, ProcessingDuration: &processingDuration, MultiTrackTimings: &multiTrackTimings, MergeStartTime: &mergeStart, MergeEndTime: &mergeEnd, MergeDuration: &mergeDuration, ActualParameters: job.Parameters, Status: "completed", CreatedAt: completedAt, UpdatedAt: completedAt}
+	execution := legacyTranscriptionExecution{ID: "exec-1", TranscriptionJobID: "job-1", StartedAt: now, CompletedAt: &completedAt, ProcessingDuration: &processingDuration, ActualParameters: job.Parameters, Status: "completed", CreatedAt: completedAt, UpdatedAt: completedAt}
 	require.NoError(t, db.Table("transcription_job_executions").Create(&execution).Error)
-
-	track1 := legacyMultiTrackFile{ID: 1, TranscriptionJobID: "job-1", FileName: "Speaker_1.wav", FilePath: "/legacy/Speaker_1.wav", TrackIndex: 0, Offset: 1.5, Gain: 1.0, Pan: 0.0, Mute: false, CreatedAt: now, UpdatedAt: now}
-	track2 := legacyMultiTrackFile{ID: 2, TranscriptionJobID: "job-1", FileName: "Speaker_2.wav", FilePath: "/legacy/Speaker_2.wav", TrackIndex: 1, Offset: 0.0, Gain: 1.0, Pan: 0.5, Mute: false, CreatedAt: now, UpdatedAt: now}
-	require.NoError(t, db.Table("multi_track_files").Create(&track1).Error)
-	require.NoError(t, db.Table("multi_track_files").Create(&track2).Error)
 
 	olderMapping := legacySpeakerMapping{ID: 1, TranscriptionJobID: "job-1", OriginalSpeaker: "SPEAKER_00", CustomName: "Old Alice", CreatedAt: now, UpdatedAt: now}
 	newerMapping := legacySpeakerMapping{ID: 2, TranscriptionJobID: "job-1", OriginalSpeaker: "SPEAKER_00", CustomName: "Latest Alice", CreatedAt: now.Add(time.Minute), UpdatedAt: now.Add(time.Minute)}

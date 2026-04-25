@@ -48,7 +48,6 @@ func detectLegacySchema(db *gorm.DB) (bool, error) {
 	currentTables := []string{
 		"transcriptions",
 		"transcription_executions",
-		"transcription_tracks",
 		"llm_profiles",
 		"schema_migrations",
 	}
@@ -61,7 +60,6 @@ func detectLegacySchema(db *gorm.DB) (bool, error) {
 	legacyOnlyTables := []string{
 		"transcription_jobs",
 		"transcription_job_executions",
-		"multi_track_files",
 		"llm_configs",
 		"summary_settings",
 	}
