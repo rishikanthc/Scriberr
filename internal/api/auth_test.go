@@ -26,6 +26,7 @@ type authTestServer struct {
 	router    http.Handler
 	auth      *auth.AuthService
 	uploadDir string
+	handler   *Handler
 }
 
 func newAuthTestServer(t *testing.T) *authTestServer {
@@ -44,7 +45,7 @@ func newAuthTestServer(t *testing.T) *authTestServer {
 	}, authService)
 	handler.readinessCheck = func() error { return nil }
 
-	return &authTestServer{router: SetupRoutes(handler, authService), auth: authService, uploadDir: uploadDir}
+	return &authTestServer{router: SetupRoutes(handler, authService), auth: authService, uploadDir: uploadDir, handler: handler}
 }
 
 func (s *authTestServer) request(t *testing.T, method, path string, body any, token string, apiKey string) (*httptest.ResponseRecorder, map[string]any) {

@@ -23,7 +23,9 @@ func (h *Handler) uploadFile(c *gin.Context) {
 	if !ok {
 		return
 	}
-	c.JSON(http.StatusCreated, fileResponse(job, mimeType, kind))
+	response := fileResponse(job, mimeType, kind)
+	h.publishEvent("file.ready", gin.H{"id": response["id"], "kind": response["kind"], "status": response["status"]})
+	c.JSON(http.StatusCreated, response)
 }
 func (h *Handler) importYouTube(c *gin.Context) {
 	userID, ok := currentUserID(c)
@@ -56,7 +58,9 @@ func (h *Handler) importYouTube(c *gin.Context) {
 		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not create youtube import", nil)
 		return
 	}
-	c.JSON(http.StatusAccepted, fileResponse(&job, "", "youtube"))
+	response := fileResponse(&job, "", "youtube")
+	h.publishEvent("file.processing", gin.H{"id": response["id"], "kind": response["kind"], "status": response["status"]})
+	c.JSON(http.StatusAccepted, response)
 }
 func (h *Handler) storeUploadedFile(c *gin.Context, userID uint) (*models.TranscriptionJob, string, string, bool) {
 	header, err := c.FormFile("file")
@@ -207,6 +211,7 @@ func (h *Handler) deleteFile(c *gin.Context) {
 		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not delete file", nil)
 		return
 	}
+	h.publishEvent("file.deleted", gin.H{"id": "file_" + job.ID})
 	c.Status(http.StatusNoContent)
 }
 func (h *Handler) streamFileAudio(c *gin.Context) {

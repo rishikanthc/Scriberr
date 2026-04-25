@@ -20,6 +20,7 @@ type Handler struct {
 	authService    *auth.AuthService
 	readinessCheck func() error
 	idempotency    *idempotencyStore
+	events         *eventBroker
 }
 
 func NewHandler(cfg *config.Config, authService *auth.AuthService, _ ...any) *Handler {
@@ -31,6 +32,7 @@ func NewHandler(cfg *config.Config, authService *auth.AuthService, _ ...any) *Ha
 		authService:    authService,
 		readinessCheck: database.HealthCheck,
 		idempotency:    newIdempotencyStore(),
+		events:         newEventBroker(),
 	}
 }
 func SetupRoutes(handler *Handler, _ *auth.AuthService) *gin.Engine {
@@ -97,7 +99,7 @@ func SetupRoutes(handler *Handler, _ *auth.AuthService) *gin.Engine {
 			transcriptions.POST("/:idAction", handler.idempotencyMiddleware(), handler.transcriptionCommand)
 			transcriptions.GET("/:id/transcript", handler.getTranscript)
 			transcriptions.GET("/:id/audio", handler.streamTranscriptionAudio)
-			transcriptions.GET("/:id/events", handler.notImplemented("transcription events"))
+			transcriptions.GET("/:id/events", handler.streamTranscriptionEvents)
 			transcriptions.GET("/:id/logs", handler.notImplemented("transcription logs"))
 			transcriptions.GET("/:id/executions", handler.notImplemented("transcription executions"))
 		}
@@ -120,7 +122,7 @@ func SetupRoutes(handler *Handler, _ *auth.AuthService) *gin.Engine {
 			settings.PATCH("", handler.updateSettings)
 		}
 
-		v1.GET("/events", handler.authRequired(), handler.notImplemented("global events"))
+		v1.GET("/events", handler.authRequired(), handler.streamEvents)
 		v1.GET("/models/transcription", handler.authRequired(), handler.listTranscriptionModels)
 		v1.GET("/admin/queue", handler.authRequired(), handler.queueStats)
 	}

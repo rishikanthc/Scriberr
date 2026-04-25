@@ -62,14 +62,18 @@ func (h *Handler) createProfile(c *gin.Context) {
 		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not create profile", nil)
 		return
 	}
-	c.JSON(http.StatusCreated, profileResponse(&profile))
+	response := profileResponse(&profile)
+	h.publishEvent("profile.updated", gin.H{"id": response["id"]})
+	c.JSON(http.StatusCreated, response)
 }
 func (h *Handler) getProfile(c *gin.Context) {
 	profile, ok := h.profileByPublicID(c, c.Param("id"))
 	if !ok {
 		return
 	}
-	c.JSON(http.StatusOK, profileResponse(profile))
+	response := profileResponse(profile)
+	h.publishEvent("profile.updated", gin.H{"id": response["id"]})
+	c.JSON(http.StatusOK, response)
 }
 func (h *Handler) updateProfile(c *gin.Context) {
 	profile, ok := h.profileByPublicID(c, c.Param("id"))
@@ -121,6 +125,7 @@ func (h *Handler) deleteProfile(c *gin.Context) {
 		user.DefaultProfileID = nil
 		_ = database.DB.Save(&user).Error
 	}
+	h.publishEvent("profile.updated", gin.H{"id": publicIDForProfile(profile.ID), "deleted": true})
 	c.Status(http.StatusNoContent)
 }
 func (h *Handler) setDefaultProfile(c *gin.Context, publicID string) {
@@ -144,7 +149,9 @@ func (h *Handler) setDefaultProfile(c *gin.Context, publicID string) {
 		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not set default profile", nil)
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"id": publicIDForProfile(profile.ID), "is_default": true})
+	response := gin.H{"id": publicIDForProfile(profile.ID), "is_default": true}
+	h.publishEvent("profile.updated", response)
+	c.JSON(http.StatusOK, response)
 }
 func (h *Handler) profileCommand(c *gin.Context) {
 	if strings.HasSuffix(c.Param("idAction"), ":set-default") {

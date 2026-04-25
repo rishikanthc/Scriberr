@@ -51,5 +51,7 @@ func (h *Handler) updateSettings(c *gin.Context) {
 		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not update settings", nil)
 		return
 	}
-	c.JSON(http.StatusOK, settingsResponse(h, user))
+	response := settingsResponse(h, user)
+	h.publishEvent("settings.updated", gin.H{"auto_transcription_enabled": response["auto_transcription_enabled"], "default_profile_id": response["default_profile_id"]})
+	c.JSON(http.StatusOK, response)
 }

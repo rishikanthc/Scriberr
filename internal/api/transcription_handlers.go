@@ -61,7 +61,10 @@ func (h *Handler) createTranscription(c *gin.Context) {
 		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not create transcription", nil)
 		return
 	}
-	c.JSON(http.StatusAccepted, transcriptionResponse(&job))
+	response := transcriptionResponse(&job)
+	h.publishTranscriptionEvent("transcription.created", response["id"].(string), gin.H{"id": response["id"], "status": response["status"]})
+	h.publishEvent("transcription.created", gin.H{"id": response["id"], "status": response["status"]})
+	c.JSON(http.StatusAccepted, response)
 }
 func (h *Handler) submitTranscription(c *gin.Context) {
 	userID, ok := currentUserID(c)
@@ -119,11 +122,14 @@ func (h *Handler) submitTranscription(c *gin.Context) {
 		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not create transcription", nil)
 		return
 	}
-	c.JSON(http.StatusAccepted, gin.H{
+	response := gin.H{
 		"id":      "tr_" + job.ID,
 		"file_id": "file_" + source.ID,
 		"status":  string(job.Status),
-	})
+	}
+	h.publishTranscriptionEvent("transcription.created", response["id"].(string), gin.H{"id": response["id"], "status": response["status"]})
+	h.publishEvent("transcription.created", gin.H{"id": response["id"], "status": response["status"]})
+	c.JSON(http.StatusAccepted, response)
 }
 func (h *Handler) listTranscriptions(c *gin.Context) {
 	userID, ok := currentUserID(c)
@@ -181,7 +187,10 @@ func (h *Handler) updateTranscription(c *gin.Context) {
 		return
 	}
 	job.Title = &title
-	c.JSON(http.StatusOK, transcriptionResponse(job))
+	response := transcriptionResponse(job)
+	h.publishTranscriptionEvent("transcription.updated", response["id"].(string), gin.H{"id": response["id"], "status": response["status"]})
+	h.publishEvent("transcription.updated", gin.H{"id": response["id"], "status": response["status"]})
+	c.JSON(http.StatusOK, response)
 }
 func (h *Handler) deleteTranscription(c *gin.Context) {
 	job, ok := h.transcriptionByPublicID(c, c.Param("id"))
@@ -192,6 +201,8 @@ func (h *Handler) deleteTranscription(c *gin.Context) {
 		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not delete transcription", nil)
 		return
 	}
+	h.publishTranscriptionEvent("transcription.deleted", "tr_"+job.ID, gin.H{"id": "tr_" + job.ID})
+	h.publishEvent("transcription.deleted", gin.H{"id": "tr_" + job.ID})
 	c.Status(http.StatusNoContent)
 }
 func (h *Handler) cancelTranscription(c *gin.Context, publicID string) {
@@ -207,7 +218,10 @@ func (h *Handler) cancelTranscription(c *gin.Context, publicID string) {
 		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not cancel transcription", nil)
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"id": "tr_" + job.ID, "status": string(models.StatusCanceled)})
+	response := gin.H{"id": "tr_" + job.ID, "status": string(models.StatusCanceled)}
+	h.publishTranscriptionEvent("transcription.canceled", response["id"].(string), response)
+	h.publishEvent("transcription.canceled", response)
+	c.JSON(http.StatusOK, response)
 }
 func (h *Handler) retryTranscription(c *gin.Context, publicID string) {
 	job, ok := h.transcriptionByPublicID(c, publicID)
@@ -234,11 +248,14 @@ func (h *Handler) retryTranscription(c *gin.Context, publicID string) {
 		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not retry transcription", nil)
 		return
 	}
-	c.JSON(http.StatusAccepted, gin.H{
+	response := gin.H{
 		"id":                      "tr_" + retry.ID,
 		"source_transcription_id": "tr_" + job.ID,
 		"status":                  string(retry.Status),
-	})
+	}
+	h.publishTranscriptionEvent("transcription.created", response["id"].(string), gin.H{"id": response["id"], "status": response["status"]})
+	h.publishEvent("transcription.created", gin.H{"id": response["id"], "status": response["status"]})
+	c.JSON(http.StatusAccepted, response)
 }
 func (h *Handler) getTranscript(c *gin.Context) {
 	job, ok := h.transcriptionByPublicID(c, c.Param("id"))

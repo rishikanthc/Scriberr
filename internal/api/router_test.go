@@ -97,7 +97,7 @@ func TestRequestIDIsEchoedAndIncludedInErrors(t *testing.T) {
 func TestProtectedPlaceholderRouteUsesCanonicalErrorShape(t *testing.T) {
 	router := newTestRouter(t, func() error { return nil })
 
-	req, err := http.NewRequest(http.MethodGet, "/api/v1/events", nil)
+	req, err := http.NewRequest(http.MethodGet, "/api/v1/transcriptions/tr_placeholder/logs", nil)
 	require.NoError(t, err)
 	req.Header.Set("Authorization", "Bearer "+testToken(t))
 

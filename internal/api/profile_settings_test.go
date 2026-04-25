@@ -168,6 +168,7 @@ func TestCapabilitiesQueueAndEvents(t *testing.T) {
 		"title":   "Queued",
 	}, token, "")
 	require.Equal(t, http.StatusAccepted, resp.Code)
+	transcriptionID := body["id"].(string)
 
 	resp, body = s.request(t, http.MethodGet, "/api/v1/models/transcription", nil, token, "")
 	require.Equal(t, http.StatusOK, resp.Code)
@@ -183,7 +184,7 @@ func TestCapabilitiesQueueAndEvents(t *testing.T) {
 	require.Equal(t, float64(0), body["processing"])
 	require.Equal(t, float64(0), body["failed"])
 
-	resp, body = s.request(t, http.MethodGet, "/api/v1/events", nil, token, "")
+	resp, body = s.request(t, http.MethodGet, "/api/v1/transcriptions/"+transcriptionID+"/logs", nil, token, "")
 	require.Equal(t, http.StatusNotImplemented, resp.Code)
 	errBody := body["error"].(map[string]any)
 	require.NotContains(t, errBody["message"], "/")
