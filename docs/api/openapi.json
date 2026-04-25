@@ -226,6 +226,14 @@
             }
           },
           {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": ["uploaded", "processing", "ready", "failed"]
+            }
+          },
+          {
             "name": "updated_after",
             "in": "query",
             "schema": {

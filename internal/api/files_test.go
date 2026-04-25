@@ -358,6 +358,20 @@ func TestFileListFiltersSortingPaginationAndValidation(t *testing.T) {
 	require.Len(t, items, 1)
 	require.Equal(t, "youtube", items[0].(map[string]any)["kind"])
 
+	resp, body = s.request(t, http.MethodGet, "/api/v1/files?status=processing", nil, token, "")
+	require.Equal(t, http.StatusOK, resp.Code)
+	items = body["items"].([]any)
+	require.Len(t, items, 1)
+	require.Equal(t, "processing", items[0].(map[string]any)["status"])
+
+	resp, body = s.request(t, http.MethodGet, "/api/v1/files?status=ready", nil, token, "")
+	require.Equal(t, http.StatusOK, resp.Code)
+	items = body["items"].([]any)
+	require.Len(t, items, 3)
+	for _, raw := range items {
+		require.Equal(t, "ready", raw.(map[string]any)["status"])
+	}
+
 	future := time.Now().Add(time.Hour).Format(time.RFC3339)
 	resp, body = s.request(t, http.MethodGet, "/api/v1/files?updated_after="+future, nil, token, "")
 	require.Equal(t, http.StatusOK, resp.Code)
@@ -384,6 +398,7 @@ func TestFileListFiltersSortingPaginationAndValidation(t *testing.T) {
 	validationCases := []string{
 		"/api/v1/files?limit=0",
 		"/api/v1/files?kind=document",
+		"/api/v1/files?status=completed",
 		"/api/v1/files?sort=size",
 		"/api/v1/files?updated_after=not-a-time",
 		"/api/v1/files?cursor=not-a-cursor",

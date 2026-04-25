@@ -233,9 +233,20 @@ func (h *Handler) listFiles(c *gin.Context) {
 		writeError(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "kind is invalid", stringPtr("kind"))
 		return
 	}
+	status := strings.TrimSpace(c.Query("status"))
+	if status != "" && !validFileStatus(status) {
+		writeError(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "status is invalid", stringPtr("status"))
+		return
+	}
 
 	var jobs []models.TranscriptionJob
 	query := database.DB.Where("user_id = ? AND source_file_hash IS NULL", userID)
+	switch status {
+	case "ready", "uploaded":
+		query = query.Where("status = ?", models.StatusUploaded)
+	case string(models.StatusProcessing), string(models.StatusFailed):
+		query = query.Where("status = ?", status)
+	}
 	switch kind {
 	case "youtube":
 		query = query.Where("source_file_name LIKE ?", "youtube:%")

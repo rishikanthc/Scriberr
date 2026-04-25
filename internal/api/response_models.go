@@ -202,6 +202,14 @@ func validTranscriptionStatus(status string) bool {
 		return false
 	}
 }
+func validFileStatus(status string) bool {
+	switch status {
+	case "uploaded", "ready", string(models.StatusProcessing), string(models.StatusFailed):
+		return true
+	default:
+		return false
+	}
+}
 func profileResponse(profile *models.TranscriptionProfile) gin.H {
 	description := ""
 	if profile.Description != nil {
