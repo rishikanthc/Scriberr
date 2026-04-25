@@ -185,6 +185,27 @@ func TestIdempotencyCachesMultipartUpload(t *testing.T) {
 	require.Equal(t, int64(1), count)
 }
 
+func TestIdempotencyDoesNotBufferMultipartUpload(t *testing.T) {
+	s := newAuthTestServer(t)
+	token := registerForFileTests(t, s)
+	body, contentType := fixedMultipartUpload(t, "meeting.wav", []byte("RIFF----WAVEfmt data"), "Meeting")
+
+	req, err := http.NewRequest(http.MethodPost, "/api/v1/files", bytes.NewReader(body))
+	require.NoError(t, err)
+	req.ContentLength = maxIdempotencyBodyBytes + 1
+	req.Header.Set("Content-Type", contentType)
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Idempotency-Key", "idem-large-upload")
+
+	recorder := httptest.NewRecorder()
+	s.router.ServeHTTP(recorder, req)
+
+	require.Equal(t, http.StatusCreated, recorder.Code)
+	var response map[string]any
+	require.NoError(t, json.NewDecoder(recorder.Body).Decode(&response))
+	require.NotEmpty(t, response["id"])
+}
+
 func TestIdempotencyCachesTranscriptionCreate(t *testing.T) {
 	s := newAuthTestServer(t)
 	token := registerForFileTests(t, s)

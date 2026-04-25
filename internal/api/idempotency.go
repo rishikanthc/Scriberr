@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"regexp"
+	"strings"
 	"sync"
 
 	"github.com/gin-gonic/gin"
@@ -64,19 +65,11 @@ func (h *Handler) handleIdempotency(c *gin.Context, next func()) bool {
 		writeError(c, http.StatusUnauthorized, "UNAUTHORIZED", "missing or invalid authentication", nil)
 		return false
 	}
-	body, err := io.ReadAll(io.LimitReader(c.Request.Body, maxIdempotencyBodyBytes+1))
-	if err != nil {
-		writeError(c, http.StatusBadRequest, "INVALID_REQUEST", "request body could not be read", nil)
-		return false
-	}
-	if int64(len(body)) > maxIdempotencyBodyBytes {
-		writeError(c, http.StatusRequestEntityTooLarge, "PAYLOAD_TOO_LARGE", "request body is too large for idempotent retry", nil)
-		return false
-	}
-	c.Request.Body = io.NopCloser(bytes.NewReader(body))
-
 	storeKey := idempotencyStoreKey(userID, c.Request.Method, c.Request.URL.Path, key)
-	fingerprint := idempotencyFingerprint(c, body)
+	fingerprint, body, reusable, ok := idempotencyFingerprint(c)
+	if !ok {
+		return false
+	}
 	entry, owner, conflict := h.idempotency.reserve(storeKey, fingerprint)
 	if conflict {
 		writeError(c, http.StatusConflict, "IDEMPOTENCY_CONFLICT", "Idempotency-Key was already used with a different request", stringPtr("Idempotency-Key"))
@@ -88,7 +81,9 @@ func (h *Handler) handleIdempotency(c *gin.Context, next func()) bool {
 			writeCachedIdempotencyResponse(c, entry)
 			return false
 		}
-		c.Request.Body = io.NopCloser(bytes.NewReader(body))
+		if reusable {
+			c.Request.Body = io.NopCloser(bytes.NewReader(body))
+		}
 		h.executeAndMaybeCacheIdempotent(c, next, storeKey, fingerprint)
 		return false
 	}
@@ -183,7 +178,22 @@ func idempotencyStoreKey(userID uint, method, path, key string) string {
 	return hex.EncodeToString([]byte(fmt.Sprintf("%d %s %s %s", userID, method, path, key)))
 }
 
-func idempotencyFingerprint(c *gin.Context, body []byte) string {
+func idempotencyFingerprint(c *gin.Context) (string, []byte, bool, bool) {
+	if isMultipartRequest(c.Request) {
+		return streamingIdempotencyFingerprint(c), nil, false, true
+	}
+
+	body, err := io.ReadAll(io.LimitReader(c.Request.Body, maxIdempotencyBodyBytes+1))
+	if err != nil {
+		writeError(c, http.StatusBadRequest, "INVALID_REQUEST", "request body could not be read", nil)
+		return "", nil, false, false
+	}
+	if int64(len(body)) > maxIdempotencyBodyBytes {
+		writeError(c, http.StatusRequestEntityTooLarge, "PAYLOAD_TOO_LARGE", "request body is too large for idempotent retry", nil)
+		return "", nil, false, false
+	}
+	c.Request.Body = io.NopCloser(bytes.NewReader(body))
+
 	hash := sha256.New()
 	hash.Write([]byte(c.Request.Method))
 	hash.Write([]byte{0})
@@ -192,6 +202,23 @@ func idempotencyFingerprint(c *gin.Context, body []byte) string {
 	hash.Write([]byte(c.GetHeader("Content-Type")))
 	hash.Write([]byte{0})
 	hash.Write(body)
+	return hex.EncodeToString(hash.Sum(nil)), body, true, true
+}
+
+func isMultipartRequest(req *http.Request) bool {
+	contentType := strings.ToLower(strings.TrimSpace(req.Header.Get("Content-Type")))
+	return strings.HasPrefix(contentType, "multipart/form-data")
+}
+
+func streamingIdempotencyFingerprint(c *gin.Context) string {
+	hash := sha256.New()
+	hash.Write([]byte(c.Request.Method))
+	hash.Write([]byte{0})
+	hash.Write([]byte(c.Request.URL.Path))
+	hash.Write([]byte{0})
+	hash.Write([]byte(c.GetHeader("Content-Type")))
+	hash.Write([]byte{0})
+	hash.Write([]byte(fmt.Sprintf("content-length:%d", c.Request.ContentLength)))
 	return hex.EncodeToString(hash.Sum(nil))
 }
 
