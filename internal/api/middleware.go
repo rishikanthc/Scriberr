@@ -75,13 +75,13 @@ func (h *Handler) handleCommandRoute(c *gin.Context) bool {
 		if !h.requireAuthForNoRoute(c) {
 			return true
 		}
-		h.importYouTube(c)
+		h.runIdempotent(c, h.importYouTube)
 		return true
 	case "/api/v1/transcriptions:submit":
 		if !h.requireAuthForNoRoute(c) {
 			return true
 		}
-		h.submitTranscription(c)
+		h.runIdempotent(c, h.submitTranscription)
 		return true
 	default:
 		return false

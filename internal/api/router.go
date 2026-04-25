@@ -19,6 +19,7 @@ type Handler struct {
 	config         *config.Config
 	authService    *auth.AuthService
 	readinessCheck func() error
+	idempotency    *idempotencyStore
 }
 
 func NewHandler(cfg *config.Config, authService *auth.AuthService, _ ...any) *Handler {
@@ -29,6 +30,7 @@ func NewHandler(cfg *config.Config, authService *auth.AuthService, _ ...any) *Ha
 		config:         cfg,
 		authService:    authService,
 		readinessCheck: database.HealthCheck,
+		idempotency:    newIdempotencyStore(),
 	}
 }
 func SetupRoutes(handler *Handler, _ *auth.AuthService) *gin.Engine {
@@ -70,14 +72,14 @@ func SetupRoutes(handler *Handler, _ *auth.AuthService) *gin.Engine {
 		apiKeys.Use(handler.jwtRequired())
 		{
 			apiKeys.GET("", handler.listAPIKeys)
-			apiKeys.POST("", handler.createAPIKey)
+			apiKeys.POST("", handler.idempotencyMiddleware(), handler.createAPIKey)
 			apiKeys.DELETE("/:id", handler.deleteAPIKey)
 		}
 
 		files := v1.Group("/files")
 		files.Use(handler.authRequired())
 		{
-			files.POST("", handler.uploadFile)
+			files.POST("", handler.idempotencyMiddleware(), handler.uploadFile)
 			files.GET("", handler.listFiles)
 			files.GET("/:id", handler.getFile)
 			files.PATCH("/:id", handler.updateFile)
@@ -87,12 +89,12 @@ func SetupRoutes(handler *Handler, _ *auth.AuthService) *gin.Engine {
 		transcriptions := v1.Group("/transcriptions")
 		transcriptions.Use(handler.authRequired())
 		{
-			transcriptions.POST("", handler.createTranscription)
+			transcriptions.POST("", handler.idempotencyMiddleware(), handler.createTranscription)
 			transcriptions.GET("", handler.listTranscriptions)
 			transcriptions.GET("/:id", handler.getTranscription)
 			transcriptions.PATCH("/:id", handler.updateTranscription)
 			transcriptions.DELETE("/:id", handler.deleteTranscription)
-			transcriptions.POST("/:idAction", handler.transcriptionCommand)
+			transcriptions.POST("/:idAction", handler.idempotencyMiddleware(), handler.transcriptionCommand)
 			transcriptions.GET("/:id/transcript", handler.getTranscript)
 			transcriptions.GET("/:id/audio", handler.streamTranscriptionAudio)
 			transcriptions.GET("/:id/events", handler.notImplemented("transcription events"))
@@ -104,11 +106,11 @@ func SetupRoutes(handler *Handler, _ *auth.AuthService) *gin.Engine {
 		profiles.Use(handler.authRequired())
 		{
 			profiles.GET("", handler.listProfiles)
-			profiles.POST("", handler.createProfile)
+			profiles.POST("", handler.idempotencyMiddleware(), handler.createProfile)
 			profiles.GET("/:id", handler.getProfile)
 			profiles.PATCH("/:id", handler.updateProfile)
 			profiles.DELETE("/:id", handler.deleteProfile)
-			profiles.POST("/:idAction", handler.profileCommand)
+			profiles.POST("/:idAction", handler.idempotencyMiddleware(), handler.profileCommand)
 		}
 
 		settings := v1.Group("/settings")
