@@ -30,6 +30,9 @@ func (h *Handler) createTranscription(c *gin.Context) {
 		writeError(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "language is invalid", stringPtr("options.language"))
 		return
 	}
+	if !validateTranscriptionProfile(c, userID, req.ProfileID) {
+		return
+	}
 	sourceID := strings.TrimPrefix(req.FileID, "file_")
 	var source models.TranscriptionJob
 	if sourceID == req.FileID || database.DB.Where("id = ? AND user_id = ? AND source_file_hash IS NULL", sourceID, userID).First(&source).Error != nil {
@@ -86,12 +89,8 @@ func (h *Handler) submitTranscription(c *gin.Context) {
 		writeError(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "language is invalid", stringPtr("options.language"))
 		return
 	}
-	if profileID := strings.TrimSpace(c.PostForm("profile_id")); profileID != "" {
-		parsedID, ok := parseProfileID(profileID)
-		if !ok || !profileExistsForUser(userID, parsedID) {
-			writeError(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "profile_id is invalid", stringPtr("profile_id"))
-			return
-		}
+	if !validateTranscriptionProfile(c, userID, c.PostForm("profile_id")) {
+		return
 	}
 
 	source, _, _, ok := h.storeUploadedFile(c, userID)
@@ -131,6 +130,20 @@ func (h *Handler) submitTranscription(c *gin.Context) {
 	h.publishEvent("transcription.created", gin.H{"id": response["id"], "status": response["status"]})
 	c.JSON(http.StatusAccepted, response)
 }
+
+func validateTranscriptionProfile(c *gin.Context, userID uint, publicProfileID string) bool {
+	profileID := strings.TrimSpace(publicProfileID)
+	if profileID == "" {
+		return true
+	}
+	parsedID, ok := parseProfileID(profileID)
+	if !ok || !profileExistsForUser(userID, parsedID) {
+		writeError(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "profile_id is invalid", stringPtr("profile_id"))
+		return false
+	}
+	return true
+}
+
 func (h *Handler) listTranscriptions(c *gin.Context) {
 	userID, ok := currentUserID(c)
 	if !ok {

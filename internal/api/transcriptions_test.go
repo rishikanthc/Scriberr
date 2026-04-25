@@ -129,6 +129,14 @@ func TestTranscriptionValidationTranscriptRetryAndAudioAlias(t *testing.T) {
 	require.Equal(t, http.StatusUnprocessableEntity, resp.Code)
 
 	resp, body := s.request(t, http.MethodPost, "/api/v1/transcriptions", map[string]any{
+		"file_id":    fileID,
+		"profile_id": "profile_missing",
+	}, token, "")
+	require.Equal(t, http.StatusUnprocessableEntity, resp.Code)
+	errBody := body["error"].(map[string]any)
+	require.Equal(t, "profile_id", errBody["field"])
+
+	resp, body = s.request(t, http.MethodPost, "/api/v1/transcriptions", map[string]any{
 		"file_id": fileID,
 		"title":   "Transcript",
 		"options": map[string]any{"language": "en"},
