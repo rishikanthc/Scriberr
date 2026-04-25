@@ -78,7 +78,7 @@ func TestHealthAndReadiness(t *testing.T) {
 func TestRequestIDIsEchoedAndIncludedInErrors(t *testing.T) {
 	router := newTestRouter(t, func() error { return nil })
 
-	req, err := http.NewRequest(http.MethodGet, "/api/v1/files", nil)
+	req, err := http.NewRequest(http.MethodGet, "/api/v1/events", nil)
 	require.NoError(t, err)
 	req.Header.Set("X-Request-ID", "req_test")
 
@@ -95,7 +95,7 @@ func TestRequestIDIsEchoedAndIncludedInErrors(t *testing.T) {
 func TestProtectedPlaceholderRouteUsesCanonicalErrorShape(t *testing.T) {
 	router := newTestRouter(t, func() error { return nil })
 
-	req, err := http.NewRequest(http.MethodGet, "/api/v1/files", nil)
+	req, err := http.NewRequest(http.MethodGet, "/api/v1/events", nil)
 	require.NoError(t, err)
 	req.Header.Set("Authorization", "Bearer "+testToken(t))
 

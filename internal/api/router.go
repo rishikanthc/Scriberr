@@ -5,8 +5,11 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"io"
 	"net/http"
+	"os"
 	"path"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -73,6 +76,10 @@ type createAPIKeyRequest struct {
 	Description string `json:"description"`
 }
 
+type updateFileRequest struct {
+	Title string `json:"title"`
+}
+
 func NewHandler(cfg *config.Config, authService *auth.AuthService, _ ...any) *Handler {
 	if cfg == nil {
 		cfg = &config.Config{}
@@ -130,12 +137,12 @@ func SetupRoutes(handler *Handler, _ *auth.AuthService) *gin.Engine {
 		files := v1.Group("/files")
 		files.Use(handler.authRequired())
 		{
-			files.POST("", handler.notImplemented("file upload"))
-			files.GET("", handler.notImplemented("file list"))
-			files.GET("/:id", handler.notImplemented("file get"))
-			files.PATCH("/:id", handler.bindJSONPlaceholder("file update"))
-			files.DELETE("/:id", handler.notImplemented("file delete"))
-			files.GET("/:id/audio", handler.notImplemented("file audio stream"))
+			files.POST("", handler.uploadFile)
+			files.GET("", handler.listFiles)
+			files.GET("/:id", handler.getFile)
+			files.PATCH("/:id", handler.updateFile)
+			files.DELETE("/:id", handler.deleteFile)
+			files.GET("/:id/audio", handler.streamFileAudio)
 		}
 		transcriptions := v1.Group("/transcriptions")
 		transcriptions.Use(handler.authRequired())
@@ -556,6 +563,186 @@ func (h *Handler) deleteAPIKey(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
+func (h *Handler) uploadFile(c *gin.Context) {
+	userID, ok := currentUserID(c)
+	if !ok {
+		writeError(c, http.StatusUnauthorized, "UNAUTHORIZED", "missing or invalid authentication", nil)
+		return
+	}
+	header, err := c.FormFile("file")
+	if err != nil {
+		writeError(c, http.StatusBadRequest, "INVALID_REQUEST", "file is required", stringPtr("file"))
+		return
+	}
+	source, err := header.Open()
+	if err != nil {
+		writeError(c, http.StatusBadRequest, "INVALID_REQUEST", "file could not be read", stringPtr("file"))
+		return
+	}
+	defer source.Close()
+
+	mimeType := mediaType(header.Header.Get("Content-Type"), header.Filename)
+	kind := fileKind(mimeType)
+	if kind == "" {
+		writeError(c, http.StatusUnsupportedMediaType, "UNSUPPORTED_MEDIA_TYPE", "unsupported media type", stringPtr("file"))
+		return
+	}
+
+	uploadDir := h.config.UploadDir
+	if uploadDir == "" {
+		uploadDir = filepath.Join(os.TempDir(), "scriberr-uploads")
+	}
+	if err := os.MkdirAll(uploadDir, 0755); err != nil {
+		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not prepare file storage", nil)
+		return
+	}
+
+	jobID := randomHex(16)
+	filename := safeFilename(header.Filename)
+	if filename == "" {
+		filename = jobID
+	}
+	storedName := jobID + filepath.Ext(filename)
+	storagePath := filepath.Join(uploadDir, storedName)
+	destination, err := os.OpenFile(storagePath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+	if err != nil {
+		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not store file", nil)
+		return
+	}
+	if _, err := io.Copy(destination, source); err != nil {
+		_ = destination.Close()
+		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not store file", nil)
+		return
+	}
+	if err := destination.Close(); err != nil {
+		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not store file", nil)
+		return
+	}
+
+	title := strings.TrimSpace(c.PostForm("title"))
+	if title == "" {
+		title = strings.TrimSuffix(filename, filepath.Ext(filename))
+	}
+	job := models.TranscriptionJob{
+		ID:             jobID,
+		UserID:         userID,
+		Title:          &title,
+		Status:         models.StatusUploaded,
+		AudioPath:      storagePath,
+		SourceFileName: filename,
+	}
+	if err := database.DB.Create(&job).Error; err != nil {
+		_ = os.Remove(storagePath)
+		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not create file record", nil)
+		return
+	}
+	c.JSON(http.StatusCreated, fileResponse(&job, mimeType, kind))
+}
+
+func (h *Handler) listFiles(c *gin.Context) {
+	userID, ok := currentUserID(c)
+	if !ok {
+		writeError(c, http.StatusUnauthorized, "UNAUTHORIZED", "missing or invalid authentication", nil)
+		return
+	}
+	var jobs []models.TranscriptionJob
+	if err := database.DB.Where("user_id = ?", userID).Order("created_at DESC").Find(&jobs).Error; err != nil {
+		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not list files", nil)
+		return
+	}
+	items := make([]gin.H, 0, len(jobs))
+	for i := range jobs {
+		mimeType := mediaType("", jobs[i].SourceFileName)
+		items = append(items, fileResponse(&jobs[i], mimeType, fileKind(mimeType)))
+	}
+	c.JSON(http.StatusOK, gin.H{"items": items, "next_cursor": nil})
+}
+
+func (h *Handler) getFile(c *gin.Context) {
+	job, ok := h.fileByPublicID(c)
+	if !ok {
+		return
+	}
+	mimeType := mediaType("", job.SourceFileName)
+	c.JSON(http.StatusOK, fileResponse(job, mimeType, fileKind(mimeType)))
+}
+
+func (h *Handler) updateFile(c *gin.Context) {
+	job, ok := h.fileByPublicID(c)
+	if !ok {
+		return
+	}
+	var req updateFileRequest
+	if !bindJSON(c, &req) {
+		return
+	}
+	title := strings.TrimSpace(req.Title)
+	if title == "" {
+		writeError(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "title is required", stringPtr("title"))
+		return
+	}
+	if err := database.DB.Model(&models.TranscriptionJob{}).Where("id = ?", job.ID).Update("title", title).Error; err != nil {
+		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not update file", nil)
+		return
+	}
+	job.Title = &title
+	mimeType := mediaType("", job.SourceFileName)
+	c.JSON(http.StatusOK, fileResponse(job, mimeType, fileKind(mimeType)))
+}
+
+func (h *Handler) deleteFile(c *gin.Context) {
+	job, ok := h.fileByPublicID(c)
+	if !ok {
+		return
+	}
+	if err := database.DB.Delete(&models.TranscriptionJob{}, "id = ?", job.ID).Error; err != nil {
+		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not delete file", nil)
+		return
+	}
+	c.Status(http.StatusNoContent)
+}
+
+func (h *Handler) streamFileAudio(c *gin.Context) {
+	job, ok := h.fileByPublicID(c)
+	if !ok {
+		return
+	}
+	file, err := os.Open(job.AudioPath)
+	if err != nil {
+		writeError(c, http.StatusNotFound, "NOT_FOUND", "file audio not found", nil)
+		return
+	}
+	defer file.Close()
+	stat, err := file.Stat()
+	if err != nil {
+		writeError(c, http.StatusNotFound, "NOT_FOUND", "file audio not found", nil)
+		return
+	}
+	mimeType := mediaType("", job.SourceFileName)
+	c.Header("Content-Type", mimeType)
+	c.Header("Accept-Ranges", "bytes")
+	http.ServeContent(c.Writer, c.Request, job.SourceFileName, stat.ModTime(), file)
+}
+
+func (h *Handler) fileByPublicID(c *gin.Context) (*models.TranscriptionJob, bool) {
+	userID, ok := currentUserID(c)
+	if !ok {
+		writeError(c, http.StatusUnauthorized, "UNAUTHORIZED", "missing or invalid authentication", nil)
+		return nil, false
+	}
+	id := strings.TrimPrefix(c.Param("id"), "file_")
+	if id == "" || id == c.Param("id") {
+		writeError(c, http.StatusNotFound, "NOT_FOUND", "file not found", nil)
+		return nil, false
+	}
+	var job models.TranscriptionJob
+	if err := database.DB.Where("id = ? AND user_id = ?", id, userID).First(&job).Error; err != nil {
+		writeError(c, http.StatusNotFound, "NOT_FOUND", "file not found", nil)
+		return nil, false
+	}
+	return &job, true
+}
+
 func (h *Handler) transcriptionCommand(c *gin.Context) {
 	action := c.Param("idAction")
 	switch {
@@ -827,4 +1014,76 @@ func keyPreview(prefix string) string {
 
 func stringPtr(value string) *string {
 	return &value
+}
+
+func fileResponse(job *models.TranscriptionJob, mimeType, kind string) gin.H {
+	title := ""
+	if job.Title != nil {
+		title = *job.Title
+	}
+	size := int64(0)
+	if stat, err := os.Stat(job.AudioPath); err == nil {
+		size = stat.Size()
+	}
+	status := "uploaded"
+	if job.Status == models.StatusUploaded {
+		status = "ready"
+	}
+	durationSeconds := any(nil)
+	if job.SourceDurationMs != nil {
+		durationSeconds = float64(*job.SourceDurationMs) / 1000
+	}
+	return gin.H{
+		"id":               "file_" + job.ID,
+		"title":            title,
+		"kind":             kind,
+		"status":           status,
+		"mime_type":        mimeType,
+		"size_bytes":       size,
+		"duration_seconds": durationSeconds,
+		"created_at":       job.CreatedAt,
+		"updated_at":       job.UpdatedAt,
+	}
+}
+
+func mediaType(headerValue, filename string) string {
+	cleanHeader := strings.ToLower(strings.TrimSpace(strings.Split(headerValue, ";")[0]))
+	if strings.HasPrefix(cleanHeader, "audio/") || strings.HasPrefix(cleanHeader, "video/") {
+		return cleanHeader
+	}
+	switch strings.ToLower(filepath.Ext(filename)) {
+	case ".wav":
+		return "audio/wav"
+	case ".mp3":
+		return "audio/mpeg"
+	case ".m4a":
+		return "audio/mp4"
+	case ".flac":
+		return "audio/flac"
+	case ".mp4":
+		return "video/mp4"
+	case ".mov":
+		return "video/quicktime"
+	default:
+		return cleanHeader
+	}
+}
+
+func fileKind(mimeType string) string {
+	switch {
+	case strings.HasPrefix(mimeType, "audio/"):
+		return "audio"
+	case strings.HasPrefix(mimeType, "video/"):
+		return "video"
+	default:
+		return ""
+	}
+}
+
+func safeFilename(filename string) string {
+	base := filepath.Base(strings.TrimSpace(filename))
+	if base == "." || base == string(filepath.Separator) {
+		return ""
+	}
+	return strings.NewReplacer("/", "_", "\\", "_", "\x00", "").Replace(base)
 }

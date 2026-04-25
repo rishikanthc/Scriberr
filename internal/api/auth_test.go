@@ -32,7 +32,10 @@ func newAuthTestServer(t *testing.T) *authTestServer {
 	t.Cleanup(func() { _ = database.Close() })
 
 	authService := auth.NewAuthService("test-secret")
-	handler := NewHandler(&config.Config{Environment: "test"}, authService)
+	handler := NewHandler(&config.Config{
+		Environment: "test",
+		UploadDir:   filepath.Join(t.TempDir(), "uploads"),
+	}, authService)
 	handler.readinessCheck = func() error { return nil }
 
 	return &authTestServer{router: SetupRoutes(handler, authService), auth: authService}
@@ -220,7 +223,7 @@ func TestAPIKeyCreateListDeleteAndRedaction(t *testing.T) {
 	require.NotEmpty(t, item["key_preview"])
 
 	resp, _ = s.request(t, http.MethodGet, "/api/v1/files", nil, "", rawKey)
-	require.Equal(t, http.StatusNotImplemented, resp.Code)
+	require.Equal(t, http.StatusOK, resp.Code)
 
 	idNumber, err := strconv.Atoi(strings.TrimPrefix(keyID, "key_"))
 	require.NoError(t, err)
