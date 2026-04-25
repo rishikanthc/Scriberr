@@ -10,6 +10,7 @@ import (
 	"scriberr/internal/auth"
 	"scriberr/internal/config"
 	"scriberr/internal/models"
+	"scriberr/pkg/logger"
 
 	"github.com/stretchr/testify/require"
 )
@@ -17,6 +18,7 @@ import (
 func newTestRouter(t *testing.T, ready func() error) http.Handler {
 	t.Helper()
 
+	logger.Init("silent")
 	authService := auth.NewAuthService("test-secret")
 	handler := NewHandler(&config.Config{
 		Environment:    "test",

@@ -32,6 +32,13 @@ var (
 )
 
 func Init(level string) {
+	if strings.EqualFold(strings.TrimSpace(level), "silent") {
+		defaultLogger = &Logger{SugaredLogger: zap.NewNop().Sugar()}
+		currentLevel = LevelError
+		atomicLevel.SetLevel(zapcore.FatalLevel + 1)
+		return
+	}
+
 	zapLevel := parseLevel(level)
 	atomicLevel.SetLevel(zapLevel)
 	currentLevel = toLocalLevel(zapLevel)

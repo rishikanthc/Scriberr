@@ -16,6 +16,7 @@ import (
 	"scriberr/internal/config"
 	"scriberr/internal/database"
 	"scriberr/internal/models"
+	"scriberr/pkg/logger"
 
 	"github.com/stretchr/testify/require"
 	gormlogger "gorm.io/gorm/logger"
@@ -30,6 +31,7 @@ type authTestServer struct {
 func newAuthTestServer(t *testing.T) *authTestServer {
 	t.Helper()
 
+	logger.Init("silent")
 	require.NoError(t, database.Initialize(filepath.Join(t.TempDir(), "scriberr.db")))
 	database.DB.Logger = gormlogger.Default.LogMode(gormlogger.Silent)
 	t.Cleanup(func() { _ = database.Close() })
