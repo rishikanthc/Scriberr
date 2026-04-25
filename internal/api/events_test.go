@@ -111,6 +111,21 @@ func TestSSERequiresAuthentication(t *testing.T) {
 	require.Equal(t, "UNAUTHORIZED", errBody["code"])
 }
 
+func TestEventBrokerUnsubscribeDoesNotCloseChannel(t *testing.T) {
+	broker := newEventBroker()
+	sub, unsubscribe := broker.subscribe("")
+
+	unsubscribe()
+	broker.publish(apiEvent{Name: "file.ready"})
+
+	select {
+	case _, ok := <-sub.ch:
+		require.True(t, ok)
+	default:
+	}
+	require.Equal(t, 0, broker.subscriberCount())
+}
+
 func TestSSESendsHeartbeat(t *testing.T) {
 	s := newAuthTestServer(t)
 	s.handler.eventHeartbeat = 10 * time.Millisecond

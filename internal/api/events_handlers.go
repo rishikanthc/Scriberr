@@ -42,10 +42,7 @@ func (b *eventBroker) subscribe(transcriptionID string) (*eventSubscriber, func(
 	b.mu.Unlock()
 	return sub, func() {
 		b.mu.Lock()
-		if _, ok := b.subscribers[sub.id]; ok {
-			delete(b.subscribers, sub.id)
-			close(sub.ch)
-		}
+		delete(b.subscribers, sub.id)
 		b.mu.Unlock()
 	}
 }
@@ -117,10 +114,7 @@ func (h *Handler) streamEventChannel(c *gin.Context, transcriptionID string) {
 		case <-heartbeat.C:
 			_, _ = c.Writer.Write([]byte(": heartbeat\n\n"))
 			flusher.Flush()
-		case event, ok := <-sub.ch:
-			if !ok {
-				return
-			}
+		case event := <-sub.ch:
 			writeSSE(c, flusher, event)
 		}
 	}
