@@ -16,11 +16,12 @@ import (
 )
 
 type Handler struct {
-	config         *config.Config
-	authService    *auth.AuthService
-	readinessCheck func() error
-	idempotency    *idempotencyStore
-	events         *eventBroker
+	config          *config.Config
+	authService     *auth.AuthService
+	readinessCheck  func() error
+	idempotency     *idempotencyStore
+	events          *eventBroker
+	youtubeImporter YouTubeImporter
 }
 
 func NewHandler(cfg *config.Config, authService *auth.AuthService, _ ...any) *Handler {
@@ -28,11 +29,12 @@ func NewHandler(cfg *config.Config, authService *auth.AuthService, _ ...any) *Ha
 		cfg = &config.Config{}
 	}
 	return &Handler{
-		config:         cfg,
-		authService:    authService,
-		readinessCheck: database.HealthCheck,
-		idempotency:    newIdempotencyStore(),
-		events:         newEventBroker(),
+		config:          cfg,
+		authService:     authService,
+		readinessCheck:  database.HealthCheck,
+		idempotency:     newIdempotencyStore(),
+		events:          newEventBroker(),
+		youtubeImporter: ytDLPImporter{},
 	}
 }
 func SetupRoutes(handler *Handler, _ *auth.AuthService) *gin.Engine {

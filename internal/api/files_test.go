@@ -2,13 +2,17 @@ package api
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"errors"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"net/textproto"
+	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -17,6 +21,63 @@ import (
 
 	"github.com/stretchr/testify/require"
 )
+
+type fakeYouTubeImporter struct {
+	mu        sync.Mutex
+	calls     []youtubeImportJob
+	content   []byte
+	filename  string
+	mimeType  string
+	err       error
+	block     chan struct{}
+	completed chan struct{}
+}
+
+func (f *fakeYouTubeImporter) Import(ctx context.Context, job youtubeImportJob) (youtubeImportResult, error) {
+	f.mu.Lock()
+	f.calls = append(f.calls, job)
+	f.mu.Unlock()
+	if f.block != nil {
+		select {
+		case <-f.block:
+		case <-ctx.Done():
+			return youtubeImportResult{}, ctx.Err()
+		}
+	}
+	defer func() {
+		if f.completed != nil {
+			close(f.completed)
+		}
+	}()
+	if f.err != nil {
+		return youtubeImportResult{}, f.err
+	}
+	content := f.content
+	if content == nil {
+		content = []byte("youtube audio")
+	}
+	if err := os.MkdirAll(filepath.Dir(job.OutputPath), 0755); err != nil {
+		return youtubeImportResult{}, err
+	}
+	if err := os.WriteFile(job.OutputPath, content, 0600); err != nil {
+		return youtubeImportResult{}, err
+	}
+	filename := f.filename
+	if filename == "" {
+		filename = "download.mp3"
+	}
+	mimeType := f.mimeType
+	if mimeType == "" {
+		mimeType = "audio/mpeg"
+	}
+	return youtubeImportResult{Filename: filename, MimeType: mimeType}, nil
+}
+
+func (f *fakeYouTubeImporter) callCount() int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return len(f.calls)
+}
 
 func registerForFileTests(t *testing.T, s *authTestServer) string {
 	t.Helper()
@@ -135,8 +196,10 @@ func TestFileUploadValidationAndSecurity(t *testing.T) {
 	require.NotContains(t, errBody["message"], "/")
 }
 
-func TestYouTubeImportReturnsProcessingPlaceholder(t *testing.T) {
+func TestYouTubeImportDownloadsWithFakeImporterAndStreamsResult(t *testing.T) {
 	s := newAuthTestServer(t)
+	importer := &fakeYouTubeImporter{content: []byte("ID3 youtube audio"), completed: make(chan struct{})}
+	s.handler.youtubeImporter = importer
 	token := registerForFileTests(t, s)
 
 	resp, body := s.request(t, http.MethodPost, "/api/v1/files:import-youtube", map[string]any{
@@ -149,6 +212,20 @@ func TestYouTubeImportReturnsProcessingPlaceholder(t *testing.T) {
 	require.Equal(t, "youtube", body["kind"])
 	require.Equal(t, "processing", body["status"])
 	require.NotContains(t, body, "source_file_path")
+	fileID := body["id"].(string)
+
+	select {
+	case <-importer.completed:
+	case <-time.After(time.Second):
+		t.Fatal("youtube import did not complete")
+	}
+
+	resp, body = s.request(t, http.MethodGet, "/api/v1/files/"+fileID, nil, token, "")
+	require.Equal(t, http.StatusOK, resp.Code)
+	require.Equal(t, "ready", body["status"])
+	require.Equal(t, "youtube", body["kind"])
+	require.Equal(t, "audio/mpeg", body["mime_type"])
+	require.Equal(t, float64(len("ID3 youtube audio")), body["size_bytes"])
 
 	resp, body = s.request(t, http.MethodGet, "/api/v1/files", nil, token, "")
 	require.Equal(t, http.StatusOK, resp.Code)
@@ -156,12 +233,73 @@ func TestYouTubeImportReturnsProcessingPlaceholder(t *testing.T) {
 	require.Len(t, items, 1)
 	require.Equal(t, "youtube", items[0].(map[string]any)["kind"])
 
-	resp, body = s.request(t, http.MethodPost, "/api/v1/files:import-youtube", map[string]any{
-		"url": "file:///etc/passwd",
+	req, err := http.NewRequest(http.MethodGet, "/api/v1/files/"+fileID+"/audio", nil)
+	require.NoError(t, err)
+	req.Header.Set("Authorization", "Bearer "+token)
+	stream := httptest.NewRecorder()
+	s.router.ServeHTTP(stream, req)
+	require.Equal(t, http.StatusOK, stream.Code)
+	require.Equal(t, []byte("ID3 youtube audio"), stream.Body.Bytes())
+	require.Equal(t, 1, importer.callCount())
+}
+
+func TestYouTubeImportFailureIsSanitizedAndPublishesFailedEvent(t *testing.T) {
+	s := newAuthTestServer(t)
+	importer := &fakeYouTubeImporter{err: errors.New("yt-dlp failed /tmp/private/raw-url"), completed: make(chan struct{})}
+	s.handler.youtubeImporter = importer
+	token := registerForFileTests(t, s)
+
+	recorder, cancel, done := startEventStream(t, s, token, "/api/v1/events")
+	resp, body := s.request(t, http.MethodPost, "/api/v1/files:import-youtube", map[string]any{
+		"url":   "https://youtu.be/dQw4w9WgXcQ",
+		"title": "Broken import",
 	}, token, "")
-	require.Equal(t, http.StatusUnprocessableEntity, resp.Code)
-	errBody := body["error"].(map[string]any)
-	require.Equal(t, "url", errBody["field"])
+	require.Equal(t, http.StatusAccepted, resp.Code)
+	fileID := body["id"].(string)
+
+	select {
+	case <-importer.completed:
+	case <-time.After(time.Second):
+		t.Fatal("youtube import did not fail")
+	}
+
+	deadline := time.Now().Add(time.Second)
+	for time.Now().Before(deadline) {
+		resp, body = s.request(t, http.MethodGet, "/api/v1/files/"+fileID, nil, token, "")
+		require.Equal(t, http.StatusOK, resp.Code)
+		if body["status"] == "failed" {
+			break
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	require.Equal(t, "failed", body["status"])
+	require.NotContains(t, body, "/tmp/private")
+	stopEventStream(t, cancel, done)
+
+	stream := recorder.Body.String()
+	require.Contains(t, stream, "event: file.failed")
+	require.Contains(t, stream, `"id":"`+fileID+`"`)
+	require.NotContains(t, stream, "/tmp/private")
+	require.NotContains(t, stream, "raw-url")
+}
+
+func TestYouTubeImportURLValidation(t *testing.T) {
+	s := newAuthTestServer(t)
+	s.handler.youtubeImporter = &fakeYouTubeImporter{completed: make(chan struct{})}
+	token := registerForFileTests(t, s)
+
+	for _, rawURL := range []string{
+		"file:///etc/passwd",
+		"https://example.com/video",
+		"https://youtube.evil.test/watch?v=dQw4w9WgXcQ",
+	} {
+		resp, body := s.request(t, http.MethodPost, "/api/v1/files:import-youtube", map[string]any{
+			"url": rawURL,
+		}, token, "")
+		require.Equal(t, http.StatusUnprocessableEntity, resp.Code, rawURL)
+		errBody := body["error"].(map[string]any)
+		require.Equal(t, "url", errBody["field"])
+	}
 }
 
 func TestFileListFiltersSortingPaginationAndValidation(t *testing.T) {

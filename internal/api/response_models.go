@@ -73,7 +73,9 @@ func fileResponse(job *models.TranscriptionJob, mimeType, kind string) gin.H {
 	}
 	if strings.HasPrefix(job.SourceFileName, "youtube:") {
 		kind = "youtube"
-		mimeType = ""
+		if mimeType == "" {
+			mimeType = mediaType("", strings.TrimPrefix(job.SourceFileName, "youtube:"))
+		}
 	}
 	durationSeconds := any(nil)
 	if job.SourceDurationMs != nil {

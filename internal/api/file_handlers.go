@@ -1,11 +1,14 @@
 package api
 
 import (
+	"context"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"scriberr/internal/database"
 	"scriberr/internal/models"
@@ -38,7 +41,7 @@ func (h *Handler) importYouTube(c *gin.Context) {
 		return
 	}
 	rawURL := strings.TrimSpace(req.URL)
-	if !strings.HasPrefix(rawURL, "https://") && !strings.HasPrefix(rawURL, "http://") {
+	if !validYouTubeURL(rawURL) {
 		writeError(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "url is invalid", stringPtr("url"))
 		return
 	}
@@ -46,13 +49,20 @@ func (h *Handler) importYouTube(c *gin.Context) {
 	if title == "" {
 		title = "YouTube import"
 	}
+	uploadDir := h.config.UploadDir
+	if uploadDir == "" {
+		uploadDir = filepath.Join(os.TempDir(), "scriberr-uploads")
+	}
+	jobID := randomHex(16)
+	storedName := jobID + ".mp3"
+	storagePath := filepath.Join(uploadDir, storedName)
 	job := models.TranscriptionJob{
-		ID:             randomHex(16),
+		ID:             jobID,
 		UserID:         userID,
 		Title:          &title,
 		Status:         models.StatusProcessing,
-		AudioPath:      "",
-		SourceFileName: "youtube:" + rawURL,
+		AudioPath:      storagePath,
+		SourceFileName: "youtube:" + storedName,
 	}
 	if err := database.DB.Create(&job).Error; err != nil {
 		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not create youtube import", nil)
@@ -60,7 +70,67 @@ func (h *Handler) importYouTube(c *gin.Context) {
 	}
 	response := fileResponse(&job, "", "youtube")
 	h.publishEvent("file.processing", gin.H{"id": response["id"], "kind": response["kind"], "status": response["status"]})
+	h.startYouTubeImport(job.ID, rawURL, title, storagePath)
 	c.JSON(http.StatusAccepted, response)
+}
+
+func (h *Handler) startYouTubeImport(jobID, rawURL, title, storagePath string) {
+	importer := h.youtubeImporter
+	if importer == nil {
+		importer = ytDLPImporter{}
+	}
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Hour)
+		defer cancel()
+
+		result, err := importer.Import(ctx, youtubeImportJob{
+			URL:        rawURL,
+			OutputPath: storagePath,
+			Title:      title,
+		})
+		if err != nil {
+			message := "YouTube import failed"
+			_ = database.DB.Model(&models.TranscriptionJob{}).Where("id = ?", jobID).Updates(map[string]any{
+				"status":     models.StatusFailed,
+				"last_error": message,
+			}).Error
+			h.publishEvent("file.failed", gin.H{"id": "file_" + jobID, "kind": "youtube", "status": string(models.StatusFailed)})
+			return
+		}
+
+		sourceName := "youtube:" + safeFilename(result.Filename)
+		if sourceName == "youtube:" {
+			sourceName = "youtube:" + filepath.Base(storagePath)
+		}
+		updates := map[string]any{
+			"status":           models.StatusUploaded,
+			"source_file_path": storagePath,
+			"source_file_name": sourceName,
+			"last_error":       nil,
+		}
+		if result.DurationMs != nil {
+			updates["source_duration_ms"] = *result.DurationMs
+		}
+		_ = database.DB.Model(&models.TranscriptionJob{}).Where("id = ?", jobID).Updates(updates).Error
+		h.publishEvent("file.ready", gin.H{"id": "file_" + jobID, "kind": "youtube", "status": "ready"})
+	}()
+}
+
+func validYouTubeURL(rawURL string) bool {
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		return false
+	}
+	if parsed.Scheme != "https" && parsed.Scheme != "http" {
+		return false
+	}
+	host := strings.ToLower(parsed.Hostname())
+	switch host {
+	case "youtube.com", "www.youtube.com", "m.youtube.com", "music.youtube.com", "youtu.be", "www.youtu.be", "youtube-nocookie.com", "www.youtube-nocookie.com":
+		return true
+	default:
+		return false
+	}
 }
 func (h *Handler) storeUploadedFile(c *gin.Context, userID uint) (*models.TranscriptionJob, string, string, bool) {
 	header, err := c.FormFile("file")

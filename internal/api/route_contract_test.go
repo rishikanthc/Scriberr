@@ -98,7 +98,7 @@ func TestEndpointContractSmoke(t *testing.T) {
 		{name: "settings get", method: http.MethodGet, path: "/api/v1/settings", token: token, want: http.StatusOK},
 		{name: "models list", method: http.MethodGet, path: "/api/v1/models/transcription", token: token, want: http.StatusOK},
 		{name: "queue stats", method: http.MethodGet, path: "/api/v1/admin/queue", token: token, want: http.StatusOK},
-		{name: "youtube import placeholder", method: http.MethodPost, path: "/api/v1/files:import-youtube", body: map[string]any{"url": "https://example.com/video"}, token: token, want: http.StatusAccepted},
+		{name: "youtube import", method: http.MethodPost, path: "/api/v1/files:import-youtube", body: map[string]any{"url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"}, token: token, want: http.StatusAccepted},
 		{name: "legacy list absent", method: http.MethodGet, path: "/api/v1/transcription/list", token: token, want: http.StatusNotFound},
 		{name: "legacy upload absent", method: http.MethodPost, path: "/api/v1/transcription/upload", token: token, want: http.StatusNotFound},
 	}
