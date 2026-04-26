@@ -76,6 +76,7 @@ type JobRepository interface {
 	FailTranscription(ctx context.Context, jobID string, message string, failedAt time.Time) error
 	CancelTranscription(ctx context.Context, jobID string, canceledAt time.Time) error
 	ListExecutions(ctx context.Context, jobID string) ([]models.TranscriptionJobExecution, error)
+	CountStatusesByUser(ctx context.Context, userID uint) (map[models.JobStatus]int64, error)
 	UpdateTranscript(ctx context.Context, jobID string, transcript string) error
 	CreateExecution(ctx context.Context, execution *models.TranscriptionJobExecution) error
 	UpdateExecution(ctx context.Context, execution *models.TranscriptionJobExecution) error
@@ -337,6 +338,26 @@ func (r *jobRepository) ListExecutions(ctx context.Context, jobID string) ([]mod
 		Order("execution_number DESC").
 		Find(&executions).Error
 	return executions, err
+}
+
+func (r *jobRepository) CountStatusesByUser(ctx context.Context, userID uint) (map[models.JobStatus]int64, error) {
+	type statusCount struct {
+		Status models.JobStatus
+		Count  int64
+	}
+	var rows []statusCount
+	if err := r.db.WithContext(ctx).Model(&models.TranscriptionJob{}).
+		Select("status, count(*) as count").
+		Where("user_id = ? AND source_file_hash IS NOT NULL", userID).
+		Group("status").
+		Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	counts := make(map[models.JobStatus]int64, len(rows))
+	for _, row := range rows {
+		counts[row.Status] = row.Count
+	}
+	return counts, nil
 }
 
 func updateLatestExecutionTerminal(tx *gorm.DB, jobID string, status models.JobStatus, updates map[string]any) error {

@@ -358,6 +358,10 @@ func (m *MockJobRepository) ListExecutions(ctx context.Context, jobID string) ([
 	return nil, nil
 }
 
+func (m *MockJobRepository) CountStatusesByUser(ctx context.Context, userID uint) (map[models.JobStatus]int64, error) {
+	return nil, nil
+}
+
 func (m *MockJobRepository) UpdateTranscript(ctx context.Context, jobID string, transcript string) error {
 	args := m.Called(ctx, jobID, transcript)
 	return args.Error(0)

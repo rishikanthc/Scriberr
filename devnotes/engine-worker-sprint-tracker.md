@@ -122,15 +122,37 @@ Verification:
 
 ## EWI-Sprint 4: Durable Worker Service
 
-Status: not started
+Status: completed
 
-Planned artifacts:
+Completed tasks:
 
-- `internal/transcription/worker`
+- Added `internal/transcription/worker` with the public queue service interface from the sprint plan.
+- Implemented durable enqueue plus non-blocking worker wake signaling.
+- Implemented worker startup recovery through `RecoverOrphanedProcessing`.
+- Implemented polling/claim loop with configurable worker count, poll interval, lease timeout, renew interval, and stop timeout.
+- Implemented lease renewal while processors are running.
+- Implemented process-local cancel tracking for running jobs.
+- Implemented cancel behavior for queued jobs, process-local running jobs, orphaned processing jobs, and terminal-state conflicts.
+- Implemented user-scoped queue stats with process-local running counts.
+- Added structured lifecycle, enqueue, worker, lease-renewal, cancellation, and shutdown logs.
+- Added focused worker tests with fake processors for enqueue/wake/complete, cancel queued, cancel running, lease renewal, stop cancellation, stats, and cancel conflicts.
+- Added repository status-count support needed by worker stats.
+
+Artifacts:
+
+- `internal/transcription/worker/service.go`
+- `internal/transcription/worker/service_test.go`
+- `internal/repository/implementations.go`
+- `internal/transcription/adapters_test.go`
+- `tests/test_helpers.go`
 
 Verification:
 
-- Pending
+- `GOCACHE=/tmp/scriberr-go-cache go test ./internal/transcription/worker` passed.
+- `GOCACHE=/tmp/scriberr-go-cache go test ./tests -run '^$'` passed.
+- `GOCACHE=/tmp/scriberr-go-cache go vet ./internal/api ./internal/config ./internal/database ./internal/repository ./internal/transcription/... ./cmd/server ./pkg/logger ./pkg/middleware` passed.
+- `GOCACHE=/tmp/scriberr-go-cache go test ./internal/api ./internal/config ./internal/database ./internal/repository ./internal/transcription/... ./cmd/server ./pkg/logger ./pkg/middleware` passed with escalation because an existing webhook integration test opens a local `httptest` listener.
+- `git diff --check` passed.
 
 ## EWI-Sprint 5: Orchestrator, Transcript Mapping, and Speaker Merge
 
