@@ -74,7 +74,21 @@ func main() {
 
 	// Load configuration
 	logger.Startup("config", "Loading configuration")
-	cfg := config.Load()
+	cfg, err := config.LoadWithError()
+	if err != nil {
+		logger.Error("Invalid configuration", "error", err)
+		os.Exit(1)
+	}
+	logger.Info("Engine and worker configuration loaded",
+		"engine_cache_dir", cfg.Engine.CacheDir,
+		"engine_provider", cfg.Engine.Provider,
+		"engine_threads", cfg.Engine.Threads,
+		"engine_max_loaded", cfg.Engine.MaxLoaded,
+		"engine_auto_download", cfg.Engine.AutoDownload,
+		"transcription_workers", cfg.Worker.Workers,
+		"queue_poll_interval", cfg.Worker.PollInterval.String(),
+		"lease_timeout", cfg.Worker.LeaseTimeout.String(),
+	)
 
 	// Register adapters with config-based paths
 	registerAdapters(cfg)

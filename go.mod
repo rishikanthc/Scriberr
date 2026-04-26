@@ -5,6 +5,8 @@ go 1.24.0
 toolchain go1.24.4
 
 require (
+	scriberr-engine v0.0.0
+
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/gin-gonic/gin v1.10.1
 	github.com/glebarez/sqlite v1.11.0
@@ -84,3 +86,5 @@ require (
 )
 
 tool gotest.tools/gotestsum
+
+replace scriberr-engine => ./references/engine

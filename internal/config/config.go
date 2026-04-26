@@ -3,9 +3,12 @@ package config
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"time"
 
 	"scriberr/pkg/logger"
 
@@ -30,7 +33,14 @@ type Config struct {
 	TempDir        string
 
 	// Python/WhisperX configuration
+	// Deprecated: retained until the legacy adapter startup path is removed.
 	WhisperXEnv string
+
+	// Local speech engine configuration
+	Engine EngineConfig
+
+	// Durable transcription worker configuration
+	Worker WorkerConfig
 
 	// Environment configuration
 	Environment    string
@@ -43,13 +53,46 @@ type Config struct {
 	HFToken string
 }
 
-// Load loads configuration from environment variables and .env file
+type EngineConfig struct {
+	CacheDir     string
+	Provider     string
+	Threads      int
+	MaxLoaded    int
+	AutoDownload bool
+}
+
+type WorkerConfig struct {
+	Workers      int
+	PollInterval time.Duration
+	LeaseTimeout time.Duration
+}
+
+// Load loads configuration from environment variables and .env file.
+// Prefer LoadWithError for new startup paths so invalid configuration fails clearly.
 func Load() *Config {
+	cfg, err := LoadWithError()
+	if err != nil {
+		logger.Error("Invalid configuration; falling back to defaults where possible", "error", err)
+		return loadUnchecked()
+	}
+	return cfg
+}
+
+// LoadWithError loads and validates configuration from environment variables and .env file.
+func LoadWithError() (*Config, error) {
 	// Load .env file if it exists
 	if err := godotenv.Load(); err != nil {
 		logger.Debug("No .env file found, using system environment variables")
 	}
 
+	cfg := loadUnchecked()
+	if err := cfg.validate(); err != nil {
+		return nil, err
+	}
+	return cfg, nil
+}
+
+func loadUnchecked() *Config {
 	// Default SecureCookies to true in production, false otherwise
 	defaultSecure := "false"
 	if strings.ToLower(getEnv("APP_ENV", "development")) == "production" {
@@ -67,9 +110,55 @@ func Load() *Config {
 		TranscriptsDir: getEnv("TRANSCRIPTS_DIR", "data/transcripts"),
 		TempDir:        getEnv("TEMP_DIR", "data/temp"),
 		WhisperXEnv:    getEnv("WHISPERX_ENV", "data/whisperx-env"),
-		SecureCookies:  getEnv("SECURE_COOKIES", defaultSecure) == "true",
-		OpenAIAPIKey:   getEnv("OPENAI_API_KEY", ""),
-		HFToken:        getEnv("HF_TOKEN", ""),
+		Engine: EngineConfig{
+			CacheDir:     getEnv("SPEECH_ENGINE_CACHE_DIR", "data/models"),
+			Provider:     strings.ToLower(strings.TrimSpace(getEnv("SPEECH_ENGINE_PROVIDER", "auto"))),
+			Threads:      getEnvIntUnchecked("SPEECH_ENGINE_THREADS", 0),
+			MaxLoaded:    getEnvIntUnchecked("SPEECH_ENGINE_MAX_LOADED", 2),
+			AutoDownload: getEnvBoolUnchecked("SPEECH_ENGINE_AUTO_DOWNLOAD", true),
+		},
+		Worker: WorkerConfig{
+			Workers:      getEnvIntUnchecked("TRANSCRIPTION_WORKERS", 1),
+			PollInterval: getEnvDurationUnchecked("TRANSCRIPTION_QUEUE_POLL_INTERVAL", 2*time.Second),
+			LeaseTimeout: getEnvDurationUnchecked("TRANSCRIPTION_LEASE_TIMEOUT", 10*time.Minute),
+		},
+		SecureCookies: getEnv("SECURE_COOKIES", defaultSecure) == "true",
+		OpenAIAPIKey:  getEnv("OPENAI_API_KEY", ""),
+		HFToken:       getEnv("HF_TOKEN", ""),
+	}
+}
+
+func (c *Config) validate() error {
+	if err := validateProvider(c.Engine.Provider); err != nil {
+		return err
+	}
+	if _, err := getEnvInt("SPEECH_ENGINE_THREADS", 0, 0); err != nil {
+		return err
+	}
+	if _, err := getEnvInt("SPEECH_ENGINE_MAX_LOADED", 2, 1); err != nil {
+		return err
+	}
+	if _, err := getEnvBool("SPEECH_ENGINE_AUTO_DOWNLOAD", true); err != nil {
+		return err
+	}
+	if _, err := getEnvInt("TRANSCRIPTION_WORKERS", 1, 1); err != nil {
+		return err
+	}
+	if _, err := getEnvDuration("TRANSCRIPTION_QUEUE_POLL_INTERVAL", 2*time.Second); err != nil {
+		return err
+	}
+	if _, err := getEnvDuration("TRANSCRIPTION_LEASE_TIMEOUT", 10*time.Minute); err != nil {
+		return err
+	}
+	return nil
+}
+
+func validateProvider(provider string) error {
+	switch provider {
+	case "auto", "cpu", "cuda":
+		return nil
+	default:
+		return fmt.Errorf("SPEECH_ENGINE_PROVIDER must be one of auto, cpu, or cuda; got %q", provider)
 	}
 }
 
@@ -84,6 +173,72 @@ func getEnv(key, defaultValue string) string {
 		return value
 	}
 	return defaultValue
+}
+
+func getEnvInt(key string, defaultValue, minValue int) (int, error) {
+	raw := strings.TrimSpace(os.Getenv(key))
+	if raw == "" {
+		return defaultValue, nil
+	}
+	value, err := strconv.Atoi(raw)
+	if err != nil {
+		return 0, fmt.Errorf("%s must be an integer; got %q", key, raw)
+	}
+	if value < minValue {
+		return 0, fmt.Errorf("%s must be greater than or equal to %d; got %d", key, minValue, value)
+	}
+	return value, nil
+}
+
+func getEnvIntUnchecked(key string, defaultValue int) int {
+	value, err := getEnvInt(key, defaultValue, -1<<31)
+	if err != nil {
+		return defaultValue
+	}
+	return value
+}
+
+func getEnvBool(key string, defaultValue bool) (bool, error) {
+	raw := strings.TrimSpace(os.Getenv(key))
+	if raw == "" {
+		return defaultValue, nil
+	}
+	value, err := strconv.ParseBool(raw)
+	if err != nil {
+		return false, fmt.Errorf("%s must be a boolean; got %q", key, raw)
+	}
+	return value, nil
+}
+
+func getEnvBoolUnchecked(key string, defaultValue bool) bool {
+	value, err := getEnvBool(key, defaultValue)
+	if err != nil {
+		return defaultValue
+	}
+	return value
+}
+
+func getEnvDuration(key string, defaultValue time.Duration) (time.Duration, error) {
+	raw := strings.TrimSpace(os.Getenv(key))
+	if raw == "" {
+		return defaultValue, nil
+	}
+	value, err := time.ParseDuration(raw)
+	if err != nil {
+		return 0, fmt.Errorf("%s must be a valid duration; got %q", key, raw)
+	}
+	if value <= 0 {
+		return 0, fmt.Errorf("%s must be greater than 0; got %s", key, value)
+	}
+	return value, nil
+}
+
+func getEnvDurationUnchecked(key string, defaultValue time.Duration) time.Duration {
+	value, err := getEnvDuration(key, defaultValue)
+	if err != nil {
+		return defaultValue
+	}
+	return value
 }
 
 // getJWTSecret gets JWT secret from env or generates a secure random one
