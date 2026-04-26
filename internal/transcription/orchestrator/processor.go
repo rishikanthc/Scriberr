@@ -1,0 +1,336 @@
+package orchestrator
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
+	"regexp"
+	"strings"
+	"time"
+
+	"scriberr/internal/models"
+	"scriberr/internal/repository"
+	"scriberr/internal/transcription/engineprovider"
+	"scriberr/internal/transcription/worker"
+	"scriberr/pkg/logger"
+)
+
+const defaultOutputDir = "data/transcripts"
+
+type EventPublisher interface {
+	Publish(ctx context.Context, event ProgressEvent)
+}
+
+type JobLogger interface {
+	Info(jobID string, message string, fields ...any)
+	Error(jobID string, message string, fields ...any)
+}
+
+type ProgressEvent struct {
+	Name     string           `json:"name"`
+	JobID    string           `json:"job_id"`
+	UserID   uint             `json:"user_id"`
+	Stage    string           `json:"stage"`
+	Progress float64          `json:"progress"`
+	Status   models.JobStatus `json:"status"`
+}
+
+type Processor struct {
+	Jobs      repository.JobRepository
+	Providers engineprovider.Registry
+	Events    EventPublisher
+	Logs      JobLogger
+	OutputDir string
+}
+
+func (p *Processor) Process(ctx context.Context, job *models.TranscriptionJob) (worker.ProcessResult, error) {
+	if err := ctx.Err(); err != nil {
+		return canceledResult(), err
+	}
+	if job == nil {
+		return failedResult("transcription job is required"), fmt.Errorf("transcription job is required")
+	}
+	if p.Jobs == nil {
+		return failedResult("job repository is required"), fmt.Errorf("job repository is required")
+	}
+	if p.Providers == nil {
+		return failedResult("engine provider registry is required"), fmt.Errorf("engine provider registry is required")
+	}
+
+	provider, providerID, err := p.resolveProvider(job)
+	if err != nil {
+		return failedResult(err.Error()), err
+	}
+	transcriptionModel := defaultString(job.Parameters.Model, engineprovider.DefaultTranscriptionModel)
+	diarizationEnabled := job.Diarization || job.Parameters.Diarize
+	diarizationModel := ""
+	if diarizationEnabled {
+		diarizationModel = defaultString(job.Parameters.DiarizeModel, engineprovider.DefaultDiarizationModel)
+	}
+
+	startedAt := time.Now()
+	execution := &models.TranscriptionJobExecution{
+		TranscriptionJobID: job.ID,
+		UserID:             job.UserID,
+		Status:             models.StatusProcessing,
+		Provider:           providerID,
+		ModelName:          transcriptionModel,
+		ModelFamily:        defaultString(job.Parameters.ModelFamily, "transcription"),
+		StartedAt:          startedAt,
+		ActualParameters:   job.Parameters,
+		ConfigJSON:         executionConfigJSON(providerID, transcriptionModel, diarizationModel),
+	}
+	if err := p.Jobs.CreateExecution(ctx, execution); err != nil {
+		return failedResult(sanitizeErrorMessage(err)), err
+	}
+
+	if err := p.publishProgress(ctx, job, "preparing", 0.05, models.StatusProcessing); err != nil {
+		return canceledResult(), err
+	}
+	if err := validateAudioPath(job.AudioPath); err != nil {
+		message := sanitizeErrorMessage(err)
+		return failedResult(message), err
+	}
+	if err := provider.Prepare(ctx); err != nil {
+		return p.errorResult(ctx, err)
+	}
+
+	if err := p.publishProgress(ctx, job, "transcribing", 0.20, models.StatusProcessing); err != nil {
+		return canceledResult(), err
+	}
+	transcription, err := provider.Transcribe(ctx, engineprovider.TranscriptionRequest{
+		JobID:     job.ID,
+		UserID:    job.UserID,
+		AudioPath: job.AudioPath,
+		ModelID:   transcriptionModel,
+		Language:  languageFromJob(job),
+		Task:      job.Parameters.Task,
+		Threads:   job.Parameters.Threads,
+	})
+	if err != nil {
+		return p.errorResult(ctx, err)
+	}
+	if transcription == nil {
+		return failedResult("transcription provider returned no result"), fmt.Errorf("transcription provider returned no result")
+	}
+	if transcription.ModelID == "" {
+		transcription.ModelID = transcriptionModel
+	}
+	if transcription.EngineID == "" {
+		transcription.EngineID = providerID
+	}
+
+	var diarization *engineprovider.DiarizationResult
+	if diarizationEnabled {
+		if err := p.publishProgress(ctx, job, "diarizing", 0.70, models.StatusProcessing); err != nil {
+			return canceledResult(), err
+		}
+		diarization, err = provider.Diarize(ctx, engineprovider.DiarizationRequest{
+			JobID:       job.ID,
+			UserID:      job.UserID,
+			AudioPath:   job.AudioPath,
+			ModelID:     diarizationModel,
+			MinSpeakers: job.Parameters.MinSpeakers,
+			MaxSpeakers: job.Parameters.MaxSpeakers,
+		})
+		if err != nil {
+			return p.errorResult(ctx, err)
+		}
+		if diarization != nil {
+			if diarization.ModelID == "" {
+				diarization.ModelID = diarizationModel
+			}
+			if diarization.EngineID == "" {
+				diarization.EngineID = providerID
+			}
+		}
+	}
+
+	if err := p.publishProgress(ctx, job, "merging", 0.85, models.StatusProcessing); err != nil {
+		return canceledResult(), err
+	}
+	canonical, err := BuildCanonicalTranscript(transcription, diarization)
+	if err != nil {
+		message := sanitizeErrorMessage(err)
+		return failedResult(message), err
+	}
+	transcriptJSON, err := json.Marshal(canonical)
+	if err != nil {
+		message := sanitizeErrorMessage(err)
+		return failedResult(message), err
+	}
+
+	if err := p.publishProgress(ctx, job, "saving", 0.95, models.StatusProcessing); err != nil {
+		return canceledResult(), err
+	}
+	outputPath, err := p.writeTranscriptJSON(job.ID, transcriptJSON)
+	if err != nil {
+		message := sanitizeErrorMessage(err)
+		return failedResult(message), err
+	}
+	p.publishFinal(ctx, job, "completed", 1.0, models.StatusCompleted)
+	logger.Info("Transcription job processed", "job_id", job.ID, "provider", providerID, "model", transcriptionModel)
+	return worker.ProcessResult{
+		Status:         models.StatusCompleted,
+		TranscriptJSON: string(transcriptJSON),
+		OutputJSONPath: &outputPath,
+		CompletedAt:    time.Now(),
+	}, nil
+}
+
+func (p *Processor) resolveProvider(job *models.TranscriptionJob) (engineprovider.Provider, string, error) {
+	if job.EngineID != nil && strings.TrimSpace(*job.EngineID) != "" {
+		providerID := strings.TrimSpace(*job.EngineID)
+		provider, ok := p.Providers.Provider(providerID)
+		if !ok {
+			return nil, "", fmt.Errorf("engine provider %q is not available", providerID)
+		}
+		return provider, providerID, nil
+	}
+	provider := p.Providers.DefaultProvider()
+	if provider == nil {
+		return nil, "", fmt.Errorf("default engine provider is not available")
+	}
+	return provider, provider.ID(), nil
+}
+
+func (p *Processor) publishProgress(ctx context.Context, job *models.TranscriptionJob, stage string, progress float64, status models.JobStatus) error {
+	if err := ctx.Err(); err != nil {
+		p.publishFinal(context.Background(), job, "canceled", progress, models.StatusCanceled)
+		return err
+	}
+	if err := p.Jobs.UpdateProgress(ctx, job.ID, progress, stage); err != nil {
+		return err
+	}
+	p.publishFinal(ctx, job, stage, progress, status)
+	return nil
+}
+
+func (p *Processor) publishFinal(ctx context.Context, job *models.TranscriptionJob, stage string, progress float64, status models.JobStatus) {
+	if p.Events == nil {
+		return
+	}
+	name := "transcription.progress"
+	switch stage {
+	case "completed":
+		name = "transcription.completed"
+	case "failed":
+		name = "transcription.failed"
+	case "canceled":
+		name = "transcription.canceled"
+	case "queued":
+		name = "transcription.queued"
+	}
+	p.Events.Publish(ctx, ProgressEvent{
+		Name:     name,
+		JobID:    job.ID,
+		UserID:   job.UserID,
+		Stage:    stage,
+		Progress: progress,
+		Status:   status,
+	})
+}
+
+func (p *Processor) errorResult(ctx context.Context, err error) (worker.ProcessResult, error) {
+	if errors.Is(ctx.Err(), context.Canceled) || errors.Is(err, context.Canceled) {
+		return canceledResult(), context.Canceled
+	}
+	message := sanitizeErrorMessage(err)
+	return failedResult(message), err
+}
+
+func (p *Processor) writeTranscriptJSON(jobID string, transcriptJSON []byte) (string, error) {
+	outputDir := p.OutputDir
+	if outputDir == "" {
+		outputDir = defaultOutputDir
+	}
+	jobDir := filepath.Join(outputDir, jobID)
+	if err := os.MkdirAll(jobDir, 0o755); err != nil {
+		return "", err
+	}
+	outputPath := filepath.Join(jobDir, "transcript.json")
+	if err := os.WriteFile(outputPath, transcriptJSON, 0o600); err != nil {
+		return "", err
+	}
+	return outputPath, nil
+}
+
+func executionConfigJSON(providerID, transcriptionModel, diarizationModel string) string {
+	payload := map[string]string{
+		"provider":            providerID,
+		"transcription_model": transcriptionModel,
+	}
+	if diarizationModel != "" {
+		payload["diarization_model"] = diarizationModel
+	}
+	data, err := json.Marshal(payload)
+	if err != nil {
+		return "{}"
+	}
+	return string(data)
+}
+
+func languageFromJob(job *models.TranscriptionJob) string {
+	if job.Language != nil {
+		return *job.Language
+	}
+	if job.Parameters.Language != nil {
+		return *job.Parameters.Language
+	}
+	return ""
+}
+
+func defaultString(value, fallback string) string {
+	if strings.TrimSpace(value) != "" {
+		return strings.TrimSpace(value)
+	}
+	return fallback
+}
+
+func validateAudioPath(path string) error {
+	if strings.TrimSpace(path) == "" {
+		return fmt.Errorf("source audio path is required")
+	}
+	if _, err := os.Stat(path); err != nil {
+		return err
+	}
+	return nil
+}
+
+func failedResult(message string) worker.ProcessResult {
+	return worker.ProcessResult{
+		Status:       models.StatusFailed,
+		ErrorMessage: message,
+		FailedAt:     time.Now(),
+	}
+}
+
+func canceledResult() worker.ProcessResult {
+	return worker.ProcessResult{
+		Status:   models.StatusCanceled,
+		FailedAt: time.Now(),
+	}
+}
+
+var absolutePathPattern = regexp.MustCompile(`(?:[A-Za-z]:\\|/)[^\s:;,'")]+`)
+
+func sanitizeErrorMessage(err error) string {
+	if err == nil {
+		return ""
+	}
+	msg := absolutePathPattern.ReplaceAllString(err.Error(), "[redacted-path]")
+	parts := strings.Fields(msg)
+	for i, part := range parts {
+		lower := strings.ToLower(part)
+		if strings.Contains(lower, "token") || strings.Contains(lower, "api_key") || strings.Contains(lower, "apikey") {
+			if strings.Contains(part, "=") {
+				key := strings.SplitN(part, "=", 2)[0]
+				parts[i] = key + "=[redacted]"
+			}
+		}
+	}
+	return strings.Join(parts, " ")
+}

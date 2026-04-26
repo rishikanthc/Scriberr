@@ -156,16 +156,34 @@ Verification:
 
 ## EWI-Sprint 5: Orchestrator, Transcript Mapping, and Speaker Merge
 
-Status: not started
+Status: completed
 
-Planned artifacts:
+Completed tasks:
 
-- `internal/transcription/orchestrator`
-- transcript mapper and speaker merge tests
+- Added `internal/transcription/orchestrator` with a worker-compatible processor.
+- Added canonical transcript structs, JSON parsing, mapper, fallback segment generation, and legacy plain-text/older-JSON fallback parsing.
+- Implemented overlap-based speaker assignment for words and segments with stable public `SPEAKER_00` labels.
+- Implemented provider/model/language/task/diarization request resolution.
+- Created execution rows at processor start with sanitized request/config metadata.
+- Published progress stages for preparing, transcribing, diarizing, merging, saving, completed, failed, and canceled paths.
+- Wrote canonical transcript JSON to the configured transcript output directory and returned the internal output path for worker completion.
+- Preserved `words: []` when token timestamps are absent.
+- Sanitized provider failures to redact paths and token-like values.
+- Distinguished context cancellation from provider failure.
+
+Artifacts:
+
+- `internal/transcription/orchestrator/processor.go`
+- `internal/transcription/orchestrator/transcript.go`
+- `internal/transcription/orchestrator/processor_test.go`
+- `internal/transcription/orchestrator/transcript_test.go`
 
 Verification:
 
-- Pending
+- `GOCACHE=/tmp/scriberr-go-cache go test ./internal/transcription/...` passed.
+- `GOCACHE=/tmp/scriberr-go-cache go test ./internal/api ./internal/config ./internal/database ./internal/repository ./internal/transcription/... ./cmd/server ./pkg/logger ./pkg/middleware` passed.
+- `GOCACHE=/tmp/scriberr-go-cache go vet ./internal/api ./internal/config ./internal/database ./internal/repository ./internal/transcription/... ./cmd/server ./pkg/logger ./pkg/middleware` passed.
+- `git diff --check` passed.
 
 ## EWI-Sprint 6: API Wiring for Real Queue Execution
 
