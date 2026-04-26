@@ -322,6 +322,42 @@ func (m *MockJobRepository) ListByUser(ctx context.Context, userID uint, offset,
 	return args.Get(0).([]models.TranscriptionJob), args.Get(1).(int64), args.Error(2)
 }
 
+func (m *MockJobRepository) EnqueueTranscription(ctx context.Context, jobID string, now time.Time) error {
+	return nil
+}
+
+func (m *MockJobRepository) ClaimNextTranscription(ctx context.Context, workerID string, leaseUntil time.Time) (*models.TranscriptionJob, error) {
+	return nil, nil
+}
+
+func (m *MockJobRepository) RenewClaim(ctx context.Context, jobID, workerID string, leaseUntil time.Time) error {
+	return nil
+}
+
+func (m *MockJobRepository) RecoverOrphanedProcessing(ctx context.Context, now time.Time) (int64, error) {
+	return 0, nil
+}
+
+func (m *MockJobRepository) UpdateProgress(ctx context.Context, jobID string, progress float64, stage string) error {
+	return nil
+}
+
+func (m *MockJobRepository) CompleteTranscription(ctx context.Context, jobID string, transcriptJSON string, outputPath *string, completedAt time.Time) error {
+	return nil
+}
+
+func (m *MockJobRepository) FailTranscription(ctx context.Context, jobID string, message string, failedAt time.Time) error {
+	return nil
+}
+
+func (m *MockJobRepository) CancelTranscription(ctx context.Context, jobID string, canceledAt time.Time) error {
+	return nil
+}
+
+func (m *MockJobRepository) ListExecutions(ctx context.Context, jobID string) ([]models.TranscriptionJobExecution, error) {
+	return nil, nil
+}
+
 func (m *MockJobRepository) UpdateTranscript(ctx context.Context, jobID string, transcript string) error {
 	args := m.Called(ctx, jobID, transcript)
 	return args.Error(0)

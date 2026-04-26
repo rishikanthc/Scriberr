@@ -102,6 +102,14 @@ type TranscriptionJob struct {
 	LatestExecutionID *string        `json:"latest_execution_id,omitempty" gorm:"type:varchar(36);index"`
 	ErrorMessage      *string        `json:"error_message,omitempty" gorm:"column:last_error;type:text"`
 	MetadataJSON      string         `json:"-" gorm:"column:metadata_json;type:json"`
+	QueuedAt          *time.Time     `json:"queued_at,omitempty"`
+	StartedAt         *time.Time     `json:"started_at,omitempty"`
+	FailedAt          *time.Time     `json:"failed_at,omitempty"`
+	Progress          float64        `json:"progress" gorm:"not null;default:0"`
+	ProgressStage     string         `json:"progress_stage,omitempty" gorm:"type:varchar(50)"`
+	ClaimedBy         *string        `json:"claimed_by,omitempty" gorm:"type:varchar(128)"`
+	ClaimExpiresAt    *time.Time     `json:"claim_expires_at,omitempty"`
+	EngineID          *string        `json:"engine_id,omitempty" gorm:"type:varchar(50)"`
 	CompletedAt       *time.Time     `json:"completed_at,omitempty"`
 	CreatedAt         time.Time      `json:"created_at" gorm:"autoCreateTime"`
 	UpdatedAt         time.Time      `json:"updated_at" gorm:"autoUpdateTime"`

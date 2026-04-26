@@ -67,6 +67,15 @@ type JobRepository interface {
 	FindLatestCompletedExecution(ctx context.Context, jobID string) (*models.TranscriptionJobExecution, error)
 	ListWithParams(ctx context.Context, offset, limit int, sortBy, sortOrder, searchQuery string, updatedAfter *time.Time) ([]models.TranscriptionJob, int64, error)
 	ListByUser(ctx context.Context, userID uint, offset, limit int) ([]models.TranscriptionJob, int64, error)
+	EnqueueTranscription(ctx context.Context, jobID string, now time.Time) error
+	ClaimNextTranscription(ctx context.Context, workerID string, leaseUntil time.Time) (*models.TranscriptionJob, error)
+	RenewClaim(ctx context.Context, jobID, workerID string, leaseUntil time.Time) error
+	RecoverOrphanedProcessing(ctx context.Context, now time.Time) (int64, error)
+	UpdateProgress(ctx context.Context, jobID string, progress float64, stage string) error
+	CompleteTranscription(ctx context.Context, jobID string, transcriptJSON string, outputPath *string, completedAt time.Time) error
+	FailTranscription(ctx context.Context, jobID string, message string, failedAt time.Time) error
+	CancelTranscription(ctx context.Context, jobID string, canceledAt time.Time) error
+	ListExecutions(ctx context.Context, jobID string) ([]models.TranscriptionJobExecution, error)
 	UpdateTranscript(ctx context.Context, jobID string, transcript string) error
 	CreateExecution(ctx context.Context, execution *models.TranscriptionJobExecution) error
 	UpdateExecution(ctx context.Context, execution *models.TranscriptionJobExecution) error
@@ -152,6 +161,208 @@ func (r *jobRepository) ListByUser(ctx context.Context, userID uint, offset, lim
 		return nil, 0, err
 	}
 	return jobs, count, nil
+}
+
+func (r *jobRepository) EnqueueTranscription(ctx context.Context, jobID string, now time.Time) error {
+	result := r.db.WithContext(ctx).Model(&models.TranscriptionJob{}).
+		Where("id = ?", jobID).
+		Updates(map[string]any{
+			"status":           models.StatusPending,
+			"queued_at":        now,
+			"started_at":       nil,
+			"failed_at":        nil,
+			"progress":         0,
+			"progress_stage":   "queued",
+			"claimed_by":       nil,
+			"claim_expires_at": nil,
+			"last_error":       nil,
+		})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
+
+func (r *jobRepository) ClaimNextTranscription(ctx context.Context, workerID string, leaseUntil time.Time) (*models.TranscriptionJob, error) {
+	var claimed models.TranscriptionJob
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var candidate models.TranscriptionJob
+		if err := tx.
+			Where("status = ?", models.StatusPending).
+			Order("queued_at ASC, created_at ASC, id ASC").
+			First(&candidate).Error; err != nil {
+			return err
+		}
+		now := time.Now()
+		result := tx.Model(&models.TranscriptionJob{}).
+			Where("id = ? AND status = ?", candidate.ID, models.StatusPending).
+			Updates(map[string]any{
+				"status":           models.StatusProcessing,
+				"started_at":       now,
+				"progress":         0.05,
+				"progress_stage":   "preparing",
+				"claimed_by":       workerID,
+				"claim_expires_at": leaseUntil,
+			})
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected == 0 {
+			return gorm.ErrRecordNotFound
+		}
+		return tx.First(&claimed, "id = ?", candidate.ID).Error
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &claimed, nil
+}
+
+func (r *jobRepository) RenewClaim(ctx context.Context, jobID, workerID string, leaseUntil time.Time) error {
+	result := r.db.WithContext(ctx).Model(&models.TranscriptionJob{}).
+		Where("id = ? AND status = ? AND claimed_by = ?", jobID, models.StatusProcessing, workerID).
+		Update("claim_expires_at", leaseUntil)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
+
+func (r *jobRepository) RecoverOrphanedProcessing(ctx context.Context, now time.Time) (int64, error) {
+	result := r.db.WithContext(ctx).Model(&models.TranscriptionJob{}).
+		Where("status = ?", models.StatusProcessing).
+		Updates(map[string]any{
+			"status":           models.StatusPending,
+			"queued_at":        now,
+			"progress_stage":   "recovered",
+			"claimed_by":       nil,
+			"claim_expires_at": nil,
+		})
+	return result.RowsAffected, result.Error
+}
+
+func (r *jobRepository) UpdateProgress(ctx context.Context, jobID string, progress float64, stage string) error {
+	result := r.db.WithContext(ctx).Model(&models.TranscriptionJob{}).
+		Where("id = ?", jobID).
+		Updates(map[string]any{
+			"progress":       progress,
+			"progress_stage": stage,
+		})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
+
+func (r *jobRepository) CompleteTranscription(ctx context.Context, jobID string, transcriptJSON string, outputPath *string, completedAt time.Time) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Model(&models.TranscriptionJob{}).
+			Where("id = ?", jobID).
+			Updates(map[string]any{
+				"status":           models.StatusCompleted,
+				"transcript_text":  transcriptJSON,
+				"output_json_path": outputPath,
+				"completed_at":     completedAt,
+				"failed_at":        nil,
+				"progress":         1.0,
+				"progress_stage":   "completed",
+				"claimed_by":       nil,
+				"claim_expires_at": nil,
+				"last_error":       nil,
+			}).Error; err != nil {
+			return err
+		}
+		return updateLatestExecutionTerminal(tx, jobID, models.StatusCompleted, map[string]any{
+			"completed_at":     completedAt,
+			"failed_at":        nil,
+			"error_message":    nil,
+			"output_json_path": outputPath,
+		})
+	})
+}
+
+func (r *jobRepository) FailTranscription(ctx context.Context, jobID string, message string, failedAt time.Time) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Model(&models.TranscriptionJob{}).
+			Where("id = ?", jobID).
+			Updates(map[string]any{
+				"status":           models.StatusFailed,
+				"failed_at":        failedAt,
+				"progress_stage":   "failed",
+				"claimed_by":       nil,
+				"claim_expires_at": nil,
+				"last_error":       message,
+			}).Error; err != nil {
+			return err
+		}
+		return updateLatestExecutionTerminal(tx, jobID, models.StatusFailed, map[string]any{
+			"failed_at":     failedAt,
+			"error_message": message,
+		})
+	})
+}
+
+func (r *jobRepository) CancelTranscription(ctx context.Context, jobID string, canceledAt time.Time) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Model(&models.TranscriptionJob{}).
+			Where("id = ?", jobID).
+			Updates(map[string]any{
+				"status":           models.StatusCanceled,
+				"progress_stage":   "canceled",
+				"claimed_by":       nil,
+				"claim_expires_at": nil,
+			}).Error; err != nil {
+			return err
+		}
+		return updateLatestExecutionTerminal(tx, jobID, models.StatusCanceled, map[string]any{
+			"completed_at": nil,
+			"failed_at":    canceledAt,
+		})
+	})
+}
+
+func (r *jobRepository) ListExecutions(ctx context.Context, jobID string) ([]models.TranscriptionJobExecution, error) {
+	var executions []models.TranscriptionJobExecution
+	err := r.db.WithContext(ctx).
+		Where("transcription_id = ?", jobID).
+		Order("execution_number DESC").
+		Find(&executions).Error
+	return executions, err
+}
+
+func updateLatestExecutionTerminal(tx *gorm.DB, jobID string, status models.JobStatus, updates map[string]any) error {
+	var job models.TranscriptionJob
+	if err := tx.Select("latest_execution_id").First(&job, "id = ?", jobID).Error; err != nil {
+		return err
+	}
+	executionQuery := tx.Model(&models.TranscriptionJobExecution{}).Where("transcription_id = ?", jobID)
+	if job.LatestExecutionID != nil && *job.LatestExecutionID != "" {
+		executionQuery = executionQuery.Where("id = ?", *job.LatestExecutionID)
+	} else {
+		var latest models.TranscriptionJobExecution
+		result := tx.Where("transcription_id = ?", jobID).Order("execution_number DESC").Limit(1).Find(&latest)
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected == 0 {
+			return nil
+		}
+		executionQuery = executionQuery.Where("id = ?", latest.ID)
+	}
+	updates["status"] = status
+	if err := executionQuery.Updates(updates).Error; err != nil {
+		return err
+	}
+	return nil
 }
 
 func (r *jobRepository) UpdateTranscript(ctx context.Context, jobID string, transcript string) error {

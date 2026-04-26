@@ -93,18 +93,32 @@ Verification:
 
 ## EWI-Sprint 3: Queue Schema and Repository Methods
 
-Status: not started
+Status: completed
 
-Planned artifacts:
+Completed tasks:
+
+- Added durable queue/lease/progress fields to `models.TranscriptionJob`.
+- Added queue claim and claim-expiry indexes to the target schema.
+- Extended `JobRepository` with durable worker methods for enqueue, FIFO claim, lease renewal, startup recovery, progress, completion, failure, cancellation, and execution listing.
+- Implemented transactional terminal updates that keep the job row and latest execution row consistent.
+- Added focused repository tests for schema/indexes, enqueue, FIFO claim, concurrent claim deduplication, owner-only lease renewal, orphan recovery, progress updates, terminal transitions, and execution listing.
+- Updated existing legacy transcription test mocks to satisfy the expanded repository interface until the legacy stack is removed in later sprints.
+
+Artifacts:
 
 - `internal/models/transcription.go`
 - `internal/database/schema.go`
-- `internal/repository/*`
-- focused repository/database tests
+- `internal/repository/implementations.go`
+- `internal/repository/job_queue_test.go`
+- `internal/transcription/adapters_test.go`
+- `tests/test_helpers.go`
 
 Verification:
 
-- Pending
+- `GOCACHE=/tmp/scriberr-go-cache go test ./internal/repository -run 'TestJobRepository'` passed.
+- `GOCACHE=/tmp/scriberr-go-cache go vet ./internal/api ./internal/config ./internal/database ./internal/repository ./internal/transcription/... ./cmd/server ./pkg/logger ./pkg/middleware` passed.
+- `GOCACHE=/tmp/scriberr-go-cache go test ./internal/api ./internal/config ./internal/database ./internal/repository ./internal/transcription/... ./cmd/server ./pkg/logger ./pkg/middleware` passed with escalation because an existing webhook integration test opens a local `httptest` listener.
+- `git diff --check` passed.
 
 ## EWI-Sprint 4: Durable Worker Service
 
