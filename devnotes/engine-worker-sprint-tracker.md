@@ -257,16 +257,29 @@ Verification:
 
 ## EWI-Sprint 8: Real Engine Integration Tests and Performance Smoke
 
-Status: not started
+Status: completed
 
-Planned artifacts:
+Completed tasks:
 
-- gated real engine integration tests
-- `test-audio/jfk.wav` smoke notes
+- Added opt-in real local engine integration tests gated by `SCRIBERR_ENGINE_ITEST=1`.
+- Added `test-audio/jfk.wav` real transcription smoke coverage with non-empty text, non-nil words, provider identity, timing logs, and path-leak assertions.
+- Added auto-download-disabled missing-model coverage that uses an isolated empty cache and asserts sanitized model-unavailable behavior without downloads.
+- Added a one-iteration-friendly benchmark for local JFK timing without brittle pass/fail thresholds.
+- Added clean skip handling for disabled opt-in flag, missing `ffmpeg`, missing fixture audio, unavailable runtime libraries, CUDA/runtime issues, and network/download failures.
+- Added concise smoke notes with commands for JFK transcription, optional cache override, and benchmark/manual performance recording.
+
+Artifacts:
+
+- `internal/transcription/engineprovider/real_engine_integration_test.go`
+- `devnotes/engine-worker-sprint-8-smoke.md`
 
 Verification:
 
-- Pending
+- `GOCACHE=/tmp/scriberr-go-cache go test ./internal/transcription/...` passed.
+- `GOCACHE=/tmp/scriberr-go-cache go test ./internal/api ./internal/config ./internal/database ./internal/repository ./internal/transcription/... ./cmd/server ./pkg/logger ./pkg/middleware` passed.
+- `GOCACHE=/tmp/scriberr-go-cache go vet ./internal/api ./internal/config ./internal/database ./internal/repository ./internal/transcription/... ./cmd/server ./pkg/logger ./pkg/middleware` passed.
+- `SCRIBERR_ENGINE_ITEST=1 GOCACHE=/tmp/scriberr-go-cache go test ./internal/transcription/engineprovider -run TestRealEngineAutoDownloadDisabledMissingModelIsSanitized -v` passed.
+- `git diff --check` passed.
 
 ## EWI-Sprint 9: Docs, Docker, and Setup UX
 
