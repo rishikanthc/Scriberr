@@ -136,6 +136,37 @@ func TestServiceEnqueueWakeAndComplete(t *testing.T) {
 	assert.NotNil(t, completed.CompletedAt)
 }
 
+func TestServiceStartRecoversOrphanedProcessingBeforeWorkersClaim(t *testing.T) {
+	db := openWorkerTestDB(t)
+	user := createWorkerTestUser(t, db, "worker-user-recover")
+	job := createWorkerTestJob(t, db, user.ID, "job-recover", models.StatusProcessing)
+	repo := repository.NewJobRepository(db)
+	processor := newFakeProcessor()
+	processor.result = ProcessResult{TranscriptJSON: `{"text":"recovered"}`}
+	service := NewService(repo, processor, testConfig())
+
+	require.NoError(t, service.Start(context.Background()))
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+		_ = service.Stop(ctx)
+	})
+
+	require.Eventually(t, func() bool {
+		select {
+		case id := <-processor.started:
+			return id == job.ID
+		default:
+			return false
+		}
+	}, 2*time.Second, 10*time.Millisecond)
+	processor.complete()
+
+	completed := waitForJobStatus(t, db, job.ID, models.StatusCompleted)
+	require.NotNil(t, completed.QueuedAt)
+	assert.Equal(t, "completed", completed.ProgressStage)
+}
+
 func TestServiceCancelQueued(t *testing.T) {
 	db := openWorkerTestDB(t)
 	user := createWorkerTestUser(t, db, "worker-user-cancel-queued")

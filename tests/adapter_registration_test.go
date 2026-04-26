@@ -1,3 +1,6 @@
+//go:build legacy_python
+// +build legacy_python
+
 package tests
 
 import (

@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"syscall"
 	"time"
 
@@ -15,13 +14,10 @@ import (
 	"scriberr/internal/auth"
 	"scriberr/internal/config"
 	"scriberr/internal/database"
-	"scriberr/internal/queue"
 	"scriberr/internal/repository"
-	"scriberr/internal/service"
-	"scriberr/internal/sse"
-	"scriberr/internal/transcription"
-	"scriberr/internal/transcription/adapters"
-	"scriberr/internal/transcription/registry"
+	"scriberr/internal/transcription/engineprovider"
+	"scriberr/internal/transcription/orchestrator"
+	"scriberr/internal/transcription/worker"
 	"scriberr/pkg/logger"
 )
 
@@ -90,93 +86,59 @@ func main() {
 		"lease_timeout", cfg.Worker.LeaseTimeout.String(),
 	)
 
-	// Register adapters with config-based paths
-	registerAdapters(cfg)
-
 	// Initialize database
 	logger.Startup("database", "Connecting to database")
 	if err := database.Initialize(cfg.DatabasePath); err != nil {
 		logger.Error("Failed to connect to database", "error", err)
 		os.Exit(1)
 	}
-	defer database.Close()
 
 	// Initialize authentication service
 	logger.Startup("auth", "Setting up authentication")
 	authService := auth.NewAuthService(cfg.JWTSecret)
 
-	// Initialize SSE Broadcaster
-	logger.Startup("sse", "Initializing SSE broadcaster")
-	broadcaster := sse.NewBroadcaster()
-
 	// Initialize repositories
 	logger.Startup("repository", "Initializing repositories")
 	jobRepo := repository.NewJobRepository(database.DB)
-	userRepo := repository.NewUserRepository(database.DB)
-	apiKeyRepo := repository.NewAPIKeyRepository(database.DB)
-	profileRepo := repository.NewProfileRepository(database.DB)
-	llmConfigRepo := repository.NewLLMConfigRepository(database.DB)
-	summaryRepo := repository.NewSummaryRepository(database.DB)
-	chatRepo := repository.NewChatRepository(database.DB)
-	noteRepo := repository.NewNoteRepository(database.DB)
-	speakerMappingRepo := repository.NewSpeakerMappingRepository(database.DB)
-	refreshTokenRepo := repository.NewRefreshTokenRepository(database.DB)
 
-	// Initialize services
-	logger.Startup("service", "Initializing services")
-	userService := service.NewUserService(userRepo, authService)
-	fileService := service.NewFileService()
-
-	// Initialize unified transcription processor
-	logger.Startup("transcription", "Initializing transcription service")
-	unifiedProcessor := transcription.NewUnifiedJobProcessor(jobRepo, cfg.TempDir, cfg.TranscriptsDir)
-	unifiedProcessor.GetUnifiedService().SetBroadcaster(broadcaster)
-
-	// Bootstrap embedded Python environment (for all adapters)
-	logger.Startup("python", "Preparing Python environment")
-	if err := unifiedProcessor.InitEmbeddedPythonEnv(); err != nil {
-		logger.Error("Failed to prepare Python environment", "error", err)
-		os.Exit(1)
-	}
-
-	// Initialize quick transcription service
-	logger.Startup("quick-transcription", "Initializing quick transcription service")
-	quickTranscriptionService, err := transcription.NewQuickTranscriptionService(cfg, unifiedProcessor, jobRepo)
+	// Initialize local engine provider. This must not download models at startup.
+	logger.Startup("engine", "Initializing local engine provider")
+	localProvider, err := engineprovider.NewLocalProvider(cfg.Engine)
 	if err != nil {
-		logger.Error("Failed to initialize quick transcription service", "error", err)
+		logger.Error("Failed to initialize local engine provider", "error", err)
 		os.Exit(1)
 	}
 
-	// Initialize task queue
-	logger.Startup("queue", "Starting background processing")
-	taskQueue := queue.NewTaskQueue(2, unifiedProcessor, jobRepo) // 2 workers
-	taskQueue.Start()
-	defer taskQueue.Stop()
+	providerRegistry, err := engineprovider.NewRegistry(engineprovider.DefaultProviderID, localProvider)
+	if err != nil {
+		logger.Error("Failed to initialize engine provider registry", "error", err)
+		os.Exit(1)
+	}
+
+	processor := &orchestrator.Processor{
+		Jobs:      jobRepo,
+		Providers: providerRegistry,
+		OutputDir: cfg.TranscriptsDir,
+	}
+	queueService := worker.NewService(jobRepo, processor, worker.Config{
+		Workers:      cfg.Worker.Workers,
+		PollInterval: cfg.Worker.PollInterval,
+		LeaseTimeout: cfg.Worker.LeaseTimeout,
+	})
 
 	// Initialize API handlers
-	handler := api.NewHandler(
-		cfg,
-		authService,
-		userService,
-		fileService,
-		jobRepo,
-		apiKeyRepo,
-		profileRepo,
-		userRepo,
-		llmConfigRepo,
-		summaryRepo,
-		chatRepo,
-		noteRepo,
-		speakerMappingRepo,
-		refreshTokenRepo,
-		taskQueue,
-		unifiedProcessor,
-		quickTranscriptionService,
-		broadcaster,
-	)
+	handler := api.NewHandler(cfg, authService, queueService, providerRegistry)
+	processor.Events = handler
 
 	// Set up router
 	router := api.SetupRoutes(handler, authService)
+
+	// Start durable transcription workers after DB recovery.
+	logger.Startup("worker", "Starting durable transcription workers")
+	if err := queueService.Start(context.Background()); err != nil {
+		logger.Error("Failed to start transcription workers", "error", err)
+		os.Exit(1)
+	}
 
 	// Create server
 	srv := &http.Server{
@@ -210,50 +172,25 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	// Shutdown broadcaster to close all active SSE connections
-	if broadcaster != nil {
-		broadcaster.Shutdown()
-	}
-
 	// Gracefully shutdown the server
+	shutdownFailed := false
 	if err := srv.Shutdown(ctx); err != nil {
 		logger.Error("Server forced to shutdown", "error", err)
-		os.Exit(1)
+		shutdownFailed = true
 	}
 
+	if err := queueService.Stop(ctx); err != nil {
+		logger.Error("Failed to stop transcription workers", "error", err)
+		shutdownFailed = true
+	}
+
+	if err := localProvider.Close(); err != nil {
+		logger.Warn("Failed to close local engine provider", "error", err)
+	}
+
+	database.Close()
 	logger.Info("Server stopped")
-}
-
-// registerAdapters registers all transcription and diarization adapters with config-based paths
-func registerAdapters(cfg *config.Config) {
-	logger.Info("Registering adapters with environment path", "whisperx_env", cfg.WhisperXEnv)
-
-	// Shared environment path for NVIDIA models (NeMo-based)
-	nvidiaEnvPath := filepath.Join(cfg.WhisperXEnv, "parakeet")
-
-	// Dedicated environment path for PyAnnote (to avoid dependency conflicts)
-	pyannoteEnvPath := filepath.Join(cfg.WhisperXEnv, "pyannote")
-
-	// Dedicated environment path for Voxtral (Mistral AI model)
-	voxtralEnvPath := filepath.Join(cfg.WhisperXEnv, "voxtral")
-
-	// Register transcription adapters
-	registry.RegisterTranscriptionAdapter("whisperx",
-		adapters.NewWhisperXAdapter(cfg.WhisperXEnv))
-	registry.RegisterTranscriptionAdapter("parakeet",
-		adapters.NewParakeetAdapter(nvidiaEnvPath))
-	registry.RegisterTranscriptionAdapter("canary",
-		adapters.NewCanaryAdapter(nvidiaEnvPath)) // Shares with Parakeet
-	registry.RegisterTranscriptionAdapter("voxtral",
-		adapters.NewVoxtralAdapter(voxtralEnvPath))
-	registry.RegisterTranscriptionAdapter("openai_whisper",
-		adapters.NewOpenAIAdapter(cfg.OpenAIAPIKey))
-
-	// Register diarization adapters
-	registry.RegisterDiarizationAdapter("pyannote",
-		adapters.NewPyAnnoteAdapter(pyannoteEnvPath)) // Dedicated environment
-	registry.RegisterDiarizationAdapter("sortformer",
-		adapters.NewSortformerAdapter(nvidiaEnvPath)) // Shares with Parakeet
-
-	logger.Info("Adapter registration complete")
+	if shutdownFailed {
+		os.Exit(1)
+	}
 }

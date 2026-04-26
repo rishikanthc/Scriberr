@@ -222,17 +222,38 @@ Verification:
 
 ## EWI-Sprint 7: Server Startup, Shutdown, and Legacy Adapter Removal
 
-Status: not started
+Status: completed
 
-Planned artifacts:
+Completed tasks:
+
+- Replaced server startup wiring with the local engine provider registry, orchestrator processor, and durable worker service.
+- Removed server startup dependencies on legacy `internal/queue`, Python adapter registration, unified processor, quick transcription, and embedded Python environment bootstrap.
+- Started durable transcription workers after database/repository/provider/API construction so worker startup recovery runs before claims.
+- Wired API handler to the queue service and provider registry from real server startup.
+- Updated shutdown to stop HTTP serving, stop workers, close the local provider, and close the database.
+- Added server regression coverage proving `cmd/server/main.go` no longer references legacy Python startup symbols.
+- Added worker coverage for recovering orphaned processing jobs before workers claim work.
+- Stopped compiling the legacy Python adapter stack by placing adapters, registry, pipeline, unified service, quick transcription, and obsolete adapter/webhook tests behind a `legacy_python` build tag.
+- Added package stubs for legacy-tagged packages so normal package discovery stays clean.
+
+Artifacts:
 
 - `cmd/server/main.go`
-- deleted or disabled legacy Python adapter stack
-- lifecycle tests where practical
+- `cmd/server/main_test.go`
+- `internal/transcription/worker/service_test.go`
+- `internal/transcription/doc.go`
+- `internal/transcription/adapters/doc.go`
+- `internal/transcription/registry/doc.go`
+- `internal/transcription/pipeline/doc.go`
+- legacy Python adapter files tagged with `legacy_python`
 
 Verification:
 
-- Pending
+- `GOCACHE=/tmp/scriberr-go-cache go test ./internal/transcription/...` passed.
+- `GOCACHE=/tmp/scriberr-go-cache go test ./internal/api ./internal/config ./internal/database ./internal/repository ./internal/transcription/... ./cmd/server ./pkg/logger ./pkg/middleware` passed.
+- `GOCACHE=/tmp/scriberr-go-cache go vet ./internal/api ./internal/config ./internal/database ./internal/repository ./internal/transcription/... ./cmd/server ./pkg/logger ./pkg/middleware` passed.
+- `GOCACHE=/tmp/scriberr-go-cache go test ./tests -run '^$'` passed.
+- `git diff --check` passed.
 
 ## EWI-Sprint 8: Real Engine Integration Tests and Performance Smoke
 
