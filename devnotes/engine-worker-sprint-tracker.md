@@ -57,15 +57,39 @@ Verification:
 
 ## EWI-Sprint 2: Engine Provider Abstraction
 
-Status: not started
+Status: completed
 
-Planned artifacts:
+Completed tasks:
 
-- `internal/transcription/engineprovider`
+- Added `internal/transcription/engineprovider` provider and registry interfaces.
+- Added internal provider request/result/capability types so `scriberr-engine` types do not leak outside the provider boundary.
+- Added static provider registry with deterministic capability aggregation.
+- Added local provider wrapper for `scriberr-engine/speech/engine`.
+- Mapped Scriberr transcription and diarization requests to local engine requests.
+- Forced token timestamps for local transcription requests.
+- Mapped engine words and diarization segments to public-safe internal result structs.
+- Added model capability discovery from the engine model specs with install state through `IsModelInstalled`.
+- Added provider error sanitization for paths and token-like values.
+- Added focused fake-engine tests for mapping, empty words, capabilities, diarization speakers, close behavior, and sanitized errors.
+- Updated the main module to `go 1.26` because the local `scriberr-engine` module declares `go 1.26`.
+
+Artifacts:
+
+- `internal/transcription/engineprovider/types.go`
+- `internal/transcription/engineprovider/registry.go`
+- `internal/transcription/engineprovider/local_provider.go`
+- `internal/transcription/engineprovider/sanitize.go`
+- `internal/transcription/engineprovider/*_test.go`
+- `go.mod`
+- `go.sum`
 
 Verification:
 
-- Pending
+- `GOCACHE=/tmp/scriberr-go-cache go test ./internal/transcription/engineprovider` passed.
+- `GOCACHE=/tmp/scriberr-go-cache go vet ./internal/api ./internal/config ./internal/database ./internal/repository ./internal/transcription/... ./cmd/server ./pkg/logger ./pkg/middleware` passed.
+- `GOCACHE=/tmp/scriberr-go-cache go test ./internal/api ./internal/config ./internal/database ./internal/repository ./internal/transcription/... ./cmd/server ./pkg/logger ./pkg/middleware` passed with escalation because an existing webhook integration test opens a local `httptest` listener.
+- `git diff --check` passed.
+- Verified no non-provider Go package imports `scriberr-engine`.
 
 ## EWI-Sprint 3: Queue Schema and Repository Methods
 

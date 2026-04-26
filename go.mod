@@ -1,12 +1,8 @@
 module scriberr
 
-go 1.24.0
-
-toolchain go1.24.4
+go 1.26
 
 require (
-	scriberr-engine v0.0.0
-
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/gin-gonic/gin v1.10.1
 	github.com/glebarez/sqlite v1.11.0
@@ -22,6 +18,7 @@ require (
 	golang.org/x/sync v0.17.0
 	golang.org/x/text v0.29.0
 	gorm.io/gorm v1.30.1
+	scriberr-engine v0.0.0
 )
 
 require (
@@ -47,6 +44,8 @@ require (
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
+	github.com/k2-fsa/sherpa-onnx-go v1.12.38 // indirect
+	github.com/k2-fsa/sherpa-onnx-go-macos v1.12.38 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.7 // indirect
 	github.com/leodido/go-urn v1.4.0 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
