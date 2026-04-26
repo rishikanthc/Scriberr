@@ -187,18 +187,38 @@ Verification:
 
 ## EWI-Sprint 6: API Wiring for Real Queue Execution
 
-Status: not started
+Status: completed
 
-Planned artifacts:
+Completed tasks:
 
+- Added API handler injection for durable queue service and engine provider registry.
+- Wired create, submit, and retry to enqueue through the queue service.
+- Mapped queue shutdown to `503 SERVICE_UNAVAILABLE` without deleting durable job rows.
+- Wired cancel to queue service cancellation and mapped terminal-state conflicts to `409`.
+- Added progress fields to transcription get/list responses.
+- Implemented canonical transcript endpoint parsing for JSON, legacy text, and older JSON without `words`.
+- Implemented executions endpoint with sanitized execution metadata and processing duration.
+- Implemented logs endpoint as authenticated plain text derived from execution metadata/log files with path/token redaction.
+- Implemented model listing from provider capabilities with installed/default flags.
+- Updated queue stats to use queue service stats when injected, including canceled/running counts.
+- Added an API event publisher adapter for orchestrator progress events with path-safe payloads.
+- Added focused API tests for queue-backed create/retry/cancel, queue unavailable errors, transcript/execution/log/model/stats responses, and leak-safe errors.
+
+Artifacts:
+
+- `internal/api/router.go`
 - `internal/api/transcription_handlers.go`
-- `internal/api/events_handlers.go`
+- `internal/api/admin_handlers.go`
 - `internal/api/response_models.go`
-- API tests for queue-backed behavior
+- `internal/api/engine_worker_api_test.go`
+- API test helper updates
 
 Verification:
 
-- Pending
+- `GOCACHE=/tmp/scriberr-go-cache go test ./internal/transcription/...` passed.
+- `GOCACHE=/tmp/scriberr-go-cache go test ./internal/api ./internal/config ./internal/database ./internal/repository ./internal/transcription/... ./cmd/server ./pkg/logger ./pkg/middleware` passed.
+- `GOCACHE=/tmp/scriberr-go-cache go vet ./internal/api ./internal/config ./internal/database ./internal/repository ./internal/transcription/... ./cmd/server ./pkg/logger ./pkg/middleware` passed.
+- `git diff --check` passed.
 
 ## EWI-Sprint 7: Server Startup, Shutdown, and Legacy Adapter Removal
 

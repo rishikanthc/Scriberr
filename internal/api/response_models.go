@@ -144,18 +144,20 @@ func transcriptionResponse(job *models.TranscriptionJob) gin.H {
 		language = *job.Language
 	}
 	return gin.H{
-		"id":           "tr_" + job.ID,
-		"file_id":      fileIDForTranscription(job),
-		"title":        title,
-		"status":       string(job.Status),
-		"language":     language,
-		"diarization":  job.Diarization,
-		"created_at":   job.CreatedAt,
-		"updated_at":   job.UpdatedAt,
-		"started_at":   nil,
-		"completed_at": job.CompletedAt,
-		"failed_at":    nil,
-		"error":        job.ErrorMessage,
+		"id":             "tr_" + job.ID,
+		"file_id":        fileIDForTranscription(job),
+		"title":          title,
+		"status":         string(job.Status),
+		"language":       language,
+		"diarization":    job.Diarization,
+		"created_at":     job.CreatedAt,
+		"updated_at":     job.UpdatedAt,
+		"progress":       job.Progress,
+		"progress_stage": job.ProgressStage,
+		"started_at":     job.StartedAt,
+		"completed_at":   job.CompletedAt,
+		"failed_at":      job.FailedAt,
+		"error":          job.ErrorMessage,
 	}
 }
 func transcriptionListResponse(job *models.TranscriptionJob) gin.H {
@@ -172,6 +174,8 @@ func transcriptionListResponse(job *models.TranscriptionJob) gin.H {
 		"file_id":          fileIDForTranscription(job),
 		"title":            title,
 		"status":           string(job.Status),
+		"progress":         job.Progress,
+		"progress_stage":   job.ProgressStage,
 		"duration_seconds": durationSeconds,
 		"created_at":       job.CreatedAt,
 		"updated_at":       job.UpdatedAt,

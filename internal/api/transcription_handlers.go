@@ -2,12 +2,15 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"os"
 	"strings"
 
 	"scriberr/internal/database"
 	"scriberr/internal/models"
+	"scriberr/internal/transcription/orchestrator"
+	"scriberr/internal/transcription/worker"
 
 	"github.com/gin-gonic/gin"
 )
@@ -62,6 +65,9 @@ func (h *Handler) createTranscription(c *gin.Context) {
 	}
 	if err := database.DB.Create(&job).Error; err != nil {
 		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not create transcription", nil)
+		return
+	}
+	if !h.enqueueTranscription(c, job.ID) {
 		return
 	}
 	response := transcriptionResponse(&job)
@@ -119,6 +125,9 @@ func (h *Handler) submitTranscription(c *gin.Context) {
 	}
 	if err := database.DB.Create(&job).Error; err != nil {
 		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not create transcription", nil)
+		return
+	}
+	if !h.enqueueTranscription(c, job.ID) {
 		return
 	}
 	response := gin.H{
@@ -227,9 +236,20 @@ func (h *Handler) cancelTranscription(c *gin.Context, publicID string) {
 		writeError(c, http.StatusConflict, "CONFLICT", "transcription cannot be canceled", nil)
 		return
 	}
-	if err := database.DB.Model(&models.TranscriptionJob{}).Where("id = ?", job.ID).Update("status", models.StatusCanceled).Error; err != nil {
-		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not cancel transcription", nil)
-		return
+	if h.queueService != nil {
+		if err := h.queueService.Cancel(c.Request.Context(), job.UserID, job.ID); err != nil {
+			if errors.Is(err, worker.ErrStateConflict) {
+				writeError(c, http.StatusConflict, "CONFLICT", "transcription cannot be canceled", nil)
+				return
+			}
+			writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not cancel transcription", nil)
+			return
+		}
+	} else {
+		if err := database.DB.Model(&models.TranscriptionJob{}).Where("id = ?", job.ID).Update("status", models.StatusCanceled).Error; err != nil {
+			writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not cancel transcription", nil)
+			return
+		}
 	}
 	response := gin.H{"id": "tr_" + job.ID, "status": string(models.StatusCanceled)}
 	h.publishTranscriptionEvent("transcription.canceled", response["id"].(string), response)
@@ -261,6 +281,9 @@ func (h *Handler) retryTranscription(c *gin.Context, publicID string) {
 		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not retry transcription", nil)
 		return
 	}
+	if !h.enqueueTranscription(c, retry.ID) {
+		return
+	}
 	response := gin.H{
 		"id":                      "tr_" + retry.ID,
 		"source_transcription_id": "tr_" + job.ID,
@@ -279,11 +302,16 @@ func (h *Handler) getTranscript(c *gin.Context) {
 	if job.Transcript != nil {
 		text = *job.Transcript
 	}
+	transcript, err := orchestrator.ParseStoredTranscript(text)
+	if err != nil {
+		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not read transcript", nil)
+		return
+	}
 	c.JSON(http.StatusOK, gin.H{
 		"transcription_id": "tr_" + job.ID,
-		"text":             text,
-		"segments":         []any{},
-		"words":            []any{},
+		"text":             transcript.Text,
+		"segments":         transcript.Segments,
+		"words":            transcript.Words,
 	})
 }
 func (h *Handler) streamTranscriptionAudio(c *gin.Context) {
@@ -306,6 +334,21 @@ func (h *Handler) streamTranscriptionAudio(c *gin.Context) {
 	c.Header("Content-Type", mimeType)
 	c.Header("Accept-Ranges", "bytes")
 	http.ServeContent(c.Writer, c.Request, job.SourceFileName, stat.ModTime(), file)
+}
+
+func (h *Handler) enqueueTranscription(c *gin.Context, jobID string) bool {
+	if h.queueService == nil {
+		return true
+	}
+	if err := h.queueService.Enqueue(c.Request.Context(), jobID); err != nil {
+		if errors.Is(err, worker.ErrQueueStopped) {
+			writeError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "transcription queue is unavailable", nil)
+			return false
+		}
+		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not enqueue transcription", nil)
+		return false
+	}
+	return true
 }
 func (h *Handler) transcriptionByPublicID(c *gin.Context, publicID string) (*models.TranscriptionJob, bool) {
 	userID, ok := currentUserID(c)

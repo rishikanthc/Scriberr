@@ -94,19 +94,18 @@ func TestRequestIDIsEchoedAndIncludedInErrors(t *testing.T) {
 	require.Equal(t, "req_test", errBody["request_id"])
 }
 
-func TestProtectedPlaceholderRouteUsesCanonicalErrorShape(t *testing.T) {
+func TestProtectedRoutesRequireAuthenticationBeforeWork(t *testing.T) {
 	router := newTestRouter(t, func() error { return nil })
 
 	req, err := http.NewRequest(http.MethodGet, "/api/v1/transcriptions/tr_placeholder/logs", nil)
 	require.NoError(t, err)
-	req.Header.Set("Authorization", "Bearer "+testToken(t))
 
 	resp := serveTestRequest(t, router, req)
-	require.Equal(t, http.StatusNotImplemented, resp.Code)
+	require.Equal(t, http.StatusUnauthorized, resp.Code)
 
 	body := decodeBody(t, resp)
 	errBody := body["error"].(map[string]any)
-	require.Equal(t, "NOT_IMPLEMENTED", errBody["code"])
+	require.Equal(t, "UNAUTHORIZED", errBody["code"])
 	require.NotEmpty(t, errBody["request_id"])
 }
 

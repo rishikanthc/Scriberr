@@ -83,6 +83,30 @@ func (s *authTestServer) request(t *testing.T, method, path string, body any, to
 	return recorder, response
 }
 
+func (s *authTestServer) rawRequest(t *testing.T, method, path string, body any, token string, apiKey string) (*httptest.ResponseRecorder, string) {
+	t.Helper()
+
+	var payload bytes.Buffer
+	if body != nil {
+		require.NoError(t, json.NewEncoder(&payload).Encode(body))
+	}
+	req, err := http.NewRequest(method, path, &payload)
+	require.NoError(t, err)
+	if body != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
+	if token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
+	if apiKey != "" {
+		req.Header.Set("X-API-Key", apiKey)
+	}
+
+	recorder := httptest.NewRecorder()
+	s.router.ServeHTTP(recorder, req)
+	return recorder, recorder.Body.String()
+}
+
 func TestAuthRegisterLoginRefreshMeLogout(t *testing.T) {
 	s := newAuthTestServer(t)
 

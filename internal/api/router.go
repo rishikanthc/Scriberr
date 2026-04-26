@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"net/http"
 	"path"
 	"strings"
@@ -10,6 +11,9 @@ import (
 	"scriberr/internal/auth"
 	"scriberr/internal/config"
 	"scriberr/internal/database"
+	"scriberr/internal/transcription/engineprovider"
+	"scriberr/internal/transcription/orchestrator"
+	"scriberr/internal/transcription/worker"
 	"scriberr/internal/web"
 	"scriberr/pkg/logger"
 	"scriberr/pkg/middleware"
@@ -27,13 +31,15 @@ type Handler struct {
 	eventHeartbeat  time.Duration
 	asyncJobs       sync.WaitGroup
 	maxUploadBytes  int64
+	queueService    worker.QueueService
+	modelRegistry   engineprovider.Registry
 }
 
-func NewHandler(cfg *config.Config, authService *auth.AuthService, _ ...any) *Handler {
+func NewHandler(cfg *config.Config, authService *auth.AuthService, services ...any) *Handler {
 	if cfg == nil {
 		cfg = &config.Config{}
 	}
-	return &Handler{
+	handler := &Handler{
 		config:          cfg,
 		authService:     authService,
 		readinessCheck:  database.HealthCheck,
@@ -43,7 +49,31 @@ func NewHandler(cfg *config.Config, authService *auth.AuthService, _ ...any) *Ha
 		eventHeartbeat:  25 * time.Second,
 		maxUploadBytes:  defaultMaxUploadSizeBytes,
 	}
+	for _, service := range services {
+		switch value := service.(type) {
+		case worker.QueueService:
+			handler.queueService = value
+		case engineprovider.Registry:
+			handler.modelRegistry = value
+		}
+	}
+	return handler
 }
+
+func (h *Handler) Publish(ctx context.Context, event orchestrator.ProgressEvent) {
+	if h == nil {
+		return
+	}
+	payload := gin.H{
+		"id":       "tr_" + event.JobID,
+		"status":   string(event.Status),
+		"progress": event.Progress,
+		"stage":    event.Stage,
+	}
+	h.publishTranscriptionEvent(event.Name, "tr_"+event.JobID, payload)
+	h.publishEvent(event.Name, payload)
+}
+
 func SetupRoutes(handler *Handler, _ *auth.AuthService) *gin.Engine {
 	gin.SetMode(gin.ReleaseMode)
 	logger.SetGinOutput()
@@ -109,8 +139,8 @@ func SetupRoutes(handler *Handler, _ *auth.AuthService) *gin.Engine {
 			transcriptions.GET("/:id/transcript", handler.getTranscript)
 			transcriptions.GET("/:id/audio", handler.streamTranscriptionAudio)
 			transcriptions.GET("/:id/events", handler.streamTranscriptionEvents)
-			transcriptions.GET("/:id/logs", handler.notImplemented("transcription logs"))
-			transcriptions.GET("/:id/executions", handler.notImplemented("transcription executions"))
+			transcriptions.GET("/:id/logs", handler.getTranscriptionLogs)
+			transcriptions.GET("/:id/executions", handler.getTranscriptionExecutions)
 		}
 
 		profiles := v1.Group("/profiles")

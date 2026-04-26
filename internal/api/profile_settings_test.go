@@ -211,8 +211,7 @@ func TestCapabilitiesQueueAndEvents(t *testing.T) {
 	require.Equal(t, float64(0), body["processing"])
 	require.Equal(t, float64(0), body["failed"])
 
-	resp, body = s.request(t, http.MethodGet, "/api/v1/transcriptions/"+transcriptionID+"/logs", nil, token, "")
-	require.Equal(t, http.StatusNotImplemented, resp.Code)
-	errBody := body["error"].(map[string]any)
-	require.NotContains(t, errBody["message"], "/")
+	resp, rawLogs := s.rawRequest(t, http.MethodGet, "/api/v1/transcriptions/"+transcriptionID+"/logs", nil, token, "")
+	require.Equal(t, http.StatusOK, resp.Code)
+	require.NotContains(t, rawLogs, "/")
 }
