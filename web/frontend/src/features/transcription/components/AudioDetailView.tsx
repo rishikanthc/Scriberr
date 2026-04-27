@@ -213,11 +213,9 @@ function TranscriptMock({ segments }: { segments: MockSegment[] }) {
     <section className="scr-transcript" aria-label="Transcript">
       {segments.map((segment) => (
         <article className="scr-transcript-segment" key={segment.id}>
-          <div className="scr-transcript-meta">
-            {segment.speaker ? <span>{segment.speaker}</span> : null}
-            <time>{formatSegmentTime(segment.start)}</time>
-          </div>
-          <p>{segment.text}</p>
+          {segment.speaker ? <span className="scr-transcript-speaker">{segment.speaker}</span> : null}
+          <time className="scr-transcript-time">{formatSegmentTime(segment.start)}</time>
+          <p className="scr-transcript-text">{segment.text}</p>
         </article>
       ))}
     </section>
