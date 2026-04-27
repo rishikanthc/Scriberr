@@ -124,7 +124,7 @@ func TestTranscriptionCreateAppliesDefaultAndSelectedProfiles(t *testing.T) {
 			"model":       "whisper-small",
 			"language":    "fr",
 			"diarization": true,
-			"device":      "cpu",
+			"threads":     2,
 		},
 	}, token, "")
 	require.Equal(t, http.StatusCreated, resp.Code)
@@ -139,7 +139,7 @@ func TestTranscriptionCreateAppliesDefaultAndSelectedProfiles(t *testing.T) {
 	var defaultJob models.TranscriptionJob
 	require.NoError(t, database.DB.First(&defaultJob, "id = ?", defaultJobID).Error)
 	require.Equal(t, "whisper-small", defaultJob.Parameters.Model)
-	require.Equal(t, "cpu", defaultJob.Parameters.Device)
+	require.Equal(t, 2, defaultJob.Parameters.Threads)
 	require.NotNil(t, defaultJob.Parameters.Language)
 	require.Equal(t, "fr", *defaultJob.Parameters.Language)
 	require.True(t, defaultJob.Diarization)
@@ -147,10 +147,10 @@ func TestTranscriptionCreateAppliesDefaultAndSelectedProfiles(t *testing.T) {
 	resp, body = s.request(t, http.MethodPost, "/api/v1/profiles", map[string]any{
 		"name": "Selected profile",
 		"options": map[string]any{
-			"model":       "whisper-large",
+			"model":       "parakeet-v2",
 			"language":    "es",
 			"diarization": true,
-			"device":      "cuda",
+			"threads":     4,
 		},
 	}, token, "")
 	require.Equal(t, http.StatusCreated, resp.Code)
@@ -171,8 +171,8 @@ func TestTranscriptionCreateAppliesDefaultAndSelectedProfiles(t *testing.T) {
 
 	var selectedJob models.TranscriptionJob
 	require.NoError(t, database.DB.First(&selectedJob, "id = ?", selectedJobID).Error)
-	require.Equal(t, "whisper-large", selectedJob.Parameters.Model)
-	require.Equal(t, "cuda", selectedJob.Parameters.Device)
+	require.Equal(t, "parakeet-v2", selectedJob.Parameters.Model)
+	require.Equal(t, 4, selectedJob.Parameters.Threads)
 	require.NotNil(t, selectedJob.Parameters.Language)
 	require.Equal(t, "en", *selectedJob.Parameters.Language)
 	require.False(t, selectedJob.Diarization)

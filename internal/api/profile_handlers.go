@@ -6,9 +6,11 @@ import (
 
 	"scriberr/internal/database"
 	"scriberr/internal/models"
+	"scriberr/internal/transcription/engineprovider"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
+	speechmodels "scriberr-engine/speech/models"
 )
 
 func (h *Handler) listProfiles(c *gin.Context) {
@@ -167,62 +169,89 @@ func validateProfileInput(c *gin.Context, name string, options profileOptionsReq
 		writeError(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "language is invalid", stringPtr("options.language"))
 		return false
 	}
+	if strings.TrimSpace(options.Model) != "" {
+		if _, ok := speechmodels.DefaultModelRegistry().Resolve(strings.TrimSpace(options.Model)); !ok {
+			writeError(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "model is invalid", stringPtr("options.model"))
+			return false
+		}
+	}
+	if task := strings.TrimSpace(options.Task); task != "" && task != "transcribe" && task != "translate" {
+		writeError(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "task is invalid", stringPtr("options.task"))
+		return false
+	}
+	if method := strings.TrimSpace(options.DecodingMethod); method != "" && method != "greedy_search" && method != "modified_beam_search" {
+		writeError(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "decoding method is invalid", stringPtr("options.decoding_method"))
+		return false
+	}
 	return true
 }
 func profileParams(options profileOptionsRequest) models.WhisperXParams {
-	params := options.WhisperXParams
-	params.ModelFamily = strings.TrimSpace(params.ModelFamily)
-	params.Model = strings.TrimSpace(params.Model)
-	params.Device = strings.TrimSpace(params.Device)
-	params.ComputeType = strings.TrimSpace(params.ComputeType)
-	params.OutputFormat = strings.TrimSpace(params.OutputFormat)
-	params.Task = strings.TrimSpace(params.Task)
-	params.InterpolateMethod = strings.TrimSpace(params.InterpolateMethod)
-	params.VadMethod = strings.TrimSpace(params.VadMethod)
-	params.DiarizeModel = strings.TrimSpace(params.DiarizeModel)
-	params.SegmentResolution = strings.TrimSpace(params.SegmentResolution)
+	params := supportedProfileParams(options.WhisperXParams)
 	if options.Diarization != nil {
 		params.Diarize = *options.Diarization
 	}
-	if params.Device == "" {
-		params.Device = "auto"
+	return params
+}
+
+func supportedProfileParams(input models.WhisperXParams) models.WhisperXParams {
+	model := strings.TrimSpace(input.Model)
+	if spec, ok := speechmodels.DefaultModelRegistry().ResolveOrDefault(model, speechmodels.ModelDefaultTranscription); ok {
+		model = string(spec.ID)
+	} else {
+		model = engineprovider.DefaultTranscriptionModel
 	}
-	if params.Language != nil {
-		language := strings.TrimSpace(*params.Language)
-		if language == "" || language == "auto" {
-			params.Language = nil
-		} else {
-			params.Language = &language
+	task := strings.TrimSpace(input.Task)
+	if task == "" {
+		task = "transcribe"
+	}
+	decodingMethod := strings.TrimSpace(input.DecodingMethod)
+	if decodingMethod == "" {
+		decodingMethod = "greedy_search"
+	}
+	var language *string
+	if input.Language != nil {
+		trimmed := strings.TrimSpace(*input.Language)
+		if trimmed != "" && trimmed != "auto" {
+			language = &trimmed
 		}
 	}
-	if params.ModelFamily == "" {
-		params.ModelFamily = "whisper"
+	return models.WhisperXParams{
+		ModelFamily:             familyForModel(model),
+		Model:                   model,
+		Language:                language,
+		Task:                    task,
+		Threads:                 input.Threads,
+		TailPaddings:            input.TailPaddings,
+		EnableTokenTimestamps:   input.EnableTokenTimestamps,
+		EnableSegmentTimestamps: input.EnableSegmentTimestamps,
+		CanarySourceLanguage:    strings.TrimSpace(input.CanarySourceLanguage),
+		CanaryTargetLanguage:    strings.TrimSpace(input.CanaryTargetLanguage),
+		CanaryUsePunctuation:    input.CanaryUsePunctuation,
+		DecodingMethod:          decodingMethod,
+		Diarize:                 input.Diarize,
+		DiarizeModel:            engineprovider.DefaultDiarizationModel,
+		NumSpeakers:             input.NumSpeakers,
+		DiarizationThreshold:    input.DiarizationThreshold,
+		MinDurationOn:           input.MinDurationOn,
+		MinDurationOff:          input.MinDurationOff,
 	}
-	if params.Model == "" {
-		params.Model = "small"
+}
+
+func familyForModel(modelID string) string {
+	spec, ok := speechmodels.DefaultModelRegistry().Resolve(modelID)
+	if !ok {
+		return "transcription"
 	}
-	if params.Task == "" {
-		params.Task = "transcribe"
+	switch spec.Family {
+	case speechmodels.FamilyWhisper:
+		return "whisper"
+	case speechmodels.FamilyNemo:
+		return "nemo_transducer"
+	case speechmodels.FamilyCanary:
+		return "canary"
+	default:
+		return string(spec.Family)
 	}
-	if params.OutputFormat == "" {
-		params.OutputFormat = "all"
-	}
-	if params.ComputeType == "" {
-		params.ComputeType = "float32"
-	}
-	if params.InterpolateMethod == "" {
-		params.InterpolateMethod = "nearest"
-	}
-	if params.VadMethod == "" {
-		params.VadMethod = "pyannote"
-	}
-	if params.DiarizeModel == "" {
-		params.DiarizeModel = "pyannote"
-	}
-	if params.SegmentResolution == "" {
-		params.SegmentResolution = "sentence"
-	}
-	return params
 }
 func (h *Handler) profileByPublicID(c *gin.Context, publicID string) (*models.TranscriptionProfile, bool) {
 	userID, ok := currentUserID(c)

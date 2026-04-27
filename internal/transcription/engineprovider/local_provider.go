@@ -126,14 +126,23 @@ func (p *LocalProvider) Transcribe(ctx context.Context, req TranscriptionRequest
 		task = "transcribe"
 	}
 	enableTokenTimestamps := true
+	if req.EnableTokenTimestamps != nil {
+		enableTokenTimestamps = *req.EnableTokenTimestamps
+	}
 	engineReq := speechengine.TranscriptionRequest{
-		ModelID:               modelID,
-		AudioPath:             req.AudioPath,
-		Language:              req.Language,
-		Task:                  task,
-		EnableTokenTimestamps: &enableTokenTimestamps,
-		NumThreads:            coalesceInt(req.Threads, p.cfg.Threads),
-		Provider:              p.provider,
+		ModelID:                 modelID,
+		AudioPath:               req.AudioPath,
+		Language:                req.Language,
+		Task:                    task,
+		TailPaddings:            req.TailPaddings,
+		EnableTokenTimestamps:   &enableTokenTimestamps,
+		EnableSegmentTimestamps: req.EnableSegmentTimestamps,
+		CanarySourceLanguage:    req.CanarySourceLanguage,
+		CanaryTargetLanguage:    req.CanaryTargetLanguage,
+		CanaryUsePunctuation:    req.CanaryUsePunctuation,
+		DecodingMethod:          req.DecodingMethod,
+		NumThreads:              coalesceInt(req.Threads, p.cfg.Threads),
+		Provider:                p.provider,
 	}
 	out, err := p.engine.Transcribe(ctx, engineReq)
 	if err != nil {
@@ -166,11 +175,14 @@ func (p *LocalProvider) Diarize(ctx context.Context, req DiarizationRequest) (*D
 		modelID = DefaultDiarizationModel
 	}
 	engineReq := speechengine.DiarizationRequest{
-		ModelID:     modelID,
-		AudioPath:   req.AudioPath,
-		NumClusters: req.NumSpeakers,
-		NumThreads:  p.cfg.Threads,
-		Provider:    p.provider,
+		ModelID:        modelID,
+		AudioPath:      req.AudioPath,
+		NumClusters:    req.NumSpeakers,
+		Threshold:      req.Threshold,
+		MinDurationOn:  req.MinDurationOn,
+		MinDurationOff: req.MinDurationOff,
+		NumThreads:     p.cfg.Threads,
+		Provider:       p.provider,
 	}
 	out, err := p.engine.Diarize(ctx, engineReq)
 	if err != nil {

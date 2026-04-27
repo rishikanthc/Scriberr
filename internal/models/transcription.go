@@ -34,6 +34,13 @@ type WhisperXParams struct {
 	BatchSize                      int     `json:"batch_size,omitempty"`
 	ComputeType                    string  `json:"compute_type,omitempty"`
 	Threads                        int     `json:"threads,omitempty"`
+	TailPaddings                   *int    `json:"tail_paddings,omitempty"`
+	EnableTokenTimestamps          *bool   `json:"enable_token_timestamps,omitempty"`
+	EnableSegmentTimestamps        *bool   `json:"enable_segment_timestamps,omitempty"`
+	CanarySourceLanguage           string  `json:"canary_source_language,omitempty"`
+	CanaryTargetLanguage           string  `json:"canary_target_language,omitempty"`
+	CanaryUsePunctuation           *bool   `json:"canary_use_punctuation,omitempty"`
+	DecodingMethod                 string  `json:"decoding_method,omitempty"`
 	OutputFormat                   string  `json:"output_format,omitempty"`
 	Verbose                        bool    `json:"verbose,omitempty"`
 	Task                           string  `json:"task,omitempty"`
@@ -47,6 +54,10 @@ type WhisperXParams struct {
 	VadOffset                      float64 `json:"vad_offset,omitempty"`
 	ChunkSize                      int     `json:"chunk_size,omitempty"`
 	Diarize                        bool    `json:"diarize,omitempty"`
+	NumSpeakers                    int     `json:"num_speakers,omitempty"`
+	DiarizationThreshold           float64 `json:"diarization_threshold,omitempty"`
+	MinDurationOn                  float64 `json:"min_duration_on,omitempty"`
+	MinDurationOff                 float64 `json:"min_duration_off,omitempty"`
 	MinSpeakers                    *int    `json:"min_speakers,omitempty"`
 	MaxSpeakers                    *int    `json:"max_speakers,omitempty"`
 	DiarizeModel                   string  `json:"diarize_model,omitempty"`

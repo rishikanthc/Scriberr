@@ -33,23 +33,31 @@ type ModelCapability struct {
 }
 
 type TranscriptionRequest struct {
-	JobID     string
-	UserID    uint
-	AudioPath string
-	ModelID   string
-	Language  string
-	Task      string
-	Threads   int
+	JobID                   string
+	UserID                  uint
+	AudioPath               string
+	ModelID                 string
+	Language                string
+	Task                    string
+	Threads                 int
+	TailPaddings            *int
+	EnableTokenTimestamps   *bool
+	EnableSegmentTimestamps *bool
+	CanarySourceLanguage    string
+	CanaryTargetLanguage    string
+	CanaryUsePunctuation    *bool
+	DecodingMethod          string
 }
 
 type DiarizationRequest struct {
-	JobID       string
-	UserID      uint
-	AudioPath   string
-	ModelID     string
-	NumSpeakers int
-	MinSpeakers *int
-	MaxSpeakers *int
+	JobID          string
+	UserID         uint
+	AudioPath      string
+	ModelID        string
+	NumSpeakers    int
+	Threshold      float64
+	MinDurationOn  float64
+	MinDurationOff float64
 }
 
 type TranscriptWord struct {

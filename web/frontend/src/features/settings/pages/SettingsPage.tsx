@@ -4,7 +4,15 @@ import { Sidebar } from "@/features/home/components/HomePage";
 import { AppButton, IconButton } from "@/shared/ui/Button";
 import { EmptyState } from "@/shared/ui/EmptyState";
 import { ASRProfileDialog } from "../components/ASRProfileDialog";
-import { deleteProfile, listProfiles, saveProfile, type TranscriptionProfile, type WhisperXParams } from "../api/profilesApi";
+import {
+  deleteProfile,
+  listProfiles,
+  listTranscriptionModels,
+  saveProfile,
+  type TranscriptionModel,
+  type TranscriptionProfile,
+  type TranscriptionProfileOptions,
+} from "../api/profilesApi";
 
 type SettingsTab = "general" | "asr";
 
@@ -15,6 +23,7 @@ export function Settings() {
   const [error, setError] = useState("");
   const [editingProfile, setEditingProfile] = useState<TranscriptionProfile | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [models, setModels] = useState<TranscriptionModel[]>([]);
 
   const loadProfiles = useCallback(async () => {
     setLoading(true);
@@ -32,6 +41,12 @@ export function Settings() {
     void loadProfiles();
   }, [loadProfiles]);
 
+  useEffect(() => {
+    listTranscriptionModels()
+      .then(setModels)
+      .catch(() => setModels([]));
+  }, []);
+
   const defaultProfile = useMemo(() => profiles.find((profile) => profile.is_default), [profiles]);
 
   const openNewProfile = () => {
@@ -39,7 +54,7 @@ export function Settings() {
     setDialogOpen(true);
   };
 
-  const handleSave = async (profile: { id?: string; name: string; description: string; is_default: boolean; options: WhisperXParams }) => {
+  const handleSave = async (profile: { id?: string; name: string; description: string; is_default: boolean; options: TranscriptionProfileOptions }) => {
     await saveProfile(profile);
     await loadProfiles();
   };
@@ -123,6 +138,7 @@ export function Settings() {
       <ASRProfileDialog
         open={dialogOpen}
         profile={editingProfile}
+        models={models}
         onClose={() => {
           setDialogOpen(false);
           setEditingProfile(null);
@@ -135,9 +151,9 @@ export function Settings() {
 
 function ProfileRow({ profile, isDefault, onEdit, onDelete }: { profile: TranscriptionProfile; isDefault: boolean; onEdit: () => void; onDelete: () => void }) {
   const optionSummary = [
-    profile.options.model_family.replaceAll("_", " "),
     profile.options.model,
     profile.options.language || "auto language",
+    profile.options.task,
     profile.options.diarize ? "diarization on" : "diarization off",
   ].join(" · ");
 

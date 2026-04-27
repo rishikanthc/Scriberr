@@ -253,6 +253,7 @@ func profileResponse(profile *models.TranscriptionProfile) gin.H {
 	}
 }
 func profileOptionsMap(params models.WhisperXParams) gin.H {
+	params = supportedProfileParams(params)
 	var options gin.H
 	bytes, err := json.Marshal(params)
 	if err != nil || json.Unmarshal(bytes, &options) != nil {

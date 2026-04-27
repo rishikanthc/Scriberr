@@ -21,10 +21,10 @@ func TestProfileCRUDAndDefaultSelection(t *testing.T) {
 		"description": "Fast local transcription",
 		"is_default":  true,
 		"options": map[string]any{
-			"model":       "base",
+			"model":       "whisper-base",
 			"language":    "en",
 			"diarization": false,
-			"device":      "auto",
+			"threads":     2,
 		},
 	}, token, "")
 	require.Equal(t, http.StatusCreated, resp.Code)
@@ -32,7 +32,7 @@ func TestProfileCRUDAndDefaultSelection(t *testing.T) {
 	require.True(t, strings.HasPrefix(firstID, "profile_"))
 	require.Equal(t, true, body["is_default"])
 	require.Equal(t, "Fast local", body["name"])
-	require.Equal(t, "base", body["options"].(map[string]any)["model"])
+	require.Equal(t, "whisper-base", body["options"].(map[string]any)["model"])
 
 	resp, body = s.request(t, http.MethodGet, "/api/v1/settings", nil, token, "")
 	require.Equal(t, http.StatusOK, resp.Code)
@@ -42,10 +42,9 @@ func TestProfileCRUDAndDefaultSelection(t *testing.T) {
 		"name":       "Accurate",
 		"is_default": true,
 		"options": map[string]any{
-			"model":       "large-v3",
+			"model":       "whisper-small",
 			"language":    "en",
 			"diarization": true,
-			"device":      "cpu",
 		},
 	}, token, "")
 	require.Equal(t, http.StatusCreated, resp.Code)
@@ -75,15 +74,15 @@ func TestProfileCRUDAndDefaultSelection(t *testing.T) {
 		"name":        "Fast local renamed",
 		"description": "Updated",
 		"options": map[string]any{
-			"model":       "small",
+			"model":       "parakeet-v2",
 			"language":    "fr",
 			"diarization": true,
-			"device":      "auto",
+			"threads":     4,
 		},
 	}, token, "")
 	require.Equal(t, http.StatusOK, resp.Code)
 	require.Equal(t, "Fast local renamed", body["name"])
-	require.Equal(t, "small", body["options"].(map[string]any)["model"])
+	require.Equal(t, "parakeet-v2", body["options"].(map[string]any)["model"])
 
 	resp, body = s.request(t, http.MethodGet, "/api/v1/profiles/"+firstID, nil, token, "")
 	require.Equal(t, http.StatusOK, resp.Code)
@@ -113,6 +112,16 @@ func TestProfileValidationAndAuth(t *testing.T) {
 	errBody := body["error"].(map[string]any)
 	require.Equal(t, "options.language", errBody["field"])
 
+	resp, body = s.request(t, http.MethodPost, "/api/v1/profiles", map[string]any{
+		"name": "Invalid model",
+		"options": map[string]any{
+			"model": "large-v3",
+		},
+	}, token, "")
+	require.Equal(t, http.StatusUnprocessableEntity, resp.Code)
+	errBody = body["error"].(map[string]any)
+	require.Equal(t, "options.model", errBody["field"])
+
 	resp, _ = s.request(t, http.MethodGet, "/api/v1/profiles/profile_missing", nil, token, "")
 	require.Equal(t, http.StatusNotFound, resp.Code)
 }
@@ -124,7 +133,7 @@ func TestGetProfileDoesNotPublishUpdateEvent(t *testing.T) {
 	resp, body := s.request(t, http.MethodPost, "/api/v1/profiles", map[string]any{
 		"name": "Read only profile",
 		"options": map[string]any{
-			"model": "base",
+			"model": "whisper-base",
 		},
 	}, token, "")
 	require.Equal(t, http.StatusCreated, resp.Code)
@@ -157,7 +166,7 @@ func TestSettingsPartialUpdateAndValidation(t *testing.T) {
 		"name":       "Default",
 		"is_default": true,
 		"options": map[string]any{
-			"model": "base",
+			"model": "whisper-base",
 		},
 	}, token, "")
 	require.Equal(t, http.StatusCreated, resp.Code)

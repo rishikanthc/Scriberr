@@ -102,13 +102,20 @@ func (p *Processor) Process(ctx context.Context, job *models.TranscriptionJob) (
 		return canceledResult(), err
 	}
 	transcription, err := provider.Transcribe(ctx, engineprovider.TranscriptionRequest{
-		JobID:     job.ID,
-		UserID:    job.UserID,
-		AudioPath: job.AudioPath,
-		ModelID:   transcriptionModel,
-		Language:  languageFromJob(job),
-		Task:      job.Parameters.Task,
-		Threads:   job.Parameters.Threads,
+		JobID:                   job.ID,
+		UserID:                  job.UserID,
+		AudioPath:               job.AudioPath,
+		ModelID:                 transcriptionModel,
+		Language:                languageFromJob(job),
+		Task:                    job.Parameters.Task,
+		Threads:                 job.Parameters.Threads,
+		TailPaddings:            job.Parameters.TailPaddings,
+		EnableTokenTimestamps:   job.Parameters.EnableTokenTimestamps,
+		EnableSegmentTimestamps: job.Parameters.EnableSegmentTimestamps,
+		CanarySourceLanguage:    job.Parameters.CanarySourceLanguage,
+		CanaryTargetLanguage:    job.Parameters.CanaryTargetLanguage,
+		CanaryUsePunctuation:    job.Parameters.CanaryUsePunctuation,
+		DecodingMethod:          job.Parameters.DecodingMethod,
 	})
 	if err != nil {
 		return p.errorResult(ctx, err)
@@ -129,12 +136,14 @@ func (p *Processor) Process(ctx context.Context, job *models.TranscriptionJob) (
 			return canceledResult(), err
 		}
 		diarization, err = provider.Diarize(ctx, engineprovider.DiarizationRequest{
-			JobID:       job.ID,
-			UserID:      job.UserID,
-			AudioPath:   job.AudioPath,
-			ModelID:     diarizationModel,
-			MinSpeakers: job.Parameters.MinSpeakers,
-			MaxSpeakers: job.Parameters.MaxSpeakers,
+			JobID:          job.ID,
+			UserID:         job.UserID,
+			AudioPath:      job.AudioPath,
+			ModelID:        diarizationModel,
+			NumSpeakers:    job.Parameters.NumSpeakers,
+			Threshold:      job.Parameters.DiarizationThreshold,
+			MinDurationOn:  job.Parameters.MinDurationOn,
+			MinDurationOff: job.Parameters.MinDurationOff,
 		})
 		if err != nil {
 			return p.errorResult(ctx, err)

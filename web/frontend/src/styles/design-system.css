@@ -999,6 +999,10 @@
   box-shadow: var(--scr-shadow-float);
 }
 
+.scr-profile-modal-compact {
+  width: min(100%, 760px);
+}
+
 .scr-modal-header,
 .scr-modal-footer {
   display: flex;
@@ -1072,6 +1076,24 @@
 
 .scr-control-wide {
   grid-column: 1 / -1;
+}
+
+.scr-fixed-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 42px;
+  border: 1px solid var(--scr-border-subtle);
+  border-radius: var(--scr-radius-sm);
+  background: var(--scr-surface-muted);
+  color: var(--scr-text-secondary);
+  font-size: 0.8125rem;
+  padding: 0 var(--scr-space-3);
+}
+
+.scr-fixed-option strong {
+  color: var(--scr-text-primary);
+  font-weight: 700;
 }
 
 .scr-select,
