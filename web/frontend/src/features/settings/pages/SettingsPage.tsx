@@ -1,54 +1,26 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Edit3, Plus, Trash2 } from "lucide-react";
 import { Sidebar } from "@/features/home/components/HomePage";
 import { AppButton, IconButton } from "@/shared/ui/Button";
 import { ConfirmDialog } from "@/shared/ui/ConfirmDialog";
 import { EmptyState } from "@/shared/ui/EmptyState";
+import { useDeleteProfile, useProfiles, useSaveProfile, useTranscriptionModels } from "@/features/settings/hooks/useProfiles";
 import { ASRProfileDialog } from "../components/ASRProfileDialog";
-import {
-  deleteProfile,
-  listProfiles,
-  listTranscriptionModels,
-  saveProfile,
-  type TranscriptionModel,
-  type TranscriptionProfile,
-  type TranscriptionProfileOptions,
-} from "../api/profilesApi";
+import type { TranscriptionProfile, TranscriptionProfileOptions } from "../api/profilesApi";
 
 type SettingsTab = "general" | "asr";
 
 export function Settings() {
   const [activeTab, setActiveTab] = useState<SettingsTab>("asr");
-  const [profiles, setProfiles] = useState<TranscriptionProfile[]>([]);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [editingProfile, setEditingProfile] = useState<TranscriptionProfile | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [profileToDelete, setProfileToDelete] = useState<TranscriptionProfile | null>(null);
-  const [deleting, setDeleting] = useState(false);
-  const [models, setModels] = useState<TranscriptionModel[]>([]);
-
-  const loadProfiles = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    try {
-      setProfiles(await listProfiles());
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not load profiles.");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    void loadProfiles();
-  }, [loadProfiles]);
-
-  useEffect(() => {
-    listTranscriptionModels()
-      .then(setModels)
-      .catch(() => setModels([]));
-  }, []);
+  const profilesQuery = useProfiles();
+  const modelsQuery = useTranscriptionModels();
+  const saveProfileMutation = useSaveProfile();
+  const deleteProfileMutation = useDeleteProfile();
+  const profiles = profilesQuery.data || [];
 
   const defaultProfile = useMemo(() => profiles.find((profile) => profile.is_default), [profiles]);
 
@@ -58,22 +30,22 @@ export function Settings() {
   };
 
   const handleSave = async (profile: { id?: string; name: string; description: string; is_default: boolean; options: TranscriptionProfileOptions }) => {
-    await saveProfile(profile);
-    await loadProfiles();
+    setError("");
+    try {
+      await saveProfileMutation.mutateAsync(profile);
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : "Could not save profile.");
+    }
   };
 
   const confirmDelete = async () => {
     if (!profileToDelete) return;
-    setDeleting(true);
     setError("");
     try {
-      await deleteProfile(profileToDelete.id);
+      await deleteProfileMutation.mutateAsync(profileToDelete.id);
       setProfileToDelete(null);
-      await loadProfiles();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not delete profile.");
-    } finally {
-      setDeleting(false);
     }
   };
 
@@ -113,9 +85,13 @@ export function Settings() {
                   </AppButton>
                 </div>
 
-                {error ? <div className="scr-alert">{error}</div> : null}
+                {error || profilesQuery.error ? (
+                  <div className="scr-alert">
+                    {error || (profilesQuery.error instanceof Error ? profilesQuery.error.message : "Could not load profiles.")}
+                  </div>
+                ) : null}
 
-                {loading ? (
+                {profilesQuery.isLoading ? (
                   <div className="scr-profile-list" aria-label="Loading profiles">
                     {[0, 1, 2].map((item) => <div className="scr-profile-skeleton" key={item} />)}
                   </div>
@@ -146,7 +122,7 @@ export function Settings() {
       <ASRProfileDialog
         open={dialogOpen}
         profile={editingProfile}
-        models={models}
+        models={modelsQuery.data || []}
         onClose={() => {
           setDialogOpen(false);
           setEditingProfile(null);
@@ -158,9 +134,9 @@ export function Settings() {
         title="Delete profile?"
         description={profileToDelete ? `This will remove "${profileToDelete.name}" from your saved ASR profiles.` : ""}
         confirmLabel="Delete"
-        busy={deleting}
+        busy={deleteProfileMutation.isPending}
         onCancel={() => {
-          if (!deleting) setProfileToDelete(null);
+          if (!deleteProfileMutation.isPending) setProfileToDelete(null);
         }}
         onConfirm={() => void confirmDelete()}
       />

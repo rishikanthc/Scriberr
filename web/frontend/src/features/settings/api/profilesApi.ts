@@ -72,8 +72,8 @@ export async function listProfiles(headers?: Record<string, string>) {
   return items.map(normalizeProfile);
 }
 
-export async function listTranscriptionModels() {
-  const response = await fetch("/api/v1/models/transcription");
+export async function listTranscriptionModels(headers?: Record<string, string>) {
+  const response = await fetch("/api/v1/models/transcription", { headers });
   if (!response.ok) throw new Error(await readError(response));
   const data = (await response.json()) as ModelListResponse;
   return (data.items || []).filter((model) => model.capabilities.includes("transcription"));
@@ -85,7 +85,7 @@ export async function saveProfile(profile: {
   description: string;
   is_default: boolean;
   options: TranscriptionProfileOptions;
-}) {
+}, headers?: Record<string, string>) {
   const payload = {
     name: profile.name,
     description: profile.description,
@@ -111,15 +111,15 @@ export async function saveProfile(profile: {
   };
   const response = await fetch(profile.id ? `/api/v1/profiles/${profile.id}` : "/api/v1/profiles", {
     method: profile.id ? "PATCH" : "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { ...headers, "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
   if (!response.ok) throw new Error(await readError(response));
   return normalizeProfile((await response.json()) as TranscriptionProfile);
 }
 
-export async function deleteProfile(profileId: string) {
-  const response = await fetch(`/api/v1/profiles/${profileId}`, { method: "DELETE" });
+export async function deleteProfile(profileId: string, headers?: Record<string, string>) {
+  const response = await fetch(`/api/v1/profiles/${profileId}`, { method: "DELETE", headers });
   if (!response.ok) throw new Error(await readError(response));
 }
 
