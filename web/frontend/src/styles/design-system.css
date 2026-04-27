@@ -101,15 +101,12 @@
   font-family: var(--scr-font-sans);
   font-size: 15px;
   font-weight: 500;
-  font-synthesis-weight: none;
-  font-variation-settings: "wght" 520;
   line-height: var(--scr-line-base);
 }
 
 .scr-app strong,
 .scr-app b {
   font-weight: 600;
-  font-variation-settings: "wght" 600;
 }
 
 .scr-visually-hidden {
