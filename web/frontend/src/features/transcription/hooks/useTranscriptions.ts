@@ -5,7 +5,6 @@ import {
   getTranscriptionTranscript,
   listTranscriptions,
   type CreateTranscriptionPayload,
-  type TranscriptionsResponse,
 } from "@/features/transcription/api/transcriptionsApi";
 
 export const transcriptionsQueryKey = ["transcriptions"] as const;
@@ -18,12 +17,6 @@ export function useTranscriptions() {
     queryKey: transcriptionsQueryKey,
     queryFn: () => listTranscriptions(getAuthHeaders()),
     enabled: isAuthenticated,
-    refetchInterval: (query) => {
-      const data = query.state.data as TranscriptionsResponse | undefined;
-      return data?.items.some((transcription) => transcription.status === "queued" || transcription.status === "processing")
-        ? 1500
-        : false;
-    },
   });
 }
 

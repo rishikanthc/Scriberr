@@ -46,11 +46,24 @@ export type CreateTranscriptionPayload = {
 };
 
 export async function listTranscriptions(headers: Record<string, string>): Promise<TranscriptionsResponse> {
-  const response = await fetch("/api/v1/transcriptions?limit=100&sort=-created_at", {
-    headers,
-  });
-  if (!response.ok) throw new Error(await readError(response));
-  return response.json() as Promise<TranscriptionsResponse>;
+  const items: Transcription[] = [];
+  let nextCursor: string | null = null;
+
+  do {
+    const params = new URLSearchParams({ limit: "100", sort: "-created_at" });
+    if (nextCursor) params.set("cursor", nextCursor);
+
+    const response = await fetch(`/api/v1/transcriptions?${params.toString()}`, {
+      headers,
+    });
+    if (!response.ok) throw new Error(await readError(response));
+
+    const page = await response.json() as TranscriptionsResponse;
+    items.push(...page.items);
+    nextCursor = page.next_cursor;
+  } while (nextCursor);
+
+  return { items, next_cursor: null };
 }
 
 export async function getTranscriptionTranscript(

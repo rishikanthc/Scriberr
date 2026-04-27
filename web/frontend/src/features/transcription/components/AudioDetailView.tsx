@@ -17,7 +17,7 @@ type DetailTab = "summary" | "transcript";
 
 export function AudioDetailView() {
   const { audioId = "" } = useParams<{ audioId: string }>();
-  const [activeTab, setActiveTab] = useState<DetailTab>("transcript");
+  const [activeTab, setActiveTab] = useState<DetailTab>("summary");
   const [audioDuration, setAudioDuration] = useState<number | null>(null);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [draftTitle, setDraftTitle] = useState("");
@@ -32,11 +32,10 @@ export function AudioDetailView() {
     if (!file) return undefined;
     return latestTranscriptionForFile(transcriptionsQuery.data?.items || [], file.id);
   }, [file, transcriptionsQuery.data?.items]);
-  const isActiveTranscription = latestTranscription?.status === "queued" || latestTranscription?.status === "processing";
   const transcriptQuery = useTranscriptionTranscript(latestTranscription?.id, latestTranscription?.status === "completed");
 
   useTranscriptionListEvents();
-  useTranscriptionDetailEvents(isActiveTranscription ? latestTranscription?.id : undefined);
+  useTranscriptionDetailEvents(latestTranscription?.id);
 
   const meta = useMemo(() => {
     return {
