@@ -422,7 +422,7 @@
   color: var(--scr-color-success);
 }
 
-.scr-recording-status[data-status="ready"] {
+.scr-recording-status[data-status="transcribed"] {
   color: var(--scr-color-success);
 }
 
@@ -431,7 +431,11 @@
 }
 
 .scr-recording-status[data-status="uploading"],
-.scr-recording-status[data-status="processing"] {
+.scr-recording-status[data-status="file-processing"],
+.scr-recording-status[data-status="queued"],
+.scr-recording-status[data-status="transcribing"],
+.scr-recording-status[data-status="ready"],
+.scr-recording-status[data-status="canceled"] {
   color: var(--scr-text-tertiary);
 }
 
@@ -490,10 +494,26 @@
   transition: background-color 160ms ease, color 160ms ease, transform 120ms ease;
 }
 
+.scr-recording-action-tip {
+  display: inline-grid;
+}
+
 .scr-recording-action:hover,
 .scr-recording-action:focus-visible {
   background: var(--scr-brand-muted);
   color: var(--scr-brand-solid);
+}
+
+.scr-recording-action:disabled {
+  color: var(--scr-text-tertiary);
+  cursor: not-allowed;
+  opacity: 0.42;
+}
+
+.scr-recording-action:disabled:hover,
+.scr-recording-action:disabled:focus-visible {
+  background: transparent;
+  color: var(--scr-text-tertiary);
 }
 
 .scr-recording-action:active {

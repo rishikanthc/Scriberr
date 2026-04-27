@@ -1,22 +1,28 @@
 import { useCallback, useMemo, useRef, type ChangeEvent } from "react";
 import { Link } from "react-router-dom";
-import { Check, ChevronDown, Clock3, FileAudio, Home, Loader2, Mic, Search, Settings, StopCircle, Trash2, UploadCloud, Video, Wand2, XCircle } from "lucide-react";
+import { Check, ChevronDown, Clock3, FileAudio, Home, Loader2, Mic, MinusCircle, Search, Settings, StopCircle, Trash2, UploadCloud, Video, Wand2, XCircle } from "lucide-react";
 import { WandAdvancedIcon } from "@/components/icons/WandAdvancedIcon";
 import { UploadProgressShelf } from "@/features/files/components/UploadProgressShelf";
 import type { ScriberrFile } from "@/features/files/api/filesApi";
 import { useFileEvents } from "@/features/files/hooks/useFileEvents";
 import { importAccept, type UploadItem, useFileImport } from "@/features/files/hooks/useFileImport";
 import { useFiles } from "@/features/files/hooks/useFiles";
+import { useProfiles } from "@/features/settings/hooks/useProfiles";
+import type { Transcription, TranscriptionStatus } from "@/features/transcription/api/transcriptionsApi";
+import { useTranscriptionListEvents } from "@/features/transcription/hooks/useTranscriptionListEvents";
+import { useCreateTranscription, useTranscriptions } from "@/features/transcription/hooks/useTranscriptions";
 import { EmptyState } from "@/shared/ui/EmptyState";
 import { AppButton, IconButton } from "@/shared/ui/Button";
 
-type RecordingStatus = "ready" | "processing" | "uploading" | "failed";
+type RecordingStatus = "ready" | "uploading" | "file-processing" | "queued" | "transcribing" | "transcribed" | "failed" | "canceled";
 
 type Recording = {
   id: string;
   title: string;
   date: string;
   status: RecordingStatus;
+  fileStatus: ScriberrFile["status"] | UploadItem["status"];
+  transcriptionId?: string;
   progress?: number;
 };
 
@@ -75,8 +81,27 @@ function TopBar({ onImportClick }: TopBarProps) {
   );
 }
 
-function RecordingCard({ recording }: { recording: Recording }) {
-  const isProcessing = recording.status === "processing" || recording.status === "uploading";
+type RecordingCardProps = {
+  recording: Recording;
+  canTranscribe: boolean;
+  isSubmitting: boolean;
+  onTranscribe: (recording: Recording) => void;
+};
+
+function RecordingCard({ recording, canTranscribe, isSubmitting, onTranscribe }: RecordingCardProps) {
+  const isProcessing = recording.status === "file-processing" || recording.status === "uploading" || recording.status === "queued" || recording.status === "transcribing";
+  const isFileReady = recording.fileStatus === "ready" || recording.fileStatus === "uploaded";
+  const hasActiveTranscription = recording.status === "queued" || recording.status === "transcribing";
+  const transcribeDisabled = !canTranscribe || !isFileReady || hasActiveTranscription || isSubmitting;
+  const transcribeTitle = !canTranscribe
+    ? "Set a default profile in Settings"
+    : !isFileReady
+      ? "File is not ready yet"
+      : hasActiveTranscription
+        ? "Transcription already running"
+        : isSubmitting
+          ? "Submitting transcription"
+          : "Transcribe with default profile";
 
   return (
     <article className="scr-recording-card" tabIndex={0}>
@@ -89,9 +114,20 @@ function RecordingCard({ recording }: { recording: Recording }) {
       </div>
       <div className="scr-recording-meta-actions">
         <div className="scr-recording-actions" aria-label={`${recording.title} actions`}>
-          <button className="scr-recording-action" type="button" aria-label="Transcribe" title="Transcribe">
-            <Wand2 size={16} aria-hidden="true" />
-          </button>
+          <span className="scr-recording-action-tip" title={transcribeTitle}>
+            <button
+              className="scr-recording-action"
+              type="button"
+              aria-label={transcribeTitle}
+              disabled={transcribeDisabled}
+              onClick={(event) => {
+                event.stopPropagation();
+                onTranscribe(recording);
+              }}
+            >
+              <Wand2 size={16} aria-hidden="true" />
+            </button>
+          </span>
           <button className="scr-recording-action" type="button" aria-label="Transcribe advanced" title="Transcribe advanced">
             <WandAdvancedIcon className="scr-recording-action-icon" strokeWidth={2} />
           </button>
@@ -115,16 +151,35 @@ function RecordingCard({ recording }: { recording: Recording }) {
 export function HomePage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const filesQuery = useFiles();
+  const profilesQuery = useProfiles();
+  const transcriptionsQuery = useTranscriptions();
+  const createTranscriptionMutation = useCreateTranscription();
   const { uploadItems, importFiles, dismissItem, handleFileEvent } = useFileImport();
   useFileEvents(handleFileEvent);
+  useTranscriptionListEvents();
+
+  const defaultProfile = useMemo(() => {
+    return (profilesQuery.data || []).find((profile) => profile.is_default);
+  }, [profilesQuery.data]);
+
+  const latestTranscriptionByFileId = useMemo(() => {
+    const byFileId = new Map<string, Transcription>();
+    for (const transcription of transcriptionsQuery.data?.items || []) {
+      const current = byFileId.get(transcription.file_id);
+      if (!current || new Date(transcription.updated_at).getTime() > new Date(current.updated_at).getTime()) {
+        byFileId.set(transcription.file_id, transcription);
+      }
+    }
+    return byFileId;
+  }, [transcriptionsQuery.data?.items]);
 
   const recordings = useMemo(() => {
     const optimistic = uploadItems
       .filter((item) => !item.fileId)
       .map(uploadItemToRecording);
-    const serverFiles = (filesQuery.data?.items || []).map(fileToRecording);
+    const serverFiles = (filesQuery.data?.items || []).map((file) => fileToRecording(file, latestTranscriptionByFileId.get(file.id)));
     return [...optimistic, ...serverFiles];
-  }, [filesQuery.data?.items, uploadItems]);
+  }, [filesQuery.data?.items, latestTranscriptionByFileId, uploadItems]);
 
   const handleImportClick = useCallback(() => {
     fileInputRef.current?.click();
@@ -137,6 +192,15 @@ export function HomePage() {
     }
     event.currentTarget.value = "";
   }, [importFiles]);
+
+  const handleTranscribe = useCallback((recording: Recording) => {
+    if (!defaultProfile || recording.fileStatus !== "ready" && recording.fileStatus !== "uploaded") return;
+    createTranscriptionMutation.mutate({
+      fileId: recording.id,
+      profileId: defaultProfile.id,
+      title: recording.title,
+    });
+  }, [createTranscriptionMutation, defaultProfile]);
 
   return (
     <div className="scr-app">
@@ -165,7 +229,13 @@ export function HomePage() {
             {recordings.length > 0 ? (
               <section className="scr-recording-list" aria-label="Recordings">
                 {recordings.map((recording) => (
-                  <RecordingCard key={recording.id} recording={recording} />
+                  <RecordingCard
+                    key={recording.id}
+                    recording={recording}
+                    canTranscribe={Boolean(defaultProfile)}
+                    isSubmitting={createTranscriptionMutation.isPending && createTranscriptionMutation.variables?.fileId === recording.id}
+                    onTranscribe={handleTranscribe}
+                  />
                 ))}
               </section>
             ) : (
@@ -179,12 +249,15 @@ export function HomePage() {
   );
 }
 
-function fileToRecording(file: ScriberrFile): Recording {
+function fileToRecording(file: ScriberrFile, transcription?: Transcription): Recording {
   return {
     id: file.id,
     title: file.title || "Untitled recording",
     date: formatRecordingDate(file.created_at),
-    status: normalizeFileStatus(file.status),
+    status: normalizeRecordingStatus(file.status, transcription?.status),
+    fileStatus: file.status,
+    transcriptionId: transcription?.id,
+    progress: transcription?.progress,
   };
 }
 
@@ -193,27 +266,50 @@ function uploadItemToRecording(item: UploadItem): Recording {
     id: item.id,
     title: item.fileName.replace(/\.[^/.]+$/, ""),
     date: item.status === "uploading" ? `Uploading ${item.progress}%` : itemLabel(item.status),
-    status: item.status,
+    status: item.status === "processing" ? "file-processing" : item.status,
+    fileStatus: item.status,
     progress: item.progress,
   };
 }
 
-function normalizeFileStatus(status: ScriberrFile["status"]): RecordingStatus {
-  if (status === "ready" || status === "uploaded") return "ready";
-  if (status === "failed") return "failed";
-  return "processing";
+function normalizeRecordingStatus(fileStatus: ScriberrFile["status"], transcriptionStatus?: TranscriptionStatus): RecordingStatus {
+  if (transcriptionStatus) return normalizeTranscriptionStatus(transcriptionStatus);
+  if (fileStatus === "ready" || fileStatus === "uploaded") return "ready";
+  if (fileStatus === "failed") return "failed";
+  return "file-processing";
+}
+
+function normalizeTranscriptionStatus(status: TranscriptionStatus): RecordingStatus {
+  switch (status) {
+    case "queued":
+      return "queued";
+    case "processing":
+      return "transcribing";
+    case "completed":
+      return "transcribed";
+    case "failed":
+      return "failed";
+    case "canceled":
+      return "canceled";
+  }
 }
 
 function statusIcon(recording: Recording) {
   switch (recording.status) {
     case "ready":
+      return <MinusCircle size={17} aria-hidden="true" />;
+    case "transcribed":
       return <Check size={18} aria-hidden="true" />;
     case "failed":
       return <XCircle size={17} aria-hidden="true" />;
     case "uploading":
       return <Loader2 className="scr-spin" size={16} aria-hidden="true" />;
-    case "processing":
+    case "file-processing":
+    case "queued":
+    case "transcribing":
       return <Clock3 size={16} aria-hidden="true" />;
+    case "canceled":
+      return <StopCircle size={16} aria-hidden="true" />;
   }
 }
 

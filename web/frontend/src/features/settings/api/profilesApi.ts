@@ -64,8 +64,8 @@ type ModelListResponse = {
   items?: TranscriptionModel[];
 };
 
-export async function listProfiles() {
-  const response = await fetch("/api/v1/profiles");
+export async function listProfiles(headers?: Record<string, string>) {
+  const response = await fetch("/api/v1/profiles", { headers });
   if (!response.ok) throw new Error(await readError(response));
   const data = (await response.json()) as ProfileListResponse | TranscriptionProfile[];
   const items = Array.isArray(data) ? data : data.items || [];
