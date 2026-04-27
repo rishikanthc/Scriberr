@@ -1,8 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/features/auth/hooks/useAuth";
-import { getTranscriptionSummary } from "@/features/transcription/api/summariesApi";
+import { getTranscriptionSummary, listTranscriptionSummaryWidgets } from "@/features/transcription/api/summariesApi";
 
 export const transcriptionSummaryQueryKey = (transcriptionId: string) => ["transcription-summary", transcriptionId] as const;
+export const transcriptionSummaryWidgetsQueryKey = (transcriptionId: string) => ["transcription-summary-widgets", transcriptionId] as const;
 
 export function useTranscriptionSummary(transcriptionId: string | undefined, enabled: boolean) {
   const { getAuthHeaders, isAuthenticated } = useAuth();
@@ -10,6 +11,18 @@ export function useTranscriptionSummary(transcriptionId: string | undefined, ena
   return useQuery({
     queryKey: transcriptionId ? transcriptionSummaryQueryKey(transcriptionId) : ["transcription-summary", "missing"],
     queryFn: () => getTranscriptionSummary(transcriptionId || "", getAuthHeaders()),
+    enabled: isAuthenticated && Boolean(transcriptionId) && enabled,
+    retry: false,
+    staleTime: 30_000,
+  });
+}
+
+export function useTranscriptionSummaryWidgets(transcriptionId: string | undefined, enabled: boolean) {
+  const { getAuthHeaders, isAuthenticated } = useAuth();
+
+  return useQuery({
+    queryKey: transcriptionId ? transcriptionSummaryWidgetsQueryKey(transcriptionId) : ["transcription-summary-widgets", "missing"],
+    queryFn: () => listTranscriptionSummaryWidgets(transcriptionId || "", getAuthHeaders()),
     enabled: isAuthenticated && Boolean(transcriptionId) && enabled,
     retry: false,
     staleTime: 30_000,

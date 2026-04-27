@@ -157,11 +157,16 @@
 
 .scr-audio-summary {
   display: grid;
-  gap: var(--scr-space-5);
+  gap: var(--scr-space-8);
   max-width: 920px;
   color: var(--scr-text-primary);
   font-size: 1rem;
   line-height: var(--scr-line-relaxed);
+}
+
+.scr-summary-overview-section {
+  display: grid;
+  gap: var(--scr-space-4);
 }
 
 .scr-summary-heading {
@@ -187,6 +192,27 @@
   font-weight: 500;
   letter-spacing: 0;
   line-height: 1.68;
+}
+
+.scr-summary-widget-section {
+  display: grid;
+  gap: var(--scr-space-4);
+  padding-top: var(--scr-space-1);
+}
+
+.scr-summary-status,
+.scr-summary-note {
+  margin: 0;
+  padding-left: calc(18px + var(--scr-space-3));
+  color: var(--scr-text-secondary);
+  font-size: 0.9375rem;
+  font-weight: 500;
+  line-height: var(--scr-line-base);
+}
+
+.scr-summary-note {
+  color: var(--scr-text-tertiary);
+  font-size: 0.8125rem;
 }
 
 .scr-transcript {
@@ -1722,6 +1748,10 @@
   min-height: 82px;
   padding: var(--scr-space-3);
   resize: vertical;
+}
+
+.scr-textarea-tall {
+  min-height: 160px;
 }
 
 .scr-textarea:focus-visible {

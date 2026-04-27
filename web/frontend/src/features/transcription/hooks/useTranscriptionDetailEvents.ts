@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import type { TranscriptionStatus, TranscriptionsResponse } from "@/features/transcription/api/transcriptionsApi";
-import { transcriptionSummaryQueryKey } from "@/features/transcription/hooks/useTranscriptionSummaries";
+import { transcriptionSummaryQueryKey, transcriptionSummaryWidgetsQueryKey } from "@/features/transcription/hooks/useTranscriptionSummaries";
 import { transcriptionTranscriptQueryKey, transcriptionsQueryKey } from "@/features/transcription/hooks/useTranscriptions";
 
 type TranscriptionEvent = {
@@ -14,6 +14,7 @@ type TranscriptionEvent = {
     progress?: number;
     stage?: string;
     transcript_truncated?: boolean;
+    context_truncated?: boolean;
   };
 };
 
@@ -99,6 +100,9 @@ export function useTranscriptionDetailEvents(transcriptionId: string | undefined
             if (parsed.name.startsWith("summary.")) {
               queryClient.invalidateQueries({ queryKey: transcriptionSummaryQueryKey(transcriptionId) });
             }
+            if (parsed.name.startsWith("summary_widget.")) {
+              queryClient.invalidateQueries({ queryKey: transcriptionSummaryWidgetsQueryKey(transcriptionId) });
+            }
             if (parsed.name === "summary.truncated" && parsed.data.transcript_truncated && parsed.data.id) {
               onSummaryTruncated?.(parsed.data.id);
             }
@@ -148,6 +152,7 @@ function normalizeEventStatus(status?: string): TranscriptionStatus | undefined 
     case "processing":
     case "completed":
     case "failed":
+    case "stopped":
     case "canceled":
       return status;
     default:

@@ -1,0 +1,125 @@
+.scr-readonly-markdown {
+  padding-left: calc(18px + var(--scr-space-3));
+}
+
+.scr-textforge-readonly {
+  --font-body: "Manrope", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-heading: "Manrope", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-weight-body: 500;
+  --font-weight-heading: 600;
+  --line-height-body: 1.62;
+  --line-height-heading: var(--scr-line-tight);
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--scr-text-primary);
+  font-family: "Manrope", system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 0.96875rem;
+  line-height: 1.62;
+}
+
+.scr-textforge-readonly .ProseMirror {
+  min-height: 0;
+  padding: 0;
+  color: var(--scr-text-primary);
+  font-family: "Manrope", system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 0.96875rem;
+  font-weight: 500;
+  line-height: 1.62;
+}
+
+.scr-textforge-readonly .ProseMirror * {
+  font-family: "Manrope", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+.scr-textforge-readonly .ProseMirror:focus {
+  outline: none;
+}
+
+.scr-textforge-readonly .ProseMirror h1,
+.scr-textforge-readonly .ProseMirror h2,
+.scr-textforge-readonly .ProseMirror h3 {
+  margin: var(--scr-space-4) 0 var(--scr-space-2);
+  color: var(--scr-text-strong);
+  font-weight: 600;
+  letter-spacing: 0;
+  line-height: var(--scr-line-tight);
+}
+
+.scr-textforge-readonly .ProseMirror h1 {
+  font-size: 1.0625rem;
+}
+
+.scr-textforge-readonly .ProseMirror h2,
+.scr-textforge-readonly .ProseMirror h3 {
+  font-size: 0.96875rem;
+}
+
+.scr-textforge-readonly .ProseMirror h4,
+.scr-textforge-readonly .ProseMirror h5,
+.scr-textforge-readonly .ProseMirror h6 {
+  margin: var(--scr-space-3) 0 var(--scr-space-2);
+  color: var(--scr-text-strong);
+  font-size: 0.90625rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  line-height: var(--scr-line-tight);
+}
+
+.scr-textforge-readonly .ProseMirror p,
+.scr-textforge-readonly .ProseMirror ul,
+.scr-textforge-readonly .ProseMirror ol {
+  margin: 0 0 var(--scr-space-3);
+  color: var(--scr-text-primary);
+  font-family: "Manrope", system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 0.96875rem;
+  font-weight: 500;
+  line-height: 1.62;
+}
+
+.scr-textforge-readonly .ProseMirror ul,
+.scr-textforge-readonly .ProseMirror ol {
+  padding-left: var(--scr-space-6);
+}
+
+.scr-textforge-readonly .ProseMirror ul {
+  list-style: disc outside;
+}
+
+.scr-textforge-readonly .ProseMirror ol {
+  list-style: decimal outside;
+}
+
+.scr-textforge-readonly .ProseMirror ul ul {
+  list-style-type: circle;
+}
+
+.scr-textforge-readonly .ProseMirror ol ol,
+.scr-textforge-readonly .ProseMirror ul ol {
+  list-style-type: lower-alpha;
+}
+
+.scr-textforge-readonly .ProseMirror li {
+  display: list-item;
+  padding-left: var(--scr-space-1);
+  color: var(--scr-text-primary);
+  font-size: 0.96875rem;
+  font-weight: 500;
+  line-height: 1.62;
+}
+
+.scr-textforge-readonly .ProseMirror li + li {
+  margin-top: var(--scr-space-1);
+}
+
+.scr-textforge-readonly .ProseMirror li > p {
+  display: inline;
+  margin: 0;
+  font-size: inherit;
+  line-height: inherit;
+}
+
+.scr-textforge-readonly .ProseMirror li > ul,
+.scr-textforge-readonly .ProseMirror li > ol {
+  margin-top: var(--scr-space-2);
+}

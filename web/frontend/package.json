@@ -51,6 +51,7 @@
 		"rehype-raw": "^7.0.0",
 		"remark-math": "^6.0.0",
 		"tailwind-merge": "^3.3.1",
+		"textforge": "^2.0.1",
 		"wavesurfer.js": "^7.10.1",
 		"zustand": "^5.0.9"
 	},

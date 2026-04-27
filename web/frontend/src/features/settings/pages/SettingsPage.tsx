@@ -7,9 +7,10 @@ import { EmptyState } from "@/shared/ui/EmptyState";
 import { useDeleteProfile, useProfiles, useSaveProfile, useTranscriptionModels } from "@/features/settings/hooks/useProfiles";
 import { ASRProfileDialog } from "../components/ASRProfileDialog";
 import { LLMProviderPanel } from "../components/LLMProviderPanel";
+import { SummaryWidgetsPanel } from "../components/SummaryWidgetsPanel";
 import type { TranscriptionProfile, TranscriptionProfileOptions } from "../api/profilesApi";
 
-type SettingsTab = "general" | "asr" | "llm";
+type SettingsTab = "general" | "asr" | "llm" | "summarization";
 
 export function Settings() {
   const [activeTab, setActiveTab] = useState<SettingsTab>("asr");
@@ -69,6 +70,9 @@ export function Settings() {
             <button className="scr-settings-tab" data-active={activeTab === "llm"} type="button" role="tab" aria-selected={activeTab === "llm"} onClick={() => setActiveTab("llm")}>
               LLM Providers
             </button>
+            <button className="scr-settings-tab" data-active={activeTab === "summarization"} type="button" role="tab" aria-selected={activeTab === "summarization"} onClick={() => setActiveTab("summarization")}>
+              Summarization
+            </button>
           </div>
 
           <div className="scr-settings-content">
@@ -118,8 +122,10 @@ export function Settings() {
                   <EmptyState title="No profiles yet" description="Create a profile to save your preferred ASR settings." />
                 )}
               </section>
-            ) : (
+            ) : activeTab === "llm" ? (
               <LLMProviderPanel />
+            ) : (
+              <SummaryWidgetsPanel />
             )}
           </div>
         </main>

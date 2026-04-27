@@ -1,17 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ChangeEvent } from "react";
 import { Link, useParams } from "react-router-dom";
-import { AlignJustify, CalendarDays, Clock3, MoreHorizontal, Pause, Pencil, Play } from "lucide-react";
+import { AlignJustify, CalendarDays, CheckSquare, Clock3, FileText, MoreHorizontal, Pause, Pencil, Play } from "lucide-react";
 import { Sidebar } from "@/features/home/components/HomePage";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { useToast } from "@/components/ui/toast";
 import { useFile, useUpdateFile } from "@/features/files/hooks/useFiles";
 import type { FileStatus } from "@/features/files/api/filesApi";
-import type { TranscriptionSummary } from "@/features/transcription/api/summariesApi";
+import type { SummaryWidgetRun, TranscriptionSummary } from "@/features/transcription/api/summariesApi";
 import type { TranscriptSegment, TranscriptWord, Transcription, TranscriptionTranscript } from "@/features/transcription/api/transcriptionsApi";
 import { useTranscriptionDetailEvents } from "@/features/transcription/hooks/useTranscriptionDetailEvents";
 import { useTranscriptionListEvents } from "@/features/transcription/hooks/useTranscriptionListEvents";
-import { useTranscriptionSummary } from "@/features/transcription/hooks/useTranscriptionSummaries";
+import { useTranscriptionSummary, useTranscriptionSummaryWidgets } from "@/features/transcription/hooks/useTranscriptionSummaries";
 import { useTranscriptionTranscript, useTranscriptions } from "@/features/transcription/hooks/useTranscriptions";
+import { ReadOnlyMarkdown } from "@/features/transcription/components/ReadOnlyMarkdown";
 
 type DetailTab = "summary" | "transcript";
 
@@ -197,6 +198,7 @@ export function AudioDetailView() {
 
 function SummaryPanel({ transcription }: { transcription?: Transcription }) {
   const summaryQuery = useTranscriptionSummary(transcription?.id, Boolean(transcription));
+  const widgetRunsQuery = useTranscriptionSummaryWidgets(transcription?.id, Boolean(transcription && summaryQuery.data?.status === "completed"));
   const summary = summaryQuery.data;
 
   if (!transcription) {
@@ -224,7 +226,7 @@ function SummaryPanel({ transcription }: { transcription?: Transcription }) {
   }
 
   if (summary?.status === "completed" && summary.content.trim()) {
-    return <SummaryOverview summary={summary} />;
+    return <SummaryOverview summary={summary} widgetRuns={widgetRunsQuery.data || []} widgetsLoading={widgetRunsQuery.isLoading} widgetsError={widgetRunsQuery.isError} />;
   }
 
   if (summary?.status === "pending" || summary?.status === "processing") {
@@ -266,15 +268,61 @@ function SummaryPanel({ transcription }: { transcription?: Transcription }) {
   );
 }
 
-function SummaryOverview({ summary }: { summary: TranscriptionSummary }) {
+function SummaryOverview({ summary, widgetRuns, widgetsLoading, widgetsError }: { summary: TranscriptionSummary; widgetRuns: SummaryWidgetRun[]; widgetsLoading: boolean; widgetsError: boolean }) {
   return (
     <section className="scr-audio-summary" aria-label="Summary">
-      <div className="scr-summary-heading">
-        <AlignJustify size={18} aria-hidden="true" />
-        <h2>Overview</h2>
-      </div>
-      <p className="scr-summary-body">{summary.content}</p>
+      <section className="scr-summary-overview-section" aria-label="Overview">
+        <SummarySectionHeading icon="overview" title="Overview" />
+        <p className="scr-summary-body">{summary.content}</p>
+      </section>
+      {widgetsLoading ? <p className="scr-summary-status">Checking summary widgets.</p> : null}
+      {widgetsError ? <p className="scr-summary-status">Summary widgets could not be loaded.</p> : null}
+      {widgetRuns.map((run) => <SummaryWidgetSection key={run.id} run={run} />)}
     </section>
+  );
+}
+
+function SummaryWidgetSection({ run }: { run: SummaryWidgetRun }) {
+  if (run.status === "pending" || run.status === "processing") {
+    return (
+      <section className="scr-summary-widget-section" aria-label={run.display_title}>
+        <SummarySectionHeading icon="widget" title={run.display_title} />
+        <p className="scr-summary-status">{run.status === "pending" ? "Widget is queued." : "Widget is being generated."}</p>
+      </section>
+    );
+  }
+
+  if (run.status === "failed") {
+    return (
+      <section className="scr-summary-widget-section" aria-label={run.display_title}>
+        <SummarySectionHeading icon="widget" title={run.display_title} />
+        <p className="scr-summary-status">{run.error || "Widget generation failed."}</p>
+      </section>
+    );
+  }
+
+  if (!run.output.trim()) return null;
+
+  return (
+    <section className="scr-summary-widget-section" aria-label={run.display_title}>
+      <SummarySectionHeading icon={run.render_markdown ? "markdown" : "widget"} title={run.display_title} />
+      {run.render_markdown ? (
+        <ReadOnlyMarkdown content={run.output} />
+      ) : (
+        <p className="scr-summary-body">{run.output}</p>
+      )}
+      {run.context_truncated ? <p className="scr-summary-note">Context was truncated to fit the model window.</p> : null}
+    </section>
+  );
+}
+
+function SummarySectionHeading({ icon, title }: { icon: "overview" | "widget" | "markdown"; title: string }) {
+  const Icon = icon === "overview" ? AlignJustify : icon === "markdown" ? FileText : CheckSquare;
+  return (
+    <div className="scr-summary-heading">
+      <Icon size={18} aria-hidden="true" />
+      <h2>{title}</h2>
+    </div>
   );
 }
 
@@ -318,8 +366,8 @@ function TranscriptPanel({ fileStatus, transcription, transcript, isLoading, isE
     return <TranscriptPlaceholder title="Transcription failed" description="Start another transcription from Home when you are ready to retry." />;
   }
 
-  if (transcription.status === "canceled") {
-    return <TranscriptPlaceholder title="Transcription canceled" description="Start another transcription from Home to generate transcript text." />;
+  if (transcription.status === "stopped" || transcription.status === "canceled") {
+    return <TranscriptPlaceholder title="Transcription stopped" description="Start another transcription from Home to generate transcript text." />;
   }
 
   const segments = normalizeTranscriptSegments(transcript);
