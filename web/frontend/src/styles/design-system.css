@@ -260,7 +260,7 @@
   display: grid;
   width: min(100%, 960px);
   margin: 0 auto;
-  gap: var(--scr-space-3);
+  gap: var(--scr-space-4);
 }
 
 .scr-recording-card {
@@ -290,7 +290,7 @@
   overflow: hidden;
   color: var(--scr-text-primary);
   font-size: 1rem;
-  font-weight: 700;
+  font-weight: 600;
   line-height: 1.25;
   text-overflow: ellipsis;
   white-space: nowrap;
