@@ -2,7 +2,7 @@
 
 Run ID: `EWI`
 
-Status: planning only. No implementation has started.
+Status: completed through EWI-Sprint 10. Docker/deployment packaging updates remain deferred by request.
 
 This tracker belongs to `devnotes/engine-worker-sprints.md` and the implementation spec in `devnotes/engine-worker-integration-spec.md`.
 
@@ -310,14 +310,46 @@ Verification:
 
 ## EWI-Sprint 10: Hardening, Cleanup, and Release Candidate
 
-Status: not started
+Status: completed
 
-Planned artifacts:
+Completed tasks:
 
-- final tracker updates
-- hardening fixes
-- cleanup commits
+- Reviewed the branch implementation against the engine worker integration spec and sprint acceptance criteria.
+- Reconciled enqueue failure behavior with the durable queue contract: `503 SERVICE_UNAVAILABLE` responses keep the queued job durable for later recovery.
+- Applied default and selected transcription profiles to create/submit jobs, with request options overriding profile values.
+- Removed duplicate global SSE progress events while preserving job-specific and global delivery through the broker.
+- Sanitized `last_error` in public transcription responses, matching executions/logs redaction.
+- Preserved log endpoint line breaks while redacting paths and token-like values.
+- Hardened the local provider against nil engine transcription/diarization results.
+- Confirmed `scriberr-engine` imports remain isolated to the provider package and opt-in real-engine tests.
+- Confirmed Docker/deployment work is intentionally not part of this release-candidate pass.
+
+Artifacts:
+
+- `internal/api/admin_handlers.go`
+- `internal/api/engine_worker_api_test.go`
+- `internal/api/events_test.go`
+- `internal/api/response_models.go`
+- `internal/api/router.go`
+- `internal/api/transcription_handlers.go`
+- `internal/api/transcriptions_test.go`
+- `internal/api/types.go`
+- `internal/transcription/engineprovider/local_provider.go`
+- `internal/transcription/engineprovider/local_provider_test.go`
+- `devnotes/engine-worker-sprint-tracker.md`
 
 Verification:
 
-- Pending
+- `GOCACHE=/tmp/scriberr-go-cache go test ./internal/api -run 'Test(CreateReturnsServiceUnavailableWhenQueueStopped|RetryPreservesNewJobWhenQueueStopped|TranscriptionCreateAppliesDefaultAndSelectedProfiles|GlobalSSEReceivesTranscriptionProgressOnce)'` passed.
+- `GOCACHE=/tmp/scriberr-go-cache go test ./internal/transcription/engineprovider -run 'TestLocalProvider(TranscribeRejectsNilEngineResult|DiarizeRejectsNilEngineResult)'` passed.
+- `GOCACHE=/tmp/scriberr-go-cache go test ./internal/api ./internal/config ./internal/database ./internal/repository ./internal/transcription/... ./cmd/server ./pkg/logger ./pkg/middleware` passed.
+- `GOCACHE=/tmp/scriberr-go-cache go vet ./internal/api ./internal/config ./internal/database ./internal/repository ./internal/transcription/... ./cmd/server ./pkg/logger ./pkg/middleware` passed.
+- `GOCACHE=/tmp/scriberr-go-cache go test -race ./internal/repository -run TestJobRepositoryConcurrentClaimsDoNotDuplicateJobs` passed.
+- `GOCACHE=/tmp/scriberr-go-cache go test -race ./internal/transcription/worker -run 'TestService(EnqueueWakeAndComplete|StartRecoversOrphanedProcessingBeforeWorkersClaim|CancelRunning)'` passed.
+- `SCRIBERR_ENGINE_ITEST=1 GOCACHE=/tmp/scriberr-go-cache go test ./internal/transcription/engineprovider -run TestRealEngineJFKTranscription -v` passed with a skip because external model download DNS was unavailable.
+- `git diff --check` passed.
+
+Additional sprint assessment:
+
+- No additional runtime implementation sprint is required for the current engine worker integration spec.
+- A separate deployment/packaging sprint is still needed before changing Dockerfiles, compose files, release packaging, or deployment docs.
