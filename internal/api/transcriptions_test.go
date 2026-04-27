@@ -121,10 +121,11 @@ func TestTranscriptionCreateAppliesDefaultAndSelectedProfiles(t *testing.T) {
 		"name":       "Default profile",
 		"is_default": true,
 		"options": map[string]any{
-			"model":       "whisper-small",
-			"language":    "fr",
-			"diarization": true,
-			"threads":     2,
+			"model":             "whisper-small",
+			"language":          "fr",
+			"chunking_strategy": "vad",
+			"diarization":       true,
+			"threads":           2,
 		},
 	}, token, "")
 	require.Equal(t, http.StatusCreated, resp.Code)
@@ -142,6 +143,7 @@ func TestTranscriptionCreateAppliesDefaultAndSelectedProfiles(t *testing.T) {
 	require.Equal(t, 2, defaultJob.Parameters.Threads)
 	require.NotNil(t, defaultJob.Parameters.Language)
 	require.Equal(t, "fr", *defaultJob.Parameters.Language)
+	require.Equal(t, "vad", defaultJob.Parameters.ChunkingStrategy)
 	require.True(t, defaultJob.Diarization)
 
 	resp, body = s.request(t, http.MethodPost, "/api/v1/profiles", map[string]any{

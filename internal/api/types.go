@@ -63,6 +63,7 @@ type profileOptionsRequest struct {
 	CanaryTargetLanguage string  `json:"canary_target_language"`
 	CanaryUsePunctuation *bool   `json:"canary_use_punctuation,omitempty"`
 	DecodingMethod       string  `json:"decoding_method"`
+	ChunkingStrategy     string  `json:"chunking_strategy"`
 	Diarize              bool    `json:"diarize"`
 	Diarization          *bool   `json:"diarization,omitempty"`
 	DiarizeModel         string  `json:"diarize_model"`

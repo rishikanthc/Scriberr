@@ -139,6 +139,8 @@ func (p *LocalProvider) Transcribe(ctx context.Context, req TranscriptionRequest
 		CanaryTargetLanguage:    req.CanaryTargetLanguage,
 		CanaryUsePunctuation:    req.CanaryUsePunctuation,
 		DecodingMethod:          req.DecodingMethod,
+		Chunking:                req.Chunking,
+		ChunkDurationSec:        req.ChunkDurationSec,
 		NumThreads:              coalesceInt(req.Threads, p.cfg.Threads),
 		Provider:                p.provider,
 	}
@@ -157,11 +159,20 @@ func (p *LocalProvider) Transcribe(ctx context.Context, req TranscriptionRequest
 			Word:  word.Text,
 		})
 	}
+	segments := make([]TranscriptSegment, 0, len(out.Segments))
+	for idx, segment := range out.Segments {
+		segments = append(segments, TranscriptSegment{
+			ID:    fmt.Sprintf("seg_%04d", idx),
+			Start: segment.StartSec,
+			End:   segment.EndSec,
+			Text:  segment.Text,
+		})
+	}
 	return &TranscriptionResult{
 		Text:     out.Text,
 		Language: out.Language,
 		Words:    words,
-		Segments: []TranscriptSegment{},
+		Segments: segments,
 		ModelID:  modelID,
 		EngineID: p.id,
 	}, nil

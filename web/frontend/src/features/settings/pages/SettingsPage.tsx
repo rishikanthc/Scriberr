@@ -149,6 +149,7 @@ function ProfileRow({ profile, isDefault, onEdit, onDelete }: { profile: Transcr
     profile.options.model,
     profile.options.language || "auto language",
     profile.options.task,
+    profile.options.chunking_strategy === "vad" ? "VAD chunks" : "fixed chunks",
     profile.options.diarize ? "diarization on" : "diarization off",
   ].join(" · ");
 

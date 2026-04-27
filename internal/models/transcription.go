@@ -41,6 +41,7 @@ type WhisperXParams struct {
 	CanaryTargetLanguage           string  `json:"canary_target_language,omitempty"`
 	CanaryUsePunctuation           *bool   `json:"canary_use_punctuation,omitempty"`
 	DecodingMethod                 string  `json:"decoding_method,omitempty"`
+	ChunkingStrategy               string  `json:"chunking_strategy,omitempty"`
 	OutputFormat                   string  `json:"output_format,omitempty"`
 	Verbose                        bool    `json:"verbose,omitempty"`
 	Task                           string  `json:"task,omitempty"`

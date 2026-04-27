@@ -117,6 +117,8 @@ func (p *Processor) Process(ctx context.Context, job *models.TranscriptionJob) (
 		CanaryTargetLanguage:    job.Parameters.CanaryTargetLanguage,
 		CanaryUsePunctuation:    job.Parameters.CanaryUsePunctuation,
 		DecodingMethod:          decodingMethod,
+		Chunking:                job.Parameters.ChunkingStrategy,
+		ChunkDurationSec:        float64(job.Parameters.ChunkSize),
 	})
 	if err != nil {
 		return p.errorResult(ctx, err)

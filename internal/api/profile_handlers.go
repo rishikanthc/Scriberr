@@ -183,6 +183,10 @@ func validateProfileInput(c *gin.Context, name string, options profileOptionsReq
 		writeError(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "decoding method is invalid", stringPtr("options.decoding_method"))
 		return false
 	}
+	if chunking := strings.ToLower(strings.TrimSpace(options.ChunkingStrategy)); chunking != "" && chunking != "fixed" && chunking != "vad" {
+		writeError(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "chunking strategy is invalid", stringPtr("options.chunking_strategy"))
+		return false
+	}
 	if options.Threads < 0 {
 		writeError(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "threads must be zero or greater", stringPtr("options.threads"))
 		return false
@@ -220,6 +224,7 @@ func profileParams(options profileOptionsRequest) models.WhisperXParams {
 		CanaryTargetLanguage: options.CanaryTargetLanguage,
 		CanaryUsePunctuation: options.CanaryUsePunctuation,
 		DecodingMethod:       options.DecodingMethod,
+		ChunkingStrategy:     options.ChunkingStrategy,
 		Diarize:              options.Diarize,
 		DiarizeModel:         options.DiarizeModel,
 		NumSpeakers:          options.NumSpeakers,
@@ -250,6 +255,10 @@ func supportedProfileParams(input models.WhisperXParams) models.WhisperXParams {
 	}
 	if familyForModel(model) == "whisper" {
 		decodingMethod = "greedy_search"
+	}
+	chunkingStrategy := strings.ToLower(strings.TrimSpace(input.ChunkingStrategy))
+	if chunkingStrategy == "" {
+		chunkingStrategy = "fixed"
 	}
 	var language *string
 	if input.Language != nil {
@@ -283,6 +292,7 @@ func supportedProfileParams(input models.WhisperXParams) models.WhisperXParams {
 		CanaryTargetLanguage:    strings.TrimSpace(input.CanaryTargetLanguage),
 		CanaryUsePunctuation:    input.CanaryUsePunctuation,
 		DecodingMethod:          decodingMethod,
+		ChunkingStrategy:        chunkingStrategy,
 		Diarize:                 input.Diarize,
 		DiarizeModel:            engineprovider.DefaultDiarizationModel,
 		NumSpeakers:             input.NumSpeakers,

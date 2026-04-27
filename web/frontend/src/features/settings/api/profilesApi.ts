@@ -11,6 +11,7 @@ export type TranscriptionProfileOptions = {
   canary_target_language: string;
   canary_use_punctuation?: boolean;
   decoding_method: "greedy_search" | "modified_beam_search";
+  chunking_strategy: "fixed" | "vad";
   diarize: boolean;
   diarize_model: "diarization-default";
   num_speakers: number;
@@ -49,6 +50,7 @@ export const defaultProfileParams: TranscriptionProfileOptions = {
   canary_target_language: "en",
   canary_use_punctuation: true,
   diarize: false,
+  chunking_strategy: "fixed",
   diarize_model: "diarization-default",
   num_speakers: 0,
   diarization_threshold: 0.5,
@@ -100,6 +102,7 @@ export async function saveProfile(profile: {
       canary_target_language: profile.options.canary_target_language,
       canary_use_punctuation: profile.options.canary_use_punctuation,
       decoding_method: profile.options.decoding_method,
+      chunking_strategy: profile.options.chunking_strategy,
       diarize: profile.options.diarize,
       diarization: profile.options.diarize,
       diarize_model: "diarization-default",
@@ -133,6 +136,7 @@ export function normalizeParams(params?: Partial<TranscriptionProfileOptions> & 
     language: params?.language || undefined,
     task: params?.task === "translate" ? "translate" : "transcribe",
     decoding_method: params?.decoding_method === "modified_beam_search" ? "modified_beam_search" : "greedy_search",
+    chunking_strategy: params?.chunking_strategy === "vad" ? "vad" : "fixed",
     canary_source_language: params?.canary_source_language || "en",
     canary_target_language: params?.canary_target_language || "en",
     diarize: params?.diarize ?? Boolean(params?.diarization),

@@ -55,18 +55,23 @@ func TestLocalProviderTranscribeMapsRequestAndWords(t *testing.T) {
 				{Text: "hello", StartSec: 0.1, EndSec: 0.4},
 				{Text: "world", StartSec: 0.5, EndSec: 0.9},
 			},
+			Segments: []speechengine.TranscriptSegment{
+				{Text: "hello world", StartSec: 0.1, EndSec: 0.9},
+			},
 		},
 	}
 	provider := newLocalProviderWithEngine("local", LocalConfig{Threads: 4}, runtime.ProviderCPU, fake, nil)
 
 	result, err := provider.Transcribe(context.Background(), TranscriptionRequest{
-		JobID:     "job-1",
-		UserID:    7,
-		AudioPath: "/tmp/audio.wav",
-		ModelID:   "whisper-tiny",
-		Language:  "en",
-		Task:      "translate",
-		Threads:   2,
+		JobID:            "job-1",
+		UserID:           7,
+		AudioPath:        "/tmp/audio.wav",
+		ModelID:          "whisper-tiny",
+		Language:         "en",
+		Task:             "translate",
+		Threads:          2,
+		Chunking:         "vad",
+		ChunkDurationSec: 25,
 	})
 	if err != nil {
 		t.Fatalf("Transcribe returned error: %v", err)
@@ -87,6 +92,9 @@ func TestLocalProviderTranscribeMapsRequestAndWords(t *testing.T) {
 	if fake.transcriptionReq.Provider != runtime.ProviderCPU {
 		t.Fatalf("Provider = %q", fake.transcriptionReq.Provider)
 	}
+	if fake.transcriptionReq.Chunking != "vad" || fake.transcriptionReq.ChunkDurationSec != 25 {
+		t.Fatalf("unexpected chunking request: %#v", fake.transcriptionReq)
+	}
 	if fake.transcriptionReq.EnableTokenTimestamps == nil || !*fake.transcriptionReq.EnableTokenTimestamps {
 		t.Fatalf("EnableTokenTimestamps was not forced on")
 	}
@@ -98,6 +106,9 @@ func TestLocalProviderTranscribeMapsRequestAndWords(t *testing.T) {
 	}
 	if len(result.Words) != 2 || result.Words[0].Word != "hello" || result.Words[1].End != 0.9 {
 		t.Fatalf("unexpected words: %#v", result.Words)
+	}
+	if len(result.Segments) != 1 || result.Segments[0].Text != "hello world" || result.Segments[0].ID != "seg_0000" {
+		t.Fatalf("unexpected segments: %#v", result.Segments)
 	}
 	if result.ModelID != "whisper-tiny" || result.EngineID != "local" {
 		t.Fatalf("unexpected model/engine ids: %#v", result)

@@ -23,6 +23,7 @@ func TestProfileCRUDAndDefaultSelection(t *testing.T) {
 		"options": map[string]any{
 			"model":                     "whisper-base",
 			"language":                  "en",
+			"chunking_strategy":         "vad",
 			"diarization":               false,
 			"threads":                   2,
 			"enable_token_timestamps":   false,
@@ -37,6 +38,7 @@ func TestProfileCRUDAndDefaultSelection(t *testing.T) {
 	options := body["options"].(map[string]any)
 	require.Equal(t, "whisper-base", options["model"])
 	require.Equal(t, "greedy_search", options["decoding_method"])
+	require.Equal(t, "vad", options["chunking_strategy"])
 	require.Equal(t, float64(0.5), options["diarization_threshold"])
 	require.Equal(t, float64(0.2), options["min_duration_on"])
 	require.Equal(t, float64(0.3), options["min_duration_off"])
@@ -49,6 +51,7 @@ func TestProfileCRUDAndDefaultSelection(t *testing.T) {
 	require.True(t, *storedProfile.Parameters.EnableTokenTimestamps)
 	require.NotNil(t, storedProfile.Parameters.EnableSegmentTimestamps)
 	require.True(t, *storedProfile.Parameters.EnableSegmentTimestamps)
+	require.Equal(t, "vad", storedProfile.Parameters.ChunkingStrategy)
 
 	resp, body = s.request(t, http.MethodGet, "/api/v1/settings", nil, token, "")
 	require.Equal(t, http.StatusOK, resp.Code)
@@ -137,6 +140,16 @@ func TestProfileValidationAndAuth(t *testing.T) {
 	require.Equal(t, http.StatusUnprocessableEntity, resp.Code)
 	errBody = body["error"].(map[string]any)
 	require.Equal(t, "options.model", errBody["field"])
+
+	resp, body = s.request(t, http.MethodPost, "/api/v1/profiles", map[string]any{
+		"name": "Invalid chunking",
+		"options": map[string]any{
+			"chunking_strategy": "dynamic",
+		},
+	}, token, "")
+	require.Equal(t, http.StatusUnprocessableEntity, resp.Code)
+	errBody = body["error"].(map[string]any)
+	require.Equal(t, "options.chunking_strategy", errBody["field"])
 
 	resp, body = s.request(t, http.MethodPost, "/api/v1/profiles", map[string]any{
 		"name": "Invalid threshold",

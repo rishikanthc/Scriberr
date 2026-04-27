@@ -95,10 +95,12 @@ func TestProcessorCreatesExecutionAndReturnsCanonicalTranscript(t *testing.T) {
 	audioPath := filepath.Join(t.TempDir(), "audio.wav")
 	require.NoError(t, os.WriteFile(audioPath, []byte("fake wav"), 0o600))
 	job := createOrchestratorJob(t, db, audioPath, models.WhisperXParams{
-		Model:        "custom-transcriber",
-		Task:         "translate",
-		Diarize:      true,
-		DiarizeModel: "custom-diarizer",
+		Model:            "custom-transcriber",
+		Task:             "translate",
+		ChunkingStrategy: "vad",
+		ChunkSize:        24,
+		Diarize:          true,
+		DiarizeModel:     "custom-diarizer",
 	})
 	provider := &fakeProvider{
 		id: "local",
@@ -143,6 +145,8 @@ func TestProcessorCreatesExecutionAndReturnsCanonicalTranscript(t *testing.T) {
 	assert.Equal(t, "custom-transcriber", provider.transReq.ModelID)
 	assert.Equal(t, "custom-diarizer", provider.diarizeReq.ModelID)
 	assert.Equal(t, "translate", provider.transReq.Task)
+	assert.Equal(t, "vad", provider.transReq.Chunking)
+	assert.Equal(t, float64(24), provider.transReq.ChunkDurationSec)
 
 	var executions []models.TranscriptionJobExecution
 	require.NoError(t, db.Where("transcription_id = ?", job.ID).Find(&executions).Error)

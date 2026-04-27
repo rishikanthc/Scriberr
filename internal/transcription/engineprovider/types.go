@@ -47,6 +47,8 @@ type TranscriptionRequest struct {
 	CanaryTargetLanguage    string
 	CanaryUsePunctuation    *bool
 	DecodingMethod          string
+	Chunking                string
+	ChunkDurationSec        float64
 }
 
 type DiarizationRequest struct {

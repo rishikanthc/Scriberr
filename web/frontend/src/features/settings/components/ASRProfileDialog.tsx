@@ -148,6 +148,7 @@ export function ASRProfileDialog({ open, profile, models, onClose, onSave }: ASR
               <SelectField label="Language" value={params.language || ""} options={languageOptions} onChange={(value) => updateParam("language", value || undefined)} />
               <SelectField label="Task" value={params.task} options={[{ value: "transcribe", label: "Transcribe" }, { value: "translate", label: "Translate to English" }]} onChange={(value) => updateParam("task", value as TranscriptionProfileOptions["task"])} />
               <SelectField label="Decoding" value={params.decoding_method} options={[{ value: "greedy_search", label: "Greedy search" }, { value: "modified_beam_search", label: "Modified beam search" }]} onChange={(value) => updateParam("decoding_method", value as TranscriptionProfileOptions["decoding_method"])} />
+              <SelectField label="Chunking" value={params.chunking_strategy} options={[{ value: "fixed", label: "Fixed windows" }, { value: "vad", label: "Voice activity" }]} onChange={(value) => updateParam("chunking_strategy", value as TranscriptionProfileOptions["chunking_strategy"])} />
               <NumberField label="Threads" value={params.threads} min={0} max={32} onChange={(value) => updateParam("threads", value)} />
               <OptionalNumberField label="Tail paddings" value={params.tail_paddings} min={-1} max={16} onChange={(value) => updateParam("tail_paddings", value)} />
             </div>
