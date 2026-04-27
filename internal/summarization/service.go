@@ -2,6 +2,7 @@ package summarization
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -44,6 +45,13 @@ If the transcript is noisy or unstructured:
 Now summarize the following transcript:
 `
 
+const markdownTypesetInstructions = `Format the response as clean Markdown suitable for read-only typeset rendering.
+
+Use Markdown structure only when it improves scanning: concise headings, bullet lists, numbered lists, tables, emphasis, or checkboxes where appropriate.
+Do not wrap the entire response in a code fence.
+Do not include front matter, HTML, or editor instructions.
+Return only the Markdown content.`
+
 type EventPublisher interface {
 	PublishSummaryStatus(ctx context.Context, event StatusEvent)
 }
@@ -52,6 +60,8 @@ type StatusEvent struct {
 	Name            string
 	SummaryID       string
 	TranscriptionID string
+	WidgetRunID     string
+	WidgetID        string
 	UserID          uint
 	Status          string
 	Truncated       bool
@@ -106,6 +116,11 @@ func (s *Service) Start(ctx context.Context) error {
 		return err
 	} else if recovered > 0 {
 		logger.Info("Recovered processing summary jobs", "count", recovered)
+	}
+	if recovered, err := s.summaries.RecoverProcessingSummaryWidgetRuns(ctx); err != nil {
+		return err
+	} else if recovered > 0 {
+		logger.Info("Recovered processing summary widget jobs", "count", recovered)
 	}
 	s.ctx, s.cancel = context.WithCancel(ctx)
 	s.started = true
@@ -181,17 +196,36 @@ func (s *Service) workerLoop() {
 
 func (s *Service) drainPending() {
 	for {
-		if err := s.claimAndProcess(); err != nil {
+		progressed := false
+		if err := s.claimAndProcessSummary(); err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
+				// Try widget runs below before deciding the worker is idle.
+			} else {
+				logger.Error("Summary worker failed", "error", err)
 				return
 			}
-			logger.Error("Summary worker failed", "error", err)
+		} else {
+			progressed = true
+		}
+		if err := s.claimAndProcessWidgetRun(); err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				if !progressed {
+					return
+				}
+				continue
+			}
+			logger.Error("Summary widget worker failed", "error", err)
+			return
+		} else {
+			progressed = true
+		}
+		if !progressed {
 			return
 		}
 	}
 }
 
-func (s *Service) claimAndProcess() error {
+func (s *Service) claimAndProcessSummary() error {
 	summary, err := s.summaries.ClaimNextPendingSummary(s.ctx, time.Now())
 	if err != nil {
 		return err
@@ -205,6 +239,28 @@ func (s *Service) claimAndProcess() error {
 		summary.Status = "failed"
 		summary.ErrorMessage = &message
 		s.publish(context.Background(), "summary.failed", summary)
+		return nil
+	}
+	if err := s.enqueueWidgetsForSummary(context.Background(), summary); err != nil {
+		logger.Error("Summary widget enqueue failed", "summary_id", summary.ID, "error", err)
+	}
+	return nil
+}
+
+func (s *Service) claimAndProcessWidgetRun() error {
+	run, err := s.summaries.ClaimNextPendingSummaryWidgetRun(s.ctx, time.Now())
+	if err != nil {
+		return err
+	}
+	s.publishWidgetRun(s.ctx, "summary_widget.processing", run)
+	if err := s.processWidgetRun(s.ctx, run); err != nil {
+		message := sanitizeError(err)
+		if failErr := s.summaries.FailSummaryWidgetRun(context.Background(), run.ID, message, time.Now()); failErr != nil {
+			return failErr
+		}
+		run.Status = "failed"
+		run.ErrorMessage = &message
+		s.publishWidgetRun(context.Background(), "summary_widget.failed", run)
 		return nil
 	}
 	return nil
@@ -270,6 +326,134 @@ func (s *Service) processSummary(ctx context.Context, summary *models.Summary) e
 	return nil
 }
 
+func (s *Service) enqueueWidgetsForSummary(ctx context.Context, summary *models.Summary) error {
+	if summary == nil || summary.Status != "completed" {
+		return nil
+	}
+	config, err := s.llmConfig.GetActiveByUser(ctx, summary.UserID)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if !llmReady(config) {
+		return nil
+	}
+	widgets, err := s.summaries.ListEnabledSummaryWidgets(ctx, summary.UserID)
+	if err != nil || len(widgets) == 0 {
+		return err
+	}
+	always := make([]models.SummaryWidget, 0, len(widgets))
+	conditional := make([]models.SummaryWidget, 0, len(widgets))
+	for _, widget := range widgets {
+		if widget.AlwaysEnabled {
+			always = append(always, widget)
+		} else if strings.TrimSpace(valueOrEmpty(widget.WhenToUse)) != "" {
+			conditional = append(conditional, widget)
+		}
+	}
+	selected := append([]models.SummaryWidget{}, always...)
+	if len(conditional) > 0 {
+		client, err := clientForConfig(config)
+		if err != nil {
+			return err
+		}
+		model := strings.TrimSpace(*config.SmallModel)
+		matched, err := selectRelevantWidgets(ctx, client, model, summary.Content, conditional)
+		if err != nil {
+			logger.Error("Summary widget selector failed", "summary_id", summary.ID, "error", err)
+		}
+		selected = append(selected, matched...)
+	}
+	if len(selected) == 0 {
+		return nil
+	}
+	model := strings.TrimSpace(*config.SmallModel)
+	runs, err := s.summaries.EnqueueSummaryWidgetRuns(ctx, summary, selected, model, config.Provider)
+	if err != nil {
+		return err
+	}
+	for i := range runs {
+		if runs[i].Status == "pending" {
+			s.publishWidgetRun(ctx, "summary_widget.pending", &runs[i])
+		}
+	}
+	s.notify()
+	return nil
+}
+
+func (s *Service) processWidgetRun(ctx context.Context, run *models.SummaryWidgetRun) error {
+	if run == nil {
+		return nil
+	}
+	summary, err := s.summaries.GetSummaryByID(ctx, run.SummaryID)
+	if err != nil {
+		return err
+	}
+	job, err := s.jobs.FindByID(ctx, run.TranscriptionID)
+	if err != nil {
+		return err
+	}
+	config, err := s.llmConfig.GetActiveByUser(ctx, run.UserID)
+	if err != nil {
+		return err
+	}
+	if !llmReady(config) {
+		return fmt.Errorf("LLM provider is not fully configured")
+	}
+	client, err := clientForConfig(config)
+	if err != nil {
+		return err
+	}
+	model := strings.TrimSpace(*config.SmallModel)
+	contextWindow, err := client.GetContextWindow(ctx, model)
+	if err != nil || contextWindow <= 0 {
+		contextWindow = 4096
+	}
+	contextText := strings.TrimSpace(summary.Content)
+	if run.ContextSource == "transcript" {
+		transcriptJSON := ""
+		if job.Transcript != nil {
+			transcriptJSON = *job.Transcript
+		}
+		contextText, err = plainTranscriptText(transcriptJSON)
+		if err != nil {
+			return err
+		}
+	}
+	prompt := widgetPrompt(run.Widget.Prompt, run.RenderMarkdown)
+	input, truncated := fitTextToContext(contextText, prompt, contextWindow)
+	if truncated {
+		run.ContextTruncated = true
+		run.ContextWindow = contextWindow
+		run.InputCharacters = len(contextText)
+		s.publishWidgetRun(ctx, "summary_widget.truncated", run)
+	}
+	messages := []llm.ChatMessage{{Role: "user", Content: prompt + "\n\nContext:\n" + input}}
+	response, err := client.ChatCompletion(ctx, model, messages, 0)
+	if err != nil {
+		return err
+	}
+	output := ""
+	if response != nil && len(response.Choices) > 0 {
+		output = strings.TrimSpace(response.Choices[0].Message.Content)
+	}
+	if output == "" {
+		return fmt.Errorf("summary widget provider returned empty content")
+	}
+	if err := s.summaries.CompleteSummaryWidgetRun(context.Background(), run.ID, output, truncated, contextWindow, len(contextText), time.Now()); err != nil {
+		return err
+	}
+	run.Output = output
+	run.Status = "completed"
+	run.ContextTruncated = truncated
+	run.ContextWindow = contextWindow
+	run.InputCharacters = len(contextText)
+	s.publishWidgetRun(context.Background(), "summary_widget.completed", run)
+	return nil
+}
+
 func llmReady(config *models.LLMConfig) bool {
 	return config != nil &&
 		strings.TrimSpace(config.Provider) != "" &&
@@ -322,18 +506,22 @@ func plainTranscriptText(value string) (string, error) {
 }
 
 func fitTranscriptToContext(transcript string, contextWindow int) (string, bool) {
+	return fitTextToContext(transcript, summaryPrompt, contextWindow)
+}
+
+func fitTextToContext(text string, prompt string, contextWindow int) (string, bool) {
 	const charsPerToken = 4
 	const completionReserveTokens = 512
-	promptTokens := (len(summaryPrompt) / charsPerToken) + 1
+	promptTokens := (len(prompt) / charsPerToken) + 1
 	budgetTokens := contextWindow - promptTokens - completionReserveTokens
 	if budgetTokens < 256 {
 		budgetTokens = 256
 	}
 	maxChars := budgetTokens * charsPerToken
-	if len(transcript) <= maxChars {
-		return transcript, false
+	if len(text) <= maxChars {
+		return text, false
 	}
-	return strings.TrimSpace(transcript[:maxChars]), true
+	return strings.TrimSpace(text[:maxChars]), true
 }
 
 func (s *Service) publish(ctx context.Context, name string, summary *models.Summary) {
@@ -347,6 +535,22 @@ func (s *Service) publish(ctx context.Context, name string, summary *models.Summ
 		UserID:          summary.UserID,
 		Status:          summary.Status,
 		Truncated:       summary.TranscriptTruncated,
+	})
+}
+
+func (s *Service) publishWidgetRun(ctx context.Context, name string, run *models.SummaryWidgetRun) {
+	if s.events == nil || run == nil {
+		return
+	}
+	s.events.PublishSummaryStatus(ctx, StatusEvent{
+		Name:            name,
+		SummaryID:       run.SummaryID,
+		TranscriptionID: run.TranscriptionID,
+		WidgetRunID:     run.ID,
+		WidgetID:        run.WidgetID,
+		UserID:          run.UserID,
+		Status:          run.Status,
+		Truncated:       run.ContextTruncated,
 	})
 }
 
@@ -366,4 +570,123 @@ func sanitizeError(err error) string {
 		return message[:300] + "..."
 	}
 	return message
+}
+
+func widgetPrompt(savedPrompt string, renderMarkdown bool) string {
+	prompt := strings.TrimSpace(savedPrompt)
+	if renderMarkdown {
+		return prompt + "\n\n" + markdownTypesetInstructions
+	}
+	return prompt
+}
+
+func selectRelevantWidgets(ctx context.Context, client llm.Service, model string, summary string, widgets []models.SummaryWidget) ([]models.SummaryWidget, error) {
+	if len(widgets) == 0 {
+		return nil, nil
+	}
+	prompt := buildWidgetSelectionPrompt(summary, widgets)
+	response, err := client.ChatCompletion(ctx, model, []llm.ChatMessage{{Role: "user", Content: prompt}}, 0)
+	if err != nil {
+		return nil, err
+	}
+	content := ""
+	if response != nil && len(response.Choices) > 0 {
+		content = strings.TrimSpace(response.Choices[0].Message.Content)
+	}
+	if content == "" {
+		return nil, fmt.Errorf("widget selector returned empty content")
+	}
+	var parsed struct {
+		WidgetNames []string `json:"widget_names"`
+	}
+	if err := json.Unmarshal([]byte(selectorJSONPayload(content)), &parsed); err != nil {
+		return nil, fmt.Errorf("parse widget selector response: %w", err)
+	}
+	byName := make(map[string]models.SummaryWidget, len(widgets))
+	for _, widget := range widgets {
+		byName[widget.Name] = widget
+	}
+	selected := make([]models.SummaryWidget, 0, len(parsed.WidgetNames))
+	seen := make(map[string]struct{}, len(parsed.WidgetNames))
+	for _, name := range parsed.WidgetNames {
+		name = strings.TrimSpace(name)
+		if _, ok := seen[name]; ok {
+			continue
+		}
+		widget, ok := byName[name]
+		if !ok {
+			continue
+		}
+		selected = append(selected, widget)
+		seen[name] = struct{}{}
+	}
+	return selected, nil
+}
+
+func selectorJSONPayload(content string) string {
+	trimmed := strings.TrimSpace(content)
+	if trimmed == "" {
+		return trimmed
+	}
+	if strings.HasPrefix(trimmed, "```") {
+		lines := strings.Split(trimmed, "\n")
+		if len(lines) >= 3 && strings.HasPrefix(strings.TrimSpace(lines[0]), "```") {
+			end := len(lines) - 1
+			for end > 0 && strings.TrimSpace(lines[end]) == "" {
+				end--
+			}
+			if strings.HasPrefix(strings.TrimSpace(lines[end]), "```") {
+				return strings.TrimSpace(strings.Join(lines[1:end], "\n"))
+			}
+		}
+	}
+	start := strings.Index(trimmed, "{")
+	end := strings.LastIndex(trimmed, "}")
+	if start >= 0 && end > start {
+		return strings.TrimSpace(trimmed[start : end+1])
+	}
+	return trimmed
+}
+
+func buildWidgetSelectionPrompt(summary string, widgets []models.SummaryWidget) string {
+	var builder strings.Builder
+	builder.WriteString("You are a strict JSON classification service. Decide which summary widgets are relevant for an audio transcript summary.\n\n")
+	builder.WriteString("Return raw JSON only. The first character of your response must be `{` and the last character must be `}`. Do not use markdown fences. Do not include explanations, comments, prose, or extra keys.\n\n")
+	builder.WriteString("Schema:\n")
+	builder.WriteString(`{"widget_names":["Exact Widget Name"]}`)
+	builder.WriteString("\n\n")
+	builder.WriteString("Rules:\n")
+	builder.WriteString("- `widget_names` must be an array of exact strings copied from the allowed widget names.\n")
+	builder.WriteString("- Return `{\"widget_names\":[]}` when none clearly apply.\n")
+	builder.WriteString("- Choose only widgets that are clearly relevant.\n")
+	builder.WriteString("- Never invent, rename, abbreviate, or translate widget names.\n")
+	builder.WriteString("- Never include a widget name that is not in the allowed list.\n\n")
+	builder.WriteString("Allowed widget names:\n")
+	for _, widget := range widgets {
+		builder.WriteString("- ")
+		builder.WriteString(widget.Name)
+		builder.WriteString("\n")
+	}
+	builder.WriteString("\nWidget selection criteria:\n")
+	builder.WriteString("Available widgets:\n")
+	for _, widget := range widgets {
+		builder.WriteString("- Name: ")
+		builder.WriteString(widget.Name)
+		builder.WriteString("\n  When to use: ")
+		builder.WriteString(strings.TrimSpace(valueOrEmpty(widget.WhenToUse)))
+		builder.WriteString("\n")
+	}
+	builder.WriteString("\nExample response:\n")
+	builder.WriteString(`{"widget_names":[]}`)
+	builder.WriteString("\n\n")
+	builder.WriteString("\nSummary context:\n")
+	builder.WriteString(strings.TrimSpace(summary))
+	return builder.String()
+}
+
+func valueOrEmpty(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return *value
 }

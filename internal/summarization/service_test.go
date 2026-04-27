@@ -40,6 +40,18 @@ func TestFitTranscriptToContextTruncatesLongInput(t *testing.T) {
 	require.NotEmpty(t, fitted)
 }
 
+func TestSelectorJSONPayloadAcceptsFencedJSON(t *testing.T) {
+	payload := selectorJSONPayload("```json\n{\"widget_names\":[\"Outline\"]}\n```")
+
+	require.Equal(t, `{"widget_names":["Outline"]}`, payload)
+}
+
+func TestSelectorJSONPayloadExtractsJSONFromExplanatoryText(t *testing.T) {
+	payload := selectorJSONPayload("Here is the result:\n{\"widget_names\":[\"Action Items\"]}\nThanks")
+
+	require.Equal(t, `{"widget_names":["Action Items"]}`, payload)
+}
+
 func TestEnqueueRequiresConfiguredProviderAndModels(t *testing.T) {
 	logger.Init("silent")
 	require.NoError(t, database.Initialize(filepath.Join(t.TempDir(), "scriberr.db")))

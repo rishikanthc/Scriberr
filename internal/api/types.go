@@ -94,3 +94,14 @@ type updateLLMProviderRequest struct {
 	LargeModel string `json:"large_model"`
 	SmallModel string `json:"small_model"`
 }
+type summaryWidgetRequest struct {
+	Name           string  `json:"name"`
+	Description    string  `json:"description"`
+	AlwaysEnabled  bool    `json:"always_enabled"`
+	WhenToUse      *string `json:"when_to_use"`
+	ContextSource  string  `json:"context_source"`
+	Prompt         string  `json:"prompt"`
+	RenderMarkdown bool    `json:"render_markdown"`
+	DisplayTitle   string  `json:"display_title"`
+	Enabled        *bool   `json:"enabled"`
+}

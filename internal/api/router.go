@@ -81,6 +81,11 @@ func (h *Handler) PublishSummaryStatus(_ context.Context, event summarization.St
 		"status":               event.Status,
 		"transcript_truncated": event.Truncated,
 	}
+	if event.WidgetRunID != "" {
+		payload["widget_run_id"] = event.WidgetRunID
+		payload["widget_id"] = event.WidgetID
+		payload["context_truncated"] = event.Truncated
+	}
 	h.publishTranscriptionEvent(event.Name, "tr_"+event.TranscriptionID, payload)
 	h.publishEvent(event.Name, payload)
 }
@@ -162,6 +167,7 @@ func SetupRoutes(handler *Handler, _ *auth.AuthService) *gin.Engine {
 			transcriptions.POST("/:idAction", handler.idempotencyMiddleware(), handler.transcriptionCommand)
 			transcriptions.GET("/:id/transcript", handler.getTranscript)
 			transcriptions.GET("/:id/summary", handler.getTranscriptionSummary)
+			transcriptions.GET("/:id/summary/widgets", handler.listTranscriptionSummaryWidgets)
 			transcriptions.GET("/:id/audio", handler.streamTranscriptionAudio)
 			transcriptions.GET("/:id/events", handler.streamTranscriptionEvents)
 			transcriptions.GET("/:id/logs", handler.getTranscriptionLogs)
@@ -186,6 +192,10 @@ func SetupRoutes(handler *Handler, _ *auth.AuthService) *gin.Engine {
 			settings.PATCH("", handler.updateSettings)
 			settings.GET("/llm-provider", handler.getLLMProvider)
 			settings.PUT("/llm-provider", handler.updateLLMProvider)
+			settings.GET("/summary-widgets", handler.listSummaryWidgets)
+			settings.POST("/summary-widgets", handler.idempotencyMiddleware(), handler.createSummaryWidget)
+			settings.PATCH("/summary-widgets/:id", handler.updateSummaryWidget)
+			settings.DELETE("/summary-widgets/:id", handler.deleteSummaryWidget)
 		}
 
 		v1.GET("/events", handler.authRequired(), handler.streamEvents)

@@ -725,7 +725,20 @@ type SummaryRepository interface {
 	FailSummary(ctx context.Context, id string, message string, failedAt time.Time) error
 	RecoverProcessingSummaries(ctx context.Context) (int64, error)
 	GetLatestSummary(ctx context.Context, transcriptionID string) (*models.Summary, error)
+	GetSummaryByID(ctx context.Context, id string) (*models.Summary, error)
 	DeleteByTranscriptionID(ctx context.Context, transcriptionID string) error
+	ListSummaryWidgetsByUser(ctx context.Context, userID uint) ([]models.SummaryWidget, error)
+	ListEnabledSummaryWidgets(ctx context.Context, userID uint) ([]models.SummaryWidget, error)
+	FindSummaryWidgetByIDForUser(ctx context.Context, id string, userID uint) (*models.SummaryWidget, error)
+	CreateSummaryWidget(ctx context.Context, widget *models.SummaryWidget) error
+	UpdateSummaryWidget(ctx context.Context, widget *models.SummaryWidget) error
+	DeleteSummaryWidget(ctx context.Context, id string, userID uint) error
+	EnqueueSummaryWidgetRuns(ctx context.Context, summary *models.Summary, widgets []models.SummaryWidget, model string, provider string) ([]models.SummaryWidgetRun, error)
+	ClaimNextPendingSummaryWidgetRun(ctx context.Context, now time.Time) (*models.SummaryWidgetRun, error)
+	CompleteSummaryWidgetRun(ctx context.Context, id string, output string, truncated bool, contextWindow int, inputCharacters int, completedAt time.Time) error
+	FailSummaryWidgetRun(ctx context.Context, id string, message string, failedAt time.Time) error
+	RecoverProcessingSummaryWidgetRuns(ctx context.Context) (int64, error)
+	ListSummaryWidgetRunsByTranscription(ctx context.Context, transcriptionID string, userID uint) ([]models.SummaryWidgetRun, error)
 }
 
 type summaryRepository struct {
@@ -893,8 +906,159 @@ func (r *summaryRepository) GetLatestSummary(ctx context.Context, transcriptionI
 	return &summary, nil
 }
 
+func (r *summaryRepository) GetSummaryByID(ctx context.Context, id string) (*models.Summary, error) {
+	var summary models.Summary
+	if err := r.db.WithContext(ctx).Where("id = ?", id).First(&summary).Error; err != nil {
+		return nil, err
+	}
+	return &summary, nil
+}
+
 func (r *summaryRepository) DeleteByTranscriptionID(ctx context.Context, transcriptionID string) error {
 	return r.db.WithContext(ctx).Where("transcription_id = ?", transcriptionID).Delete(&models.Summary{}).Error
+}
+
+func (r *summaryRepository) ListSummaryWidgetsByUser(ctx context.Context, userID uint) ([]models.SummaryWidget, error) {
+	var widgets []models.SummaryWidget
+	err := r.db.WithContext(ctx).Where("user_id = ?", userID).Order("created_at DESC").Find(&widgets).Error
+	return widgets, err
+}
+
+func (r *summaryRepository) ListEnabledSummaryWidgets(ctx context.Context, userID uint) ([]models.SummaryWidget, error) {
+	var widgets []models.SummaryWidget
+	err := r.db.WithContext(ctx).Where("user_id = ? AND enabled = ?", userID, true).Order("created_at ASC").Find(&widgets).Error
+	return widgets, err
+}
+
+func (r *summaryRepository) FindSummaryWidgetByIDForUser(ctx context.Context, id string, userID uint) (*models.SummaryWidget, error) {
+	var widget models.SummaryWidget
+	if err := r.db.WithContext(ctx).Where("id = ? AND user_id = ?", id, userID).First(&widget).Error; err != nil {
+		return nil, err
+	}
+	return &widget, nil
+}
+
+func (r *summaryRepository) CreateSummaryWidget(ctx context.Context, widget *models.SummaryWidget) error {
+	return r.db.WithContext(ctx).Create(widget).Error
+}
+
+func (r *summaryRepository) UpdateSummaryWidget(ctx context.Context, widget *models.SummaryWidget) error {
+	return r.db.WithContext(ctx).Save(widget).Error
+}
+
+func (r *summaryRepository) DeleteSummaryWidget(ctx context.Context, id string, userID uint) error {
+	return r.db.WithContext(ctx).Where("id = ? AND user_id = ?", id, userID).Delete(&models.SummaryWidget{}).Error
+}
+
+func (r *summaryRepository) EnqueueSummaryWidgetRuns(ctx context.Context, summary *models.Summary, widgets []models.SummaryWidget, model string, provider string) ([]models.SummaryWidgetRun, error) {
+	if summary == nil || len(widgets) == 0 {
+		return nil, nil
+	}
+	runs := make([]models.SummaryWidgetRun, 0, len(widgets))
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		for _, widget := range widgets {
+			var existing models.SummaryWidgetRun
+			result := tx.Where("summary_id = ? AND widget_id = ? AND user_id = ?", summary.ID, widget.ID, summary.UserID).
+				Limit(1).
+				Find(&existing)
+			if result.Error != nil {
+				return result.Error
+			}
+			if result.RowsAffected > 0 {
+				runs = append(runs, existing)
+				continue
+			}
+			run := models.SummaryWidgetRun{
+				SummaryID:       summary.ID,
+				TranscriptionID: summary.TranscriptionID,
+				WidgetID:        widget.ID,
+				UserID:          summary.UserID,
+				WidgetName:      widget.Name,
+				DisplayTitle:    widget.DisplayTitle,
+				ContextSource:   widget.ContextSource,
+				RenderMarkdown:  widget.RenderMarkdown,
+				Model:           model,
+				Provider:        provider,
+				Status:          "pending",
+				Output:          "",
+			}
+			if err := tx.Create(&run).Error; err != nil {
+				return err
+			}
+			runs = append(runs, run)
+		}
+		return nil
+	})
+	return runs, err
+}
+
+func (r *summaryRepository) ClaimNextPendingSummaryWidgetRun(ctx context.Context, now time.Time) (*models.SummaryWidgetRun, error) {
+	var run models.SummaryWidgetRun
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		result := tx.Preload("Widget").Where("status = ?", "pending").Order("created_at ASC").Limit(1).Find(&run)
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected == 0 {
+			return gorm.ErrRecordNotFound
+		}
+		updateResult := tx.Model(&models.SummaryWidgetRun{}).
+			Where("id = ? AND status = ?", run.ID, "pending").
+			Updates(map[string]any{"status": "processing", "started_at": now})
+		if updateResult.Error != nil {
+			return updateResult.Error
+		}
+		if updateResult.RowsAffected == 0 {
+			return gorm.ErrRecordNotFound
+		}
+		run.Status = "processing"
+		run.StartedAt = &now
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &run, nil
+}
+
+func (r *summaryRepository) CompleteSummaryWidgetRun(ctx context.Context, id string, output string, truncated bool, contextWindow int, inputCharacters int, completedAt time.Time) error {
+	return r.db.WithContext(ctx).Model(&models.SummaryWidgetRun{}).
+		Where("id = ? AND status = ?", id, "processing").
+		Updates(map[string]any{
+			"output":            output,
+			"status":            "completed",
+			"context_truncated": truncated,
+			"context_window":    contextWindow,
+			"input_characters":  inputCharacters,
+			"completed_at":      completedAt,
+			"error_message":     nil,
+		}).Error
+}
+
+func (r *summaryRepository) FailSummaryWidgetRun(ctx context.Context, id string, message string, failedAt time.Time) error {
+	return r.db.WithContext(ctx).Model(&models.SummaryWidgetRun{}).
+		Where("id = ? AND status = ?", id, "processing").
+		Updates(map[string]any{
+			"status":        "failed",
+			"error_message": message,
+			"failed_at":     failedAt,
+		}).Error
+}
+
+func (r *summaryRepository) RecoverProcessingSummaryWidgetRuns(ctx context.Context) (int64, error) {
+	result := r.db.WithContext(ctx).Model(&models.SummaryWidgetRun{}).
+		Where("status = ?", "processing").
+		Update("status", "pending")
+	return result.RowsAffected, result.Error
+}
+
+func (r *summaryRepository) ListSummaryWidgetRunsByTranscription(ctx context.Context, transcriptionID string, userID uint) ([]models.SummaryWidgetRun, error) {
+	var runs []models.SummaryWidgetRun
+	err := r.db.WithContext(ctx).
+		Where("transcription_id = ? AND user_id = ?", transcriptionID, userID).
+		Order("created_at ASC").
+		Find(&runs).Error
+	return runs, err
 }
 
 // ChatRepository handles chat sessions and messages
