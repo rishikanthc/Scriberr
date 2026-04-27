@@ -125,6 +125,18 @@ func TestLocalProviderTranscribeDefaultsAndEmptyWords(t *testing.T) {
 	}
 }
 
+func TestLocalProviderTranscribeRejectsNilEngineResult(t *testing.T) {
+	provider := newLocalProviderWithEngine("local", LocalConfig{}, runtime.ProviderCPU, &fakeSpeechEngine{}, nil)
+
+	_, err := provider.Transcribe(context.Background(), TranscriptionRequest{})
+	if err == nil {
+		t.Fatalf("Transcribe returned nil error")
+	}
+	if strings.Contains(err.Error(), "/") {
+		t.Fatalf("error should be public-safe: %q", err.Error())
+	}
+}
+
 func TestLocalProviderDiarizeMapsRequestAndSpeakers(t *testing.T) {
 	fake := &fakeSpeechEngine{
 		diarizationOut: &speechengine.DiarizationResult{
@@ -155,6 +167,18 @@ func TestLocalProviderDiarizeMapsRequestAndSpeakers(t *testing.T) {
 	}
 	if len(result.Segments) != 2 || result.Segments[0].Speaker != "SPEAKER_00" || result.Segments[1].Speaker != "SPEAKER_12" {
 		t.Fatalf("unexpected segments: %#v", result.Segments)
+	}
+}
+
+func TestLocalProviderDiarizeRejectsNilEngineResult(t *testing.T) {
+	provider := newLocalProviderWithEngine("local", LocalConfig{}, runtime.ProviderCPU, &fakeSpeechEngine{}, nil)
+
+	_, err := provider.Diarize(context.Background(), DiarizationRequest{})
+	if err == nil {
+		t.Fatalf("Diarize returned nil error")
+	}
+	if strings.Contains(err.Error(), "/") {
+		t.Fatalf("error should be public-safe: %q", err.Error())
 	}
 }
 

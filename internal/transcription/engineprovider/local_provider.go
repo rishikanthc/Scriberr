@@ -139,6 +139,9 @@ func (p *LocalProvider) Transcribe(ctx context.Context, req TranscriptionRequest
 	if err != nil {
 		return nil, sanitizeError(err)
 	}
+	if out == nil {
+		return nil, sanitizeErrorf("local engine returned no transcription result")
+	}
 	words := make([]TranscriptWord, 0, len(out.Words))
 	for _, word := range out.Words {
 		words = append(words, TranscriptWord{
@@ -172,6 +175,9 @@ func (p *LocalProvider) Diarize(ctx context.Context, req DiarizationRequest) (*D
 	out, err := p.engine.Diarize(ctx, engineReq)
 	if err != nil {
 		return nil, sanitizeError(err)
+	}
+	if out == nil {
+		return nil, sanitizeErrorf("local engine returned no diarization result")
 	}
 	segments := make([]DiarizationSegment, 0, len(out.Segments))
 	for _, segment := range out.Segments {

@@ -99,10 +99,10 @@ func TestCreateReturnsServiceUnavailableWhenQueueStopped(t *testing.T) {
 	require.NoError(t, database.DB.Model(&models.TranscriptionJob{}).
 		Where("source_file_hash IS NOT NULL").
 		Count(&count).Error)
-	require.Zero(t, count)
+	require.Equal(t, int64(1), count)
 }
 
-func TestRetryCleansUpNewJobWhenQueueStopped(t *testing.T) {
+func TestRetryPreservesNewJobWhenQueueStopped(t *testing.T) {
 	s := newAuthTestServer(t)
 	queue := &fakeQueueService{}
 	s.handler.queueService = queue
@@ -122,7 +122,7 @@ func TestRetryCleansUpNewJobWhenQueueStopped(t *testing.T) {
 	require.NoError(t, database.DB.Model(&models.TranscriptionJob{}).
 		Where("source_file_hash IS NOT NULL").
 		Count(&count).Error)
-	require.Equal(t, int64(1), count)
+	require.Equal(t, int64(2), count)
 }
 
 func TestCancelUsesQueueServiceAndMapsConflict(t *testing.T) {
@@ -187,6 +187,16 @@ func TestTranscriptExecutionsLogsModelsAndStatsUseEngineServices(t *testing.T) {
 	require.NotNil(t, body["started_at"])
 	require.NotNil(t, body["completed_at"])
 
+	require.NoError(t, database.DB.Model(&models.TranscriptionJob{}).Where("id = ?", jobID).Updates(map[string]any{
+		"status":     models.StatusFailed,
+		"last_error": errorMessage,
+	}).Error)
+	resp, body = s.request(t, http.MethodGet, "/api/v1/transcriptions/"+transcriptionID, nil, token, "")
+	require.Equal(t, http.StatusOK, resp.Code)
+	require.NotContains(t, body["error"], "/tmp/private")
+	require.NotContains(t, body["error"], "secret-value")
+	require.Contains(t, body["error"], "[redacted-path]")
+
 	resp, body = s.request(t, http.MethodGet, "/api/v1/transcriptions/"+transcriptionID+"/transcript", nil, token, "")
 	require.Equal(t, http.StatusOK, resp.Code)
 	require.Equal(t, "hello", body["text"])
@@ -206,6 +216,7 @@ func TestTranscriptExecutionsLogsModelsAndStatsUseEngineServices(t *testing.T) {
 	require.NotContains(t, rawLogs, "/tmp/private")
 	require.NotContains(t, rawLogs, "secret-value")
 	require.Contains(t, rawLogs, "[redacted-path]")
+	require.Contains(t, rawLogs, "\nfailed_at=")
 
 	resp, body = s.request(t, http.MethodGet, "/api/v1/models/transcription", nil, token, "")
 	require.Equal(t, http.StatusOK, resp.Code)

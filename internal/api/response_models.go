@@ -143,6 +143,10 @@ func transcriptionResponse(job *models.TranscriptionJob) gin.H {
 	if job.Language != nil {
 		language = *job.Language
 	}
+	errorValue := any(nil)
+	if job.ErrorMessage != nil && *job.ErrorMessage != "" {
+		errorValue = sanitizePublicText(*job.ErrorMessage)
+	}
 	return gin.H{
 		"id":             "tr_" + job.ID,
 		"file_id":        fileIDForTranscription(job),
@@ -157,7 +161,7 @@ func transcriptionResponse(job *models.TranscriptionJob) gin.H {
 		"started_at":     job.StartedAt,
 		"completed_at":   job.CompletedAt,
 		"failed_at":      job.FailedAt,
-		"error":          job.ErrorMessage,
+		"error":          errorValue,
 	}
 }
 func transcriptionListResponse(job *models.TranscriptionJob) gin.H {

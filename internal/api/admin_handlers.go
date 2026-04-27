@@ -213,19 +213,12 @@ func executionDurationMS(execution *models.TranscriptionJobExecution) any {
 	return end.Sub(execution.StartedAt).Milliseconds()
 }
 
-var publicAbsolutePathPattern = regexp.MustCompile(`(?:[A-Za-z]:\\|/)[^\s:;,'")]+`)
+var (
+	publicAbsolutePathPattern = regexp.MustCompile(`(?:[A-Za-z]:\\|/)[^\s:;,'")]+`)
+	publicTokenPattern        = regexp.MustCompile(`(?i)\b([A-Za-z0-9_]*(?:token|api_key|apikey)[A-Za-z0-9_]*)=[^\s]+`)
+)
 
 func sanitizePublicText(value string) string {
 	value = publicAbsolutePathPattern.ReplaceAllString(value, "[redacted-path]")
-	parts := strings.Fields(value)
-	for i, part := range parts {
-		lower := strings.ToLower(part)
-		if strings.Contains(lower, "token") || strings.Contains(lower, "api_key") || strings.Contains(lower, "apikey") {
-			if strings.Contains(part, "=") {
-				key := strings.SplitN(part, "=", 2)[0]
-				parts[i] = key + "=[redacted]"
-			}
-		}
-	}
-	return strings.Join(parts, " ")
+	return publicTokenPattern.ReplaceAllString(value, "$1=[redacted]")
 }

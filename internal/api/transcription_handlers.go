@@ -73,7 +73,7 @@ func (h *Handler) createTranscription(c *gin.Context) {
 		return
 	}
 	if err := h.enqueueTranscription(c, job.ID); err != nil {
-		h.cleanupFailedTranscriptionCreate(c, job.ID, "could not create transcription", err)
+		h.writeEnqueueError(c, err)
 		return
 	}
 	response := transcriptionResponse(&job)
@@ -139,7 +139,7 @@ func (h *Handler) submitTranscription(c *gin.Context) {
 		return
 	}
 	if err := h.enqueueTranscription(c, job.ID); err != nil {
-		h.cleanupFailedTranscriptionCreate(c, job.ID, "could not create transcription", err)
+		h.writeEnqueueError(c, err)
 		return
 	}
 	response := gin.H{
@@ -312,7 +312,7 @@ func (h *Handler) retryTranscription(c *gin.Context, publicID string) {
 		return
 	}
 	if err := h.enqueueTranscription(c, retry.ID); err != nil {
-		h.cleanupFailedTranscriptionCreate(c, retry.ID, "could not retry transcription", err)
+		h.writeEnqueueError(c, err)
 		return
 	}
 	response := gin.H{
@@ -377,11 +377,7 @@ func (h *Handler) enqueueTranscription(c *gin.Context, jobID string) error {
 	return nil
 }
 
-func (h *Handler) cleanupFailedTranscriptionCreate(c *gin.Context, jobID string, fallbackMessage string, enqueueErr error) {
-	if err := database.DB.Delete(&models.TranscriptionJob{}, "id = ?", jobID).Error; err != nil {
-		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", fallbackMessage, nil)
-		return
-	}
+func (h *Handler) writeEnqueueError(c *gin.Context, enqueueErr error) {
 	if errors.Is(enqueueErr, worker.ErrQueueStopped) {
 		writeError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "transcription queue is unavailable", nil)
 		return
