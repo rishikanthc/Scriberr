@@ -303,16 +303,23 @@ function statusText(recording: Recording) {
     case "failed":
       return "Failed";
     case "uploading":
-      return recording.progress ? `${recording.progress}%` : "Uploading";
+      return recording.progress ? formatProgress(recording.progress) : "Uploading";
     case "file-processing":
       return "Processing";
     case "queued":
       return "Queued";
     case "transcribing":
-      return (recording.progress ?? 0) > 0 ? `${recording.progress}%` : "Transcribing";
+      return (recording.progress ?? 0) > 0 ? formatProgress(recording.progress ?? 0) : "Transcribing";
     case "canceled":
       return "Canceled";
   }
+}
+
+function formatProgress(progress: number) {
+  const percent = progress <= 1 ? progress * 100 : progress;
+  if (percent >= 99.5) return "100%";
+  if (percent < 1) return "<1%";
+  return `${Math.round(percent)}%`;
 }
 
 function itemLabel(status: UploadItem["status"]) {

@@ -44,6 +44,8 @@ export function useTranscriptionListEvents() {
           return;
         }
 
+        queryClient.invalidateQueries({ queryKey: transcriptionsQueryKey });
+
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
         let buffer = "";
@@ -59,6 +61,7 @@ export function useTranscriptionListEvents() {
           for (const chunk of chunks) {
             const parsed = parseSSEChunk(chunk);
             if (!parsed || !parsed.name.startsWith("transcription.")) continue;
+            let updatedKnownTranscription = false;
             queryClient.setQueryData<TranscriptionsResponse>(transcriptionsQueryKey, (current) => {
               if (!current || !parsed.data.id) return current;
 
@@ -66,6 +69,7 @@ export function useTranscriptionListEvents() {
                 ...current,
                 items: current.items.map((transcription) => {
                   if (transcription.id !== parsed.data.id) return transcription;
+                  updatedKnownTranscription = true;
                   return {
                     ...transcription,
                     status: normalizeEventStatus(parsed.data.status) || transcription.status,
@@ -76,7 +80,9 @@ export function useTranscriptionListEvents() {
                 }),
               };
             });
-            queryClient.invalidateQueries({ queryKey: transcriptionsQueryKey });
+            if (!updatedKnownTranscription) {
+              queryClient.invalidateQueries({ queryKey: transcriptionsQueryKey });
+            }
           }
         }
 

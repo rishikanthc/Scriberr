@@ -129,6 +129,7 @@ func main() {
 	// Initialize API handlers
 	handler := api.NewHandler(cfg, authService, queueService, providerRegistry)
 	processor.Events = handler
+	queueService.SetEventPublisher(handler)
 
 	// Set up router
 	router := api.SetupRoutes(handler, authService)

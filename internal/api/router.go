@@ -75,6 +75,19 @@ func (h *Handler) Publish(ctx context.Context, event orchestrator.ProgressEvent)
 	h.publishTranscriptionEvent(event.Name, "tr_"+event.JobID, payload)
 }
 
+func (h *Handler) PublishStatus(_ context.Context, event worker.StatusEvent) {
+	if h == nil {
+		return
+	}
+	payload := gin.H{
+		"id":       "tr_" + event.JobID,
+		"status":   string(event.Status),
+		"progress": event.Progress,
+		"stage":    event.Stage,
+	}
+	h.publishTranscriptionEvent(event.Name, "tr_"+event.JobID, payload)
+}
+
 func SetupRoutes(handler *Handler, _ *auth.AuthService) *gin.Engine {
 	gin.SetMode(gin.ReleaseMode)
 	logger.SetGinOutput()

@@ -31,6 +31,19 @@ type Processor interface {
 	Process(ctx context.Context, job *models.TranscriptionJob) (ProcessResult, error)
 }
 
+type EventPublisher interface {
+	PublishStatus(ctx context.Context, event StatusEvent)
+}
+
+type StatusEvent struct {
+	Name     string
+	JobID    string
+	UserID   uint
+	Stage    string
+	Progress float64
+	Status   models.JobStatus
+}
+
 type ProcessResult struct {
 	Status         models.JobStatus
 	TranscriptJSON string
@@ -61,6 +74,7 @@ type Config struct {
 type Service struct {
 	repo      repository.JobRepository
 	processor Processor
+	events    EventPublisher
 	cfg       Config
 
 	mu      sync.Mutex
@@ -86,6 +100,10 @@ func NewService(repo repository.JobRepository, processor Processor, cfg Config) 
 		wake:      make(chan struct{}, 1),
 		running:   make(map[string]runningJob),
 	}
+}
+
+func (s *Service) SetEventPublisher(events EventPublisher) {
+	s.events = events
 }
 
 func normalizeConfig(cfg Config) Config {
@@ -208,7 +226,11 @@ func (s *Service) Cancel(ctx context.Context, userID uint, jobID string) error {
 		}
 	}
 	logger.Info("Canceling transcription job", "job_id", jobID, "status", job.Status)
-	return s.repo.CancelTranscription(ctx, jobID, time.Now())
+	if err := s.repo.CancelTranscription(ctx, jobID, time.Now()); err != nil {
+		return err
+	}
+	s.publishTerminalStatus(context.Background(), job, models.StatusCanceled)
+	return nil
 }
 
 func (s *Service) Stats(ctx context.Context, userID uint) (QueueStats, error) {
@@ -266,25 +288,74 @@ func (s *Service) claimAndProcess(workerID string) error {
 	close(renewDone)
 
 	if errors.Is(jobCtx.Err(), context.Canceled) || errors.Is(processErr, context.Canceled) {
-		return s.repo.CancelTranscription(context.Background(), job.ID, time.Now())
+		if err := s.repo.CancelTranscription(context.Background(), job.ID, time.Now()); err != nil {
+			return err
+		}
+		s.publishTerminalStatus(context.Background(), job, models.StatusCanceled)
+		return nil
 	}
 	if processErr != nil {
 		message := processErr.Error()
 		if result.ErrorMessage != "" {
 			message = result.ErrorMessage
 		}
-		return s.repo.FailTranscription(context.Background(), job.ID, message, nonZeroTime(result.FailedAt))
+		if err := s.repo.FailTranscription(context.Background(), job.ID, message, nonZeroTime(result.FailedAt)); err != nil {
+			return err
+		}
+		s.publishTerminalStatus(context.Background(), job, models.StatusFailed)
+		return nil
 	}
 	switch result.Status {
 	case "", models.StatusCompleted:
-		return s.repo.CompleteTranscription(context.Background(), job.ID, result.TranscriptJSON, result.OutputJSONPath, nonZeroTime(result.CompletedAt))
+		if err := s.repo.CompleteTranscription(context.Background(), job.ID, result.TranscriptJSON, result.OutputJSONPath, nonZeroTime(result.CompletedAt)); err != nil {
+			return err
+		}
+		s.publishTerminalStatus(context.Background(), job, models.StatusCompleted)
+		return nil
 	case models.StatusFailed:
-		return s.repo.FailTranscription(context.Background(), job.ID, result.ErrorMessage, nonZeroTime(result.FailedAt))
+		if err := s.repo.FailTranscription(context.Background(), job.ID, result.ErrorMessage, nonZeroTime(result.FailedAt)); err != nil {
+			return err
+		}
+		s.publishTerminalStatus(context.Background(), job, models.StatusFailed)
+		return nil
 	case models.StatusCanceled:
-		return s.repo.CancelTranscription(context.Background(), job.ID, nonZeroTime(result.FailedAt))
+		if err := s.repo.CancelTranscription(context.Background(), job.ID, nonZeroTime(result.FailedAt)); err != nil {
+			return err
+		}
+		s.publishTerminalStatus(context.Background(), job, models.StatusCanceled)
+		return nil
 	default:
 		return fmt.Errorf("unsupported worker processor result status %q", result.Status)
 	}
+}
+
+func (s *Service) publishTerminalStatus(ctx context.Context, job *models.TranscriptionJob, status models.JobStatus) {
+	if s.events == nil || job == nil {
+		return
+	}
+	stage := string(status)
+	name := "transcription.progress"
+	progress := job.Progress
+	switch status {
+	case models.StatusCompleted:
+		name = "transcription.completed"
+		stage = "completed"
+		progress = 1
+	case models.StatusFailed:
+		name = "transcription.failed"
+		stage = "failed"
+	case models.StatusCanceled:
+		name = "transcription.canceled"
+		stage = "canceled"
+	}
+	s.events.PublishStatus(ctx, StatusEvent{
+		Name:     name,
+		JobID:    job.ID,
+		UserID:   job.UserID,
+		Stage:    stage,
+		Progress: progress,
+		Status:   status,
+	})
 }
 
 func (s *Service) renewLease(ctx context.Context, workerID string, jobID string, done <-chan struct{}) {

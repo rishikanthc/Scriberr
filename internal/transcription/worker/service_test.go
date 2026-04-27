@@ -23,6 +23,22 @@ type fakeProcessor struct {
 	err     error
 }
 
+type observedStatusEvent struct {
+	event    StatusEvent
+	dbStatus models.JobStatus
+}
+
+type recordingStatusPublisher struct {
+	db     *gorm.DB
+	events chan observedStatusEvent
+}
+
+func (p *recordingStatusPublisher) PublishStatus(ctx context.Context, event StatusEvent) {
+	var job models.TranscriptionJob
+	_ = p.db.WithContext(ctx).First(&job, "id = ?", event.JobID).Error
+	p.events <- observedStatusEvent{event: event, dbStatus: job.Status}
+}
+
 func newFakeProcessor() *fakeProcessor {
 	return &fakeProcessor{
 		started: make(chan string, 10),
@@ -134,6 +150,39 @@ func TestServiceEnqueueWakeAndComplete(t *testing.T) {
 	assert.Equal(t, 1.0, completed.Progress)
 	assert.Equal(t, "completed", completed.ProgressStage)
 	assert.NotNil(t, completed.CompletedAt)
+}
+
+func TestServicePublishesTerminalStatusAfterCompletionCommit(t *testing.T) {
+	db := openWorkerTestDB(t)
+	user := createWorkerTestUser(t, db, "worker-user-terminal-event")
+	job := createWorkerTestJob(t, db, user.ID, "job-terminal-event", models.StatusUploaded)
+	repo := repository.NewJobRepository(db)
+	processor := newFakeProcessor()
+	processor.result = ProcessResult{TranscriptJSON: `{"text":"done"}`}
+	publisher := &recordingStatusPublisher{db: db, events: make(chan observedStatusEvent, 1)}
+	service := NewService(repo, processor, testConfig())
+	service.SetEventPublisher(publisher)
+
+	require.NoError(t, service.Start(context.Background()))
+	defer service.Stop(context.Background())
+	require.NoError(t, service.Enqueue(context.Background(), job.ID))
+
+	select {
+	case <-processor.started:
+	case <-time.After(time.Second):
+		t.Fatal("processor did not start")
+	}
+	processor.complete()
+	waitForJobStatus(t, db, job.ID, models.StatusCompleted)
+
+	select {
+	case observed := <-publisher.events:
+		assert.Equal(t, "transcription.completed", observed.event.Name)
+		assert.Equal(t, models.StatusCompleted, observed.event.Status)
+		assert.Equal(t, models.StatusCompleted, observed.dbStatus)
+	case <-time.After(time.Second):
+		t.Fatal("terminal event was not published")
+	}
 }
 
 func TestServiceStartRecoversOrphanedProcessingBeforeWorkersClaim(t *testing.T) {
