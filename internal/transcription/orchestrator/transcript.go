@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"strings"
 
 	"scriberr/internal/transcription/engineprovider"
 )
@@ -40,6 +41,9 @@ type TranscriptEngine struct {
 func BuildCanonicalTranscript(transcription *engineprovider.TranscriptionResult, diarization *engineprovider.DiarizationResult) (*CanonicalTranscript, error) {
 	if transcription == nil {
 		return nil, fmt.Errorf("transcription result is required")
+	}
+	if !hasUsableTranscript(transcription) {
+		return nil, fmt.Errorf("transcription produced no usable text")
 	}
 	words := make([]CanonicalWord, 0, len(transcription.Words))
 	for _, word := range transcription.Words {
@@ -87,6 +91,23 @@ func BuildCanonicalTranscript(transcription *engineprovider.TranscriptionResult,
 			DiarizationModel:   diarizationModelID(diarization),
 		},
 	}, nil
+}
+
+func hasUsableTranscript(transcription *engineprovider.TranscriptionResult) bool {
+	if strings.TrimSpace(transcription.Text) != "" {
+		return true
+	}
+	for _, word := range transcription.Words {
+		if strings.TrimSpace(word.Word) != "" {
+			return true
+		}
+	}
+	for _, segment := range transcription.Segments {
+		if strings.TrimSpace(segment.Text) != "" {
+			return true
+		}
+	}
+	return false
 }
 
 func ParseStoredTranscript(value string) (*CanonicalTranscript, error) {

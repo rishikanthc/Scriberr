@@ -102,6 +102,19 @@ func TestBuildCanonicalTranscriptGeneratesFallbackSegmentFromWords(t *testing.T)
 	assert.Equal(t, "Fallback segment.", transcript.Segments[0].Text)
 }
 
+func TestBuildCanonicalTranscriptRejectsEmptyEngineOutput(t *testing.T) {
+	_, err := BuildCanonicalTranscript(&engineprovider.TranscriptionResult{
+		ModelID:  "parakeet-v3",
+		EngineID: "local",
+		Segments: []engineprovider.TranscriptSegment{
+			{Start: 0, End: 1, Text: "   "},
+		},
+	}, nil)
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "no usable text")
+}
+
 func TestParseStoredTranscriptFallbacks(t *testing.T) {
 	plain, err := ParseStoredTranscript("legacy plain text")
 	require.NoError(t, err)
