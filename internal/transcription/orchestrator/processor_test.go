@@ -155,6 +155,40 @@ func TestProcessorCreatesExecutionAndReturnsCanonicalTranscript(t *testing.T) {
 	assertEventStages(t, events.events, []string{"preparing", "transcribing", "diarizing", "merging", "saving", "completed"})
 }
 
+func TestProcessorNormalizesUnsupportedWhisperDecodingMethod(t *testing.T) {
+	db := openOrchestratorTestDB(t)
+	audioPath := filepath.Join(t.TempDir(), "audio.wav")
+	require.NoError(t, os.WriteFile(audioPath, []byte("fake wav"), 0o600))
+	job := createOrchestratorJob(t, db, audioPath, models.WhisperXParams{
+		ModelFamily:    "whisper",
+		Model:          "whisper-base-en",
+		DecodingMethod: "modified_beam_search",
+	})
+	provider := &fakeProvider{
+		id: "local",
+		transcribe: &engineprovider.TranscriptionResult{
+			Text:     "Hello there.",
+			Language: "en",
+			ModelID:  "whisper-base-en",
+			EngineID: "local",
+		},
+	}
+	registry, err := engineprovider.NewRegistry("local", provider)
+	require.NoError(t, err)
+	processor := &Processor{
+		Jobs:      repository.NewJobRepository(db),
+		Providers: registry,
+		Events:    &recordingEvents{},
+		OutputDir: t.TempDir(),
+	}
+
+	result, err := processor.Process(context.Background(), &job)
+
+	require.NoError(t, err)
+	require.Equal(t, models.StatusCompleted, result.Status)
+	require.Equal(t, "greedy_search", provider.transReq.DecodingMethod)
+}
+
 func TestProcessorReturnsSanitizedFailure(t *testing.T) {
 	db := openOrchestratorTestDB(t)
 	audioPath := filepath.Join(t.TempDir(), "audio.wav")

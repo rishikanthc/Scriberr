@@ -65,6 +65,7 @@ func (p *Processor) Process(ctx context.Context, job *models.TranscriptionJob) (
 		return failedResult(err.Error()), err
 	}
 	transcriptionModel := defaultString(job.Parameters.Model, engineprovider.DefaultTranscriptionModel)
+	decodingMethod := supportedDecodingMethod(job.Parameters.ModelFamily, job.Parameters.DecodingMethod)
 	diarizationEnabled := job.Diarization || job.Parameters.Diarize
 	diarizationModel := ""
 	if diarizationEnabled {
@@ -115,7 +116,7 @@ func (p *Processor) Process(ctx context.Context, job *models.TranscriptionJob) (
 		CanarySourceLanguage:    job.Parameters.CanarySourceLanguage,
 		CanaryTargetLanguage:    job.Parameters.CanaryTargetLanguage,
 		CanaryUsePunctuation:    job.Parameters.CanaryUsePunctuation,
-		DecodingMethod:          job.Parameters.DecodingMethod,
+		DecodingMethod:          decodingMethod,
 	})
 	if err != nil {
 		return p.errorResult(ctx, err)
@@ -297,6 +298,14 @@ func defaultString(value, fallback string) string {
 		return strings.TrimSpace(value)
 	}
 	return fallback
+}
+
+func supportedDecodingMethod(modelFamily, decodingMethod string) string {
+	method := strings.TrimSpace(decodingMethod)
+	if strings.TrimSpace(modelFamily) == "whisper" {
+		return "greedy_search"
+	}
+	return method
 }
 
 func validateAudioPath(path string) error {

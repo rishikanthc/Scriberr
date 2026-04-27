@@ -36,6 +36,7 @@ func TestProfileCRUDAndDefaultSelection(t *testing.T) {
 	require.Equal(t, "Fast local", body["name"])
 	options := body["options"].(map[string]any)
 	require.Equal(t, "whisper-base", options["model"])
+	require.Equal(t, "greedy_search", options["decoding_method"])
 	require.Equal(t, float64(0.5), options["diarization_threshold"])
 	require.Equal(t, float64(0.2), options["min_duration_on"])
 	require.Equal(t, float64(0.3), options["min_duration_off"])
@@ -150,6 +151,22 @@ func TestProfileValidationAndAuth(t *testing.T) {
 
 	resp, _ = s.request(t, http.MethodGet, "/api/v1/profiles/profile_missing", nil, token, "")
 	require.Equal(t, http.StatusNotFound, resp.Code)
+}
+
+func TestWhisperProfileForcesGreedyDecoding(t *testing.T) {
+	s := newAuthTestServer(t)
+	token := registerForFileTests(t, s)
+
+	resp, body := s.request(t, http.MethodPost, "/api/v1/profiles", map[string]any{
+		"name": "Whisper",
+		"options": map[string]any{
+			"model":           "whisper-base",
+			"decoding_method": "modified_beam_search",
+		},
+	}, token, "")
+	require.Equal(t, http.StatusCreated, resp.Code)
+	options := body["options"].(map[string]any)
+	require.Equal(t, "greedy_search", options["decoding_method"])
 }
 
 func TestGetProfileDoesNotPublishUpdateEvent(t *testing.T) {

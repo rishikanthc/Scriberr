@@ -248,6 +248,9 @@ func supportedProfileParams(input models.WhisperXParams) models.WhisperXParams {
 	if decodingMethod == "" {
 		decodingMethod = "greedy_search"
 	}
+	if familyForModel(model) == "whisper" {
+		decodingMethod = "greedy_search"
+	}
 	var language *string
 	if input.Language != nil {
 		trimmed := strings.TrimSpace(*input.Language)
