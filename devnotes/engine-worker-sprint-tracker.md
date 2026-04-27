@@ -281,19 +281,45 @@ Verification:
 - `SCRIBERR_ENGINE_ITEST=1 GOCACHE=/tmp/scriberr-go-cache go test ./internal/transcription/engineprovider -run TestRealEngineAutoDownloadDisabledMissingModelIsSanitized -v` passed.
 - `git diff --check` passed.
 
-## EWI-Sprint 9: Docs, Docker, and Setup UX
+## EWI-Sprint 9: Hardening, Cleanup
 
-Status: not started
+Status: completed
 
-Planned artifacts:
+Completed tasks:
+
+- Ran the full backend test/vet baseline.
+- Ran focused race checks for repository queue claiming and worker recovery/cancellation paths.
+- Ran the opt-in `jfk.wav` real engine smoke path; the test passed with a documented external DNS/model-download skip.
+- Audited and refreshed public setup/troubleshooting docs to remove stale Python/WhisperX migration assumptions.
+- Audited Docker and compose setup for the local Go speech engine runtime, persistent model cache mounts, and worker/env defaults.
+- Removed stale transcription package architecture docs and replaced them with the active engine provider, orchestrator, and worker flow.
+- Verified compose YAML syntax for all checked-in compose variants without Docker installed locally.
+
+Artifacts:
 
 - `README.md`
-- Docker compose files
-- docs/troubleshooting updates
+- `Dockerfile`
+- `Dockerfile.cuda`
+- `Dockerfile.cuda.12.9`
+- `docker-compose.yml`
+- `docker-compose.cuda.yml`
+- `docker-compose.blackwell.yml`
+- `docker-compose.build.yml`
+- `docker-compose.build.cuda.yml`
+- `docker-compose.build.blackwell.yml`
+- `internal/transcription/README.md`
+- `devnotes/engine-worker-sprint-tracker.md`
 
 Verification:
 
-- Pending
+- `ruby -e 'require "yaml"; ARGV.each { |f| YAML.load_file(f); puts "ok #{f}" }' docker-compose.yml docker-compose.cuda.yml docker-compose.blackwell.yml docker-compose.build.yml docker-compose.build.cuda.yml docker-compose.build.blackwell.yml` passed.
+- `GOCACHE=/tmp/scriberr-go-cache go test ./internal/transcription/...` passed.
+- `GOCACHE=/tmp/scriberr-go-cache go test ./internal/api ./internal/config ./internal/database ./internal/repository ./internal/transcription/... ./cmd/server ./pkg/logger ./pkg/middleware` passed.
+- `GOCACHE=/tmp/scriberr-go-cache go vet ./internal/api ./internal/config ./internal/database ./internal/repository ./internal/transcription/... ./cmd/server ./pkg/logger ./pkg/middleware` passed.
+- `GOCACHE=/tmp/scriberr-go-cache go test -race ./internal/repository -run TestJobRepositoryConcurrentClaimsDoNotDuplicateJobs` passed.
+- `GOCACHE=/tmp/scriberr-go-cache go test -race ./internal/transcription/worker -run 'TestService(EnqueueWakeAndComplete|StartRecoversOrphanedProcessingBeforeWorkersClaim|CancelRunning)'` passed.
+- `SCRIBERR_ENGINE_ITEST=1 GOCACHE=/tmp/scriberr-go-cache go test ./internal/transcription/engineprovider -run TestRealEngineJFKTranscription -v` passed with a skip because external model download DNS was unavailable.
+- `git diff --check` passed.
 
 ## EWI-Sprint 10: Hardening, Cleanup, and Release Candidate
 

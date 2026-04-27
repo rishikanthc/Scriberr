@@ -22,7 +22,7 @@ RUN cd frontend \
 ########################
 # Go build stage
 ########################
-FROM golang:1.24-bookworm AS go-builder
+FROM golang:1.26-bookworm AS go-builder
 WORKDIR /src
 
 # Pre-cache modules
@@ -37,7 +37,7 @@ RUN rm -rf internal/web/dist && mkdir -p internal/web
 COPY --from=ui-builder /web/frontend/dist internal/web/dist
 
 # Build binary (arch matches builder platform)
-RUN CGO_ENABLED=0 \
+RUN CGO_ENABLED=1 \
   go build -o /out/scriberr cmd/server/main.go
 # Build CLI binaries (cross-platform)
 RUN mkdir -p /out/bin/cli \
@@ -56,19 +56,22 @@ ENV PYTHONUNBUFFERED=1 \
     PORT=8080 \
     DATABASE_PATH=/app/data/scriberr.db \
     UPLOAD_DIR=/app/data/uploads \
-    WHISPERX_ENV=/app/whisperx-env \
+    SPEECH_ENGINE_CACHE_DIR=/app/data/models \
+    SPEECH_ENGINE_PROVIDER=auto \
+    SPEECH_ENGINE_AUTO_DOWNLOAD=true \
+    TRANSCRIPTION_WORKERS=1 \
+    TRANSCRIPTION_QUEUE_POLL_INTERVAL=2s \
+    TRANSCRIPTION_LEASE_TIMEOUT=10m \
     APP_ENV=production \
     PUID=1000 \
     PGID=1000 \
     NVIDIA_VISIBLE_DEVICES=all \
-    NVIDIA_DRIVER_CAPABILITIES=compute,utility \
-    # PyTorch CUDA wheel version: cu128 for Blackwell GPUs (RTX 50-series, sm_120)
-    PYTORCH_CUDA_VERSION=cu128
+    NVIDIA_DRIVER_CAPABILITIES=compute,utility
 
 WORKDIR /app
 
-# System deps: curl for uv install, ca-certs, ffmpeg for yt-dlp, git for git+ installs, gosu for user switching
-# Ubuntu 24.04 comes with Python 3.12 which works fine with WhisperX
+# System deps: curl/ca-certs, ffmpeg for audio conversion, git for downloads, gosu for user switching
+# Ubuntu 24.04 provides Python for yt-dlp helper tooling
 RUN apt-get update \
   && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
        curl ca-certificates ffmpeg git gosu unzip \
