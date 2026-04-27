@@ -793,8 +793,8 @@ func mapLegacyStatus(status string) models.JobStatus {
 		return models.StatusCompleted
 	case "failed":
 		return models.StatusFailed
-	case "canceled", "cancelled":
-		return models.StatusCanceled
+	case "stopped", "canceled", "cancelled":
+		return models.StatusStopped
 	default:
 		return models.JobStatus(status)
 	}

@@ -322,14 +322,14 @@ func (r *jobRepository) CancelTranscription(ctx context.Context, jobID string, c
 		if err := tx.Model(&models.TranscriptionJob{}).
 			Where("id = ?", jobID).
 			Updates(map[string]any{
-				"status":           models.StatusCanceled,
-				"progress_stage":   "canceled",
+				"status":           models.StatusStopped,
+				"progress_stage":   "stopped",
 				"claimed_by":       nil,
 				"claim_expires_at": nil,
 			}).Error; err != nil {
 			return err
 		}
-		return updateLatestExecutionTerminal(tx, jobID, models.StatusCanceled, map[string]any{
+		return updateLatestExecutionTerminal(tx, jobID, models.StatusStopped, map[string]any{
 			"completed_at": nil,
 			"failed_at":    canceledAt,
 		})

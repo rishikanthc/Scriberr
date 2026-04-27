@@ -4,7 +4,7 @@ import { useAuth } from '@/features/auth/hooks/useAuth';
 export interface AudioFile {
     id: string;
     title?: string;
-    status: "uploaded" | "pending" | "processing" | "completed" | "failed";
+    status: "uploaded" | "pending" | "processing" | "completed" | "failed" | "stopped" | "canceled";
     created_at: string;
     audio_path: string;
     diarization?: boolean;

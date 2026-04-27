@@ -61,12 +61,13 @@ func (h *Handler) queueStats(c *gin.Context) {
 			"processing": stats.Processing,
 			"completed":  stats.Completed,
 			"failed":     stats.Failed,
+			"stopped":    stats.Canceled,
 			"canceled":   stats.Canceled,
 			"running":    stats.Running,
 		})
 		return
 	}
-	stats := gin.H{"queued": 0, "processing": 0, "completed": 0, "failed": 0, "canceled": 0, "running": 0}
+	stats := gin.H{"queued": int64(0), "processing": int64(0), "completed": int64(0), "failed": int64(0), "stopped": int64(0), "canceled": int64(0), "running": int64(0)}
 	type statusCount struct {
 		Status models.JobStatus
 		Count  int64
@@ -90,8 +91,9 @@ func (h *Handler) queueStats(c *gin.Context) {
 			stats["completed"] = count.Count
 		case models.StatusFailed:
 			stats["failed"] = count.Count
-		case models.StatusCanceled:
-			stats["canceled"] = count.Count
+		case models.StatusStopped, models.StatusCanceled:
+			stats["stopped"] = stats["stopped"].(int64) + count.Count
+			stats["canceled"] = stats["canceled"].(int64) + count.Count
 		}
 	}
 	c.JSON(http.StatusOK, stats)

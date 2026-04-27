@@ -4,6 +4,7 @@ import {
   createTranscription,
   getTranscriptionTranscript,
   listTranscriptions,
+  stopTranscription,
   type CreateTranscriptionPayload,
 } from "@/features/transcription/api/transcriptionsApi";
 
@@ -39,6 +40,19 @@ export function useCreateTranscription() {
     mutationFn: (payload: CreateTranscriptionPayload) => createTranscription(payload, getAuthHeaders()),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: transcriptionsQueryKey });
+    },
+  });
+}
+
+export function useStopTranscription() {
+  const { getAuthHeaders } = useAuth();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (transcriptionId: string) => stopTranscription(transcriptionId, getAuthHeaders()),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: transcriptionsQueryKey });
+      queryClient.invalidateQueries({ queryKey: ["audioFiles"] });
     },
   });
 }

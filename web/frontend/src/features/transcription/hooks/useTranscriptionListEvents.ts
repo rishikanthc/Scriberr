@@ -24,6 +24,16 @@ export function useTranscriptionListEvents() {
 
     const abortController = new AbortController();
     let reconnectTimer: number | undefined;
+    let refetchTimer: number | undefined;
+
+    const refetchTranscriptionsSoon = () => {
+      if (refetchTimer) return;
+      refetchTimer = window.setTimeout(() => {
+        refetchTimer = undefined;
+        queryClient.refetchQueries({ queryKey: transcriptionsQueryKey, type: "active" });
+        queryClient.refetchQueries({ queryKey: ["audioFiles"], type: "active" });
+      }, 350);
+    };
 
     const scheduleReconnect = () => {
       if (abortController.signal.aborted) return;
@@ -80,9 +90,15 @@ export function useTranscriptionListEvents() {
                 }),
               };
             });
+            queryClient.setQueriesData({ queryKey: ["audioFiles"] }, (current: unknown) => {
+              if (!current || !parsed.data.id) return current;
+              return updateAudioFilesQueryData(current, parsed.data.id, parsed.data);
+            });
             if (!updatedKnownTranscription) {
               queryClient.invalidateQueries({ queryKey: transcriptionsQueryKey });
+              queryClient.invalidateQueries({ queryKey: ["audioFiles"] });
             }
+            refetchTranscriptionsSoon();
           }
         }
 
@@ -98,8 +114,43 @@ export function useTranscriptionListEvents() {
     return () => {
       abortController.abort();
       if (reconnectTimer) window.clearTimeout(reconnectTimer);
+      if (refetchTimer) window.clearTimeout(refetchTimer);
     };
   }, [token, queryClient]);
+}
+
+function updateAudioFilesQueryData(current: unknown, id: string, data: TranscriptionEvent["data"]) {
+  if (!current || typeof current !== "object") return current;
+  const value = current as {
+    pages?: Array<{ jobs?: Array<Record<string, unknown>> }>;
+    jobs?: Array<Record<string, unknown>>;
+  };
+  const updateJob = (job: Record<string, unknown>) => {
+    if (job.id !== id) return job;
+    return {
+      ...job,
+      status: data.status || job.status,
+      progress: data.progress ?? job.progress,
+      progress_stage: data.stage || job.progress_stage,
+      updated_at: new Date().toISOString(),
+    };
+  };
+  if (Array.isArray(value.pages)) {
+    return {
+      ...value,
+      pages: value.pages.map((page) => ({
+        ...page,
+        jobs: Array.isArray(page.jobs) ? page.jobs.map(updateJob) : page.jobs,
+      })),
+    };
+  }
+  if (Array.isArray(value.jobs)) {
+    return {
+      ...value,
+      jobs: value.jobs.map(updateJob),
+    };
+  }
+  return current;
 }
 
 function parseSSEChunk(chunk: string): TranscriptionEvent | null {
@@ -129,6 +180,7 @@ function normalizeEventStatus(status?: string): TranscriptionStatus | undefined 
     case "processing":
     case "completed":
     case "failed":
+    case "stopped":
     case "canceled":
       return status;
     default:

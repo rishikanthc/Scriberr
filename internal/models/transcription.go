@@ -20,7 +20,8 @@ const (
 	StatusProcessing JobStatus = "processing"
 	StatusCompleted  JobStatus = "completed"
 	StatusFailed     JobStatus = "failed"
-	StatusCanceled   JobStatus = "canceled"
+	StatusStopped    JobStatus = "stopped"
+	StatusCanceled   JobStatus = "canceled" // legacy persisted value
 )
 
 // WhisperXParams contains parameters for transcription execution.

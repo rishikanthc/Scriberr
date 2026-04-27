@@ -224,7 +224,7 @@ func validLanguage(language string) bool {
 }
 func validTranscriptionStatus(status string) bool {
 	switch models.JobStatus(status) {
-	case models.StatusPending, models.StatusProcessing, models.StatusCompleted, models.StatusFailed, models.StatusCanceled:
+	case models.StatusPending, models.StatusProcessing, models.StatusCompleted, models.StatusFailed, models.StatusStopped, models.StatusCanceled:
 		return true
 	default:
 		return false

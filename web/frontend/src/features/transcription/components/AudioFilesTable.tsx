@@ -37,12 +37,8 @@ import { TranscribeDDialog } from "@/components/TranscribeDDialog";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { useAudioListInfinite, type AudioFile } from "@/features/transcription/hooks/useAudioFiles";
-import { useTranscriptionEvents } from "@/features/transcription/hooks/useTranscriptionEvents";
-
-const JobStatusMonitor = memo(function JobStatusMonitor({ jobId }: { jobId: string }) {
-	useTranscriptionEvents(jobId);
-	return null;
-});
+import { useTranscriptionListEvents } from "@/features/transcription/hooks/useTranscriptionListEvents";
+import { stopTranscription } from "@/features/transcription/api/transcriptionsApi";
 
 
 import { DebouncedSearchInput } from "@/components/DebouncedSearchInput";
@@ -62,6 +58,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 	const navigate = useNavigate();
 	const { getAuthHeaders } = useAuth();
 	const { shouldShowHint, markHintShown } = useSwipeHint();
+	useTranscriptionListEvents();
 
 	// Table State
 	const sorting = [
@@ -83,14 +80,6 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 		sortBy: sorting[0]?.id,
 		sortOrder: sorting[0]?.desc ? 'desc' : 'asc'
 	});
-
-	// Get active jobs for real-time monitoring
-	const activeJobs = useMemo(() => {
-		if (!infiniteData) return [];
-		return infiniteData.pages.flatMap(page => page.jobs).filter(
-			job => job.status === 'processing' || job.status === 'pending'
-		);
-	}, [infiniteData]);
 
 	// Flatten data from pages
 	const data = useMemo(() => {
@@ -446,22 +435,13 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 		try {
 			setKillingJobs((prev) => new Set(prev).add(jobId));
 
-			const response = await fetch(`/api/v1/transcription/${jobId}/kill`, {
-				method: "POST",
-				headers: {
-					...getAuthHeaders(),
-				},
-			});
-
-			if (response.ok) {
-				refetch();
-				setStopDialogOpen(false);
-				setSelectedFile(null);
-			} else {
-				alert("Failed to kill transcription job");
-			}
+			const transcriptionId = jobId.startsWith("tr_") ? jobId : `tr_${jobId}`;
+			await stopTranscription(transcriptionId, getAuthHeaders());
+			refetch();
+			setStopDialogOpen(false);
+			setSelectedFile(null);
 		} catch {
-			alert("Error killing transcription job");
+			alert("Error stopping transcription job");
 		} finally {
 			setKillingJobs((prev) => {
 				const newSet = new Set(prev);
@@ -663,6 +643,18 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 							</div>
 						</TooltipTrigger>
 						<TooltipContent>Failed</TooltipContent>
+					</Tooltip>
+				);
+			case "stopped":
+			case "canceled":
+				return (
+					<Tooltip>
+						<TooltipTrigger asChild>
+							<div className="cursor-help text-gray-400">
+								<StopCircle className="h-5 w-5" strokeWidth={2.5} />
+							</div>
+						</TooltipTrigger>
+						<TooltipContent>Stopped</TooltipContent>
 					</Tooltip>
 				);
 			case "pending": {
@@ -1086,11 +1078,6 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 					</AlertDialogFooter>
 				</AlertDialogContent>
 			</AlertDialog>
-
-			{/* Active Job Monitors */}
-			{activeJobs.map(job => (
-				<JobStatusMonitor key={job.id} jobId={job.id} />
-			))}
 		</div >
 	);
 });

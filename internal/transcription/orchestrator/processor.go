@@ -211,7 +211,7 @@ func (p *Processor) resolveProvider(job *models.TranscriptionJob) (engineprovide
 
 func (p *Processor) publishProgress(ctx context.Context, job *models.TranscriptionJob, stage string, progress float64, status models.JobStatus) error {
 	if err := ctx.Err(); err != nil {
-		p.publishFinal(context.Background(), job, "canceled", progress, models.StatusCanceled)
+		p.publishFinal(context.Background(), job, "stopped", progress, models.StatusStopped)
 		return err
 	}
 	if err := p.Jobs.UpdateProgress(ctx, job.ID, progress, stage); err != nil {
@@ -231,8 +231,8 @@ func (p *Processor) publishFinal(ctx context.Context, job *models.TranscriptionJ
 		name = "transcription.completed"
 	case "failed":
 		name = "transcription.failed"
-	case "canceled":
-		name = "transcription.canceled"
+	case "stopped", "canceled":
+		name = "transcription.stopped"
 	case "queued":
 		name = "transcription.queued"
 	}
@@ -330,7 +330,7 @@ func failedResult(message string) worker.ProcessResult {
 
 func canceledResult() worker.ProcessResult {
 	return worker.ProcessResult{
-		Status:   models.StatusCanceled,
+		Status:   models.StatusStopped,
 		FailedAt: time.Now(),
 	}
 }

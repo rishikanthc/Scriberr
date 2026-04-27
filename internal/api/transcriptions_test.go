@@ -101,9 +101,9 @@ func TestTranscriptionCreateListGetPatchCancelDelete(t *testing.T) {
 	require.Equal(t, http.StatusOK, resp.Code)
 	require.Equal(t, "Renamed transcript", body["title"])
 
-	resp, body = s.request(t, http.MethodPost, "/api/v1/transcriptions/"+transcriptionID+":cancel", nil, token, "")
+	resp, body = s.request(t, http.MethodPost, "/api/v1/transcriptions/"+transcriptionID+":stop", nil, token, "")
 	require.Equal(t, http.StatusOK, resp.Code)
-	require.Equal(t, "canceled", body["status"])
+	require.Equal(t, "stopped", body["status"])
 
 	resp, _ = s.request(t, http.MethodDelete, "/api/v1/transcriptions/"+transcriptionID, nil, token, "")
 	require.Equal(t, http.StatusNoContent, resp.Code)

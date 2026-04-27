@@ -1,4 +1,4 @@
-export type TranscriptionStatus = "queued" | "processing" | "completed" | "failed" | "canceled";
+export type TranscriptionStatus = "queued" | "processing" | "completed" | "failed" | "stopped" | "canceled";
 
 export type Transcription = {
   id: string;
@@ -95,6 +95,18 @@ export async function createTranscription(
   });
   if (!response.ok) throw new Error(await readError(response));
   return response.json() as Promise<Transcription>;
+}
+
+export async function stopTranscription(
+  transcriptionId: string,
+  headers: Record<string, string>
+): Promise<Pick<Transcription, "id" | "status">> {
+  const response = await fetch(`/api/v1/transcriptions/${transcriptionId}:stop`, {
+    method: "POST",
+    headers,
+  });
+  if (!response.ok) throw new Error(await readError(response));
+  return response.json() as Promise<Pick<Transcription, "id" | "status">>;
 }
 
 async function readError(response: Response) {

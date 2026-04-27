@@ -10,11 +10,11 @@ import { useFiles } from "@/features/files/hooks/useFiles";
 import { useProfiles } from "@/features/settings/hooks/useProfiles";
 import type { Transcription, TranscriptionStatus } from "@/features/transcription/api/transcriptionsApi";
 import { useTranscriptionListEvents } from "@/features/transcription/hooks/useTranscriptionListEvents";
-import { useCreateTranscription, useTranscriptions } from "@/features/transcription/hooks/useTranscriptions";
+import { useCreateTranscription, useStopTranscription, useTranscriptions } from "@/features/transcription/hooks/useTranscriptions";
 import { EmptyState } from "@/shared/ui/EmptyState";
 import { AppButton, IconButton } from "@/shared/ui/Button";
 
-type RecordingStatus = "ready" | "uploading" | "file-processing" | "queued" | "transcribing" | "transcribed" | "failed" | "canceled";
+type RecordingStatus = "ready" | "uploading" | "file-processing" | "queued" | "transcribing" | "transcribed" | "failed" | "stopped" | "canceled";
 
 type Recording = {
   id: string;
@@ -85,11 +85,13 @@ type RecordingCardProps = {
   recording: Recording;
   canTranscribe: boolean;
   isSubmitting: boolean;
+  isStopping: boolean;
   onTranscribe: (recording: Recording) => void;
+  onStop: (recording: Recording) => void;
   onOpen: (recording: Recording) => void;
 };
 
-function RecordingCard({ recording, canTranscribe, isSubmitting, onTranscribe, onOpen }: RecordingCardProps) {
+function RecordingCard({ recording, canTranscribe, isSubmitting, isStopping, onTranscribe, onStop, onOpen }: RecordingCardProps) {
   const isProcessing = recording.status === "file-processing" || recording.status === "uploading" || recording.status === "queued" || recording.status === "transcribing";
   const isFileReady = recording.fileStatus === "ready" || recording.fileStatus === "uploaded";
   const hasActiveTranscription = recording.status === "queued" || recording.status === "transcribing";
@@ -157,7 +159,11 @@ function RecordingCard({ recording, canTranscribe, isSubmitting, onTranscribe, o
             type="button"
             aria-label={isProcessing ? "Stop transcription" : "Delete recording"}
             title={isProcessing ? "Stop transcription" : "Delete"}
-            onClick={(event) => event.stopPropagation()}
+            disabled={isProcessing && (!recording.transcriptionId || isStopping)}
+            onClick={(event) => {
+              event.stopPropagation();
+              if (isProcessing) onStop(recording);
+            }}
           >
             {isProcessing ? <StopCircle size={16} aria-hidden="true" /> : <Trash2 size={16} aria-hidden="true" />}
           </button>
@@ -177,6 +183,7 @@ export function HomePage() {
   const profilesQuery = useProfiles();
   const transcriptionsQuery = useTranscriptions();
   const createTranscriptionMutation = useCreateTranscription();
+  const stopTranscriptionMutation = useStopTranscription();
   const { uploadItems, importFiles, dismissItem, handleFileEvent } = useFileImport();
   useFileEvents(handleFileEvent);
   useTranscriptionListEvents();
@@ -225,6 +232,11 @@ export function HomePage() {
     });
   }, [createTranscriptionMutation, defaultProfile]);
 
+  const handleStopTranscription = useCallback((recording: Recording) => {
+    if (!recording.transcriptionId) return;
+    stopTranscriptionMutation.mutate(recording.transcriptionId);
+  }, [stopTranscriptionMutation]);
+
   const handleOpenRecording = useCallback((recording: Recording) => {
     if (recording.id.startsWith("file_")) {
       navigate(`/audio/${recording.id}`);
@@ -263,7 +275,9 @@ export function HomePage() {
                     recording={recording}
                     canTranscribe={Boolean(defaultProfile)}
                     isSubmitting={createTranscriptionMutation.isPending && createTranscriptionMutation.variables?.fileId === recording.id}
+                    isStopping={stopTranscriptionMutation.isPending && stopTranscriptionMutation.variables === recording.transcriptionId}
                     onTranscribe={handleTranscribe}
+                    onStop={handleStopTranscription}
                     onOpen={handleOpenRecording}
                   />
                 ))}
@@ -319,6 +333,8 @@ function normalizeTranscriptionStatus(status: TranscriptionStatus): RecordingSta
       return "transcribed";
     case "failed":
       return "failed";
+    case "stopped":
+      return "stopped";
     case "canceled":
       return "canceled";
   }
@@ -332,6 +348,8 @@ function statusText(recording: Recording) {
       return "Done";
     case "failed":
       return "Failed";
+    case "stopped":
+      return "Stopped";
     case "uploading":
       return recording.progress ? formatProgress(recording.progress) : "Uploading";
     case "file-processing":
@@ -341,7 +359,7 @@ function statusText(recording: Recording) {
     case "transcribing":
       return (recording.progress ?? 0) > 0 ? formatProgress(recording.progress ?? 0) : "Transcribing";
     case "canceled":
-      return "Canceled";
+      return "Stopped";
   }
 }
 

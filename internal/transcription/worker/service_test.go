@@ -227,8 +227,8 @@ func TestServiceCancelQueued(t *testing.T) {
 	require.NoError(t, repo.EnqueueTranscription(context.Background(), job.ID, time.Now()))
 	require.NoError(t, service.Cancel(context.Background(), user.ID, job.ID))
 
-	canceled := waitForJobStatus(t, db, job.ID, models.StatusCanceled)
-	assert.Equal(t, "canceled", canceled.ProgressStage)
+	stopped := waitForJobStatus(t, db, job.ID, models.StatusStopped)
+	assert.Equal(t, "stopped", stopped.ProgressStage)
 }
 
 func TestServiceCancelRunning(t *testing.T) {
@@ -248,7 +248,7 @@ func TestServiceCancelRunning(t *testing.T) {
 		t.Fatal("processor did not start")
 	}
 	require.NoError(t, service.Cancel(context.Background(), user.ID, job.ID))
-	waitForJobStatus(t, db, job.ID, models.StatusCanceled)
+	waitForJobStatus(t, db, job.ID, models.StatusStopped)
 }
 
 func TestServiceRenewsLeaseWhileProcessing(t *testing.T) {
@@ -295,7 +295,7 @@ func TestServiceStopCancelsRunningJobs(t *testing.T) {
 		t.Fatal("processor did not start")
 	}
 	require.NoError(t, service.Stop(context.Background()))
-	waitForJobStatus(t, db, job.ID, models.StatusCanceled)
+	waitForJobStatus(t, db, job.ID, models.StatusStopped)
 }
 
 func TestServiceStatsAndCancelConflict(t *testing.T) {

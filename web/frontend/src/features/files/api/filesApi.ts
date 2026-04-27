@@ -1,4 +1,4 @@
-export type FileStatus = "ready" | "uploaded" | "processing" | "failed";
+export type FileStatus = "ready" | "uploaded" | "processing" | "failed" | "stopped" | "canceled";
 export type FileKind = "audio" | "video" | "youtube" | "";
 
 export type ScriberrFile = {

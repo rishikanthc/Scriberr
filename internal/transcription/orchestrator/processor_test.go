@@ -239,7 +239,7 @@ func TestProcessorCancellationReturnsCanceled(t *testing.T) {
 	result, err := processor.Process(ctx, &job)
 
 	require.ErrorIs(t, err, context.Canceled)
-	assert.Equal(t, models.StatusCanceled, result.Status)
+	assert.Equal(t, models.StatusStopped, result.Status)
 }
 
 func assertEventStages(t *testing.T, events []ProgressEvent, stages []string) {

@@ -225,12 +225,16 @@ func (s *Service) Cancel(ctx context.Context, userID uint, jobID string) error {
 		return gorm.ErrRecordNotFound
 	}
 	switch job.Status {
-	case models.StatusCompleted, models.StatusFailed, models.StatusCanceled:
+	case models.StatusCompleted, models.StatusFailed, models.StatusStopped, models.StatusCanceled:
 		return ErrStateConflict
 	case models.StatusProcessing:
 		if cancel := s.runningCancel(jobID); cancel != nil {
 			logger.Info("Canceling running transcription job", "job_id", jobID)
 			cancel()
+			if err := s.repo.CancelTranscription(ctx, jobID, time.Now()); err != nil {
+				return err
+			}
+			s.publishTerminalStatus(context.Background(), job, models.StatusStopped)
 			return nil
 		}
 	}
@@ -238,7 +242,7 @@ func (s *Service) Cancel(ctx context.Context, userID uint, jobID string) error {
 	if err := s.repo.CancelTranscription(ctx, jobID, time.Now()); err != nil {
 		return err
 	}
-	s.publishTerminalStatus(context.Background(), job, models.StatusCanceled)
+	s.publishTerminalStatus(context.Background(), job, models.StatusStopped)
 	return nil
 }
 
@@ -252,7 +256,7 @@ func (s *Service) Stats(ctx context.Context, userID uint) (QueueStats, error) {
 		Processing: counts[models.StatusProcessing],
 		Completed:  counts[models.StatusCompleted],
 		Failed:     counts[models.StatusFailed],
-		Canceled:   counts[models.StatusCanceled],
+		Canceled:   counts[models.StatusStopped] + counts[models.StatusCanceled],
 		Running:    s.runningCountForUser(userID),
 	}
 	return stats, nil
@@ -300,7 +304,7 @@ func (s *Service) claimAndProcess(workerID string) error {
 		if err := s.repo.CancelTranscription(context.Background(), job.ID, time.Now()); err != nil {
 			return err
 		}
-		s.publishTerminalStatus(context.Background(), job, models.StatusCanceled)
+		s.publishTerminalStatus(context.Background(), job, models.StatusStopped)
 		return nil
 	}
 	if processErr != nil {
@@ -333,11 +337,11 @@ func (s *Service) claimAndProcess(workerID string) error {
 		}
 		s.publishTerminalStatus(context.Background(), job, models.StatusFailed)
 		return nil
-	case models.StatusCanceled:
+	case models.StatusStopped, models.StatusCanceled:
 		if err := s.repo.CancelTranscription(context.Background(), job.ID, nonZeroTime(result.FailedAt)); err != nil {
 			return err
 		}
-		s.publishTerminalStatus(context.Background(), job, models.StatusCanceled)
+		s.publishTerminalStatus(context.Background(), job, models.StatusStopped)
 		return nil
 	default:
 		return fmt.Errorf("unsupported worker processor result status %q", result.Status)
@@ -366,9 +370,10 @@ func (s *Service) publishTerminalStatus(ctx context.Context, job *models.Transcr
 	case models.StatusFailed:
 		name = "transcription.failed"
 		stage = "failed"
-	case models.StatusCanceled:
-		name = "transcription.canceled"
-		stage = "canceled"
+	case models.StatusStopped, models.StatusCanceled:
+		name = "transcription.stopped"
+		stage = "stopped"
+		status = models.StatusStopped
 	}
 	s.events.PublishStatus(ctx, StatusEvent{
 		Name:     name,

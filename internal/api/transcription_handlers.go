@@ -262,28 +262,31 @@ func (h *Handler) cancelTranscription(c *gin.Context, publicID string) {
 	if !ok {
 		return
 	}
-	if job.Status == models.StatusCompleted || job.Status == models.StatusFailed || job.Status == models.StatusCanceled {
-		writeError(c, http.StatusConflict, "CONFLICT", "transcription cannot be canceled", nil)
+	if job.Status == models.StatusCompleted || job.Status == models.StatusFailed || job.Status == models.StatusStopped || job.Status == models.StatusCanceled {
+		writeError(c, http.StatusConflict, "CONFLICT", "transcription cannot be stopped", nil)
 		return
 	}
 	if h.queueService != nil {
 		if err := h.queueService.Cancel(c.Request.Context(), job.UserID, job.ID); err != nil {
 			if errors.Is(err, worker.ErrStateConflict) {
-				writeError(c, http.StatusConflict, "CONFLICT", "transcription cannot be canceled", nil)
+				writeError(c, http.StatusConflict, "CONFLICT", "transcription cannot be stopped", nil)
 				return
 			}
-			writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not cancel transcription", nil)
+			writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not stop transcription", nil)
 			return
 		}
 	} else {
-		if err := database.DB.Model(&models.TranscriptionJob{}).Where("id = ?", job.ID).Update("status", models.StatusCanceled).Error; err != nil {
-			writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not cancel transcription", nil)
+		if err := database.DB.Model(&models.TranscriptionJob{}).Where("id = ?", job.ID).Updates(map[string]any{
+			"status":         models.StatusStopped,
+			"progress_stage": "stopped",
+		}).Error; err != nil {
+			writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not stop transcription", nil)
 			return
 		}
 	}
-	response := gin.H{"id": "tr_" + job.ID, "status": string(models.StatusCanceled)}
-	h.publishTranscriptionEvent("transcription.canceled", response["id"].(string), response)
-	h.publishEvent("transcription.canceled", response)
+	response := gin.H{"id": "tr_" + job.ID, "status": string(models.StatusStopped), "stage": "stopped"}
+	h.publishTranscriptionEvent("transcription.stopped", response["id"].(string), response)
+	h.publishEvent("transcription.stopped", response)
 	c.JSON(http.StatusOK, response)
 }
 func (h *Handler) retryTranscription(c *gin.Context, publicID string) {
@@ -405,6 +408,8 @@ func (h *Handler) transcriptionByPublicID(c *gin.Context, publicID string) (*mod
 func (h *Handler) transcriptionCommand(c *gin.Context) {
 	action := c.Param("idAction")
 	switch {
+	case strings.HasSuffix(action, ":stop"):
+		h.cancelTranscription(c, strings.TrimSuffix(action, ":stop"))
 	case strings.HasSuffix(action, ":cancel"):
 		h.cancelTranscription(c, strings.TrimSuffix(action, ":cancel"))
 	case strings.HasSuffix(action, ":retry"):

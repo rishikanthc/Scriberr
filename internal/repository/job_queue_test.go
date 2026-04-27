@@ -288,10 +288,10 @@ func TestJobRepositoryFailAndCancelTranscription(t *testing.T) {
 	canceling := createQueueTestJob(t, db, user.ID, "job-cancel", models.StatusUploaded, now)
 	require.NoError(t, repo.EnqueueTranscription(context.Background(), canceling.ID, now))
 	require.NoError(t, repo.CancelTranscription(context.Background(), canceling.ID, now.Add(2*time.Second)))
-	var canceled models.TranscriptionJob
-	require.NoError(t, db.First(&canceled, "id = ?", canceling.ID).Error)
-	assert.Equal(t, models.StatusCanceled, canceled.Status)
-	assert.Equal(t, "canceled", canceled.ProgressStage)
-	assert.Nil(t, canceled.ClaimedBy)
-	assert.Nil(t, canceled.ClaimExpiresAt)
+	var stopped models.TranscriptionJob
+	require.NoError(t, db.First(&stopped, "id = ?", canceling.ID).Error)
+	assert.Equal(t, models.StatusStopped, stopped.Status)
+	assert.Equal(t, "stopped", stopped.ProgressStage)
+	assert.Nil(t, stopped.ClaimedBy)
+	assert.Nil(t, stopped.ClaimExpiresAt)
 }
