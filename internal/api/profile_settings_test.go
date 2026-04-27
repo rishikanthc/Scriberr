@@ -36,6 +36,9 @@ func TestProfileCRUDAndDefaultSelection(t *testing.T) {
 	require.Equal(t, "Fast local", body["name"])
 	options := body["options"].(map[string]any)
 	require.Equal(t, "whisper-base", options["model"])
+	require.Equal(t, float64(0.5), options["diarization_threshold"])
+	require.Equal(t, float64(0.2), options["min_duration_on"])
+	require.Equal(t, float64(0.3), options["min_duration_off"])
 	require.NotContains(t, options, "enable_token_timestamps")
 	require.NotContains(t, options, "enable_segment_timestamps")
 
@@ -133,6 +136,17 @@ func TestProfileValidationAndAuth(t *testing.T) {
 	require.Equal(t, http.StatusUnprocessableEntity, resp.Code)
 	errBody = body["error"].(map[string]any)
 	require.Equal(t, "options.model", errBody["field"])
+
+	resp, body = s.request(t, http.MethodPost, "/api/v1/profiles", map[string]any{
+		"name": "Invalid threshold",
+		"options": map[string]any{
+			"model":                 "whisper-base",
+			"diarization_threshold": 1.5,
+		},
+	}, token, "")
+	require.Equal(t, http.StatusUnprocessableEntity, resp.Code)
+	errBody = body["error"].(map[string]any)
+	require.Equal(t, "options.diarization_threshold", errBody["field"])
 
 	resp, _ = s.request(t, http.MethodGet, "/api/v1/profiles/profile_missing", nil, token, "")
 	require.Equal(t, http.StatusNotFound, resp.Code)

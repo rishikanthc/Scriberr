@@ -183,6 +183,30 @@ func validateProfileInput(c *gin.Context, name string, options profileOptionsReq
 		writeError(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "decoding method is invalid", stringPtr("options.decoding_method"))
 		return false
 	}
+	if options.Threads < 0 {
+		writeError(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "threads must be zero or greater", stringPtr("options.threads"))
+		return false
+	}
+	if options.TailPaddings != nil && (*options.TailPaddings < -1 || *options.TailPaddings > 16) {
+		writeError(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "tail paddings is invalid", stringPtr("options.tail_paddings"))
+		return false
+	}
+	if options.NumSpeakers < 0 {
+		writeError(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "number of speakers must be zero or greater", stringPtr("options.num_speakers"))
+		return false
+	}
+	if options.DiarizationThreshold < 0 || options.DiarizationThreshold > 1 {
+		writeError(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "diarization threshold is invalid", stringPtr("options.diarization_threshold"))
+		return false
+	}
+	if options.MinDurationOn < 0 || options.MinDurationOn > 2 {
+		writeError(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "minimum speech duration is invalid", stringPtr("options.min_duration_on"))
+		return false
+	}
+	if options.MinDurationOff < 0 || options.MinDurationOff > 2 {
+		writeError(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "minimum silence duration is invalid", stringPtr("options.min_duration_off"))
+		return false
+	}
 	return true
 }
 func profileParams(options profileOptionsRequest) models.WhisperXParams {
@@ -231,6 +255,18 @@ func supportedProfileParams(input models.WhisperXParams) models.WhisperXParams {
 			language = &trimmed
 		}
 	}
+	diarizationThreshold := input.DiarizationThreshold
+	if diarizationThreshold == 0 {
+		diarizationThreshold = 0.5
+	}
+	minDurationOn := input.MinDurationOn
+	if minDurationOn == 0 {
+		minDurationOn = 0.2
+	}
+	minDurationOff := input.MinDurationOff
+	if minDurationOff == 0 {
+		minDurationOff = 0.3
+	}
 	return models.WhisperXParams{
 		ModelFamily:             familyForModel(model),
 		Model:                   model,
@@ -247,9 +283,9 @@ func supportedProfileParams(input models.WhisperXParams) models.WhisperXParams {
 		Diarize:                 input.Diarize,
 		DiarizeModel:            engineprovider.DefaultDiarizationModel,
 		NumSpeakers:             input.NumSpeakers,
-		DiarizationThreshold:    input.DiarizationThreshold,
-		MinDurationOn:           input.MinDurationOn,
-		MinDurationOff:          input.MinDurationOff,
+		DiarizationThreshold:    diarizationThreshold,
+		MinDurationOn:           minDurationOn,
+		MinDurationOff:          minDurationOff,
 	}
 }
 
