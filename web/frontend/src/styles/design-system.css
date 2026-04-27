@@ -1,3 +1,59 @@
+@font-face {
+  font-family: "Manrope";
+  font-style: normal;
+  font-weight: 200;
+  font-display: swap;
+  src: url("/fonts/manrope/Manrope-ExtraLight.ttf") format("truetype");
+}
+
+@font-face {
+  font-family: "Manrope";
+  font-style: normal;
+  font-weight: 300;
+  font-display: swap;
+  src: url("/fonts/manrope/Manrope-Light.ttf") format("truetype");
+}
+
+@font-face {
+  font-family: "Manrope";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/manrope/Manrope-Regular.ttf") format("truetype");
+}
+
+@font-face {
+  font-family: "Manrope";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("/fonts/manrope/Manrope-Medium.ttf") format("truetype");
+}
+
+@font-face {
+  font-family: "Manrope";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("/fonts/manrope/Manrope-SemiBold.ttf") format("truetype");
+}
+
+@font-face {
+  font-family: "Manrope";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/fonts/manrope/Manrope-Bold.ttf") format("truetype");
+}
+
+@font-face {
+  font-family: "Manrope";
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+  src: url("/fonts/manrope/Manrope-ExtraBold.ttf") format("truetype");
+}
+
 :root {
   --scr-color-orange-50: #fff7ed;
   --scr-color-orange-100: #ffedd5;
@@ -826,7 +882,7 @@
 
 .scr-settings-panel {
   display: grid;
-  gap: var(--scr-space-4);
+  gap: var(--scr-space-6);
 }
 
 .scr-settings-panel-head {
@@ -861,7 +917,7 @@
 
 .scr-profile-list {
   display: grid;
-  gap: var(--scr-space-3);
+  gap: var(--scr-space-4);
   width: min(100%, 820px);
   margin: 0 auto;
 }
