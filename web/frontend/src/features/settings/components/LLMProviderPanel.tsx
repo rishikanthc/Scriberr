@@ -23,9 +23,8 @@ export function LLMProviderPanel() {
     if (!settings?.configured) return "Not connected";
     const provider = settings.provider === "ollama" ? "Ollama" : "OpenAI compatible";
     const modelCopy = `${settings.model_count} ${settings.model_count === 1 ? "model" : "models"}`;
-    const keyCopy = settings.has_api_key ? "API key saved" : "no API key";
-    return `${provider} connected · ${modelCopy} · ${keyCopy}`;
-  }, [settings?.configured, settings?.has_api_key, settings?.model_count, settings?.provider]);
+    return `${provider} connected · ${modelCopy}`;
+  }, [settings?.configured, settings?.model_count, settings?.provider]);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();

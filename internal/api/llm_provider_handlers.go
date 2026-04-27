@@ -66,7 +66,22 @@ func (h *Handler) getLLMProvider(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, llmProviderResponse(&config, nil))
+	baseURL := llmProviderBaseURL(&config)
+	apiKey := ""
+	if config.APIKey != nil {
+		apiKey = strings.TrimSpace(*config.APIKey)
+	}
+	testResult, err := testLLMProviderConnection(c.Request.Context(), baseURL, apiKey)
+	if err != nil {
+		response := llmProviderResponse(&config, nil)
+		response["connection_error"] = err.Error()
+		c.JSON(http.StatusOK, response)
+		return
+	}
+	config.Provider = testResult.Provider
+	config.BaseURL = stringPtr(testResult.BaseURL)
+	config.OpenAIBaseURL = stringPtr(testResult.BaseURL)
+	c.JSON(http.StatusOK, llmProviderResponse(&config, testResult.Models))
 }
 
 func (h *Handler) updateLLMProvider(c *gin.Context) {
@@ -284,12 +299,7 @@ func fetchOllamaNativeModels(ctx context.Context, baseURL string) ([]string, err
 }
 
 func llmProviderResponse(config *models.LLMConfig, models []string) gin.H {
-	baseURL := ""
-	if config.BaseURL != nil {
-		baseURL = *config.BaseURL
-	} else if config.OpenAIBaseURL != nil {
-		baseURL = *config.OpenAIBaseURL
-	}
+	baseURL := llmProviderBaseURL(config)
 	hasKey := config.APIKey != nil && strings.TrimSpace(*config.APIKey) != ""
 	var keyPreviewValue any
 	if hasKey {
@@ -308,6 +318,16 @@ func llmProviderResponse(config *models.LLMConfig, models []string) gin.H {
 		"models":      models,
 		"updated_at":  config.UpdatedAt,
 	}
+}
+
+func llmProviderBaseURL(config *models.LLMConfig) string {
+	if config.BaseURL != nil {
+		return strings.TrimSpace(*config.BaseURL)
+	}
+	if config.OpenAIBaseURL != nil {
+		return strings.TrimSpace(*config.OpenAIBaseURL)
+	}
+	return ""
 }
 
 func uniqueStrings(values []string) []string {

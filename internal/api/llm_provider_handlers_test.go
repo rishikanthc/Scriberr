@@ -63,6 +63,7 @@ func TestLLMProviderSettingsSaveTestsConnectionAndMasksKey(t *testing.T) {
 	require.Equal(t, http.StatusOK, resp.Code)
 	require.Equal(t, true, body["configured"])
 	require.Equal(t, true, body["has_api_key"])
+	require.Equal(t, float64(2), body["model_count"])
 	require.NotContains(t, resp.Body.String(), "sk-test-secret")
 }
 
