@@ -62,30 +62,25 @@ func NewHandler(cfg *config.Config, authService *auth.AuthService, services ...a
 	return handler
 }
 
-func (h *Handler) Publish(ctx context.Context, event orchestrator.ProgressEvent) {
-	if h == nil {
-		return
-	}
-	payload := gin.H{
-		"id":       "tr_" + event.JobID,
-		"status":   string(event.Status),
-		"progress": event.Progress,
-		"stage":    event.Stage,
-	}
-	h.publishTranscriptionEvent(event.Name, "tr_"+event.JobID, payload)
+func (h *Handler) Publish(_ context.Context, event orchestrator.ProgressEvent) {
+	h.publishTranscriptionStatus(event.Name, event.JobID, string(event.Status), event.Progress, event.Stage)
 }
 
 func (h *Handler) PublishStatus(_ context.Context, event worker.StatusEvent) {
+	h.publishTranscriptionStatus(event.Name, event.JobID, string(event.Status), event.Progress, event.Stage)
+}
+
+func (h *Handler) publishTranscriptionStatus(name, jobID, status string, progress float64, stage string) {
 	if h == nil {
 		return
 	}
 	payload := gin.H{
-		"id":       "tr_" + event.JobID,
-		"status":   string(event.Status),
-		"progress": event.Progress,
-		"stage":    event.Stage,
+		"id":       "tr_" + jobID,
+		"status":   status,
+		"progress": progress,
+		"stage":    stage,
 	}
-	h.publishTranscriptionEvent(event.Name, "tr_"+event.JobID, payload)
+	h.publishTranscriptionEvent(name, "tr_"+jobID, payload)
 }
 
 func SetupRoutes(handler *Handler, _ *auth.AuthService) *gin.Engine {
