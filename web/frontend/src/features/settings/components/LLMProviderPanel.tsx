@@ -1,8 +1,7 @@
-import { type FormEvent, type ReactNode, useEffect, useMemo, useState } from "react";
-import { CheckCircle2, KeyRound, Loader2, Server } from "lucide-react";
+import { type FormEvent, useEffect, useMemo, useState } from "react";
+import { CheckCircle2, Loader2 } from "lucide-react";
 import { AppButton } from "@/shared/ui/Button";
 import { Field } from "@/shared/ui/Field";
-import { EmptyState } from "@/shared/ui/EmptyState";
 import { useLLMProviderSettings, useSaveLLMProviderSettings } from "@/features/settings/hooks/useLLMProvider";
 
 export function LLMProviderPanel() {
@@ -20,12 +19,13 @@ export function LLMProviderPanel() {
     setApiKey("");
   }, [dirty, settings?.base_url]);
 
-  const providerLabel = useMemo(() => {
-    if (!settings?.provider) return "Not configured";
-    if (settings.provider === "openai_compatible") return "OpenAI compatible";
-    if (settings.provider === "ollama") return "Ollama";
-    return settings.provider;
-  }, [settings?.provider]);
+  const connectionStatus = useMemo(() => {
+    if (!settings?.configured) return "Not connected";
+    const provider = settings.provider === "ollama" ? "Ollama" : "OpenAI compatible";
+    const modelCopy = `${settings.model_count} ${settings.model_count === 1 ? "model" : "models"}`;
+    const keyCopy = settings.has_api_key ? "API key saved" : "no API key";
+    return `${provider} connected · ${modelCopy} · ${keyCopy}`;
+  }, [settings?.configured, settings?.has_api_key, settings?.model_count, settings?.provider]);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -65,18 +65,9 @@ export function LLMProviderPanel() {
       ) : (
         <div className="scr-provider-layout">
           <form className="scr-provider-form" onSubmit={(event) => void handleSubmit(event)}>
-            <div className="scr-provider-status-row">
-              <ProviderStatus icon={<Server size={16} aria-hidden="true" />} label="Provider" value={providerLabel} />
-              <ProviderStatus
-                icon={<KeyRound size={16} aria-hidden="true" />}
-                label="API key"
-                value={settings?.has_api_key ? settings.key_preview || "Configured" : "Not set"}
-              />
-              <ProviderStatus
-                icon={<CheckCircle2 size={16} aria-hidden="true" />}
-                label="Models"
-                value={settings?.configured ? String(settings.model_count) : "Not tested"}
-              />
+            <div className="scr-provider-connection" data-connected={settings?.configured === true}>
+              <span className="scr-provider-connection-dot" aria-hidden="true" />
+              <span>{connectionStatus}</span>
             </div>
 
             <div className="scr-provider-fields">
@@ -124,35 +115,8 @@ export function LLMProviderPanel() {
               </AppButton>
             </div>
           </form>
-
-          {settings?.configured && settings.models.length > 0 ? (
-            <div className="scr-provider-models" aria-label="Available LLM models">
-              <h3 className="scr-provider-models-title">Available models</h3>
-              <div className="scr-provider-model-list">
-                {settings.models.slice(0, 8).map((model) => (
-                  <span className="scr-provider-model" key={model}>
-                    {model}
-                  </span>
-                ))}
-              </div>
-            </div>
-          ) : (
-            <EmptyState title="No provider saved" description="Save a provider to make its models available in Scriberr." />
-          )}
         </div>
       )}
     </section>
-  );
-}
-
-function ProviderStatus({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
-  return (
-    <div className="scr-provider-status">
-      <span className="scr-provider-status-icon">{icon}</span>
-      <span className="scr-provider-status-copy">
-        <span className="scr-provider-status-label">{label}</span>
-        <span className="scr-provider-status-value">{value}</span>
-      </span>
-    </div>
   );
 }
