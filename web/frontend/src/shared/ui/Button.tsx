@@ -8,10 +8,28 @@ type AppButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   children: ReactNode;
 };
 
-export function AppButton({ variant = "primary", className, children, ...props }: AppButtonProps) {
+const buttonInteractionClasses = [
+  "cursor-pointer",
+  "select-none",
+  "outline-none",
+  "focus-visible:ring-2",
+  "focus-visible:ring-[color-mix(in_srgb,var(--scr-brand-solid)_24%,transparent)]",
+  "focus-visible:ring-offset-2",
+  "focus-visible:ring-offset-[var(--scr-surface-canvas)]",
+  "disabled:pointer-events-none",
+  "disabled:cursor-not-allowed",
+].join(" ");
+
+export function AppButton({ variant = "primary", className, children, type = "button", ...props }: AppButtonProps) {
   return (
     <button
-      className={cn("scr-button", variant === "primary" ? "scr-button-primary" : "scr-button-secondary", className)}
+      type={type}
+      className={cn(
+        "scr-button",
+        buttonInteractionClasses,
+        variant === "primary" ? "scr-button-primary" : "scr-button-secondary",
+        className
+      )}
       {...props}
     >
       {children}
@@ -23,9 +41,15 @@ type IconButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   label: string;
 };
 
-export function IconButton({ label, className, children, ...props }: IconButtonProps) {
+export function IconButton({ label, className, children, type = "button", ...props }: IconButtonProps) {
   return (
-    <button aria-label={label} title={label} className={cn("scr-icon-button", className)} {...props}>
+    <button
+      type={type}
+      aria-label={label}
+      title={label}
+      className={cn("scr-icon-button", buttonInteractionClasses, className)}
+      {...props}
+    >
       {children}
     </button>
   );
