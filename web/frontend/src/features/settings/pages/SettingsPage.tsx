@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Edit3, Plus, Settings2, Star, Trash2 } from "lucide-react";
+import { Edit3, Plus, Trash2 } from "lucide-react";
 import { Sidebar } from "@/features/home/components/HomePage";
 import { AppButton, IconButton } from "@/shared/ui/Button";
+import { ConfirmDialog } from "@/shared/ui/ConfirmDialog";
 import { EmptyState } from "@/shared/ui/EmptyState";
 import { ASRProfileDialog } from "../components/ASRProfileDialog";
 import {
@@ -23,6 +24,8 @@ export function Settings() {
   const [error, setError] = useState("");
   const [editingProfile, setEditingProfile] = useState<TranscriptionProfile | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [profileToDelete, setProfileToDelete] = useState<TranscriptionProfile | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [models, setModels] = useState<TranscriptionModel[]>([]);
 
   const loadProfiles = useCallback(async () => {
@@ -59,10 +62,19 @@ export function Settings() {
     await loadProfiles();
   };
 
-  const handleDelete = async (profile: TranscriptionProfile) => {
-    if (!window.confirm(`Delete "${profile.name}"?`)) return;
-    await deleteProfile(profile.id);
-    await loadProfiles();
+  const confirmDelete = async () => {
+    if (!profileToDelete) return;
+    setDeleting(true);
+    setError("");
+    try {
+      await deleteProfile(profileToDelete.id);
+      setProfileToDelete(null);
+      await loadProfiles();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not delete profile.");
+    } finally {
+      setDeleting(false);
+    }
   };
 
   return (
@@ -118,7 +130,7 @@ export function Settings() {
                           setEditingProfile(profile);
                           setDialogOpen(true);
                         }}
-                        onDelete={() => void handleDelete(profile)}
+                        onDelete={() => setProfileToDelete(profile)}
                       />
                     ))}
                   </div>
@@ -141,6 +153,17 @@ export function Settings() {
         }}
         onSave={handleSave}
       />
+      <ConfirmDialog
+        open={Boolean(profileToDelete)}
+        title="Delete profile?"
+        description={profileToDelete ? `This will remove "${profileToDelete.name}" from your saved ASR profiles.` : ""}
+        confirmLabel="Delete"
+        busy={deleting}
+        onCancel={() => {
+          if (!deleting) setProfileToDelete(null);
+        }}
+        onConfirm={() => void confirmDelete()}
+      />
     </div>
   );
 }
@@ -156,15 +179,11 @@ function ProfileRow({ profile, isDefault, onEdit, onDelete }: { profile: Transcr
   return (
     <article className="scr-profile-row">
       <button className="scr-profile-main" type="button" onClick={onEdit}>
-        <div className="scr-profile-icon">
-          <Settings2 size={18} aria-hidden="true" />
-        </div>
         <div className="scr-profile-copy">
           <div className="scr-profile-title-row">
             <h3 className="scr-profile-title">{profile.name}</h3>
             {isDefault ? (
               <span className="scr-profile-badge">
-                <Star size={12} aria-hidden="true" />
                 Default
               </span>
             ) : null}

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Check, X } from "lucide-react";
 import { AppButton, IconButton } from "@/shared/ui/Button";
+import { Select, type SelectOption } from "@/shared/ui/Select";
 import {
   defaultProfileParams,
   familyForModel,
@@ -60,11 +61,12 @@ export function ASRProfileDialog({ open, profile, models, onClose, onSave }: ASR
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  const modelOptions = useMemo(() => {
+  const modelOptions = useMemo<SelectOption[]>(() => {
     const source = models.length ? models : fallbackModels;
     return source.map((model) => ({
       value: model.id,
-      label: `${model.name}${model.installed ? "" : " (downloads on use)"}`,
+      label: model.name,
+      description: model.installed ? "Installed locally" : "Downloads on use",
     }));
   }, [models]);
 
@@ -202,15 +204,8 @@ function TextField({ label, value, onChange, placeholder }: { label: string; val
   );
 }
 
-function SelectField({ label, value, options, onChange }: { label: string; value: string; options: Array<{ value: string; label: string }>; onChange: (value: string) => void }) {
-  return (
-    <label className="scr-control">
-      <span>{label}</span>
-      <select className="scr-select" value={value} onChange={(event) => onChange(event.target.value)}>
-        {options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-      </select>
-    </label>
-  );
+function SelectField({ label, value, options, onChange }: { label: string; value: string; options: SelectOption[]; onChange: (value: string) => void }) {
+  return <Select label={label} value={value} options={options} onChange={onChange} />;
 }
 
 function NumberField({ label, value, min, max, onChange }: { label: string; value: number; min: number; max: number; onChange: (value: number) => void }) {
