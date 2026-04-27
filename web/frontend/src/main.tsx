@@ -18,6 +18,18 @@ import { setupAuthInterceptor } from './lib/authInterceptor'
 // Initialize the global fetch interceptor for auth
 setupAuthInterceptor();
 
+if (import.meta.env.DEV && "serviceWorker" in navigator) {
+  navigator.serviceWorker.getRegistrations()
+    .then((registrations) => Promise.all(registrations.map((registration) => registration.unregister())))
+    .catch(() => { });
+
+  if ("caches" in window) {
+    caches.keys()
+      .then((keys) => Promise.all(keys.map((key) => caches.delete(key))))
+      .catch(() => { });
+  }
+}
+
 const queryClient = new QueryClient()
 
 createRoot(document.getElementById('root')!).render(

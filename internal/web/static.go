@@ -4,9 +4,6 @@ import (
 	"embed"
 	"io/fs"
 	"net/http"
-	"net/http/httputil"
-	"net/url"
-	"os"
 	"strings"
 
 	"scriberr/internal/auth"
@@ -35,11 +32,6 @@ func GetIndexHTML() ([]byte, error) {
 
 // SetupStaticRoutes configures static file serving in Gin
 func SetupStaticRoutes(router *gin.Engine, authService *auth.AuthService) {
-	if devServer := strings.TrimSpace(os.Getenv("SCRIBERR_FRONTEND_DEV_SERVER")); devServer != "" {
-		setupFrontendDevProxy(router, devServer)
-		return
-	}
-
 	// Serve static assets (CSS, JS, images) directly from embedded filesystem
 	router.GET("/assets/*filepath", func(c *gin.Context) {
 		// Extract the file path
@@ -149,34 +141,4 @@ func SetupStaticRoutes(router *gin.Engine, authService *auth.AuthService) {
 
 		c.Data(http.StatusOK, "text/html; charset=utf-8", indexHTML)
 	})
-}
-
-func setupFrontendDevProxy(router *gin.Engine, devServer string) {
-	target, err := url.Parse(devServer)
-	if err != nil {
-		panic("invalid SCRIBERR_FRONTEND_DEV_SERVER: " + err.Error())
-	}
-	proxy := httputil.NewSingleHostReverseProxy(target)
-
-	proxyHandler := func(c *gin.Context) {
-		if strings.HasPrefix(c.Request.URL.Path, "/api") {
-			c.JSON(http.StatusNotFound, gin.H{"error": "API endpoint not found"})
-			return
-		}
-		c.Header("Cache-Control", "no-store")
-		proxy.ServeHTTP(c.Writer, c.Request)
-	}
-
-	router.GET("/assets/*filepath", proxyHandler)
-	router.GET("/@vite/*filepath", proxyHandler)
-	router.GET("/@react-refresh", proxyHandler)
-	router.GET("/src/*filepath", proxyHandler)
-	router.GET("/node_modules/*filepath", proxyHandler)
-	router.GET("/vite.svg", proxyHandler)
-	router.GET("/logo.svg", proxyHandler)
-	router.GET("/logo-text.svg", proxyHandler)
-	router.GET("/manifest.webmanifest", proxyHandler)
-	router.GET("/registerSW.js", proxyHandler)
-	router.GET("/sw.js", proxyHandler)
-	router.NoRoute(proxyHandler)
 }
