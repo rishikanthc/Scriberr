@@ -1,27 +1,23 @@
-import { Check, ChevronDown, Clock3, FileAudio, Home, Mic, Search, StopCircle, Trash2, UploadCloud, Video, Wand2 } from "lucide-react";
+import { useCallback, useMemo, useRef, type ChangeEvent } from "react";
+import { Check, ChevronDown, Clock3, FileAudio, Home, Loader2, Mic, Search, StopCircle, Trash2, UploadCloud, Video, Wand2, XCircle } from "lucide-react";
 import { WandAdvancedIcon } from "@/components/icons/WandAdvancedIcon";
+import { UploadProgressShelf } from "@/features/files/components/UploadProgressShelf";
+import type { ScriberrFile } from "@/features/files/api/filesApi";
+import { useFileEvents } from "@/features/files/hooks/useFileEvents";
+import { importAccept, type UploadItem, useFileImport } from "@/features/files/hooks/useFileImport";
+import { useFiles } from "@/features/files/hooks/useFiles";
 import { EmptyState } from "@/shared/ui/EmptyState";
 import { AppButton, IconButton } from "@/shared/ui/Button";
 
-type RecordingStatus = "completed" | "queued";
+type RecordingStatus = "ready" | "processing" | "uploading" | "failed";
 
 type Recording = {
   id: string;
   title: string;
   date: string;
   status: RecordingStatus;
+  progress?: number;
 };
-
-const mockRecordings: Recording[] = [
-  { id: "mock-1", title: "Stanford CS336 - Lecture 2", date: "Dec 11, 2025", status: "completed" },
-  { id: "mock-2", title: "LTT - WAN Show", date: "Dec 10, 2025", status: "queued" },
-  { id: "mock-3", title: "Stanford CS336 - Lecture 1", date: "Dec 7, 2025", status: "queued" },
-  { id: "mock-4", title: "Plaud Audio", date: "Dec 7, 2025", status: "completed" },
-  { id: "mock-5", title: "20min Recording", date: "Dec 7, 2025", status: "queued" },
-  { id: "mock-6", title: "recording_2025-12-06T04-45-17.wav", date: "Dec 5, 2025", status: "queued" },
-  { id: "mock-7", title: "LTT", date: "Dec 5, 2025", status: "completed" },
-  { id: "mock-8", title: "40min", date: "Dec 5, 2025", status: "completed" },
-];
 
 function Sidebar() {
   return (
@@ -40,7 +36,11 @@ function Sidebar() {
   );
 }
 
-function TopBar() {
+type TopBarProps = {
+  onImportClick: () => void;
+};
+
+function TopBar({ onImportClick }: TopBarProps) {
   return (
     <div className="scr-topbar">
       <div className="scr-search-shell" aria-hidden="true">
@@ -53,7 +53,7 @@ function TopBar() {
         <IconButton label="Video">
           <Video size={14} aria-hidden="true" />
         </IconButton>
-        <AppButton type="button" variant="secondary" className="scr-topbar-button">
+        <AppButton type="button" variant="secondary" className="scr-topbar-button" onClick={onImportClick}>
           <UploadCloud size={14} aria-hidden="true" />
           Import
         </AppButton>
@@ -67,7 +67,7 @@ function TopBar() {
 }
 
 function RecordingCard({ recording }: { recording: Recording }) {
-  const isQueued = recording.status === "queued";
+  const isProcessing = recording.status === "processing" || recording.status === "uploading";
 
   return (
     <article className="scr-recording-card" tabIndex={0}>
@@ -89,14 +89,14 @@ function RecordingCard({ recording }: { recording: Recording }) {
           <button
             className="scr-recording-action scr-recording-action-danger"
             type="button"
-            aria-label={isQueued ? "Stop transcription" : "Delete recording"}
-            title={isQueued ? "Stop transcription" : "Delete"}
+            aria-label={isProcessing ? "Stop transcription" : "Delete recording"}
+            title={isProcessing ? "Stop transcription" : "Delete"}
           >
-            {isQueued ? <StopCircle size={16} aria-hidden="true" /> : <Trash2 size={16} aria-hidden="true" />}
+            {isProcessing ? <StopCircle size={16} aria-hidden="true" /> : <Trash2 size={16} aria-hidden="true" />}
           </button>
         </div>
         <div className="scr-recording-status" data-status={recording.status} aria-label={recording.status}>
-          {recording.status === "completed" ? <Check size={18} aria-hidden="true" /> : <Clock3 size={16} aria-hidden="true" />}
+          {statusIcon(recording)}
         </div>
       </div>
     </article>
@@ -104,14 +104,47 @@ function RecordingCard({ recording }: { recording: Recording }) {
 }
 
 export function HomePage() {
-  const recordings = mockRecordings;
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const filesQuery = useFiles();
+  const { uploadItems, importFiles, dismissItem, handleFileEvent } = useFileImport();
+  useFileEvents(handleFileEvent);
+
+  const recordings = useMemo(() => {
+    const optimistic = uploadItems
+      .filter((item) => !item.fileId)
+      .map(uploadItemToRecording);
+    const serverFiles = (filesQuery.data?.items || []).map(fileToRecording);
+    return [...optimistic, ...serverFiles];
+  }, [filesQuery.data?.items, uploadItems]);
+
+  const handleImportClick = useCallback(() => {
+    fileInputRef.current?.click();
+  }, []);
+
+  const handleImportChange = useCallback((event: ChangeEvent<HTMLInputElement>) => {
+    const selected = event.currentTarget.files;
+    if (selected?.length) {
+      void importFiles(selected);
+    }
+    event.currentTarget.value = "";
+  }, [importFiles]);
 
   return (
     <div className="scr-app">
       <div className="scr-shell">
         <Sidebar />
         <main className="scr-main">
-          <TopBar />
+          <TopBar onImportClick={handleImportClick} />
+          <input
+            ref={fileInputRef}
+            className="scr-visually-hidden"
+            type="file"
+            hidden
+            aria-hidden="true"
+            multiple
+            accept={importAccept}
+            onChange={handleImportChange}
+          />
           <div className="scr-content">
             <div className="scr-feed-toolbar" aria-label="Recording view controls">
               <button className="scr-feed-select" type="button">
@@ -132,6 +165,66 @@ export function HomePage() {
           </div>
         </main>
       </div>
+      <UploadProgressShelf items={uploadItems} onDismiss={dismissItem} />
     </div>
   );
+}
+
+function fileToRecording(file: ScriberrFile): Recording {
+  return {
+    id: file.id,
+    title: file.title || "Untitled recording",
+    date: formatRecordingDate(file.created_at),
+    status: normalizeFileStatus(file.status),
+  };
+}
+
+function uploadItemToRecording(item: UploadItem): Recording {
+  return {
+    id: item.id,
+    title: item.fileName.replace(/\.[^/.]+$/, ""),
+    date: item.status === "uploading" ? `Uploading ${item.progress}%` : itemLabel(item.status),
+    status: item.status,
+    progress: item.progress,
+  };
+}
+
+function normalizeFileStatus(status: ScriberrFile["status"]): RecordingStatus {
+  if (status === "ready" || status === "uploaded") return "ready";
+  if (status === "failed") return "failed";
+  return "processing";
+}
+
+function statusIcon(recording: Recording) {
+  switch (recording.status) {
+    case "ready":
+      return <Check size={18} aria-hidden="true" />;
+    case "failed":
+      return <XCircle size={17} aria-hidden="true" />;
+    case "uploading":
+      return <Loader2 className="scr-spin" size={16} aria-hidden="true" />;
+    case "processing":
+      return <Clock3 size={16} aria-hidden="true" />;
+  }
+}
+
+function itemLabel(status: UploadItem["status"]) {
+  switch (status) {
+    case "uploading":
+      return "Uploading";
+    case "processing":
+      return "Extracting audio";
+    case "ready":
+      return "Ready";
+    case "failed":
+      return "Failed";
+  }
+}
+
+function formatRecordingDate(value: string) {
+  return new Date(value).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
 }
