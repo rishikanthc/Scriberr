@@ -126,9 +126,7 @@ func (p *LocalProvider) Transcribe(ctx context.Context, req TranscriptionRequest
 		task = "transcribe"
 	}
 	enableTokenTimestamps := true
-	if req.EnableTokenTimestamps != nil {
-		enableTokenTimestamps = *req.EnableTokenTimestamps
-	}
+	enableSegmentTimestamps := true
 	engineReq := speechengine.TranscriptionRequest{
 		ModelID:                 modelID,
 		AudioPath:               req.AudioPath,
@@ -136,7 +134,7 @@ func (p *LocalProvider) Transcribe(ctx context.Context, req TranscriptionRequest
 		Task:                    task,
 		TailPaddings:            req.TailPaddings,
 		EnableTokenTimestamps:   &enableTokenTimestamps,
-		EnableSegmentTimestamps: req.EnableSegmentTimestamps,
+		EnableSegmentTimestamps: &enableSegmentTimestamps,
 		CanarySourceLanguage:    req.CanarySourceLanguage,
 		CanaryTargetLanguage:    req.CanaryTargetLanguage,
 		CanaryUsePunctuation:    req.CanaryUsePunctuation,

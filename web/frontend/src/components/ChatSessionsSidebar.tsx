@@ -162,7 +162,7 @@ export function ChatSessionsSidebar({
       {/* Header */}
       <div className="flex-shrink-0 p-4">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-bold text-foreground">Chats</h2>
+          <h2 className="text-lg font-semibold text-foreground">Chats</h2>
           <Dialog open={showNewSessionDialog} onOpenChange={setShowNewSessionDialog}>
             <DialogTrigger asChild>
               <Button
@@ -176,7 +176,7 @@ export function ChatSessionsSidebar({
             </DialogTrigger>
             <DialogContent className="w-[calc(100%-2rem)] max-w-md mx-auto bg-[var(--bg-card)] dark:bg-[#0A0A0A] border border-[rgba(0,0,0,0.06)] dark:border-[rgba(255,255,255,0.08)] shadow-[0_2px_4px_rgba(0,0,0,0.04),0_24px_48px_rgba(0,0,0,0.08)] dark:shadow-[0_2px_4px_rgba(0,0,0,0.3),0_24px_48px_rgba(0,0,0,0.3)] p-0 rounded-2xl overflow-hidden">
               <DialogHeader className="p-5 pb-0">
-                <DialogTitle className="text-xl font-bold text-[var(--text-primary)] flex items-center gap-2">
+                <DialogTitle className="text-xl font-semibold text-[var(--text-primary)] flex items-center gap-2">
                   <div className="h-9 w-9 rounded-full bg-gradient-to-br from-[#FFAB40] to-[#FF6D20] flex items-center justify-center shadow-md">
                     <Sparkles className="h-4 w-4 text-white" />
                   </div>

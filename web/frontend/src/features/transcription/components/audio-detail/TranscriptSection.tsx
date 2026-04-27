@@ -244,10 +244,10 @@ export function TranscriptSection({
                         <div className="fixed inset-y-0 right-0 w-[90vw] max-w-[400px] bg-[var(--bg-card)] border-l border-[var(--border-subtle)] shadow-[var(--shadow-float)] z-[9990] transition-transform duration-300 transform-gpu">
                             <div className="h-full flex flex-col">
                                 <div className="px-6 py-5 border-b border-[var(--border-subtle)] flex items-center justify-between">
-                                    <h3 className="font-bold text-[var(--text-primary)] flex items-center gap-2 text-lg">
+                                    <h3 className="font-semibold text-[var(--text-primary)] flex items-center gap-2 text-lg">
                                         <StickyNote className="h-5 w-5 text-[var(--brand-solid)]" />
                                         Notes
-                                        <span className="ml-1 text-xs font-bold rounded-full px-2 py-0.5 bg-[var(--bg-main)] text-[var(--text-secondary)] border border-[var(--border-subtle)]">
+                                        <span className="ml-1 text-xs font-semibold rounded-full px-2 py-0.5 bg-[var(--bg-main)] text-[var(--text-secondary)] border border-[var(--border-subtle)]">
                                             {notes.length}
                                         </span>
                                     </h3>

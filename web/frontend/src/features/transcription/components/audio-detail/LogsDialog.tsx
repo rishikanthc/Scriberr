@@ -21,7 +21,7 @@ export function LogsDialog({ audioId, isOpen, onClose }: LogsDialogProps) {
         <Dialog open={isOpen} onOpenChange={onClose}>
             <DialogContent className="sm:max-w-4xl w-[95vw] bg-[var(--bg-card)] border-[var(--border-subtle)] shadow-[var(--shadow-float)] max-h-[90vh] overflow-y-auto">
                 <DialogHeader className="border-b border-[var(--border-subtle)] pb-4">
-                    <DialogTitle className="text-[var(--text-primary)] flex items-center gap-2 text-xl font-bold tracking-tight">
+                    <DialogTitle className="text-[var(--text-primary)] flex items-center gap-2 text-xl font-semibold tracking-tight">
                         <FileText className="h-5 w-5 text-[var(--brand-solid)]" />
                         Transcription Logs
                     </DialogTitle>

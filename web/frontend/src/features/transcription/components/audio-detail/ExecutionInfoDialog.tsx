@@ -21,7 +21,7 @@ export function ExecutionInfoDialog({ audioId, isOpen, onClose }: ExecutionInfoD
         <Dialog open={isOpen} onOpenChange={onClose}>
             <DialogContent className="sm:max-w-4xl w-[95vw] bg-[var(--bg-card)] border-[var(--border-subtle)] shadow-[var(--shadow-float)] max-h-[90vh] overflow-y-auto">
                 <DialogHeader className="border-b border-[var(--border-subtle)] pb-4">
-                    <DialogTitle className="text-[var(--text-primary)] flex items-center gap-2 text-xl font-bold tracking-tight">
+                    <DialogTitle className="text-[var(--text-primary)] flex items-center gap-2 text-xl font-semibold tracking-tight">
                         <Info className="h-5 w-5 text-[var(--brand-solid)]" />
                         Transcription Details
                     </DialogTitle>
@@ -39,7 +39,7 @@ export function ExecutionInfoDialog({ audioId, isOpen, onClose }: ExecutionInfoD
                     <div className="space-y-6 py-4">
                         {/* Overall Processing Time */}
                         <div className="bg-[var(--bg-main)] rounded-[var(--radius-card)] border border-[var(--border-subtle)] p-4 sm:p-6 shadow-sm">
-                            <h3 className="text-base font-bold text-[var(--text-primary)] mb-4 flex items-center gap-2">
+                            <h3 className="text-base font-semibold text-[var(--text-primary)] mb-4 flex items-center gap-2">
                                 <Clock className="h-4 w-4 text-[var(--text-secondary)]" />
                                 Processing Timeline
                             </h3>
@@ -66,7 +66,7 @@ export function ExecutionInfoDialog({ audioId, isOpen, onClose }: ExecutionInfoD
                         {/* Individual Track Processing */}
                         {executionData.is_multi_track && executionData.multi_track_timings && executionData.multi_track_timings.length > 0 && (
                             <div className="bg-[var(--bg-main)] rounded-[var(--radius-card)] border border-[var(--border-subtle)] p-4 sm:p-6 shadow-sm">
-                                <h3 className="text-base font-bold text-[var(--text-primary)] mb-4 flex items-center gap-2">
+                                <h3 className="text-base font-semibold text-[var(--text-primary)] mb-4 flex items-center gap-2">
                                     <UsersRound className="h-4 w-4 text-[var(--text-secondary)]" />
                                     Track Processing
                                 </h3>
@@ -75,7 +75,7 @@ export function ExecutionInfoDialog({ audioId, isOpen, onClose }: ExecutionInfoD
                                         <div key={index} className="flex flex-col gap-2 p-3 bg-[var(--bg-card)] rounded-[var(--radius-card)] border border-[var(--border-subtle)]">
                                             <div className="flex justify-between items-start gap-2">
                                                 <span className="font-medium text-[var(--text-primary)] text-sm break-all leading-tight">{timing.track_name}</span>
-                                                <span className="font-mono text-sm font-bold text-[var(--brand-solid)] flex-shrink-0">
+                                                <span className="font-mono text-sm font-semibold text-[var(--brand-solid)] flex-shrink-0">
                                                     {(timing.duration / 1000).toFixed(1)}s
                                                 </span>
                                             </div>
@@ -93,7 +93,7 @@ export function ExecutionInfoDialog({ audioId, isOpen, onClose }: ExecutionInfoD
                         {/* Parameters Display - Curated Snapshot */}
                         {executionData.actual_parameters && (
                             <div className="bg-[var(--bg-main)] rounded-[var(--radius-card)] border border-[var(--border-subtle)] p-4 sm:p-6 shadow-sm">
-                                <h3 className="text-base font-bold text-[var(--text-primary)] mb-4">
+                                <h3 className="text-base font-semibold text-[var(--text-primary)] mb-4">
                                     Configuration Parameters
                                 </h3>
                                 <CuratedParamsDisplay params={executionData.actual_parameters} />
@@ -114,7 +114,7 @@ function MetricCard({ label, value, subtext, highlight = false, className = "" }
     return (
         <div className={`bg-[var(--bg-card)] p-3 rounded-[var(--radius-card)] border border-[var(--border-subtle)] flex flex-col justify-center ${className}`}>
             <span className="block text-[10px] sm:text-xs font-medium text-[var(--text-tertiary)] uppercase tracking-wider mb-1">{label}</span>
-            <span className={`block font-mono text-sm sm:text-base ${highlight ? 'text-[var(--brand-solid)] font-bold' : 'text-[var(--text-primary)]'}`}>
+            <span className={`block font-mono text-sm sm:text-base ${highlight ? 'text-[var(--brand-solid)] font-semibold' : 'text-[var(--text-primary)]'}`}>
                 {value}
             </span>
             {subtext && <span className="block text-[10px] text-[var(--text-secondary)] mt-0.5">{subtext}</span>}

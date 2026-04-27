@@ -145,7 +145,7 @@ export function SummaryDialog({ audioId, isOpen, onClose, llmReady }: SummaryDia
             <Dialog open={isOpen} onOpenChange={handleOpenChange}>
                 <DialogContent className="w-[calc(100%-2rem)] max-w-4xl mx-auto bg-[var(--bg-card)] dark:bg-[#0A0A0A] border border-[rgba(0,0,0,0.06)] dark:border-[rgba(255,255,255,0.08)] shadow-[0_2px_4px_rgba(0,0,0,0.04),0_24px_48px_rgba(0,0,0,0.08)] dark:shadow-[0_2px_4px_rgba(0,0,0,0.3),0_24px_48px_rgba(0,0,0,0.3)] p-0 rounded-2xl max-h-[85vh] overflow-hidden">
                     <DialogHeader className="p-5 pb-4 border-b border-[rgba(0,0,0,0.06)] dark:border-[rgba(255,255,255,0.08)]">
-                        <DialogTitle className="text-xl font-bold text-[var(--text-primary)] flex items-center gap-2">
+                        <DialogTitle className="text-xl font-semibold text-[var(--text-primary)] flex items-center gap-2">
                             <div className="h-9 w-9 rounded-full bg-gradient-to-br from-[#FFAB40] to-[#FF6D20] flex items-center justify-center shadow-md">
                                 <Sparkles className="h-4 w-4 text-white" />
                             </div>
@@ -227,11 +227,11 @@ export function SummaryDialog({ audioId, isOpen, onClose, llmReady }: SummaryDia
                                         rehypePlugins={[rehypeRaw as any, rehypeKatex as any, rehypeHighlight as any]} // eslint-disable-line @typescript-eslint/no-explicit-any
                                         components={{
                                             p: ({ ...props }) => <p className="text-[#525252] dark:text-[#A3A3A3] leading-7 mb-4" {...props} />,
-                                            h1: ({ ...props }) => <h1 className="text-[#171717] dark:text-[#EDEDED] font-bold text-2xl mt-6 mb-4" {...props} />,
-                                            h2: ({ ...props }) => <h2 className="text-[#171717] dark:text-[#EDEDED] font-bold text-xl mt-6 mb-3" {...props} />,
-                                            h3: ({ ...props }) => <h3 className="text-[#171717] dark:text-[#EDEDED] font-bold text-lg mt-5 mb-2" {...props} />,
+                                            h1: ({ ...props }) => <h1 className="text-[#171717] dark:text-[#EDEDED] font-semibold text-2xl mt-6 mb-4" {...props} />,
+                                            h2: ({ ...props }) => <h2 className="text-[#171717] dark:text-[#EDEDED] font-semibold text-xl mt-6 mb-3" {...props} />,
+                                            h3: ({ ...props }) => <h3 className="text-[#171717] dark:text-[#EDEDED] font-semibold text-lg mt-5 mb-2" {...props} />,
                                             li: ({ ...props }) => <li className="pl-1 text-[#525252] dark:text-[#A3A3A3] mb-1" {...props} />,
-                                            strong: ({ ...props }) => <strong className="text-[#171717] dark:text-[#EDEDED] font-bold" {...props} />,
+                                            strong: ({ ...props }) => <strong className="text-[#171717] dark:text-[#EDEDED] font-semibold" {...props} />,
                                             ul: ({ ...props }) => <ul className="list-disc pl-5 mb-4" {...props} />,
                                             ol: ({ ...props }) => <ol className="list-decimal pl-5 mb-4" {...props} />,
                                         }}
@@ -266,7 +266,7 @@ export function SummaryDialog({ audioId, isOpen, onClose, llmReady }: SummaryDia
                 }}
             >
                 <DialogHeader className="p-5 pb-0">
-                    <DialogTitle className="text-xl font-bold text-[var(--text-primary)] flex items-center gap-2">
+                    <DialogTitle className="text-xl font-semibold text-[var(--text-primary)] flex items-center gap-2">
                         <div className="h-9 w-9 rounded-full bg-gradient-to-br from-[#FFAB40] to-[#FF6D20] flex items-center justify-center shadow-md">
                             <FileText className="h-4 w-4 text-white" />
                         </div>

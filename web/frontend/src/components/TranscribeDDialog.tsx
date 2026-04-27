@@ -120,7 +120,7 @@ export function TranscribeDDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md glass-card rounded-[var(--radius-card)] p-0 gap-0 overflow-hidden border border-[var(--border-subtle)] shadow-[var(--shadow-float)]">
         <DialogHeader className="p-6 pb-2">
-          <DialogTitle className="text-xl font-bold tracking-tight text-[var(--text-primary)]">
+          <DialogTitle className="text-xl font-semibold tracking-tight text-[var(--text-primary)]">
             {title || "Transcribe with Profile"}
           </DialogTitle>
           <DialogDescription className="text-[var(--text-secondary)] text-sm mt-1.5">

@@ -7,8 +7,6 @@ export type TranscriptionProfileOptions = {
   task: "transcribe" | "translate";
   threads: number;
   tail_paddings?: number;
-  enable_token_timestamps?: boolean;
-  enable_segment_timestamps?: boolean;
   canary_source_language: string;
   canary_target_language: string;
   canary_use_punctuation?: boolean;
@@ -98,8 +96,6 @@ export async function saveProfile(profile: {
       task: profile.options.task,
       threads: profile.options.threads,
       tail_paddings: profile.options.tail_paddings,
-      enable_token_timestamps: profile.options.enable_token_timestamps,
-      enable_segment_timestamps: profile.options.enable_segment_timestamps,
       canary_source_language: profile.options.canary_source_language,
       canary_target_language: profile.options.canary_target_language,
       canary_use_punctuation: profile.options.canary_use_punctuation,

@@ -662,7 +662,7 @@ export function SystemAudioRecorder({
 
 						{/* Recording Time */}
 						<div className="text-center">
-							<div className="text-6xl font-mono font-bold text-[var(--text-primary)] mb-2">
+							<div className="text-6xl font-mono font-semibold text-[var(--text-primary)] mb-2">
 								{formatTime(recordingTime)}
 							</div>
 							<div className="flex items-center justify-center gap-2 text-sm text-[var(--text-secondary)]">
@@ -755,13 +755,13 @@ export function SystemAudioRecorder({
 						</h3>
 						<ol className="space-y-3 text-sm text-[var(--text-secondary)]">
 							<li className="flex gap-3">
-								<span className="font-bold text-[var(--brand-solid)] flex-shrink-0">
+								<span className="font-semibold text-[var(--brand-solid)] flex-shrink-0">
 									1.
 								</span>
 								<span>Click "Start Recording" below</span>
 							</li>
 							<li className="flex gap-3">
-								<span className="font-bold text-[var(--brand-solid)] flex-shrink-0">
+								<span className="font-semibold text-[var(--brand-solid)] flex-shrink-0">
 									2.
 								</span>
 								<span>
@@ -769,7 +769,7 @@ export function SystemAudioRecorder({
 								</span>
 							</li>
 							<li className="flex gap-3">
-								<span className="font-bold text-[var(--brand-solid)] flex-shrink-0">
+								<span className="font-semibold text-[var(--brand-solid)] flex-shrink-0">
 									3.
 								</span>
 								<span>
@@ -777,7 +777,7 @@ export function SystemAudioRecorder({
 								</span>
 							</li>
 							<li className="flex gap-3">
-								<span className="font-bold text-[var(--brand-solid)] flex-shrink-0">
+								<span className="font-semibold text-[var(--brand-solid)] flex-shrink-0">
 									4.
 								</span>
 								<span>Allow microphone access when prompted (optional)</span>

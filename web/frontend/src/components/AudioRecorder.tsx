@@ -274,7 +274,7 @@ export function AudioRecorder({
 		<Dialog open={isOpen} onOpenChange={handleClose}>
 			<DialogContent className="sm:max-w-[600px] bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700">
 				<DialogHeader>
-					<DialogTitle className="text-carbon-900 dark:text-carbon-100 text-xl font-bold">
+					<DialogTitle className="text-carbon-900 dark:text-carbon-100 text-xl font-semibold">
 						Record Audio
 					</DialogTitle>
 					<DialogDescription className="text-carbon-600 dark:text-carbon-400">
@@ -350,7 +350,7 @@ export function AudioRecorder({
 
 					{/* Recording Time */}
 					<div className="text-center">
-						<div className="text-3xl font-mono font-bold text-carbon-900 dark:text-carbon-100 mb-2">
+						<div className="text-3xl font-mono font-semibold text-carbon-900 dark:text-carbon-100 mb-2">
 							{formatTime(recordingTime)}
 						</div>
 						<div className="flex items-center justify-center gap-2 text-sm text-carbon-600 dark:text-carbon-400">

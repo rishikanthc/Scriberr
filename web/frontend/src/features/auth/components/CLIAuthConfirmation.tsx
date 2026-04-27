@@ -115,12 +115,12 @@ export function CLIAuthConfirmation() {
                         </svg>
                     </div>
 
-                    <h1 className="text-2xl font-bold text-[var(--text-primary)] mb-2">
+                    <h1 className="text-2xl font-semibold text-[var(--text-primary)] mb-2">
                         Authorize CLI Device?
                     </h1>
 
                     <p className="text-[var(--text-secondary)] mb-6">
-                        <span className="font-bold">{deviceName}</span> wants to access your account <span className="font-bold">{user?.username}</span>.
+                        <span className="font-semibold">{deviceName}</span> wants to access your account <span className="font-semibold">{user?.username}</span>.
                     </p>
 
                     <div className="flex flex-col gap-3">

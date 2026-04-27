@@ -149,8 +149,6 @@ export function ASRProfileDialog({ open, profile, models, onClose, onSave }: ASR
               <NumberField label="Threads" value={params.threads} min={0} max={32} onChange={(value) => updateParam("threads", value)} />
               <OptionalNumberField label="Tail paddings" value={params.tail_paddings} min={-1} max={16} onChange={(value) => updateParam("tail_paddings", value)} />
             </div>
-            <CheckRow label="Token timestamps" checked={params.enable_token_timestamps ?? true} onChange={(value) => updateParam("enable_token_timestamps", value)} />
-            <CheckRow label="Segment timestamps" checked={params.enable_segment_timestamps ?? false} onChange={(value) => updateParam("enable_segment_timestamps", value)} />
           </section>
 
           {params.model_family === "canary" ? (
@@ -171,7 +169,7 @@ export function ASRProfileDialog({ open, profile, models, onClose, onSave }: ASR
               <>
                 <div className="scr-fixed-option">
                   <span>Model</span>
-                  <strong>Pyannote + 3D-Speaker</strong>
+                  <span>Pyannote + 3D-Speaker</span>
                 </div>
                 <div className="scr-form-grid">
                   <NumberField label="Known speakers" value={params.num_speakers} min={0} max={20} onChange={(value) => updateParam("num_speakers", value)} />

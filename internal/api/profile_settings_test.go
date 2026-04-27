@@ -21,10 +21,12 @@ func TestProfileCRUDAndDefaultSelection(t *testing.T) {
 		"description": "Fast local transcription",
 		"is_default":  true,
 		"options": map[string]any{
-			"model":       "whisper-base",
-			"language":    "en",
-			"diarization": false,
-			"threads":     2,
+			"model":                     "whisper-base",
+			"language":                  "en",
+			"diarization":               false,
+			"threads":                   2,
+			"enable_token_timestamps":   false,
+			"enable_segment_timestamps": false,
 		},
 	}, token, "")
 	require.Equal(t, http.StatusCreated, resp.Code)
@@ -32,7 +34,17 @@ func TestProfileCRUDAndDefaultSelection(t *testing.T) {
 	require.True(t, strings.HasPrefix(firstID, "profile_"))
 	require.Equal(t, true, body["is_default"])
 	require.Equal(t, "Fast local", body["name"])
-	require.Equal(t, "whisper-base", body["options"].(map[string]any)["model"])
+	options := body["options"].(map[string]any)
+	require.Equal(t, "whisper-base", options["model"])
+	require.NotContains(t, options, "enable_token_timestamps")
+	require.NotContains(t, options, "enable_segment_timestamps")
+
+	var storedProfile models.TranscriptionProfile
+	require.NoError(t, database.DB.First(&storedProfile, "id = ?", strings.TrimPrefix(firstID, "profile_")).Error)
+	require.NotNil(t, storedProfile.Parameters.EnableTokenTimestamps)
+	require.True(t, *storedProfile.Parameters.EnableTokenTimestamps)
+	require.NotNil(t, storedProfile.Parameters.EnableSegmentTimestamps)
+	require.True(t, *storedProfile.Parameters.EnableSegmentTimestamps)
 
 	resp, body = s.request(t, http.MethodGet, "/api/v1/settings", nil, token, "")
 	require.Equal(t, http.StatusOK, resp.Code)

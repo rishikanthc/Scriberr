@@ -186,7 +186,23 @@ func validateProfileInput(c *gin.Context, name string, options profileOptionsReq
 	return true
 }
 func profileParams(options profileOptionsRequest) models.WhisperXParams {
-	params := supportedProfileParams(options.WhisperXParams)
+	params := supportedProfileParams(models.WhisperXParams{
+		Model:                options.Model,
+		Language:             options.Language,
+		Task:                 options.Task,
+		Threads:              options.Threads,
+		TailPaddings:         options.TailPaddings,
+		CanarySourceLanguage: options.CanarySourceLanguage,
+		CanaryTargetLanguage: options.CanaryTargetLanguage,
+		CanaryUsePunctuation: options.CanaryUsePunctuation,
+		DecodingMethod:       options.DecodingMethod,
+		Diarize:              options.Diarize,
+		DiarizeModel:         options.DiarizeModel,
+		NumSpeakers:          options.NumSpeakers,
+		DiarizationThreshold: options.DiarizationThreshold,
+		MinDurationOn:        options.MinDurationOn,
+		MinDurationOff:       options.MinDurationOff,
+	})
 	if options.Diarization != nil {
 		params.Diarize = *options.Diarization
 	}
@@ -222,8 +238,8 @@ func supportedProfileParams(input models.WhisperXParams) models.WhisperXParams {
 		Task:                    task,
 		Threads:                 input.Threads,
 		TailPaddings:            input.TailPaddings,
-		EnableTokenTimestamps:   input.EnableTokenTimestamps,
-		EnableSegmentTimestamps: input.EnableSegmentTimestamps,
+		EnableTokenTimestamps:   boolPtr(true),
+		EnableSegmentTimestamps: boolPtr(true),
 		CanarySourceLanguage:    strings.TrimSpace(input.CanarySourceLanguage),
 		CanaryTargetLanguage:    strings.TrimSpace(input.CanaryTargetLanguage),
 		CanaryUsePunctuation:    input.CanaryUsePunctuation,

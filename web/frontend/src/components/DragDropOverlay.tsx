@@ -118,7 +118,7 @@ export function DragDropOverlay({
 
 				{/* Title */}
 				<h2 className={cn(
-					"text-2xl font-bold mb-2 text-center",
+					"text-2xl font-semibold mb-2 text-center",
 					errorMessage ? "text-red-700 dark:text-red-300" : "text-stone-900 dark:text-stone-100"
 				)}>
 					{getTitle()}

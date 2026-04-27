@@ -90,16 +90,12 @@ export function Settings() {
               <section className="scr-settings-panel" aria-label="ASR profiles">
                 <div className="scr-settings-panel-head">
                   <div>
-                    <div className="scr-settings-kicker">
-                      <Settings2 size={15} aria-hidden="true" />
-                      ASR
-                    </div>
                     <h2 className="scr-settings-heading">Transcription profiles</h2>
                     <p className="scr-settings-copy">
                       Save engine, model, decoding, diarization, and output presets for repeatable transcription runs.
                     </p>
                   </div>
-                  <AppButton onClick={openNewProfile}>
+                  <AppButton variant="secondary" className="scr-settings-new-profile" onClick={openNewProfile}>
                     <Plus size={15} aria-hidden="true" />
                     New profile
                   </AppButton>

@@ -56,7 +56,7 @@ export function ChatSidePanel({ transcriptionId, isOpen, onClose, isMobile }: Ch
                             <ArrowLeft className="h-4 w-4" />
                         </Button>
                     )}
-                    <div className="flex items-center gap-2 font-bold text-[var(--text-primary)]">
+                    <div className="flex items-center gap-2 font-semibold text-[var(--text-primary)]">
                         <span>{view === 'chat' ? 'Chat' : 'Sessions'}</span>
                     </div>
                 </div>

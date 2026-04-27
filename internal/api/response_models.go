@@ -55,6 +55,9 @@ func keyPreview(prefix string) string {
 func stringPtr(value string) *string {
 	return &value
 }
+func boolPtr(value bool) *bool {
+	return &value
+}
 func sha256Hex(value string) string {
 	sum := sha256.Sum256([]byte(value))
 	return hex.EncodeToString(sum[:])
@@ -254,6 +257,8 @@ func profileResponse(profile *models.TranscriptionProfile) gin.H {
 }
 func profileOptionsMap(params models.WhisperXParams) gin.H {
 	params = supportedProfileParams(params)
+	params.EnableTokenTimestamps = nil
+	params.EnableSegmentTimestamps = nil
 	var options gin.H
 	bytes, err := json.Marshal(params)
 	if err != nil || json.Unmarshal(bytes, &options) != nil {

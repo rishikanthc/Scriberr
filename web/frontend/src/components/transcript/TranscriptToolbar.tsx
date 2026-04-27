@@ -101,7 +101,7 @@ export const TranscriptToolbar: React.FC<TranscriptToolbarProps> = ({
             >
                 <StickyNote className="w-4 h-4" />
                 {notes.length > 0 && (
-                    <span className="absolute -top-1 -right-1 min-w-[16px] h-[16px] flex items-center justify-center rounded-full bg-brand-600 text-[10px] font-bold text-white ring-2 ring-white dark:ring-carbon-900">
+                    <span className="absolute -top-1 -right-1 min-w-[16px] h-[16px] flex items-center justify-center rounded-full bg-brand-600 text-[10px] font-semibold text-white ring-2 ring-white dark:ring-carbon-900">
                         {notes.length > 99 ? '99+' : notes.length}
                     </span>
                 )}

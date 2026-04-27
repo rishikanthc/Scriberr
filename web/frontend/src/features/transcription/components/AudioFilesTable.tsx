@@ -671,7 +671,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 					<Tooltip>
 						<TooltipTrigger asChild>
 							<div className="flex items-center gap-1.5 cursor-help">
-								<div className="flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 text-[10px] font-bold shadow-sm whitespace-nowrap">
+								<div className="flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 text-[10px] font-semibold shadow-sm whitespace-nowrap">
 									#{position || "-"}
 								</div>
 							</div>
@@ -892,7 +892,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 				<div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 animate-in fade-in slide-in-from-bottom-4 duration-300">
 					<div className="glass-card flex items-center gap-1 p-1.5 pl-4 pr-1.5 rounded-full shadow-[var(--shadow-float)] border border-[var(--border-subtle)] bg-[var(--bg-main)]/95 backdrop-blur-xl ring-1 ring-black/5">
 						<div className="flex items-center gap-3 mr-2">
-							<span className="flex h-5 w-5 items-center justify-center rounded-full bg-[var(--brand-solid)] text-[10px] font-bold text-white shadow-sm">
+							<span className="flex h-5 w-5 items-center justify-center rounded-full bg-[var(--brand-solid)] text-[10px] font-semibold text-white shadow-sm">
 								{selectedCount}
 							</span>
 							<span className="text-sm font-medium text-[var(--text-primary)]">Selected</span>

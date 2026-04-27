@@ -198,7 +198,7 @@ export const EmberPlayer = forwardRef<EmberPlayerRef, EmberPlayerProps>(
                                     {formatTime(duration)}
                                 </span>
                             </span>
-                            <span className="text-[10px] text-[var(--text-tertiary)] font-bold uppercase tracking-widest mt-0.5 opacity-80">
+                            <span className="text-[10px] text-[var(--text-tertiary)] font-semibold uppercase tracking-widest mt-0.5 opacity-80">
                                 {isPlaying ? "Playing" : "Ready"}
                             </span>
                         </div>

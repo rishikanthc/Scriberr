@@ -17,7 +17,7 @@ export function WandAdvancedIcon({ className, strokeWidth = 2 }: WandAdvancedIco
             {/* Small + badge in top-right corner */}
             <span
                 className="absolute -top-0.5 -right-0.5 flex items-center justify-center 
-					min-w-[10px] h-[10px] text-[7px] font-bold leading-none
+					min-w-[10px] h-[10px] text-[7px] font-semibold leading-none
 					bg-current rounded-full"
                 style={{ color: 'inherit' }}
             >

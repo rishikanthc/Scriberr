@@ -90,6 +90,9 @@ func TestLocalProviderTranscribeMapsRequestAndWords(t *testing.T) {
 	if fake.transcriptionReq.EnableTokenTimestamps == nil || !*fake.transcriptionReq.EnableTokenTimestamps {
 		t.Fatalf("EnableTokenTimestamps was not forced on")
 	}
+	if fake.transcriptionReq.EnableSegmentTimestamps == nil || !*fake.transcriptionReq.EnableSegmentTimestamps {
+		t.Fatalf("EnableSegmentTimestamps was not forced on")
+	}
 	if result.Text != "hello world" || result.Language != "en" {
 		t.Fatalf("unexpected result: %#v", result)
 	}
