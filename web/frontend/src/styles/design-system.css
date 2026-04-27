@@ -101,12 +101,15 @@
   font-family: var(--scr-font-sans);
   font-size: 15px;
   font-weight: 500;
+  font-synthesis-weight: none;
+  font-variation-settings: "wght" 520;
   line-height: var(--scr-line-base);
 }
 
 .scr-app strong,
 .scr-app b {
   font-weight: 600;
+  font-variation-settings: "wght" 600;
 }
 
 .scr-visually-hidden {
@@ -1119,7 +1122,7 @@
   background: var(--scr-surface-panel);
   color: var(--scr-text-primary);
   font-size: 0.875rem;
-  font-weight: 400;
+  font-weight: 500;
   line-height: var(--scr-line-base);
   outline: none;
   transition: border-color 160ms ease, box-shadow 160ms ease;
@@ -1195,7 +1198,7 @@
   margin-top: 0.125rem;
   color: var(--scr-text-tertiary);
   font-size: 0.75rem;
-  font-weight: 400;
+  font-weight: 500;
 }
 
 .scr-select-chevron {
@@ -1263,7 +1266,7 @@
   margin-top: 0.125rem;
   color: var(--scr-text-secondary);
   font-size: 0.8125rem;
-  font-weight: 400;
+  font-weight: 500;
   line-height: 1.25;
 }
 
