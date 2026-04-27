@@ -40,14 +40,14 @@ dev: ## Start development environment with Air (backend) and Vite (frontend)
 	\
 	if [ "$$USE_GO_RUN" = true ]; then \
 		echo "🔧 Starting Go backend (standard run)..."; \
-		go run cmd/server/main.go & \
+		SCRIBERR_FRONTEND_DEV_SERVER=http://127.0.0.1:5173 go run cmd/server/main.go & \
 	else \
 		echo "🔥 Starting Go backend (with Air live reload)..."; \
-		air & \
+		SCRIBERR_FRONTEND_DEV_SERVER=http://127.0.0.1:5173 air & \
 	fi; \
 	\
 	echo "⚛️  Starting React frontend (Vite)..."; \
-	cd web/frontend && npm run dev & \
+	cd web/frontend && npm run dev -- --host 127.0.0.1 --port 5173 --strictPort & \
 	\
 	wait
 
