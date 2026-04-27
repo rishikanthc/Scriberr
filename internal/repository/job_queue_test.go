@@ -106,6 +106,16 @@ func TestJobRepositoryEnqueueAndClaimFIFO(t *testing.T) {
 	assert.Equal(t, newer.ID, claimed.ID)
 }
 
+func TestJobRepositoryClaimNextReturnsNotFoundWhenQueueEmpty(t *testing.T) {
+	db := openJobQueueTestDB(t)
+	repo := NewJobRepository(db)
+
+	claimed, err := repo.ClaimNextTranscription(context.Background(), "worker-a", time.Now().Add(time.Minute))
+
+	require.ErrorIs(t, err, gorm.ErrRecordNotFound)
+	require.Nil(t, claimed)
+}
+
 func TestJobRepositoryConcurrentClaimsDoNotDuplicateJobs(t *testing.T) {
 	db := openJobQueueTestDB(t)
 	user := createQueueTestUser(t, db)

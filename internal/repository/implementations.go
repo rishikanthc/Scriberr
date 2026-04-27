@@ -191,14 +191,19 @@ func (r *jobRepository) ClaimNextTranscription(ctx context.Context, workerID str
 	var claimed models.TranscriptionJob
 	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var candidate models.TranscriptionJob
-		if err := tx.
+		result := tx.
 			Where("status = ?", models.StatusPending).
 			Order("queued_at ASC, created_at ASC, id ASC").
-			First(&candidate).Error; err != nil {
-			return err
+			Limit(1).
+			Find(&candidate)
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected == 0 {
+			return gorm.ErrRecordNotFound
 		}
 		now := time.Now()
-		result := tx.Model(&models.TranscriptionJob{}).
+		result = tx.Model(&models.TranscriptionJob{}).
 			Where("id = ? AND status = ?", candidate.ID, models.StatusPending).
 			Updates(map[string]any{
 				"status":           models.StatusProcessing,
