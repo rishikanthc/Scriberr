@@ -673,10 +673,16 @@
   height: 38px;
   border: 1px solid transparent;
   border-radius: var(--scr-radius-sm);
+  cursor: pointer;
   padding: 0 var(--scr-space-4);
   font-size: 0.875rem;
   font-weight: 700;
-  transition: transform 120ms ease, background-color 160ms ease, border-color 160ms ease, opacity 160ms ease;
+  transition: transform 120ms ease, background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease, color 160ms ease, opacity 160ms ease;
+}
+
+.scr-button:hover,
+.scr-button:focus-visible {
+  transform: translateY(-1px);
 }
 
 .scr-button:active {
@@ -693,10 +699,23 @@
   color: var(--scr-color-white);
 }
 
+.scr-button-primary:hover,
+.scr-button-primary:focus-visible {
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--scr-brand-solid) 24%, transparent);
+}
+
 .scr-button-secondary {
   border-color: var(--scr-border-subtle);
   background: var(--scr-surface-muted);
   color: var(--scr-text-primary);
+}
+
+.scr-button-secondary:hover,
+.scr-button-secondary:focus-visible {
+  border-color: var(--scr-brand-border);
+  background: var(--scr-surface-panel);
+  color: var(--scr-brand-ink);
+  box-shadow: var(--scr-shadow-card);
 }
 
 .scr-icon-button {
@@ -708,6 +727,15 @@
   border-radius: var(--scr-radius-sm);
   background: var(--scr-surface-muted);
   color: var(--scr-text-primary);
+  cursor: pointer;
+  transition: background-color 160ms ease, color 160ms ease, transform 120ms ease;
+}
+
+.scr-icon-button:hover,
+.scr-icon-button:focus-visible {
+  background: var(--scr-brand-muted);
+  color: var(--scr-brand-solid);
+  transform: translateY(-1px);
 }
 
 .scr-topbar-button {
