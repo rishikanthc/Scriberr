@@ -168,6 +168,8 @@ func SetupRoutes(handler *Handler, _ *auth.AuthService) *gin.Engine {
 		{
 			settings.GET("", handler.getSettings)
 			settings.PATCH("", handler.updateSettings)
+			settings.GET("/llm-provider", handler.getLLMProvider)
+			settings.PUT("/llm-provider", handler.updateLLMProvider)
 		}
 
 		v1.GET("/events", handler.authRequired(), handler.streamEvents)

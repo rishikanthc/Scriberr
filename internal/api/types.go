@@ -88,3 +88,7 @@ type updateSettingsRequest struct {
 	AutoTranscriptionEnabled *bool   `json:"auto_transcription_enabled"`
 	DefaultProfileID         *string `json:"default_profile_id"`
 }
+type updateLLMProviderRequest struct {
+	BaseURL string `json:"base_url"`
+	APIKey  string `json:"api_key"`
+}
