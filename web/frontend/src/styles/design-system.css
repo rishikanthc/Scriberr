@@ -6,6 +6,381 @@
   src: url("/fonts/manrope/Manrope-ExtraLight.ttf") format("truetype");
 }
 
+.scr-audio-detail-main {
+  position: relative;
+  min-width: 0;
+  min-height: 100vh;
+  background: var(--scr-surface-canvas);
+  padding: var(--scr-space-8) var(--scr-space-8) 8.5rem;
+}
+
+.scr-audio-detail {
+  width: min(100%, 940px);
+  margin: 0 auto;
+}
+
+.scr-audio-hero {
+  padding-bottom: var(--scr-space-8);
+}
+
+.scr-audio-title-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--scr-space-4);
+}
+
+.scr-audio-title {
+  min-width: 0;
+  color: var(--scr-text-primary);
+  font-size: clamp(1.75rem, 2.2vw, 2.25rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1.16;
+}
+
+.scr-audio-title-button,
+.scr-audio-title-input {
+  display: block;
+  width: min(100%, 760px);
+  border: 0;
+  background: transparent;
+  padding: 0 0 3px;
+  text-align: left;
+}
+
+.scr-audio-title-button {
+  cursor: text;
+}
+
+.scr-audio-title-button:hover,
+.scr-audio-title-button:focus-visible {
+  color: var(--scr-brand-ink);
+  outline: none;
+}
+
+.scr-audio-title-input {
+  border-bottom: 1px solid var(--scr-brand-border);
+  outline: none;
+}
+
+.scr-audio-icon-action {
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 auto;
+  border: 1px solid transparent;
+  border-radius: var(--scr-radius-sm);
+  background: transparent;
+  color: var(--scr-text-secondary);
+  cursor: pointer;
+  transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease;
+}
+
+.scr-audio-icon-action:hover,
+.scr-audio-icon-action:focus-visible {
+  border-color: var(--scr-border-subtle);
+  background: var(--scr-surface-muted);
+  color: var(--scr-text-primary);
+  outline: none;
+}
+
+.scr-audio-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--scr-space-4);
+  margin-top: var(--scr-space-5);
+  color: var(--scr-text-secondary);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.scr-audio-meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--scr-space-1);
+}
+
+.scr-audio-tabbar {
+  display: flex;
+  align-items: center;
+  gap: var(--scr-space-5);
+  border-bottom: 1px solid var(--scr-border-subtle);
+  margin-bottom: var(--scr-space-6);
+}
+
+.scr-audio-tabbar button {
+  position: relative;
+  min-height: 42px;
+  border: 0;
+  background: transparent;
+  color: var(--scr-text-secondary);
+  cursor: pointer;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1;
+  padding: 0;
+}
+
+.scr-audio-tabbar button[data-active="true"] {
+  color: var(--scr-text-primary);
+}
+
+.scr-audio-tabbar button[data-active="true"]::after {
+  position: absolute;
+  right: 0;
+  bottom: -1px;
+  left: 0;
+  height: 2px;
+  border-radius: 999px;
+  background: var(--scr-brand-solid);
+  content: "";
+}
+
+.scr-audio-tabbar .scr-audio-edit-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  margin-left: auto;
+  border-radius: var(--scr-radius-sm);
+  color: var(--scr-text-secondary);
+}
+
+.scr-audio-tabbar .scr-audio-edit-icon:disabled {
+  color: var(--scr-text-tertiary);
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
+.scr-audio-summary {
+  display: grid;
+  gap: var(--scr-space-4);
+  max-width: 760px;
+  color: var(--scr-text-primary);
+  font-size: 1rem;
+  line-height: var(--scr-line-relaxed);
+}
+
+.scr-transcript {
+  display: grid;
+  gap: var(--scr-space-6);
+  max-width: 900px;
+}
+
+.scr-transcript-segment {
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr);
+  align-items: start;
+  gap: var(--scr-space-4);
+}
+
+.scr-transcript-meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: var(--scr-space-2);
+  color: var(--scr-text-tertiary);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1;
+  padding-top: 0.32rem;
+  white-space: nowrap;
+}
+
+.scr-transcript-meta span {
+  overflow: hidden;
+  max-width: 86px;
+  color: var(--scr-text-secondary);
+  text-overflow: ellipsis;
+}
+
+.scr-transcript-segment p {
+  color: var(--scr-text-primary);
+  font-size: 1.0625rem;
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1.68;
+}
+
+.scr-player-shell {
+  position: fixed;
+  right: max(var(--scr-space-6), calc((100vw - 196px - 940px) / 2 + var(--scr-space-6)));
+  bottom: var(--scr-space-6);
+  left: max(calc(196px + var(--scr-space-6)), calc(196px + (100vw - 196px - 940px) / 2 + var(--scr-space-6)));
+  z-index: 30;
+  display: grid;
+  grid-template-columns: auto 38px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--scr-space-3);
+  min-height: 72px;
+  border: 1px solid var(--scr-border-subtle);
+  border-radius: var(--scr-radius-xl);
+  background: color-mix(in srgb, var(--scr-surface-raised) 94%, transparent);
+  box-shadow: var(--scr-shadow-float);
+  padding: var(--scr-space-4);
+}
+
+.scr-player-toggle {
+  display: inline-grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--scr-text-primary);
+  color: var(--scr-surface-canvas);
+  cursor: pointer;
+  transition: transform 120ms ease, background-color 160ms ease;
+}
+
+.scr-player-toggle:hover,
+.scr-player-toggle:focus-visible {
+  background: var(--scr-brand-solid);
+  outline: none;
+}
+
+.scr-player-toggle:active {
+  transform: scale(0.96);
+}
+
+.scr-player-seek {
+  min-width: 0;
+}
+
+.scr-player-seek input {
+  display: block;
+  width: 100%;
+  height: 20px;
+  accent-color: var(--scr-brand-solid);
+  cursor: pointer;
+}
+
+.scr-player-seek input::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 999px;
+  background: linear-gradient(
+    to right,
+    var(--scr-brand-solid) 0%,
+    var(--scr-brand-solid) var(--scr-player-progress, 0%),
+    var(--scr-border-subtle) var(--scr-player-progress, 0%),
+    var(--scr-border-subtle) 100%
+  );
+}
+
+.scr-player-seek input::-webkit-slider-thumb {
+  width: 13px;
+  height: 13px;
+  margin-top: -4.5px;
+  border: 2px solid var(--scr-surface-raised);
+  border-radius: 999px;
+  background: var(--scr-brand-solid);
+  box-shadow: 0 1px 4px rgba(35, 35, 35, 0.16);
+  -webkit-appearance: none;
+}
+
+.scr-player-seek input::-moz-range-track {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--scr-border-subtle);
+}
+
+.scr-player-seek input::-moz-range-progress {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--scr-brand-solid);
+}
+
+.scr-player-time {
+  min-width: 3.125rem;
+  color: var(--scr-text-secondary);
+  font-size: 0.75rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.scr-player-time-current {
+  text-align: right;
+}
+
+.scr-player-error {
+  grid-column: 1 / -1;
+  color: var(--scr-color-danger);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.scr-audio-loading,
+.scr-audio-error {
+  display: grid;
+  place-items: center;
+  min-height: calc(100vh - 6rem);
+  color: var(--scr-text-secondary);
+}
+
+.scr-audio-loading span {
+  width: 28px;
+  height: 28px;
+  border: 2px solid var(--scr-brand-muted);
+  border-bottom-color: var(--scr-brand-solid);
+  border-radius: 999px;
+  animation: scr-spin 1s linear infinite;
+}
+
+.scr-audio-error {
+  gap: var(--scr-space-2);
+  align-content: center;
+}
+
+.scr-audio-error h1 {
+  color: var(--scr-text-primary);
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.scr-audio-error a {
+  color: var(--scr-brand-ink);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+@media (max-width: 900px) {
+  .scr-audio-detail-main {
+    padding: var(--scr-space-6) var(--scr-space-5) 8.5rem;
+  }
+
+  .scr-transcript-segment {
+    grid-template-columns: 44px minmax(0, 1fr);
+    gap: var(--scr-space-3);
+  }
+
+  .scr-transcript-segment p {
+    font-size: 1rem;
+  }
+
+  .scr-player-shell {
+    right: var(--scr-space-4);
+    left: calc(56px + var(--scr-space-4));
+  }
+}
+
+@media (max-width: 640px) {
+  .scr-audio-tabbar {
+    gap: var(--scr-space-4);
+  }
+
+  .scr-player-shell {
+    grid-template-columns: 34px minmax(0, 1fr) auto;
+  }
+
+  .scr-player-time-current {
+    display: none;
+  }
+}
+
 @font-face {
   font-family: "Manrope";
   font-style: normal;

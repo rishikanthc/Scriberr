@@ -20,6 +20,10 @@ export type FilesResponse = {
 
 export type UploadProgressHandler = (progress: number) => void;
 
+export type UpdateFilePayload = {
+  title: string;
+};
+
 export function listFiles(headers: Record<string, string>): Promise<FilesResponse> {
   return fetch("/api/v1/files?limit=100&sort=-created_at", {
     headers,
@@ -29,6 +33,36 @@ export function listFiles(headers: Record<string, string>): Promise<FilesRespons
     }
     return response.json() as Promise<FilesResponse>;
   });
+}
+
+export function getFile(fileId: string, headers: Record<string, string>): Promise<ScriberrFile> {
+  return fetch(`/api/v1/files/${fileId}`, {
+    headers,
+  }).then(async (response) => {
+    if (!response.ok) {
+      throw new Error("Failed to load file");
+    }
+    return response.json() as Promise<ScriberrFile>;
+  });
+}
+
+export async function updateFile(
+  fileId: string,
+  payload: UpdateFilePayload,
+  headers: Record<string, string>
+): Promise<ScriberrFile> {
+  const response = await fetch(`/api/v1/files/${fileId}`, {
+    method: "PATCH",
+    headers: {
+      ...headers,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ title: payload.title }),
+  });
+  if (!response.ok) {
+    throw new Error("Failed to update file");
+  }
+  return response.json() as Promise<ScriberrFile>;
 }
 
 export function uploadFile(

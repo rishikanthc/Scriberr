@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useRef, type ChangeEvent } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { ChevronDown, FileAudio, Home, Mic, Search, Settings, StopCircle, Trash2, UploadCloud, Video, Wand2 } from "lucide-react";
 import { WandAdvancedIcon } from "@/components/icons/WandAdvancedIcon";
 import { UploadProgressShelf } from "@/features/files/components/UploadProgressShelf";
@@ -86,9 +86,10 @@ type RecordingCardProps = {
   canTranscribe: boolean;
   isSubmitting: boolean;
   onTranscribe: (recording: Recording) => void;
+  onOpen: (recording: Recording) => void;
 };
 
-function RecordingCard({ recording, canTranscribe, isSubmitting, onTranscribe }: RecordingCardProps) {
+function RecordingCard({ recording, canTranscribe, isSubmitting, onTranscribe, onOpen }: RecordingCardProps) {
   const isProcessing = recording.status === "file-processing" || recording.status === "uploading" || recording.status === "queued" || recording.status === "transcribing";
   const isFileReady = recording.fileStatus === "ready" || recording.fileStatus === "uploaded";
   const hasActiveTranscription = recording.status === "queued" || recording.status === "transcribing";
@@ -103,8 +104,22 @@ function RecordingCard({ recording, canTranscribe, isSubmitting, onTranscribe }:
           ? "Submitting transcription"
           : "Transcribe with default profile";
 
+  const openTitle = recording.id.startsWith("file_") ? `Open ${recording.title}` : undefined;
+
   return (
-    <article className="scr-recording-card" tabIndex={0}>
+    <article
+      className="scr-recording-card"
+      tabIndex={recording.id.startsWith("file_") ? 0 : -1}
+      role={recording.id.startsWith("file_") ? "button" : undefined}
+      aria-label={openTitle}
+      onClick={() => onOpen(recording)}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onOpen(recording);
+        }
+      }}
+    >
       <div className="scr-recording-icon">
         <FileAudio size={24} aria-hidden="true" />
       </div>
@@ -128,7 +143,13 @@ function RecordingCard({ recording, canTranscribe, isSubmitting, onTranscribe }:
               <Wand2 size={16} aria-hidden="true" />
             </button>
           </span>
-          <button className="scr-recording-action" type="button" aria-label="Transcribe advanced" title="Transcribe advanced">
+          <button
+            className="scr-recording-action"
+            type="button"
+            aria-label="Transcribe advanced"
+            title="Transcribe advanced"
+            onClick={(event) => event.stopPropagation()}
+          >
             <WandAdvancedIcon className="scr-recording-action-icon" strokeWidth={2} />
           </button>
           <button
@@ -136,6 +157,7 @@ function RecordingCard({ recording, canTranscribe, isSubmitting, onTranscribe }:
             type="button"
             aria-label={isProcessing ? "Stop transcription" : "Delete recording"}
             title={isProcessing ? "Stop transcription" : "Delete"}
+            onClick={(event) => event.stopPropagation()}
           >
             {isProcessing ? <StopCircle size={16} aria-hidden="true" /> : <Trash2 size={16} aria-hidden="true" />}
           </button>
@@ -149,6 +171,7 @@ function RecordingCard({ recording, canTranscribe, isSubmitting, onTranscribe }:
 }
 
 export function HomePage() {
+  const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const filesQuery = useFiles();
   const profilesQuery = useProfiles();
@@ -202,6 +225,12 @@ export function HomePage() {
     });
   }, [createTranscriptionMutation, defaultProfile]);
 
+  const handleOpenRecording = useCallback((recording: Recording) => {
+    if (recording.id.startsWith("file_")) {
+      navigate(`/audio/${recording.id}`);
+    }
+  }, [navigate]);
+
   return (
     <div className="scr-app">
       <div className="scr-shell">
@@ -235,6 +264,7 @@ export function HomePage() {
                     canTranscribe={Boolean(defaultProfile)}
                     isSubmitting={createTranscriptionMutation.isPending && createTranscriptionMutation.variables?.fileId === recording.id}
                     onTranscribe={handleTranscribe}
+                    onOpen={handleOpenRecording}
                   />
                 ))}
               </section>
