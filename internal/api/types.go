@@ -89,6 +89,8 @@ type updateSettingsRequest struct {
 	DefaultProfileID         *string `json:"default_profile_id"`
 }
 type updateLLMProviderRequest struct {
-	BaseURL string `json:"base_url"`
-	APIKey  string `json:"api_key"`
+	BaseURL    string `json:"base_url"`
+	APIKey     string `json:"api_key"`
+	LargeModel string `json:"large_model"`
+	SmallModel string `json:"small_model"`
 }

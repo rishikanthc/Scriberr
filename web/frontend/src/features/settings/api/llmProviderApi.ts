@@ -6,12 +6,16 @@ export type LLMProviderSettings = {
   key_preview?: string | null;
   model_count: number;
   models: string[];
+  large_model?: string | null;
+  small_model?: string | null;
   updated_at?: string;
 };
 
 export type SaveLLMProviderPayload = {
   base_url: string;
   api_key?: string;
+  large_model?: string;
+  small_model?: string;
 };
 
 export async function getLLMProviderSettings(headers?: Record<string, string>) {
@@ -31,6 +35,8 @@ export async function saveLLMProviderSettings(payload: SaveLLMProviderPayload, h
     body: JSON.stringify({
       base_url: payload.base_url,
       api_key: payload.api_key || undefined,
+      large_model: payload.large_model || undefined,
+      small_model: payload.small_model || undefined,
     }),
   });
   if (!response.ok) throw new Error(await readError(response));

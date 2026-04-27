@@ -58,6 +58,8 @@ func (h *Handler) getLLMProvider(c *gin.Context) {
 			"key_preview": nil,
 			"model_count": 0,
 			"models":      []string{},
+			"large_model": nil,
+			"small_model": nil,
 		})
 		return
 	}
@@ -98,6 +100,8 @@ func (h *Handler) updateLLMProvider(c *gin.Context) {
 
 	baseURL := strings.TrimSpace(req.BaseURL)
 	apiKey := strings.TrimSpace(req.APIKey)
+	largeModel := strings.TrimSpace(req.LargeModel)
+	smallModel := strings.TrimSpace(req.SmallModel)
 	if baseURL == "" {
 		writeError(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "base_url is required", stringPtr("base_url"))
 		return
@@ -120,6 +124,14 @@ func (h *Handler) updateLLMProvider(c *gin.Context) {
 		writeError(c, http.StatusUnprocessableEntity, "PROVIDER_CONNECTION_FAILED", err.Error(), stringPtr("base_url"))
 		return
 	}
+	if largeModel != "" && !stringInSlice(testResult.Models, largeModel) {
+		writeError(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "large_model is not available from this provider", stringPtr("large_model"))
+		return
+	}
+	if smallModel != "" && !stringInSlice(testResult.Models, smallModel) {
+		writeError(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "small_model is not available from this provider", stringPtr("small_model"))
+		return
+	}
 
 	config := models.LLMConfig{
 		UserID:        user.ID,
@@ -131,6 +143,12 @@ func (h *Handler) updateLLMProvider(c *gin.Context) {
 	}
 	if effectiveAPIKey != "" {
 		config.APIKey = stringPtr(effectiveAPIKey)
+	}
+	if largeModel != "" {
+		config.LargeModel = stringPtr(largeModel)
+	}
+	if smallModel != "" {
+		config.SmallModel = stringPtr(smallModel)
 	}
 
 	err = database.DB.WithContext(c.Request.Context()).Transaction(func(tx *gorm.DB) error {
@@ -316,6 +334,8 @@ func llmProviderResponse(config *models.LLMConfig, models []string) gin.H {
 		"key_preview": keyPreviewValue,
 		"model_count": len(models),
 		"models":      models,
+		"large_model": config.LargeModel,
+		"small_model": config.SmallModel,
 		"updated_at":  config.UpdatedAt,
 	}
 }
@@ -341,4 +361,13 @@ func uniqueStrings(values []string) []string {
 		out = append(out, value)
 	}
 	return out
+}
+
+func stringInSlice(values []string, needle string) bool {
+	for _, value := range values {
+		if value == needle {
+			return true
+		}
+	}
+	return false
 }

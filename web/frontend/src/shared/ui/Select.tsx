@@ -14,9 +14,10 @@ type SelectProps = {
   options: SelectOption[];
   onChange: (value: string) => void;
   className?: string;
+  disabled?: boolean;
 };
 
-export function Select({ label, value, options, onChange, className }: SelectProps) {
+export function Select({ label, value, options, onChange, className, disabled = false }: SelectProps) {
   const [open, setOpen] = useState(false);
   const id = useId();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -43,6 +44,7 @@ export function Select({ label, value, options, onChange, className }: SelectPro
   }, [open]);
 
   const choose = (nextValue: string) => {
+    if (disabled) return;
     onChange(nextValue);
     setOpen(false);
   };
@@ -56,6 +58,7 @@ export function Select({ label, value, options, onChange, className }: SelectPro
         type="button"
         aria-haspopup="listbox"
         aria-expanded={open}
+        disabled={disabled}
         onClick={() => setOpen((current) => !current)}
       >
         <span className="scr-select-value">

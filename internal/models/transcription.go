@@ -627,6 +627,8 @@ type LLMConfig struct {
 
 	OpenAIBaseURL *string `json:"openai_base_url,omitempty" gorm:"-"`
 	APIKey        *string `json:"api_key,omitempty" gorm:"-"`
+	LargeModel    *string `json:"large_model,omitempty" gorm:"-"`
+	SmallModel    *string `json:"small_model,omitempty" gorm:"-"`
 	IsActive      bool    `json:"is_active" gorm:"-"`
 }
 
@@ -639,6 +641,8 @@ func (lc *LLMConfig) BeforeSave(tx *gorm.DB) error {
 	configJSON, err := marshalJSONColumn("llm_profiles.config_json", map[string]any{
 		"openai_base_url": lc.OpenAIBaseURL,
 		"api_key":         lc.APIKey,
+		"large_model":     lc.LargeModel,
+		"small_model":     lc.SmallModel,
 	})
 	if err != nil {
 		return err
@@ -661,11 +665,15 @@ func (lc *LLMConfig) AfterFind(tx *gorm.DB) error {
 	var cfg struct {
 		OpenAIBaseURL *string `json:"openai_base_url,omitempty"`
 		APIKey        *string `json:"api_key,omitempty"`
+		LargeModel    *string `json:"large_model,omitempty"`
+		SmallModel    *string `json:"small_model,omitempty"`
 	}
 	if err := unmarshalJSONColumn("llm_profiles.config_json", lc.ConfigJSON, &cfg); err != nil {
 		return err
 	}
 	lc.OpenAIBaseURL = cfg.OpenAIBaseURL
 	lc.APIKey = cfg.APIKey
+	lc.LargeModel = cfg.LargeModel
+	lc.SmallModel = cfg.SmallModel
 	return nil
 }

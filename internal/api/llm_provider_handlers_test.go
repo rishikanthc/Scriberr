@@ -67,6 +67,59 @@ func TestLLMProviderSettingsSaveTestsConnectionAndMasksKey(t *testing.T) {
 	require.NotContains(t, resp.Body.String(), "sk-test-secret")
 }
 
+func TestLLMProviderSettingsSavesSelectedModels(t *testing.T) {
+	s := newAuthTestServer(t)
+	token := registerForFileTests(t, s)
+
+	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "/models", r.URL.Path)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"data":[{"id":"large-model"},{"id":"small-model"}]}`))
+	}))
+	defer provider.Close()
+
+	resp, body := s.request(t, http.MethodPut, "/api/v1/settings/llm-provider", map[string]any{
+		"base_url":    provider.URL,
+		"large_model": "large-model",
+		"small_model": "small-model",
+	}, token, "")
+	require.Equal(t, http.StatusOK, resp.Code)
+	require.Equal(t, "large-model", body["large_model"])
+	require.Equal(t, "small-model", body["small_model"])
+
+	var stored models.LLMConfig
+	require.NoError(t, database.DB.First(&stored).Error)
+	require.NotNil(t, stored.LargeModel)
+	require.NotNil(t, stored.SmallModel)
+	require.Equal(t, "large-model", *stored.LargeModel)
+	require.Equal(t, "small-model", *stored.SmallModel)
+
+	resp, body = s.request(t, http.MethodGet, "/api/v1/settings/llm-provider", nil, token, "")
+	require.Equal(t, http.StatusOK, resp.Code)
+	require.Equal(t, float64(2), body["model_count"])
+	require.Equal(t, "large-model", body["large_model"])
+	require.Equal(t, "small-model", body["small_model"])
+}
+
+func TestLLMProviderSettingsRejectsUnavailableSelectedModels(t *testing.T) {
+	s := newAuthTestServer(t)
+	token := registerForFileTests(t, s)
+
+	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"data":[{"id":"available-model"}]}`))
+	}))
+	defer provider.Close()
+
+	resp, body := s.request(t, http.MethodPut, "/api/v1/settings/llm-provider", map[string]any{
+		"base_url":    provider.URL,
+		"large_model": "missing-model",
+	}, token, "")
+	require.Equal(t, http.StatusUnprocessableEntity, resp.Code)
+	errBody := body["error"].(map[string]any)
+	require.Equal(t, "large_model", errBody["field"])
+}
+
 func TestLLMProviderSettingsFallsBackToV1Models(t *testing.T) {
 	s := newAuthTestServer(t)
 	token := registerForFileTests(t, s)
