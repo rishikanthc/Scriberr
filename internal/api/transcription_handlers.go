@@ -77,8 +77,8 @@ func (h *Handler) createTranscription(c *gin.Context) {
 		return
 	}
 	response := transcriptionResponse(&job)
-	h.publishTranscriptionEvent("transcription.created", response["id"].(string), gin.H{"id": response["id"], "status": response["status"]})
-	h.publishEvent("transcription.created", gin.H{"id": response["id"], "status": response["status"]})
+	h.publishTranscriptionEvent("transcription.created", response["id"].(string), gin.H{"id": response["id"], "file_id": response["file_id"], "status": response["status"]})
+	h.publishEvent("transcription.created", gin.H{"id": response["id"], "file_id": response["file_id"], "status": response["status"]})
 	c.JSON(http.StatusAccepted, response)
 }
 func (h *Handler) submitTranscription(c *gin.Context) {
@@ -147,8 +147,8 @@ func (h *Handler) submitTranscription(c *gin.Context) {
 		"file_id": "file_" + source.ID,
 		"status":  string(job.Status),
 	}
-	h.publishTranscriptionEvent("transcription.created", response["id"].(string), gin.H{"id": response["id"], "status": response["status"]})
-	h.publishEvent("transcription.created", gin.H{"id": response["id"], "status": response["status"]})
+	h.publishTranscriptionEvent("transcription.created", response["id"].(string), response)
+	h.publishEvent("transcription.created", response)
 	c.JSON(http.StatusAccepted, response)
 }
 
@@ -284,7 +284,7 @@ func (h *Handler) cancelTranscription(c *gin.Context, publicID string) {
 			return
 		}
 	}
-	response := gin.H{"id": "tr_" + job.ID, "status": string(models.StatusStopped), "stage": "stopped"}
+	response := gin.H{"id": "tr_" + job.ID, "file_id": fileIDForTranscription(job), "status": string(models.StatusStopped), "stage": "stopped"}
 	h.publishTranscriptionEvent("transcription.stopped", response["id"].(string), response)
 	h.publishEvent("transcription.stopped", response)
 	c.JSON(http.StatusOK, response)
@@ -320,11 +320,12 @@ func (h *Handler) retryTranscription(c *gin.Context, publicID string) {
 	}
 	response := gin.H{
 		"id":                      "tr_" + retry.ID,
+		"file_id":                 fileIDForTranscription(&retry),
 		"source_transcription_id": "tr_" + job.ID,
 		"status":                  string(retry.Status),
 	}
-	h.publishTranscriptionEvent("transcription.created", response["id"].(string), gin.H{"id": response["id"], "status": response["status"]})
-	h.publishEvent("transcription.created", gin.H{"id": response["id"], "status": response["status"]})
+	h.publishTranscriptionEvent("transcription.created", response["id"].(string), response)
+	h.publishEvent("transcription.created", response)
 	c.JSON(http.StatusAccepted, response)
 }
 func (h *Handler) getTranscript(c *gin.Context) {

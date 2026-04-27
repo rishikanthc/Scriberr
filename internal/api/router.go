@@ -64,11 +64,11 @@ func NewHandler(cfg *config.Config, authService *auth.AuthService, services ...a
 }
 
 func (h *Handler) Publish(_ context.Context, event orchestrator.ProgressEvent) {
-	h.publishTranscriptionStatus(event.Name, event.JobID, string(event.Status), event.Progress, event.Stage)
+	h.publishTranscriptionStatus(event.Name, event.JobID, event.FileID, string(event.Status), event.Progress, event.Stage)
 }
 
 func (h *Handler) PublishStatus(_ context.Context, event worker.StatusEvent) {
-	h.publishTranscriptionStatus(event.Name, event.JobID, string(event.Status), event.Progress, event.Stage)
+	h.publishTranscriptionStatus(event.Name, event.JobID, event.FileID, string(event.Status), event.Progress, event.Stage)
 }
 
 func (h *Handler) PublishSummaryStatus(_ context.Context, event summarization.StatusEvent) {
@@ -90,7 +90,7 @@ func (h *Handler) PublishSummaryStatus(_ context.Context, event summarization.St
 	h.publishEvent(event.Name, payload)
 }
 
-func (h *Handler) publishTranscriptionStatus(name, jobID, status string, progress float64, stage string) {
+func (h *Handler) publishTranscriptionStatus(name, jobID, fileID, status string, progress float64, stage string) {
 	if h == nil {
 		return
 	}
@@ -99,6 +99,9 @@ func (h *Handler) publishTranscriptionStatus(name, jobID, status string, progres
 		"status":   status,
 		"progress": progress,
 		"stage":    stage,
+	}
+	if fileID != "" {
+		payload["file_id"] = fileID
 	}
 	h.publishTranscriptionEvent(name, "tr_"+jobID, payload)
 }

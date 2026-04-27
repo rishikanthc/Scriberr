@@ -92,7 +92,7 @@ export function useTranscriptionListEvents() {
             });
             queryClient.setQueriesData({ queryKey: ["audioFiles"] }, (current: unknown) => {
               if (!current || !parsed.data.id) return current;
-              return updateAudioFilesQueryData(current, parsed.data.id, parsed.data);
+              return updateAudioFilesQueryData(current, parsed.data.file_id || parsed.data.id, parsed.data);
             });
             if (!updatedKnownTranscription) {
               queryClient.invalidateQueries({ queryKey: transcriptionsQueryKey });

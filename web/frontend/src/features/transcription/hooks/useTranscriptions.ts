@@ -6,6 +6,8 @@ import {
   listTranscriptions,
   stopTranscription,
   type CreateTranscriptionPayload,
+  type Transcription,
+  type TranscriptionsResponse,
 } from "@/features/transcription/api/transcriptionsApi";
 
 export const transcriptionsQueryKey = ["transcriptions"] as const;
@@ -38,10 +40,30 @@ export function useCreateTranscription() {
 
   return useMutation({
     mutationFn: (payload: CreateTranscriptionPayload) => createTranscription(payload, getAuthHeaders()),
-    onSuccess: () => {
+    onSuccess: (transcription) => {
+      queryClient.setQueryData<TranscriptionsResponse>(transcriptionsQueryKey, (current) => {
+        if (!current) return { items: [transcription], next_cursor: null };
+        const existing = current.items.some((item) => item.id === transcription.id);
+        const items = existing
+          ? current.items.map((item) => item.id === transcription.id ? transcription : item)
+          : [transcription, ...current.items];
+        return { ...current, items };
+      });
       queryClient.invalidateQueries({ queryKey: transcriptionsQueryKey });
     },
   });
+}
+
+export function preferVisibleTranscription(candidate: Transcription, current: Transcription | undefined) {
+  if (!current) return candidate;
+  const candidateActive = isActiveTranscription(candidate);
+  const currentActive = isActiveTranscription(current);
+  if (candidateActive !== currentActive) return candidateActive ? candidate : current;
+  return new Date(candidate.updated_at).getTime() > new Date(current.updated_at).getTime() ? candidate : current;
+}
+
+function isActiveTranscription(transcription: Transcription) {
+  return transcription.status === "queued" || transcription.status === "processing";
 }
 
 export function useStopTranscription() {

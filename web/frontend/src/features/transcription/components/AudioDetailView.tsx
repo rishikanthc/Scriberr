@@ -11,7 +11,7 @@ import type { TranscriptSegment, TranscriptWord, Transcription, TranscriptionTra
 import { useTranscriptionDetailEvents } from "@/features/transcription/hooks/useTranscriptionDetailEvents";
 import { useTranscriptionListEvents } from "@/features/transcription/hooks/useTranscriptionListEvents";
 import { useTranscriptionSummary, useTranscriptionSummaryWidgets } from "@/features/transcription/hooks/useTranscriptionSummaries";
-import { useTranscriptionTranscript, useTranscriptions } from "@/features/transcription/hooks/useTranscriptions";
+import { preferVisibleTranscription, useTranscriptionTranscript, useTranscriptions } from "@/features/transcription/hooks/useTranscriptions";
 import { ReadOnlyMarkdown } from "@/features/transcription/components/ReadOnlyMarkdown";
 
 type DetailTab = "summary" | "transcript";
@@ -487,7 +487,7 @@ function StreamingAudioPlayer({ fileId, durationSeconds, title, onDurationChange
 function latestTranscriptionForFile(transcriptions: Transcription[], fileId: string) {
   return transcriptions
     .filter((transcription) => transcription.file_id === fileId)
-    .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())[0];
+    .reduce<Transcription | undefined>((current, transcription) => preferVisibleTranscription(transcription, current), undefined);
 }
 
 function normalizeTranscriptSegments(transcript?: TranscriptionTranscript): TranscriptSegment[] {

@@ -32,6 +32,7 @@ type JobLogger interface {
 type ProgressEvent struct {
 	Name     string           `json:"name"`
 	JobID    string           `json:"job_id"`
+	FileID   string           `json:"file_id"`
 	UserID   uint             `json:"user_id"`
 	Stage    string           `json:"stage"`
 	Progress float64          `json:"progress"`
@@ -239,11 +240,22 @@ func (p *Processor) publishFinal(ctx context.Context, job *models.TranscriptionJ
 	p.Events.Publish(ctx, ProgressEvent{
 		Name:     name,
 		JobID:    job.ID,
+		FileID:   fileIDForJob(job),
 		UserID:   job.UserID,
 		Stage:    stage,
 		Progress: progress,
 		Status:   status,
 	})
+}
+
+func fileIDForJob(job *models.TranscriptionJob) string {
+	if job == nil {
+		return ""
+	}
+	if job.SourceFileHash != nil && *job.SourceFileHash != "" {
+		return "file_" + *job.SourceFileHash
+	}
+	return "file_" + job.ID
 }
 
 func (p *Processor) errorResult(ctx context.Context, err error) (worker.ProcessResult, error) {

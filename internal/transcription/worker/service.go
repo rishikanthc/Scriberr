@@ -42,6 +42,7 @@ type CompletionObserver interface {
 type StatusEvent struct {
 	Name     string
 	JobID    string
+	FileID   string
 	UserID   uint
 	Stage    string
 	Progress float64
@@ -378,11 +379,22 @@ func (s *Service) publishTerminalStatus(ctx context.Context, job *models.Transcr
 	s.events.PublishStatus(ctx, StatusEvent{
 		Name:     name,
 		JobID:    job.ID,
+		FileID:   fileIDForJob(job),
 		UserID:   job.UserID,
 		Stage:    stage,
 		Progress: progress,
 		Status:   status,
 	})
+}
+
+func fileIDForJob(job *models.TranscriptionJob) string {
+	if job == nil {
+		return ""
+	}
+	if job.SourceFileHash != nil && *job.SourceFileHash != "" {
+		return "file_" + *job.SourceFileHash
+	}
+	return "file_" + job.ID
 }
 
 func (s *Service) renewLease(ctx context.Context, workerID string, jobID string, done <-chan struct{}) {

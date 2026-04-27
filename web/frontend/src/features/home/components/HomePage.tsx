@@ -10,7 +10,7 @@ import { useFiles } from "@/features/files/hooks/useFiles";
 import { useProfiles } from "@/features/settings/hooks/useProfiles";
 import type { Transcription, TranscriptionStatus } from "@/features/transcription/api/transcriptionsApi";
 import { useTranscriptionListEvents } from "@/features/transcription/hooks/useTranscriptionListEvents";
-import { useCreateTranscription, useStopTranscription, useTranscriptions } from "@/features/transcription/hooks/useTranscriptions";
+import { preferVisibleTranscription, useCreateTranscription, useStopTranscription, useTranscriptions } from "@/features/transcription/hooks/useTranscriptions";
 import { EmptyState } from "@/shared/ui/EmptyState";
 import { AppButton, IconButton } from "@/shared/ui/Button";
 
@@ -196,9 +196,7 @@ export function HomePage() {
     const byFileId = new Map<string, Transcription>();
     for (const transcription of transcriptionsQuery.data?.items || []) {
       const current = byFileId.get(transcription.file_id);
-      if (!current || new Date(transcription.updated_at).getTime() > new Date(current.updated_at).getTime()) {
-        byFileId.set(transcription.file_id, transcription);
-      }
+      byFileId.set(transcription.file_id, preferVisibleTranscription(transcription, current));
     }
     return byFileId;
   }, [transcriptionsQuery.data?.items]);
