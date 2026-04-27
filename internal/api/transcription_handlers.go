@@ -33,7 +33,8 @@ func (h *Handler) createTranscription(c *gin.Context) {
 		writeError(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "language is invalid", stringPtr("options.language"))
 		return
 	}
-	if !validateTranscriptionProfile(c, userID, req.ProfileID) {
+	params, ok := resolveTranscriptionProfile(c, userID, req.ProfileID)
+	if !ok {
 		return
 	}
 	sourceID := strings.TrimPrefix(req.FileID, "file_")
@@ -57,17 +58,22 @@ func (h *Handler) createTranscription(c *gin.Context) {
 		SourceFileName: source.SourceFileName,
 		SourceFileHash: &sourceFileID,
 		Language:       nil,
-		Diarization:    req.Options.Diarization,
+		Parameters:     params,
 	}
 	if req.Options.Language != "" {
 		job.Language = &req.Options.Language
 		job.Parameters.Language = &req.Options.Language
 	}
+	if req.Options.Diarization != nil {
+		job.Parameters.Diarize = *req.Options.Diarization
+	}
+	job.Diarization = job.Parameters.Diarize
 	if err := database.DB.Create(&job).Error; err != nil {
 		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not create transcription", nil)
 		return
 	}
-	if !h.enqueueTranscription(c, job.ID) {
+	if err := h.enqueueTranscription(c, job.ID); err != nil {
+		h.cleanupFailedTranscriptionCreate(c, job.ID, "could not create transcription", err)
 		return
 	}
 	response := transcriptionResponse(&job)
@@ -83,7 +89,7 @@ func (h *Handler) submitTranscription(c *gin.Context) {
 	}
 	var options struct {
 		Language    string `json:"language"`
-		Diarization bool   `json:"diarization"`
+		Diarization *bool  `json:"diarization"`
 	}
 	if rawOptions := strings.TrimSpace(c.PostForm("options")); rawOptions != "" {
 		if err := json.Unmarshal([]byte(rawOptions), &options); err != nil {
@@ -95,7 +101,8 @@ func (h *Handler) submitTranscription(c *gin.Context) {
 		writeError(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "language is invalid", stringPtr("options.language"))
 		return
 	}
-	if !validateTranscriptionProfile(c, userID, c.PostForm("profile_id")) {
+	params, ok := resolveTranscriptionProfile(c, userID, c.PostForm("profile_id"))
+	if !ok {
 		return
 	}
 
@@ -117,17 +124,22 @@ func (h *Handler) submitTranscription(c *gin.Context) {
 		AudioPath:      source.AudioPath,
 		SourceFileName: source.SourceFileName,
 		SourceFileHash: &sourceFileID,
-		Diarization:    options.Diarization,
+		Parameters:     params,
 	}
 	if options.Language != "" {
 		job.Language = &options.Language
 		job.Parameters.Language = &options.Language
 	}
+	if options.Diarization != nil {
+		job.Parameters.Diarize = *options.Diarization
+	}
+	job.Diarization = job.Parameters.Diarize
 	if err := database.DB.Create(&job).Error; err != nil {
 		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not create transcription", nil)
 		return
 	}
-	if !h.enqueueTranscription(c, job.ID) {
+	if err := h.enqueueTranscription(c, job.ID); err != nil {
+		h.cleanupFailedTranscriptionCreate(c, job.ID, "could not create transcription", err)
 		return
 	}
 	response := gin.H{
@@ -140,17 +152,35 @@ func (h *Handler) submitTranscription(c *gin.Context) {
 	c.JSON(http.StatusAccepted, response)
 }
 
-func validateTranscriptionProfile(c *gin.Context, userID uint, publicProfileID string) bool {
+func resolveTranscriptionProfile(c *gin.Context, userID uint, publicProfileID string) (models.WhisperXParams, bool) {
 	profileID := strings.TrimSpace(publicProfileID)
 	if profileID == "" {
-		return true
+		var user models.User
+		if err := database.DB.First(&user, userID).Error; err != nil {
+			writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not load user settings", nil)
+			return models.WhisperXParams{}, false
+		}
+		if user.DefaultProfileID == nil || *user.DefaultProfileID == "" {
+			return models.WhisperXParams{}, true
+		}
+		var profile models.TranscriptionProfile
+		if err := database.DB.Where("id = ? AND user_id = ?", *user.DefaultProfileID, userID).First(&profile).Error; err != nil {
+			writeError(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "default_profile_id is invalid", stringPtr("profile_id"))
+			return models.WhisperXParams{}, false
+		}
+		return profile.Parameters, true
 	}
 	parsedID, ok := parseProfileID(profileID)
-	if !ok || !profileExistsForUser(userID, parsedID) {
+	if !ok {
 		writeError(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "profile_id is invalid", stringPtr("profile_id"))
-		return false
+		return models.WhisperXParams{}, false
 	}
-	return true
+	var profile models.TranscriptionProfile
+	if err := database.DB.Where("id = ? AND user_id = ?", parsedID, userID).First(&profile).Error; err != nil {
+		writeError(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "profile_id is invalid", stringPtr("profile_id"))
+		return models.WhisperXParams{}, false
+	}
+	return profile.Parameters, true
 }
 
 func (h *Handler) listTranscriptions(c *gin.Context) {
@@ -281,7 +311,8 @@ func (h *Handler) retryTranscription(c *gin.Context, publicID string) {
 		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not retry transcription", nil)
 		return
 	}
-	if !h.enqueueTranscription(c, retry.ID) {
+	if err := h.enqueueTranscription(c, retry.ID); err != nil {
+		h.cleanupFailedTranscriptionCreate(c, retry.ID, "could not retry transcription", err)
 		return
 	}
 	response := gin.H{
@@ -336,19 +367,26 @@ func (h *Handler) streamTranscriptionAudio(c *gin.Context) {
 	http.ServeContent(c.Writer, c.Request, job.SourceFileName, stat.ModTime(), file)
 }
 
-func (h *Handler) enqueueTranscription(c *gin.Context, jobID string) bool {
+func (h *Handler) enqueueTranscription(c *gin.Context, jobID string) error {
 	if h.queueService == nil {
-		return true
+		return nil
 	}
 	if err := h.queueService.Enqueue(c.Request.Context(), jobID); err != nil {
-		if errors.Is(err, worker.ErrQueueStopped) {
-			writeError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "transcription queue is unavailable", nil)
-			return false
-		}
-		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not enqueue transcription", nil)
-		return false
+		return err
 	}
-	return true
+	return nil
+}
+
+func (h *Handler) cleanupFailedTranscriptionCreate(c *gin.Context, jobID string, fallbackMessage string, enqueueErr error) {
+	if err := database.DB.Delete(&models.TranscriptionJob{}, "id = ?", jobID).Error; err != nil {
+		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", fallbackMessage, nil)
+		return
+	}
+	if errors.Is(enqueueErr, worker.ErrQueueStopped) {
+		writeError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "transcription queue is unavailable", nil)
+		return
+	}
+	writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not enqueue transcription", nil)
 }
 func (h *Handler) transcriptionByPublicID(c *gin.Context, publicID string) (*models.TranscriptionJob, bool) {
 	userID, ok := currentUserID(c)

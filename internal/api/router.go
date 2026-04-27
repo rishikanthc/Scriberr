@@ -71,7 +71,6 @@ func (h *Handler) Publish(ctx context.Context, event orchestrator.ProgressEvent)
 		"stage":    event.Stage,
 	}
 	h.publishTranscriptionEvent(event.Name, "tr_"+event.JobID, payload)
-	h.publishEvent(event.Name, payload)
 }
 
 func SetupRoutes(handler *Handler, _ *auth.AuthService) *gin.Engine {

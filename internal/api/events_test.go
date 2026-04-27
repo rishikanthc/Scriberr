@@ -8,6 +8,9 @@ import (
 	"testing"
 	"time"
 
+	"scriberr/internal/models"
+	"scriberr/internal/transcription/orchestrator"
+
 	"github.com/stretchr/testify/require"
 )
 
@@ -100,6 +103,32 @@ func TestTranscriptionSSEFiltersByTranscription(t *testing.T) {
 	require.Contains(t, stream, `"id":"`+firstID+`"`)
 	require.False(t, strings.Contains(stream, secondID))
 	require.NotContains(t, stream, s.uploadDir)
+}
+
+func TestGlobalSSEReceivesTranscriptionProgressOnce(t *testing.T) {
+	s := newAuthTestServer(t)
+	token := registerForFileTests(t, s)
+
+	recorder, cancel, done := startEventStream(t, s, token, "/api/v1/events")
+	s.handler.Publish(context.Background(), progressEventForTest("job-1", "transcription.progress"))
+
+	require.Eventually(t, func() bool {
+		return strings.Count(recorder.Body.String(), "event: transcription.progress") >= 1
+	}, time.Second, 10*time.Millisecond)
+	stopEventStream(t, cancel, done)
+
+	require.Equal(t, 1, strings.Count(recorder.Body.String(), "event: transcription.progress"))
+}
+
+func progressEventForTest(jobID, name string) orchestrator.ProgressEvent {
+	return orchestrator.ProgressEvent{
+		Name:     name,
+		JobID:    jobID,
+		UserID:   1,
+		Stage:    "transcribing",
+		Progress: 0.42,
+		Status:   models.StatusProcessing,
+	}
 }
 
 func TestSSERequiresAuthentication(t *testing.T) {

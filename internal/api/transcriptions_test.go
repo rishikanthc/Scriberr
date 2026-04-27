@@ -112,6 +112,72 @@ func TestTranscriptionCreateListGetPatchCancelDelete(t *testing.T) {
 	require.Equal(t, http.StatusNotFound, resp.Code)
 }
 
+func TestTranscriptionCreateAppliesDefaultAndSelectedProfiles(t *testing.T) {
+	s := newAuthTestServer(t)
+	token := registerForFileTests(t, s)
+	fileID, _ := createUploadedFileForTranscription(t, s, token)
+
+	resp, body := s.request(t, http.MethodPost, "/api/v1/profiles", map[string]any{
+		"name":       "Default profile",
+		"is_default": true,
+		"options": map[string]any{
+			"model":       "whisper-small",
+			"language":    "fr",
+			"diarization": true,
+			"device":      "cpu",
+		},
+	}, token, "")
+	require.Equal(t, http.StatusCreated, resp.Code)
+	defaultProfileID := body["id"].(string)
+
+	resp, body = s.request(t, http.MethodPost, "/api/v1/transcriptions", map[string]any{
+		"file_id": fileID,
+	}, token, "")
+	require.Equal(t, http.StatusAccepted, resp.Code)
+	defaultJobID := strings.TrimPrefix(body["id"].(string), "tr_")
+
+	var defaultJob models.TranscriptionJob
+	require.NoError(t, database.DB.First(&defaultJob, "id = ?", defaultJobID).Error)
+	require.Equal(t, "whisper-small", defaultJob.Parameters.Model)
+	require.Equal(t, "cpu", defaultJob.Parameters.Device)
+	require.NotNil(t, defaultJob.Parameters.Language)
+	require.Equal(t, "fr", *defaultJob.Parameters.Language)
+	require.True(t, defaultJob.Diarization)
+
+	resp, body = s.request(t, http.MethodPost, "/api/v1/profiles", map[string]any{
+		"name": "Selected profile",
+		"options": map[string]any{
+			"model":       "whisper-large",
+			"language":    "es",
+			"diarization": true,
+			"device":      "cuda",
+		},
+	}, token, "")
+	require.Equal(t, http.StatusCreated, resp.Code)
+	selectedProfileID := body["id"].(string)
+	require.NotEqual(t, defaultProfileID, selectedProfileID)
+
+	disableDiarization := false
+	resp, body = s.request(t, http.MethodPost, "/api/v1/transcriptions", map[string]any{
+		"file_id":    fileID,
+		"profile_id": selectedProfileID,
+		"options": map[string]any{
+			"language":    "en",
+			"diarization": disableDiarization,
+		},
+	}, token, "")
+	require.Equal(t, http.StatusAccepted, resp.Code)
+	selectedJobID := strings.TrimPrefix(body["id"].(string), "tr_")
+
+	var selectedJob models.TranscriptionJob
+	require.NoError(t, database.DB.First(&selectedJob, "id = ?", selectedJobID).Error)
+	require.Equal(t, "whisper-large", selectedJob.Parameters.Model)
+	require.Equal(t, "cuda", selectedJob.Parameters.Device)
+	require.NotNil(t, selectedJob.Parameters.Language)
+	require.Equal(t, "en", *selectedJob.Parameters.Language)
+	require.False(t, selectedJob.Diarization)
+}
+
 func TestTranscriptionValidationTranscriptRetryAndAudioAlias(t *testing.T) {
 	s := newAuthTestServer(t)
 	token := registerForFileTests(t, s)

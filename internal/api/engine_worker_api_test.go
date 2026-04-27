@@ -94,6 +94,35 @@ func TestCreateReturnsServiceUnavailableWhenQueueStopped(t *testing.T) {
 
 	require.Equal(t, http.StatusServiceUnavailable, resp.Code)
 	require.Equal(t, "SERVICE_UNAVAILABLE", body["error"].(map[string]any)["code"])
+
+	var count int64
+	require.NoError(t, database.DB.Model(&models.TranscriptionJob{}).
+		Where("source_file_hash IS NOT NULL").
+		Count(&count).Error)
+	require.Zero(t, count)
+}
+
+func TestRetryCleansUpNewJobWhenQueueStopped(t *testing.T) {
+	s := newAuthTestServer(t)
+	queue := &fakeQueueService{}
+	s.handler.queueService = queue
+	token := registerForFileTests(t, s)
+	fileID, _ := createUploadedFileForTranscription(t, s, token)
+
+	resp, body := s.request(t, http.MethodPost, "/api/v1/transcriptions", map[string]any{"file_id": fileID}, token, "")
+	require.Equal(t, http.StatusAccepted, resp.Code)
+	transcriptionID := body["id"].(string)
+
+	queue.err = worker.ErrQueueStopped
+	resp, body = s.request(t, http.MethodPost, "/api/v1/transcriptions/"+transcriptionID+":retry", nil, token, "")
+	require.Equal(t, http.StatusServiceUnavailable, resp.Code)
+	require.Equal(t, "SERVICE_UNAVAILABLE", body["error"].(map[string]any)["code"])
+
+	var count int64
+	require.NoError(t, database.DB.Model(&models.TranscriptionJob{}).
+		Where("source_file_hash IS NOT NULL").
+		Count(&count).Error)
+	require.Equal(t, int64(1), count)
 }
 
 func TestCancelUsesQueueServiceAndMapsConflict(t *testing.T) {

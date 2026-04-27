@@ -47,7 +47,7 @@ type createTranscriptionRequest struct {
 	ProfileID string `json:"profile_id"`
 	Options   struct {
 		Language    string `json:"language"`
-		Diarization bool   `json:"diarization"`
+		Diarization *bool  `json:"diarization"`
 	} `json:"options"`
 }
 type updateTranscriptionRequest struct {
