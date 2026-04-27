@@ -402,40 +402,7 @@ Commit guidance:
 
 - Commit gated integration tests separately from runtime implementation fixes.
 
-## EWI-Sprint 9: Docs, Docker, and Setup UX
-
-Goal: make first-run local and Docker usage understandable and aligned with the new engine architecture.
-
-Tasks:
-
-- Update README configuration table with `SPEECH_ENGINE_*` and `TRANSCRIPTION_*` variables.
-- Remove or de-emphasize `WHISPERX_ENV`.
-- Update Docker compose files to persist `data/models` or map `SPEECH_ENGINE_CACHE_DIR`.
-- Keep CUDA Docker configuration on provider `auto` and document NVIDIA runtime/container toolkit prerequisites.
-- Add troubleshooting notes for:
-  - missing `ffmpeg`,
-  - model download failure,
-  - forced CUDA unavailable,
-  - first job slow due to model download,
-  - auto-download disabled.
-- Document the opt-in real engine test command and fixture audio expectations.
-
-Acceptance criteria:
-
-- README and Docker examples match implemented defaults.
-- CPU fresh install path is documented without pre-download steps.
-- CUDA behavior is explicit: `auto` falls back, `cuda` requires CUDA.
-
-Testing focus:
-
-- Docs command snippets are syntax-checked where practical.
-- `docker-compose` YAML remains parseable if tooling is available.
-
-Commit guidance:
-
-- Commit docs and Docker changes separately from code.
-
-## EWI-Sprint 10: Hardening, Cleanup, and Release Candidate
+## EWI-Sprint 9: Hardening, Cleanup
 
 Goal: audit the full implementation for correctness, performance, privacy, and maintainability.
 
