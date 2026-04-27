@@ -163,6 +163,7 @@ func setupFrontendDevProxy(router *gin.Engine, devServer string) {
 			c.JSON(http.StatusNotFound, gin.H{"error": "API endpoint not found"})
 			return
 		}
+		c.Header("Cache-Control", "no-store")
 		proxy.ServeHTTP(c.Writer, c.Request)
 	}
 

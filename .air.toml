@@ -4,7 +4,7 @@ tmp_dir = "tmp"
 [build]
   cmd = "go build -o ./tmp/main ./cmd/server/main.go"
   bin = "./tmp/main"
-  full_bin = ""
+  full_bin = "SCRIBERR_FRONTEND_DEV_SERVER=http://127.0.0.1:5173 ./tmp/main"
   include_ext = ["go", "tpl", "tmpl", "html"]
   exclude_dir = ["data", "full_db_backups", "internal/web/dist", "web", "assets", "tmp", "vendor", "node_modules"]
   include_dir = []
