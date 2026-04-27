@@ -1,4 +1,4 @@
-import { Check, Clock3, Home, Mic, Search, UploadCloud, Video } from "lucide-react";
+import { Check, ChevronDown, Clock3, FileAudio, Home, Mic, Search, UploadCloud, Video } from "lucide-react";
 import { EmptyState } from "@/shared/ui/EmptyState";
 import { AppButton, IconButton } from "@/shared/ui/Button";
 
@@ -26,6 +26,7 @@ function Sidebar() {
   return (
     <aside className="scr-sidebar" aria-label="Primary navigation">
       <div className="scr-logo-row">
+        <img className="scr-logo-mark" src="/logo.svg" alt="" aria-hidden="true" />
         <img className="scr-logo-text" src="/logo-text.svg" alt="Scriberr" />
       </div>
       <nav className="scr-nav">
@@ -49,14 +50,14 @@ function TopBar() {
 
       <div className="scr-topbar-actions">
         <IconButton label="Video">
-          <Video size={16} aria-hidden="true" />
+          <Video size={14} aria-hidden="true" />
         </IconButton>
-        <AppButton type="button" variant="secondary">
-          <UploadCloud size={16} aria-hidden="true" />
+        <AppButton type="button" variant="secondary" className="scr-topbar-button">
+          <UploadCloud size={14} aria-hidden="true" />
           Import
         </AppButton>
-        <AppButton type="button">
-          <Mic size={16} aria-hidden="true" />
+        <AppButton type="button" className="scr-topbar-button">
+          <Mic size={14} aria-hidden="true" />
           Record
         </AppButton>
       </div>
@@ -68,14 +69,14 @@ function RecordingCard({ recording }: { recording: Recording }) {
   return (
     <article className="scr-recording-card">
       <div className="scr-recording-icon">
-        <img src="/logo.svg" alt="" width={30} height={30} aria-hidden="true" />
+        <FileAudio size={24} aria-hidden="true" />
       </div>
       <div>
         <h2 className="scr-recording-title">{recording.title}</h2>
         <p className="scr-recording-date">{recording.date}</p>
       </div>
       <div className="scr-recording-status" data-status={recording.status} aria-label={recording.status}>
-        {recording.status === "completed" ? <Check size={22} aria-hidden="true" /> : <Clock3 size={19} aria-hidden="true" />}
+        {recording.status === "completed" ? <Check size={18} aria-hidden="true" /> : <Clock3 size={16} aria-hidden="true" />}
       </div>
     </article>
   );
@@ -91,10 +92,16 @@ export function HomePage() {
         <main className="scr-main">
           <TopBar />
           <div className="scr-content">
-            <header className="scr-page-head">
-              <h1 className="scr-page-title">Home</h1>
-              <p className="scr-page-meta">{recordings.length} recordings</p>
-            </header>
+            <div className="scr-feed-toolbar" aria-label="Recording view controls">
+              <button className="scr-feed-select" type="button">
+                Yesterday, Apr 25
+                <ChevronDown size={13} aria-hidden="true" />
+              </button>
+              <button className="scr-feed-select" type="button">
+                For you
+                <ChevronDown size={13} aria-hidden="true" />
+              </button>
+            </div>
 
             {recordings.length > 0 ? (
               <section className="scr-recording-list" aria-label="Recordings">
