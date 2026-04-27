@@ -1,22 +1,18 @@
 import { useAuthStore } from '../features/auth/store/authStore';
+import { refreshSession } from '../features/auth/api/authApi';
 import './authTypes';
 
 export async function refreshToken(): Promise<string | null> {
-    const originalFetch = window.__scriberr_original_fetch || window.fetch;
     const state = useAuthStore.getState();
+    if (!state.refreshToken) return null;
 
     try {
-        const response = await originalFetch('/api/v1/auth/refresh', { method: 'POST' });
-        if (!response.ok) return null;
-
-        const data = await response.json();
-        if (data?.token) {
-            state.setToken(data.token);
-            state.setRequiresRegistration(false);
-            return data.token;
-        }
-        return null;
+        const session = await refreshSession(state.refreshToken);
+        state.setSession(session);
+        state.setRequiresRegistration(false);
+        return session.accessToken;
     } catch {
+        state.clearSession();
         return null;
     }
 }

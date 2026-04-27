@@ -13,10 +13,10 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
 	// Show loading while initializing
 	if (!isInitialized) {
 		return (
-			<div className="min-h-screen bg-carbon-50 dark:bg-carbon-900 flex items-center justify-center">
+			<div className="scr-app flex items-center justify-center">
 				<div className="text-center">
-					<div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-					<p className="mt-2 text-carbon-600 dark:text-carbon-400">Loading...</p>
+					<div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-[var(--scr-brand-muted)] border-b-[var(--scr-brand-solid)]"></div>
+					<p className="mt-2 text-[var(--scr-text-secondary)]">Loading...</p>
 				</div>
 			</div>
 		);

@@ -1,245 +1,142 @@
-import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ScriberrLogo } from "@/components/ScriberrLogo";
-import { useNavigate } from "react-router-dom";
-import { ThemeSwitcher } from "@/components/ThemeSwitcher";
-import { Eye, EyeOff, Check, X } from "lucide-react";
+import { useMemo, useState } from "react";
+import { AlertCircle, Check, Loader2, X } from "lucide-react";
+import { registerUser, type AuthSession } from "@/features/auth/api/authApi";
+import { AppButton } from "@/shared/ui/Button";
+import { Field } from "@/shared/ui/Field";
 
-interface RegisterProps {
-	onRegister: (token: string) => void;
-}
+type RegisterProps = {
+  onRegister: (session: AuthSession) => void;
+};
 
-interface PasswordStrength {
-	hasMinLength: boolean;
-	hasUppercase: boolean;
-	hasLowercase: boolean;
-	hasNumber: boolean;
-	hasSpecialChar: boolean;
-}
+type PasswordRule = {
+  label: string;
+  met: boolean;
+};
 
 export function Register({ onRegister }: RegisterProps) {
-	const navigate = useNavigate();
-	const [username, setUsername] = useState("");
-	const [password, setPassword] = useState("");
-	const [confirmPassword, setConfirmPassword] = useState("");
-	const [loading, setLoading] = useState(false);
-	const [error, setError] = useState("");
-	const [showPassword, setShowPassword] = useState(false);
-	const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
-	// Password strength validation
-	const checkPasswordStrength = (pwd: string): PasswordStrength => ({
-		hasMinLength: pwd.length >= 8,
-		hasUppercase: /[A-Z]/.test(pwd),
-		hasLowercase: /[a-z]/.test(pwd),
-		hasNumber: /\d/.test(pwd),
-		hasSpecialChar: /[!@#$%^&*(),.?":{}|<>]/.test(pwd),
-	});
+  const passwordRules = useMemo<PasswordRule[]>(
+    () => [
+      { label: "At least 8 characters", met: password.length >= 8 },
+      { label: "One uppercase letter", met: /[A-Z]/.test(password) },
+      { label: "One lowercase letter", met: /[a-z]/.test(password) },
+      { label: "One number", met: /\d/.test(password) },
+      { label: "One special character", met: /[!@#$%^&*(),.?":{}|<>]/.test(password) },
+    ],
+    [password],
+  );
 
-	const passwordStrength = checkPasswordStrength(password);
-	const isPasswordValid = Object.values(passwordStrength).every(Boolean);
-	const passwordsMatch = password === confirmPassword && confirmPassword.length > 0;
+  const passwordIsValid = passwordRules.every((rule) => rule.met);
+  const passwordsMatch = password.length > 0 && password === confirmPassword;
+  const formIsValid = username.trim().length >= 3 && passwordIsValid && passwordsMatch;
 
-	const handleSubmit = async (e: React.FormEvent) => {
-		e.preventDefault();
-		setError("");
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setError("");
 
-		if (!isPasswordValid) {
-			setError("Please ensure your password meets all requirements");
-			return;
-		}
+    if (!formIsValid) {
+      setError("Check the username and password requirements.");
+      return;
+    }
 
-		if (!passwordsMatch) {
-			setError("Passwords do not match");
-			return;
-		}
+    setLoading(true);
+    try {
+      const session = await registerUser(username.trim(), password, confirmPassword);
+      onRegister(session);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Registration failed");
+    } finally {
+      setLoading(false);
+    }
+  };
 
-		setLoading(true);
+  return (
+    <main className="scr-auth-page">
+      <section className="scr-auth-panel" aria-labelledby="register-title">
+        <div className="scr-auth-logo">
+          <img src="/logo-text.svg" alt="Scriberr" />
+        </div>
+        <h1 id="register-title" className="scr-auth-title">
+          Set up Scriberr
+        </h1>
+        <p className="scr-auth-copy">Create the first account for this instance.</p>
 
-		try {
-			const response = await fetch("/api/v1/auth/register", {
-				method: "POST",
-				headers: {
-					"Content-Type": "application/json",
-				},
-				body: JSON.stringify({
-					username,
-					password,
-					confirmPassword,
-				}),
-			});
+        <div className="scr-card">
+          <form className="scr-form" onSubmit={handleSubmit}>
+            {error ? (
+              <div className="scr-alert" role="alert">
+                <AlertCircle size={16} aria-hidden="true" /> {error}
+              </div>
+            ) : null}
 
-			if (response.ok) {
-				const data = await response.json();
-				onRegister(data.token);
-			} else {
-				const error = await response.json();
-				setError(error.error || "Registration failed");
-			}
-		} catch (error) {
-			console.error("Registration error:", error);
-			setError("Network error. Please try again.");
-		} finally {
-			setLoading(false);
-		}
-	};
+            <Field
+              id="register-username"
+              label="Username"
+              type="text"
+              value={username}
+              onChange={(event) => setUsername(event.target.value)}
+              disabled={loading}
+              required
+              minLength={3}
+              maxLength={50}
+              autoComplete="username"
+              placeholder="Enter a username"
+            />
 
-	const PasswordStrengthIndicator = ({ label, met }: { label: string; met: boolean }) => (
-		<div className={`flex items-center gap-2 text-sm ${met ? 'text-green-600 dark:text-green-400' : 'text-carbon-500 dark:text-carbon-400'}`}>
-			{met ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
-			<span>{label}</span>
-		</div>
-	);
+            <Field
+              id="register-password"
+              label="Password"
+              type="password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              disabled={loading}
+              required
+              autoComplete="new-password"
+              placeholder="Enter a password"
+            >
+              {password ? (
+                <div className="scr-password-rules">
+                  {passwordRules.map((rule) => (
+                    <div className="scr-rule" data-met={rule.met} key={rule.label}>
+                      {rule.met ? <Check size={14} aria-hidden="true" /> : <X size={14} aria-hidden="true" />}
+                      <span>{rule.label}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+            </Field>
 
-	return (
-		<div className="min-h-screen bg-carbon-50 dark:bg-carbon-900 flex items-center justify-center">
-			<div className="absolute top-8 right-8">
-				<ThemeSwitcher />
-			</div>
+            <Field
+              id="register-confirm-password"
+              label="Confirm Password"
+              type="password"
+              value={confirmPassword}
+              onChange={(event) => setConfirmPassword(event.target.value)}
+              disabled={loading}
+              required
+              autoComplete="new-password"
+              placeholder="Re-enter your password"
+            >
+              {confirmPassword ? (
+                <div className="scr-rule" data-met={passwordsMatch}>
+                  {passwordsMatch ? <Check size={14} aria-hidden="true" /> : <X size={14} aria-hidden="true" />}
+                  <span>{passwordsMatch ? "Passwords match" : "Passwords do not match"}</span>
+                </div>
+              ) : null}
+            </Field>
 
-			<div className="w-full max-w-md space-y-8">
-				<div className="text-center">
-					<div className="flex justify-center mb-6">
-						<ScriberrLogo onClick={() => navigate('/')} />
-					</div>
-					<h2 className="text-3xl font-bold text-carbon-900 dark:text-carbon-100">
-						Welcome to Scriberr
-					</h2>
-					<p className="mt-2 text-carbon-600 dark:text-carbon-400">
-						Create your admin account to get started
-					</p>
-				</div>
-
-				<Card className="bg-white dark:bg-carbon-800 border-carbon-200 dark:border-carbon-700">
-					<CardHeader>
-						<CardTitle className="text-carbon-900 dark:text-carbon-100">Setup Admin Account</CardTitle>
-						<CardDescription className="text-carbon-600 dark:text-carbon-400">
-							This will be the only account that can access this Scriberr instance
-						</CardDescription>
-					</CardHeader>
-					<CardContent>
-						<form onSubmit={handleSubmit} className="space-y-6">
-							{error && (
-								<div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3">
-									<p className="text-red-700 dark:text-red-300 text-sm">{error}</p>
-								</div>
-							)}
-
-							<div className="space-y-2">
-								<Label htmlFor="username" className="text-carbon-700 dark:text-carbon-300">
-									Username
-								</Label>
-								<Input
-									id="username"
-									type="text"
-									placeholder="Choose a username (3-50 characters)"
-									value={username}
-									onChange={(e) => setUsername(e.target.value)}
-									disabled={loading}
-									required
-									minLength={3}
-									maxLength={50}
-									className="bg-white dark:bg-carbon-800 border-carbon-300 dark:border-carbon-600 text-carbon-900 dark:text-carbon-100"
-								/>
-							</div>
-
-							<div className="space-y-2">
-								<Label htmlFor="password" className="text-carbon-700 dark:text-carbon-300">
-									Password
-								</Label>
-								<div className="relative">
-									<Input
-										id="password"
-										type={showPassword ? "text" : "password"}
-										placeholder="Create a secure password"
-										value={password}
-										onChange={(e) => setPassword(e.target.value)}
-										disabled={loading}
-										required
-										className="bg-white dark:bg-carbon-800 border-carbon-300 dark:border-carbon-600 text-carbon-900 dark:text-carbon-100 pr-10"
-									/>
-									<Button
-										type="button"
-										variant="ghost"
-										size="icon"
-										onClick={() => setShowPassword(!showPassword)}
-										className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
-									>
-										{showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-									</Button>
-								</div>
-
-								{password && (
-									<div className="mt-3 space-y-2 p-3 bg-carbon-50 dark:bg-carbon-800 rounded-lg">
-										<p className="text-sm font-medium text-carbon-700 dark:text-carbon-300">Password Requirements:</p>
-										<div className="grid grid-cols-1 gap-1">
-											<PasswordStrengthIndicator label="At least 8 characters" met={passwordStrength.hasMinLength} />
-											<PasswordStrengthIndicator label="One uppercase letter" met={passwordStrength.hasUppercase} />
-											<PasswordStrengthIndicator label="One lowercase letter" met={passwordStrength.hasLowercase} />
-											<PasswordStrengthIndicator label="One number" met={passwordStrength.hasNumber} />
-											<PasswordStrengthIndicator label="One special character" met={passwordStrength.hasSpecialChar} />
-										</div>
-									</div>
-								)}
-							</div>
-
-							<div className="space-y-2">
-								<Label htmlFor="confirmPassword" className="text-carbon-700 dark:text-carbon-300">
-									Confirm Password
-								</Label>
-								<div className="relative">
-									<Input
-										id="confirmPassword"
-										type={showConfirmPassword ? "text" : "password"}
-										placeholder="Confirm your password"
-										value={confirmPassword}
-										onChange={(e) => setConfirmPassword(e.target.value)}
-										disabled={loading}
-										required
-										className={`bg-white dark:bg-carbon-800 border-carbon-300 dark:border-carbon-600 text-carbon-900 dark:text-carbon-100 pr-10 ${confirmPassword && !passwordsMatch ? 'border-red-300 dark:border-red-600' : ''
-											}`}
-									/>
-									<Button
-										type="button"
-										variant="ghost"
-										size="icon"
-										onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-										className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
-									>
-										{showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-									</Button>
-								</div>
-
-								{confirmPassword && (
-									<div className={`flex items-center gap-2 text-sm ${passwordsMatch ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
-										}`}>
-										{passwordsMatch ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
-										<span>{passwordsMatch ? "Passwords match" : "Passwords do not match"}</span>
-									</div>
-								)}
-							</div>
-
-							<Button
-								type="submit"
-								variant="brand"
-								className="w-full"
-								disabled={loading || !username.trim() || !isPasswordValid || !passwordsMatch}
-							>
-								{loading ? "Creating Account..." : "Create Admin Account"}
-							</Button>
-						</form>
-					</CardContent>
-				</Card>
-
-				<div className="text-center">
-					<p className="text-sm text-carbon-600 dark:text-carbon-400">
-						This account will have full administrative access to your Scriberr instance
-					</p>
-				</div>
-			</div>
-		</div>
-	);
+            <AppButton type="submit" disabled={loading || !formIsValid}>
+              {loading ? <Loader2 size={16} className="animate-spin" aria-hidden="true" /> : null}
+              {loading ? "Creating account" : "Create account"}
+            </AppButton>
+          </form>
+        </div>
+      </section>
+    </main>
+  );
 }

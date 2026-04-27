@@ -2,15 +2,20 @@ import { useEffect, useRef, useCallback } from 'react';
 import { useAuthStore } from '../store/authStore';
 import { refreshToken, navigateToHome } from '../../../lib/authHelpers';
 import '../../../lib/authTypes';
+import { getCurrentUser, getRegistrationStatus, logoutSession, type AuthSession } from '../api/authApi';
 
 export function useAuth() {
     const {
         token,
+        refreshToken: storedRefreshToken,
+        user,
         requiresRegistration,
         isInitialized,
         setToken,
+        setSession,
         setRequiresRegistration,
         setInitialized,
+        clearSession,
         logout: storeLogout
     } = useAuthStore();
 
@@ -39,22 +44,22 @@ export function useAuth() {
     }, []);
 
     const logout = useCallback(() => {
+        const refreshTokenToRevoke = useAuthStore.getState().refreshToken;
         storeLogout();
-        fetch("/api/v1/auth/logout", {
-            method: "POST",
-            headers: {
-                "Authorization": token ? `Bearer ${token}` : "",
-            },
-        }).catch(() => { });
+        logoutSession(refreshTokenToRevoke).catch(() => { });
 
         navigateToHome();
-    }, [token, storeLogout]);
+    }, [storeLogout]);
 
 
-    const login = useCallback((newToken: string) => {
-        setToken(newToken);
+    const login = useCallback((sessionOrToken: AuthSession | string) => {
+        if (typeof sessionOrToken === "string") {
+            setToken(sessionOrToken);
+        } else {
+            setSession(sessionOrToken);
+        }
         setRequiresRegistration(false);
-    }, [setToken, setRequiresRegistration]);
+    }, [setToken, setSession, setRequiresRegistration]);
 
     useEffect(() => {
         if (tokenCheckIntervalRef.current) clearInterval(tokenCheckIntervalRef.current);
@@ -83,32 +88,45 @@ export function useAuth() {
             if (isInitialized) return;
 
             try {
-                const response = await fetch("/api/v1/auth/registration-status");
-                if (response.ok) {
-                    const data = await response.json();
-                    const regEnabled = typeof data.registration_enabled === 'boolean'
-                        ? data.registration_enabled
-                        : !!data.requiresRegistration;
-                    setRequiresRegistration(regEnabled);
+                const registrationEnabled = await getRegistrationStatus();
+                setRequiresRegistration(registrationEnabled);
 
-                    if (!regEnabled && token && isTokenExpired(token)) {
-                        const newToken = await refreshToken();
-                        if (!newToken) {
-                            logout();
-                        }
-                    }
+                if (registrationEnabled) {
+                    clearSession();
+                    return;
+                }
+
+                if (!token) return;
+
+                if (isTokenExpired(token)) {
+                    const newToken = await refreshToken();
+                    if (!newToken) clearSession();
+                    return;
+                }
+
+                const currentUser = await getCurrentUser(token);
+                const currentState = useAuthStore.getState();
+                if (currentState.token && currentState.refreshToken) {
+                    setSession({
+                        accessToken: currentState.token,
+                        refreshToken: currentState.refreshToken,
+                        user: currentUser,
+                    });
                 }
             } catch (error) {
                 console.error("Failed check reg status", error);
+                if (token) clearSession();
             } finally {
                 setInitialized(true);
             }
         };
         initializeAuth();
-    }, [isInitialized, setRequiresRegistration, setInitialized, token, isTokenExpired, logout]);
+    }, [isInitialized, setRequiresRegistration, setInitialized, token, isTokenExpired, clearSession, setSession]);
 
     return {
         token,
+        refreshToken: storedRefreshToken,
+        user,
         isAuthenticated,
         requiresRegistration,
         isInitialized,
