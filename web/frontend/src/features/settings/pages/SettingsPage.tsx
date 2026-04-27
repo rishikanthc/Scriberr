@@ -6,9 +6,10 @@ import { ConfirmDialog } from "@/shared/ui/ConfirmDialog";
 import { EmptyState } from "@/shared/ui/EmptyState";
 import { useDeleteProfile, useProfiles, useSaveProfile, useTranscriptionModels } from "@/features/settings/hooks/useProfiles";
 import { ASRProfileDialog } from "../components/ASRProfileDialog";
+import { LLMProviderPanel } from "../components/LLMProviderPanel";
 import type { TranscriptionProfile, TranscriptionProfileOptions } from "../api/profilesApi";
 
-type SettingsTab = "general" | "asr";
+type SettingsTab = "general" | "asr" | "llm";
 
 export function Settings() {
   const [activeTab, setActiveTab] = useState<SettingsTab>("asr");
@@ -65,12 +66,15 @@ export function Settings() {
             <button className="scr-settings-tab" data-active={activeTab === "asr"} type="button" role="tab" aria-selected={activeTab === "asr"} onClick={() => setActiveTab("asr")}>
               ASR
             </button>
+            <button className="scr-settings-tab" data-active={activeTab === "llm"} type="button" role="tab" aria-selected={activeTab === "llm"} onClick={() => setActiveTab("llm")}>
+              LLM Providers
+            </button>
           </div>
 
           <div className="scr-settings-content">
             {activeTab === "general" ? (
               <EmptyState title="General settings" description="General preferences will appear here." />
-            ) : (
+            ) : activeTab === "asr" ? (
               <section className="scr-settings-panel" aria-label="ASR profiles">
                 <div className="scr-settings-panel-head">
                   <div>
@@ -114,6 +118,8 @@ export function Settings() {
                   <EmptyState title="No profiles yet" description="Create a profile to save your preferred ASR settings." />
                 )}
               </section>
+            ) : (
+              <LLMProviderPanel />
             )}
           </div>
         </main>
