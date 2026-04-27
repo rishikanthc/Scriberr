@@ -170,6 +170,27 @@
   max-width: 900px;
 }
 
+.scr-transcript-placeholder {
+  display: grid;
+  gap: var(--scr-space-2);
+  max-width: 560px;
+  padding-top: var(--scr-space-2);
+}
+
+.scr-transcript-placeholder h2 {
+  color: var(--scr-text-primary);
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: var(--scr-line-tight);
+}
+
+.scr-transcript-placeholder p {
+  color: var(--scr-text-secondary);
+  font-size: 0.9375rem;
+  font-weight: 500;
+  line-height: var(--scr-line-base);
+}
+
 .scr-transcript-segment {
   --scr-transcript-row-line: 1.68;
   display: grid;

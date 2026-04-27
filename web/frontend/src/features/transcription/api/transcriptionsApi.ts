@@ -12,6 +12,28 @@ export type Transcription = {
   updated_at: string;
 };
 
+export type TranscriptSegment = {
+  id?: string;
+  start: number;
+  end: number;
+  speaker?: string;
+  text: string;
+};
+
+export type TranscriptWord = {
+  start: number;
+  end: number;
+  word: string;
+  speaker?: string;
+};
+
+export type TranscriptionTranscript = {
+  transcription_id: string;
+  text: string;
+  segments: TranscriptSegment[];
+  words: TranscriptWord[];
+};
+
 export type TranscriptionsResponse = {
   items: Transcription[];
   next_cursor: string | null;
@@ -29,6 +51,17 @@ export async function listTranscriptions(headers: Record<string, string>): Promi
   });
   if (!response.ok) throw new Error(await readError(response));
   return response.json() as Promise<TranscriptionsResponse>;
+}
+
+export async function getTranscriptionTranscript(
+  transcriptionId: string,
+  headers: Record<string, string>
+): Promise<TranscriptionTranscript> {
+  const response = await fetch(`/api/v1/transcriptions/${transcriptionId}/transcript`, {
+    headers,
+  });
+  if (!response.ok) throw new Error(await readError(response));
+  return response.json() as Promise<TranscriptionTranscript>;
 }
 
 export async function createTranscription(

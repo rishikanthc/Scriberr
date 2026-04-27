@@ -2,12 +2,14 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import {
   createTranscription,
+  getTranscriptionTranscript,
   listTranscriptions,
   type CreateTranscriptionPayload,
   type TranscriptionsResponse,
 } from "@/features/transcription/api/transcriptionsApi";
 
 export const transcriptionsQueryKey = ["transcriptions"] as const;
+export const transcriptionTranscriptQueryKey = (transcriptionId: string) => ["transcription-transcript", transcriptionId] as const;
 
 export function useTranscriptions() {
   const { getAuthHeaders, isAuthenticated } = useAuth();
@@ -22,6 +24,17 @@ export function useTranscriptions() {
         ? 1500
         : false;
     },
+  });
+}
+
+export function useTranscriptionTranscript(transcriptionId: string | undefined, enabled: boolean) {
+  const { getAuthHeaders, isAuthenticated } = useAuth();
+
+  return useQuery({
+    queryKey: transcriptionId ? transcriptionTranscriptQueryKey(transcriptionId) : ["transcription-transcript", "missing"],
+    queryFn: () => getTranscriptionTranscript(transcriptionId || "", getAuthHeaders()),
+    enabled: isAuthenticated && Boolean(transcriptionId) && enabled,
+    staleTime: 30_000,
   });
 }
 

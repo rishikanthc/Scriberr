@@ -4,43 +4,13 @@ import { CalendarDays, Clock3, MoreHorizontal, Pause, Pencil, Play } from "lucid
 import { Sidebar } from "@/features/home/components/HomePage";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { useFile, useUpdateFile } from "@/features/files/hooks/useFiles";
+import type { FileStatus } from "@/features/files/api/filesApi";
+import type { TranscriptSegment, TranscriptWord, Transcription, TranscriptionTranscript } from "@/features/transcription/api/transcriptionsApi";
+import { useTranscriptionDetailEvents } from "@/features/transcription/hooks/useTranscriptionDetailEvents";
+import { useTranscriptionListEvents } from "@/features/transcription/hooks/useTranscriptionListEvents";
+import { useTranscriptionTranscript, useTranscriptions } from "@/features/transcription/hooks/useTranscriptions";
 
 type DetailTab = "summary" | "transcript";
-
-type MockSegment = {
-  id: string;
-  start: number;
-  text: string;
-  speaker?: string;
-};
-
-const mockSegments: MockSegment[] = [
-  {
-    id: "seg-1",
-    start: 1,
-    text: "About adding event listeners",
-  },
-  {
-    id: "seg-2",
-    start: 3,
-    text: "On your element. We are going to dive deeper and explain the things you need to know about adding event listeners on your elements in your app component.",
-  },
-  {
-    id: "seg-3",
-    start: 17,
-    text: "So let's take a look at the repo.",
-  },
-  {
-    id: "seg-4",
-    start: 18,
-    text: "Over here, I have a heading and if I want to add event listeners, this is how I would have done it. If I write vanilla JavaScript, I would have a reference to the element and I will say add event listener. Then I will pass in the event name and the event handler. There are two ways to handle this: create a function inline, or create the function ahead of time and pass the reference to this event listener method.",
-  },
-  {
-    id: "seg-5",
-    start: 93,
-    text: "So that's how you say this.",
-  },
-];
 
 export function AudioDetailView() {
   const { audioId = "" } = useParams<{ audioId: string }>();
@@ -50,10 +20,20 @@ export function AudioDetailView() {
   const [draftTitle, setDraftTitle] = useState("");
   const fileQuery = useFile(audioId);
   const updateFileMutation = useUpdateFile(audioId);
+  const transcriptionsQuery = useTranscriptions();
 
   const file = fileQuery.data;
   const title = file?.title?.trim() || "Untitled recording";
   const visibleDuration = file?.duration_seconds ?? audioDuration;
+  const latestTranscription = useMemo(() => {
+    if (!file) return undefined;
+    return latestTranscriptionForFile(transcriptionsQuery.data?.items || [], file.id);
+  }, [file, transcriptionsQuery.data?.items]);
+  const isActiveTranscription = latestTranscription?.status === "queued" || latestTranscription?.status === "processing";
+  const transcriptQuery = useTranscriptionTranscript(latestTranscription?.id, latestTranscription?.status === "completed");
+
+  useTranscriptionListEvents();
+  useTranscriptionDetailEvents(isActiveTranscription ? latestTranscription?.id : undefined);
 
   const meta = useMemo(() => {
     return {
@@ -179,7 +159,17 @@ export function AudioDetailView() {
               </button>
             </div>
 
-            {activeTab === "summary" ? <MockSummary /> : <TranscriptMock segments={mockSegments} />}
+            {activeTab === "summary" ? (
+              <SummaryPanel transcription={latestTranscription} />
+            ) : (
+              <TranscriptPanel
+                fileStatus={file.status}
+                transcription={latestTranscription}
+                transcript={transcriptQuery.data}
+                isLoading={transcriptionsQuery.isLoading || transcriptQuery.isLoading}
+                isError={transcriptionsQuery.isError || transcriptQuery.isError}
+              />
+            )}
           </article>
           <StreamingAudioPlayer
             fileId={file.id}
@@ -193,31 +183,89 @@ export function AudioDetailView() {
   );
 }
 
-function MockSummary() {
+function SummaryPanel({ transcription }: { transcription?: Transcription }) {
+  if (!transcription) {
+    return (
+      <section className="scr-audio-summary" aria-label="Summary">
+        <p>No transcription has been queued for this recording yet.</p>
+      </section>
+    );
+  }
+
   return (
     <section className="scr-audio-summary" aria-label="Summary">
-      <p>
-        This recording walks through adding event listeners, how event names and handlers are passed, and the difference
-        between inline callbacks and pre-defined handler functions.
-      </p>
-      <p>
-        The key workflow is to identify the target element, choose the relevant event, and pass a stable function reference
-        when the handler will be reused or benefits from being named.
-      </p>
+      <p>Summary is not available yet.</p>
     </section>
   );
 }
 
-function TranscriptMock({ segments }: { segments: MockSegment[] }) {
+type TranscriptPanelProps = {
+  fileStatus: FileStatus;
+  transcription?: Transcription;
+  transcript?: TranscriptionTranscript;
+  isLoading: boolean;
+  isError: boolean;
+};
+
+function TranscriptPanel({ fileStatus, transcription, transcript, isLoading, isError }: TranscriptPanelProps) {
+  if (isLoading) {
+    return <TranscriptPlaceholder title="Loading transcript" description="Reading the latest transcription state." />;
+  }
+
+  if (isError) {
+    return <TranscriptPlaceholder title="Transcript unavailable" description="Could not load transcript data." />;
+  }
+
+  if (!transcription) {
+    if (fileStatus === "processing") {
+      return <TranscriptPlaceholder title="Audio is processing" description="Transcript actions will be available when the imported audio is ready." />;
+    }
+    if (fileStatus === "failed") {
+      return <TranscriptPlaceholder title="Audio import failed" description="This recording cannot be transcribed until the file import succeeds." />;
+    }
+    return <TranscriptPlaceholder title="Not transcribed yet" description="Queue a transcription from Home to generate transcript segments for this recording." />;
+  }
+
+  if (transcription.status === "queued" || transcription.status === "processing") {
+    return (
+      <TranscriptPlaceholder
+        title={transcription.status === "queued" ? "Transcription queued" : "Transcription processing"}
+        description={formatTranscriptionProgress(transcription)}
+      />
+    );
+  }
+
+  if (transcription.status === "failed") {
+    return <TranscriptPlaceholder title="Transcription failed" description="Start another transcription from Home when you are ready to retry." />;
+  }
+
+  if (transcription.status === "canceled") {
+    return <TranscriptPlaceholder title="Transcription canceled" description="Start another transcription from Home to generate transcript text." />;
+  }
+
+  const segments = normalizeTranscriptSegments(transcript);
+  if (!segments.length) {
+    return <TranscriptPlaceholder title="Transcript is empty" description="The completed transcription did not return any text." />;
+  }
+
   return (
     <section className="scr-transcript" aria-label="Transcript">
       {segments.map((segment) => (
-        <article className="scr-transcript-segment" key={segment.id}>
+        <article className="scr-transcript-segment" key={segment.id || `${segment.start}-${segment.end}`}>
           {segment.speaker ? <span className="scr-transcript-speaker">{segment.speaker}</span> : null}
           <time className="scr-transcript-time">{formatSegmentTime(segment.start)}</time>
           <p className="scr-transcript-text">{segment.text}</p>
         </article>
       ))}
+    </section>
+  );
+}
+
+function TranscriptPlaceholder({ title, description }: { title: string; description: string }) {
+  return (
+    <section className="scr-transcript-placeholder" aria-label="Transcript status">
+      <h2>{title}</h2>
+      <p>{description}</p>
     </section>
   );
 }
@@ -307,6 +355,82 @@ function StreamingAudioPlayer({ fileId, durationSeconds, title, onDurationChange
       />
     </div>
   );
+}
+
+function latestTranscriptionForFile(transcriptions: Transcription[], fileId: string) {
+  return transcriptions
+    .filter((transcription) => transcription.file_id === fileId)
+    .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())[0];
+}
+
+function normalizeTranscriptSegments(transcript?: TranscriptionTranscript): TranscriptSegment[] {
+  if (!transcript) return [];
+  if (transcript.segments.length > 1) return transcript.segments.filter((segment) => segment.text.trim());
+  if (transcript.words.length > 0) return chunkWordsIntoDisplaySegments(transcript.words);
+  if (transcript.segments.length === 1 && transcript.segments[0].text.trim()) return transcript.segments;
+  const text = transcript.text.trim();
+  if (!text) return [];
+  return [{
+    id: "full-transcript",
+    start: 0,
+    end: 0,
+    text,
+  }];
+}
+
+function chunkWordsIntoDisplaySegments(words: TranscriptWord[]): TranscriptSegment[] {
+  const segments: TranscriptSegment[] = [];
+  let current: TranscriptWord[] = [];
+
+  const flush = () => {
+    if (!current.length) return;
+    const first = current[0];
+    const last = current[current.length - 1];
+    const text = current.map((word) => word.word.trim()).filter(Boolean).join(" ");
+    if (text) {
+      segments.push({
+        id: `word-segment-${segments.length}`,
+        start: first.start,
+        end: last.end,
+        speaker: first.speaker,
+        text,
+      });
+    }
+    current = [];
+  };
+
+  for (const word of words) {
+    current.push(word);
+    const cleaned = word.word.trim();
+    const closesSentence = /[.!?]$/.test(cleaned);
+    if ((closesSentence && current.length >= 10) || current.length >= 32) {
+      flush();
+    }
+  }
+
+  flush();
+  return segments;
+}
+
+function formatTranscriptionProgress(transcription: Transcription) {
+  const progress = normalizeProgress(transcription.progress);
+  const stage = transcription.progress_stage && transcription.progress_stage !== "queued"
+    ? transcription.progress_stage
+    : transcription.status;
+  if (progress === null) return sentenceCase(stage);
+  return `${sentenceCase(stage)} · ${progress}%`;
+}
+
+function normalizeProgress(value: number) {
+  if (!Number.isFinite(value) || value <= 0) return null;
+  const percent = value <= 1 ? value * 100 : value;
+  return Math.min(100, Math.max(1, Math.round(percent)));
+}
+
+function sentenceCase(value: string) {
+  const normalized = value.replace(/[_-]+/g, " ").trim();
+  if (!normalized) return "";
+  return normalized.charAt(0).toUpperCase() + normalized.slice(1);
 }
 
 function formatCreatedDate(value: string) {
