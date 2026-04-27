@@ -1499,6 +1499,7 @@
   display: grid;
   width: min(100%, 560px);
   gap: var(--scr-space-4);
+  justify-self: center;
 }
 
 .scr-provider-connection {
