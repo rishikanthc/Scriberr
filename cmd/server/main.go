@@ -128,9 +128,7 @@ func main() {
 		PollInterval: cfg.Worker.PollInterval,
 		LeaseTimeout: cfg.Worker.LeaseTimeout,
 	})
-	summaryService := summarization.NewService(summaryRepo, llmConfigRepo, jobRepo, summarization.Config{
-		PollInterval: 2 * time.Second,
-	})
+	summaryService := summarization.NewService(summaryRepo, llmConfigRepo, jobRepo, summarization.Config{})
 
 	// Initialize API handlers
 	handler := api.NewHandler(cfg, authService, queueService, providerRegistry)

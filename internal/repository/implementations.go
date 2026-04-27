@@ -799,15 +799,16 @@ func (r *summaryRepository) SaveSummary(ctx context.Context, summary *models.Sum
 
 func (r *summaryRepository) EnqueueAutomaticSummary(ctx context.Context, transcriptionID string, userID uint, model string, provider string) (*models.Summary, bool, error) {
 	var existing models.Summary
-	err := r.db.WithContext(ctx).
+	result := r.db.WithContext(ctx).
 		Where("transcription_id = ? AND user_id = ? AND status IN ?", transcriptionID, userID, []string{"pending", "processing", "completed"}).
 		Order("created_at DESC").
-		First(&existing).Error
-	if err == nil {
-		return &existing, false, nil
+		Limit(1).
+		Find(&existing)
+	if result.Error != nil {
+		return nil, false, result.Error
 	}
-	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, false, err
+	if result.RowsAffected > 0 {
+		return &existing, false, nil
 	}
 	summary := &models.Summary{
 		TranscriptionID: transcriptionID,
@@ -826,16 +827,20 @@ func (r *summaryRepository) EnqueueAutomaticSummary(ctx context.Context, transcr
 func (r *summaryRepository) ClaimNextPendingSummary(ctx context.Context, now time.Time) (*models.Summary, error) {
 	var summary models.Summary
 	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Where("status = ?", "pending").Order("created_at ASC").First(&summary).Error; err != nil {
-			return err
-		}
-		result := tx.Model(&models.Summary{}).
-			Where("id = ? AND status = ?", summary.ID, "pending").
-			Updates(map[string]any{"status": "processing", "started_at": now})
+		result := tx.Where("status = ?", "pending").Order("created_at ASC").Limit(1).Find(&summary)
 		if result.Error != nil {
 			return result.Error
 		}
 		if result.RowsAffected == 0 {
+			return gorm.ErrRecordNotFound
+		}
+		updateResult := tx.Model(&models.Summary{}).
+			Where("id = ? AND status = ?", summary.ID, "pending").
+			Updates(map[string]any{"status": "processing", "started_at": now})
+		if updateResult.Error != nil {
+			return updateResult.Error
+		}
+		if updateResult.RowsAffected == 0 {
 			return gorm.ErrRecordNotFound
 		}
 		summary.Status = "processing"

@@ -58,8 +58,7 @@ type StatusEvent struct {
 }
 
 type Config struct {
-	PollInterval time.Duration
-	StopTimeout  time.Duration
+	StopTimeout time.Duration
 }
 
 type Service struct {
@@ -78,9 +77,6 @@ type Service struct {
 }
 
 func NewService(summaries repository.SummaryRepository, llmConfig repository.LLMConfigRepository, jobs repository.JobRepository, cfg Config) *Service {
-	if cfg.PollInterval <= 0 {
-		cfg.PollInterval = 2 * time.Second
-	}
 	if cfg.StopTimeout <= 0 {
 		cfg.StopTimeout = 30 * time.Second
 	}
@@ -115,6 +111,7 @@ func (s *Service) Start(ctx context.Context) error {
 	s.started = true
 	s.wg.Add(1)
 	go s.workerLoop()
+	s.notify()
 	return nil
 }
 
@@ -172,19 +169,25 @@ func (s *Service) EnqueueForTranscription(ctx context.Context, job *models.Trans
 
 func (s *Service) workerLoop() {
 	defer s.wg.Done()
-	timer := time.NewTimer(0)
-	defer timer.Stop()
 	for {
 		select {
 		case <-s.ctx.Done():
 			return
 		case <-s.wake:
-		case <-timer.C:
 		}
-		if err := s.claimAndProcess(); err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		s.drainPending()
+	}
+}
+
+func (s *Service) drainPending() {
+	for {
+		if err := s.claimAndProcess(); err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return
+			}
 			logger.Error("Summary worker failed", "error", err)
+			return
 		}
-		timer.Reset(s.cfg.PollInterval)
 	}
 }
 
