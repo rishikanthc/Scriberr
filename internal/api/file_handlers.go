@@ -28,6 +28,11 @@ func (h *Handler) uploadFile(c *gin.Context) {
 		return
 	}
 	response := fileResponse(job, mimeType, kind)
+	if job.Status == models.StatusProcessing {
+		h.publishEvent("file.processing", gin.H{"id": response["id"], "kind": response["kind"], "status": response["status"]})
+		c.JSON(http.StatusAccepted, response)
+		return
+	}
 	h.publishEvent("file.ready", gin.H{"id": response["id"], "kind": response["kind"], "status": response["status"]})
 	c.JSON(http.StatusCreated, response)
 }
@@ -203,6 +208,9 @@ func (h *Handler) storeUploadedFile(c *gin.Context, userID uint) (*models.Transc
 	if title == "" {
 		title = strings.TrimSuffix(filename, filepath.Ext(filename))
 	}
+	if kind == "video" {
+		return h.createVideoImportJob(c, userID, jobID, title, filename, storagePath, uploadDir)
+	}
 	job := models.TranscriptionJob{
 		ID:             jobID,
 		UserID:         userID,
@@ -217,6 +225,64 @@ func (h *Handler) storeUploadedFile(c *gin.Context, userID uint) (*models.Transc
 		return nil, "", "", false
 	}
 	return &job, mimeType, kind, true
+}
+
+func (h *Handler) createVideoImportJob(c *gin.Context, userID uint, jobID, title, filename, videoPath, uploadDir string) (*models.TranscriptionJob, string, string, bool) {
+	extractedName := jobID + ".mp3"
+	extractedPath := filepath.Join(uploadDir, extractedName)
+	job := models.TranscriptionJob{
+		ID:             jobID,
+		UserID:         userID,
+		Title:          &title,
+		Status:         models.StatusProcessing,
+		AudioPath:      videoPath,
+		SourceFileName: filename,
+	}
+	if err := database.DB.Create(&job).Error; err != nil {
+		_ = os.Remove(videoPath)
+		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not create video import", nil)
+		return nil, "", "", false
+	}
+	h.startVideoAudioExtraction(job.ID, videoPath, extractedPath, strings.TrimSuffix(filename, filepath.Ext(filename))+".mp3")
+	return &job, mediaType("", filename), "video", true
+}
+
+func (h *Handler) startVideoAudioExtraction(jobID, videoPath, extractedPath, extractedFilename string) {
+	extractor := h.mediaExtractor
+	if extractor == nil {
+		extractor = ffmpegMediaExtractor{}
+	}
+	h.asyncJobs.Add(1)
+	go func() {
+		defer h.asyncJobs.Done()
+
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Hour)
+		defer cancel()
+
+		if err := extractor.ExtractAudio(ctx, videoPath, extractedPath); err != nil {
+			_ = os.Remove(extractedPath)
+			_ = database.DB.Model(&models.TranscriptionJob{}).Where("id = ?", jobID).Updates(map[string]any{
+				"status":     models.StatusFailed,
+				"last_error": "video audio extraction failed",
+			}).Error
+			h.publishEvent("file.failed", gin.H{"id": "file_" + jobID, "kind": "video", "status": string(models.StatusFailed)})
+			return
+		}
+
+		safeExtractedName := safeFilename(extractedFilename)
+		if safeExtractedName == "" {
+			safeExtractedName = filepath.Base(extractedPath)
+		}
+		updates := map[string]any{
+			"status":           models.StatusUploaded,
+			"source_file_path": extractedPath,
+			"source_file_name": safeExtractedName,
+			"last_error":       nil,
+		}
+		_ = database.DB.Model(&models.TranscriptionJob{}).Where("id = ?", jobID).Updates(updates).Error
+		_ = os.Remove(videoPath)
+		h.publishEvent("file.ready", gin.H{"id": "file_" + jobID, "kind": "audio", "status": "ready"})
+	}()
 }
 func (h *Handler) listFiles(c *gin.Context) {
 	userID, ok := currentUserID(c)
@@ -252,10 +318,10 @@ func (h *Handler) listFiles(c *gin.Context) {
 		query = query.Where("source_file_name LIKE ?", "youtube:%")
 	case "audio":
 		query = query.Where("source_file_name NOT LIKE ?", "youtube:%")
-		query = query.Where("LOWER(source_file_name) LIKE ? OR LOWER(source_file_name) LIKE ? OR LOWER(source_file_name) LIKE ? OR LOWER(source_file_name) LIKE ?", "%.wav", "%.mp3", "%.m4a", "%.flac")
+		query = query.Where("LOWER(source_file_name) LIKE ? OR LOWER(source_file_name) LIKE ? OR LOWER(source_file_name) LIKE ? OR LOWER(source_file_name) LIKE ? OR LOWER(source_file_name) LIKE ? OR LOWER(source_file_name) LIKE ? OR LOWER(source_file_name) LIKE ?", "%.wav", "%.mp3", "%.m4a", "%.aac", "%.flac", "%.ogg", "%.opus")
 	case "video":
 		query = query.Where("source_file_name NOT LIKE ?", "youtube:%")
-		query = query.Where("LOWER(source_file_name) LIKE ? OR LOWER(source_file_name) LIKE ?", "%.mp4", "%.mov")
+		query = query.Where("LOWER(source_file_name) LIKE ? OR LOWER(source_file_name) LIKE ? OR LOWER(source_file_name) LIKE ? OR LOWER(source_file_name) LIKE ? OR LOWER(source_file_name) LIKE ? OR LOWER(source_file_name) LIKE ?", "%.mp4", "%.mov", "%.mkv", "%.avi", "%.wmv", "%.flv")
 	}
 	if err := applyListQuery(query, opts).Find(&jobs).Error; err != nil {
 		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not list files", nil)

@@ -28,6 +28,7 @@ type Handler struct {
 	idempotency     *idempotencyStore
 	events          *eventBroker
 	youtubeImporter YouTubeImporter
+	mediaExtractor  MediaExtractor
 	eventHeartbeat  time.Duration
 	asyncJobs       sync.WaitGroup
 	maxUploadBytes  int64
@@ -46,6 +47,7 @@ func NewHandler(cfg *config.Config, authService *auth.AuthService, services ...a
 		idempotency:     newIdempotencyStore(),
 		events:          newEventBroker(),
 		youtubeImporter: ytDLPImporter{},
+		mediaExtractor:  ffmpegMediaExtractor{},
 		eventHeartbeat:  25 * time.Second,
 		maxUploadBytes:  defaultMaxUploadSizeBytes,
 	}

@@ -107,12 +107,28 @@ func mediaType(headerValue, filename string) string {
 		return "audio/mpeg"
 	case ".m4a":
 		return "audio/mp4"
+	case ".aac":
+		return "audio/aac"
 	case ".flac":
 		return "audio/flac"
+	case ".ogg":
+		return "audio/ogg"
+	case ".opus":
+		return "audio/opus"
+	case ".webm":
+		return "video/webm"
 	case ".mp4":
 		return "video/mp4"
 	case ".mov":
 		return "video/quicktime"
+	case ".mkv":
+		return "video/x-matroska"
+	case ".avi":
+		return "video/x-msvideo"
+	case ".wmv":
+		return "video/x-ms-wmv"
+	case ".flv":
+		return "video/x-flv"
 	default:
 		return cleanHeader
 	}

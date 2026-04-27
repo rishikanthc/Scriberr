@@ -35,6 +35,31 @@ type fakeYouTubeImporter struct {
 	completed chan struct{}
 }
 
+type fakeMediaExtractor struct {
+	content []byte
+	err     error
+	done    chan struct{}
+}
+
+func (f *fakeMediaExtractor) ExtractAudio(ctx context.Context, inputPath, outputPath string) error {
+	defer func() {
+		if f.done != nil {
+			close(f.done)
+		}
+	}()
+	if f.err != nil {
+		return f.err
+	}
+	content := f.content
+	if content == nil {
+		content = []byte("extracted audio")
+	}
+	if err := os.MkdirAll(filepath.Dir(outputPath), 0755); err != nil {
+		return err
+	}
+	return os.WriteFile(outputPath, content, 0600)
+}
+
 func (f *fakeYouTubeImporter) Import(ctx context.Context, job youtubeImportJob) (youtubeImportResult, error) {
 	f.mu.Lock()
 	f.calls = append(f.calls, job)
@@ -202,6 +227,40 @@ func TestFileUploadValidationAndSecurity(t *testing.T) {
 	require.Equal(t, http.StatusUnsupportedMediaType, resp.Code)
 	errBody := body["error"].(map[string]any)
 	require.NotContains(t, errBody["message"], "/")
+}
+
+func TestVideoUploadExtractsAudioInBackground(t *testing.T) {
+	s := newAuthTestServer(t)
+	extractor := &fakeMediaExtractor{content: []byte("mp3 audio"), done: make(chan struct{})}
+	s.handler.mediaExtractor = extractor
+	token := registerForFileTests(t, s)
+
+	resp, body := uploadMultipart(t, s, token, "file", "lecture.mp4", "video/mp4", []byte("video bytes"), "Lecture")
+	require.Equal(t, http.StatusAccepted, resp.Code)
+	fileID := body["id"].(string)
+	require.Equal(t, "Lecture", body["title"])
+	require.Equal(t, "video", body["kind"])
+	require.Equal(t, "processing", body["status"])
+
+	select {
+	case <-extractor.done:
+	case <-time.After(time.Second):
+		t.Fatal("video extraction did not complete")
+	}
+
+	resp, body = s.request(t, http.MethodGet, "/api/v1/files/"+fileID, nil, token, "")
+	require.Equal(t, http.StatusOK, resp.Code)
+	require.Equal(t, "ready", body["status"])
+	require.Equal(t, "audio", body["kind"])
+	require.Equal(t, "audio/mpeg", body["mime_type"])
+
+	req, err := http.NewRequest(http.MethodGet, "/api/v1/files/"+fileID+"/audio", nil)
+	require.NoError(t, err)
+	req.Header.Set("Authorization", "Bearer "+token)
+	stream := httptest.NewRecorder()
+	s.router.ServeHTTP(stream, req)
+	require.Equal(t, http.StatusOK, stream.Code)
+	require.Equal(t, []byte("mp3 audio"), stream.Body.Bytes())
 }
 
 func TestFileUploadSizeLimit(t *testing.T) {
