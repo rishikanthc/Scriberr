@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useRef, type ChangeEvent } from "react";
-import { Check, ChevronDown, Clock3, FileAudio, Home, Loader2, Mic, Search, StopCircle, Trash2, UploadCloud, Video, Wand2, XCircle } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Check, ChevronDown, Clock3, FileAudio, Home, Loader2, Mic, Search, Settings, StopCircle, Trash2, UploadCloud, Video, Wand2, XCircle } from "lucide-react";
 import { WandAdvancedIcon } from "@/components/icons/WandAdvancedIcon";
 import { UploadProgressShelf } from "@/features/files/components/UploadProgressShelf";
 import type { ScriberrFile } from "@/features/files/api/filesApi";
@@ -19,7 +20,11 @@ type Recording = {
   progress?: number;
 };
 
-function Sidebar() {
+type SidebarProps = {
+  activeItem?: "home" | "settings";
+};
+
+export function Sidebar({ activeItem = "home" }: SidebarProps) {
   return (
     <aside className="scr-sidebar" aria-label="Primary navigation">
       <div className="scr-logo-row">
@@ -27,10 +32,14 @@ function Sidebar() {
         <img className="scr-logo-text" src="/logo-text.svg" alt="Scriberr" />
       </div>
       <nav className="scr-nav">
-        <a className="scr-nav-item" data-active="true" href="/">
+        <Link className="scr-nav-item" data-active={activeItem === "home"} to="/">
           <Home size={18} aria-hidden="true" />
           <span className="scr-nav-label">Home</span>
-        </a>
+        </Link>
+        <Link className="scr-nav-item" data-active={activeItem === "settings"} to="/settings">
+          <Settings size={18} aria-hidden="true" />
+          <span className="scr-nav-label">Settings</span>
+        </Link>
       </nav>
     </aside>
   );

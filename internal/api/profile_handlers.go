@@ -163,24 +163,64 @@ func validateProfileInput(c *gin.Context, name string, options profileOptionsReq
 		writeError(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "name is required", stringPtr("name"))
 		return false
 	}
-	if options.Language != "" && !validLanguage(options.Language) {
+	if options.Language != nil && strings.TrimSpace(*options.Language) != "" && !validLanguage(strings.TrimSpace(*options.Language)) {
 		writeError(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "language is invalid", stringPtr("options.language"))
 		return false
 	}
 	return true
 }
 func profileParams(options profileOptionsRequest) models.WhisperXParams {
-	params := models.WhisperXParams{
-		Model:   strings.TrimSpace(options.Model),
-		Device:  strings.TrimSpace(options.Device),
-		Diarize: options.Diarization,
+	params := options.WhisperXParams
+	params.ModelFamily = strings.TrimSpace(params.ModelFamily)
+	params.Model = strings.TrimSpace(params.Model)
+	params.Device = strings.TrimSpace(params.Device)
+	params.ComputeType = strings.TrimSpace(params.ComputeType)
+	params.OutputFormat = strings.TrimSpace(params.OutputFormat)
+	params.Task = strings.TrimSpace(params.Task)
+	params.InterpolateMethod = strings.TrimSpace(params.InterpolateMethod)
+	params.VadMethod = strings.TrimSpace(params.VadMethod)
+	params.DiarizeModel = strings.TrimSpace(params.DiarizeModel)
+	params.SegmentResolution = strings.TrimSpace(params.SegmentResolution)
+	if options.Diarization != nil {
+		params.Diarize = *options.Diarization
 	}
 	if params.Device == "" {
 		params.Device = "auto"
 	}
-	if options.Language != "" {
-		language := strings.TrimSpace(options.Language)
-		params.Language = &language
+	if params.Language != nil {
+		language := strings.TrimSpace(*params.Language)
+		if language == "" || language == "auto" {
+			params.Language = nil
+		} else {
+			params.Language = &language
+		}
+	}
+	if params.ModelFamily == "" {
+		params.ModelFamily = "whisper"
+	}
+	if params.Model == "" {
+		params.Model = "small"
+	}
+	if params.Task == "" {
+		params.Task = "transcribe"
+	}
+	if params.OutputFormat == "" {
+		params.OutputFormat = "all"
+	}
+	if params.ComputeType == "" {
+		params.ComputeType = "float32"
+	}
+	if params.InterpolateMethod == "" {
+		params.InterpolateMethod = "nearest"
+	}
+	if params.VadMethod == "" {
+		params.VadMethod = "pyannote"
+	}
+	if params.DiarizeModel == "" {
+		params.DiarizeModel = "pyannote"
+	}
+	if params.SegmentResolution == "" {
+		params.SegmentResolution = "sentence"
 	}
 	return params
 }

@@ -1,201 +1,174 @@
-import { useState, useEffect } from "react";
-import { useQueryClient } from "@tanstack/react-query";
-import { MainLayout } from "@/components/layout/MainLayout";
-import { User, Settings as SettingsIcon, Key, Bot, FileText, Plus, Terminal } from "lucide-react";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs";
-import { Button } from "@/components/ui/button";
-import { Header } from "@/components/Header";
-import { ProfileSettings } from "../components/ProfileSettings";
-import { AccountSettings } from "../components/AccountSettings";
-import { APIKeySettings } from "../components/APIKeySettings";
-import { LLMSettings } from "../components/LLMSettings";
-import { SummaryTemplateDialog, type SummaryTemplate } from "../components/SummaryTemplateDialog";
-import { SummaryTemplatesTable } from "../components/SummaryTemplatesTable";
-import { CLISettingsTab } from "../components/CLISettingsTab";
-import { useAuth } from "@/features/auth/hooks/useAuth";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Edit3, Plus, Settings2, Star, Trash2 } from "lucide-react";
+import { Sidebar } from "@/features/home/components/HomePage";
+import { AppButton, IconButton } from "@/shared/ui/Button";
+import { EmptyState } from "@/shared/ui/EmptyState";
+import { ASRProfileDialog } from "../components/ASRProfileDialog";
+import { deleteProfile, listProfiles, saveProfile, type TranscriptionProfile, type WhisperXParams } from "../api/profilesApi";
+
+type SettingsTab = "general" | "asr";
 
 export function Settings() {
-  const [activeTab, setActiveTab] = useState("transcription");
-  const { getAuthHeaders } = useAuth();
-  const queryClient = useQueryClient();
-  const [summaryDialogOpen, setSummaryDialogOpen] = useState(false);
-  const [editingSummary, setEditingSummary] = useState<SummaryTemplate | null>(null);
-  const [summaryRefresh, setSummaryRefresh] = useState(0);
-  const [llmConfigured, setLlmConfigured] = useState(false);
+  const [activeTab, setActiveTab] = useState<SettingsTab>("asr");
+  const [profiles, setProfiles] = useState<TranscriptionProfile[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [editingProfile, setEditingProfile] = useState<TranscriptionProfile | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
 
-  // Fetch LLM config and models
+  const loadProfiles = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      setProfiles(await listProfiles());
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not load profiles.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
-    const fetchLLM = async () => {
-      try {
-        const cfgRes = await fetch('/api/v1/llm/config', { headers: { ...getAuthHeaders() } });
-        if (!cfgRes.ok) { setLlmConfigured(false); return; }
-        const cfg = await cfgRes.json();
-        setLlmConfigured(!!cfg && cfg.is_active);
-        // Set configured; models are chosen per-template in dialog now
-        if (cfg && cfg.is_active) {
-          setLlmConfigured(true);
-        }
-      } catch {
-        setLlmConfigured(false);
-      }
-    };
-    fetchLLM();
-  }, [activeTab, getAuthHeaders]);
+    void loadProfiles();
+  }, [loadProfiles]);
+
+  const defaultProfile = useMemo(() => profiles.find((profile) => profile.is_default), [profiles]);
+
+  const openNewProfile = () => {
+    setEditingProfile(null);
+    setDialogOpen(true);
+  };
+
+  const handleSave = async (profile: { id?: string; name: string; description: string; is_default: boolean; options: WhisperXParams }) => {
+    await saveProfile(profile);
+    await loadProfiles();
+  };
+
+  const handleDelete = async (profile: TranscriptionProfile) => {
+    if (!window.confirm(`Delete "${profile.name}"?`)) return;
+    await deleteProfile(profile.id);
+    await loadProfiles();
+  };
 
   return (
-    <MainLayout
-      header={<Header />}
-    >
-      {/* Main Content Container with same styling as Homepage */}
-      <div className="bg-[var(--bg-card)] border border-[var(--border-subtle)] shadow-[var(--shadow-card)] rounded-[var(--radius-card)] p-2 sm:p-6 mt-8">
-        <div className="mb-4 sm:mb-8">
-          <h1 className="text-2xl font-display font-bold text-[var(--text-primary)] mb-2">
-            Settings
-          </h1>
-          <p className="text-[var(--text-secondary)]">
-            Manage your account settings and transcription profiles.
-          </p>
-        </div>
+    <div className="scr-app">
+      <div className="scr-shell">
+        <Sidebar activeItem="settings" />
+        <main className="scr-main">
+          <div className="scr-settings-topline">
+            <h1 className="scr-settings-title">Settings</h1>
+          </div>
 
-        {/* Tabbed Interface */}
-        <Tabs
-          value={activeTab}
-          onValueChange={setActiveTab}
-          className="space-y-4 sm:space-y-6"
-        >
-          <TabsList className="grid w-full grid-cols-6 items-center h-auto bg-[var(--bg-main)]/50 border border-[var(--border-subtle)] p-1 rounded-xl">
-            <TabsTrigger
-              value="transcription"
-              aria-label="Transcription"
-              className="flex items-center justify-center gap-2 h-9 py-1.5 data-[state=active]:bg-[var(--bg-card)] data-[state=active]:shadow-sm data-[state=active]:text-[var(--text-primary)] text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] font-medium rounded-lg text-xs sm:text-sm transition-all"
-            >
-              <SettingsIcon className="h-4 w-4" />
-              <span className="hidden sm:inline">Transcription</span>
-            </TabsTrigger>
-            <TabsTrigger
-              value="account"
-              aria-label="Account"
-              className="flex items-center justify-center gap-2 h-9 py-1.5 data-[state=active]:bg-[var(--bg-card)] data-[state=active]:shadow-sm data-[state=active]:text-[var(--text-primary)] text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] font-medium rounded-lg text-xs sm:text-sm transition-all"
-            >
-              <User className="h-4 w-4" />
-              <span className="hidden sm:inline">Account</span>
-            </TabsTrigger>
-            <TabsTrigger
-              value="apikeys"
-              aria-label="API Keys"
-              className="flex items-center justify-center gap-2 h-9 py-1.5 data-[state=active]:bg-[var(--bg-card)] data-[state=active]:shadow-sm data-[state=active]:text-[var(--text-primary)] text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] font-medium rounded-lg text-xs sm:text-sm transition-all"
-            >
-              <Key className="h-4 w-4" />
-              <span className="hidden sm:inline">API Keys</span>
-            </TabsTrigger>
-            <TabsTrigger
-              value="llms"
-              aria-label="LLMs"
-              className="flex items-center justify-center gap-2 h-9 py-1.5 data-[state=active]:bg-[var(--bg-card)] data-[state=active]:shadow-sm data-[state=active]:text-[var(--text-primary)] text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] font-medium rounded-lg text-xs sm:text-sm transition-all"
-            >
-              <Bot className="h-4 w-4" />
-              <span className="hidden sm:inline">LLMs</span>
-            </TabsTrigger>
-            <TabsTrigger
-              value="summary"
-              aria-label="Summary"
-              className="flex items-center justify-center gap-2 h-9 py-1.5 data-[state=active]:bg-[var(--bg-card)] data-[state=active]:shadow-sm data-[state=active]:text-[var(--text-primary)] text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] font-medium rounded-lg text-xs sm:text-sm transition-all"
-            >
-              <FileText className="h-4 w-4" />
-              <span className="hidden sm:inline">Summary</span>
-            </TabsTrigger>
-            <TabsTrigger
-              value="cli"
-              aria-label="CLI Watcher"
-              className="flex items-center justify-center gap-2 h-9 py-1.5 data-[state=active]:bg-[var(--bg-card)] data-[state=active]:shadow-sm data-[state=active]:text-[var(--text-primary)] text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] font-medium rounded-lg text-xs sm:text-sm transition-all"
-            >
-              <Terminal className="h-4 w-4" />
-              <span className="hidden sm:inline">CLI Watcher</span>
-            </TabsTrigger>
-          </TabsList>
+          <div className="scr-settings-tabs" role="tablist" aria-label="Settings sections">
+            <button className="scr-settings-tab" data-active={activeTab === "general"} type="button" role="tab" aria-selected={activeTab === "general"} onClick={() => setActiveTab("general")}>
+              General
+            </button>
+            <button className="scr-settings-tab" data-active={activeTab === "asr"} type="button" role="tab" aria-selected={activeTab === "asr"} onClick={() => setActiveTab("asr")}>
+              ASR
+            </button>
+          </div>
 
-          {/* Transcription Tab */}
-          <TabsContent value="transcription" className="space-y-6">
-            <ProfileSettings />
-          </TabsContent>
-
-          {/* Account Tab */}
-          <TabsContent value="account" className="space-y-6">
-            <AccountSettings />
-          </TabsContent>
-
-          {/* API Keys Tab */}
-          <TabsContent value="apikeys" className="space-y-6">
-            <APIKeySettings />
-          </TabsContent>
-
-          {/* LLMs Tab */}
-          <TabsContent value="llms" className="space-y-6">
-            <LLMSettings />
-          </TabsContent>
-
-          {/* Summary Tab */}
-          <TabsContent value="summary" className="space-y-6">
-            <div className="bg-[var(--bg-card)] border border-[var(--border-subtle)] rounded-[var(--radius-card)] p-4 sm:p-6 shadow-sm">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0 mb-4">
-                <div>
-                  <h3 className="text-lg font-medium text-[var(--text-primary)]">Summarization Templates</h3>
-                  <p className="text-sm text-[var(--text-secondary)] mt-1">Create and manage prompts used to summarize transcripts.</p>
+          <div className="scr-settings-content">
+            {activeTab === "general" ? (
+              <EmptyState title="General settings" description="General preferences will appear here." />
+            ) : (
+              <section className="scr-settings-panel" aria-label="ASR profiles">
+                <div className="scr-settings-panel-head">
+                  <div>
+                    <div className="scr-settings-kicker">
+                      <Settings2 size={15} aria-hidden="true" />
+                      ASR
+                    </div>
+                    <h2 className="scr-settings-heading">Transcription profiles</h2>
+                    <p className="scr-settings-copy">
+                      Save engine, model, decoding, diarization, and output presets for repeatable transcription runs.
+                    </p>
+                  </div>
+                  <AppButton onClick={openNewProfile}>
+                    <Plus size={15} aria-hidden="true" />
+                    New profile
+                  </AppButton>
                 </div>
-                <div className="flex items-center gap-3">
-                  <Button
-                    variant="outline"
-                    onClick={() => { setEditingSummary(null); setSummaryDialogOpen(true); }}
-                    disabled={!llmConfigured}
-                  >
-                    <Plus className="h-4 w-4" /> New Template
-                  </Button>
-                </div>
-              </div>
-              {!llmConfigured && (
-                <div className="mb-3 text-sm text-[var(--warning-solid)] bg-[var(--warning-translucent)] border border-[var(--warning-solid)]/20 rounded-md px-3 py-2">
-                  Configure an LLM provider in the LLMs tab to enable summary templates and model selection.
-                </div>
-              )}
-              <SummaryTemplatesTable onEdit={(tpl) => { setEditingSummary(tpl); setSummaryDialogOpen(true); }} refreshTrigger={summaryRefresh} disabled={!llmConfigured} />
-            </div>
 
-            <SummaryTemplateDialog
-              open={summaryDialogOpen}
-              onOpenChange={(o) => { setSummaryDialogOpen(o); if (!o) setEditingSummary(null); }}
-              initial={editingSummary}
-              onSave={async (tpl) => {
-                const headers: HeadersInit = { 'Content-Type': 'application/json', ...getAuthHeaders() };
-                try {
-                  if (tpl.id) {
-                    await fetch(`/api/v1/summaries/${tpl.id}`, { method: 'PUT', headers, body: JSON.stringify({ name: tpl.name, description: tpl.description, model: tpl.model, prompt: tpl.prompt, include_speaker_info: tpl.include_speaker_info }) });
-                  } else {
-                    await fetch('/api/v1/summaries', { method: 'POST', headers, body: JSON.stringify({ name: tpl.name, description: tpl.description, model: tpl.model, prompt: tpl.prompt, include_speaker_info: tpl.include_speaker_info }) });
-                  }
-                } finally {
-                  // Invalidate cache to propagate changes
-                  queryClient.invalidateQueries({ queryKey: ["summaryTemplates"] });
+                {error ? <div className="scr-alert">{error}</div> : null}
 
-                  // keep user on Summary tab and refresh the list without a full reload
-                  setSummaryDialogOpen(false);
-                  setEditingSummary(null);
-                  setSummaryRefresh((n) => n + 1);
-                }
-              }}
-            />
-          </TabsContent>
-
-          {/* CLI Watcher Tab */}
-          <TabsContent value="cli" className="space-y-6">
-            <CLISettingsTab />
-          </TabsContent>
-        </Tabs>
+                {loading ? (
+                  <div className="scr-profile-list" aria-label="Loading profiles">
+                    {[0, 1, 2].map((item) => <div className="scr-profile-skeleton" key={item} />)}
+                  </div>
+                ) : profiles.length > 0 ? (
+                  <div className="scr-profile-list">
+                    {profiles.map((profile) => (
+                      <ProfileRow
+                        key={profile.id}
+                        profile={profile}
+                        isDefault={defaultProfile?.id === profile.id}
+                        onEdit={() => {
+                          setEditingProfile(profile);
+                          setDialogOpen(true);
+                        }}
+                        onDelete={() => void handleDelete(profile)}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <EmptyState title="No profiles yet" description="Create a profile to save your preferred ASR settings." />
+                )}
+              </section>
+            )}
+          </div>
+        </main>
       </div>
-    </MainLayout>
+
+      <ASRProfileDialog
+        open={dialogOpen}
+        profile={editingProfile}
+        onClose={() => {
+          setDialogOpen(false);
+          setEditingProfile(null);
+        }}
+        onSave={handleSave}
+      />
+    </div>
+  );
+}
+
+function ProfileRow({ profile, isDefault, onEdit, onDelete }: { profile: TranscriptionProfile; isDefault: boolean; onEdit: () => void; onDelete: () => void }) {
+  const optionSummary = [
+    profile.options.model_family.replaceAll("_", " "),
+    profile.options.model,
+    profile.options.language || "auto language",
+    profile.options.diarize ? "diarization on" : "diarization off",
+  ].join(" · ");
+
+  return (
+    <article className="scr-profile-row">
+      <button className="scr-profile-main" type="button" onClick={onEdit}>
+        <div className="scr-profile-icon">
+          <Settings2 size={18} aria-hidden="true" />
+        </div>
+        <div className="scr-profile-copy">
+          <div className="scr-profile-title-row">
+            <h3 className="scr-profile-title">{profile.name}</h3>
+            {isDefault ? (
+              <span className="scr-profile-badge">
+                <Star size={12} aria-hidden="true" />
+                Default
+              </span>
+            ) : null}
+          </div>
+          {profile.description ? <p className="scr-profile-description">{profile.description}</p> : null}
+          <p className="scr-profile-meta">{optionSummary}</p>
+        </div>
+      </button>
+      <div className="scr-profile-actions">
+        <IconButton label={`Edit ${profile.name}`} onClick={onEdit}>
+          <Edit3 size={15} aria-hidden="true" />
+        </IconButton>
+        <IconButton label={`Delete ${profile.name}`} className="scr-icon-danger" onClick={onDelete}>
+          <Trash2 size={15} aria-hidden="true" />
+        </IconButton>
+      </div>
+    </article>
   );
 }

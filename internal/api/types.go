@@ -1,5 +1,7 @@
 package api
 
+import "scriberr/internal/models"
+
 type ErrorBody struct {
 	Error APIError `json:"error"`
 }
@@ -54,10 +56,8 @@ type updateTranscriptionRequest struct {
 	Title string `json:"title"`
 }
 type profileOptionsRequest struct {
-	Model       string `json:"model"`
-	Language    string `json:"language"`
-	Diarization bool   `json:"diarization"`
-	Device      string `json:"device"`
+	models.WhisperXParams
+	Diarization *bool `json:"diarization,omitempty"`
 }
 type createProfileRequest struct {
 	Name        string                `json:"name"`

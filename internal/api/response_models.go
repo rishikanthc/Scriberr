@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -239,24 +240,26 @@ func profileResponse(profile *models.TranscriptionProfile) gin.H {
 	if profile.Description != nil {
 		description = *profile.Description
 	}
-	language := any(nil)
-	if profile.Parameters.Language != nil {
-		language = *profile.Parameters.Language
-	}
+	options := profileOptionsMap(profile.Parameters)
 	return gin.H{
 		"id":          publicIDForProfile(profile.ID),
 		"name":        profile.Name,
 		"description": description,
 		"is_default":  profile.IsDefault,
-		"options": gin.H{
-			"model":       profile.Parameters.Model,
-			"language":    language,
-			"diarization": profile.Parameters.Diarize,
-			"device":      profile.Parameters.Device,
-		},
-		"created_at": profile.CreatedAt,
-		"updated_at": profile.UpdatedAt,
+		"options":     options,
+		"parameters":  options,
+		"created_at":  profile.CreatedAt,
+		"updated_at":  profile.UpdatedAt,
 	}
+}
+func profileOptionsMap(params models.WhisperXParams) gin.H {
+	var options gin.H
+	bytes, err := json.Marshal(params)
+	if err != nil || json.Unmarshal(bytes, &options) != nil {
+		options = gin.H{}
+	}
+	options["diarization"] = params.Diarize
+	return options
 }
 func settingsResponse(h *Handler, user *models.User) gin.H {
 	defaultProfileID := any(nil)
