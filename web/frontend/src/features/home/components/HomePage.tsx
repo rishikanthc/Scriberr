@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useRef, type ChangeEvent } from "react";
 import { Link } from "react-router-dom";
-import { Check, ChevronDown, Clock3, FileAudio, Home, Loader2, Mic, MinusCircle, Search, Settings, StopCircle, Trash2, UploadCloud, Video, Wand2, XCircle } from "lucide-react";
+import { ChevronDown, FileAudio, Home, Mic, Search, Settings, StopCircle, Trash2, UploadCloud, Video, Wand2 } from "lucide-react";
 import { WandAdvancedIcon } from "@/components/icons/WandAdvancedIcon";
 import { UploadProgressShelf } from "@/features/files/components/UploadProgressShelf";
 import type { ScriberrFile } from "@/features/files/api/filesApi";
@@ -140,8 +140,8 @@ function RecordingCard({ recording, canTranscribe, isSubmitting, onTranscribe }:
             {isProcessing ? <StopCircle size={16} aria-hidden="true" /> : <Trash2 size={16} aria-hidden="true" />}
           </button>
         </div>
-        <div className="scr-recording-status" data-status={recording.status} aria-label={recording.status}>
-          {statusIcon(recording)}
+        <div className="scr-recording-status" data-status={recording.status}>
+          {statusText(recording)}
         </div>
       </div>
     </article>
@@ -294,22 +294,24 @@ function normalizeTranscriptionStatus(status: TranscriptionStatus): RecordingSta
   }
 }
 
-function statusIcon(recording: Recording) {
+function statusText(recording: Recording) {
   switch (recording.status) {
     case "ready":
-      return <MinusCircle size={17} aria-hidden="true" />;
+      return "Ready";
     case "transcribed":
-      return <Check size={18} aria-hidden="true" />;
+      return "Done";
     case "failed":
-      return <XCircle size={17} aria-hidden="true" />;
+      return "Failed";
     case "uploading":
-      return <Loader2 className="scr-spin" size={16} aria-hidden="true" />;
+      return recording.progress ? `${recording.progress}%` : "Uploading";
     case "file-processing":
+      return "Processing";
     case "queued":
+      return "Queued";
     case "transcribing":
-      return <Clock3 size={16} aria-hidden="true" />;
+      return (recording.progress ?? 0) > 0 ? `${recording.progress}%` : "Transcribing";
     case "canceled":
-      return <StopCircle size={16} aria-hidden="true" />;
+      return "Canceled";
   }
 }
 

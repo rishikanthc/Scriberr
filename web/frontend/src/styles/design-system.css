@@ -414,33 +414,41 @@
 }
 
 .scr-recording-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 4.75rem;
+  height: 1.5rem;
+  border: 1px solid var(--scr-border-subtle);
+  border-radius: 999px;
+  background: var(--scr-surface-muted);
   color: var(--scr-text-tertiary);
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  padding: 0 var(--scr-space-2);
+  text-transform: uppercase;
   transition: opacity 160ms ease, transform 160ms ease;
 }
 
-.scr-recording-status[data-status="completed"] {
-  color: var(--scr-color-success);
-}
-
 .scr-recording-status[data-status="transcribed"] {
+  border-color: color-mix(in srgb, var(--scr-color-success) 28%, transparent);
+  background: color-mix(in srgb, var(--scr-color-success) 8%, transparent);
   color: var(--scr-color-success);
 }
 
 .scr-recording-status[data-status="failed"] {
+  border-color: color-mix(in srgb, var(--scr-color-danger) 28%, transparent);
+  background: color-mix(in srgb, var(--scr-color-danger) 8%, transparent);
   color: var(--scr-color-danger);
 }
 
-.scr-recording-status[data-status="uploading"],
-.scr-recording-status[data-status="file-processing"],
 .scr-recording-status[data-status="queued"],
-.scr-recording-status[data-status="transcribing"],
-.scr-recording-status[data-status="ready"],
-.scr-recording-status[data-status="canceled"] {
-  color: var(--scr-text-tertiary);
-}
-
-.scr-spin {
-  animation: scr-spin 1s linear infinite;
+.scr-recording-status[data-status="transcribing"] {
+  border-color: var(--scr-brand-border);
+  background: var(--scr-brand-muted);
+  color: var(--scr-brand-ink);
 }
 
 .scr-recording-meta-actions {

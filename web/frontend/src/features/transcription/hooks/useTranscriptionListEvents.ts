@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { transcriptionsQueryKey } from "@/features/transcription/hooks/useTranscriptions";
+import type { TranscriptionStatus, TranscriptionsResponse } from "@/features/transcription/api/transcriptionsApi";
 
 type TranscriptionEvent = {
   name: string;
@@ -10,6 +11,7 @@ type TranscriptionEvent = {
     file_id?: string;
     status?: string;
     progress?: number;
+    stage?: string;
   };
 };
 
@@ -21,6 +23,14 @@ export function useTranscriptionListEvents() {
     if (!token) return;
 
     const abortController = new AbortController();
+    let reconnectTimer: number | undefined;
+
+    const scheduleReconnect = () => {
+      if (abortController.signal.aborted) return;
+      reconnectTimer = window.setTimeout(() => {
+        void connect();
+      }, 1500);
+    };
 
     const connect = async () => {
       try {
@@ -29,7 +39,10 @@ export function useTranscriptionListEvents() {
           signal: abortController.signal,
         });
 
-        if (!response.ok || !response.body) return;
+        if (!response.ok || !response.body) {
+          scheduleReconnect();
+          return;
+        }
 
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
@@ -46,17 +59,40 @@ export function useTranscriptionListEvents() {
           for (const chunk of chunks) {
             const parsed = parseSSEChunk(chunk);
             if (!parsed || !parsed.name.startsWith("transcription.")) continue;
+            queryClient.setQueryData<TranscriptionsResponse>(transcriptionsQueryKey, (current) => {
+              if (!current || !parsed.data.id) return current;
+
+              return {
+                ...current,
+                items: current.items.map((transcription) => {
+                  if (transcription.id !== parsed.data.id) return transcription;
+                  return {
+                    ...transcription,
+                    status: normalizeEventStatus(parsed.data.status) || transcription.status,
+                    progress: parsed.data.progress ?? transcription.progress,
+                    progress_stage: parsed.data.stage || transcription.progress_stage,
+                    updated_at: new Date().toISOString(),
+                  };
+                }),
+              };
+            });
             queryClient.invalidateQueries({ queryKey: transcriptionsQueryKey });
           }
         }
+
+        scheduleReconnect();
       } catch (error) {
         if ((error as Error).name === "AbortError") return;
+        scheduleReconnect();
       }
     };
 
     connect();
 
-    return () => abortController.abort();
+    return () => {
+      abortController.abort();
+      if (reconnectTimer) window.clearTimeout(reconnectTimer);
+    };
   }, [token, queryClient]);
 }
 
@@ -78,5 +114,18 @@ function parseSSEChunk(chunk: string): TranscriptionEvent | null {
     return { name, data: JSON.parse(data) };
   } catch {
     return null;
+  }
+}
+
+function normalizeEventStatus(status?: string): TranscriptionStatus | undefined {
+  switch (status) {
+    case "queued":
+    case "processing":
+    case "completed":
+    case "failed":
+    case "canceled":
+      return status;
+    default:
+      return undefined;
   }
 }
