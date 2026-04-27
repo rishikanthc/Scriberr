@@ -240,6 +240,12 @@ func (s *Service) processSummary(ctx context.Context, summary *models.Summary) e
 		return err
 	}
 	input, truncated := fitTranscriptToContext(transcriptText, contextWindow)
+	if truncated {
+		summary.TranscriptTruncated = true
+		summary.ContextWindow = contextWindow
+		summary.InputCharacters = len(transcriptText)
+		s.publish(ctx, "summary.truncated", summary)
+	}
 	messages := []llm.ChatMessage{{Role: "user", Content: summaryPrompt + "\n\n" + input}}
 	response, err := client.ChatCompletion(ctx, model, messages, 0)
 	if err != nil {

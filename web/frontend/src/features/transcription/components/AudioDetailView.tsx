@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type ChangeEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ChangeEvent } from "react";
 import { Link, useParams } from "react-router-dom";
 import { AlignJustify, CalendarDays, Clock3, MoreHorizontal, Pause, Pencil, Play } from "lucide-react";
 import { Sidebar } from "@/features/home/components/HomePage";
@@ -24,6 +24,8 @@ export function AudioDetailView() {
   const fileQuery = useFile(audioId);
   const updateFileMutation = useUpdateFile(audioId);
   const transcriptionsQuery = useTranscriptions();
+  const { toast } = useToast();
+  const warnedSummaryIds = useRef<Set<string>>(new Set());
 
   const file = fileQuery.data;
   const title = file?.title?.trim() || "Untitled recording";
@@ -33,9 +35,17 @@ export function AudioDetailView() {
     return latestTranscriptionForFile(transcriptionsQuery.data?.items || [], file.id);
   }, [file, transcriptionsQuery.data?.items]);
   const transcriptQuery = useTranscriptionTranscript(latestTranscription?.id, latestTranscription?.status === "completed");
+  const handleSummaryTruncated = useCallback((summaryId: string) => {
+    if (warnedSummaryIds.current.has(summaryId)) return;
+    warnedSummaryIds.current.add(summaryId);
+    toast({
+      title: "Transcript truncated for summary",
+      description: "The transcript exceeds the small model context window, so summarization will use the first fitting portion.",
+    });
+  }, [toast]);
 
   useTranscriptionListEvents();
-  useTranscriptionDetailEvents(latestTranscription?.id);
+  useTranscriptionDetailEvents(latestTranscription?.id, { onSummaryTruncated: handleSummaryTruncated });
 
   const meta = useMemo(() => {
     return {
@@ -186,20 +196,8 @@ export function AudioDetailView() {
 }
 
 function SummaryPanel({ transcription }: { transcription?: Transcription }) {
-  const { toast } = useToast();
-  const warnedSummaryId = useRef<string | null>(null);
   const summaryQuery = useTranscriptionSummary(transcription?.id, Boolean(transcription));
   const summary = summaryQuery.data;
-
-  useEffect(() => {
-    if (!summary || summary.status !== "completed" || !summary.transcript_truncated) return;
-    if (warnedSummaryId.current === summary.id) return;
-    warnedSummaryId.current = summary.id;
-    toast({
-      title: "Transcript truncated for summary",
-      description: "The transcript exceeded the small model context window, so the summary used the first fitting portion.",
-    });
-  }, [summary, toast]);
 
   if (!transcription) {
     return (

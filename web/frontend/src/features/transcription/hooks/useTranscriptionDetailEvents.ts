@@ -13,12 +13,18 @@ type TranscriptionEvent = {
     status?: string;
     progress?: number;
     stage?: string;
+    transcript_truncated?: boolean;
   };
 };
 
-export function useTranscriptionDetailEvents(transcriptionId: string | undefined) {
+type TranscriptionDetailEventOptions = {
+  onSummaryTruncated?: (summaryId: string) => void;
+};
+
+export function useTranscriptionDetailEvents(transcriptionId: string | undefined, options: TranscriptionDetailEventOptions = {}) {
   const { token } = useAuth();
   const queryClient = useQueryClient();
+  const { onSummaryTruncated } = options;
 
   useEffect(() => {
     if (!token || !transcriptionId) return;
@@ -93,6 +99,9 @@ export function useTranscriptionDetailEvents(transcriptionId: string | undefined
             if (parsed.name.startsWith("summary.")) {
               queryClient.invalidateQueries({ queryKey: transcriptionSummaryQueryKey(transcriptionId) });
             }
+            if (parsed.name === "summary.truncated" && parsed.data.transcript_truncated && parsed.data.id) {
+              onSummaryTruncated?.(parsed.data.id);
+            }
           }
         }
 
@@ -109,7 +118,7 @@ export function useTranscriptionDetailEvents(transcriptionId: string | undefined
       abortController.abort();
       if (reconnectTimer) window.clearTimeout(reconnectTimer);
     };
-  }, [token, transcriptionId, queryClient]);
+  }, [token, transcriptionId, queryClient, onSummaryTruncated]);
 }
 
 function parseSSEChunk(chunk: string): TranscriptionEvent | null {
