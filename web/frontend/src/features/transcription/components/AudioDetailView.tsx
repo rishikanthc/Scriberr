@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ChangeEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ChangeEvent, type SyntheticEvent } from "react";
 import { Link, useParams } from "react-router-dom";
 import { AlignJustify, CalendarDays, CheckSquare, Clock3, FileText, MoreHorizontal, Pause, Pencil, Play } from "lucide-react";
 import { Sidebar } from "@/features/home/components/HomePage";
@@ -7,8 +7,9 @@ import { useToast } from "@/components/ui/toast";
 import { useFile, useUpdateFile } from "@/features/files/hooks/useFiles";
 import type { FileStatus } from "@/features/files/api/filesApi";
 import type { SummaryWidgetRun, TranscriptionSummary } from "@/features/transcription/api/summariesApi";
-import type { TranscriptSegment, TranscriptWord, Transcription, TranscriptionTranscript } from "@/features/transcription/api/transcriptionsApi";
+import type { TranscriptWord, Transcription, TranscriptionTranscript } from "@/features/transcription/api/transcriptionsApi";
 import { useTranscriptionDetailEvents } from "@/features/transcription/hooks/useTranscriptionDetailEvents";
+import { computeWordOffsets, computeWordOffsetsInText, createPlaybackSync, useTranscriptKaraokeHighlight, type KaraokeHighlightSegment, type PlaybackSync } from "@/features/transcription/hooks/useKaraokeHighlight";
 import { useTranscriptionListEvents } from "@/features/transcription/hooks/useTranscriptionListEvents";
 import { useTranscriptionSummary, useTranscriptionSummaryWidgets } from "@/features/transcription/hooks/useTranscriptionSummaries";
 import { preferVisibleTranscription, useTranscriptionTranscript, useTranscriptions } from "@/features/transcription/hooks/useTranscriptions";
@@ -22,6 +23,7 @@ export function AudioDetailView() {
   const [audioDuration, setAudioDuration] = useState<number | null>(null);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [draftTitle, setDraftTitle] = useState("");
+  const playbackSync = useMemo(() => createPlaybackSync(), [audioId]);
   const fileQuery = useFile(audioId);
   const updateFileMutation = useUpdateFile(audioId);
   const transcriptionsQuery = useTranscriptions();
@@ -179,6 +181,7 @@ export function AudioDetailView() {
                 fileStatus={file.status}
                 transcription={latestTranscription}
                 transcript={transcriptQuery.data}
+                playbackSync={playbackSync}
                 isLoading={transcriptionsQuery.isLoading || transcriptQuery.isLoading}
                 isError={transcriptionsQuery.isError || transcriptQuery.isError}
               />
@@ -188,6 +191,7 @@ export function AudioDetailView() {
             fileId={file.id}
             durationSeconds={file.duration_seconds}
             title={title}
+            playbackSync={playbackSync}
             onDurationChange={setAudioDuration}
           />
         </main>
@@ -330,11 +334,34 @@ type TranscriptPanelProps = {
   fileStatus: FileStatus;
   transcription?: Transcription;
   transcript?: TranscriptionTranscript;
+  playbackSync: PlaybackSync;
   isLoading: boolean;
   isError: boolean;
 };
 
-function TranscriptPanel({ fileStatus, transcription, transcript, isLoading, isError }: TranscriptPanelProps) {
+type TranscriptDisplaySegment = KaraokeHighlightSegment & {
+  id: string;
+  start: number;
+  end: number;
+  speaker?: string;
+};
+
+function TranscriptPanel({ fileStatus, transcription, transcript, playbackSync, isLoading, isError }: TranscriptPanelProps) {
+  const textElementsRef = useRef<(HTMLElement | null)[]>([]);
+  const segments = useMemo(() => buildTranscriptDisplaySegments(transcript), [transcript]);
+  const hasTimedWords = segments.some((segment) => segment.offsets.length > 0);
+
+  useEffect(() => {
+    textElementsRef.current.length = segments.length;
+  }, [segments.length]);
+
+  useTranscriptKaraokeHighlight(
+    playbackSync,
+    segments,
+    textElementsRef,
+    Boolean(transcription?.status === "completed" && hasTimedWords)
+  );
+
   if (isLoading) {
     return <TranscriptPlaceholder title="Loading transcript" description="Reading the latest transcription state." />;
   }
@@ -370,18 +397,25 @@ function TranscriptPanel({ fileStatus, transcription, transcript, isLoading, isE
     return <TranscriptPlaceholder title="Transcription stopped" description="Start another transcription from Home to generate transcript text." />;
   }
 
-  const segments = normalizeTranscriptSegments(transcript);
   if (!segments.length) {
     return <TranscriptPlaceholder title="Transcript is empty" description="The completed transcription did not return any text." />;
   }
 
   return (
     <section className="scr-transcript" aria-label="Transcript">
-      {segments.map((segment) => (
+      {segments.map((segment, index) => (
         <article className="scr-transcript-segment" key={segment.id || `${segment.start}-${segment.end}`}>
           {segment.speaker ? <span className="scr-transcript-speaker">{segment.speaker}</span> : null}
           <time className="scr-transcript-time">{formatSegmentTime(segment.start)}</time>
-          <p className="scr-transcript-text">{segment.text}</p>
+          <p
+            ref={(element) => {
+              textElementsRef.current[index] = element;
+            }}
+            className="scr-transcript-text"
+            data-transcript-text
+          >
+            {segment.text}
+          </p>
         </article>
       ))}
     </section>
@@ -401,10 +435,11 @@ type StreamingAudioPlayerProps = {
   fileId: string;
   durationSeconds: number | null;
   title: string;
+  playbackSync: PlaybackSync;
   onDurationChange?: (duration: number) => void;
 };
 
-function StreamingAudioPlayer({ fileId, durationSeconds, title, onDurationChange }: StreamingAudioPlayerProps) {
+function StreamingAudioPlayer({ fileId, durationSeconds, title, playbackSync, onDurationChange }: StreamingAudioPlayerProps) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const { token } = useAuth();
   const [isPlaying, setIsPlaying] = useState(false);
@@ -420,6 +455,24 @@ function StreamingAudioPlayer({ fileId, durationSeconds, title, onDurationChange
     if (!token) return;
     document.cookie = `scriberr_access_token=${encodeURIComponent(token)}; path=/; SameSite=Lax`;
   }, [token]);
+
+  useEffect(() => {
+    playbackSync.publish({ currentTime: 0, isPlaying: false });
+    return () => playbackSync.publish({ isPlaying: false });
+  }, [fileId, playbackSync]);
+
+  useEffect(() => {
+    if (!isPlaying) return;
+    let frameId = 0;
+    const publishFrame = () => {
+      const audio = audioRef.current;
+      if (!audio || audio.paused || audio.ended) return;
+      playbackSync.publish({ currentTime: audio.currentTime, isPlaying: true });
+      frameId = window.requestAnimationFrame(publishFrame);
+    };
+    frameId = window.requestAnimationFrame(publishFrame);
+    return () => window.cancelAnimationFrame(frameId);
+  }, [isPlaying, playbackSync]);
 
   const streamUrl = `/api/v1/files/${fileId}/audio`;
   const progress = duration > 0 ? currentTime / duration : 0;
@@ -437,9 +490,16 @@ function StreamingAudioPlayer({ fileId, durationSeconds, title, onDurationChange
   const handleSeek = (event: ChangeEvent<HTMLInputElement>) => {
     const nextTime = Number(event.currentTarget.value);
     setCurrentTime(nextTime);
+    playbackSync.publish({ currentTime: nextTime, isPlaying });
     if (audioRef.current) {
       audioRef.current.currentTime = nextTime;
     }
+  };
+
+  const handleTimeUpdate = (event: SyntheticEvent<HTMLAudioElement>) => {
+    const nextTime = event.currentTarget.currentTime;
+    setCurrentTime(nextTime);
+    playbackSync.publish({ currentTime: nextTime, isPlaying: !event.currentTarget.paused });
   };
 
   return (
@@ -474,10 +534,19 @@ function StreamingAudioPlayer({ fileId, durationSeconds, title, onDurationChange
           }
           setHasError(false);
         }}
-        onTimeUpdate={(event) => setCurrentTime(event.currentTarget.currentTime)}
-        onPlay={() => setIsPlaying(true)}
-        onPause={() => setIsPlaying(false)}
-        onEnded={() => setIsPlaying(false)}
+        onTimeUpdate={handleTimeUpdate}
+        onPlay={(event) => {
+          setIsPlaying(true);
+          playbackSync.publish({ currentTime: event.currentTarget.currentTime, isPlaying: true });
+        }}
+        onPause={(event) => {
+          setIsPlaying(false);
+          playbackSync.publish({ currentTime: event.currentTarget.currentTime, isPlaying: false });
+        }}
+        onEnded={(event) => {
+          setIsPlaying(false);
+          playbackSync.publish({ currentTime: event.currentTarget.currentTime, isPlaying: false });
+        }}
         onError={() => setHasError(true)}
       />
     </div>
@@ -490,11 +559,40 @@ function latestTranscriptionForFile(transcriptions: Transcription[], fileId: str
     .reduce<Transcription | undefined>((current, transcription) => preferVisibleTranscription(transcription, current), undefined);
 }
 
-function normalizeTranscriptSegments(transcript?: TranscriptionTranscript): TranscriptSegment[] {
+function buildTranscriptDisplaySegments(transcript?: TranscriptionTranscript): TranscriptDisplaySegment[] {
   if (!transcript) return [];
-  if (transcript.segments.length > 1) return transcript.segments.filter((segment) => segment.text.trim());
+  if (transcript.segments.length > 1) {
+    const words = transcript.words || [];
+    return transcript.segments.flatMap((segment, index) => {
+      const segmentWords = words.filter((word) => word.start < segment.end + 0.25 && word.end > segment.start - 0.25);
+      const segmentText = segment.text.trim();
+      const textOffsets = segmentText ? computeWordOffsetsInText(segmentText, segmentWords) : [];
+      const computed = computeWordOffsets(segmentWords);
+      const useSegmentText = Boolean(segmentText && (!segmentWords.length || textOffsets.length > 0));
+      const text = useSegmentText ? segmentText : computed.fullText;
+      if (!text) return [];
+      return [{
+        id: segment.id || `segment-${index}`,
+        start: segment.start,
+        end: segment.end,
+        speaker: segment.speaker || segmentWords[0]?.speaker,
+        text,
+        offsets: useSegmentText ? textOffsets : computed.offsets,
+      }];
+    });
+  }
   if (transcript.words.length > 0) return chunkWordsIntoDisplaySegments(transcript.words);
-  if (transcript.segments.length === 1 && transcript.segments[0].text.trim()) return transcript.segments;
+  if (transcript.segments.length === 1 && transcript.segments[0].text.trim()) {
+    const segment = transcript.segments[0];
+    return [{
+      id: segment.id || "segment-0",
+      start: segment.start,
+      end: segment.end,
+      speaker: segment.speaker,
+      text: segment.text.trim(),
+      offsets: [],
+    }];
+  }
   const text = transcript.text.trim();
   if (!text) return [];
   return [{
@@ -502,25 +600,27 @@ function normalizeTranscriptSegments(transcript?: TranscriptionTranscript): Tran
     start: 0,
     end: 0,
     text,
+    offsets: [],
   }];
 }
 
-function chunkWordsIntoDisplaySegments(words: TranscriptWord[]): TranscriptSegment[] {
-  const segments: TranscriptSegment[] = [];
+function chunkWordsIntoDisplaySegments(words: TranscriptWord[]): TranscriptDisplaySegment[] {
+  const segments: TranscriptDisplaySegment[] = [];
   let current: TranscriptWord[] = [];
 
   const flush = () => {
     if (!current.length) return;
     const first = current[0];
     const last = current[current.length - 1];
-    const text = current.map((word) => word.word.trim()).filter(Boolean).join(" ");
-    if (text) {
+    const computed = computeWordOffsets(current);
+    if (computed.fullText) {
       segments.push({
         id: `word-segment-${segments.length}`,
         start: first.start,
         end: last.end,
         speaker: first.speaker,
-        text,
+        text: computed.fullText,
+        offsets: computed.offsets,
       });
     }
     current = [];

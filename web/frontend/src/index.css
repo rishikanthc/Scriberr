@@ -338,7 +338,7 @@
     line-height: 1.5;
   }
 
-  /* Applied to TranscriptView for Lora support */
+  /* Reading font utility */
   .font-reading {
     font-family: var(--font-reading);
     font-size: 1.125rem;

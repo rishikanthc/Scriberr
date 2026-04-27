@@ -277,6 +277,19 @@
   letter-spacing: 0;
   line-height: var(--scr-transcript-row-line);
   margin: 0;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: default;
+  touch-action: pan-y pinch-zoom;
+  user-select: text;
+}
+
+::highlight(scriberr-karaoke-word) {
+  background-color: color-mix(in srgb, var(--scr-brand-muted) 58%, transparent);
+  color: var(--scr-brand-ink);
+  text-decoration: underline;
+  text-decoration-color: var(--scr-brand-solid);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 0.18em;
 }
 
 .scr-player-shell {
