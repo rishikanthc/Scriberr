@@ -46,8 +46,12 @@ dev: ## Start development environment with Air (backend) and Vite (frontend)
 		SCRIBERR_FRONTEND_DEV_SERVER=http://127.0.0.1:5173 air & \
 	fi; \
 	\
-	echo "⚛️  Starting React frontend (Vite)..."; \
-	cd web/frontend && npm run dev -- --host 127.0.0.1 --port 5173 --strictPort & \
+	if command -v lsof >/dev/null 2>&1 && lsof -nP -iTCP:5173 -sTCP:LISTEN >/dev/null 2>&1; then \
+		echo "⚛️  React frontend already running at http://127.0.0.1:5173; reusing it."; \
+	else \
+		echo "⚛️  Starting React frontend (Vite)..."; \
+		cd web/frontend && npm run dev -- --host 127.0.0.1 --port 5173 --strictPort & \
+	fi; \
 	\
 	wait
 
