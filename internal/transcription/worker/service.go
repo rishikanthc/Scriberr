@@ -35,6 +35,10 @@ type EventPublisher interface {
 	PublishStatus(ctx context.Context, event StatusEvent)
 }
 
+type CompletionObserver interface {
+	EnqueueForTranscription(ctx context.Context, job *models.TranscriptionJob) error
+}
+
 type StatusEvent struct {
 	Name     string
 	JobID    string
@@ -72,10 +76,11 @@ type Config struct {
 }
 
 type Service struct {
-	repo      repository.JobRepository
-	processor Processor
-	events    EventPublisher
-	cfg       Config
+	repo       repository.JobRepository
+	processor  Processor
+	events     EventPublisher
+	completion CompletionObserver
+	cfg        Config
 
 	mu      sync.Mutex
 	started bool
@@ -104,6 +109,10 @@ func NewService(repo repository.JobRepository, processor Processor, cfg Config) 
 
 func (s *Service) SetEventPublisher(events EventPublisher) {
 	s.events = events
+}
+
+func (s *Service) SetCompletionObserver(completion CompletionObserver) {
+	s.completion = completion
 }
 
 func normalizeConfig(cfg Config) Config {
@@ -310,6 +319,12 @@ func (s *Service) claimAndProcess(workerID string) error {
 		if err := s.repo.CompleteTranscription(context.Background(), job.ID, result.TranscriptJSON, result.OutputJSONPath, nonZeroTime(result.CompletedAt)); err != nil {
 			return err
 		}
+		completedJob := *job
+		completedJob.Status = models.StatusCompleted
+		completedJob.Transcript = &result.TranscriptJSON
+		if err := s.enqueueCompletionWork(context.Background(), &completedJob); err != nil {
+			logger.Warn("Failed to enqueue transcription completion work", "job_id", job.ID, "error", err)
+		}
 		s.publishTerminalStatus(context.Background(), job, models.StatusCompleted)
 		return nil
 	case models.StatusFailed:
@@ -327,6 +342,13 @@ func (s *Service) claimAndProcess(workerID string) error {
 	default:
 		return fmt.Errorf("unsupported worker processor result status %q", result.Status)
 	}
+}
+
+func (s *Service) enqueueCompletionWork(ctx context.Context, job *models.TranscriptionJob) error {
+	if s.completion == nil {
+		return nil
+	}
+	return s.completion.EnqueueForTranscription(ctx, job)
 }
 
 func (s *Service) publishTerminalStatus(ctx context.Context, job *models.TranscriptionJob, status models.JobStatus) {

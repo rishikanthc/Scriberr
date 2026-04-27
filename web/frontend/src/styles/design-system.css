@@ -157,11 +157,36 @@
 
 .scr-audio-summary {
   display: grid;
-  gap: var(--scr-space-4);
-  max-width: 760px;
+  gap: var(--scr-space-5);
+  max-width: 920px;
   color: var(--scr-text-primary);
   font-size: 1rem;
   line-height: var(--scr-line-relaxed);
+}
+
+.scr-summary-heading {
+  display: flex;
+  align-items: center;
+  gap: var(--scr-space-3);
+  color: var(--scr-text-primary);
+}
+
+.scr-summary-heading h2 {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  line-height: var(--scr-line-tight);
+}
+
+.scr-summary-body {
+  margin: 0;
+  padding-left: calc(18px + var(--scr-space-3));
+  color: var(--scr-text-primary);
+  font-size: 1.0625rem;
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1.68;
 }
 
 .scr-transcript {

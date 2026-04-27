@@ -1,13 +1,16 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ChangeEvent } from "react";
 import { Link, useParams } from "react-router-dom";
-import { CalendarDays, Clock3, MoreHorizontal, Pause, Pencil, Play } from "lucide-react";
+import { AlignJustify, CalendarDays, Clock3, MoreHorizontal, Pause, Pencil, Play } from "lucide-react";
 import { Sidebar } from "@/features/home/components/HomePage";
 import { useAuth } from "@/features/auth/hooks/useAuth";
+import { useToast } from "@/components/ui/toast";
 import { useFile, useUpdateFile } from "@/features/files/hooks/useFiles";
 import type { FileStatus } from "@/features/files/api/filesApi";
+import type { TranscriptionSummary } from "@/features/transcription/api/summariesApi";
 import type { TranscriptSegment, TranscriptWord, Transcription, TranscriptionTranscript } from "@/features/transcription/api/transcriptionsApi";
 import { useTranscriptionDetailEvents } from "@/features/transcription/hooks/useTranscriptionDetailEvents";
 import { useTranscriptionListEvents } from "@/features/transcription/hooks/useTranscriptionListEvents";
+import { useTranscriptionSummary } from "@/features/transcription/hooks/useTranscriptionSummaries";
 import { useTranscriptionTranscript, useTranscriptions } from "@/features/transcription/hooks/useTranscriptions";
 
 type DetailTab = "summary" | "transcript";
@@ -184,6 +187,21 @@ export function AudioDetailView() {
 }
 
 function SummaryPanel({ transcription }: { transcription?: Transcription }) {
+  const { toast } = useToast();
+  const warnedSummaryId = useRef<string | null>(null);
+  const summaryQuery = useTranscriptionSummary(transcription?.id, Boolean(transcription));
+  const summary = summaryQuery.data;
+
+  useEffect(() => {
+    if (!summary || summary.status !== "completed" || !summary.transcript_truncated) return;
+    if (warnedSummaryId.current === summary.id) return;
+    warnedSummaryId.current = summary.id;
+    toast({
+      title: "Transcript truncated for summary",
+      description: "The transcript exceeded the small model context window, so the summary used the first fitting portion.",
+    });
+  }, [summary, toast]);
+
   if (!transcription) {
     return (
       <section className="scr-audio-summary" aria-label="Summary">
@@ -192,9 +210,73 @@ function SummaryPanel({ transcription }: { transcription?: Transcription }) {
     );
   }
 
+  if (summaryQuery.isLoading) {
+    return (
+      <section className="scr-audio-summary" aria-label="Summary">
+        <p>Checking summary status.</p>
+      </section>
+    );
+  }
+
+  if (summaryQuery.isError) {
+    return (
+      <section className="scr-audio-summary" aria-label="Summary">
+        <p>Summary could not be loaded.</p>
+      </section>
+    );
+  }
+
+  if (summary?.status === "completed" && summary.content.trim()) {
+    return <SummaryOverview summary={summary} />;
+  }
+
+  if (summary?.status === "pending" || summary?.status === "processing") {
+    return (
+      <section className="scr-audio-summary" aria-label="Summary">
+        <p>Summary is being generated.</p>
+      </section>
+    );
+  }
+
+  if (summary?.status === "failed") {
+    return (
+      <section className="scr-audio-summary" aria-label="Summary">
+        <p>{summary.error || "Summary generation failed."}</p>
+      </section>
+    );
+  }
+
+  if (transcription.status === "queued" || transcription.status === "processing") {
+    return (
+      <section className="scr-audio-summary" aria-label="Summary">
+        <p>Summary will be generated when the transcript is ready.</p>
+      </section>
+    );
+  }
+
+  if (transcription.status !== "completed") {
+    return (
+      <section className="scr-audio-summary" aria-label="Summary">
+        <p>Summary is not available for this transcription.</p>
+      </section>
+    );
+  }
+
   return (
     <section className="scr-audio-summary" aria-label="Summary">
       <p>Summary is not available yet.</p>
+    </section>
+  );
+}
+
+function SummaryOverview({ summary }: { summary: TranscriptionSummary }) {
+  return (
+    <section className="scr-audio-summary" aria-label="Summary">
+      <div className="scr-summary-heading">
+        <AlignJustify size={18} aria-hidden="true" />
+        <h2>Overview</h2>
+      </div>
+      <p className="scr-summary-body">{summary.content}</p>
     </section>
   );
 }

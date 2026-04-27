@@ -76,18 +76,24 @@ type SummarySetting struct {
 
 // Summary stores a generated summary linked to a transcription.
 type Summary struct {
-	ID              string    `json:"id" gorm:"primaryKey;type:varchar(36)"`
-	TranscriptionID string    `json:"transcription_id" gorm:"type:varchar(36);not null;index"`
-	UserID          uint      `json:"user_id" gorm:"not null;index;default:1"`
-	TemplateID      *string   `json:"template_id,omitempty" gorm:"type:varchar(36);index"`
-	Title           *string   `json:"title,omitempty" gorm:"type:text"`
-	Content         string    `json:"content" gorm:"type:text;not null"`
-	Model           string    `json:"model,omitempty" gorm:"column:model_name;type:varchar(255)"`
-	Provider        string    `json:"provider,omitempty" gorm:"type:varchar(50)"`
-	Status          string    `json:"status,omitempty" gorm:"type:varchar(20);not null;default:'completed'"`
-	ErrorMessage    *string   `json:"error_message,omitempty" gorm:"type:text"`
-	CreatedAt       time.Time `json:"created_at" gorm:"autoCreateTime"`
-	UpdatedAt       time.Time `json:"updated_at" gorm:"autoUpdateTime"`
+	ID                  string     `json:"id" gorm:"primaryKey;type:varchar(36)"`
+	TranscriptionID     string     `json:"transcription_id" gorm:"type:varchar(36);not null;index"`
+	UserID              uint       `json:"user_id" gorm:"not null;index;default:1"`
+	TemplateID          *string    `json:"template_id,omitempty" gorm:"type:varchar(36);index"`
+	Title               *string    `json:"title,omitempty" gorm:"type:text"`
+	Content             string     `json:"content" gorm:"type:text;not null"`
+	Model               string     `json:"model,omitempty" gorm:"column:model_name;type:varchar(255)"`
+	Provider            string     `json:"provider,omitempty" gorm:"type:varchar(50)"`
+	Status              string     `json:"status,omitempty" gorm:"type:varchar(20);not null;default:'completed'"`
+	ErrorMessage        *string    `json:"error_message,omitempty" gorm:"type:text"`
+	TranscriptTruncated bool       `json:"transcript_truncated" gorm:"not null;default:false"`
+	ContextWindow       int        `json:"context_window" gorm:"not null;default:0"`
+	InputCharacters     int        `json:"input_characters" gorm:"not null;default:0"`
+	StartedAt           *time.Time `json:"started_at,omitempty"`
+	CompletedAt         *time.Time `json:"completed_at,omitempty"`
+	FailedAt            *time.Time `json:"failed_at,omitempty"`
+	CreatedAt           time.Time  `json:"created_at" gorm:"autoCreateTime"`
+	UpdatedAt           time.Time  `json:"updated_at" gorm:"autoUpdateTime"`
 
 	Transcription TranscriptionJob `json:"transcription,omitempty" gorm:"foreignKey:TranscriptionID;references:ID;constraint:OnDelete:CASCADE"`
 }

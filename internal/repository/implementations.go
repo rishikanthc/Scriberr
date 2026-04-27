@@ -719,6 +719,11 @@ type SummaryRepository interface {
 	GetSettingsByUser(ctx context.Context, userID uint) (*models.SummarySetting, error)
 	SaveSettingsByUser(ctx context.Context, userID uint, settings *models.SummarySetting) error
 	SaveSummary(ctx context.Context, summary *models.Summary) error
+	EnqueueAutomaticSummary(ctx context.Context, transcriptionID string, userID uint, model string, provider string) (*models.Summary, bool, error)
+	ClaimNextPendingSummary(ctx context.Context, now time.Time) (*models.Summary, error)
+	CompleteSummary(ctx context.Context, id string, content string, truncated bool, contextWindow int, inputCharacters int, completedAt time.Time) error
+	FailSummary(ctx context.Context, id string, message string, failedAt time.Time) error
+	RecoverProcessingSummaries(ctx context.Context) (int64, error)
 	GetLatestSummary(ctx context.Context, transcriptionID string) (*models.Summary, error)
 	DeleteByTranscriptionID(ctx context.Context, transcriptionID string) error
 }
@@ -790,6 +795,88 @@ func (r *summaryRepository) SaveSettingsByUser(ctx context.Context, userID uint,
 
 func (r *summaryRepository) SaveSummary(ctx context.Context, summary *models.Summary) error {
 	return r.db.WithContext(ctx).Create(summary).Error
+}
+
+func (r *summaryRepository) EnqueueAutomaticSummary(ctx context.Context, transcriptionID string, userID uint, model string, provider string) (*models.Summary, bool, error) {
+	var existing models.Summary
+	err := r.db.WithContext(ctx).
+		Where("transcription_id = ? AND user_id = ? AND status IN ?", transcriptionID, userID, []string{"pending", "processing", "completed"}).
+		Order("created_at DESC").
+		First(&existing).Error
+	if err == nil {
+		return &existing, false, nil
+	}
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, false, err
+	}
+	summary := &models.Summary{
+		TranscriptionID: transcriptionID,
+		UserID:          userID,
+		Content:         "",
+		Model:           model,
+		Provider:        provider,
+		Status:          "pending",
+	}
+	if err := r.db.WithContext(ctx).Create(summary).Error; err != nil {
+		return nil, false, err
+	}
+	return summary, true, nil
+}
+
+func (r *summaryRepository) ClaimNextPendingSummary(ctx context.Context, now time.Time) (*models.Summary, error) {
+	var summary models.Summary
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("status = ?", "pending").Order("created_at ASC").First(&summary).Error; err != nil {
+			return err
+		}
+		result := tx.Model(&models.Summary{}).
+			Where("id = ? AND status = ?", summary.ID, "pending").
+			Updates(map[string]any{"status": "processing", "started_at": now})
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected == 0 {
+			return gorm.ErrRecordNotFound
+		}
+		summary.Status = "processing"
+		summary.StartedAt = &now
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &summary, nil
+}
+
+func (r *summaryRepository) CompleteSummary(ctx context.Context, id string, content string, truncated bool, contextWindow int, inputCharacters int, completedAt time.Time) error {
+	return r.db.WithContext(ctx).Model(&models.Summary{}).
+		Where("id = ? AND status = ?", id, "processing").
+		Updates(map[string]any{
+			"content":              content,
+			"status":               "completed",
+			"transcript_truncated": truncated,
+			"context_window":       contextWindow,
+			"input_characters":     inputCharacters,
+			"completed_at":         completedAt,
+			"error_message":        nil,
+		}).Error
+}
+
+func (r *summaryRepository) FailSummary(ctx context.Context, id string, message string, failedAt time.Time) error {
+	return r.db.WithContext(ctx).Model(&models.Summary{}).
+		Where("id = ? AND status = ?", id, "processing").
+		Updates(map[string]any{
+			"status":        "failed",
+			"error_message": message,
+			"failed_at":     failedAt,
+		}).Error
+}
+
+func (r *summaryRepository) RecoverProcessingSummaries(ctx context.Context) (int64, error) {
+	result := r.db.WithContext(ctx).Model(&models.Summary{}).
+		Where("status = ?", "processing").
+		Update("status", "pending")
+	return result.RowsAffected, result.Error
 }
 
 func (r *summaryRepository) GetLatestSummary(ctx context.Context, transcriptionID string) (*models.Summary, error) {

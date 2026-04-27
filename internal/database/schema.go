@@ -64,6 +64,7 @@ func createTargetSchema(tx *gorm.DB) error {
 		`CREATE INDEX IF NOT EXISTS idx_transcriptions_claim_expires_at ON transcriptions(claim_expires_at)`,
 		`CREATE INDEX IF NOT EXISTS idx_chat_messages_session_created_at ON chat_messages(chat_session_id, created_at ASC)`,
 		`CREATE INDEX IF NOT EXISTS idx_summaries_transcription_created_at ON summaries(transcription_id, created_at DESC)`,
+		`CREATE INDEX IF NOT EXISTS idx_summaries_status_created_at ON summaries(status, created_at ASC)`,
 		`CREATE INDEX IF NOT EXISTS idx_notes_transcription_created_at ON notes(transcription_id, created_at DESC)`,
 	}
 	for _, stmt := range statements {
@@ -142,6 +143,7 @@ var expectedSQLiteIndexes = map[string]expectedSQLiteIndex{
 	"idx_summaries_transcription_id":                    {Table: "summaries", Columns: []string{"transcription_id"}, Unique: false},
 	"idx_summaries_user_id":                             {Table: "summaries", Columns: []string{"user_id"}, Unique: false},
 	"idx_summaries_template_id":                         {Table: "summaries", Columns: []string{"template_id"}, Unique: false},
+	"idx_summaries_status_created_at":                   {Table: "summaries", Columns: []string{"status", "created_at"}, Unique: false},
 	"idx_notes_user_id":                                 {Table: "notes", Columns: []string{"user_id"}, Unique: false},
 	"idx_notes_transcription_id":                        {Table: "notes", Columns: []string{"transcription_id"}, Unique: false},
 	"idx_notes_deleted_at":                              {Table: "notes", Columns: []string{"deleted_at"}, Unique: false},

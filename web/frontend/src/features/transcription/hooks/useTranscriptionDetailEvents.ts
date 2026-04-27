@@ -2,12 +2,14 @@ import { useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import type { TranscriptionStatus, TranscriptionsResponse } from "@/features/transcription/api/transcriptionsApi";
+import { transcriptionSummaryQueryKey } from "@/features/transcription/hooks/useTranscriptionSummaries";
 import { transcriptionTranscriptQueryKey, transcriptionsQueryKey } from "@/features/transcription/hooks/useTranscriptions";
 
 type TranscriptionEvent = {
   name: string;
   data: {
     id?: string;
+    transcription_id?: string;
     status?: string;
     progress?: number;
     stage?: string;
@@ -64,7 +66,9 @@ export function useTranscriptionDetailEvents(transcriptionId: string | undefined
 
           for (const chunk of chunks) {
             const parsed = parseSSEChunk(chunk);
-            if (!parsed || parsed.data.id !== transcriptionId) continue;
+            if (!parsed) continue;
+            const eventTranscriptionId = parsed.data.transcription_id || parsed.data.id;
+            if (eventTranscriptionId !== transcriptionId) continue;
 
             queryClient.setQueryData<TranscriptionsResponse>(transcriptionsQueryKey, (current) => {
               if (!current) return current;
@@ -85,6 +89,9 @@ export function useTranscriptionDetailEvents(transcriptionId: string | undefined
 
             if (parsed.name === "transcription.completed" || parsed.data.status === "completed") {
               queryClient.invalidateQueries({ queryKey: transcriptionTranscriptQueryKey(transcriptionId) });
+            }
+            if (parsed.name.startsWith("summary.")) {
+              queryClient.invalidateQueries({ queryKey: transcriptionSummaryQueryKey(transcriptionId) });
             }
           }
         }

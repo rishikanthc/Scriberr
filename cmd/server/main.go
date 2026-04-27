@@ -15,6 +15,7 @@ import (
 	"scriberr/internal/config"
 	"scriberr/internal/database"
 	"scriberr/internal/repository"
+	"scriberr/internal/summarization"
 	"scriberr/internal/transcription/engineprovider"
 	"scriberr/internal/transcription/orchestrator"
 	"scriberr/internal/transcription/worker"
@@ -100,6 +101,8 @@ func main() {
 	// Initialize repositories
 	logger.Startup("repository", "Initializing repositories")
 	jobRepo := repository.NewJobRepository(database.DB)
+	summaryRepo := repository.NewSummaryRepository(database.DB)
+	llmConfigRepo := repository.NewLLMConfigRepository(database.DB)
 
 	// Initialize local engine provider. This must not download models at startup.
 	logger.Startup("engine", "Initializing local engine provider")
@@ -125,11 +128,16 @@ func main() {
 		PollInterval: cfg.Worker.PollInterval,
 		LeaseTimeout: cfg.Worker.LeaseTimeout,
 	})
+	summaryService := summarization.NewService(summaryRepo, llmConfigRepo, jobRepo, summarization.Config{
+		PollInterval: 2 * time.Second,
+	})
 
 	// Initialize API handlers
 	handler := api.NewHandler(cfg, authService, queueService, providerRegistry)
 	processor.Events = handler
 	queueService.SetEventPublisher(handler)
+	queueService.SetCompletionObserver(summaryService)
+	summaryService.SetEventPublisher(handler)
 
 	// Set up router
 	router := api.SetupRoutes(handler, authService)
@@ -138,6 +146,10 @@ func main() {
 	logger.Startup("worker", "Starting durable transcription workers")
 	if err := queueService.Start(context.Background()); err != nil {
 		logger.Error("Failed to start transcription workers", "error", err)
+		os.Exit(1)
+	}
+	if err := summaryService.Start(context.Background()); err != nil {
+		logger.Error("Failed to start summary workers", "error", err)
 		os.Exit(1)
 	}
 
@@ -182,6 +194,10 @@ func main() {
 
 	if err := queueService.Stop(ctx); err != nil {
 		logger.Error("Failed to stop transcription workers", "error", err)
+		shutdownFailed = true
+	}
+	if err := summaryService.Stop(ctx); err != nil {
+		logger.Error("Failed to stop summary workers", "error", err)
 		shutdownFailed = true
 	}
 

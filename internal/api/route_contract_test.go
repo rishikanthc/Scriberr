@@ -50,6 +50,7 @@ func TestCanonicalRouteRegistration(t *testing.T) {
 		"DELETE /api/v1/transcriptions/:id",
 		"POST /api/v1/transcriptions/:idAction",
 		"GET /api/v1/transcriptions/:id/transcript",
+		"GET /api/v1/transcriptions/:id/summary",
 		"GET /api/v1/transcriptions/:id/audio",
 		"GET /api/v1/transcriptions/:id/events",
 		"GET /api/v1/transcriptions/:id/logs",

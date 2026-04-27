@@ -11,6 +11,7 @@ import (
 	"scriberr/internal/auth"
 	"scriberr/internal/config"
 	"scriberr/internal/database"
+	"scriberr/internal/summarization"
 	"scriberr/internal/transcription/engineprovider"
 	"scriberr/internal/transcription/orchestrator"
 	"scriberr/internal/transcription/worker"
@@ -68,6 +69,20 @@ func (h *Handler) Publish(_ context.Context, event orchestrator.ProgressEvent) {
 
 func (h *Handler) PublishStatus(_ context.Context, event worker.StatusEvent) {
 	h.publishTranscriptionStatus(event.Name, event.JobID, string(event.Status), event.Progress, event.Stage)
+}
+
+func (h *Handler) PublishSummaryStatus(_ context.Context, event summarization.StatusEvent) {
+	if h == nil {
+		return
+	}
+	payload := gin.H{
+		"id":                   event.SummaryID,
+		"transcription_id":     "tr_" + event.TranscriptionID,
+		"status":               event.Status,
+		"transcript_truncated": event.Truncated,
+	}
+	h.publishTranscriptionEvent(event.Name, "tr_"+event.TranscriptionID, payload)
+	h.publishEvent(event.Name, payload)
 }
 
 func (h *Handler) publishTranscriptionStatus(name, jobID, status string, progress float64, stage string) {
@@ -146,6 +161,7 @@ func SetupRoutes(handler *Handler, _ *auth.AuthService) *gin.Engine {
 			transcriptions.DELETE("/:id", handler.deleteTranscription)
 			transcriptions.POST("/:idAction", handler.idempotencyMiddleware(), handler.transcriptionCommand)
 			transcriptions.GET("/:id/transcript", handler.getTranscript)
+			transcriptions.GET("/:id/summary", handler.getTranscriptionSummary)
 			transcriptions.GET("/:id/audio", handler.streamTranscriptionAudio)
 			transcriptions.GET("/:id/events", handler.streamTranscriptionEvents)
 			transcriptions.GET("/:id/logs", handler.getTranscriptionLogs)
