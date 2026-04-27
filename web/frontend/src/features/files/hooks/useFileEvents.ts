@@ -21,6 +21,14 @@ export function useFileEvents(onEvent?: (event: FileEvent) => void) {
     if (!token) return;
 
     const abortController = new AbortController();
+    let reconnectTimer: number | undefined;
+
+    const scheduleReconnect = () => {
+      if (abortController.signal.aborted) return;
+      reconnectTimer = window.setTimeout(() => {
+        void connect();
+      }, 1500);
+    };
 
     const connect = async () => {
       try {
@@ -29,7 +37,12 @@ export function useFileEvents(onEvent?: (event: FileEvent) => void) {
           signal: abortController.signal,
         });
 
-        if (!response.ok || !response.body) return;
+        if (!response.ok || !response.body) {
+          scheduleReconnect();
+          return;
+        }
+
+        queryClient.invalidateQueries({ queryKey: filesQueryKey });
 
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
@@ -51,14 +64,20 @@ export function useFileEvents(onEvent?: (event: FileEvent) => void) {
             onEvent?.(parsed);
           }
         }
+
+        scheduleReconnect();
       } catch (error) {
         if ((error as Error).name === "AbortError") return;
+        scheduleReconnect();
       }
     };
 
     connect();
 
-    return () => abortController.abort();
+    return () => {
+      abortController.abort();
+      if (reconnectTimer) window.clearTimeout(reconnectTimer);
+    };
   }, [token, queryClient, onEvent]);
 }
 
