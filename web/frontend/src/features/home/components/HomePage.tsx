@@ -1,4 +1,5 @@
-import { Check, ChevronDown, Clock3, FileAudio, Home, Mic, Search, UploadCloud, Video } from "lucide-react";
+import { Check, ChevronDown, Clock3, FileAudio, Home, Mic, Search, StopCircle, Trash2, UploadCloud, Video, Wand2 } from "lucide-react";
+import { WandAdvancedIcon } from "@/components/icons/WandAdvancedIcon";
 import { EmptyState } from "@/shared/ui/EmptyState";
 import { AppButton, IconButton } from "@/shared/ui/Button";
 
@@ -66,8 +67,10 @@ function TopBar() {
 }
 
 function RecordingCard({ recording }: { recording: Recording }) {
+  const isQueued = recording.status === "queued";
+
   return (
-    <article className="scr-recording-card">
+    <article className="scr-recording-card" tabIndex={0}>
       <div className="scr-recording-icon">
         <FileAudio size={24} aria-hidden="true" />
       </div>
@@ -75,8 +78,26 @@ function RecordingCard({ recording }: { recording: Recording }) {
         <h2 className="scr-recording-title">{recording.title}</h2>
         <p className="scr-recording-date">{recording.date}</p>
       </div>
-      <div className="scr-recording-status" data-status={recording.status} aria-label={recording.status}>
-        {recording.status === "completed" ? <Check size={18} aria-hidden="true" /> : <Clock3 size={16} aria-hidden="true" />}
+      <div className="scr-recording-meta-actions">
+        <div className="scr-recording-actions" aria-label={`${recording.title} actions`}>
+          <button className="scr-recording-action" type="button" aria-label="Transcribe" title="Transcribe">
+            <Wand2 size={16} aria-hidden="true" />
+          </button>
+          <button className="scr-recording-action" type="button" aria-label="Transcribe advanced" title="Transcribe advanced">
+            <WandAdvancedIcon className="scr-recording-action-icon" strokeWidth={2} />
+          </button>
+          <button
+            className="scr-recording-action scr-recording-action-danger"
+            type="button"
+            aria-label={isQueued ? "Stop transcription" : "Delete recording"}
+            title={isQueued ? "Stop transcription" : "Delete"}
+          >
+            {isQueued ? <StopCircle size={16} aria-hidden="true" /> : <Trash2 size={16} aria-hidden="true" />}
+          </button>
+        </div>
+        <div className="scr-recording-status" data-status={recording.status} aria-label={recording.status}>
+          {recording.status === "completed" ? <Check size={18} aria-hidden="true" /> : <Clock3 size={16} aria-hidden="true" />}
+        </div>
       </div>
     </article>
   );
@@ -95,10 +116,6 @@ export function HomePage() {
             <div className="scr-feed-toolbar" aria-label="Recording view controls">
               <button className="scr-feed-select" type="button">
                 Yesterday, Apr 25
-                <ChevronDown size={13} aria-hidden="true" />
-              </button>
-              <button className="scr-feed-select" type="button">
-                For you
                 <ChevronDown size={13} aria-hidden="true" />
               </button>
             </div>

@@ -45,6 +45,7 @@
   --scr-border-subtle: rgba(16, 24, 40, 0.08);
   --scr-border-strong: rgba(16, 24, 40, 0.16);
   --scr-shadow-card: 0 1px 2px rgba(16, 24, 40, 0.06), 0 2px 8px rgba(16, 24, 40, 0.04);
+  --scr-shadow-card-hover: 0 2px 6px rgba(16, 24, 40, 0.07), 0 12px 24px rgba(16, 24, 40, 0.07);
   --scr-shadow-float: 0 10px 30px rgba(16, 24, 40, 0.08);
 
   --scr-space-1: 0.25rem;
@@ -78,6 +79,7 @@
   --scr-border-subtle: rgba(255, 255, 255, 0.09);
   --scr-border-strong: rgba(255, 255, 255, 0.16);
   --scr-shadow-card: none;
+  --scr-shadow-card-hover: 0 14px 28px rgba(0, 0, 0, 0.46);
   --scr-shadow-float: 0 16px 36px rgba(0, 0, 0, 0.5);
   --scr-brand-muted: color-mix(in srgb, var(--scr-brand-solid) 18%, transparent);
   --scr-brand-border: color-mix(in srgb, var(--scr-brand-solid) 35%, transparent);
@@ -216,7 +218,7 @@
 
 .scr-feed-toolbar {
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: 1fr;
   align-items: center;
   width: min(100%, 960px);
   margin: 0 auto var(--scr-space-4);
@@ -265,7 +267,7 @@
 
 .scr-recording-card {
   display: grid;
-  grid-template-columns: 50px minmax(0, 1fr) 26px;
+  grid-template-columns: 50px minmax(0, 1fr) auto;
   align-items: center;
   gap: var(--scr-space-4);
   min-height: 74px;
@@ -273,7 +275,19 @@
   border-radius: var(--scr-radius-md);
   background: var(--scr-surface-raised);
   box-shadow: var(--scr-shadow-card);
+  cursor: pointer;
+  outline: none;
   padding: var(--scr-space-3) var(--scr-space-5);
+  transform: translateY(0);
+  transition: border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease, background-color 180ms ease;
+}
+
+.scr-recording-card:hover,
+.scr-recording-card:focus-visible,
+.scr-recording-card:focus-within {
+  border-color: var(--scr-brand-border);
+  box-shadow: var(--scr-shadow-card-hover);
+  transform: translateY(-2px);
 }
 
 .scr-recording-icon {
@@ -284,6 +298,14 @@
   border-radius: var(--scr-radius-sm);
   background: var(--scr-brand-muted);
   color: var(--scr-brand-solid);
+  transition: background-color 180ms ease, color 180ms ease, transform 180ms ease;
+}
+
+.scr-recording-card:hover .scr-recording-icon,
+.scr-recording-card:focus-visible .scr-recording-icon,
+.scr-recording-card:focus-within .scr-recording-icon {
+  background: color-mix(in srgb, var(--scr-brand-solid) 16%, transparent);
+  transform: scale(1.03);
 }
 
 .scr-recording-title {
@@ -293,7 +315,14 @@
   font-weight: 600;
   line-height: 1.25;
   text-overflow: ellipsis;
+  transition: color 180ms ease;
   white-space: nowrap;
+}
+
+.scr-recording-card:hover .scr-recording-title,
+.scr-recording-card:focus-visible .scr-recording-title,
+.scr-recording-card:focus-within .scr-recording-title {
+  color: var(--scr-brand-ink);
 }
 
 .scr-recording-date {
@@ -304,10 +333,83 @@
 
 .scr-recording-status {
   color: var(--scr-text-tertiary);
+  transition: opacity 160ms ease, transform 160ms ease;
 }
 
 .scr-recording-status[data-status="completed"] {
   color: var(--scr-color-success);
+}
+
+.scr-recording-meta-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 138px;
+}
+
+.scr-recording-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--scr-space-1);
+  border: 1px solid var(--scr-border-subtle);
+  border-radius: var(--scr-radius-sm);
+  background: color-mix(in srgb, var(--scr-surface-raised) 88%, transparent);
+  box-shadow: 0 4px 12px rgba(16, 24, 40, 0.08);
+  opacity: 0;
+  padding: 2px;
+  pointer-events: none;
+  transform: translateX(6px);
+  transition: opacity 160ms ease, transform 160ms ease, border-color 160ms ease;
+}
+
+.scr-recording-card:hover .scr-recording-actions,
+.scr-recording-card:focus-visible .scr-recording-actions,
+.scr-recording-card:focus-within .scr-recording-actions {
+  border-color: var(--scr-brand-border);
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateX(0);
+}
+
+.scr-recording-card:hover .scr-recording-status,
+.scr-recording-card:focus-visible .scr-recording-status,
+.scr-recording-card:focus-within .scr-recording-status {
+  opacity: 0;
+  transform: translateX(4px);
+}
+
+.scr-recording-action {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: var(--scr-radius-sm);
+  background: transparent;
+  color: var(--scr-text-secondary);
+  cursor: pointer;
+  transition: background-color 160ms ease, color 160ms ease, transform 120ms ease;
+}
+
+.scr-recording-action:hover,
+.scr-recording-action:focus-visible {
+  background: var(--scr-brand-muted);
+  color: var(--scr-brand-solid);
+}
+
+.scr-recording-action:active {
+  transform: scale(0.96);
+}
+
+.scr-recording-action-danger:hover,
+.scr-recording-action-danger:focus-visible {
+  background: color-mix(in srgb, var(--scr-color-danger) 10%, transparent);
+  color: var(--scr-color-danger);
+}
+
+.scr-recording-action-icon {
+  width: 16px;
+  height: 16px;
 }
 
 .scr-empty {
@@ -523,7 +625,7 @@
   }
 
   .scr-feed-toolbar {
-    grid-template-columns: 1fr auto;
+    grid-template-columns: 1fr;
   }
 
   .scr-feed-select:first-child {
