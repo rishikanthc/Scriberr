@@ -290,29 +290,16 @@ Completed tasks:
 - Ran the full backend test/vet baseline.
 - Ran focused race checks for repository queue claiming and worker recovery/cancellation paths.
 - Ran the opt-in `jfk.wav` real engine smoke path; the test passed with a documented external DNS/model-download skip.
-- Audited and refreshed public setup/troubleshooting docs to remove stale Python/WhisperX migration assumptions.
-- Audited Docker and compose setup for the local Go speech engine runtime, persistent model cache mounts, and worker/env defaults.
 - Removed stale transcription package architecture docs and replaced them with the active engine provider, orchestrator, and worker flow.
-- Verified compose YAML syntax for all checked-in compose variants without Docker installed locally.
+- Deferred Docker, compose, and deployment documentation updates by request.
 
 Artifacts:
 
-- `README.md`
-- `Dockerfile`
-- `Dockerfile.cuda`
-- `Dockerfile.cuda.12.9`
-- `docker-compose.yml`
-- `docker-compose.cuda.yml`
-- `docker-compose.blackwell.yml`
-- `docker-compose.build.yml`
-- `docker-compose.build.cuda.yml`
-- `docker-compose.build.blackwell.yml`
 - `internal/transcription/README.md`
 - `devnotes/engine-worker-sprint-tracker.md`
 
 Verification:
 
-- `ruby -e 'require "yaml"; ARGV.each { |f| YAML.load_file(f); puts "ok #{f}" }' docker-compose.yml docker-compose.cuda.yml docker-compose.blackwell.yml docker-compose.build.yml docker-compose.build.cuda.yml docker-compose.build.blackwell.yml` passed.
 - `GOCACHE=/tmp/scriberr-go-cache go test ./internal/transcription/...` passed.
 - `GOCACHE=/tmp/scriberr-go-cache go test ./internal/api ./internal/config ./internal/database ./internal/repository ./internal/transcription/... ./cmd/server ./pkg/logger ./pkg/middleware` passed.
 - `GOCACHE=/tmp/scriberr-go-cache go vet ./internal/api ./internal/config ./internal/database ./internal/repository ./internal/transcription/... ./cmd/server ./pkg/logger ./pkg/middleware` passed.

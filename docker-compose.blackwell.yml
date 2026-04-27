@@ -9,7 +9,7 @@ services:
       - "8080:8080"
     volumes:
       - scriberr_data:/app/data
-      - model_data:/app/data/models
+      - env_data:/app/whisperx-env
     restart: unless-stopped
     deploy:
       resources:
@@ -26,13 +26,9 @@ services:
       - PGID=${PGID:-1000}
       # Security: already set in container, but can be overridden
       - APP_ENV=production
-      - SPEECH_ENGINE_PROVIDER=auto
-      - SPEECH_ENGINE_CACHE_DIR=/app/data/models
-      - SPEECH_ENGINE_AUTO_DOWNLOAD=true
-      - TRANSCRIPTION_WORKERS=1
       # CORS: comma-separated list of allowed origins for production
       # - ALLOWED_ORIGINS=https://your-domain.com
 
 volumes:
   scriberr_data: {}
-  model_data: {}
+  env_data: {}

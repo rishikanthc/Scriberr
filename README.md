@@ -129,17 +129,22 @@ I decided to build Scriberr to bridge that gap, creating a powerful, private, an
 
 Get Scriberr running on your system in a few minutes.
 
-### Migrating from older Python/WhisperX builds
+### Migrating from v1.1.0
 
-Current Scriberr builds use the local Go speech engine by default. Python/WhisperX environments are no longer part of normal startup.
+If you are upgrading from v1.1.0, please follow these steps to ensure a smooth transition. Version 1.2.0 introduces a separation between application data (database, uploads) and model data (Python environments).
 
-If you are upgrading from an older Docker setup, keep your application data volume mounted at `/app/data` and remove any old `/app/whisperx-env` mount. Model artifacts now live under `data/models` by default, or wherever `SPEECH_ENGINE_CACHE_DIR` points.
+#### 1. Update Volume Mounts
 
-Recommended cleanup:
+You will need to update your Docker volume configuration to split your data:
 
-- Remove `WHISPERX_ENV` from `.env` or compose files.
-- Remove stale `whisperx-env` volumes after confirming you no longer need legacy builds.
-- Persist `/app/data/models` or set `SPEECH_ENGINE_CACHE_DIR` to a persistent mount.
+*   **Application Data:** Bind your existing data folder (containing `scriberr.db`, `jwt_secret`, `transcripts/`, and `uploads/`) to `/app/data`.
+*   **Model Environment:** Create a **new, empty folder** and bind it to `/app/whisperx-env`.
+
+#### 2. Clean Up Old Environments
+
+> **CRITICAL:** You must delete any existing `whisperx-env` folder from your previous installation.
+
+The Python environment and models need to be reinitialized for v1.2.0. If the application detects an old environment, it may attempt to use it, leading to compatibility errors. Starting with a fresh `/app/whisperx-env` volume ensures the correct dependencies are installed.
 
 ### Install with Homebrew (macOS & Linux)
 
@@ -175,14 +180,7 @@ Scriberr works out of the box. However, for Homebrew or manual installations, yo
 | `DATABASE_PATH` | Path to the SQLite database file. | `data/scriberr.db` |
 | `UPLOAD_DIR` | Directory for storing uploaded files. | `data/uploads` |
 | `TRANSCRIPTS_DIR` | Directory for storing transcripts. | `data/transcripts` |
-| `SPEECH_ENGINE_CACHE_DIR` | Directory for local speech model artifacts. | `data/models` |
-| `SPEECH_ENGINE_PROVIDER` | Engine provider mode: `auto`, `cpu`, or `cuda`. | `auto` |
-| `SPEECH_ENGINE_THREADS` | Engine inference thread count. `0` uses engine defaults. | `0` |
-| `SPEECH_ENGINE_MAX_LOADED` | Maximum loaded engine models. | `2` |
-| `SPEECH_ENGINE_AUTO_DOWNLOAD` | Download missing model artifacts on first use. | `true` |
-| `TRANSCRIPTION_WORKERS` | Durable transcription worker count. Keep `1` for the local engine unless you know your provider can run concurrently. | `1` |
-| `TRANSCRIPTION_QUEUE_POLL_INTERVAL` | Queue polling interval when no wake signal fires. | `2s` |
-| `TRANSCRIPTION_LEASE_TIMEOUT` | Worker claim lease timeout for recovery. | `10m` |
+| `WHISPERX_ENV` | Path to the managed Python environment for models. | `data/whisperx-env` |
 | `OPENAI_API_KEY` | API Key for OpenAI (optional). | `""` |
 | `JWT_SECRET` | Secret for signing JWTs. Auto-generated if not set. | Auto-generated |
 
@@ -197,9 +195,6 @@ APP_ENV=production
 # Paths
 DATABASE_PATH=/var/lib/scriberr/data/scriberr.db
 UPLOAD_DIR=/var/lib/scriberr/data/uploads
-SPEECH_ENGINE_CACHE_DIR=/var/lib/scriberr/data/models
-SPEECH_ENGINE_PROVIDER=auto
-SPEECH_ENGINE_AUTO_DOWNLOAD=true
 
 # Security
 JWT_SECRET=your-super-secret-key-change-this
@@ -228,15 +223,11 @@ services:
       - "8080:8080"
     volumes:
       - scriberr_data:/app/data # volume for data
-      - model_data:/app/data/models # volume for local speech models
+      - env_data:/app/whisperx-env # volume for models and python envs
     environment:
       - PUID=${PUID:-1000}
       - PGID=${PGID:-1000}
       - APP_ENV=production # DO NOT CHANGE THIS
-      - SPEECH_ENGINE_PROVIDER=cpu
-      - SPEECH_ENGINE_CACHE_DIR=/app/data/models
-      - SPEECH_ENGINE_AUTO_DOWNLOAD=true
-      - TRANSCRIPTION_WORKERS=1
       # CORS: comma-separated list of allowed origins for production
       # - ALLOWED_ORIGINS=https://your-domain.com
       # - SECURE_COOKIES=false # Uncomment this ONLY if you are not using SSL
@@ -244,7 +235,7 @@ services:
 
 volumes:
   scriberr_data: {}
-  model_data: {}
+  env_data: {}
 ```
 
 2.  Run the container:
@@ -268,7 +259,7 @@ services:
       - "8080:8080"
     volumes:
       - scriberr_data:/app/data # volume for data
-      - model_data:/app/data/models # volume for local speech models
+      - env_data:/app/whisperx-env # volume for models and python envs
     restart: unless-stopped
     deploy:
       resources:
@@ -284,17 +275,13 @@ services:
       - PUID=${PUID:-1000}
       - PGID=${PGID:-1000}
       - APP_ENV=production # DO NOT CHANGE THIS
-      - SPEECH_ENGINE_PROVIDER=auto
-      - SPEECH_ENGINE_CACHE_DIR=/app/data/models
-      - SPEECH_ENGINE_AUTO_DOWNLOAD=true
-      - TRANSCRIPTION_WORKERS=1
       # CORS: comma-separated list of allowed origins for production
       # - ALLOWED_ORIGINS=https://your-domain.com
       # - SECURE_COOKIES=false # Uncomment this ONLY if you are not using SSL
 
 volumes:
   scriberr_data: {}
-  model_data: {}
+  env_data: {}
 ```
 
 3.  Run the container with the CUDA configuration:
@@ -305,7 +292,7 @@ docker compose -f docker-compose.cuda.yml up -d
 
 #### GPU Compatibility
 
-Scriberr provides separate Docker images for different NVIDIA GPU generations due to CUDA runtime compatibility requirements:
+Scriberr provides separate Docker images for different NVIDIA GPU generations due to CUDA/PyTorch compatibility requirements:
 
 | GPU Generation | Compute Capability | Docker Image | Docker Compose File |
 |:---|:---|:---|:---|
@@ -315,7 +302,7 @@ Scriberr provides separate Docker images for different NVIDIA GPU generations du
 | RTX 40-series (Ada Lovelace) | sm_89 | `scriberr-cuda` | `docker-compose.cuda.yml` |
 | **RTX 50-series (Blackwell)** | sm_120 | `scriberr-cuda-blackwell` | `docker-compose.blackwell.yml` |
 
-**RTX 50-series users (RTX 5080, 5090, etc.):** You must use the Blackwell-specific image. The standard CUDA image targets earlier CUDA runtime compatibility. Use:
+**RTX 50-series users (RTX 5080, 5090, etc.):** You must use the Blackwell-specific image. The standard CUDA image will not work due to PyTorch CUDA compatibility requirements. Use:
 
 ```bash
 docker compose -f docker-compose.blackwell.yml up -d
@@ -329,14 +316,14 @@ docker compose -f docker-compose.build.blackwell.yml up -d
 
 ### App Startup
 
-Scriberr starts without preparing Python environments or downloading speech models. The first transcription job may take longer because missing model artifacts are downloaded on demand when `SPEECH_ENGINE_AUTO_DOWNLOAD=true`.
+When you run Scriberr for the first time, it may take several minutes to start. This is normal!
 
 The application needs to:
-1. Configure the database.
-2. Start the durable transcription workers.
-3. Download the selected speech model on first job, if it is not already installed.
+1.  Initialize the Python environments.
+2.  Download the necessary machine learning models (Whisper, PyAnnote, NVIDIA NeMo).
+3.  Configure the database.
 
-**Subsequent jobs will be much faster** because model artifacts are persisted in `data/models` or your configured model volume.
+**Subsequent runs will be much faster** because all models and environments are persisted to the `env_data` volume (or your local mapped folders).
 
 You will know the application is ready when you see the line: `msg="Scriberr is ready" url=http://0.0.0.0:8080`.
 
@@ -354,36 +341,12 @@ sudo chown -R 1000:1000 /var/lib/docker/volumes/scriberr_scriberr_data/_data
 
 # If you mapped a specific host folder (e.g., ./scriberr_data):
 sudo chown -R 1000:1000 ./scriberr_data
-sudo chown -R 1000:1000 ./model-data
+sudo chown -R 1000:1000 ./env_data
 ```
 
 Replace `1000` with the value you set for `PUID`/`PGID` (default is `1000`).
 
-#### 2. First transcription is slow
-
-The first job may download model artifacts into `SPEECH_ENGINE_CACHE_DIR`. Keep that directory on persistent storage so later jobs can reuse the files.
-
-#### 3. Model download failure
-
-Check that the container or host can reach the model download URLs and that `SPEECH_ENGINE_CACHE_DIR` is writable by the Scriberr process. If you set `SPEECH_ENGINE_AUTO_DOWNLOAD=false`, jobs will fail until the required model artifacts are already present.
-
-#### 4. Forced CUDA unavailable
-
-`SPEECH_ENGINE_PROVIDER=auto` uses CUDA when the runtime can detect it and otherwise falls back to CPU. `SPEECH_ENGINE_PROVIDER=cuda` requires CUDA runtime libraries to be visible to the process. Docker CUDA users need the NVIDIA Container Toolkit and the NVIDIA runtime configured.
-
-#### 5. Missing ffmpeg
-
-The local engine uses `ffmpeg` for audio conversion. Docker images include it. Binary users should install it through their OS package manager if transcription fails with an ffmpeg lookup or conversion error.
-
-#### 6. Real engine smoke test
-
-Local real-engine validation is opt-in:
-
-```bash
-SCRIBERR_ENGINE_ITEST=1 SPEECH_ENGINE_AUTO_DOWNLOAD=true GOCACHE=/tmp/scriberr-go-cache go test ./internal/transcription/engineprovider -run 'TestRealEngine'
-```
-
-#### 7. "Unable to load audio stream"
+#### 2. "Unable to load audio stream"
 
 If the application loads but you cannot play or see the audio waveform (receiving "Unable to load audio stream"), this is often due to the **Secure Cookies** security flag.
 

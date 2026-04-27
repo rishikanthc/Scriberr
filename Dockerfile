@@ -1,5 +1,5 @@
 # Multi-stage build for Scriberr: builds React UI and Go server, then
-# ships a slim runtime with ffmpeg and yt-dlp support.
+# ships a slim runtime with Python, uv, and ffmpeg for WhisperX/yt-dlp.
 
 ########################
 # UI build stage
@@ -20,7 +20,7 @@ RUN cd frontend \
 ########################
 # Go build stage
 ########################
-FROM golang:1.26-bookworm AS go-builder
+FROM golang:1.24-bookworm AS go-builder
 WORKDIR /src
 
 # Pre-cache modules
@@ -35,7 +35,7 @@ RUN rm -rf internal/web/dist && mkdir -p internal/web
 COPY --from=ui-builder /web/frontend/dist internal/web/dist
 
 # Build binary (arch matches builder platform)
-RUN CGO_ENABLED=1 \
+RUN CGO_ENABLED=0 \
   go build -o /out/scriberr cmd/server/main.go
 
 # Build CLI binaries (cross-platform)
@@ -56,20 +56,15 @@ ENV PYTHONUNBUFFERED=1 \
   PORT=8080 \
   DATABASE_PATH=/app/data/scriberr.db \
   UPLOAD_DIR=/app/data/uploads \
-  SPEECH_ENGINE_CACHE_DIR=/app/data/models \
-  SPEECH_ENGINE_PROVIDER=cpu \
-  SPEECH_ENGINE_AUTO_DOWNLOAD=true \
-  TRANSCRIPTION_WORKERS=1 \
-  TRANSCRIPTION_QUEUE_POLL_INTERVAL=2s \
-  TRANSCRIPTION_LEASE_TIMEOUT=10m \
+  WHISPERX_ENV=/app/whisperx-env \
   APP_ENV=production \
   PUID=1000 \
   PGID=1000
 
 WORKDIR /app
 
-# System deps: curl/ca-certs, ffmpeg for audio conversion, git for downloads, gosu for user switching
-# Build tools: gcc, g++, and make for native Go/engine dependencies.
+# System deps: curl for uv install, ca-certs, ffmpeg for yt-dlp, git for git+ installs, gosu for user switching
+# Build tools: gcc, g++, make for compiling Python C extensions (needed for NeMo dependencies like texterrors)
 RUN apt-get update \
   && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
   curl ca-certificates ffmpeg git gosu \
