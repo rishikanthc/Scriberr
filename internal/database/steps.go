@@ -59,9 +59,6 @@ func backfillCompatibilityColumns(tx *gorm.DB) error {
 	if err := backfillSummaryTemplates(tx); err != nil {
 		return err
 	}
-	if err := backfillNotes(tx); err != nil {
-		return err
-	}
 	if err := backfillLLMConfigs(tx); err != nil {
 		return err
 	}
@@ -228,31 +225,6 @@ func backfillSummaryTemplates(tx *gorm.DB) error {
 			"is_default":  row.IsDefault,
 		}
 		if err := withPreservedUpdatedAt(tx.Model(&models.SummaryTemplate{}).Where("id = ?", row.ID), updates, row.UpdatedAt).
-			Updates(updates).Error; err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func backfillNotes(tx *gorm.DB) error {
-	var rows []models.Note
-	if err := tx.Find(&rows).Error; err != nil {
-		return err
-	}
-	for _, row := range rows {
-		if err := row.BeforeSave(tx); err != nil {
-			return err
-		}
-		updates := map[string]any{
-			"user_id":          row.UserID,
-			"transcription_id": row.TranscriptionID,
-			"content":          row.Content,
-			"start_ms":         row.StartMS,
-			"end_ms":           row.EndMS,
-			"metadata_json":    row.MetadataJSON,
-		}
-		if err := withPreservedUpdatedAt(tx.Model(&models.Note{}).Where("id = ?", row.ID), updates, row.UpdatedAt).
 			Updates(updates).Error; err != nil {
 			return err
 		}

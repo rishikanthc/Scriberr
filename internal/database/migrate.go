@@ -77,7 +77,6 @@ func detectLegacySchema(db *gorm.DB) (bool, error) {
 		"speaker_mappings",
 		"summary_templates",
 		"summaries",
-		"notes",
 		"chat_sessions",
 		"chat_messages",
 	}
@@ -115,7 +114,6 @@ func isLegacySameNameTable(db *gorm.DB, table string) (bool, error) {
 		"speaker_mappings":       {"display_name", "user_id", "transcription_id"},
 		"summary_templates":      {"config_json", "user_id"},
 		"summaries":              {"model_name", "user_id"},
-		"notes":                  {"start_ms", "end_ms", "metadata_json", "user_id"},
 		"chat_sessions":          {"system_prompt", "user_id"},
 		"chat_messages":          {"chat_session_id", "user_id"},
 	}

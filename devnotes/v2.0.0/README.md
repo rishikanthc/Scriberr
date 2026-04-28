@@ -25,6 +25,7 @@ This folder contains the planning notes, architecture rules, sprint trackers, an
 | `devnotes/automatic-summarization-sprint.md` | `devnotes/v2.0.0/sprint-plans/automatic-summarization-sprint.md` |
 | `devnotes/summary-widgets-sprint.md` | `devnotes/v2.0.0/sprint-plans/summary-widgets-sprint.md` |
 | `devnotes/llm-provider-settings-sprint.md` | `devnotes/v2.0.0/sprint-plans/llm-provider-settings-sprint.md` |
+| highlights and notes backend sprint plan | `devnotes/v2.0.0/sprint-plans/highlights-notes-backend-sprint-plan.md` |
 | `devnotes/sprint-tracker.md` | `devnotes/v2.0.0/sprint-trackers/api-revamp-sprint-tracker.md` |
 | `devnotes/engine-worker-sprint-tracker.md` | `devnotes/v2.0.0/sprint-trackers/engine-worker-sprint-tracker.md` |
 | `devnotes/api-sprint-0-inventory.md` | `devnotes/v2.0.0/status-updates/api-sprint-00-inventory-and-removal-plan.md` |

@@ -53,10 +53,6 @@ type legacySummaryTable legacySummary
 
 func (legacySummaryTable) TableName() string { return "summaries" }
 
-type legacyNoteTable legacyNote
-
-func (legacyNoteTable) TableName() string { return "notes" }
-
 type legacyLLMConfigTable legacyLLMConfig
 
 func (legacyLLMConfigTable) TableName() string { return "llm_configs" }
@@ -83,7 +79,7 @@ func TestFreshSchemaInitialization(t *testing.T) {
 		"speaker_mappings",
 		"summary_templates",
 		"summaries",
-		"notes",
+		"transcript_annotations",
 		"chat_sessions",
 		"chat_messages",
 		"llm_profiles",
@@ -99,22 +95,118 @@ func TestFreshSchemaInitialization(t *testing.T) {
 	assert.True(t, hasIndex(t, db, "transcription_profiles", "idx_transcription_profiles_user_default_unique"))
 	assert.True(t, hasIndex(t, db, "summary_templates", "idx_summary_templates_user_default_unique"))
 	assert.True(t, hasIndex(t, db, "llm_profiles", "idx_llm_profiles_user_default_unique"))
+	assert.True(t, hasIndex(t, db, "transcript_annotations", "idx_transcript_annotations_user_transcription_created_at"))
+	assert.True(t, hasIndex(t, db, "transcript_annotations", "idx_transcript_annotations_user_kind_updated_at"))
+	assert.True(t, hasIndex(t, db, "transcript_annotations", "idx_transcript_annotations_transcription_time"))
 
 	title := "Fresh transcription"
 	job := models.TranscriptionJob{UserID: 1, Title: &title, Status: models.StatusUploaded, AudioPath: "/tmp/audio.wav"}
 	require.NoError(t, db.Create(&job).Error)
-
-	note := models.Note{ID: "note-1", UserID: job.UserID, TranscriptionID: job.ID, Content: "hello", StartTime: 1.2, EndTime: 2.4}
-	require.NoError(t, db.Create(&note).Error)
-
-	invalidNote := models.Note{ID: "note-invalid", UserID: job.UserID, TranscriptionID: "missing", Content: "bad"}
-	require.Error(t, db.Create(&invalidNote).Error)
 
 	mapping1 := models.SpeakerMapping{UserID: job.UserID, TranscriptionJobID: job.ID, OriginalSpeaker: "SPEAKER_00", CustomName: "Alice"}
 	require.NoError(t, db.Create(&mapping1).Error)
 	mapping2 := models.SpeakerMapping{UserID: job.UserID, TranscriptionJobID: job.ID, OriginalSpeaker: "SPEAKER_00", CustomName: "Bob"}
 	require.Error(t, db.Create(&mapping2).Error)
 
+}
+
+func TestTranscriptAnnotationSchemaValidationAndSoftDelete(t *testing.T) {
+	db := openMigratedTestDB(t, "transcript-annotations.db")
+
+	user := models.User{Username: "annotation-user", Password: "pw"}
+	require.NoError(t, db.Create(&user).Error)
+
+	title := "Annotated transcript"
+	job := models.TranscriptionJob{UserID: user.ID, Title: &title, Status: models.StatusCompleted, AudioPath: "/tmp/audio.wav"}
+	require.NoError(t, db.Create(&job).Error)
+
+	content := "Follow up"
+	color := "yellow"
+	startWord := 2
+	endWord := 5
+	annotation := models.TranscriptAnnotation{
+		UserID:          user.ID,
+		TranscriptionID: job.ID,
+		Kind:            models.AnnotationKindNote,
+		Content:         &content,
+		Color:           &color,
+		Quote:           "important quote",
+		AnchorStartMS:   1200,
+		AnchorEndMS:     3400,
+		AnchorStartWord: &startWord,
+		AnchorEndWord:   &endWord,
+	}
+	require.NoError(t, db.Create(&annotation).Error)
+	assert.NotEmpty(t, annotation.ID)
+	assert.Equal(t, models.AnnotationStatusActive, annotation.Status)
+	assert.Equal(t, "{}", annotation.MetadataJSON)
+
+	invalidKind := models.TranscriptAnnotation{
+		UserID:          user.ID,
+		TranscriptionID: job.ID,
+		Kind:            models.AnnotationKind("bookmark"),
+		Quote:           "bad kind",
+		AnchorStartMS:   100,
+		AnchorEndMS:     200,
+	}
+	require.Error(t, db.Create(&invalidKind).Error)
+
+	invalidRange := models.TranscriptAnnotation{
+		UserID:          user.ID,
+		TranscriptionID: job.ID,
+		Kind:            models.AnnotationKindHighlight,
+		Quote:           "bad range",
+		AnchorStartMS:   500,
+		AnchorEndMS:     100,
+	}
+	require.Error(t, db.Create(&invalidRange).Error)
+
+	missingTranscription := models.TranscriptAnnotation{
+		UserID:          user.ID,
+		TranscriptionID: "missing",
+		Kind:            models.AnnotationKindHighlight,
+		Quote:           "missing parent",
+		AnchorStartMS:   100,
+		AnchorEndMS:     200,
+	}
+	require.Error(t, db.Create(&missingTranscription).Error)
+
+	require.NoError(t, db.Delete(&annotation).Error)
+
+	var visibleCount int64
+	require.NoError(t, db.Model(&models.TranscriptAnnotation{}).Where("id = ?", annotation.ID).Count(&visibleCount).Error)
+	assert.Zero(t, visibleCount)
+
+	var storedCount int64
+	require.NoError(t, db.Unscoped().Model(&models.TranscriptAnnotation{}).Where("id = ?", annotation.ID).Count(&storedCount).Error)
+	assert.Equal(t, int64(1), storedCount)
+}
+
+func TestTranscriptAnnotationHardDeleteCascadesWithTranscription(t *testing.T) {
+	db := openMigratedTestDB(t, "transcript-annotation-cascade.db")
+
+	user := models.User{Username: "cascade-annotation-user", Password: "pw"}
+	require.NoError(t, db.Create(&user).Error)
+
+	title := "Cascade transcript"
+	job := models.TranscriptionJob{UserID: user.ID, Title: &title, Status: models.StatusCompleted, AudioPath: "/tmp/audio.wav"}
+	require.NoError(t, db.Create(&job).Error)
+
+	annotation := models.TranscriptAnnotation{
+		UserID:          user.ID,
+		TranscriptionID: job.ID,
+		Kind:            models.AnnotationKindHighlight,
+		Quote:           "highlighted quote",
+		AnchorStartMS:   1000,
+		AnchorEndMS:     2000,
+	}
+	require.NoError(t, db.Create(&annotation).Error)
+
+	require.NoError(t, db.Unscoped().Delete(&job).Error)
+
+	var count int64
+	require.NoError(t, db.Unscoped().Model(&models.TranscriptAnnotation{}).Where("id = ?", annotation.ID).Count(&count).Error)
+	assert.Zero(t, count)
 }
 
 func TestCreateExecutionAssignsSequentialNumbers(t *testing.T) {
@@ -452,13 +544,6 @@ func TestLegacyMigrationPreservesData(t *testing.T) {
 	assert.Equal(t, "gpt-4o", summary.Model)
 	assert.Equal(t, "completed", summary.Status)
 
-	var note models.Note
-	require.NoError(t, db.First(&note, "id = ?", "note-1").Error)
-	assert.Equal(t, int64(1250), note.StartMS)
-	assert.Equal(t, int64(3250), note.EndMS)
-	assert.Equal(t, "quoted text", note.Quote)
-	assert.Equal(t, 2, note.StartWordIndex)
-
 	var chatSession models.ChatSession
 	require.NoError(t, db.First(&chatSession, "id = ?", "chat-1").Error)
 	assert.Equal(t, "job-1", chatSession.TranscriptionID)
@@ -581,7 +666,6 @@ func createLegacyDatabase(t *testing.T, dbPath string, withData bool) {
 		&legacySummaryTemplateTable{},
 		&legacySummarySettingTable{},
 		&legacySummaryTable{},
-		&legacyNoteTable{},
 		&legacyLLMConfigTable{},
 		&legacyChatSessionTable{},
 		&legacyChatMessageTable{},
@@ -625,9 +709,6 @@ func createLegacyDatabase(t *testing.T, dbPath string, withData bool) {
 	require.NoError(t, db.Table("summary_templates").Create(&summaryTemplate).Error)
 	require.NoError(t, db.Table("summary_settings").Create(&legacySummarySetting{ID: 1, DefaultModel: "gpt-4o-mini", UpdatedAt: now}).Error)
 	require.NoError(t, db.Table("summaries").Create(&legacySummary{ID: "summary-1", TranscriptionID: "job-1", TemplateID: &summaryTemplate.ID, Model: "gpt-4o", Content: "summary body", CreatedAt: completedAt, UpdatedAt: completedAt}).Error)
-
-	note := legacyNote{ID: "note-1", TranscriptionID: "job-1", StartWordIndex: 2, EndWordIndex: 6, StartTime: 1.25, EndTime: 3.25, Quote: "quoted text", Content: "note content", CreatedAt: now, UpdatedAt: now}
-	require.NoError(t, db.Table("notes").Create(&note).Error)
 
 	llmConfig := legacyLLMConfig{ID: 3, Provider: "openai", OpenAIBaseURL: &openAIBaseURL, APIKey: &openAIKey, IsActive: true, CreatedAt: now, UpdatedAt: now}
 	require.NoError(t, db.Table("llm_configs").Create(&llmConfig).Error)

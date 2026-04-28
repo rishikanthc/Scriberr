@@ -120,19 +120,6 @@ type legacySummary struct {
 	UpdatedAt       time.Time
 }
 
-type legacyNote struct {
-	ID              string
-	TranscriptionID string
-	StartWordIndex  int
-	EndWordIndex    int
-	StartTime       float64
-	EndTime         float64
-	Quote           string
-	Content         string
-	CreatedAt       time.Time
-	UpdatedAt       time.Time
-}
-
 type legacyLLMConfig struct {
 	ID            uint
 	Provider      string
@@ -213,9 +200,6 @@ func migrateLegacy(db *gorm.DB) error {
 		if err := migrateSummaries(tx, userID); err != nil {
 			return err
 		}
-		if err := migrateNotes(tx, userID); err != nil {
-			return err
-		}
 		if err := migrateLLMProfiles(tx, userID); err != nil {
 			return err
 		}
@@ -253,7 +237,6 @@ func archiveConflictingLegacyTables(tx *gorm.DB) error {
 		"speaker_mappings",
 		"summary_templates",
 		"summaries",
-		"notes",
 		"chat_sessions",
 		"chat_messages",
 	}
@@ -308,7 +291,6 @@ func legacyHasOwnedData(tx *gorm.DB) (bool, error) {
 		"transcription_jobs",
 		legacyPrefix + "transcription_profiles",
 		legacyPrefix + "summary_templates",
-		legacyPrefix + "notes",
 		legacyPrefix + "chat_sessions",
 		"llm_configs",
 		legacyPrefix + "api_keys",
@@ -531,36 +513,6 @@ func migrateSummaries(tx *gorm.DB, userID uint) error {
 		}
 		if err := tx.Create(&summary).Error; err != nil {
 			return fmt.Errorf("create migrated summary %s: %w", legacySummary.ID, err)
-		}
-	}
-	return nil
-}
-
-func migrateNotes(tx *gorm.DB, userID uint) error {
-	source := legacyPrefix + "notes"
-	if !tx.Migrator().HasTable(source) {
-		return nil
-	}
-	var notes []legacyNote
-	if err := tx.Table(source).Order("created_at ASC").Find(&notes).Error; err != nil {
-		return fmt.Errorf("load legacy notes: %w", err)
-	}
-	for _, legacyNote := range notes {
-		note := models.Note{
-			ID:              legacyNote.ID,
-			UserID:          userID,
-			TranscriptionID: legacyNote.TranscriptionID,
-			Content:         legacyNote.Content,
-			StartTime:       legacyNote.StartTime,
-			EndTime:         legacyNote.EndTime,
-			StartWordIndex:  legacyNote.StartWordIndex,
-			EndWordIndex:    legacyNote.EndWordIndex,
-			Quote:           legacyNote.Quote,
-			CreatedAt:       legacyNote.CreatedAt,
-			UpdatedAt:       legacyNote.UpdatedAt,
-		}
-		if err := tx.Create(&note).Error; err != nil {
-			return fmt.Errorf("create migrated note %s: %w", legacyNote.ID, err)
 		}
 	}
 	return nil

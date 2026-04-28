@@ -1209,36 +1209,6 @@ func (r *chatRepository) GetLastMessagesBySessionIDs(ctx context.Context, sessio
 	return result, nil
 }
 
-// NoteRepository handles notes
-type NoteRepository interface {
-	Repository[models.Note]
-	ListByJob(ctx context.Context, jobID string) ([]models.Note, error)
-	DeleteByTranscriptionID(ctx context.Context, transcriptionID string) error
-}
-
-type noteRepository struct {
-	*BaseRepository[models.Note]
-}
-
-func NewNoteRepository(db *gorm.DB) NoteRepository {
-	return &noteRepository{
-		BaseRepository: NewBaseRepository[models.Note](db),
-	}
-}
-
-func (r *noteRepository) ListByJob(ctx context.Context, jobID string) ([]models.Note, error) {
-	var notes []models.Note
-	err := r.db.WithContext(ctx).Where("transcription_id = ?", jobID).Order("created_at DESC").Find(&notes).Error
-	if err != nil {
-		return nil, err
-	}
-	return notes, nil
-}
-
-func (r *noteRepository) DeleteByTranscriptionID(ctx context.Context, transcriptionID string) error {
-	return r.db.WithContext(ctx).Where("transcription_id = ?", transcriptionID).Delete(&models.Note{}).Error
-}
-
 // SpeakerMappingRepository handles speaker mappings
 type SpeakerMappingRepository interface {
 	Repository[models.SpeakerMapping]
