@@ -64,6 +64,7 @@ func (r *userRepository) CountWithAutoTranscription(ctx context.Context) (int64,
 type JobRepository interface {
 	Repository[models.TranscriptionJob]
 	FindWithAssociations(ctx context.Context, id string) (*models.TranscriptionJob, error)
+	FindTranscriptionByIDForUser(ctx context.Context, id string, userID uint) (*models.TranscriptionJob, error)
 	FindLatestCompletedExecution(ctx context.Context, jobID string) (*models.TranscriptionJobExecution, error)
 	ListWithParams(ctx context.Context, offset, limit int, sortBy, sortOrder, searchQuery string, updatedAfter *time.Time) ([]models.TranscriptionJob, int64, error)
 	ListByUser(ctx context.Context, userID uint, offset, limit int) ([]models.TranscriptionJob, int64, error)
@@ -102,6 +103,17 @@ func (r *jobRepository) FindWithAssociations(ctx context.Context, id string) (*m
 	var job models.TranscriptionJob
 	err := r.db.WithContext(ctx).
 		Where("id = ?", id).
+		First(&job).Error
+	if err != nil {
+		return nil, err
+	}
+	return &job, nil
+}
+
+func (r *jobRepository) FindTranscriptionByIDForUser(ctx context.Context, id string, userID uint) (*models.TranscriptionJob, error) {
+	var job models.TranscriptionJob
+	err := r.db.WithContext(ctx).
+		Where("id = ? AND user_id = ? AND source_file_hash IS NOT NULL", id, userID).
 		First(&job).Error
 	if err != nil {
 		return nil, err
@@ -1207,6 +1219,100 @@ func (r *chatRepository) GetLastMessagesBySessionIDs(ctx context.Context, sessio
 		result[lastMessages[i].ChatSessionID] = &lastMessages[i]
 	}
 	return result, nil
+}
+
+// AnnotationRepository handles transcript highlights and notes.
+type AnnotationRepository interface {
+	CreateAnnotation(ctx context.Context, annotation *models.TranscriptAnnotation) error
+	FindAnnotationForUser(ctx context.Context, userID uint, transcriptionID string, annotationID string) (*models.TranscriptAnnotation, error)
+	ListAnnotationsForTranscription(ctx context.Context, userID uint, transcriptionID string, kind *models.AnnotationKind, offset int, limit int) ([]models.TranscriptAnnotation, int64, error)
+	UpdateAnnotation(ctx context.Context, annotation *models.TranscriptAnnotation) error
+	SoftDeleteAnnotation(ctx context.Context, userID uint, transcriptionID string, annotationID string) error
+}
+
+type annotationRepository struct {
+	db *gorm.DB
+}
+
+func NewAnnotationRepository(db *gorm.DB) AnnotationRepository {
+	return &annotationRepository{db: db}
+}
+
+func (r *annotationRepository) CreateAnnotation(ctx context.Context, annotation *models.TranscriptAnnotation) error {
+	return r.db.WithContext(ctx).Create(annotation).Error
+}
+
+func (r *annotationRepository) FindAnnotationForUser(ctx context.Context, userID uint, transcriptionID string, annotationID string) (*models.TranscriptAnnotation, error) {
+	var annotation models.TranscriptAnnotation
+	if err := r.db.WithContext(ctx).
+		Where("id = ? AND user_id = ? AND transcription_id = ?", annotationID, userID, transcriptionID).
+		First(&annotation).Error; err != nil {
+		return nil, err
+	}
+	return &annotation, nil
+}
+
+func (r *annotationRepository) ListAnnotationsForTranscription(ctx context.Context, userID uint, transcriptionID string, kind *models.AnnotationKind, offset int, limit int) ([]models.TranscriptAnnotation, int64, error) {
+	var annotations []models.TranscriptAnnotation
+	var count int64
+	query := r.db.WithContext(ctx).
+		Model(&models.TranscriptAnnotation{}).
+		Where("user_id = ? AND transcription_id = ?", userID, transcriptionID)
+	if kind != nil {
+		query = query.Where("kind = ?", *kind)
+	}
+	if err := query.Count(&count).Error; err != nil {
+		return nil, 0, err
+	}
+	if err := query.
+		Order("created_at DESC, id DESC").
+		Offset(offset).
+		Limit(limit).
+		Find(&annotations).Error; err != nil {
+		return nil, 0, err
+	}
+	return annotations, count, nil
+}
+
+func (r *annotationRepository) UpdateAnnotation(ctx context.Context, annotation *models.TranscriptAnnotation) error {
+	result := r.db.WithContext(ctx).
+		Model(annotation).
+		Where("user_id = ? AND transcription_id = ?", annotation.UserID, annotation.TranscriptionID).
+		Select(
+			"Content",
+			"Color",
+			"Quote",
+			"AnchorStartMS",
+			"AnchorEndMS",
+			"AnchorStartWord",
+			"AnchorEndWord",
+			"AnchorStartChar",
+			"AnchorEndChar",
+			"AnchorTextHash",
+			"Status",
+			"MetadataJSON",
+		).
+		Updates(annotation)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
+
+func (r *annotationRepository) SoftDeleteAnnotation(ctx context.Context, userID uint, transcriptionID string, annotationID string) error {
+	result := r.db.WithContext(ctx).
+		Where("id = ? AND user_id = ? AND transcription_id = ?", annotationID, userID, transcriptionID).
+		Delete(&models.TranscriptAnnotation{})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
 }
 
 // SpeakerMappingRepository handles speaker mappings
