@@ -1,4 +1,4 @@
-import { useState, type FormEvent, type KeyboardEvent } from "react";
+import { useEffect, useState, type FormEvent, type KeyboardEvent, type PointerEvent } from "react";
 import { MessageCircle, Mic2, MoreHorizontal, PanelRightClose, PanelRightOpen, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -10,6 +10,8 @@ type TranscriptNotesSidebarProps = {
   isLoading: boolean;
   isError: boolean;
   isCreatingEntry: boolean;
+  width: number;
+  onWidthChange: (width: number) => void;
   onCreateEntry: (annotationId: string, content: string) => Promise<void>;
   onSeekRequest: (seconds: number) => void;
   onOpenChange: (isOpen: boolean) => void;
@@ -21,14 +23,66 @@ export function TranscriptNotesSidebar({
   isLoading,
   isError,
   isCreatingEntry,
+  width,
+  onWidthChange,
   onCreateEntry,
   onSeekRequest,
   onOpenChange,
 }: TranscriptNotesSidebarProps) {
   const [activeReplyNoteId, setActiveReplyNoteId] = useState<string | null>(null);
+  const [dragState, setDragState] = useState<{ startX: number; startWidth: number } | null>(null);
+
+  useEffect(() => {
+    if (!dragState) return;
+
+    const handlePointerMove = (event: globalThis.PointerEvent) => {
+      onWidthChange(dragState.startWidth + dragState.startX - event.clientX);
+    };
+    const handlePointerUp = () => {
+      setDragState(null);
+    };
+
+    document.body.dataset.notesSidebarResizing = "true";
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", handlePointerUp, { once: true });
+    window.addEventListener("pointercancel", handlePointerUp, { once: true });
+
+    return () => {
+      delete document.body.dataset.notesSidebarResizing;
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerUp);
+      window.removeEventListener("pointercancel", handlePointerUp);
+    };
+  }, [dragState, onWidthChange]);
+
+  const handleResizePointerDown = (event: PointerEvent<HTMLDivElement>) => {
+    if (!isOpen) return;
+    event.preventDefault();
+    setDragState({ startX: event.clientX, startWidth: width });
+  };
+
+  const handleResizeKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (!isOpen) return;
+    if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+    event.preventDefault();
+    const step = event.shiftKey ? 48 : 16;
+    onWidthChange(width + (event.key === "ArrowLeft" ? step : -step));
+  };
 
   return (
     <aside className="scr-transcript-notes-sidebar" data-open={isOpen} aria-label="Transcript notes">
+      {isOpen ? (
+        <div
+          className="scr-transcript-notes-resize-handle"
+          role="separator"
+          aria-label="Resize notes sidebar"
+          aria-orientation="vertical"
+          aria-valuenow={Math.round(width)}
+          tabIndex={0}
+          onPointerDown={handleResizePointerDown}
+          onKeyDown={handleResizeKeyDown}
+        />
+      ) : null}
       <Tooltip>
         <TooltipTrigger asChild>
           <Button

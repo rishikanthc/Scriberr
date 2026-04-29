@@ -7,7 +7,7 @@
 }
 
 .scr-audio-detail-main {
-  --scr-detail-sidebar-width: 360px;
+  --scr-detail-sidebar-width: min(360px, 40vw);
   position: relative;
   min-width: 0;
   min-height: 100vh;
@@ -21,7 +21,7 @@
 
 .scr-audio-detail-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 360px;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, min(var(--scr-detail-sidebar-width), 40vw));
   min-height: 100vh;
 }
 
@@ -465,6 +465,38 @@
   background: var(--scr-surface-canvas);
 }
 
+.scr-transcript-notes-resize-handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -5px;
+  z-index: 3;
+  width: 10px;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.scr-transcript-notes-resize-handle::after {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 4px;
+  width: 2px;
+  background: transparent;
+  content: "";
+  transition: background-color 140ms ease;
+}
+
+.scr-transcript-notes-resize-handle:hover::after,
+.scr-transcript-notes-resize-handle:focus-visible::after {
+  background: color-mix(in srgb, var(--scr-brand-solid) 45%, var(--scr-border-subtle));
+}
+
+body[data-notes-sidebar-resizing="true"] {
+  cursor: col-resize;
+  user-select: none;
+}
+
 .scr-transcript-notes-toggle {
   width: 36px;
   height: 36px;
@@ -554,10 +586,10 @@
 
 .scr-transcript-note-item {
   display: grid;
-  gap: 6px;
+  gap: 11px;
   border-top: 1px solid var(--scr-border-subtle);
   background: var(--scr-surface);
-  padding: 11px var(--scr-space-4);
+  padding: 20px 24px;
 }
 
 .scr-transcript-note-item h3,
@@ -567,16 +599,16 @@
 
 .scr-transcript-note-item h3 {
   color: var(--scr-text-primary);
-  font-size: 0.86rem;
+  font-size: 0.95rem;
   font-weight: 400;
-  line-height: 1.28;
+  line-height: 1.34;
 }
 
 .scr-transcript-note-item p {
   color: var(--scr-text-secondary);
-  font-size: 0.74rem;
+  font-size: 0.8rem;
   font-weight: 400;
-  line-height: 1.28;
+  line-height: 1.35;
   overflow-wrap: anywhere;
 }
 
@@ -620,9 +652,9 @@
 .scr-transcript-note-entry,
 .scr-transcript-note-reply {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 22px;
+  grid-template-columns: minmax(0, 1fr) 26px;
   align-items: center;
-  gap: 5px;
+  gap: 10px;
 }
 
 .scr-transcript-note-entry p,
@@ -633,19 +665,19 @@
 }
 
 .scr-transcript-note-entry p {
-  min-height: 24px;
+  min-height: 34px;
   background: #f7eeee;
   color: #675d5d;
-  padding: 4px 9px;
+  padding: 7px 12px;
 }
 
 .scr-transcript-note-reply-input {
-  min-height: 20px;
+  min-height: 32px;
   background: #f5f7fa;
   color: var(--scr-text-secondary);
-  font-size: 0.68rem;
-  line-height: 1.2;
-  padding: 2px 7px;
+  font-size: 0.8rem;
+  line-height: 1.25;
+  padding: 6px 12px;
 }
 
 .scr-transcript-note-reply-input::placeholder {
@@ -664,8 +696,8 @@
 }
 
 .scr-transcript-note-reply-submit {
-  width: 22px;
-  height: 22px;
+  width: 26px;
+  height: 26px;
   color: var(--scr-text-tertiary);
 }
 
@@ -676,13 +708,13 @@
 }
 
 .scr-transcript-note-reply-submit svg {
-  width: 15px;
-  height: 15px;
+  width: 17px;
+  height: 17px;
 }
 
 .scr-transcript-note-delete {
-  width: 22px;
-  height: 22px;
+  width: 26px;
+  height: 26px;
   border-radius: var(--scr-radius-sm);
   color: var(--scr-text-tertiary);
   opacity: 0;
@@ -881,6 +913,10 @@
     min-height: 0;
     border: 0;
     background: transparent;
+  }
+
+  .scr-transcript-notes-resize-handle {
+    display: none;
   }
 
   .scr-transcript-notes-panel {

@@ -31,6 +31,15 @@ type AudioSeekRequest = {
   token: number;
 };
 
+const notesSidebarMinWidth = 320;
+const notesSidebarDefaultMaxWidth = 720;
+
+function clampNotesSidebarWidth(width: number) {
+  const viewportMax = typeof window === "undefined" ? notesSidebarDefaultMaxWidth : Math.floor(window.innerWidth * 0.4);
+  const maxWidth = Math.max(notesSidebarMinWidth, viewportMax);
+  return Math.min(Math.max(Math.round(width), notesSidebarMinWidth), maxWidth);
+}
+
 export function AudioDetailView() {
   const { audioId = "" } = useParams<{ audioId: string }>();
   const [activeTab, setActiveTab] = useState<DetailTab>("summary");
@@ -39,6 +48,7 @@ export function AudioDetailView() {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [draftTitle, setDraftTitle] = useState("");
   const [notesSidebarOpen, setNotesSidebarOpen] = useState(true);
+  const [notesSidebarWidth, setNotesSidebarWidth] = useState(360);
   const playbackSync = useMemo(() => createPlaybackSync(), [audioId]);
   const fileQuery = useFile(audioId);
   const updateFileMutation = useUpdateFile(audioId);
@@ -81,6 +91,18 @@ export function AudioDetailView() {
   const handleCreateNoteEntry = useCallback(async (annotationId: string, content: string) => {
     await createNoteEntryMutation.mutateAsync({ annotationId, content });
   }, [createNoteEntryMutation]);
+
+  const handleNotesSidebarWidthChange = useCallback((width: number) => {
+    setNotesSidebarWidth(clampNotesSidebarWidth(width));
+  }, []);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setNotesSidebarWidth((current) => clampNotesSidebarWidth(current));
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   useTranscriptionListEvents();
   useTranscriptionDetailEvents(latestTranscription?.id, { onSummaryTruncated: handleSummaryTruncated });
@@ -146,7 +168,11 @@ export function AudioDetailView() {
     <div className="scr-app">
       <div className="scr-shell">
         <Sidebar />
-        <main className="scr-audio-detail-main" data-notes-open={notesSidebarOpen}>
+        <main
+          className="scr-audio-detail-main"
+          data-notes-open={notesSidebarOpen}
+          style={{ "--scr-detail-sidebar-width": `${notesSidebarOpen ? notesSidebarWidth : 48}px` } as CSSProperties}
+        >
           <div className="scr-audio-detail-layout" data-notes-open={notesSidebarOpen}>
             <article className="scr-audio-detail">
               <header className="scr-audio-hero">
@@ -231,6 +257,8 @@ export function AudioDetailView() {
               isLoading={annotationsQuery.isLoading}
               isError={annotationsQuery.isError}
               isCreatingEntry={createNoteEntryMutation.isPending}
+              width={notesSidebarWidth}
+              onWidthChange={handleNotesSidebarWidthChange}
               onCreateEntry={handleCreateNoteEntry}
               onSeekRequest={handleNoteSeekRequest}
               onOpenChange={setNotesSidebarOpen}
