@@ -48,8 +48,15 @@ func TestCanonicalRouteRegistration(t *testing.T) {
 		"GET /api/v1/transcriptions/:id",
 		"PATCH /api/v1/transcriptions/:id",
 		"DELETE /api/v1/transcriptions/:id",
-		"POST /api/v1/transcriptions/:idAction",
 		"GET /api/v1/transcriptions/:id/transcript",
+		"GET /api/v1/transcriptions/:id/annotations",
+		"POST /api/v1/transcriptions/:id/annotations",
+		"GET /api/v1/transcriptions/:id/annotations/:annotation_id",
+		"PATCH /api/v1/transcriptions/:id/annotations/:annotation_id",
+		"DELETE /api/v1/transcriptions/:id/annotations/:annotation_id",
+		"POST /api/v1/transcriptions/:id/annotations/:annotation_id/entries",
+		"PATCH /api/v1/transcriptions/:id/annotations/:annotation_id/entries/:entry_id",
+		"DELETE /api/v1/transcriptions/:id/annotations/:annotation_id/entries/:entry_id",
 		"GET /api/v1/transcriptions/:id/summary",
 		"GET /api/v1/transcriptions/:id/audio",
 		"GET /api/v1/transcriptions/:id/events",
@@ -100,6 +107,8 @@ func TestEndpointContractSmoke(t *testing.T) {
 		{name: "files invalid cursor", method: http.MethodGet, path: "/api/v1/files?cursor=bad", token: token, want: http.StatusUnprocessableEntity},
 		{name: "transcriptions list", method: http.MethodGet, path: "/api/v1/transcriptions", token: token, want: http.StatusOK},
 		{name: "transcriptions invalid sort", method: http.MethodGet, path: "/api/v1/transcriptions?sort=size", token: token, want: http.StatusUnprocessableEntity},
+		{name: "annotations invalid transcription", method: http.MethodGet, path: "/api/v1/transcriptions/tr_missing/annotations", token: token, want: http.StatusNotFound},
+		{name: "annotations invalid kind", method: http.MethodGet, path: "/api/v1/transcriptions/tr_missing/annotations?kind=bookmark", token: token, want: http.StatusUnprocessableEntity},
 		{name: "profiles list", method: http.MethodGet, path: "/api/v1/profiles", token: token, want: http.StatusOK},
 		{name: "settings get", method: http.MethodGet, path: "/api/v1/settings", token: token, want: http.StatusOK},
 		{name: "llm provider get", method: http.MethodGet, path: "/api/v1/settings/llm-provider", token: token, want: http.StatusOK},
@@ -145,6 +154,10 @@ func TestAPIDocsContainOnlyCanonicalRoutes(t *testing.T) {
 	}
 	require.Contains(t, doc.Paths, "/api/v1/files")
 	require.Contains(t, doc.Paths, "/api/v1/transcriptions")
+	require.Contains(t, doc.Paths, "/api/v1/transcriptions/{id}/annotations")
+	require.Contains(t, doc.Paths, "/api/v1/transcriptions/{id}/annotations/{annotation_id}")
+	require.Contains(t, doc.Paths, "/api/v1/transcriptions/{id}/annotations/{annotation_id}/entries")
+	require.Contains(t, doc.Paths, "/api/v1/transcriptions/{id}/annotations/{annotation_id}/entries/{entry_id}")
 	require.Contains(t, doc.Paths, "/api/v1/profiles")
 	require.Contains(t, doc.Paths, "/api/v1/settings")
 

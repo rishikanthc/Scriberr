@@ -120,6 +120,38 @@ func TestGlobalSSEReceivesTranscriptionProgressOnce(t *testing.T) {
 	require.Equal(t, 1, strings.Count(recorder.Body.String(), "event: transcription.progress"))
 }
 
+func TestSSEReceivesAnnotationEvents(t *testing.T) {
+	s := newAuthTestServer(t)
+	token := registerForFileTests(t, s)
+	transcriptionID := createTranscriptionForAnnotationTest(t, s, token)
+
+	recorder, cancel, done := startEventStream(t, s, token, "/api/v1/transcriptions/"+transcriptionID+"/events")
+	resp, body := s.request(t, http.MethodPost, "/api/v1/transcriptions/"+transcriptionID+"/annotations", map[string]any{
+		"kind":    "note",
+		"content": "cache this",
+		"quote":   "quoted text",
+		"anchor": map[string]any{
+			"start_ms": 10,
+			"end_ms":   20,
+		},
+	}, token, "")
+	require.Equal(t, http.StatusCreated, resp.Code)
+	annotationID := body["id"].(string)
+
+	require.Eventually(t, func() bool {
+		stream := recorder.Body.String()
+		return strings.Contains(stream, "event: annotation.created") && strings.Contains(stream, `"id":"`+annotationID+`"`)
+	}, time.Second, 10*time.Millisecond)
+	stopEventStream(t, cancel, done)
+
+	stream := recorder.Body.String()
+	require.Contains(t, stream, `"transcription_id":"`+transcriptionID+`"`)
+	require.Contains(t, stream, `"kind":"note"`)
+	require.Contains(t, stream, `"status":"active"`)
+	require.NotContains(t, stream, "cache this")
+	require.NotContains(t, stream, "quoted text")
+}
+
 func progressEventForTest(jobID, name string) orchestrator.ProgressEvent {
 	return orchestrator.ProgressEvent{
 		Name:     name,

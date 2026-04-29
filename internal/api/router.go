@@ -8,9 +8,11 @@ import (
 	"sync"
 	"time"
 
+	"scriberr/internal/annotations"
 	"scriberr/internal/auth"
 	"scriberr/internal/config"
 	"scriberr/internal/database"
+	"scriberr/internal/repository"
 	"scriberr/internal/summarization"
 	"scriberr/internal/transcription/engineprovider"
 	"scriberr/internal/transcription/orchestrator"
@@ -35,6 +37,7 @@ type Handler struct {
 	maxUploadBytes  int64
 	queueService    worker.QueueService
 	modelRegistry   engineprovider.Registry
+	annotations     *annotations.Service
 }
 
 func NewHandler(cfg *config.Config, authService *auth.AuthService, services ...any) *Handler {
@@ -58,7 +61,13 @@ func NewHandler(cfg *config.Config, authService *auth.AuthService, services ...a
 			handler.queueService = value
 		case engineprovider.Registry:
 			handler.modelRegistry = value
+		case *annotations.Service:
+			handler.annotations = value
 		}
+	}
+	if handler.annotations == nil && database.DB != nil {
+		handler.annotations = annotations.NewService(repository.NewAnnotationRepository(database.DB), repository.NewJobRepository(database.DB))
+		handler.annotations.SetEventPublisher(handler)
 	}
 	return handler
 }
@@ -87,6 +96,23 @@ func (h *Handler) PublishSummaryStatus(_ context.Context, event summarization.St
 		payload["context_truncated"] = event.Truncated
 	}
 	h.publishTranscriptionEvent(event.Name, "tr_"+event.TranscriptionID, payload)
+	h.publishEvent(event.Name, payload)
+}
+
+func (h *Handler) PublishAnnotationEvent(_ context.Context, event annotations.Event) {
+	if h == nil {
+		return
+	}
+	payload := gin.H{
+		"id":               event.AnnotationID,
+		"transcription_id": event.TranscriptionID,
+		"kind":             string(event.Kind),
+		"status":           event.Status,
+	}
+	if event.EntryID != "" {
+		payload["entry_id"] = event.EntryID
+	}
+	h.publishTranscriptionEvent(event.Name, event.TranscriptionID, payload)
 	h.publishEvent(event.Name, payload)
 }
 
@@ -167,8 +193,15 @@ func SetupRoutes(handler *Handler, _ *auth.AuthService) *gin.Engine {
 			transcriptions.GET("/:id", handler.getTranscription)
 			transcriptions.PATCH("/:id", handler.updateTranscription)
 			transcriptions.DELETE("/:id", handler.deleteTranscription)
-			transcriptions.POST("/:idAction", handler.idempotencyMiddleware(), handler.transcriptionCommand)
 			transcriptions.GET("/:id/transcript", handler.getTranscript)
+			transcriptions.GET("/:id/annotations", handler.listAnnotations)
+			transcriptions.POST("/:id/annotations", handler.idempotencyMiddleware(), handler.createAnnotation)
+			transcriptions.GET("/:id/annotations/:annotation_id", handler.getAnnotation)
+			transcriptions.PATCH("/:id/annotations/:annotation_id", handler.updateAnnotation)
+			transcriptions.DELETE("/:id/annotations/:annotation_id", handler.deleteAnnotation)
+			transcriptions.POST("/:id/annotations/:annotation_id/entries", handler.idempotencyMiddleware(), handler.createAnnotationEntry)
+			transcriptions.PATCH("/:id/annotations/:annotation_id/entries/:entry_id", handler.updateAnnotationEntry)
+			transcriptions.DELETE("/:id/annotations/:annotation_id/entries/:entry_id", handler.deleteAnnotationEntry)
 			transcriptions.GET("/:id/summary", handler.getTranscriptionSummary)
 			transcriptions.GET("/:id/summary/widgets", handler.listTranscriptionSummaryWidgets)
 			transcriptions.GET("/:id/audio", handler.streamTranscriptionAudio)

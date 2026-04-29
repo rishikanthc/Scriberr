@@ -2,6 +2,7 @@ package models
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -15,7 +16,10 @@ const (
 	AnnotationKindNote      AnnotationKind = "note"
 )
 
-const AnnotationStatusActive = "active"
+const (
+	AnnotationStatusActive = "active"
+	AnnotationStatusStale  = "stale"
+)
 
 // TranscriptAnnotation stores a user-owned highlight or note anchored to a transcript range.
 type TranscriptAnnotation struct {
@@ -39,7 +43,8 @@ type TranscriptAnnotation struct {
 	UpdatedAt       time.Time      `json:"updated_at" gorm:"autoUpdateTime"`
 	DeletedAt       gorm.DeletedAt `json:"deleted_at,omitempty" gorm:"index" swaggertype:"string"`
 
-	Transcription TranscriptionJob `json:"transcription,omitempty" gorm:"foreignKey:TranscriptionID;references:ID;constraint:OnDelete:CASCADE"`
+	Transcription TranscriptionJob            `json:"transcription,omitempty" gorm:"foreignKey:TranscriptionID;references:ID;constraint:OnDelete:CASCADE"`
+	Entries       []TranscriptAnnotationEntry `json:"entries,omitempty" gorm:"foreignKey:AnnotationID;references:ID;constraint:OnDelete:CASCADE"`
 }
 
 func (TranscriptAnnotation) TableName() string { return "transcript_annotations" }
@@ -77,4 +82,37 @@ func validAnnotationKind(kind AnnotationKind) bool {
 	default:
 		return false
 	}
+}
+
+// TranscriptAnnotationEntry stores one note bubble inside a root note annotation thread.
+type TranscriptAnnotationEntry struct {
+	ID           string         `json:"id" gorm:"primaryKey;type:varchar(36)"`
+	AnnotationID string         `json:"annotation_id" gorm:"type:varchar(36);not null;index"`
+	UserID       uint           `json:"user_id" gorm:"not null;index;default:1"`
+	Content      string         `json:"content" gorm:"type:text;not null"`
+	CreatedAt    time.Time      `json:"created_at" gorm:"autoCreateTime"`
+	UpdatedAt    time.Time      `json:"updated_at" gorm:"autoUpdateTime"`
+	DeletedAt    gorm.DeletedAt `json:"deleted_at,omitempty" gorm:"index" swaggertype:"string"`
+
+	Annotation TranscriptAnnotation `json:"annotation,omitempty" gorm:"foreignKey:AnnotationID;references:ID;constraint:OnDelete:CASCADE"`
+}
+
+func (TranscriptAnnotationEntry) TableName() string { return "transcript_annotation_entries" }
+
+func (e *TranscriptAnnotationEntry) BeforeCreate(tx *gorm.DB) error {
+	if e.ID == "" {
+		e.ID = uuid.New().String()
+	}
+	return e.BeforeSave(tx)
+}
+
+func (e *TranscriptAnnotationEntry) BeforeSave(tx *gorm.DB) error {
+	if e.UserID == 0 {
+		e.UserID = primaryUserID
+	}
+	e.Content = strings.TrimSpace(e.Content)
+	if e.Content == "" {
+		return fmt.Errorf("transcript annotation entry content is required")
+	}
+	return nil
 }

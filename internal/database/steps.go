@@ -13,6 +13,7 @@ type migrationStep func(*gorm.DB) error
 
 var schemaSteps = map[int]migrationStep{
 	2: migrateStepV1ToV2,
+	3: migrateStepV2ToV3,
 }
 
 func runSchemaSteps(tx *gorm.DB, currentVersion int) error {
@@ -37,6 +38,10 @@ func migrateStepV1ToV2(tx *gorm.DB) error {
 	if err := backfillCompatibilityColumns(tx); err != nil {
 		return err
 	}
+	return nil
+}
+
+func migrateStepV2ToV3(tx *gorm.DB) error {
 	return nil
 }
 

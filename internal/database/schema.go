@@ -11,7 +11,7 @@ import (
 	"gorm.io/gorm"
 )
 
-const latestSchemaVersion = 2
+const latestSchemaVersion = 3
 
 var schemaModels = []any{
 	&models.User{},
@@ -26,6 +26,7 @@ var schemaModels = []any{
 	&models.SummaryWidget{},
 	&models.SummaryWidgetRun{},
 	&models.TranscriptAnnotation{},
+	&models.TranscriptAnnotationEntry{},
 	&models.ChatSession{},
 	&models.ChatMessage{},
 	&models.LLMConfig{},
@@ -74,6 +75,7 @@ func createTargetSchema(tx *gorm.DB) error {
 		`CREATE INDEX IF NOT EXISTS idx_transcript_annotations_user_transcription_created_at ON transcript_annotations(user_id, transcription_id, created_at DESC)`,
 		`CREATE INDEX IF NOT EXISTS idx_transcript_annotations_user_kind_updated_at ON transcript_annotations(user_id, kind, updated_at DESC)`,
 		`CREATE INDEX IF NOT EXISTS idx_transcript_annotations_transcription_time ON transcript_annotations(transcription_id, anchor_start_ms, anchor_end_ms)`,
+		`CREATE INDEX IF NOT EXISTS idx_transcript_annotation_entries_annotation_created_at ON transcript_annotation_entries(annotation_id, created_at ASC)`,
 	}
 	for _, stmt := range statements {
 		if err := tx.Exec(stmt).Error; err != nil {
@@ -170,6 +172,10 @@ var expectedSQLiteIndexes = map[string]expectedSQLiteIndex{
 	"idx_transcript_annotations_user_transcription_created_at": {Table: "transcript_annotations", Columns: []string{"user_id", "transcription_id", "created_at"}, Unique: false},
 	"idx_transcript_annotations_user_kind_updated_at":          {Table: "transcript_annotations", Columns: []string{"user_id", "kind", "updated_at"}, Unique: false},
 	"idx_transcript_annotations_transcription_time":            {Table: "transcript_annotations", Columns: []string{"transcription_id", "anchor_start_ms", "anchor_end_ms"}, Unique: false},
+	"idx_transcript_annotation_entries_annotation_id":          {Table: "transcript_annotation_entries", Columns: []string{"annotation_id"}, Unique: false},
+	"idx_transcript_annotation_entries_user_id":                {Table: "transcript_annotation_entries", Columns: []string{"user_id"}, Unique: false},
+	"idx_transcript_annotation_entries_deleted_at":             {Table: "transcript_annotation_entries", Columns: []string{"deleted_at"}, Unique: false},
+	"idx_transcript_annotation_entries_annotation_created_at":  {Table: "transcript_annotation_entries", Columns: []string{"annotation_id", "created_at"}, Unique: false},
 	"idx_chat_sessions_user_id":                                {Table: "chat_sessions", Columns: []string{"user_id"}, Unique: false},
 	"idx_chat_sessions_transcription_id":                       {Table: "chat_sessions", Columns: []string{"transcription_id"}, Unique: false},
 	"idx_chat_messages_user_id":                                {Table: "chat_messages", Columns: []string{"user_id"}, Unique: false},

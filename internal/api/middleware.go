@@ -84,7 +84,40 @@ func (h *Handler) handleCommandRoute(c *gin.Context) bool {
 		h.runIdempotent(c, h.submitTranscription)
 		return true
 	default:
+		if publicID, command, ok := parseTranscriptionCommandPath(c.Request.URL.Path); ok {
+			if !h.requireAuthForNoRoute(c) {
+				return true
+			}
+			h.runIdempotent(c, func(c *gin.Context) {
+				switch command {
+				case "stop", "cancel":
+					h.cancelTranscription(c, publicID)
+				case "retry":
+					h.retryTranscription(c, publicID)
+				default:
+					writeError(c, http.StatusNotFound, "NOT_FOUND", "API endpoint not found", nil)
+				}
+			})
+			return true
+		}
 		return false
+	}
+}
+
+func parseTranscriptionCommandPath(requestPath string) (string, string, bool) {
+	trimmed := strings.TrimPrefix(requestPath, "/api/v1/transcriptions/")
+	if trimmed == requestPath || trimmed == "" || strings.Contains(trimmed, "/") {
+		return "", "", false
+	}
+	publicID, command, ok := strings.Cut(trimmed, ":")
+	if !ok || publicID == "" || command == "" {
+		return "", "", false
+	}
+	switch command {
+	case "stop", "cancel", "retry":
+		return publicID, command, true
+	default:
+		return "", "", false
 	}
 }
 func (h *Handler) requireAuthForNoRoute(c *gin.Context) bool {

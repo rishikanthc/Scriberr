@@ -576,6 +576,333 @@
         }
       }
     },
+    "/api/v1/transcriptions/{id}/annotations": {
+      "get": {
+        "summary": "List transcript annotations",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^tr_.+"
+            }
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": ["highlight", "note"]
+            }
+          },
+          {
+            "name": "updated_after",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "description": "Opaque pagination cursor returned as next_cursor."
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Annotation list"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "404": {
+            "description": "Transcription not found"
+          },
+          "422": {
+            "description": "Invalid query parameter"
+          }
+        }
+      },
+      "post": {
+        "summary": "Create transcript annotation",
+        "description": "Creates a note or highlight anchored to transcript timing and optional word or character offsets.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^tr_.+"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "description": "Optional retry key for annotation creation.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnnotationCreateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Annotation created"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "404": {
+            "description": "Transcription not found"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        }
+      }
+    },
+    "/api/v1/transcriptions/{id}/annotations/{annotation_id}": {
+      "get": {
+        "summary": "Get transcript annotation",
+        "responses": {
+          "200": {
+            "description": "Annotation"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "404": {
+            "description": "Annotation not found"
+          }
+        }
+      },
+      "patch": {
+        "summary": "Update transcript annotation",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnnotationUpdateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Annotation updated"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "404": {
+            "description": "Annotation not found"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete transcript annotation",
+        "responses": {
+          "204": {
+            "description": "Annotation deleted"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "404": {
+            "description": "Annotation not found"
+          }
+        }
+      }
+    },
+    "/api/v1/transcriptions/{id}/annotations/{annotation_id}/entries": {
+      "post": {
+        "summary": "Create transcript note entry",
+        "description": "Adds a note entry to an existing note annotation root. The parent annotation must be kind note.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^tr_.+"
+            }
+          },
+          {
+            "name": "annotation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^ann_.+"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "description": "Optional retry key for note entry creation.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnnotationEntryRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Note entry created"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "404": {
+            "description": "Annotation not found"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        }
+      }
+    },
+    "/api/v1/transcriptions/{id}/annotations/{annotation_id}/entries/{entry_id}": {
+      "patch": {
+        "summary": "Update transcript note entry",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^tr_.+"
+            }
+          },
+          {
+            "name": "annotation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^ann_.+"
+            }
+          },
+          {
+            "name": "entry_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^annent_.+"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnnotationEntryRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Note entry updated"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "404": {
+            "description": "Entry not found"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete transcript note entry",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^tr_.+"
+            }
+          },
+          {
+            "name": "annotation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^ann_.+"
+            }
+          },
+          {
+            "name": "entry_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^annent_.+"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Note entry deleted"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "404": {
+            "description": "Entry not found"
+          }
+        }
+      }
+    },
     "/api/v1/transcriptions/{id}/audio": {
       "get": {
         "summary": "Stream transcription audio",
@@ -767,6 +1094,89 @@
     }
   },
   "components": {
+    "schemas": {
+      "AnnotationAnchor": {
+        "type": "object",
+        "required": ["start_ms", "end_ms"],
+        "properties": {
+          "start_ms": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "end_ms": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "start_word": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "end_word": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "start_char": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "end_char": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "text_hash": {
+            "type": "string"
+          }
+        }
+      },
+      "AnnotationCreateRequest": {
+        "type": "object",
+        "required": ["kind", "quote", "anchor"],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": ["highlight", "note"]
+          },
+          "content": {
+            "type": "string"
+          },
+          "color": {
+            "type": "string"
+          },
+          "quote": {
+            "type": "string"
+          },
+          "anchor": {
+            "$ref": "#/components/schemas/AnnotationAnchor"
+          }
+        }
+      },
+      "AnnotationUpdateRequest": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "string"
+          },
+          "color": {
+            "type": "string"
+          },
+          "quote": {
+            "type": "string"
+          },
+          "anchor": {
+            "$ref": "#/components/schemas/AnnotationAnchor"
+          }
+        }
+      },
+      "AnnotationEntryRequest": {
+        "type": "object",
+        "required": ["content"],
+        "properties": {
+          "content": {
+            "type": "string"
+          }
+        }
+      }
+    },
     "securitySchemes": {
       "bearerAuth": {
         "type": "http",

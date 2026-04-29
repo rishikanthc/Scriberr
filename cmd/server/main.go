@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"scriberr/internal/annotations"
 	"scriberr/internal/api"
 	"scriberr/internal/auth"
 	"scriberr/internal/config"
@@ -101,6 +102,7 @@ func main() {
 	// Initialize repositories
 	logger.Startup("repository", "Initializing repositories")
 	jobRepo := repository.NewJobRepository(database.DB)
+	annotationRepo := repository.NewAnnotationRepository(database.DB)
 	summaryRepo := repository.NewSummaryRepository(database.DB)
 	llmConfigRepo := repository.NewLLMConfigRepository(database.DB)
 
@@ -129,13 +131,15 @@ func main() {
 		LeaseTimeout: cfg.Worker.LeaseTimeout,
 	})
 	summaryService := summarization.NewService(summaryRepo, llmConfigRepo, jobRepo, summarization.Config{})
+	annotationService := annotations.NewService(annotationRepo, jobRepo)
 
 	// Initialize API handlers
-	handler := api.NewHandler(cfg, authService, queueService, providerRegistry)
+	handler := api.NewHandler(cfg, authService, queueService, providerRegistry, annotationService)
 	processor.Events = handler
 	queueService.SetEventPublisher(handler)
-	queueService.SetCompletionObserver(summaryService)
+	queueService.SetCompletionObserver(worker.CompletionObservers{summaryService, annotationService})
 	summaryService.SetEventPublisher(handler)
+	annotationService.SetEventPublisher(handler)
 
 	// Set up router
 	router := api.SetupRoutes(handler, authService)

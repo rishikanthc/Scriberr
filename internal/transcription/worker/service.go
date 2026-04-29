@@ -39,6 +39,23 @@ type CompletionObserver interface {
 	EnqueueForTranscription(ctx context.Context, job *models.TranscriptionJob) error
 }
 
+type CompletionObservers []CompletionObserver
+
+func (observers CompletionObservers) EnqueueForTranscription(ctx context.Context, job *models.TranscriptionJob) error {
+	var firstErr error
+	for _, observer := range observers {
+		if observer == nil {
+			continue
+		}
+		if err := observer.EnqueueForTranscription(ctx, job); err != nil {
+			if firstErr == nil {
+				firstErr = err
+			}
+		}
+	}
+	return firstErr
+}
+
 type StatusEvent struct {
 	Name     string
 	JobID    string
