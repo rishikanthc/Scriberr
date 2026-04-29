@@ -181,23 +181,19 @@ export function useTranscriptKaraokeHighlight(
 
             const activeWord = activeWords[activeIndex];
             const element = textElementsRef.current?.[activeWord.segmentIndex];
-            const textNode = element?.firstChild;
-            if (!textNode || textNode.nodeType !== Node.TEXT_NODE) {
+            if (!element) {
                 clearHighlight(transcriptHighlightName);
                 lastActiveIndex = null;
                 return;
             }
 
             try {
-                const textLength = (textNode as Text).length;
-                if (activeWord.endChar > textLength) {
+                const range = resolveTextRange(element, activeWord.startChar, activeWord.endChar);
+                if (!range) {
                     clearHighlight(transcriptHighlightName);
                     lastActiveIndex = null;
                     return;
                 }
-                const range = new Range();
-                range.setStart(textNode, activeWord.startChar);
-                range.setEnd(textNode, activeWord.endChar);
                 CSS.highlights.set(transcriptHighlightName, new Highlight(range));
                 lastActiveIndex = activeIndex;
             } catch {
@@ -211,4 +207,40 @@ export function useTranscriptKaraokeHighlight(
     }, [activeWords, enabled, playbackSync, textElementsRef]);
 
     useEffect(() => () => clearHighlight(transcriptHighlightName), []);
+}
+
+function resolveTextRange(root: HTMLElement, startChar: number, endChar: number) {
+    if (startChar < 0 || endChar < startChar || endChar > (root.textContent?.length || 0)) return null;
+
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    let currentStart = 0;
+    let startNode: Text | null = null;
+    let startOffset = 0;
+    let endNode: Text | null = null;
+    let endOffset = 0;
+    let node = walker.nextNode();
+
+    while (node) {
+        const textNode = node as Text;
+        const currentEnd = currentStart + textNode.length;
+
+        if (!startNode && startChar >= currentStart && startChar <= currentEnd) {
+            startNode = textNode;
+            startOffset = startChar - currentStart;
+        }
+        if (endChar >= currentStart && endChar <= currentEnd) {
+            endNode = textNode;
+            endOffset = endChar - currentStart;
+            break;
+        }
+
+        currentStart = currentEnd;
+        node = walker.nextNode();
+    }
+
+    if (!startNode || !endNode) return null;
+    const range = new Range();
+    range.setStart(startNode, startOffset);
+    range.setEnd(endNode, endOffset);
+    return range;
 }

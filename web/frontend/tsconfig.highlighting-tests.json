@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM"],
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "strict": true,
+    "skipLibCheck": true,
+    "types": ["node"],
+    "outDir": "../../.tmp/frontend-highlight-tests",
+    "rootDir": "src",
+    "noEmit": false
+  },
+  "include": [
+    "src/features/transcription/api/annotationsApi.ts",
+    "src/features/transcription/utils/transcriptHighlighting.ts",
+    "src/features/transcription/utils/transcriptHighlighting.regression.ts"
+  ]
+}

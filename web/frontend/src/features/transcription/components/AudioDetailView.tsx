@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ChangeEvent, type SyntheticEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ChangeEvent, type ReactNode, type SyntheticEvent } from "react";
 import { Link, useParams } from "react-router-dom";
 import { AlignJustify, CalendarDays, CheckSquare, Clock3, FileText, MoreHorizontal, Pause, Pencil, Play } from "lucide-react";
 import { Sidebar } from "@/features/home/components/HomePage";
@@ -6,29 +6,46 @@ import { useAuth } from "@/features/auth/hooks/useAuth";
 import { useToast } from "@/components/ui/toast";
 import { useFile, useUpdateFile } from "@/features/files/hooks/useFiles";
 import type { FileStatus } from "@/features/files/api/filesApi";
+import type { TranscriptAnnotation } from "@/features/transcription/api/annotationsApi";
 import type { SummaryWidgetRun, TranscriptionSummary } from "@/features/transcription/api/summariesApi";
 import type { TranscriptWord, Transcription, TranscriptionTranscript } from "@/features/transcription/api/transcriptionsApi";
+import { TranscriptHighlightMenu } from "@/features/transcription/components/TranscriptHighlightMenu";
+import { TranscriptNoteComposer, type TranscriptNoteComposerSelection } from "@/features/transcription/components/TranscriptNoteComposer";
+import { TranscriptNotesSidebar } from "@/features/transcription/components/TranscriptNotesSidebar";
+import { TranscriptSelectionMenu } from "@/features/transcription/components/TranscriptSelectionMenu";
 import { useTranscriptionDetailEvents } from "@/features/transcription/hooks/useTranscriptionDetailEvents";
 import { computeWordOffsets, computeWordOffsetsInText, createPlaybackSync, useTranscriptKaraokeHighlight, type KaraokeHighlightSegment, type PlaybackSync } from "@/features/transcription/hooks/useKaraokeHighlight";
+import { useTranscriptTextSelection } from "@/features/transcription/hooks/useTranscriptTextSelection";
+import { selectTranscriptNotes, useCreateTranscriptHighlight, useCreateTranscriptNote, useCreateTranscriptNoteEntry, useDeleteTranscriptHighlight, useTranscriptAnnotations } from "@/features/transcription/hooks/useTranscriptAnnotations";
 import { useTranscriptionListEvents } from "@/features/transcription/hooks/useTranscriptionListEvents";
 import { useTranscriptionSummary, useTranscriptionSummaryWidgets } from "@/features/transcription/hooks/useTranscriptionSummaries";
 import { preferVisibleTranscription, useTranscriptionTranscript, useTranscriptions } from "@/features/transcription/hooks/useTranscriptions";
 import { ReadOnlyMarkdown } from "@/features/transcription/components/ReadOnlyMarkdown";
+import { buildHighlightRangesBySegment, hasDuplicateActiveHighlight, type SegmentHighlightRange } from "@/features/transcription/utils/transcriptHighlighting";
+import type { SelectionMenuRect } from "@/features/transcription/utils/transcriptHighlighting";
 
 type DetailTab = "summary" | "transcript";
+
+type AudioSeekRequest = {
+  seconds: number;
+  token: number;
+};
 
 export function AudioDetailView() {
   const { audioId = "" } = useParams<{ audioId: string }>();
   const [activeTab, setActiveTab] = useState<DetailTab>("summary");
   const [audioDuration, setAudioDuration] = useState<number | null>(null);
+  const [audioSeekRequest, setAudioSeekRequest] = useState<AudioSeekRequest | null>(null);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [draftTitle, setDraftTitle] = useState("");
+  const [notesSidebarOpen, setNotesSidebarOpen] = useState(true);
   const playbackSync = useMemo(() => createPlaybackSync(), [audioId]);
   const fileQuery = useFile(audioId);
   const updateFileMutation = useUpdateFile(audioId);
   const transcriptionsQuery = useTranscriptions();
   const { toast } = useToast();
   const warnedSummaryIds = useRef<Set<string>>(new Set());
+  const nextSeekToken = useRef(0);
 
   const file = fileQuery.data;
   const title = file?.title?.trim() || "Untitled recording";
@@ -38,6 +55,15 @@ export function AudioDetailView() {
     return latestTranscriptionForFile(transcriptionsQuery.data?.items || [], file.id);
   }, [file, transcriptionsQuery.data?.items]);
   const transcriptQuery = useTranscriptionTranscript(latestTranscription?.id, latestTranscription?.status === "completed");
+  const annotationsQuery = useTranscriptAnnotations(
+    latestTranscription?.id,
+    Boolean(latestTranscription?.status === "completed")
+  );
+  const createNoteEntryMutation = useCreateTranscriptNoteEntry(latestTranscription?.id || "");
+  const notes = useMemo(
+    () => selectTranscriptNotes(annotationsQuery.data?.items),
+    [annotationsQuery.data?.items]
+  );
   const handleSummaryTruncated = useCallback((summaryId: string) => {
     if (warnedSummaryIds.current.has(summaryId)) return;
     warnedSummaryIds.current.add(summaryId);
@@ -46,6 +72,15 @@ export function AudioDetailView() {
       description: "The transcript exceeds the small model context window, so summarization will use the first fitting portion.",
     });
   }, [toast]);
+
+  const handleNoteSeekRequest = useCallback((seconds: number) => {
+    nextSeekToken.current += 1;
+    setAudioSeekRequest({ seconds, token: nextSeekToken.current });
+  }, []);
+
+  const handleCreateNoteEntry = useCallback(async (annotationId: string, content: string) => {
+    await createNoteEntryMutation.mutateAsync({ annotationId, content });
+  }, [createNoteEntryMutation]);
 
   useTranscriptionListEvents();
   useTranscriptionDetailEvents(latestTranscription?.id, { onSummaryTruncated: handleSummaryTruncated });
@@ -111,87 +146,102 @@ export function AudioDetailView() {
     <div className="scr-app">
       <div className="scr-shell">
         <Sidebar />
-        <main className="scr-audio-detail-main">
-          <article className="scr-audio-detail">
-            <header className="scr-audio-hero">
-              <div className="scr-audio-title-row">
-                {isEditingTitle ? (
-                  <input
-                    className="scr-audio-title scr-audio-title-input"
-                    value={draftTitle}
-                    aria-label="Recording title"
-                    autoFocus
-                    onBlur={saveTitle}
-                    onChange={(event) => setDraftTitle(event.currentTarget.value)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter") {
-                        event.currentTarget.blur();
-                      }
-                      if (event.key === "Escape") {
+        <main className="scr-audio-detail-main" data-notes-open={notesSidebarOpen}>
+          <div className="scr-audio-detail-layout" data-notes-open={notesSidebarOpen}>
+            <article className="scr-audio-detail">
+              <header className="scr-audio-hero">
+                <div className="scr-audio-title-row">
+                  {isEditingTitle ? (
+                    <input
+                      className="scr-audio-title scr-audio-title-input"
+                      value={draftTitle}
+                      aria-label="Recording title"
+                      autoFocus
+                      onBlur={saveTitle}
+                      onChange={(event) => setDraftTitle(event.currentTarget.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") {
+                          event.currentTarget.blur();
+                        }
+                        if (event.key === "Escape") {
+                          setDraftTitle(title);
+                          setIsEditingTitle(false);
+                        }
+                      }}
+                    />
+                  ) : (
+                    <button
+                      className="scr-audio-title scr-audio-title-button"
+                      type="button"
+                      title="Edit title"
+                      onClick={() => {
                         setDraftTitle(title);
-                        setIsEditingTitle(false);
-                      }
-                    }}
-                  />
-                ) : (
-                  <button
-                    className="scr-audio-title scr-audio-title-button"
-                    type="button"
-                    title="Edit title"
-                    onClick={() => {
-                      setDraftTitle(title);
-                      setIsEditingTitle(true);
-                    }}
-                  >
-                    {title}
+                        setIsEditingTitle(true);
+                      }}
+                    >
+                      {title}
+                    </button>
+                  )}
+                  <button className="scr-audio-icon-action" type="button" aria-label="More actions" title="More actions">
+                    <MoreHorizontal size={18} aria-hidden="true" />
                   </button>
-                )}
-                <button className="scr-audio-icon-action" type="button" aria-label="More actions" title="More actions">
-                  <MoreHorizontal size={18} aria-hidden="true" />
+                </div>
+                <div className="scr-audio-meta" aria-label="Recording metadata">
+                  <span>
+                    <CalendarDays size={14} aria-hidden="true" />
+                    {meta.createdAt}
+                  </span>
+                  <span>
+                    <Clock3 size={14} aria-hidden="true" />
+                    {meta.duration}
+                  </span>
+                </div>
+              </header>
+
+              <div className="scr-audio-tabbar">
+                <button type="button" data-active={activeTab === "summary"} onClick={() => setActiveTab("summary")}>
+                  Summary
+                </button>
+                <button type="button" data-active={activeTab === "transcript"} onClick={() => setActiveTab("transcript")}>
+                  Transcript
+                </button>
+                <button className="scr-audio-edit-icon" type="button" aria-label="Edit transcript" title="Edit transcript" disabled>
+                  <Pencil size={14} aria-hidden="true" />
                 </button>
               </div>
-              <div className="scr-audio-meta" aria-label="Recording metadata">
-                <span>
-                  <CalendarDays size={14} aria-hidden="true" />
-                  {meta.createdAt}
-                </span>
-                <span>
-                  <Clock3 size={14} aria-hidden="true" />
-                  {meta.duration}
-                </span>
-              </div>
-            </header>
 
-            <div className="scr-audio-tabbar">
-              <button type="button" data-active={activeTab === "summary"} onClick={() => setActiveTab("summary")}>
-                Summary
-              </button>
-              <button type="button" data-active={activeTab === "transcript"} onClick={() => setActiveTab("transcript")}>
-                Transcript
-              </button>
-              <button className="scr-audio-edit-icon" type="button" aria-label="Edit transcript" title="Edit transcript" disabled>
-                <Pencil size={14} aria-hidden="true" />
-              </button>
-            </div>
-
-            {activeTab === "summary" ? (
-              <SummaryPanel transcription={latestTranscription} />
-            ) : (
-              <TranscriptPanel
-                fileStatus={file.status}
-                transcription={latestTranscription}
-                transcript={transcriptQuery.data}
-                playbackSync={playbackSync}
-                isLoading={transcriptionsQuery.isLoading || transcriptQuery.isLoading}
-                isError={transcriptionsQuery.isError || transcriptQuery.isError}
-              />
-            )}
-          </article>
+              {activeTab === "summary" ? (
+                <SummaryPanel transcription={latestTranscription} />
+              ) : (
+                <TranscriptPanel
+                  fileStatus={file.status}
+                  transcription={latestTranscription}
+                  transcript={transcriptQuery.data}
+                  playbackSync={playbackSync}
+                  annotations={annotationsQuery.data?.items || []}
+                  isLoading={transcriptionsQuery.isLoading || transcriptQuery.isLoading}
+                  isError={transcriptionsQuery.isError || transcriptQuery.isError}
+                  onNoteSaved={() => setNotesSidebarOpen(true)}
+                />
+              )}
+            </article>
+            <TranscriptNotesSidebar
+              notes={notes}
+              isOpen={notesSidebarOpen}
+              isLoading={annotationsQuery.isLoading}
+              isError={annotationsQuery.isError}
+              isCreatingEntry={createNoteEntryMutation.isPending}
+              onCreateEntry={handleCreateNoteEntry}
+              onSeekRequest={handleNoteSeekRequest}
+              onOpenChange={setNotesSidebarOpen}
+            />
+          </div>
           <StreamingAudioPlayer
             fileId={file.id}
             durationSeconds={file.duration_seconds}
             title={title}
             playbackSync={playbackSync}
+            seekRequest={audioSeekRequest}
             onDurationChange={setAudioDuration}
           />
         </main>
@@ -335,8 +385,10 @@ type TranscriptPanelProps = {
   transcription?: Transcription;
   transcript?: TranscriptionTranscript;
   playbackSync: PlaybackSync;
+  annotations: TranscriptAnnotation[];
   isLoading: boolean;
   isError: boolean;
+  onNoteSaved: () => void;
 };
 
 type TranscriptDisplaySegment = KaraokeHighlightSegment & {
@@ -344,16 +396,148 @@ type TranscriptDisplaySegment = KaraokeHighlightSegment & {
   start: number;
   end: number;
   speaker?: string;
+  startChar: number;
+  endChar: number;
+  charAnchorReliable: boolean;
+  wordStartIndex: number;
 };
 
-function TranscriptPanel({ fileStatus, transcription, transcript, playbackSync, isLoading, isError }: TranscriptPanelProps) {
+function TranscriptPanel({ fileStatus, transcription, transcript, playbackSync, annotations, isLoading, isError, onNoteSaved }: TranscriptPanelProps) {
+  const transcriptRef = useRef<HTMLElement | null>(null);
   const textElementsRef = useRef<(HTMLElement | null)[]>([]);
+  const hideHighlightMenuTimer = useRef<number | undefined>(undefined);
+  const [activeHighlight, setActiveHighlight] = useState<{ annotationId: string; rect: SelectionMenuRect } | null>(null);
+  const [noteComposerSelection, setNoteComposerSelection] = useState<TranscriptNoteComposerSelection | null>(null);
   const segments = useMemo(() => buildTranscriptDisplaySegments(transcript), [transcript]);
   const hasTimedWords = segments.some((segment) => segment.offsets.length > 0);
+  const createHighlightMutation = useCreateTranscriptHighlight(transcription?.id || "");
+  const createNoteMutation = useCreateTranscriptNote(transcription?.id || "");
+  const deleteHighlightMutation = useDeleteTranscriptHighlight(transcription?.id || "");
+  const { toast } = useToast();
+  const highlightRangesBySegment = useMemo(
+    () => buildHighlightRangesBySegment(segments, annotations),
+    [segments, annotations]
+  );
+  const selectionSegments = useMemo(() => (
+    segments.map((segment, index) => ({
+      index,
+      start: segment.start,
+      end: segment.end,
+      startChar: segment.startChar,
+      endChar: segment.endChar,
+      charAnchorReliable: segment.charAnchorReliable,
+      wordStartIndex: segment.wordStartIndex,
+      offsets: segment.offsets,
+    }))
+  ), [segments]);
+  const { selection: pendingSelection, clearSelection } = useTranscriptTextSelection(
+    transcriptRef,
+    selectionSegments,
+    Boolean(transcription?.status === "completed" && segments.length)
+  );
+  const isDuplicateHighlightSelection = Boolean(
+    pendingSelection &&
+    hasDuplicateActiveHighlight(annotations, pendingSelection.anchor, pendingSelection.quote)
+  );
+
+  const handleCreateHighlight = () => {
+    if (!pendingSelection || !transcription?.id || createHighlightMutation.isPending || isDuplicateHighlightSelection) return;
+    setNoteComposerSelection(null);
+    createHighlightMutation.mutate({
+      quote: pendingSelection.quote,
+      anchor: pendingSelection.anchor,
+    }, {
+      onSuccess: clearSelection,
+      onError: (error) => {
+        toast({
+          title: "Highlight was not saved",
+          description: error instanceof Error ? error.message : "Try selecting the text again.",
+        });
+      },
+    });
+  };
+
+  const handleOpenNoteComposer = () => {
+    if (!pendingSelection || createNoteMutation.isPending) return;
+    setNoteComposerSelection({
+      quote: pendingSelection.quote,
+      anchor: { ...pendingSelection.anchor },
+      rect: {
+        left: pendingSelection.rect.left,
+        top: pendingSelection.rect.top,
+        bottom: pendingSelection.rect.bottom,
+        width: pendingSelection.rect.width,
+      },
+    });
+  };
+
+  const handleCancelNoteComposer = () => {
+    setNoteComposerSelection(null);
+  };
+
+  const handleSaveNote = (content: string) => {
+    if (!noteComposerSelection || !transcription?.id || createNoteMutation.isPending) return;
+    createNoteMutation.mutate({
+      content,
+      quote: noteComposerSelection.quote,
+      anchor: noteComposerSelection.anchor,
+    }, {
+      onSuccess: () => {
+        setNoteComposerSelection(null);
+        onNoteSaved();
+        clearSelection();
+      },
+      onError: (error) => {
+        toast({
+          title: "Note was not saved",
+          description: error instanceof Error ? error.message : "Try selecting the text again.",
+        });
+      },
+    });
+  };
+
+  const showHighlightMenu = (annotationId: string, rect: DOMRect) => {
+    if (hideHighlightMenuTimer.current) window.clearTimeout(hideHighlightMenuTimer.current);
+    setActiveHighlight({
+      annotationId,
+      rect: {
+        left: rect.left,
+        top: rect.top,
+        bottom: rect.bottom,
+        width: rect.width,
+      },
+    });
+  };
+
+  const scheduleHideHighlightMenu = () => {
+    if (hideHighlightMenuTimer.current) window.clearTimeout(hideHighlightMenuTimer.current);
+    hideHighlightMenuTimer.current = window.setTimeout(() => setActiveHighlight(null), 140);
+  };
+
+  const keepHighlightMenuOpen = () => {
+    if (hideHighlightMenuTimer.current) window.clearTimeout(hideHighlightMenuTimer.current);
+  };
+
+  const handleDeleteHighlight = (annotationId: string) => {
+    if (!transcription?.id || deleteHighlightMutation.isPending) return;
+    deleteHighlightMutation.mutate(annotationId, {
+      onSuccess: () => setActiveHighlight(null),
+      onError: (error) => {
+        toast({
+          title: "Highlight was not removed",
+          description: error instanceof Error ? error.message : "Try again.",
+        });
+      },
+    });
+  };
 
   useEffect(() => {
     textElementsRef.current.length = segments.length;
   }, [segments.length]);
+
+  useEffect(() => () => {
+    if (hideHighlightMenuTimer.current) window.clearTimeout(hideHighlightMenuTimer.current);
+  }, []);
 
   useTranscriptKaraokeHighlight(
     playbackSync,
@@ -402,23 +586,53 @@ function TranscriptPanel({ fileStatus, transcription, transcript, playbackSync, 
   }
 
   return (
-    <section className="scr-transcript" aria-label="Transcript">
-      {segments.map((segment, index) => (
-        <article className="scr-transcript-segment" key={segment.id || `${segment.start}-${segment.end}`}>
-          {segment.speaker ? <span className="scr-transcript-speaker">{segment.speaker}</span> : null}
-          <time className="scr-transcript-time">{formatSegmentTime(segment.start)}</time>
-          <p
-            ref={(element) => {
-              textElementsRef.current[index] = element;
-            }}
-            className="scr-transcript-text"
-            data-transcript-text
-          >
-            {segment.text}
-          </p>
-        </article>
-      ))}
-    </section>
+    <>
+      <section ref={transcriptRef} className="scr-transcript" aria-label="Transcript">
+        {segments.map((segment, index) => (
+          <article className="scr-transcript-segment" key={segment.id || `${segment.start}-${segment.end}`}>
+            {segment.speaker ? <span className="scr-transcript-speaker">{segment.speaker}</span> : null}
+            <time className="scr-transcript-time">{formatSegmentTime(segment.start)}</time>
+            <p
+              ref={(element) => {
+                textElementsRef.current[index] = element;
+              }}
+              className="scr-transcript-text"
+              data-transcript-text
+              data-transcript-segment-index={index}
+              data-start-char={segment.startChar}
+              data-end-char={segment.endChar}
+            >
+              {renderTranscriptTextWithHighlights(
+                segment,
+                highlightRangesBySegment.get(index) || [],
+                showHighlightMenu,
+                scheduleHideHighlightMenu
+              )}
+            </p>
+          </article>
+        ))}
+      </section>
+      <TranscriptSelectionMenu
+        selection={noteComposerSelection ? null : pendingSelection}
+        isCreatingHighlight={createHighlightMutation.isPending}
+        isDuplicateHighlight={isDuplicateHighlightSelection}
+        onCreateHighlight={handleCreateHighlight}
+        onOpenNoteComposer={handleOpenNoteComposer}
+      />
+      <TranscriptNoteComposer
+        selection={noteComposerSelection}
+        isSaving={createNoteMutation.isPending}
+        onCancel={handleCancelNoteComposer}
+        onSave={handleSaveNote}
+      />
+      <TranscriptHighlightMenu
+        activeHighlight={activeHighlight}
+        isDeleting={deleteHighlightMutation.isPending}
+        onDeleteHighlight={handleDeleteHighlight}
+        onMouseEnter={keepHighlightMenuOpen}
+        onMouseLeave={scheduleHideHighlightMenu}
+      />
+    </>
   );
 }
 
@@ -436,11 +650,13 @@ type StreamingAudioPlayerProps = {
   durationSeconds: number | null;
   title: string;
   playbackSync: PlaybackSync;
+  seekRequest?: AudioSeekRequest | null;
   onDurationChange?: (duration: number) => void;
 };
 
-function StreamingAudioPlayer({ fileId, durationSeconds, title, playbackSync, onDurationChange }: StreamingAudioPlayerProps) {
+function StreamingAudioPlayer({ fileId, durationSeconds, title, playbackSync, seekRequest, onDurationChange }: StreamingAudioPlayerProps) {
   const audioRef = useRef<HTMLAudioElement>(null);
+  const handledSeekToken = useRef<number | null>(null);
   const { token } = useAuth();
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -474,6 +690,20 @@ function StreamingAudioPlayer({ fileId, durationSeconds, title, playbackSync, on
     return () => window.cancelAnimationFrame(frameId);
   }, [isPlaying, playbackSync]);
 
+  useEffect(() => {
+    if (!seekRequest) return;
+    if (handledSeekToken.current === seekRequest.token) return;
+    handledSeekToken.current = seekRequest.token;
+    const audio = audioRef.current;
+    const maxDuration = Number.isFinite(duration) && duration > 0 ? duration : Number.POSITIVE_INFINITY;
+    const nextTime = Math.max(0, Math.min(seekRequest.seconds, maxDuration));
+    setCurrentTime(nextTime);
+    playbackSync.publish({ currentTime: nextTime, isPlaying });
+    if (audio) {
+      audio.currentTime = nextTime;
+    }
+  }, [duration, isPlaying, playbackSync, seekRequest]);
+
   const streamUrl = `/api/v1/files/${fileId}/audio`;
   const progress = duration > 0 ? currentTime / duration : 0;
 
@@ -488,7 +718,8 @@ function StreamingAudioPlayer({ fileId, durationSeconds, title, playbackSync, on
   };
 
   const handleSeek = (event: ChangeEvent<HTMLInputElement>) => {
-    const nextTime = Number(event.currentTarget.value);
+    const maxDuration = duration > 0 ? duration : Number.POSITIVE_INFINITY;
+    const nextTime = Math.max(0, Math.min(Number(event.currentTarget.value), maxDuration));
     setCurrentTime(nextTime);
     playbackSync.publish({ currentTime: nextTime, isPlaying });
     if (audioRef.current) {
@@ -561,52 +792,75 @@ function latestTranscriptionForFile(transcriptions: Transcription[], fileId: str
 
 function buildTranscriptDisplaySegments(transcript?: TranscriptionTranscript): TranscriptDisplaySegment[] {
   if (!transcript) return [];
+  let nextStartChar = 0;
+  let searchFrom = 0;
+  const sourceText = transcript.text || "";
+  const appendSegment = (segment: Omit<TranscriptDisplaySegment, "startChar" | "endChar" | "charAnchorReliable">) => {
+    const sourceIndex = sourceText ? sourceText.indexOf(segment.text, searchFrom) : -1;
+    if (sourceIndex !== -1) {
+      const endChar = sourceIndex + segment.text.length;
+      searchFrom = endChar;
+      nextStartChar = endChar + 1;
+      return { ...segment, startChar: sourceIndex, endChar, charAnchorReliable: true };
+    }
+
+    const startChar = nextStartChar;
+    const endChar = startChar + segment.text.length;
+    nextStartChar = endChar + 1;
+    return { ...segment, startChar, endChar, charAnchorReliable: false };
+  };
+
   if (transcript.segments.length > 1) {
     const words = transcript.words || [];
     return transcript.segments.flatMap((segment, index) => {
       const segmentWords = words.filter((word) => word.start < segment.end + 0.25 && word.end > segment.start - 0.25);
+      const firstWordIndex = segmentWords[0] ? words.findIndex((word) => word === segmentWords[0]) : -1;
       const segmentText = segment.text.trim();
       const textOffsets = segmentText ? computeWordOffsetsInText(segmentText, segmentWords) : [];
       const computed = computeWordOffsets(segmentWords);
       const useSegmentText = Boolean(segmentText && (!segmentWords.length || textOffsets.length > 0));
       const text = useSegmentText ? segmentText : computed.fullText;
       if (!text) return [];
-      return [{
+      return [appendSegment({
         id: segment.id || `segment-${index}`,
         start: segment.start,
         end: segment.end,
         speaker: segment.speaker || segmentWords[0]?.speaker,
         text,
         offsets: useSegmentText ? textOffsets : computed.offsets,
-      }];
+        wordStartIndex: firstWordIndex === -1 ? 0 : firstWordIndex,
+      })];
     });
   }
-  if (transcript.words.length > 0) return chunkWordsIntoDisplaySegments(transcript.words);
+  if (transcript.words.length > 0) return withTranscriptCharOffsets(chunkWordsIntoDisplaySegments(transcript.words), sourceText);
   if (transcript.segments.length === 1 && transcript.segments[0].text.trim()) {
     const segment = transcript.segments[0];
-    return [{
+    return [appendSegment({
       id: segment.id || "segment-0",
       start: segment.start,
       end: segment.end,
       speaker: segment.speaker,
       text: segment.text.trim(),
       offsets: [],
-    }];
+      wordStartIndex: 0,
+    })];
   }
   const text = transcript.text.trim();
   if (!text) return [];
-  return [{
+  return [appendSegment({
     id: "full-transcript",
     start: 0,
     end: 0,
     text,
     offsets: [],
-  }];
+    wordStartIndex: 0,
+  })];
 }
 
-function chunkWordsIntoDisplaySegments(words: TranscriptWord[]): TranscriptDisplaySegment[] {
-  const segments: TranscriptDisplaySegment[] = [];
+function chunkWordsIntoDisplaySegments(words: TranscriptWord[]): Omit<TranscriptDisplaySegment, "startChar" | "endChar" | "charAnchorReliable">[] {
+  const segments: Omit<TranscriptDisplaySegment, "startChar" | "endChar" | "charAnchorReliable">[] = [];
   let current: TranscriptWord[] = [];
+  let currentStartIndex = 0;
 
   const flush = () => {
     if (!current.length) return;
@@ -621,8 +875,10 @@ function chunkWordsIntoDisplaySegments(words: TranscriptWord[]): TranscriptDispl
         speaker: first.speaker,
         text: computed.fullText,
         offsets: computed.offsets,
+        wordStartIndex: currentStartIndex,
       });
     }
+    currentStartIndex += current.length;
     current = [];
   };
 
@@ -637,6 +893,64 @@ function chunkWordsIntoDisplaySegments(words: TranscriptWord[]): TranscriptDispl
 
   flush();
   return segments;
+}
+
+function withTranscriptCharOffsets(segments: Omit<TranscriptDisplaySegment, "startChar" | "endChar" | "charAnchorReliable">[], sourceText: string) {
+  let nextStartChar = 0;
+  let searchFrom = 0;
+  return segments.map((segment) => {
+    const sourceIndex = sourceText ? sourceText.indexOf(segment.text, searchFrom) : -1;
+    if (sourceIndex !== -1) {
+      const endChar = sourceIndex + segment.text.length;
+      searchFrom = endChar;
+      nextStartChar = endChar + 1;
+      return { ...segment, startChar: sourceIndex, endChar, charAnchorReliable: true };
+    }
+
+    const startChar = nextStartChar;
+    const endChar = startChar + segment.text.length;
+    nextStartChar = endChar + 1;
+    return { ...segment, startChar, endChar, charAnchorReliable: false };
+  });
+}
+
+function renderTranscriptTextWithHighlights(
+  segment: TranscriptDisplaySegment,
+  ranges: SegmentHighlightRange[],
+  onShowHighlightMenu: (annotationId: string, rect: DOMRect) => void,
+  onHideHighlightMenu: () => void
+): ReactNode {
+  if (!ranges.length) return segment.text;
+
+  const nodes: ReactNode[] = [];
+  let cursor = 0;
+
+  ranges.forEach((range, index) => {
+    const start = Math.max(0, Math.min(segment.text.length, range.start));
+    const end = Math.max(start, Math.min(segment.text.length, range.end));
+    if (start > cursor) nodes.push(segment.text.slice(cursor, start));
+    if (end > start) {
+      const annotationId = range.annotationIds[0];
+      nodes.push(
+        <mark
+          className="scr-transcript-highlight"
+          key={`${start}-${end}-${index}`}
+          tabIndex={0}
+          data-annotation-id={annotationId}
+          aria-label="Saved highlight"
+          onFocus={(event) => onShowHighlightMenu(annotationId, event.currentTarget.getBoundingClientRect())}
+          onMouseEnter={(event) => onShowHighlightMenu(annotationId, event.currentTarget.getBoundingClientRect())}
+          onMouseLeave={onHideHighlightMenu}
+        >
+          {segment.text.slice(start, end)}
+        </mark>
+      );
+    }
+    cursor = end;
+  });
+
+  if (cursor < segment.text.length) nodes.push(segment.text.slice(cursor));
+  return nodes;
 }
 
 function formatTranscriptionProgress(transcription: Transcription) {

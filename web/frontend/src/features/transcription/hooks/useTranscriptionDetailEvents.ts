@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import type { TranscriptionStatus, TranscriptionsResponse } from "@/features/transcription/api/transcriptionsApi";
+import { transcriptAnnotationsQueryKey } from "@/features/transcription/hooks/useTranscriptAnnotations";
 import { transcriptionSummaryQueryKey, transcriptionSummaryWidgetsQueryKey } from "@/features/transcription/hooks/useTranscriptionSummaries";
 import { transcriptionTranscriptQueryKey, transcriptionsQueryKey } from "@/features/transcription/hooks/useTranscriptions";
 
@@ -77,22 +78,24 @@ export function useTranscriptionDetailEvents(transcriptionId: string | undefined
             const eventTranscriptionId = parsed.data.transcription_id || parsed.data.id;
             if (eventTranscriptionId !== transcriptionId) continue;
 
-            queryClient.setQueryData<TranscriptionsResponse>(transcriptionsQueryKey, (current) => {
-              if (!current) return current;
-              return {
-                ...current,
-                items: current.items.map((transcription) => {
-                  if (transcription.id !== transcriptionId) return transcription;
-                  return {
-                    ...transcription,
-                    status: normalizeEventStatus(parsed.data.status) || transcription.status,
-                    progress: parsed.data.progress ?? transcription.progress,
-                    progress_stage: parsed.data.stage || transcription.progress_stage,
-                    updated_at: new Date().toISOString(),
-                  };
-                }),
-              };
-            });
+            if (isTranscriptionProgressEvent(parsed)) {
+              queryClient.setQueryData<TranscriptionsResponse>(transcriptionsQueryKey, (current) => {
+                if (!current) return current;
+                return {
+                  ...current,
+                  items: current.items.map((transcription) => {
+                    if (transcription.id !== transcriptionId) return transcription;
+                    return {
+                      ...transcription,
+                      status: normalizeEventStatus(parsed.data.status) || transcription.status,
+                      progress: parsed.data.progress ?? transcription.progress,
+                      progress_stage: parsed.data.stage || transcription.progress_stage,
+                      updated_at: new Date().toISOString(),
+                    };
+                  }),
+                };
+              });
+            }
 
             if (parsed.name === "transcription.completed" || parsed.data.status === "completed") {
               queryClient.invalidateQueries({ queryKey: transcriptionTranscriptQueryKey(transcriptionId) });
@@ -105,6 +108,9 @@ export function useTranscriptionDetailEvents(transcriptionId: string | undefined
             }
             if (parsed.name === "summary.truncated" && parsed.data.transcript_truncated && parsed.data.id) {
               onSummaryTruncated?.(parsed.data.id);
+            }
+            if (isAnnotationEvent(parsed.name)) {
+              queryClient.invalidateQueries({ queryKey: transcriptAnnotationsQueryKey(transcriptionId) });
             }
           }
         }
@@ -158,4 +164,15 @@ function normalizeEventStatus(status?: string): TranscriptionStatus | undefined 
     default:
       return undefined;
   }
+}
+
+function isTranscriptionProgressEvent(event: TranscriptionEvent) {
+  return event.name.startsWith("transcription.") || Boolean(event.data.status || event.data.progress !== undefined || event.data.stage);
+}
+
+function isAnnotationEvent(name: string) {
+  return name === "annotation.created" ||
+    name === "annotation.updated" ||
+    name === "annotation.deleted" ||
+    name.startsWith("annotation.entry.");
 }
