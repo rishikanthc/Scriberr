@@ -730,7 +730,7 @@ body[data-notes-sidebar-resizing="true"] {
 .scr-chat-session-group h3 {
   margin: 0 0 var(--scr-space-2);
   color: var(--scr-text-tertiary);
-  font-size: var(--scr-type-body);
+  font-size: var(--scr-type-body-sm);
   font-weight: var(--scr-font-weight-semibold);
   line-height: var(--scr-line-tight);
 }
@@ -745,7 +745,7 @@ body[data-notes-sidebar-resizing="true"] {
   color: var(--scr-text-primary);
   cursor: pointer;
   font: inherit;
-  padding: 10px var(--scr-space-3);
+  padding: 9px var(--scr-space-3);
   text-align: left;
 }
 
@@ -761,7 +761,7 @@ body[data-notes-sidebar-resizing="true"] {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: var(--scr-type-body-lg);
+  font-size: var(--scr-type-body);
   font-weight: var(--scr-font-weight-semibold);
   line-height: var(--scr-line-tight);
 }
@@ -769,7 +769,7 @@ body[data-notes-sidebar-resizing="true"] {
 .scr-chat-session-item small,
 .scr-chat-menu-status {
   color: var(--scr-text-tertiary);
-  font-size: var(--scr-type-body);
+  font-size: var(--scr-type-body-sm);
   font-weight: var(--scr-font-weight-regular);
 }
 
@@ -839,8 +839,8 @@ body[data-notes-sidebar-resizing="true"] {
 
 .scr-chat-message[data-role="user"] .scr-chat-message-body {
   border-radius: 999px;
-  background: #f5f6f8;
-  color: #17304f;
+  background: #e8eef6;
+  color: #24384f;
   padding: 10px 16px;
 }
 
@@ -1095,7 +1095,7 @@ body[data-notes-sidebar-resizing="true"] {
 .scr-chat-context-option span {
   overflow: hidden;
   color: var(--scr-text-primary);
-  font-size: var(--scr-type-heading-md);
+  font-size: var(--scr-type-body);
   font-weight: var(--scr-font-weight-regular);
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1103,7 +1103,7 @@ body[data-notes-sidebar-resizing="true"] {
 
 .scr-chat-context-option small {
   color: #536276;
-  font-size: var(--scr-type-body-sm);
+  font-size: var(--scr-type-meta);
 }
 
 .scr-chat-input {
