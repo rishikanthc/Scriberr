@@ -532,6 +532,484 @@ func (r *jobRepository) UpdateSummary(ctx context.Context, jobID string, summary
 	return r.db.WithContext(ctx).Save(&job).Error
 }
 
+// ChatRepository handles chat session, context source, message, and run persistence.
+type ChatRepository interface {
+	CreateSession(ctx context.Context, session *models.ChatSession) error
+	CreateSessionWithParentSource(ctx context.Context, session *models.ChatSession, source *models.ChatContextSource) error
+	FindSessionForUser(ctx context.Context, userID uint, sessionID string) (*models.ChatSession, error)
+	ListSessionsForTranscription(ctx context.Context, userID uint, transcriptionID string, offset, limit int) ([]models.ChatSession, int64, error)
+	UpdateSession(ctx context.Context, session *models.ChatSession) error
+	DeleteSession(ctx context.Context, userID uint, sessionID string) error
+	FindCompletedTranscriptionForUser(ctx context.Context, userID uint, transcriptionID string) (*models.TranscriptionJob, error)
+	UpsertContextSource(ctx context.Context, userID uint, sessionID string, source *models.ChatContextSource) (*models.ChatContextSource, error)
+	FindContextSourceForUser(ctx context.Context, userID uint, sessionID string, sourceID string) (*models.ChatContextSource, error)
+	ListContextSources(ctx context.Context, userID uint, sessionID string, enabledOnly bool) ([]models.ChatContextSource, error)
+	SetContextSourceEnabled(ctx context.Context, userID uint, sessionID string, sourceID string, enabled bool) error
+	DeleteContextSource(ctx context.Context, userID uint, sessionID string, sourceID string) error
+	UpdateContextSourceCompaction(ctx context.Context, userID uint, sessionID string, sourceID string, status models.ChatContextCompactionStatus, compactedSnapshot *string) error
+	CreateMessage(ctx context.Context, message *models.ChatMessage) error
+	UpdateMessage(ctx context.Context, message *models.ChatMessage) error
+	ListMessages(ctx context.Context, userID uint, sessionID string, offset, limit int) ([]models.ChatMessage, int64, error)
+	CreateGenerationRun(ctx context.Context, run *models.ChatGenerationRun) error
+	FindGenerationRunForUser(ctx context.Context, userID uint, runID string) (*models.ChatGenerationRun, error)
+	UpdateGenerationRunStatus(ctx context.Context, userID uint, runID string, status models.ChatGenerationRunStatus, at time.Time, errorMessage *string) error
+	SaveContextSummary(ctx context.Context, summary *models.ChatContextSummary) error
+	ListContextSummaries(ctx context.Context, userID uint, sessionID string, summaryType models.ChatContextSummaryType) ([]models.ChatContextSummary, error)
+}
+
+type chatRepository struct {
+	db *gorm.DB
+}
+
+func NewChatRepository(db *gorm.DB) ChatRepository {
+	return &chatRepository{db: db}
+}
+
+func (r *chatRepository) CreateSession(ctx context.Context, session *models.ChatSession) error {
+	if session == nil {
+		return fmt.Errorf("chat session is required")
+	}
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := ensureCompletedTranscriptionForUser(tx, session.UserID, session.ParentTranscriptionID); err != nil {
+			return err
+		}
+		return tx.Create(session).Error
+	})
+}
+
+func (r *chatRepository) CreateSessionWithParentSource(ctx context.Context, session *models.ChatSession, source *models.ChatContextSource) error {
+	if session == nil {
+		return fmt.Errorf("chat session is required")
+	}
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := ensureCompletedTranscriptionForUser(tx, session.UserID, session.ParentTranscriptionID); err != nil {
+			return err
+		}
+		if err := tx.Create(session).Error; err != nil {
+			return err
+		}
+		if source == nil {
+			return nil
+		}
+		source.UserID = session.UserID
+		source.ChatSessionID = session.ID
+		source.TranscriptionID = session.ParentTranscriptionID
+		source.Kind = models.ChatContextSourceKindParentTranscript
+		if source.MetadataJSON == "" {
+			source.MetadataJSON = "{}"
+		}
+		if err := applyContextSourceSnapshot(source); err != nil {
+			return err
+		}
+		return tx.Create(source).Error
+	})
+}
+
+func (r *chatRepository) FindSessionForUser(ctx context.Context, userID uint, sessionID string) (*models.ChatSession, error) {
+	var session models.ChatSession
+	if err := r.db.WithContext(ctx).Where("id = ? AND user_id = ?", sessionID, userID).First(&session).Error; err != nil {
+		return nil, err
+	}
+	return &session, nil
+}
+
+func (r *chatRepository) ListSessionsForTranscription(ctx context.Context, userID uint, transcriptionID string, offset, limit int) ([]models.ChatSession, int64, error) {
+	var sessions []models.ChatSession
+	var count int64
+	query := r.db.WithContext(ctx).Model(&models.ChatSession{}).
+		Where("user_id = ? AND parent_transcription_id = ?", userID, transcriptionID)
+	if err := query.Count(&count).Error; err != nil {
+		return nil, 0, err
+	}
+	if err := query.Order("updated_at DESC").Offset(offset).Limit(limit).Find(&sessions).Error; err != nil {
+		return nil, 0, err
+	}
+	return sessions, count, nil
+}
+
+func (r *chatRepository) UpdateSession(ctx context.Context, session *models.ChatSession) error {
+	if session == nil {
+		return fmt.Errorf("chat session is required")
+	}
+	result := r.db.WithContext(ctx).Model(&models.ChatSession{}).
+		Where("id = ? AND user_id = ?", session.ID, session.UserID).
+		Updates(map[string]any{
+			"title":         session.Title,
+			"status":        session.Status,
+			"system_prompt": session.SystemPrompt,
+		})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
+
+func (r *chatRepository) DeleteSession(ctx context.Context, userID uint, sessionID string) error {
+	result := r.db.WithContext(ctx).Where("id = ? AND user_id = ?", sessionID, userID).Delete(&models.ChatSession{})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
+
+func (r *chatRepository) FindCompletedTranscriptionForUser(ctx context.Context, userID uint, transcriptionID string) (*models.TranscriptionJob, error) {
+	var job models.TranscriptionJob
+	if err := r.db.WithContext(ctx).
+		Where("id = ? AND user_id = ? AND status = ?", transcriptionID, userID, models.StatusCompleted).
+		First(&job).Error; err != nil {
+		return nil, err
+	}
+	return &job, nil
+}
+
+func (r *chatRepository) UpsertContextSource(ctx context.Context, userID uint, sessionID string, source *models.ChatContextSource) (*models.ChatContextSource, error) {
+	if source == nil {
+		return nil, fmt.Errorf("chat context source is required")
+	}
+	var saved models.ChatContextSource
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if source.Kind == "" {
+			source.Kind = models.ChatContextSourceKindTranscript
+		}
+		if source.CompactionStatus == "" {
+			source.CompactionStatus = models.ChatContextCompactionStatusNone
+		}
+		session, err := findSessionForUserInTx(tx, userID, sessionID)
+		if err != nil {
+			return err
+		}
+		if source.Kind == models.ChatContextSourceKindParentTranscript && source.TranscriptionID != session.ParentTranscriptionID {
+			return gorm.ErrRecordNotFound
+		}
+		if err := ensureCompletedTranscriptionForUser(tx, userID, source.TranscriptionID); err != nil {
+			return err
+		}
+
+		var existing models.ChatContextSource
+		result := tx.Where("user_id = ? AND chat_session_id = ? AND transcription_id = ? AND kind = ?", userID, sessionID, source.TranscriptionID, source.Kind).
+			Limit(1).
+			Find(&existing)
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected == 0 {
+			position, err := nextContextSourcePosition(tx, sessionID)
+			if err != nil {
+				return err
+			}
+			source.UserID = userID
+			source.ChatSessionID = sessionID
+			source.Position = position
+			source.Enabled = true
+			if source.MetadataJSON == "" {
+				source.MetadataJSON = "{}"
+			}
+			if err := applyContextSourceSnapshot(source); err != nil {
+				return err
+			}
+			if err := tx.Create(source).Error; err != nil {
+				return err
+			}
+			saved = *source
+			return nil
+		}
+
+		updates := map[string]any{
+			"enabled":            true,
+			"metadata_json":      nonEmptyString(source.MetadataJSON, existing.MetadataJSON),
+			"source_version":     source.SourceVersion,
+			"compacted_snapshot": source.CompactedSnapshot,
+			"compaction_status":  source.CompactionStatus,
+		}
+		if source.PlainTextSnapshot != nil {
+			updates["plain_text_snapshot"] = source.PlainTextSnapshot
+			updates["snapshot_hash"] = hashString(*source.PlainTextSnapshot)
+		}
+		if source.Position > 0 {
+			updates["position"] = source.Position
+		}
+		if updates["compaction_status"] == "" {
+			updates["compaction_status"] = models.ChatContextCompactionStatusNone
+		}
+		if err := tx.Model(&models.ChatContextSource{}).Where("id = ? AND user_id = ?", existing.ID, userID).Updates(updates).Error; err != nil {
+			return err
+		}
+		return tx.First(&saved, "id = ?", existing.ID).Error
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &saved, nil
+}
+
+func (r *chatRepository) FindContextSourceForUser(ctx context.Context, userID uint, sessionID string, sourceID string) (*models.ChatContextSource, error) {
+	var source models.ChatContextSource
+	if err := r.db.WithContext(ctx).
+		Where("id = ? AND user_id = ? AND chat_session_id = ?", sourceID, userID, sessionID).
+		First(&source).Error; err != nil {
+		return nil, err
+	}
+	return &source, nil
+}
+
+func (r *chatRepository) ListContextSources(ctx context.Context, userID uint, sessionID string, enabledOnly bool) ([]models.ChatContextSource, error) {
+	query := r.db.WithContext(ctx).
+		Preload("Transcription").
+		Where("user_id = ? AND chat_session_id = ?", userID, sessionID)
+	if enabledOnly {
+		query = query.Where("enabled = ?", true)
+	}
+	var sources []models.ChatContextSource
+	if err := query.Order("position ASC, created_at ASC, id ASC").Find(&sources).Error; err != nil {
+		return nil, err
+	}
+	return sources, nil
+}
+
+func (r *chatRepository) SetContextSourceEnabled(ctx context.Context, userID uint, sessionID string, sourceID string, enabled bool) error {
+	result := r.db.WithContext(ctx).Model(&models.ChatContextSource{}).
+		Where("id = ? AND user_id = ? AND chat_session_id = ?", sourceID, userID, sessionID).
+		Update("enabled", enabled)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
+
+func (r *chatRepository) DeleteContextSource(ctx context.Context, userID uint, sessionID string, sourceID string) error {
+	result := r.db.WithContext(ctx).
+		Where("id = ? AND user_id = ? AND chat_session_id = ?", sourceID, userID, sessionID).
+		Delete(&models.ChatContextSource{})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
+
+func (r *chatRepository) UpdateContextSourceCompaction(ctx context.Context, userID uint, sessionID string, sourceID string, status models.ChatContextCompactionStatus, compactedSnapshot *string) error {
+	updates := map[string]any{
+		"compaction_status": status,
+	}
+	if compactedSnapshot != nil || status == models.ChatContextCompactionStatusNone {
+		updates["compacted_snapshot"] = compactedSnapshot
+	}
+	result := r.db.WithContext(ctx).Model(&models.ChatContextSource{}).
+		Where("id = ? AND user_id = ? AND chat_session_id = ?", sourceID, userID, sessionID).
+		Updates(updates)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
+
+func (r *chatRepository) CreateMessage(ctx context.Context, message *models.ChatMessage) error {
+	if message == nil {
+		return fmt.Errorf("chat message is required")
+	}
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if _, err := findSessionForUserInTx(tx, message.UserID, message.ChatSessionID); err != nil {
+			return err
+		}
+		if err := tx.Create(message).Error; err != nil {
+			return err
+		}
+		return tx.Model(&models.ChatSession{}).
+			Where("id = ? AND user_id = ?", message.ChatSessionID, message.UserID).
+			Update("last_message_at", message.CreatedAt).Error
+	})
+}
+
+func (r *chatRepository) UpdateMessage(ctx context.Context, message *models.ChatMessage) error {
+	if message == nil {
+		return fmt.Errorf("chat message is required")
+	}
+	result := r.db.WithContext(ctx).Model(&models.ChatMessage{}).
+		Where("id = ? AND user_id = ? AND chat_session_id = ?", message.ID, message.UserID, message.ChatSessionID).
+		UpdateColumns(map[string]any{
+			"content":           message.Content,
+			"reasoning_content": message.ReasoningContent,
+			"status":            message.Status,
+			"provider":          message.Provider,
+			"model_name":        message.Model,
+			"run_id":            message.RunID,
+			"prompt_tokens":     message.PromptTokens,
+			"completion_tokens": message.CompletionTokens,
+			"reasoning_tokens":  message.ReasoningTokens,
+			"total_tokens":      message.TotalTokens,
+			"metadata_json":     message.MetadataJSON,
+			"updated_at":        time.Now(),
+		})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
+
+func (r *chatRepository) ListMessages(ctx context.Context, userID uint, sessionID string, offset, limit int) ([]models.ChatMessage, int64, error) {
+	var messages []models.ChatMessage
+	var count int64
+	query := r.db.WithContext(ctx).Model(&models.ChatMessage{}).
+		Where("user_id = ? AND chat_session_id = ?", userID, sessionID)
+	if err := query.Count(&count).Error; err != nil {
+		return nil, 0, err
+	}
+	if err := query.Order("created_at ASC, id ASC").Offset(offset).Limit(limit).Find(&messages).Error; err != nil {
+		return nil, 0, err
+	}
+	return messages, count, nil
+}
+
+func (r *chatRepository) CreateGenerationRun(ctx context.Context, run *models.ChatGenerationRun) error {
+	if run == nil {
+		return fmt.Errorf("chat generation run is required")
+	}
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if _, err := findSessionForUserInTx(tx, run.UserID, run.ChatSessionID); err != nil {
+			return err
+		}
+		return tx.Create(run).Error
+	})
+}
+
+func (r *chatRepository) FindGenerationRunForUser(ctx context.Context, userID uint, runID string) (*models.ChatGenerationRun, error) {
+	var run models.ChatGenerationRun
+	if err := r.db.WithContext(ctx).Where("id = ? AND user_id = ?", runID, userID).First(&run).Error; err != nil {
+		return nil, err
+	}
+	return &run, nil
+}
+
+func (r *chatRepository) UpdateGenerationRunStatus(ctx context.Context, userID uint, runID string, status models.ChatGenerationRunStatus, at time.Time, errorMessage *string) error {
+	updates := map[string]any{"status": status}
+	switch status {
+	case models.ChatGenerationRunStatusStreaming:
+		updates["started_at"] = at
+	case models.ChatGenerationRunStatusCompleted:
+		updates["completed_at"] = at
+		updates["error_message"] = nil
+	case models.ChatGenerationRunStatusFailed:
+		updates["failed_at"] = at
+		updates["error_message"] = errorMessage
+	case models.ChatGenerationRunStatusCanceled:
+		updates["completed_at"] = at
+		updates["error_message"] = errorMessage
+	default:
+	}
+	result := r.db.WithContext(ctx).Model(&models.ChatGenerationRun{}).
+		Where("id = ? AND user_id = ?", runID, userID).
+		Updates(updates)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
+
+func (r *chatRepository) SaveContextSummary(ctx context.Context, summary *models.ChatContextSummary) error {
+	if summary == nil {
+		return fmt.Errorf("chat context summary is required")
+	}
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if _, err := findSessionForUserInTx(tx, summary.UserID, summary.ChatSessionID); err != nil {
+			return err
+		}
+		if summary.SourceTranscriptionID != nil && *summary.SourceTranscriptionID != "" {
+			if err := ensureCompletedTranscriptionForUser(tx, summary.UserID, *summary.SourceTranscriptionID); err != nil {
+				return err
+			}
+		}
+		if summary.SourceMessageThroughID != nil && *summary.SourceMessageThroughID != "" {
+			var message models.ChatMessage
+			if err := tx.Select("id").
+				Where("id = ? AND user_id = ? AND chat_session_id = ?", *summary.SourceMessageThroughID, summary.UserID, summary.ChatSessionID).
+				First(&message).Error; err != nil {
+				return err
+			}
+		}
+		return tx.Create(summary).Error
+	})
+}
+
+func (r *chatRepository) ListContextSummaries(ctx context.Context, userID uint, sessionID string, summaryType models.ChatContextSummaryType) ([]models.ChatContextSummary, error) {
+	query := r.db.WithContext(ctx).
+		Where("user_id = ? AND chat_session_id = ?", userID, sessionID)
+	if summaryType != "" {
+		query = query.Where("summary_type = ?", summaryType)
+	}
+	var summaries []models.ChatContextSummary
+	if err := query.Order("created_at DESC, id DESC").Find(&summaries).Error; err != nil {
+		return nil, err
+	}
+	return summaries, nil
+}
+
+func ensureCompletedTranscriptionForUser(tx *gorm.DB, userID uint, transcriptionID string) error {
+	var job models.TranscriptionJob
+	return tx.Select("id").
+		Where("id = ? AND user_id = ? AND status = ?", transcriptionID, userID, models.StatusCompleted).
+		First(&job).Error
+}
+
+func findSessionForUserInTx(tx *gorm.DB, userID uint, sessionID string) (*models.ChatSession, error) {
+	var session models.ChatSession
+	if err := tx.Where("id = ? AND user_id = ?", sessionID, userID).First(&session).Error; err != nil {
+		return nil, err
+	}
+	return &session, nil
+}
+
+func nextContextSourcePosition(tx *gorm.DB, sessionID string) (int, error) {
+	var maxPosition int
+	if err := tx.Model(&models.ChatContextSource{}).
+		Where("chat_session_id = ?", sessionID).
+		Select("COALESCE(MAX(position), -1) + 1").
+		Scan(&maxPosition).Error; err != nil {
+		return 0, err
+	}
+	return maxPosition, nil
+}
+
+func applyContextSourceSnapshot(source *models.ChatContextSource) error {
+	if source == nil || source.PlainTextSnapshot == nil {
+		return nil
+	}
+	hash := hashString(*source.PlainTextSnapshot)
+	source.SnapshotHash = &hash
+	return nil
+}
+
+func hashString(value string) string {
+	sum := sha256.Sum256([]byte(value))
+	return hex.EncodeToString(sum[:])
+}
+
+func nonEmptyString(value, fallback string) string {
+	if value != "" {
+		return value
+	}
+	return fallback
+}
+
 // APIKeyRepository handles API key operations
 type APIKeyRepository interface {
 	Repository[models.APIKey]

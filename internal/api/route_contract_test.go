@@ -72,6 +72,17 @@ func TestCanonicalRouteRegistration(t *testing.T) {
 		"PATCH /api/v1/settings",
 		"GET /api/v1/settings/llm-provider",
 		"PUT /api/v1/settings/llm-provider",
+		"GET /api/v1/chat/models",
+		"GET /api/v1/chat/sessions",
+		"POST /api/v1/chat/sessions",
+		"GET /api/v1/chat/sessions/:session_id",
+		"PATCH /api/v1/chat/sessions/:session_id",
+		"DELETE /api/v1/chat/sessions/:session_id",
+		"GET /api/v1/chat/sessions/:session_id/context",
+		"POST /api/v1/chat/sessions/:session_id/context/transcripts",
+		"PATCH /api/v1/chat/sessions/:session_id/context/transcripts/:context_source_id",
+		"DELETE /api/v1/chat/sessions/:session_id/context/transcripts/:context_source_id",
+		"POST /api/v1/chat/sessions/:session_id/title:generate",
 		"GET /api/v1/events",
 		"GET /api/v1/models/transcription",
 		"GET /api/v1/admin/queue",
@@ -160,6 +171,15 @@ func TestAPIDocsContainOnlyCanonicalRoutes(t *testing.T) {
 	require.Contains(t, doc.Paths, "/api/v1/transcriptions/{id}/annotations/{annotation_id}/entries/{entry_id}")
 	require.Contains(t, doc.Paths, "/api/v1/profiles")
 	require.Contains(t, doc.Paths, "/api/v1/settings")
+	require.Contains(t, doc.Paths, "/api/v1/chat/models")
+	require.Contains(t, doc.Paths, "/api/v1/chat/sessions")
+	require.Contains(t, doc.Paths, "/api/v1/chat/sessions/{session_id}/context")
+	require.Contains(t, doc.Paths, "/api/v1/chat/sessions/{session_id}/messages:stream")
+	require.Contains(t, doc.Paths, "/api/v1/chat/runs/{run_id}:cancel")
+
+	chatStream := doc.Paths["/api/v1/chat/sessions/{session_id}/messages:stream"]["post"].(map[string]any)
+	require.Contains(t, chatStream["description"], "chat.delta.reasoning")
+	require.Contains(t, chatStream["description"], "assistant_message.content")
 
 	globalEvents := doc.Paths["/api/v1/events"]["get"].(map[string]any)
 	globalEventResponses := globalEvents["responses"].(map[string]any)

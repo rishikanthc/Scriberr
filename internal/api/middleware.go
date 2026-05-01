@@ -84,6 +84,20 @@ func (h *Handler) handleCommandRoute(c *gin.Context) bool {
 		h.runIdempotent(c, h.submitTranscription)
 		return true
 	default:
+		if sessionID, ok := parseChatMessageStreamPath(c.Request.URL.Path); ok {
+			if !h.requireAuthForNoRoute(c) {
+				return true
+			}
+			h.runIdempotent(c, func(c *gin.Context) { h.streamChatMessage(c, sessionID) })
+			return true
+		}
+		if runID, ok := parseChatRunCancelPath(c.Request.URL.Path); ok {
+			if !h.requireAuthForNoRoute(c) {
+				return true
+			}
+			h.cancelChatRun(c, runID)
+			return true
+		}
 		if publicID, command, ok := parseTranscriptionCommandPath(c.Request.URL.Path); ok {
 			if !h.requireAuthForNoRoute(c) {
 				return true
@@ -102,6 +116,30 @@ func (h *Handler) handleCommandRoute(c *gin.Context) bool {
 		}
 		return false
 	}
+}
+
+func parseChatMessageStreamPath(requestPath string) (string, bool) {
+	trimmed := strings.TrimPrefix(requestPath, "/api/v1/chat/sessions/")
+	if trimmed == requestPath || trimmed == "" {
+		return "", false
+	}
+	sessionID, suffix, ok := strings.Cut(trimmed, "/messages:stream")
+	if !ok || suffix != "" || sessionID == "" {
+		return "", false
+	}
+	return sessionID, true
+}
+
+func parseChatRunCancelPath(requestPath string) (string, bool) {
+	trimmed := strings.TrimPrefix(requestPath, "/api/v1/chat/runs/")
+	if trimmed == requestPath || trimmed == "" {
+		return "", false
+	}
+	runID, command, ok := strings.Cut(trimmed, ":")
+	if !ok || command != "cancel" || runID == "" {
+		return "", false
+	}
+	return runID, true
 }
 
 func parseTranscriptionCommandPath(requestPath string) (string, string, bool) {

@@ -232,6 +232,7 @@ type ChatGenerationRun struct {
 	Provider               string                  `json:"provider" gorm:"type:varchar(50);not null"`
 	Model                  string                  `json:"model" gorm:"column:model_name;type:varchar(255);not null"`
 	ContextWindow          int                     `json:"context_window" gorm:"not null"`
+	ContextWindowSource    string                  `json:"context_window_source" gorm:"type:varchar(50);not null;default:'safe_default'"`
 	ContextTokensEstimated int                     `json:"context_tokens_estimated" gorm:"not null;default:0"`
 	CompactionApplied      bool                    `json:"compaction_applied" gorm:"not null;default:false"`
 	ErrorMessage           *string                 `json:"error_message,omitempty" gorm:"type:text"`
@@ -260,6 +261,9 @@ func (r *ChatGenerationRun) BeforeSave(tx *gorm.DB) error {
 	}
 	if r.Status == "" {
 		r.Status = ChatGenerationRunStatusPending
+	}
+	if r.ContextWindowSource == "" {
+		r.ContextWindowSource = "safe_default"
 	}
 	return validateChatGenerationRunStatus(r.Status)
 }

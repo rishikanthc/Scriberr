@@ -1058,6 +1058,205 @@
         }
       }
     },
+    "/api/v1/chat/models": {
+      "get": {
+        "summary": "List configured chat models",
+        "description": "Returns active LLM provider models with context-window metadata. Returns LLM_PROVIDER_NOT_CONFIGURED when chat cannot run.",
+        "responses": {
+          "200": {
+            "description": "Chat model capabilities"
+          },
+          "409": {
+            "description": "LLM provider is not configured"
+          },
+          "503": {
+            "description": "LLM provider is unavailable"
+          }
+        }
+      }
+    },
+    "/api/v1/chat/sessions": {
+      "get": {
+        "summary": "List chat sessions for a parent transcript",
+        "parameters": [
+          {
+            "name": "parent_transcription_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "tr_123"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Chat session collection envelope"
+          }
+        }
+      },
+      "post": {
+        "summary": "Create chat session",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "description": "Optional retry key for session creation.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Chat session created with parent transcript context"
+          },
+          "409": {
+            "description": "LLM provider is not configured"
+          },
+          "422": {
+            "description": "Requested model is not available"
+          }
+        }
+      }
+    },
+    "/api/v1/chat/sessions/{session_id}": {
+      "get": {
+        "summary": "Get chat session",
+        "responses": {
+          "200": {
+            "description": "Chat session"
+          },
+          "404": {
+            "description": "Chat session not found"
+          }
+        }
+      },
+      "patch": {
+        "summary": "Update chat session",
+        "responses": {
+          "200": {
+            "description": "Chat session updated"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete chat session",
+        "responses": {
+          "204": {
+            "description": "Chat session deleted"
+          }
+        }
+      }
+    },
+    "/api/v1/chat/sessions/{session_id}/context": {
+      "get": {
+        "summary": "List chat context sources",
+        "description": "Returns context source metadata and state only; raw transcript text and compacted snapshots are not exposed.",
+        "responses": {
+          "200": {
+            "description": "Context source collection envelope"
+          }
+        }
+      }
+    },
+    "/api/v1/chat/sessions/{session_id}/context/transcripts": {
+      "post": {
+        "summary": "Add transcript context source",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "description": "Optional retry key for context-source creation.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Context source added"
+          },
+          "404": {
+            "description": "Transcript not found or not completed"
+          }
+        }
+      }
+    },
+    "/api/v1/chat/sessions/{session_id}/context/transcripts/{context_source_id}": {
+      "patch": {
+        "summary": "Update context source state",
+        "responses": {
+          "200": {
+            "description": "Context source updated"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Remove context source",
+        "responses": {
+          "204": {
+            "description": "Context source removed"
+          }
+        }
+      }
+    },
+    "/api/v1/chat/sessions/{session_id}/messages:stream": {
+      "post": {
+        "summary": "Create user message and stream assistant response",
+        "description": "Server-Sent Events stream. Reasoning and final Markdown content are emitted separately with chat.delta.reasoning and chat.delta.content. The terminal event includes assistant_message.content and assistant_message.reasoning_content.",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "description": "Optional retry key for stream start.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "SSE stream using text/event-stream"
+          },
+          "409": {
+            "description": "LLM provider is not configured"
+          },
+          "422": {
+            "description": "Validation error or model unavailable"
+          }
+        }
+      }
+    },
+    "/api/v1/chat/runs/{run_id}:cancel": {
+      "post": {
+        "summary": "Cancel chat generation run",
+        "responses": {
+          "200": {
+            "description": "Run canceled or already terminal"
+          },
+          "404": {
+            "description": "Run not found"
+          }
+        }
+      }
+    },
+    "/api/v1/chat/sessions/{session_id}/title:generate": {
+      "post": {
+        "summary": "Generate chat session title",
+        "responses": {
+          "200": {
+            "description": "Generated title"
+          }
+        }
+      }
+    },
     "/api/v1/events": {
       "get": {
         "summary": "Stream global events",

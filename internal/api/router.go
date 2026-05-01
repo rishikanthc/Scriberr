@@ -12,6 +12,8 @@ import (
 	"scriberr/internal/auth"
 	"scriberr/internal/config"
 	"scriberr/internal/database"
+	"scriberr/internal/llm"
+	"scriberr/internal/models"
 	"scriberr/internal/repository"
 	"scriberr/internal/summarization"
 	"scriberr/internal/transcription/engineprovider"
@@ -38,6 +40,7 @@ type Handler struct {
 	queueService    worker.QueueService
 	modelRegistry   engineprovider.Registry
 	annotations     *annotations.Service
+	chatLLMFactory  func(*models.LLMConfig) (llm.Service, error)
 }
 
 func NewHandler(cfg *config.Config, authService *auth.AuthService, services ...any) *Handler {
@@ -54,6 +57,7 @@ func NewHandler(cfg *config.Config, authService *auth.AuthService, services ...a
 		mediaExtractor:  ffmpegMediaExtractor{},
 		eventHeartbeat:  25 * time.Second,
 		maxUploadBytes:  defaultMaxUploadSizeBytes,
+		chatLLMFactory:  chatClientForConfig,
 	}
 	for _, service := range services {
 		switch value := service.(type) {
@@ -232,6 +236,26 @@ func SetupRoutes(handler *Handler, _ *auth.AuthService) *gin.Engine {
 			settings.POST("/summary-widgets", handler.idempotencyMiddleware(), handler.createSummaryWidget)
 			settings.PATCH("/summary-widgets/:id", handler.updateSummaryWidget)
 			settings.DELETE("/summary-widgets/:id", handler.deleteSummaryWidget)
+		}
+
+		chatRoutes := v1.Group("/chat")
+		chatRoutes.Use(handler.authRequired())
+		{
+			chatRoutes.GET("/models", handler.listChatModels)
+			chatRoutes.GET("/sessions", handler.listChatSessions)
+			chatRoutes.POST("/sessions", handler.idempotencyMiddleware(), handler.createChatSession)
+			chatRoutes.GET("/sessions/:session_id", handler.getChatSession)
+			chatRoutes.PATCH("/sessions/:session_id", handler.updateChatSession)
+			chatRoutes.DELETE("/sessions/:session_id", handler.deleteChatSession)
+			chatRoutes.GET("/sessions/:session_id/messages", handler.listChatMessages)
+			chatRoutes.POST("/sessions/:session_id/messages:stream", func(c *gin.Context) {
+				handler.streamChatMessage(c, c.Param("session_id"))
+			})
+			chatRoutes.GET("/sessions/:session_id/context", handler.getChatContext)
+			chatRoutes.POST("/sessions/:session_id/context/transcripts", handler.idempotencyMiddleware(), handler.addChatContextTranscript)
+			chatRoutes.PATCH("/sessions/:session_id/context/transcripts/:context_source_id", handler.updateChatContextTranscript)
+			chatRoutes.DELETE("/sessions/:session_id/context/transcripts/:context_source_id", handler.deleteChatContextTranscript)
+			chatRoutes.POST("/sessions/:session_id/title:generate", handler.generateChatTitle)
 		}
 
 		v1.GET("/events", handler.authRequired(), handler.streamEvents)

@@ -83,10 +83,19 @@ type ollamaChatRequest struct {
 type ollamaChatResponse struct {
 	Model   string `json:"model"`
 	Message struct {
-		Role    string `json:"role"`
-		Content string `json:"content"`
+		Role      string `json:"role"`
+		Content   string `json:"content"`
+		Thinking  string `json:"thinking,omitempty"`
+		Reasoning string `json:"reasoning,omitempty"`
 	} `json:"message"`
-	Done bool `json:"done"`
+	Done             bool   `json:"done"`
+	DoneReason       string `json:"done_reason,omitempty"`
+	PromptEvalCount  int    `json:"prompt_eval_count,omitempty"`
+	EvalCount        int    `json:"eval_count,omitempty"`
+	CompletionTokens int    `json:"completion_tokens,omitempty"`
+	PromptTokens     int    `json:"prompt_tokens,omitempty"`
+	TotalTokens      int    `json:"total_tokens,omitempty"`
+	ReasoningTokens  int    `json:"reasoning_tokens,omitempty"`
 }
 
 // ChatCompletion performs a non-streaming chat completion against Ollama
@@ -147,9 +156,37 @@ func (s *OllamaService) ChatCompletion(ctx context.Context, model string, messag
 func (s *OllamaService) ChatCompletionStream(ctx context.Context, model string, messages []ChatMessage, temperature float64) (<-chan string, <-chan error) {
 	contentChan := make(chan string, 100)
 	errorChan := make(chan error, 1)
+	events, errors := s.ChatCompletionStreamEvents(ctx, model, messages, temperature)
 
 	go func() {
 		defer close(contentChan)
+		defer close(errorChan)
+		for event := range events {
+			if event.Type == StreamEventContentDelta && event.ContentDelta != "" {
+				select {
+				case contentChan <- event.ContentDelta:
+				case <-ctx.Done():
+					return
+				}
+			}
+		}
+		for err := range errors {
+			if err != nil {
+				errorChan <- err
+				return
+			}
+		}
+	}()
+
+	return contentChan, errorChan
+}
+
+func (s *OllamaService) ChatCompletionStreamEvents(ctx context.Context, model string, messages []ChatMessage, temperature float64) (<-chan StreamEvent, <-chan error) {
+	eventChan := make(chan StreamEvent, 100)
+	errorChan := make(chan error, 1)
+
+	go func() {
+		defer close(eventChan)
 		defer close(errorChan)
 
 		msgs := make([]ollamaChatMessage, 0, len(messages))
@@ -173,13 +210,6 @@ func (s *OllamaService) ChatCompletionStream(ctx context.Context, model string, 
 		}
 		req.Header.Set("Content-Type", "application/json")
 
-		// Debug log the request body
-		if len(data) < 2000 {
-			fmt.Printf("Debug: Ollama request body: %s\n", string(data))
-		} else {
-			fmt.Printf("Debug: Ollama request body (truncated): %s...\n", string(data[:2000]))
-		}
-
 		resp, err := s.client.Do(req)
 		if err != nil {
 			errorChan <- fmt.Errorf("failed to make request: %w", err)
@@ -188,41 +218,99 @@ func (s *OllamaService) ChatCompletionStream(ctx context.Context, model string, 
 		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusOK {
 			body, _ := io.ReadAll(resp.Body)
-			errorChan <- fmt.Errorf("API error: %d - %s", resp.StatusCode, string(body))
+			errorChan <- normalizeOllamaError(resp.StatusCode, body)
 			return
 		}
 
-		scanner := bufio.NewScanner(resp.Body)
-		for scanner.Scan() {
-			if ctx.Err() != nil {
-				return
-			}
-			line := scanner.Text()
-			// Ollama streams JSON objects per line
-			if strings.TrimSpace(line) == "" {
-				continue
-			}
-			var chunk ollamaChatResponse
-			if err := json.Unmarshal([]byte(line), &chunk); err != nil {
-				continue
-			}
-			if chunk.Message.Content != "" {
-				select {
-				case contentChan <- chunk.Message.Content:
-				case <-ctx.Done():
-					return
-				}
-			}
-			if chunk.Done {
-				return
-			}
-		}
-		if err := scanner.Err(); err != nil {
-			errorChan <- fmt.Errorf("error reading stream: %w", err)
+		if err := parseOllamaStream(ctx, resp.Body, eventChan); err != nil {
+			errorChan <- err
 		}
 	}()
 
-	return contentChan, errorChan
+	return eventChan, errorChan
+}
+
+func parseOllamaStream(ctx context.Context, reader io.Reader, eventChan chan<- StreamEvent) error {
+	scanner := bufio.NewScanner(reader)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" {
+			continue
+		}
+		var chunk ollamaChatResponse
+		if err := json.Unmarshal([]byte(line), &chunk); err != nil {
+			continue
+		}
+		for _, event := range ollamaChunkEvents(chunk) {
+			if err := sendStreamEvent(ctx, eventChan, event); err != nil {
+				return err
+			}
+		}
+		if chunk.Done {
+			return nil
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		return fmt.Errorf("error reading stream: %w", err)
+	}
+	return nil
+}
+
+func ollamaChunkEvents(chunk ollamaChatResponse) []StreamEvent {
+	events := make([]StreamEvent, 0, 4)
+	if chunk.Message.Thinking != "" {
+		events = append(events, StreamEvent{Type: StreamEventReasoningDelta, ReasoningDelta: chunk.Message.Thinking, Model: chunk.Model})
+	}
+	if chunk.Message.Reasoning != "" {
+		events = append(events, StreamEvent{Type: StreamEventReasoningDelta, ReasoningDelta: chunk.Message.Reasoning, Model: chunk.Model})
+	}
+	if chunk.Message.Content != "" {
+		events = append(events, StreamEvent{Type: StreamEventContentDelta, ContentDelta: chunk.Message.Content, Model: chunk.Model})
+	}
+	if hasOllamaUsage(chunk) {
+		promptTokens := chunk.PromptTokens
+		if promptTokens == 0 {
+			promptTokens = chunk.PromptEvalCount
+		}
+		completionTokens := chunk.CompletionTokens
+		if completionTokens == 0 {
+			completionTokens = chunk.EvalCount
+		}
+		totalTokens := chunk.TotalTokens
+		if totalTokens == 0 {
+			totalTokens = promptTokens + completionTokens
+		}
+		events = append(events, StreamEvent{
+			Type:  StreamEventUsage,
+			Model: chunk.Model,
+			Usage: &TokenUsage{
+				PromptTokens:     promptTokens,
+				CompletionTokens: completionTokens,
+				ReasoningTokens:  chunk.ReasoningTokens,
+				TotalTokens:      totalTokens,
+			},
+		})
+	}
+	if chunk.Done {
+		events = append(events, StreamEvent{Type: StreamEventDone, FinishReason: chunk.DoneReason, Model: chunk.Model})
+	}
+	return events
+}
+
+func hasOllamaUsage(chunk ollamaChatResponse) bool {
+	return chunk.PromptEvalCount != 0 || chunk.EvalCount != 0 || chunk.PromptTokens != 0 || chunk.CompletionTokens != 0 || chunk.TotalTokens != 0 || chunk.ReasoningTokens != 0
+}
+
+type ollamaErrorResponse struct {
+	Error string `json:"error"`
+}
+
+func normalizeOllamaError(statusCode int, body []byte) error {
+	var parsed ollamaErrorResponse
+	if err := json.Unmarshal(body, &parsed); err == nil && parsed.Error != "" {
+		return &ProviderError{StatusCode: statusCode, Message: parsed.Error}
+	}
+	return &ProviderError{StatusCode: statusCode, Message: fmt.Sprintf("provider returned status %d", statusCode)}
 }
 
 // ollamaShowRequest represents the request to show model info

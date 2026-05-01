@@ -65,9 +65,12 @@ type ChatResponse struct {
 		FinishReason string `json:"finish_reason"`
 	} `json:"choices"`
 	Usage struct {
-		PromptTokens     int `json:"prompt_tokens"`
-		CompletionTokens int `json:"completion_tokens"`
-		TotalTokens      int `json:"total_tokens"`
+		PromptTokens            int `json:"prompt_tokens"`
+		CompletionTokens        int `json:"completion_tokens"`
+		CompletionTokensDetails struct {
+			ReasoningTokens int `json:"reasoning_tokens"`
+		} `json:"completion_tokens_details,omitempty"`
+		TotalTokens int `json:"total_tokens"`
 	} `json:"usage"`
 }
 
@@ -80,11 +83,21 @@ type ChatStreamResponse struct {
 	Choices []struct {
 		Index int `json:"index"`
 		Delta struct {
-			Role    string `json:"role,omitempty"`
-			Content string `json:"content,omitempty"`
+			Role             string `json:"role,omitempty"`
+			Content          string `json:"content,omitempty"`
+			ReasoningContent string `json:"reasoning_content,omitempty"`
+			Reasoning        string `json:"reasoning,omitempty"`
 		} `json:"delta"`
 		FinishReason string `json:"finish_reason"`
 	} `json:"choices"`
+	Usage *struct {
+		PromptTokens            int `json:"prompt_tokens"`
+		CompletionTokens        int `json:"completion_tokens"`
+		CompletionTokensDetails struct {
+			ReasoningTokens int `json:"reasoning_tokens"`
+		} `json:"completion_tokens_details,omitempty"`
+		TotalTokens int `json:"total_tokens"`
+	} `json:"usage,omitempty"`
 }
 
 // ModelsResponse represents the OpenAI models list response
@@ -134,7 +147,7 @@ func (s *OpenAIService) GetModels(ctx context.Context) ([]string, error) {
 		} else {
 			// If custom baseURL → return all models
 			chatModels = append(chatModels, model.ID)
-    	}
+		}
 	}
 
 	return chatModels, nil
@@ -192,18 +205,44 @@ func (s *OpenAIService) ChatCompletion(ctx context.Context, model string, messag
 func (s *OpenAIService) ChatCompletionStream(ctx context.Context, model string, messages []ChatMessage, temperature float64) (<-chan string, <-chan error) {
 	contentChan := make(chan string, 100)
 	errorChan := make(chan error, 1)
+	events, errors := s.ChatCompletionStreamEvents(ctx, model, messages, temperature)
 
 	go func() {
 		defer close(contentChan)
 		defer close(errorChan)
+		for event := range events {
+			if event.Type == StreamEventContentDelta && event.ContentDelta != "" {
+				select {
+				case contentChan <- event.ContentDelta:
+				case <-ctx.Done():
+					return
+				}
+			}
+		}
+		for err := range errors {
+			if err != nil {
+				errorChan <- err
+				return
+			}
+		}
+	}()
 
-		// Build request without temperature to use model defaults.
+	return contentChan, errorChan
+}
+
+func (s *OpenAIService) ChatCompletionStreamEvents(ctx context.Context, model string, messages []ChatMessage, temperature float64) (<-chan StreamEvent, <-chan error) {
+	eventChan := make(chan StreamEvent, 100)
+	errorChan := make(chan error, 1)
+
+	go func() {
+		defer close(eventChan)
+		defer close(errorChan)
+
 		reqBody := ChatRequest{
 			Model:    model,
 			Messages: messages,
 			Stream:   true,
 		}
-		// Only set temperature if caller provided a non-zero value.
 		if temperature != 0 {
 			reqBody.Temperature = temperature
 		}
@@ -232,59 +271,108 @@ func (s *OpenAIService) ChatCompletionStream(ctx context.Context, model string, 
 		}
 		defer resp.Body.Close()
 
+		requestID := resp.Header.Get("x-request-id")
 		if resp.StatusCode != http.StatusOK {
 			body, _ := io.ReadAll(resp.Body)
 			log.Printf("[openai] chat stream error status=%d body=%s", resp.StatusCode, truncate(string(body), 500))
-			errorChan <- fmt.Errorf("API error: %d - %s", resp.StatusCode, string(body))
+			errorChan <- normalizeOpenAIError(resp.StatusCode, body)
 			return
 		}
 
-		scanner := bufio.NewScanner(resp.Body)
-		loggedFirst := false
-		for scanner.Scan() {
-			line := scanner.Text()
-
-			// Skip empty lines and comments
-			if line == "" || !strings.HasPrefix(line, "data: ") {
-				continue
-			}
-
-			// Remove "data: " prefix
-			data := strings.TrimPrefix(line, "data: ")
-
-			// Check for end of stream
-			if data == "[DONE]" {
-				log.Printf("[openai] chat stream done model=%s", model)
-				return
-			}
-
-			// Parse the JSON chunk
-			var chunk ChatStreamResponse
-			if err := json.Unmarshal([]byte(data), &chunk); err != nil {
-				// Skip invalid JSON chunks
-				continue
-			}
-
-			// Extract content from the chunk
-			if len(chunk.Choices) > 0 && chunk.Choices[0].Delta.Content != "" {
-				select {
-				case contentChan <- chunk.Choices[0].Delta.Content:
-				case <-ctx.Done():
-					return
-				}
-				if !loggedFirst {
-					loggedFirst = true
-					log.Printf("[openai] chat stream first content model=%s", model)
-				}
-			}
-		}
-
-		if err := scanner.Err(); err != nil {
-			errorChan <- fmt.Errorf("error reading stream: %w", err)
+		if err := parseOpenAIStream(ctx, resp.Body, requestID, eventChan); err != nil {
+			errorChan <- err
 		}
 	}()
 
-	return contentChan, errorChan
+	return eventChan, errorChan
+}
+
+func parseOpenAIStream(ctx context.Context, reader io.Reader, requestID string, eventChan chan<- StreamEvent) error {
+	scanner := bufio.NewScanner(reader)
+	doneSent := false
+	for scanner.Scan() {
+		line := scanner.Text()
+		if line == "" || !strings.HasPrefix(line, "data: ") {
+			continue
+		}
+		data := strings.TrimPrefix(line, "data: ")
+		if data == "[DONE]" {
+			if doneSent {
+				return nil
+			}
+			return sendStreamEvent(ctx, eventChan, StreamEvent{Type: StreamEventDone, ProviderRequestID: requestID})
+		}
+		var chunk ChatStreamResponse
+		if err := json.Unmarshal([]byte(data), &chunk); err != nil {
+			continue
+		}
+		for _, event := range openAIChunkEvents(chunk, requestID) {
+			if event.Type == StreamEventDone {
+				doneSent = true
+			}
+			if err := sendStreamEvent(ctx, eventChan, event); err != nil {
+				return err
+			}
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		return fmt.Errorf("error reading stream: %w", err)
+	}
+	return nil
+}
+
+func openAIChunkEvents(chunk ChatStreamResponse, requestID string) []StreamEvent {
+	events := make([]StreamEvent, 0, 3)
+	doneEvents := make([]StreamEvent, 0, 1)
+	for _, choice := range chunk.Choices {
+		if choice.Delta.ReasoningContent != "" {
+			events = append(events, StreamEvent{
+				Type:              StreamEventReasoningDelta,
+				ReasoningDelta:    choice.Delta.ReasoningContent,
+				ProviderRequestID: requestID,
+				Model:             chunk.Model,
+			})
+		}
+		if choice.Delta.Reasoning != "" {
+			events = append(events, StreamEvent{
+				Type:              StreamEventReasoningDelta,
+				ReasoningDelta:    choice.Delta.Reasoning,
+				ProviderRequestID: requestID,
+				Model:             chunk.Model,
+			})
+		}
+		if choice.Delta.Content != "" {
+			events = append(events, StreamEvent{
+				Type:              StreamEventContentDelta,
+				ContentDelta:      choice.Delta.Content,
+				ProviderRequestID: requestID,
+				Model:             chunk.Model,
+			})
+		}
+		if choice.FinishReason != "" {
+			doneEvents = append(doneEvents, StreamEvent{
+				Type:              StreamEventDone,
+				FinishReason:      choice.FinishReason,
+				ProviderRequestID: requestID,
+				Model:             chunk.Model,
+			})
+		}
+	}
+	if chunk.Usage != nil {
+		events = append(events, StreamEvent{
+			Type:              StreamEventUsage,
+			ProviderRequestID: requestID,
+			Model:             chunk.Model,
+			Usage: &TokenUsage{
+				PromptTokens:     chunk.Usage.PromptTokens,
+				CompletionTokens: chunk.Usage.CompletionTokens,
+				ReasoningTokens:  chunk.Usage.CompletionTokensDetails.ReasoningTokens,
+				TotalTokens:      chunk.Usage.TotalTokens,
+			},
+		})
+	}
+	events = append(events, doneEvents...)
+	return events
 }
 
 // truncate returns s trimmed to at most n runes.
@@ -293,6 +381,26 @@ func truncate(s string, n int) string {
 		return s
 	}
 	return s[:n] + "..."
+}
+
+type openAIErrorResponse struct {
+	Error struct {
+		Message string `json:"message"`
+		Type    string `json:"type"`
+		Code    string `json:"code"`
+	} `json:"error"`
+}
+
+func normalizeOpenAIError(statusCode int, body []byte) error {
+	var parsed openAIErrorResponse
+	if err := json.Unmarshal(body, &parsed); err == nil && parsed.Error.Message != "" {
+		code := parsed.Error.Code
+		if code == "" {
+			code = parsed.Error.Type
+		}
+		return &ProviderError{StatusCode: statusCode, Code: code, Message: parsed.Error.Message}
+	}
+	return &ProviderError{StatusCode: statusCode, Message: fmt.Sprintf("provider returned status %d", statusCode)}
 }
 
 // ValidateAPIKey validates the provided API key by making a test request
