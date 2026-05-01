@@ -20,6 +20,9 @@ What is missing for the requested backend behavior:
 - A canonical REST and streaming API contract for creating sessions, listing sessions, managing context, sending messages, cancelling generation, and retrieving persisted messages.
 - Durable state for in-flight assistant generation. Chat generation can be started by HTTP, but the database must know about the run before provider execution begins.
 - Provider streaming abstraction that separates `reasoning` tokens from final `content` tokens and can stream both to the frontend in real time.
+- LLM provider readiness checks that return clear API responses when the user has not configured a backend provider.
+- Model discovery from the configured LLM provider so clients can choose from currently available chat-capable models.
+- Automatic model capability discovery, especially context-window length, from the configured provider endpoint where the endpoint exposes metadata.
 - Robust context budgeting and compaction. The current code can truncate transcript text for summaries, but it cannot compact an oversized transcript intelligently, and it cannot compact chat history while retaining full transcript context.
 - Token accounting or tokenizer-aware budgeting. The current summarization code uses a rough character estimate only.
 - Tests for ownership, context source mutation, streaming event shape, cancellation, provider failures, compaction, and unauthorized transcript injection.
@@ -49,6 +52,69 @@ New code should live behind these boundaries:
 - `internal/api/chat_handlers.go`: thin handlers only.
 
 Do not preserve old chat compatibility. Remove dead legacy chat fields, old frontend-only assumptions, and any old chat route shape that conflicts with the v2 API.
+
+## LLM Provider and Model Capability Rules
+
+Chat depends on the authenticated user's active LLM provider configuration. The backend must make this explicit and predictable.
+
+Provider readiness:
+
+- Every chat API entry point that needs model execution must check for an active LLM provider before doing chat-specific work.
+- If no provider is configured, return a standard error envelope with a stable code such as `LLM_PROVIDER_NOT_CONFIGURED`, status `409 Conflict`, and a message suitable for the UI: `Configure an LLM provider before starting chat.`
+- If a provider is configured but unreachable, return `LLM_PROVIDER_UNAVAILABLE`, status `503 Service Unavailable`, with a sanitized message.
+- If a requested model is not in the provider's available model list, return `MODEL_NOT_AVAILABLE`, status `422 Unprocessable Entity`, with `field: "model"`.
+- Provider readiness checks should never expose API keys, raw endpoint URLs with embedded credentials, provider stack traces, or full upstream error bodies.
+
+Model discovery:
+
+- `GET /api/v1/chat/models` must read the active backend LLM provider configuration and query the configured provider endpoint.
+- Responses should include currently available models and model capability metadata when known.
+- The endpoint must return a typed empty/error state when the provider is not configured instead of pretending chat is available.
+- Model discovery should be bounded by a short timeout and may use a small per-user cache to avoid repeated model-list calls on every render.
+- Cached capability data must be invalidated when the user updates LLM provider settings.
+
+Recommended model list response:
+
+```json
+{
+  "provider": "openai_compatible",
+  "configured": true,
+  "models": [
+    {
+      "id": "qwen3.5-4B",
+      "display_name": "qwen3.5-4B",
+      "context_window": 32768,
+      "context_window_source": "provider",
+      "supports_streaming": true,
+      "supports_reasoning": true
+    }
+  ]
+}
+```
+
+Recommended provider-not-configured response:
+
+```json
+{
+  "error": {
+    "code": "LLM_PROVIDER_NOT_CONFIGURED",
+    "message": "Configure an LLM provider before starting chat.",
+    "field": null,
+    "request_id": "req_123"
+  }
+}
+```
+
+Context-window discovery:
+
+- Resolve the context window for the selected model before creating a generation run or compacting context.
+- Prefer provider-exposed model metadata from the configured endpoint.
+- For OpenAI-compatible providers, support common metadata shapes from `/v1/models`, including direct fields like `context_window`, `context_length`, `max_context_length`, `max_position_embeddings`, or provider-specific metadata objects.
+- For Ollama-style endpoints, use model detail endpoints such as `/api/show` where available and map fields like `num_ctx`, `context_length`, or model metadata into the common capability shape.
+- If the endpoint cannot provide context length, fall back to a conservative known-model registry and then a safe default.
+- Every resolved context window must include a source value: `provider`, `provider_metadata`, `known_model`, `configured_default`, or `safe_default`.
+- Store the resolved `context_window` and source on `chat_generation_runs` metadata so later debugging and compaction decisions are explainable.
+- Do not let clients supply arbitrary context windows in chat requests. Clients choose models; the backend resolves capabilities.
 
 ## Target Backend Model
 
@@ -121,6 +187,7 @@ status                     string not null: pending | streaming | completed | fa
 provider                   string not null
 model                      string not null
 context_window             integer not null
+context_window_source      string not null default safe_default
 context_tokens_estimated   integer not null default 0
 compaction_applied         bool not null default false
 error_message              text null
@@ -214,6 +281,7 @@ Initial defaults:
 - Completion reserve: model-specific if known, otherwise conservative.
 - Recent message window: last 8-12 messages, adjusted by budget.
 - Fallback token estimate can start at 4 chars/token, but sprint work should isolate this behind an estimator interface so a tokenizer can replace it.
+- Never calculate chat context against an unknown or client-provided context window. Always use backend-resolved model capabilities.
 
 ## Streaming Contract
 
@@ -294,6 +362,8 @@ Developer UX rules:
 - Provide `include=` expansion for developer convenience where it does not create expensive responses, for example `include=latest_message,context_summary`.
 - Return typed context status rather than opaque booleans, for example `active`, `disabled`, `stale`, `compacting`, `compacted`, `failed`.
 - Put context/token metadata in response bodies and stream events, not only headers, so browser and CLI clients behave consistently.
+- Return model capability metadata from model-list responses so clients can show meaningful model choices without hard-coded provider assumptions.
+- Keep provider-not-configured responses consistent across model list, session creation, and message streaming.
 - Use the standard error envelope with stable `code` values and a `field` pointer for validation errors.
 - Keep request and response field names consistent with the rest of v2: snake_case JSON, collection envelope `{ "items": [], "next_cursor": null }`, RFC3339 timestamps.
 - Document examples for curl, browser `EventSource`/fetch streaming, and TypeScript response types during the implementation sprint.
@@ -325,6 +395,12 @@ Recommended create-session response:
   "title": "Research questions",
   "provider": "openai_compatible",
   "model": "qwen3.5-4B",
+  "model_capabilities": {
+    "context_window": 32768,
+    "context_window_source": "provider",
+    "supports_streaming": true,
+    "supports_reasoning": true
+  },
   "status": "active",
   "context": {
     "items": [
@@ -403,6 +479,7 @@ Scope:
 - Add plaintext transcript assembly with speaker labels and no timestamps/metadata.
 - Add context source add/remove/reorder/enable-disable operations.
 - Add context budgeting primitives and token-estimator interface.
+- Add model capability structs to the chat domain so context building accepts backend-resolved model capabilities rather than raw client values.
 
 Acceptance criteria:
 
@@ -410,6 +487,7 @@ Acceptance criteria:
 - A user cannot add another user's transcript to a chat context.
 - Transcript plaintext output contains only speaker labels and text.
 - Context source mutations are persisted and reflected in the next context build.
+- Context building requires a resolved model context window and records the source of that value.
 - No HTTP handler reads GORM directly for chat.
 
 Verification:
@@ -418,10 +496,20 @@ Verification:
 
 ## Sprint Run 3: Provider Streaming and Reasoning Deltas
 
-Goal: normalize provider streaming into typed deltas suitable for frontend real-time rendering.
+Goal: normalize provider model capabilities and streaming into typed data suitable for frontend model choice and real-time rendering.
 
 Scope:
 
+- Add provider-neutral model capability types:
+  - model ID
+  - display name
+  - context window
+  - context window source
+  - streaming support
+  - reasoning support
+- Add provider capability discovery through the configured LLM endpoint.
+- Parse context-window metadata from OpenAI-compatible and Ollama-style provider responses.
+- Add a conservative known-model fallback registry for providers that only return model IDs.
 - Replace string-only `ChatCompletionStream` with a provider-neutral typed stream event.
 - Support event kinds: `content_delta`, `reasoning_delta`, `usage`, `done`, `error`.
 - Update OpenAI-compatible streaming parser for content deltas and known reasoning fields.
@@ -431,6 +519,9 @@ Scope:
 
 Acceptance criteria:
 
+- Model list and context-window resolution come from the configured provider endpoint when metadata is available.
+- Unknown models without provider metadata use a conservative backend fallback and expose the fallback source.
+- Provider-not-configured and provider-unavailable states return stable typed errors.
 - Provider adapters never expose raw provider stack traces to API callers.
 - Reasoning and final content are separable during streaming and after persistence.
 - Existing summarization code still works through a non-streaming provider method or a compatibility adapter.
@@ -455,6 +546,7 @@ Scope:
 Acceptance criteria:
 
 - Oversized transcript context is compacted before chat generation instead of blindly truncated.
+- Oversized transcript detection uses the selected model's backend-resolved context window.
 - Session-history compaction retains transcript context separately and only summarizes older conversation messages.
 - Context builder can reconstruct a prompt after restart using persisted sources and summaries.
 - Compaction failure produces a controlled error or fallback according to service policy.
@@ -470,7 +562,7 @@ Goal: expose the canonical v2 chat API with thin handlers and streaming response
 Scope:
 
 - Register `/api/v1/chat` routes.
-- Implement model list using active user LLM provider settings.
+- Implement model list using active user LLM provider settings and provider capability discovery.
 - Implement session CRUD.
 - Implement context source list/add/update/remove endpoints.
 - Implement `messages:stream` as SSE.
@@ -482,6 +574,10 @@ Scope:
 Acceptance criteria:
 
 - Chat sessions are persisted under the authenticated user and parent transcription.
+- Chat features return `LLM_PROVIDER_NOT_CONFIGURED` when no backend provider is configured.
+- Users can choose any currently available model returned by `GET /api/v1/chat/models`.
+- Session creation and message streaming reject unavailable models with `MODEL_NOT_AVAILABLE`.
+- Generation runs persist the selected model, resolved context window, and context-window source.
 - The backend streams reasoning and content separately in real time.
 - A refresh after a completed stream reconstructs the full session from the database.
 - Canceled and failed runs leave durable, inspectable state.
