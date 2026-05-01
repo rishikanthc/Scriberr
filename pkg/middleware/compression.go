@@ -73,6 +73,13 @@ func shouldCompress(c *gin.Context) bool {
 	return false
 }
 
+func isEventStreamRequest(c *gin.Context) bool {
+	path := c.Request.URL.Path
+	return strings.Contains(c.Request.Header.Get("Accept"), "text/event-stream") ||
+		path == "/api/v1/events" ||
+		strings.HasSuffix(path, "/events")
+}
+
 // isStreamingResponse checks if response is streaming (should not be compressed)
 func isStreamingResponse(c *gin.Context) bool {
 	// Check for SSE or streaming responses
@@ -92,6 +99,7 @@ func CompressionMiddlewareWithLevel(level int) gin.HandlerFunc {
 		// Skip compression for certain conditions
 		if c.Request.Method == "HEAD" ||
 			c.Request.Header.Get("Connection") == "Upgrade" ||
+			isEventStreamRequest(c) ||
 			isStreamingResponse(c) ||
 			!shouldCompress(c) {
 			c.Next()
@@ -120,7 +128,7 @@ func CompressionMiddlewareWithLevel(level int) gin.HandlerFunc {
 		// Wrap response writer
 		c.Writer = &gzipWriter{
 			ResponseWriter: c.Writer,
-			gw:            gz,
+			gw:             gz,
 		}
 
 		c.Next()

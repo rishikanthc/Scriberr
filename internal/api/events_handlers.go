@@ -90,9 +90,11 @@ func (h *Handler) streamEventChannel(c *gin.Context, transcriptionID string) {
 		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "streaming is not supported", nil)
 		return
 	}
-	c.Header("Content-Type", "text/event-stream")
-	c.Header("Cache-Control", "no-cache")
+	c.Header("Content-Type", "text/event-stream; charset=utf-8")
+	c.Header("Cache-Control", "no-cache, no-transform")
 	c.Header("Connection", "keep-alive")
+	c.Header("X-Accel-Buffering", "no")
+	c.Header("Vary", "Authorization")
 	c.Status(http.StatusOK)
 
 	sub, unsubscribe := h.events.subscribe(transcriptionID)

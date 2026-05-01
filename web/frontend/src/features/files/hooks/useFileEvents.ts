@@ -34,7 +34,12 @@ export function useFileEvents(onEvent?: (event: FileEvent) => void) {
     const connect = async () => {
       try {
         const response = await fetch("/api/v1/events", {
-          headers: { Authorization: `Bearer ${token}` },
+          cache: "no-store",
+          headers: {
+            Accept: "text/event-stream",
+            Authorization: `Bearer ${token}`,
+            "Cache-Control": "no-cache",
+          },
           signal: abortController.signal,
         });
 
