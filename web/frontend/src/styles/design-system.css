@@ -512,11 +512,14 @@
 }
 
 .scr-transcript-notes-sidebar {
-  position: sticky;
+  position: fixed;
   top: 0;
+  right: 0;
+  bottom: 0;
   z-index: 20;
+  width: var(--scr-detail-sidebar-width);
   min-width: 0;
-  min-height: 100vh;
+  height: 100vh;
   border-left: 1px solid var(--scr-border-subtle);
   background: var(--scr-surface-canvas);
 }
@@ -627,7 +630,9 @@ body[data-notes-sidebar-resizing="true"] {
 
 .scr-transcript-notes-list {
   display: block;
-  overflow: auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 0;
 }
 
