@@ -13,6 +13,7 @@ import {
   streamChatMessage,
   updateChatSession,
   type ChatMessage,
+  type ChatSession,
   type ChatStreamEvent,
   type CreateChatSessionPayload,
   type StreamChatMessagePayload,
@@ -72,7 +73,13 @@ export function useCreateChatSession(parentTranscriptionId: string | undefined) 
   return useMutation({
     mutationFn: (payload: CreateChatSessionPayload) => createChatSession(payload, getAuthHeaders()),
     onSuccess: (session) => {
-      queryClient.invalidateQueries({ queryKey: chatSessionsQueryKey(parentTranscriptionId || session.parent_transcription_id) });
+      const queryKey = chatSessionsQueryKey(parentTranscriptionId || session.parent_transcription_id);
+      queryClient.setQueryData<{ items: ChatSession[]; next_cursor: string | null }>(queryKey, (current) => {
+        const items = current?.items || [];
+        const withoutDuplicate = items.filter((item) => item.id !== session.id);
+        return { items: [session, ...withoutDuplicate], next_cursor: current?.next_cursor || null };
+      });
+      queryClient.invalidateQueries({ queryKey });
       queryClient.invalidateQueries({ queryKey: chatContextQueryKey(session.id) });
     },
   });

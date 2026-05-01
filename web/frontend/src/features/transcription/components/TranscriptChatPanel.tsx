@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import { Check, ChevronDown, Copy, FileText, ListFilter, MessageSquarePlus, Plus, Search, Send, Sparkles, Trash2, X } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import rehypeHighlight from "rehype-highlight";
@@ -34,10 +34,12 @@ export function TranscriptChatPanel({ parentTranscriptionId }: TranscriptChatPan
   const [selectedModel, setSelectedModel] = useState("");
   const [composerValue, setComposerValue] = useState("");
   const [displayMessages, setDisplayMessages] = useState<ChatMessage[]>([]);
+  const [liveAssistantMessageIds, setLiveAssistantMessageIds] = useState<Set<string>>(new Set());
   const [sessionPickerOpen, setSessionPickerOpen] = useState(false);
   const [contextPickerOpen, setContextPickerOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const messagesScrollRef = useRef<HTMLDivElement | null>(null);
+  const shouldAutoScrollRef = useRef(true);
   const modelsQuery = useChatModels(Boolean(parentTranscriptionId));
   const sessionsQuery = useChatSessions(parentTranscriptionId, Boolean(parentTranscriptionId));
   const activeSession = useMemo(
@@ -101,10 +103,37 @@ export function TranscriptChatPanel({ parentTranscriptionId }: TranscriptChatPan
     const element = messagesScrollRef.current;
     if (!element) return;
     const distanceFromBottom = element.scrollHeight - (element.scrollTop + element.clientHeight);
-    if (distanceFromBottom < 180) {
+    if (distanceFromBottom < 180 || shouldAutoScrollRef.current) {
       messagesEndRef.current?.scrollIntoView({ block: "end" });
     }
   }, [displayMessages]);
+
+  useEffect(() => {
+    const element = messagesScrollRef.current;
+    if (!element) return;
+    const handleScroll = () => {
+      const distanceFromBottom = element.scrollHeight - (element.scrollTop + element.clientHeight);
+      shouldAutoScrollRef.current = distanceFromBottom < 180;
+    };
+    handleScroll();
+    element.addEventListener("scroll", handleScroll, { passive: true });
+    return () => element.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  const handleChatContentRendered = useCallback(() => {
+    if (shouldAutoScrollRef.current) {
+      messagesEndRef.current?.scrollIntoView({ block: "end" });
+    }
+  }, []);
+
+  const handleLiveAssistantSettled = useCallback((messageId: string) => {
+    setLiveAssistantMessageIds((current) => {
+      if (!current.has(messageId)) return current;
+      const next = new Set(current);
+      next.delete(messageId);
+      return next;
+    });
+  }, []);
 
   const handleCreateSession = async () => {
     if (!parentTranscriptionId || !selectedModel || createSessionMutation.isPending) return;
@@ -191,6 +220,7 @@ export function TranscriptChatPanel({ parentTranscriptionId }: TranscriptChatPan
     };
     setComposerValue("");
     setDisplayMessages((current) => [...current, optimisticUserMessage, optimisticAssistantMessage]);
+    setLiveAssistantMessageIds((current) => new Set(current).add(optimisticAssistantMessage.id));
     try {
       await streamMutation.mutateAsync({
         sessionId: activeSessionId,
@@ -202,13 +232,31 @@ export function TranscriptChatPanel({ parentTranscriptionId }: TranscriptChatPan
               : current;
             return mergeStreamMessages(withoutOptimistic, streamEvent);
           });
+          if (streamEvent.type === "chat.message.created") {
+            setLiveAssistantMessageIds((current) => {
+              const next = new Set(current);
+              next.delete(optimisticAssistantMessage.id);
+              next.add(streamEvent.assistant_message.id);
+              return next;
+            });
+          }
           if (streamEvent.type === "chat.run.failed") {
+            setLiveAssistantMessageIds((current) => {
+              const next = new Set(current);
+              next.delete(streamEvent.message_id);
+              return next;
+            });
             toast({ title: "Chat response failed", description: streamEvent.error });
           }
         },
       });
     } catch (error) {
       setComposerValue(content);
+      setLiveAssistantMessageIds((current) => {
+        const next = new Set(current);
+        next.delete(optimisticAssistantMessage.id);
+        return next;
+      });
       setDisplayMessages((current) => current.map((message) => (
         message.id === optimisticAssistantMessage.id
           ? {
@@ -333,7 +381,13 @@ export function TranscriptChatPanel({ parentTranscriptionId }: TranscriptChatPan
           </div>
         ) : null}
         {displayMessages.map((message) => (
-          <ChatMessageItem key={message.id} message={message} />
+          <ChatMessageItem
+            key={message.id}
+            message={message}
+            isLive={liveAssistantMessageIds.has(message.id)}
+            onLiveSettled={handleLiveAssistantSettled}
+            onRenderedContentChange={handleChatContentRendered}
+          />
         ))}
         <div ref={messagesEndRef} />
       </div>
@@ -432,12 +486,34 @@ export function TranscriptChatPanel({ parentTranscriptionId }: TranscriptChatPan
   );
 }
 
-function ChatMessageItem({ message }: { message: ChatMessage }) {
+function ChatMessageItem({
+  message,
+  isLive,
+  onLiveSettled,
+  onRenderedContentChange,
+}: {
+  message: ChatMessage;
+  isLive: boolean;
+  onLiveSettled: (messageId: string) => void;
+  onRenderedContentChange: () => void;
+}) {
   const [copied, setCopied] = useState(false);
   const isAssistant = message.role === "assistant";
+  const { visibleContent, isAnimating } = useTypewriterText(message.content, isAssistant && isLive, isAssistant && isLive && message.status === "streaming");
+  const renderedContent = isAssistant ? visibleContent : message.content;
   const canCopy = message.content.trim().length > 0;
   const isWaiting = isAssistant && (message.status === "pending" || message.status === "streaming") && !message.content.trim();
-  const isGenerating = isAssistant && message.status === "streaming" && message.content.trim().length > 0;
+  const isGenerating = isAssistant && (message.status === "streaming" || isAnimating) && message.content.trim().length > 0;
+
+  useEffect(() => {
+    if (isAssistant) onRenderedContentChange();
+  }, [isAssistant, onRenderedContentChange, renderedContent]);
+
+  useEffect(() => {
+    if (isAssistant && isLive && !isAnimating && message.status !== "streaming") {
+      onLiveSettled(message.id);
+    }
+  }, [isAnimating, isAssistant, isLive, message.id, message.status, onLiveSettled]);
 
   const handleCopy = async () => {
     if (!canCopy) return;
@@ -471,7 +547,7 @@ function ChatMessageItem({ message }: { message: ChatMessage }) {
                 <i aria-hidden="true" />
               </div>
             ) : (
-              <ChatMarkdown content={message.content || " "} isStreaming={isGenerating} />
+              <ChatMarkdown content={renderedContent || " "} isStreaming={isGenerating} />
             )}
             {isGenerating ? (
               <div className="scr-chat-streaming-status" role="status" aria-live="polite">Generating response...</div>
@@ -503,6 +579,56 @@ function ChatMessageItem({ message }: { message: ChatMessage }) {
       </div>
     </article>
   );
+}
+
+function useTypewriterText(content: string, shouldAnimate: boolean, isReceiving: boolean) {
+  const [visibleContent, setVisibleContent] = useState(shouldAnimate ? "" : content);
+  const [isAnimating, setIsAnimating] = useState(false);
+  const targetRef = useRef(content);
+  const receivingRef = useRef(isReceiving);
+  const visibleLengthRef = useRef(shouldAnimate ? 0 : content.length);
+
+  useEffect(() => {
+    targetRef.current = content;
+    receivingRef.current = isReceiving;
+    if (visibleLengthRef.current > content.length) {
+      visibleLengthRef.current = content.length;
+      setVisibleContent(content);
+    }
+    if (shouldAnimate && (isReceiving || visibleLengthRef.current < content.length)) {
+      setIsAnimating(true);
+      return;
+    }
+    setVisibleContent(content);
+  }, [content, isReceiving, shouldAnimate]);
+
+  useEffect(() => {
+    if (!isAnimating) return;
+    let frame = 0;
+    let previous = performance.now();
+    const step = (timestamp: number) => {
+      const target = targetRef.current;
+      const remaining = target.length - visibleLengthRef.current;
+      if (remaining > 0) {
+        const elapsed = Math.max(16, timestamp - previous);
+        previous = timestamp;
+        const charsPerFrame = Math.max(1, Math.ceil(elapsed / 12));
+        visibleLengthRef.current = Math.min(target.length, visibleLengthRef.current + charsPerFrame);
+        setVisibleContent(target.slice(0, visibleLengthRef.current));
+      } else {
+        previous = timestamp;
+        if (!receivingRef.current) {
+          setIsAnimating(false);
+          return;
+        }
+      }
+      frame = window.requestAnimationFrame(step);
+    };
+    frame = window.requestAnimationFrame(step);
+    return () => window.cancelAnimationFrame(frame);
+  }, [isAnimating]);
+
+  return { visibleContent, isAnimating };
 }
 
 function ChatMarkdown({ content, isStreaming }: { content: string; isStreaming: boolean }) {
