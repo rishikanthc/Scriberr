@@ -52,6 +52,7 @@ export function TranscriptChatPanel({ parentTranscriptionId }: TranscriptChatPan
   const models = modelsQuery.data?.models || [];
   const providerUnavailable = modelsQuery.isError;
   const canChat = Boolean(parentTranscriptionId && !providerUnavailable && models.length > 0);
+  const shouldCreateInitialSession = canChat && !sessionsQuery.isLoading && (sessionsQuery.data?.items.length || 0) === 0 && !activeSessionId;
   const contextSources = contextQuery.data?.items || [];
   const activeContextSources = contextSources.filter((source) => source.enabled);
   const contextTitleByTranscriptionId = useMemo(() => {
@@ -69,6 +70,19 @@ export function TranscriptChatPanel({ parentTranscriptionId }: TranscriptChatPan
     if (activeSessionId && sessionsQuery.data?.items.some((session) => session.id === activeSessionId)) return;
     setActiveSessionId(sessionsQuery.data?.items[0]?.id || null);
   }, [activeSessionId, sessionsQuery.data?.items]);
+
+  useEffect(() => {
+    if (!shouldCreateInitialSession || !parentTranscriptionId || !selectedModel || createSessionMutation.isPending) return;
+    createSessionMutation.mutate({
+      parent_transcription_id: parentTranscriptionId,
+      model: selectedModel,
+    }, {
+      onSuccess: (session) => {
+        setActiveSessionId(session.id);
+        setDisplayMessages([]);
+      },
+    });
+  }, [createSessionMutation, parentTranscriptionId, selectedModel, shouldCreateInitialSession]);
 
   useEffect(() => {
     if (selectedModel && models.some((model) => model.id === selectedModel)) return;

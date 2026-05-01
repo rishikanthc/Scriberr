@@ -73,7 +73,7 @@ Verification:
 
 ## Sprint 5: Polish, Accessibility, and Verification
 
-Status: pending
+Status: partially complete
 
 Progress:
 
@@ -81,10 +81,11 @@ Progress:
 - [ ] Verify mobile layout.
 - [ ] Confirm accessible names and keyboard reachability.
 - [ ] Confirm chat streaming does not disturb transcript/audio hot paths.
-- [ ] Run final frontend and backend checks.
+- [x] Run final frontend and backend checks.
 
 Verification:
 
-- [ ] `npm run type-check` from `web/frontend`.
-- [ ] `npm run build` from `web/frontend`.
-- [ ] Backend chat route tests.
+- [x] `npm run type-check` from `web/frontend`.
+- [x] `npm run build` from `web/frontend`.
+- [x] `GOCACHE=/tmp/scriberr-go-cache go test ./internal/api -run TestChatSessionContextAndStreamingLifecycle`
+- [ ] Browser verification pending after backend schema cleanup is running locally.
