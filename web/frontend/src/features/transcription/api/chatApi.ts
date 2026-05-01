@@ -154,6 +154,14 @@ export async function updateChatSession(sessionId: string, payload: UpdateChatSe
   return response.json() as Promise<ChatSession>;
 }
 
+export async function deleteChatSession(sessionId: string, headers: Record<string, string>): Promise<void> {
+  const response = await fetch(`/api/v1/chat/sessions/${sessionId}`, {
+    method: "DELETE",
+    headers,
+  });
+  if (!response.ok) throw new Error(await readError(response));
+}
+
 export async function listChatMessages(sessionId: string, headers: Record<string, string>): Promise<Collection<ChatMessage>> {
   const response = await fetch(`/api/v1/chat/sessions/${sessionId}/messages`, { headers });
   if (!response.ok) throw new Error(await readError(response));

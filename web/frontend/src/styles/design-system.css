@@ -736,12 +736,22 @@ body[data-notes-sidebar-resizing="true"] {
   line-height: var(--scr-line-tight);
 }
 
-.scr-chat-session-item {
+.scr-chat-session-item-shell {
   display: grid;
+  grid-template-columns: minmax(0, 1fr) 30px;
+  align-items: center;
   width: 100%;
-  gap: var(--scr-space-1);
   border: 0;
   border-radius: var(--scr-radius-md);
+  background: transparent;
+  padding-right: var(--scr-space-1);
+}
+
+.scr-chat-session-item {
+  display: grid;
+  min-width: 0;
+  gap: var(--scr-space-1);
+  border: 0;
   background: transparent;
   color: var(--scr-text-primary);
   cursor: pointer;
@@ -750,10 +760,14 @@ body[data-notes-sidebar-resizing="true"] {
   text-align: left;
 }
 
-.scr-chat-session-item:hover,
-.scr-chat-session-item:focus-visible,
-.scr-chat-session-item[data-active="true"] {
+.scr-chat-session-item-shell:hover,
+.scr-chat-session-item-shell:focus-within,
+.scr-chat-session-item-shell[data-active="true"] {
   background: #edf0f4;
+}
+
+.scr-chat-session-item:focus-visible,
+.scr-chat-session-delete:focus-visible {
   outline: none;
 }
 
@@ -772,6 +786,24 @@ body[data-notes-sidebar-resizing="true"] {
   color: var(--scr-text-tertiary);
   font-size: var(--scr-type-body-sm);
   font-weight: var(--scr-font-weight-regular);
+}
+
+.scr-chat-session-delete {
+  width: 28px;
+  height: 28px;
+  color: var(--scr-text-tertiary);
+  opacity: 0;
+  transition: color 140ms ease, opacity 140ms ease;
+}
+
+.scr-chat-session-item-shell:hover .scr-chat-session-delete,
+.scr-chat-session-item-shell:focus-within .scr-chat-session-delete {
+  opacity: 1;
+}
+
+.scr-chat-session-delete:hover,
+.scr-chat-session-delete:focus-visible {
+  color: var(--scr-color-danger);
 }
 
 .scr-chat-menu-status {
@@ -1160,6 +1192,15 @@ body[data-notes-sidebar-resizing="true"] {
 .scr-chat-send:not(:disabled) {
   background: var(--scr-brand-solid);
   color: var(--scr-color-white);
+}
+
+.scr-chat-delete-confirm {
+  background: var(--scr-color-danger);
+  color: var(--scr-color-white);
+}
+
+.scr-chat-delete-confirm:hover {
+  background: #b42318;
 }
 
 @keyframes scr-chat-pulse {

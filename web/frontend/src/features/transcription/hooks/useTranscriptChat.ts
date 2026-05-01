@@ -6,6 +6,7 @@ import {
   addChatContextTranscript,
   createChatSession,
   deleteChatContextTranscript,
+  deleteChatSession,
   listChatContext,
   listChatMessages,
   listChatModels,
@@ -93,6 +94,29 @@ export function useUpdateChatSession(parentTranscriptionId: string | undefined) 
     mutationFn: ({ sessionId, payload }: { sessionId: string; payload: UpdateChatSessionPayload }) => updateChatSession(sessionId, payload, getAuthHeaders()),
     onSuccess: (session) => {
       queryClient.invalidateQueries({ queryKey: chatSessionsQueryKey(parentTranscriptionId || session.parent_transcription_id) });
+    },
+  });
+}
+
+export function useDeleteChatSession(parentTranscriptionId: string | undefined) {
+  const { getAuthHeaders } = useAuth();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ sessionId }: { sessionId: string }) => deleteChatSession(sessionId, getAuthHeaders()),
+    onSuccess: (_data, variables) => {
+      if (parentTranscriptionId) {
+        queryClient.setQueryData<{ items: ChatSession[]; next_cursor: string | null }>(chatSessionsQueryKey(parentTranscriptionId), (current) => {
+          if (!current) return current;
+          return {
+            ...current,
+            items: current.items.filter((session) => session.id !== variables.sessionId),
+          };
+        });
+        queryClient.invalidateQueries({ queryKey: chatSessionsQueryKey(parentTranscriptionId) });
+      }
+      queryClient.removeQueries({ queryKey: chatMessagesQueryKey(variables.sessionId) });
+      queryClient.removeQueries({ queryKey: chatContextQueryKey(variables.sessionId) });
     },
   });
 }

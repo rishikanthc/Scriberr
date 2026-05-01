@@ -5,6 +5,16 @@ import rehypeHighlight from "rehype-highlight";
 import rehypeKatex from "rehype-katex";
 import rehypeRaw from "rehype-raw";
 import remarkMath from "remark-math";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -20,6 +30,7 @@ import {
   useChatSessions,
   useCompletedTranscriptChoices,
   useCreateChatSession,
+  useDeleteChatSession,
   useDeleteChatContextTranscript,
   useStreamChatMessage,
 } from "@/features/transcription/hooks/useTranscriptChat";
@@ -35,6 +46,7 @@ export function TranscriptChatPanel({ parentTranscriptionId }: TranscriptChatPan
   const [composerValue, setComposerValue] = useState("");
   const [displayMessages, setDisplayMessages] = useState<ChatMessage[]>([]);
   const [liveAssistantMessageIds, setLiveAssistantMessageIds] = useState<Set<string>>(new Set());
+  const [sessionPendingDelete, setSessionPendingDelete] = useState<ChatSession | null>(null);
   const [sessionPickerOpen, setSessionPickerOpen] = useState(false);
   const [contextPickerOpen, setContextPickerOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
@@ -50,6 +62,7 @@ export function TranscriptChatPanel({ parentTranscriptionId }: TranscriptChatPan
   const contextQuery = useChatContext(activeSessionId, Boolean(activeSessionId));
   const transcriptChoices = useCompletedTranscriptChoices();
   const createSessionMutation = useCreateChatSession(parentTranscriptionId);
+  const deleteSessionMutation = useDeleteChatSession(parentTranscriptionId);
   const addContextMutation = useAddChatContextTranscript();
   const deleteContextMutation = useDeleteChatContextTranscript();
   const streamMutation = useStreamChatMessage();
@@ -149,6 +162,27 @@ export function TranscriptChatPanel({ parentTranscriptionId }: TranscriptChatPan
       toast({
         title: "Chat session was not created",
         description: error instanceof Error ? error.message : "Check your model provider settings.",
+      });
+    }
+  };
+
+  const handleConfirmDeleteSession = async () => {
+    if (!sessionPendingDelete || deleteSessionMutation.isPending) return;
+    const deletedSessionId = sessionPendingDelete.id;
+    const nextSession = (sessionsQuery.data?.items || []).find((session) => session.id !== deletedSessionId) || null;
+    try {
+      await deleteSessionMutation.mutateAsync({ sessionId: deletedSessionId });
+      setSessionPendingDelete(null);
+      if (activeSessionId === deletedSessionId) {
+        setActiveSessionId(nextSession?.id || null);
+        setSelectedModel(nextSession?.model || models[0]?.id || "");
+        setDisplayMessages([]);
+      }
+      toast({ title: "Chat session deleted" });
+    } catch (error) {
+      toast({
+        title: "Chat session was not deleted",
+        description: error instanceof Error ? error.message : "Try again.",
       });
     }
   };
@@ -327,20 +361,42 @@ export function TranscriptChatPanel({ parentTranscriptionId }: TranscriptChatPan
                 <div className="scr-chat-session-group" key={group.label}>
                   <h3>{group.label}</h3>
                   {group.sessions.map((session) => (
-                    <button
+                    <div
                       key={session.id}
-                      className="scr-chat-session-item"
-                      type="button"
+                      className="scr-chat-session-item-shell"
                       data-active={session.id === activeSessionId}
-                      onClick={() => {
-                        setActiveSessionId(session.id);
-                        setSelectedModel(session.model);
-                        setSessionPickerOpen(false);
-                      }}
                     >
-                      <span>{session.title || "Transcript chat"}</span>
-                      <small>{formatRelativeSessionTime(session.last_message_at || session.updated_at)}</small>
-                    </button>
+                      <button
+                        className="scr-chat-session-item"
+                        type="button"
+                        onClick={() => {
+                          setActiveSessionId(session.id);
+                          setSelectedModel(session.model);
+                          setSessionPickerOpen(false);
+                        }}
+                      >
+                        <span>{session.title || "Transcript chat"}</span>
+                        <small>{formatRelativeSessionTime(session.last_message_at || session.updated_at)}</small>
+                      </button>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            className="scr-chat-session-delete"
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            aria-label={`Delete chat session ${session.title || "Transcript chat"}`}
+                            onClick={() => {
+                              setSessionPendingDelete(session);
+                              setSessionPickerOpen(false);
+                            }}
+                          >
+                            <Trash2 size={15} aria-hidden="true" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Delete</TooltipContent>
+                      </Tooltip>
+                    </div>
                   ))}
                 </div>
               ))}
@@ -482,6 +538,30 @@ export function TranscriptChatPanel({ parentTranscriptionId }: TranscriptChatPan
           </Button>
         </div>
       </form>
+
+      <AlertDialog open={Boolean(sessionPendingDelete)} onOpenChange={(open) => !open && setSessionPendingDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete chat session?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete "{sessionPendingDelete?.title || "Transcript chat"}" and its messages.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteSessionMutation.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="scr-chat-delete-confirm"
+              disabled={deleteSessionMutation.isPending}
+              onClick={(event) => {
+                event.preventDefault();
+                void handleConfirmDeleteSession();
+              }}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </section>
   );
 }
