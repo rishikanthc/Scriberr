@@ -43,8 +43,8 @@ type schemaMigration struct {
 func (schemaMigration) TableName() string { return "schema_migrations" }
 
 func createTargetSchema(tx *gorm.DB) error {
-	if err := removeLegacyChatColumns(tx); err != nil {
-		return fmt.Errorf("remove legacy chat columns: %w", err)
+	if err := removeObsoleteChatSchema(tx); err != nil {
+		return fmt.Errorf("remove obsolete chat schema: %w", err)
 	}
 	for _, model := range schemaModels {
 		if err := tx.AutoMigrate(model); err != nil {
@@ -96,16 +96,25 @@ func createTargetSchema(tx *gorm.DB) error {
 	return nil
 }
 
-func removeLegacyChatColumns(tx *gorm.DB) error {
+func removeObsoleteChatSchema(tx *gorm.DB) error {
 	if !tx.Migrator().HasTable("chat_sessions") {
 		return nil
 	}
-	if tx.Migrator().HasColumn("chat_sessions", "transcription_id") {
-		if err := tx.Exec(`DROP INDEX IF EXISTS idx_chat_sessions_transcription_id`).Error; err != nil {
-			return err
-		}
-		if err := tx.Exec(`ALTER TABLE chat_sessions DROP COLUMN transcription_id`).Error; err != nil {
-			return err
+	if !tx.Migrator().HasColumn("chat_sessions", "transcription_id") {
+		return nil
+	}
+	tables := []string{
+		"chat_context_summaries",
+		"chat_generation_runs",
+		"chat_messages",
+		"chat_context_sources",
+		"chat_sessions",
+	}
+	for _, table := range tables {
+		if tx.Migrator().HasTable(table) {
+			if err := tx.Exec("DROP TABLE IF EXISTS " + table).Error; err != nil {
+				return err
+			}
 		}
 	}
 	return nil
