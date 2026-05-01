@@ -29,6 +29,7 @@ type fakeYouTubeImporter struct {
 	doneOnce  sync.Once
 	calls     []mediaimport.YouTubeImportJob
 	content   []byte
+	title     string
 	filename  string
 	mimeType  string
 	err       error
@@ -101,7 +102,7 @@ func (f *fakeYouTubeImporter) Import(ctx context.Context, job mediaimport.YouTub
 	if mimeType == "" {
 		mimeType = "audio/mpeg"
 	}
-	return mediaimport.YouTubeImportResult{Filename: filename, MimeType: mimeType}, nil
+	return mediaimport.YouTubeImportResult{Title: f.title, Filename: filename, MimeType: mimeType}, nil
 }
 
 func (f *fakeYouTubeImporter) unblock() {
@@ -282,17 +283,16 @@ func TestFileUploadSizeLimit(t *testing.T) {
 
 func TestYouTubeImportDownloadsWithFakeImporterAndStreamsResult(t *testing.T) {
 	s := newAuthTestServer(t)
-	importer := &fakeYouTubeImporter{content: []byte("ID3 youtube audio"), completed: make(chan struct{})}
+	importer := &fakeYouTubeImporter{content: []byte("ID3 youtube audio"), title: "Original YouTube Video Title", completed: make(chan struct{})}
 	s.handler.youtubeImporter = importer
 	token := registerForFileTests(t, s)
 
 	resp, body := s.request(t, http.MethodPost, "/api/v1/files:import-youtube", map[string]any{
-		"url":   "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
-		"title": "Talk",
+		"url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
 	}, token, "")
 	require.Equal(t, http.StatusAccepted, resp.Code)
 	require.True(t, strings.HasPrefix(body["id"].(string), "file_"))
-	require.Equal(t, "Talk", body["title"])
+	require.Equal(t, "YouTube audio", body["title"])
 	require.Equal(t, "youtube", body["kind"])
 	require.Equal(t, "processing", body["status"])
 	require.NotContains(t, body, "source_file_path")
@@ -306,6 +306,7 @@ func TestYouTubeImportDownloadsWithFakeImporterAndStreamsResult(t *testing.T) {
 
 	resp, body = s.request(t, http.MethodGet, "/api/v1/files/"+fileID, nil, token, "")
 	require.Equal(t, http.StatusOK, resp.Code)
+	require.Equal(t, "Original YouTube Video Title", body["title"])
 	require.Equal(t, "ready", body["status"])
 	require.Equal(t, "youtube", body["kind"])
 	require.Equal(t, "audio/mpeg", body["mime_type"])
@@ -325,6 +326,10 @@ func TestYouTubeImportDownloadsWithFakeImporterAndStreamsResult(t *testing.T) {
 	require.Equal(t, http.StatusOK, stream.Code)
 	require.Equal(t, []byte("ID3 youtube audio"), stream.Body.Bytes())
 	require.Equal(t, 1, importer.callCount())
+
+	var stored models.TranscriptionJob
+	require.NoError(t, database.DB.First(&stored, "id = ?", strings.TrimPrefix(fileID, "file_")).Error)
+	require.Equal(t, "youtube:Original YouTube Video Title.mp3", stored.SourceFileName)
 }
 
 func TestYouTubeImportFailureIsSanitizedAndPublishesFailedEvent(t *testing.T) {

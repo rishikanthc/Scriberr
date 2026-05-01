@@ -23,7 +23,7 @@ import (
 type Repository interface {
 	Create(ctx context.Context, job *models.TranscriptionJob) error
 	UpdateProgress(ctx context.Context, jobID string, progress float64, stage string) error
-	CompleteMediaImport(ctx context.Context, jobID, audioPath, sourceFileName string, durationMs *int64, completedAt time.Time) error
+	CompleteMediaImport(ctx context.Context, jobID, title, audioPath, sourceFileName string, durationMs *int64, completedAt time.Time) error
 	FailMediaImport(ctx context.Context, jobID string, message string, failedAt time.Time) error
 }
 
@@ -44,6 +44,7 @@ type YouTubeImportJob struct {
 }
 
 type YouTubeImportResult struct {
+	Title      string
 	Filename   string
 	MimeType   string
 	DurationMs *int64
@@ -102,7 +103,7 @@ func (s *Service) ImportYouTube(ctx context.Context, cmd ImportYouTubeCommand) (
 	}
 	title := strings.TrimSpace(cmd.Title)
 	if title == "" {
-		title = "YouTube import"
+		title = "YouTube audio"
 	}
 	uploadDir := s.uploadDir
 	if uploadDir == "" {
@@ -157,11 +158,22 @@ func (s *Service) startDownload(jobID, rawURL, title, storagePath string) {
 			return
 		}
 
-		sourceName := "youtube:" + safeFilename(result.Filename)
+		finalTitle := strings.TrimSpace(result.Title)
+		if finalTitle == "" {
+			finalTitle = title
+		}
+		sourceFilename := result.Filename
+		if result.Title != "" {
+			sourceFilename = finalTitle + ".mp3"
+		}
+		sourceName := "youtube:" + safeFilename(sourceFilename)
 		if sourceName == "youtube:" {
+			sourceName = "youtube:" + safeFilename(finalTitle) + ".mp3"
+		}
+		if sourceName == "youtube:.mp3" {
 			sourceName = "youtube:" + filepath.Base(storagePath)
 		}
-		if err := s.repo.CompleteMediaImport(ctx, jobID, storagePath, sourceName, result.DurationMs, time.Now()); err != nil {
+		if err := s.repo.CompleteMediaImport(ctx, jobID, finalTitle, storagePath, sourceName, result.DurationMs, time.Now()); err != nil {
 			_ = s.repo.FailMediaImport(ctx, jobID, "YouTube import failed", time.Now())
 			s.publish(ctx, "file.failed", jobID, "youtube", string(models.StatusFailed), 0)
 			return
@@ -215,6 +227,7 @@ func (YTDLPImporter) Import(ctx context.Context, job YouTubeImportJob, onProgres
 		"--audio-format", "mp3",
 		"--newline",
 		"--progress",
+		"--print", "after_move:SCRIBERR_TITLE:%(title)s",
 		"--output", outputTemplate,
 		"--",
 		job.URL,
@@ -234,9 +247,16 @@ func (YTDLPImporter) Import(ctx context.Context, job YouTubeImportJob, onProgres
 
 	var outputMu sync.Mutex
 	lastLine := ""
+	downloadedTitle := ""
 	recordLine := func(line string) {
 		line = strings.TrimSpace(line)
 		if line == "" {
+			return
+		}
+		if title, ok := strings.CutPrefix(line, "SCRIBERR_TITLE:"); ok {
+			outputMu.Lock()
+			downloadedTitle = strings.TrimSpace(title)
+			outputMu.Unlock()
 			return
 		}
 		outputMu.Lock()
@@ -270,8 +290,16 @@ func (YTDLPImporter) Import(ctx context.Context, job YouTubeImportJob, onProgres
 			return YouTubeImportResult{}, fmt.Errorf("finalize downloaded file: %w", err)
 		}
 	}
+	outputMu.Lock()
+	title := downloadedTitle
+	outputMu.Unlock()
+	filenameTitle := title
+	if filenameTitle == "" {
+		filenameTitle = job.Title
+	}
 	return YouTubeImportResult{
-		Filename: safeFilename(job.Title) + ".mp3",
+		Title:    title,
+		Filename: safeFilename(filenameTitle) + ".mp3",
 		MimeType: "audio/mpeg",
 	}, nil
 }

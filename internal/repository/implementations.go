@@ -73,7 +73,7 @@ type JobRepository interface {
 	RenewClaim(ctx context.Context, jobID, workerID string, leaseUntil time.Time) error
 	RecoverOrphanedProcessing(ctx context.Context, now time.Time) (int64, error)
 	UpdateProgress(ctx context.Context, jobID string, progress float64, stage string) error
-	CompleteMediaImport(ctx context.Context, jobID, audioPath, sourceFileName string, durationMs *int64, completedAt time.Time) error
+	CompleteMediaImport(ctx context.Context, jobID, title, audioPath, sourceFileName string, durationMs *int64, completedAt time.Time) error
 	FailMediaImport(ctx context.Context, jobID string, message string, failedAt time.Time) error
 	CompleteTranscription(ctx context.Context, jobID string, transcriptJSON string, outputPath *string, completedAt time.Time) error
 	FailTranscription(ctx context.Context, jobID string, message string, failedAt time.Time) error
@@ -283,9 +283,10 @@ func (r *jobRepository) UpdateProgress(ctx context.Context, jobID string, progre
 	return nil
 }
 
-func (r *jobRepository) CompleteMediaImport(ctx context.Context, jobID, audioPath, sourceFileName string, durationMs *int64, completedAt time.Time) error {
+func (r *jobRepository) CompleteMediaImport(ctx context.Context, jobID, title, audioPath, sourceFileName string, durationMs *int64, completedAt time.Time) error {
 	updates := map[string]any{
 		"status":             models.StatusUploaded,
+		"title":              title,
 		"source_file_path":   audioPath,
 		"source_file_name":   sourceFileName,
 		"source_duration_ms": durationMs,
