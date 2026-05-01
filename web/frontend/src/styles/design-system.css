@@ -564,6 +564,7 @@ body[data-notes-sidebar-resizing="true"] {
   border-radius: var(--scr-radius-sm);
   background: var(--scr-surface-raised);
   color: var(--scr-text-secondary);
+  cursor: pointer;
   box-shadow: var(--scr-shadow-soft);
 }
 
@@ -594,7 +595,7 @@ body[data-notes-sidebar-resizing="true"] {
   border: 0;
   background: transparent;
   color: var(--scr-text-secondary);
-  cursor: default;
+  cursor: pointer;
   font-size: var(--scr-type-meta);
   font-weight: var(--scr-font-weight-medium);
   padding: 0;
