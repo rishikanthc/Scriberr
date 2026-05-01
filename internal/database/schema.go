@@ -43,6 +43,9 @@ type schemaMigration struct {
 func (schemaMigration) TableName() string { return "schema_migrations" }
 
 func createTargetSchema(tx *gorm.DB) error {
+	if err := removeLegacyChatColumns(tx); err != nil {
+		return fmt.Errorf("remove legacy chat columns: %w", err)
+	}
 	for _, model := range schemaModels {
 		if err := tx.AutoMigrate(model); err != nil {
 			if !isIgnorableSQLiteDuplicateIndexError(tx, err) {
@@ -88,6 +91,18 @@ func createTargetSchema(tx *gorm.DB) error {
 	for _, stmt := range statements {
 		if err := tx.Exec(stmt).Error; err != nil {
 			return fmt.Errorf("apply schema index: %w", err)
+		}
+	}
+	return nil
+}
+
+func removeLegacyChatColumns(tx *gorm.DB) error {
+	if !tx.Migrator().HasTable("chat_sessions") {
+		return nil
+	}
+	if tx.Migrator().HasColumn("chat_sessions", "transcription_id") {
+		if err := tx.Migrator().DropColumn("chat_sessions", "transcription_id"); err != nil {
+			return err
 		}
 	}
 	return nil
