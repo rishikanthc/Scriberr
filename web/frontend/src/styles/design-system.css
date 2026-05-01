@@ -1,65 +1,65 @@
 @font-face {
-  font-family: "Nunito";
+  font-family: "DM Sans";
   font-style: normal;
   font-weight: 400;
   font-display: swap;
-  src: url("/fonts/nunito/Nunito-Regular.ttf") format("truetype");
+  src: url("/fonts/dm-sans/DMSans-Regular.ttf") format("truetype");
 }
 
 @font-face {
-  font-family: "Nunito";
+  font-family: "DM Sans";
   font-style: normal;
   font-weight: 500;
   font-display: swap;
-  src: url("/fonts/nunito/Nunito-Medium.ttf") format("truetype");
+  src: url("/fonts/dm-sans/DMSans-Medium.ttf") format("truetype");
 }
 
 @font-face {
-  font-family: "Nunito";
+  font-family: "DM Sans";
   font-style: normal;
   font-weight: 600;
   font-display: swap;
-  src: url("/fonts/nunito/Nunito-SemiBold.ttf") format("truetype");
+  src: url("/fonts/dm-sans/DMSans-SemiBold.ttf") format("truetype");
 }
 
 @font-face {
-  font-family: "Nunito";
+  font-family: "DM Sans";
   font-style: normal;
   font-weight: 700;
   font-display: swap;
-  src: url("/fonts/nunito/Nunito-Bold.ttf") format("truetype");
+  src: url("/fonts/dm-sans/DMSans-Bold.ttf") format("truetype");
 }
 
 @font-face {
-  font-family: "Nunito";
+  font-family: "DM Sans";
   font-style: italic;
   font-weight: 400;
   font-display: swap;
-  src: url("/fonts/nunito/Nunito-Italic.ttf") format("truetype");
+  src: url("/fonts/dm-sans/DMSans-Italic.ttf") format("truetype");
 }
 
 @font-face {
-  font-family: "Nunito";
+  font-family: "DM Sans";
   font-style: italic;
   font-weight: 500;
   font-display: swap;
-  src: url("/fonts/nunito/Nunito-MediumItalic.ttf") format("truetype");
+  src: url("/fonts/dm-sans/DMSans-MediumItalic.ttf") format("truetype");
 }
 
 @font-face {
-  font-family: "Nunito";
+  font-family: "DM Sans";
   font-style: italic;
   font-weight: 600;
   font-display: swap;
-  src: url("/fonts/nunito/Nunito-SemiBoldItalic.ttf") format("truetype");
+  src: url("/fonts/dm-sans/DMSans-SemiBoldItalic.ttf") format("truetype");
 }
 
 @font-face {
-  font-family: "Nunito";
+  font-family: "DM Sans";
   font-style: italic;
   font-weight: 700;
   font-display: swap;
-  src: url("/fonts/nunito/Nunito-BoldItalic.ttf") format("truetype");
+  src: url("/fonts/dm-sans/DMSans-BoldItalic.ttf") format("truetype");
 }
 
 .scr-audio-detail-main {

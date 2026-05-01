@@ -1,4 +1,4 @@
-# Scriberr Typography Design System (Nunito)
+# Scriberr Typography Design System (DM Sans)
 
 ## Purpose
 
@@ -6,8 +6,8 @@ This document defines a centralized typography system for Scriberr so hierarchy 
 
 ## Foundation
 
-- Primary font family: `Nunito` from Google Fonts.
-- Loading strategy: static local `@font-face` files in `web/frontend/public/fonts/nunito`.
+- Primary font family: `DM Sans` from Google Fonts.
+- Loading strategy: static local `@font-face` files in `web/frontend/public/fonts/dm-sans`.
 - Imported static weights: `400`, `500`, `600`, `700`, with matching italics.
 - Do not use range-based variable font imports for the app shell; browser font inspectors may expose the variable font's named instance instead of the active CSS weight.
 - The app root uses shared weight tokens for `400`, `500`, `600`, and `700`.
