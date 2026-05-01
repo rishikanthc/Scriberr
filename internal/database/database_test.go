@@ -57,14 +57,6 @@ type legacyLLMConfigTable legacyLLMConfig
 
 func (legacyLLMConfigTable) TableName() string { return "llm_configs" }
 
-type legacyChatSessionTable legacyChatSession
-
-func (legacyChatSessionTable) TableName() string { return "chat_sessions" }
-
-type legacyChatMessageTable legacyChatMessage
-
-func (legacyChatMessageTable) TableName() string { return "chat_messages" }
-
 func TestFreshSchemaInitialization(t *testing.T) {
 	db := openMigratedTestDB(t, "fresh.db")
 
@@ -80,8 +72,12 @@ func TestFreshSchemaInitialization(t *testing.T) {
 		"summary_templates",
 		"summaries",
 		"transcript_annotations",
+		"transcript_annotation_entries",
 		"chat_sessions",
+		"chat_context_sources",
 		"chat_messages",
+		"chat_generation_runs",
+		"chat_context_summaries",
 		"llm_profiles",
 	}
 	for _, table := range expectedTables {
@@ -98,6 +94,12 @@ func TestFreshSchemaInitialization(t *testing.T) {
 	assert.True(t, hasIndex(t, db, "transcript_annotations", "idx_transcript_annotations_user_transcription_created_at"))
 	assert.True(t, hasIndex(t, db, "transcript_annotations", "idx_transcript_annotations_user_kind_updated_at"))
 	assert.True(t, hasIndex(t, db, "transcript_annotations", "idx_transcript_annotations_transcription_time"))
+	assert.True(t, hasIndex(t, db, "chat_sessions", "idx_chat_sessions_user_parent_updated_at"))
+	assert.True(t, hasIndex(t, db, "chat_context_sources", "idx_chat_context_sources_session_enabled_position"))
+	assert.True(t, hasIndex(t, db, "chat_context_sources", "idx_chat_context_sources_user_transcription"))
+	assert.True(t, hasIndex(t, db, "chat_messages", "idx_chat_messages_session_created_at"))
+	assert.True(t, hasIndex(t, db, "chat_generation_runs", "idx_chat_generation_runs_session_created_at"))
+	assert.True(t, hasIndex(t, db, "chat_generation_runs", "idx_chat_generation_runs_status_created_at"))
 
 	title := "Fresh transcription"
 	job := models.TranscriptionJob{UserID: 1, Title: &title, Status: models.StatusUploaded, AudioPath: "/tmp/audio.wav"}
@@ -108,6 +110,110 @@ func TestFreshSchemaInitialization(t *testing.T) {
 	mapping2 := models.SpeakerMapping{UserID: job.UserID, TranscriptionJobID: job.ID, OriginalSpeaker: "SPEAKER_00", CustomName: "Bob"}
 	require.Error(t, db.Create(&mapping2).Error)
 
+}
+
+func TestChatSchemaValidationAndCascade(t *testing.T) {
+	db := openMigratedTestDB(t, "chat-schema.db")
+
+	user := models.User{Username: "chat-user", Password: "pw"}
+	require.NoError(t, db.Create(&user).Error)
+
+	title := "Chat parent transcript"
+	job := models.TranscriptionJob{UserID: user.ID, Title: &title, Status: models.StatusCompleted, AudioPath: "/tmp/audio.wav"}
+	require.NoError(t, db.Create(&job).Error)
+
+	session := models.ChatSession{
+		UserID:                user.ID,
+		ParentTranscriptionID: job.ID,
+		Title:                 "Transcript chat",
+		Provider:              "openai_compatible",
+		Model:                 "qwen3.5-4B",
+	}
+	require.NoError(t, db.Create(&session).Error)
+	assert.NotEmpty(t, session.ID)
+	assert.Equal(t, models.ChatSessionStatusActive, session.Status)
+	assert.Equal(t, "{}", session.ContextPolicyJSON)
+
+	plainText := "Speaker 1: hello"
+	source := models.ChatContextSource{
+		UserID:            user.ID,
+		ChatSessionID:     session.ID,
+		TranscriptionID:   job.ID,
+		Kind:              models.ChatContextSourceKindParentTranscript,
+		PlainTextSnapshot: &plainText,
+	}
+	require.NoError(t, db.Create(&source).Error)
+	assert.True(t, source.Enabled)
+	assert.Equal(t, models.ChatContextCompactionStatusNone, source.CompactionStatus)
+	assert.Equal(t, "{}", source.MetadataJSON)
+
+	userMessage := models.ChatMessage{
+		UserID:        user.ID,
+		ChatSessionID: session.ID,
+		Role:          models.ChatMessageRoleUser,
+		Content:       "Summarize the objections.",
+	}
+	require.NoError(t, db.Create(&userMessage).Error)
+	assert.NotEmpty(t, userMessage.ID)
+	assert.Equal(t, models.ChatMessageStatusCompleted, userMessage.Status)
+
+	assistantMessage := models.ChatMessage{
+		UserID:           user.ID,
+		ChatSessionID:    session.ID,
+		Role:             models.ChatMessageRoleAssistant,
+		Status:           models.ChatMessageStatusStreaming,
+		Content:          "",
+		ReasoningContent: "checking the transcript",
+		Provider:         ptr("openai_compatible"),
+		Model:            ptr("qwen3.5-4B"),
+	}
+	require.NoError(t, db.Create(&assistantMessage).Error)
+
+	run := models.ChatGenerationRun{
+		UserID:             user.ID,
+		ChatSessionID:      session.ID,
+		AssistantMessageID: &assistantMessage.ID,
+		Status:             models.ChatGenerationRunStatusStreaming,
+		Provider:           "openai_compatible",
+		Model:              "qwen3.5-4B",
+		ContextWindow:      32768,
+	}
+	require.NoError(t, db.Create(&run).Error)
+
+	assistantMessage.RunID = &run.ID
+	require.NoError(t, db.Save(&assistantMessage).Error)
+
+	summary := models.ChatContextSummary{
+		UserID:                 user.ID,
+		ChatSessionID:          session.ID,
+		SummaryType:            models.ChatContextSummaryTypeSession,
+		SourceMessageThroughID: &userMessage.ID,
+		Content:                "The earlier conversation asked for objections.",
+		Provider:               "openai_compatible",
+		Model:                  "qwen3.5-4B",
+	}
+	require.NoError(t, db.Create(&summary).Error)
+
+	invalidMessage := models.ChatMessage{
+		UserID:        user.ID,
+		ChatSessionID: session.ID,
+		Role:          models.ChatMessageRole("critic"),
+		Content:       "bad role",
+	}
+	require.Error(t, db.Create(&invalidMessage).Error)
+
+	require.NoError(t, db.Unscoped().Delete(&session).Error)
+
+	for table, column := range map[string]string{
+		"chat_context_sources":   "id",
+		"chat_messages":          "id",
+		"chat_generation_runs":   "id",
+		"chat_context_summaries": "id",
+	} {
+		var count int64
+		require.NoError(t, db.Table(table).Where(column+" <> ''").Count(&count).Error)
+		assert.Zero(t, count, "expected %s rows to cascade with chat session", table)
+	}
 }
 
 func TestTranscriptAnnotationSchemaValidationAndSoftDelete(t *testing.T) {
@@ -544,19 +650,6 @@ func TestLegacyMigrationPreservesData(t *testing.T) {
 	assert.Equal(t, "gpt-4o", summary.Model)
 	assert.Equal(t, "completed", summary.Status)
 
-	var chatSession models.ChatSession
-	require.NoError(t, db.First(&chatSession, "id = ?", "chat-1").Error)
-	assert.Equal(t, "job-1", chatSession.TranscriptionID)
-	assert.Equal(t, 2, chatSession.MessageCount)
-	assert.True(t, chatSession.IsActive)
-
-	var chatMessages []models.ChatMessage
-	require.NoError(t, db.Where("chat_session_id = ?", "chat-1").Order("id ASC").Find(&chatMessages).Error)
-	require.Len(t, chatMessages, 2)
-	assert.Equal(t, "chat-1", chatMessages[0].SessionID)
-	require.NotNil(t, chatMessages[1].TokensUsed)
-	assert.Equal(t, 42, *chatMessages[1].TokensUsed)
-
 	keyRepo := repository.NewAPIKeyRepository(db)
 	migratedKey, err := keyRepo.FindByKey(t.Context(), "legacy-api-key-secret")
 	require.NoError(t, err)
@@ -667,8 +760,6 @@ func createLegacyDatabase(t *testing.T, dbPath string, withData bool) {
 		&legacySummarySettingTable{},
 		&legacySummaryTable{},
 		&legacyLLMConfigTable{},
-		&legacyChatSessionTable{},
-		&legacyChatMessageTable{},
 	))
 
 	if !withData {
@@ -713,17 +804,11 @@ func createLegacyDatabase(t *testing.T, dbPath string, withData bool) {
 	llmConfig := legacyLLMConfig{ID: 3, Provider: "openai", OpenAIBaseURL: &openAIBaseURL, APIKey: &openAIKey, IsActive: true, CreatedAt: now, UpdatedAt: now}
 	require.NoError(t, db.Table("llm_configs").Create(&llmConfig).Error)
 
-	session := legacyChatSession{ID: "chat-1", JobID: "job-1", TranscriptionID: "job-1", Title: "Legacy chat", Model: "gpt-4o-mini", Provider: "openai", MessageCount: 2, LastActivityAt: &completedAt, IsActive: true, CreatedAt: now, UpdatedAt: completedAt}
-	require.NoError(t, db.Table("chat_sessions").Create(&session).Error)
-	require.NoError(t, db.Table("chat_messages").Create(&legacyChatMessage{ID: 1, SessionID: "chat-1", ChatSessionID: "chat-1", Role: "user", Content: "Hello", CreatedAt: now}).Error)
-	require.NoError(t, db.Table("chat_messages").Create(&legacyChatMessage{ID: 2, SessionID: "chat-1", ChatSessionID: "chat-1", Role: "assistant", Content: "Hi", TokensUsed: ptrInt(42), CreatedAt: completedAt}).Error)
-
 	require.NoError(t, db.Table("api_keys").Create(&legacyAPIKey{ID: 9, Key: "legacy-api-key-secret", Name: "Legacy API key", Description: ptr("legacy description"), IsActive: true, LastUsed: &lastUsed, CreatedAt: now, UpdatedAt: now}).Error)
 	require.NoError(t, db.Table("refresh_tokens").Create(&legacyRefreshToken{ID: 11, UserID: 7, Hashed: "legacy-token-hash", ExpiresAt: now.Add(24 * time.Hour), Revoked: true, CreatedAt: now, UpdatedAt: completedAt}).Error)
 }
 
 func ptr[T any](v T) *T { return &v }
-func ptrInt(v int) *int { return &v }
 
 func derefString(s *string) string {
 	if s == nil {

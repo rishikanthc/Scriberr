@@ -2,19 +2,34 @@
 
 This tracker belongs to `devnotes/v2.0.0/sprint-plans/chat-with-transcripts-backend-sprint-plan.md`.
 
-Status: planned. No implementation sprints have been started.
+Status: completed through Sprint Run 1.
 
 ## Sprint Run 1: Remove Legacy Chat and Add Clean Schema
 
-Status: planned
+Status: completed
 
-Planned tasks:
+Completed tasks:
 
 - Remove old chat persistence shape from `internal/models/transcription.go`.
 - Add clean chat persistence records in `internal/models/chat.go`.
 - Register new schema models and indexes.
 - Remove old chat migration/backfill assumptions.
 - Add database tests for fresh schema, indexes, ownership columns, and cascade behavior.
+
+Artifacts:
+
+- `internal/models/chat.go`
+- `internal/models/transcription.go`
+- `internal/database/schema.go`
+- `internal/database/migrate.go`
+- `internal/database/legacy.go`
+- `internal/database/database_test.go`
+- `internal/repository/implementations.go`
+
+Verification:
+
+- `GOCACHE=/tmp/scriberr-go-cache go test ./internal/database ./internal/repository`
+- `GOCACHE=/tmp/scriberr-go-cache go test ./internal/api ./cmd/server`
 
 ## Sprint Run 2: Chat Repository and Context Builder
 

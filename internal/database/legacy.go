@@ -131,31 +131,6 @@ type legacyLLMConfig struct {
 	UpdatedAt     time.Time
 }
 
-type legacyChatSession struct {
-	ID              string
-	JobID           string
-	TranscriptionID string
-	Title           string
-	Model           string
-	Provider        string
-	SystemContext   *string
-	MessageCount    int
-	LastActivityAt  *time.Time
-	IsActive        bool
-	CreatedAt       time.Time
-	UpdatedAt       time.Time
-}
-
-type legacyChatMessage struct {
-	ID            uint
-	SessionID     string
-	ChatSessionID string
-	Role          string
-	Content       string
-	TokensUsed    *int
-	CreatedAt     time.Time
-}
-
 func migrateLegacy(db *gorm.DB) error {
 	return db.Transaction(func(tx *gorm.DB) error {
 		if err := archiveConflictingLegacyTables(tx); err != nil {
@@ -201,12 +176,6 @@ func migrateLegacy(db *gorm.DB) error {
 			return err
 		}
 		if err := migrateLLMProfiles(tx, userID); err != nil {
-			return err
-		}
-		if err := migrateChatSessions(tx, userID); err != nil {
-			return err
-		}
-		if err := migrateChatMessages(tx, userID); err != nil {
 			return err
 		}
 		if err := migrateAPIKeys(tx, userID); err != nil {
@@ -291,7 +260,6 @@ func legacyHasOwnedData(tx *gorm.DB) (bool, error) {
 		"transcription_jobs",
 		legacyPrefix + "transcription_profiles",
 		legacyPrefix + "summary_templates",
-		legacyPrefix + "chat_sessions",
 		"llm_configs",
 		legacyPrefix + "api_keys",
 		legacyPrefix + "refresh_tokens",
@@ -550,69 +518,6 @@ func migrateLLMProfiles(tx *gorm.DB, userID uint) error {
 		}
 		if err := tx.Create(&config).Error; err != nil {
 			return fmt.Errorf("create migrated llm profile %d: %w", legacyConfig.ID, err)
-		}
-	}
-	return nil
-}
-
-func migrateChatSessions(tx *gorm.DB, userID uint) error {
-	source := legacyPrefix + "chat_sessions"
-	if !tx.Migrator().HasTable(source) {
-		return nil
-	}
-	var sessions []legacyChatSession
-	if err := tx.Table(source).Order("created_at ASC").Find(&sessions).Error; err != nil {
-		return fmt.Errorf("load legacy chat sessions: %w", err)
-	}
-	for _, legacySession := range sessions {
-		session := models.ChatSession{
-			ID:              legacySession.ID,
-			UserID:          userID,
-			TranscriptionID: legacySession.TranscriptionID,
-			Title:           legacySession.Title,
-			Model:           legacySession.Model,
-			Provider:        legacySession.Provider,
-			SystemContext:   legacySession.SystemContext,
-			JobID:           legacySession.JobID,
-			MessageCount:    legacySession.MessageCount,
-			LastActivityAt:  legacySession.LastActivityAt,
-			IsActive:        legacySession.IsActive,
-			CreatedAt:       legacySession.CreatedAt,
-			UpdatedAt:       legacySession.UpdatedAt,
-		}
-		if err := tx.Create(&session).Error; err != nil {
-			return fmt.Errorf("create migrated chat session %s: %w", legacySession.ID, err)
-		}
-	}
-	return nil
-}
-
-func migrateChatMessages(tx *gorm.DB, userID uint) error {
-	source := legacyPrefix + "chat_messages"
-	if !tx.Migrator().HasTable(source) {
-		return nil
-	}
-	var messages []legacyChatMessage
-	if err := tx.Table(source).Order("created_at ASC, id ASC").Find(&messages).Error; err != nil {
-		return fmt.Errorf("load legacy chat messages: %w", err)
-	}
-	for _, legacyMessage := range messages {
-		chatSessionID := legacyMessage.ChatSessionID
-		if chatSessionID == "" {
-			chatSessionID = legacyMessage.SessionID
-		}
-		message := models.ChatMessage{
-			ID:            legacyMessage.ID,
-			UserID:        userID,
-			ChatSessionID: chatSessionID,
-			SessionID:     legacyMessage.SessionID,
-			Role:          legacyMessage.Role,
-			Content:       legacyMessage.Content,
-			TokensUsed:    legacyMessage.TokensUsed,
-			CreatedAt:     legacyMessage.CreatedAt,
-		}
-		if err := tx.Create(&message).Error; err != nil {
-			return fmt.Errorf("create migrated chat message %d: %w", legacyMessage.ID, err)
 		}
 	}
 	return nil

@@ -114,8 +114,8 @@ func isLegacySameNameTable(db *gorm.DB, table string) (bool, error) {
 		"speaker_mappings":       {"display_name", "user_id", "transcription_id"},
 		"summary_templates":      {"config_json", "user_id"},
 		"summaries":              {"model_name", "user_id"},
-		"chat_sessions":          {"system_prompt", "user_id"},
-		"chat_messages":          {"chat_session_id", "user_id"},
+		"chat_sessions":          {"parent_transcription_id", "context_policy_json", "user_id"},
+		"chat_messages":          {"chat_session_id", "reasoning_content", "status", "user_id"},
 	}
 
 	required := requiredCurrentColumns[table]
