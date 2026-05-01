@@ -2,7 +2,7 @@
 
 This tracker belongs to `devnotes/v2.0.0/sprint-plans/youtube-import-sprint-plan.md`.
 
-Status: backend contract/service/provider complete; frontend integration pending.
+Status: frontend workflow complete; final end-to-end verification pending.
 
 ## Sprint 1: Backend Contract and Route Wiring
 
@@ -55,37 +55,38 @@ Verification:
 
 ## Sprint 4: Frontend API and Import Workflow Hook
 
-Status: pending
+Status: complete
 
-Planned tasks:
+Completed tasks:
 
-- [ ] Add typed frontend `importYouTube` API helper.
-- [ ] Extend `useFileImport` to support URL imports.
-- [ ] Represent YouTube imports in the existing progress shelf.
-- [ ] Update file event handling for processing/progress/ready/failed.
-- [ ] Invalidate file and audio-file queries at the smallest useful scope.
+- [x] Add typed frontend `importYouTube` API helper.
+- [x] Extend `useFileImport` to support URL imports.
+- [x] Represent YouTube imports in the existing progress shelf.
+- [x] Update file event handling for processing/progress/ready/failed.
+- [x] Invalidate file and audio-file queries at the smallest useful scope.
 
 Verification:
 
-- [ ] `npm run type-check` from `web/frontend`.
+- [x] `npm run type-check` from `web/frontend`.
+- [x] `npm run build` from `web/frontend`.
 
 ## Sprint 5: Homepage Import Dropdown and Dialog
 
-Status: pending
+Status: complete
 
-Planned tasks:
+Completed tasks:
 
-- [ ] Replace direct Import click with an import dropdown menu.
-- [ ] Add Upload files and Import from YouTube menu items.
-- [ ] Add one-input YouTube URL dialog.
-- [ ] Submit URL through the import hook and close the dialog after accepted creation.
-- [ ] Preserve hidden file input behavior for Upload files.
-- [ ] Remove dead legacy frontend YouTube components/hooks.
+- [x] Replace direct Import click with an import dropdown menu.
+- [x] Add Upload files and Import from YouTube menu items.
+- [x] Add one-input YouTube URL dialog.
+- [x] Submit URL through the import hook and close the dialog after accepted creation.
+- [x] Preserve hidden file input behavior for Upload files.
+- [x] Remove dead legacy frontend YouTube components/hooks.
 
 Verification:
 
-- [ ] `npm run type-check` from `web/frontend`.
-- [ ] Browser verification on homepage import flow.
+- [x] `npm run type-check` from `web/frontend`.
+- [x] Browser verification on homepage import dropdown and dialog.
 
 ## Sprint 6: UX Polish and End-to-End Verification
 

@@ -2412,6 +2412,53 @@ body[data-notes-sidebar-resizing="true"] {
   font-size: 0.8125rem;
 }
 
+.scr-import-trigger {
+  outline: none;
+}
+
+.scr-import-trigger:focus-visible {
+  border-color: var(--scr-brand-border);
+  box-shadow: 0 0 0 3px var(--scr-brand-muted);
+}
+
+.scr-import-menu {
+  min-width: 190px;
+  border-color: var(--scr-border-subtle);
+  border-radius: var(--scr-radius-md);
+  background: var(--scr-surface-raised);
+  box-shadow: var(--scr-shadow-float);
+  padding: var(--scr-space-1);
+}
+
+.scr-import-menu-item {
+  gap: var(--scr-space-2);
+  border-radius: var(--scr-radius-sm);
+  color: var(--scr-text-primary);
+  cursor: pointer;
+  font-size: 0.8125rem;
+}
+
+.scr-youtube-dialog {
+  gap: var(--scr-space-5);
+}
+
+.scr-youtube-form {
+  display: grid;
+  gap: var(--scr-space-5);
+}
+
+.scr-youtube-field {
+  display: grid;
+  gap: var(--scr-space-2);
+}
+
+.scr-youtube-error {
+  margin: 0;
+  color: var(--scr-color-danger);
+  font-size: 0.8125rem;
+  line-height: var(--scr-line-normal);
+}
+
 .scr-settings-topline {
   display: flex;
   align-items: center;

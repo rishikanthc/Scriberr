@@ -1,8 +1,10 @@
-import { useCallback, useMemo, useRef, type ChangeEvent } from "react";
+import { useCallback, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { ChevronDown, FileAudio, Home, Mic, Search, Settings, StopCircle, Trash2, UploadCloud, Video, Wand2 } from "lucide-react";
+import { ChevronDown, FileAudio, Home, Mic, Search, Settings, StopCircle, Trash2, UploadCloud, Video, Wand2, Youtube } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { WandAdvancedIcon } from "@/components/icons/WandAdvancedIcon";
 import { UploadProgressShelf } from "@/features/files/components/UploadProgressShelf";
+import { YouTubeImportDialog } from "@/features/files/components/YouTubeImportDialog";
 import type { ScriberrFile } from "@/features/files/api/filesApi";
 import { useFileEvents } from "@/features/files/hooks/useFileEvents";
 import { importAccept, type UploadItem, useFileImport } from "@/features/files/hooks/useFileImport";
@@ -52,10 +54,11 @@ export function Sidebar({ activeItem = "home" }: SidebarProps) {
 }
 
 type TopBarProps = {
-  onImportClick: () => void;
+  onUploadFilesClick: () => void;
+  onYouTubeImportClick: () => void;
 };
 
-function TopBar({ onImportClick }: TopBarProps) {
+function TopBar({ onUploadFilesClick, onYouTubeImportClick }: TopBarProps) {
   return (
     <div className="scr-topbar">
       <div className="scr-search-shell" aria-hidden="true">
@@ -68,10 +71,23 @@ function TopBar({ onImportClick }: TopBarProps) {
         <IconButton label="Video">
           <Video size={14} aria-hidden="true" />
         </IconButton>
-        <AppButton type="button" variant="secondary" className="scr-topbar-button" onClick={onImportClick}>
-          <UploadCloud size={14} aria-hidden="true" />
-          Import
-        </AppButton>
+        <DropdownMenu>
+          <DropdownMenuTrigger className="scr-button scr-button-secondary scr-topbar-button scr-import-trigger">
+            <UploadCloud size={14} aria-hidden="true" />
+            Import
+            <ChevronDown size={13} aria-hidden="true" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent className="scr-import-menu" align="end">
+            <DropdownMenuItem className="scr-import-menu-item" onSelect={onUploadFilesClick}>
+              <UploadCloud size={15} aria-hidden="true" />
+              Upload files
+            </DropdownMenuItem>
+            <DropdownMenuItem className="scr-import-menu-item" onSelect={onYouTubeImportClick}>
+              <Youtube size={15} aria-hidden="true" />
+              Import from YouTube
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
         <AppButton type="button" className="scr-topbar-button">
           <Mic size={14} aria-hidden="true" />
           Record
@@ -179,12 +195,13 @@ function RecordingCard({ recording, canTranscribe, isSubmitting, isStopping, onT
 export function HomePage() {
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [youtubeDialogOpen, setYoutubeDialogOpen] = useState(false);
   const filesQuery = useFiles();
   const profilesQuery = useProfiles();
   const transcriptionsQuery = useTranscriptions();
   const createTranscriptionMutation = useCreateTranscription();
   const stopTranscriptionMutation = useStopTranscription();
-  const { uploadItems, importFiles, dismissItem, handleFileEvent } = useFileImport();
+  const { uploadItems, importFiles, importFromYouTube, dismissItem, handleFileEvent } = useFileImport();
   useFileEvents(handleFileEvent);
   useTranscriptionListEvents();
 
@@ -209,9 +226,17 @@ export function HomePage() {
     return [...optimistic, ...serverFiles];
   }, [filesQuery.data?.items, latestTranscriptionByFileId, uploadItems]);
 
-  const handleImportClick = useCallback(() => {
+  const handleUploadFilesClick = useCallback(() => {
     fileInputRef.current?.click();
   }, []);
+
+  const handleYouTubeImportClick = useCallback(() => {
+    setYoutubeDialogOpen(true);
+  }, []);
+
+  const handleYouTubeImport = useCallback(async (url: string) => {
+    await importFromYouTube(url);
+  }, [importFromYouTube]);
 
   const handleImportChange = useCallback((event: ChangeEvent<HTMLInputElement>) => {
     const selected = event.currentTarget.files;
@@ -246,7 +271,7 @@ export function HomePage() {
       <div className="scr-shell">
         <Sidebar />
         <main className="scr-main">
-          <TopBar onImportClick={handleImportClick} />
+          <TopBar onUploadFilesClick={handleUploadFilesClick} onYouTubeImportClick={handleYouTubeImportClick} />
           <input
             ref={fileInputRef}
             className="scr-visually-hidden"
@@ -287,6 +312,12 @@ export function HomePage() {
         </main>
       </div>
       <UploadProgressShelf items={uploadItems} onDismiss={dismissItem} />
+      <YouTubeImportDialog
+        open={youtubeDialogOpen}
+        importing={uploadItems.some((item) => item.source === "youtube" && item.status === "processing" && !item.fileId)}
+        onOpenChange={setYoutubeDialogOpen}
+        onSubmit={handleYouTubeImport}
+      />
     </div>
   );
 }
@@ -307,7 +338,7 @@ function uploadItemToRecording(item: UploadItem): Recording {
   return {
     id: item.id,
     title: item.fileName.replace(/\.[^/.]+$/, ""),
-    date: item.status === "uploading" ? `Uploading ${item.progress}%` : itemLabel(item.status),
+    date: item.status === "uploading" ? `Uploading ${item.progress}%` : itemLabel(item),
     status: item.status === "processing" ? "file-processing" : item.status,
     fileStatus: item.status,
     progress: item.progress,
@@ -368,12 +399,12 @@ function formatProgress(progress: number) {
   return `${Math.round(percent)}%`;
 }
 
-function itemLabel(status: UploadItem["status"]) {
-  switch (status) {
+function itemLabel(item: UploadItem) {
+  switch (item.status) {
     case "uploading":
       return "Uploading";
     case "processing":
-      return "Extracting audio";
+      return item.source === "youtube" ? "Importing from YouTube" : "Extracting audio";
     case "ready":
       return "Ready";
     case "failed":

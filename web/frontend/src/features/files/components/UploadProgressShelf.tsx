@@ -22,7 +22,7 @@ export function UploadProgressShelf({ items, onDismiss }: UploadProgressShelfPro
           {primary.status === "ready" ? <Check size={14} aria-hidden="true" /> : <Loader2 size={14} aria-hidden="true" />}
         </div>
         <div className="scr-upload-copy">
-          <p className="scr-upload-title">{uploadTitle(active, completed, failed, items.length)}</p>
+          <p className="scr-upload-title">{uploadTitle(primary, active, completed, failed, items.length)}</p>
           <p className="scr-upload-meta">{primary.fileName}</p>
         </div>
       </div>
@@ -46,7 +46,8 @@ export function UploadProgressShelf({ items, onDismiss }: UploadProgressShelfPro
   );
 }
 
-function uploadTitle(active: number, completed: number, failed: number, total: number) {
+function uploadTitle(primary: UploadItem, active: number, completed: number, failed: number, total: number) {
+  if (active > 0 && primary.source === "youtube") return "Importing from YouTube";
   if (active > 0) return total === 1 ? "Importing file" : `Importing ${active} of ${total}`;
   if (failed > 0 && completed === 0) return total === 1 ? "Import failed" : `${failed} imports failed`;
   if (failed > 0) return `${completed} imported, ${failed} failed`;
@@ -58,7 +59,7 @@ function itemLabel(item: UploadItem) {
     case "uploading":
       return `${item.progress}%`;
     case "processing":
-      return "Extracting";
+      return item.source === "youtube" ? "Preparing audio" : "Extracting";
     case "ready":
       return "Ready";
     case "failed":

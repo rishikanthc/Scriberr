@@ -9,6 +9,7 @@ export type FileEvent = {
     id?: string;
     kind?: string;
     status?: string;
+    progress?: number;
     deleted?: boolean;
   };
 };

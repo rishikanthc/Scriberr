@@ -134,36 +134,6 @@ export function useMultiTrackUpload() {
     });
 }
 
-export function useYouTubeDownload() {
-    const { getAuthHeaders } = useAuth();
-    const queryClient = useQueryClient();
-
-    return useMutation({
-        mutationFn: async ({ url, title }: { url: string, title?: string }) => {
-            const response = await fetch("/api/v1/transcription/youtube", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    ...getAuthHeaders(),
-                },
-                body: JSON.stringify({
-                    url: url.trim(),
-                    title: title?.trim() || undefined,
-                }),
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || "Failed to download YouTube audio");
-            }
-            return response.json();
-        },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['audioFiles'] });
-        },
-    });
-}
-
 export interface Profile {
     id: string;
     name: string;

@@ -1,16 +1,18 @@
 import { useCallback, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/features/auth/hooks/useAuth";
-import { uploadFile, type ScriberrFile } from "@/features/files/api/filesApi";
+import { importYouTube, uploadFile, type ScriberrFile } from "@/features/files/api/filesApi";
 import { filesQueryKey } from "@/features/files/hooks/useFiles";
 import type { FileEvent } from "@/features/files/hooks/useFileEvents";
 
 export type UploadItemStatus = "uploading" | "processing" | "ready" | "failed";
+export type UploadItemSource = "file" | "youtube";
 
 export type UploadItem = {
   id: string;
   fileId?: string;
   fileName: string;
+  source: UploadItemSource;
   progress: number;
   status: UploadItemStatus;
   error?: string;
@@ -43,6 +45,7 @@ export function useFileImport() {
     const createdItems: UploadItem[] = selected.map((file) => ({
       id: crypto.randomUUID(),
       fileName: file.name,
+      source: "file",
       progress: 0,
       status: "uploading",
     }));
@@ -93,9 +96,69 @@ export function useFileImport() {
     );
   }, [getAuthHeaders, queryClient]);
 
+  const importFromYouTube = useCallback(async (url: string) => {
+    const trimmedURL = url.trim();
+    if (!trimmedURL) return;
+    const importId = crypto.randomUUID();
+    const createdItem: UploadItem = {
+      id: importId,
+      fileName: "YouTube audio",
+      source: "youtube",
+      progress: 1,
+      status: "processing",
+    };
+    setItems((current) => [createdItem, ...current]);
+
+    try {
+      const imported = await importYouTube({ url: trimmedURL }, getAuthHeaders());
+      setItems((current) =>
+        current.map((item) =>
+          item.id === importId
+            ? {
+              ...item,
+              fileId: imported.id,
+              fileName: imported.title || "YouTube audio",
+              progress: imported.status === "ready" || imported.status === "uploaded" ? 100 : 2,
+              status: uploadStatusFromFile(imported),
+            }
+            : item
+        )
+      );
+      queryClient.invalidateQueries({ queryKey: filesQueryKey });
+      queryClient.invalidateQueries({ queryKey: ["audioFiles"] });
+    } catch (error) {
+      setItems((current) =>
+        current.map((item) =>
+          item.id === importId
+            ? {
+              ...item,
+              status: "failed",
+              error: error instanceof Error ? error.message : "YouTube import failed",
+            }
+            : item
+        )
+      );
+      throw error;
+    }
+  }, [getAuthHeaders, queryClient]);
+
   const handleFileEvent = useCallback((event: FileEvent) => {
     const fileId = event.data.id;
     if (!fileId) return;
+
+    if (event.name === "file.processing") {
+      setItems((current) =>
+        current.map((item) =>
+          item.fileId === fileId
+            ? {
+              ...item,
+              status: "processing",
+              progress: typeof event.data.progress === "number" ? Math.round(event.data.progress) : Math.max(item.progress, 2),
+            }
+            : item
+        )
+      );
+    }
 
     if (event.name === "file.ready") {
       setItems((current) =>
@@ -119,6 +182,7 @@ export function useFileImport() {
 
   return {
     activeCount,
+    importFromYouTube,
     importFiles,
     uploadItems: items,
     dismissItem,

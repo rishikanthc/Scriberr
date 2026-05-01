@@ -24,6 +24,20 @@ export type UpdateFilePayload = {
   title: string;
 };
 
+export type ImportYouTubePayload = {
+  url: string;
+  title?: string;
+};
+
+async function readErrorMessage(response: Response, fallback: string) {
+  try {
+    const body = await response.json() as { error?: { message?: string } };
+    return body.error?.message || fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 export function listFiles(headers: Record<string, string>): Promise<FilesResponse> {
   return fetch("/api/v1/files?limit=100&sort=-created_at", {
     headers,
@@ -61,6 +75,24 @@ export async function updateFile(
   });
   if (!response.ok) {
     throw new Error("Failed to update file");
+  }
+  return response.json() as Promise<ScriberrFile>;
+}
+
+export async function importYouTube(payload: ImportYouTubePayload, headers: Record<string, string>): Promise<ScriberrFile> {
+  const response = await fetch("/api/v1/files:import-youtube", {
+    method: "POST",
+    headers: {
+      ...headers,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      url: payload.url.trim(),
+      title: payload.title?.trim() || undefined,
+    }),
+  });
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response, "Failed to import YouTube audio"));
   }
   return response.json() as Promise<ScriberrFile>;
 }

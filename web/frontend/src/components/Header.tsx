@@ -6,13 +6,12 @@ import {
 	DropdownMenuItem,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Upload, Mic, Settings, LogOut, Home, Plus, Grip, Zap, Youtube, Video, Users, MonitorSpeaker } from "lucide-react";
+import { Upload, Mic, Settings, LogOut, Home, Plus, Grip, Zap, Video, Users, MonitorSpeaker } from "lucide-react";
 import { ScriberrLogo } from "./ScriberrLogo";
 import { ThemeSwitcher } from "./ThemeSwitcher";
 import { AudioRecorder } from "./AudioRecorder";
 import { SystemAudioRecorder } from "./SystemAudioRecorder";
 import { QuickTranscriptionDialog } from "@/features/transcription/components/QuickTranscriptionDialog";
-import { YouTubeDownloadDialog } from "@/features/transcription/components/YouTubeDownloadDialog";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { isVideoFile, isAudioFile } from "../utils/fileProcessor";
@@ -26,10 +25,9 @@ interface FileWithType {
 interface HeaderProps {
 	onFileSelect?: (files: File | File[] | FileWithType | FileWithType[]) => void;
 	onMultiTrackClick?: () => void;
-	onDownloadComplete?: () => void;
 }
 
-export function Header({ onFileSelect, onMultiTrackClick, onDownloadComplete }: HeaderProps) {
+export function Header({ onFileSelect, onMultiTrackClick }: HeaderProps) {
 	const navigate = useNavigate();
 	const { logout } = useAuth();
 	const fileInputRef = useRef<HTMLInputElement>(null);
@@ -37,7 +35,6 @@ export function Header({ onFileSelect, onMultiTrackClick, onDownloadComplete }: 
 	const [isRecorderOpen, setIsRecorderOpen] = useState(false);
 	const [isSystemRecorderOpen, setIsSystemRecorderOpen] = useState(false);
 	const [isQuickTranscriptionOpen, setIsQuickTranscriptionOpen] = useState(false);
-	const [isYouTubeDialogOpen, setIsYouTubeDialogOpen] = useState(false);
 
 	// Use global upload context as fallback when props are not provided
 	const globalUpload = useGlobalUpload();
@@ -65,10 +62,6 @@ export function Header({ onFileSelect, onMultiTrackClick, onDownloadComplete }: 
 
 	const handleQuickTranscriptionClick = () => {
 		setIsQuickTranscriptionOpen(true);
-	};
-
-	const handleYouTubeClick = () => {
-		setIsYouTubeDialogOpen(true);
 	};
 
 	const handleMultiTrackClick = () => {
@@ -170,20 +163,6 @@ export function Header({ onFileSelect, onMultiTrackClick, onDownloadComplete }: 
 									<div className="font-medium text-sm">Quick Transcribe</div>
 									<div className="text-xs text-[var(--text-secondary)]">
 										Fast transcribe without saving
-									</div>
-								</div>
-							</DropdownMenuItem>
-							<DropdownMenuItem
-								onClick={handleYouTubeClick}
-								className="group flex items-center gap-3 px-3 py-3 cursor-pointer rounded-[var(--radius-btn)] focus:bg-[var(--brand-light)] focus:text-[var(--brand-solid)] transition-colors"
-							>
-								<div className="p-2 bg-rose-500/10 rounded-[var(--radius-btn)] text-rose-600 group-focus:text-[var(--brand-solid)]">
-									<Youtube className="h-4 w-4" />
-								</div>
-								<div>
-									<div className="font-medium text-sm">YouTube URL</div>
-									<div className="text-xs text-[var(--text-secondary)]">
-										Download audio from YouTube
 									</div>
 								</div>
 							</DropdownMenuItem>
@@ -331,13 +310,6 @@ export function Header({ onFileSelect, onMultiTrackClick, onDownloadComplete }: 
 			<QuickTranscriptionDialog
 				isOpen={isQuickTranscriptionOpen}
 				onClose={() => setIsQuickTranscriptionOpen(false)}
-			/>
-
-			{/* YouTube Download Dialog */}
-			<YouTubeDownloadDialog
-				isOpen={isYouTubeDialogOpen}
-				onClose={() => setIsYouTubeDialogOpen(false)}
-				onDownloadComplete={onDownloadComplete}
 			/>
 
 		</header>
