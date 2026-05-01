@@ -56,10 +56,15 @@ export function useCreateTranscription() {
 
 export function preferVisibleTranscription(candidate: Transcription, current: Transcription | undefined) {
   if (!current) return candidate;
+  const candidateUpdatedAt = new Date(candidate.updated_at).getTime();
+  const currentUpdatedAt = new Date(current.updated_at).getTime();
+  if (candidateUpdatedAt !== currentUpdatedAt) {
+    return candidateUpdatedAt > currentUpdatedAt ? candidate : current;
+  }
   const candidateActive = isActiveTranscription(candidate);
   const currentActive = isActiveTranscription(current);
   if (candidateActive !== currentActive) return candidateActive ? candidate : current;
-  return new Date(candidate.updated_at).getTime() > new Date(current.updated_at).getTime() ? candidate : current;
+  return candidate;
 }
 
 function isActiveTranscription(transcription: Transcription) {

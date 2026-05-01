@@ -24,16 +24,6 @@ export function useTranscriptionListEvents() {
 
     const abortController = new AbortController();
     let reconnectTimer: number | undefined;
-    let refetchTimer: number | undefined;
-
-    const refetchTranscriptionsSoon = () => {
-      if (refetchTimer) return;
-      refetchTimer = window.setTimeout(() => {
-        refetchTimer = undefined;
-        queryClient.refetchQueries({ queryKey: transcriptionsQueryKey, type: "active" });
-        queryClient.refetchQueries({ queryKey: ["audioFiles"], type: "active" });
-      }, 350);
-    };
 
     const scheduleReconnect = () => {
       if (abortController.signal.aborted) return;
@@ -65,7 +55,7 @@ export function useTranscriptionListEvents() {
           if (done) break;
 
           buffer += decoder.decode(value, { stream: true });
-          const chunks = buffer.split("\n\n");
+          const chunks = buffer.split(/\r?\n\r?\n/);
           buffer = chunks.pop() || "";
 
           for (const chunk of chunks) {
@@ -98,7 +88,6 @@ export function useTranscriptionListEvents() {
               queryClient.invalidateQueries({ queryKey: transcriptionsQueryKey });
               queryClient.invalidateQueries({ queryKey: ["audioFiles"] });
             }
-            refetchTranscriptionsSoon();
           }
         }
 
@@ -114,7 +103,6 @@ export function useTranscriptionListEvents() {
     return () => {
       abortController.abort();
       if (reconnectTimer) window.clearTimeout(reconnectTimer);
-      if (refetchTimer) window.clearTimeout(refetchTimer);
     };
   }, [token, queryClient]);
 }
@@ -158,10 +146,11 @@ function parseSSEChunk(chunk: string): TranscriptionEvent | null {
   let data = "";
 
   for (const line of chunk.split("\n")) {
-    if (line.startsWith("event:")) {
-      name = line.slice("event:".length).trim();
-    } else if (line.startsWith("data:")) {
-      data += line.slice("data:".length).trim();
+    const trimmed = line.trimEnd();
+    if (trimmed.startsWith("event:")) {
+      name = trimmed.slice("event:".length).trim();
+    } else if (trimmed.startsWith("data:")) {
+      data += trimmed.slice("data:".length).trim();
     }
   }
 

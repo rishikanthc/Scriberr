@@ -54,7 +54,7 @@ export function useFileEvents(onEvent?: (event: FileEvent) => void) {
           if (done) break;
 
           buffer += decoder.decode(value, { stream: true });
-          const chunks = buffer.split("\n\n");
+          const chunks = buffer.split(/\r?\n\r?\n/);
           buffer = chunks.pop() || "";
 
           for (const chunk of chunks) {
@@ -87,10 +87,11 @@ function parseSSEChunk(chunk: string): FileEvent | null {
   let data = "";
 
   for (const line of chunk.split("\n")) {
-    if (line.startsWith("event:")) {
-      name = line.slice("event:".length).trim();
-    } else if (line.startsWith("data:")) {
-      data += line.slice("data:".length).trim();
+    const trimmed = line.trimEnd();
+    if (trimmed.startsWith("event:")) {
+      name = trimmed.slice("event:".length).trim();
+    } else if (trimmed.startsWith("data:")) {
+      data += trimmed.slice("data:".length).trim();
     }
   }
 
