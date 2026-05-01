@@ -253,6 +253,7 @@ export function AudioDetailView() {
             </article>
             <TranscriptNotesSidebar
               notes={notes}
+              parentTranscriptionId={latestTranscription?.status === "completed" ? latestTranscription.id : undefined}
               isOpen={notesSidebarOpen}
               isLoading={annotationsQuery.isLoading}
               isError={annotationsQuery.isError}

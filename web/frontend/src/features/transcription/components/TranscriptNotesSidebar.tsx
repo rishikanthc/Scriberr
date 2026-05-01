@@ -2,10 +2,12 @@ import { useEffect, useState, type FormEvent, type KeyboardEvent, type PointerEv
 import { MessageCircle, Mic2, MoreHorizontal, PanelRightClose, PanelRightOpen, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { TranscriptChatPanel } from "@/features/transcription/components/TranscriptChatPanel";
 import type { TranscriptNoteAnnotation } from "@/features/transcription/api/annotationsApi";
 
 type TranscriptNotesSidebarProps = {
   notes: TranscriptNoteAnnotation[];
+  parentTranscriptionId?: string;
   isOpen: boolean;
   isLoading: boolean;
   isError: boolean;
@@ -19,6 +21,7 @@ type TranscriptNotesSidebarProps = {
 
 export function TranscriptNotesSidebar({
   notes,
+  parentTranscriptionId,
   isOpen,
   isLoading,
   isError,
@@ -30,6 +33,7 @@ export function TranscriptNotesSidebar({
   onOpenChange,
 }: TranscriptNotesSidebarProps) {
   const [activeReplyNoteId, setActiveReplyNoteId] = useState<string | null>(null);
+  const [activePanel, setActivePanel] = useState<"chat" | "notes">("chat");
   const [dragState, setDragState] = useState<{ startX: number; startWidth: number } | null>(null);
 
   useEffect(() => {
@@ -103,8 +107,8 @@ export function TranscriptNotesSidebar({
       {isOpen ? (
         <div className="scr-transcript-notes-panel">
           <nav className="scr-transcript-notes-tabs" aria-label="Detail sidebar">
-            <button type="button" disabled>Chat</button>
-            <button type="button" data-active="true">Notes</button>
+            <button type="button" data-active={activePanel === "chat" ? "true" : undefined} onClick={() => setActivePanel("chat")}>Chat</button>
+            <button type="button" data-active={activePanel === "notes" ? "true" : undefined} onClick={() => setActivePanel("notes")}>Notes</button>
             <Button
               className="scr-transcript-notes-close"
               type="button"
@@ -117,29 +121,33 @@ export function TranscriptNotesSidebar({
             </Button>
           </nav>
 
-          <div className="scr-transcript-notes-list">
-            {isLoading ? <p className="scr-transcript-notes-status">Loading notes.</p> : null}
-            {isError ? <p className="scr-transcript-notes-status">Notes could not be loaded.</p> : null}
-            {!isLoading && !isError && notes.length === 0 ? (
-              <p className="scr-transcript-notes-status">No notes yet.</p>
-            ) : null}
-            {!isLoading && !isError ? notes.map((note) => (
-              <TranscriptNoteItem
-                key={note.id}
-                note={note}
-                isReplyActive={activeReplyNoteId === note.id}
-                isCreatingEntry={isCreatingEntry && activeReplyNoteId === note.id}
-                onActivateReply={() => setActiveReplyNoteId(note.id)}
-                onCancelReply={() => setActiveReplyNoteId(null)}
-                onCreateEntry={async (content) => {
-                  setActiveReplyNoteId(note.id);
-                  await onCreateEntry(note.id, content);
-                  setActiveReplyNoteId(null);
-                }}
-                onSeekRequest={onSeekRequest}
-              />
-            )) : null}
-          </div>
+          {activePanel === "chat" ? (
+            <TranscriptChatPanel parentTranscriptionId={parentTranscriptionId} />
+          ) : (
+            <div className="scr-transcript-notes-list">
+              {isLoading ? <p className="scr-transcript-notes-status">Loading notes.</p> : null}
+              {isError ? <p className="scr-transcript-notes-status">Notes could not be loaded.</p> : null}
+              {!isLoading && !isError && notes.length === 0 ? (
+                <p className="scr-transcript-notes-status">No notes yet.</p>
+              ) : null}
+              {!isLoading && !isError ? notes.map((note) => (
+                <TranscriptNoteItem
+                  key={note.id}
+                  note={note}
+                  isReplyActive={activeReplyNoteId === note.id}
+                  isCreatingEntry={isCreatingEntry && activeReplyNoteId === note.id}
+                  onActivateReply={() => setActiveReplyNoteId(note.id)}
+                  onCancelReply={() => setActiveReplyNoteId(null)}
+                  onCreateEntry={async (content) => {
+                    setActiveReplyNoteId(note.id);
+                    await onCreateEntry(note.id, content);
+                    setActiveReplyNoteId(null);
+                  }}
+                  onSeekRequest={onSeekRequest}
+                />
+              )) : null}
+            </div>
+          )}
         </div>
       ) : null}
     </aside>
