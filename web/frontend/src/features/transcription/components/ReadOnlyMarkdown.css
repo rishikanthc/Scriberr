@@ -3,17 +3,17 @@
 }
 
 .scr-textforge-readonly {
-  --font-body: "Manrope", system-ui, -apple-system, "Segoe UI", sans-serif;
-  --font-heading: "Manrope", system-ui, -apple-system, "Segoe UI", sans-serif;
-  --font-weight-body: 500;
-  --font-weight-heading: 600;
+  --font-body: var(--scr-font-sans);
+  --font-heading: var(--scr-font-sans);
+  --font-weight-body: var(--scr-font-weight-regular);
+  --font-weight-heading: var(--scr-font-weight-semibold);
   --line-height-body: 1.62;
   --line-height-heading: var(--scr-line-tight);
   border: 0;
   background: transparent;
   box-shadow: none;
   color: var(--scr-text-primary);
-  font-family: "Manrope", system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-family: var(--scr-font-sans);
   font-size: 0.96875rem;
   line-height: 1.62;
 }
@@ -22,14 +22,14 @@
   min-height: 0;
   padding: 0;
   color: var(--scr-text-primary);
-  font-family: "Manrope", system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-family: var(--scr-font-sans);
   font-size: 0.96875rem;
-  font-weight: 500;
+  font-weight: var(--scr-font-weight-regular);
   line-height: 1.62;
 }
 
 .scr-textforge-readonly .ProseMirror * {
-  font-family: "Manrope", system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-family: var(--scr-font-sans);
 }
 
 .scr-textforge-readonly .ProseMirror:focus {
@@ -41,7 +41,7 @@
 .scr-textforge-readonly .ProseMirror h3 {
   margin: var(--scr-space-4) 0 var(--scr-space-2);
   color: var(--scr-text-strong);
-  font-weight: 600;
+  font-weight: var(--scr-font-weight-semibold);
   letter-spacing: 0;
   line-height: var(--scr-line-tight);
 }
@@ -61,7 +61,7 @@
   margin: var(--scr-space-3) 0 var(--scr-space-2);
   color: var(--scr-text-strong);
   font-size: 0.90625rem;
-  font-weight: 600;
+  font-weight: var(--scr-font-weight-semibold);
   letter-spacing: 0;
   line-height: var(--scr-line-tight);
 }
@@ -71,9 +71,9 @@
 .scr-textforge-readonly .ProseMirror ol {
   margin: 0 0 var(--scr-space-3);
   color: var(--scr-text-primary);
-  font-family: "Manrope", system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-family: var(--scr-font-sans);
   font-size: 0.96875rem;
-  font-weight: 500;
+  font-weight: var(--scr-font-weight-regular);
   line-height: 1.62;
 }
 
@@ -104,7 +104,7 @@
   padding-left: var(--scr-space-1);
   color: var(--scr-text-primary);
   font-size: 0.96875rem;
-  font-weight: 500;
+  font-weight: var(--scr-font-weight-regular);
   line-height: 1.62;
 }
 

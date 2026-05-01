@@ -1,9 +1,65 @@
 @font-face {
-  font-family: "Manrope";
+  font-family: "Nunito";
   font-style: normal;
-  font-weight: 200;
+  font-weight: 400;
   font-display: swap;
-  src: url("/fonts/manrope/Manrope-ExtraLight.ttf") format("truetype");
+  src: url("/fonts/nunito/Nunito-Regular.ttf") format("truetype");
+}
+
+@font-face {
+  font-family: "Nunito";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("/fonts/nunito/Nunito-Medium.ttf") format("truetype");
+}
+
+@font-face {
+  font-family: "Nunito";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("/fonts/nunito/Nunito-SemiBold.ttf") format("truetype");
+}
+
+@font-face {
+  font-family: "Nunito";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/fonts/nunito/Nunito-Bold.ttf") format("truetype");
+}
+
+@font-face {
+  font-family: "Nunito";
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/nunito/Nunito-Italic.ttf") format("truetype");
+}
+
+@font-face {
+  font-family: "Nunito";
+  font-style: italic;
+  font-weight: 500;
+  font-display: swap;
+  src: url("/fonts/nunito/Nunito-MediumItalic.ttf") format("truetype");
+}
+
+@font-face {
+  font-family: "Nunito";
+  font-style: italic;
+  font-weight: 600;
+  font-display: swap;
+  src: url("/fonts/nunito/Nunito-SemiBoldItalic.ttf") format("truetype");
+}
+
+@font-face {
+  font-family: "Nunito";
+  font-style: italic;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/fonts/nunito/Nunito-BoldItalic.ttf") format("truetype");
 }
 
 .scr-audio-detail-main {
@@ -49,10 +105,10 @@
 .scr-audio-title {
   min-width: 0;
   color: var(--scr-text-primary);
-  font-size: clamp(1.75rem, 2.2vw, 2.25rem);
-  font-weight: 500;
+  font-size: var(--scr-type-display-xl);
+  font-weight: var(--scr-font-weight-semibold);
   letter-spacing: 0;
-  line-height: 1.16;
+  line-height: 1.15;
 }
 
 .scr-audio-title-button,
@@ -109,8 +165,8 @@
   gap: var(--scr-space-4);
   margin-top: var(--scr-space-5);
   color: var(--scr-text-secondary);
-  font-size: 0.8125rem;
-  font-weight: 600;
+  font-size: var(--scr-type-meta);
+  font-weight: var(--scr-font-weight-medium);
 }
 
 .scr-audio-meta span {
@@ -134,8 +190,8 @@
   background: transparent;
   color: var(--scr-text-secondary);
   cursor: pointer;
-  font-size: 0.9375rem;
-  font-weight: 600;
+  font-size: var(--scr-type-body-md);
+  font-weight: var(--scr-font-weight-medium);
   line-height: 1;
   padding: 0;
 }
@@ -176,7 +232,7 @@
   gap: var(--scr-space-8);
   max-width: 920px;
   color: var(--scr-text-primary);
-  font-size: 1rem;
+  font-size: var(--scr-type-body-lg);
   line-height: var(--scr-line-relaxed);
 }
 
@@ -194,8 +250,8 @@
 
 .scr-summary-heading h2 {
   margin: 0;
-  font-size: 1.125rem;
-  font-weight: 600;
+  font-size: var(--scr-type-heading-md);
+  font-weight: var(--scr-font-weight-semibold);
   letter-spacing: 0;
   line-height: var(--scr-line-tight);
 }
@@ -204,10 +260,10 @@
   margin: 0;
   padding-left: calc(18px + var(--scr-space-3));
   color: var(--scr-text-primary);
-  font-size: 1.0625rem;
-  font-weight: 500;
+  font-size: var(--scr-type-body-lg);
+  font-weight: var(--scr-font-weight-regular);
   letter-spacing: 0;
-  line-height: 1.68;
+  line-height: var(--scr-line-relaxed);
 }
 
 .scr-summary-widget-section {
@@ -221,14 +277,14 @@
   margin: 0;
   padding-left: calc(18px + var(--scr-space-3));
   color: var(--scr-text-secondary);
-  font-size: 0.9375rem;
-  font-weight: 500;
+  font-size: var(--scr-type-body-sm);
+  font-weight: var(--scr-font-weight-regular);
   line-height: var(--scr-line-base);
 }
 
 .scr-summary-note {
   color: var(--scr-text-tertiary);
-  font-size: 0.8125rem;
+  font-size: var(--scr-type-meta);
 }
 
 .scr-transcript {
@@ -247,15 +303,15 @@
 
 .scr-transcript-placeholder h2 {
   color: var(--scr-text-primary);
-  font-size: 1rem;
-  font-weight: 600;
+  font-size: var(--scr-type-body-lg);
+  font-weight: var(--scr-font-weight-semibold);
   line-height: var(--scr-line-tight);
 }
 
 .scr-transcript-placeholder p {
   color: var(--scr-text-secondary);
-  font-size: 0.9375rem;
-  font-weight: 500;
+  font-size: var(--scr-type-body-sm);
+  font-weight: var(--scr-font-weight-regular);
   line-height: var(--scr-line-base);
 }
 
@@ -271,8 +327,8 @@
   align-self: start;
   justify-self: end;
   color: var(--scr-text-tertiary);
-  font-size: 0.8125rem;
-  font-weight: 600;
+  font-size: var(--scr-type-meta);
+  font-weight: var(--scr-font-weight-medium);
   line-height: var(--scr-transcript-row-line);
   white-space: nowrap;
   user-select: none;
@@ -282,8 +338,8 @@
   grid-column: 1 / -1;
   overflow: hidden;
   color: var(--scr-text-secondary);
-  font-size: 0.8125rem;
-  font-weight: 600;
+  font-size: var(--scr-type-meta);
+  font-weight: var(--scr-font-weight-medium);
   line-height: 1.2;
   text-overflow: ellipsis;
   user-select: none;
@@ -291,8 +347,8 @@
 
 .scr-transcript-text {
   color: var(--scr-text-primary);
-  font-size: 1.0625rem;
-  font-weight: 500;
+  font-size: var(--scr-type-body-lg);
+  font-weight: var(--scr-font-weight-regular);
   letter-spacing: 0;
   line-height: var(--scr-transcript-row-line);
   margin: 0;
@@ -412,8 +468,8 @@
   align-items: center;
   gap: 6px;
   color: var(--scr-text-secondary);
-  font-size: 0.78rem;
-  font-weight: 650;
+  font-size: var(--scr-type-meta);
+  font-weight: var(--scr-font-weight-medium);
 }
 
 .scr-transcript-note-composer-input {
@@ -422,8 +478,8 @@
   border-color: color-mix(in srgb, var(--scr-brand-solid) 42%, var(--scr-border-subtle));
   background: var(--scr-surface);
   color: var(--scr-text-primary);
-  font-size: 0.9rem;
-  line-height: 1.45;
+  font-size: var(--scr-type-body-sm);
+  line-height: var(--scr-line-base);
 }
 
 .scr-transcript-note-composer-actions {
@@ -536,8 +592,8 @@ body[data-notes-sidebar-resizing="true"] {
   background: transparent;
   color: var(--scr-text-secondary);
   cursor: default;
-  font-size: 0.82rem;
-  font-weight: 500;
+  font-size: var(--scr-type-meta);
+  font-weight: var(--scr-font-weight-medium);
   padding: 0;
 }
 
@@ -579,8 +635,8 @@ body[data-notes-sidebar-resizing="true"] {
   margin: 0;
   padding: var(--scr-space-4);
   color: var(--scr-text-secondary);
-  font-size: 0.82rem;
-  font-weight: 500;
+  font-size: var(--scr-type-meta);
+  font-weight: var(--scr-font-weight-regular);
   line-height: var(--scr-line-base);
 }
 
@@ -599,15 +655,15 @@ body[data-notes-sidebar-resizing="true"] {
 
 .scr-transcript-note-item h3 {
   color: var(--scr-text-primary);
-  font-size: 0.95rem;
-  font-weight: 400;
-  line-height: 1.34;
+  font-size: var(--scr-type-body-lg);
+  font-weight: var(--scr-font-weight-regular);
+  line-height: var(--scr-line-base);
 }
 
 .scr-transcript-note-item p {
   color: var(--scr-text-secondary);
-  font-size: 0.8rem;
-  font-weight: 400;
+  font-size: var(--scr-type-body-sm);
+  font-weight: var(--scr-font-weight-regular);
   line-height: 1.35;
   overflow-wrap: anywhere;
 }
@@ -628,8 +684,8 @@ body[data-notes-sidebar-resizing="true"] {
   border-radius: 999px;
   background: var(--scr-surface);
   color: var(--scr-text-secondary);
-  font-size: 0.7rem;
-  font-weight: 500;
+  font-size: var(--scr-type-meta);
+  font-weight: var(--scr-font-weight-medium);
   padding: 0 8px;
 }
 
@@ -668,6 +724,9 @@ body[data-notes-sidebar-resizing="true"] {
   min-height: 34px;
   background: #f7eeee;
   color: #675d5d;
+  font-size: var(--scr-type-body-lg);
+  font-weight: var(--scr-font-weight-regular);
+  line-height: var(--scr-line-base);
   padding: 7px 12px;
 }
 
@@ -675,8 +734,8 @@ body[data-notes-sidebar-resizing="true"] {
   min-height: 32px;
   background: #f5f7fa;
   color: var(--scr-text-secondary);
-  font-size: 0.8rem;
-  line-height: 1.25;
+  font-size: var(--scr-type-body-sm);
+  line-height: var(--scr-line-base);
   padding: 6px 12px;
 }
 
@@ -957,54 +1016,6 @@ body[data-notes-sidebar-resizing="true"] {
   }
 }
 
-@font-face {
-  font-family: "Manrope";
-  font-style: normal;
-  font-weight: 300;
-  font-display: swap;
-  src: url("/fonts/manrope/Manrope-Light.ttf") format("truetype");
-}
-
-@font-face {
-  font-family: "Manrope";
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: url("/fonts/manrope/Manrope-Regular.ttf") format("truetype");
-}
-
-@font-face {
-  font-family: "Manrope";
-  font-style: normal;
-  font-weight: 500;
-  font-display: swap;
-  src: url("/fonts/manrope/Manrope-Medium.ttf") format("truetype");
-}
-
-@font-face {
-  font-family: "Manrope";
-  font-style: normal;
-  font-weight: 600;
-  font-display: swap;
-  src: url("/fonts/manrope/Manrope-SemiBold.ttf") format("truetype");
-}
-
-@font-face {
-  font-family: "Manrope";
-  font-style: normal;
-  font-weight: 700;
-  font-display: swap;
-  src: url("/fonts/manrope/Manrope-Bold.ttf") format("truetype");
-}
-
-@font-face {
-  font-family: "Manrope";
-  font-style: normal;
-  font-weight: 800;
-  font-display: swap;
-  src: url("/fonts/manrope/Manrope-ExtraBold.ttf") format("truetype");
-}
-
 :root {
   --scr-color-orange-50: #fff7ed;
   --scr-color-orange-100: #ffedd5;
@@ -1078,9 +1089,21 @@ body[data-notes-sidebar-resizing="true"] {
   --scr-radius-xl: 16px;
 
   --scr-font-sans: var(--font-inter);
+  --scr-font-weight-regular: 400;
+  --scr-font-weight-medium: 500;
+  --scr-font-weight-semibold: 600;
+  --scr-font-weight-bold: 700;
+  --scr-type-display-xl: clamp(2rem, 2.45vw, 2.5rem);
+  --scr-type-heading-lg: 1.5rem;
+  --scr-type-heading-md: 1.1875rem;
+  --scr-type-body-lg: 1rem;
+  --scr-type-body-md: 0.9375rem;
+  --scr-type-body-sm: 0.875rem;
+  --scr-type-meta: 0.8125rem;
+  --scr-type-micro: 0.75rem;
   --scr-line-tight: 1.25;
-  --scr-line-base: 1.5;
-  --scr-line-relaxed: 1.65;
+  --scr-line-base: 1.55;
+  --scr-line-relaxed: 1.7;
 }
 
 .dark {
@@ -1106,14 +1129,14 @@ body[data-notes-sidebar-resizing="true"] {
   background: var(--scr-surface-canvas);
   color: var(--scr-text-primary);
   font-family: var(--scr-font-sans);
-  font-size: 15px;
-  font-weight: 500;
+  font-size: var(--scr-type-body-md);
+  font-weight: var(--scr-font-weight-regular);
   line-height: var(--scr-line-base);
 }
 
 .scr-app strong,
 .scr-app b {
-  font-weight: 600;
+  font-weight: var(--scr-font-weight-semibold);
 }
 
 .scr-visually-hidden {
