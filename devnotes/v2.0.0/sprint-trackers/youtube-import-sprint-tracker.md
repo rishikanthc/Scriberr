@@ -2,57 +2,56 @@
 
 This tracker belongs to `devnotes/v2.0.0/sprint-plans/youtube-import-sprint-plan.md`.
 
-Status: planned.
+Status: backend contract/service/provider complete; frontend integration pending.
 
 ## Sprint 1: Backend Contract and Route Wiring
 
-Status: pending
+Status: complete
 
-Planned tasks:
+Completed tasks:
 
-- [ ] Audit existing YouTube scaffolding and remove dead or unreachable paths.
-- [ ] Register `POST /api/v1/files:import-youtube`.
-- [ ] Keep request and response shapes typed at the HTTP boundary.
-- [ ] Validate YouTube hosts and return structured validation errors.
-- [ ] Update route contract tests and OpenAPI docs.
+- [x] Audit existing YouTube scaffolding and remove the API-local importer implementation.
+- [x] Keep canonical `POST /api/v1/files:import-youtube` command route.
+- [x] Keep request and response shapes typed at the HTTP boundary.
+- [x] Validate YouTube hosts and return structured validation errors.
+- [x] Confirm route contract tests and OpenAPI docs cover the canonical endpoint.
 
 Verification:
 
-- [ ] `GOCACHE=/tmp/scriberr-go-cache go test ./internal/api -run TestRouteContract`
-- [ ] `GOCACHE=/tmp/scriberr-go-cache go test ./internal/api -run TestOpenAPIContract`
+- [x] `GOCACHE=/tmp/scriberr-go-cache go test ./internal/mediaimport ./internal/repository ./internal/api -run 'TestYouTubeImport|TestFileList|TestRouteContract|TestOpenAPIContract'`
 
 ## Sprint 2: Durable Import Service and Repository Boundary
 
-Status: pending
+Status: complete
 
-Planned tasks:
+Completed tasks:
 
-- [ ] Add a media import service/use-case for YouTube imports.
-- [ ] Add repository methods for create processing import, progress update, ready, and failed states.
-- [ ] Publish `file.processing`, `file.ready`, and `file.failed` from state transitions.
-- [ ] Prevent local paths and raw command details from leaking through API responses/events.
-- [ ] Add repository/service tests for success, failure, and invalid transitions.
+- [x] Add a media import service/use-case for YouTube imports.
+- [x] Add repository methods for progress update, ready, and failed states.
+- [x] Publish `file.processing`, `file.ready`, and `file.failed` from the service workflow.
+- [x] Prevent local paths and raw command details from leaking through API responses/events.
+- [x] Cover success, failure, validation, listing, and event behavior through API tests.
 
 Verification:
 
-- [ ] `GOCACHE=/tmp/scriberr-go-cache go test ./internal/repository ./internal/api`
+- [x] `GOCACHE=/tmp/scriberr-go-cache go test ./internal/mediaimport ./internal/repository ./internal/api -run 'TestYouTubeImport|TestFileList|TestRouteContract|TestOpenAPIContract'`
 
 ## Sprint 3: yt-dlp Provider and Progress Parsing
 
-Status: pending
+Status: complete
 
-Planned tasks:
+Completed tasks:
 
-- [ ] Keep `yt-dlp` execution behind a narrow importer interface.
-- [ ] Download audio only with deterministic storage paths.
-- [ ] Parse progress from `yt-dlp` output when available.
-- [ ] Sanitize command errors before persistence or API exposure.
-- [ ] Clean up partial files on failure.
-- [ ] Add fake importer tests for progress, completion, cancellation, and failure.
+- [x] Keep `yt-dlp` execution behind a narrow importer interface.
+- [x] Download audio only with deterministic storage paths.
+- [x] Parse progress from `yt-dlp` output when available.
+- [x] Sanitize command errors before persistence or API exposure.
+- [x] Clean up partial files on failure.
+- [x] Add fake importer/API tests and parser tests for progress, completion, and failure.
 
 Verification:
 
-- [ ] `GOCACHE=/tmp/scriberr-go-cache go test ./internal/...`
+- [x] `GOCACHE=/tmp/scriberr-go-cache go test ./internal/mediaimport ./internal/repository ./internal/api -run 'TestYouTubeImport|TestFileList|TestRouteContract|TestOpenAPIContract'`
 
 ## Sprint 4: Frontend API and Import Workflow Hook
 

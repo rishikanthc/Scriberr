@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"scriberr/internal/database"
+	"scriberr/internal/mediaimport"
 	"scriberr/internal/models"
 
 	"github.com/stretchr/testify/require"
@@ -26,7 +27,7 @@ type fakeYouTubeImporter struct {
 	mu        sync.Mutex
 	once      sync.Once
 	doneOnce  sync.Once
-	calls     []youtubeImportJob
+	calls     []mediaimport.YouTubeImportJob
 	content   []byte
 	filename  string
 	mimeType  string
@@ -60,7 +61,7 @@ func (f *fakeMediaExtractor) ExtractAudio(ctx context.Context, inputPath, output
 	return os.WriteFile(outputPath, content, 0600)
 }
 
-func (f *fakeYouTubeImporter) Import(ctx context.Context, job youtubeImportJob) (youtubeImportResult, error) {
+func (f *fakeYouTubeImporter) Import(ctx context.Context, job mediaimport.YouTubeImportJob, onProgress mediaimport.ProgressFunc) (mediaimport.YouTubeImportResult, error) {
 	f.mu.Lock()
 	f.calls = append(f.calls, job)
 	f.mu.Unlock()
@@ -68,7 +69,7 @@ func (f *fakeYouTubeImporter) Import(ctx context.Context, job youtubeImportJob) 
 		select {
 		case <-f.block:
 		case <-ctx.Done():
-			return youtubeImportResult{}, ctx.Err()
+			return mediaimport.YouTubeImportResult{}, ctx.Err()
 		}
 	}
 	defer func() {
@@ -77,17 +78,20 @@ func (f *fakeYouTubeImporter) Import(ctx context.Context, job youtubeImportJob) 
 		}
 	}()
 	if f.err != nil {
-		return youtubeImportResult{}, f.err
+		return mediaimport.YouTubeImportResult{}, f.err
+	}
+	if onProgress != nil {
+		onProgress(25)
 	}
 	content := f.content
 	if content == nil {
 		content = []byte("youtube audio")
 	}
 	if err := os.MkdirAll(filepath.Dir(job.OutputPath), 0755); err != nil {
-		return youtubeImportResult{}, err
+		return mediaimport.YouTubeImportResult{}, err
 	}
 	if err := os.WriteFile(job.OutputPath, content, 0600); err != nil {
-		return youtubeImportResult{}, err
+		return mediaimport.YouTubeImportResult{}, err
 	}
 	filename := f.filename
 	if filename == "" {
@@ -97,7 +101,7 @@ func (f *fakeYouTubeImporter) Import(ctx context.Context, job youtubeImportJob) 
 	if mimeType == "" {
 		mimeType = "audio/mpeg"
 	}
-	return youtubeImportResult{Filename: filename, MimeType: mimeType}, nil
+	return mediaimport.YouTubeImportResult{Filename: filename, MimeType: mimeType}, nil
 }
 
 func (f *fakeYouTubeImporter) unblock() {

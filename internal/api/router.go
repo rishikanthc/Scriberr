@@ -13,6 +13,7 @@ import (
 	"scriberr/internal/config"
 	"scriberr/internal/database"
 	"scriberr/internal/llm"
+	"scriberr/internal/mediaimport"
 	"scriberr/internal/models"
 	"scriberr/internal/repository"
 	"scriberr/internal/summarization"
@@ -32,7 +33,7 @@ type Handler struct {
 	readinessCheck  func() error
 	idempotency     *idempotencyStore
 	events          *eventBroker
-	youtubeImporter YouTubeImporter
+	youtubeImporter mediaimport.YouTubeImporter
 	mediaExtractor  MediaExtractor
 	eventHeartbeat  time.Duration
 	asyncJobs       sync.WaitGroup
@@ -53,7 +54,7 @@ func NewHandler(cfg *config.Config, authService *auth.AuthService, services ...a
 		readinessCheck:  database.HealthCheck,
 		idempotency:     newIdempotencyStore(),
 		events:          newEventBroker(),
-		youtubeImporter: ytDLPImporter{},
+		youtubeImporter: mediaimport.YTDLPImporter{},
 		mediaExtractor:  ffmpegMediaExtractor{},
 		eventHeartbeat:  25 * time.Second,
 		maxUploadBytes:  defaultMaxUploadSizeBytes,

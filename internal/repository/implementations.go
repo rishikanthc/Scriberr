@@ -73,6 +73,8 @@ type JobRepository interface {
 	RenewClaim(ctx context.Context, jobID, workerID string, leaseUntil time.Time) error
 	RecoverOrphanedProcessing(ctx context.Context, now time.Time) (int64, error)
 	UpdateProgress(ctx context.Context, jobID string, progress float64, stage string) error
+	CompleteMediaImport(ctx context.Context, jobID, audioPath, sourceFileName string, durationMs *int64, completedAt time.Time) error
+	FailMediaImport(ctx context.Context, jobID string, message string, failedAt time.Time) error
 	CompleteTranscription(ctx context.Context, jobID string, transcriptJSON string, outputPath *string, completedAt time.Time) error
 	FailTranscription(ctx context.Context, jobID string, message string, failedAt time.Time) error
 	CancelTranscription(ctx context.Context, jobID string, canceledAt time.Time) error
@@ -271,6 +273,48 @@ func (r *jobRepository) UpdateProgress(ctx context.Context, jobID string, progre
 		Updates(map[string]any{
 			"progress":       progress,
 			"progress_stage": stage,
+		})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
+
+func (r *jobRepository) CompleteMediaImport(ctx context.Context, jobID, audioPath, sourceFileName string, durationMs *int64, completedAt time.Time) error {
+	updates := map[string]any{
+		"status":             models.StatusUploaded,
+		"source_file_path":   audioPath,
+		"source_file_name":   sourceFileName,
+		"source_duration_ms": durationMs,
+		"completed_at":       completedAt,
+		"failed_at":          nil,
+		"progress":           1.0,
+		"progress_stage":     "ready",
+		"last_error":         nil,
+	}
+	result := r.db.WithContext(ctx).Model(&models.TranscriptionJob{}).
+		Where("id = ? AND status = ?", jobID, models.StatusProcessing).
+		Updates(updates)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
+
+func (r *jobRepository) FailMediaImport(ctx context.Context, jobID string, message string, failedAt time.Time) error {
+	result := r.db.WithContext(ctx).Model(&models.TranscriptionJob{}).
+		Where("id = ? AND status = ?", jobID, models.StatusProcessing).
+		Updates(map[string]any{
+			"status":         models.StatusFailed,
+			"failed_at":      failedAt,
+			"progress_stage": "failed",
+			"last_error":     message,
 		})
 	if result.Error != nil {
 		return result.Error

@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -132,6 +133,13 @@ func writeSSE(c *gin.Context, flusher http.Flusher, event apiEvent) {
 
 func (h *Handler) publishEvent(name string, data gin.H) {
 	h.events.publish(apiEvent{Name: name, Data: data})
+}
+
+func (h *Handler) PublishFileEvent(_ context.Context, name string, payload map[string]any) {
+	if h == nil {
+		return
+	}
+	h.publishEvent(name, gin.H(payload))
 }
 
 func (h *Handler) publishTranscriptionEvent(name, transcriptionID string, data gin.H) {
