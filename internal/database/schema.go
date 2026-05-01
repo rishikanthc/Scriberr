@@ -101,7 +101,10 @@ func removeLegacyChatColumns(tx *gorm.DB) error {
 		return nil
 	}
 	if tx.Migrator().HasColumn("chat_sessions", "transcription_id") {
-		if err := tx.Migrator().DropColumn("chat_sessions", "transcription_id"); err != nil {
+		if err := tx.Exec(`DROP INDEX IF EXISTS idx_chat_sessions_transcription_id`).Error; err != nil {
+			return err
+		}
+		if err := tx.Exec(`ALTER TABLE chat_sessions DROP COLUMN transcription_id`).Error; err != nil {
 			return err
 		}
 	}
