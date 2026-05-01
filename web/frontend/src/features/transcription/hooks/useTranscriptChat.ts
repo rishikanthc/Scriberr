@@ -184,7 +184,11 @@ export function mergeStreamMessages(current: ChatMessage[], event: ChatStreamEve
     if (event.type === "chat.run.completed") {
       return event.assistant_message;
     }
-    return { ...message, status: "failed" };
+    return {
+      ...message,
+      status: "failed",
+      content: message.content || `Response failed: ${event.error}`,
+    };
   });
 }
 

@@ -1,12 +1,16 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import { Check, ChevronDown, Copy, FileText, ListFilter, MessageSquarePlus, Plus, Search, Send, Sparkles, Trash2, X } from "lucide-react";
+import ReactMarkdown from "react-markdown";
+import rehypeHighlight from "rehype-highlight";
+import rehypeKatex from "rehype-katex";
+import rehypeRaw from "rehype-raw";
+import remarkMath from "remark-math";
 import { Button } from "@/components/ui/button";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/components/ui/toast";
-import { ReadOnlyMarkdown } from "@/features/transcription/components/ReadOnlyMarkdown";
 import {
   mergeStreamMessages,
   useAddChatContextTranscript,
@@ -149,13 +153,55 @@ export function TranscriptChatPanel({ parentTranscriptionId }: TranscriptChatPan
     event?.preventDefault();
     const content = composerValue.trim();
     if (!activeSessionId || !selectedModel || !content || streamMutation.isPending) return;
+    const temporaryPrefix = `temp-${Date.now()}`;
+    const createdAt = new Date().toISOString();
+    const optimisticUserMessage: ChatMessage = {
+      id: `${temporaryPrefix}-user`,
+      session_id: activeSessionId,
+      role: "user",
+      content,
+      reasoning_content: "",
+      status: "completed",
+      provider: null,
+      model: selectedModel,
+      run_id: null,
+      prompt_tokens: null,
+      completion_tokens: null,
+      reasoning_tokens: null,
+      total_tokens: null,
+      created_at: createdAt,
+      updated_at: createdAt,
+    };
+    const optimisticAssistantMessage: ChatMessage = {
+      id: `${temporaryPrefix}-assistant`,
+      session_id: activeSessionId,
+      role: "assistant",
+      content: "",
+      reasoning_content: "",
+      status: "pending",
+      provider: modelsQuery.data?.provider || null,
+      model: selectedModel,
+      run_id: null,
+      prompt_tokens: null,
+      completion_tokens: null,
+      reasoning_tokens: null,
+      total_tokens: null,
+      created_at: createdAt,
+      updated_at: createdAt,
+    };
     setComposerValue("");
+    setDisplayMessages((current) => [...current, optimisticUserMessage, optimisticAssistantMessage]);
     try {
       await streamMutation.mutateAsync({
         sessionId: activeSessionId,
         payload: { content, model: selectedModel },
         onEvent: (streamEvent) => {
-          setDisplayMessages((current) => mergeStreamMessages(current, streamEvent));
+          setDisplayMessages((current) => {
+            const withoutOptimistic = streamEvent.type === "chat.message.created"
+              ? current.filter((message) => !message.id.startsWith(temporaryPrefix))
+              : current;
+            return mergeStreamMessages(withoutOptimistic, streamEvent);
+          });
           if (streamEvent.type === "chat.run.failed") {
             toast({ title: "Chat response failed", description: streamEvent.error });
           }
@@ -163,6 +209,15 @@ export function TranscriptChatPanel({ parentTranscriptionId }: TranscriptChatPan
       });
     } catch (error) {
       setComposerValue(content);
+      setDisplayMessages((current) => current.map((message) => (
+        message.id === optimisticAssistantMessage.id
+          ? {
+              ...message,
+              status: "failed",
+              content: error instanceof Error ? `Response failed: ${error.message}` : "Response failed. Try again.",
+            }
+          : message
+      )));
       toast({
         title: "Message was not sent",
         description: error instanceof Error ? error.message : "Try again.",
@@ -381,6 +436,8 @@ function ChatMessageItem({ message }: { message: ChatMessage }) {
   const [copied, setCopied] = useState(false);
   const isAssistant = message.role === "assistant";
   const canCopy = message.content.trim().length > 0;
+  const isWaiting = isAssistant && (message.status === "pending" || message.status === "streaming") && !message.content.trim();
+  const isGenerating = isAssistant && message.status === "streaming" && message.content.trim().length > 0;
 
   const handleCopy = async () => {
     if (!canCopy) return;
@@ -406,7 +463,19 @@ function ChatMessageItem({ message }: { message: ChatMessage }) {
       <div className="scr-chat-message-body">
         {isAssistant ? (
           <div className="scr-chat-message-markdown">
-            <ReadOnlyMarkdown content={message.content || (message.status === "streaming" ? " " : "")} />
+            {isWaiting ? (
+              <div className="scr-chat-response-status" role="status" aria-live="polite">
+                <span>Generating response</span>
+                <i aria-hidden="true" />
+                <i aria-hidden="true" />
+                <i aria-hidden="true" />
+              </div>
+            ) : (
+              <ChatMarkdown content={message.content || " "} isStreaming={isGenerating} />
+            )}
+            {isGenerating ? (
+              <div className="scr-chat-streaming-status" role="status" aria-live="polite">Generating response...</div>
+            ) : null}
           </div>
         ) : (
           <p>{message.content}</p>
@@ -433,6 +502,20 @@ function ChatMessageItem({ message }: { message: ChatMessage }) {
         ) : null}
       </div>
     </article>
+  );
+}
+
+function ChatMarkdown({ content, isStreaming }: { content: string; isStreaming: boolean }) {
+  return (
+    <div className="scr-chat-markdown-rendered">
+      <ReactMarkdown
+        remarkPlugins={[remarkMath]}
+        rehypePlugins={[rehypeRaw, rehypeKatex, rehypeHighlight]}
+      >
+        {content}
+      </ReactMarkdown>
+      {isStreaming ? <span className="scr-chat-streaming-caret" aria-hidden="true" /> : null}
+    </div>
   );
 }
 

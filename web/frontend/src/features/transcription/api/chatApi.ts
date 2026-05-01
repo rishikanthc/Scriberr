@@ -194,7 +194,7 @@ export async function streamChatMessage(
 ): Promise<void> {
   const response = await fetch(`/api/v1/chat/sessions/${sessionId}/messages:stream`, {
     method: "POST",
-    headers: { ...headers, "Content-Type": "application/json" },
+    headers: { ...headers, "Accept": "text/event-stream", "Cache-Control": "no-cache", "Content-Type": "application/json" },
     body: JSON.stringify({
       content: payload.content,
       model: payload.model,
@@ -211,7 +211,7 @@ export async function streamChatMessage(
     const { value, done } = await reader.read();
     if (done) break;
     buffer += decoder.decode(value, { stream: true });
-    const parts = buffer.split(/\n\n/);
+    const parts = buffer.split(/\r?\n\r?\n/);
     buffer = parts.pop() || "";
     for (const part of parts) {
       const event = parseSSEEvent(part);

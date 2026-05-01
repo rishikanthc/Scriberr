@@ -2,7 +2,7 @@
 
 This tracker belongs to `devnotes/v2.0.0/sprint-plans/chat-with-transcripts-frontend-sprint-plan.md`.
 
-Status: Sprint 4 implementation in progress.
+Status: Sprint 4 verification complete; Sprint 5 polish in progress.
 
 ## Sprint 1: API Contract and Hook Foundation
 
@@ -57,19 +57,23 @@ Verification:
 
 ## Sprint 4: Streaming Messages and Markdown Rendering
 
-Status: implementation complete; browser verification pending
+Status: complete
 
 Progress:
 
 - [x] Stream chat messages over SSE.
 - [x] Render user and assistant messages.
-- [x] Render assistant Markdown with Textforge.
+- [x] Render assistant Markdown with a single React Markdown path that supports streaming and completed responses.
 - [x] Keep reasoning separate and collapsible.
 - [x] Refresh persisted queries after run completion/failure.
+- [x] Show optimistic user messages and a visible generation status immediately after submit.
+- [x] Parse SSE event boundaries for both LF and CRLF streams.
 
 Verification:
 
 - [x] `npm run type-check` from `web/frontend`.
+- [x] `npm run build` from `web/frontend`.
+- [x] Browser verified with `gemma4-4B`: prompt appears immediately, generation status appears, and markdown response content updates before completion.
 
 ## Sprint 5: Polish, Accessibility, and Verification
 
@@ -80,7 +84,7 @@ Progress:
 - [ ] Verify desktop layout.
 - [ ] Verify mobile layout.
 - [ ] Confirm accessible names and keyboard reachability.
-- [ ] Confirm chat streaming does not disturb transcript/audio hot paths.
+- [x] Confirm chat streaming does not disturb transcript/audio hot paths.
 - [x] Run final frontend and backend checks.
 
 Verification:
@@ -88,4 +92,4 @@ Verification:
 - [x] `npm run type-check` from `web/frontend`.
 - [x] `npm run build` from `web/frontend`.
 - [x] `GOCACHE=/tmp/scriberr-go-cache go test ./internal/api -run TestChatSessionContextAndStreamingLifecycle`
-- [ ] Browser verification pending after backend schema cleanup is running locally.
+- [x] Browser verified locally on `http://127.0.0.1:5174/audio/file_a317bbdb4e2ff2924368dfff3ac583a3`.
