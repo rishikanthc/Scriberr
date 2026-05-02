@@ -132,22 +132,38 @@ Artifacts:
 
 ## Sprint 5: Recovery, Cleanup, and Operational Hardening
 
-Status: pending
+Status: completed
 
-Planned tasks:
+Completed tasks:
 
-- [ ] Recover expired finalizer claims on startup.
-- [ ] Expire abandoned active sessions past TTL.
-- [ ] Clean chunk directories for canceled, expired, failed-after-retention, and safely completed sessions.
-- [ ] Add duration and byte accounting safeguards.
-- [ ] Add bounded progress updates and small event payloads.
-- [ ] Wire finalizer startup/shutdown in `cmd/server/main.go`.
-- [ ] Add operational logs for lifecycle and cleanup counts.
-- [ ] Add recovery, TTL, cleanup, and graceful shutdown tests.
+- [x] Recover expired finalizer claims on startup and during periodic maintenance.
+- [x] Expire abandoned active sessions past TTL.
+- [x] Track cleanup state with `temporary_artifacts_cleaned_at` and a cleanup index.
+- [x] Clean chunk/raw artifacts for ready sessions while preserving final audio.
+- [x] Clean full recording directories for canceled, expired, and failed-after-retention sessions.
+- [x] Add configurable max session bytes, cleanup interval, and failed-session retention.
+- [x] Add duration, TTL, and byte accounting safeguards before accepting chunks.
+- [x] Keep recording events bounded to IDs/status/stage/progress.
+- [x] Wire finalizer startup/shutdown in `cmd/server/main.go`.
+- [x] Add operational logs for lifecycle and cleanup counts.
+- [x] Add recovery, TTL, cleanup, accounting, migration, config, and graceful shutdown tests.
 
 Verification:
 
-- [ ] `go test ./internal/recording ./cmd/server`
+- [x] `GOCACHE=/Users/zade/Code/asr/Scriberr/.tmp/go-build go test ./internal/recording ./cmd/server`
+- [x] `GOCACHE=/Users/zade/Code/asr/Scriberr/.tmp/go-build go test ./internal/database ./internal/config ./internal/repository ./internal/recording ./cmd/server`
+- [x] `GOCACHE=/Users/zade/Code/asr/Scriberr/.tmp/go-build go test ./internal/database ./internal/config ./internal/repository ./internal/recording ./internal/api ./cmd/server` outside sandbox because `httptest.NewServer` loopback binding is blocked inside the sandbox.
+
+Artifacts:
+
+- `internal/models/recording.go`
+- `internal/database/schema.go`
+- `internal/database/steps.go`
+- `internal/config/config.go`
+- `internal/repository/recording_repository.go`
+- `internal/recording/service.go`
+- `internal/recording/finalizer.go`
+- `cmd/server/main.go`
 
 ## Sprint 6: Contract, Security, and Performance Verification
 

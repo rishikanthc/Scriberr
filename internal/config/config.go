@@ -71,11 +71,14 @@ type WorkerConfig struct {
 type RecordingConfig struct {
 	Dir                   string
 	MaxChunkBytes         int64
+	MaxSessionBytes       int64
 	MaxDuration           time.Duration
 	SessionTTL            time.Duration
 	FinalizerWorkers      int
 	FinalizerPollInterval time.Duration
 	FinalizerLeaseTimeout time.Duration
+	CleanupInterval       time.Duration
+	FailedRetention       time.Duration
 	AllowedMimeTypes      []string
 }
 
@@ -124,11 +127,14 @@ func loadUnchecked() *Config {
 		Recordings: RecordingConfig{
 			Dir:                   getEnv("RECORDINGS_DIR", "data/recordings"),
 			MaxChunkBytes:         getEnvInt64Unchecked("RECORDING_MAX_CHUNK_BYTES", 25<<20),
+			MaxSessionBytes:       getEnvInt64Unchecked("RECORDING_MAX_SESSION_BYTES", 2<<30),
 			MaxDuration:           getEnvDurationUnchecked("RECORDING_MAX_DURATION", 8*time.Hour),
 			SessionTTL:            getEnvDurationUnchecked("RECORDING_SESSION_TTL", 12*time.Hour),
 			FinalizerWorkers:      getEnvIntUnchecked("RECORDING_FINALIZER_WORKERS", 1),
 			FinalizerPollInterval: getEnvDurationUnchecked("RECORDING_FINALIZER_POLL_INTERVAL", 2*time.Second),
 			FinalizerLeaseTimeout: getEnvDurationUnchecked("RECORDING_FINALIZER_LEASE_TIMEOUT", 10*time.Minute),
+			CleanupInterval:       getEnvDurationUnchecked("RECORDING_CLEANUP_INTERVAL", 10*time.Minute),
+			FailedRetention:       getEnvDurationUnchecked("RECORDING_FAILED_RETENTION", 24*time.Hour),
 			AllowedMimeTypes:      splitCSVEnv("RECORDING_ALLOWED_MIME_TYPES", []string{"audio/webm;codecs=opus", "audio/webm"}),
 		},
 		WhisperXEnv: getEnv("WHISPERX_ENV", "data/whisperx-env"),
@@ -175,6 +181,9 @@ func (c *Config) validate() error {
 	if _, err := getEnvInt64("RECORDING_MAX_CHUNK_BYTES", 25<<20, 1); err != nil {
 		return err
 	}
+	if _, err := getEnvInt64("RECORDING_MAX_SESSION_BYTES", 2<<30, 1); err != nil {
+		return err
+	}
 	if _, err := getEnvDuration("RECORDING_MAX_DURATION", 8*time.Hour); err != nil {
 		return err
 	}
@@ -188,6 +197,12 @@ func (c *Config) validate() error {
 		return err
 	}
 	if _, err := getEnvDuration("RECORDING_FINALIZER_LEASE_TIMEOUT", 10*time.Minute); err != nil {
+		return err
+	}
+	if _, err := getEnvDuration("RECORDING_CLEANUP_INTERVAL", 10*time.Minute); err != nil {
+		return err
+	}
+	if _, err := getEnvDuration("RECORDING_FAILED_RETENTION", 24*time.Hour); err != nil {
 		return err
 	}
 	if len(c.Recordings.AllowedMimeTypes) == 0 {

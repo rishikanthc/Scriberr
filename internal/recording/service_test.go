@@ -51,6 +51,7 @@ func openRecordingServiceTest(t *testing.T) (*Service, *recordingEvents, models.
 	}
 	service := NewService(repository.NewRecordingRepository(db), storage, Config{
 		MaxChunkBytes:    8,
+		MaxSessionBytes:  12,
 		MaxDuration:      time.Hour,
 		SessionTTL:       time.Hour,
 		AllowedMimeTypes: []string{"audio/webm;codecs=opus", "audio/webm"},
@@ -188,6 +189,41 @@ func TestServiceAppendChunkValidationAndCleanup(t *testing.T) {
 	_, err = service.AppendChunk(ctx, AppendChunkRequest{UserID: user.ID, RecordingID: PublicID(session.ID), ChunkIndex: 1, MimeType: "audio/webm;codecs=opus", SHA256: &badChecksum, Body: strings.NewReader("chunk")})
 	if !errors.Is(err, ErrValidation) {
 		t.Fatalf("bad checksum err = %v, want ErrValidation", err)
+	}
+}
+
+func TestServiceAppendChunkAccountingSafeguards(t *testing.T) {
+	service, _, user := openRecordingServiceTest(t)
+	ctx := context.Background()
+	session, err := service.CreateSession(ctx, CreateSessionRequest{UserID: user.ID, MimeType: "audio/webm;codecs=opus"})
+	if err != nil {
+		t.Fatalf("CreateSession returned error: %v", err)
+	}
+	for i, body := range []string{"123456", "abcdef"} {
+		if _, err := service.AppendChunk(ctx, AppendChunkRequest{UserID: user.ID, RecordingID: PublicID(session.ID), ChunkIndex: i, MimeType: session.MimeType, Body: strings.NewReader(body)}); err != nil {
+			t.Fatalf("AppendChunk %d returned error: %v", i, err)
+		}
+	}
+	_, err = service.AppendChunk(ctx, AppendChunkRequest{UserID: user.ID, RecordingID: PublicID(session.ID), ChunkIndex: 2, MimeType: session.MimeType, Body: strings.NewReader("x")})
+	if !errors.Is(err, ErrValidation) {
+		t.Fatalf("session byte limit err = %v, want ErrValidation", err)
+	}
+
+	expired, err := service.CreateSession(ctx, CreateSessionRequest{UserID: user.ID, MimeType: "audio/webm;codecs=opus"})
+	if err != nil {
+		t.Fatalf("CreateSession expired returned error: %v", err)
+	}
+	service.now = func() time.Time { return expired.StartedAt.Add(2 * time.Hour) }
+	_, err = service.AppendChunk(ctx, AppendChunkRequest{UserID: user.ID, RecordingID: PublicID(expired.ID), ChunkIndex: 0, MimeType: expired.MimeType, Body: strings.NewReader("x")})
+	if !errors.Is(err, ErrConflict) {
+		t.Fatalf("expired session err = %v, want ErrConflict", err)
+	}
+
+	service.now = func() time.Time { return expired.StartedAt.Add(30 * time.Minute) }
+	negativeDuration := int64(-1)
+	_, err = service.AppendChunk(ctx, AppendChunkRequest{UserID: user.ID, RecordingID: PublicID(expired.ID), ChunkIndex: 0, MimeType: expired.MimeType, DurationMs: &negativeDuration, Body: strings.NewReader("x")})
+	if !errors.Is(err, ErrValidation) {
+		t.Fatalf("negative duration err = %v, want ErrValidation", err)
 	}
 }
 

@@ -103,6 +103,7 @@ func TestFreshSchemaInitialization(t *testing.T) {
 	assert.True(t, hasIndex(t, db, "recording_sessions", "idx_recording_sessions_finalize_claim"))
 	assert.True(t, hasIndex(t, db, "recording_sessions", "idx_recording_sessions_claim_expires_at"))
 	assert.True(t, hasIndex(t, db, "recording_sessions", "idx_recording_sessions_status_expires_at"))
+	assert.True(t, hasIndex(t, db, "recording_sessions", "idx_recording_sessions_artifact_cleanup"))
 	assert.True(t, hasIndex(t, db, "recording_chunks", "idx_recording_chunks_session_index_unique"))
 	assert.True(t, hasIndex(t, db, "transcript_annotations", "idx_transcript_annotations_user_transcription_created_at"))
 	assert.True(t, hasIndex(t, db, "transcript_annotations", "idx_transcript_annotations_user_kind_updated_at"))

@@ -150,14 +150,17 @@ func main() {
 	}
 	recordingService := recordingdomain.NewService(recordingRepo, recordingStorage, recordingdomain.Config{
 		MaxChunkBytes:    cfg.Recordings.MaxChunkBytes,
+		MaxSessionBytes:  cfg.Recordings.MaxSessionBytes,
 		MaxDuration:      cfg.Recordings.MaxDuration,
 		SessionTTL:       cfg.Recordings.SessionTTL,
 		AllowedMimeTypes: cfg.Recordings.AllowedMimeTypes,
 	})
 	recordingFinalizer := recordingdomain.NewFinalizerService(recordingRepo, jobRepo, profileRepo, recordingStorage, recordingdomain.FFmpegFinalizer{}, recordingdomain.FinalizerConfig{
-		Workers:      cfg.Recordings.FinalizerWorkers,
-		PollInterval: cfg.Recordings.FinalizerPollInterval,
-		LeaseTimeout: cfg.Recordings.FinalizerLeaseTimeout,
+		Workers:         cfg.Recordings.FinalizerWorkers,
+		PollInterval:    cfg.Recordings.FinalizerPollInterval,
+		LeaseTimeout:    cfg.Recordings.FinalizerLeaseTimeout,
+		CleanupInterval: cfg.Recordings.CleanupInterval,
+		FailedRetention: cfg.Recordings.FailedRetention,
 	})
 	recordingFinalizer.SetTranscriptionEnqueuer(queueService)
 

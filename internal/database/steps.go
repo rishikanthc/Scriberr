@@ -19,6 +19,7 @@ var schemaSteps = map[int]migrationStep{
 	6: migrateStepV5ToV6,
 	7: migrateStepV6ToV7,
 	8: migrateStepV7ToV8,
+	9: migrateStepV8ToV9,
 }
 
 func runSchemaSteps(tx *gorm.DB, currentVersion int) error {
@@ -68,6 +69,13 @@ func migrateStepV6ToV7(tx *gorm.DB) error {
 
 func migrateStepV7ToV8(tx *gorm.DB) error {
 	return nil
+}
+
+func migrateStepV8ToV9(tx *gorm.DB) error {
+	if err := tx.AutoMigrate(&models.RecordingSession{}); err != nil {
+		return err
+	}
+	return tx.Exec(`CREATE INDEX IF NOT EXISTS idx_recording_sessions_artifact_cleanup ON recording_sessions(status, temporary_artifacts_cleaned_at)`).Error
 }
 
 func backfillCompatibilityColumns(tx *gorm.DB) error {

@@ -252,3 +252,139 @@ func TestFinalizerCreatesAndEnqueuesAutoTranscription(t *testing.T) {
 		t.Fatalf("transcription events = %#v", events.transcriptions)
 	}
 }
+
+func TestFinalizerMaintenanceExpiresRecoversAndCleansArtifacts(t *testing.T) {
+	db, recordings, jobs, profiles, storage, user := openFinalizerTest(t)
+	now := time.Now().Truncate(time.Millisecond)
+
+	expired := &models.RecordingSession{
+		UserID:    user.ID,
+		MimeType:  "audio/webm;codecs=opus",
+		ExpiresAt: timePtr(now.Add(-time.Minute)),
+	}
+	if err := recordings.CreateSession(context.Background(), expired); err != nil {
+		t.Fatalf("CreateSession expired returned error: %v", err)
+	}
+	expiredDir, err := storage.SessionDir(expired.ID)
+	if err != nil {
+		t.Fatalf("SessionDir returned error: %v", err)
+	}
+	if err := os.MkdirAll(expiredDir, 0o755); err != nil {
+		t.Fatalf("MkdirAll expired returned error: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(expiredDir, "orphan.tmp"), []byte("tmp"), 0o600); err != nil {
+		t.Fatalf("WriteFile expired returned error: %v", err)
+	}
+
+	ready := &models.RecordingSession{
+		UserID:   user.ID,
+		MimeType: "audio/webm;codecs=opus",
+		Status:   models.RecordingStatusReady,
+	}
+	if err := recordings.CreateSession(context.Background(), ready); err != nil {
+		t.Fatalf("CreateSession ready returned error: %v", err)
+	}
+	chunkDir, err := storage.ChunkDir(ready.ID)
+	if err != nil {
+		t.Fatalf("ChunkDir returned error: %v", err)
+	}
+	if err := os.MkdirAll(chunkDir, 0o755); err != nil {
+		t.Fatalf("MkdirAll chunks returned error: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(chunkDir, "000000.webm"), []byte("chunk"), 0o600); err != nil {
+		t.Fatalf("WriteFile chunk returned error: %v", err)
+	}
+	rawPath, err := storage.RawPath(ready.ID)
+	if err != nil {
+		t.Fatalf("RawPath returned error: %v", err)
+	}
+	if err := os.WriteFile(rawPath, []byte("raw"), 0o600); err != nil {
+		t.Fatalf("WriteFile raw returned error: %v", err)
+	}
+	finalPath, err := storage.FinalPath(ready.ID, ready.MimeType)
+	if err != nil {
+		t.Fatalf("FinalPath returned error: %v", err)
+	}
+	if err := os.WriteFile(finalPath, []byte("final"), 0o600); err != nil {
+		t.Fatalf("WriteFile final returned error: %v", err)
+	}
+
+	stopping := &models.RecordingSession{UserID: user.ID, MimeType: "audio/webm;codecs=opus"}
+	if err := recordings.CreateSession(context.Background(), stopping); err != nil {
+		t.Fatalf("CreateSession stopping returned error: %v", err)
+	}
+	if err := recordings.MarkStopping(context.Background(), user.ID, stopping.ID, 0, nil, false, now); err != nil {
+		t.Fatalf("MarkStopping returned error: %v", err)
+	}
+	if _, err := recordings.ClaimNextFinalization(context.Background(), "worker-a", now.Add(-time.Minute)); err != nil {
+		t.Fatalf("ClaimNextFinalization returned error: %v", err)
+	}
+
+	service := NewFinalizerService(recordings, jobs, profiles, storage, fakeMediaFinalizer{}, FinalizerConfig{FailedRetention: time.Hour})
+	stats, err := service.RunMaintenance(context.Background())
+	if err != nil {
+		t.Fatalf("RunMaintenance returned error: %v", err)
+	}
+	if stats.ExpiredSessions != 1 {
+		t.Fatalf("ExpiredSessions = %d", stats.ExpiredSessions)
+	}
+	if stats.RecoveredClaims != 1 {
+		t.Fatalf("RecoveredClaims = %d", stats.RecoveredClaims)
+	}
+	if stats.TemporaryArtifactsRemoved != 1 {
+		t.Fatalf("TemporaryArtifactsRemoved = %d", stats.TemporaryArtifactsRemoved)
+	}
+	if stats.SessionDirsRemoved != 1 {
+		t.Fatalf("SessionDirsRemoved = %d", stats.SessionDirsRemoved)
+	}
+
+	recovered, err := recordings.FindSessionForUser(context.Background(), user.ID, stopping.ID)
+	if err != nil {
+		t.Fatalf("FindSessionForUser recovered returned error: %v", err)
+	}
+	if recovered.Status != models.RecordingStatusStopping || recovered.ClaimedBy != nil {
+		t.Fatalf("recovered session status=%s claimed_by=%#v", recovered.Status, recovered.ClaimedBy)
+	}
+	if _, err := os.Stat(expiredDir); !os.IsNotExist(err) {
+		t.Fatalf("expired session dir still exists or unexpected error: %v", err)
+	}
+	if _, err := os.Stat(finalPath); err != nil {
+		t.Fatalf("final artifact should remain: %v", err)
+	}
+	if _, err := os.Stat(chunkDir); !os.IsNotExist(err) {
+		t.Fatalf("ready chunk dir still exists or unexpected error: %v", err)
+	}
+	if _, err := os.Stat(rawPath); !os.IsNotExist(err) {
+		t.Fatalf("ready raw artifact still exists or unexpected error: %v", err)
+	}
+
+	var readyReloaded models.RecordingSession
+	if err := db.First(&readyReloaded, "id = ?", ready.ID).Error; err != nil {
+		t.Fatalf("reload ready returned error: %v", err)
+	}
+	if readyReloaded.TemporaryArtifactsCleanedAt == nil {
+		t.Fatal("ready temporary_artifacts_cleaned_at was not set")
+	}
+}
+
+func TestFinalizerStartStopIsGracefulWithoutWork(t *testing.T) {
+	_, recordings, jobs, profiles, storage, _ := openFinalizerTest(t)
+	service := NewFinalizerService(recordings, jobs, profiles, storage, fakeMediaFinalizer{}, FinalizerConfig{
+		PollInterval:    time.Hour,
+		CleanupInterval: time.Hour,
+		StopTimeout:     time.Second,
+	})
+
+	if err := service.Start(context.Background()); err != nil {
+		t.Fatalf("Start returned error: %v", err)
+	}
+	stopCtx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	if err := service.Stop(stopCtx); err != nil {
+		t.Fatalf("Stop returned error: %v", err)
+	}
+}
+
+func timePtr(value time.Time) *time.Time {
+	return &value
+}

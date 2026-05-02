@@ -31,39 +31,40 @@ const (
 
 // RecordingSession stores the durable lifecycle for browser-captured audio.
 type RecordingSession struct {
-	ID                       string              `json:"id" gorm:"primaryKey;type:varchar(36)"`
-	UserID                   uint                `json:"user_id" gorm:"not null;index;default:1"`
-	Title                    *string             `json:"title,omitempty" gorm:"type:text"`
-	Status                   RecordingStatus     `json:"status" gorm:"type:varchar(20);not null;default:'recording';index"`
-	SourceKind               RecordingSourceKind `json:"source_kind" gorm:"type:varchar(20);not null;default:'microphone'"`
-	MimeType                 string              `json:"mime_type" gorm:"type:varchar(120);not null"`
-	Codec                    *string             `json:"codec,omitempty" gorm:"type:varchar(60)"`
-	ChunkDurationMs          *int64              `json:"chunk_duration_ms,omitempty" gorm:"type:integer"`
-	ExpectedFinalIndex       *int                `json:"expected_final_index,omitempty" gorm:"type:integer"`
-	ReceivedChunks           int                 `json:"received_chunks" gorm:"not null;default:0"`
-	ReceivedBytes            int64               `json:"received_bytes" gorm:"not null;default:0"`
-	DurationMs               *int64              `json:"duration_ms,omitempty" gorm:"type:integer"`
-	FileID                   *string             `json:"file_id,omitempty" gorm:"type:varchar(36);index"`
-	TranscriptionID          *string             `json:"transcription_id,omitempty" gorm:"type:varchar(36);index"`
-	AutoTranscribe           bool                `json:"auto_transcribe" gorm:"not null;default:false"`
-	ProfileID                *string             `json:"profile_id,omitempty" gorm:"type:varchar(36);index"`
-	TranscriptionOptionsJSON string              `json:"-" gorm:"column:transcription_options_json;type:json;not null;default:'{}'"`
-	StartedAt                time.Time           `json:"started_at" gorm:"not null"`
-	StoppedAt                *time.Time          `json:"stopped_at,omitempty"`
-	FinalizeQueuedAt         *time.Time          `json:"finalize_queued_at,omitempty"`
-	FinalizeStartedAt        *time.Time          `json:"finalize_started_at,omitempty"`
-	CompletedAt              *time.Time          `json:"completed_at,omitempty"`
-	FailedAt                 *time.Time          `json:"failed_at,omitempty"`
-	ExpiresAt                *time.Time          `json:"expires_at,omitempty" gorm:"index"`
-	LastError                *string             `json:"last_error,omitempty" gorm:"type:text"`
-	Progress                 float64             `json:"progress" gorm:"not null;default:0"`
-	ProgressStage            string              `json:"progress_stage,omitempty" gorm:"type:varchar(50)"`
-	ClaimedBy                *string             `json:"claimed_by,omitempty" gorm:"type:varchar(128)"`
-	ClaimExpiresAt           *time.Time          `json:"claim_expires_at,omitempty" gorm:"index"`
-	MetadataJSON             string              `json:"-" gorm:"column:metadata_json;type:json;not null;default:'{}'"`
-	CreatedAt                time.Time           `json:"created_at" gorm:"autoCreateTime"`
-	UpdatedAt                time.Time           `json:"updated_at" gorm:"autoUpdateTime"`
-	DeletedAt                gorm.DeletedAt      `json:"deleted_at,omitempty" gorm:"index" swaggertype:"string"`
+	ID                          string              `json:"id" gorm:"primaryKey;type:varchar(36)"`
+	UserID                      uint                `json:"user_id" gorm:"not null;index;default:1"`
+	Title                       *string             `json:"title,omitempty" gorm:"type:text"`
+	Status                      RecordingStatus     `json:"status" gorm:"type:varchar(20);not null;default:'recording';index"`
+	SourceKind                  RecordingSourceKind `json:"source_kind" gorm:"type:varchar(20);not null;default:'microphone'"`
+	MimeType                    string              `json:"mime_type" gorm:"type:varchar(120);not null"`
+	Codec                       *string             `json:"codec,omitempty" gorm:"type:varchar(60)"`
+	ChunkDurationMs             *int64              `json:"chunk_duration_ms,omitempty" gorm:"type:integer"`
+	ExpectedFinalIndex          *int                `json:"expected_final_index,omitempty" gorm:"type:integer"`
+	ReceivedChunks              int                 `json:"received_chunks" gorm:"not null;default:0"`
+	ReceivedBytes               int64               `json:"received_bytes" gorm:"not null;default:0"`
+	DurationMs                  *int64              `json:"duration_ms,omitempty" gorm:"type:integer"`
+	FileID                      *string             `json:"file_id,omitempty" gorm:"type:varchar(36);index"`
+	TranscriptionID             *string             `json:"transcription_id,omitempty" gorm:"type:varchar(36);index"`
+	AutoTranscribe              bool                `json:"auto_transcribe" gorm:"not null;default:false"`
+	ProfileID                   *string             `json:"profile_id,omitempty" gorm:"type:varchar(36);index"`
+	TranscriptionOptionsJSON    string              `json:"-" gorm:"column:transcription_options_json;type:json;not null;default:'{}'"`
+	StartedAt                   time.Time           `json:"started_at" gorm:"not null"`
+	StoppedAt                   *time.Time          `json:"stopped_at,omitempty"`
+	FinalizeQueuedAt            *time.Time          `json:"finalize_queued_at,omitempty"`
+	FinalizeStartedAt           *time.Time          `json:"finalize_started_at,omitempty"`
+	CompletedAt                 *time.Time          `json:"completed_at,omitempty"`
+	FailedAt                    *time.Time          `json:"failed_at,omitempty"`
+	ExpiresAt                   *time.Time          `json:"expires_at,omitempty" gorm:"index"`
+	TemporaryArtifactsCleanedAt *time.Time          `json:"-" gorm:"index"`
+	LastError                   *string             `json:"last_error,omitempty" gorm:"type:text"`
+	Progress                    float64             `json:"progress" gorm:"not null;default:0"`
+	ProgressStage               string              `json:"progress_stage,omitempty" gorm:"type:varchar(50)"`
+	ClaimedBy                   *string             `json:"claimed_by,omitempty" gorm:"type:varchar(128)"`
+	ClaimExpiresAt              *time.Time          `json:"claim_expires_at,omitempty" gorm:"index"`
+	MetadataJSON                string              `json:"-" gorm:"column:metadata_json;type:json;not null;default:'{}'"`
+	CreatedAt                   time.Time           `json:"created_at" gorm:"autoCreateTime"`
+	UpdatedAt                   time.Time           `json:"updated_at" gorm:"autoUpdateTime"`
+	DeletedAt                   gorm.DeletedAt      `json:"deleted_at,omitempty" gorm:"index" swaggertype:"string"`
 
 	User          User                  `json:"user,omitempty" gorm:"foreignKey:UserID;references:ID;constraint:OnDelete:CASCADE"`
 	File          *TranscriptionJob     `json:"file,omitempty" gorm:"foreignKey:FileID;references:ID;constraint:OnDelete:SET NULL"`

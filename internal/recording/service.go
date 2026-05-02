@@ -55,6 +55,7 @@ type Event struct {
 
 type Config struct {
 	MaxChunkBytes    int64
+	MaxSessionBytes  int64
 	MaxDuration      time.Duration
 	SessionTTL       time.Duration
 	AllowedMimeTypes []string
@@ -128,6 +129,9 @@ func (s *Service) SetEventPublisher(events EventPublisher) {
 func normalizeConfig(cfg Config) Config {
 	if cfg.MaxChunkBytes <= 0 {
 		cfg.MaxChunkBytes = 25 << 20
+	}
+	if cfg.MaxSessionBytes <= 0 {
+		cfg.MaxSessionBytes = 2 << 30
 	}
 	if cfg.MaxDuration <= 0 {
 		cfg.MaxDuration = 8 * time.Hour
@@ -246,8 +250,25 @@ func (s *Service) AppendChunk(ctx context.Context, req AppendChunkRequest) (*Chu
 	if session.Status != models.RecordingStatusRecording {
 		return nil, ErrConflict
 	}
+	if session.ExpiresAt != nil && !s.now().Before(*session.ExpiresAt) {
+		return nil, ErrConflict
+	}
+	if s.now().Sub(session.StartedAt) > s.cfg.MaxDuration {
+		return nil, validationError("recording duration exceeds maximum")
+	}
 	if normalizeMediaType(session.MimeType) != normalizeMediaType(mimeType) {
 		return nil, validationError("chunk mime_type does not match recording session")
+	}
+	if req.DurationMs != nil {
+		if *req.DurationMs < 0 {
+			return nil, validationError("chunk duration_ms cannot be negative")
+		}
+		if time.Duration(*req.DurationMs)*time.Millisecond > s.cfg.MaxDuration {
+			return nil, validationError("chunk duration exceeds maximum")
+		}
+	}
+	if session.ReceivedBytes >= s.cfg.MaxSessionBytes {
+		return nil, validationError("recording size exceeds maximum")
 	}
 	expectedSHA, err := normalizeSHA256(req.SHA256)
 	if err != nil {
@@ -277,6 +298,10 @@ func (s *Service) AppendChunk(ctx context.Context, req AppendChunkRequest) (*Chu
 	if size > s.cfg.MaxChunkBytes || limited.exceeded {
 		_ = s.storage.RemoveChunk(sessionID, req.ChunkIndex, mimeType)
 		return nil, validationError("chunk is too large")
+	}
+	if session.ReceivedBytes+size > s.cfg.MaxSessionBytes {
+		_ = s.storage.RemoveChunk(sessionID, req.ChunkIndex, mimeType)
+		return nil, validationError("recording size exceeds maximum")
 	}
 	actualSHA := hex.EncodeToString(hasher.Sum(nil))
 	if expectedSHA != nil && *expectedSHA != actualSHA {

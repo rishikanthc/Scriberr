@@ -11,7 +11,7 @@ import (
 	"gorm.io/gorm"
 )
 
-const latestSchemaVersion = 8
+const latestSchemaVersion = 9
 
 var schemaModels = []any{
 	&models.User{},
@@ -97,6 +97,7 @@ func createTargetSchema(tx *gorm.DB) error {
 		`CREATE INDEX IF NOT EXISTS idx_recording_sessions_finalize_claim ON recording_sessions(status, finalize_queued_at)`,
 		`CREATE INDEX IF NOT EXISTS idx_recording_sessions_claim_expires_at ON recording_sessions(claim_expires_at)`,
 		`CREATE INDEX IF NOT EXISTS idx_recording_sessions_status_expires_at ON recording_sessions(status, expires_at)`,
+		`CREATE INDEX IF NOT EXISTS idx_recording_sessions_artifact_cleanup ON recording_sessions(status, temporary_artifacts_cleaned_at)`,
 		`CREATE INDEX IF NOT EXISTS idx_transcript_annotations_user_transcription_created_at ON transcript_annotations(user_id, transcription_id, created_at DESC)`,
 		`CREATE INDEX IF NOT EXISTS idx_transcript_annotations_user_kind_updated_at ON transcript_annotations(user_id, kind, updated_at DESC)`,
 		`CREATE INDEX IF NOT EXISTS idx_transcript_annotations_transcription_time ON transcript_annotations(transcription_id, anchor_start_ms, anchor_end_ms)`,
@@ -237,6 +238,7 @@ var expectedSQLiteIndexes = map[string]expectedSQLiteIndex{
 	"idx_recording_sessions_user_created_at":                         {Table: "recording_sessions", Columns: []string{"user_id", "created_at"}, Unique: false},
 	"idx_recording_sessions_finalize_claim":                          {Table: "recording_sessions", Columns: []string{"status", "finalize_queued_at"}, Unique: false},
 	"idx_recording_sessions_status_expires_at":                       {Table: "recording_sessions", Columns: []string{"status", "expires_at"}, Unique: false},
+	"idx_recording_sessions_artifact_cleanup":                        {Table: "recording_sessions", Columns: []string{"status", "temporary_artifacts_cleaned_at"}, Unique: false},
 	"idx_recording_chunks_session_id":                                {Table: "recording_chunks", Columns: []string{"session_id"}, Unique: false},
 	"idx_recording_chunks_user_id":                                   {Table: "recording_chunks", Columns: []string{"user_id"}, Unique: false},
 	"idx_recording_chunks_session_index_unique":                      {Table: "recording_chunks", Columns: []string{"session_id", "chunk_index"}, Unique: true},

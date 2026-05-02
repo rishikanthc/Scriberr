@@ -25,6 +25,8 @@ type RecordingRepository interface {
 	CancelSession(ctx context.Context, userID uint, sessionID string, canceledAt time.Time) error
 	ExpireAbandonedSessions(ctx context.Context, now time.Time) (int64, error)
 	RecoverExpiredFinalizationClaims(ctx context.Context, now time.Time) (int64, error)
+	ListArtifactCleanupCandidates(ctx context.Context, now time.Time, failedRetention time.Duration, limit int) ([]models.RecordingSession, error)
+	MarkTemporaryArtifactsCleaned(ctx context.Context, sessionID string, cleanedAt time.Time) error
 }
 
 type RecordingHandoffRepository interface {
@@ -234,9 +236,11 @@ func (r *recordingRepository) ExpireAbandonedSessions(ctx context.Context, now t
 	result := r.db.WithContext(ctx).Model(&models.RecordingSession{}).
 		Where("status = ? AND expires_at IS NOT NULL AND expires_at <= ?", models.RecordingStatusRecording, now).
 		UpdateColumns(map[string]any{
-			"status":         models.RecordingStatusExpired,
-			"completed_at":   now,
-			"progress_stage": "expired",
+			"status":           models.RecordingStatusExpired,
+			"completed_at":     now,
+			"progress_stage":   "expired",
+			"claimed_by":       nil,
+			"claim_expires_at": nil,
 		})
 	return result.RowsAffected, result.Error
 }
@@ -252,6 +256,34 @@ func (r *recordingRepository) RecoverExpiredFinalizationClaims(ctx context.Conte
 			"claim_expires_at":   nil,
 		})
 	return result.RowsAffected, result.Error
+}
+
+func (r *recordingRepository) ListArtifactCleanupCandidates(ctx context.Context, now time.Time, failedRetention time.Duration, limit int) ([]models.RecordingSession, error) {
+	if limit <= 0 {
+		limit = 100
+	}
+	failedBefore := now.Add(-failedRetention)
+	var sessions []models.RecordingSession
+	err := r.db.WithContext(ctx).
+		Where("temporary_artifacts_cleaned_at IS NULL").
+		Where(
+			r.db.Where("status IN ?", []models.RecordingStatus{
+				models.RecordingStatusReady,
+				models.RecordingStatusCanceled,
+				models.RecordingStatusExpired,
+			}).Or("status = ? AND failed_at IS NOT NULL AND failed_at <= ?", models.RecordingStatusFailed, failedBefore),
+		).
+		Order("updated_at ASC, id ASC").
+		Limit(limit).
+		Find(&sessions).Error
+	return sessions, err
+}
+
+func (r *recordingRepository) MarkTemporaryArtifactsCleaned(ctx context.Context, sessionID string, cleanedAt time.Time) error {
+	result := r.db.WithContext(ctx).Model(&models.RecordingSession{}).
+		Where("id = ? AND temporary_artifacts_cleaned_at IS NULL", sessionID).
+		UpdateColumn("temporary_artifacts_cleaned_at", cleanedAt)
+	return rowsAffectedOrNotFound(result)
 }
 
 func rowsAffectedOrNotFound(result *gorm.DB) error {

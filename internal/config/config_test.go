@@ -21,11 +21,14 @@ func setConfigTestBaseEnv(t *testing.T) {
 	t.Setenv("TRANSCRIPTION_LEASE_TIMEOUT", "")
 	t.Setenv("RECORDINGS_DIR", "")
 	t.Setenv("RECORDING_MAX_CHUNK_BYTES", "")
+	t.Setenv("RECORDING_MAX_SESSION_BYTES", "")
 	t.Setenv("RECORDING_MAX_DURATION", "")
 	t.Setenv("RECORDING_SESSION_TTL", "")
 	t.Setenv("RECORDING_FINALIZER_WORKERS", "")
 	t.Setenv("RECORDING_FINALIZER_POLL_INTERVAL", "")
 	t.Setenv("RECORDING_FINALIZER_LEASE_TIMEOUT", "")
+	t.Setenv("RECORDING_CLEANUP_INTERVAL", "")
+	t.Setenv("RECORDING_FAILED_RETENTION", "")
 	t.Setenv("RECORDING_ALLOWED_MIME_TYPES", "")
 }
 
@@ -67,6 +70,9 @@ func TestLoadWithErrorEngineAndWorkerDefaults(t *testing.T) {
 	if cfg.Recordings.MaxChunkBytes != 25<<20 {
 		t.Fatalf("Recordings.MaxChunkBytes = %d, want %d", cfg.Recordings.MaxChunkBytes, int64(25<<20))
 	}
+	if cfg.Recordings.MaxSessionBytes != 2<<30 {
+		t.Fatalf("Recordings.MaxSessionBytes = %d, want %d", cfg.Recordings.MaxSessionBytes, int64(2<<30))
+	}
 	if cfg.Recordings.MaxDuration != 8*time.Hour {
 		t.Fatalf("Recordings.MaxDuration = %s, want 8h", cfg.Recordings.MaxDuration)
 	}
@@ -81,6 +87,12 @@ func TestLoadWithErrorEngineAndWorkerDefaults(t *testing.T) {
 	}
 	if cfg.Recordings.FinalizerLeaseTimeout != 10*time.Minute {
 		t.Fatalf("Recordings.FinalizerLeaseTimeout = %s, want 10m", cfg.Recordings.FinalizerLeaseTimeout)
+	}
+	if cfg.Recordings.CleanupInterval != 10*time.Minute {
+		t.Fatalf("Recordings.CleanupInterval = %s, want 10m", cfg.Recordings.CleanupInterval)
+	}
+	if cfg.Recordings.FailedRetention != 24*time.Hour {
+		t.Fatalf("Recordings.FailedRetention = %s, want 24h", cfg.Recordings.FailedRetention)
 	}
 	if got := strings.Join(cfg.Recordings.AllowedMimeTypes, ","); got != "audio/webm;codecs=opus,audio/webm" {
 		t.Fatalf("Recordings.AllowedMimeTypes = %q", got)
@@ -99,11 +111,14 @@ func TestLoadWithErrorEngineAndWorkerOverrides(t *testing.T) {
 	t.Setenv("TRANSCRIPTION_LEASE_TIMEOUT", "30s")
 	t.Setenv("RECORDINGS_DIR", "/tmp/scriberr-recordings")
 	t.Setenv("RECORDING_MAX_CHUNK_BYTES", "1048576")
+	t.Setenv("RECORDING_MAX_SESSION_BYTES", "2097152")
 	t.Setenv("RECORDING_MAX_DURATION", "2h")
 	t.Setenv("RECORDING_SESSION_TTL", "3h")
 	t.Setenv("RECORDING_FINALIZER_WORKERS", "2")
 	t.Setenv("RECORDING_FINALIZER_POLL_INTERVAL", "750ms")
 	t.Setenv("RECORDING_FINALIZER_LEASE_TIMEOUT", "45s")
+	t.Setenv("RECORDING_CLEANUP_INTERVAL", "5m")
+	t.Setenv("RECORDING_FAILED_RETENTION", "2h")
 	t.Setenv("RECORDING_ALLOWED_MIME_TYPES", "audio/webm;codecs=opus, audio/ogg")
 
 	cfg, err := LoadWithError()
@@ -141,6 +156,9 @@ func TestLoadWithErrorEngineAndWorkerOverrides(t *testing.T) {
 	if cfg.Recordings.MaxChunkBytes != 1048576 {
 		t.Fatalf("Recordings.MaxChunkBytes = %d", cfg.Recordings.MaxChunkBytes)
 	}
+	if cfg.Recordings.MaxSessionBytes != 2097152 {
+		t.Fatalf("Recordings.MaxSessionBytes = %d", cfg.Recordings.MaxSessionBytes)
+	}
 	if cfg.Recordings.MaxDuration != 2*time.Hour {
 		t.Fatalf("Recordings.MaxDuration = %s", cfg.Recordings.MaxDuration)
 	}
@@ -155,6 +173,12 @@ func TestLoadWithErrorEngineAndWorkerOverrides(t *testing.T) {
 	}
 	if cfg.Recordings.FinalizerLeaseTimeout != 45*time.Second {
 		t.Fatalf("Recordings.FinalizerLeaseTimeout = %s", cfg.Recordings.FinalizerLeaseTimeout)
+	}
+	if cfg.Recordings.CleanupInterval != 5*time.Minute {
+		t.Fatalf("Recordings.CleanupInterval = %s", cfg.Recordings.CleanupInterval)
+	}
+	if cfg.Recordings.FailedRetention != 2*time.Hour {
+		t.Fatalf("Recordings.FailedRetention = %s", cfg.Recordings.FailedRetention)
 	}
 	if got := strings.Join(cfg.Recordings.AllowedMimeTypes, ","); got != "audio/webm;codecs=opus,audio/ogg" {
 		t.Fatalf("Recordings.AllowedMimeTypes = %q", got)
@@ -187,11 +211,14 @@ func TestLoadWithErrorRejectsInvalidEngineAndWorkerValues(t *testing.T) {
 		{name: "poll interval", env: "TRANSCRIPTION_QUEUE_POLL_INTERVAL", val: "quickly"},
 		{name: "lease timeout", env: "TRANSCRIPTION_LEASE_TIMEOUT", val: "later"},
 		{name: "recording max chunk bytes", env: "RECORDING_MAX_CHUNK_BYTES", val: "large"},
+		{name: "recording max session bytes", env: "RECORDING_MAX_SESSION_BYTES", val: "huge"},
 		{name: "recording max duration", env: "RECORDING_MAX_DURATION", val: "forever"},
 		{name: "recording ttl", env: "RECORDING_SESSION_TTL", val: "soon"},
 		{name: "recording finalizer workers", env: "RECORDING_FINALIZER_WORKERS", val: "many"},
 		{name: "recording poll interval", env: "RECORDING_FINALIZER_POLL_INTERVAL", val: "often"},
 		{name: "recording lease timeout", env: "RECORDING_FINALIZER_LEASE_TIMEOUT", val: "eventually"},
+		{name: "recording cleanup interval", env: "RECORDING_CLEANUP_INTERVAL", val: "sometimes"},
+		{name: "recording failed retention", env: "RECORDING_FAILED_RETENTION", val: "later"},
 	}
 
 	for _, tt := range tests {
@@ -217,6 +244,7 @@ func TestLoadWithErrorRejectsInvalidRecordingValues(t *testing.T) {
 		val  string
 	}{
 		{name: "zero chunk bytes", env: "RECORDING_MAX_CHUNK_BYTES", val: "0"},
+		{name: "zero session bytes", env: "RECORDING_MAX_SESSION_BYTES", val: "0"},
 		{name: "zero workers", env: "RECORDING_FINALIZER_WORKERS", val: "0"},
 		{name: "empty mime list", env: "RECORDING_ALLOWED_MIME_TYPES", val: " , "},
 		{name: "video mime", env: "RECORDING_ALLOWED_MIME_TYPES", val: "video/webm"},

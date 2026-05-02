@@ -172,6 +172,40 @@ func TestRecordingRepositoryRecoverAndExpire(t *testing.T) {
 	assert.Nil(t, reloaded.ClaimedBy)
 }
 
+func TestRecordingRepositoryArtifactCleanupCandidates(t *testing.T) {
+	_, repo, user := openRecordingRepositoryTestDB(t)
+	ctx := context.Background()
+	now := time.Now().Truncate(time.Millisecond)
+
+	ready := &models.RecordingSession{UserID: user.ID, MimeType: "audio/webm", Status: models.RecordingStatusReady}
+	require.NoError(t, repo.CreateSession(ctx, ready))
+	canceled := &models.RecordingSession{UserID: user.ID, MimeType: "audio/webm", Status: models.RecordingStatusCanceled}
+	require.NoError(t, repo.CreateSession(ctx, canceled))
+	oldFailed := &models.RecordingSession{UserID: user.ID, MimeType: "audio/webm", Status: models.RecordingStatusFailed, FailedAt: timePtr(now.Add(-2 * time.Hour))}
+	require.NoError(t, repo.CreateSession(ctx, oldFailed))
+	freshFailed := &models.RecordingSession{UserID: user.ID, MimeType: "audio/webm", Status: models.RecordingStatusFailed, FailedAt: timePtr(now.Add(-time.Minute))}
+	require.NoError(t, repo.CreateSession(ctx, freshFailed))
+	cleaned := &models.RecordingSession{UserID: user.ID, MimeType: "audio/webm", Status: models.RecordingStatusReady, TemporaryArtifactsCleanedAt: timePtr(now)}
+	require.NoError(t, repo.CreateSession(ctx, cleaned))
+
+	candidates, err := repo.ListArtifactCleanupCandidates(ctx, now, time.Hour, 10)
+	require.NoError(t, err)
+	got := make(map[string]bool)
+	for _, candidate := range candidates {
+		got[candidate.ID] = true
+	}
+	assert.True(t, got[ready.ID])
+	assert.True(t, got[canceled.ID])
+	assert.True(t, got[oldFailed.ID])
+	assert.False(t, got[freshFailed.ID])
+	assert.False(t, got[cleaned.ID])
+
+	require.NoError(t, repo.MarkTemporaryArtifactsCleaned(ctx, ready.ID, now))
+	updated, err := repo.FindSessionForUser(ctx, user.ID, ready.ID)
+	require.NoError(t, err)
+	require.NotNil(t, updated.TemporaryArtifactsCleanedAt)
+}
+
 func TestRecordingRepositoryCancelTerminalBehavior(t *testing.T) {
 	_, repo, user := openRecordingRepositoryTestDB(t)
 	ctx := context.Background()
