@@ -20,8 +20,7 @@ import { useTranscriptionListEvents } from "@/features/transcription/hooks/useTr
 import { preferVisibleTranscription, useCreateTranscription, useStopTranscription, useTaggedTranscriptions, useTranscriptions } from "@/features/transcription/hooks/useTranscriptions";
 import { EmptyState } from "@/shared/ui/EmptyState";
 import { AppButton, IconButton } from "@/shared/ui/Button";
-import { RecordingDialog } from "@/features/recording/components/RecordingDialog";
-import { useBrowserRecorder } from "@/features/recording/hooks/useBrowserRecorder";
+import { useRecordingController } from "@/features/recording/components/RecordingProvider";
 
 type RecordingStatus = "ready" | "uploading" | "file-processing" | "queued" | "transcribing" | "transcribed" | "failed" | "stopped" | "canceled";
 
@@ -314,8 +313,7 @@ function AudioListPage({ tagId }: { tagId?: string }) {
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [youtubeDialogOpen, setYoutubeDialogOpen] = useState(false);
-  const [recordingDialogOpen, setRecordingDialogOpen] = useState(false);
-  const recorder = useBrowserRecorder();
+  const { openDialog: openRecordingDialog } = useRecordingController();
   const filesQuery = useFiles();
   const tagsQuery = useTags();
   const profilesQuery = useProfiles();
@@ -366,8 +364,8 @@ function AudioListPage({ tagId }: { tagId?: string }) {
   }, []);
 
   const handleRecordClick = useCallback(() => {
-    setRecordingDialogOpen(true);
-  }, []);
+    openRecordingDialog();
+  }, [openRecordingDialog]);
 
   const handleYouTubeImport = useCallback(async (url: string) => {
     await importFromYouTube(url);
@@ -478,11 +476,6 @@ function AudioListPage({ tagId }: { tagId?: string }) {
         importing={uploadItems.some((item) => item.source === "youtube" && item.status === "processing" && !item.fileId)}
         onOpenChange={setYoutubeDialogOpen}
         onSubmit={handleYouTubeImport}
-      />
-      <RecordingDialog
-        open={recordingDialogOpen}
-        onOpenChange={setRecordingDialogOpen}
-        recorder={recorder}
       />
     </div>
   );

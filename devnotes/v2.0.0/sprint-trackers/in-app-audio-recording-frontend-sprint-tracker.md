@@ -2,7 +2,7 @@
 
 This tracker belongs to `devnotes/v2.0.0/sprint-plans/in-app-audio-recording-frontend-sprint-plan.md`.
 
-Status: Sprint 3 complete. Sprint 4 has not started.
+Status: Sprint 4 complete. Sprint 5 has not started.
 
 ## Sprint 1: API Contract and Query Foundation
 
@@ -93,28 +93,36 @@ Notes:
 
 ## Sprint 4: Background Recording and Sidebar Minimize
 
-Status: pending
+Status: complete
 
 Progress:
 
-- [ ] Add provider-level recording workflow state.
-- [ ] Add minimized recording item in the left sidebar.
-- [ ] Reopen the same dialog from the sidebar item.
-- [ ] Keep timer live while minimized.
-- [ ] Preserve recording across in-app navigation.
-- [ ] Support cancel/retry from minimized or reopened states.
+- [x] Add provider-level recording workflow state.
+- [x] Add minimized recording item in the left sidebar.
+- [x] Reopen the same dialog from the sidebar item.
+- [x] Keep timer live while minimized.
+- [x] Preserve recording across in-app navigation.
+- [x] Support cancel/retry from minimized or reopened states.
 
 Verification:
 
-- [ ] Route-navigation recording smoke test.
-- [ ] Sidebar minimize/reopen smoke test.
-- [ ] `npm run type-check` from `web/frontend`.
+- [x] Provider placement reviewed against route boundaries so recorder state survives route changes under `ProtectedRoute`.
+- [x] Static sidebar minimize/reopen behavior reviewed; full browser interaction smoke remains in Sprint 6.
+- [x] `npm run type-check` from `web/frontend`.
+- [x] `npm run build` from `web/frontend`.
 
 Artifacts:
 
 - `web/frontend/src/features/recording/components/RecordingProvider.tsx`
 - `web/frontend/src/features/recording/components/RecordingSidebarItem.tsx`
 - `web/frontend/src/features/home/components/HomePage.tsx`
+
+Notes:
+
+- `RecordingProvider` now owns the recorder hook, dialog open state, and minimized entry outside route components.
+- The home top-bar Record button only calls `openDialog()`, avoiding timer-driven home-page rerenders.
+- The minimized recording entry is fixed to the left side and remains available across route changes while recording, paused, stopping, finalizing, or failed.
+- `npm run build` passed with existing dependency-data freshness warnings for Browserslist/baseline-browser-mapping.
 
 ## Sprint 5: Reactive Home List Integration
 

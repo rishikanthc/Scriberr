@@ -12,6 +12,7 @@ import { TooltipProvider } from '@/components/ui/tooltip'
 import { ToastProvider } from '@/components/ui/toast'
 import { ChatEventsProvider } from './contexts/ChatEventsContext'
 import { GlobalUploadProvider } from './contexts/GlobalUploadContext'
+import { RecordingProvider } from '@/features/recording/components/RecordingProvider'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { setupAuthInterceptor } from './lib/authInterceptor'
 
@@ -42,7 +43,9 @@ createRoot(document.getElementById('root')!).render(
               <ChatEventsProvider>
                 <ProtectedRoute>
                   <GlobalUploadProvider>
-                    <App />
+                    <RecordingProvider>
+                      <App />
+                    </RecordingProvider>
                   </GlobalUploadProvider>
                 </ProtectedRoute>
               </ChatEventsProvider>
