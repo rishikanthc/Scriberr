@@ -236,6 +236,116 @@
   line-height: var(--scr-line-relaxed);
 }
 
+.scr-audio-tags-section {
+  display: grid;
+  gap: var(--scr-space-2);
+  max-width: 920px;
+  margin-bottom: var(--scr-space-6);
+}
+
+.scr-audio-tags-heading {
+  display: flex;
+  align-items: center;
+  gap: var(--scr-space-2);
+}
+
+.scr-audio-tags-heading h2 {
+  color: var(--scr-text-strong);
+  font-size: 0.9375rem;
+  font-weight: 700;
+  line-height: var(--scr-line-tight);
+}
+
+.scr-audio-tags-add {
+  width: 26px;
+  height: 26px;
+  opacity: 0;
+}
+
+.scr-audio-tags-section:hover .scr-audio-tags-add,
+.scr-audio-tags-section:focus-within .scr-audio-tags-add {
+  opacity: 1;
+}
+
+.scr-audio-tags-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--scr-space-2);
+}
+
+.scr-audio-tag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--scr-space-1);
+  min-height: 26px;
+  border: 1px solid var(--scr-border-subtle);
+  border-radius: 999px;
+  background: var(--scr-surface-muted);
+  color: var(--scr-text-primary);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1;
+  padding: 0 var(--scr-space-2);
+}
+
+.scr-audio-tag-chip button {
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--scr-text-tertiary);
+  cursor: pointer;
+  opacity: 0;
+  padding: 0;
+}
+
+.scr-audio-tag-chip:hover button,
+.scr-audio-tag-chip:focus-within button {
+  opacity: 1;
+}
+
+.scr-audio-tag-chip button:hover,
+.scr-audio-tag-chip button:focus-visible {
+  background: color-mix(in srgb, var(--scr-color-danger) 10%, transparent);
+  color: var(--scr-color-danger);
+}
+
+.scr-audio-tags-empty {
+  margin: 0;
+  color: var(--scr-text-secondary);
+  font-size: var(--scr-type-body-lg);
+  line-height: var(--scr-line-relaxed);
+}
+
+.scr-tag-picker {
+  width: 280px;
+  padding: 0;
+}
+
+.scr-tag-picker-option {
+  display: flex;
+  align-items: center;
+  gap: var(--scr-space-2);
+}
+
+.scr-tag-picker-check {
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border: 1px solid var(--scr-border-subtle);
+  border-radius: var(--scr-radius-sm);
+  color: var(--scr-brand-solid);
+}
+
+.scr-tag-picker-check[data-selected="true"] {
+  border-color: var(--scr-brand-border);
+  background: var(--scr-brand-muted);
+}
+
 .scr-summary-overview-section {
   display: grid;
   gap: var(--scr-space-4);

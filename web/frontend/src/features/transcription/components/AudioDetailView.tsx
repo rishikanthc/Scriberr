@@ -13,6 +13,7 @@ import { TranscriptHighlightMenu } from "@/features/transcription/components/Tra
 import { TranscriptNoteComposer, type TranscriptNoteComposerSelection } from "@/features/transcription/components/TranscriptNoteComposer";
 import { TranscriptNotesSidebar } from "@/features/transcription/components/TranscriptNotesSidebar";
 import { TranscriptSelectionMenu } from "@/features/transcription/components/TranscriptSelectionMenu";
+import { AudioTagSection } from "@/features/tags/components/AudioTagSection";
 import { useFileEvents } from "@/features/files/hooks/useFileEvents";
 import { useTranscriptionDetailEvents } from "@/features/transcription/hooks/useTranscriptionDetailEvents";
 import { computeWordOffsets, computeWordOffsetsInText, createPlaybackSync, useTranscriptKaraokeHighlight, type KaraokeHighlightSegment, type PlaybackSync } from "@/features/transcription/hooks/useKaraokeHighlight";
@@ -255,6 +256,11 @@ export function AudioDetailView() {
                   <Pencil size={14} aria-hidden="true" />
                 </button>
               </div>
+
+              <AudioTagSection
+                transcriptionId={latestTranscription?.id}
+                enabled={Boolean(latestTranscription?.status === "completed")}
+              />
 
               {activeTab === "summary" ? (
                 <SummaryPanel transcription={latestTranscription} />
