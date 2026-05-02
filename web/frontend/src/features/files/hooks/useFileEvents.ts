@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { filesQueryKey } from "@/features/files/hooks/useFiles";
+import type { FilesResponse, ScriberrFile } from "@/features/files/api/filesApi";
 
 export type FileEvent = {
   name: string;
@@ -10,6 +11,7 @@ export type FileEvent = {
     kind?: string;
     status?: string;
     progress?: number;
+    title?: string;
     deleted?: boolean;
   };
 };
@@ -65,6 +67,7 @@ export function useFileEvents(onEvent?: (event: FileEvent) => void) {
           for (const chunk of chunks) {
             const parsed = parseSSEChunk(chunk);
             if (!parsed || !parsed.name.startsWith("file.")) continue;
+            applyFileEventToCache(queryClient, parsed);
             queryClient.invalidateQueries({ queryKey: filesQueryKey });
             queryClient.invalidateQueries({ queryKey: ["audioFiles"] });
             onEvent?.(parsed);
@@ -85,6 +88,45 @@ export function useFileEvents(onEvent?: (event: FileEvent) => void) {
       if (reconnectTimer) window.clearTimeout(reconnectTimer);
     };
   }, [token, queryClient, onEvent]);
+}
+
+function applyFileEventToCache(queryClient: ReturnType<typeof useQueryClient>, event: FileEvent) {
+  const fileId = event.data.id;
+  if (!fileId) return;
+
+  queryClient.setQueryData<FilesResponse>(filesQueryKey, (current) => {
+    if (!current) return current;
+    return {
+      ...current,
+      items: current.items.map((file) => file.id === fileId ? applyFileEvent(file, event) : file),
+    };
+  });
+  queryClient.setQueryData<ScriberrFile>([...filesQueryKey, fileId], (current) => (
+    current ? applyFileEvent(current, event) : current
+  ));
+}
+
+function applyFileEvent(file: ScriberrFile, event: FileEvent): ScriberrFile {
+  return {
+    ...file,
+    title: event.data.title ?? file.title,
+    status: normalizeFileStatus(event.data.status) ?? file.status,
+    updated_at: new Date().toISOString(),
+  };
+}
+
+function normalizeFileStatus(status: string | undefined): ScriberrFile["status"] | undefined {
+  switch (status) {
+    case "ready":
+    case "uploaded":
+    case "processing":
+    case "failed":
+    case "stopped":
+    case "canceled":
+      return status;
+    default:
+      return undefined;
+  }
 }
 
 function parseSSEChunk(chunk: string): FileEvent | null {
