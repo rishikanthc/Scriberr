@@ -2,23 +2,41 @@
 
 This tracker belongs to `devnotes/v2.0.0/sprint-plans/tag-based-audio-organization-frontend-sprint-plan.md`.
 
-Status: Sprint 1 planning is in progress.
+Status: completed through Sprint 1. Sprint 2 tag API client and hooks is next.
 
 ## Sprint 1: Contract and Planning
 
-Status: in progress
+Status: completed
 
 Completed tasks:
 
 - Added the frontend sprint plan.
 - Added this sprint tracker.
 - Identified that the requested Settings dialog field `when_to_use` needs a backend contract extension before frontend persistence.
+- Extended backend tag persistence/API with `when_to_use`.
+- Added focused model/database/service/API coverage for create, update, and response shape.
 
-Remaining tasks:
+Artifacts:
 
-- Extend backend tag persistence/API with `when_to_use`.
-- Run focused backend verification.
-- Commit the contract extension separately.
+- `internal/models/tag.go`
+- `internal/database/schema.go`
+- `internal/database/steps.go`
+- `internal/database/database_test.go`
+- `internal/repository/implementations.go`
+- `internal/tags/service.go`
+- `internal/tags/service_test.go`
+- `internal/api/tag_handlers.go`
+- `internal/api/tag_handlers_test.go`
+
+Commits:
+
+- `d5d7371` (`docs: plan tag organization frontend`)
+- `ad09443` (`docs: plan tag detail page sprint`)
+- `d4b875f` (`feat: add tag usage guidance field`)
+
+Verification:
+
+- `GOCACHE=/Users/zade/Code/asr/Scriberr/.tmp/go-build go test ./internal/tags ./internal/database ./internal/api -run 'TestTag|TestAudioTag|TestServiceCreateListUpdateDeleteTag'`
 
 ## Sprint 2: Tag API Client and Hooks
 
