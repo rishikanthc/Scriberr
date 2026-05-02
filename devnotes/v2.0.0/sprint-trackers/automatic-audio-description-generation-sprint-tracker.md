@@ -27,24 +27,28 @@ Verification:
 
 ## Sprint 2: Description Generator Workflow
 
-Status: pending
+Status: complete
 
 Progress:
 
-- [ ] Resolve completed summary plus outline context for a transcription.
-- [ ] Add small-model description prompt and provider call.
-- [ ] Validate exactly two non-empty lines after normalization.
-- [ ] Persist description metadata and publish `file.updated`.
-- [ ] Add bounded recovery for completed summary-plus-outline results missing descriptions.
+- [x] Resolve completed summary plus outline context for a transcription.
+- [x] Add small-model description prompt and provider call.
+- [x] Validate exactly two non-empty lines after normalization.
+- [x] Persist description metadata and publish `file.updated`.
+- [x] Add bounded recovery for completed summary-plus-outline results missing descriptions.
+- [x] Gracefully no-op when no active LLM provider or small model is configured.
+- [x] Use summary and outline context only; transcript text is not loaded or sent.
 
 Verification:
 
-- [ ] Missing provider/model no-op test.
-- [ ] Missing outline skip test.
-- [ ] Summary-plus-outline provider-call test.
-- [ ] Transcript-not-used test.
-- [ ] Invalid output rejection tests.
-- [ ] Valid output persistence and SSE test.
+- [x] Missing provider/model no-op test.
+- [x] Missing outline skip test.
+- [x] Summary-plus-outline provider-call test.
+- [x] Transcript-not-used test.
+- [x] Invalid output rejection tests.
+- [x] Valid output persistence and SSE test.
+- [x] `env GOCACHE=/tmp/go-build-cache go test ./internal/summarization`
+- [x] `env GOCACHE=/tmp/go-build-cache go test ./internal/repository`
 
 ## Sprint 3: Home Page Card UI and SSE Reactivity
 

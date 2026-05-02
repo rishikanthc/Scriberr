@@ -210,10 +210,165 @@ func TestGenerateTitleForSummaryKeepsFaithfulCurrentTitleAndMarksProcessed(t *te
 	require.Contains(t, fake.messages[0].Content, "If the current title already faithfully describes the audio")
 }
 
+func TestGenerateDescriptionForSummaryPersistsRecordingAndPublishesFileEvent(t *testing.T) {
+	logger.Init("silent")
+	require.NoError(t, database.Initialize(filepath.Join(t.TempDir(), "scriberr.db")))
+	database.DB.Logger = gormlogger.Default.LogMode(gormlogger.Silent)
+	t.Cleanup(func() { _ = database.Close() })
+
+	user, job := createTitleGenerationFixture(t, "job-description")
+	secretTranscript := `{"text":"SECRET TRANSCRIPT SHOULD NOT BE SENT","segments":[{"id":"seg_000001","start":0,"end":1,"text":"SECRET TRANSCRIPT SHOULD NOT BE SENT"}],"words":[]}`
+	require.NoError(t, database.DB.Model(&models.TranscriptionJob{}).Where("id = ?", job.ID).Update("transcript_text", secretTranscript).Error)
+	baseURL := "http://127.0.0.1:1234/v1"
+	smallModel := "small"
+	require.NoError(t, database.DB.Create(&models.LLMConfig{
+		UserID: user.ID, Name: "configured", Provider: "openai_compatible", BaseURL: &baseURL, IsDefault: true, SmallModel: &smallModel,
+	}).Error)
+	summary := createCompletedSummaryWithOutline(t, user.ID, job.ID, "sum-description", "A roundtable on compact home theater systems and setup tradeoffs.", "Setup goals\nSpeaker placement\nRoom calibration")
+
+	events := &recordingSummaryEvents{}
+	fake := &fakeTitleLLM{content: "Compact home theater setup and calibration.\nPractical tradeoffs for speakers and room layout."}
+	service := NewService(repository.NewSummaryRepository(database.DB), repository.NewLLMConfigRepository(database.DB), repository.NewJobRepository(database.DB), Config{})
+	service.SetEventPublisher(events)
+	service.clientFor = func(*models.LLMConfig) (llm.Service, error) {
+		return fake, nil
+	}
+
+	require.NoError(t, service.generateDescriptionForSummary(context.Background(), summary))
+
+	want := "Compact home theater setup and calibration.\nPractical tradeoffs for speakers and room layout."
+	var recording models.TranscriptionJob
+	require.NoError(t, database.DB.First(&recording, "id = ?", *job.SourceFileHash).Error)
+	require.NotNil(t, recording.LLMDescription)
+	require.Equal(t, want, *recording.LLMDescription)
+	require.NotNil(t, recording.LLMDescriptionAt)
+	require.NotNil(t, recording.LLMDescriptionSourceSummaryID)
+	require.Equal(t, summary.ID, *recording.LLMDescriptionSourceSummaryID)
+
+	var transcription models.TranscriptionJob
+	require.NoError(t, database.DB.First(&transcription, "id = ?", job.ID).Error)
+	require.NotNil(t, transcription.LLMDescription)
+	require.Equal(t, want, *transcription.LLMDescription)
+
+	require.Len(t, events.fileEvents, 1)
+	require.Equal(t, "file.updated", events.fileEvents[0].name)
+	require.Equal(t, "file_"+recording.ID, events.fileEvents[0].payload["id"])
+	require.Equal(t, want, events.fileEvents[0].payload["description"])
+	require.Len(t, fake.messages, 1)
+	require.Contains(t, fake.messages[0].Content, "Summary:\n"+summary.Content)
+	require.Contains(t, fake.messages[0].Content, "Outline:\nSetup goals")
+	require.NotContains(t, fake.messages[0].Content, "SECRET TRANSCRIPT")
+}
+
+func TestGenerateDescriptionForSummarySkipsWhenProviderOrOutlineMissing(t *testing.T) {
+	logger.Init("silent")
+	require.NoError(t, database.Initialize(filepath.Join(t.TempDir(), "scriberr.db")))
+	database.DB.Logger = gormlogger.Default.LogMode(gormlogger.Silent)
+	t.Cleanup(func() { _ = database.Close() })
+
+	user, job := createTitleGenerationFixture(t, "job-description-skip")
+	summary := createCompletedSummaryWithOutline(t, user.ID, job.ID, "sum-description-skip", "A summary.", "An outline.")
+
+	service := NewService(repository.NewSummaryRepository(database.DB), repository.NewLLMConfigRepository(database.DB), repository.NewJobRepository(database.DB), Config{})
+	called := false
+	service.clientFor = func(*models.LLMConfig) (llm.Service, error) {
+		called = true
+		return &fakeTitleLLM{content: "Should not\nRun"}, nil
+	}
+	require.NoError(t, service.generateDescriptionForSummary(context.Background(), summary))
+	require.False(t, called)
+
+	baseURL := "http://127.0.0.1:1234/v1"
+	smallModel := "small"
+	require.NoError(t, database.DB.Create(&models.LLMConfig{
+		UserID: user.ID, Name: "configured", Provider: "openai_compatible", BaseURL: &baseURL, IsDefault: true, SmallModel: &smallModel,
+	}).Error)
+	noOutline := &models.Summary{ID: "sum-no-outline", UserID: user.ID, TranscriptionID: job.ID, Status: "completed", Content: "A summary without outline."}
+	called = false
+	require.NoError(t, service.generateDescriptionForSummary(context.Background(), noOutline))
+	require.False(t, called)
+}
+
+func TestGenerateDescriptionForSummaryRejectsInvalidOutput(t *testing.T) {
+	logger.Init("silent")
+	require.NoError(t, database.Initialize(filepath.Join(t.TempDir(), "scriberr.db")))
+	database.DB.Logger = gormlogger.Default.LogMode(gormlogger.Silent)
+	t.Cleanup(func() { _ = database.Close() })
+
+	user, job := createTitleGenerationFixture(t, "job-description-invalid")
+	baseURL := "http://127.0.0.1:1234/v1"
+	smallModel := "small"
+	require.NoError(t, database.DB.Create(&models.LLMConfig{
+		UserID: user.ID, Name: "configured", Provider: "openai_compatible", BaseURL: &baseURL, IsDefault: true, SmallModel: &smallModel,
+	}).Error)
+	summary := createCompletedSummaryWithOutline(t, user.ID, job.ID, "sum-description-invalid", "A summary.", "An outline.")
+
+	events := &recordingSummaryEvents{}
+	service := NewService(repository.NewSummaryRepository(database.DB), repository.NewLLMConfigRepository(database.DB), repository.NewJobRepository(database.DB), Config{})
+	service.SetEventPublisher(events)
+	service.clientFor = func(*models.LLMConfig) (llm.Service, error) {
+		return &fakeTitleLLM{content: "Only one line"}, nil
+	}
+
+	require.NoError(t, service.generateDescriptionForSummary(context.Background(), summary))
+
+	var recording models.TranscriptionJob
+	require.NoError(t, database.DB.First(&recording, "id = ?", *job.SourceFileHash).Error)
+	require.Nil(t, recording.LLMDescription)
+	require.Empty(t, events.fileEvents)
+}
+
+func TestSanitizeGeneratedDescriptionRequiresTwoPlainLines(t *testing.T) {
+	require.Equal(t, "Line one.\nLine two.", sanitizeGeneratedDescription("  Line one.  \n\n Line two. "))
+	require.Equal(t, "", sanitizeGeneratedDescription("Only one line."))
+	require.Equal(t, "", sanitizeGeneratedDescription("One.\nTwo.\nThree."))
+	require.Equal(t, "", sanitizeGeneratedDescription("- One.\n- Two."))
+	require.Equal(t, "", sanitizeGeneratedDescription("Audio recording\nSpecific second line."))
+}
+
 func TestSanitizeGeneratedTitleEnforcesSevenWordsAndRejectsGenericTitles(t *testing.T) {
 	require.Equal(t, "One Two Three Four Five Six Seven", sanitizeGeneratedTitle(`"One Two Three Four Five Six Seven Eight Nine."`))
 	require.Equal(t, "", sanitizeGeneratedTitle("Audio Recording"))
 	require.Equal(t, "A Specific Useful Title", sanitizeGeneratedTitle("  “A Specific Useful Title!”  "))
+}
+
+func createCompletedSummaryWithOutline(t *testing.T, userID uint, transcriptionID string, summaryID string, content string, outline string) *models.Summary {
+	t.Helper()
+	summary := &models.Summary{
+		ID:              summaryID,
+		UserID:          userID,
+		TranscriptionID: transcriptionID,
+		Status:          "completed",
+		Content:         content,
+	}
+	require.NoError(t, database.DB.Create(summary).Error)
+	widget := models.SummaryWidget{
+		ID:            summaryID + "-outline-widget",
+		UserID:        userID,
+		Name:          "Outline",
+		DisplayTitle:  "Outline",
+		ContextSource: "summary",
+		Prompt:        "Create an outline.",
+		Enabled:       true,
+		AlwaysEnabled: true,
+	}
+	require.NoError(t, database.DB.Create(&widget).Error)
+	run := models.SummaryWidgetRun{
+		ID:              summaryID + "-outline-run",
+		SummaryID:       summary.ID,
+		TranscriptionID: transcriptionID,
+		WidgetID:        widget.ID,
+		UserID:          userID,
+		WidgetName:      widget.Name,
+		DisplayTitle:    widget.DisplayTitle,
+		ContextSource:   widget.ContextSource,
+		Model:           "small",
+		Provider:        "openai_compatible",
+		Status:          "completed",
+		Output:          outline,
+	}
+	require.NoError(t, database.DB.Create(&run).Error)
+	return summary
 }
 
 func createTitleGenerationFixture(t *testing.T, id string) (models.User, models.TranscriptionJob) {

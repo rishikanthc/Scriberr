@@ -67,6 +67,24 @@ const titlePromptSummarySection = `
 Summary:
 `
 
+const descriptionPrompt = `Write a description for this audio recording.
+
+Rules:
+- Output exactly 2 lines.
+- Each line must be a concise sentence fragment or sentence.
+- No bullets, numbering, quotes, markdown, heading, prefix, or extra commentary.
+- Use only the summary and outline below.
+- Do not mention "summary", "outline", or "transcript".
+`
+
+const descriptionPromptSummarySection = `Summary:
+`
+
+const descriptionPromptOutlineSection = `
+
+Outline:
+`
+
 const markdownTypesetInstructions = `Format the response as clean Markdown suitable for read-only typeset rendering.
 
 Use Markdown structure only when it improves scanning: concise headings, bullet lists, numbered lists, tables, emphasis, or checkboxes where appropriate.
@@ -153,6 +171,8 @@ func (s *Service) Start(ctx context.Context) error {
 	go s.workerLoop()
 	s.wg.Add(1)
 	go s.generateMissingRecordingTitles()
+	s.wg.Add(1)
+	go s.generateMissingRecordingDescriptions()
 	s.notify()
 	return nil
 }
@@ -267,6 +287,25 @@ func (s *Service) generateMissingRecordingTitles() {
 		}
 		if err := s.generateTitleForSummary(s.ctx, &summaries[i], summaries[i].Content); err != nil {
 			logger.Error("Automatic title generation recovery failed", "summary_id", summaries[i].ID, "transcription_id", summaries[i].TranscriptionID, "error", err)
+		}
+	}
+}
+
+func (s *Service) generateMissingRecordingDescriptions() {
+	defer s.wg.Done()
+	summaries, err := s.summaries.ListCompletedSummariesForDescriptionGeneration(s.ctx, 25)
+	if err != nil {
+		logger.Error("Failed to list summaries for description generation", "error", err)
+		return
+	}
+	for i := range summaries {
+		select {
+		case <-s.ctx.Done():
+			return
+		default:
+		}
+		if err := s.generateDescriptionForSummary(s.ctx, &summaries[i]); err != nil {
+			logger.Error("Automatic description generation recovery failed", "summary_id", summaries[i].ID, "transcription_id", summaries[i].TranscriptionID, "error", err)
 		}
 	}
 }
@@ -564,6 +603,79 @@ func (s *Service) processWidgetRun(ctx context.Context, run *models.SummaryWidge
 	run.ContextWindow = contextWindow
 	run.InputCharacters = len(contextText)
 	s.publishWidgetRun(context.Background(), "summary_widget.completed", run)
+	if err := s.generateDescriptionForSummary(context.Background(), summary); err != nil {
+		logger.Error("Automatic description generation failed", "summary_id", summary.ID, "transcription_id", summary.TranscriptionID, "widget_run_id", run.ID, "error", err)
+	}
+	return nil
+}
+
+func (s *Service) generateDescriptionForSummary(ctx context.Context, summary *models.Summary) error {
+	if summary == nil || strings.TrimSpace(summary.Content) == "" {
+		return nil
+	}
+	outline, err := s.summaries.GetCompletedOutlineRun(ctx, summary.ID, summary.TranscriptionID, summary.UserID)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	config, err := s.llmConfig.GetActiveByUser(ctx, summary.UserID)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if !titleLLMReady(config) {
+		return nil
+	}
+	job, err := s.jobs.FindByID(ctx, summary.TranscriptionID)
+	if err != nil {
+		return err
+	}
+	recording := job
+	if job.SourceFileHash != nil && strings.TrimSpace(*job.SourceFileHash) != "" {
+		parent, err := s.jobs.FindByID(ctx, strings.TrimSpace(*job.SourceFileHash))
+		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+			return err
+		}
+		if parent != nil {
+			recording = parent
+		}
+	}
+	if recording.LLMDescriptionSourceSummaryID != nil && *recording.LLMDescriptionSourceSummaryID == summary.ID {
+		return nil
+	}
+	client, err := s.clientFor(config)
+	if err != nil {
+		return err
+	}
+	model := strings.TrimSpace(*config.SmallModel)
+	prompt := descriptionPrompt + descriptionPromptSummarySection + strings.TrimSpace(summary.Content) + descriptionPromptOutlineSection + strings.TrimSpace(outline.Output)
+	response, err := client.ChatCompletion(ctx, model, []llm.ChatMessage{{Role: "user", Content: prompt}}, 0)
+	if err != nil {
+		return err
+	}
+	content := ""
+	if response != nil && len(response.Choices) > 0 {
+		content = response.Choices[0].Message.Content
+	}
+	description := sanitizeGeneratedDescription(content)
+	if description == "" {
+		return nil
+	}
+	generatedAt := time.Now()
+	if err := s.jobs.UpdateLLMGeneratedDescription(ctx, summary.TranscriptionID, recording.ID, summary.ID, description, generatedAt); err != nil {
+		return err
+	}
+	if s.events != nil {
+		s.events.PublishFileEvent(ctx, "file.updated", map[string]any{
+			"id":          "file_" + recording.ID,
+			"description": description,
+			"status":      string(recording.Status),
+		})
+	}
 	return nil
 }
 
@@ -661,6 +773,71 @@ func isGenericGeneratedTitle(title string) bool {
 
 func sameGeneratedTitle(currentTitle string, generatedTitle string) bool {
 	return strings.EqualFold(strings.Join(strings.Fields(currentTitle), " "), strings.Join(strings.Fields(generatedTitle), " "))
+}
+
+func sanitizeGeneratedDescription(value string) string {
+	text := strings.TrimSpace(value)
+	text = strings.TrimPrefix(text, "```")
+	text = strings.TrimSuffix(text, "```")
+	text = strings.TrimSpace(text)
+	rawLines := strings.Split(strings.ReplaceAll(text, "\r\n", "\n"), "\n")
+	lines := make([]string, 0, len(rawLines))
+	for _, line := range rawLines {
+		line = strings.TrimSpace(line)
+		if isDescriptionListLine(line) {
+			return ""
+		}
+		line = strings.Trim(line, "\"'“”‘`*_")
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		line = strings.Join(strings.Fields(line), " ")
+		line = strings.TrimPrefix(line, "- ")
+		line = strings.TrimPrefix(line, "* ")
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		lines = append(lines, truncateDescriptionLine(line))
+	}
+	if len(lines) != 2 {
+		return ""
+	}
+	if isGenericGeneratedDescription(lines[0]) || isGenericGeneratedDescription(lines[1]) {
+		return ""
+	}
+	return strings.Join(lines, "\n")
+}
+
+func isDescriptionListLine(line string) bool {
+	if strings.HasPrefix(line, "- ") || strings.HasPrefix(line, "* ") {
+		return true
+	}
+	if len(line) >= 3 && line[0] >= '0' && line[0] <= '9' && line[1] == '.' && line[2] == ' ' {
+		return true
+	}
+	return false
+}
+
+func truncateDescriptionLine(line string) string {
+	const maxRunes = 180
+	runes := []rune(line)
+	if len(runes) <= maxRunes {
+		return strings.TrimSpace(line)
+	}
+	return strings.TrimRight(strings.TrimSpace(string(runes[:maxRunes])), " .,;:-")
+}
+
+func isGenericGeneratedDescription(line string) bool {
+	normalized := strings.ToLower(strings.TrimSpace(line))
+	normalized = strings.TrimRight(normalized, " .,:;!?")
+	switch normalized {
+	case "audio recording", "this audio discusses the topic", "this audio is about a topic", "this recording discusses a topic", "a summary of the audio":
+		return true
+	default:
+		return false
+	}
 }
 
 func fitTranscriptToContext(transcript string, contextWindow int) (string, bool) {
