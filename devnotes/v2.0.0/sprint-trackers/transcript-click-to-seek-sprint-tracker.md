@@ -2,7 +2,7 @@
 
 This tracker belongs to `devnotes/v2.0.0/sprint-plans/transcript-click-to-seek-sprint-plan.md`.
 
-Status: Sprint 2 complete; Sprint 3 pending.
+Status: Sprint 3 utility complete; Sprint 4 pending.
 
 ## Sprint 1 Findings
 
@@ -80,20 +80,20 @@ Verification:
 
 ## Sprint 3: Browser Caret Hit Testing Utility
 
-Status: pending
+Status: complete
 
 Progress:
 
-- [ ] Add Firefox `caretPositionFromPoint` support.
-- [ ] Add Chromium/WebKit `caretRangeFromPoint` fallback.
-- [ ] Resolve clicked text node, offset, and containing segment.
-- [ ] Reject clicks outside transcript text and inside interactive controls.
-- [ ] Add targeted tests where practical.
+- [x] Add Firefox `caretPositionFromPoint` support.
+- [x] Add Chromium/WebKit `caretRangeFromPoint` fallback.
+- [x] Resolve clicked text node, offset, and containing segment.
+- [x] Reject clicks outside transcript text and inside interactive controls.
+- [x] Add targeted compile coverage through frontend type-check; live browser behavior will be verified when Sprint 4 wires the utility into the transcript UI.
 
 Verification:
 
-- [ ] Browser verification for real caret API behavior.
-- [ ] `npm run type-check` from `web/frontend`.
+- [ ] Browser verification for real caret API behavior after Sprint 4 integration.
+- [x] `npm run type-check` from `web/frontend`.
 
 ## Sprint 4: Click-to-Seek Hook Integration
 
