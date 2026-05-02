@@ -8,9 +8,10 @@ import { useDeleteProfile, useProfiles, useSaveProfile, useTranscriptionModels }
 import { ASRProfileDialog } from "../components/ASRProfileDialog";
 import { LLMProviderPanel } from "../components/LLMProviderPanel";
 import { SummaryWidgetsPanel } from "../components/SummaryWidgetsPanel";
+import { TagsSettingsPanel } from "@/features/tags/components/TagsSettingsPanel";
 import type { TranscriptionProfile, TranscriptionProfileOptions } from "../api/profilesApi";
 
-type SettingsTab = "general" | "asr" | "llm" | "summarization";
+type SettingsTab = "general" | "asr" | "llm" | "summarization" | "tags";
 
 export function Settings() {
   const [activeTab, setActiveTab] = useState<SettingsTab>("asr");
@@ -73,6 +74,9 @@ export function Settings() {
             <button className="scr-settings-tab" data-active={activeTab === "summarization"} type="button" role="tab" aria-selected={activeTab === "summarization"} onClick={() => setActiveTab("summarization")}>
               Summarization
             </button>
+            <button className="scr-settings-tab" data-active={activeTab === "tags"} type="button" role="tab" aria-selected={activeTab === "tags"} onClick={() => setActiveTab("tags")}>
+              Tags
+            </button>
           </div>
 
           <div className="scr-settings-content">
@@ -124,6 +128,8 @@ export function Settings() {
               </section>
             ) : activeTab === "llm" ? (
               <LLMProviderPanel />
+            ) : activeTab === "tags" ? (
+              <TagsSettingsPanel />
             ) : (
               <SummaryWidgetsPanel />
             )}
