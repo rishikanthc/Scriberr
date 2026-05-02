@@ -2061,7 +2061,7 @@ body[data-notes-sidebar-resizing="true"] {
   color: var(--scr-text-primary);
   font-family: "DM Sans", var(--scr-font-sans);
   font-size: 1rem;
-  font-weight: var(--scr-font-weight-semibold);
+  font-weight: var(--scr-font-weight-medium);
   line-height: 1.25;
   text-overflow: ellipsis;
   transition: color 180ms ease;
