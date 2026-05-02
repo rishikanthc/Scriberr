@@ -155,6 +155,47 @@ func TestSSEReceivesAnnotationEvents(t *testing.T) {
 	require.NotContains(t, stream, "quoted text")
 }
 
+func TestSSEReceivesTagEvents(t *testing.T) {
+	s := newAuthTestServer(t)
+	token := registerForFileTests(t, s)
+	transcriptionID := createTranscriptionForTagTest(t, s, token, "Tagged stream")
+
+	recorder, cancel, done := startEventStream(t, s, token, "/api/v1/transcriptions/"+transcriptionID+"/events")
+	resp, body := s.request(t, http.MethodPost, "/api/v1/tags", map[string]any{
+		"name":  "Stream Tag",
+		"color": "#E87539",
+	}, token, "")
+	require.Equal(t, http.StatusCreated, resp.Code)
+	tagID := body["id"].(string)
+
+	resp, _ = s.request(t, http.MethodPost, "/api/v1/transcriptions/"+transcriptionID+"/tags/"+tagID, nil, token, "")
+	require.Equal(t, http.StatusOK, resp.Code)
+
+	require.Eventually(t, func() bool {
+		stream := recorder.Body.String()
+		return strings.Contains(stream, "event: transcription.tags.updated") &&
+			strings.Contains(stream, `"transcription_id":"`+transcriptionID+`"`)
+	}, time.Second, 10*time.Millisecond)
+	stopEventStream(t, cancel, done)
+
+	stream := recorder.Body.String()
+	require.NotContains(t, stream, "Stream Tag")
+	require.NotContains(t, stream, "#E87539")
+
+	globalRecorder, globalCancel, globalDone := startEventStream(t, s, token, "/api/v1/events")
+	resp, _ = s.request(t, http.MethodPatch, "/api/v1/tags/"+tagID, map[string]any{
+		"name": "Renamed Stream Tag",
+	}, token, "")
+	require.Equal(t, http.StatusOK, resp.Code)
+	require.Eventually(t, func() bool {
+		stream := globalRecorder.Body.String()
+		return strings.Contains(stream, "event: tag.updated") && strings.Contains(stream, `"id":"`+tagID+`"`)
+	}, time.Second, 10*time.Millisecond)
+	stopEventStream(t, globalCancel, globalDone)
+
+	require.NotContains(t, globalRecorder.Body.String(), "Renamed Stream Tag")
+}
+
 func progressEventForTest(jobID, name string) orchestrator.ProgressEvent {
 	return orchestrator.ProgressEvent{
 		Name:     name,
