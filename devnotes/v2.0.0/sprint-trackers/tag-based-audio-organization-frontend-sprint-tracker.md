@@ -39,6 +39,10 @@ Remaining tasks:
 - Add the sidebar Tags accordion.
 - Add loading/empty/error states.
 - Update active-nav styling to accent text only.
+- Add a dedicated `/tags/{tag_id}` page.
+- Make sidebar tag clicks navigate to the dedicated tag page.
+- Reuse the Home audio-list experience on the tag page with a tag filter.
+- Show an empty state when the selected tag has no audio.
 
 ## Sprint 4: Settings Tags Management
 

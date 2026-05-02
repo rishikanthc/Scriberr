@@ -107,13 +107,18 @@ Tasks:
 - Show all tags when expanded.
 - Show loading, empty, and error states compactly.
 - Update active-nav styling to accent-colored text only; remove active background/border highlight.
-- Decide whether clicking a tag should filter Home immediately or remain a navigational affordance for future filtering. For this sprint, keep it passive unless a route already supports a filter state.
+- Add a dedicated tag detail route such as `/tags/{tag_id}`.
+- Clicking a sidebar tag navigates to that tag detail route.
+- The tag detail page should reuse the Home audio-list experience and show only audio whose latest/visible transcription has that tag.
+- Show a graceful empty state when no audio exists for the selected tag.
 
 Acceptance criteria:
 
 - Sidebar has Home, Tags, and Settings.
 - Active item uses accent text without background highlight.
 - Empty tag list is graceful and does not shift layout unexpectedly.
+- Clicking a tag opens a dedicated page for that tag.
+- The tag page matches the Home audio list behavior while filtering to the selected tag.
 
 ## Sprint 4: Settings Tags Management
 
