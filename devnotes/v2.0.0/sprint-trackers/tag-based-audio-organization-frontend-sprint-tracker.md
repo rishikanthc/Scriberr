@@ -2,7 +2,7 @@
 
 This tracker belongs to `devnotes/v2.0.0/sprint-plans/tag-based-audio-organization-frontend-sprint-plan.md`.
 
-Status: completed through Sprint 4. Sprint 5 audio detail tags is next.
+Status: completed through Sprint 5. Sprint 6 verification is next.
 
 ## Sprint 1: Contract and Planning
 
@@ -126,13 +126,28 @@ Verification:
 
 ## Sprint 5: Audio Detail Tags
 
-Status: pending
+Status: completed
 
-Remaining tasks:
+Completed tasks:
 
-- Add audio-detail tag display section.
-- Add searchable multi-select tag picker.
-- Add hover/focus remove affordance on assigned tags.
+- Added audio-detail tag display section.
+- Added searchable multi-select tag picker.
+- Added hover/focus remove affordance on assigned tag chips.
+- Kept tag fetching and mutations in a focused tags component outside transcript text rendering.
+
+Artifacts:
+
+- `web/frontend/src/features/tags/components/AudioTagSection.tsx`
+- `web/frontend/src/features/transcription/components/AudioDetailView.tsx`
+- `web/frontend/src/styles/design-system.css`
+
+Commit:
+
+- `c1da392` (`feat: manage tags on audio detail`)
+
+Verification:
+
+- `npm run type-check` from `web/frontend`
 
 ## Sprint 6: Verification
 
