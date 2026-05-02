@@ -8,6 +8,7 @@
 		"build": "tsc -b && vite build",
 		"lint": "eslint .",
 		"test:highlighting": "tsc -p tsconfig.highlighting-tests.json && node ../../.tmp/frontend-highlight-tests/features/transcription/utils/transcriptHighlighting.regression.js",
+		"test:word-seek": "tsc -p tsconfig.word-seek-tests.json && node ../../.tmp/frontend-word-seek-tests/features/transcription/utils/wordSeekIndex.regression.js",
 		"type-check": "tsc -b",
 		"preview": "vite preview"
 	},

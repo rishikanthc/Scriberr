@@ -2,7 +2,7 @@
 
 This tracker belongs to `devnotes/v2.0.0/sprint-plans/transcript-click-to-seek-sprint-plan.md`.
 
-Status: Sprint 1 audit complete; Sprint 2 pending.
+Status: Sprint 2 complete; Sprint 3 pending.
 
 ## Sprint 1 Findings
 
@@ -63,20 +63,20 @@ Verification:
 
 ## Sprint 2: Word Timing Index Foundation
 
-Status: pending
+Status: complete
 
 Progress:
 
-- [ ] Add typed word seek target/index utilities.
-- [ ] Build segment-local character ranges from displayed text and word timings.
-- [ ] Implement binary search lookup by character offset.
-- [ ] Cover whitespace, punctuation, repeated words, and missing timestamps.
-- [ ] Add unit tests for index construction and lookup.
+- [x] Add typed word seek target/index utilities.
+- [x] Build segment-local character ranges from displayed text and word timings.
+- [x] Implement binary search lookup by character offset.
+- [x] Cover whitespace, punctuation, repeated words, and missing timestamps.
+- [x] Add unit tests for index construction and lookup.
 
 Verification:
 
-- [ ] Unit tests for word seek index.
-- [ ] `npm run type-check` from `web/frontend`.
+- [x] `npm run test:word-seek` from `web/frontend`.
+- [x] `npm run type-check` from `web/frontend`.
 
 ## Sprint 3: Browser Caret Hit Testing Utility
 

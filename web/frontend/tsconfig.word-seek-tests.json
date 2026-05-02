@@ -1,0 +1,18 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM"],
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "strict": true,
+    "skipLibCheck": true,
+    "types": ["node"],
+    "outDir": "../../.tmp/frontend-word-seek-tests",
+    "rootDir": "src",
+    "noEmit": false
+  },
+  "include": [
+    "src/features/transcription/utils/wordSeekIndex.ts",
+    "src/features/transcription/utils/wordSeekIndex.regression.ts"
+  ]
+}
