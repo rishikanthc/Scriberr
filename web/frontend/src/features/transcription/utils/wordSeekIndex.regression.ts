@@ -1,5 +1,5 @@
 import * as assert from "node:assert/strict";
-import { buildWordSeekIndex, findWordSeekTarget } from "./wordSeekIndex";
+import { buildWordSeekIndex, buildWordSeekTargetsFromOffsets, findWordSeekTarget } from "./wordSeekIndex";
 
 const index = buildWordSeekIndex("Hello, hello world.", [
   { word: "hello", start: 0.1, end: 0.4 },
@@ -50,5 +50,17 @@ const emptyIndex = buildWordSeekIndex("No usable timings.", [
 
 assert.deepEqual(emptyIndex.targets, []);
 assert.equal(findWordSeekTarget(emptyIndex.targets, 0), null);
+
+assert.deepEqual(
+  buildWordSeekTargetsFromOffsets([
+    { word: "alpha", startChar: 0, endChar: 5, startTime: 2, endTime: 2.2 },
+    { word: "bad", startChar: 6, endChar: 9, startTime: 3, endTime: 3 },
+    { word: "beta", startChar: 10, endChar: 14, startTime: 3.1, endTime: 3.4 },
+  ], 12),
+  [
+    { word: "alpha", wordIndex: 12, startChar: 0, endChar: 5, startMs: 2000, endMs: 2200 },
+    { word: "beta", wordIndex: 14, startChar: 10, endChar: 14, startMs: 3100, endMs: 3400 },
+  ]
+);
 
 console.info("word seek index regression checks passed");

@@ -13,6 +13,14 @@ export type WordSeekTarget = {
   endMs: number;
 };
 
+export type WordSeekOffsetInput = {
+  word: string;
+  startChar: number;
+  endChar: number;
+  startTime: number;
+  endTime: number;
+};
+
 export type WordSeekIndex = {
   text: string;
   targets: WordSeekTarget[];
@@ -46,6 +54,31 @@ export function buildWordSeekIndex(text: string, words: WordSeekInput[] = []): W
   });
 
   return { text: sourceText, targets };
+}
+
+export function buildWordSeekTargetsFromOffsets(offsets: WordSeekOffsetInput[] = [], wordIndexOffset = 0): WordSeekTarget[] {
+  return offsets.flatMap((offset, index) => {
+    if (
+      !offset.word.trim() ||
+      !Number.isFinite(offset.startChar) ||
+      !Number.isFinite(offset.endChar) ||
+      !Number.isFinite(offset.startTime) ||
+      !Number.isFinite(offset.endTime) ||
+      offset.endChar <= offset.startChar ||
+      offset.endTime <= offset.startTime
+    ) {
+      return [];
+    }
+
+    return [{
+      word: offset.word,
+      wordIndex: wordIndexOffset + index,
+      startChar: offset.startChar,
+      endChar: offset.endChar,
+      startMs: Math.round(offset.startTime * 1000),
+      endMs: Math.round(offset.endTime * 1000),
+    }];
+  });
 }
 
 function earliestMatch(first: number, second: number) {

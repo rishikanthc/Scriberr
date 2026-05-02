@@ -15,6 +15,7 @@ import { TranscriptNotesSidebar } from "@/features/transcription/components/Tran
 import { TranscriptSelectionMenu } from "@/features/transcription/components/TranscriptSelectionMenu";
 import { useTranscriptionDetailEvents } from "@/features/transcription/hooks/useTranscriptionDetailEvents";
 import { computeWordOffsets, computeWordOffsetsInText, createPlaybackSync, useTranscriptKaraokeHighlight, type KaraokeHighlightSegment, type PlaybackSync } from "@/features/transcription/hooks/useKaraokeHighlight";
+import { useTranscriptClickSeek } from "@/features/transcription/hooks/useTranscriptClickSeek";
 import { useTranscriptTextSelection } from "@/features/transcription/hooks/useTranscriptTextSelection";
 import { selectTranscriptNotes, useCreateTranscriptHighlight, useCreateTranscriptNote, useCreateTranscriptNoteEntry, useDeleteTranscriptHighlight, useTranscriptAnnotations } from "@/features/transcription/hooks/useTranscriptAnnotations";
 import { useTranscriptionListEvents } from "@/features/transcription/hooks/useTranscriptionListEvents";
@@ -23,6 +24,7 @@ import { preferVisibleTranscription, useTranscriptionTranscript, useTranscriptio
 import { ReadOnlyMarkdown } from "@/features/transcription/components/ReadOnlyMarkdown";
 import { buildHighlightRangesBySegment, hasDuplicateActiveHighlight, type SegmentHighlightRange } from "@/features/transcription/utils/transcriptHighlighting";
 import type { SelectionMenuRect } from "@/features/transcription/utils/transcriptHighlighting";
+import { buildWordSeekTargetsFromOffsets } from "@/features/transcription/utils/wordSeekIndex";
 
 type DetailTab = "summary" | "transcript";
 
@@ -247,6 +249,7 @@ export function AudioDetailView() {
                   annotations={annotationsQuery.data?.items || []}
                   isLoading={transcriptionsQuery.isLoading || transcriptQuery.isLoading}
                   isError={transcriptionsQuery.isError || transcriptQuery.isError}
+                  onSeekRequest={handleNoteSeekRequest}
                   onNoteSaved={() => setNotesSidebarOpen(true)}
                 />
               )}
@@ -417,6 +420,7 @@ type TranscriptPanelProps = {
   annotations: TranscriptAnnotation[];
   isLoading: boolean;
   isError: boolean;
+  onSeekRequest: (seconds: number) => void;
   onNoteSaved: () => void;
 };
 
@@ -431,7 +435,7 @@ type TranscriptDisplaySegment = KaraokeHighlightSegment & {
   wordStartIndex: number;
 };
 
-function TranscriptPanel({ fileStatus, transcription, transcript, playbackSync, annotations, isLoading, isError, onNoteSaved }: TranscriptPanelProps) {
+function TranscriptPanel({ fileStatus, transcription, transcript, playbackSync, annotations, isLoading, isError, onSeekRequest, onNoteSaved }: TranscriptPanelProps) {
   const transcriptRef = useRef<HTMLElement | null>(null);
   const textElementsRef = useRef<(HTMLElement | null)[]>([]);
   const hideHighlightMenuTimer = useRef<number | undefined>(undefined);
@@ -457,6 +461,12 @@ function TranscriptPanel({ fileStatus, transcription, transcript, playbackSync, 
       charAnchorReliable: segment.charAnchorReliable,
       wordStartIndex: segment.wordStartIndex,
       offsets: segment.offsets,
+    }))
+  ), [segments]);
+  const clickSeekSegments = useMemo(() => (
+    segments.map((segment, index) => ({
+      index,
+      targets: buildWordSeekTargetsFromOffsets(segment.offsets, segment.wordStartIndex),
     }))
   ), [segments]);
   const { selection: pendingSelection, clearSelection } = useTranscriptTextSelection(
@@ -573,6 +583,12 @@ function TranscriptPanel({ fileStatus, transcription, transcript, playbackSync, 
     segments,
     textElementsRef,
     Boolean(transcription?.status === "completed" && hasTimedWords)
+  );
+  useTranscriptClickSeek(
+    transcriptRef,
+    clickSeekSegments,
+    Boolean(transcription?.status === "completed" && hasTimedWords),
+    onSeekRequest
   );
 
   if (isLoading) {

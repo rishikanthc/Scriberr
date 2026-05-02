@@ -2,7 +2,7 @@
 
 This tracker belongs to `devnotes/v2.0.0/sprint-plans/transcript-click-to-seek-sprint-plan.md`.
 
-Status: Sprint 3 utility complete; Sprint 4 pending.
+Status: Sprint 4 complete; Sprint 5 pending.
 
 ## Sprint 1 Findings
 
@@ -92,25 +92,28 @@ Progress:
 
 Verification:
 
-- [ ] Browser verification for real caret API behavior after Sprint 4 integration.
+- [x] Browser verification for real caret API behavior after Sprint 4 integration.
 - [x] `npm run type-check` from `web/frontend`.
 
 ## Sprint 4: Click-to-Seek Hook Integration
 
-Status: pending
+Status: complete
 
 Progress:
 
-- [ ] Add `useTranscriptClickSeek` with container-level delegation.
-- [ ] Wire hook into transcript view.
-- [ ] Seek through the existing player controller/ref boundary.
-- [ ] Preserve existing paused/playing behavior.
-- [ ] Prevent accidental seeks during text selection or drag gestures.
+- [x] Add `useTranscriptClickSeek` with container-level delegation.
+- [x] Wire hook into transcript view.
+- [x] Seek through the existing player controller/ref boundary.
+- [x] Preserve existing paused/playing behavior.
+- [x] Prevent accidental seeks during text selection or drag gestures.
 
 Verification:
 
-- [ ] Browser verification on audio detail page.
-- [ ] `npm run type-check` from `web/frontend`.
+- [x] Browser verification on audio detail page: clicking normal transcript text sought from `0:00` to `0:41`.
+- [x] Browser verification on highlighted nested transcript text: clicking a saved highlight sought to `0:01`.
+- [x] Browser verification confirmed seek does not force playback; Play button remained visible after click.
+- [x] `npm run test:word-seek` from `web/frontend`.
+- [x] `npm run type-check` from `web/frontend`.
 
 ## Sprint 5: UX Polish and Hot Path Protection
 
