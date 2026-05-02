@@ -61,6 +61,8 @@ Remaining tasks:
 - Make sidebar tag clicks navigate to the dedicated tag page.
 - Reuse the Home audio-list experience on the tag page with a tag filter.
 - Show an empty state when the selected tag has no audio.
+- Display assigned tags below each audio description in the Home audio list.
+- Use the same audio-card tag display on the dedicated tag page.
 
 ## Sprint 4: Settings Tags Management
 

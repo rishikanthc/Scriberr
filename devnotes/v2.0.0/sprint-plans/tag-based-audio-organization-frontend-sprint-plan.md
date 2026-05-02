@@ -111,6 +111,8 @@ Tasks:
 - Clicking a sidebar tag navigates to that tag detail route.
 - The tag detail page should reuse the Home audio-list experience and show only audio whose latest/visible transcription has that tag.
 - Show a graceful empty state when no audio exists for the selected tag.
+- Display each audio file's assigned tags below its description in the Home audio list.
+- The dedicated tag page should use the same audio-card tag display.
 
 Acceptance criteria:
 
@@ -119,6 +121,7 @@ Acceptance criteria:
 - Empty tag list is graceful and does not shift layout unexpectedly.
 - Clicking a tag opens a dedicated page for that tag.
 - The tag page matches the Home audio list behavior while filtering to the selected tag.
+- Audio cards show assigned tags below the description without blocking the primary card actions.
 
 ## Sprint 4: Settings Tags Management
 
