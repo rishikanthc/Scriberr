@@ -2979,6 +2979,29 @@ body[data-notes-sidebar-resizing="true"] {
   width: min(100%, 760px);
 }
 
+.scr-tag-modal {
+  width: min(100%, 460px);
+  max-height: min(86vh, 620px);
+}
+
+.scr-tag-modal .scr-modal-header,
+.scr-tag-modal .scr-modal-footer {
+  padding: var(--scr-space-4);
+}
+
+.scr-tag-modal .scr-modal-body {
+  gap: var(--scr-space-3);
+  padding: var(--scr-space-4);
+}
+
+.scr-tag-modal .scr-modal-title {
+  font-size: 1.0625rem;
+}
+
+.scr-tag-modal .scr-modal-copy {
+  margin-top: 0.25rem;
+}
+
 .scr-modal-header,
 .scr-modal-footer {
   display: flex;
