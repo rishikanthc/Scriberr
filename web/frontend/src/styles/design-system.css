@@ -240,7 +240,7 @@
   display: grid;
   gap: var(--scr-space-2);
   max-width: 920px;
-  margin-bottom: var(--scr-space-6);
+  margin-bottom: var(--scr-space-8);
 }
 
 .scr-audio-tags-heading {
