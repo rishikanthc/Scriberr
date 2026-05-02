@@ -185,6 +185,8 @@ func TestAPIDocsContainOnlyCanonicalRoutes(t *testing.T) {
 	require.Contains(t, doc.Paths, "/api/v1/recordings")
 	require.Contains(t, doc.Paths, "/api/v1/recordings/{id}/chunks/{chunk_index}")
 	require.Contains(t, doc.Paths, "/api/v1/recordings/{id}:stop")
+	require.Contains(t, doc.Paths, "/api/v1/recordings/{id}:cancel")
+	require.Contains(t, doc.Paths, "/api/v1/recordings/{id}:retry-finalize")
 	require.Contains(t, doc.Paths, "/api/v1/transcriptions")
 	require.Contains(t, doc.Paths, "/api/v1/transcriptions/{id}/annotations")
 	require.Contains(t, doc.Paths, "/api/v1/transcriptions/{id}/annotations/{annotation_id}")

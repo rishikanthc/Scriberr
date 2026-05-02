@@ -137,6 +137,30 @@ func TestRecordingRepositoryFinalizationLifecycle(t *testing.T) {
 	assert.Equal(t, transcription.ID, *completed.TranscriptionID)
 	assert.Nil(t, completed.ClaimedBy)
 	assert.Nil(t, completed.ClaimExpiresAt)
+
+	_, err = repo.ClaimNextFinalization(ctx, "worker-b", now.Add(time.Minute))
+	assert.ErrorIs(t, err, gorm.ErrRecordNotFound)
+	assert.Error(t, repo.CompleteFinalization(ctx, session.ID, "worker-a", file.ID, nil, now.Add(4*time.Second)))
+	assert.Error(t, repo.FailFinalization(ctx, session.ID, "worker-a", "late failure", now.Add(4*time.Second)))
+	assert.Error(t, repo.CancelSession(ctx, user.ID, session.ID, now.Add(4*time.Second)))
+}
+
+func TestRecordingRepositoryClaimOnlyOneStoppingSessionAtATime(t *testing.T) {
+	_, repo, user := openRecordingRepositoryTestDB(t)
+	ctx := context.Background()
+	now := time.Now().Truncate(time.Millisecond)
+	session := &models.RecordingSession{UserID: user.ID, MimeType: "audio/webm"}
+	require.NoError(t, repo.CreateSession(ctx, session))
+	require.NoError(t, repo.MarkStopping(ctx, user.ID, session.ID, 0, nil, false, now))
+
+	first, err := repo.ClaimNextFinalization(ctx, "worker-a", now.Add(time.Minute))
+	require.NoError(t, err)
+	assert.Equal(t, session.ID, first.ID)
+
+	_, err = repo.ClaimNextFinalization(ctx, "worker-b", now.Add(time.Minute))
+	assert.ErrorIs(t, err, gorm.ErrRecordNotFound)
+	require.NoError(t, repo.RenewFinalizationClaim(ctx, session.ID, "worker-a", now.Add(2*time.Minute)))
+	assert.Error(t, repo.RenewFinalizationClaim(ctx, session.ID, "worker-b", now.Add(2*time.Minute)))
 }
 
 func TestRecordingRepositoryRecoverAndExpire(t *testing.T) {

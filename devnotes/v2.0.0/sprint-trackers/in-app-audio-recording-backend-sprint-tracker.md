@@ -2,7 +2,7 @@
 
 This tracker belongs to `devnotes/v2.0.0/sprint-plans/in-app-audio-recording-backend-sprint-plan.md`.
 
-Status: completed through Sprint 4. Recording schema, config, storage, repository, service state machine, HTTP API, and durable finalizer handoff are in place.
+Status: completed through Sprint 6. Recording schema, config, storage, repository, service state machine, HTTP API, durable finalizer handoff, operational cleanup, and verification hardening are in place.
 
 ## Sprint 1: Schema, Config, and Storage Boundary
 
@@ -167,17 +167,35 @@ Artifacts:
 
 ## Sprint 6: Contract, Security, and Performance Verification
 
-Status: pending
+Status: completed
 
-Planned tasks:
+Completed tasks:
 
-- [ ] Add full route contract coverage for recording endpoints.
-- [ ] Add security regression tests for path traversal, cross-user access, MIME spoofing, oversized chunks, and unsafe errors.
-- [ ] Add repository tests for claim atomicity and terminal state conflicts.
-- [ ] Add storage tests for temp-file cleanup and duplicate uploads.
-- [ ] Add API tests for streaming behavior and request cancellation.
-- [ ] Run focused backend test suite and update this tracker with artifacts and residual risks.
+- [x] Add full route contract coverage for recording endpoints and command-route OpenAPI docs.
+- [x] Add security regression tests for path traversal, cross-user access, MIME spoofing, oversized chunks, and unsafe errors.
+- [x] Add repository tests for claim atomicity and terminal state conflicts.
+- [x] Add storage tests for temp-file cleanup and duplicate uploads.
+- [x] Add API tests for streaming/event payload safety and request cancellation.
+- [x] Harden recording public ID parsing for `rec_.` and `rec_..`.
+- [x] Map canceled chunk uploads to `REQUEST_CANCELED` without persisting chunk metadata.
+- [x] Run focused backend test suite and update this tracker with artifacts and residual risks.
 
 Verification:
 
-- [ ] `go test ./internal/database ./internal/config ./internal/repository ./internal/recording ./internal/api ./cmd/server`
+- [x] `GOCACHE=/Users/zade/Code/asr/Scriberr/.tmp/go-build go test ./internal/recording ./internal/repository`
+- [x] `GOCACHE=/Users/zade/Code/asr/Scriberr/.tmp/go-build go test ./internal/api -run 'TestRecording|TestCanonicalRouteRegistration|TestEndpointContractSmoke|TestAPIDocsContainOnlyCanonicalRoutes'`
+- [x] `GOCACHE=/Users/zade/Code/asr/Scriberr/.tmp/go-build go test ./internal/database ./internal/config ./internal/repository ./internal/recording ./cmd/server`
+- [x] `GOCACHE=/Users/zade/Code/asr/Scriberr/.tmp/go-build go test ./internal/database ./internal/config ./internal/repository ./internal/recording ./internal/api ./cmd/server` outside sandbox because `httptest.NewServer` loopback binding is blocked inside the sandbox.
+
+Artifacts:
+
+- `internal/api/recording_handlers.go`
+- `internal/api/recording_handlers_test.go`
+- `internal/api/route_contract_test.go`
+- `internal/recording/service.go`
+- `internal/recording/storage_test.go`
+- `internal/repository/recording_repository_test.go`
+
+Residual risks:
+
+- No backend blockers remain for frontend recording integration. WebSocket/live transcription remains intentionally out of scope for this backend sprint plan.

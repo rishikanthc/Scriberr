@@ -2,6 +2,7 @@ package recording
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -80,6 +81,44 @@ func TestWriteChunkUsesAtomicPathAndRestrictivePermissions(t *testing.T) {
 	}
 	if info.Mode().Perm() != 0o600 {
 		t.Fatalf("chunk file mode = %o, want 600", info.Mode().Perm())
+	}
+}
+
+func TestWriteChunkRejectsDuplicateWithoutLeavingTempFiles(t *testing.T) {
+	storage, err := NewStorage(t.TempDir())
+	if err != nil {
+		t.Fatalf("NewStorage returned error: %v", err)
+	}
+
+	if _, _, err := storage.WriteChunk(context.Background(), "session-1", 0, "audio/webm", strings.NewReader("first")); err != nil {
+		t.Fatalf("first WriteChunk returned error: %v", err)
+	}
+	_, _, err = storage.WriteChunk(context.Background(), "session-1", 0, "audio/webm", strings.NewReader("second"))
+	if !errors.Is(err, ErrArtifactExists) {
+		t.Fatalf("duplicate WriteChunk err = %v, want ErrArtifactExists", err)
+	}
+
+	chunkPath, err := storage.ChunkPath("session-1", 0, "audio/webm")
+	if err != nil {
+		t.Fatalf("ChunkPath returned error: %v", err)
+	}
+	data, err := os.ReadFile(chunkPath)
+	if err != nil {
+		t.Fatalf("ReadFile returned error: %v", err)
+	}
+	if string(data) != "first" {
+		t.Fatalf("duplicate write changed chunk data to %q", string(data))
+	}
+	chunkDir, err := storage.ChunkDir("session-1")
+	if err != nil {
+		t.Fatalf("ChunkDir returned error: %v", err)
+	}
+	matches, err := filepath.Glob(filepath.Join(chunkDir, ".*.tmp"))
+	if err != nil {
+		t.Fatalf("Glob returned error: %v", err)
+	}
+	if len(matches) != 0 {
+		t.Fatalf("duplicate write left temp files: %v", matches)
 	}
 }
 

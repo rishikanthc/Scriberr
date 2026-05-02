@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -14,6 +15,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
+
+const statusClientClosedRequest = 499
 
 func (h *Handler) createRecording(c *gin.Context) {
 	userID, ok := currentUserID(c)
@@ -288,6 +291,8 @@ func writeRecordingServiceError(c *gin.Context, err error) {
 		writeError(c, http.StatusNotFound, "NOT_FOUND", "recording not found", nil)
 	case errors.Is(err, recordingdomain.ErrConflict):
 		writeError(c, http.StatusConflict, "CONFLICT", "recording state conflict", nil)
+	case errors.Is(err, context.Canceled):
+		writeError(c, statusClientClosedRequest, "REQUEST_CANCELED", "request was canceled", nil)
 	default:
 		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "recording operation failed", nil)
 	}

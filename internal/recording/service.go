@@ -445,7 +445,7 @@ func ParsePublicID(raw string) (string, error) {
 		return "", validationError("recording_id is invalid")
 	}
 	id := strings.TrimPrefix(trimmed, recordingIDPrefix)
-	if id == "" || strings.ContainsAny(id, " \t\r\n/\\") {
+	if id == "" || id == "." || id == ".." || strings.ContainsAny(id, " \t\r\n/\\") {
 		return "", validationError("recording_id is invalid")
 	}
 	return id, nil
