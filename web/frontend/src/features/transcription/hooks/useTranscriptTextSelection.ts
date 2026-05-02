@@ -125,6 +125,8 @@ type TranscriptTextPiece = {
   textElement: HTMLElement;
   segment: TranscriptSelectionSegment;
   selectedText: string;
+  textNodeStartOffset: number;
+  textNodeEndOffset: number;
   startOffset: number;
   endOffset: number;
   globalStartChar: number;
@@ -142,7 +144,7 @@ function parseTranscriptRange(
   range: Range,
   segmentByIndex: Map<number, TranscriptSelectionSegment>
 ): ParsedTranscriptRange | null {
-  if (!rangeIntersectsOnlyTranscriptText(root, range)) return null;
+  if (!rangeStartsAndEndsInTranscriptText(root, range)) return null;
 
   const pieces = collectSelectedTranscriptText(root, range, segmentByIndex);
   if (!pieces.length) return null;
@@ -156,7 +158,7 @@ function parseTranscriptRange(
   const end_ms = resolveEndMs(last);
   if (!Number.isFinite(start_ms) || !Number.isFinite(end_ms) || end_ms <= start_ms) return null;
 
-  const rect = range.getBoundingClientRect();
+  const rect = transcriptSelectionRect(pieces) || range.getBoundingClientRect();
   if (rect.width <= 0 || rect.height <= 0) return null;
 
   const anchor: Omit<TranscriptAnnotationAnchor, "text_hash"> = {
@@ -179,24 +181,13 @@ function parseTranscriptRange(
   return { quote, anchor, rect };
 }
 
-function rangeIntersectsOnlyTranscriptText(root: HTMLElement, range: Range) {
-  const scope = rangeTreeScope(root, range);
-  const walker = document.createTreeWalker(scope, NodeFilter.SHOW_TEXT, {
-    acceptNode: (node) => {
-      if (!range.intersectsNode(node)) return NodeFilter.FILTER_REJECT;
-      if (!node.textContent?.trim()) return NodeFilter.FILTER_REJECT;
-      return NodeFilter.FILTER_ACCEPT;
-    },
-  });
-
-  let node = walker.nextNode();
-  let foundText = false;
-  while (node) {
-    foundText = true;
-    if (!transcriptTextElementForNode(node)) return false;
-    node = walker.nextNode();
-  }
-  return foundText;
+function rangeStartsAndEndsInTranscriptText(root: HTMLElement, range: Range) {
+  return Boolean(
+    root.contains(range.startContainer) &&
+    root.contains(range.endContainer) &&
+    transcriptTextElementForBoundary(range.startContainer) &&
+    transcriptTextElementForBoundary(range.endContainer)
+  );
 }
 
 function collectSelectedTranscriptText(
@@ -216,7 +207,11 @@ function collectSelectedTranscriptText(
     const textElement = transcriptTextElementForNode(textNode);
     const segmentIndex = textElement ? Number(textElement.dataset.transcriptSegmentIndex) : NaN;
     const segment = Number.isInteger(segmentIndex) ? segmentByIndex.get(segmentIndex) : undefined;
-    if (!textElement || !segment) return [];
+    if (!textElement) {
+      node = walker.nextNode();
+      continue;
+    }
+    if (!segment) return [];
 
     const startOffset = textNode === range.startContainer ? range.startOffset : 0;
     const endOffset = textNode === range.endContainer ? range.endOffset : textNode.length;
@@ -230,6 +225,8 @@ function collectSelectedTranscriptText(
         textElement,
         segment,
         selectedText,
+        textNodeStartOffset: startOffset,
+        textNodeEndOffset: endOffset,
         startOffset: localStartOffset,
         endOffset: localEndOffset,
         globalStartChar: segment.startChar + localStartOffset,
@@ -253,6 +250,12 @@ function transcriptTextElementForNode(node: Node) {
   return node.parentElement?.closest<HTMLElement>("[data-transcript-text]") || null;
 }
 
+function transcriptTextElementForBoundary(node: Node) {
+  if (node.nodeType === Node.TEXT_NODE) return transcriptTextElementForNode(node);
+  if (node instanceof HTMLElement) return node.closest<HTMLElement>("[data-transcript-text]");
+  return node.parentElement?.closest<HTMLElement>("[data-transcript-text]") || null;
+}
+
 function textNodeOffsetInside(root: HTMLElement, target: Text) {
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
   let offset = 0;
@@ -265,6 +268,43 @@ function textNodeOffsetInside(root: HTMLElement, target: Text) {
   }
 
   return 0;
+}
+
+function transcriptSelectionRect(pieces: TranscriptTextPiece[]) {
+  const rects: DOMRect[] = [];
+
+  for (const piece of pieces) {
+    const range = document.createRange();
+    range.setStart(piece.node, piece.textNodeStartOffset);
+    range.setEnd(piece.node, piece.textNodeEndOffset);
+    rects.push(...Array.from(range.getClientRects()).filter((rect) => rect.width > 0 && rect.height > 0));
+    range.detach();
+  }
+
+  return unionRects(rects);
+}
+
+function unionRects(rects: DOMRect[]) {
+  if (!rects.length) return null;
+
+  let left = rects[0].left;
+  let top = rects[0].top;
+  let right = rects[0].right;
+  let bottom = rects[0].bottom;
+
+  for (const rect of rects.slice(1)) {
+    left = Math.min(left, rect.left);
+    top = Math.min(top, rect.top);
+    right = Math.max(right, rect.right);
+    bottom = Math.max(bottom, rect.bottom);
+  }
+
+  return DOMRect.fromRect({
+    x: left,
+    y: top,
+    width: right - left,
+    height: bottom - top,
+  });
 }
 
 function buildQuote(pieces: TranscriptTextPiece[]) {
