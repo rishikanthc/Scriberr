@@ -6,6 +6,7 @@ import {
   listTranscriptions,
   stopTranscription,
   type CreateTranscriptionPayload,
+  type ListTranscriptionsOptions,
   type Transcription,
   type TranscriptionsResponse,
 } from "@/features/transcription/api/transcriptionsApi";
@@ -20,6 +21,16 @@ export function useTranscriptions() {
     queryKey: transcriptionsQueryKey,
     queryFn: () => listTranscriptions(getAuthHeaders()),
     enabled: isAuthenticated,
+  });
+}
+
+export function useTaggedTranscriptions(tagRef: string | undefined) {
+  const { getAuthHeaders, isAuthenticated } = useAuth();
+
+  return useQuery({
+    queryKey: [...transcriptionsQueryKey, "tag", tagRef || "missing"],
+    queryFn: () => listTranscriptions(getAuthHeaders(), { tagRefs: tagRef ? [tagRef] : [], tagMatch: "any" } satisfies ListTranscriptionsOptions),
+    enabled: isAuthenticated && Boolean(tagRef),
   });
 }
 

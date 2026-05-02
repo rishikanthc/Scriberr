@@ -45,13 +45,24 @@ export type CreateTranscriptionPayload = {
   title?: string;
 };
 
-export async function listTranscriptions(headers: Record<string, string>): Promise<TranscriptionsResponse> {
+export type ListTranscriptionsOptions = {
+  tagRefs?: string[];
+  tagMatch?: "any" | "all";
+};
+
+export async function listTranscriptions(headers: Record<string, string>, options: ListTranscriptionsOptions = {}): Promise<TranscriptionsResponse> {
   const items: Transcription[] = [];
   let nextCursor: string | null = null;
 
   do {
     const params = new URLSearchParams({ limit: "100", sort: "-created_at" });
     if (nextCursor) params.set("cursor", nextCursor);
+    for (const tagRef of options.tagRefs || []) {
+      params.append("tag", tagRef);
+    }
+    if (options.tagRefs?.length && options.tagMatch) {
+      params.set("tag_match", options.tagMatch);
+    }
 
     const response = await fetch(`/api/v1/transcriptions?${params.toString()}`, {
       headers,
