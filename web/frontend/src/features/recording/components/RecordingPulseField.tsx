@@ -8,6 +8,7 @@ type RecordingPulseFieldProps = {
 
 type AudioContextWindow = Window & { webkitAudioContext?: typeof AudioContext };
 type RgbColor = { r: number; g: number; b: number };
+type VisualColors = { ink: RgbColor; accent: RgbColor };
 
 export function RecordingPulseField({ stream, active, paused }: RecordingPulseFieldProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -30,7 +31,7 @@ export function RecordingPulseField({ stream, active, paused }: RecordingPulseFi
     let smoothedLow = 0;
     let smoothedHigh = 0;
     let lastDrawnAt = 0;
-    let inkColor = resolveInkColor(canvas);
+    let colors = resolveVisualColors(canvas);
 
     const resize = () => {
       const rect = canvas.getBoundingClientRect();
@@ -40,7 +41,7 @@ export function RecordingPulseField({ stream, active, paused }: RecordingPulseFi
       if (canvas.width !== width || canvas.height !== height) {
         canvas.width = width;
         canvas.height = height;
-        inkColor = resolveInkColor(canvas);
+        colors = resolveVisualColors(canvas);
       }
       context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
     };
@@ -111,7 +112,7 @@ export function RecordingPulseField({ stream, active, paused }: RecordingPulseFi
       smoothedLow += (low - smoothedLow) * 0.12;
       smoothedHigh += (high - smoothedHigh) * 0.1;
 
-      drawHalftoneField(context, {
+      drawDistortedDotLattice(context, {
         width,
         height,
         timestamp,
@@ -121,7 +122,7 @@ export function RecordingPulseField({ stream, active, paused }: RecordingPulseFi
         speech: smoothedSpeech,
         low: smoothedLow,
         high: smoothedHigh,
-        color: inkColor,
+        colors,
       });
 
       animationFrame = window.requestAnimationFrame(draw);
@@ -148,7 +149,7 @@ export function RecordingPulseField({ stream, active, paused }: RecordingPulseFi
   );
 }
 
-function drawHalftoneField(
+function drawDistortedDotLattice(
   context: CanvasRenderingContext2D,
   options: {
     width: number;
@@ -160,65 +161,77 @@ function drawHalftoneField(
     speech: number;
     low: number;
     high: number;
-    color: RgbColor;
+    colors: VisualColors;
   }
 ) {
-  const { width, height, timestamp, active, paused, energy, speech, low, high, color } = options;
-  const sound = active && !paused ? Math.min(1, energy * 5.2 + speech * 2.4) : 0;
-  const visible = sound > 0.035 ? Math.min(1, sound) : 0;
-  const spacing = 11;
-  const columns = Math.ceil(width / spacing) + 4;
-  const rows = Math.ceil(height / spacing) + 4;
+  const { width, height, timestamp, active, paused, energy, speech, low, high, colors } = options;
+  const sound = active && !paused ? Math.min(1, energy * 5.8 + speech * 2.7) : 0;
+  const motion = sound > 0.025 ? smoothstep(0.025, 0.62, sound) : 0;
+  const spacing = 12;
+  const columns = Math.ceil(width / spacing) + 6;
+  const rows = Math.ceil(height / spacing) + 6;
   const time = timestamp * 0.001;
-  const amplitude = height * (0.055 + visible * 0.24 + low * 0.12);
-  const thickness = height * (0.035 + visible * 0.12);
-  const contrast = Math.min(1, 0.18 + visible * 0.8 + high * 0.28);
+  const centerX = width * (0.5 + Math.sin(time * 0.31) * motion * 0.07);
+  const centerY = height * (0.48 + Math.cos(time * 0.27) * motion * 0.08);
+  const maxRadius = Math.max(width, height) * 0.58;
+  const twist = motion * (1.7 + low * 2.4);
+  const ripple = motion * (5 + speech * 16);
+  const baseAlpha = active && !paused ? 0.12 : 0.08;
+  const baseRadius = active && !paused ? 0.82 : 0.62;
 
-  for (let row = -2; row < rows; row += 1) {
-    const y = row * spacing + ((row % 2) * spacing) / 2;
-    for (let column = -2; column < columns; column += 1) {
+  for (let row = -3; row < rows; row += 1) {
+    const y = row * spacing;
+    for (let column = -3; column < columns; column += 1) {
       const x = column * spacing;
-      const nx = width > 0 ? x / width : 0;
-      const ny = height > 0 ? y / height : 0;
-      const sweep = Math.sin(nx * 13.4 + time * (0.45 + speech * 1.3));
-      const ripple = Math.sin(nx * 27.5 - time * (0.72 + low * 1.7));
-      const contour = Math.sin(nx * 4.6 + time * 0.2) * amplitude * 0.34;
-      const upper = height * 0.18 + Math.sin(nx * 8.4 + time * 0.62) * amplitude + ripple * amplitude * 0.28;
-      const middle = height * 0.48 + Math.sin(nx * 9.8 - time * 0.5 + 1.7) * amplitude * 0.88 + sweep * amplitude * 0.2 + contour;
-      const lower = height * 0.8 + Math.sin(nx * 7.2 + time * 0.38 + 3.1) * amplitude * 0.72 - ripple * amplitude * 0.22;
-      const quietGhost = active && !paused ? 0 : 0.018 * Math.sin(nx * 20 + ny * 16);
-      const band =
-        gaussianDistance(y, upper, thickness * 0.95) * (0.72 + high * 0.25) +
-        gaussianDistance(y, middle, thickness * 1.16) * (0.92 + speech * 0.3) +
-        gaussianDistance(y, lower, thickness * 0.9) * (0.62 + low * 0.32) +
-        quietGhost;
-      const cluster = 0.52 + 0.48 * Math.sin(nx * 19.5 + ny * 11.5 + time * (0.28 + visible));
-      const edgeFade = Math.sin(Math.PI * Math.max(0, Math.min(1, nx))) * 0.9 + 0.1;
-      const density = Math.max(0, Math.min(1, band * cluster * edgeFade * contrast));
-      if (density < 0.035) continue;
+      const dx = x - centerX;
+      const dy = y - centerY;
+      const radiusFromCenter = Math.sqrt(dx * dx + dy * dy);
+      const normalizedRadius = Math.min(1, radiusFromCenter / maxRadius);
+      const angle = Math.atan2(dy, dx);
+      const falloff = Math.pow(1 - normalizedRadius, 1.85);
+      const spin = twist * falloff * Math.sin(normalizedRadius * 7.2 - time * (1.1 + speech * 1.5));
+      const warpedAngle = angle + spin;
+      const radialWave = Math.sin(normalizedRadius * 28 - time * (2.1 + low * 2.8) + angle * 2.2);
+      const tangentialWave = Math.cos((x / width) * 9.5 - (y / height) * 7.3 + time * (1.3 + high * 2.2));
+      const push = radialWave * ripple * falloff + tangentialWave * motion * 5;
+      const warpedRadius = radiusFromCenter + push;
+      const warpedX = centerX + Math.cos(warpedAngle) * warpedRadius;
+      const warpedY = centerY + Math.sin(warpedAngle) * warpedRadius;
+      const vortex = smoothstep(0.12, 0.88, falloff * motion);
+      const waveFocus = Math.max(0, radialWave * 0.5 + 0.5) * vortex;
+      const lineInterference = Math.max(0, Math.sin((x + y) * 0.025 + time * (1.6 + speech)) * 0.5 + 0.5);
+      const intensity = Math.min(1, waveFocus * 0.72 + lineInterference * motion * 0.24 + high * 0.34 * falloff);
+      const dotRadius = baseRadius + intensity * (3.1 + motion * 2.2);
+      const alpha = Math.min(0.88, baseAlpha + intensity * (0.18 + motion * 0.58));
+      const color = intensity > 0.68 && motion > 0.34 ? colors.accent : colors.ink;
 
-      const radius = 0.55 + density * (2.9 + visible * 1.6);
-      const alpha = Math.min(0.82, density * (0.18 + visible * 0.7));
       context.beginPath();
       context.fillStyle = `rgba(${color.r}, ${color.g}, ${color.b}, ${alpha})`;
-      context.arc(x, y, radius, 0, Math.PI * 2);
+      context.arc(warpedX, warpedY, dotRadius, 0, Math.PI * 2);
       context.fill();
     }
   }
 }
 
-function gaussianDistance(value: number, center: number, width: number) {
-  const distance = (value - center) / Math.max(1, width);
-  return Math.exp(-distance * distance);
+function smoothstep(edge0: number, edge1: number, value: number) {
+  const t = Math.max(0, Math.min(1, (value - edge0) / (edge1 - edge0)));
+  return t * t * (3 - 2 * t);
 }
 
-function resolveInkColor(element: HTMLElement): RgbColor {
-  const color = getComputedStyle(element).getPropertyValue("--scr-recorder-visual-ink").trim();
-  const match = color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
-  if (!match) return { r: 32, g: 32, b: 34 };
+function resolveVisualColors(element: HTMLElement): VisualColors {
+  const styles = getComputedStyle(element);
   return {
-    r: Number(match[1] || 32),
-    g: Number(match[2] || 32),
-    b: Number(match[3] || 34),
+    ink: parseRgb(styles.getPropertyValue("--scr-recorder-visual-ink").trim(), { r: 32, g: 32, b: 34 }),
+    accent: parseRgb(styles.getPropertyValue("--scr-recorder-visual-accent").trim(), { r: 255, g: 105, b: 38 }),
+  };
+}
+
+function parseRgb(value: string, fallback: RgbColor): RgbColor {
+  const match = value.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+  if (!match) return fallback;
+  return {
+    r: Number(match[1] || fallback.r),
+    g: Number(match[2] || fallback.g),
+    b: Number(match[3] || fallback.b),
   };
 }
