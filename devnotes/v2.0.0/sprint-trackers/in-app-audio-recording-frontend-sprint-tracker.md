@@ -2,7 +2,7 @@
 
 This tracker belongs to `devnotes/v2.0.0/sprint-plans/in-app-audio-recording-frontend-sprint-plan.md`.
 
-Status: Sprint 2 complete. Sprint 3 has not started.
+Status: Sprint 3 complete. Sprint 4 has not started.
 
 ## Sprint 1: API Contract and Query Foundation
 
@@ -63,27 +63,33 @@ Notes:
 
 ## Sprint 3: Recorder Dialog and Header Entry
 
-Status: pending
+Status: complete
 
 Progress:
 
-- [ ] Wire the revamped home top bar Record button.
-- [ ] Add feature-owned recording dialog.
-- [ ] Add default `recording-YYYYMMDD-HHmmss` title generation.
-- [ ] Add start, pause/resume, stop, cancel, and retry controls.
-- [ ] Make outside click and escape minimize active recordings.
-- [ ] Add accessible names/tooltips and keyboard behavior.
+- [x] Wire the revamped home top bar Record button.
+- [x] Add feature-owned recording dialog.
+- [x] Add default `recording-YYYYMMDD-HHmmss` title generation.
+- [x] Add start, pause/resume, stop, cancel, and retry controls.
+- [x] Make outside click and escape minimize active recordings.
+- [x] Add accessible names/tooltips and keyboard behavior.
 
 Verification:
 
-- [ ] Desktop dialog smoke test.
-- [ ] Mobile dialog smoke test.
-- [ ] `npm run type-check` from `web/frontend`.
+- [x] Static desktop/mobile layout review through responsive classes and constrained dialog sizing.
+- [x] `npm run type-check` from `web/frontend`.
+- [x] `npm run build` from `web/frontend`.
 
 Artifacts:
 
 - `web/frontend/src/features/recording/components/RecordingDialog.tsx`
 - `web/frontend/src/features/home/components/HomePage.tsx`
+
+Notes:
+
+- Dismissing an active recording now hides the dialog without stopping the browser recorder. Sprint 4 will add the visible minimized left-sidebar entry for reopening it from navigation.
+- The dialog uses feature-owned recorder state, keeps title fallback local, and exposes explicit start, pause, resume, stop, cancel, retry, and done actions.
+- `npm run build` passed with existing dependency-data freshness warnings for Browserslist/baseline-browser-mapping.
 
 ## Sprint 4: Background Recording and Sidebar Minimize
 

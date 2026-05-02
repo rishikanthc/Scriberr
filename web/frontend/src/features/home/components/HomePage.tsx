@@ -20,6 +20,8 @@ import { useTranscriptionListEvents } from "@/features/transcription/hooks/useTr
 import { preferVisibleTranscription, useCreateTranscription, useStopTranscription, useTaggedTranscriptions, useTranscriptions } from "@/features/transcription/hooks/useTranscriptions";
 import { EmptyState } from "@/shared/ui/EmptyState";
 import { AppButton, IconButton } from "@/shared/ui/Button";
+import { RecordingDialog } from "@/features/recording/components/RecordingDialog";
+import { useBrowserRecorder } from "@/features/recording/hooks/useBrowserRecorder";
 
 type RecordingStatus = "ready" | "uploading" | "file-processing" | "queued" | "transcribing" | "transcribed" | "failed" | "stopped" | "canceled";
 
@@ -91,9 +93,10 @@ export function Sidebar({ activeItem = "home", activeTagId }: SidebarProps) {
 type TopBarProps = {
   onUploadFilesClick: () => void;
   onYouTubeImportClick: () => void;
+  onRecordClick: () => void;
 };
 
-function TopBar({ onUploadFilesClick, onYouTubeImportClick }: TopBarProps) {
+function TopBar({ onUploadFilesClick, onYouTubeImportClick, onRecordClick }: TopBarProps) {
   return (
     <div className="scr-topbar">
       <div className="scr-search-shell" aria-hidden="true">
@@ -123,7 +126,7 @@ function TopBar({ onUploadFilesClick, onYouTubeImportClick }: TopBarProps) {
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-        <AppButton type="button" className="scr-topbar-button">
+        <AppButton type="button" className="scr-topbar-button" onClick={onRecordClick}>
           <Mic size={14} aria-hidden="true" />
           Record
         </AppButton>
@@ -311,6 +314,8 @@ function AudioListPage({ tagId }: { tagId?: string }) {
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [youtubeDialogOpen, setYoutubeDialogOpen] = useState(false);
+  const [recordingDialogOpen, setRecordingDialogOpen] = useState(false);
+  const recorder = useBrowserRecorder();
   const filesQuery = useFiles();
   const tagsQuery = useTags();
   const profilesQuery = useProfiles();
@@ -360,6 +365,10 @@ function AudioListPage({ tagId }: { tagId?: string }) {
     setYoutubeDialogOpen(true);
   }, []);
 
+  const handleRecordClick = useCallback(() => {
+    setRecordingDialogOpen(true);
+  }, []);
+
   const handleYouTubeImport = useCallback(async (url: string) => {
     await importFromYouTube(url);
   }, [importFromYouTube]);
@@ -406,7 +415,11 @@ function AudioListPage({ tagId }: { tagId?: string }) {
       <div className="scr-shell">
         <Sidebar activeItem={tagId ? "tags" : "home"} activeTagId={tagId} />
         <main className="scr-main">
-          <TopBar onUploadFilesClick={handleUploadFilesClick} onYouTubeImportClick={handleYouTubeImportClick} />
+          <TopBar
+            onUploadFilesClick={handleUploadFilesClick}
+            onYouTubeImportClick={handleYouTubeImportClick}
+            onRecordClick={handleRecordClick}
+          />
           <input
             ref={fileInputRef}
             className="scr-visually-hidden"
@@ -465,6 +478,11 @@ function AudioListPage({ tagId }: { tagId?: string }) {
         importing={uploadItems.some((item) => item.source === "youtube" && item.status === "processing" && !item.fileId)}
         onOpenChange={setYoutubeDialogOpen}
         onSubmit={handleYouTubeImport}
+      />
+      <RecordingDialog
+        open={recordingDialogOpen}
+        onOpenChange={setRecordingDialogOpen}
+        recorder={recorder}
       />
     </div>
   );

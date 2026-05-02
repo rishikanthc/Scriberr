@@ -165,6 +165,14 @@ export function useBrowserRecorder() {
         }));
       })
       .catch((error: unknown) => {
+        const recorder = mediaRecorderRef.current;
+        if (recorder?.state === "recording") {
+          recorder.pause();
+        }
+        acceptingChunksRef.current = false;
+        if (durationRef.current) {
+          durationRef.current = pauseRecordingDuration(durationRef.current, performance.now());
+        }
         failedChunksRef.current = [...failedChunksRef.current, chunk];
         setState((current) => ({
           ...current,
@@ -276,6 +284,7 @@ export function useBrowserRecorder() {
     const now = performance.now();
     durationRef.current = resumeRecordingDuration(durationRef.current, now);
     chunkStartedAtRef.current = now;
+    acceptingChunksRef.current = true;
     setState((current) => ({
       ...current,
       status: "recording",
@@ -359,7 +368,7 @@ export function useBrowserRecorder() {
     failedChunksRef.current = [];
     setState((current) => ({
       ...current,
-      status: current.session?.status === "stopping" ? "stopping" : "recording",
+      status: current.session?.status === "stopping" ? "stopping" : "paused",
       error: null,
       failedChunkIndex: null,
     }));
