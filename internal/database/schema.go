@@ -11,7 +11,7 @@ import (
 	"gorm.io/gorm"
 )
 
-const latestSchemaVersion = 4
+const latestSchemaVersion = 5
 
 var schemaModels = []any{
 	&models.User{},

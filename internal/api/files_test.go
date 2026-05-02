@@ -173,6 +173,7 @@ func TestFileUploadListGetPatchDelete(t *testing.T) {
 	require.Equal(t, "audio", body["kind"])
 	require.Equal(t, "ready", body["status"])
 	require.Equal(t, "audio/wav", body["mime_type"])
+	require.Equal(t, "", body["description"])
 	require.NotContains(t, body, "audio_path")
 	require.NotContains(t, body, "source_file_path")
 
@@ -185,6 +186,7 @@ func TestFileUploadListGetPatchDelete(t *testing.T) {
 	require.Equal(t, http.StatusOK, resp.Code)
 	items := body["items"].([]any)
 	require.Len(t, items, 1)
+	require.Equal(t, "", items[0].(map[string]any)["description"])
 
 	resp, body = s.request(t, http.MethodPost, "/api/v1/transcriptions", map[string]any{
 		"file_id": fileID,
@@ -204,6 +206,7 @@ func TestFileUploadListGetPatchDelete(t *testing.T) {
 	resp, body = s.request(t, http.MethodGet, "/api/v1/files/"+fileID, nil, token, "")
 	require.Equal(t, http.StatusOK, resp.Code)
 	require.Equal(t, fileID, body["id"])
+	require.Equal(t, "", body["description"])
 	require.NotContains(t, body, "source_file_path")
 
 	resp, body = s.request(t, http.MethodPatch, "/api/v1/files/"+fileID, map[string]any{"title": "Renamed"}, token, "")

@@ -71,6 +71,53 @@ func TestJobRepositoryQueueSchemaIndexesExist(t *testing.T) {
 	assert.True(t, db.Migrator().HasIndex(&models.TranscriptionJob{}, "idx_transcriptions_claim_expires_at"))
 }
 
+func TestJobRepositoryUpdateLLMGeneratedDescriptionUpdatesRecordingAndTranscription(t *testing.T) {
+	db := openJobQueueTestDB(t)
+	user := createQueueTestUser(t, db)
+	repo := NewJobRepository(db)
+	now := time.Now().Truncate(time.Millisecond)
+	title := "Recording"
+	recording := models.TranscriptionJob{
+		ID:             "description-recording",
+		UserID:         user.ID,
+		Title:          &title,
+		Status:         models.StatusUploaded,
+		AudioPath:      filepath.Join(t.TempDir(), "recording.wav"),
+		SourceFileName: "recording.wav",
+	}
+	require.NoError(t, db.Create(&recording).Error)
+	recordingID := recording.ID
+	transcription := models.TranscriptionJob{
+		ID:             "description-transcription",
+		UserID:         user.ID,
+		Title:          &title,
+		Status:         models.StatusCompleted,
+		AudioPath:      recording.AudioPath,
+		SourceFileName: recording.SourceFileName,
+		SourceFileHash: &recordingID,
+	}
+	require.NoError(t, db.Create(&transcription).Error)
+
+	description := "First description line.\nSecond description line."
+	require.NoError(t, repo.UpdateLLMGeneratedDescription(context.Background(), transcription.ID, recording.ID, "summary-1", description, now))
+
+	var updatedRecording models.TranscriptionJob
+	require.NoError(t, db.First(&updatedRecording, "id = ?", recording.ID).Error)
+	require.NotNil(t, updatedRecording.LLMDescription)
+	assert.Equal(t, description, *updatedRecording.LLMDescription)
+	require.NotNil(t, updatedRecording.LLMDescriptionAt)
+	assert.Equal(t, now.Unix(), updatedRecording.LLMDescriptionAt.Unix())
+	require.NotNil(t, updatedRecording.LLMDescriptionSourceSummaryID)
+	assert.Equal(t, "summary-1", *updatedRecording.LLMDescriptionSourceSummaryID)
+
+	var updatedTranscription models.TranscriptionJob
+	require.NoError(t, db.First(&updatedTranscription, "id = ?", transcription.ID).Error)
+	require.NotNil(t, updatedTranscription.LLMDescription)
+	assert.Equal(t, description, *updatedTranscription.LLMDescription)
+	require.NotNil(t, updatedTranscription.LLMDescriptionSourceSummaryID)
+	assert.Equal(t, "summary-1", *updatedTranscription.LLMDescriptionSourceSummaryID)
+}
+
 func TestJobRepositoryEnqueueAndClaimFIFO(t *testing.T) {
 	db := openJobQueueTestDB(t)
 	user := createQueueTestUser(t, db)

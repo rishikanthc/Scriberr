@@ -100,6 +100,9 @@ func TestFreshSchemaInitialization(t *testing.T) {
 	assert.True(t, hasIndex(t, db, "chat_messages", "idx_chat_messages_session_created_at"))
 	assert.True(t, hasIndex(t, db, "chat_generation_runs", "idx_chat_generation_runs_session_created_at"))
 	assert.True(t, hasIndex(t, db, "chat_generation_runs", "idx_chat_generation_runs_status_created_at"))
+	assert.True(t, db.Migrator().HasColumn(&models.TranscriptionJob{}, "llm_description"))
+	assert.True(t, db.Migrator().HasColumn(&models.TranscriptionJob{}, "llm_description_generated_at"))
+	assert.True(t, db.Migrator().HasColumn(&models.TranscriptionJob{}, "llm_description_source_summary_id"))
 
 	title := "Fresh transcription"
 	job := models.TranscriptionJob{UserID: 1, Title: &title, Status: models.StatusUploaded, AudioPath: "/tmp/audio.wav"}

@@ -87,6 +87,7 @@ type JobRepository interface {
 	UpdateStatus(ctx context.Context, jobID string, status models.JobStatus) error
 	UpdateError(ctx context.Context, jobID string, errorMsg string) error
 	UpdateLLMGeneratedTitle(ctx context.Context, transcriptionID string, recordingID string, title string, generatedAt time.Time) error
+	UpdateLLMGeneratedDescription(ctx context.Context, transcriptionID string, recordingID string, summaryID string, description string, generatedAt time.Time) error
 	FindByStatus(ctx context.Context, status models.JobStatus) ([]models.TranscriptionJob, error)
 	CountByStatus(ctx context.Context, status models.JobStatus) (int64, error)
 	UpdateSummary(ctx context.Context, jobID string, summary string) error
@@ -565,6 +566,20 @@ func (r *jobRepository) UpdateLLMGeneratedTitle(ctx context.Context, transcripti
 			"title":                  title,
 			"llm_title_generated":    true,
 			"llm_title_generated_at": generatedAt,
+		}).Error
+}
+
+func (r *jobRepository) UpdateLLMGeneratedDescription(ctx context.Context, transcriptionID string, recordingID string, summaryID string, description string, generatedAt time.Time) error {
+	ids := []string{transcriptionID}
+	if recordingID != "" && recordingID != transcriptionID {
+		ids = append(ids, recordingID)
+	}
+	return r.db.WithContext(ctx).Model(&models.TranscriptionJob{}).
+		Where("id IN ?", ids).
+		Updates(map[string]any{
+			"llm_description":                   description,
+			"llm_description_generated_at":      generatedAt,
+			"llm_description_source_summary_id": summaryID,
 		}).Error
 }
 

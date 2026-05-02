@@ -12,6 +12,7 @@ export type FileEvent = {
     status?: string;
     progress?: number;
     title?: string;
+    description?: string;
     deleted?: boolean;
   };
 };
@@ -110,6 +111,7 @@ function applyFileEvent(file: ScriberrFile, event: FileEvent): ScriberrFile {
   return {
     ...file,
     title: event.data.title ?? file.title,
+    description: event.data.description ?? file.description,
     status: normalizeFileStatus(event.data.status) ?? file.status,
     updated_at: new Date().toISOString(),
   };

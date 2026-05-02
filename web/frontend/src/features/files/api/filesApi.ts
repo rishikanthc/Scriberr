@@ -4,6 +4,7 @@ export type FileKind = "audio" | "video" | "youtube" | "";
 export type ScriberrFile = {
   id: string;
   title: string;
+  description: string;
   kind: FileKind;
   status: FileStatus;
   mime_type: string;

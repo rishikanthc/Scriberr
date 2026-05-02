@@ -98,36 +98,39 @@ type transcriptionMetadata struct {
 
 // TranscriptionJob represents the durable transcription record.
 type TranscriptionJob struct {
-	ID                  string         `json:"id" gorm:"primaryKey;type:varchar(36)"`
-	UserID              uint           `json:"user_id" gorm:"not null;index;default:1"`
-	Title               *string        `json:"title,omitempty" gorm:"type:text"`
-	Status              JobStatus      `json:"status" gorm:"column:status;type:varchar(20);not null;default:'uploaded';index"`
-	AudioPath           string         `json:"audio_path" gorm:"column:source_file_path;type:text;not null"`
-	SourceFileName      string         `json:"source_file_name,omitempty" gorm:"type:text"`
-	SourceFileHash      *string        `json:"source_file_hash,omitempty" gorm:"type:varchar(128);index"`
-	SourceDurationMs    *int64         `json:"source_duration_ms,omitempty" gorm:"type:integer"`
-	Language            *string        `json:"language,omitempty" gorm:"type:varchar(32)"`
-	Transcript          *string        `json:"transcript,omitempty" gorm:"column:transcript_text;type:text"`
-	OutputJSONPath      *string        `json:"output_json_path,omitempty" gorm:"column:output_json_path;type:text"`
-	OutputSRTPath       *string        `json:"output_srt_path,omitempty" gorm:"column:output_srt_path;type:text"`
-	OutputVTTPath       *string        `json:"output_vtt_path,omitempty" gorm:"column:output_vtt_path;type:text"`
-	LatestExecutionID   *string        `json:"latest_execution_id,omitempty" gorm:"type:varchar(36);index"`
-	ErrorMessage        *string        `json:"error_message,omitempty" gorm:"column:last_error;type:text"`
-	MetadataJSON        string         `json:"-" gorm:"column:metadata_json;type:json"`
-	QueuedAt            *time.Time     `json:"queued_at,omitempty"`
-	StartedAt           *time.Time     `json:"started_at,omitempty"`
-	FailedAt            *time.Time     `json:"failed_at,omitempty"`
-	Progress            float64        `json:"progress" gorm:"not null;default:0"`
-	ProgressStage       string         `json:"progress_stage,omitempty" gorm:"type:varchar(50)"`
-	ClaimedBy           *string        `json:"claimed_by,omitempty" gorm:"type:varchar(128)"`
-	ClaimExpiresAt      *time.Time     `json:"claim_expires_at,omitempty"`
-	EngineID            *string        `json:"engine_id,omitempty" gorm:"type:varchar(50)"`
-	CompletedAt         *time.Time     `json:"completed_at,omitempty"`
-	LLMTitleGenerated   bool           `json:"llm_title_generated" gorm:"not null;default:false"`
-	LLMTitleGeneratedAt *time.Time     `json:"llm_title_generated_at,omitempty"`
-	CreatedAt           time.Time      `json:"created_at" gorm:"autoCreateTime"`
-	UpdatedAt           time.Time      `json:"updated_at" gorm:"autoUpdateTime"`
-	DeletedAt           gorm.DeletedAt `json:"deleted_at,omitempty" gorm:"index" swaggertype:"string"`
+	ID                            string         `json:"id" gorm:"primaryKey;type:varchar(36)"`
+	UserID                        uint           `json:"user_id" gorm:"not null;index;default:1"`
+	Title                         *string        `json:"title,omitempty" gorm:"type:text"`
+	Status                        JobStatus      `json:"status" gorm:"column:status;type:varchar(20);not null;default:'uploaded';index"`
+	AudioPath                     string         `json:"audio_path" gorm:"column:source_file_path;type:text;not null"`
+	SourceFileName                string         `json:"source_file_name,omitempty" gorm:"type:text"`
+	SourceFileHash                *string        `json:"source_file_hash,omitempty" gorm:"type:varchar(128);index"`
+	SourceDurationMs              *int64         `json:"source_duration_ms,omitempty" gorm:"type:integer"`
+	Language                      *string        `json:"language,omitempty" gorm:"type:varchar(32)"`
+	Transcript                    *string        `json:"transcript,omitempty" gorm:"column:transcript_text;type:text"`
+	OutputJSONPath                *string        `json:"output_json_path,omitempty" gorm:"column:output_json_path;type:text"`
+	OutputSRTPath                 *string        `json:"output_srt_path,omitempty" gorm:"column:output_srt_path;type:text"`
+	OutputVTTPath                 *string        `json:"output_vtt_path,omitempty" gorm:"column:output_vtt_path;type:text"`
+	LatestExecutionID             *string        `json:"latest_execution_id,omitempty" gorm:"type:varchar(36);index"`
+	ErrorMessage                  *string        `json:"error_message,omitempty" gorm:"column:last_error;type:text"`
+	MetadataJSON                  string         `json:"-" gorm:"column:metadata_json;type:json"`
+	QueuedAt                      *time.Time     `json:"queued_at,omitempty"`
+	StartedAt                     *time.Time     `json:"started_at,omitempty"`
+	FailedAt                      *time.Time     `json:"failed_at,omitempty"`
+	Progress                      float64        `json:"progress" gorm:"not null;default:0"`
+	ProgressStage                 string         `json:"progress_stage,omitempty" gorm:"type:varchar(50)"`
+	ClaimedBy                     *string        `json:"claimed_by,omitempty" gorm:"type:varchar(128)"`
+	ClaimExpiresAt                *time.Time     `json:"claim_expires_at,omitempty"`
+	EngineID                      *string        `json:"engine_id,omitempty" gorm:"type:varchar(50)"`
+	CompletedAt                   *time.Time     `json:"completed_at,omitempty"`
+	LLMTitleGenerated             bool           `json:"llm_title_generated" gorm:"not null;default:false"`
+	LLMTitleGeneratedAt           *time.Time     `json:"llm_title_generated_at,omitempty"`
+	LLMDescription                *string        `json:"llm_description,omitempty" gorm:"type:text"`
+	LLMDescriptionAt              *time.Time     `json:"llm_description_generated_at,omitempty" gorm:"column:llm_description_generated_at"`
+	LLMDescriptionSourceSummaryID *string        `json:"llm_description_source_summary_id,omitempty" gorm:"type:varchar(36);index"`
+	CreatedAt                     time.Time      `json:"created_at" gorm:"autoCreateTime"`
+	UpdatedAt                     time.Time      `json:"updated_at" gorm:"autoUpdateTime"`
+	DeletedAt                     gorm.DeletedAt `json:"deleted_at,omitempty" gorm:"index" swaggertype:"string"`
 
 	Diarization bool           `json:"diarization" gorm:"-"`
 	Summary     *string        `json:"summary,omitempty" gorm:"-"`

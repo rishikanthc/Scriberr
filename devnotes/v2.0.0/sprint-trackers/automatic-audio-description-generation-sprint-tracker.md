@@ -2,25 +2,28 @@
 
 This tracker belongs to `devnotes/v2.0.0/sprint-plans/automatic-audio-description-generation-sprint.md`.
 
-Status: planned.
+Status: in progress.
 
 ## Sprint 1: Backend Persistence and Contract
 
-Status: pending
+Status: complete
 
 Progress:
 
-- [ ] Add generated description metadata columns to the transcription/recording persistence model.
-- [ ] Add repository method to persist description on both transcription and parent recording rows.
-- [ ] Extend file list/get responses with `description`.
-- [ ] Extend file SSE payload handling to include `description`.
-- [ ] Add backend contract tests.
+- [x] Add generated description metadata columns to the transcription/recording persistence model.
+- [x] Add repository method to persist description on both transcription and parent recording rows.
+- [x] Extend file list/get responses with `description`.
+- [x] Extend file SSE payload handling to include `description`.
+- [x] Add backend contract tests.
+- [x] Keep absent descriptions graceful as an empty string in file responses.
+- [x] Confirm Sprint 2 generator must no-op when no active LLM provider or small model is configured.
 
 Verification:
 
-- [ ] Database migration tests.
-- [ ] Repository tests.
-- [ ] API tests.
+- [x] `env GOCACHE=/tmp/go-build-cache go test ./internal/database`
+- [x] `env GOCACHE=/tmp/go-build-cache go test ./internal/repository`
+- [x] `env GOCACHE=/tmp/go-build-cache go test ./internal/api`
+- [x] `npm run type-check` from `web/frontend`
 
 ## Sprint 2: Description Generator Workflow
 

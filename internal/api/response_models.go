@@ -67,6 +67,10 @@ func fileResponse(job *models.TranscriptionJob, mimeType, kind string) gin.H {
 	if job.Title != nil {
 		title = *job.Title
 	}
+	description := ""
+	if job.LLMDescription != nil {
+		description = *job.LLMDescription
+	}
 	size := int64(0)
 	if stat, err := os.Stat(job.AudioPath); err == nil {
 		size = stat.Size()
@@ -90,6 +94,7 @@ func fileResponse(job *models.TranscriptionJob, mimeType, kind string) gin.H {
 	return gin.H{
 		"id":               "file_" + job.ID,
 		"title":            title,
+		"description":      description,
 		"kind":             kind,
 		"status":           status,
 		"mime_type":        mimeType,
