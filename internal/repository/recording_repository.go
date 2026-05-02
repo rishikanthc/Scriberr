@@ -27,6 +27,10 @@ type RecordingRepository interface {
 	RecoverExpiredFinalizationClaims(ctx context.Context, now time.Time) (int64, error)
 }
 
+type RecordingHandoffRepository interface {
+	CreateRecordingFileAndTranscription(ctx context.Context, file *models.TranscriptionJob, transcription *models.TranscriptionJob) error
+}
+
 type recordingRepository struct {
 	db *gorm.DB
 }

@@ -45,6 +45,7 @@ type Handler struct {
 	annotations     *annotations.Service
 	tags            *tags.Service
 	recordings      *recordingdomain.Service
+	finalizer       interface{ Notify() }
 	chatLLMFactory  func(*models.LLMConfig) (llm.Service, error)
 }
 
@@ -76,6 +77,8 @@ func NewHandler(cfg *config.Config, authService *auth.AuthService, services ...a
 			handler.tags = value
 		case *recordingdomain.Service:
 			handler.recordings = value
+		case interface{ Notify() }:
+			handler.finalizer = value
 		}
 	}
 	if handler.annotations == nil && database.DB != nil {

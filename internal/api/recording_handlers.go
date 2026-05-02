@@ -178,6 +178,7 @@ func (h *Handler) stopRecording(c *gin.Context, publicID string) {
 		writeRecordingServiceError(c, err)
 		return
 	}
+	h.notifyRecordingFinalizer()
 	c.JSON(http.StatusAccepted, recordingResponse(session))
 }
 
@@ -213,6 +214,7 @@ func (h *Handler) retryFinalizeRecording(c *gin.Context, publicID string) {
 		writeRecordingServiceError(c, err)
 		return
 	}
+	h.notifyRecordingFinalizer()
 	c.JSON(http.StatusAccepted, recordingResponse(session))
 }
 
@@ -288,6 +290,12 @@ func writeRecordingServiceError(c *gin.Context, err error) {
 		writeError(c, http.StatusConflict, "CONFLICT", "recording state conflict", nil)
 	default:
 		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "recording operation failed", nil)
+	}
+}
+
+func (h *Handler) notifyRecordingFinalizer() {
+	if h != nil && h.finalizer != nil {
+		h.finalizer.Notify()
 	}
 }
 

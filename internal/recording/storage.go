@@ -82,6 +82,62 @@ func (s *Storage) FinalPath(sessionID string, mimeType string) (string, error) {
 	return s.safeJoin(sessionID, "final"+extensionForMimeType(mimeType))
 }
 
+func (s *Storage) BuildRaw(ctx context.Context, sessionID string, chunks []string) (string, error) {
+	if len(chunks) == 0 {
+		return "", fmt.Errorf("recording chunks are required")
+	}
+	rawPath, err := s.RawPath(sessionID)
+	if err != nil {
+		return "", err
+	}
+	if err := os.MkdirAll(filepath.Dir(rawPath), defaultDirPerm); err != nil {
+		return "", fmt.Errorf("prepare recording raw directory: %w", err)
+	}
+	tmpPath := rawPath + "." + randomSuffix() + ".tmp"
+	file, err := os.OpenFile(tmpPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, defaultFilePerm)
+	if err != nil {
+		return "", fmt.Errorf("create recording raw temp file: %w", err)
+	}
+	var copyErr error
+	for _, chunkPath := range chunks {
+		if err := ctx.Err(); err != nil {
+			copyErr = err
+			break
+		}
+		if _, err := s.ensureWithinRoot(chunkPath); err != nil {
+			copyErr = err
+			break
+		}
+		chunk, err := os.Open(chunkPath)
+		if err != nil {
+			copyErr = fmt.Errorf("open recording chunk: %w", err)
+			break
+		}
+		_, copyErr = copyWithContext(ctx, file, chunk)
+		closeErr := chunk.Close()
+		if copyErr == nil && closeErr != nil {
+			copyErr = closeErr
+		}
+		if copyErr != nil {
+			break
+		}
+	}
+	closeErr := file.Close()
+	if copyErr != nil {
+		_ = os.Remove(tmpPath)
+		return "", copyErr
+	}
+	if closeErr != nil {
+		_ = os.Remove(tmpPath)
+		return "", fmt.Errorf("close recording raw file: %w", closeErr)
+	}
+	if err := os.Rename(tmpPath, rawPath); err != nil {
+		_ = os.Remove(tmpPath)
+		return "", fmt.Errorf("commit recording raw file: %w", err)
+	}
+	return rawPath, nil
+}
+
 func (s *Storage) WriteChunk(ctx context.Context, sessionID string, chunkIndex int, mimeType string, source io.Reader) (string, int64, error) {
 	if source == nil {
 		return "", 0, fmt.Errorf("recording chunk source is required")

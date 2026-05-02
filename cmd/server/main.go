@@ -15,6 +15,7 @@ import (
 	"scriberr/internal/auth"
 	"scriberr/internal/config"
 	"scriberr/internal/database"
+	recordingdomain "scriberr/internal/recording"
 	"scriberr/internal/repository"
 	"scriberr/internal/summarization"
 	"scriberr/internal/transcription/engineprovider"
@@ -113,6 +114,8 @@ func main() {
 	annotationRepo := repository.NewAnnotationRepository(database.DB)
 	summaryRepo := repository.NewSummaryRepository(database.DB)
 	llmConfigRepo := repository.NewLLMConfigRepository(database.DB)
+	recordingRepo := repository.NewRecordingRepository(database.DB)
+	profileRepo := repository.NewProfileRepository(database.DB)
 
 	// Initialize local engine provider. This must not download models at startup.
 	logger.Startup("engine", "Initializing local engine provider")
@@ -140,14 +143,33 @@ func main() {
 	})
 	summaryService := summarization.NewService(summaryRepo, llmConfigRepo, jobRepo, summarization.Config{})
 	annotationService := annotations.NewService(annotationRepo, jobRepo)
+	recordingStorage, err := recordingdomain.NewStorage(cfg.Recordings.Dir)
+	if err != nil {
+		logger.Error("Failed to initialize recording storage", "error", err)
+		os.Exit(1)
+	}
+	recordingService := recordingdomain.NewService(recordingRepo, recordingStorage, recordingdomain.Config{
+		MaxChunkBytes:    cfg.Recordings.MaxChunkBytes,
+		MaxDuration:      cfg.Recordings.MaxDuration,
+		SessionTTL:       cfg.Recordings.SessionTTL,
+		AllowedMimeTypes: cfg.Recordings.AllowedMimeTypes,
+	})
+	recordingFinalizer := recordingdomain.NewFinalizerService(recordingRepo, jobRepo, profileRepo, recordingStorage, recordingdomain.FFmpegFinalizer{}, recordingdomain.FinalizerConfig{
+		Workers:      cfg.Recordings.FinalizerWorkers,
+		PollInterval: cfg.Recordings.FinalizerPollInterval,
+		LeaseTimeout: cfg.Recordings.FinalizerLeaseTimeout,
+	})
+	recordingFinalizer.SetTranscriptionEnqueuer(queueService)
 
 	// Initialize API handlers
-	handler := api.NewHandler(cfg, authService, queueService, providerRegistry, annotationService)
+	handler := api.NewHandler(cfg, authService, queueService, providerRegistry, annotationService, recordingService, recordingFinalizer)
 	processor.Events = handler
 	queueService.SetEventPublisher(handler)
 	queueService.SetCompletionObserver(worker.CompletionObservers{summaryService, annotationService})
 	summaryService.SetEventPublisher(handler)
 	annotationService.SetEventPublisher(handler)
+	recordingService.SetEventPublisher(handler)
+	recordingFinalizer.SetEventPublisher(handler)
 
 	// Set up router
 	router := api.SetupRoutes(handler, authService)
@@ -160,6 +182,10 @@ func main() {
 	}
 	if err := summaryService.Start(context.Background()); err != nil {
 		logger.Error("Failed to start summary workers", "error", err)
+		os.Exit(1)
+	}
+	if err := recordingFinalizer.Start(context.Background()); err != nil {
+		logger.Error("Failed to start recording finalizers", "error", err)
 		os.Exit(1)
 	}
 
@@ -208,6 +234,10 @@ func main() {
 	}
 	if err := summaryService.Stop(ctx); err != nil {
 		logger.Error("Failed to stop summary workers", "error", err)
+		shutdownFailed = true
+	}
+	if err := recordingFinalizer.Stop(ctx); err != nil {
+		logger.Error("Failed to stop recording finalizers", "error", err)
 		shutdownFailed = true
 	}
 

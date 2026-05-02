@@ -2,7 +2,7 @@
 
 This tracker belongs to `devnotes/v2.0.0/sprint-plans/in-app-audio-recording-backend-sprint-plan.md`.
 
-Status: completed through Sprint 3. Recording schema, config, storage, repository, service state machine, and HTTP API are in place; finalizer implementation has not started.
+Status: completed through Sprint 4. Recording schema, config, storage, repository, service state machine, HTTP API, and durable finalizer handoff are in place.
 
 ## Sprint 1: Schema, Config, and Storage Boundary
 
@@ -96,23 +96,39 @@ Artifacts:
 
 ## Sprint 4: Finalizer Worker and Existing File/Transcription Handoff
 
-Status: pending
+Status: completed
 
-Planned tasks:
+Completed tasks:
 
-- [ ] Add recording finalizer worker with claim, lease renewal, recovery, wake, and shutdown behavior.
-- [ ] Add fakeable `MediaFinalizer` interface and ffmpeg implementation.
-- [ ] Reconstruct raw browser audio from ordered chunks.
-- [ ] Validate contiguous chunk indexes through the declared final chunk.
-- [ ] Produce a final audio artifact and create a normal Scriberr file row.
-- [ ] Remove temporary chunks and raw reconstruction artifacts after the final file row is committed.
-- [ ] Optionally create and enqueue a transcription row after finalization.
-- [ ] Publish recording/file/transcription events.
-- [ ] Add finalizer tests for success, missing chunks, ffmpeg failure, cancellation, and auto-transcription.
+- [x] Add recording finalizer worker with claim, lease renewal, recovery, wake, and shutdown behavior.
+- [x] Add fakeable `MediaFinalizer` interface and ffmpeg implementation.
+- [x] Reconstruct raw browser audio from ordered chunks.
+- [x] Validate contiguous chunk indexes through the declared final chunk.
+- [x] Produce a final audio artifact and create a normal Scriberr file row.
+- [x] Remove temporary chunks and raw reconstruction artifacts after the final file row is committed.
+- [x] Optionally create and enqueue a transcription row after finalization.
+- [x] Publish recording/file/transcription events.
+- [x] Wake the finalizer after stop/retry commands.
+- [x] Wire finalizer startup/shutdown in `cmd/server/main.go`.
+- [x] Add finalizer tests for success, missing chunks, failure behavior, cleanup, and auto-transcription.
 
 Verification:
 
-- [ ] `go test ./internal/recording ./internal/repository ./internal/api`
+- [x] `GOCACHE=/Users/zade/Code/asr/Scriberr/.tmp/go-build go test ./internal/recording ./internal/repository`
+- [x] `GOCACHE=/Users/zade/Code/asr/Scriberr/.tmp/go-build go test ./internal/api -run 'TestRecording|TestCanonicalRouteRegistration|TestEndpointContractSmoke|TestAPIDocsContainOnlyCanonicalRoutes'`
+- [x] `GOCACHE=/Users/zade/Code/asr/Scriberr/.tmp/go-build go test ./internal/database ./internal/config ./internal/repository ./internal/recording ./internal/api ./cmd/server` outside sandbox because `httptest.NewServer` loopback binding is blocked inside the sandbox.
+
+Artifacts:
+
+- `internal/recording/finalizer.go`
+- `internal/recording/finalizer_test.go`
+- `internal/recording/storage.go`
+- `internal/repository/recording_repository.go`
+- `internal/repository/implementations.go`
+- `internal/api/router.go`
+- `internal/api/events_handlers.go`
+- `internal/api/recording_handlers.go`
+- `cmd/server/main.go`
 
 ## Sprint 5: Recovery, Cleanup, and Operational Hardening
 

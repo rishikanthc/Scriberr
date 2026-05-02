@@ -144,6 +144,14 @@ func (h *Handler) PublishFileEvent(_ context.Context, name string, payload map[s
 	h.publishEvent(name, gin.H(payload))
 }
 
+func (h *Handler) PublishTranscriptionEvent(_ context.Context, name string, transcriptionID string, payload map[string]any) {
+	if h == nil {
+		return
+	}
+	h.publishTranscriptionEvent(name, transcriptionID, gin.H(payload))
+	h.publishEvent(name, gin.H(payload))
+}
+
 func (h *Handler) publishTranscriptionEvent(name, transcriptionID string, data gin.H) {
 	h.events.publish(apiEvent{Name: name, Data: data, TranscriptionID: transcriptionID})
 }

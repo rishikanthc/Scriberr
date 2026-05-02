@@ -91,6 +91,7 @@ type JobRepository interface {
 	FindByStatus(ctx context.Context, status models.JobStatus) ([]models.TranscriptionJob, error)
 	CountByStatus(ctx context.Context, status models.JobStatus) (int64, error)
 	UpdateSummary(ctx context.Context, jobID string, summary string) error
+	CreateRecordingFileAndTranscription(ctx context.Context, file *models.TranscriptionJob, transcription *models.TranscriptionJob) error
 }
 
 type jobRepository struct {
@@ -605,6 +606,21 @@ func (r *jobRepository) UpdateSummary(ctx context.Context, jobID string, summary
 	}
 	job.Summary = &summary
 	return r.db.WithContext(ctx).Save(&job).Error
+}
+
+func (r *jobRepository) CreateRecordingFileAndTranscription(ctx context.Context, file *models.TranscriptionJob, transcription *models.TranscriptionJob) error {
+	if file == nil {
+		return fmt.Errorf("recording file is required")
+	}
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(file).Error; err != nil {
+			return err
+		}
+		if transcription == nil {
+			return nil
+		}
+		return tx.Create(transcription).Error
+	})
 }
 
 // ChatRepository handles chat session, context source, message, and run persistence.
