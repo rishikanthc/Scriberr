@@ -2079,6 +2079,24 @@ body[data-notes-sidebar-resizing="true"] {
   font-size: 0.875rem;
 }
 
+.scr-recording-description {
+  display: -webkit-box;
+  max-width: 68ch;
+  margin-top: var(--scr-space-1);
+  overflow: hidden;
+  color: var(--scr-text-secondary);
+  font-size: 0.8125rem;
+  line-height: 1.35;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  white-space: pre-line;
+}
+
+.scr-recording-description + .scr-recording-date {
+  margin-top: var(--scr-space-1);
+  font-size: 0.75rem;
+}
+
 .scr-recording-status {
   display: inline-flex;
   align-items: center;

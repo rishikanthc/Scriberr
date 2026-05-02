@@ -52,19 +52,20 @@ Verification:
 
 ## Sprint 3: Home Page Card UI and SSE Reactivity
 
-Status: pending
+Status: complete
 
 Progress:
 
-- [ ] Add `description` to frontend file API types.
-- [ ] Patch TanStack Query caches from `file.updated.description`.
-- [ ] Render description in Home page recording cards with compact two-line styling.
-- [ ] Omit description area when absent.
-- [ ] Confirm card actions and progress states remain stable.
+- [x] Add `description` to frontend file API types.
+- [x] Patch TanStack Query caches from `file.updated.description`.
+- [x] Render description in Home page recording cards with compact two-line styling.
+- [x] Omit description area when absent.
+- [x] Confirm card actions and progress states remain stable by keeping the description in the title/meta column only.
 
 Verification:
 
-- [ ] Frontend type-check.
+- [x] `npm run type-check` from `web/frontend`.
+- [x] `npm run build` from `web/frontend`.
 - [ ] Browser check for absent description.
 - [ ] Browser check for reactive description update.
 - [ ] Browser visual pass across desktop and narrow viewport.

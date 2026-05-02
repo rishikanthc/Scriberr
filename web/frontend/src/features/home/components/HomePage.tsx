@@ -24,6 +24,7 @@ type RecordingStatus = "ready" | "uploading" | "file-processing" | "queued" | "t
 type Recording = {
   id: string;
   title: string;
+  description: string;
   date: string;
   status: RecordingStatus;
   fileStatus: ScriberrFile["status"] | UploadItem["status"];
@@ -173,6 +174,7 @@ function RecordingCard({
       </div>
       <div>
         <h2 className="scr-recording-title">{recording.title}</h2>
+        {recording.description ? <p className="scr-recording-description">{recording.description}</p> : null}
         <p className="scr-recording-date">{recording.date}</p>
       </div>
       <div className="scr-recording-meta-actions">
@@ -409,6 +411,7 @@ function fileToRecording(file: ScriberrFile, transcription?: Transcription): Rec
   return {
     id: file.id,
     title: file.title || "Untitled recording",
+    description: file.description,
     date: formatRecordingDate(file.created_at),
     status: normalizeRecordingStatus(file.status, transcription?.status),
     fileStatus: file.status,
@@ -421,6 +424,7 @@ function uploadItemToRecording(item: UploadItem): Recording {
   return {
     id: item.id,
     title: item.fileName.replace(/\.[^/.]+$/, ""),
+    description: "",
     date: item.status === "uploading" ? `Uploading ${item.progress}%` : itemLabel(item),
     status: item.status === "processing" ? "file-processing" : item.status,
     fileStatus: item.status,
