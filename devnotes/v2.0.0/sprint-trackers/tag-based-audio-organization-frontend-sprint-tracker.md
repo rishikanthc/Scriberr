@@ -2,7 +2,7 @@
 
 This tracker belongs to `devnotes/v2.0.0/sprint-plans/tag-based-audio-organization-frontend-sprint-plan.md`.
 
-Status: completed through Sprint 3. Sprint 4 Settings tag management is next.
+Status: completed through Sprint 4. Sprint 5 audio detail tags is next.
 
 ## Sprint 1: Contract and Planning
 
@@ -97,14 +97,32 @@ Verification:
 
 ## Sprint 4: Settings Tags Management
 
-Status: pending
+Status: completed
 
-Remaining tasks:
+Completed tasks:
 
-- Add Settings `Tags` tab.
-- Add create/edit dialog.
-- Add simple list with edit/delete actions.
-- Add duplicate-name validation.
+- Added Settings `Tags` tab.
+- Added create/edit tag dialog with name, description, and when-to-use fields.
+- Added simple tag list with edit/delete icon actions.
+- Added client-side duplicate-name validation.
+- Added delete confirmation and surfaced mutation errors.
+- Tightened the tag dialog width and spacing for a compact management workflow.
+
+Artifacts:
+
+- `web/frontend/src/features/settings/pages/SettingsPage.tsx`
+- `web/frontend/src/features/tags/components/TagDialog.tsx`
+- `web/frontend/src/features/tags/components/TagsSettingsPanel.tsx`
+- `web/frontend/src/styles/design-system.css`
+
+Commits:
+
+- `8a75847` (`feat: add settings tag management`)
+- `71e0ab0` (`style: compact tag dialog`)
+
+Verification:
+
+- `npm run type-check` from `web/frontend`
 
 ## Sprint 5: Audio Detail Tags
 
