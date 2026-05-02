@@ -71,6 +71,8 @@ func TestFreshSchemaInitialization(t *testing.T) {
 		"speaker_mappings",
 		"summary_templates",
 		"summaries",
+		"audio_tags",
+		"audio_tag_assignments",
 		"transcript_annotations",
 		"transcript_annotation_entries",
 		"chat_sessions",
@@ -91,6 +93,10 @@ func TestFreshSchemaInitialization(t *testing.T) {
 	assert.True(t, hasIndex(t, db, "transcription_profiles", "idx_transcription_profiles_user_default_unique"))
 	assert.True(t, hasIndex(t, db, "summary_templates", "idx_summary_templates_user_default_unique"))
 	assert.True(t, hasIndex(t, db, "llm_profiles", "idx_llm_profiles_user_default_unique"))
+	assert.True(t, hasIndex(t, db, "audio_tags", "idx_audio_tags_user_normalized_name_active_unique"))
+	assert.True(t, hasIndex(t, db, "audio_tag_assignments", "idx_audio_tag_assignments_user_tag_transcription_active_unique"))
+	assert.True(t, hasIndex(t, db, "audio_tag_assignments", "idx_audio_tag_assignments_user_transcription_created_at"))
+	assert.True(t, hasIndex(t, db, "audio_tag_assignments", "idx_audio_tag_assignments_user_tag_transcription"))
 	assert.True(t, hasIndex(t, db, "transcript_annotations", "idx_transcript_annotations_user_transcription_created_at"))
 	assert.True(t, hasIndex(t, db, "transcript_annotations", "idx_transcript_annotations_user_kind_updated_at"))
 	assert.True(t, hasIndex(t, db, "transcript_annotations", "idx_transcript_annotations_transcription_time"))
@@ -217,6 +223,74 @@ func TestChatSchemaValidationAndCascade(t *testing.T) {
 		require.NoError(t, db.Table(table).Where(column+" <> ''").Count(&count).Error)
 		assert.Zero(t, count, "expected %s rows to cascade with chat session", table)
 	}
+}
+
+func TestAudioTagSchemaValidationUniquenessAndSoftDelete(t *testing.T) {
+	db := openMigratedTestDB(t, "audio-tags.db")
+
+	user := models.User{Username: "tag-user", Password: "pw"}
+	require.NoError(t, db.Create(&user).Error)
+
+	title := "Tagged transcript"
+	job := models.TranscriptionJob{UserID: user.ID, Title: &title, Status: models.StatusCompleted, AudioPath: "/tmp/audio.wav"}
+	require.NoError(t, db.Create(&job).Error)
+
+	tag := models.AudioTag{UserID: user.ID, Name: " Client Call "}
+	require.NoError(t, db.Create(&tag).Error)
+	assert.NotEmpty(t, tag.ID)
+	assert.Equal(t, "Client Call", tag.Name)
+	assert.Equal(t, "client call", tag.NormalizedName)
+	assert.Equal(t, "{}", tag.MetadataJSON)
+
+	duplicate := models.AudioTag{UserID: user.ID, Name: "client   call"}
+	require.Error(t, db.Create(&duplicate).Error)
+
+	assignment := models.AudioTagAssignment{UserID: user.ID, TagID: tag.ID, TranscriptionID: job.ID}
+	require.NoError(t, db.Create(&assignment).Error)
+	assert.NotEmpty(t, assignment.ID)
+
+	duplicateAssignment := models.AudioTagAssignment{UserID: user.ID, TagID: tag.ID, TranscriptionID: job.ID}
+	require.Error(t, db.Create(&duplicateAssignment).Error)
+
+	require.NoError(t, db.Delete(&assignment).Error)
+	recreatedAssignment := models.AudioTagAssignment{UserID: user.ID, TagID: tag.ID, TranscriptionID: job.ID}
+	require.NoError(t, db.Create(&recreatedAssignment).Error)
+
+	require.NoError(t, db.Delete(&tag).Error)
+	recreatedTag := models.AudioTag{UserID: user.ID, Name: "CLIENT CALL"}
+	require.NoError(t, db.Create(&recreatedTag).Error)
+}
+
+func TestAudioTagHardDeleteCascadesAssignments(t *testing.T) {
+	db := openMigratedTestDB(t, "audio-tag-cascade.db")
+
+	user := models.User{Username: "tag-cascade-user", Password: "pw"}
+	require.NoError(t, db.Create(&user).Error)
+
+	title := "Cascade tagged transcript"
+	job := models.TranscriptionJob{UserID: user.ID, Title: &title, Status: models.StatusCompleted, AudioPath: "/tmp/audio.wav"}
+	require.NoError(t, db.Create(&job).Error)
+
+	tag := models.AudioTag{UserID: user.ID, Name: "Research"}
+	require.NoError(t, db.Create(&tag).Error)
+
+	assignment := models.AudioTagAssignment{UserID: user.ID, TagID: tag.ID, TranscriptionID: job.ID}
+	require.NoError(t, db.Create(&assignment).Error)
+
+	require.NoError(t, db.Unscoped().Delete(&job).Error)
+
+	var count int64
+	require.NoError(t, db.Unscoped().Model(&models.AudioTagAssignment{}).Where("id = ?", assignment.ID).Count(&count).Error)
+	assert.Zero(t, count)
+
+	secondJob := models.TranscriptionJob{UserID: user.ID, Title: &title, Status: models.StatusCompleted, AudioPath: "/tmp/audio-2.wav"}
+	require.NoError(t, db.Create(&secondJob).Error)
+	secondAssignment := models.AudioTagAssignment{UserID: user.ID, TagID: tag.ID, TranscriptionID: secondJob.ID}
+	require.NoError(t, db.Create(&secondAssignment).Error)
+
+	require.NoError(t, db.Unscoped().Delete(&tag).Error)
+	require.NoError(t, db.Unscoped().Model(&models.AudioTagAssignment{}).Where("id = ?", secondAssignment.ID).Count(&count).Error)
+	assert.Zero(t, count)
 }
 
 func TestTranscriptAnnotationSchemaValidationAndSoftDelete(t *testing.T) {
