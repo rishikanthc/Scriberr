@@ -35,11 +35,17 @@ type AudioSeekRequest = {
 
 const notesSidebarMinWidth = 320;
 const notesSidebarDefaultMaxWidth = 720;
+const notesSidebarDefaultViewportRatio = 0.2;
 
 function clampNotesSidebarWidth(width: number) {
   const viewportMax = typeof window === "undefined" ? notesSidebarDefaultMaxWidth : Math.floor(window.innerWidth * 0.4);
   const maxWidth = Math.max(notesSidebarMinWidth, viewportMax);
   return Math.min(Math.max(Math.round(width), notesSidebarMinWidth), maxWidth);
+}
+
+function getDefaultNotesSidebarWidth() {
+  if (typeof window === "undefined") return 360;
+  return clampNotesSidebarWidth(window.innerWidth * notesSidebarDefaultViewportRatio);
 }
 
 export function AudioDetailView() {
@@ -50,7 +56,7 @@ export function AudioDetailView() {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [draftTitle, setDraftTitle] = useState("");
   const [notesSidebarOpen, setNotesSidebarOpen] = useState(true);
-  const [notesSidebarWidth, setNotesSidebarWidth] = useState(360);
+  const [notesSidebarWidth, setNotesSidebarWidth] = useState(getDefaultNotesSidebarWidth);
   const playbackSync = useMemo(() => createPlaybackSync(), [audioId]);
   const fileQuery = useFile(audioId);
   const updateFileMutation = useUpdateFile(audioId);

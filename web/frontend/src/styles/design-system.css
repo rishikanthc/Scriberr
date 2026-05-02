@@ -63,7 +63,7 @@
 }
 
 .scr-audio-detail-main {
-  --scr-detail-sidebar-width: min(360px, 40vw);
+  --scr-detail-sidebar-width: max(320px, 20vw);
   position: relative;
   min-width: 0;
   min-height: 100vh;
