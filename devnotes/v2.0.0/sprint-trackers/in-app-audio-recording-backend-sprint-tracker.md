@@ -2,7 +2,7 @@
 
 This tracker belongs to `devnotes/v2.0.0/sprint-plans/in-app-audio-recording-backend-sprint-plan.md`.
 
-Status: completed through Sprint 1. Recording schema, config, and storage boundary are in place; service/API/finalizer implementation has not started.
+Status: completed through Sprint 2. Recording schema, config, storage, repository, and service state machine are in place; HTTP API/finalizer implementation has not started.
 
 ## Sprint 1: Schema, Config, and Storage Boundary
 
@@ -37,20 +37,30 @@ Artifacts:
 
 ## Sprint 2: Repository and Recording Service State Machine
 
-Status: pending
+Status: completed
 
-Planned tasks:
+Completed tasks:
 
-- [ ] Add `RecordingRepository` with domain-specific session/chunk/finalization methods.
-- [ ] Add `recording.Service` commands for create, append chunk, stop, cancel, retry, get, and list.
-- [ ] Enforce MIME type, chunk index, size, duration, ownership, and status validation.
-- [ ] Implement idempotent chunk retry and checksum conflict behavior.
-- [ ] Publish small recording events from service transitions.
-- [ ] Add service and repository tests for transitions, conflicts, ownership, and events.
+- [x] Add `RecordingRepository` with domain-specific session/chunk/finalization methods.
+- [x] Add `recording.Service` commands for create, append chunk, stop, cancel, retry, get, and list.
+- [x] Enforce MIME type, chunk index, size, duration, ownership, and status validation.
+- [x] Implement idempotent chunk retry and checksum conflict behavior.
+- [x] Keep storage commits non-overwriting so concurrent chunk retries cannot replace chunk bytes.
+- [x] Publish small recording events from service transitions.
+- [x] Add service and repository tests for transitions, conflicts, ownership, and events.
 
 Verification:
 
-- [ ] `go test ./internal/recording ./internal/repository`
+- [x] `GOCACHE=/Users/zade/Code/asr/Scriberr/.tmp/go-build go test ./internal/recording ./internal/repository`
+- [x] `GOCACHE=/Users/zade/Code/asr/Scriberr/.tmp/go-build go test ./internal/database ./internal/config ./internal/repository ./internal/recording ./cmd/server`
+
+Artifacts:
+
+- `internal/repository/recording_repository.go`
+- `internal/repository/recording_repository_test.go`
+- `internal/recording/service.go`
+- `internal/recording/service_test.go`
+- `internal/recording/storage.go`
 
 ## Sprint 3: HTTP Recording API
 

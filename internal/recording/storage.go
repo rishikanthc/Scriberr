@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"mime"
@@ -15,6 +16,8 @@ import (
 
 const defaultDirPerm os.FileMode = 0o755
 const defaultFilePerm os.FileMode = 0o600
+
+var ErrArtifactExists = errors.New("recording artifact already exists")
 
 type Storage struct {
 	root string
@@ -112,10 +115,14 @@ func (s *Storage) WriteChunk(ctx context.Context, sessionID string, chunkIndex i
 		_ = os.Remove(tmpPath)
 		return "", 0, fmt.Errorf("close recording chunk: %w", closeErr)
 	}
-	if err := os.Rename(tmpPath, path); err != nil {
+	if err := os.Link(tmpPath, path); err != nil {
 		_ = os.Remove(tmpPath)
+		if os.IsExist(err) {
+			return "", 0, ErrArtifactExists
+		}
 		return "", 0, fmt.Errorf("commit recording chunk: %w", err)
 	}
+	_ = os.Remove(tmpPath)
 	return path, written, nil
 }
 
@@ -126,6 +133,17 @@ func (s *Storage) RemoveChunks(sessionID string) error {
 	}
 	if err := os.RemoveAll(chunkDir); err != nil {
 		return fmt.Errorf("remove recording chunks: %w", err)
+	}
+	return nil
+}
+
+func (s *Storage) RemoveChunk(sessionID string, chunkIndex int, mimeType string) error {
+	path, err := s.ChunkPath(sessionID, chunkIndex, mimeType)
+	if err != nil {
+		return err
+	}
+	if err := removeIfExists(path); err != nil {
+		return fmt.Errorf("remove recording chunk: %w", err)
 	}
 	return nil
 }
