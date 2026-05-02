@@ -2,7 +2,7 @@
 
 This tracker belongs to `devnotes/v2.0.0/sprint-plans/tag-based-audio-organization-backend-sprint-plan.md`.
 
-Status: completed through Sprint 3. Sprint 4 event verification is pending.
+Status: completed through Sprint 4. Tag-based audio organization backend foundation is complete.
 
 ## Sprint 1: Schema and Migration
 
@@ -94,10 +94,26 @@ Verification:
 
 ## Sprint 4: Events and UI Readiness
 
-Status: pending
+Status: completed
 
-Remaining tasks:
+Completed tasks:
 
-- Add direct SSE/API event tests for tag mutations.
-- Verify `tag.created`, `tag.updated`, `tag.deleted`, and `transcription.tags.updated` event payloads through API/SSE tests.
-- Document frontend integration expectations if needed.
+- Wired tag service events through the existing API event broker.
+- Published small `tag.created`, `tag.updated`, `tag.deleted`, and `transcription.tags.updated` events.
+- Added SSE coverage for transcription-scoped tag assignment events.
+- Added global SSE coverage for tag update events.
+- Verified event payloads use public IDs and do not include tag display names, colors, or other larger resource details.
+
+Artifacts:
+
+- `internal/api/router.go`
+- `internal/api/events_test.go`
+- `internal/tags/service.go`
+
+Commit:
+
+- `8388e6b` (`test: cover audio tag events`)
+
+Verification:
+
+- `GOCACHE=/Users/zade/Code/asr/Scriberr/.tmp/go-build go test ./internal/api -run 'TestSSEReceivesTagEvents|TestTag|TestTranscriptionTags'`
