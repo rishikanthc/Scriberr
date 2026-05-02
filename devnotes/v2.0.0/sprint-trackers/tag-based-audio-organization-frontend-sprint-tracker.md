@@ -2,7 +2,7 @@
 
 This tracker belongs to `devnotes/v2.0.0/sprint-plans/tag-based-audio-organization-frontend-sprint-plan.md`.
 
-Status: completed through Sprint 1. Sprint 2 tag API client and hooks is next.
+Status: completed through Sprint 2. Sprint 3 sidebar and tag detail page is next.
 
 ## Sprint 1: Contract and Planning
 
@@ -40,13 +40,30 @@ Verification:
 
 ## Sprint 2: Tag API Client and Hooks
 
-Status: pending
+Status: completed
 
-Remaining tasks:
+Completed tasks:
 
-- Add typed tag API functions.
-- Add TanStack Query hooks and query keys.
-- Add scoped invalidation for tag and transcription-tag mutations.
+- Added typed tag API functions for list/create/update/delete tags.
+- Added typed transcription-tag assignment API functions for list/replace/add/remove.
+- Added tag query hooks and mutation hooks with scoped invalidation.
+- Added tag-name normalization and duplicate-name helper.
+- Extended transcription listing API/hook support for tag-filtered queries.
+
+Artifacts:
+
+- `web/frontend/src/features/tags/api/tagsApi.ts`
+- `web/frontend/src/features/tags/hooks/useTags.ts`
+- `web/frontend/src/features/transcription/api/transcriptionsApi.ts`
+- `web/frontend/src/features/transcription/hooks/useTranscriptions.ts`
+
+Commit:
+
+- `93db494` (`feat: add frontend tag api hooks`)
+
+Verification:
+
+- `npm run type-check` from `web/frontend`
 
 ## Sprint 3: Sidebar Tags Navigation
 
