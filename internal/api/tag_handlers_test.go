@@ -27,6 +27,7 @@ func TestTagCreateListGetUpdateDelete(t *testing.T) {
 		"name":        " Client Call ",
 		"color":       "#E87539",
 		"description": " customer calls ",
+		"when_to_use": " when customer commitments are discussed ",
 	}, token, "")
 	require.Equal(t, http.StatusCreated, resp.Code)
 	tagID := body["id"].(string)
@@ -34,6 +35,7 @@ func TestTagCreateListGetUpdateDelete(t *testing.T) {
 	require.Equal(t, "Client Call", body["name"])
 	require.Equal(t, "#E87539", body["color"])
 	require.Equal(t, "customer calls", body["description"])
+	require.Equal(t, "when customer commitments are discussed", body["when_to_use"])
 	require.NotContains(t, body, "normalized_name")
 	require.NotContains(t, body, "user_id")
 	require.NotContains(t, body, "deleted_at")
@@ -55,12 +57,14 @@ func TestTagCreateListGetUpdateDelete(t *testing.T) {
 	require.Equal(t, tagID, body["id"])
 
 	resp, body = s.request(t, http.MethodPatch, "/api/v1/tags/"+tagID, map[string]any{
-		"name":  "Customer Call",
-		"color": "",
+		"name":        "Customer Call",
+		"color":       "",
+		"when_to_use": "",
 	}, token, "")
 	require.Equal(t, http.StatusOK, resp.Code)
 	require.Equal(t, "Customer Call", body["name"])
 	require.Nil(t, body["color"])
+	require.Nil(t, body["when_to_use"])
 
 	resp, _ = s.request(t, http.MethodDelete, "/api/v1/tags/"+tagID, nil, token, "")
 	require.Equal(t, http.StatusNoContent, resp.Code)

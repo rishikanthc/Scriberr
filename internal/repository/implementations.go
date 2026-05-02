@@ -1907,7 +1907,7 @@ func (r *tagRepository) UpdateTag(ctx context.Context, tag *models.AudioTag) err
 	result := r.db.WithContext(ctx).
 		Model(tag).
 		Where("id = ? AND user_id = ?", tag.ID, tag.UserID).
-		Select("Name", "NormalizedName", "Color", "Description", "MetadataJSON").
+		Select("Name", "NormalizedName", "Color", "Description", "WhenToUse", "MetadataJSON").
 		Updates(tag)
 	if result.Error != nil {
 		return result.Error

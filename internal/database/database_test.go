@@ -109,6 +109,7 @@ func TestFreshSchemaInitialization(t *testing.T) {
 	assert.True(t, db.Migrator().HasColumn(&models.TranscriptionJob{}, "llm_description"))
 	assert.True(t, db.Migrator().HasColumn(&models.TranscriptionJob{}, "llm_description_generated_at"))
 	assert.True(t, db.Migrator().HasColumn(&models.TranscriptionJob{}, "llm_description_source_summary_id"))
+	assert.True(t, db.Migrator().HasColumn(&models.AudioTag{}, "when_to_use"))
 
 	title := "Fresh transcription"
 	job := models.TranscriptionJob{UserID: 1, Title: &title, Status: models.StatusUploaded, AudioPath: "/tmp/audio.wav"}
@@ -235,11 +236,14 @@ func TestAudioTagSchemaValidationUniquenessAndSoftDelete(t *testing.T) {
 	job := models.TranscriptionJob{UserID: user.ID, Title: &title, Status: models.StatusCompleted, AudioPath: "/tmp/audio.wav"}
 	require.NoError(t, db.Create(&job).Error)
 
-	tag := models.AudioTag{UserID: user.ID, Name: " Client Call "}
+	whenToUse := "Use for customer-facing calls"
+	tag := models.AudioTag{UserID: user.ID, Name: " Client Call ", WhenToUse: &whenToUse}
 	require.NoError(t, db.Create(&tag).Error)
 	assert.NotEmpty(t, tag.ID)
 	assert.Equal(t, "Client Call", tag.Name)
 	assert.Equal(t, "client call", tag.NormalizedName)
+	require.NotNil(t, tag.WhenToUse)
+	assert.Equal(t, "Use for customer-facing calls", *tag.WhenToUse)
 	assert.Equal(t, "{}", tag.MetadataJSON)
 
 	duplicate := models.AudioTag{UserID: user.ID, Name: "client   call"}

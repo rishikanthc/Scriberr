@@ -58,12 +58,14 @@ func TestServiceCreateListUpdateDeleteTag(t *testing.T) {
 	service, publisher, user, _ := openTagServiceTestDB(t)
 	color := " #E87539 "
 	description := " customer calls "
+	whenToUse := " when discussing customer commitments "
 
 	created, err := service.CreateTag(context.Background(), CreateRequest{
 		UserID:      user.ID,
 		Name:        " Client   Call ",
 		Color:       &color,
 		Description: &description,
+		WhenToUse:   &whenToUse,
 	})
 	require.NoError(t, err)
 	assert.Equal(t, "Client Call", created.Name)
@@ -72,6 +74,8 @@ func TestServiceCreateListUpdateDeleteTag(t *testing.T) {
 	assert.Equal(t, "#E87539", *created.Color)
 	require.NotNil(t, created.Description)
 	assert.Equal(t, "customer calls", *created.Description)
+	require.NotNil(t, created.WhenToUse)
+	assert.Equal(t, "when discussing customer commitments", *created.WhenToUse)
 	require.Len(t, publisher.events, 1)
 	assert.Equal(t, "tag.created", publisher.events[0].Name)
 	assert.Equal(t, PublicTagID(created.ID), publisher.events[0].TagID)
@@ -87,16 +91,19 @@ func TestServiceCreateListUpdateDeleteTag(t *testing.T) {
 
 	updatedName := "Customer Call"
 	clearColor := ""
+	updatedWhenToUse := ""
 	updated, err := service.UpdateTag(context.Background(), UpdateRequest{
-		UserID: user.ID,
-		TagID:  PublicTagID(created.ID),
-		Name:   &updatedName,
-		Color:  &clearColor,
+		UserID:    user.ID,
+		TagID:     PublicTagID(created.ID),
+		Name:      &updatedName,
+		Color:     &clearColor,
+		WhenToUse: &updatedWhenToUse,
 	})
 	require.NoError(t, err)
 	assert.Equal(t, "Customer Call", updated.Name)
 	assert.Equal(t, "customer call", updated.NormalizedName)
 	assert.Nil(t, updated.Color)
+	assert.Nil(t, updated.WhenToUse)
 
 	got, err := service.GetTag(context.Background(), user.ID, PublicTagID(created.ID))
 	require.NoError(t, err)

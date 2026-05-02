@@ -16,12 +16,14 @@ type createTagRequest struct {
 	Name        string  `json:"name"`
 	Color       *string `json:"color,omitempty"`
 	Description *string `json:"description,omitempty"`
+	WhenToUse   *string `json:"when_to_use,omitempty"`
 }
 
 type updateTagRequest struct {
 	Name        *string `json:"name,omitempty"`
 	Color       *string `json:"color,omitempty"`
 	Description *string `json:"description,omitempty"`
+	WhenToUse   *string `json:"when_to_use,omitempty"`
 }
 
 type replaceTranscriptionTagsRequest struct {
@@ -87,6 +89,7 @@ func (h *Handler) createTag(c *gin.Context) {
 		Name:        req.Name,
 		Color:       req.Color,
 		Description: req.Description,
+		WhenToUse:   req.WhenToUse,
 	})
 	if err != nil {
 		writeTagServiceError(c, err)
@@ -133,6 +136,7 @@ func (h *Handler) updateTag(c *gin.Context) {
 		Name:        req.Name,
 		Color:       req.Color,
 		Description: req.Description,
+		WhenToUse:   req.WhenToUse,
 	})
 	if err != nil {
 		writeTagServiceError(c, err)
@@ -295,11 +299,16 @@ func tagResponse(tag *models.AudioTag) gin.H {
 	if tag.Description != nil {
 		description = *tag.Description
 	}
+	whenToUse := any(nil)
+	if tag.WhenToUse != nil {
+		whenToUse = *tag.WhenToUse
+	}
 	return gin.H{
 		"id":          tags.PublicTagID(tag.ID),
 		"name":        tag.Name,
 		"color":       color,
 		"description": description,
+		"when_to_use": whenToUse,
 		"created_at":  tag.CreatedAt,
 		"updated_at":  tag.UpdatedAt,
 	}

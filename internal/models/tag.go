@@ -17,6 +17,7 @@ type AudioTag struct {
 	NormalizedName string         `json:"normalized_name" gorm:"type:varchar(120);not null;index"`
 	Color          *string        `json:"color,omitempty" gorm:"type:varchar(32)"`
 	Description    *string        `json:"description,omitempty" gorm:"type:text"`
+	WhenToUse      *string        `json:"when_to_use,omitempty" gorm:"type:text"`
 	MetadataJSON   string         `json:"-" gorm:"column:metadata_json;type:json;not null;default:'{}'"`
 	CreatedAt      time.Time      `json:"created_at" gorm:"autoCreateTime"`
 	UpdatedAt      time.Time      `json:"updated_at" gorm:"autoUpdateTime"`

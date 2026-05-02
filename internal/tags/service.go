@@ -46,6 +46,7 @@ type CreateRequest struct {
 	Name        string
 	Color       *string
 	Description *string
+	WhenToUse   *string
 }
 
 type UpdateRequest struct {
@@ -54,6 +55,7 @@ type UpdateRequest struct {
 	Name        *string
 	Color       *string
 	Description *string
+	WhenToUse   *string
 }
 
 type ListRequest struct {
@@ -96,7 +98,7 @@ func (s *Service) SetEventPublisher(events EventPublisher) {
 }
 
 func (s *Service) CreateTag(ctx context.Context, req CreateRequest) (*models.AudioTag, error) {
-	tag, err := buildTag(req.UserID, req.Name, req.Color, req.Description)
+	tag, err := buildTag(req.UserID, req.Name, req.Color, req.Description, req.WhenToUse)
 	if err != nil {
 		return nil, err
 	}
@@ -175,6 +177,9 @@ func (s *Service) UpdateTag(ctx context.Context, req UpdateRequest) (*models.Aud
 	}
 	if req.Description != nil {
 		tag.Description = normalizeOptionalString(req.Description)
+	}
+	if req.WhenToUse != nil {
+		tag.WhenToUse = normalizeOptionalString(req.WhenToUse)
 	}
 	if err := s.tags.UpdateTag(ctx, tag); err != nil {
 		if isUniqueConstraintError(err) {
@@ -365,7 +370,7 @@ func (s *Service) publishTranscriptionTagsUpdated(ctx context.Context, userID ui
 	})
 }
 
-func buildTag(userID uint, rawName string, rawColor *string, rawDescription *string) (*models.AudioTag, error) {
+func buildTag(userID uint, rawName string, rawColor *string, rawDescription *string, rawWhenToUse *string) (*models.AudioTag, error) {
 	name, normalized, err := validateTagName(rawName)
 	if err != nil {
 		return nil, err
@@ -380,6 +385,7 @@ func buildTag(userID uint, rawName string, rawColor *string, rawDescription *str
 		NormalizedName: normalized,
 		Color:          color,
 		Description:    normalizeOptionalString(rawDescription),
+		WhenToUse:      normalizeOptionalString(rawWhenToUse),
 	}, nil
 }
 
