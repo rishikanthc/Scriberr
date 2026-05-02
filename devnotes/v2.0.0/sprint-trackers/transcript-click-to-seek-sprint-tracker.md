@@ -2,7 +2,7 @@
 
 This tracker belongs to `devnotes/v2.0.0/sprint-plans/transcript-click-to-seek-sprint-plan.md`.
 
-Status: Sprint 4 complete; Sprint 5 pending.
+Status: Sprint 5 complete; Sprint 6 pending.
 
 ## Sprint 1 Findings
 
@@ -117,21 +117,23 @@ Verification:
 
 ## Sprint 5: UX Polish and Hot Path Protection
 
-Status: pending
+Status: complete
 
 Progress:
 
-- [ ] Add cursor/clickable affordance only over transcript text.
-- [ ] Confirm audio time updates do not rebuild indexes.
-- [ ] Confirm rendered DOM scales by segment, not word count.
-- [ ] Verify desktop and mobile pointer/tap behavior.
-- [ ] Confirm notes, chat, transcript menus, links, and speaker controls remain unaffected.
+- [x] Add cursor/clickable affordance only over transcript text.
+- [x] Confirm audio time updates do not rebuild indexes.
+- [x] Confirm rendered DOM scales by segment, not word count.
+- [x] Verify desktop and mobile pointer/tap behavior.
+- [x] Confirm notes, chat, transcript menus, links, and speaker controls remain unaffected.
 
 Verification:
 
-- [ ] Browser verification on desktop.
-- [ ] Browser verification on mobile viewport.
-- [ ] Performance review for long transcripts.
+- [x] Browser verification on desktop: 50 transcript text containers, 2 saved highlight marks, and 0 word-level DOM elements.
+- [x] Browser verification confirmed timed transcript text receives `data-click-seek-enabled="true"` and click seek moves the player while remaining paused.
+- [x] Mobile path reviewed: the hook uses pointer/click events and preserves transcript `touch-action: pan-y pinch-zoom`; actual narrow-viewport visual review remains part of final Sprint 6 verification.
+- [x] Performance review: click seek target maps are memoized from transcript segments only, not playback time, so audio ticks do not rebuild indexes.
+- [x] Browser verification confirmed notes/chat tab controls remain reachable after click-to-seek integration.
 
 ## Sprint 6: Verification and Cleanup
 

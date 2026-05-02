@@ -364,12 +364,16 @@
   color: var(--scr-text-primary);
 }
 
+.scr-transcript-text[data-click-seek-enabled="true"],
+.scr-transcript-text[data-click-seek-enabled="true"] .scr-transcript-highlight {
+  cursor: pointer;
+}
+
 .scr-transcript-highlight {
   border-radius: 2px;
   background: color-mix(in srgb, var(--scr-color-warning) 30%, transparent);
   box-shadow: inset 0 -0.12em 0 color-mix(in srgb, var(--scr-color-warning) 55%, transparent);
   color: inherit;
-  cursor: default;
   padding: 0 0.04em;
 }
 

@@ -643,6 +643,7 @@ function TranscriptPanel({ fileStatus, transcription, transcript, playbackSync, 
               }}
               className="scr-transcript-text"
               data-transcript-text
+              data-click-seek-enabled={hasTimedWords ? "true" : undefined}
               data-transcript-segment-index={index}
               data-start-char={segment.startChar}
               data-end-char={segment.endChar}
