@@ -2,7 +2,7 @@
 
 This tracker belongs to `devnotes/v2.0.0/sprint-plans/transcript-click-to-seek-sprint-plan.md`.
 
-Status: Sprint 5 complete; Sprint 6 pending.
+Status: complete.
 
 ## Sprint 1 Findings
 
@@ -137,19 +137,27 @@ Verification:
 
 ## Sprint 6: Verification and Cleanup
 
-Status: pending
+Status: complete
 
 Progress:
 
-- [ ] Run frontend type-check/build.
-- [ ] Run unit tests for seek index and hit-testing utilities.
-- [ ] Verify click-to-seek with punctuation, multiple speakers, long segments, and missing word timings.
-- [ ] Remove exploratory/debug instrumentation.
-- [ ] Update this tracker with completed artifacts and residual risks.
+- [x] Run frontend type-check/build.
+- [x] Run unit tests for seek index and hit-testing utilities.
+- [x] Verify click-to-seek with punctuation, multiple speakers, long segments, and missing word timings.
+- [x] Remove exploratory/debug instrumentation.
+- [x] Update this tracker with completed artifacts and residual risks.
 
 Verification:
 
-- [ ] `npm run type-check` from `web/frontend`.
-- [ ] `npm run build` from `web/frontend`.
-- [ ] Relevant unit test command.
-- [ ] Browser verification summary.
+- [x] `npm run type-check` from `web/frontend`.
+- [x] `npm run build` from `web/frontend`.
+- [x] `npm run test:word-seek` from `web/frontend`.
+- [x] `npm run test:highlighting` from `web/frontend`.
+- [x] Browser verification on `/audio/file_a317bbdb4e2ff2924368dfff3ac583a3`: 50 transcript text containers, 50 timed click-seek containers, 2 highlight marks, and 0 word-level DOM elements.
+- [x] Browser verification confirmed normal transcript click seeks from `0:00` to `0:41`.
+- [x] Browser verification confirmed highlighted nested transcript click seeks to `0:01`.
+- [x] Browser verification confirmed playback remains paused after seeking and notes/chat controls are still present.
+
+Residual risks:
+
+- Narrow mobile viewport was not separately resized in the in-app browser tooling. The implementation uses pointer/click events, preserves `touch-action: pan-y pinch-zoom`, and avoids fixed click targets, but a hands-on small-screen visual pass is still useful if mobile transcript seeking becomes a primary workflow.
