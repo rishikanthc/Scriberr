@@ -131,10 +131,16 @@ func TestGenerateTitleForSummaryRenamesRecordingAndPublishesFileEvent(t *testing
 	require.Equal(t, "Building Better Home Theater Systems Today", *updated.Title)
 	require.True(t, updated.LLMTitleGenerated)
 	require.NotNil(t, updated.LLMTitleGeneratedAt)
+	var recording models.TranscriptionJob
+	require.NoError(t, database.DB.First(&recording, "id = ?", *job.SourceFileHash).Error)
+	require.NotNil(t, recording.Title)
+	require.Equal(t, "Building Better Home Theater Systems Today", *recording.Title)
+	require.True(t, recording.LLMTitleGenerated)
+	require.NotNil(t, recording.LLMTitleGeneratedAt)
 	require.Len(t, events.fileEvents, 1)
 	require.Equal(t, "file.updated", events.fileEvents[0].name)
-	require.Equal(t, "file_"+job.ID, events.fileEvents[0].payload["id"])
-	require.Equal(t, *updated.Title, events.fileEvents[0].payload["title"])
+	require.Equal(t, "file_"+recording.ID, events.fileEvents[0].payload["id"])
+	require.Equal(t, *recording.Title, events.fileEvents[0].payload["title"])
 }
 
 func TestGenerateTitleForSummarySkipsAlreadyRenamedRecording(t *testing.T) {
@@ -144,7 +150,7 @@ func TestGenerateTitleForSummarySkipsAlreadyRenamedRecording(t *testing.T) {
 	t.Cleanup(func() { _ = database.Close() })
 
 	user, job := createTitleGenerationFixture(t, "job-title-skip")
-	require.NoError(t, database.DB.Model(&models.TranscriptionJob{}).Where("id = ?", job.ID).Update("llm_title_generated", true).Error)
+	require.NoError(t, database.DB.Model(&models.TranscriptionJob{}).Where("id = ?", *job.SourceFileHash).Update("llm_title_generated", true).Error)
 
 	service := NewService(repository.NewSummaryRepository(database.DB), repository.NewLLMConfigRepository(database.DB), repository.NewJobRepository(database.DB), Config{})
 	called := false
@@ -167,6 +173,7 @@ func TestGenerateTitleForSummaryKeepsFaithfulCurrentTitleAndMarksProcessed(t *te
 	user, job := createTitleGenerationFixture(t, "job-title-keep")
 	currentTitle := "Surround Sound Setup Guide"
 	require.NoError(t, database.DB.Model(&models.TranscriptionJob{}).Where("id = ?", job.ID).Update("title", currentTitle).Error)
+	require.NoError(t, database.DB.Model(&models.TranscriptionJob{}).Where("id = ?", *job.SourceFileHash).Update("title", currentTitle).Error)
 	baseURL := "http://127.0.0.1:1234/v1"
 	largeModel := "large"
 	smallModel := "small"
@@ -191,6 +198,12 @@ func TestGenerateTitleForSummaryKeepsFaithfulCurrentTitleAndMarksProcessed(t *te
 	require.Equal(t, currentTitle, *updated.Title)
 	require.True(t, updated.LLMTitleGenerated)
 	require.NotNil(t, updated.LLMTitleGeneratedAt)
+	var recording models.TranscriptionJob
+	require.NoError(t, database.DB.First(&recording, "id = ?", *job.SourceFileHash).Error)
+	require.NotNil(t, recording.Title)
+	require.Equal(t, currentTitle, *recording.Title)
+	require.True(t, recording.LLMTitleGenerated)
+	require.NotNil(t, recording.LLMTitleGeneratedAt)
 	require.Empty(t, events.fileEvents)
 	require.Len(t, fake.messages, 1)
 	require.Contains(t, fake.messages[0].Content, "Current title:\n"+currentTitle)
@@ -209,6 +222,16 @@ func createTitleGenerationFixture(t *testing.T, id string) (models.User, models.
 	require.NoError(t, database.DB.Create(&user).Error)
 	title := "Original title"
 	transcript := `{"text":"Hello world.","segments":[{"id":"seg_000001","start":0,"end":1,"text":"Hello world."}],"words":[]}`
+	sourceID := id + "-source"
+	source := models.TranscriptionJob{
+		ID:             sourceID,
+		UserID:         user.ID,
+		Title:          &title,
+		Status:         models.StatusUploaded,
+		AudioPath:      "/tmp/audio.wav",
+		SourceFileName: "audio.wav",
+	}
+	require.NoError(t, database.DB.Create(&source).Error)
 	job := models.TranscriptionJob{
 		ID:             id,
 		UserID:         user.ID,
@@ -216,7 +239,7 @@ func createTitleGenerationFixture(t *testing.T, id string) (models.User, models.
 		Status:         models.StatusCompleted,
 		AudioPath:      "/tmp/audio.wav",
 		SourceFileName: "audio.wav",
-		SourceFileHash: stringPtr(id + "-source"),
+		SourceFileHash: stringPtr(sourceID),
 		Transcript:     &transcript,
 	}
 	require.NoError(t, database.DB.Create(&job).Error)

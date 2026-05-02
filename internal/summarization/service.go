@@ -151,6 +151,8 @@ func (s *Service) Start(ctx context.Context) error {
 	s.started = true
 	s.wg.Add(1)
 	go s.workerLoop()
+	s.wg.Add(1)
+	go s.generateMissingRecordingTitles()
 	s.notify()
 	return nil
 }
@@ -246,6 +248,25 @@ func (s *Service) drainPending() {
 		}
 		if !progressed {
 			return
+		}
+	}
+}
+
+func (s *Service) generateMissingRecordingTitles() {
+	defer s.wg.Done()
+	summaries, err := s.summaries.ListCompletedSummariesForTitleGeneration(s.ctx, 25)
+	if err != nil {
+		logger.Error("Failed to list summaries for title generation", "error", err)
+		return
+	}
+	for i := range summaries {
+		select {
+		case <-s.ctx.Done():
+			return
+		default:
+		}
+		if err := s.generateTitleForSummary(s.ctx, &summaries[i], summaries[i].Content); err != nil {
+			logger.Error("Automatic title generation recovery failed", "summary_id", summaries[i].ID, "transcription_id", summaries[i].TranscriptionID, "error", err)
 		}
 	}
 }
@@ -362,7 +383,17 @@ func (s *Service) generateTitleForSummary(ctx context.Context, summary *models.S
 	if err != nil {
 		return err
 	}
-	if job.LLMTitleGenerated {
+	recording := job
+	if job.SourceFileHash != nil && strings.TrimSpace(*job.SourceFileHash) != "" {
+		parent, err := s.jobs.FindByID(ctx, strings.TrimSpace(*job.SourceFileHash))
+		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+			return err
+		}
+		if parent != nil {
+			recording = parent
+		}
+	}
+	if recording.LLMTitleGenerated {
 		return nil
 	}
 	config, err := s.llmConfig.GetActiveByUser(ctx, summary.UserID)
@@ -380,7 +411,7 @@ func (s *Service) generateTitleForSummary(ctx context.Context, summary *models.S
 		return err
 	}
 	model := strings.TrimSpace(*config.SmallModel)
-	currentTitle := strings.TrimSpace(valueOrEmpty(job.Title))
+	currentTitle := strings.TrimSpace(valueOrEmpty(recording.Title))
 	prompt := titlePrompt + titlePromptCurrentTitleSection + currentTitle + titlePromptSummarySection + strings.TrimSpace(summaryContent)
 	response, err := client.ChatCompletion(ctx, model, []llm.ChatMessage{{Role: "user", Content: prompt}}, 0)
 	if err != nil {
@@ -395,14 +426,14 @@ func (s *Service) generateTitleForSummary(ctx context.Context, summary *models.S
 		return nil
 	}
 	generatedAt := time.Now()
-	if err := s.jobs.UpdateLLMGeneratedTitle(ctx, summary.TranscriptionID, title, generatedAt); err != nil {
+	if err := s.jobs.UpdateLLMGeneratedTitle(ctx, summary.TranscriptionID, recording.ID, title, generatedAt); err != nil {
 		return err
 	}
 	if s.events != nil && !sameGeneratedTitle(currentTitle, title) {
 		s.events.PublishFileEvent(ctx, "file.updated", map[string]any{
-			"id":     "file_" + summary.TranscriptionID,
+			"id":     "file_" + recording.ID,
 			"title":  title,
-			"status": string(job.Status),
+			"status": string(recording.Status),
 		})
 	}
 	return nil

@@ -86,7 +86,7 @@ type JobRepository interface {
 	DeleteExecutionsByJobID(ctx context.Context, jobID string) error
 	UpdateStatus(ctx context.Context, jobID string, status models.JobStatus) error
 	UpdateError(ctx context.Context, jobID string, errorMsg string) error
-	UpdateLLMGeneratedTitle(ctx context.Context, jobID string, title string, generatedAt time.Time) error
+	UpdateLLMGeneratedTitle(ctx context.Context, transcriptionID string, recordingID string, title string, generatedAt time.Time) error
 	FindByStatus(ctx context.Context, status models.JobStatus) ([]models.TranscriptionJob, error)
 	CountByStatus(ctx context.Context, status models.JobStatus) (int64, error)
 	UpdateSummary(ctx context.Context, jobID string, summary string) error
@@ -554,9 +554,13 @@ func (r *jobRepository) UpdateError(ctx context.Context, jobID string, errorMsg 
 	return r.db.WithContext(ctx).Model(&models.TranscriptionJob{}).Where("id = ?", jobID).Update("last_error", errorMsg).Error
 }
 
-func (r *jobRepository) UpdateLLMGeneratedTitle(ctx context.Context, jobID string, title string, generatedAt time.Time) error {
+func (r *jobRepository) UpdateLLMGeneratedTitle(ctx context.Context, transcriptionID string, recordingID string, title string, generatedAt time.Time) error {
+	ids := []string{transcriptionID}
+	if recordingID != "" && recordingID != transcriptionID {
+		ids = append(ids, recordingID)
+	}
 	return r.db.WithContext(ctx).Model(&models.TranscriptionJob{}).
-		Where("id = ?", jobID).
+		Where("id IN ?", ids).
 		Updates(map[string]any{
 			"title":                  title,
 			"llm_title_generated":    true,
@@ -1270,6 +1274,7 @@ type SummaryRepository interface {
 	CompleteSummary(ctx context.Context, id string, content string, truncated bool, contextWindow int, inputCharacters int, completedAt time.Time) error
 	FailSummary(ctx context.Context, id string, message string, failedAt time.Time) error
 	RecoverProcessingSummaries(ctx context.Context) (int64, error)
+	ListCompletedSummariesForTitleGeneration(ctx context.Context, limit int) ([]models.Summary, error)
 	GetLatestSummary(ctx context.Context, transcriptionID string) (*models.Summary, error)
 	GetSummaryByID(ctx context.Context, id string) (*models.Summary, error)
 	DeleteByTranscriptionID(ctx context.Context, transcriptionID string) error
@@ -1441,6 +1446,23 @@ func (r *summaryRepository) RecoverProcessingSummaries(ctx context.Context) (int
 		Where("status = ?", "processing").
 		Update("status", "pending")
 	return result.RowsAffected, result.Error
+}
+
+func (r *summaryRepository) ListCompletedSummariesForTitleGeneration(ctx context.Context, limit int) ([]models.Summary, error) {
+	if limit <= 0 {
+		limit = 25
+	}
+	var summaries []models.Summary
+	err := r.db.WithContext(ctx).
+		Model(&models.Summary{}).
+		Joins("JOIN transcriptions AS transcription_jobs ON transcription_jobs.id = summaries.transcription_id").
+		Joins("LEFT JOIN transcriptions AS recording_jobs ON recording_jobs.id = transcription_jobs.source_file_hash").
+		Where("summaries.status = ? AND TRIM(COALESCE(summaries.content, '')) <> ''", "completed").
+		Where("COALESCE(recording_jobs.llm_title_generated, transcription_jobs.llm_title_generated) = ?", false).
+		Order("COALESCE(summaries.completed_at, summaries.updated_at) DESC").
+		Limit(limit).
+		Find(&summaries).Error
+	return summaries, err
 }
 
 func (r *summaryRepository) GetLatestSummary(ctx context.Context, transcriptionID string) (*models.Summary, error) {
