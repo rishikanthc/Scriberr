@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Circle, Loader2, Pause, Play, RefreshCw, RotateCcw, Square, X } from "lucide-react";
 import {
   Dialog,
@@ -30,10 +30,12 @@ const defaultDeviceValue = "__default_microphone__";
 
 export function RecordingDialog({ open, onOpenChange, recorder }: RecordingDialogProps) {
   const [title, setTitle] = useState(() => defaultRecordingTitle());
+  const permissionPromptedForOpenRef = useRef(false);
   const { state } = recorder;
+  const { requestMicrophonePermission } = recorder;
   const active = activeStatuses.includes(state.status);
-  const canEditTitle = state.status === "idle" || state.status === "unsupported" || state.status === "permission-denied" || state.status === "canceled" || state.status === "ready";
-  const canStart = state.status === "idle" || state.status === "permission-denied" || state.status === "canceled" || state.status === "ready";
+  const canEditTitle = state.status === "idle" || state.status === "unsupported" || state.status === "permission-denied" || state.status === "permission-ready" || state.status === "canceled" || state.status === "ready";
+  const canStart = state.status === "idle" || state.status === "permission-denied" || state.status === "permission-ready" || state.status === "canceled" || state.status === "ready";
   const canPause = state.status === "recording";
   const canResume = state.status === "paused";
   const canStop = state.status === "recording" || state.status === "paused" || state.status === "failed";
@@ -43,6 +45,17 @@ export function RecordingDialog({ open, onOpenChange, recorder }: RecordingDialo
   const selectedDeviceValue = state.selectedDeviceId || defaultDeviceValue;
 
   const statusLabel = useMemo(() => recorderStatusLabel(state.status), [state.status]);
+
+  useEffect(() => {
+    if (!open) {
+      permissionPromptedForOpenRef.current = false;
+      return;
+    }
+    if (permissionPromptedForOpenRef.current) return;
+    if (state.status !== "idle" && state.status !== "permission-denied") return;
+    permissionPromptedForOpenRef.current = true;
+    void requestMicrophonePermission();
+  }, [open, requestMicrophonePermission, state.status]);
 
   const handleOpenChange = useCallback((nextOpen: boolean) => {
     if (nextOpen) {

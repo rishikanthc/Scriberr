@@ -2057,6 +2057,79 @@ body[data-notes-sidebar-resizing="true"] {
   color: var(--scr-text-tertiary);
 }
 
+.scr-nav-recording {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: var(--scr-space-2);
+  min-height: 48px;
+  border: 1px solid var(--scr-brand-border);
+  border-radius: var(--scr-radius-sm);
+  background: color-mix(in srgb, var(--scr-brand-solid) 8%, var(--scr-surface-panel));
+  color: var(--scr-text-primary);
+  cursor: pointer;
+  padding: var(--scr-space-2);
+  text-align: left;
+  transition: background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.scr-nav-recording:hover,
+.scr-nav-recording:focus-visible {
+  border-color: color-mix(in srgb, var(--scr-brand-solid) 50%, transparent);
+  background: color-mix(in srgb, var(--scr-brand-solid) 12%, var(--scr-surface-panel));
+  box-shadow: var(--scr-shadow-card);
+  outline: none;
+}
+
+.scr-nav-recording-icon {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--scr-brand-muted);
+  color: var(--scr-brand-solid);
+}
+
+.scr-nav-recording-icon-error {
+  background: color-mix(in srgb, var(--error) 12%, transparent);
+  color: var(--error);
+}
+
+.scr-nav-recording-copy {
+  display: grid;
+  min-width: 0;
+  gap: 1px;
+}
+
+.scr-nav-recording-title {
+  overflow: hidden;
+  color: var(--scr-text-strong);
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.scr-nav-recording-meta {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: var(--scr-space-2);
+  color: var(--scr-text-secondary);
+  font-size: 0.6875rem;
+  line-height: 1.2;
+  text-transform: capitalize;
+}
+
+.scr-nav-recording-meta span:last-child {
+  font-family: var(--scr-font-mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace);
+  font-variant-numeric: tabular-nums;
+  text-transform: none;
+}
+
 .scr-main {
   min-width: 0;
   background: var(--scr-surface-canvas);
@@ -3609,6 +3682,16 @@ body[data-notes-sidebar-resizing="true"] {
   }
 
   .scr-nav-label {
+    display: none;
+  }
+
+  .scr-nav-recording {
+    justify-content: center;
+    min-height: 38px;
+    padding: 0;
+  }
+
+  .scr-nav-recording-copy {
     display: none;
   }
 

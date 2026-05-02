@@ -8,11 +8,18 @@ export type OptimisticRecordingSummary = {
   progress?: number;
 };
 
+export type MinimizedRecordingSummary = {
+  title: string;
+  status: "recording" | "paused" | "stopping" | "finalizing" | "failed";
+  elapsedMs: number;
+};
+
 export type RecordingContextValue = {
   openDialog: () => void;
   closeDialog: () => void;
   dialogOpen: boolean;
   optimisticRecording: OptimisticRecordingSummary | null;
+  minimizedRecording: MinimizedRecordingSummary | null;
 };
 
 export const RecordingContext = createContext<RecordingContextValue | null>(null);

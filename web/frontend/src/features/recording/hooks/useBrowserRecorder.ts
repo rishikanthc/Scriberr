@@ -170,6 +170,53 @@ export function useBrowserRecorder() {
     }));
   }, []);
 
+  const requestMicrophonePermission = useCallback(async (deviceId?: string) => {
+    const support = getBrowserRecordingSupport();
+    if (!support.supported) {
+      setState((current) => ({
+        ...current,
+        status: "unsupported",
+        error: supportErrorMessage(support),
+      }));
+      return;
+    }
+
+    const selectedDeviceId = deviceId ?? state.selectedDeviceId;
+
+    try {
+      const constraints = buildMicrophoneConstraints(selectedDeviceId || undefined);
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: constraints.audio });
+      const audioTrack = stream.getAudioTracks()[0];
+      const appliedSettings = audioTrack?.getSettings() || null;
+      stream.getTracks().forEach((track) => track.stop());
+      setState((current) => ({
+        ...current,
+        status: current.status === "idle" || current.status === "permission-denied" ? "permission-ready" : current.status,
+        error: null,
+        appliedSettings,
+        requestedConstraints: constraints.requested,
+        selectedDeviceId: selectedDeviceId || current.selectedDeviceId,
+      }));
+      void refreshInputDevices();
+    } catch (error) {
+      setState((current) => ({
+        ...current,
+        status: isPermissionError(error) ? "permission-denied" : "failed",
+        error: error instanceof Error ? error.message : "Failed to access microphone",
+      }));
+    }
+  }, [refreshInputDevices, state.selectedDeviceId]);
+
+  const syncSession = useCallback((session: RecordingSession) => {
+    if (sessionRef.current?.id !== session.id) return;
+    setState((current) => ({
+      ...current,
+      session,
+      status: session.status === "failed" ? "failed" : current.status,
+      error: session.status === "failed" ? session.progress_stage || "Recording finalization failed" : current.error,
+    }));
+  }, []);
+
   const reset = useCallback(() => {
     mediaRecorderRef.current = null;
     sessionRef.current = null;
@@ -506,6 +553,8 @@ export function useBrowserRecorder() {
     reset,
     refreshInputDevices,
     setSelectedDeviceId,
+    requestMicrophonePermission,
+    syncSession,
   };
 }
 

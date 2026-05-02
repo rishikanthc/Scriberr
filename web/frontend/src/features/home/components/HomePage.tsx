@@ -21,6 +21,7 @@ import { preferVisibleTranscription, useCreateTranscription, useStopTranscriptio
 import { EmptyState } from "@/shared/ui/EmptyState";
 import { AppButton, IconButton } from "@/shared/ui/Button";
 import { useRecordingController, type OptimisticRecordingSummary } from "@/features/recording/hooks/useRecordingController";
+import { RecordingSidebarItem } from "@/features/recording/components/RecordingSidebarItem";
 
 type RecordingStatus = "ready" | "recording" | "paused" | "uploading" | "finalizing" | "file-processing" | "queued" | "transcribing" | "transcribed" | "failed" | "stopped" | "canceled";
 type RecordingFileStatus = ScriberrFile["status"] | UploadItem["status"] | "recording" | "paused" | "finalizing";
@@ -45,6 +46,7 @@ export function Sidebar({ activeItem = "home", activeTagId }: SidebarProps) {
   const [tagsOpen, setTagsOpen] = useState(activeItem === "tags");
   const tagsQuery = useTags();
   const tags = tagsQuery.data?.items || [];
+  const { minimizedRecording, openDialog } = useRecordingController();
 
   return (
     <aside className="scr-sidebar" aria-label="Primary navigation">
@@ -85,6 +87,9 @@ export function Sidebar({ activeItem = "home", activeTagId }: SidebarProps) {
           <Settings size={18} aria-hidden="true" />
           <span className="scr-nav-label">Settings</span>
         </Link>
+        {minimizedRecording ? (
+          <RecordingSidebarItem recording={minimizedRecording} onOpen={openDialog} />
+        ) : null}
       </nav>
     </aside>
   );

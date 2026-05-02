@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useState, type PropsWithChildren } from "react";
 import { RecordingDialog } from "@/features/recording/components/RecordingDialog";
-import { RecordingSidebarItem } from "@/features/recording/components/RecordingSidebarItem";
 import { useBrowserRecorder, type BrowserRecorderState } from "@/features/recording/hooks/useBrowserRecorder";
 import { RecordingContext, type OptimisticRecordingSummary } from "@/features/recording/hooks/useRecordingController";
 import { useRecordingEvents, type RecordingEvent } from "@/features/recording/hooks/useRecordingEvents";
+import { useRecording } from "@/features/recording/hooks/useRecordingSession";
 
 const minimizedStatuses: BrowserRecorderState["status"][] = ["recording", "paused", "stopping", "finalizing", "failed"];
 
@@ -15,8 +15,10 @@ type RecordingEventOverlay = {
 
 export function RecordingProvider({ children }: PropsWithChildren) {
   const recorder = useBrowserRecorder();
+  const { reset, syncSession } = recorder;
   const [eventOverlay, setEventOverlay] = useState<RecordingEventOverlay>({});
   const sessionId = recorder.state.session?.id;
+  const recordingQuery = useRecording(sessionId);
 
   const handleRecordingEvent = useCallback((event: RecordingEvent) => {
     if (!sessionId || event.data.id !== sessionId) return;
@@ -30,6 +32,15 @@ export function RecordingProvider({ children }: PropsWithChildren) {
   useRecordingEvents(handleRecordingEvent);
   const [dialogOpen, setDialogOpen] = useState(false);
   const minimized = !dialogOpen && minimizedStatuses.includes(recorder.state.status);
+  const minimizedRecording = useMemo(() => (
+    minimized
+      ? {
+        title: recorder.state.session?.title || "Recording",
+        status: recorder.state.status as "recording" | "paused" | "stopping" | "finalizing" | "failed",
+        elapsedMs: recorder.state.elapsedMs,
+      }
+      : null
+  ), [minimized, recorder.state.elapsedMs, recorder.state.session?.title, recorder.state.status]);
   const optimisticRecording = useMemo(() => optimisticRecordingFromParts({
     eventOverlay,
     fileId: recorder.state.session?.file_id ?? null,
@@ -58,18 +69,34 @@ export function RecordingProvider({ children }: PropsWithChildren) {
     setEventOverlay({});
   }, [sessionId]);
 
+  useEffect(() => {
+    const session = recordingQuery.data;
+    if (!session) return;
+
+    if (session.status === "ready") {
+      setDialogOpen(false);
+      setEventOverlay({});
+      reset();
+      return;
+    }
+
+    if (session.status === "failed") {
+      syncSession(session);
+    }
+  }, [recordingQuery.data, reset, syncSession]);
+
   const value = useMemo(() => ({
     openDialog,
     closeDialog,
     dialogOpen,
     optimisticRecording,
-  }), [closeDialog, dialogOpen, openDialog, optimisticRecording]);
+    minimizedRecording,
+  }), [closeDialog, dialogOpen, minimizedRecording, openDialog, optimisticRecording]);
 
   return (
     <RecordingContext.Provider value={value}>
       {children}
       <RecordingDialog open={dialogOpen} onOpenChange={setDialogOpen} recorder={recorder} />
-      {minimized ? <RecordingSidebarItem state={recorder.state} onOpen={openDialog} /> : null}
     </RecordingContext.Provider>
   );
 }

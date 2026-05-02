@@ -1,44 +1,41 @@
 import { AlertCircle, Loader2, Mic, Pause, Radio } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { BrowserRecorderState } from "@/features/recording/hooks/useBrowserRecorder";
+import type { MinimizedRecordingSummary } from "@/features/recording/hooks/useRecordingController";
 
 type RecordingSidebarItemProps = {
-  state: BrowserRecorderState;
+  recording: MinimizedRecordingSummary;
   onOpen: () => void;
 };
 
-export function RecordingSidebarItem({ state, onOpen }: RecordingSidebarItemProps) {
-  const title = state.session?.title || "Recording";
-
+export function RecordingSidebarItem({ recording, onOpen }: RecordingSidebarItemProps) {
   return (
     <button
       type="button"
-      className="fixed left-3 top-24 z-40 flex w-[172px] items-center gap-2 rounded-[var(--scr-radius-md)] border border-[var(--scr-border-subtle)] bg-[var(--scr-surface-raised)] px-3 py-2 text-left text-[var(--scr-text-primary)] shadow-[var(--scr-shadow-card)] transition hover:border-[var(--scr-brand-border)] hover:shadow-[var(--scr-shadow-float)] focus-visible:border-[var(--scr-brand-border)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--scr-brand-muted)] max-[760px]:left-2 max-[760px]:w-10 max-[760px]:justify-center max-[760px]:px-0"
+      className="scr-nav-recording"
       onClick={onOpen}
-      aria-label={`Open recorder, ${recordingStatusLabel(state.status)}, ${formatDuration(state.elapsedMs)}`}
-      title={`${title} - ${formatDuration(state.elapsedMs)}`}
+      aria-label={`Open recorder, ${recordingStatusLabel(recording.status)}, ${formatDuration(recording.elapsedMs)}`}
+      title={`${recording.title} - ${formatDuration(recording.elapsedMs)}`}
     >
       <span
         className={cn(
-          "grid h-7 w-7 shrink-0 place-items-center rounded-full",
-          state.status === "failed"
-            ? "bg-[color-mix(in_srgb,var(--error)_12%,transparent)] text-[var(--error)]"
-            : "bg-[var(--scr-brand-muted)] text-[var(--scr-brand-solid)]"
+          "scr-nav-recording-icon",
+          recording.status === "failed" && "scr-nav-recording-icon-error"
         )}
       >
-        {recordingIcon(state.status)}
+        {recordingIcon(recording.status)}
       </span>
-      <span className="min-w-0 max-[760px]:hidden">
-        <span className="block truncate text-xs font-semibold text-[var(--scr-text-strong)]">{title}</span>
-        <span className="block truncate font-mono text-xs tabular-nums text-[var(--scr-text-secondary)]">
-          {formatDuration(state.elapsedMs)}
+      <span className="scr-nav-recording-copy">
+        <span className="scr-nav-recording-title">{recording.title}</span>
+        <span className="scr-nav-recording-meta">
+          <span>{recordingStatusLabel(recording.status)}</span>
+          <span>{formatDuration(recording.elapsedMs)}</span>
         </span>
       </span>
     </button>
   );
 }
 
-function recordingIcon(status: BrowserRecorderState["status"]) {
+function recordingIcon(status: MinimizedRecordingSummary["status"]) {
   switch (status) {
     case "paused":
       return <Pause size={14} aria-hidden="true" />;
@@ -54,7 +51,7 @@ function recordingIcon(status: BrowserRecorderState["status"]) {
   }
 }
 
-function recordingStatusLabel(status: BrowserRecorderState["status"]) {
+function recordingStatusLabel(status: MinimizedRecordingSummary["status"]) {
   switch (status) {
     case "recording":
       return "recording";
