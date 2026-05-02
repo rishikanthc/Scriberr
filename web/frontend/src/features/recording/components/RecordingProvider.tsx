@@ -1,25 +1,9 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type PropsWithChildren } from "react";
+import { useCallback, useEffect, useMemo, useState, type PropsWithChildren } from "react";
 import { RecordingDialog } from "@/features/recording/components/RecordingDialog";
 import { RecordingSidebarItem } from "@/features/recording/components/RecordingSidebarItem";
 import { useBrowserRecorder, type BrowserRecorderState } from "@/features/recording/hooks/useBrowserRecorder";
+import { RecordingContext, type OptimisticRecordingSummary } from "@/features/recording/hooks/useRecordingController";
 import { useRecordingEvents, type RecordingEvent } from "@/features/recording/hooks/useRecordingEvents";
-
-export type OptimisticRecordingSummary = {
-  id: string;
-  title: string;
-  status: "recording" | "paused" | "finalizing" | "failed";
-  fileId: string | null;
-  progress?: number;
-};
-
-type RecordingContextValue = {
-  openDialog: () => void;
-  closeDialog: () => void;
-  dialogOpen: boolean;
-  optimisticRecording: OptimisticRecordingSummary | null;
-};
-
-const RecordingContext = createContext<RecordingContextValue | null>(null);
 
 const minimizedStatuses: BrowserRecorderState["status"][] = ["recording", "paused", "stopping", "finalizing", "failed"];
 
@@ -46,7 +30,14 @@ export function RecordingProvider({ children }: PropsWithChildren) {
   useRecordingEvents(handleRecordingEvent);
   const [dialogOpen, setDialogOpen] = useState(false);
   const minimized = !dialogOpen && minimizedStatuses.includes(recorder.state.status);
-  const optimisticRecording = useMemo(() => optimisticRecordingFromState(recorder.state, eventOverlay), [
+  const optimisticRecording = useMemo(() => optimisticRecordingFromParts({
+    eventOverlay,
+    fileId: recorder.state.session?.file_id ?? null,
+    id: recorder.state.session?.id,
+    progress: recorder.state.session?.progress,
+    status: recorder.state.status,
+    title: recorder.state.session?.title,
+  }), [
     eventOverlay,
     recorder.state.session?.file_id,
     recorder.state.session?.id,
@@ -83,33 +74,43 @@ export function RecordingProvider({ children }: PropsWithChildren) {
   );
 }
 
-function optimisticRecordingFromState(state: BrowserRecorderState, eventOverlay: RecordingEventOverlay): OptimisticRecordingSummary | null {
-  if (!state.session) return null;
-  const fileId = eventOverlay.fileId ?? state.session.file_id;
-  const progress = eventOverlay.progress ?? state.session.progress;
+type OptimisticRecordingParts = {
+  eventOverlay: RecordingEventOverlay;
+  fileId: string | null;
+  id?: string;
+  progress?: number;
+  status: BrowserRecorderState["status"];
+  title?: string;
+};
 
-  switch (state.status) {
+function optimisticRecordingFromParts(parts: OptimisticRecordingParts): OptimisticRecordingSummary | null {
+  if (!parts.id) return null;
+  const title = parts.title || "Recording";
+  const fileId = parts.eventOverlay.fileId ?? parts.fileId;
+  const progress = parts.eventOverlay.progress ?? parts.progress;
+
+  switch (parts.status) {
     case "recording":
     case "paused":
       return {
-        id: state.session.id,
-        title: state.session.title || "Recording",
-        status: eventOverlay.status || state.status,
+        id: parts.id,
+        title,
+        status: parts.eventOverlay.status || parts.status,
         fileId,
       };
     case "stopping":
     case "finalizing":
       return {
-        id: state.session.id,
-        title: state.session.title || "Recording",
-        status: eventOverlay.status || "finalizing",
+        id: parts.id,
+        title,
+        status: parts.eventOverlay.status || "finalizing",
         fileId,
         progress,
       };
     case "failed":
       return {
-        id: state.session.id,
-        title: state.session.title || "Recording",
+        id: parts.id,
+        title,
         status: "failed",
         fileId,
       };
@@ -131,12 +132,4 @@ function optimisticStatusFromEvent(event: RecordingEvent): OptimisticRecordingSu
     default:
       return undefined;
   }
-}
-
-export function useRecordingController() {
-  const context = useContext(RecordingContext);
-  if (!context) {
-    throw new Error("useRecordingController must be used within RecordingProvider");
-  }
-  return context;
 }

@@ -2,7 +2,7 @@
 
 This tracker belongs to `devnotes/v2.0.0/sprint-plans/in-app-audio-recording-frontend-sprint-plan.md`.
 
-Status: Sprint 5 complete. Sprint 6 has not started.
+Status: Sprint 6 static verification complete. Authenticated cross-browser microphone QA remains pending because this environment cannot pass the app login and browser permission boundary.
 
 ## Sprint 1: API Contract and Query Foundation
 
@@ -159,30 +159,46 @@ Notes:
 
 ## Sprint 6: Cross-Browser QA, Accessibility, and Performance
 
-Status: pending
+Status: partially complete
 
 Progress:
 
 - [ ] Verify Chrome microphone recording flow.
 - [ ] Verify Firefox microphone recording flow.
 - [ ] Verify Safari microphone recording flow.
-- [ ] Verify MIME fallback in each browser.
-- [ ] Verify mobile and desktop layouts.
-- [ ] Verify keyboard and screen-reader accessible controls.
-- [ ] Verify recording state does not cause broad home/audio rerenders.
-- [ ] Update tracker with artifacts and residual risks.
+- [x] Review MIME fallback strategy for Chrome, Firefox, and Safari.
+- [x] Verify mobile and desktop layouts.
+- [x] Verify keyboard and screen-reader accessible controls.
+- [x] Verify recording state does not cause broad home/audio rerenders.
+- [x] Update tracker with artifacts and residual risks.
 
 Verification:
 
-- [ ] `npm run type-check` from `web/frontend`.
-- [ ] `npm run build` from `web/frontend`.
-- [ ] Focused backend API tests if a contract mismatch is found.
+- [x] `npm run type-check` from `web/frontend`.
+- [x] `npm run build` from `web/frontend`.
+- [x] `npm run lint` from `web/frontend`.
+- [x] Focused backend API tests if a contract mismatch is found. No new backend contract mismatch was found in this sprint.
 
 Artifacts:
 
-- Browser QA notes to be added under this sprint.
+- `web/frontend/src/features/recording/hooks/useRecordingController.ts`
+- `web/frontend/src/features/recording/components/RecordingProvider.tsx`
+- `web/frontend/src/features/home/components/HomePage.tsx`
+
+Browser QA notes:
+
+- Local Vite server started at `http://127.0.0.1:5174/` for a browser smoke attempt.
+- The in-app browser reached the Scriberr frontend and loaded the app title, but the protected route stopped at the sign-in screen.
+- Authenticated microphone interaction could not be completed in this environment without entering user credentials and accepting browser microphone permission. Those steps need manual QA in Chrome, Firefox, and Safari.
+- Static cross-browser support was reviewed through runtime MIME selection with `MediaRecorder.isTypeSupported()` and supported-constraint negotiation through `navigator.mediaDevices.getSupportedConstraints()`.
+- Mobile and desktop layout were reviewed statically through constrained dialog sizing, wrapping controls, and the compact minimized-sidebar entry at `max-width: 760px`.
+- Keyboard/accessibility was reviewed statically: dialog uses Radix dialog semantics, title input has a label, controls are real buttons with visible text or explicit labels, and the minimized entry has an accessible name.
+- Performance was reviewed and adjusted: the provider context no longer exports live recorder state, so home consumers avoid timer-driven rerenders; only low-churn optimistic summary changes reach the home list.
+- `npm run lint` exits successfully. Remaining warnings are pre-existing outside the recording feature: `SettingsPage.tsx`, `AudioTagSection.tsx`, `AudioDetailView.tsx`, `ReadOnlyMarkdown.tsx`, and `TranscriptChatPanel.tsx`.
+- `npm run build` passes with existing dependency-data freshness warnings for Browserslist/baseline-browser-mapping.
 
 Residual risks:
 
 - Full page reload during recording cannot preserve the live browser media stream; the implementation should warn before unload.
 - Exact MIME output and audio-processing constraints remain browser/device dependent and must be runtime-detected.
+- Manual authenticated microphone QA remains required in Chrome, Firefox, and Safari because this environment could not pass the app login and browser permission boundary.

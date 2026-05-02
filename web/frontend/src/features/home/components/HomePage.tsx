@@ -20,7 +20,7 @@ import { useTranscriptionListEvents } from "@/features/transcription/hooks/useTr
 import { preferVisibleTranscription, useCreateTranscription, useStopTranscription, useTaggedTranscriptions, useTranscriptions } from "@/features/transcription/hooks/useTranscriptions";
 import { EmptyState } from "@/shared/ui/EmptyState";
 import { AppButton, IconButton } from "@/shared/ui/Button";
-import { useRecordingController, type OptimisticRecordingSummary } from "@/features/recording/components/RecordingProvider";
+import { useRecordingController, type OptimisticRecordingSummary } from "@/features/recording/hooks/useRecordingController";
 
 type RecordingStatus = "ready" | "recording" | "paused" | "uploading" | "finalizing" | "file-processing" | "queued" | "transcribing" | "transcribed" | "failed" | "stopped" | "canceled";
 type RecordingFileStatus = ScriberrFile["status"] | UploadItem["status"] | "recording" | "paused" | "finalizing";
