@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
-import { Circle, Loader2, Pause, Play, RotateCcw, Square, X } from "lucide-react";
+import { Circle, Loader2, Pause, Play, RefreshCw, RotateCcw, Square, X } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -9,6 +9,13 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { AppButton } from "@/shared/ui/Button";
 import { useBrowserRecorder, type BrowserRecorderStatus } from "@/features/recording/hooks/useBrowserRecorder";
 
@@ -19,6 +26,7 @@ type RecordingDialogProps = {
 };
 
 const activeStatuses: BrowserRecorderStatus[] = ["recording", "paused", "stopping", "finalizing", "failed"];
+const defaultDeviceValue = "__default_microphone__";
 
 export function RecordingDialog({ open, onOpenChange, recorder }: RecordingDialogProps) {
   const [title, setTitle] = useState(() => defaultRecordingTitle());
@@ -30,6 +38,9 @@ export function RecordingDialog({ open, onOpenChange, recorder }: RecordingDialo
   const canResume = state.status === "paused";
   const canStop = state.status === "recording" || state.status === "paused" || state.status === "failed";
   const stopping = state.status === "stopping" || state.status === "finalizing";
+  const selectableDevices = state.availableDevices.filter((device) => device.deviceId);
+  const canChangeDevice = !active && !state.devicesLoading;
+  const selectedDeviceValue = state.selectedDeviceId || defaultDeviceValue;
 
   const statusLabel = useMemo(() => recorderStatusLabel(state.status), [state.status]);
 
@@ -57,8 +68,15 @@ export function RecordingDialog({ open, onOpenChange, recorder }: RecordingDialo
   const handleStart = useCallback(() => {
     const trimmedTitle = title.trim() || defaultRecordingTitle();
     setTitle(trimmedTitle);
-    void recorder.start({ title: trimmedTitle });
-  }, [recorder, title]);
+    void recorder.start({
+      title: trimmedTitle,
+      deviceId: state.selectedDeviceId || undefined,
+    });
+  }, [recorder, state.selectedDeviceId, title]);
+
+  const handleDeviceChange = useCallback((deviceId: string) => {
+    recorder.setSelectedDeviceId(deviceId === defaultDeviceValue ? "" : deviceId);
+  }, [recorder]);
 
   const handleStop = useCallback(() => {
     void recorder.stop();
@@ -112,6 +130,47 @@ export function RecordingDialog({ open, onOpenChange, recorder }: RecordingDialo
               disabled={!canEditTitle}
               className="h-10 rounded-[var(--scr-radius-sm)] border-[var(--scr-border-subtle)] bg-[var(--scr-surface-panel)] text-sm"
             />
+          </div>
+
+          <div className="grid gap-2">
+            <Label htmlFor="recording-input-device" className="text-xs font-medium text-[var(--scr-text-secondary)]">
+              Input device
+            </Label>
+            <div className="flex gap-2">
+              <Select
+                value={selectedDeviceValue}
+                onValueChange={handleDeviceChange}
+                disabled={!canChangeDevice}
+              >
+                <SelectTrigger
+                  id="recording-input-device"
+                  className="h-10 min-w-0 flex-1 rounded-[var(--scr-radius-sm)] border-[var(--scr-border-subtle)] bg-[var(--scr-surface-panel)] text-sm"
+                >
+                  <SelectValue placeholder={state.devicesLoading ? "Loading microphones" : "Default microphone"} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={defaultDeviceValue}>Default microphone</SelectItem>
+                  {selectableDevices.map((device) => (
+                    <SelectItem key={device.deviceId} value={device.deviceId}>
+                      {device.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <AppButton
+                type="button"
+                variant="secondary"
+                onClick={() => void recorder.refreshInputDevices()}
+                disabled={active || state.devicesLoading}
+                aria-label="Refresh input devices"
+              >
+                {state.devicesLoading ? <Loader2 className="animate-spin" size={14} aria-hidden="true" /> : <RefreshCw size={14} aria-hidden="true" />}
+                Refresh
+              </AppButton>
+            </div>
+            {state.devicesError ? (
+              <p className="text-xs text-[var(--error)]">{state.devicesError}</p>
+            ) : null}
           </div>
 
           <div className="flex items-center justify-between gap-4 rounded-[var(--scr-radius-md)] border border-[var(--scr-border-subtle)] bg-[var(--scr-surface-panel)] px-4 py-3">

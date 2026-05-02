@@ -47,6 +47,12 @@ export type BrowserRecorderStartOptions = {
   diarization?: boolean;
 };
 
+export type RecordingInputDevice = {
+  deviceId: string;
+  label: string;
+  groupId?: string;
+};
+
 export type BrowserRecorderState = {
   status: BrowserRecorderStatus;
   session: RecordingSession | null;
@@ -58,6 +64,10 @@ export type BrowserRecorderState = {
   pendingChunks: number;
   uploadedChunks: number;
   failedChunkIndex: number | null;
+  availableDevices: RecordingInputDevice[];
+  selectedDeviceId: string;
+  devicesLoading: boolean;
+  devicesError: string | null;
 };
 
 type PendingChunk = {
@@ -86,6 +96,10 @@ export function useBrowserRecorder() {
     pendingChunks: 0,
     uploadedChunks: 0,
     failedChunkIndex: null,
+    availableDevices: [],
+    selectedDeviceId: "",
+    devicesLoading: false,
+    devicesError: null,
   }));
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -112,6 +126,50 @@ export function useBrowserRecorder() {
     streamRef.current = null;
   }, []);
 
+  const refreshInputDevices = useCallback(async () => {
+    if (!navigator.mediaDevices?.enumerateDevices) {
+      setState((current) => ({
+        ...current,
+        availableDevices: [],
+        selectedDeviceId: "",
+        devicesLoading: false,
+        devicesError: "This browser cannot list microphone devices.",
+      }));
+      return;
+    }
+
+    setState((current) => ({
+      ...current,
+      devicesLoading: true,
+      devicesError: null,
+    }));
+
+    try {
+      const mediaDevices = await navigator.mediaDevices.enumerateDevices();
+      const inputDevices = toRecordingInputDevices(mediaDevices);
+      setState((current) => ({
+        ...current,
+        availableDevices: inputDevices,
+        selectedDeviceId: selectedInputDeviceId(current.selectedDeviceId, inputDevices),
+        devicesLoading: false,
+        devicesError: null,
+      }));
+    } catch (error) {
+      setState((current) => ({
+        ...current,
+        devicesLoading: false,
+        devicesError: error instanceof Error ? error.message : "Failed to list microphone devices.",
+      }));
+    }
+  }, []);
+
+  const setSelectedDeviceId = useCallback((deviceId: string) => {
+    setState((current) => ({
+      ...current,
+      selectedDeviceId: deviceId,
+    }));
+  }, []);
+
   const reset = useCallback(() => {
     mediaRecorderRef.current = null;
     sessionRef.current = null;
@@ -123,7 +181,7 @@ export function useBrowserRecorder() {
     uploadChainRef.current = Promise.resolve();
     stopResolverRef.current = null;
     stopStream();
-    setState({
+    setState((current) => ({
       status: getBrowserRecordingSupport().supported ? "idle" : "unsupported",
       session: null,
       error: supportErrorMessage(getBrowserRecordingSupport()),
@@ -134,7 +192,11 @@ export function useBrowserRecorder() {
       pendingChunks: 0,
       uploadedChunks: 0,
       failedChunkIndex: null,
-    });
+      availableDevices: current.availableDevices,
+      selectedDeviceId: current.selectedDeviceId,
+      devicesLoading: current.devicesLoading,
+      devicesError: current.devicesError,
+    }));
   }, [stopStream]);
 
   const enqueueChunkUpload = useCallback((chunk: PendingChunk) => {
@@ -197,7 +259,8 @@ export function useBrowserRecorder() {
 
     try {
       const mimeSelection = selectRecordingMimeType();
-      const constraints = buildMicrophoneConstraints(options.deviceId);
+      const selectedDeviceId = options.deviceId || state.selectedDeviceId;
+      const constraints = buildMicrophoneConstraints(selectedDeviceId || undefined);
       const stream = await navigator.mediaDevices.getUserMedia({ audio: constraints.audio });
       const audioTrack = stream.getAudioTracks()[0];
       const appliedSettings = audioTrack?.getSettings() || null;
@@ -247,7 +310,8 @@ export function useBrowserRecorder() {
       });
 
       recorder.start(chunkDurationMs);
-      setState({
+      setState((current) => ({
+        ...current,
         status: "recording",
         session,
         error: null,
@@ -258,12 +322,15 @@ export function useBrowserRecorder() {
         pendingChunks: 0,
         uploadedChunks: 0,
         failedChunkIndex: null,
-      });
+        selectedDeviceId,
+        devicesError: null,
+      }));
+      void refreshInputDevices();
     } catch (error) {
       stopStream();
       setError(error, "Failed to start recording");
     }
-  }, [createRecordingMutation, enqueueChunkUpload, setError, stopStream]);
+  }, [createRecordingMutation, enqueueChunkUpload, refreshInputDevices, setError, state.selectedDeviceId, stopStream]);
 
   const pause = useCallback(() => {
     const recorder = mediaRecorderRef.current;
@@ -390,6 +457,20 @@ export function useBrowserRecorder() {
   }, [state.status]);
 
   useEffect(() => {
+    void refreshInputDevices();
+  }, [refreshInputDevices]);
+
+  useEffect(() => {
+    if (!navigator.mediaDevices?.addEventListener) return;
+    const handleDeviceChange = () => {
+      void refreshInputDevices();
+    };
+
+    navigator.mediaDevices.addEventListener("devicechange", handleDeviceChange);
+    return () => navigator.mediaDevices.removeEventListener("devicechange", handleDeviceChange);
+  }, [refreshInputDevices]);
+
+  useEffect(() => {
     const shouldWarn = state.status === "recording" || state.status === "paused" || state.pendingChunks > 0;
     if (!shouldWarn) return;
 
@@ -423,7 +504,27 @@ export function useBrowserRecorder() {
     cancel,
     retryPendingChunk,
     reset,
+    refreshInputDevices,
+    setSelectedDeviceId,
   };
+}
+
+function toRecordingInputDevices(devices: MediaDeviceInfo[]): RecordingInputDevice[] {
+  return devices
+    .filter((device) => device.kind === "audioinput")
+    .map((device, index) => ({
+      deviceId: device.deviceId,
+      label: device.label || `Microphone ${index + 1}`,
+      groupId: device.groupId || undefined,
+    }));
+}
+
+function selectedInputDeviceId(currentDeviceId: string, devices: RecordingInputDevice[]) {
+  if (devices.length === 0) return "";
+  if (currentDeviceId && devices.some((device) => device.deviceId === currentDeviceId)) {
+    return currentDeviceId;
+  }
+  return devices[0]?.deviceId || "";
 }
 
 function createMediaRecorder(stream: MediaStream, selection: RecordingMimeSelection) {
