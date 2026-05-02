@@ -165,19 +165,21 @@ function drawDistortedDotLattice(
   }
 ) {
   const { width, height, timestamp, active, paused, energy, speech, low, high, colors } = options;
-  const sound = active && !paused ? Math.min(1, energy * 5.8 + speech * 2.7) : 0;
-  const motion = sound > 0.025 ? smoothstep(0.025, 0.62, sound) : 0;
-  const spacing = 12;
+  const sound = active && !paused ? Math.min(1, energy * 4.4 + speech * 1.9) : 0;
+  const motion = sound > 0.025 ? smoothstep(0.025, 0.74, sound) : 0;
+  const spacing = 13;
   const columns = Math.ceil(width / spacing) + 6;
   const rows = Math.ceil(height / spacing) + 6;
   const time = timestamp * 0.001;
-  const centerX = width * (0.5 + Math.sin(time * 0.31) * motion * 0.07);
-  const centerY = height * (0.48 + Math.cos(time * 0.27) * motion * 0.08);
-  const maxRadius = Math.max(width, height) * 0.58;
-  const twist = motion * (1.7 + low * 2.4);
-  const ripple = motion * (5 + speech * 16);
-  const baseAlpha = active && !paused ? 0.12 : 0.08;
-  const baseRadius = active && !paused ? 0.82 : 0.62;
+  const centerX = width * (0.5 + Math.sin(time * 0.19) * motion * 0.035);
+  const centerY = height * (0.49 + Math.cos(time * 0.17) * motion * 0.045);
+  const maxRadius = Math.max(width, height) * 0.64;
+  const twist = motion * (0.74 + low * 0.86);
+  const ripple = motion * (2.4 + speech * 6.8);
+  const baseAlpha = active && !paused ? 0.105 : 0.075;
+  const baseRadius = active && !paused ? 0.72 : 0.58;
+  const flowA = Math.sin(time * 0.28) * 0.55;
+  const flowB = Math.cos(time * 0.21) * 0.45;
 
   for (let row = -3; row < rows; row += 1) {
     const y = row * spacing;
@@ -189,21 +191,24 @@ function drawDistortedDotLattice(
       const normalizedRadius = Math.min(1, radiusFromCenter / maxRadius);
       const angle = Math.atan2(dy, dx);
       const falloff = Math.pow(1 - normalizedRadius, 1.85);
-      const spin = twist * falloff * Math.sin(normalizedRadius * 7.2 - time * (1.1 + speech * 1.5));
+      const spin = twist * falloff * Math.sin(normalizedRadius * 5.4 - time * (0.62 + speech * 0.75));
       const warpedAngle = angle + spin;
-      const radialWave = Math.sin(normalizedRadius * 28 - time * (2.1 + low * 2.8) + angle * 2.2);
-      const tangentialWave = Math.cos((x / width) * 9.5 - (y / height) * 7.3 + time * (1.3 + high * 2.2));
-      const push = radialWave * ripple * falloff + tangentialWave * motion * 5;
+      const radialWave = Math.sin(normalizedRadius * 19 - time * (1.05 + low * 1.35) + angle * 1.4);
+      const weave = Math.sin((x / width) * 7.2 + flowA + Math.cos((y / height) * 5.6 + flowB));
+      const tangentialWave = Math.cos((x / width) * 5.4 - (y / height) * 4.8 + time * (0.62 + high * 0.8));
+      const push = radialWave * ripple * falloff + weave * motion * 2.6 + tangentialWave * motion * 1.8;
       const warpedRadius = radiusFromCenter + push;
-      const warpedX = centerX + Math.cos(warpedAngle) * warpedRadius;
-      const warpedY = centerY + Math.sin(warpedAngle) * warpedRadius;
+      const curl = Math.sin(angle * 3 + normalizedRadius * 8 - time * 0.7) * motion * falloff * 4.5;
+      const warpedX = centerX + Math.cos(warpedAngle) * warpedRadius - Math.sin(angle) * curl;
+      const warpedY = centerY + Math.sin(warpedAngle) * warpedRadius + Math.cos(angle) * curl;
       const vortex = smoothstep(0.12, 0.88, falloff * motion);
-      const waveFocus = Math.max(0, radialWave * 0.5 + 0.5) * vortex;
-      const lineInterference = Math.max(0, Math.sin((x + y) * 0.025 + time * (1.6 + speech)) * 0.5 + 0.5);
-      const intensity = Math.min(1, waveFocus * 0.72 + lineInterference * motion * 0.24 + high * 0.34 * falloff);
-      const dotRadius = baseRadius + intensity * (3.1 + motion * 2.2);
-      const alpha = Math.min(0.88, baseAlpha + intensity * (0.18 + motion * 0.58));
-      const color = intensity > 0.68 && motion > 0.34 ? colors.accent : colors.ink;
+      const waveFocus = Math.pow(Math.max(0, radialWave * 0.5 + 0.5), 1.65) * vortex;
+      const lineInterference = Math.pow(Math.max(0, Math.sin((x + y) * 0.018 + time * (0.72 + speech * 0.44)) * 0.5 + 0.5), 1.8);
+      const breath = 0.5 + Math.sin(time * 0.75 + normalizedRadius * 5.5) * 0.5;
+      const intensity = Math.min(1, waveFocus * 0.44 + lineInterference * motion * 0.18 + high * 0.18 * falloff + breath * motion * 0.08);
+      const dotRadius = baseRadius + intensity * (1.72 + motion * 1.15);
+      const alpha = Math.min(0.62, baseAlpha + intensity * (0.12 + motion * 0.28));
+      const color = intensity > 0.82 && motion > 0.48 ? colors.accent : colors.ink;
 
       context.beginPath();
       context.fillStyle = `rgba(${color.r}, ${color.g}, ${color.b}, ${alpha})`;

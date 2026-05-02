@@ -2131,8 +2131,8 @@ body[data-notes-sidebar-resizing="true"] {
 }
 
 .scr-recorder-visual-shell {
-  --scr-recorder-visual-ink: rgb(34, 35, 38);
-  --scr-recorder-visual-accent: rgb(255, 105, 38);
+  --scr-recorder-visual-ink: rgb(42, 43, 46);
+  --scr-recorder-visual-accent: rgb(126, 112, 104);
   position: relative;
   min-height: 168px;
   overflow: hidden;
@@ -2145,7 +2145,7 @@ body[data-notes-sidebar-resizing="true"] {
 
 .dark .scr-recorder-visual-shell {
   --scr-recorder-visual-ink: rgb(238, 239, 242);
-  --scr-recorder-visual-accent: rgb(255, 145, 86);
+  --scr-recorder-visual-accent: rgb(192, 177, 168);
   background:
     linear-gradient(180deg, color-mix(in srgb, var(--scr-surface-raised) 92%, white 8%), var(--scr-surface-panel)),
     var(--scr-surface-panel);
