@@ -2,7 +2,7 @@
 
 This tracker belongs to `devnotes/v2.0.0/sprint-plans/tag-based-audio-organization-backend-sprint-plan.md`.
 
-Status: completed through Sprint 2. Sprint 3 REST API implementation is in progress.
+Status: completed through Sprint 3. Sprint 4 event verification is pending.
 
 ## Sprint 1: Schema and Migration
 
@@ -63,22 +63,34 @@ Verification:
 
 ## Sprint 3: REST API
 
-Status: in progress
+Status: completed
 
 Completed tasks:
 
-- Started wiring `tags.Service` into the API handler.
-- Started registering `/api/v1/tags` and `/api/v1/transcriptions/{id}/tags` routes.
-- Started handler implementation for tag CRUD and transcription tag assignment workflows.
-- Started extending `GET /api/v1/transcriptions` with tag filters.
+- Wired `tags.Service` into the API handler.
+- Registered `/api/v1/tags` routes for list/create/get/update/delete.
+- Registered `/api/v1/transcriptions/{id}/tags` routes for list/replace/add/remove assignment workflows.
+- Added request and response types separate from GORM models.
+- Extended `GET /api/v1/transcriptions` with `tag`, `tags`, and `tag_match=any|all` filters.
+- Added REST handler tests for tag CRUD, assignment replacement, add/remove, validation, response shape, and list filtering by one or more tags.
+- Updated route contract and endpoint smoke tests for canonical tag routes.
 
-Remaining tasks:
+Artifacts:
 
-- Finish handler compilation and imports.
-- Add REST handler tests for tag CRUD, assignment replacement, add/remove, ownership, validation, and list filtering by one or more tags.
-- Update route contract tests.
-- Run focused API, service, repository, and database verification.
-- Commit the completed REST slice atomically.
+- `internal/api/tag_handlers.go`
+- `internal/api/tag_handlers_test.go`
+- `internal/api/router.go`
+- `internal/api/transcription_handlers.go`
+- `internal/api/route_contract_test.go`
+
+Commit:
+
+- `0b3ed5e` (`feat: expose audio tag api`)
+
+Verification:
+
+- `GOCACHE=/Users/zade/Code/asr/Scriberr/.tmp/go-build go test ./internal/api -run 'TestTag|TestTranscriptionTags|TestCanonicalRouteRegistration|TestEndpointContractSmoke|TestTranscriptionCreateListGetPatchCancelDelete'`
+- `GOCACHE=/Users/zade/Code/asr/Scriberr/.tmp/go-build go test ./internal/tags ./internal/repository ./internal/database ./internal/api -run 'TestTag|TestTranscriptionTags|TestCanonicalRouteRegistration|TestEndpointContractSmoke|TestAudioTag|TestService'`
 
 ## Sprint 4: Events and UI Readiness
 
@@ -86,5 +98,6 @@ Status: pending
 
 Remaining tasks:
 
+- Add direct SSE/API event tests for tag mutations.
 - Verify `tag.created`, `tag.updated`, `tag.deleted`, and `transcription.tags.updated` event payloads through API/SSE tests.
 - Document frontend integration expectations if needed.
