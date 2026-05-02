@@ -1317,6 +1317,7 @@ body[data-notes-sidebar-resizing="true"] {
 .scr-transcript-note-edit-input {
   min-height: 34px;
   width: 100%;
+  box-sizing: border-box;
   background: #f7eeee;
   color: #675d5d;
   font-size: var(--scr-type-body-lg);
@@ -1341,7 +1342,11 @@ body[data-notes-sidebar-resizing="true"] {
 }
 
 .scr-transcript-note-edit-input {
-  min-height: 64px;
+  display: block;
+  min-height: 34px;
+  max-height: 120px;
+  field-sizing: content;
+  overflow-y: auto;
   resize: none;
   outline: 1px solid color-mix(in srgb, var(--scr-brand-solid) 36%, transparent);
   outline-offset: 0;

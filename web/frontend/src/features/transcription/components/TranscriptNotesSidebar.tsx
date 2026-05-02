@@ -311,8 +311,7 @@ function TranscriptNoteEntryBubble({ annotationId, entry, isUpdating, isDeleting
   };
 
   const handleDelete = async () => {
-    const confirmed = window.confirm("Delete this note?");
-    if (!confirmed || isDeleting) return;
+    if (isDeleting) return;
     await onDelete(annotationId, entry.id);
   };
 
@@ -337,7 +336,7 @@ function TranscriptNoteEntryBubble({ annotationId, entry, isUpdating, isDeleting
           aria-label="Edit note"
           disabled={isUpdating}
           autoFocus
-          rows={2}
+          rows={1}
           onBlur={() => void handleSave()}
           onChange={(event) => setDraftContent(event.currentTarget.value)}
           onKeyDown={handleEditKeyDown}
