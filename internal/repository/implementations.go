@@ -1839,6 +1839,197 @@ func (r *annotationRepository) SoftDeleteAnnotationEntry(ctx context.Context, us
 	return nil
 }
 
+// TagRepository handles audio tag persistence and tag assignments.
+type TagRepository interface {
+	CreateTag(ctx context.Context, tag *models.AudioTag) error
+	FindTagForUser(ctx context.Context, userID uint, tagID string) (*models.AudioTag, error)
+	FindTagForUserByNormalizedName(ctx context.Context, userID uint, normalizedName string) (*models.AudioTag, error)
+	ListTagsForUser(ctx context.Context, userID uint, search string, offset int, limit int) ([]models.AudioTag, int64, error)
+	UpdateTag(ctx context.Context, tag *models.AudioTag) error
+	SoftDeleteTag(ctx context.Context, userID uint, tagID string) error
+	ListTagsForTranscription(ctx context.Context, userID uint, transcriptionID string) ([]models.AudioTag, error)
+	ReplaceTagsForTranscription(ctx context.Context, userID uint, transcriptionID string, tagIDs []string) error
+	AddTagToTranscription(ctx context.Context, userID uint, transcriptionID string, tagID string) error
+	RemoveTagFromTranscription(ctx context.Context, userID uint, transcriptionID string, tagID string) error
+	ListTranscriptionIDsByTags(ctx context.Context, userID uint, tagIDs []string, matchAll bool) ([]string, error)
+}
+
+type tagRepository struct {
+	db *gorm.DB
+}
+
+func NewTagRepository(db *gorm.DB) TagRepository {
+	return &tagRepository{db: db}
+}
+
+func (r *tagRepository) CreateTag(ctx context.Context, tag *models.AudioTag) error {
+	return r.db.WithContext(ctx).Create(tag).Error
+}
+
+func (r *tagRepository) FindTagForUser(ctx context.Context, userID uint, tagID string) (*models.AudioTag, error) {
+	var tag models.AudioTag
+	if err := r.db.WithContext(ctx).
+		Where("id = ? AND user_id = ?", tagID, userID).
+		First(&tag).Error; err != nil {
+		return nil, err
+	}
+	return &tag, nil
+}
+
+func (r *tagRepository) FindTagForUserByNormalizedName(ctx context.Context, userID uint, normalizedName string) (*models.AudioTag, error) {
+	var tag models.AudioTag
+	if err := r.db.WithContext(ctx).
+		Where("user_id = ? AND normalized_name = ?", userID, normalizedName).
+		First(&tag).Error; err != nil {
+		return nil, err
+	}
+	return &tag, nil
+}
+
+func (r *tagRepository) ListTagsForUser(ctx context.Context, userID uint, search string, offset int, limit int) ([]models.AudioTag, int64, error) {
+	var tags []models.AudioTag
+	var count int64
+	query := r.db.WithContext(ctx).Model(&models.AudioTag{}).Where("user_id = ?", userID)
+	if search != "" {
+		searchLike := "%" + search + "%"
+		query = query.Where("name LIKE ? OR normalized_name LIKE ?", searchLike, searchLike)
+	}
+	if err := query.Count(&count).Error; err != nil {
+		return nil, 0, err
+	}
+	if err := query.Order("normalized_name ASC, id ASC").Offset(offset).Limit(limit).Find(&tags).Error; err != nil {
+		return nil, 0, err
+	}
+	return tags, count, nil
+}
+
+func (r *tagRepository) UpdateTag(ctx context.Context, tag *models.AudioTag) error {
+	result := r.db.WithContext(ctx).
+		Model(tag).
+		Where("id = ? AND user_id = ?", tag.ID, tag.UserID).
+		Select("Name", "NormalizedName", "Color", "Description", "MetadataJSON").
+		Updates(tag)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
+
+func (r *tagRepository) SoftDeleteTag(ctx context.Context, userID uint, tagID string) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		result := tx.Where("id = ? AND user_id = ?", tagID, userID).Delete(&models.AudioTag{})
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected == 0 {
+			return gorm.ErrRecordNotFound
+		}
+		return tx.Where("user_id = ? AND tag_id = ?", userID, tagID).Delete(&models.AudioTagAssignment{}).Error
+	})
+}
+
+func (r *tagRepository) ListTagsForTranscription(ctx context.Context, userID uint, transcriptionID string) ([]models.AudioTag, error) {
+	var tags []models.AudioTag
+	err := r.db.WithContext(ctx).
+		Table("audio_tags").
+		Select("audio_tags.*").
+		Joins("JOIN audio_tag_assignments ON audio_tag_assignments.tag_id = audio_tags.id").
+		Where("audio_tags.user_id = ? AND audio_tag_assignments.user_id = ? AND audio_tag_assignments.transcription_id = ?", userID, userID, transcriptionID).
+		Where("audio_tags.deleted_at IS NULL AND audio_tag_assignments.deleted_at IS NULL").
+		Order("audio_tags.normalized_name ASC, audio_tags.id ASC").
+		Find(&tags).Error
+	return tags, err
+}
+
+func (r *tagRepository) ReplaceTagsForTranscription(ctx context.Context, userID uint, transcriptionID string, tagIDs []string) error {
+	desired := make(map[string]struct{}, len(tagIDs))
+	for _, tagID := range tagIDs {
+		desired[tagID] = struct{}{}
+	}
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var assignments []models.AudioTagAssignment
+		if err := tx.Where("user_id = ? AND transcription_id = ?", userID, transcriptionID).Find(&assignments).Error; err != nil {
+			return err
+		}
+		active := make(map[string]struct{}, len(assignments))
+		for _, assignment := range assignments {
+			if _, ok := desired[assignment.TagID]; !ok {
+				if err := tx.Where("id = ? AND user_id = ?", assignment.ID, userID).Delete(&models.AudioTagAssignment{}).Error; err != nil {
+					return err
+				}
+				continue
+			}
+			active[assignment.TagID] = struct{}{}
+		}
+		for _, tagID := range tagIDs {
+			if _, ok := active[tagID]; ok {
+				continue
+			}
+			if err := tx.Create(&models.AudioTagAssignment{
+				UserID:          userID,
+				TagID:           tagID,
+				TranscriptionID: transcriptionID,
+			}).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
+func (r *tagRepository) AddTagToTranscription(ctx context.Context, userID uint, transcriptionID string, tagID string) error {
+	var existing models.AudioTagAssignment
+	result := r.db.WithContext(ctx).
+		Where("user_id = ? AND transcription_id = ? AND tag_id = ?", userID, transcriptionID, tagID).
+		First(&existing)
+	if result.Error == nil {
+		return nil
+	}
+	if !errors.Is(result.Error, gorm.ErrRecordNotFound) {
+		return result.Error
+	}
+	return r.db.WithContext(ctx).Create(&models.AudioTagAssignment{
+		UserID:          userID,
+		TagID:           tagID,
+		TranscriptionID: transcriptionID,
+	}).Error
+}
+
+func (r *tagRepository) RemoveTagFromTranscription(ctx context.Context, userID uint, transcriptionID string, tagID string) error {
+	return r.db.WithContext(ctx).
+		Where("user_id = ? AND transcription_id = ? AND tag_id = ?", userID, transcriptionID, tagID).
+		Delete(&models.AudioTagAssignment{}).Error
+}
+
+func (r *tagRepository) ListTranscriptionIDsByTags(ctx context.Context, userID uint, tagIDs []string, matchAll bool) ([]string, error) {
+	if len(tagIDs) == 0 {
+		return nil, nil
+	}
+	type row struct {
+		TranscriptionID string `gorm:"column:transcription_id"`
+	}
+	var rows []row
+	query := r.db.WithContext(ctx).
+		Model(&models.AudioTagAssignment{}).
+		Select("transcription_id").
+		Where("user_id = ? AND tag_id IN ?", userID, tagIDs).
+		Group("transcription_id")
+	if matchAll {
+		query = query.Having("COUNT(DISTINCT tag_id) = ?", len(tagIDs))
+	}
+	if err := query.Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	ids := make([]string, 0, len(rows))
+	for _, row := range rows {
+		ids = append(ids, row.TranscriptionID)
+	}
+	return ids, nil
+}
+
 // SpeakerMappingRepository handles speaker mappings
 type SpeakerMappingRepository interface {
 	Repository[models.SpeakerMapping]
