@@ -174,8 +174,13 @@ function RecordingCard({
       </div>
       <div>
         <h2 className="scr-recording-title">{recording.title}</h2>
+        <p className="scr-recording-meta-line">
+          <span>{recording.date}</span>
+          <span className="scr-recording-status" data-status={recording.status}>
+            {statusText(recording)}
+          </span>
+        </p>
         {recording.description ? <p className="scr-recording-description">{recording.description}</p> : null}
-        <p className="scr-recording-date">{recording.date}</p>
       </div>
       <div className="scr-recording-meta-actions">
         <div className="scr-recording-actions" aria-label={`${recording.title} actions`}>
@@ -255,9 +260,6 @@ function RecordingCard({
           >
             {isProcessing ? <StopCircle size={16} aria-hidden="true" /> : <Trash2 size={16} aria-hidden="true" />}
           </button>
-        </div>
-        <div className="scr-recording-status" data-status={recording.status}>
-          {statusText(recording)}
         </div>
       </div>
     </article>

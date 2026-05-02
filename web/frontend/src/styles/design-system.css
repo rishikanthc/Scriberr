@@ -2015,7 +2015,7 @@ body[data-notes-sidebar-resizing="true"] {
 
 .scr-recording-card {
   display: grid;
-  grid-template-columns: 50px minmax(0, 1fr) auto;
+  grid-template-columns: 50px minmax(0, 1fr) max-content;
   align-items: center;
   gap: var(--scr-space-4);
   min-height: 74px;
@@ -2073,15 +2073,18 @@ body[data-notes-sidebar-resizing="true"] {
   color: var(--scr-brand-ink);
 }
 
-.scr-recording-date {
+.scr-recording-meta-line {
+  display: flex;
+  align-items: center;
+  gap: var(--scr-space-2);
   margin-top: 2px;
   color: var(--scr-text-secondary);
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
+  line-height: 1.25;
 }
 
 .scr-recording-description {
   display: -webkit-box;
-  max-width: 68ch;
   margin-top: var(--scr-space-1);
   overflow: hidden;
   color: var(--scr-text-secondary);
@@ -2092,46 +2095,25 @@ body[data-notes-sidebar-resizing="true"] {
   white-space: pre-line;
 }
 
-.scr-recording-description + .scr-recording-date {
-  margin-top: var(--scr-space-1);
-  font-size: 0.75rem;
-}
-
 .scr-recording-status {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 4.75rem;
-  height: 1.5rem;
-  border: 1px solid var(--scr-border-subtle);
-  border-radius: 999px;
-  background: var(--scr-surface-muted);
   color: var(--scr-text-tertiary);
   font-size: 0.625rem;
   font-weight: 600;
   letter-spacing: 0.08em;
   line-height: 1;
-  padding: 0 var(--scr-space-2);
   text-transform: uppercase;
-  transition: opacity 160ms ease, transform 160ms ease;
 }
 
 .scr-recording-status[data-status="transcribed"] {
-  border-color: color-mix(in srgb, var(--scr-color-success) 28%, transparent);
-  background: color-mix(in srgb, var(--scr-color-success) 8%, transparent);
   color: var(--scr-color-success);
 }
 
 .scr-recording-status[data-status="failed"] {
-  border-color: color-mix(in srgb, var(--scr-color-danger) 28%, transparent);
-  background: color-mix(in srgb, var(--scr-color-danger) 8%, transparent);
   color: var(--scr-color-danger);
 }
 
 .scr-recording-status[data-status="queued"],
 .scr-recording-status[data-status="transcribing"] {
-  border-color: var(--scr-brand-border);
-  background: var(--scr-brand-muted);
   color: var(--scr-brand-ink);
 }
 
@@ -2139,7 +2121,7 @@ body[data-notes-sidebar-resizing="true"] {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  min-width: 138px;
+  min-width: 96px;
 }
 
 .scr-recording-actions {
@@ -2164,13 +2146,6 @@ body[data-notes-sidebar-resizing="true"] {
   opacity: 1;
   pointer-events: auto;
   transform: translateX(0);
-}
-
-.scr-recording-card:hover .scr-recording-status,
-.scr-recording-card:focus-visible .scr-recording-status,
-.scr-recording-card:focus-within .scr-recording-status {
-  opacity: 0;
-  transform: translateX(4px);
 }
 
 .scr-recording-action {
@@ -3435,7 +3410,7 @@ body[data-notes-sidebar-resizing="true"] {
   }
 
   .scr-recording-card {
-    grid-template-columns: 40px minmax(0, 1fr) 22px;
+    grid-template-columns: 40px minmax(0, 1fr) max-content;
     gap: var(--scr-space-2);
     padding: var(--scr-space-3);
   }
