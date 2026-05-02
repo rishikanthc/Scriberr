@@ -14,6 +14,7 @@ type migrationStep func(*gorm.DB) error
 var schemaSteps = map[int]migrationStep{
 	2: migrateStepV1ToV2,
 	3: migrateStepV2ToV3,
+	4: migrateStepV3ToV4,
 }
 
 func runSchemaSteps(tx *gorm.DB, currentVersion int) error {
@@ -42,6 +43,10 @@ func migrateStepV1ToV2(tx *gorm.DB) error {
 }
 
 func migrateStepV2ToV3(tx *gorm.DB) error {
+	return nil
+}
+
+func migrateStepV3ToV4(tx *gorm.DB) error {
 	return nil
 }
 

@@ -45,6 +45,28 @@ If the transcript is noisy or unstructured:
 Now summarize the following transcript:
 `
 
+const titlePrompt = `Generate a concise title for this audio recording based on the current title and summary below.
+
+Rules:
+- Maximum 7 words.
+- Return only the title.
+- No quotes.
+- No markdown.
+- No trailing punctuation.
+- Be specific and descriptive.
+- Do not use generic titles like "Audio Recording", "Transcript Summary", or "Discussion".
+- If the current title already faithfully describes the audio and is 7 words or fewer, repeat the current title exactly.
+- If the current title is generic, misleading, too vague, or longer than 7 words, provide an improved title.
+`
+
+const titlePromptCurrentTitleSection = `Current title:
+`
+
+const titlePromptSummarySection = `
+
+Summary:
+`
+
 const markdownTypesetInstructions = `Format the response as clean Markdown suitable for read-only typeset rendering.
 
 Use Markdown structure only when it improves scanning: concise headings, bullet lists, numbered lists, tables, emphasis, or checkboxes where appropriate.
@@ -54,6 +76,7 @@ Return only the Markdown content.`
 
 type EventPublisher interface {
 	PublishSummaryStatus(ctx context.Context, event StatusEvent)
+	PublishFileEvent(ctx context.Context, name string, payload map[string]any)
 }
 
 type StatusEvent struct {
@@ -77,6 +100,7 @@ type Service struct {
 	jobs      repository.JobRepository
 	events    EventPublisher
 	cfg       Config
+	clientFor func(*models.LLMConfig) (llm.Service, error)
 
 	mu      sync.Mutex
 	started bool
@@ -95,6 +119,7 @@ func NewService(summaries repository.SummaryRepository, llmConfig repository.LLM
 		llmConfig: llmConfig,
 		jobs:      jobs,
 		cfg:       cfg,
+		clientFor: clientForConfig,
 		wake:      make(chan struct{}, 1),
 	}
 }
@@ -278,7 +303,7 @@ func (s *Service) processSummary(ctx context.Context, summary *models.Summary) e
 	if !llmReady(config) {
 		return fmt.Errorf("LLM provider is not fully configured")
 	}
-	client, err := clientForConfig(config)
+	client, err := s.clientFor(config)
 	if err != nil {
 		return err
 	}
@@ -323,6 +348,63 @@ func (s *Service) processSummary(ctx context.Context, summary *models.Summary) e
 	summary.ContextWindow = contextWindow
 	summary.InputCharacters = len(transcriptText)
 	s.publish(context.Background(), "summary.completed", summary)
+	if err := s.generateTitleForSummary(context.Background(), summary, content); err != nil {
+		logger.Error("Automatic title generation failed", "summary_id", summary.ID, "transcription_id", summary.TranscriptionID, "error", err)
+	}
+	return nil
+}
+
+func (s *Service) generateTitleForSummary(ctx context.Context, summary *models.Summary, summaryContent string) error {
+	if summary == nil || strings.TrimSpace(summaryContent) == "" {
+		return nil
+	}
+	job, err := s.jobs.FindByID(ctx, summary.TranscriptionID)
+	if err != nil {
+		return err
+	}
+	if job.LLMTitleGenerated {
+		return nil
+	}
+	config, err := s.llmConfig.GetActiveByUser(ctx, summary.UserID)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if !titleLLMReady(config) {
+		return nil
+	}
+	client, err := s.clientFor(config)
+	if err != nil {
+		return err
+	}
+	model := strings.TrimSpace(*config.SmallModel)
+	currentTitle := strings.TrimSpace(valueOrEmpty(job.Title))
+	prompt := titlePrompt + titlePromptCurrentTitleSection + currentTitle + titlePromptSummarySection + strings.TrimSpace(summaryContent)
+	response, err := client.ChatCompletion(ctx, model, []llm.ChatMessage{{Role: "user", Content: prompt}}, 0)
+	if err != nil {
+		return err
+	}
+	content := ""
+	if response != nil && len(response.Choices) > 0 {
+		content = response.Choices[0].Message.Content
+	}
+	title := sanitizeGeneratedTitle(content)
+	if title == "" {
+		return nil
+	}
+	generatedAt := time.Now()
+	if err := s.jobs.UpdateLLMGeneratedTitle(ctx, summary.TranscriptionID, title, generatedAt); err != nil {
+		return err
+	}
+	if s.events != nil && !sameGeneratedTitle(currentTitle, title) {
+		s.events.PublishFileEvent(ctx, "file.updated", map[string]any{
+			"id":     "file_" + summary.TranscriptionID,
+			"title":  title,
+			"status": string(job.Status),
+		})
+	}
 	return nil
 }
 
@@ -355,7 +437,7 @@ func (s *Service) enqueueWidgetsForSummary(ctx context.Context, summary *models.
 	}
 	selected := append([]models.SummaryWidget{}, always...)
 	if len(conditional) > 0 {
-		client, err := clientForConfig(config)
+		client, err := s.clientFor(config)
 		if err != nil {
 			return err
 		}
@@ -402,7 +484,7 @@ func (s *Service) processWidgetRun(ctx context.Context, run *models.SummaryWidge
 	if !llmReady(config) {
 		return fmt.Errorf("LLM provider is not fully configured")
 	}
-	client, err := clientForConfig(config)
+	client, err := s.clientFor(config)
 	if err != nil {
 		return err
 	}
@@ -462,6 +544,13 @@ func llmReady(config *models.LLMConfig) bool {
 		config.SmallModel != nil && strings.TrimSpace(*config.SmallModel) != ""
 }
 
+func titleLLMReady(config *models.LLMConfig) bool {
+	return config != nil &&
+		strings.TrimSpace(config.Provider) != "" &&
+		strings.TrimSpace(llmBaseURL(config)) != "" &&
+		config.SmallModel != nil && strings.TrimSpace(*config.SmallModel) != ""
+}
+
 func clientForConfig(config *models.LLMConfig) (llm.Service, error) {
 	baseURL := llmBaseURL(config)
 	switch config.Provider {
@@ -503,6 +592,44 @@ func plainTranscriptText(value string) (string, error) {
 		return strings.Join(parts, "\n"), nil
 	}
 	return strings.TrimSpace(transcript.Text), nil
+}
+
+func sanitizeGeneratedTitle(value string) string {
+	title := strings.TrimSpace(value)
+	title = strings.TrimPrefix(title, "```")
+	title = strings.TrimSuffix(title, "```")
+	title = strings.TrimSpace(title)
+	title = strings.Trim(title, "\"'“”‘`*_")
+	title = strings.TrimSpace(title)
+	title = strings.TrimRight(title, " .,:;!?")
+	title = strings.Join(strings.Fields(title), " ")
+	if title == "" || isGenericGeneratedTitle(title) {
+		return ""
+	}
+	words := strings.Fields(title)
+	if len(words) > 7 {
+		title = strings.Join(words[:7], " ")
+		title = strings.TrimRight(title, " .,:;!?")
+	}
+	if title == "" || isGenericGeneratedTitle(title) {
+		return ""
+	}
+	return title
+}
+
+func isGenericGeneratedTitle(title string) bool {
+	normalized := strings.ToLower(strings.TrimSpace(title))
+	normalized = strings.TrimRight(normalized, " .,:;!?")
+	switch normalized {
+	case "audio recording", "recording", "transcript summary", "summary", "discussion", "conversation", "audio transcript", "untitled recording":
+		return true
+	default:
+		return false
+	}
+}
+
+func sameGeneratedTitle(currentTitle string, generatedTitle string) bool {
+	return strings.EqualFold(strings.Join(strings.Fields(currentTitle), " "), strings.Join(strings.Fields(generatedTitle), " "))
 }
 
 func fitTranscriptToContext(transcript string, contextWindow int) (string, bool) {

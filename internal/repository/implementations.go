@@ -86,6 +86,7 @@ type JobRepository interface {
 	DeleteExecutionsByJobID(ctx context.Context, jobID string) error
 	UpdateStatus(ctx context.Context, jobID string, status models.JobStatus) error
 	UpdateError(ctx context.Context, jobID string, errorMsg string) error
+	UpdateLLMGeneratedTitle(ctx context.Context, jobID string, title string, generatedAt time.Time) error
 	FindByStatus(ctx context.Context, status models.JobStatus) ([]models.TranscriptionJob, error)
 	CountByStatus(ctx context.Context, status models.JobStatus) (int64, error)
 	UpdateSummary(ctx context.Context, jobID string, summary string) error
@@ -551,6 +552,16 @@ func (r *jobRepository) UpdateStatus(ctx context.Context, jobID string, status m
 
 func (r *jobRepository) UpdateError(ctx context.Context, jobID string, errorMsg string) error {
 	return r.db.WithContext(ctx).Model(&models.TranscriptionJob{}).Where("id = ?", jobID).Update("last_error", errorMsg).Error
+}
+
+func (r *jobRepository) UpdateLLMGeneratedTitle(ctx context.Context, jobID string, title string, generatedAt time.Time) error {
+	return r.db.WithContext(ctx).Model(&models.TranscriptionJob{}).
+		Where("id = ?", jobID).
+		Updates(map[string]any{
+			"title":                  title,
+			"llm_title_generated":    true,
+			"llm_title_generated_at": generatedAt,
+		}).Error
 }
 
 func (r *jobRepository) FindByStatus(ctx context.Context, status models.JobStatus) ([]models.TranscriptionJob, error) {
