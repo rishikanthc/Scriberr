@@ -17,6 +17,7 @@ import (
 	"scriberr/internal/models"
 	"scriberr/internal/repository"
 	"scriberr/internal/summarization"
+	"scriberr/internal/tags"
 	"scriberr/internal/transcription/engineprovider"
 	"scriberr/internal/transcription/orchestrator"
 	"scriberr/internal/transcription/worker"
@@ -41,6 +42,7 @@ type Handler struct {
 	queueService    worker.QueueService
 	modelRegistry   engineprovider.Registry
 	annotations     *annotations.Service
+	tags            *tags.Service
 	chatLLMFactory  func(*models.LLMConfig) (llm.Service, error)
 }
 
@@ -68,11 +70,17 @@ func NewHandler(cfg *config.Config, authService *auth.AuthService, services ...a
 			handler.modelRegistry = value
 		case *annotations.Service:
 			handler.annotations = value
+		case *tags.Service:
+			handler.tags = value
 		}
 	}
 	if handler.annotations == nil && database.DB != nil {
 		handler.annotations = annotations.NewService(repository.NewAnnotationRepository(database.DB), repository.NewJobRepository(database.DB))
 		handler.annotations.SetEventPublisher(handler)
+	}
+	if handler.tags == nil && database.DB != nil {
+		handler.tags = tags.NewService(repository.NewTagRepository(database.DB), repository.NewJobRepository(database.DB))
+		handler.tags.SetEventPublisher(handler)
 	}
 	return handler
 }
@@ -118,6 +126,23 @@ func (h *Handler) PublishAnnotationEvent(_ context.Context, event annotations.Ev
 		payload["entry_id"] = event.EntryID
 	}
 	h.publishTranscriptionEvent(event.Name, event.TranscriptionID, payload)
+	h.publishEvent(event.Name, payload)
+}
+
+func (h *Handler) PublishTagEvent(_ context.Context, event tags.Event) {
+	if h == nil {
+		return
+	}
+	payload := gin.H{}
+	if event.TagID != "" {
+		payload["id"] = event.TagID
+	}
+	if event.TranscriptionID != "" {
+		payload["transcription_id"] = event.TranscriptionID
+	}
+	if event.TranscriptionID != "" {
+		h.publishTranscriptionEvent(event.Name, event.TranscriptionID, payload)
+	}
 	h.publishEvent(event.Name, payload)
 }
 
@@ -180,6 +205,16 @@ func SetupRoutes(handler *Handler, _ *auth.AuthService) *gin.Engine {
 			apiKeys.DELETE("/:id", handler.deleteAPIKey)
 		}
 
+		tagRoutes := v1.Group("/tags")
+		tagRoutes.Use(handler.authRequired())
+		{
+			tagRoutes.GET("", handler.listTags)
+			tagRoutes.POST("", handler.idempotencyMiddleware(), handler.createTag)
+			tagRoutes.GET("/:tag_id", handler.getTag)
+			tagRoutes.PATCH("/:tag_id", handler.updateTag)
+			tagRoutes.DELETE("/:tag_id", handler.deleteTag)
+		}
+
 		files := v1.Group("/files")
 		files.Use(handler.authRequired())
 		{
@@ -199,6 +234,10 @@ func SetupRoutes(handler *Handler, _ *auth.AuthService) *gin.Engine {
 			transcriptions.PATCH("/:id", handler.updateTranscription)
 			transcriptions.DELETE("/:id", handler.deleteTranscription)
 			transcriptions.GET("/:id/transcript", handler.getTranscript)
+			transcriptions.GET("/:id/tags", handler.listTranscriptionTags)
+			transcriptions.PUT("/:id/tags", handler.replaceTranscriptionTags)
+			transcriptions.POST("/:id/tags/:tag_id", handler.addTranscriptionTag)
+			transcriptions.DELETE("/:id/tags/:tag_id", handler.removeTranscriptionTag)
 			transcriptions.GET("/:id/annotations", handler.listAnnotations)
 			transcriptions.POST("/:id/annotations", handler.idempotencyMiddleware(), handler.createAnnotation)
 			transcriptions.GET("/:id/annotations/:annotation_id", handler.getAnnotation)

@@ -9,6 +9,7 @@ import (
 
 	"scriberr/internal/database"
 	"scriberr/internal/models"
+	"scriberr/internal/tags"
 	"scriberr/internal/transcription/orchestrator"
 	"scriberr/internal/transcription/worker"
 
@@ -200,6 +201,30 @@ func (h *Handler) listTranscriptions(c *gin.Context) {
 			return
 		}
 		query = query.Where("status = ?", status)
+	}
+	if tagRefs := transcriptionTagFilters(c); len(tagRefs) > 0 {
+		if h.tags == nil {
+			writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "tag service is not configured", nil)
+			return
+		}
+		matchAll, ok := parseTagMatch(c)
+		if !ok {
+			return
+		}
+		ids, err := h.tags.TranscriptionIDsByTags(c.Request.Context(), tags.FilterRequest{
+			UserID:   userID,
+			TagRefs:  tagRefs,
+			MatchAll: matchAll,
+		})
+		if err != nil {
+			writeTagServiceError(c, err)
+			return
+		}
+		if len(ids) == 0 {
+			query = query.Where("1 = 0")
+		} else {
+			query = query.Where("id IN ?", ids)
+		}
 	}
 	var jobs []models.TranscriptionJob
 	if err := applyListQuery(query, opts).Find(&jobs).Error; err != nil {
