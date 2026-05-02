@@ -2310,7 +2310,10 @@ body[data-notes-sidebar-resizing="true"] {
 }
 
 .scr-recording-status[data-status="queued"],
-.scr-recording-status[data-status="transcribing"] {
+.scr-recording-status[data-status="transcribing"],
+.scr-recording-status[data-status="recording"],
+.scr-recording-status[data-status="paused"],
+.scr-recording-status[data-status="finalizing"] {
   color: var(--scr-brand-ink);
 }
 

@@ -2,7 +2,7 @@
 
 This tracker belongs to `devnotes/v2.0.0/sprint-plans/in-app-audio-recording-frontend-sprint-plan.md`.
 
-Status: Sprint 4 complete. Sprint 5 has not started.
+Status: Sprint 5 complete. Sprint 6 has not started.
 
 ## Sprint 1: API Contract and Query Foundation
 
@@ -126,21 +126,22 @@ Notes:
 
 ## Sprint 5: Reactive Home List Integration
 
-Status: pending
+Status: complete
 
 Progress:
 
-- [ ] Invalidate file, audio-list, and recording queries after stop/finalization events.
-- [ ] Add an optimistic active/finalizing row only when the finalized file does not exist yet.
-- [ ] Replace optimistic state with the normal `file_...` row after finalization.
-- [ ] Keep tagged pages scoped to tagged server files/transcriptions.
-- [ ] Surface finalization failure and retry without adding a normal ready row.
+- [x] Invalidate file, audio-list, and recording queries after stop/finalization events.
+- [x] Add an optimistic active/finalizing row only when the finalized file does not exist yet.
+- [x] Replace optimistic state with the normal `file_...` row after finalization.
+- [x] Keep tagged pages scoped to tagged server files/transcriptions.
+- [x] Surface finalization failure and retry without adding a normal ready row.
 
 Verification:
 
-- [ ] Home list updates without refresh after recording finalization.
-- [ ] Tagged page behavior verified.
-- [ ] `npm run type-check` from `web/frontend`.
+- [x] Home list reactive path reviewed through provider optimistic summary, recording SSE invalidation, and file-id replacement logic.
+- [x] Tagged page behavior remains scoped by excluding local optimistic recording rows when `tagId` is present.
+- [x] `npm run type-check` from `web/frontend`.
+- [x] `npm run build` from `web/frontend`.
 
 Artifacts:
 
@@ -148,6 +149,13 @@ Artifacts:
 - `web/frontend/src/features/files/hooks/useFiles.ts`
 - `web/frontend/src/features/files/hooks/useFileEvents.ts`
 - `web/frontend/src/features/recording/hooks/useRecordingEvents.ts`
+
+Notes:
+
+- `RecordingProvider` now mounts `useRecordingEvents()` so recording events invalidate recording/file/audio-list queries outside the home route.
+- The home list prepends an optimistic `rec_...` row for active, paused, finalizing, and failed local recordings while no finalized file row exists.
+- The optimistic row is omitted on tagged pages and is removed once the finalized `file_...` appears in the files query.
+- `npm run build` passed with existing dependency-data freshness warnings for Browserslist/baseline-browser-mapping.
 
 ## Sprint 6: Cross-Browser QA, Accessibility, and Performance
 

@@ -20,9 +20,10 @@ import { useTranscriptionListEvents } from "@/features/transcription/hooks/useTr
 import { preferVisibleTranscription, useCreateTranscription, useStopTranscription, useTaggedTranscriptions, useTranscriptions } from "@/features/transcription/hooks/useTranscriptions";
 import { EmptyState } from "@/shared/ui/EmptyState";
 import { AppButton, IconButton } from "@/shared/ui/Button";
-import { useRecordingController } from "@/features/recording/components/RecordingProvider";
+import { useRecordingController, type OptimisticRecordingSummary } from "@/features/recording/components/RecordingProvider";
 
-type RecordingStatus = "ready" | "uploading" | "file-processing" | "queued" | "transcribing" | "transcribed" | "failed" | "stopped" | "canceled";
+type RecordingStatus = "ready" | "recording" | "paused" | "uploading" | "finalizing" | "file-processing" | "queued" | "transcribing" | "transcribed" | "failed" | "stopped" | "canceled";
+type RecordingFileStatus = ScriberrFile["status"] | UploadItem["status"] | "recording" | "paused" | "finalizing";
 
 type Recording = {
   id: string;
@@ -30,7 +31,7 @@ type Recording = {
   description: string;
   date: string;
   status: RecordingStatus;
-  fileStatus: ScriberrFile["status"] | UploadItem["status"];
+  fileStatus: RecordingFileStatus;
   transcriptionId?: string;
   progress?: number;
 };
@@ -160,7 +161,8 @@ function RecordingCard({
   onOpen,
 }: RecordingCardProps) {
   const [profilePickerOpen, setProfilePickerOpen] = useState(false);
-  const isProcessing = recording.status === "file-processing" || recording.status === "uploading" || recording.status === "queued" || recording.status === "transcribing";
+  const isLocalRecording = recording.id.startsWith("rec_");
+  const isProcessing = recording.status === "recording" || recording.status === "paused" || recording.status === "finalizing" || recording.status === "file-processing" || recording.status === "uploading" || recording.status === "queued" || recording.status === "transcribing";
   const isFileReady = recording.fileStatus === "ready" || recording.fileStatus === "uploaded";
   const hasActiveTranscription = recording.status === "queued" || recording.status === "transcribing";
   const transcribeDisabled = !canTranscribe || !isFileReady || hasActiveTranscription || isSubmitting;
@@ -187,6 +189,11 @@ function RecordingCard({
           : "Choose ASR profile";
 
   const openTitle = recording.id.startsWith("file_") ? `Open ${recording.title}` : undefined;
+  const dangerTitle = isLocalRecording
+    ? "Open recorder to manage this recording"
+    : isProcessing
+      ? "Stop transcription"
+      : "Delete";
 
   return (
     <article
@@ -284,12 +291,12 @@ function RecordingCard({
           <button
             className="scr-recording-action scr-recording-action-danger"
             type="button"
-            aria-label={isProcessing ? "Stop transcription" : "Delete recording"}
-            title={isProcessing ? "Stop transcription" : "Delete"}
-            disabled={isProcessing && (!recording.transcriptionId || isStopping)}
+            aria-label={dangerTitle}
+            title={dangerTitle}
+            disabled={isLocalRecording || (isProcessing && (!recording.transcriptionId || isStopping))}
             onClick={(event) => {
               event.stopPropagation();
-              if (isProcessing) onStop(recording);
+              if (!isLocalRecording && isProcessing) onStop(recording);
             }}
           >
             {isProcessing ? <StopCircle size={16} aria-hidden="true" /> : <Trash2 size={16} aria-hidden="true" />}
@@ -313,7 +320,7 @@ function AudioListPage({ tagId }: { tagId?: string }) {
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [youtubeDialogOpen, setYoutubeDialogOpen] = useState(false);
-  const { openDialog: openRecordingDialog } = useRecordingController();
+  const { openDialog: openRecordingDialog, optimisticRecording } = useRecordingController();
   const filesQuery = useFiles();
   const tagsQuery = useTags();
   const profilesQuery = useProfiles();
@@ -352,8 +359,9 @@ function AudioListPage({ tagId }: { tagId?: string }) {
       ? files.filter((file) => latestTranscriptionByFileId.has(file.id))
       : files;
     const serverFiles = visibleFiles.map((file) => fileToRecording(file, latestTranscriptionByFileId.get(file.id)));
-    return [...optimistic, ...serverFiles];
-  }, [filesQuery.data?.items, latestTranscriptionByFileId, tagId, uploadItems]);
+    const optimisticRecordingRow = tagId ? null : optimisticRecordingToRecording(optimisticRecording, files);
+    return [...(optimisticRecordingRow ? [optimisticRecordingRow] : []), ...optimistic, ...serverFiles];
+  }, [filesQuery.data?.items, latestTranscriptionByFileId, optimisticRecording, tagId, uploadItems]);
 
   const handleUploadFilesClick = useCallback(() => {
     fileInputRef.current?.click();
@@ -532,6 +540,19 @@ function uploadItemToRecording(item: UploadItem): Recording {
   };
 }
 
+function optimisticRecordingToRecording(summary: OptimisticRecordingSummary | null, files: ScriberrFile[]): Recording | null {
+  if (!summary || summary.fileId && files.some((file) => file.id === summary.fileId)) return null;
+  return {
+    id: summary.id,
+    title: summary.title,
+    description: "",
+    date: optimisticRecordingDate(summary),
+    status: summary.status,
+    fileStatus: summary.status,
+    progress: summary.progress,
+  };
+}
+
 function normalizeRecordingStatus(fileStatus: ScriberrFile["status"], transcriptionStatus?: TranscriptionStatus): RecordingStatus {
   if (transcriptionStatus) return normalizeTranscriptionStatus(transcriptionStatus);
   if (fileStatus === "ready" || fileStatus === "uploaded") return "ready";
@@ -560,6 +581,10 @@ function statusText(recording: Recording) {
   switch (recording.status) {
     case "ready":
       return "Ready";
+    case "recording":
+      return "Recording";
+    case "paused":
+      return "Paused";
     case "transcribed":
       return "Done";
     case "failed":
@@ -568,6 +593,8 @@ function statusText(recording: Recording) {
       return "Stopped";
     case "uploading":
       return recording.progress ? formatProgress(recording.progress) : "Uploading";
+    case "finalizing":
+      return (recording.progress ?? 0) > 0 ? formatProgress(recording.progress ?? 0) : "Finalizing";
     case "file-processing":
       return "Processing";
     case "queued":
@@ -576,6 +603,19 @@ function statusText(recording: Recording) {
       return (recording.progress ?? 0) > 0 ? formatProgress(recording.progress ?? 0) : "Transcribing";
     case "canceled":
       return "Stopped";
+  }
+}
+
+function optimisticRecordingDate(summary: OptimisticRecordingSummary) {
+  switch (summary.status) {
+    case "recording":
+      return "Recording now";
+    case "paused":
+      return "Paused";
+    case "finalizing":
+      return "Saving";
+    case "failed":
+      return "Needs attention";
   }
 }
 
