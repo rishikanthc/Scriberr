@@ -2,7 +2,7 @@
 
 This tracker belongs to `devnotes/v2.0.0/sprint-plans/in-app-audio-recording-frontend-sprint-plan.md`.
 
-Status: Sprint 1 complete. Sprint 2 has not started.
+Status: Sprint 2 complete. Sprint 3 has not started.
 
 ## Sprint 1: API Contract and Query Foundation
 
@@ -33,27 +33,33 @@ Notes:
 
 ## Sprint 2: Browser Recorder Engine
 
-Status: pending
+Status: complete
 
 Progress:
 
-- [ ] Add `useBrowserRecorder` state machine.
-- [ ] Add runtime MIME fallback selection.
-- [ ] Add supported audio constraint negotiation.
-- [ ] Add sequential chunk upload queue and retry handling.
-- [ ] Add monotonic active-duration timer.
-- [ ] Add unload protection while recording or chunks are unsent.
+- [x] Add `useBrowserRecorder` state machine.
+- [x] Add runtime MIME fallback selection.
+- [x] Add supported audio constraint negotiation.
+- [x] Add sequential chunk upload queue and retry handling.
+- [x] Add monotonic active-duration timer.
+- [x] Add unload protection while recording or chunks are unsent.
 
 Verification:
 
-- [ ] Hook/state machine tests or browser smoke notes.
-- [ ] `npm run type-check` from `web/frontend`.
+- [x] Hook/state machine implementation reviewed at the API boundary; browser smoke is deferred until Sprint 3 mounts the hook in the recorder dialog.
+- [x] `npm run type-check` from `web/frontend`.
 
 Artifacts:
 
 - `web/frontend/src/features/recording/hooks/useBrowserRecorder.ts`
 - `web/frontend/src/features/recording/utils/mediaRecorderSupport.ts`
 - `web/frontend/src/features/recording/utils/recordingDuration.ts`
+
+Notes:
+
+- `useBrowserRecorder` owns the local browser workflow state, stream lifecycle, `MediaRecorder` instance, chunk queue, retry queue, timer, unload guard, and backend create/upload/stop/cancel mutations.
+- MIME type and audio constraints are runtime-selected so Chrome, Firefox, and Safari can choose their supported encoder and device features.
+- Cancel/unmount disables chunk acceptance before stopping tracks so explicit cancellation does not upload a trailing `dataavailable` blob.
 
 ## Sprint 3: Recorder Dialog and Header Entry
 
