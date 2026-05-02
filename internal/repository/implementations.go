@@ -1290,7 +1290,6 @@ type SummaryRepository interface {
 	FailSummary(ctx context.Context, id string, message string, failedAt time.Time) error
 	RecoverProcessingSummaries(ctx context.Context) (int64, error)
 	ListCompletedSummariesForTitleGeneration(ctx context.Context, limit int) ([]models.Summary, error)
-	ListCompletedSummariesForDescriptionGeneration(ctx context.Context, limit int) ([]models.Summary, error)
 	GetCompletedOutlineRun(ctx context.Context, summaryID string, transcriptionID string, userID uint) (*models.SummaryWidgetRun, error)
 	GetLatestSummary(ctx context.Context, transcriptionID string) (*models.Summary, error)
 	GetSummaryByID(ctx context.Context, id string) (*models.Summary, error)
@@ -1476,27 +1475,6 @@ func (r *summaryRepository) ListCompletedSummariesForTitleGeneration(ctx context
 		Joins("LEFT JOIN transcriptions AS recording_jobs ON recording_jobs.id = transcription_jobs.source_file_hash").
 		Where("summaries.status = ? AND TRIM(COALESCE(summaries.content, '')) <> ''", "completed").
 		Where("COALESCE(recording_jobs.llm_title_generated, transcription_jobs.llm_title_generated) = ?", false).
-		Order("COALESCE(summaries.completed_at, summaries.updated_at) DESC").
-		Limit(limit).
-		Find(&summaries).Error
-	return summaries, err
-}
-
-func (r *summaryRepository) ListCompletedSummariesForDescriptionGeneration(ctx context.Context, limit int) ([]models.Summary, error) {
-	if limit <= 0 {
-		limit = 25
-	}
-	var summaries []models.Summary
-	err := r.db.WithContext(ctx).
-		Model(&models.Summary{}).
-		Joins("JOIN summary_widget_runs AS outline_runs ON outline_runs.summary_id = summaries.id").
-		Joins("JOIN transcriptions AS transcription_jobs ON transcription_jobs.id = summaries.transcription_id").
-		Joins("LEFT JOIN transcriptions AS recording_jobs ON recording_jobs.id = transcription_jobs.source_file_hash").
-		Where("summaries.status = ? AND TRIM(COALESCE(summaries.content, '')) <> ''", "completed").
-		Where("outline_runs.status = ? AND TRIM(COALESCE(outline_runs.output, '')) <> ''", "completed").
-		Where("(LOWER(TRIM(outline_runs.display_title)) = ? OR LOWER(TRIM(outline_runs.widget_name)) = ?)", "outline", "outline").
-		Where("COALESCE(recording_jobs.llm_description_source_summary_id, transcription_jobs.llm_description_source_summary_id, '') <> summaries.id").
-		Group("summaries.id").
 		Order("COALESCE(summaries.completed_at, summaries.updated_at) DESC").
 		Limit(limit).
 		Find(&summaries).Error

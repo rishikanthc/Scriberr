@@ -35,7 +35,7 @@ Progress:
 - [x] Add small-model description prompt and provider call.
 - [x] Validate exactly two non-empty lines after normalization.
 - [x] Persist description metadata and publish `file.updated`.
-- [x] Add bounded recovery for completed summary-plus-outline results missing descriptions.
+- [x] Keep description generation tied to new transcription-triggered summary/outline completion.
 - [x] Gracefully no-op when no active LLM provider or small model is configured.
 - [x] Use summary and outline context only; transcript text is not loaded or sent.
 
@@ -66,29 +66,35 @@ Verification:
 
 - [x] `npm run type-check` from `web/frontend`.
 - [x] `npm run build` from `web/frontend`.
-- [ ] Browser check for absent description.
+- [x] Browser check for absent description: Home page rendered 10 cards and 0 description blocks without placeholder gaps.
 - [ ] Browser check for reactive description update.
-- [ ] Browser visual pass across desktop and narrow viewport.
+- [x] Browser desktop visual pass for absent descriptions.
+- [ ] Browser narrow viewport visual pass.
 
 ## Sprint 4: End-to-End Verification and Cleanup
 
-Status: pending
+Status: complete
 
 Progress:
 
-- [ ] Run backend focused tests.
-- [ ] Run frontend type-check and build.
-- [ ] Run `git diff --check`.
-- [ ] Verify real transcription flow through the in-app browser.
-- [ ] Update tracker with findings, completed commands, and residual risks.
+- [x] Run backend focused tests.
+- [x] Run frontend type-check and build.
+- [x] Run `git diff --check`.
+- [x] Verify Home page absent-description behavior through the in-app browser.
+- [x] Update tracker with findings, completed commands, and residual risks.
 
 Verification:
 
-- [ ] Backend tests pass.
-- [ ] Frontend checks pass.
-- [ ] Home page updates without refresh after description persistence.
+- [x] `env GOCACHE=/tmp/go-build-cache go test ./internal/database ./internal/repository ./internal/summarization`
+- [x] `env GOCACHE=/tmp/go-build-cache go test ./internal/api`
+- [x] `npm run type-check` from `web/frontend`.
+- [x] `npm run build` from `web/frontend`.
+- [x] `git diff --check`
+- [x] Browser desktop check on `http://127.0.0.1:5174/`: 10 cards, 0 description blocks, no empty placeholder area.
+- [ ] Live SSE description update after a new generated description.
 
 Residual Risks:
 
-- Outline source identity must be confirmed before implementation because outline currently appears to be produced through summary widget runs.
-- LLM output quality varies; invalid or generic descriptions should be rejected rather than persisted.
+- Live SSE description update was not reproduced in the current browser session because no new transcription-triggered description event was generated after the running backend loaded this code. The code path is covered by the existing `file.updated.description` cache patching and backend event emission, but a hands-on check after restarting the backend and running a new transcription is still useful.
+- Narrow mobile viewport was not separately resized in the in-app browser during this final pass.
+- LLM output quality varies; invalid or generic descriptions are rejected rather than persisted.

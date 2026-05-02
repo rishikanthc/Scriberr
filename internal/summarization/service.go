@@ -171,8 +171,6 @@ func (s *Service) Start(ctx context.Context) error {
 	go s.workerLoop()
 	s.wg.Add(1)
 	go s.generateMissingRecordingTitles()
-	s.wg.Add(1)
-	go s.generateMissingRecordingDescriptions()
 	s.notify()
 	return nil
 }
@@ -287,25 +285,6 @@ func (s *Service) generateMissingRecordingTitles() {
 		}
 		if err := s.generateTitleForSummary(s.ctx, &summaries[i], summaries[i].Content); err != nil {
 			logger.Error("Automatic title generation recovery failed", "summary_id", summaries[i].ID, "transcription_id", summaries[i].TranscriptionID, "error", err)
-		}
-	}
-}
-
-func (s *Service) generateMissingRecordingDescriptions() {
-	defer s.wg.Done()
-	summaries, err := s.summaries.ListCompletedSummariesForDescriptionGeneration(s.ctx, 25)
-	if err != nil {
-		logger.Error("Failed to list summaries for description generation", "error", err)
-		return
-	}
-	for i := range summaries {
-		select {
-		case <-s.ctx.Done():
-			return
-		default:
-		}
-		if err := s.generateDescriptionForSummary(s.ctx, &summaries[i]); err != nil {
-			logger.Error("Automatic description generation recovery failed", "summary_id", summaries[i].ID, "transcription_id", summaries[i].TranscriptionID, "error", err)
 		}
 	}
 }
