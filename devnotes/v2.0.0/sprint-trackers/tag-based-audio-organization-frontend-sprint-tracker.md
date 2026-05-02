@@ -2,7 +2,7 @@
 
 This tracker belongs to `devnotes/v2.0.0/sprint-plans/tag-based-audio-organization-frontend-sprint-plan.md`.
 
-Status: completed through Sprint 2. Sprint 3 sidebar and tag detail page is next.
+Status: completed through Sprint 3. Sprint 4 Settings tag management is next.
 
 ## Sprint 1: Contract and Planning
 
@@ -67,19 +67,33 @@ Verification:
 
 ## Sprint 3: Sidebar Tags Navigation
 
-Status: pending
+Status: completed
 
-Remaining tasks:
+Completed tasks:
 
-- Add the sidebar Tags accordion.
-- Add loading/empty/error states.
-- Update active-nav styling to accent text only.
-- Add a dedicated `/tags/{tag_id}` page.
-- Make sidebar tag clicks navigate to the dedicated tag page.
-- Reuse the Home audio-list experience on the tag page with a tag filter.
-- Show an empty state when the selected tag has no audio.
-- Display assigned tags below each audio description in the Home audio list.
-- Use the same audio-card tag display on the dedicated tag page.
+- Added the sidebar Tags accordion.
+- Added sidebar loading/empty/error states.
+- Updated active-nav styling to accent text only.
+- Added a dedicated `/tags/{tag_id}` page.
+- Made sidebar tag clicks navigate to the dedicated tag page.
+- Reused the Home audio-list experience on the tag page with a tag filter.
+- Added an empty state when the selected tag has no audio.
+- Displayed assigned tags below each audio description in the Home audio list.
+- Used the same audio-card tag display on the dedicated tag page.
+
+Artifacts:
+
+- `web/frontend/src/App.tsx`
+- `web/frontend/src/features/home/components/HomePage.tsx`
+- `web/frontend/src/styles/design-system.css`
+
+Commit:
+
+- `8f5aa11` (`feat: add tag navigation audio list`)
+
+Verification:
+
+- `npm run type-check` from `web/frontend`
 
 ## Sprint 4: Settings Tags Management
 
