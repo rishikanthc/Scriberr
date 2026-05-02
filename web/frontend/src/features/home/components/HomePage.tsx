@@ -1,7 +1,9 @@
 import { useCallback, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ChevronDown, FileAudio, Home, Mic, Search, Settings, StopCircle, Trash2, UploadCloud, Video, Wand2, Youtube } from "lucide-react";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { WandAdvancedIcon } from "@/components/icons/WandAdvancedIcon";
 import { UploadProgressShelf } from "@/features/files/components/UploadProgressShelf";
 import { YouTubeImportDialog } from "@/features/files/components/YouTubeImportDialog";
@@ -10,6 +12,7 @@ import { useFileEvents } from "@/features/files/hooks/useFileEvents";
 import { importAccept, type UploadItem, useFileImport } from "@/features/files/hooks/useFileImport";
 import { useFiles } from "@/features/files/hooks/useFiles";
 import { useProfiles } from "@/features/settings/hooks/useProfiles";
+import type { TranscriptionProfile } from "@/features/settings/api/profilesApi";
 import type { Transcription, TranscriptionStatus } from "@/features/transcription/api/transcriptionsApi";
 import { useTranscriptionListEvents } from "@/features/transcription/hooks/useTranscriptionListEvents";
 import { preferVisibleTranscription, useCreateTranscription, useStopTranscription, useTranscriptions } from "@/features/transcription/hooks/useTranscriptions";
@@ -100,18 +103,34 @@ function TopBar({ onUploadFilesClick, onYouTubeImportClick }: TopBarProps) {
 type RecordingCardProps = {
   recording: Recording;
   canTranscribe: boolean;
+  profiles: TranscriptionProfile[];
+  profilesLoading: boolean;
   isSubmitting: boolean;
   isStopping: boolean;
   onTranscribe: (recording: Recording) => void;
+  onTranscribeWithProfile: (recording: Recording, profile: TranscriptionProfile) => void;
   onStop: (recording: Recording) => void;
   onOpen: (recording: Recording) => void;
 };
 
-function RecordingCard({ recording, canTranscribe, isSubmitting, isStopping, onTranscribe, onStop, onOpen }: RecordingCardProps) {
+function RecordingCard({
+  recording,
+  canTranscribe,
+  profiles,
+  profilesLoading,
+  isSubmitting,
+  isStopping,
+  onTranscribe,
+  onTranscribeWithProfile,
+  onStop,
+  onOpen,
+}: RecordingCardProps) {
+  const [profilePickerOpen, setProfilePickerOpen] = useState(false);
   const isProcessing = recording.status === "file-processing" || recording.status === "uploading" || recording.status === "queued" || recording.status === "transcribing";
   const isFileReady = recording.fileStatus === "ready" || recording.fileStatus === "uploaded";
   const hasActiveTranscription = recording.status === "queued" || recording.status === "transcribing";
   const transcribeDisabled = !canTranscribe || !isFileReady || hasActiveTranscription || isSubmitting;
+  const profileTranscribeDisabled = (!profilesLoading && profiles.length === 0) || !isFileReady || hasActiveTranscription || isSubmitting;
   const transcribeTitle = !canTranscribe
     ? "Set a default profile in Settings"
     : !isFileReady
@@ -121,6 +140,17 @@ function RecordingCard({ recording, canTranscribe, isSubmitting, isStopping, onT
         : isSubmitting
           ? "Submitting transcription"
           : "Transcribe with default profile";
+  const profileTranscribeTitle = profilesLoading
+    ? "Loading ASR profiles"
+    : profiles.length === 0
+    ? "Create an ASR profile in Settings"
+    : !isFileReady
+      ? "File is not ready yet"
+      : hasActiveTranscription
+        ? "Transcription already running"
+        : isSubmitting
+          ? "Submitting transcription"
+          : "Choose ASR profile";
 
   const openTitle = recording.id.startsWith("file_") ? `Open ${recording.title}` : undefined;
 
@@ -161,15 +191,55 @@ function RecordingCard({ recording, canTranscribe, isSubmitting, isStopping, onT
               <Wand2 size={16} aria-hidden="true" />
             </button>
           </span>
-          <button
-            className="scr-recording-action"
-            type="button"
-            aria-label="Transcribe advanced"
-            title="Transcribe advanced"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <WandAdvancedIcon className="scr-recording-action-icon" strokeWidth={2} />
-          </button>
+          <Popover open={profilePickerOpen} onOpenChange={setProfilePickerOpen}>
+            <PopoverTrigger asChild>
+              <button
+                className="scr-recording-action"
+                type="button"
+                aria-label={profileTranscribeTitle}
+                title={profileTranscribeTitle}
+                disabled={profileTranscribeDisabled}
+                onClick={(event) => event.stopPropagation()}
+              >
+                <WandAdvancedIcon className="scr-recording-action-icon" strokeWidth={2} />
+              </button>
+            </PopoverTrigger>
+            <PopoverContent
+              className="scr-asr-profile-popover"
+              align="end"
+              side="bottom"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <Command>
+                <CommandInput placeholder="Search ASR profiles" />
+                <CommandList>
+                  <CommandEmpty>No ASR profiles found.</CommandEmpty>
+                  <CommandGroup heading="ASR profiles">
+                    {profilesLoading ? (
+                      <p className="scr-asr-profile-status">Loading profiles.</p>
+                    ) : profiles.map((profile) => (
+                      <CommandItem
+                        key={profile.id}
+                        value={`${profile.name} ${profile.description} ${profile.options.model} ${profile.is_default ? "default" : ""}`}
+                        onSelect={() => {
+                          onTranscribeWithProfile(recording, profile);
+                          setProfilePickerOpen(false);
+                        }}
+                      >
+                        <span className="scr-asr-profile-option">
+                          <span>
+                            {profile.name}
+                            {profile.is_default ? <small>Default</small> : null}
+                          </span>
+                          <small>{formatProfileDescription(profile)}</small>
+                        </span>
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
           <button
             className="scr-recording-action scr-recording-action-danger"
             type="button"
@@ -208,6 +278,7 @@ export function HomePage() {
   const defaultProfile = useMemo(() => {
     return (profilesQuery.data || []).find((profile) => profile.is_default);
   }, [profilesQuery.data]);
+  const profiles = profilesQuery.data || [];
 
   const latestTranscriptionByFileId = useMemo(() => {
     const byFileId = new Map<string, Transcription>();
@@ -255,6 +326,15 @@ export function HomePage() {
     });
   }, [createTranscriptionMutation, defaultProfile]);
 
+  const handleTranscribeWithProfile = useCallback((recording: Recording, profile: TranscriptionProfile) => {
+    if (recording.fileStatus !== "ready" && recording.fileStatus !== "uploaded") return;
+    createTranscriptionMutation.mutate({
+      fileId: recording.id,
+      profileId: profile.id,
+      title: recording.title,
+    });
+  }, [createTranscriptionMutation]);
+
   const handleStopTranscription = useCallback((recording: Recording) => {
     if (!recording.transcriptionId) return;
     stopTranscriptionMutation.mutate(recording.transcriptionId);
@@ -297,9 +377,12 @@ export function HomePage() {
                     key={recording.id}
                     recording={recording}
                     canTranscribe={Boolean(defaultProfile)}
+                    profiles={profiles}
+                    profilesLoading={profilesQuery.isLoading}
                     isSubmitting={createTranscriptionMutation.isPending && createTranscriptionMutation.variables?.fileId === recording.id}
                     isStopping={stopTranscriptionMutation.isPending && stopTranscriptionMutation.variables === recording.transcriptionId}
                     onTranscribe={handleTranscribe}
+                    onTranscribeWithProfile={handleTranscribeWithProfile}
                     onStop={handleStopTranscription}
                     onOpen={handleOpenRecording}
                   />
@@ -390,6 +473,13 @@ function statusText(recording: Recording) {
     case "canceled":
       return "Stopped";
   }
+}
+
+function formatProfileDescription(profile: TranscriptionProfile) {
+  const parts = [profile.options.model];
+  if (profile.options.language) parts.push(profile.options.language.toUpperCase());
+  if (profile.options.diarize) parts.push("Diarization");
+  return parts.join(" · ");
 }
 
 function formatProgress(progress: number) {

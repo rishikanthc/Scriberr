@@ -1143,6 +1143,57 @@ body[data-notes-sidebar-resizing="true"] {
   font-size: var(--scr-type-meta);
 }
 
+.scr-asr-profile-popover {
+  width: min(365px, calc(100vw - 32px));
+  border-color: var(--scr-border-subtle);
+  border-radius: var(--scr-radius-md);
+  box-shadow: var(--scr-shadow-float);
+  padding: 0;
+}
+
+.scr-asr-profile-option {
+  display: grid;
+  gap: var(--scr-space-1);
+  min-width: 0;
+}
+
+.scr-asr-profile-option span {
+  display: flex;
+  align-items: center;
+  gap: var(--scr-space-2);
+  min-width: 0;
+  overflow: hidden;
+  color: var(--scr-text-primary);
+  font-size: var(--scr-type-body);
+  font-weight: var(--scr-font-weight-regular);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.scr-asr-profile-option span small {
+  flex: none;
+  border: 1px solid var(--scr-brand-border);
+  border-radius: 999px;
+  background: var(--scr-brand-muted);
+  color: var(--scr-brand-ink);
+  font-size: 0.625rem;
+  font-weight: 600;
+  line-height: 1;
+  padding: 3px 6px;
+  text-transform: uppercase;
+}
+
+.scr-asr-profile-option > small,
+.scr-asr-profile-status {
+  color: #536276;
+  font-size: var(--scr-type-meta);
+}
+
+.scr-asr-profile-status {
+  margin: 0;
+  padding: 10px 12px;
+}
+
 .scr-chat-input {
   width: 100%;
   min-height: 54px;
