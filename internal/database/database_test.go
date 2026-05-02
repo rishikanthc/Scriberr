@@ -73,6 +73,8 @@ func TestFreshSchemaInitialization(t *testing.T) {
 		"summaries",
 		"audio_tags",
 		"audio_tag_assignments",
+		"recording_sessions",
+		"recording_chunks",
 		"transcript_annotations",
 		"transcript_annotation_entries",
 		"chat_sessions",
@@ -97,6 +99,11 @@ func TestFreshSchemaInitialization(t *testing.T) {
 	assert.True(t, hasIndex(t, db, "audio_tag_assignments", "idx_audio_tag_assignments_user_tag_transcription_active_unique"))
 	assert.True(t, hasIndex(t, db, "audio_tag_assignments", "idx_audio_tag_assignments_user_transcription_created_at"))
 	assert.True(t, hasIndex(t, db, "audio_tag_assignments", "idx_audio_tag_assignments_user_tag_transcription"))
+	assert.True(t, hasIndex(t, db, "recording_sessions", "idx_recording_sessions_user_created_at"))
+	assert.True(t, hasIndex(t, db, "recording_sessions", "idx_recording_sessions_finalize_claim"))
+	assert.True(t, hasIndex(t, db, "recording_sessions", "idx_recording_sessions_claim_expires_at"))
+	assert.True(t, hasIndex(t, db, "recording_sessions", "idx_recording_sessions_status_expires_at"))
+	assert.True(t, hasIndex(t, db, "recording_chunks", "idx_recording_chunks_session_index_unique"))
 	assert.True(t, hasIndex(t, db, "transcript_annotations", "idx_transcript_annotations_user_transcription_created_at"))
 	assert.True(t, hasIndex(t, db, "transcript_annotations", "idx_transcript_annotations_user_kind_updated_at"))
 	assert.True(t, hasIndex(t, db, "transcript_annotations", "idx_transcript_annotations_transcription_time"))
@@ -294,6 +301,73 @@ func TestAudioTagHardDeleteCascadesAssignments(t *testing.T) {
 
 	require.NoError(t, db.Unscoped().Delete(&tag).Error)
 	require.NoError(t, db.Unscoped().Model(&models.AudioTagAssignment{}).Where("id = ?", secondAssignment.ID).Count(&count).Error)
+	assert.Zero(t, count)
+}
+
+func TestRecordingSchemaValidationUniquenessAndCascade(t *testing.T) {
+	db := openMigratedTestDB(t, "recordings.db")
+
+	user := models.User{Username: "recording-user", Password: "pw"}
+	require.NoError(t, db.Create(&user).Error)
+
+	title := "Team sync"
+	session := models.RecordingSession{
+		UserID:          user.ID,
+		Title:           &title,
+		MimeType:        "audio/webm;codecs=opus",
+		ChunkDurationMs: ptr(int64(3000)),
+	}
+	require.NoError(t, db.Create(&session).Error)
+	assert.NotEmpty(t, session.ID)
+	assert.Equal(t, models.RecordingStatusRecording, session.Status)
+	assert.Equal(t, models.RecordingSourceKindMicrophone, session.SourceKind)
+	assert.Equal(t, "{}", session.MetadataJSON)
+	assert.Equal(t, "{}", session.TranscriptionOptionsJSON)
+	assert.False(t, session.StartedAt.IsZero())
+
+	invalidStatus := models.RecordingSession{
+		UserID:   user.ID,
+		Status:   models.RecordingStatus("paused"),
+		MimeType: "audio/webm;codecs=opus",
+	}
+	require.Error(t, db.Create(&invalidStatus).Error)
+
+	chunk := models.RecordingChunk{
+		UserID:     user.ID,
+		SessionID:  session.ID,
+		ChunkIndex: 0,
+		Path:       "/tmp/chunk-000000.webm",
+		MimeType:   "audio/webm;codecs=opus",
+		SizeBytes:  128,
+	}
+	require.NoError(t, db.Create(&chunk).Error)
+	assert.NotEmpty(t, chunk.ID)
+	assert.False(t, chunk.ReceivedAt.IsZero())
+
+	duplicateChunk := models.RecordingChunk{
+		UserID:     user.ID,
+		SessionID:  session.ID,
+		ChunkIndex: 0,
+		Path:       "/tmp/chunk-000000-retry.webm",
+		MimeType:   "audio/webm;codecs=opus",
+		SizeBytes:  128,
+	}
+	require.Error(t, db.Create(&duplicateChunk).Error)
+
+	missingSession := models.RecordingChunk{
+		UserID:     user.ID,
+		SessionID:  "missing",
+		ChunkIndex: 1,
+		Path:       "/tmp/chunk-000001.webm",
+		MimeType:   "audio/webm;codecs=opus",
+		SizeBytes:  128,
+	}
+	require.Error(t, db.Create(&missingSession).Error)
+
+	require.NoError(t, db.Unscoped().Delete(&session).Error)
+
+	var count int64
+	require.NoError(t, db.Unscoped().Model(&models.RecordingChunk{}).Where("id = ?", chunk.ID).Count(&count).Error)
 	assert.Zero(t, count)
 }
 

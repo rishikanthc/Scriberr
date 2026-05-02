@@ -18,6 +18,7 @@ var schemaSteps = map[int]migrationStep{
 	5: migrateStepV4ToV5,
 	6: migrateStepV5ToV6,
 	7: migrateStepV6ToV7,
+	8: migrateStepV7ToV8,
 }
 
 func runSchemaSteps(tx *gorm.DB, currentVersion int) error {
@@ -62,6 +63,10 @@ func migrateStepV5ToV6(tx *gorm.DB) error {
 }
 
 func migrateStepV6ToV7(tx *gorm.DB) error {
+	return nil
+}
+
+func migrateStepV7ToV8(tx *gorm.DB) error {
 	return nil
 }
 

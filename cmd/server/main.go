@@ -86,6 +86,14 @@ func main() {
 		"transcription_workers", cfg.Worker.Workers,
 		"queue_poll_interval", cfg.Worker.PollInterval.String(),
 		"lease_timeout", cfg.Worker.LeaseTimeout.String(),
+		"recordings_dir", cfg.Recordings.Dir,
+		"recording_max_chunk_bytes", cfg.Recordings.MaxChunkBytes,
+		"recording_max_duration", cfg.Recordings.MaxDuration.String(),
+		"recording_session_ttl", cfg.Recordings.SessionTTL.String(),
+		"recording_finalizer_workers", cfg.Recordings.FinalizerWorkers,
+		"recording_finalizer_poll_interval", cfg.Recordings.FinalizerPollInterval.String(),
+		"recording_finalizer_lease_timeout", cfg.Recordings.FinalizerLeaseTimeout.String(),
+		"recording_allowed_mime_types", cfg.Recordings.AllowedMimeTypes,
 	)
 
 	// Initialize database

@@ -11,7 +11,7 @@ import (
 	"gorm.io/gorm"
 )
 
-const latestSchemaVersion = 7
+const latestSchemaVersion = 8
 
 var schemaModels = []any{
 	&models.User{},
@@ -27,6 +27,8 @@ var schemaModels = []any{
 	&models.SummaryWidgetRun{},
 	&models.AudioTag{},
 	&models.AudioTagAssignment{},
+	&models.RecordingSession{},
+	&models.RecordingChunk{},
 	&models.TranscriptAnnotation{},
 	&models.TranscriptAnnotationEntry{},
 	&models.ChatSession{},
@@ -90,6 +92,11 @@ func createTargetSchema(tx *gorm.DB) error {
 		`CREATE UNIQUE INDEX IF NOT EXISTS idx_audio_tag_assignments_user_tag_transcription_active_unique ON audio_tag_assignments(user_id, tag_id, transcription_id) WHERE deleted_at IS NULL`,
 		`CREATE INDEX IF NOT EXISTS idx_audio_tag_assignments_user_transcription_created_at ON audio_tag_assignments(user_id, transcription_id, created_at DESC)`,
 		`CREATE INDEX IF NOT EXISTS idx_audio_tag_assignments_user_tag_transcription ON audio_tag_assignments(user_id, tag_id, transcription_id)`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_recording_chunks_session_index_unique ON recording_chunks(session_id, chunk_index)`,
+		`CREATE INDEX IF NOT EXISTS idx_recording_sessions_user_created_at ON recording_sessions(user_id, created_at DESC)`,
+		`CREATE INDEX IF NOT EXISTS idx_recording_sessions_finalize_claim ON recording_sessions(status, finalize_queued_at)`,
+		`CREATE INDEX IF NOT EXISTS idx_recording_sessions_claim_expires_at ON recording_sessions(claim_expires_at)`,
+		`CREATE INDEX IF NOT EXISTS idx_recording_sessions_status_expires_at ON recording_sessions(status, expires_at)`,
 		`CREATE INDEX IF NOT EXISTS idx_transcript_annotations_user_transcription_created_at ON transcript_annotations(user_id, transcription_id, created_at DESC)`,
 		`CREATE INDEX IF NOT EXISTS idx_transcript_annotations_user_kind_updated_at ON transcript_annotations(user_id, kind, updated_at DESC)`,
 		`CREATE INDEX IF NOT EXISTS idx_transcript_annotations_transcription_time ON transcript_annotations(transcription_id, anchor_start_ms, anchor_end_ms)`,
@@ -219,6 +226,20 @@ var expectedSQLiteIndexes = map[string]expectedSQLiteIndex{
 	"idx_audio_tag_assignments_user_tag_transcription_active_unique": {Table: "audio_tag_assignments", Columns: []string{"user_id", "tag_id", "transcription_id"}, Unique: true, Partial: true, WherePredicate: "deleted_at IS NULL"},
 	"idx_audio_tag_assignments_user_transcription_created_at":        {Table: "audio_tag_assignments", Columns: []string{"user_id", "transcription_id", "created_at"}, Unique: false},
 	"idx_audio_tag_assignments_user_tag_transcription":               {Table: "audio_tag_assignments", Columns: []string{"user_id", "tag_id", "transcription_id"}, Unique: false},
+	"idx_recording_sessions_user_id":                                 {Table: "recording_sessions", Columns: []string{"user_id"}, Unique: false},
+	"idx_recording_sessions_status":                                  {Table: "recording_sessions", Columns: []string{"status"}, Unique: false},
+	"idx_recording_sessions_file_id":                                 {Table: "recording_sessions", Columns: []string{"file_id"}, Unique: false},
+	"idx_recording_sessions_transcription_id":                        {Table: "recording_sessions", Columns: []string{"transcription_id"}, Unique: false},
+	"idx_recording_sessions_profile_id":                              {Table: "recording_sessions", Columns: []string{"profile_id"}, Unique: false},
+	"idx_recording_sessions_expires_at":                              {Table: "recording_sessions", Columns: []string{"expires_at"}, Unique: false},
+	"idx_recording_sessions_claim_expires_at":                        {Table: "recording_sessions", Columns: []string{"claim_expires_at"}, Unique: false},
+	"idx_recording_sessions_deleted_at":                              {Table: "recording_sessions", Columns: []string{"deleted_at"}, Unique: false},
+	"idx_recording_sessions_user_created_at":                         {Table: "recording_sessions", Columns: []string{"user_id", "created_at"}, Unique: false},
+	"idx_recording_sessions_finalize_claim":                          {Table: "recording_sessions", Columns: []string{"status", "finalize_queued_at"}, Unique: false},
+	"idx_recording_sessions_status_expires_at":                       {Table: "recording_sessions", Columns: []string{"status", "expires_at"}, Unique: false},
+	"idx_recording_chunks_session_id":                                {Table: "recording_chunks", Columns: []string{"session_id"}, Unique: false},
+	"idx_recording_chunks_user_id":                                   {Table: "recording_chunks", Columns: []string{"user_id"}, Unique: false},
+	"idx_recording_chunks_session_index_unique":                      {Table: "recording_chunks", Columns: []string{"session_id", "chunk_index"}, Unique: true},
 	"idx_transcript_annotations_user_id":                             {Table: "transcript_annotations", Columns: []string{"user_id"}, Unique: false},
 	"idx_transcript_annotations_transcription_id":                    {Table: "transcript_annotations", Columns: []string{"transcription_id"}, Unique: false},
 	"idx_transcript_annotations_kind":                                {Table: "transcript_annotations", Columns: []string{"kind"}, Unique: false},
