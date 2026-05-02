@@ -2,7 +2,7 @@
 
 This tracker belongs to `devnotes/v2.0.0/sprint-plans/tag-based-audio-organization-frontend-sprint-plan.md`.
 
-Status: completed through Sprint 5. Sprint 6 verification is next.
+Status: completed through Sprint 6. Tag-based audio organization frontend integration is complete.
 
 ## Sprint 1: Contract and Planning
 
@@ -151,11 +151,17 @@ Verification:
 
 ## Sprint 6: Verification
 
-Status: pending
+Status: completed
 
-Remaining tasks:
+Completed tasks:
 
-- Run frontend type-check/build.
-- Run focused backend tag tests.
-- Inspect the key UI states in browser if a local dev server can run.
-- Update this tracker with commits and verification.
+- Ran frontend type-check.
+- Ran production frontend build.
+- Ran focused backend tag/database/API tests for the tag contract and tag routes.
+- Skipped browser-based testing per user request.
+
+Verification:
+
+- `npm run type-check` from `web/frontend`
+- `npm run build` from `web/frontend`
+- `GOCACHE=/Users/zade/Code/asr/Scriberr/.tmp/go-build go test ./internal/tags ./internal/database ./internal/api -run 'TestTag|TestAudioTag|TestServiceCreateListUpdateDeleteTag|TestTranscriptionTags'`
