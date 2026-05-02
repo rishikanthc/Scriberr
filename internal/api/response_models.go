@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"scriberr/internal/models"
+	recordingdomain "scriberr/internal/recording"
 
 	"github.com/gin-gonic/gin"
 )
@@ -23,6 +24,58 @@ func userResponse(user *models.User) gin.H {
 	return gin.H{
 		"id":       "user_self",
 		"username": user.Username,
+	}
+}
+func recordingResponse(session *models.RecordingSession) gin.H {
+	title := ""
+	if session.Title != nil {
+		title = *session.Title
+	}
+	durationSeconds := any(nil)
+	if session.DurationMs != nil {
+		durationSeconds = float64(*session.DurationMs) / 1000
+	}
+	fileID := any(nil)
+	if session.FileID != nil && *session.FileID != "" {
+		fileID = "file_" + *session.FileID
+	}
+	transcriptionID := any(nil)
+	if session.TranscriptionID != nil && *session.TranscriptionID != "" {
+		transcriptionID = "tr_" + *session.TranscriptionID
+	}
+	return gin.H{
+		"id":               recordingdomain.PublicID(session.ID),
+		"title":            title,
+		"status":           string(session.Status),
+		"source_kind":      string(session.SourceKind),
+		"mime_type":        session.MimeType,
+		"received_chunks":  session.ReceivedChunks,
+		"received_bytes":   session.ReceivedBytes,
+		"duration_seconds": durationSeconds,
+		"file_id":          fileID,
+		"transcription_id": transcriptionID,
+		"progress":         session.Progress,
+		"progress_stage":   session.ProgressStage,
+		"started_at":       session.StartedAt,
+		"stopped_at":       session.StoppedAt,
+		"completed_at":     session.CompletedAt,
+		"failed_at":        session.FailedAt,
+		"created_at":       session.CreatedAt,
+		"updated_at":       session.UpdatedAt,
+	}
+}
+
+func recordingChunkResponse(result *recordingdomain.ChunkResult) gin.H {
+	status := "stored"
+	if result.AlreadyStored {
+		status = "already_stored"
+	}
+	return gin.H{
+		"recording_id":    recordingdomain.PublicID(result.Session.ID),
+		"chunk_index":     result.Chunk.ChunkIndex,
+		"status":          status,
+		"received_chunks": result.ReceivedChunks,
+		"received_bytes":  result.ReceivedBytes,
 	}
 }
 func publicAPIKeyID(id uint) string {

@@ -15,6 +15,7 @@ import (
 	"scriberr/internal/llm"
 	"scriberr/internal/mediaimport"
 	"scriberr/internal/models"
+	recordingdomain "scriberr/internal/recording"
 	"scriberr/internal/repository"
 	"scriberr/internal/summarization"
 	"scriberr/internal/tags"
@@ -43,6 +44,7 @@ type Handler struct {
 	modelRegistry   engineprovider.Registry
 	annotations     *annotations.Service
 	tags            *tags.Service
+	recordings      *recordingdomain.Service
 	chatLLMFactory  func(*models.LLMConfig) (llm.Service, error)
 }
 
@@ -72,6 +74,8 @@ func NewHandler(cfg *config.Config, authService *auth.AuthService, services ...a
 			handler.annotations = value
 		case *tags.Service:
 			handler.tags = value
+		case *recordingdomain.Service:
+			handler.recordings = value
 		}
 	}
 	if handler.annotations == nil && database.DB != nil {
@@ -81,6 +85,22 @@ func NewHandler(cfg *config.Config, authService *auth.AuthService, services ...a
 	if handler.tags == nil && database.DB != nil {
 		handler.tags = tags.NewService(repository.NewTagRepository(database.DB), repository.NewJobRepository(database.DB))
 		handler.tags.SetEventPublisher(handler)
+	}
+	if handler.recordings == nil && database.DB != nil {
+		recordingDir := handler.config.Recordings.Dir
+		if recordingDir == "" {
+			recordingDir = "data/recordings"
+		}
+		storage, err := recordingdomain.NewStorage(recordingDir)
+		if err == nil {
+			handler.recordings = recordingdomain.NewService(repository.NewRecordingRepository(database.DB), storage, recordingdomain.Config{
+				MaxChunkBytes:    handler.config.Recordings.MaxChunkBytes,
+				MaxDuration:      handler.config.Recordings.MaxDuration,
+				SessionTTL:       handler.config.Recordings.SessionTTL,
+				AllowedMimeTypes: handler.config.Recordings.AllowedMimeTypes,
+			})
+			handler.recordings.SetEventPublisher(handler)
+		}
 	}
 	return handler
 }
@@ -142,6 +162,25 @@ func (h *Handler) PublishTagEvent(_ context.Context, event tags.Event) {
 	}
 	if event.TranscriptionID != "" {
 		h.publishTranscriptionEvent(event.Name, event.TranscriptionID, payload)
+	}
+	h.publishEvent(event.Name, payload)
+}
+
+func (h *Handler) PublishRecordingEvent(_ context.Context, event recordingdomain.Event) {
+	if h == nil {
+		return
+	}
+	payload := gin.H{
+		"id":       event.RecordingID,
+		"status":   string(event.Status),
+		"stage":    event.Stage,
+		"progress": event.Progress,
+	}
+	if event.FileID != "" {
+		payload["file_id"] = event.FileID
+	}
+	if event.TranscriptionID != "" {
+		payload["transcription_id"] = event.TranscriptionID
 	}
 	h.publishEvent(event.Name, payload)
 }
@@ -224,6 +263,14 @@ func SetupRoutes(handler *Handler, _ *auth.AuthService) *gin.Engine {
 			files.PATCH("/:id", handler.updateFile)
 			files.DELETE("/:id", handler.deleteFile)
 			files.GET("/:id/audio", handler.streamFileAudio)
+		}
+		recordings := v1.Group("/recordings")
+		recordings.Use(handler.authRequired())
+		{
+			recordings.POST("", handler.idempotencyMiddleware(), handler.createRecording)
+			recordings.GET("", handler.listRecordings)
+			recordings.GET("/:id", handler.getRecording)
+			recordings.PUT("/:id/chunks/:chunk_index", handler.uploadRecordingChunk)
 		}
 		transcriptions := v1.Group("/transcriptions")
 		transcriptions.Use(handler.authRequired())

@@ -48,6 +48,10 @@ func TestCanonicalRouteRegistration(t *testing.T) {
 		"PATCH /api/v1/files/:id",
 		"DELETE /api/v1/files/:id",
 		"GET /api/v1/files/:id/audio",
+		"POST /api/v1/recordings",
+		"GET /api/v1/recordings",
+		"GET /api/v1/recordings/:id",
+		"PUT /api/v1/recordings/:id/chunks/:chunk_index",
 		"POST /api/v1/transcriptions",
 		"GET /api/v1/transcriptions",
 		"GET /api/v1/transcriptions/:id",
@@ -125,6 +129,8 @@ func TestEndpointContractSmoke(t *testing.T) {
 		{name: "api keys create", method: http.MethodPost, path: "/api/v1/api-keys", body: map[string]any{"name": "contract"}, token: token, want: http.StatusCreated},
 		{name: "files list", method: http.MethodGet, path: "/api/v1/files", token: token, want: http.StatusOK},
 		{name: "files invalid cursor", method: http.MethodGet, path: "/api/v1/files?cursor=bad", token: token, want: http.StatusUnprocessableEntity},
+		{name: "recordings list", method: http.MethodGet, path: "/api/v1/recordings", token: token, want: http.StatusOK},
+		{name: "recordings invalid create", method: http.MethodPost, path: "/api/v1/recordings", body: map[string]any{"mime_type": "video/webm"}, token: token, want: http.StatusUnprocessableEntity},
 		{name: "tags list", method: http.MethodGet, path: "/api/v1/tags", token: token, want: http.StatusOK},
 		{name: "tags invalid create", method: http.MethodPost, path: "/api/v1/tags", body: map[string]any{"name": ""}, token: token, want: http.StatusUnprocessableEntity},
 		{name: "transcriptions list", method: http.MethodGet, path: "/api/v1/transcriptions", token: token, want: http.StatusOK},
@@ -176,6 +182,9 @@ func TestAPIDocsContainOnlyCanonicalRoutes(t *testing.T) {
 		require.NotContains(t, path, "/api/v1/transcription/", "legacy singular transcription path must not be documented")
 	}
 	require.Contains(t, doc.Paths, "/api/v1/files")
+	require.Contains(t, doc.Paths, "/api/v1/recordings")
+	require.Contains(t, doc.Paths, "/api/v1/recordings/{id}/chunks/{chunk_index}")
+	require.Contains(t, doc.Paths, "/api/v1/recordings/{id}:stop")
 	require.Contains(t, doc.Paths, "/api/v1/transcriptions")
 	require.Contains(t, doc.Paths, "/api/v1/transcriptions/{id}/annotations")
 	require.Contains(t, doc.Paths, "/api/v1/transcriptions/{id}/annotations/{annotation_id}")

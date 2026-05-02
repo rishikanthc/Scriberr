@@ -2,7 +2,7 @@
 
 This tracker belongs to `devnotes/v2.0.0/sprint-plans/in-app-audio-recording-backend-sprint-plan.md`.
 
-Status: completed through Sprint 2. Recording schema, config, storage, repository, and service state machine are in place; HTTP API/finalizer implementation has not started.
+Status: completed through Sprint 3. Recording schema, config, storage, repository, service state machine, and HTTP API are in place; finalizer implementation has not started.
 
 ## Sprint 1: Schema, Config, and Storage Boundary
 
@@ -64,22 +64,35 @@ Artifacts:
 
 ## Sprint 3: HTTP Recording API
 
-Status: pending
+Status: completed
 
-Planned tasks:
+Completed tasks:
 
-- [ ] Add request/response DTOs separate from persistence models.
-- [ ] Register canonical `/api/v1/recordings` routes.
-- [ ] Implement create/list/get handlers.
-- [ ] Implement streaming raw chunk upload with request size limits.
-- [ ] Implement stop/cancel/retry-finalize command handlers.
-- [ ] Add `rec_...` public ID parsing and response mapping.
-- [ ] Add route contract, handler, auth, validation, conflict, and size-limit tests.
-- [ ] Update OpenAPI/docs after the route contract stabilizes.
+- [x] Add request/response DTOs separate from persistence models.
+- [x] Register canonical `/api/v1/recordings` routes.
+- [x] Implement create/list/get handlers.
+- [x] Implement streaming raw chunk upload with request size limits.
+- [x] Implement stop/cancel/retry-finalize command handlers.
+- [x] Add `rec_...` public ID parsing and response mapping.
+- [x] Add route contract, handler, auth, validation, conflict, and size-limit tests.
+- [x] Update OpenAPI docs after the route contract stabilized.
 
 Verification:
 
-- [ ] `go test ./internal/api -run 'TestRecording|TestCanonicalRouteRegistration|TestEndpointContractSmoke'`
+- [x] `GOCACHE=/Users/zade/Code/asr/Scriberr/.tmp/go-build go test ./internal/api -run 'TestRecording|TestCanonicalRouteRegistration|TestEndpointContractSmoke|TestAPIDocsContainOnlyCanonicalRoutes'`
+- [x] `GOCACHE=/Users/zade/Code/asr/Scriberr/.tmp/go-build go test ./internal/database ./internal/config ./internal/repository ./internal/recording ./internal/api ./cmd/server` outside sandbox because `httptest.NewServer` loopback binding is blocked inside the sandbox.
+
+Artifacts:
+
+- `internal/api/recording_handlers.go`
+- `internal/api/recording_handlers_test.go`
+- `internal/api/router.go`
+- `internal/api/middleware.go`
+- `internal/api/types.go`
+- `internal/api/response_models.go`
+- `internal/api/auth_test.go`
+- `internal/api/route_contract_test.go`
+- `docs/api/openapi.json`
 
 ## Sprint 4: Finalizer Worker and Existing File/Transcription Handoff
 

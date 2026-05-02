@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"scriberr/internal/auth"
 	"scriberr/internal/config"
@@ -42,6 +43,13 @@ func newAuthTestServer(t *testing.T) *authTestServer {
 	handler := NewHandler(&config.Config{
 		Environment: "test",
 		UploadDir:   uploadDir,
+		Recordings: config.RecordingConfig{
+			Dir:              filepath.Join(t.TempDir(), "recordings"),
+			MaxChunkBytes:    8,
+			MaxDuration:      time.Hour,
+			SessionTTL:       time.Hour,
+			AllowedMimeTypes: []string{"audio/webm;codecs=opus", "audio/webm"},
+		},
 	}, authService)
 	handler.readinessCheck = func() error { return nil }
 	youtubeImporter := &fakeYouTubeImporter{block: make(chan struct{})}

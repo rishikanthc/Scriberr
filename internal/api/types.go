@@ -41,6 +41,24 @@ type importYouTubeRequest struct {
 	URL   string `json:"url"`
 	Title string `json:"title"`
 }
+type createRecordingRequest struct {
+	Title           string  `json:"title"`
+	SourceKind      string  `json:"source_kind"`
+	MimeType        string  `json:"mime_type"`
+	Codec           *string `json:"codec"`
+	ChunkDurationMs *int64  `json:"chunk_duration_ms"`
+	AutoTranscribe  bool    `json:"auto_transcribe"`
+	ProfileID       *string `json:"profile_id"`
+	Options         struct {
+		Language    string `json:"language"`
+		Diarization *bool  `json:"diarization"`
+	} `json:"options"`
+}
+type stopRecordingRequest struct {
+	FinalChunkIndex int    `json:"final_chunk_index"`
+	DurationMs      *int64 `json:"duration_ms"`
+	AutoTranscribe  *bool  `json:"auto_transcribe"`
+}
 type createTranscriptionRequest struct {
 	FileID    string `json:"file_id"`
 	Title     string `json:"title"`

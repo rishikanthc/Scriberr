@@ -375,6 +375,137 @@
         }
       }
     },
+    "/api/v1/recordings": {
+      "get": {
+        "summary": "List recording sessions",
+        "description": "Lists browser recording sessions for the authenticated user. Recording sessions are the durable ingest workflow before a finalized audio file exists.",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Recording session list"
+          },
+          "401": {
+            "description": "Authentication required"
+          }
+        }
+      },
+      "post": {
+        "summary": "Create recording session",
+        "description": "Creates a durable browser recording session before chunk upload begins. Chunks are uploaded separately and finalization is requested with the stop command.",
+        "responses": {
+          "201": {
+            "description": "Recording session created"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "422": {
+            "description": "Invalid recording request"
+          }
+        }
+      }
+    },
+    "/api/v1/recordings/{id}": {
+      "get": {
+        "summary": "Get recording session",
+        "responses": {
+          "200": {
+            "description": "Recording session"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "404": {
+            "description": "Recording not found"
+          }
+        }
+      }
+    },
+    "/api/v1/recordings/{id}/chunks/{chunk_index}": {
+      "put": {
+        "summary": "Upload recording chunk",
+        "description": "Stores one browser MediaRecorder chunk. The same chunk index may be retried idempotently when checksum and size match.",
+        "parameters": [
+          {
+            "name": "X-Chunk-SHA256",
+            "in": "header",
+            "description": "Optional hex SHA-256 digest for idempotency and integrity validation."
+          },
+          {
+            "name": "X-Chunk-Duration-Ms",
+            "in": "header",
+            "description": "Optional chunk duration in milliseconds."
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Chunk stored"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "409": {
+            "description": "Chunk conflicts with existing data or session state"
+          },
+          "413": {
+            "description": "Chunk is too large"
+          },
+          "422": {
+            "description": "Invalid chunk request"
+          }
+        }
+      }
+    },
+    "/api/v1/recordings/{id}:stop": {
+      "post": {
+        "summary": "Stop recording session",
+        "description": "Marks recording ingest complete and queues durable finalization into one audio file.",
+        "responses": {
+          "202": {
+            "description": "Recording queued for finalization"
+          },
+          "409": {
+            "description": "Recording cannot be stopped from its current state"
+          }
+        }
+      }
+    },
+    "/api/v1/recordings/{id}:cancel": {
+      "post": {
+        "summary": "Cancel recording session",
+        "responses": {
+          "200": {
+            "description": "Recording canceled"
+          },
+          "409": {
+            "description": "Recording cannot be canceled from its current state"
+          }
+        }
+      }
+    },
+    "/api/v1/recordings/{id}:retry-finalize": {
+      "post": {
+        "summary": "Retry recording finalization",
+        "responses": {
+          "202": {
+            "description": "Recording finalization queued"
+          },
+          "409": {
+            "description": "Recording is not retryable"
+          }
+        }
+      }
+    },
     "/api/v1/transcriptions": {
       "get": {
         "summary": "List transcriptions",

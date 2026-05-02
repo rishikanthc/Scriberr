@@ -57,8 +57,8 @@ func corsMiddleware(cfg *config.Config) gin.HandlerFunc {
 			c.Header("Access-Control-Allow-Origin", allowOrigin)
 			c.Header("Access-Control-Allow-Credentials", "true")
 		}
-		c.Header("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS")
-		c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, X-API-Key, X-Request-ID, Idempotency-Key")
+		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
+		c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, X-API-Key, X-Request-ID, Idempotency-Key, X-Chunk-SHA256, X-Chunk-Duration-Ms")
 		if c.Request.Method == http.MethodOptions {
 			c.AbortWithStatus(http.StatusNoContent)
 			return
@@ -114,6 +114,24 @@ func (h *Handler) handleCommandRoute(c *gin.Context) bool {
 			})
 			return true
 		}
+		if publicID, command, ok := parseRecordingCommandPath(c.Request.URL.Path); ok {
+			if !h.requireAuthForNoRoute(c) {
+				return true
+			}
+			h.runIdempotent(c, func(c *gin.Context) {
+				switch command {
+				case "stop":
+					h.stopRecording(c, publicID)
+				case "cancel":
+					h.cancelRecording(c, publicID)
+				case "retry-finalize":
+					h.retryFinalizeRecording(c, publicID)
+				default:
+					writeError(c, http.StatusNotFound, "NOT_FOUND", "API endpoint not found", nil)
+				}
+			})
+			return true
+		}
 		return false
 	}
 }
@@ -157,6 +175,18 @@ func parseTranscriptionCommandPath(requestPath string) (string, string, bool) {
 	default:
 		return "", "", false
 	}
+}
+
+func parseRecordingCommandPath(requestPath string) (string, string, bool) {
+	trimmed := strings.TrimPrefix(requestPath, "/api/v1/recordings/")
+	if trimmed == requestPath || trimmed == "" {
+		return "", "", false
+	}
+	id, command, ok := strings.Cut(trimmed, ":")
+	if !ok || id == "" || command == "" || strings.Contains(id, "/") || strings.Contains(command, "/") {
+		return "", "", false
+	}
+	return id, command, true
 }
 func (h *Handler) requireAuthForNoRoute(c *gin.Context) bool {
 	if h.authenticateAPIKey(c) || h.authenticateJWT(c) {
