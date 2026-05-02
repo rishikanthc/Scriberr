@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useRef, useState, type ChangeEvent } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { ChevronDown, FileAudio, Home, Mic, Search, Settings, StopCircle, Trash2, UploadCloud, Video, Wand2, Youtube } from "lucide-react";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { ChevronDown, ChevronRight, FileAudio, Home, Mic, Search, Settings, StopCircle, Tag, Trash2, UploadCloud, Video, Wand2, Youtube } from "lucide-react";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -14,8 +14,10 @@ import { useFiles } from "@/features/files/hooks/useFiles";
 import { useProfiles } from "@/features/settings/hooks/useProfiles";
 import type { TranscriptionProfile } from "@/features/settings/api/profilesApi";
 import type { Transcription, TranscriptionStatus } from "@/features/transcription/api/transcriptionsApi";
+import type { AudioTag } from "@/features/tags/api/tagsApi";
+import { useTags, useTranscriptionTags } from "@/features/tags/hooks/useTags";
 import { useTranscriptionListEvents } from "@/features/transcription/hooks/useTranscriptionListEvents";
-import { preferVisibleTranscription, useCreateTranscription, useStopTranscription, useTranscriptions } from "@/features/transcription/hooks/useTranscriptions";
+import { preferVisibleTranscription, useCreateTranscription, useStopTranscription, useTaggedTranscriptions, useTranscriptions } from "@/features/transcription/hooks/useTranscriptions";
 import { EmptyState } from "@/shared/ui/EmptyState";
 import { AppButton, IconButton } from "@/shared/ui/Button";
 
@@ -33,10 +35,15 @@ type Recording = {
 };
 
 type SidebarProps = {
-  activeItem?: "home" | "settings";
+  activeItem?: "home" | "tags" | "settings";
+  activeTagId?: string;
 };
 
-export function Sidebar({ activeItem = "home" }: SidebarProps) {
+export function Sidebar({ activeItem = "home", activeTagId }: SidebarProps) {
+  const [tagsOpen, setTagsOpen] = useState(activeItem === "tags");
+  const tagsQuery = useTags();
+  const tags = tagsQuery.data?.items || [];
+
   return (
     <aside className="scr-sidebar" aria-label="Primary navigation">
       <div className="scr-logo-row">
@@ -48,6 +55,30 @@ export function Sidebar({ activeItem = "home" }: SidebarProps) {
           <Home size={18} aria-hidden="true" />
           <span className="scr-nav-label">Home</span>
         </Link>
+        <div className="scr-nav-section">
+          <button className="scr-nav-item scr-nav-toggle" data-active={activeItem === "tags"} type="button" aria-expanded={tagsOpen} onClick={() => setTagsOpen((current) => !current)}>
+            {tagsOpen ? <ChevronDown size={16} aria-hidden="true" /> : <ChevronRight size={16} aria-hidden="true" />}
+            <Tag size={18} aria-hidden="true" />
+            <span className="scr-nav-label">Tags</span>
+          </button>
+          {tagsOpen ? (
+            <div className="scr-nav-tags" aria-label="Tags">
+              {tagsQuery.isLoading ? (
+                <span className="scr-nav-tags-state">Loading tags</span>
+              ) : tagsQuery.isError ? (
+                <span className="scr-nav-tags-state">Tags unavailable</span>
+              ) : tags.length > 0 ? (
+                tags.map((tag) => (
+                  <Link className="scr-nav-tag" data-active={activeTagId === tag.id} key={tag.id} to={`/tags/${tag.id}`}>
+                    {tag.name}
+                  </Link>
+                ))
+              ) : (
+                <span className="scr-nav-tags-state">No tags yet</span>
+              )}
+            </div>
+          ) : null}
+        </div>
         <Link className="scr-nav-item" data-active={activeItem === "settings"} to="/settings">
           <Settings size={18} aria-hidden="true" />
           <span className="scr-nav-label">Settings</span>
@@ -181,6 +212,7 @@ function RecordingCard({
           </span>
         </p>
         {recording.description ? <p className="scr-recording-description">{recording.description}</p> : null}
+        {recording.transcriptionId ? <RecordingTags transcriptionId={recording.transcriptionId} /> : null}
       </div>
       <div className="scr-recording-meta-actions">
         <div className="scr-recording-actions" aria-label={`${recording.title} actions`}>
@@ -267,17 +299,32 @@ function RecordingCard({
 }
 
 export function HomePage() {
+  return <AudioListPage />;
+}
+
+export function TagAudioPage() {
+  const { tagId = "" } = useParams<{ tagId: string }>();
+  return <AudioListPage tagId={tagId} />;
+}
+
+function AudioListPage({ tagId }: { tagId?: string }) {
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [youtubeDialogOpen, setYoutubeDialogOpen] = useState(false);
   const filesQuery = useFiles();
+  const tagsQuery = useTags();
   const profilesQuery = useProfiles();
-  const transcriptionsQuery = useTranscriptions();
+  const allTranscriptionsQuery = useTranscriptions();
+  const taggedTranscriptionsQuery = useTaggedTranscriptions(tagId);
+  const transcriptionsQuery = tagId ? taggedTranscriptionsQuery : allTranscriptionsQuery;
   const createTranscriptionMutation = useCreateTranscription();
   const stopTranscriptionMutation = useStopTranscription();
   const { uploadItems, importFiles, importFromYouTube, dismissItem, handleFileEvent } = useFileImport();
   useFileEvents(handleFileEvent);
   useTranscriptionListEvents();
+  const selectedTag = useMemo(() => (
+    tagId ? (tagsQuery.data?.items || []).find((tag) => tag.id === tagId) : undefined
+  ), [tagId, tagsQuery.data?.items]);
 
   const defaultProfile = useMemo(() => {
     return (profilesQuery.data || []).find((profile) => profile.is_default);
@@ -294,12 +341,16 @@ export function HomePage() {
   }, [transcriptionsQuery.data?.items]);
 
   const recordings = useMemo(() => {
-    const optimistic = uploadItems
+    const optimistic = tagId ? [] : uploadItems
       .filter((item) => !item.fileId)
       .map(uploadItemToRecording);
-    const serverFiles = (filesQuery.data?.items || []).map((file) => fileToRecording(file, latestTranscriptionByFileId.get(file.id)));
+    const files = filesQuery.data?.items || [];
+    const visibleFiles = tagId
+      ? files.filter((file) => latestTranscriptionByFileId.has(file.id))
+      : files;
+    const serverFiles = visibleFiles.map((file) => fileToRecording(file, latestTranscriptionByFileId.get(file.id)));
     return [...optimistic, ...serverFiles];
-  }, [filesQuery.data?.items, latestTranscriptionByFileId, uploadItems]);
+  }, [filesQuery.data?.items, latestTranscriptionByFileId, tagId, uploadItems]);
 
   const handleUploadFilesClick = useCallback(() => {
     fileInputRef.current?.click();
@@ -353,7 +404,7 @@ export function HomePage() {
   return (
     <div className="scr-app">
       <div className="scr-shell">
-        <Sidebar />
+        <Sidebar activeItem={tagId ? "tags" : "home"} activeTagId={tagId} />
         <main className="scr-main">
           <TopBar onUploadFilesClick={handleUploadFilesClick} onYouTubeImportClick={handleYouTubeImportClick} />
           <input
@@ -368,10 +419,17 @@ export function HomePage() {
           />
           <div className="scr-content">
             <div className="scr-feed-toolbar" aria-label="Recording view controls">
-              <button className="scr-feed-select" type="button">
-                Yesterday, Apr 25
-                <ChevronDown size={13} aria-hidden="true" />
-              </button>
+              {tagId ? (
+                <div className="scr-feed-title-block">
+                  <span className="scr-feed-eyebrow">Tag</span>
+                  <h1>{selectedTag?.name || "Tagged audio"}</h1>
+                </div>
+              ) : (
+                <button className="scr-feed-select" type="button">
+                  Yesterday, Apr 25
+                  <ChevronDown size={13} aria-hidden="true" />
+                </button>
+              )}
             </div>
 
             {recordings.length > 0 ? (
@@ -393,7 +451,10 @@ export function HomePage() {
                 ))}
               </section>
             ) : (
-              <EmptyState title="No recordings yet" description="Uploaded audio files will appear here." />
+              <EmptyState
+                title={tagId ? "No audio for this tag" : "No recordings yet"}
+                description={tagId ? "Audio assigned to this tag will appear here." : "Uploaded audio files will appear here."}
+              />
             )}
           </div>
         </main>
@@ -406,6 +467,32 @@ export function HomePage() {
         onSubmit={handleYouTubeImport}
       />
     </div>
+  );
+}
+
+function RecordingTags({ transcriptionId }: { transcriptionId: string }) {
+  const tagsQuery = useTranscriptionTags(transcriptionId);
+  const tags = tagsQuery.data?.items || [];
+
+  if (tagsQuery.isLoading) {
+    return <div className="scr-recording-tags" aria-label="Loading tags"><span>Loading tags</span></div>;
+  }
+  if (tagsQuery.isError || tags.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="scr-recording-tags" aria-label="Tags">
+      {tags.map((tag) => <RecordingTagPill key={tag.id} tag={tag} />)}
+    </div>
+  );
+}
+
+function RecordingTagPill({ tag }: { tag: AudioTag }) {
+  return (
+    <Link className="scr-recording-tag" to={`/tags/${tag.id}`} onClick={(event) => event.stopPropagation()}>
+      {tag.name}
+    </Link>
   );
 }
 

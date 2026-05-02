@@ -1886,6 +1886,11 @@ body[data-notes-sidebar-resizing="true"] {
   gap: var(--scr-space-2);
 }
 
+.scr-nav-section {
+  display: grid;
+  gap: var(--scr-space-1);
+}
+
 .scr-nav-item {
   display: flex;
   align-items: center;
@@ -1902,13 +1907,44 @@ body[data-notes-sidebar-resizing="true"] {
 }
 
 .scr-nav-item[data-active="true"] {
-  border-color: var(--scr-brand-border);
-  background: var(--scr-brand-muted);
   color: var(--scr-brand-ink);
 }
 
 .dark .scr-nav-item[data-active="true"] {
   color: var(--scr-color-orange-300);
+}
+
+.scr-nav-toggle {
+  cursor: pointer;
+}
+
+.scr-nav-tags {
+  display: grid;
+  gap: 2px;
+  padding-left: calc(var(--scr-space-3) + 34px);
+}
+
+.scr-nav-tag,
+.scr-nav-tags-state {
+  display: block;
+  overflow: hidden;
+  border-radius: var(--scr-radius-sm);
+  color: var(--scr-text-secondary);
+  font-size: 0.75rem;
+  line-height: 1.25;
+  padding: 5px var(--scr-space-2);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.scr-nav-tag:hover,
+.scr-nav-tag:focus-visible,
+.scr-nav-tag[data-active="true"] {
+  color: var(--scr-brand-ink);
+}
+
+.scr-nav-tags-state {
+  color: var(--scr-text-tertiary);
 }
 
 .scr-main {
@@ -1987,6 +2023,27 @@ body[data-notes-sidebar-resizing="true"] {
 
 .scr-feed-select:first-child {
   justify-self: center;
+}
+
+.scr-feed-title-block {
+  display: grid;
+  gap: 2px;
+  justify-self: start;
+}
+
+.scr-feed-title-block h1 {
+  color: var(--scr-text-strong);
+  font-size: 1.25rem;
+  font-weight: 600;
+  line-height: var(--scr-line-tight);
+}
+
+.scr-feed-eyebrow {
+  color: var(--scr-text-tertiary);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .scr-page-head {
@@ -2095,6 +2152,34 @@ body[data-notes-sidebar-resizing="true"] {
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
   white-space: pre-line;
+}
+
+.scr-recording-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--scr-space-1);
+  margin-top: var(--scr-space-2);
+}
+
+.scr-recording-tags span,
+.scr-recording-tag {
+  display: inline-flex;
+  align-items: center;
+  max-width: 180px;
+  border: 1px solid var(--scr-border-subtle);
+  border-radius: 999px;
+  color: var(--scr-text-secondary);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  line-height: 1;
+  min-height: 22px;
+  padding: 0 var(--scr-space-2);
+}
+
+.scr-recording-tag:hover,
+.scr-recording-tag:focus-visible {
+  border-color: var(--scr-brand-border);
+  color: var(--scr-brand-ink);
 }
 
 .scr-recording-status {

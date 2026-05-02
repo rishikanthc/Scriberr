@@ -3,6 +3,7 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 
 // Lazy load route components for better performance
 const HomePage = lazy(() => import("@/features/home/components/HomePage").then(module => ({ default: module.HomePage })));
+const TagAudioPage = lazy(() => import("@/features/home/components/HomePage").then(module => ({ default: module.TagAudioPage })));
 const AudioDetailView = lazy(() => import("@/features/transcription/components/AudioDetailView").then(module => ({ default: module.AudioDetailView })));
 const Settings = lazy(() => import('@/features/settings/pages/SettingsPage').then(module => ({ default: module.Settings })))
 const CLISettings = lazy(() => import('@/features/settings/pages/CLISettingsPage').then(module => ({ default: module.CLISettings })))
@@ -21,6 +22,7 @@ function App() {
     <Suspense fallback={<PageLoader />}>
       <Routes>
         <Route path="/" element={<HomePage />} />
+        <Route path="/tags/:tagId" element={<TagAudioPage />} />
         <Route path="/audio/:audioId" element={<AudioDetailView />} />
 
         <Route path="/settings" element={<Settings />} />
