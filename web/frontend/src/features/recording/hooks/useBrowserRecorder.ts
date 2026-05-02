@@ -126,6 +126,8 @@ export function useBrowserRecorder() {
     streamRef.current = null;
   }, []);
 
+  const getAudioStream = useCallback(() => streamRef.current, []);
+
   const refreshInputDevices = useCallback(async () => {
     if (!navigator.mediaDevices?.enumerateDevices) {
       setState((current) => ({
@@ -555,6 +557,7 @@ export function useBrowserRecorder() {
     setSelectedDeviceId,
     requestMicrophonePermission,
     syncSession,
+    getAudioStream,
   };
 }
 

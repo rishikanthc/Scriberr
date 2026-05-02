@@ -17,6 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { AppButton } from "@/shared/ui/Button";
+import { RecordingPulseField } from "@/features/recording/components/RecordingPulseField";
 import { useBrowserRecorder, type BrowserRecorderStatus } from "@/features/recording/hooks/useBrowserRecorder";
 
 type RecordingDialogProps = {
@@ -32,7 +33,7 @@ export function RecordingDialog({ open, onOpenChange, recorder }: RecordingDialo
   const [title, setTitle] = useState(() => defaultRecordingTitle());
   const permissionPromptedForOpenRef = useRef(false);
   const { state } = recorder;
-  const { requestMicrophonePermission } = recorder;
+  const { getAudioStream, requestMicrophonePermission } = recorder;
   const active = activeStatuses.includes(state.status);
   const canEditTitle = state.status === "idle" || state.status === "unsupported" || state.status === "permission-denied" || state.status === "permission-ready" || state.status === "canceled" || state.status === "ready";
   const canStart = state.status === "idle" || state.status === "permission-denied" || state.status === "permission-ready" || state.status === "canceled" || state.status === "ready";
@@ -43,6 +44,7 @@ export function RecordingDialog({ open, onOpenChange, recorder }: RecordingDialo
   const selectableDevices = state.availableDevices.filter((device) => device.deviceId);
   const canChangeDevice = !active && !state.devicesLoading;
   const selectedDeviceValue = state.selectedDeviceId || defaultDeviceValue;
+  const audioStream = getAudioStream();
 
   const statusLabel = useMemo(() => recorderStatusLabel(state.status), [state.status]);
 
@@ -186,21 +188,28 @@ export function RecordingDialog({ open, onOpenChange, recorder }: RecordingDialo
             ) : null}
           </div>
 
-          <div className="flex items-center justify-between gap-4 rounded-[var(--scr-radius-md)] border border-[var(--scr-border-subtle)] bg-[var(--scr-surface-panel)] px-4 py-3">
-            <div className="flex min-w-0 items-center gap-3">
-              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[var(--scr-brand-muted)] text-[var(--scr-brand-solid)]">
-                <Circle className={state.status === "recording" ? "h-3 w-3 fill-current" : "h-3 w-3"} aria-hidden="true" />
-              </span>
-              <div className="min-w-0">
-                <p className="truncate text-sm font-medium text-[var(--scr-text-strong)]">{statusLabel}</p>
-                <p className="truncate text-xs text-[var(--scr-text-secondary)]">
-                  {state.selectedMimeType || "Browser selects recording format"}
-                </p>
+          <div className="scr-recorder-visual-shell">
+            <RecordingPulseField
+              stream={audioStream}
+              active={state.status === "recording"}
+              paused={state.status === "paused"}
+            />
+            <div className="scr-recorder-visual-meta">
+              <div className="scr-recorder-status-copy">
+                <span className="scr-recorder-status-dot" data-status={state.status}>
+                  <Circle className={state.status === "recording" ? "h-2.5 w-2.5 fill-current" : "h-2.5 w-2.5"} aria-hidden="true" />
+                </span>
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium text-[var(--scr-text-strong)]">{statusLabel}</p>
+                  <p className="truncate text-xs text-[var(--scr-text-secondary)]">
+                    {state.selectedMimeType || "Waiting for microphone"}
+                  </p>
+                </div>
               </div>
+              <time className="scr-recorder-compact-timer">
+                {formatDuration(state.elapsedMs)}
+              </time>
             </div>
-            <time className="shrink-0 font-mono text-2xl font-semibold tabular-nums text-[var(--scr-text-strong)]">
-              {formatDuration(state.elapsedMs)}
-            </time>
           </div>
 
           {state.error ? (

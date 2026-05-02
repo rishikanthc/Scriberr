@@ -2130,6 +2130,84 @@ body[data-notes-sidebar-resizing="true"] {
   text-transform: none;
 }
 
+.scr-recorder-visual-shell {
+  position: relative;
+  min-height: 152px;
+  overflow: hidden;
+  border: 1px solid var(--scr-border-subtle);
+  border-radius: var(--scr-radius-md);
+  background:
+    radial-gradient(circle at 50% 45%, color-mix(in srgb, var(--scr-brand-solid) 7%, transparent), transparent 48%),
+    var(--scr-surface-panel);
+}
+
+.scr-recording-pulse-field {
+  position: absolute;
+  inset: 0;
+  opacity: 0.96;
+}
+
+.scr-recording-pulse-field canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.scr-recorder-visual-meta {
+  position: absolute;
+  inset: auto var(--scr-space-4) var(--scr-space-3);
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--scr-space-3);
+  pointer-events: none;
+}
+
+.scr-recorder-status-copy {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: var(--scr-space-3);
+}
+
+.scr-recorder-status-dot {
+  display: grid;
+  width: 26px;
+  height: 26px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--scr-brand-solid) 10%, var(--scr-surface-raised));
+  color: var(--scr-brand-solid);
+}
+
+.scr-recorder-status-dot[data-status="recording"] {
+  background: color-mix(in srgb, var(--scr-brand-solid) 16%, var(--scr-surface-raised));
+  box-shadow: 0 0 0 5px color-mix(in srgb, var(--scr-brand-solid) 8%, transparent);
+}
+
+.scr-recorder-status-dot[data-status="failed"] {
+  background: color-mix(in srgb, var(--error) 10%, transparent);
+  color: var(--error);
+}
+
+.scr-recorder-compact-timer {
+  display: inline-flex;
+  height: 26px;
+  min-width: 58px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--scr-border-subtle);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--scr-surface-raised) 86%, transparent);
+  color: var(--scr-text-secondary);
+  font-family: var(--scr-font-mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
 .scr-main {
   min-width: 0;
   background: var(--scr-surface-canvas);
