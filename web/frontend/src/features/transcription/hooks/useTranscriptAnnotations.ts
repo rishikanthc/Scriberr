@@ -4,8 +4,10 @@ import {
   createTranscriptAnnotation,
   createTranscriptNote,
   createTranscriptNoteEntry,
+  deleteTranscriptNoteEntry,
   deleteTranscriptAnnotation,
   listTranscriptAnnotations,
+  updateTranscriptNoteEntry,
   type CreateTranscriptHighlightRequest,
   type CreateTranscriptNoteEntryRequest,
   type CreateTranscriptNoteRequest,
@@ -82,6 +84,41 @@ export function useCreateTranscriptNoteEntry(transcriptionId: string) {
       transcriptionId,
       annotationId,
       { content },
+      getAuthHeaders()
+    ),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: transcriptAnnotationsQueryKey(transcriptionId) });
+    },
+  });
+}
+
+export function useUpdateTranscriptNoteEntry(transcriptionId: string) {
+  const { getAuthHeaders } = useAuth();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ annotationId, entryId, content }: { annotationId: string; entryId: string; content: string }) => updateTranscriptNoteEntry(
+      transcriptionId,
+      annotationId,
+      entryId,
+      { content },
+      getAuthHeaders()
+    ),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: transcriptAnnotationsQueryKey(transcriptionId) });
+    },
+  });
+}
+
+export function useDeleteTranscriptNoteEntry(transcriptionId: string) {
+  const { getAuthHeaders } = useAuth();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ annotationId, entryId }: { annotationId: string; entryId: string }) => deleteTranscriptNoteEntry(
+      transcriptionId,
+      annotationId,
+      entryId,
       getAuthHeaders()
     ),
     onSuccess: () => {

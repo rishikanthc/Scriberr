@@ -17,7 +17,7 @@ import { useTranscriptionDetailEvents } from "@/features/transcription/hooks/use
 import { computeWordOffsets, computeWordOffsetsInText, createPlaybackSync, useTranscriptKaraokeHighlight, type KaraokeHighlightSegment, type PlaybackSync } from "@/features/transcription/hooks/useKaraokeHighlight";
 import { useTranscriptClickSeek } from "@/features/transcription/hooks/useTranscriptClickSeek";
 import { useTranscriptTextSelection } from "@/features/transcription/hooks/useTranscriptTextSelection";
-import { selectTranscriptNotes, useCreateTranscriptHighlight, useCreateTranscriptNote, useCreateTranscriptNoteEntry, useDeleteTranscriptHighlight, useTranscriptAnnotations } from "@/features/transcription/hooks/useTranscriptAnnotations";
+import { selectTranscriptNotes, useCreateTranscriptHighlight, useCreateTranscriptNote, useCreateTranscriptNoteEntry, useDeleteTranscriptHighlight, useDeleteTranscriptNoteEntry, useTranscriptAnnotations, useUpdateTranscriptNoteEntry } from "@/features/transcription/hooks/useTranscriptAnnotations";
 import { useTranscriptionListEvents } from "@/features/transcription/hooks/useTranscriptionListEvents";
 import { useTranscriptionSummary, useTranscriptionSummaryWidgets } from "@/features/transcription/hooks/useTranscriptionSummaries";
 import { preferVisibleTranscription, useTranscriptionTranscript, useTranscriptions } from "@/features/transcription/hooks/useTranscriptions";
@@ -72,6 +72,8 @@ export function AudioDetailView() {
     Boolean(latestTranscription?.status === "completed")
   );
   const createNoteEntryMutation = useCreateTranscriptNoteEntry(latestTranscription?.id || "");
+  const updateNoteEntryMutation = useUpdateTranscriptNoteEntry(latestTranscription?.id || "");
+  const deleteNoteEntryMutation = useDeleteTranscriptNoteEntry(latestTranscription?.id || "");
   const notes = useMemo(
     () => selectTranscriptNotes(annotationsQuery.data?.items),
     [annotationsQuery.data?.items]
@@ -93,6 +95,14 @@ export function AudioDetailView() {
   const handleCreateNoteEntry = useCallback(async (annotationId: string, content: string) => {
     await createNoteEntryMutation.mutateAsync({ annotationId, content });
   }, [createNoteEntryMutation]);
+
+  const handleUpdateNoteEntry = useCallback(async (annotationId: string, entryId: string, content: string) => {
+    await updateNoteEntryMutation.mutateAsync({ annotationId, entryId, content });
+  }, [updateNoteEntryMutation]);
+
+  const handleDeleteNoteEntry = useCallback(async (annotationId: string, entryId: string) => {
+    await deleteNoteEntryMutation.mutateAsync({ annotationId, entryId });
+  }, [deleteNoteEntryMutation]);
 
   const handleNotesSidebarWidthChange = useCallback((width: number) => {
     setNotesSidebarWidth(clampNotesSidebarWidth(width));
@@ -261,9 +271,13 @@ export function AudioDetailView() {
               isLoading={annotationsQuery.isLoading}
               isError={annotationsQuery.isError}
               isCreatingEntry={createNoteEntryMutation.isPending}
+              isUpdatingEntry={updateNoteEntryMutation.isPending}
+              isDeletingEntry={deleteNoteEntryMutation.isPending}
               width={notesSidebarWidth}
               onWidthChange={handleNotesSidebarWidthChange}
               onCreateEntry={handleCreateNoteEntry}
+              onUpdateEntry={handleUpdateNoteEntry}
+              onDeleteEntry={handleDeleteNoteEntry}
               onSeekRequest={handleNoteSeekRequest}
               onOpenChange={setNotesSidebarOpen}
             />

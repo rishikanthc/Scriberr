@@ -70,6 +70,10 @@ export type CreateTranscriptNoteEntryRequest = {
   content: string;
 };
 
+export type UpdateTranscriptNoteEntryRequest = {
+  content: string;
+};
+
 export async function listTranscriptAnnotations(
   transcriptionId: string,
   headers: Record<string, string>,
@@ -155,6 +159,38 @@ export async function createTranscriptNoteEntry(
   });
   if (!response.ok) throw new Error(await readError(response));
   return response.json() as Promise<TranscriptAnnotationEntry>;
+}
+
+export async function updateTranscriptNoteEntry(
+  transcriptionId: string,
+  annotationId: string,
+  entryId: string,
+  payload: UpdateTranscriptNoteEntryRequest,
+  headers: Record<string, string>
+): Promise<TranscriptAnnotationEntry> {
+  const response = await fetch(`/api/v1/transcriptions/${transcriptionId}/annotations/${annotationId}/entries/${entryId}`, {
+    method: "PATCH",
+    headers: {
+      ...headers,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) throw new Error(await readError(response));
+  return response.json() as Promise<TranscriptAnnotationEntry>;
+}
+
+export async function deleteTranscriptNoteEntry(
+  transcriptionId: string,
+  annotationId: string,
+  entryId: string,
+  headers: Record<string, string>
+): Promise<void> {
+  const response = await fetch(`/api/v1/transcriptions/${transcriptionId}/annotations/${annotationId}/entries/${entryId}`, {
+    method: "DELETE",
+    headers,
+  });
+  if (!response.ok) throw new Error(await readError(response));
 }
 
 async function readError(response: Response) {

@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent, type KeyboardEvent, type PointerEvent } from "react";
-import { MessageCircle, Mic2, MoreHorizontal, PanelRightClose, PanelRightOpen, Send } from "lucide-react";
+import { MessageCircle, Mic2, PanelRightClose, PanelRightOpen, Send, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { TranscriptChatPanel } from "@/features/transcription/components/TranscriptChatPanel";
@@ -12,9 +12,13 @@ type TranscriptNotesSidebarProps = {
   isLoading: boolean;
   isError: boolean;
   isCreatingEntry: boolean;
+  isUpdatingEntry: boolean;
+  isDeletingEntry: boolean;
   width: number;
   onWidthChange: (width: number) => void;
   onCreateEntry: (annotationId: string, content: string) => Promise<void>;
+  onUpdateEntry: (annotationId: string, entryId: string, content: string) => Promise<void>;
+  onDeleteEntry: (annotationId: string, entryId: string) => Promise<void>;
   onSeekRequest: (seconds: number) => void;
   onOpenChange: (isOpen: boolean) => void;
 };
@@ -26,9 +30,13 @@ export function TranscriptNotesSidebar({
   isLoading,
   isError,
   isCreatingEntry,
+  isUpdatingEntry,
+  isDeletingEntry,
   width,
   onWidthChange,
   onCreateEntry,
+  onUpdateEntry,
+  onDeleteEntry,
   onSeekRequest,
   onOpenChange,
 }: TranscriptNotesSidebarProps) {
@@ -136,6 +144,8 @@ export function TranscriptNotesSidebar({
                   note={note}
                   isReplyActive={activeReplyNoteId === note.id}
                   isCreatingEntry={isCreatingEntry && activeReplyNoteId === note.id}
+                  isUpdatingEntry={isUpdatingEntry}
+                  isDeletingEntry={isDeletingEntry}
                   onActivateReply={() => setActiveReplyNoteId(note.id)}
                   onCancelReply={() => setActiveReplyNoteId(null)}
                   onCreateEntry={async (content) => {
@@ -143,6 +153,8 @@ export function TranscriptNotesSidebar({
                     await onCreateEntry(note.id, content);
                     setActiveReplyNoteId(null);
                   }}
+                  onUpdateEntry={onUpdateEntry}
+                  onDeleteEntry={onDeleteEntry}
                   onSeekRequest={onSeekRequest}
                 />
               )) : null}
@@ -158,9 +170,13 @@ type TranscriptNoteItemProps = {
   note: TranscriptNoteAnnotation;
   isReplyActive: boolean;
   isCreatingEntry: boolean;
+  isUpdatingEntry: boolean;
+  isDeletingEntry: boolean;
   onActivateReply: () => void;
   onCancelReply: () => void;
   onCreateEntry: (content: string) => Promise<void>;
+  onUpdateEntry: (annotationId: string, entryId: string, content: string) => Promise<void>;
+  onDeleteEntry: (annotationId: string, entryId: string) => Promise<void>;
   onSeekRequest: (seconds: number) => void;
 };
 
@@ -168,9 +184,13 @@ function TranscriptNoteItem({
   note,
   isReplyActive,
   isCreatingEntry,
+  isUpdatingEntry,
+  isDeletingEntry,
   onActivateReply,
   onCancelReply,
   onCreateEntry,
+  onUpdateEntry,
+  onDeleteEntry,
   onSeekRequest,
 }: TranscriptNoteItemProps) {
   const timeLabel = formatAnnotationTime(note.anchor.start_ms);
@@ -220,23 +240,15 @@ function TranscriptNoteItem({
         </span>
       </div>
       {note.entries.map((entry) => (
-        <div className="scr-transcript-note-entry" key={entry.id}>
-          <p>{entry.content}</p>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                className="scr-transcript-note-delete"
-                type="button"
-                variant="ghost"
-                size="icon"
-                aria-label="Note actions"
-              >
-                <MoreHorizontal size={16} aria-hidden="true" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Note actions</TooltipContent>
-          </Tooltip>
-        </div>
+        <TranscriptNoteEntryBubble
+          key={entry.id}
+          annotationId={note.id}
+          entry={entry}
+          isUpdating={isUpdatingEntry}
+          isDeleting={isDeletingEntry}
+          onUpdate={onUpdateEntry}
+          onDelete={onDeleteEntry}
+        />
       ))}
       <form className="scr-transcript-note-reply" onSubmit={handleReplySubmit}>
         <input
@@ -261,6 +273,103 @@ function TranscriptNoteItem({
         </Button>
       </form>
     </article>
+  );
+}
+
+type TranscriptNoteEntryBubbleProps = {
+  annotationId: string;
+  entry: TranscriptNoteAnnotation["entries"][number];
+  isUpdating: boolean;
+  isDeleting: boolean;
+  onUpdate: (annotationId: string, entryId: string, content: string) => Promise<void>;
+  onDelete: (annotationId: string, entryId: string) => Promise<void>;
+};
+
+function TranscriptNoteEntryBubble({ annotationId, entry, isUpdating, isDeleting, onUpdate, onDelete }: TranscriptNoteEntryBubbleProps) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [draftContent, setDraftContent] = useState(entry.content);
+  const trimmedDraft = draftContent.trim();
+  const canSave = trimmedDraft.length > 0 && trimmedDraft !== entry.content.trim() && !isUpdating;
+
+  useEffect(() => {
+    if (!isEditing) setDraftContent(entry.content);
+  }, [entry.content, isEditing]);
+
+  const handleSave = async () => {
+    if (!canSave) {
+      setDraftContent(entry.content);
+      setIsEditing(false);
+      return;
+    }
+    await onUpdate(annotationId, entry.id, trimmedDraft);
+    setIsEditing(false);
+  };
+
+  const handleCancel = () => {
+    setDraftContent(entry.content);
+    setIsEditing(false);
+  };
+
+  const handleDelete = async () => {
+    const confirmed = window.confirm("Delete this note?");
+    if (!confirmed || isDeleting) return;
+    await onDelete(annotationId, entry.id);
+  };
+
+  const handleEditKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      handleCancel();
+      return;
+    }
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      event.currentTarget.blur();
+    }
+  };
+
+  if (isEditing) {
+    return (
+      <div className="scr-transcript-note-entry" data-editing="true">
+        <textarea
+          className="scr-transcript-note-edit-input"
+          value={draftContent}
+          aria-label="Edit note"
+          disabled={isUpdating}
+          autoFocus
+          rows={2}
+          onBlur={() => void handleSave()}
+          onChange={(event) => setDraftContent(event.currentTarget.value)}
+          onKeyDown={handleEditKeyDown}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="scr-transcript-note-entry">
+      <button className="scr-transcript-note-entry-content" type="button" onClick={() => setIsEditing(true)}>
+        {entry.content}
+      </button>
+      <div className="scr-transcript-note-entry-actions">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              className="scr-transcript-note-entry-action scr-transcript-note-entry-delete"
+              type="button"
+              variant="ghost"
+              size="icon"
+              aria-label="Delete note"
+              disabled={isDeleting}
+              onClick={handleDelete}
+            >
+              <Trash2 size={14} aria-hidden="true" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Delete</TooltipContent>
+        </Tooltip>
+      </div>
+    </div>
   );
 }
 
