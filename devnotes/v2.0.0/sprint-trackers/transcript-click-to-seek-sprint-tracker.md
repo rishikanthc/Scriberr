@@ -2,23 +2,64 @@
 
 This tracker belongs to `devnotes/v2.0.0/sprint-plans/transcript-click-to-seek-sprint-plan.md`.
 
-Status: planned.
+Status: Sprint 1 audit complete; Sprint 2 pending.
+
+## Sprint 1 Findings
+
+Transcript contract:
+
+- Frontend transcript API types live in `web/frontend/src/features/transcription/api/transcriptionsApi.ts`.
+- `TranscriptionTranscript` already exposes `text`, `segments`, and `words`.
+- `TranscriptWord` has `start`, `end`, `word`, and optional `speaker`, which is sufficient for word-level seeking.
+- Backend `GET /api/v1/transcriptions/:id/transcript` parses stored canonical transcript JSON through `orchestrator.ParseStoredTranscript` and returns `segments` plus `words`.
+- Some transcripts can legitimately have no word timings, especially older/fallback transcripts or engines/profiles without alignment. Click-to-seek should silently no-op when no timed word can be resolved.
+
+Rendering and offset model:
+
+- Transcript rendering is currently concentrated in `web/frontend/src/features/transcription/components/AudioDetailView.tsx`.
+- `TranscriptPanel` builds `TranscriptDisplaySegment[]` with `useMemo(() => buildTranscriptDisplaySegments(transcript), [transcript])`.
+- Rendering is already segment-oriented: each segment renders one `.scr-transcript-text` paragraph with `data-transcript-text` and `data-transcript-segment-index`.
+- Saved highlights may split paragraph text with `<mark>` elements through `renderTranscriptTextWithHighlights`, so click hit-testing must support nested text nodes inside the same transcript text container.
+- Speaker labels and timestamps are rendered outside `[data-transcript-text]`, which keeps them out of the clickable offset domain.
+
+Existing reusable utilities:
+
+- `computeWordOffsets` and `computeWordOffsetsInText` already produce segment-local `WordOffset[]`.
+- `useTranscriptTextSelection` already resolves selected text nodes back to `[data-transcript-text]` containers and computes text-node offsets within nested highlight markup.
+- `useTranscriptKaraokeHighlight` already uses CSS Custom Highlight API to avoid per-word DOM nodes.
+- The selection hook currently uses linear word lookup helpers for start/end resolution; Sprint 2 should extract binary-search lookup utilities instead of adding another lookup path.
+
+Player seek boundary:
+
+- `AudioDetailView` owns `audioSeekRequest` and `nextSeekToken`.
+- `TranscriptNotesSidebar` already seeks by calling `onSeekRequest(seconds)`.
+- `StreamingAudioPlayer` consumes `seekRequest`, clamps to duration, sets `audio.currentTime`, updates local `currentTime`, and publishes to `playbackSync`.
+- Click-to-seek should reuse this same tokenized seek request boundary by passing an `onSeekRequest(seconds)` callback into `TranscriptPanel`.
+- Seeking through this path preserves current paused/playing behavior: it seeks immediately but does not force playback if paused.
+
+Offset reliability risks:
+
+- `buildTranscriptDisplaySegments` trims segment text before display. Word-offset indexes must be based on the displayed text, not raw backend segment text.
+- When segment text cannot be matched in `transcript.text`, `charAnchorReliable` is false. Click-to-seek only needs segment-local offsets, so it can still work in those cases if word timings are present.
+- `computeWordOffsetsInText` maps words into displayed segment text by sequential `indexOf` with a case-insensitive fallback. This handles repeated words by advancing `searchFrom`, but punctuation/transcription formatting mismatches can drop individual word offsets.
+- Existing highlight markup creates nested text nodes; any click utility must compute offset by walking text nodes within the transcript text element.
+- Text selection must remain dominant over click seeking. Sprint 4 should suppress seek when a non-collapsed selection exists or when pointer movement indicates a drag.
 
 ## Sprint 1: Transcript Data and Rendering Audit
 
-Status: pending
+Status: complete
 
 Progress:
 
-- [ ] Inspect current transcript payload types and word-level timing availability.
-- [ ] Identify the current audio player seek API and owner component boundary.
-- [ ] Identify current transcript segment rendering and text normalization.
-- [ ] Document any offset-shifting display transformations.
-- [ ] Decide the minimal component/hook boundary for event delegation.
+- [x] Inspect current transcript payload types and word-level timing availability.
+- [x] Identify the current audio player seek API and owner component boundary.
+- [x] Identify current transcript segment rendering and text normalization.
+- [x] Document any offset-shifting display transformations.
+- [x] Decide the minimal component/hook boundary for event delegation.
 
 Verification:
 
-- [ ] Architecture notes captured in tracker or implementation notes.
+- [x] Architecture notes captured in tracker.
 
 ## Sprint 2: Word Timing Index Foundation
 
