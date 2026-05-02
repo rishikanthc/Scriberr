@@ -2131,13 +2131,21 @@ body[data-notes-sidebar-resizing="true"] {
 }
 
 .scr-recorder-visual-shell {
+  --scr-recorder-visual-ink: rgb(34, 35, 38);
   position: relative;
-  min-height: 152px;
+  min-height: 168px;
   overflow: hidden;
   border: 1px solid var(--scr-border-subtle);
   border-radius: var(--scr-radius-md);
   background:
-    radial-gradient(circle at 50% 45%, color-mix(in srgb, var(--scr-brand-solid) 7%, transparent), transparent 48%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(255, 255, 255, 0.88)),
+    var(--scr-surface-panel);
+}
+
+.dark .scr-recorder-visual-shell {
+  --scr-recorder-visual-ink: rgb(238, 239, 242);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--scr-surface-raised) 92%, white 8%), var(--scr-surface-panel)),
     var(--scr-surface-panel);
 }
 
@@ -2168,6 +2176,14 @@ body[data-notes-sidebar-resizing="true"] {
   min-width: 0;
   align-items: center;
   gap: var(--scr-space-3);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.72);
+  padding: 4px 10px 4px 4px;
+  backdrop-filter: blur(10px);
+}
+
+.dark .scr-recorder-status-copy {
+  background: color-mix(in srgb, var(--scr-surface-raised) 74%, transparent);
 }
 
 .scr-recorder-status-dot {
@@ -2199,13 +2215,18 @@ body[data-notes-sidebar-resizing="true"] {
   justify-content: center;
   border: 1px solid var(--scr-border-subtle);
   border-radius: 999px;
-  background: color-mix(in srgb, var(--scr-surface-raised) 86%, transparent);
+  background: rgba(255, 255, 255, 0.72);
   color: var(--scr-text-secondary);
   font-family: var(--scr-font-mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace);
   font-size: 0.75rem;
   font-variant-numeric: tabular-nums;
   font-weight: 600;
   letter-spacing: 0;
+  backdrop-filter: blur(10px);
+}
+
+.dark .scr-recorder-compact-timer {
+  background: color-mix(in srgb, var(--scr-surface-raised) 74%, transparent);
 }
 
 .scr-main {
