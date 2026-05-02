@@ -2059,8 +2059,9 @@ body[data-notes-sidebar-resizing="true"] {
 .scr-recording-title {
   overflow: hidden;
   color: var(--scr-text-primary);
+  font-family: "DM Sans", var(--scr-font-sans);
   font-size: 1rem;
-  font-weight: 600;
+  font-weight: var(--scr-font-weight-semibold);
   line-height: 1.25;
   text-overflow: ellipsis;
   transition: color 180ms ease;
@@ -2088,6 +2089,7 @@ body[data-notes-sidebar-resizing="true"] {
   margin-top: var(--scr-space-1);
   overflow: hidden;
   color: var(--scr-text-secondary);
+  font-family: "DM Sans", var(--scr-font-sans);
   font-size: 0.8125rem;
   line-height: 1.35;
   -webkit-box-orient: vertical;
