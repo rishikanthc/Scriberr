@@ -2,7 +2,7 @@
 
 This tracker belongs to `devnotes/v2.0.0/sprint-plans/backend-service-boundary-refactor-sprint-plan.md`.
 
-Status: in progress. Sprints 0 through 4 are complete; Sprint 5 is pending.
+Status: in progress. Sprints 0 through 5 are complete; Sprint 6 is pending.
 
 ## Sprint 0: Inventory, Dependency Map, and Stop-The-Line Guard
 
@@ -185,33 +185,34 @@ Artifacts:
 
 ## Sprint 5: Transcription Command Service Boundary
 
-Status: pending
+Status: completed
 
 Planned tasks:
 
-- [ ] Move transcription create/list/get/update/delete/cancel/retry into a transcription service.
-- [ ] Move default profile resolution out of handlers.
-- [ ] Make manual and automatic transcription creation share one command.
-- [ ] Keep queue enqueue/cancel behavior behind service boundaries.
-- [ ] Map domain state conflicts to API errors in handlers.
+- [x] Move transcription create/list/get/update/delete/cancel/retry into a transcription service.
+- [x] Move default profile resolution out of handlers.
+- [x] Make manual transcription creation and multipart submit share one command path ready for automation reuse.
+- [x] Keep queue enqueue/cancel behavior behind service boundaries.
+- [x] Map domain state conflicts to API errors in handlers.
 
 Acceptance checks:
 
-- [ ] Transcription handlers perform no database queries.
-- [ ] Manual and automatic transcription creation use the same validation and profile resolution path.
-- [ ] Queue errors and state conflicts are explicit domain errors.
+- [x] Transcription handlers perform no database queries.
+- [x] Manual and future automatic transcription creation use the same validation and profile resolution path.
+- [x] Queue errors and state conflicts are explicit domain errors.
 
 Verification:
 
-- [ ] `GOCACHE=/Users/zade/Code/asr/Scriberr/.tmp/go-build go test ./internal/api -run 'TestTranscription|TestCapabilitiesQueue'`
-- [ ] `GOCACHE=/Users/zade/Code/asr/Scriberr/.tmp/go-build go test ./internal/transcription/worker ./internal/repository`
-- [ ] `git diff --check`
+- [x] `GOCACHE=/Users/zade/Code/asr/Scriberr/.tmp/go-build go test ./internal/api -run 'TestTranscription|TestCapabilitiesQueue|TestProductionAPIDatabaseAccessInventory'`
+- [x] `GOCACHE=/Users/zade/Code/asr/Scriberr/.tmp/go-build go test ./internal/transcription ./internal/transcription/worker ./internal/repository ./cmd/server`
+- [x] `git diff --check`
 
 Artifacts:
 
-- Transcription service files.
-- Repository method additions.
-- Queue command adapter changes if needed.
+- `internal/transcription/service.go`
+- Repository method additions in `internal/repository/implementations.go`.
+- Handler injection and composition-root wiring.
+- `devnotes/v2.0.0/status-updates/backend-service-boundary-sprint-05-transcription-notes.md`
 
 ## Sprint 6: Post-File Automation Service
 

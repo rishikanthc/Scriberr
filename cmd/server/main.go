@@ -24,6 +24,7 @@ import (
 	"scriberr/internal/repository"
 	"scriberr/internal/summarization"
 	"scriberr/internal/tags"
+	transcriptiondomain "scriberr/internal/transcription"
 	"scriberr/internal/transcription/engineprovider"
 	"scriberr/internal/transcription/orchestrator"
 	"scriberr/internal/transcription/worker"
@@ -160,6 +161,7 @@ func main() {
 		Repository: jobRepo,
 		UploadDir:  cfg.UploadDir,
 	})
+	transcriptionService := transcriptiondomain.NewService(jobRepo, profileRepo, queueService)
 	annotationService := annotations.NewService(annotationRepo, jobRepo)
 	tagService := tags.NewService(tagRepo, jobRepo)
 	recordingStorage, err := recordingdomain.NewStorage(cfg.Recordings.Dir)
@@ -197,6 +199,7 @@ func main() {
 		Annotations:    annotationService,
 		Tags:           tagService,
 		Recordings:     recordingService,
+		Transcriptions: transcriptionService,
 		Finalizer:      recordingFinalizer,
 	})
 	processor.Events = handler

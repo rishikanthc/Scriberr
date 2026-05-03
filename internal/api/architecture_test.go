@@ -21,7 +21,6 @@ func TestProductionAPIDatabaseAccessInventory(t *testing.T) {
 		"chat_handlers.go",
 		"summary_handlers.go",
 		"summary_widget_handlers.go",
-		"transcription_handlers.go",
 	}
 
 	actual, err := productionFilesImportingDatabase(".")

@@ -26,6 +26,7 @@ import (
 	recordingdomain "scriberr/internal/recording"
 	"scriberr/internal/repository"
 	"scriberr/internal/tags"
+	transcriptiondomain "scriberr/internal/transcription"
 	"scriberr/pkg/logger"
 
 	"github.com/stretchr/testify/require"
@@ -78,6 +79,7 @@ func newAuthTestServer(t *testing.T) *authTestServer {
 		Repository: jobRepo,
 		UploadDir:  cfg.UploadDir,
 	})
+	transcriptionService := transcriptiondomain.NewService(jobRepo, profileRepo, nil)
 	annotationService := annotations.NewService(repository.NewAnnotationRepository(database.DB), jobRepo)
 	tagService := tags.NewService(repository.NewTagRepository(database.DB), jobRepo)
 	recordingStorage, err := recordingdomain.NewStorage(cfg.Recordings.Dir)
@@ -98,6 +100,7 @@ func newAuthTestServer(t *testing.T) *authTestServer {
 		Annotations:    annotationService,
 		Tags:           tagService,
 		Recordings:     recordingService,
+		Transcriptions: transcriptionService,
 	})
 	youtubeImporter := &fakeYouTubeImporter{block: make(chan struct{})}
 	mediaImportService.SetImporter(youtubeImporter)

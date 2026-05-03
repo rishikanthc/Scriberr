@@ -76,6 +76,23 @@ type FileListCursor struct {
 	ID    string
 }
 
+type TranscriptionListOptions struct {
+	Status       string
+	Query        string
+	UpdatedAfter *time.Time
+	Limit        int
+	SortColumn   string
+	SortDesc     bool
+	Cursor       *TranscriptionListCursor
+	IDs          []string
+	ForceEmpty   bool
+}
+
+type TranscriptionListCursor struct {
+	Value string
+	ID    string
+}
+
 // JobRepository handles transcription job operations
 type JobRepository interface {
 	Repository[models.TranscriptionJob]
@@ -83,6 +100,7 @@ type JobRepository interface {
 	FindFileByIDForUser(ctx context.Context, id string, userID uint) (*models.TranscriptionJob, error)
 	FindTranscriptionByIDForUser(ctx context.Context, id string, userID uint) (*models.TranscriptionJob, error)
 	ListFilesByUser(ctx context.Context, userID uint, opts FileListOptions) ([]models.TranscriptionJob, error)
+	ListTranscriptionsByUser(ctx context.Context, userID uint, opts TranscriptionListOptions) ([]models.TranscriptionJob, error)
 	FindLatestCompletedExecution(ctx context.Context, jobID string) (*models.TranscriptionJobExecution, error)
 	ListWithParams(ctx context.Context, offset, limit int, sortBy, sortOrder, searchQuery string, updatedAfter *time.Time) ([]models.TranscriptionJob, int64, error)
 	ListByUser(ctx context.Context, userID uint, offset, limit int) ([]models.TranscriptionJob, int64, error)
@@ -101,6 +119,8 @@ type JobRepository interface {
 	UpdateTranscript(ctx context.Context, jobID string, transcript string) error
 	UpdateFileTitle(ctx context.Context, id string, userID uint, title string) error
 	DeleteFile(ctx context.Context, id string, userID uint) error
+	UpdateTranscriptionTitle(ctx context.Context, id string, userID uint, title string) error
+	DeleteTranscription(ctx context.Context, id string, userID uint) error
 	CreateExecution(ctx context.Context, execution *models.TranscriptionJobExecution) error
 	UpdateExecution(ctx context.Context, execution *models.TranscriptionJobExecution) error
 	DeleteExecutionsByJobID(ctx context.Context, jobID string) error
@@ -198,7 +218,57 @@ func (r *jobRepository) ListFilesByUser(ctx context.Context, userID uint, opts F
 	return jobs, err
 }
 
+func (r *jobRepository) ListTranscriptionsByUser(ctx context.Context, userID uint, opts TranscriptionListOptions) ([]models.TranscriptionJob, error) {
+	var jobs []models.TranscriptionJob
+	query := r.db.WithContext(ctx).Where("user_id = ? AND source_file_hash IS NOT NULL", userID)
+	if opts.Status != "" {
+		query = query.Where("status = ?", opts.Status)
+	}
+	if opts.ForceEmpty {
+		query = query.Where("1 = 0")
+	} else if len(opts.IDs) > 0 {
+		query = query.Where("id IN ?", opts.IDs)
+	}
+	if opts.Query != "" {
+		query = query.Where("LOWER(COALESCE(title, '')) LIKE ?", "%"+strings.ToLower(opts.Query)+"%")
+	}
+	if opts.UpdatedAfter != nil {
+		query = query.Where("updated_at > ?", *opts.UpdatedAfter)
+	}
+	if opts.Cursor != nil {
+		query = applyTranscriptionCursor(query, opts)
+	}
+	direction := "ASC"
+	idDirection := "asc"
+	if opts.SortDesc {
+		direction = "DESC"
+		idDirection = "desc"
+	}
+	if opts.Limit <= 0 {
+		opts.Limit = 50
+	}
+	err := query.Order(opts.SortColumn + " " + direction).Order("id " + idDirection).Limit(opts.Limit + 1).Find(&jobs).Error
+	return jobs, err
+}
+
 func applyFileCursor(query *gorm.DB, opts FileListOptions) *gorm.DB {
+	operator := ">"
+	if opts.SortDesc {
+		operator = "<"
+	}
+	switch opts.SortColumn {
+	case "created_at", "updated_at":
+		value, err := time.Parse(time.RFC3339Nano, opts.Cursor.Value)
+		if err != nil {
+			return query.Where("1 = 0")
+		}
+		return query.Where("("+opts.SortColumn+" "+operator+" ?) OR ("+opts.SortColumn+" = ? AND id "+operator+" ?)", value, value, opts.Cursor.ID)
+	default:
+		return query.Where("("+opts.SortColumn+" "+operator+" ?) OR ("+opts.SortColumn+" = ? AND id "+operator+" ?)", opts.Cursor.Value, opts.Cursor.Value, opts.Cursor.ID)
+	}
+}
+
+func applyTranscriptionCursor(query *gorm.DB, opts TranscriptionListOptions) *gorm.DB {
 	operator := ">"
 	if opts.SortDesc {
 		operator = "<"
@@ -562,6 +632,32 @@ func (r *jobRepository) UpdateFileTitle(ctx context.Context, id string, userID u
 func (r *jobRepository) DeleteFile(ctx context.Context, id string, userID uint) error {
 	result := r.db.WithContext(ctx).
 		Where("id = ? AND user_id = ? AND source_file_hash IS NULL", id, userID).
+		Delete(&models.TranscriptionJob{})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
+
+func (r *jobRepository) UpdateTranscriptionTitle(ctx context.Context, id string, userID uint, title string) error {
+	result := r.db.WithContext(ctx).Model(&models.TranscriptionJob{}).
+		Where("id = ? AND user_id = ? AND source_file_hash IS NOT NULL", id, userID).
+		Update("title", title)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
+
+func (r *jobRepository) DeleteTranscription(ctx context.Context, id string, userID uint) error {
+	result := r.db.WithContext(ctx).
+		Where("id = ? AND user_id = ? AND source_file_hash IS NOT NULL", id, userID).
 		Delete(&models.TranscriptionJob{})
 	if result.Error != nil {
 		return result.Error

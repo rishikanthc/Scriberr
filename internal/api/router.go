@@ -21,6 +21,7 @@ import (
 	recordingdomain "scriberr/internal/recording"
 	"scriberr/internal/summarization"
 	"scriberr/internal/tags"
+	transcriptiondomain "scriberr/internal/transcription"
 	"scriberr/internal/transcription/engineprovider"
 	"scriberr/internal/transcription/orchestrator"
 	"scriberr/internal/transcription/worker"
@@ -50,6 +51,7 @@ type Handler struct {
 	annotations    *annotations.Service
 	tags           *tags.Service
 	recordings     *recordingdomain.Service
+	transcriptions *transcriptiondomain.Service
 	finalizer      interface{ Notify() }
 	chatLLMFactory func(*models.LLMConfig) (llm.Service, error)
 }
@@ -66,6 +68,7 @@ type HandlerDependencies struct {
 	Annotations    *annotations.Service
 	Tags           *tags.Service
 	Recordings     *recordingdomain.Service
+	Transcriptions *transcriptiondomain.Service
 	Finalizer      interface{ Notify() }
 }
 
@@ -92,6 +95,7 @@ func NewHandler(cfg *config.Config, authService *auth.AuthService, deps HandlerD
 		annotations:    deps.Annotations,
 		tags:           deps.Tags,
 		recordings:     deps.Recordings,
+		transcriptions: deps.Transcriptions,
 		finalizer:      deps.Finalizer,
 	}
 	if handler.annotations != nil {
