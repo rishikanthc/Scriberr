@@ -80,6 +80,13 @@ type UploadResult struct {
 	Kind     string
 }
 
+type Metadata struct {
+	MimeType   string
+	Kind       string
+	SizeBytes  int64
+	DurationMs *int64
+}
+
 var (
 	ErrNotConfigured        = errors.New("file service is not configured")
 	ErrUnsupportedMediaType = errors.New("unsupported media type")
@@ -191,6 +198,36 @@ func (s *Service) Get(ctx context.Context, userID uint, id string) (*models.Tran
 		return nil, ErrNotFound
 	}
 	return job, nil
+}
+
+func (s *Service) Metadata(job *models.TranscriptionJob) Metadata {
+	return MetadataFromJob(job)
+}
+
+func MetadataFromJob(job *models.TranscriptionJob) Metadata {
+	if job == nil {
+		return Metadata{}
+	}
+	sourceName := job.SourceFileName
+	kind := ""
+	if strings.HasPrefix(sourceName, "youtube:") {
+		kind = "youtube"
+		sourceName = strings.TrimPrefix(sourceName, "youtube:")
+	}
+	mimeType := MediaType("", sourceName)
+	if kind == "" {
+		kind = FileKind(mimeType)
+	}
+	var size int64
+	if stat, err := os.Stat(job.AudioPath); err == nil {
+		size = stat.Size()
+	}
+	return Metadata{
+		MimeType:   mimeType,
+		Kind:       kind,
+		SizeBytes:  size,
+		DurationMs: job.SourceDurationMs,
+	}
 }
 
 func (s *Service) UpdateTitle(ctx context.Context, userID uint, id string, title string) (*models.TranscriptionJob, error) {

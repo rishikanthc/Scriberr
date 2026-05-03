@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 
+	filesdomain "scriberr/internal/files"
 	"scriberr/internal/models"
 	"scriberr/internal/tags"
 	transcriptiondomain "scriberr/internal/transcription"
@@ -296,7 +297,7 @@ func (h *Handler) streamTranscriptionAudio(c *gin.Context) {
 		writeError(c, http.StatusNotFound, "NOT_FOUND", "transcription audio not found", nil)
 		return
 	}
-	mimeType := mediaType("", job.SourceFileName)
+	mimeType := filesdomain.MediaType("", job.SourceFileName)
 	c.Header("Content-Type", mimeType)
 	c.Header("Accept-Ranges", "bytes")
 	http.ServeContent(c.Writer, c.Request, job.SourceFileName, stat.ModTime(), file)

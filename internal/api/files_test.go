@@ -220,6 +220,33 @@ func TestFileUploadListGetPatchDelete(t *testing.T) {
 	require.Equal(t, http.StatusNotFound, resp.Code)
 }
 
+func TestFileResponseMetadataDoesNotLeakMissingStoragePath(t *testing.T) {
+	s := newAuthTestServer(t)
+	token := registerForFileTests(t, s)
+	userID := currentTestUserID(t, "admin")
+	title := "Missing physical file"
+	job := models.TranscriptionJob{
+		ID:             "missing-storage-file",
+		UserID:         userID,
+		Title:          &title,
+		Status:         models.StatusUploaded,
+		AudioPath:      filepath.Join(s.uploadDir, "private", "missing.wav"),
+		SourceFileName: "missing.wav",
+	}
+	require.NoError(t, database.DB.Create(&job).Error)
+
+	resp, body := s.request(t, http.MethodGet, "/api/v1/files/file_"+job.ID, nil, token, "")
+
+	require.Equal(t, http.StatusOK, resp.Code)
+	require.Equal(t, float64(0), body["size_bytes"])
+	require.Equal(t, "audio/wav", body["mime_type"])
+	encodedBytes, err := json.Marshal(body)
+	require.NoError(t, err)
+	encoded := string(encodedBytes)
+	require.NotContains(t, encoded, s.uploadDir)
+	require.NotContains(t, encoded, "missing.wav")
+}
+
 func TestFileReadyAutoTranscribesWithDefaultProfile(t *testing.T) {
 	s := newAuthTestServer(t)
 	token := registerForFileTests(t, s)

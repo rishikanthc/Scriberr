@@ -6,12 +6,11 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 
+	filesdomain "scriberr/internal/files"
 	"scriberr/internal/models"
 	recordingdomain "scriberr/internal/recording"
 
@@ -208,7 +207,7 @@ func sha256Hex(value string) string {
 	sum := sha256.Sum256([]byte(value))
 	return hex.EncodeToString(sum[:])
 }
-func fileResponse(job *models.TranscriptionJob, mimeType, kind string) FileResponse {
+func fileResponse(job *models.TranscriptionJob, metadata filesdomain.Metadata) FileResponse {
 	title := ""
 	if job.Title != nil {
 		title = *job.Title
@@ -217,94 +216,30 @@ func fileResponse(job *models.TranscriptionJob, mimeType, kind string) FileRespo
 	if job.LLMDescription != nil {
 		description = *job.LLMDescription
 	}
-	size := int64(0)
-	if stat, err := os.Stat(job.AudioPath); err == nil {
-		size = stat.Size()
-	}
 	status := "uploaded"
 	if job.Status == models.StatusUploaded {
 		status = "ready"
 	} else if job.Status != "" {
 		status = string(job.Status)
 	}
-	if strings.HasPrefix(job.SourceFileName, "youtube:") {
-		kind = "youtube"
-		if mimeType == "" {
-			mimeType = mediaType("", strings.TrimPrefix(job.SourceFileName, "youtube:"))
-		}
-	}
 	durationSeconds := any(nil)
-	if job.SourceDurationMs != nil {
-		durationSeconds = float64(*job.SourceDurationMs) / 1000
+	if metadata.DurationMs != nil {
+		durationSeconds = float64(*metadata.DurationMs) / 1000
 	}
 	return FileResponse{
 		ID:              "file_" + job.ID,
 		Title:           title,
 		Description:     description,
-		Kind:            kind,
+		Kind:            metadata.Kind,
 		Status:          status,
-		MimeType:        mimeType,
-		SizeBytes:       size,
+		MimeType:        metadata.MimeType,
+		SizeBytes:       metadata.SizeBytes,
 		DurationSeconds: durationSeconds,
 		CreatedAt:       job.CreatedAt,
 		UpdatedAt:       job.UpdatedAt,
 	}
 }
-func mediaType(headerValue, filename string) string {
-	cleanHeader := strings.ToLower(strings.TrimSpace(strings.Split(headerValue, ";")[0]))
-	if strings.HasPrefix(cleanHeader, "audio/") || strings.HasPrefix(cleanHeader, "video/") {
-		return cleanHeader
-	}
-	switch strings.ToLower(filepath.Ext(filename)) {
-	case ".wav":
-		return "audio/wav"
-	case ".mp3":
-		return "audio/mpeg"
-	case ".m4a":
-		return "audio/mp4"
-	case ".aac":
-		return "audio/aac"
-	case ".flac":
-		return "audio/flac"
-	case ".ogg":
-		return "audio/ogg"
-	case ".opus":
-		return "audio/opus"
-	case ".webm":
-		return "video/webm"
-	case ".mp4":
-		return "video/mp4"
-	case ".mov":
-		return "video/quicktime"
-	case ".mkv":
-		return "video/x-matroska"
-	case ".avi":
-		return "video/x-msvideo"
-	case ".wmv":
-		return "video/x-ms-wmv"
-	case ".flv":
-		return "video/x-flv"
-	default:
-		return cleanHeader
-	}
-}
-func fileKind(mimeType string) string {
-	switch {
-	case strings.HasPrefix(mimeType, "audio/"):
-		return "audio"
-	case strings.HasPrefix(mimeType, "video/"):
-		return "video"
-	default:
-		return ""
-	}
-}
-func safeFilename(filename string) string {
-	base := filepath.Base(strings.TrimSpace(filename))
-	if base == "." || base == string(filepath.Separator) {
-		return ""
-	}
-	return strings.NewReplacer("/", "_", "\\", "_", "\x00", "").Replace(base)
-}
+
 func transcriptionResponse(job *models.TranscriptionJob) TranscriptionResponse {
 	title := ""
 	if job.Title != nil {

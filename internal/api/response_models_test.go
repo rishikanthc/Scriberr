@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	filesdomain "scriberr/internal/files"
 	"scriberr/internal/models"
 )
 
@@ -26,7 +27,12 @@ func TestFileResponseDTOUsesPublicShapeAndOmitsPaths(t *testing.T) {
 		UpdatedAt:        time.Unix(200, 0).UTC(),
 	}
 
-	response := fileResponse(job, "audio/wav", "audio")
+	response := fileResponse(job, filesdomain.Metadata{
+		MimeType:   "audio/wav",
+		Kind:       "audio",
+		SizeBytes:  1234,
+		DurationMs: job.SourceDurationMs,
+	})
 	if response.ID != "file_file-123" {
 		t.Fatalf("unexpected file id: %q", response.ID)
 	}
@@ -35,6 +41,9 @@ func TestFileResponseDTOUsesPublicShapeAndOmitsPaths(t *testing.T) {
 	}
 	if response.DurationSeconds != 90.5 {
 		t.Fatalf("unexpected duration seconds: %#v", response.DurationSeconds)
+	}
+	if response.SizeBytes != 1234 {
+		t.Fatalf("unexpected size bytes: %d", response.SizeBytes)
 	}
 	assertJSONDoesNotContain(t, response, "AudioPath", "audio_path", "source_file_path", "/private/tmp", "user_id", "deleted_at")
 }

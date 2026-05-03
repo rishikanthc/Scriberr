@@ -143,6 +143,28 @@ func TestProductionDoesNotImportLegacyQueue(t *testing.T) {
 	}
 }
 
+func TestAPIResponseModelsDoNotAccessFileSystemForMetadata(t *testing.T) {
+	for _, importPath := range []string{"os", "path/filepath"} {
+		importsPath, err := fileImports("response_models.go", importPath)
+		if err != nil {
+			t.Fatalf("scan response model imports: %v", err)
+		}
+		if importsPath {
+			t.Fatalf("response_models.go imports %s; file metadata must come from internal/files, not API filesystem probing", importPath)
+		}
+	}
+	for _, symbol := range []string{"os.Stat(", "AudioPath", "filepath."} {
+		locations, err := productionFilesContainingSymbol(".", symbol)
+		if err != nil {
+			t.Fatalf("scan API symbols: %v", err)
+		}
+		locations = excludePaths(locations, "internal/api/transcription_handlers.go")
+		if len(locations) > 0 {
+			t.Fatalf("production API file response metadata touches filesystem/path symbol %q in:\n%s", symbol, strings.Join(locations, "\n"))
+		}
+	}
+}
+
 func TestProductServicesDoNotUseUnscopedJobFindByID(t *testing.T) {
 	for _, symbol := range []string{
 		"s.jobs.FindByID(",

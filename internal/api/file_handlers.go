@@ -22,7 +22,10 @@ func (h *Handler) uploadFile(c *gin.Context) {
 	if !ok {
 		return
 	}
-	response := fileResponse(result.Job, result.MimeType, result.Kind)
+	metadata := h.fileMetadata(result.Job)
+	metadata.MimeType = result.MimeType
+	metadata.Kind = result.Kind
+	response := fileResponse(result.Job, metadata)
 	if result.Job.Status == models.StatusProcessing {
 		c.JSON(http.StatusAccepted, response)
 		return
@@ -58,7 +61,7 @@ func (h *Handler) importYouTube(c *gin.Context) {
 		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not create youtube import", nil)
 		return
 	}
-	c.JSON(http.StatusAccepted, fileResponse(job, "", "youtube"))
+	c.JSON(http.StatusAccepted, fileResponse(job, h.fileMetadata(job)))
 }
 
 func (h *Handler) storeUploadedFile(c *gin.Context, userID uint) (*filesdomain.UploadResult, bool) {
@@ -140,8 +143,7 @@ func (h *Handler) listFiles(c *gin.Context) {
 	jobs, nextCursor := trimListPage(jobs, opts)
 	items := make([]FileResponse, 0, len(jobs))
 	for i := range jobs {
-		mimeType := mediaType("", jobs[i].SourceFileName)
-		items = append(items, fileResponse(&jobs[i], mimeType, fileKind(mimeType)))
+		items = append(items, fileResponse(&jobs[i], h.fileMetadata(&jobs[i])))
 	}
 	c.JSON(http.StatusOK, gin.H{"items": items, "next_cursor": nextCursor})
 }
@@ -151,8 +153,7 @@ func (h *Handler) getFile(c *gin.Context) {
 	if !ok {
 		return
 	}
-	mimeType := mediaType("", job.SourceFileName)
-	c.JSON(http.StatusOK, fileResponse(job, mimeType, fileKind(mimeType)))
+	c.JSON(http.StatusOK, fileResponse(job, h.fileMetadata(job)))
 }
 
 func (h *Handler) updateFile(c *gin.Context) {
@@ -178,8 +179,7 @@ func (h *Handler) updateFile(c *gin.Context) {
 		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not update file", nil)
 		return
 	}
-	mimeType := mediaType("", job.SourceFileName)
-	c.JSON(http.StatusOK, fileResponse(job, mimeType, fileKind(mimeType)))
+	c.JSON(http.StatusOK, fileResponse(job, h.fileMetadata(job)))
 }
 
 func (h *Handler) deleteFile(c *gin.Context) {
@@ -214,7 +214,7 @@ func (h *Handler) streamFileAudio(c *gin.Context) {
 		writeError(c, http.StatusNotFound, "NOT_FOUND", "file audio not found", nil)
 		return
 	}
-	mimeType := mediaType("", job.SourceFileName)
+	mimeType := filesdomain.MediaType("", job.SourceFileName)
 	c.Header("Content-Type", mimeType)
 	c.Header("Accept-Ranges", "bytes")
 	http.ServeContent(c.Writer, c.Request, job.SourceFileName, stat.ModTime(), file)
@@ -231,6 +231,13 @@ func (h *Handler) fileByPublicID(c *gin.Context) (*models.TranscriptionJob, bool
 		return nil, false
 	}
 	return job, true
+}
+
+func (h *Handler) fileMetadata(job *models.TranscriptionJob) filesdomain.Metadata {
+	if h.files != nil {
+		return h.files.Metadata(job)
+	}
+	return filesdomain.MetadataFromJob(job)
 }
 
 func (h *Handler) fileRequestIdentity(c *gin.Context) (uint, string, bool) {
