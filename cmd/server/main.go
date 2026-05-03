@@ -10,26 +10,8 @@ import (
 	"syscall"
 	"time"
 
-	"scriberr/internal/account"
-	"scriberr/internal/annotations"
-	"scriberr/internal/api"
-	"scriberr/internal/auth"
-	"scriberr/internal/automation"
-	chatdomain "scriberr/internal/chat"
+	"scriberr/internal/app"
 	"scriberr/internal/config"
-	"scriberr/internal/database"
-	filesdomain "scriberr/internal/files"
-	"scriberr/internal/llmprovider"
-	"scriberr/internal/mediaimport"
-	profiledomain "scriberr/internal/profile"
-	recordingdomain "scriberr/internal/recording"
-	"scriberr/internal/repository"
-	"scriberr/internal/summarization"
-	"scriberr/internal/tags"
-	transcriptiondomain "scriberr/internal/transcription"
-	"scriberr/internal/transcription/engineprovider"
-	"scriberr/internal/transcription/orchestrator"
-	"scriberr/internal/transcription/worker"
 	"scriberr/pkg/logger"
 )
 
@@ -106,141 +88,18 @@ func main() {
 		"recording_allowed_mime_types", cfg.Recordings.AllowedMimeTypes,
 	)
 
-	// Initialize database
-	logger.Startup("database", "Connecting to database")
-	if err := database.Initialize(cfg.DatabasePath); err != nil {
-		logger.Error("Failed to connect to database", "error", err)
-		os.Exit(1)
-	}
-
-	// Initialize authentication service
-	logger.Startup("auth", "Setting up authentication")
-	authService := auth.NewAuthService(cfg.JWTSecret)
-
-	// Initialize repositories
-	logger.Startup("repository", "Initializing repositories")
-	jobRepo := repository.NewJobRepository(database.DB)
-	annotationRepo := repository.NewAnnotationRepository(database.DB)
-	summaryRepo := repository.NewSummaryRepository(database.DB)
-	llmConfigRepo := repository.NewLLMConfigRepository(database.DB)
-	recordingRepo := repository.NewRecordingRepository(database.DB)
-	profileRepo := repository.NewProfileRepository(database.DB)
-	tagRepo := repository.NewTagRepository(database.DB)
-	userRepo := repository.NewUserRepository(database.DB)
-	refreshTokenRepo := repository.NewRefreshTokenRepository(database.DB)
-	apiKeyRepo := repository.NewAPIKeyRepository(database.DB)
-	chatRepo := repository.NewChatRepository(database.DB)
-
-	// Initialize local engine provider. This must not download models at startup.
-	logger.Startup("engine", "Initializing local engine provider")
-	localProvider, err := engineprovider.NewLocalProvider(cfg.Engine)
+	application, err := app.Build(cfg)
 	if err != nil {
-		logger.Error("Failed to initialize local engine provider", "error", err)
+		logger.Error("Failed to build application", "error", err)
 		os.Exit(1)
 	}
 
-	providerRegistry, err := engineprovider.NewRegistry(engineprovider.DefaultProviderID, localProvider)
-	if err != nil {
-		logger.Error("Failed to initialize engine provider registry", "error", err)
+	if err := application.Start(context.Background()); err != nil {
+		logger.Error("Failed to start application", "error", err)
 		os.Exit(1)
 	}
 
-	processor := &orchestrator.Processor{
-		Jobs:      jobRepo,
-		Providers: providerRegistry,
-		Artifacts: orchestrator.NewLocalTranscriptStore(cfg.TranscriptsDir),
-	}
-	queueService := worker.NewService(jobRepo, processor, worker.Config{
-		Workers:      cfg.Worker.Workers,
-		PollInterval: cfg.Worker.PollInterval,
-		LeaseTimeout: cfg.Worker.LeaseTimeout,
-	})
-	summaryService := summarization.NewService(summaryRepo, llmConfigRepo, jobRepo, summarization.Config{})
-	chatService := chatdomain.NewService(chatRepo, llmConfigRepo)
-	accountService := account.NewService(userRepo, refreshTokenRepo, apiKeyRepo, profileRepo, llmConfigRepo, authService)
-	profileService := profiledomain.NewService(profileRepo)
-	llmProviderService := llmprovider.NewService(llmConfigRepo, api.LLMProviderConnectionTester{})
-	fileService := filesdomain.NewService(jobRepo, filesdomain.Config{UploadDir: cfg.UploadDir})
-	mediaImportService := mediaimport.NewService(mediaimport.ServiceOptions{
-		Repository: jobRepo,
-		UploadDir:  cfg.UploadDir,
-	})
-	transcriptionService := transcriptiondomain.NewService(jobRepo, profileRepo, queueService)
-	postFileAutomation := automation.NewService(jobRepo, userRepo, profileRepo, llmConfigRepo, transcriptionService)
-	fileService.SetReadyObserver(postFileAutomation)
-	annotationService := annotations.NewService(annotationRepo, jobRepo)
-	tagService := tags.NewService(tagRepo, jobRepo)
-	recordingStorage, err := recordingdomain.NewStorage(cfg.Recordings.Dir)
-	if err != nil {
-		logger.Error("Failed to initialize recording storage", "error", err)
-		os.Exit(1)
-	}
-	recordingService := recordingdomain.NewService(recordingRepo, recordingStorage, recordingdomain.Config{
-		MaxChunkBytes:    cfg.Recordings.MaxChunkBytes,
-		MaxSessionBytes:  cfg.Recordings.MaxSessionBytes,
-		MaxDuration:      cfg.Recordings.MaxDuration,
-		SessionTTL:       cfg.Recordings.SessionTTL,
-		AllowedMimeTypes: cfg.Recordings.AllowedMimeTypes,
-	})
-	recordingFinalizer := recordingdomain.NewFinalizerService(recordingRepo, jobRepo, profileRepo, recordingStorage, recordingdomain.FFmpegFinalizer{}, recordingdomain.FinalizerConfig{
-		Workers:         cfg.Recordings.FinalizerWorkers,
-		PollInterval:    cfg.Recordings.FinalizerPollInterval,
-		LeaseTimeout:    cfg.Recordings.FinalizerLeaseTimeout,
-		CleanupInterval: cfg.Recordings.CleanupInterval,
-		FailedRetention: cfg.Recordings.FailedRetention,
-	})
-	recordingFinalizer.SetTranscriptionEnqueuer(queueService)
-	recordingFinalizer.SetFileReadyHandoff(fileService)
-
-	// Initialize API handlers
-	handler := api.NewHandler(cfg, authService, api.HandlerDependencies{
-		ReadinessCheck: database.HealthCheck,
-		Queue:          queueService,
-		ModelRegistry:  providerRegistry,
-		Account:        accountService,
-		Profiles:       profileService,
-		LLMProvider:    llmProviderService,
-		Files:          fileService,
-		MediaImport:    mediaImportService,
-		Annotations:    annotationService,
-		Tags:           tagService,
-		Recordings:     recordingService,
-		Transcriptions: transcriptionService,
-		Summaries:      summaryService,
-		Chat:           chatService,
-		Finalizer:      recordingFinalizer,
-	})
-	processor.Events = handler
-	queueService.SetEventPublisher(handler)
-	queueService.SetCompletionObserver(worker.CompletionObservers{summaryService, annotationService})
-	summaryService.SetEventPublisher(handler)
-	summaryService.SetUserSettingsReader(userRepo)
-	postFileAutomation.SetEventPublisher(handler)
-	recordingFinalizer.SetEventPublisher(handler)
-
-	// Set up router
-	router := api.SetupRoutes(handler, authService)
-
-	// Start durable transcription workers after DB recovery.
-	logger.Startup("worker", "Starting durable transcription workers")
-	if err := queueService.Start(context.Background()); err != nil {
-		logger.Error("Failed to start transcription workers", "error", err)
-		os.Exit(1)
-	}
-	if err := summaryService.Start(context.Background()); err != nil {
-		logger.Error("Failed to start summary workers", "error", err)
-		os.Exit(1)
-	}
-	if err := recordingFinalizer.Start(context.Background()); err != nil {
-		logger.Error("Failed to start recording finalizers", "error", err)
-		os.Exit(1)
-	}
-
-	// Create server
-	srv := &http.Server{
-		Addr:    cfg.Host + ":" + cfg.Port,
-		Handler: router,
-	}
+	srv := application.Server()
 
 	// Start server in a goroutine
 	go func() {
@@ -275,24 +134,10 @@ func main() {
 		shutdownFailed = true
 	}
 
-	if err := queueService.Stop(ctx); err != nil {
-		logger.Error("Failed to stop transcription workers", "error", err)
+	if err := application.Shutdown(ctx); err != nil {
+		logger.Error("Failed to stop application", "error", err)
 		shutdownFailed = true
 	}
-	if err := summaryService.Stop(ctx); err != nil {
-		logger.Error("Failed to stop summary workers", "error", err)
-		shutdownFailed = true
-	}
-	if err := recordingFinalizer.Stop(ctx); err != nil {
-		logger.Error("Failed to stop recording finalizers", "error", err)
-		shutdownFailed = true
-	}
-
-	if err := localProvider.Close(); err != nil {
-		logger.Warn("Failed to close local engine provider", "error", err)
-	}
-
-	database.Close()
 	logger.Info("Server stopped")
 	if shutdownFailed {
 		os.Exit(1)

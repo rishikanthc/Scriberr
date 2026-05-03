@@ -2,7 +2,7 @@
 
 This tracker belongs to `devnotes/v2.0.0/sprint-plans/backend-architecture-refactor-sprint-plan.md`.
 
-Status: completed through Sprint 6.
+Status: completed through Sprint 7.
 
 ## Run Rules
 
@@ -258,34 +258,42 @@ Commit:
 
 ## Sprint 7: Bootstrap Extraction
 
-Status: planned
+Status: completed
 
-Planned tasks:
+Completed tasks:
 
-- [ ] Extract app/server construction if composition remains too large.
-- [ ] Keep `cmd/server/main.go` focused on process concerns.
-- [ ] Add construction tests that do not bind an HTTP listener.
-- [ ] Preserve startup and shutdown order.
+- [x] Extract app/server construction into `internal/app`.
+- [x] Keep `cmd/server/main.go` focused on flags, config logging, listener startup, signal handling, and process exit.
+- [x] Add construction tests that do not bind an HTTP listener.
+- [x] Preserve startup and shutdown order with explicit app lifecycle methods.
 
 Acceptance checks:
 
-- [ ] Composition can be tested without starting the server.
-- [ ] `api.NewHandler` dependency injection remains explicit.
-- [ ] Shutdown remains bounded and ordered.
+- [x] Composition can be tested without starting the server.
+- [x] `api.NewHandler` dependency injection remains explicit.
+- [x] Shutdown remains bounded and ordered.
 
 Verification:
 
-- [ ] `GOCACHE=/Users/zade/Code/asr/Scriberr/.tmp/go-build go test ./cmd/server ./internal/app ./internal/api`
-- [ ] `git diff --check`
+- [x] `GOCACHE=/Users/zade/Code/asr/Scriberr/.tmp/go-build go test ./cmd/server ./internal/app`
+- [x] `GOCACHE=/Users/zade/Code/asr/Scriberr/.tmp/go-build go test ./cmd/server ./internal/app ./internal/api -run 'TestEvent|TestSSE|Test.*ResponseDTO|TestRepresentativeResponseShapes|TestCanonicalRouteRegistration|TestEndpointContractSmoke|TestProductionAPIDatabaseAccessInventory|TestBackendDependencyDirection'`
+- [x] `git diff --check`
+
+Notes:
+
+- Full `go test ./cmd/server ./internal/app ./internal/api` is still blocked by sandbox loopback restrictions in `TestLLMProviderSettingsSaveTestsConnectionAndMasksKey`, which uses `httptest.NewServer`.
 
 Artifacts:
 
-- Optional `internal/app` package.
+- `internal/app/app.go`
+- `internal/app/app_test.go`
+- `cmd/server/main.go`
+- `cmd/server/main_test.go`
 - `devnotes/v2.0.0/status-updates/backend-architecture-refactor-sprint-07-bootstrap.md`
 
 Commit:
 
-- [ ] `backend: extract app bootstrap`
+- [x] `backend: extract app bootstrap`
 
 ## Sprint 8: Cleanup, Documentation, And Final Architecture Gate
 
