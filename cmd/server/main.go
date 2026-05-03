@@ -15,6 +15,7 @@ import (
 	"scriberr/internal/api"
 	"scriberr/internal/auth"
 	"scriberr/internal/automation"
+	chatdomain "scriberr/internal/chat"
 	"scriberr/internal/config"
 	"scriberr/internal/database"
 	filesdomain "scriberr/internal/files"
@@ -128,6 +129,7 @@ func main() {
 	userRepo := repository.NewUserRepository(database.DB)
 	refreshTokenRepo := repository.NewRefreshTokenRepository(database.DB)
 	apiKeyRepo := repository.NewAPIKeyRepository(database.DB)
+	chatRepo := repository.NewChatRepository(database.DB)
 
 	// Initialize local engine provider. This must not download models at startup.
 	logger.Startup("engine", "Initializing local engine provider")
@@ -154,6 +156,7 @@ func main() {
 		LeaseTimeout: cfg.Worker.LeaseTimeout,
 	})
 	summaryService := summarization.NewService(summaryRepo, llmConfigRepo, jobRepo, summarization.Config{})
+	chatService := chatdomain.NewService(chatRepo, llmConfigRepo)
 	accountService := account.NewService(userRepo, refreshTokenRepo, apiKeyRepo, profileRepo, llmConfigRepo, authService)
 	profileService := profiledomain.NewService(profileRepo)
 	llmProviderService := llmprovider.NewService(llmConfigRepo, api.LLMProviderConnectionTester{})
@@ -203,6 +206,8 @@ func main() {
 		Tags:           tagService,
 		Recordings:     recordingService,
 		Transcriptions: transcriptionService,
+		Summaries:      summaryService,
+		Chat:           chatService,
 		Finalizer:      recordingFinalizer,
 	})
 	processor.Events = handler

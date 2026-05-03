@@ -1,16 +1,10 @@
 package api
 
 import (
-	"context"
-	"errors"
-	"fmt"
 	"net/http"
-	"os"
 	"regexp"
-	"strings"
 	"time"
 
-	"scriberr/internal/database"
 	"scriberr/internal/models"
 	"scriberr/internal/transcription/engineprovider"
 
@@ -67,36 +61,20 @@ func (h *Handler) queueStats(c *gin.Context) {
 		})
 		return
 	}
-	stats := gin.H{"queued": int64(0), "processing": int64(0), "completed": int64(0), "failed": int64(0), "stopped": int64(0), "canceled": int64(0), "running": int64(0)}
-	type statusCount struct {
-		Status models.JobStatus
-		Count  int64
-	}
-	var counts []statusCount
-	if err := database.DB.Model(&models.TranscriptionJob{}).
-		Select("status, count(*) as count").
-		Where("user_id = ? AND source_file_hash IS NOT NULL", userID).
-		Group("status").
-		Find(&counts).Error; err != nil {
+	stats, err := h.transcriptions.Stats(c.Request.Context(), userID)
+	if err != nil {
 		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not read queue stats", nil)
 		return
 	}
-	for _, count := range counts {
-		switch count.Status {
-		case models.StatusPending:
-			stats["queued"] = count.Count
-		case models.StatusProcessing:
-			stats["processing"] = count.Count
-		case models.StatusCompleted:
-			stats["completed"] = count.Count
-		case models.StatusFailed:
-			stats["failed"] = count.Count
-		case models.StatusStopped, models.StatusCanceled:
-			stats["stopped"] = stats["stopped"].(int64) + count.Count
-			stats["canceled"] = stats["canceled"].(int64) + count.Count
-		}
-	}
-	c.JSON(http.StatusOK, stats)
+	c.JSON(http.StatusOK, gin.H{
+		"queued":     stats.Queued,
+		"processing": stats.Processing,
+		"completed":  stats.Completed,
+		"failed":     stats.Failed,
+		"stopped":    stats.Canceled,
+		"canceled":   stats.Canceled,
+		"running":    stats.Running,
+	})
 }
 
 func (h *Handler) getTranscriptionExecutions(c *gin.Context) {
@@ -104,8 +82,8 @@ func (h *Handler) getTranscriptionExecutions(c *gin.Context) {
 	if !ok {
 		return
 	}
-	var executions []models.TranscriptionJobExecution
-	if err := database.DB.Where("transcription_id = ?", job.ID).Order("execution_number DESC").Find(&executions).Error; err != nil {
+	executions, err := h.transcriptions.ListExecutions(c.Request.Context(), job.UserID, job.ID)
+	if err != nil {
 		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not list transcription executions", nil)
 		return
 	}
@@ -121,52 +99,12 @@ func (h *Handler) getTranscriptionLogs(c *gin.Context) {
 	if !ok {
 		return
 	}
-	logText, err := logsForTranscription(c.Request.Context(), job.ID)
+	logText, err := h.transcriptions.Logs(c.Request.Context(), job.UserID, job.ID)
 	if err != nil {
 		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not read transcription logs", nil)
 		return
 	}
 	c.Data(http.StatusOK, "text/plain; charset=utf-8", []byte(sanitizePublicText(logText)))
-}
-
-func logsForTranscription(ctx context.Context, jobID string) (string, error) {
-	var executions []models.TranscriptionJobExecution
-	if err := database.DB.WithContext(ctx).Where("transcription_id = ?", jobID).Order("execution_number ASC").Find(&executions).Error; err != nil {
-		return "", err
-	}
-	if len(executions) == 0 {
-		return "No execution logs recorded.\n", nil
-	}
-	var out strings.Builder
-	for _, execution := range executions {
-		fmt.Fprintf(&out, "execution %d status=%s provider=%s model=%s started_at=%s\n",
-			execution.ExecutionNumber,
-			execution.Status,
-			execution.Provider,
-			execution.ModelName,
-			execution.StartedAt.Format(time.RFC3339),
-		)
-		if execution.CompletedAt != nil {
-			fmt.Fprintf(&out, "completed_at=%s\n", execution.CompletedAt.Format(time.RFC3339))
-		}
-		if execution.FailedAt != nil {
-			fmt.Fprintf(&out, "failed_at=%s\n", execution.FailedAt.Format(time.RFC3339))
-		}
-		if execution.ErrorMessage != nil && *execution.ErrorMessage != "" {
-			fmt.Fprintf(&out, "error=%s\n", *execution.ErrorMessage)
-		}
-		if execution.LogsPath != nil && *execution.LogsPath != "" {
-			if data, err := os.ReadFile(*execution.LogsPath); err == nil {
-				out.Write(data)
-				if !strings.HasSuffix(out.String(), "\n") {
-					out.WriteByte('\n')
-				}
-			} else if !errors.Is(err, os.ErrNotExist) {
-				return "", err
-			}
-		}
-	}
-	return out.String(), nil
 }
 
 func modelCapabilityResponse(capability engineprovider.ModelCapability) gin.H {

@@ -2,7 +2,7 @@
 
 This tracker belongs to `devnotes/v2.0.0/sprint-plans/backend-service-boundary-refactor-sprint-plan.md`.
 
-Status: in progress. Sprints 0 through 6 are complete; Sprint 7 is pending.
+Status: completed. Sprints 0 through 7 are complete.
 
 ## Sprint 0: Inventory, Dependency Map, and Stop-The-Line Guard
 
@@ -250,32 +250,32 @@ Artifacts:
 
 ## Sprint 7: Remove Remaining API Database Access and Harden Contracts
 
-Status: pending
+Status: completed
 
 Planned tasks:
 
-- [ ] Remove all remaining `internal/database` imports from production `internal/api` files.
-- [ ] Remove all remaining direct `database.DB` calls from production API handlers.
-- [ ] Expand architecture guard coverage.
-- [ ] Add service-level tests for migrated state-machine and validation behavior.
-- [ ] Update route contract tests for documented settings additions.
-- [ ] Run focused backend verification.
+- [x] Remove all remaining `internal/database` imports from production `internal/api` files.
+- [x] Remove all remaining direct `database.DB` calls from production API handlers.
+- [x] Expand architecture guard coverage to a zero-entry production API database import allowlist.
+- [x] Add or preserve service-level tests for migrated state-machine and validation behavior.
+- [x] Update route contract tests for documented settings additions.
+- [x] Run focused backend verification.
 
 Acceptance checks:
 
-- [ ] Production API package has no direct database access.
-- [ ] Handlers call services, not repositories or database globals.
-- [ ] General settings backend prerequisites are ready for frontend implementation.
-- [ ] Public API behavior remains stable except documented settings additions.
+- [x] Production API package has no direct database access.
+- [x] Handlers call services, not repositories or database globals.
+- [x] General settings backend prerequisites are ready for frontend implementation.
+- [x] Public API behavior remains stable except documented settings additions.
 
 Verification:
 
-- [ ] `rg 'internal/database|database\.DB' internal/api`
-- [ ] `GOCACHE=/Users/zade/Code/asr/Scriberr/.tmp/go-build go test ./internal/api ./internal/repository ./internal/recording ./internal/summarization ./internal/transcription/worker ./cmd/server`
-- [ ] `git diff --check`
+- [x] `rg 'internal/database|database\.DB' internal/api -g '*.go' -g '!**/*_test.go'`
+- [x] `GOCACHE=/Users/zade/Code/asr/Scriberr/.tmp/go-build go test ./internal/api ./internal/repository ./internal/recording ./internal/summarization ./internal/transcription/worker ./cmd/server`
+- [x] `git diff --check`
 
 Artifacts:
 
-- Architecture guard test/script.
-- Updated API service integrations.
-- Final status note.
+- Architecture guard test with an empty production API database import inventory.
+- Updated API service integrations for admin/queue metadata, summaries, summary widgets, and chat.
+- `devnotes/v2.0.0/status-updates/backend-service-boundary-sprint-07-final-notes.md`

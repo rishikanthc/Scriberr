@@ -5,12 +5,10 @@ import (
 	"net/http"
 	"strings"
 
-	"scriberr/internal/database"
 	"scriberr/internal/models"
-	"scriberr/internal/repository"
+	"scriberr/internal/summarization"
 
 	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 )
 
 func (h *Handler) listSummaryWidgets(c *gin.Context) {
@@ -19,7 +17,7 @@ func (h *Handler) listSummaryWidgets(c *gin.Context) {
 		writeError(c, http.StatusUnauthorized, "UNAUTHORIZED", "missing or invalid authentication", nil)
 		return
 	}
-	widgets, err := repository.NewSummaryRepository(database.DB).ListSummaryWidgetsByUser(c.Request.Context(), userID)
+	widgets, err := h.summaries.ListWidgets(c.Request.Context(), userID)
 	if err != nil {
 		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not list summary widgets", nil)
 		return
@@ -57,11 +55,10 @@ func (h *Handler) createSummaryWidget(c *gin.Context) {
 	if req.Enabled != nil {
 		widget.Enabled = *req.Enabled
 	}
-	repo := repository.NewSummaryRepository(database.DB)
-	if duplicateSummaryWidgetName(c, repo, userID, "", widget.Name) {
+	if duplicateSummaryWidgetName(c, h.summaries, userID, "", widget.Name) {
 		return
 	}
-	if err := repo.CreateSummaryWidget(c.Request.Context(), &widget); err != nil {
+	if err := h.summaries.CreateWidget(c.Request.Context(), &widget); err != nil {
 		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not create summary widget", nil)
 		return
 	}
@@ -75,9 +72,8 @@ func (h *Handler) updateSummaryWidget(c *gin.Context) {
 		writeError(c, http.StatusUnauthorized, "UNAUTHORIZED", "missing or invalid authentication", nil)
 		return
 	}
-	repo := repository.NewSummaryRepository(database.DB)
-	widget, err := repo.FindSummaryWidgetByIDForUser(c.Request.Context(), c.Param("id"), userID)
-	if errors.Is(err, gorm.ErrRecordNotFound) {
+	widget, err := h.summaries.FindWidget(c.Request.Context(), userID, c.Param("id"))
+	if errors.Is(err, summarization.ErrNotFound) {
 		writeError(c, http.StatusNotFound, "NOT_FOUND", "summary widget not found", nil)
 		return
 	}
@@ -90,7 +86,7 @@ func (h *Handler) updateSummaryWidget(c *gin.Context) {
 		return
 	}
 	nextName := strings.TrimSpace(req.Name)
-	if duplicateSummaryWidgetName(c, repo, userID, widget.ID, nextName) {
+	if duplicateSummaryWidgetName(c, h.summaries, userID, widget.ID, nextName) {
 		return
 	}
 	description := strings.TrimSpace(req.Description)
@@ -105,7 +101,7 @@ func (h *Handler) updateSummaryWidget(c *gin.Context) {
 	if req.Enabled != nil {
 		widget.Enabled = *req.Enabled
 	}
-	if err := repo.UpdateSummaryWidget(c.Request.Context(), widget); err != nil {
+	if err := h.summaries.UpdateWidget(c.Request.Context(), widget); err != nil {
 		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not update summary widget", nil)
 		return
 	}
@@ -119,15 +115,10 @@ func (h *Handler) deleteSummaryWidget(c *gin.Context) {
 		writeError(c, http.StatusUnauthorized, "UNAUTHORIZED", "missing or invalid authentication", nil)
 		return
 	}
-	repo := repository.NewSummaryRepository(database.DB)
-	if _, err := repo.FindSummaryWidgetByIDForUser(c.Request.Context(), c.Param("id"), userID); errors.Is(err, gorm.ErrRecordNotFound) {
+	if err := h.summaries.DeleteWidget(c.Request.Context(), userID, c.Param("id")); errors.Is(err, summarization.ErrNotFound) {
 		writeError(c, http.StatusNotFound, "NOT_FOUND", "summary widget not found", nil)
 		return
 	} else if err != nil {
-		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not load summary widget", nil)
-		return
-	}
-	if err := repo.DeleteSummaryWidget(c.Request.Context(), c.Param("id"), userID); err != nil {
 		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not delete summary widget", nil)
 		return
 	}
@@ -172,17 +163,15 @@ func validateSummaryWidgetInput(c *gin.Context, req summaryWidgetRequest) bool {
 	return true
 }
 
-func duplicateSummaryWidgetName(c *gin.Context, repo repository.SummaryRepository, userID uint, exceptID string, name string) bool {
-	widgets, err := repo.ListSummaryWidgetsByUser(c.Request.Context(), userID)
+func duplicateSummaryWidgetName(c *gin.Context, summaries *summarization.Service, userID uint, exceptID string, name string) bool {
+	exists, err := summaries.WidgetNameExists(c.Request.Context(), userID, exceptID, name)
 	if err != nil {
 		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not validate summary widget", nil)
 		return true
 	}
-	for _, widget := range widgets {
-		if widget.ID != exceptID && strings.EqualFold(strings.TrimSpace(widget.Name), strings.TrimSpace(name)) {
-			writeError(c, http.StatusConflict, "CONFLICT", "summary widget name already exists", stringPtr("name"))
-			return true
-		}
+	if exists {
+		writeError(c, http.StatusConflict, "CONFLICT", "summary widget name already exists", stringPtr("name"))
+		return true
 	}
 	return false
 }

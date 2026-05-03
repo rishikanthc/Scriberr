@@ -16,12 +16,7 @@ func TestProductionAPIDatabaseAccessInventory(t *testing.T) {
 	// This is a stop-the-line guard for the backend service-boundary refactor.
 	// Sprint 0 freezes existing API database access. Later sprints must shrink
 	// this allowlist as handlers move behind service interfaces.
-	expected := []string{
-		"admin_handlers.go",
-		"chat_handlers.go",
-		"summary_handlers.go",
-		"summary_widget_handlers.go",
-	}
+	expected := []string{}
 
 	actual, err := productionFilesImportingDatabase(".")
 	if err != nil {

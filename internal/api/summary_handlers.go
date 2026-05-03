@@ -4,12 +4,10 @@ import (
 	"errors"
 	"net/http"
 
-	"scriberr/internal/database"
 	"scriberr/internal/models"
-	"scriberr/internal/repository"
+	"scriberr/internal/summarization"
 
 	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 )
 
 func (h *Handler) getTranscriptionSummary(c *gin.Context) {
@@ -17,12 +15,8 @@ func (h *Handler) getTranscriptionSummary(c *gin.Context) {
 	if !ok {
 		return
 	}
-	var summary models.Summary
-	err := database.DB.WithContext(c.Request.Context()).
-		Where("transcription_id = ? AND user_id = ?", job.ID, job.UserID).
-		Order("created_at DESC").
-		First(&summary).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
+	summary, err := h.summaries.LatestForTranscription(c.Request.Context(), job.UserID, job.ID)
+	if errors.Is(err, summarization.ErrNotFound) {
 		writeError(c, http.StatusNotFound, "NOT_FOUND", "summary not found", nil)
 		return
 	}
@@ -30,7 +24,7 @@ func (h *Handler) getTranscriptionSummary(c *gin.Context) {
 		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not load summary", nil)
 		return
 	}
-	c.JSON(http.StatusOK, summaryResponse(&summary))
+	c.JSON(http.StatusOK, summaryResponse(summary))
 }
 
 func summaryResponse(summary *models.Summary) gin.H {
@@ -60,7 +54,7 @@ func (h *Handler) listTranscriptionSummaryWidgets(c *gin.Context) {
 	if !ok {
 		return
 	}
-	runs, err := repository.NewSummaryRepository(database.DB).ListSummaryWidgetRunsByTranscription(c.Request.Context(), job.ID, job.UserID)
+	runs, err := h.summaries.ListWidgetRunsForTranscription(c.Request.Context(), job.UserID, job.ID)
 	if err != nil {
 		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not load summary widgets", nil)
 		return

@@ -116,6 +116,8 @@ type UserSettingsReader interface {
 	FindByID(ctx context.Context, id interface{}) (*models.User, error)
 }
 
+var ErrNotFound = errors.New("summary not found")
+
 type Service struct {
 	summaries repository.SummaryRepository
 	llmConfig repository.LLMConfigRepository
@@ -153,6 +155,64 @@ func (s *Service) SetEventPublisher(events EventPublisher) {
 
 func (s *Service) SetUserSettingsReader(users UserSettingsReader) {
 	s.users = users
+}
+
+func (s *Service) LatestForTranscription(ctx context.Context, userID uint, transcriptionID string) (*models.Summary, error) {
+	summary, err := s.summaries.GetLatestSummary(ctx, transcriptionID)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	if summary.UserID != userID {
+		return nil, ErrNotFound
+	}
+	return summary, nil
+}
+
+func (s *Service) ListWidgetRunsForTranscription(ctx context.Context, userID uint, transcriptionID string) ([]models.SummaryWidgetRun, error) {
+	return s.summaries.ListSummaryWidgetRunsByTranscription(ctx, transcriptionID, userID)
+}
+
+func (s *Service) ListWidgets(ctx context.Context, userID uint) ([]models.SummaryWidget, error) {
+	return s.summaries.ListSummaryWidgetsByUser(ctx, userID)
+}
+
+func (s *Service) FindWidget(ctx context.Context, userID uint, widgetID string) (*models.SummaryWidget, error) {
+	widget, err := s.summaries.FindSummaryWidgetByIDForUser(ctx, widgetID, userID)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, ErrNotFound
+	}
+	return widget, err
+}
+
+func (s *Service) CreateWidget(ctx context.Context, widget *models.SummaryWidget) error {
+	return s.summaries.CreateSummaryWidget(ctx, widget)
+}
+
+func (s *Service) UpdateWidget(ctx context.Context, widget *models.SummaryWidget) error {
+	return s.summaries.UpdateSummaryWidget(ctx, widget)
+}
+
+func (s *Service) DeleteWidget(ctx context.Context, userID uint, widgetID string) error {
+	if _, err := s.FindWidget(ctx, userID, widgetID); err != nil {
+		return err
+	}
+	return s.summaries.DeleteSummaryWidget(ctx, widgetID, userID)
+}
+
+func (s *Service) WidgetNameExists(ctx context.Context, userID uint, exceptID string, name string) (bool, error) {
+	widgets, err := s.summaries.ListSummaryWidgetsByUser(ctx, userID)
+	if err != nil {
+		return false, err
+	}
+	for _, widget := range widgets {
+		if widget.ID != exceptID && strings.EqualFold(strings.TrimSpace(widget.Name), strings.TrimSpace(name)) {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 func (s *Service) Start(ctx context.Context) error {

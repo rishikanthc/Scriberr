@@ -10,10 +10,8 @@ import (
 	"time"
 
 	chatdomain "scriberr/internal/chat"
-	"scriberr/internal/database"
 	"scriberr/internal/llm"
 	"scriberr/internal/models"
-	"scriberr/internal/repository"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -115,7 +113,6 @@ func (h *Handler) createChatSession(c *gin.Context) {
 	if !h.chatModelAvailable(c, config, model) {
 		return
 	}
-	repo := repository.NewChatRepository(database.DB)
 	title := strings.TrimSpace(req.Title)
 	if title == "" {
 		title = "Transcript chat"
@@ -128,17 +125,12 @@ func (h *Handler) createChatSession(c *gin.Context) {
 		Model:                 model,
 		SystemPrompt:          req.SystemPrompt,
 	}
-	if err := repo.CreateSession(c.Request.Context(), session); err != nil {
+	if err := h.chat.CreateSession(c.Request.Context(), session); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			writeError(c, http.StatusNotFound, "NOT_FOUND", "parent transcription not found", nil)
 			return
 		}
 		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not create chat session", nil)
-		return
-	}
-	builder := chatdomain.NewContextBuilder(repo, chatdomain.ApproxTokenEstimator{})
-	if _, err := builder.AddParentSource(c.Request.Context(), userID, session.ID); err != nil {
-		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not add parent transcript context", nil)
 		return
 	}
 	c.JSON(http.StatusCreated, chatSessionResponse(session))
@@ -155,7 +147,7 @@ func (h *Handler) listChatSessions(c *gin.Context) {
 		writeError(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "parent_transcription_id is required", stringPtr("parent_transcription_id"))
 		return
 	}
-	sessions, _, err := repository.NewChatRepository(database.DB).ListSessionsForTranscription(c.Request.Context(), userID, parentID, 0, 100)
+	sessions, err := h.chat.ListSessions(c.Request.Context(), userID, parentID)
 	if err != nil {
 		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not list chat sessions", nil)
 		return
@@ -199,7 +191,7 @@ func (h *Handler) updateChatSession(c *gin.Context) {
 			return
 		}
 	}
-	if err := repository.NewChatRepository(database.DB).UpdateSession(c.Request.Context(), session); err != nil {
+	if err := h.chat.UpdateSession(c.Request.Context(), session); err != nil {
 		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not update chat session", nil)
 		return
 	}
@@ -217,7 +209,7 @@ func (h *Handler) deleteChatSession(c *gin.Context) {
 		writeError(c, http.StatusNotFound, "NOT_FOUND", "chat session not found", nil)
 		return
 	}
-	err := repository.NewChatRepository(database.DB).DeleteSession(c.Request.Context(), userID, sessionID)
+	err := h.chat.DeleteSession(c.Request.Context(), userID, sessionID)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		writeError(c, http.StatusNotFound, "NOT_FOUND", "chat session not found", nil)
 		return
@@ -234,7 +226,7 @@ func (h *Handler) listChatMessages(c *gin.Context) {
 	if !ok {
 		return
 	}
-	messages, _, err := repository.NewChatRepository(database.DB).ListMessages(c.Request.Context(), session.UserID, session.ID, 0, 200)
+	messages, err := h.chat.ListMessages(c.Request.Context(), session.UserID, session.ID, 200)
 	if err != nil {
 		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not list chat messages", nil)
 		return
@@ -251,7 +243,7 @@ func (h *Handler) getChatContext(c *gin.Context) {
 	if !ok {
 		return
 	}
-	sources, err := repository.NewChatRepository(database.DB).ListContextSources(c.Request.Context(), session.UserID, session.ID, false)
+	sources, err := h.chat.ListContextSources(c.Request.Context(), session.UserID, session.ID, false)
 	if err != nil {
 		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not list chat context", nil)
 		return
@@ -277,8 +269,7 @@ func (h *Handler) addChatContextTranscript(c *gin.Context) {
 		writeError(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "transcription_id is invalid", stringPtr("transcription_id"))
 		return
 	}
-	builder := chatdomain.NewContextBuilder(repository.NewChatRepository(database.DB), chatdomain.ApproxTokenEstimator{})
-	mutation, err := builder.AddTranscriptSource(c.Request.Context(), session.UserID, session.ID, transcriptionID, models.ChatContextSourceKindTranscript)
+	source, err := h.chat.AddTranscriptSource(c.Request.Context(), session.UserID, session.ID, transcriptionID)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		writeError(c, http.StatusNotFound, "NOT_FOUND", "transcription not found", nil)
 		return
@@ -287,7 +278,7 @@ func (h *Handler) addChatContextTranscript(c *gin.Context) {
 		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not add context transcript", nil)
 		return
 	}
-	c.JSON(http.StatusCreated, chatContextSourceResponse(mutation.Source))
+	c.JSON(http.StatusCreated, chatContextSourceResponse(source))
 }
 
 func (h *Handler) updateChatContextTranscript(c *gin.Context) {
@@ -305,7 +296,7 @@ func (h *Handler) updateChatContextTranscript(c *gin.Context) {
 		return
 	}
 	if req.Enabled != nil {
-		err := repository.NewChatRepository(database.DB).SetContextSourceEnabled(c.Request.Context(), session.UserID, session.ID, sourceID, *req.Enabled)
+		err := h.chat.SetContextSourceEnabled(c.Request.Context(), session.UserID, session.ID, sourceID, *req.Enabled)
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			writeError(c, http.StatusNotFound, "NOT_FOUND", "context source not found", nil)
 			return
@@ -315,7 +306,7 @@ func (h *Handler) updateChatContextTranscript(c *gin.Context) {
 			return
 		}
 	}
-	source, err := repository.NewChatRepository(database.DB).FindContextSourceForUser(c.Request.Context(), session.UserID, session.ID, sourceID)
+	source, err := h.chat.FindContextSource(c.Request.Context(), session.UserID, session.ID, sourceID)
 	if err != nil {
 		writeError(c, http.StatusNotFound, "NOT_FOUND", "context source not found", nil)
 		return
@@ -333,7 +324,7 @@ func (h *Handler) deleteChatContextTranscript(c *gin.Context) {
 		writeError(c, http.StatusNotFound, "NOT_FOUND", "context source not found", nil)
 		return
 	}
-	err := repository.NewChatRepository(database.DB).DeleteContextSource(c.Request.Context(), session.UserID, session.ID, sourceID)
+	err := h.chat.DeleteContextSource(c.Request.Context(), session.UserID, session.ID, sourceID)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		writeError(c, http.StatusNotFound, "NOT_FOUND", "context source not found", nil)
 		return
@@ -380,16 +371,15 @@ func (h *Handler) streamChatMessage(c *gin.Context, publicSessionID string) {
 		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "streaming is not supported", nil)
 		return
 	}
-	repo := repository.NewChatRepository(database.DB)
 	ctx := c.Request.Context()
 	userMessage := &models.ChatMessage{UserID: session.UserID, ChatSessionID: session.ID, Role: models.ChatMessageRoleUser, Content: content}
-	if err := repo.CreateMessage(ctx, userMessage); err != nil {
+	if err := h.chat.CreateMessage(ctx, userMessage); err != nil {
 		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not persist user message", nil)
 		return
 	}
 	provider := config.Provider
 	assistant := &models.ChatMessage{UserID: session.UserID, ChatSessionID: session.ID, Role: models.ChatMessageRoleAssistant, Status: models.ChatMessageStatusStreaming, Provider: &provider, Model: &model}
-	if err := repo.CreateMessage(ctx, assistant); err != nil {
+	if err := h.chat.CreateMessage(ctx, assistant); err != nil {
 		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not persist assistant message", nil)
 		return
 	}
@@ -398,12 +388,12 @@ func (h *Handler) streamChatMessage(c *gin.Context, publicSessionID string) {
 		window = 4096
 	}
 	run := &models.ChatGenerationRun{UserID: session.UserID, ChatSessionID: session.ID, AssistantMessageID: &assistant.ID, Status: models.ChatGenerationRunStatusPending, Provider: provider, Model: model, ContextWindow: window, ContextWindowSource: "provider"}
-	if err := repo.CreateGenerationRun(ctx, run); err != nil {
+	if err := h.chat.CreateGenerationRun(ctx, run); err != nil {
 		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not create chat run", nil)
 		return
 	}
 	assistant.RunID = &run.ID
-	_ = repo.UpdateMessage(ctx, assistant)
+	_ = h.chat.UpdateMessage(ctx, assistant)
 
 	c.Header("Content-Type", "text/event-stream")
 	c.Header("Cache-Control", "no-cache")
@@ -420,9 +410,9 @@ func (h *Handler) streamChatMessage(c *gin.Context, publicSessionID string) {
 	})
 
 	now := time.Now()
-	_ = repo.UpdateGenerationRunStatus(context.Background(), session.UserID, run.ID, models.ChatGenerationRunStatusStreaming, now, nil)
-	messages, _, _ := repo.ListMessages(ctx, session.UserID, session.ID, 0, 100)
-	llmMessages := h.buildLLMMessages(ctx, repo, session, messages, content, window)
+	_ = h.chat.UpdateGenerationRunStatus(context.Background(), session.UserID, run.ID, models.ChatGenerationRunStatusStreaming, now, nil)
+	messages, _ := h.chat.ListMessages(ctx, session.UserID, session.ID, 100)
+	llmMessages := h.buildLLMMessages(ctx, session, messages, content, window)
 	events, errorsChan := client.ChatCompletionStreamEvents(ctx, model, llmMessages, req.Temperature)
 	var responseContent, reasoningContent strings.Builder
 	var usage *llm.TokenUsage
@@ -443,8 +433,8 @@ func (h *Handler) streamChatMessage(c *gin.Context, publicSessionID string) {
 		assistant.Status = models.ChatMessageStatusFailed
 		assistant.Content = responseContent.String()
 		assistant.ReasoningContent = reasoningContent.String()
-		_ = repo.UpdateMessage(context.Background(), assistant)
-		_ = repo.UpdateGenerationRunStatus(context.Background(), session.UserID, run.ID, models.ChatGenerationRunStatusFailed, time.Now(), &message)
+		_ = h.chat.UpdateMessage(context.Background(), assistant)
+		_ = h.chat.UpdateGenerationRunStatus(context.Background(), session.UserID, run.ID, models.ChatGenerationRunStatusFailed, time.Now(), &message)
 		chatWriteSSE(c, flusher, "chat.run.failed", chatRunPayload(session.ID, run.ID, assistant.ID, gin.H{"error": message}))
 		return
 	}
@@ -460,8 +450,8 @@ func (h *Handler) streamChatMessage(c *gin.Context, publicSessionID string) {
 		run.ContextTokensEstimated = usage.PromptTokens
 		completionPayload["usage"] = chatUsageResponse(usage)
 	}
-	_ = repo.UpdateMessage(context.Background(), assistant)
-	_ = repo.UpdateGenerationRunStatus(context.Background(), session.UserID, run.ID, models.ChatGenerationRunStatusCompleted, time.Now(), nil)
+	_ = h.chat.UpdateMessage(context.Background(), assistant)
+	_ = h.chat.UpdateGenerationRunStatus(context.Background(), session.UserID, run.ID, models.ChatGenerationRunStatusCompleted, time.Now(), nil)
 	completionPayload["assistant_message"] = chatMessageResponse(assistant)
 	chatWriteSSE(c, flusher, "chat.run.completed", chatRunPayload(session.ID, run.ID, assistant.ID, completionPayload))
 }
@@ -477,8 +467,7 @@ func (h *Handler) cancelChatRun(c *gin.Context, publicRunID string) {
 		writeError(c, http.StatusNotFound, "NOT_FOUND", "chat run not found", nil)
 		return
 	}
-	repo := repository.NewChatRepository(database.DB)
-	run, err := repo.FindGenerationRunForUser(c.Request.Context(), userID, runID)
+	run, err := h.chat.FindGenerationRun(c.Request.Context(), userID, runID)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		writeError(c, http.StatusNotFound, "NOT_FOUND", "chat run not found", nil)
 		return
@@ -492,7 +481,7 @@ func (h *Handler) cancelChatRun(c *gin.Context, publicRunID string) {
 		return
 	}
 	message := "canceled"
-	if err := repo.UpdateGenerationRunStatus(c.Request.Context(), userID, run.ID, models.ChatGenerationRunStatusCanceled, time.Now(), &message); err != nil {
+	if err := h.chat.UpdateGenerationRunStatus(c.Request.Context(), userID, run.ID, models.ChatGenerationRunStatusCanceled, time.Now(), &message); err != nil {
 		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not cancel chat run", nil)
 		return
 	}
@@ -505,24 +494,24 @@ func (h *Handler) generateChatTitle(c *gin.Context) {
 	if !ok {
 		return
 	}
-	messages, _, _ := repository.NewChatRepository(database.DB).ListMessages(c.Request.Context(), session.UserID, session.ID, 0, 1)
+	messages, _ := h.chat.ListMessages(c.Request.Context(), session.UserID, session.ID, 1)
 	title := session.Title
 	if len(messages) > 0 && strings.TrimSpace(messages[0].Content) != "" {
 		title = summarizeTitle(messages[0].Content)
 		session.Title = title
-		_ = repository.NewChatRepository(database.DB).UpdateSession(c.Request.Context(), session)
+		_ = h.chat.UpdateSession(c.Request.Context(), session)
 	}
 	c.JSON(http.StatusOK, gin.H{"id": publicChatSessionID(session.ID), "title": title})
 }
 
-func (h *Handler) buildLLMMessages(ctx context.Context, repo repository.ChatRepository, session *models.ChatSession, messages []models.ChatMessage, current string, window int) []llm.ChatMessage {
+func (h *Handler) buildLLMMessages(ctx context.Context, session *models.ChatSession, messages []models.ChatMessage, current string, window int) []llm.ChatMessage {
 	var out []llm.ChatMessage
 	if session.SystemPrompt != nil && strings.TrimSpace(*session.SystemPrompt) != "" {
 		out = append(out, llm.ChatMessage{Role: "system", Content: strings.TrimSpace(*session.SystemPrompt)})
 	}
-	built, err := chatdomain.NewContextBuilder(repo, chatdomain.ApproxTokenEstimator{}).Build(ctx, session.UserID, session.ID, chatdomain.BuildOptions{Budget: chatdomain.ContextBudget{ContextWindow: window, ReservedResponse: 512, ReservedChat: 1024, SafetyMarginTokens: 128}})
-	if err == nil && strings.TrimSpace(built.Content) != "" {
-		out = append(out, llm.ChatMessage{Role: "system", Content: "Active transcript contexts:\n" + built.Content})
+	built, err := h.chat.BuildContext(ctx, session.UserID, session.ID, window)
+	if err == nil && strings.TrimSpace(built) != "" {
+		out = append(out, llm.ChatMessage{Role: "system", Content: "Active transcript contexts:\n" + built})
 	}
 	start := 0
 	if len(messages) > 12 {
@@ -540,8 +529,7 @@ func (h *Handler) buildLLMMessages(ctx context.Context, repo repository.ChatRepo
 }
 
 func (h *Handler) activeLLMConfig(c *gin.Context, userID uint, write bool) (*models.LLMConfig, bool) {
-	var config models.LLMConfig
-	err := database.DB.WithContext(c.Request.Context()).Where("user_id = ? AND is_default = ?", userID, true).First(&config).Error
+	config, err := h.chat.ActiveLLMConfig(c.Request.Context(), userID)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		if write {
 			writeError(c, http.StatusConflict, "LLM_PROVIDER_NOT_CONFIGURED", "Configure an LLM provider before starting chat.", nil)
@@ -554,7 +542,7 @@ func (h *Handler) activeLLMConfig(c *gin.Context, userID uint, write bool) (*mod
 		}
 		return nil, false
 	}
-	return &config, true
+	return config, true
 }
 
 func (h *Handler) chatModelAvailable(c *gin.Context, config *models.LLMConfig, model string) bool {
@@ -588,7 +576,7 @@ func (h *Handler) chatSessionByPublicID(c *gin.Context, publicID string) (*model
 		writeError(c, http.StatusNotFound, "NOT_FOUND", "chat session not found", nil)
 		return nil, false
 	}
-	session, err := repository.NewChatRepository(database.DB).FindSessionForUser(c.Request.Context(), userID, sessionID)
+	session, err := h.chat.GetSession(c.Request.Context(), userID, sessionID)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		writeError(c, http.StatusNotFound, "NOT_FOUND", "chat session not found", nil)
 		return nil, false

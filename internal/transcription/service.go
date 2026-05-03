@@ -20,6 +20,15 @@ type Queue interface {
 	Cancel(ctx context.Context, userID uint, jobID string) error
 }
 
+type Stats struct {
+	Queued     int64
+	Processing int64
+	Completed  int64
+	Failed     int64
+	Canceled   int64
+	Running    int64
+}
+
 type Service struct {
 	jobs     repository.JobRepository
 	profiles repository.ProfileRepository
@@ -90,6 +99,20 @@ func (s *Service) List(ctx context.Context, userID uint, opts ListOptions) ([]mo
 		return nil, fmt.Errorf("transcription service is not configured")
 	}
 	return s.jobs.ListTranscriptionsByUser(ctx, userID, opts)
+}
+
+func (s *Service) Stats(ctx context.Context, userID uint) (Stats, error) {
+	counts, err := s.jobs.CountStatusesByUser(ctx, userID)
+	if err != nil {
+		return Stats{}, err
+	}
+	return Stats{
+		Queued:     counts[models.StatusPending],
+		Processing: counts[models.StatusProcessing],
+		Completed:  counts[models.StatusCompleted],
+		Failed:     counts[models.StatusFailed],
+		Canceled:   counts[models.StatusStopped] + counts[models.StatusCanceled],
+	}, nil
 }
 
 func (s *Service) Get(ctx context.Context, userID uint, id string) (*models.TranscriptionJob, error) {
@@ -190,6 +213,59 @@ func (s *Service) OpenAudio(ctx context.Context, userID uint, id string) (*os.Fi
 		return nil, nil, ErrNotFound
 	}
 	return file, job, nil
+}
+
+func (s *Service) ListExecutions(ctx context.Context, userID uint, id string) ([]models.TranscriptionJobExecution, error) {
+	job, err := s.Get(ctx, userID, id)
+	if err != nil {
+		return nil, err
+	}
+	executions, err := s.jobs.ListExecutions(ctx, job.ID)
+	if err != nil {
+		return nil, err
+	}
+	return executions, nil
+}
+
+func (s *Service) Logs(ctx context.Context, userID uint, id string) (string, error) {
+	executions, err := s.ListExecutions(ctx, userID, id)
+	if err != nil {
+		return "", err
+	}
+	if len(executions) == 0 {
+		return "No execution logs recorded.\n", nil
+	}
+	var out strings.Builder
+	for i := len(executions) - 1; i >= 0; i-- {
+		execution := executions[i]
+		fmt.Fprintf(&out, "execution %d status=%s provider=%s model=%s started_at=%s\n",
+			execution.ExecutionNumber,
+			execution.Status,
+			execution.Provider,
+			execution.ModelName,
+			execution.StartedAt.Format(time.RFC3339),
+		)
+		if execution.CompletedAt != nil {
+			fmt.Fprintf(&out, "completed_at=%s\n", execution.CompletedAt.Format(time.RFC3339))
+		}
+		if execution.FailedAt != nil {
+			fmt.Fprintf(&out, "failed_at=%s\n", execution.FailedAt.Format(time.RFC3339))
+		}
+		if execution.ErrorMessage != nil && *execution.ErrorMessage != "" {
+			fmt.Fprintf(&out, "error=%s\n", *execution.ErrorMessage)
+		}
+		if execution.LogsPath != nil && *execution.LogsPath != "" {
+			if data, err := os.ReadFile(*execution.LogsPath); err == nil {
+				out.Write(data)
+				if !strings.HasSuffix(out.String(), "\n") {
+					out.WriteByte('\n')
+				}
+			} else if !errors.Is(err, os.ErrNotExist) {
+				return "", err
+			}
+		}
+	}
+	return out.String(), nil
 }
 
 func (s *Service) createFromSource(ctx context.Context, userID uint, source *models.TranscriptionJob, title string, profileID string, language string, diarization *bool) (*models.TranscriptionJob, error) {
