@@ -48,33 +48,28 @@ export type CreateTranscriptionPayload = {
 export type ListTranscriptionsOptions = {
   tagRefs?: string[];
   tagMatch?: "any" | "all";
+  fileId?: string;
+  limit?: number;
+  cursor?: string | null;
 };
 
 export async function listTranscriptions(headers: Record<string, string>, options: ListTranscriptionsOptions = {}): Promise<TranscriptionsResponse> {
-  const items: Transcription[] = [];
-  let nextCursor: string | null = null;
+  const params = new URLSearchParams({ limit: String(options.limit ?? 100), sort: "-created_at" });
+  if (options.cursor) params.set("cursor", options.cursor);
+  if (options.fileId) params.set("file_id", options.fileId);
+  for (const tagRef of options.tagRefs || []) {
+    params.append("tag", tagRef);
+  }
+  if (options.tagRefs?.length && options.tagMatch) {
+    params.set("tag_match", options.tagMatch);
+  }
 
-  do {
-    const params = new URLSearchParams({ limit: "100", sort: "-created_at" });
-    if (nextCursor) params.set("cursor", nextCursor);
-    for (const tagRef of options.tagRefs || []) {
-      params.append("tag", tagRef);
-    }
-    if (options.tagRefs?.length && options.tagMatch) {
-      params.set("tag_match", options.tagMatch);
-    }
+  const response = await fetch(`/api/v1/transcriptions?${params.toString()}`, {
+    headers,
+  });
+  if (!response.ok) throw new Error(await readError(response));
 
-    const response = await fetch(`/api/v1/transcriptions?${params.toString()}`, {
-      headers,
-    });
-    if (!response.ok) throw new Error(await readError(response));
-
-    const page = await response.json() as TranscriptionsResponse;
-    items.push(...page.items);
-    nextCursor = page.next_cursor;
-  } while (nextCursor);
-
-  return { items, next_cursor: null };
+  return response.json() as Promise<TranscriptionsResponse>;
 }
 
 export async function getTranscriptionTranscript(

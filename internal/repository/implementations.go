@@ -293,6 +293,7 @@ type FileListCursor struct {
 
 type TranscriptionListOptions struct {
 	Status       string
+	SourceFileID string
 	Query        string
 	UpdatedAfter *time.Time
 	Limit        int
@@ -438,6 +439,9 @@ func (r *jobRepository) ListTranscriptionsByUser(ctx context.Context, userID uin
 	query := r.db.WithContext(ctx).Where("user_id = ? AND source_file_hash IS NOT NULL", userID)
 	if opts.Status != "" {
 		query = query.Where("status = ?", opts.Status)
+	}
+	if opts.SourceFileID != "" {
+		query = query.Where("source_file_hash = ?", opts.SourceFileID)
 	}
 	if opts.ForceEmpty {
 		query = query.Where("1 = 0")

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ChangeEvent, type ReactNode, type SyntheticEvent } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import { AlignJustify, CalendarDays, CheckSquare, Clock3, FileText, MoreHorizontal, Pause, Pencil, Play } from "lucide-react";
 import { Sidebar } from "@/features/home/components/HomePage";
 import { useAuth } from "@/features/auth/hooks/useAuth";
@@ -23,7 +23,7 @@ import { useTranscriptTextSelection } from "@/features/transcription/hooks/useTr
 import { selectTranscriptNotes, useCreateTranscriptHighlight, useCreateTranscriptNote, useCreateTranscriptNoteEntry, useDeleteTranscriptHighlight, useDeleteTranscriptNoteEntry, useTranscriptAnnotations, useUpdateTranscriptNoteEntry } from "@/features/transcription/hooks/useTranscriptAnnotations";
 import { useTranscriptionListEvents } from "@/features/transcription/hooks/useTranscriptionListEvents";
 import { useTranscriptionSummary, useTranscriptionSummaryWidgets } from "@/features/transcription/hooks/useTranscriptionSummaries";
-import { preferVisibleTranscription, useTranscriptionTranscript, useTranscriptions } from "@/features/transcription/hooks/useTranscriptions";
+import { preferVisibleTranscription, useFileTranscriptions, useTranscriptionTranscript } from "@/features/transcription/hooks/useTranscriptions";
 import { ReadOnlyMarkdown } from "@/features/transcription/components/ReadOnlyMarkdown";
 import { buildHighlightRangesBySegment, hasDuplicateActiveHighlight, type SegmentHighlightRange } from "@/features/transcription/utils/transcriptHighlighting";
 import type { SelectionMenuRect } from "@/features/transcription/utils/transcriptHighlighting";
@@ -53,6 +53,7 @@ function getDefaultNotesSidebarWidth() {
 
 export function AudioDetailView() {
   const { audioId = "" } = useParams<{ audioId: string }>();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState<DetailTab>("summary");
   const [audioDuration, setAudioDuration] = useState<number | null>(null);
   const [audioSeekRequest, setAudioSeekRequest] = useState<AudioSeekRequest | null>(null);
@@ -63,7 +64,7 @@ export function AudioDetailView() {
   const playbackSync = useMemo(() => createPlaybackSync(), [audioId]);
   const fileQuery = useFile(audioId);
   const updateFileMutation = useUpdateFile(audioId);
-  const transcriptionsQuery = useTranscriptions();
+  const transcriptionsQuery = useFileTranscriptions(fileQuery.data?.id);
   const { toast } = useToast();
   const warnedSummaryIds = useRef<Set<string>>(new Set());
   const nextSeekToken = useRef(0);
@@ -71,18 +72,23 @@ export function AudioDetailView() {
   const file = fileQuery.data;
   const title = file?.title?.trim() || "Untitled recording";
   const visibleDuration = file?.duration_seconds ?? audioDuration;
-  const latestTranscription = useMemo(() => {
-    if (!file) return undefined;
-    return latestTranscriptionForFile(transcriptionsQuery.data?.items || [], file.id);
+  const transcriptionsForFile = useMemo(() => {
+    if (!file) return [];
+    return transcriptionsQuery.data?.items.filter((transcription) => transcription.file_id === file.id) || [];
   }, [file, transcriptionsQuery.data?.items]);
-  const transcriptQuery = useTranscriptionTranscript(latestTranscription?.id, latestTranscription?.status === "completed");
+  const selectedTranscription = useMemo(() => {
+    const requestedID = searchParams.get("transcription");
+    const requested = requestedID ? transcriptionsForFile.find((transcription) => transcription.id === requestedID) : undefined;
+    return requested || latestTranscriptionForFile(transcriptionsForFile, file?.id || "");
+  }, [file?.id, searchParams, transcriptionsForFile]);
+  const transcriptQuery = useTranscriptionTranscript(selectedTranscription?.id, selectedTranscription?.status === "completed");
   const annotationsQuery = useTranscriptAnnotations(
-    latestTranscription?.id,
-    Boolean(latestTranscription?.status === "completed")
+    selectedTranscription?.id,
+    Boolean(selectedTranscription?.status === "completed")
   );
-  const createNoteEntryMutation = useCreateTranscriptNoteEntry(latestTranscription?.id || "");
-  const updateNoteEntryMutation = useUpdateTranscriptNoteEntry(latestTranscription?.id || "");
-  const deleteNoteEntryMutation = useDeleteTranscriptNoteEntry(latestTranscription?.id || "");
+  const createNoteEntryMutation = useCreateTranscriptNoteEntry(selectedTranscription?.id || "");
+  const updateNoteEntryMutation = useUpdateTranscriptNoteEntry(selectedTranscription?.id || "");
+  const deleteNoteEntryMutation = useDeleteTranscriptNoteEntry(selectedTranscription?.id || "");
   const notes = useMemo(
     () => selectTranscriptNotes(annotationsQuery.data?.items),
     [annotationsQuery.data?.items]
@@ -127,7 +133,7 @@ export function AudioDetailView() {
 
   useTranscriptionListEvents();
   useFileEvents();
-  useTranscriptionDetailEvents(latestTranscription?.id, { onSummaryTruncated: handleSummaryTruncated });
+  useTranscriptionDetailEvents(selectedTranscription?.id, { onSummaryTruncated: handleSummaryTruncated });
 
   const meta = useMemo(() => {
     return {
@@ -258,17 +264,41 @@ export function AudioDetailView() {
                 </button>
               </div>
 
+              {transcriptionsForFile.length > 1 ? (
+                <label className="scr-version-picker">
+                  <span>Version</span>
+                  <select
+                    value={selectedTranscription?.id || ""}
+                    onChange={(event) => {
+                      const next = event.currentTarget.value;
+                      setSearchParams((current) => {
+                        const params = new URLSearchParams(current);
+                        if (next) params.set("transcription", next);
+                        else params.delete("transcription");
+                        return params;
+                      }, { replace: true });
+                    }}
+                  >
+                    {transcriptionsForFile.map((transcription, index) => (
+                      <option key={transcription.id} value={transcription.id}>
+                        {index === 0 ? "Latest" : `Version ${transcriptionsForFile.length - index}`} · {formatCreatedDate(transcription.created_at)} · {transcription.status}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : null}
+
               <AudioTagSection
-                transcriptionId={latestTranscription?.id}
-                enabled={Boolean(latestTranscription?.status === "completed")}
+                transcriptionId={selectedTranscription?.id}
+                enabled={Boolean(selectedTranscription?.status === "completed")}
               />
 
               {activeTab === "summary" ? (
-                <SummaryPanel transcription={latestTranscription} />
+                <SummaryPanel transcription={selectedTranscription} />
               ) : (
                 <TranscriptPanel
                   fileStatus={file.status}
-                  transcription={latestTranscription}
+                  transcription={selectedTranscription}
                   transcript={transcriptQuery.data}
                   playbackSync={playbackSync}
                   annotations={annotationsQuery.data?.items || []}
@@ -281,7 +311,7 @@ export function AudioDetailView() {
             </article>
             <TranscriptNotesSidebar
               notes={notes}
-              parentTranscriptionId={latestTranscription?.status === "completed" ? latestTranscription.id : undefined}
+              parentTranscriptionId={selectedTranscription?.status === "completed" ? selectedTranscription.id : undefined}
               isOpen={notesSidebarOpen}
               isLoading={annotationsQuery.isLoading}
               isError={annotationsQuery.isError}

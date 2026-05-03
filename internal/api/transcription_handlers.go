@@ -142,6 +142,14 @@ func (h *Handler) listTranscriptions(c *gin.Context) {
 		}
 	}
 	listOptions := transcriptionListOptions(status, opts)
+	if fileID := strings.TrimSpace(c.Query("file_id")); fileID != "" {
+		sourceID := strings.TrimPrefix(fileID, "file_")
+		if sourceID == "" || sourceID == fileID {
+			writeError(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "file_id is invalid", stringPtr("file_id"))
+			return
+		}
+		listOptions.SourceFileID = sourceID
+	}
 	if tagRefs := transcriptionTagFilters(c); len(tagRefs) > 0 {
 		if h.tags == nil {
 			writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "tag service is not configured", nil)

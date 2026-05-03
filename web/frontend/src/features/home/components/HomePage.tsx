@@ -417,7 +417,8 @@ function AudioListPage({ tagId }: { tagId?: string }) {
 
   const handleOpenRecording = useCallback((recording: Recording) => {
     if (recording.id.startsWith("file_")) {
-      navigate(`/audio/${recording.id}`);
+      const version = recording.transcriptionId ? `?transcription=${encodeURIComponent(recording.transcriptionId)}` : "";
+      navigate(`/audio/${recording.id}${version}`);
     }
   }, [navigate]);
 

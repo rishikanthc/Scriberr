@@ -24,6 +24,16 @@ export function useTranscriptions() {
   });
 }
 
+export function useFileTranscriptions(fileId: string | undefined) {
+  const { getAuthHeaders, isAuthenticated } = useAuth();
+
+  return useQuery({
+    queryKey: [...transcriptionsQueryKey, "file", fileId || "missing"],
+    queryFn: () => listTranscriptions(getAuthHeaders(), { fileId, limit: 50 }),
+    enabled: isAuthenticated && Boolean(fileId),
+  });
+}
+
 export function useTaggedTranscriptions(tagRef: string | undefined) {
   const { getAuthHeaders, isAuthenticated } = useAuth();
 
