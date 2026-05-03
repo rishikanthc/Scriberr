@@ -386,18 +386,26 @@ func (h *Handler) cancelChatRun(c *gin.Context, publicRunID string) {
 }
 
 func (h *Handler) generateChatTitle(c *gin.Context) {
-	session, ok := h.chatSessionByPublicID(c, c.Param("session_id"))
+	userID, ok := currentUserID(c)
 	if !ok {
+		writeError(c, http.StatusUnauthorized, "UNAUTHORIZED", "missing or invalid authentication", nil)
 		return
 	}
-	messages, _ := h.chat.ListMessages(c.Request.Context(), session.UserID, session.ID, 1)
-	title := session.Title
-	if len(messages) > 0 && strings.TrimSpace(messages[0].Content) != "" {
-		title = summarizeTitle(messages[0].Content)
-		session.Title = title
-		_ = h.chat.UpdateSession(c.Request.Context(), session)
+	sessionID, ok := parsePublicID(c.Param("session_id"), "chat_")
+	if !ok {
+		writeError(c, http.StatusNotFound, "NOT_FOUND", "chat session not found", nil)
+		return
 	}
-	c.JSON(http.StatusOK, gin.H{"id": publicChatSessionID(session.ID), "title": title})
+	title, err := h.chat.GenerateTitle(c.Request.Context(), userID, sessionID)
+	if errors.Is(err, chatdomain.ErrNotFound) {
+		writeError(c, http.StatusNotFound, "NOT_FOUND", "chat session not found", nil)
+		return
+	}
+	if err != nil {
+		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not generate chat title", nil)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"id": publicChatSessionID(sessionID), "title": title})
 }
 
 func (h *Handler) activeLLMConfig(c *gin.Context, userID uint, write bool) (*models.LLMConfig, bool) {
@@ -607,16 +615,4 @@ func chatUsageResponse(usage *chatdomain.TokenUsage) gin.H {
 		"reasoning_tokens":  usage.ReasoningTokens,
 		"total_tokens":      usage.TotalTokens,
 	}
-}
-
-func summarizeTitle(value string) string {
-	words := strings.Fields(value)
-	if len(words) > 8 {
-		words = words[:8]
-	}
-	title := strings.Join(words, " ")
-	if title == "" {
-		return "Transcript chat"
-	}
-	return title
 }

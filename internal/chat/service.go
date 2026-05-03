@@ -3,6 +3,7 @@ package chat
 import (
 	"context"
 	"errors"
+	"strings"
 	"time"
 
 	"scriberr/internal/models"
@@ -52,6 +53,26 @@ func (s *Service) GetSession(ctx context.Context, userID uint, sessionID string)
 
 func (s *Service) UpdateSession(ctx context.Context, session *models.ChatSession) error {
 	return chatNotFound(s.repo.UpdateSession(ctx, session))
+}
+
+func (s *Service) GenerateTitle(ctx context.Context, userID uint, sessionID string) (string, error) {
+	session, err := s.GetSession(ctx, userID, sessionID)
+	if err != nil {
+		return "", err
+	}
+	title := session.Title
+	messages, err := s.ListMessages(ctx, userID, sessionID, 1)
+	if err != nil {
+		return "", chatNotFound(err)
+	}
+	if len(messages) > 0 && strings.TrimSpace(messages[0].Content) != "" {
+		title = summarizeTitle(messages[0].Content)
+		session.Title = title
+		if err := s.UpdateSession(ctx, session); err != nil {
+			return "", err
+		}
+	}
+	return title, nil
 }
 
 func (s *Service) DeleteSession(ctx context.Context, userID uint, sessionID string) error {
@@ -125,4 +146,16 @@ func chatNotFound(err error) error {
 		return ErrNotFound
 	}
 	return err
+}
+
+func summarizeTitle(value string) string {
+	words := strings.Fields(value)
+	if len(words) > 8 {
+		words = words[:8]
+	}
+	title := strings.Join(words, " ")
+	if title == "" {
+		return "Transcript chat"
+	}
+	return title
 }
