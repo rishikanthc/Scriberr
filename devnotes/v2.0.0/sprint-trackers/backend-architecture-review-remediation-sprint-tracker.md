@@ -2,7 +2,7 @@
 
 This tracker belongs to `devnotes/v2.0.0/sprint-plans/backend-architecture-review-remediation-sprint-plan.md`.
 
-Status: Sprint 10 complete. Follow-up Sprints 11-14 planned from second backend architecture review.
+Status: Sprint 11 complete. Follow-up Sprints 12-14 planned from second backend architecture review.
 
 ## Run Rules
 
@@ -30,7 +30,7 @@ Status: Sprint 10 complete. Follow-up Sprints 11-14 planned from second backend 
 | Scheduler policy boundary is still missing | High | Sprint 12, Sprint 13 | planned |
 | User status and disabled-user enforcement are absent | High | Sprint 9 | complete |
 | Admin user-management API is not implemented | High | Sprint 10 | complete |
-| Settings remain in `users.settings_json` instead of relational settings tables | Medium | Sprint 11, Sprint 12 | planned |
+| Settings remain in `users.settings_json` instead of relational settings tables | Medium | Sprint 11, Sprint 12 | partial: user settings complete, system settings planned |
 | API response mapping still touches local file paths | Medium | Sprint 14 | planned |
 
 ## Sprint 0: Baseline, Guard Plan, And Review Anchors
@@ -506,7 +506,7 @@ Commit:
 
 ## Sprint 11: Relational User Settings
 
-Status: planned
+Status: complete
 
 Addresses:
 
@@ -514,28 +514,28 @@ Addresses:
 
 TDD and scope checks:
 
-- [ ] Add failing migration/backfill tests for `user_settings`.
-- [ ] Add `models.UserSettings`.
-- [ ] Add `repository.UserSettingsRepository`.
-- [ ] Move account settings reads/writes to `user_settings`.
-- [ ] Preserve `/api/v1/settings` response shape.
-- [ ] Enforce same-user default profile ownership.
-- [ ] Keep legacy JSON only as explicit migration fallback.
-- [ ] Write status note `backend-architecture-review-remediation-sprint-11-user-settings.md`.
+- [x] Add failing migration/backfill tests for `user_settings`.
+- [x] Add `models.UserSettings`.
+- [x] Add `repository.UserSettingsRepository`.
+- [x] Move account settings reads/writes to `user_settings`.
+- [x] Preserve `/api/v1/settings` response shape.
+- [x] Enforce same-user default profile ownership.
+- [x] Keep legacy JSON only as explicit migration fallback.
+- [x] Write status note `backend-architecture-review-remediation-sprint-11-user-settings.md`.
 
 Acceptance checks:
 
-- [ ] Existing settings backfill into `user_settings`.
-- [ ] New writes use relational settings rows.
-- [ ] Partial settings updates preserve unrelated fields.
-- [ ] Auto-transcription/default-profile validation still works.
-- [ ] Auto-rename/small-model validation still works.
+- [x] Existing settings backfill into `user_settings`.
+- [x] New writes use relational settings rows.
+- [x] Partial settings updates preserve unrelated fields.
+- [x] Auto-transcription/default-profile validation still works.
+- [x] Auto-rename/small-model validation still works.
 
 Verification:
 
-- [ ] `GOCACHE=/private/tmp/scriberr-go-cache go test ./internal/account ./internal/api -run 'TestSettings|TestProfile'`
-- [ ] `GOCACHE=/private/tmp/scriberr-go-cache go test ./internal/database ./internal/repository ./internal/automation ./internal/summarization`
-- [ ] `git diff --check`
+- [x] `GOCACHE=/private/tmp/scriberr-go-cache go test ./internal/account ./internal/api -run 'TestSettings|TestProfile'`
+- [x] `GOCACHE=/private/tmp/scriberr-go-cache go test ./internal/database ./internal/repository ./internal/automation ./internal/summarization`
+- [x] `git diff --check`
 
 Artifacts:
 
@@ -547,7 +547,7 @@ Artifacts:
 
 Commit:
 
-- [ ] `backend: move user settings to relational table`
+- [x] `backend: move user settings to relational table`
 
 ## Sprint 12: System Settings And Scheduler Policy Boundary
 
