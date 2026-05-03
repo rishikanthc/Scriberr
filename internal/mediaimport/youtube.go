@@ -91,7 +91,7 @@ func NewService(opts ServiceOptions) *Service {
 		importer:  importer,
 		publisher: opts.Publisher,
 		ready:     opts.Ready,
-		uploadDir: opts.UploadDir,
+		uploadDir: strings.TrimSpace(opts.UploadDir),
 		timeout:   timeout,
 		asyncJobs: opts.AsyncJobs,
 	}
@@ -128,9 +128,9 @@ func (s *Service) ImportYouTube(ctx context.Context, cmd ImportYouTubeCommand) (
 	if title == "" {
 		title = "YouTube audio"
 	}
-	uploadDir := s.uploadDir
+	uploadDir := strings.TrimSpace(s.uploadDir)
 	if uploadDir == "" {
-		uploadDir = filepath.Join(os.TempDir(), "scriberr-uploads")
+		return nil, fmt.Errorf("media import service is not configured")
 	}
 	jobID := randomID(16)
 	storedName := jobID + ".mp3"
