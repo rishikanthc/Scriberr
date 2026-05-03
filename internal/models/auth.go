@@ -6,6 +6,11 @@ import (
 	"gorm.io/gorm"
 )
 
+const (
+	UserStatusActive   = "active"
+	UserStatusDisabled = "disabled"
+)
+
 type userSettings struct {
 	DefaultProfileID         *string `json:"default_profile_id,omitempty"`
 	AutoTranscriptionEnabled *bool   `json:"auto_transcription_enabled,omitempty"`
@@ -34,16 +39,19 @@ func (rt *RefreshToken) AfterFind(tx *gorm.DB) error {
 
 // User represents an authenticated user.
 type User struct {
-	ID           uint           `json:"id" gorm:"primaryKey"`
-	Username     string         `json:"username" gorm:"uniqueIndex;not null;type:varchar(50)"`
-	Password     string         `json:"-" gorm:"column:password_hash;not null;type:varchar(255)"`
-	Email        *string        `json:"email,omitempty" gorm:"uniqueIndex;type:varchar(255)"`
-	DisplayName  *string        `json:"display_name,omitempty" gorm:"type:varchar(255)"`
-	Role         string         `json:"role" gorm:"type:varchar(20);not null;default:'admin'"`
-	SettingsJSON string         `json:"-" gorm:"column:settings_json;type:json"`
-	CreatedAt    time.Time      `json:"created_at" gorm:"autoCreateTime"`
-	UpdatedAt    time.Time      `json:"updated_at" gorm:"autoUpdateTime"`
-	DeletedAt    gorm.DeletedAt `json:"deleted_at,omitempty" gorm:"index" swaggertype:"string"`
+	ID                uint           `json:"id" gorm:"primaryKey"`
+	Username          string         `json:"username" gorm:"uniqueIndex;not null;type:varchar(50)"`
+	Password          string         `json:"-" gorm:"column:password_hash;not null;type:varchar(255)"`
+	Email             *string        `json:"email,omitempty" gorm:"uniqueIndex;type:varchar(255)"`
+	DisplayName       *string        `json:"display_name,omitempty" gorm:"type:varchar(255)"`
+	Role              string         `json:"role" gorm:"type:varchar(20);not null;default:'admin'"`
+	Status            string         `json:"status" gorm:"type:varchar(20);not null;default:'active';index"`
+	LastLoginAt       *time.Time     `json:"last_login_at,omitempty" gorm:"index"`
+	PasswordChangedAt *time.Time     `json:"password_changed_at,omitempty"`
+	SettingsJSON      string         `json:"-" gorm:"column:settings_json;type:json"`
+	CreatedAt         time.Time      `json:"created_at" gorm:"autoCreateTime"`
+	UpdatedAt         time.Time      `json:"updated_at" gorm:"autoUpdateTime"`
+	DeletedAt         gorm.DeletedAt `json:"deleted_at,omitempty" gorm:"index" swaggertype:"string"`
 
 	DefaultProfileID         *string `json:"default_profile_id,omitempty" gorm:"-"`
 	AutoTranscriptionEnabled bool    `json:"auto_transcription_enabled" gorm:"-"`
@@ -56,6 +64,9 @@ func (u *User) BeforeCreate(tx *gorm.DB) error { return u.BeforeSave(tx) }
 func (u *User) BeforeSave(tx *gorm.DB) error {
 	if u.Role == "" {
 		u.Role = "admin"
+	}
+	if u.Status == "" {
+		u.Status = UserStatusActive
 	}
 	settingsJSON, err := marshalJSONColumn("users.settings_json", userSettings{
 		DefaultProfileID:         u.DefaultProfileID,

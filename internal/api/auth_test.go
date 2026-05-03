@@ -211,6 +211,9 @@ func TestAuthRegisterLoginRefreshMeLogout(t *testing.T) {
 	user := body["user"].(map[string]any)
 	require.Equal(t, "user_self", user["id"])
 	require.Equal(t, "admin", user["username"])
+	var stored models.User
+	require.NoError(t, database.DB.Where("username = ?", "admin").First(&stored).Error)
+	require.Equal(t, models.UserStatusActive, stored.Status)
 
 	resp, body = s.request(t, http.MethodGet, "/api/v1/auth/registration-status", nil, "", "")
 	require.Equal(t, http.StatusOK, resp.Code)
@@ -271,6 +274,7 @@ func TestAuthValidationAndPasswordChanges(t *testing.T) {
 	}, "", "")
 	require.Equal(t, http.StatusOK, resp.Code)
 	accessToken := body["access_token"].(string)
+	refreshToken := body["refresh_token"].(string)
 
 	resp, _ = s.request(t, http.MethodPost, "/api/v1/auth/change-password", map[string]any{
 		"current_password": "wrong",
@@ -286,6 +290,15 @@ func TestAuthValidationAndPasswordChanges(t *testing.T) {
 	}, accessToken, "")
 	require.Equal(t, http.StatusOK, resp.Code)
 	require.Equal(t, true, body["ok"])
+
+	resp, _ = s.request(t, http.MethodPost, "/api/v1/auth/refresh", map[string]any{
+		"refresh_token": refreshToken,
+	}, "", "")
+	require.Equal(t, http.StatusUnauthorized, resp.Code)
+
+	var changed models.User
+	require.NoError(t, database.DB.Where("username = ?", "admin").First(&changed).Error)
+	require.NotNil(t, changed.PasswordChangedAt)
 
 	resp, _ = s.request(t, http.MethodPost, "/api/v1/auth/login", map[string]any{
 		"username": "admin",
@@ -373,6 +386,51 @@ func TestAPIKeyManagementRequiresJWT(t *testing.T) {
 	rawKey := body["key"].(string)
 
 	resp, _ = s.request(t, http.MethodGet, "/api/v1/api-keys", nil, "", rawKey)
+	require.Equal(t, http.StatusUnauthorized, resp.Code)
+}
+
+func TestDisabledUserCannotAuthenticateOrUseExistingCredentials(t *testing.T) {
+	s := newAuthTestServer(t)
+
+	resp, body := s.request(t, http.MethodPost, "/api/v1/auth/register", map[string]any{
+		"username":         "admin",
+		"password":         "password123",
+		"confirm_password": "password123",
+	}, "", "")
+	require.Equal(t, http.StatusOK, resp.Code)
+	accessToken := body["access_token"].(string)
+	refreshToken := body["refresh_token"].(string)
+
+	resp, body = s.request(t, http.MethodPost, "/api/v1/api-keys", map[string]any{
+		"name": "CLI",
+	}, accessToken, "")
+	require.Equal(t, http.StatusCreated, resp.Code)
+	rawKey := body["key"].(string)
+
+	require.NoError(t, database.DB.Model(&models.User{}).
+		Where("username = ?", "admin").
+		Update("status", models.UserStatusDisabled).Error)
+
+	resp, _ = s.request(t, http.MethodPost, "/api/v1/auth/login", map[string]any{
+		"username": "admin",
+		"password": "password123",
+	}, "", "")
+	require.Equal(t, http.StatusUnauthorized, resp.Code)
+
+	resp, _ = s.request(t, http.MethodPost, "/api/v1/auth/refresh", map[string]any{
+		"refresh_token": refreshToken,
+	}, "", "")
+	require.Equal(t, http.StatusUnauthorized, resp.Code)
+
+	resp, _ = s.request(t, http.MethodGet, "/api/v1/files", nil, "", rawKey)
+	require.Equal(t, http.StatusUnauthorized, resp.Code)
+
+	resp, _ = s.request(t, http.MethodGet, "/api/v1/events", nil, accessToken, "")
+	require.Equal(t, http.StatusUnauthorized, resp.Code)
+
+	resp, _ = s.request(t, http.MethodPost, "/api/v1/transcriptions", map[string]any{
+		"file_id": "file_missing",
+	}, accessToken, "")
 	require.Equal(t, http.StatusUnauthorized, resp.Code)
 }
 

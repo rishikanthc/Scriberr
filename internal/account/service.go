@@ -26,6 +26,7 @@ var (
 	ErrDefaultProfileRequired = errors.New("default profile is required")
 	ErrSmallLLMRequired       = errors.New("small LLM model is required")
 	ErrAPIKeyNotFound         = errors.New("api key not found")
+	ErrUserDisabled           = errors.New("user is disabled")
 )
 
 type Service struct {
@@ -97,8 +98,16 @@ func (s *Service) Login(ctx context.Context, username, password string) (*TokenR
 	if err != nil {
 		return nil, ErrInvalidCredentials
 	}
+	if !userActive(user) {
+		return nil, ErrInvalidCredentials
+	}
 	if !auth.CheckPassword(password, user.Password) {
 		return nil, ErrInvalidCredentials
+	}
+	now := s.now()
+	user.LastLoginAt = &now
+	if err := s.users.Update(ctx, user); err != nil {
+		return nil, err
 	}
 	return s.issueTokenResponse(ctx, user)
 }
@@ -116,6 +125,9 @@ func (s *Service) Refresh(ctx context.Context, rawRefreshToken string) (*TokenRe
 	}
 	user, err := s.users.FindByID(ctx, refreshToken.UserID)
 	if err != nil {
+		return nil, ErrInvalidRefreshToken
+	}
+	if !userActive(user) {
 		return nil, ErrInvalidRefreshToken
 	}
 	return s.issueTokenResponse(ctx, user)
@@ -144,8 +156,13 @@ func (s *Service) ChangePassword(ctx context.Context, userID uint, currentPasswo
 	if err != nil {
 		return err
 	}
+	now := s.now()
 	user.Password = passwordHash
-	return s.users.Update(ctx, user)
+	user.PasswordChangedAt = &now
+	if err := s.users.Update(ctx, user); err != nil {
+		return err
+	}
+	return s.refreshTokens.RevokeByUser(ctx, userID)
 }
 
 func (s *Service) ChangeUsername(ctx context.Context, userID uint, newUsername, password string) (*models.User, error) {
@@ -236,6 +253,10 @@ func (s *Service) AuthenticateAPIKey(ctx context.Context, rawKey string) (*model
 	if err != nil {
 		return nil, ErrInvalidCredentials
 	}
+	user, err := s.users.FindByID(ctx, key.UserID)
+	if err != nil || !userActive(user) {
+		return nil, ErrInvalidCredentials
+	}
 	now := s.now()
 	key.LastUsed = &now
 	_ = s.apiKeys.Update(ctx, key)
@@ -243,6 +264,9 @@ func (s *Service) AuthenticateAPIKey(ctx context.Context, rawKey string) (*model
 }
 
 func (s *Service) issueTokenResponse(ctx context.Context, user *models.User) (*TokenResponse, error) {
+	if !userActive(user) {
+		return nil, ErrUserDisabled
+	}
 	accessToken, err := s.auth.GenerateToken(user)
 	if err != nil {
 		return nil, err
@@ -257,6 +281,21 @@ func (s *Service) issueTokenResponse(ctx context.Context, user *models.User) (*T
 		return nil, err
 	}
 	return &TokenResponse{AccessToken: accessToken, RefreshToken: refreshToken, User: user}, nil
+}
+
+func (s *Service) ValidateActiveUser(ctx context.Context, userID uint) (*models.User, error) {
+	user, err := s.users.FindByID(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	if !userActive(user) {
+		return nil, ErrUserDisabled
+	}
+	return user, nil
+}
+
+func userActive(user *models.User) bool {
+	return user != nil && user.Status == models.UserStatusActive
 }
 
 func (s *Service) smallLLMReady(ctx context.Context, userID uint) bool {

@@ -118,8 +118,15 @@ func TestFreshSchemaInitialization(t *testing.T) {
 	assert.True(t, db.Migrator().HasColumn(&models.TranscriptionJob{}, "llm_description_generated_at"))
 	assert.True(t, db.Migrator().HasColumn(&models.TranscriptionJob{}, "llm_description_source_summary_id"))
 	assert.True(t, db.Migrator().HasColumn(&models.AudioTag{}, "when_to_use"))
+	assert.True(t, db.Migrator().HasColumn(&models.User{}, "status"))
+	assert.True(t, db.Migrator().HasColumn(&models.User{}, "last_login_at"))
+	assert.True(t, db.Migrator().HasColumn(&models.User{}, "password_changed_at"))
 
 	title := "Fresh transcription"
+	user := models.User{Username: "fresh-user", Password: "pw"}
+	require.NoError(t, db.Create(&user).Error)
+	assert.Equal(t, models.UserStatusActive, user.Status)
+
 	job := models.TranscriptionJob{UserID: 1, Title: &title, Status: models.StatusUploaded, AudioPath: "/tmp/audio.wav"}
 	require.NoError(t, db.Create(&job).Error)
 

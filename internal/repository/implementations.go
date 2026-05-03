@@ -2537,6 +2537,7 @@ type RefreshTokenRepository interface {
 	FindByHash(ctx context.Context, hash string) (*models.RefreshToken, error)
 	Revoke(ctx context.Context, id uint) error
 	RevokeByHash(ctx context.Context, hash string) error
+	RevokeByUser(ctx context.Context, userID uint) error
 }
 
 type refreshTokenRepository struct {
@@ -2568,6 +2569,13 @@ func (r *refreshTokenRepository) Revoke(ctx context.Context, id uint) error {
 func (r *refreshTokenRepository) RevokeByHash(ctx context.Context, hash string) error {
 	now := time.Now()
 	return r.db.WithContext(ctx).Model(&models.RefreshToken{}).Where("token_hash = ?", hash).Update("revoked_at", &now).Error
+}
+
+func (r *refreshTokenRepository) RevokeByUser(ctx context.Context, userID uint) error {
+	now := time.Now()
+	return r.db.WithContext(ctx).Model(&models.RefreshToken{}).
+		Where("user_id = ? AND revoked_at IS NULL", userID).
+		Update("revoked_at", &now).Error
 }
 
 func hashToken(token string) string {

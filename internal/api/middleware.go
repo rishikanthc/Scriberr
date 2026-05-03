@@ -253,6 +253,14 @@ func (h *Handler) authenticateJWT(c *gin.Context) bool {
 	if err != nil {
 		return false
 	}
+	if h.account != nil {
+		user, err := h.account.ValidateActiveUser(c.Request.Context(), claims.UserID)
+		if err != nil {
+			return false
+		}
+		claims.Username = user.Username
+		claims.Role = user.Role
+	}
 	c.Set("auth_type", "jwt")
 	c.Set("user_id", claims.UserID)
 	c.Set("username", claims.Username)
