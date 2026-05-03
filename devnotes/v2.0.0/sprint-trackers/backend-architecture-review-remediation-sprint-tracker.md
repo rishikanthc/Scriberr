@@ -2,7 +2,7 @@
 
 This tracker belongs to `devnotes/v2.0.0/sprint-plans/backend-architecture-review-remediation-sprint-plan.md`.
 
-Status: Sprint 12 complete. Follow-up Sprints 13-14 planned from second backend architecture review.
+Status: Sprint 13 complete. Follow-up Sprint 14 planned from second backend architecture review.
 
 ## Run Rules
 
@@ -26,8 +26,8 @@ Status: Sprint 12 complete. Follow-up Sprints 13-14 planned from second backend 
 | External LLM provider adapter lives in API | Medium | Sprint 3 | complete |
 | Admin route has no admin authorization | Medium | Sprint 1 | complete |
 | Generic/global repository methods remain exposed | Medium | Sprint 7 | complete |
-| Admin queue stats are still user-scoped | High | Sprint 13 | planned |
-| Scheduler policy boundary is still missing | High | Sprint 12, Sprint 13 | partial: settings boundary complete, claim behavior planned |
+| Admin queue stats are still user-scoped | High | Sprint 13 | complete |
+| Scheduler policy boundary is still missing | High | Sprint 12, Sprint 13 | complete |
 | User status and disabled-user enforcement are absent | High | Sprint 9 | complete |
 | Admin user-management API is not implemented | High | Sprint 10 | complete |
 | Settings remain in `users.settings_json` instead of relational settings tables | Medium | Sprint 11, Sprint 12 | complete |
@@ -598,7 +598,7 @@ Commit:
 
 ## Sprint 13: Configurable Queue Claims And Admin Queue Stats
 
-Status: planned
+Status: complete
 
 Addresses:
 
@@ -607,32 +607,32 @@ Addresses:
 
 TDD and scope checks:
 
-- [ ] Add failing tests proving admin queue stats include multiple users.
-- [ ] Add failing tests proving normal queue stats remain user-scoped.
-- [ ] Add failing scheduler claim tests for priority, FIFO, weighted duration, and fair share.
-- [ ] Change worker service to load scheduler config through a narrow port.
-- [ ] Change repository claim method to accept `scheduler.Config`.
-- [ ] Implement deterministic claim policies.
-- [ ] Add queue indexes required by policy/list paths.
-- [ ] Update `/api/v1/admin/queue` to return global aggregates and `by_user`.
-- [ ] Write status note `backend-architecture-review-remediation-sprint-13-queue-scheduler.md`.
+- [x] Add failing tests proving admin queue stats include multiple users.
+- [x] Add failing tests proving normal queue stats remain user-scoped.
+- [x] Add failing scheduler claim tests for priority, FIFO, weighted duration, and fair share.
+- [x] Change worker service to load scheduler config through a narrow port.
+- [x] Change repository claim method to accept `scheduler.Config`.
+- [x] Implement deterministic claim policies.
+- [x] Add queue indexes required by policy/list paths.
+- [x] Update `/api/v1/admin/queue` to return global aggregates and `by_user`.
+- [x] Write status note `backend-architecture-review-remediation-sprint-13-queue-scheduler.md`.
 
 Acceptance checks:
 
-- [ ] Admin queue stats are global and include per-user breakdown.
-- [ ] Normal queue stats are scoped to current user.
-- [ ] Priority remains default scheduler policy.
-- [ ] FIFO ordering is deterministic.
-- [ ] Weighted-duration policy is deterministic and includes aging.
-- [ ] Fair-share respects configured per-user concurrency.
-- [ ] Queue claim remains repository-owned and atomic.
+- [x] Admin queue stats are global and include per-user breakdown.
+- [x] Normal queue stats are scoped to current user.
+- [x] Priority remains default scheduler policy.
+- [x] FIFO ordering is deterministic.
+- [x] Weighted-duration policy is deterministic and includes aging.
+- [x] Fair-share respects configured per-user concurrency.
+- [x] Queue claim remains repository-owned and atomic.
 
 Verification:
 
-- [ ] `GOCACHE=/private/tmp/scriberr-go-cache go test ./internal/repository -run 'TestJobRepository|TestScheduler|TestQueue'`
-- [ ] `GOCACHE=/private/tmp/scriberr-go-cache go test ./internal/transcription/worker ./internal/transcription/scheduler ./internal/admin ./internal/api -run 'TestAdmin|TestQueue|TestScheduler|TestSecurity'`
-- [ ] `GOCACHE=/private/tmp/scriberr-go-cache go test ./internal/database`
-- [ ] `git diff --check`
+- [x] `GOCACHE=/private/tmp/scriberr-go-cache go test ./internal/repository -run 'TestJobRepository|TestScheduler|TestQueue'`
+- [x] `GOCACHE=/private/tmp/scriberr-go-cache go test ./internal/transcription/worker ./internal/transcription/scheduler ./internal/admin ./internal/api -run 'TestAdmin|TestQueue|TestScheduler|TestSecurity'`
+- [x] `GOCACHE=/private/tmp/scriberr-go-cache go test ./internal/database`
+- [x] `git diff --check`
 
 Artifacts:
 
@@ -645,7 +645,7 @@ Artifacts:
 
 Commit:
 
-- [ ] `backend: configure shared queue scheduler`
+- [x] `backend: configure shared queue scheduler`
 
 ## Sprint 14: File Metadata And Storage Boundary Cleanup
 
