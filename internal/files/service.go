@@ -49,6 +49,7 @@ type MediaExtractor interface {
 type Service struct {
 	repo      Repository
 	events    EventPublisher
+	ready     ReadyHandoff
 	uploadDir string
 	extractor MediaExtractor
 	asyncJobs *sync.WaitGroup
@@ -99,6 +100,10 @@ func NewService(repo Repository, cfg Config) *Service {
 
 func (s *Service) SetEventPublisher(events EventPublisher) {
 	s.events = events
+}
+
+func (s *Service) SetReadyObserver(ready ReadyHandoff) {
+	s.ready = ready
 }
 
 func (s *Service) SetMediaExtractor(extractor MediaExtractor) {
@@ -286,6 +291,11 @@ func (s *Service) FileReady(ctx context.Context, event ReadyEvent) error {
 	status := event.Status
 	if status == "" {
 		status = "ready"
+	}
+	if s.ready != nil {
+		if err := s.ready.FileReady(ctx, ReadyEvent{FileID: event.FileID, Kind: event.Kind, Status: status}); err != nil {
+			return err
+		}
 	}
 	s.publish(ctx, "file.ready", event.FileID, event.Kind, status)
 	return nil

@@ -164,6 +164,38 @@ func TestGenerateTitleForSummarySkipsAlreadyRenamedRecording(t *testing.T) {
 	require.False(t, called)
 }
 
+func TestGenerateTitleForSummarySkipsWhenAutoRenameDisabled(t *testing.T) {
+	logger.Init("silent")
+	require.NoError(t, database.Initialize(filepath.Join(t.TempDir(), "scriberr.db")))
+	database.DB.Logger = gormlogger.Default.LogMode(gormlogger.Silent)
+	t.Cleanup(func() { _ = database.Close() })
+
+	user, job := createTitleGenerationFixture(t, "job-title-disabled")
+	baseURL := "http://127.0.0.1:1234/v1"
+	smallModel := "small"
+	require.NoError(t, database.DB.Create(&models.LLMConfig{
+		UserID: user.ID, Name: "configured", Provider: "openai_compatible", BaseURL: &baseURL, IsDefault: true, SmallModel: &smallModel,
+	}).Error)
+
+	service := NewService(repository.NewSummaryRepository(database.DB), repository.NewLLMConfigRepository(database.DB), repository.NewJobRepository(database.DB), Config{})
+	service.SetUserSettingsReader(repository.NewUserRepository(database.DB))
+	called := false
+	service.clientFor = func(*models.LLMConfig) (llm.Service, error) {
+		called = true
+		return &fakeTitleLLM{content: "Should Not Be Used"}, nil
+	}
+
+	summary := &models.Summary{ID: "sum-title-disabled", UserID: user.ID, TranscriptionID: job.ID, Status: "completed"}
+	require.NoError(t, service.generateTitleForSummary(context.Background(), summary, "A summary about home theater surround sound setup."))
+
+	var updated models.TranscriptionJob
+	require.NoError(t, database.DB.First(&updated, "id = ?", job.ID).Error)
+	require.NotNil(t, updated.Title)
+	require.Equal(t, "Original title", *updated.Title)
+	require.False(t, updated.LLMTitleGenerated)
+	require.False(t, called)
+}
+
 func TestGenerateTitleForSummaryKeepsFaithfulCurrentTitleAndMarksProcessed(t *testing.T) {
 	logger.Init("silent")
 	require.NoError(t, database.Initialize(filepath.Join(t.TempDir(), "scriberr.db")))

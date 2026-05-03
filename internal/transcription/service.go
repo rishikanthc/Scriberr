@@ -59,6 +59,10 @@ func NewService(jobs repository.JobRepository, profiles repository.ProfileReposi
 	return &Service{jobs: jobs, profiles: profiles, queue: queue}
 }
 
+func (s *Service) SetQueue(queue Queue) {
+	s.queue = queue
+}
+
 func (s *Service) Create(ctx context.Context, cmd CreateCommand) (*models.TranscriptionJob, error) {
 	if s == nil || s.jobs == nil {
 		return nil, fmt.Errorf("transcription service is not configured")

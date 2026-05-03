@@ -44,6 +44,13 @@ func (q *fakeQueueService) Stats(context.Context, uint) (worker.QueueStats, erro
 	return q.stats, q.err
 }
 
+func setTestQueueService(s *authTestServer, queue *fakeQueueService) {
+	s.handler.queueService = queue
+	if s.handler.transcriptions != nil {
+		s.handler.transcriptions.SetQueue(queue)
+	}
+}
+
 type fakeCapabilityProvider struct {
 	caps []engineprovider.ModelCapability
 }
@@ -64,7 +71,7 @@ func (p fakeCapabilityProvider) Close() error { return nil }
 func TestCreateSubmitRetryUseQueueService(t *testing.T) {
 	s := newAuthTestServer(t)
 	queue := &fakeQueueService{}
-	s.handler.queueService = queue
+	setTestQueueService(s, queue)
 	token := registerForFileTests(t, s)
 	fileID, _ := createUploadedFileForTranscription(t, s, token)
 
@@ -86,7 +93,7 @@ func TestCreateSubmitRetryUseQueueService(t *testing.T) {
 
 func TestCreateReturnsServiceUnavailableWhenQueueStopped(t *testing.T) {
 	s := newAuthTestServer(t)
-	s.handler.queueService = &fakeQueueService{err: worker.ErrQueueStopped}
+	setTestQueueService(s, &fakeQueueService{err: worker.ErrQueueStopped})
 	token := registerForFileTests(t, s)
 	fileID, _ := createUploadedFileForTranscription(t, s, token)
 
@@ -105,7 +112,7 @@ func TestCreateReturnsServiceUnavailableWhenQueueStopped(t *testing.T) {
 func TestRetryPreservesNewJobWhenQueueStopped(t *testing.T) {
 	s := newAuthTestServer(t)
 	queue := &fakeQueueService{}
-	s.handler.queueService = queue
+	setTestQueueService(s, queue)
 	token := registerForFileTests(t, s)
 	fileID, _ := createUploadedFileForTranscription(t, s, token)
 
@@ -128,7 +135,7 @@ func TestRetryPreservesNewJobWhenQueueStopped(t *testing.T) {
 func TestCancelUsesQueueServiceAndMapsConflict(t *testing.T) {
 	s := newAuthTestServer(t)
 	queue := &fakeQueueService{cancelErr: worker.ErrStateConflict}
-	s.handler.queueService = queue
+	setTestQueueService(s, queue)
 	token := registerForFileTests(t, s)
 	fileID, _ := createUploadedFileForTranscription(t, s, token)
 	resp, body := s.request(t, http.MethodPost, "/api/v1/transcriptions", map[string]any{"file_id": fileID}, token, "")
@@ -145,7 +152,7 @@ func TestCancelUsesQueueServiceAndMapsConflict(t *testing.T) {
 func TestTranscriptExecutionsLogsModelsAndStatsUseEngineServices(t *testing.T) {
 	s := newAuthTestServer(t)
 	queue := &fakeQueueService{stats: worker.QueueStats{Queued: 2, Processing: 1, Completed: 3, Failed: 4, Canceled: 5, Running: 1}}
-	s.handler.queueService = queue
+	setTestQueueService(s, queue)
 	registry, err := engineprovider.NewRegistry("local", fakeCapabilityProvider{caps: []engineprovider.ModelCapability{
 		{ID: "whisper-base", Name: "Whisper Base", Provider: "local", Installed: true, Default: true, Capabilities: []string{"transcription", "word_timestamps"}},
 	}})
@@ -233,7 +240,7 @@ func TestTranscriptExecutionsLogsModelsAndStatsUseEngineServices(t *testing.T) {
 
 func TestQueueServiceErrorDoesNotLeakInternals(t *testing.T) {
 	s := newAuthTestServer(t)
-	s.handler.queueService = &fakeQueueService{err: errors.New("open /tmp/private/socket token=secret failed")}
+	setTestQueueService(s, &fakeQueueService{err: errors.New("open /tmp/private/socket token=secret failed")})
 	token := registerForFileTests(t, s)
 	fileID, _ := createUploadedFileForTranscription(t, s, token)
 

@@ -101,6 +101,7 @@ type JobRepository interface {
 	FindTranscriptionByIDForUser(ctx context.Context, id string, userID uint) (*models.TranscriptionJob, error)
 	ListFilesByUser(ctx context.Context, userID uint, opts FileListOptions) ([]models.TranscriptionJob, error)
 	ListTranscriptionsByUser(ctx context.Context, userID uint, opts TranscriptionListOptions) ([]models.TranscriptionJob, error)
+	CountTranscriptionsBySourceFile(ctx context.Context, userID uint, fileID string) (int64, error)
 	FindLatestCompletedExecution(ctx context.Context, jobID string) (*models.TranscriptionJobExecution, error)
 	ListWithParams(ctx context.Context, offset, limit int, sortBy, sortOrder, searchQuery string, updatedAfter *time.Time) ([]models.TranscriptionJob, int64, error)
 	ListByUser(ctx context.Context, userID uint, offset, limit int) ([]models.TranscriptionJob, int64, error)
@@ -249,6 +250,14 @@ func (r *jobRepository) ListTranscriptionsByUser(ctx context.Context, userID uin
 	}
 	err := query.Order(opts.SortColumn + " " + direction).Order("id " + idDirection).Limit(opts.Limit + 1).Find(&jobs).Error
 	return jobs, err
+}
+
+func (r *jobRepository) CountTranscriptionsBySourceFile(ctx context.Context, userID uint, fileID string) (int64, error) {
+	var count int64
+	err := r.db.WithContext(ctx).Model(&models.TranscriptionJob{}).
+		Where("user_id = ? AND source_file_hash = ?", userID, fileID).
+		Count(&count).Error
+	return count, err
 }
 
 func applyFileCursor(query *gorm.DB, opts FileListOptions) *gorm.DB {

@@ -14,6 +14,7 @@ import (
 	"scriberr/internal/annotations"
 	"scriberr/internal/api"
 	"scriberr/internal/auth"
+	"scriberr/internal/automation"
 	"scriberr/internal/config"
 	"scriberr/internal/database"
 	filesdomain "scriberr/internal/files"
@@ -162,6 +163,8 @@ func main() {
 		UploadDir:  cfg.UploadDir,
 	})
 	transcriptionService := transcriptiondomain.NewService(jobRepo, profileRepo, queueService)
+	postFileAutomation := automation.NewService(jobRepo, userRepo, profileRepo, llmConfigRepo, transcriptionService)
+	fileService.SetReadyObserver(postFileAutomation)
 	annotationService := annotations.NewService(annotationRepo, jobRepo)
 	tagService := tags.NewService(tagRepo, jobRepo)
 	recordingStorage, err := recordingdomain.NewStorage(cfg.Recordings.Dir)
@@ -206,6 +209,8 @@ func main() {
 	queueService.SetEventPublisher(handler)
 	queueService.SetCompletionObserver(worker.CompletionObservers{summaryService, annotationService})
 	summaryService.SetEventPublisher(handler)
+	summaryService.SetUserSettingsReader(userRepo)
+	postFileAutomation.SetEventPublisher(handler)
 	recordingFinalizer.SetEventPublisher(handler)
 
 	// Set up router

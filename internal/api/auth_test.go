@@ -16,6 +16,7 @@ import (
 	"scriberr/internal/account"
 	"scriberr/internal/annotations"
 	"scriberr/internal/auth"
+	"scriberr/internal/automation"
 	"scriberr/internal/config"
 	"scriberr/internal/database"
 	filesdomain "scriberr/internal/files"
@@ -80,6 +81,8 @@ func newAuthTestServer(t *testing.T) *authTestServer {
 		UploadDir:  cfg.UploadDir,
 	})
 	transcriptionService := transcriptiondomain.NewService(jobRepo, profileRepo, nil)
+	postFileAutomation := automation.NewService(jobRepo, repository.NewUserRepository(database.DB), profileRepo, llmConfigRepo, transcriptionService)
+	fileService.SetReadyObserver(postFileAutomation)
 	annotationService := annotations.NewService(repository.NewAnnotationRepository(database.DB), jobRepo)
 	tagService := tags.NewService(repository.NewTagRepository(database.DB), jobRepo)
 	recordingStorage, err := recordingdomain.NewStorage(cfg.Recordings.Dir)
@@ -102,6 +105,7 @@ func newAuthTestServer(t *testing.T) *authTestServer {
 		Recordings:     recordingService,
 		Transcriptions: transcriptionService,
 	})
+	postFileAutomation.SetEventPublisher(handler)
 	youtubeImporter := &fakeYouTubeImporter{block: make(chan struct{})}
 	mediaImportService.SetImporter(youtubeImporter)
 	t.Cleanup(func() {

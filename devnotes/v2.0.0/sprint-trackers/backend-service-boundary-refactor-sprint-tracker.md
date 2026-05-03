@@ -2,7 +2,7 @@
 
 This tracker belongs to `devnotes/v2.0.0/sprint-plans/backend-service-boundary-refactor-sprint-plan.md`.
 
-Status: in progress. Sprints 0 through 5 are complete; Sprint 6 is pending.
+Status: in progress. Sprints 0 through 6 are complete; Sprint 7 is pending.
 
 ## Sprint 0: Inventory, Dependency Map, and Stop-The-Line Guard
 
@@ -216,36 +216,37 @@ Artifacts:
 
 ## Sprint 6: Post-File Automation Service
 
-Status: pending
+Status: completed
 
 Planned tasks:
 
-- [ ] Add a post-file automation service entry point for newly ready files.
-- [ ] Implement auto-transcribe decisions using settings and transcription services.
-- [ ] Add graceful runtime no-op for missing default profile.
-- [ ] Define and document the auto-rename trigger: immediate file-ready, transcription-completed, or summary-completed.
-- [ ] Implement auto-rename decisions using LLM readiness and title generation boundary.
-- [ ] Add fakeable dependencies for settings, transcription, and title generation.
-- [ ] Publish events only after durable persistence.
+- [x] Add a post-file automation service entry point for newly ready files.
+- [x] Implement auto-transcribe decisions using settings and transcription services.
+- [x] Add graceful runtime no-op for missing default profile.
+- [x] Define and document the auto-rename trigger: summary-completed.
+- [x] Implement auto-rename decisions using LLM readiness and the existing summary title generation boundary.
+- [x] Add fakeable dependencies for settings, transcription, and title generation.
+- [x] Publish events only after durable persistence.
 
 Acceptance checks:
 
-- [ ] Newly ready audio can trigger automatic transcription through the default profile.
-- [ ] Runtime missing configuration does not fail file creation/import/finalization.
-- [ ] Automation decisions do not live in handlers or workers.
-- [ ] Auto-rename behavior is documented before implementation.
+- [x] Newly ready audio can trigger automatic transcription through the default profile.
+- [x] Runtime missing configuration does not fail file creation/import/finalization.
+- [x] Automation decisions do not live in handlers or workers.
+- [x] Auto-rename behavior is documented before implementation.
 
 Verification:
 
-- [ ] `GOCACHE=/Users/zade/Code/asr/Scriberr/.tmp/go-build go test ./internal/api ./internal/recording ./internal/mediaimport`
-- [ ] `GOCACHE=/Users/zade/Code/asr/Scriberr/.tmp/go-build go test ./internal/summarization`
-- [ ] `git diff --check`
+- [x] `GOCACHE=/Users/zade/Code/asr/Scriberr/.tmp/go-build go test ./internal/api ./internal/recording ./internal/mediaimport`
+- [x] `GOCACHE=/Users/zade/Code/asr/Scriberr/.tmp/go-build go test ./internal/summarization ./internal/automation ./internal/repository ./cmd/server`
+- [x] `git diff --check`
 
 Artifacts:
 
-- Post-file automation service files.
-- Service tests with fakes.
-- Status note documenting auto-rename trigger.
+- `internal/automation/post_file_service.go`
+- Service tests with fakes in `internal/automation/post_file_service_test.go`.
+- Summarization auto-rename setting gate.
+- `devnotes/v2.0.0/status-updates/backend-service-boundary-sprint-06-automation-notes.md`
 
 ## Sprint 7: Remove Remaining API Database Access and Harden Contracts
 

@@ -112,10 +112,15 @@ type Config struct {
 	StopTimeout time.Duration
 }
 
+type UserSettingsReader interface {
+	FindByID(ctx context.Context, id interface{}) (*models.User, error)
+}
+
 type Service struct {
 	summaries repository.SummaryRepository
 	llmConfig repository.LLMConfigRepository
 	jobs      repository.JobRepository
+	users     UserSettingsReader
 	events    EventPublisher
 	cfg       Config
 	clientFor func(*models.LLMConfig) (llm.Service, error)
@@ -144,6 +149,10 @@ func NewService(summaries repository.SummaryRepository, llmConfig repository.LLM
 
 func (s *Service) SetEventPublisher(events EventPublisher) {
 	s.events = events
+}
+
+func (s *Service) SetUserSettingsReader(users UserSettingsReader) {
+	s.users = users
 }
 
 func (s *Service) Start(ctx context.Context) error {
@@ -397,6 +406,9 @@ func (s *Service) generateTitleForSummary(ctx context.Context, summary *models.S
 	if summary == nil || strings.TrimSpace(summaryContent) == "" {
 		return nil
 	}
+	if enabled, err := s.autoRenameEnabled(ctx, summary.UserID); err != nil || !enabled {
+		return err
+	}
 	job, err := s.jobs.FindByID(ctx, summary.TranscriptionID)
 	if err != nil {
 		return err
@@ -455,6 +467,20 @@ func (s *Service) generateTitleForSummary(ctx context.Context, summary *models.S
 		})
 	}
 	return nil
+}
+
+func (s *Service) autoRenameEnabled(ctx context.Context, userID uint) (bool, error) {
+	if s.users == nil {
+		return true, nil
+	}
+	user, err := s.users.FindByID(ctx, userID)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return user != nil && user.AutoRenameEnabled, nil
 }
 
 func (s *Service) enqueueWidgetsForSummary(ctx context.Context, summary *models.Summary) error {

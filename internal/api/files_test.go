@@ -220,6 +220,40 @@ func TestFileUploadListGetPatchDelete(t *testing.T) {
 	require.Equal(t, http.StatusNotFound, resp.Code)
 }
 
+func TestFileReadyAutoTranscribesWithDefaultProfile(t *testing.T) {
+	s := newAuthTestServer(t)
+	token := registerForFileTests(t, s)
+
+	resp, body := s.request(t, http.MethodPost, "/api/v1/profiles", map[string]any{
+		"name":       "Default profile",
+		"is_default": true,
+		"options": map[string]any{
+			"model":       "whisper-small",
+			"language":    "en",
+			"diarization": true,
+		},
+	}, token, "")
+	require.Equal(t, http.StatusCreated, resp.Code)
+	defaultProfileID := body["id"].(string)
+
+	resp, _ = s.request(t, http.MethodPatch, "/api/v1/settings", map[string]any{
+		"default_profile_id":         defaultProfileID,
+		"auto_transcription_enabled": true,
+	}, token, "")
+	require.Equal(t, http.StatusOK, resp.Code)
+
+	resp, body = uploadMultipart(t, s, token, "file", "meeting.wav", "audio/wav", []byte("RIFF----WAVEfmt data"), "Team sync")
+	require.Equal(t, http.StatusCreated, resp.Code)
+	fileID := body["id"].(string)
+
+	resp, body = s.request(t, http.MethodGet, "/api/v1/transcriptions", nil, token, "")
+	require.Equal(t, http.StatusOK, resp.Code)
+	items := body["items"].([]any)
+	require.Len(t, items, 1)
+	require.Equal(t, fileID, items[0].(map[string]any)["file_id"])
+	require.Equal(t, "queued", items[0].(map[string]any)["status"])
+}
+
 func TestFileUploadValidationAndSecurity(t *testing.T) {
 	s := newAuthTestServer(t)
 	token := registerForFileTests(t, s)
