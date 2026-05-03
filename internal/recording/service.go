@@ -14,8 +14,6 @@ import (
 
 	"scriberr/internal/models"
 	"scriberr/internal/repository"
-
-	"gorm.io/gorm"
 )
 
 const (
@@ -279,7 +277,7 @@ func (s *Service) AppendChunk(ctx context.Context, req AppendChunkRequest) (*Chu
 			return &ChunkResult{Session: session, Chunk: existing, AlreadyStored: true, ReceivedChunks: session.ReceivedChunks, ReceivedBytes: session.ReceivedBytes}, nil
 		}
 		return nil, ErrConflict
-	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+	} else if !errors.Is(err, repository.ErrRecordNotFound) {
 		return nil, err
 	}
 
@@ -327,7 +325,7 @@ func (s *Service) AppendChunk(ctx context.Context, req AppendChunkRequest) (*Chu
 			}
 			return nil, ErrConflict
 		}
-		if errors.Is(err, gorm.ErrInvalidData) {
+		if errors.Is(err, repository.ErrInvalidData) {
 			return nil, ErrConflict
 		}
 		return nil, err
@@ -540,7 +538,7 @@ func validationError(message string) error {
 }
 
 func mapNotFound(err error) error {
-	if errors.Is(err, gorm.ErrRecordNotFound) {
+	if errors.Is(err, repository.ErrRecordNotFound) {
 		return ErrNotFound
 	}
 	return err

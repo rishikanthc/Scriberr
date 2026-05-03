@@ -8,8 +8,6 @@ import (
 
 	"scriberr/internal/models"
 	"scriberr/internal/repository"
-
-	"gorm.io/gorm"
 )
 
 type Service struct {
@@ -24,7 +22,7 @@ func NewService(repo repository.ChatRepository, llmConfigs repository.LLMConfigR
 
 func (s *Service) ActiveLLMConfig(ctx context.Context, userID uint) (*models.LLMConfig, error) {
 	config, err := s.llmConfigs.GetActiveByUser(ctx, userID)
-	if errors.Is(err, gorm.ErrRecordNotFound) {
+	if errors.Is(err, repository.ErrRecordNotFound) {
 		return nil, ErrProviderMissing
 	}
 	return config, err
@@ -142,7 +140,7 @@ func (s *Service) BuildContext(ctx context.Context, userID uint, sessionID strin
 }
 
 func chatNotFound(err error) error {
-	if errors.Is(err, gorm.ErrRecordNotFound) {
+	if errors.Is(err, repository.ErrRecordNotFound) {
 		return ErrNotFound
 	}
 	return err

@@ -6,8 +6,6 @@ import (
 
 	"scriberr/internal/models"
 	"scriberr/internal/repository"
-
-	"gorm.io/gorm"
 )
 
 var ErrNotFound = errors.New("profile not found")
@@ -60,14 +58,14 @@ func (s *Service) Exists(ctx context.Context, userID uint, id string) (bool, err
 	if err == nil {
 		return true, nil
 	}
-	if errors.Is(err, gorm.ErrRecordNotFound) {
+	if errors.Is(err, repository.ErrRecordNotFound) {
 		return false, nil
 	}
 	return false, err
 }
 
 func mapNotFound(err error) error {
-	if errors.Is(err, gorm.ErrRecordNotFound) {
+	if errors.Is(err, repository.ErrRecordNotFound) {
 		return ErrNotFound
 	}
 	return err

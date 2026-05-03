@@ -12,8 +12,6 @@ import (
 	"scriberr/internal/models"
 	"scriberr/internal/repository"
 	"scriberr/internal/transcription/orchestrator"
-
-	"gorm.io/gorm"
 )
 
 const (
@@ -700,7 +698,7 @@ func validationError(message string) error {
 }
 
 func mapNotFound(err error) error {
-	if errors.Is(err, gorm.ErrRecordNotFound) {
+	if errors.Is(err, repository.ErrRecordNotFound) {
 		return ErrNotFound
 	}
 	return err

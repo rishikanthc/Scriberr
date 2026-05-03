@@ -13,7 +13,6 @@ import (
 	"scriberr/internal/repository"
 
 	"github.com/google/uuid"
-	"gorm.io/gorm"
 )
 
 type Queue interface {
@@ -427,7 +426,7 @@ func (s *Service) resolveParams(ctx context.Context, userID uint, profileID stri
 	}
 	profile, err := s.profiles.FindDefaultByUser(ctx, userID)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
+		if errors.Is(err, repository.ErrRecordNotFound) {
 			return models.WhisperXParams{}, nil
 		}
 		return models.WhisperXParams{}, err

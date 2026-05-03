@@ -7,9 +7,8 @@ import (
 
 	filesdomain "scriberr/internal/files"
 	"scriberr/internal/models"
+	"scriberr/internal/repository"
 	transcriptiondomain "scriberr/internal/transcription"
-
-	"gorm.io/gorm"
 )
 
 type FileRepository interface {
@@ -68,7 +67,7 @@ func (s *Service) FileReady(ctx context.Context, event filesdomain.ReadyEvent) e
 		return nil
 	}
 	file, err := s.files.FindReadyFileByIDForUser(ctx, event.FileID, event.UserID)
-	if errors.Is(err, gorm.ErrRecordNotFound) {
+	if errors.Is(err, repository.ErrRecordNotFound) {
 		return nil
 	}
 	if err != nil {
@@ -78,7 +77,7 @@ func (s *Service) FileReady(ctx context.Context, event filesdomain.ReadyEvent) e
 		return nil
 	}
 	user, err := s.users.FindAutomationUserByID(ctx, file.UserID)
-	if errors.Is(err, gorm.ErrRecordNotFound) {
+	if errors.Is(err, repository.ErrRecordNotFound) {
 		return nil
 	}
 	if err != nil {
@@ -105,7 +104,7 @@ func (s *Service) autoTranscribe(ctx context.Context, file *models.Transcription
 	if s.profiles == nil || s.transcriptions == nil {
 		return nil
 	}
-	if _, err := s.profiles.FindDefaultByUser(ctx, user.ID); errors.Is(err, gorm.ErrRecordNotFound) {
+	if _, err := s.profiles.FindDefaultByUser(ctx, user.ID); errors.Is(err, repository.ErrRecordNotFound) {
 		return nil
 	} else if err != nil {
 		return err
@@ -136,7 +135,7 @@ func (s *Service) smallLLMReady(ctx context.Context, userID uint) (bool, error) 
 		return false, nil
 	}
 	config, err := s.llmConfigs.GetActiveByUser(ctx, userID)
-	if errors.Is(err, gorm.ErrRecordNotFound) {
+	if errors.Is(err, repository.ErrRecordNotFound) {
 		return false, nil
 	}
 	if err != nil {

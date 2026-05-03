@@ -17,7 +17,6 @@ import (
 	"scriberr/pkg/logger"
 
 	"github.com/google/uuid"
-	"gorm.io/gorm"
 )
 
 type MediaFinalizer interface {
@@ -251,7 +250,7 @@ func (s *FinalizerService) maintenanceLoop() {
 func (s *FinalizerService) workerLoop(workerID string) {
 	defer s.wg.Done()
 	for {
-		if err := s.claimAndFinalize(workerID); err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		if err := s.claimAndFinalize(workerID); err != nil && !errors.Is(err, repository.ErrRecordNotFound) {
 			logger.Warn("Recording finalizer failed", "worker_id", workerID, "error", err)
 		}
 		timer := time.NewTimer(s.cfg.PollInterval)
@@ -326,7 +325,7 @@ func (s *FinalizerService) finalize(ctx context.Context, workerID string, sessio
 	}
 	if err := s.storage.RemoveTemporaryArtifacts(session.ID); err != nil {
 		logger.Warn("Failed to remove recording temporary artifacts", "recording_id", session.ID, "error", err)
-	} else if err := s.recordings.MarkTemporaryArtifactsCleaned(ctx, session.ID, time.Now()); err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+	} else if err := s.recordings.MarkTemporaryArtifactsCleaned(ctx, session.ID, time.Now()); err != nil && !errors.Is(err, repository.ErrRecordNotFound) {
 		logger.Warn("Failed to mark recording temporary artifacts cleaned", "recording_id", session.ID, "error", err)
 	}
 	completed := *session
@@ -395,7 +394,7 @@ func (s *FinalizerService) resolveParams(ctx context.Context, session *models.Re
 	}
 	profile, err := s.profiles.FindDefaultByUser(ctx, session.UserID)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
+		if errors.Is(err, repository.ErrRecordNotFound) {
 			return models.WhisperXParams{}, nil
 		}
 		return models.WhisperXParams{}, err
@@ -463,7 +462,7 @@ func (s *FinalizerService) cleanupArtifacts(ctx context.Context, now time.Time) 
 			continue
 		}
 		if err := s.recordings.MarkTemporaryArtifactsCleaned(ctx, session.ID, now); err != nil {
-			if errors.Is(err, gorm.ErrRecordNotFound) {
+			if errors.Is(err, repository.ErrRecordNotFound) {
 				continue
 			}
 			return stats, err

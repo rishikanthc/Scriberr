@@ -7,8 +7,6 @@ import (
 
 	"scriberr/internal/models"
 	"scriberr/internal/repository"
-
-	"gorm.io/gorm"
 )
 
 var (
@@ -51,7 +49,7 @@ func NewService(configs repository.LLMConfigRepository, tester ConnectionTester)
 
 func (s *Service) Get(ctx context.Context, userID uint) (ConfigResult, error) {
 	config, err := s.configs.GetActiveByUser(ctx, userID)
-	if errors.Is(err, gorm.ErrRecordNotFound) {
+	if errors.Is(err, repository.ErrRecordNotFound) {
 		return ConfigResult{}, ErrNotConfigured
 	}
 	if err != nil {
@@ -79,7 +77,7 @@ func (s *Service) Save(ctx context.Context, userID uint, req SaveRequest) (Confi
 	smallModel := strings.TrimSpace(req.SmallModel)
 
 	existing, err := s.configs.GetActiveByUser(ctx, userID)
-	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+	if err != nil && !errors.Is(err, repository.ErrRecordNotFound) {
 		return ConfigResult{}, err
 	}
 	effectiveAPIKey := apiKey

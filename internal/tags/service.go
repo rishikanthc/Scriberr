@@ -9,8 +9,6 @@ import (
 
 	"scriberr/internal/models"
 	"scriberr/internal/repository"
-
-	"gorm.io/gorm"
 )
 
 const (
@@ -104,7 +102,7 @@ func (s *Service) CreateTag(ctx context.Context, req CreateRequest) (*models.Aud
 	}
 	if existing, err := s.tags.FindTagForUserByNormalizedName(ctx, req.UserID, tag.NormalizedName); err == nil && existing != nil {
 		return nil, ErrConflict
-	} else if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+	} else if err != nil && !errors.Is(err, repository.ErrRecordNotFound) {
 		return nil, err
 	}
 	if err := s.tags.CreateTag(ctx, tag); err != nil {
@@ -161,7 +159,7 @@ func (s *Service) UpdateTag(ctx context.Context, req UpdateRequest) (*models.Aud
 		if normalized != tag.NormalizedName {
 			if existing, err := s.tags.FindTagForUserByNormalizedName(ctx, req.UserID, normalized); err == nil && existing.ID != tag.ID {
 				return nil, ErrConflict
-			} else if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+			} else if err != nil && !errors.Is(err, repository.ErrRecordNotFound) {
 				return nil, err
 			}
 		}
@@ -465,7 +463,7 @@ func validationError(message string) error {
 }
 
 func mapNotFound(err error) error {
-	if errors.Is(err, gorm.ErrRecordNotFound) {
+	if errors.Is(err, repository.ErrRecordNotFound) {
 		return ErrNotFound
 	}
 	return err

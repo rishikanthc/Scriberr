@@ -14,8 +14,6 @@ import (
 	"scriberr/internal/repository"
 	"scriberr/internal/transcription/orchestrator"
 	"scriberr/pkg/logger"
-
-	"gorm.io/gorm"
 )
 
 const summaryPrompt = `You are an expert summarization system designed to extract the core essence of long-form transcripts.
@@ -166,7 +164,7 @@ func (s *Service) SetUserSettingsReader(users UserSettingsReader) {
 
 func (s *Service) LatestForTranscription(ctx context.Context, userID uint, transcriptionID string) (*models.Summary, error) {
 	summary, err := s.summaries.GetLatestSummary(ctx, transcriptionID)
-	if errors.Is(err, gorm.ErrRecordNotFound) {
+	if errors.Is(err, repository.ErrRecordNotFound) {
 		return nil, ErrNotFound
 	}
 	if err != nil {
@@ -188,7 +186,7 @@ func (s *Service) ListWidgets(ctx context.Context, userID uint) ([]models.Summar
 
 func (s *Service) FindWidget(ctx context.Context, userID uint, widgetID string) (*models.SummaryWidget, error) {
 	widget, err := s.summaries.FindSummaryWidgetByIDForUser(ctx, widgetID, userID)
-	if errors.Is(err, gorm.ErrRecordNotFound) {
+	if errors.Is(err, repository.ErrRecordNotFound) {
 		return nil, ErrNotFound
 	}
 	return widget, err
@@ -283,7 +281,7 @@ func (s *Service) EnqueueForTranscription(ctx context.Context, job *models.Trans
 		return nil
 	}
 	config, err := s.llmConfig.GetActiveByUser(ctx, job.UserID)
-	if errors.Is(err, gorm.ErrRecordNotFound) {
+	if errors.Is(err, repository.ErrRecordNotFound) {
 		return nil
 	}
 	if err != nil {
@@ -319,7 +317,7 @@ func (s *Service) drainPending() {
 	for {
 		progressed := false
 		if err := s.claimAndProcessSummary(); err != nil {
-			if errors.Is(err, gorm.ErrRecordNotFound) {
+			if errors.Is(err, repository.ErrRecordNotFound) {
 				// Try widget runs below before deciding the worker is idle.
 			} else {
 				logger.Error("Summary worker failed", "error", err)
@@ -329,7 +327,7 @@ func (s *Service) drainPending() {
 			progressed = true
 		}
 		if err := s.claimAndProcessWidgetRun(); err != nil {
-			if errors.Is(err, gorm.ErrRecordNotFound) {
+			if errors.Is(err, repository.ErrRecordNotFound) {
 				if !progressed {
 					return
 				}
@@ -486,7 +484,7 @@ func (s *Service) generateTitleForSummary(ctx context.Context, summary *models.S
 	recording := job
 	if job.SourceFileHash != nil && strings.TrimSpace(*job.SourceFileHash) != "" {
 		parent, err := s.jobs.FindFileByIDForUser(ctx, strings.TrimSpace(*job.SourceFileHash), summary.UserID)
-		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		if err != nil && !errors.Is(err, repository.ErrRecordNotFound) {
 			return err
 		}
 		if parent != nil {
@@ -497,7 +495,7 @@ func (s *Service) generateTitleForSummary(ctx context.Context, summary *models.S
 		return nil
 	}
 	config, err := s.llmConfig.GetActiveByUser(ctx, summary.UserID)
-	if errors.Is(err, gorm.ErrRecordNotFound) {
+	if errors.Is(err, repository.ErrRecordNotFound) {
 		return nil
 	}
 	if err != nil {
@@ -545,7 +543,7 @@ func (s *Service) autoRenameEnabled(ctx context.Context, userID uint) (bool, err
 		return true, nil
 	}
 	user, err := s.users.FindByID(ctx, userID)
-	if errors.Is(err, gorm.ErrRecordNotFound) {
+	if errors.Is(err, repository.ErrRecordNotFound) {
 		return false, nil
 	}
 	if err != nil {
@@ -559,7 +557,7 @@ func (s *Service) enqueueWidgetsForSummary(ctx context.Context, summary *models.
 		return nil
 	}
 	config, err := s.llmConfig.GetActiveByUser(ctx, summary.UserID)
-	if errors.Is(err, gorm.ErrRecordNotFound) {
+	if errors.Is(err, repository.ErrRecordNotFound) {
 		return nil
 	}
 	if err != nil {
@@ -690,14 +688,14 @@ func (s *Service) generateDescriptionForSummary(ctx context.Context, summary *mo
 		return nil
 	}
 	outline, err := s.summaries.GetCompletedOutlineRun(ctx, summary.ID, summary.TranscriptionID, summary.UserID)
-	if errors.Is(err, gorm.ErrRecordNotFound) {
+	if errors.Is(err, repository.ErrRecordNotFound) {
 		return nil
 	}
 	if err != nil {
 		return err
 	}
 	config, err := s.llmConfig.GetActiveByUser(ctx, summary.UserID)
-	if errors.Is(err, gorm.ErrRecordNotFound) {
+	if errors.Is(err, repository.ErrRecordNotFound) {
 		return nil
 	}
 	if err != nil {
@@ -713,7 +711,7 @@ func (s *Service) generateDescriptionForSummary(ctx context.Context, summary *mo
 	recording := job
 	if job.SourceFileHash != nil && strings.TrimSpace(*job.SourceFileHash) != "" {
 		parent, err := s.jobs.FindFileByIDForUser(ctx, strings.TrimSpace(*job.SourceFileHash), summary.UserID)
-		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		if err != nil && !errors.Is(err, repository.ErrRecordNotFound) {
 			return err
 		}
 		if parent != nil {

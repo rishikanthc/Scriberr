@@ -8,10 +8,9 @@ import (
 	"time"
 
 	"scriberr/internal/models"
+	"scriberr/internal/repository"
 	"scriberr/internal/transcription/scheduler"
 	"scriberr/pkg/logger"
-
-	"gorm.io/gorm"
 )
 
 var (
@@ -193,7 +192,7 @@ func (p systemSettingsSchedulerConfigProvider) QueueSchedulerConfig(ctx context.
 		return scheduler.DefaultConfig(), nil
 	}
 	setting, err := p.settings.FindByKey(ctx, scheduler.SettingKey)
-	if errors.Is(err, gorm.ErrRecordNotFound) {
+	if errors.Is(err, repository.ErrRecordNotFound) {
 		return scheduler.DefaultConfig(), nil
 	}
 	if err != nil {
@@ -394,7 +393,7 @@ func (s *Service) workerLoop(workerID string) {
 		case <-s.wake:
 		case <-timer.C:
 		}
-		if err := s.claimAndProcess(workerID); err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		if err := s.claimAndProcess(workerID); err != nil && !errors.Is(err, repository.ErrRecordNotFound) {
 			logger.Error("Transcription worker claim/process failed", "worker_id", workerID, "error", err)
 		}
 		timer.Reset(s.cfg.PollInterval)

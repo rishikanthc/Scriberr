@@ -12,8 +12,6 @@ import (
 	"scriberr/internal/auth"
 	"scriberr/internal/models"
 	"scriberr/internal/repository"
-
-	"gorm.io/gorm"
 )
 
 var (
@@ -325,7 +323,7 @@ func (s *Service) settingsForUser(ctx context.Context, user *models.User) (*mode
 		return nil, ErrSettingsUnavailable
 	}
 	settings, err := s.settings.FindByUser(ctx, user.ID)
-	if errors.Is(err, gorm.ErrRecordNotFound) {
+	if errors.Is(err, repository.ErrRecordNotFound) {
 		settings = &models.UserSettings{
 			UserID:                   user.ID,
 			DefaultProfileID:         user.DefaultProfileID,
@@ -369,5 +367,5 @@ func hashToken(token string) string {
 }
 
 func IsNotFound(err error) bool {
-	return errors.Is(err, gorm.ErrRecordNotFound)
+	return errors.Is(err, repository.ErrRecordNotFound)
 }
