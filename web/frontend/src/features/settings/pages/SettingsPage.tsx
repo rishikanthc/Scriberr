@@ -6,6 +6,7 @@ import { ConfirmDialog } from "@/shared/ui/ConfirmDialog";
 import { EmptyState } from "@/shared/ui/EmptyState";
 import { useDeleteProfile, useProfiles, useSaveProfile, useTranscriptionModels } from "@/features/settings/hooks/useProfiles";
 import { ASRProfileDialog } from "../components/ASRProfileDialog";
+import { GeneralSettingsPanel } from "../components/GeneralSettingsPanel";
 import { LLMProviderPanel } from "../components/LLMProviderPanel";
 import { SummaryWidgetsPanel } from "../components/SummaryWidgetsPanel";
 import { TagsSettingsPanel } from "@/features/tags/components/TagsSettingsPanel";
@@ -14,7 +15,7 @@ import type { TranscriptionProfile, TranscriptionProfileOptions } from "../api/p
 type SettingsTab = "general" | "asr" | "llm" | "summarization" | "tags";
 
 export function Settings() {
-  const [activeTab, setActiveTab] = useState<SettingsTab>("asr");
+  const [activeTab, setActiveTab] = useState<SettingsTab>("general");
   const [error, setError] = useState("");
   const [editingProfile, setEditingProfile] = useState<TranscriptionProfile | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -23,7 +24,7 @@ export function Settings() {
   const modelsQuery = useTranscriptionModels();
   const saveProfileMutation = useSaveProfile();
   const deleteProfileMutation = useDeleteProfile();
-  const profiles = profilesQuery.data || [];
+  const profiles = useMemo(() => profilesQuery.data ?? [], [profilesQuery.data]);
 
   const defaultProfile = useMemo(() => profiles.find((profile) => profile.is_default), [profiles]);
 
@@ -81,7 +82,7 @@ export function Settings() {
 
           <div className="scr-settings-content">
             {activeTab === "general" ? (
-              <EmptyState title="General settings" description="General preferences will appear here." />
+              <GeneralSettingsPanel />
             ) : activeTab === "asr" ? (
               <section className="scr-settings-panel" aria-label="ASR profiles">
                 <div className="scr-settings-panel-head">
