@@ -13,7 +13,7 @@ import (
 )
 
 type FileRepository interface {
-	FindReadyFileByID(ctx context.Context, id string) (*models.TranscriptionJob, error)
+	FindReadyFileByIDForUser(ctx context.Context, id string, userID uint) (*models.TranscriptionJob, error)
 	CountTranscriptionsBySourceFile(ctx context.Context, userID uint, fileID string) (int64, error)
 }
 
@@ -64,10 +64,10 @@ func (s *Service) FileReady(ctx context.Context, event filesdomain.ReadyEvent) e
 	if s == nil || s.files == nil || s.users == nil {
 		return nil
 	}
-	if event.FileID == "" || (event.Kind != "" && event.Kind != "audio" && event.Kind != "youtube") {
+	if event.FileID == "" || event.UserID == 0 || (event.Kind != "" && event.Kind != "audio" && event.Kind != "youtube") {
 		return nil
 	}
-	file, err := s.files.FindReadyFileByID(ctx, event.FileID)
+	file, err := s.files.FindReadyFileByIDForUser(ctx, event.FileID, event.UserID)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil
 	}

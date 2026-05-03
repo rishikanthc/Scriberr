@@ -289,7 +289,7 @@ type TranscriptionListCursor struct {
 type JobRepository interface {
 	Repository[models.TranscriptionJob]
 	FindWithAssociations(ctx context.Context, id string) (*models.TranscriptionJob, error)
-	FindReadyFileByID(ctx context.Context, id string) (*models.TranscriptionJob, error)
+	FindReadyFileByIDForUser(ctx context.Context, id string, userID uint) (*models.TranscriptionJob, error)
 	FindFileByIDForUser(ctx context.Context, id string, userID uint) (*models.TranscriptionJob, error)
 	FindTranscriptionByIDForUser(ctx context.Context, id string, userID uint) (*models.TranscriptionJob, error)
 	ListFilesByUser(ctx context.Context, userID uint, opts FileListOptions) ([]models.TranscriptionJob, error)
@@ -353,10 +353,10 @@ func (r *jobRepository) FindWithAssociations(ctx context.Context, id string) (*m
 	return &job, nil
 }
 
-func (r *jobRepository) FindReadyFileByID(ctx context.Context, id string) (*models.TranscriptionJob, error) {
+func (r *jobRepository) FindReadyFileByIDForUser(ctx context.Context, id string, userID uint) (*models.TranscriptionJob, error) {
 	var job models.TranscriptionJob
 	err := r.db.WithContext(ctx).
-		Where("id = ? AND source_file_hash IS NULL AND status = ?", id, models.StatusUploaded).
+		Where("id = ? AND user_id = ? AND source_file_hash IS NULL AND status = ?", id, userID, models.StatusUploaded).
 		First(&job).Error
 	if err != nil {
 		return nil, err

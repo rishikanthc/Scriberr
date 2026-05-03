@@ -124,7 +124,7 @@ func TestJobRepositoryUpdateLLMGeneratedDescriptionUpdatesRecordingAndTranscript
 	assert.Equal(t, "summary-1", *updatedTranscription.LLMDescriptionSourceSummaryID)
 }
 
-func TestJobRepositoryFindReadyFileByIDOnlyReturnsUploadedSourceFiles(t *testing.T) {
+func TestJobRepositoryFindReadyFileByIDForUserOnlyReturnsUploadedSourceFiles(t *testing.T) {
 	db := openJobQueueTestDB(t)
 	user := createQueueTestUser(t, db)
 	repo := NewJobRepository(db)
@@ -159,13 +159,15 @@ func TestJobRepositoryFindReadyFileByIDOnlyReturnsUploadedSourceFiles(t *testing
 	}
 	require.NoError(t, db.Create(&processingFile).Error)
 
-	found, err := repo.FindReadyFileByID(context.Background(), readyFile.ID)
+	found, err := repo.FindReadyFileByIDForUser(context.Background(), readyFile.ID, user.ID)
 
 	require.NoError(t, err)
 	assert.Equal(t, readyFile.ID, found.ID)
-	_, err = repo.FindReadyFileByID(context.Background(), transcription.ID)
+	_, err = repo.FindReadyFileByIDForUser(context.Background(), readyFile.ID, user.ID+1)
 	require.ErrorIs(t, err, gorm.ErrRecordNotFound)
-	_, err = repo.FindReadyFileByID(context.Background(), processingFile.ID)
+	_, err = repo.FindReadyFileByIDForUser(context.Background(), transcription.ID, user.ID)
+	require.ErrorIs(t, err, gorm.ErrRecordNotFound)
+	_, err = repo.FindReadyFileByIDForUser(context.Background(), processingFile.ID, user.ID)
 	require.ErrorIs(t, err, gorm.ErrRecordNotFound)
 }
 

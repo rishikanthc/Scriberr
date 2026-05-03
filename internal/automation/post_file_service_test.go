@@ -28,7 +28,7 @@ func TestFileReadyAutoTranscribesWhenEnabled(t *testing.T) {
 	)
 	service.SetEventPublisher(events)
 
-	require.NoError(t, service.FileReady(context.Background(), filesdomain.ReadyEvent{FileID: file.ID, Kind: "audio", Status: "ready"}))
+	require.NoError(t, service.FileReady(context.Background(), filesdomain.ReadyEvent{FileID: file.ID, UserID: file.UserID, Kind: "audio", Status: "ready"}))
 
 	require.Len(t, transcriptions.commands, 1)
 	require.Equal(t, uint(7), transcriptions.commands[0].UserID)
@@ -50,7 +50,7 @@ func TestFileReadyNoOpsWhenRuntimeConfigurationIsMissing(t *testing.T) {
 		transcriptions,
 	)
 
-	require.NoError(t, service.FileReady(context.Background(), filesdomain.ReadyEvent{FileID: file.ID, Kind: "audio", Status: "ready"}))
+	require.NoError(t, service.FileReady(context.Background(), filesdomain.ReadyEvent{FileID: file.ID, UserID: file.UserID, Kind: "audio", Status: "ready"}))
 	require.Empty(t, transcriptions.commands)
 }
 
@@ -67,7 +67,7 @@ func TestFileReadySkipsWhenTranscriptionAlreadyExists(t *testing.T) {
 		transcriptions,
 	)
 
-	require.NoError(t, service.FileReady(context.Background(), filesdomain.ReadyEvent{FileID: file.ID, Kind: "audio", Status: "ready"}))
+	require.NoError(t, service.FileReady(context.Background(), filesdomain.ReadyEvent{FileID: file.ID, UserID: file.UserID, Kind: "audio", Status: "ready"}))
 	require.Empty(t, transcriptions.commands)
 }
 
@@ -81,7 +81,7 @@ func TestFileReadyNoOpsWhenEventDoesNotReferenceReadyFile(t *testing.T) {
 		transcriptions,
 	)
 
-	require.NoError(t, service.FileReady(context.Background(), filesdomain.ReadyEvent{FileID: "transcription-1", Kind: "audio", Status: "ready"}))
+	require.NoError(t, service.FileReady(context.Background(), filesdomain.ReadyEvent{FileID: "transcription-1", UserID: 7, Kind: "audio", Status: "ready"}))
 	require.Empty(t, transcriptions.commands)
 }
 
@@ -91,7 +91,7 @@ type fakeAutomationFiles struct {
 	err                error
 }
 
-func (f *fakeAutomationFiles) FindReadyFileByID(context.Context, string) (*models.TranscriptionJob, error) {
+func (f *fakeAutomationFiles) FindReadyFileByIDForUser(context.Context, string, uint) (*models.TranscriptionJob, error) {
 	return f.file, f.err
 }
 
