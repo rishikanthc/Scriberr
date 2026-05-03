@@ -159,6 +159,29 @@ func TestProcessorCreatesExecutionAndReturnsCanonicalTranscript(t *testing.T) {
 	assertEventStages(t, events.events, []string{"preparing", "transcribing", "diarizing", "merging", "saving", "completed"})
 }
 
+func TestLocalTranscriptStoreWritesPathSafeArtifact(t *testing.T) {
+	outputDir := t.TempDir()
+	store := NewLocalTranscriptStore(outputDir)
+
+	outputPath, err := store.SaveTranscriptJSON(context.Background(), "job-artifact", []byte(`{"text":"hello"}`))
+
+	require.NoError(t, err)
+	assert.Equal(t, filepath.Join(outputDir, "job-artifact", "transcript.json"), outputPath)
+	data, err := os.ReadFile(outputPath)
+	require.NoError(t, err)
+	assert.JSONEq(t, `{"text":"hello"}`, string(data))
+}
+
+func TestLocalTranscriptStoreRejectsTraversalJobID(t *testing.T) {
+	outputDir := t.TempDir()
+	store := NewLocalTranscriptStore(outputDir)
+
+	_, err := store.SaveTranscriptJSON(context.Background(), "../escape", []byte(`{}`))
+
+	require.Error(t, err)
+	assert.NoFileExists(t, filepath.Join(outputDir, "..", "escape", "transcript.json"))
+}
+
 func TestProcessorNormalizesUnsupportedWhisperDecodingMethod(t *testing.T) {
 	db := openOrchestratorTestDB(t)
 	audioPath := filepath.Join(t.TempDir(), "audio.wav")

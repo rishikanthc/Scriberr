@@ -148,7 +148,7 @@ func main() {
 	processor := &orchestrator.Processor{
 		Jobs:      jobRepo,
 		Providers: providerRegistry,
-		OutputDir: cfg.TranscriptsDir,
+		Artifacts: orchestrator.NewLocalTranscriptStore(cfg.TranscriptsDir),
 	}
 	queueService := worker.NewService(jobRepo, processor, worker.Config{
 		Workers:      cfg.Worker.Workers,

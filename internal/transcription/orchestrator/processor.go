@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
@@ -17,8 +16,6 @@ import (
 	"scriberr/internal/transcription/worker"
 	"scriberr/pkg/logger"
 )
-
-const defaultOutputDir = "data/transcripts"
 
 type EventPublisher interface {
 	Publish(ctx context.Context, event ProgressEvent)
@@ -44,6 +41,7 @@ type Processor struct {
 	Providers engineprovider.Registry
 	Events    EventPublisher
 	Logs      JobLogger
+	Artifacts TranscriptStore
 	OutputDir string
 }
 
@@ -179,7 +177,7 @@ func (p *Processor) Process(ctx context.Context, job *models.TranscriptionJob) (
 	if err := p.publishProgress(ctx, job, "saving", 0.95, models.StatusProcessing); err != nil {
 		return canceledResult(), err
 	}
-	outputPath, err := p.writeTranscriptJSON(job.ID, transcriptJSON)
+	outputPath, err := p.transcriptStore().SaveTranscriptJSON(ctx, job.ID, transcriptJSON)
 	if err != nil {
 		message := sanitizeErrorMessage(err)
 		return failedResult(message), err
@@ -266,20 +264,11 @@ func (p *Processor) errorResult(ctx context.Context, err error) (worker.ProcessR
 	return failedResult(message), err
 }
 
-func (p *Processor) writeTranscriptJSON(jobID string, transcriptJSON []byte) (string, error) {
-	outputDir := p.OutputDir
-	if outputDir == "" {
-		outputDir = defaultOutputDir
+func (p *Processor) transcriptStore() TranscriptStore {
+	if p.Artifacts != nil {
+		return p.Artifacts
 	}
-	jobDir := filepath.Join(outputDir, jobID)
-	if err := os.MkdirAll(jobDir, 0o755); err != nil {
-		return "", err
-	}
-	outputPath := filepath.Join(jobDir, "transcript.json")
-	if err := os.WriteFile(outputPath, transcriptJSON, 0o600); err != nil {
-		return "", err
-	}
-	return outputPath, nil
+	return NewLocalTranscriptStore(p.OutputDir)
 }
 
 func executionConfigJSON(providerID, transcriptionModel, diarizationModel string) string {

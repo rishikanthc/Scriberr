@@ -2,7 +2,7 @@
 
 This tracker belongs to `devnotes/v2.0.0/sprint-plans/backend-architecture-refactor-sprint-plan.md`.
 
-Status: completed through Sprint 1.
+Status: completed through Sprint 2.
 
 ## Run Rules
 
@@ -83,34 +83,38 @@ Commit:
 
 ## Sprint 2: Storage Boundary Consolidation
 
-Status: planned
+Status: completed
 
-Planned tasks:
+Completed tasks:
 
-- [ ] Define local artifact storage interface.
-- [ ] Move transcript JSON write/open policy out of the orchestrator.
-- [ ] Add path traversal and path-leak regression tests.
-- [ ] Preserve existing on-disk layout and API behavior.
+- [x] Define local artifact storage interface.
+- [x] Move transcript JSON write policy out of the processor and behind the orchestrator artifact boundary.
+- [x] Add path traversal and path-leak regression tests.
+- [x] Preserve existing on-disk layout and API behavior.
 
 Acceptance checks:
 
-- [ ] Handlers do not construct durable storage paths.
-- [ ] Processor uses storage/artifact dependency for transcript output.
-- [ ] Audio streaming and transcript retrieval remain stable.
+- [x] Handlers do not construct transcript artifact storage paths.
+- [x] Processor uses storage/artifact dependency for transcript output.
+- [x] Audio streaming and transcript retrieval remain stable in focused API and package tests.
 
 Verification:
 
-- [ ] `GOCACHE=/Users/zade/Code/asr/Scriberr/.tmp/go-build go test ./internal/files ./internal/recording ./internal/transcription/... ./internal/api`
-- [ ] `git diff --check`
+- [x] `GOCACHE=/Users/zade/Code/asr/Scriberr/.tmp/go-build go test ./internal/files ./internal/recording ./internal/transcription/... ./cmd/server`
+- [x] `GOCACHE=/Users/zade/Code/asr/Scriberr/.tmp/go-build go test ./internal/api -run 'Test.*ResponseDTO|TestRepresentativeResponseShapes|TestCanonicalRouteRegistration|TestEndpointContractSmoke|TestProductionAPIDatabaseAccessInventory|TestBackendDependencyDirection'`
+- [x] `git diff --check`
 
 Artifacts:
 
-- Storage/artifact boundary files.
+- `internal/transcription/orchestrator/artifact_store.go`
+- `internal/transcription/orchestrator/processor.go`
+- `internal/transcription/orchestrator/processor_test.go`
+- `cmd/server/main.go`
 - `devnotes/v2.0.0/status-updates/backend-architecture-refactor-sprint-02-storage-boundary.md`
 
 Commit:
 
-- [ ] `backend: consolidate storage boundary`
+- [x] `backend: consolidate transcript artifact storage`
 
 ## Sprint 3: Repository Interface Narrowing
 
