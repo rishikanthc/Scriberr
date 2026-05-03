@@ -216,6 +216,45 @@ func TestProcessorNormalizesUnsupportedWhisperDecodingMethod(t *testing.T) {
 	require.Equal(t, "greedy_search", provider.transReq.DecodingMethod)
 }
 
+func TestProcessorUsesExplicitEngineProviderSelection(t *testing.T) {
+	db := openOrchestratorTestDB(t)
+	audioPath := filepath.Join(t.TempDir(), "audio.wav")
+	require.NoError(t, os.WriteFile(audioPath, []byte("fake wav"), 0o600))
+	engineID := "remote"
+	job := createOrchestratorJob(t, db, audioPath, models.WhisperXParams{Model: "remote-model"})
+	job.EngineID = &engineID
+	require.NoError(t, db.Model(&models.TranscriptionJob{}).Where("id = ?", job.ID).Update("engine_id", engineID).Error)
+	local := &fakeProvider{
+		id: "local",
+		transcribe: &engineprovider.TranscriptionResult{
+			Text: "local",
+		},
+	}
+	remote := &fakeProvider{
+		id: "remote",
+		transcribe: &engineprovider.TranscriptionResult{
+			Text:    "remote",
+			ModelID: "remote-model",
+		},
+	}
+	registry, err := engineprovider.NewRegistry("local", local, remote)
+	require.NoError(t, err)
+	processor := &Processor{
+		Jobs:      repository.NewJobRepository(db),
+		Providers: registry,
+		Events:    &recordingEvents{},
+		OutputDir: t.TempDir(),
+	}
+
+	result, err := processor.Process(context.Background(), &job)
+
+	require.NoError(t, err)
+	require.Equal(t, models.StatusCompleted, result.Status)
+	assert.Empty(t, local.transReq.JobID)
+	assert.Equal(t, job.ID, remote.transReq.JobID)
+	assert.Equal(t, "remote-model", remote.transReq.ModelID)
+}
+
 func TestProcessorReturnsSanitizedFailure(t *testing.T) {
 	db := openOrchestratorTestDB(t)
 	audioPath := filepath.Join(t.TempDir(), "audio.wav")

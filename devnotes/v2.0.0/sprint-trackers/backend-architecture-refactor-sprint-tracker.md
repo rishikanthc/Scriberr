@@ -2,7 +2,7 @@
 
 This tracker belongs to `devnotes/v2.0.0/sprint-plans/backend-architecture-refactor-sprint-plan.md`.
 
-Status: completed through Sprint 4.
+Status: completed through Sprint 5.
 
 ## Run Rules
 
@@ -189,34 +189,39 @@ Commit:
 
 ## Sprint 5: Provider Capability Selection
 
-Status: planned
+Status: completed
 
-Planned tasks:
+Completed tasks:
 
-- [ ] Add provider selector tests with fake providers.
-- [ ] Implement explicit provider/model selection with capability fallback.
-- [ ] Keep `local` default behavior stable.
-- [ ] Route orchestrator provider resolution through selector.
+- [x] Add provider selector tests with fake providers.
+- [x] Implement explicit provider/model selection with capability fallback.
+- [x] Keep `local` default behavior stable.
+- [x] Route orchestrator provider resolution through selector.
 
 Acceptance checks:
 
-- [ ] Adding a second provider does not affect handlers, repositories, or queue code.
-- [ ] Provider list and selection behavior are deterministic.
-- [ ] Provider errors remain sanitized.
+- [x] Adding a second provider does not affect handlers, repositories, or queue code.
+- [x] Provider list and selection behavior are deterministic.
+- [x] Provider errors remain sanitized.
 
 Verification:
 
-- [ ] `GOCACHE=/Users/zade/Code/asr/Scriberr/.tmp/go-build go test ./internal/transcription/engineprovider ./internal/transcription/orchestrator`
-- [ ] `git diff --check`
+- [x] `GOCACHE=/Users/zade/Code/asr/Scriberr/.tmp/go-build go test ./internal/transcription/... ./cmd/server`
+- [x] `GOCACHE=/Users/zade/Code/asr/Scriberr/.tmp/go-build go test ./internal/api -run 'Test.*ResponseDTO|TestRepresentativeResponseShapes|TestCanonicalRouteRegistration|TestEndpointContractSmoke|TestProductionAPIDatabaseAccessInventory|TestBackendDependencyDirection'`
+- [x] `git diff --check`
 
 Artifacts:
 
-- Provider selector implementation and tests.
+- `internal/transcription/engineprovider/types.go`
+- `internal/transcription/engineprovider/registry.go`
+- `internal/transcription/engineprovider/registry_test.go`
+- `internal/transcription/orchestrator/processor.go`
+- `internal/transcription/orchestrator/processor_test.go`
 - `devnotes/v2.0.0/status-updates/backend-architecture-refactor-sprint-05-provider-selection.md`
 
 Commit:
 
-- [ ] `backend: add provider capability selection`
+- [x] `backend: add provider capability selection`
 
 ## Sprint 6: Event Boundary Hardening
 

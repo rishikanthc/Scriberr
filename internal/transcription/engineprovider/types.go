@@ -21,6 +21,7 @@ type Registry interface {
 	DefaultProvider() Provider
 	Provider(id string) (Provider, bool)
 	Capabilities(ctx context.Context) ([]ModelCapability, error)
+	Select(ctx context.Context, req SelectionRequest) (Provider, *ModelCapability, error)
 }
 
 type ModelCapability struct {
@@ -30,6 +31,12 @@ type ModelCapability struct {
 	Installed    bool
 	Default      bool
 	Capabilities []string
+}
+
+type SelectionRequest struct {
+	ProviderID string
+	ModelID    string
+	Requires   []string
 }
 
 type TranscriptionRequest struct {

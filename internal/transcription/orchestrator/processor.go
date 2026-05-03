@@ -193,17 +193,16 @@ func (p *Processor) Process(ctx context.Context, job *models.TranscriptionJob) (
 }
 
 func (p *Processor) resolveProvider(job *models.TranscriptionJob) (engineprovider.Provider, string, error) {
+	req := engineprovider.SelectionRequest{}
 	if job.EngineID != nil && strings.TrimSpace(*job.EngineID) != "" {
-		providerID := strings.TrimSpace(*job.EngineID)
-		provider, ok := p.Providers.Provider(providerID)
-		if !ok {
-			return nil, "", fmt.Errorf("engine provider %q is not available", providerID)
-		}
-		return provider, providerID, nil
+		req.ProviderID = strings.TrimSpace(*job.EngineID)
 	}
-	provider := p.Providers.DefaultProvider()
+	provider, _, err := p.Providers.Select(context.Background(), req)
+	if err != nil {
+		return nil, "", err
+	}
 	if provider == nil {
-		return nil, "", fmt.Errorf("default engine provider is not available")
+		return nil, "", fmt.Errorf("selected engine provider is not available")
 	}
 	return provider, provider.ID(), nil
 }
