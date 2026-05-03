@@ -2,7 +2,7 @@
 
 This tracker belongs to `devnotes/v2.0.0/sprint-plans/backend-architecture-review-remediation-sprint-plan.md`.
 
-Status: Sprint 13 complete. Follow-up Sprint 14 planned from second backend architecture review.
+Status: Sprint 14 complete. Second backend architecture review remediation complete.
 
 ## Run Rules
 
@@ -31,7 +31,7 @@ Status: Sprint 13 complete. Follow-up Sprint 14 planned from second backend arch
 | User status and disabled-user enforcement are absent | High | Sprint 9 | complete |
 | Admin user-management API is not implemented | High | Sprint 10 | complete |
 | Settings remain in `users.settings_json` instead of relational settings tables | Medium | Sprint 11, Sprint 12 | complete |
-| API response mapping still touches local file paths | Medium | Sprint 14 | planned |
+| API response mapping still touches local file paths | Medium | Sprint 14 | complete |
 
 ## Sprint 0: Baseline, Guard Plan, And Review Anchors
 
@@ -649,7 +649,7 @@ Commit:
 
 ## Sprint 14: File Metadata And Storage Boundary Cleanup
 
-Status: planned
+Status: complete
 
 Addresses:
 
@@ -657,27 +657,27 @@ Addresses:
 
 TDD and scope checks:
 
-- [ ] Add failing architecture guard for API file response filesystem access.
-- [ ] Add failing tests for file metadata responses without direct path probing.
-- [ ] Move size/kind/MIME metadata lookup behind `internal/files`.
-- [ ] Prefer persisted metadata over filesystem probing for list/get responses.
-- [ ] Keep audio streaming ownership checks in the file service path.
-- [ ] Ensure public file DTOs remain path-free.
-- [ ] Write status note `backend-architecture-review-remediation-sprint-14-file-metadata-boundary.md`.
+- [x] Add failing architecture guard for API file response filesystem access.
+- [x] Add failing tests for file metadata responses without direct path probing.
+- [x] Move size/kind/MIME metadata lookup behind `internal/files`.
+- [x] Prefer persisted metadata over filesystem probing for list/get responses.
+- [x] Keep audio streaming ownership checks in the file service path.
+- [x] Ensure public file DTOs remain path-free.
+- [x] Write status note `backend-architecture-review-remediation-sprint-14-file-metadata-boundary.md`.
 
 Acceptance checks:
 
-- [ ] `internal/api/response_models.go` no longer imports `os` for file metadata.
-- [ ] API code does not construct or inspect local file paths for DTO mapping.
-- [ ] File list/get response shape remains stable.
-- [ ] Missing physical files do not leak local paths.
-- [ ] Audio streaming still checks database ownership before opening storage.
+- [x] `internal/api/response_models.go` no longer imports `os` for file metadata.
+- [x] API code does not construct or inspect local file paths for DTO mapping.
+- [x] File list/get response shape remains stable.
+- [x] Missing physical files do not leak local paths.
+- [x] Audio streaming still checks database ownership before opening storage.
 
 Verification:
 
-- [ ] `GOCACHE=/private/tmp/scriberr-go-cache go test ./internal/files ./internal/api -run 'TestFile|TestResponse|TestProduction|TestBackendDependencyDirection'`
-- [ ] `GOCACHE=/private/tmp/scriberr-go-cache go test ./internal/recording ./internal/mediaimport ./internal/transcription/orchestrator`
-- [ ] `git diff --check`
+- [x] `GOCACHE=/private/tmp/scriberr-go-cache go test ./internal/files ./internal/api -run 'TestFile|TestResponse|TestProduction|TestBackendDependencyDirection'`
+- [x] `GOCACHE=/private/tmp/scriberr-go-cache go test ./internal/recording ./internal/mediaimport ./internal/transcription/orchestrator`
+- [x] `git diff --check`
 
 Artifacts:
 
@@ -689,4 +689,4 @@ Artifacts:
 
 Commit:
 
-- [ ] `backend: keep file metadata behind service boundary`
+- [x] `backend: keep file metadata behind service boundary`
