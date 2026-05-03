@@ -15,7 +15,7 @@ import (
 )
 
 func TestCanonicalRouteRegistration(t *testing.T) {
-	engine := SetupRoutes(NewHandler(&config.Config{Environment: "test"}, auth.NewAuthService("test-secret")), nil)
+	engine := SetupRoutes(NewHandler(&config.Config{Environment: "test"}, auth.NewAuthService("test-secret"), HandlerDependencies{}), nil)
 
 	registered := map[string]bool{}
 	for _, route := range engine.Routes() {

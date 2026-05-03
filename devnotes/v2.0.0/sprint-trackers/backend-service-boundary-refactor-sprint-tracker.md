@@ -2,7 +2,7 @@
 
 This tracker belongs to `devnotes/v2.0.0/sprint-plans/backend-service-boundary-refactor-sprint-plan.md`.
 
-Status: in progress. Sprint 0 is complete; Sprint 1 is pending.
+Status: in progress. Sprints 0 and 1 are complete; Sprint 2 is pending.
 
 ## Sprint 0: Inventory, Dependency Map, and Stop-The-Line Guard
 
@@ -36,34 +36,39 @@ Artifacts:
 
 ## Sprint 1: Composition Root and Handler Dependency Injection
 
-Status: pending
+Status: completed
 
-Planned tasks:
+Completed tasks:
 
-- [ ] Define narrow API-facing service interfaces consumed by handlers.
-- [ ] Update `Handler` to receive required services explicitly.
-- [ ] Remove fallback repository construction from `api.NewHandler`.
-- [ ] Wire concrete services from `cmd/server/main.go`.
-- [ ] Update API test server setup to inject dependencies intentionally.
-- [ ] Keep event publisher interfaces narrow and explicit.
+- [x] Define narrow API-facing service interfaces consumed by handlers.
+- [x] Update `Handler` to receive required services explicitly.
+- [x] Remove fallback repository construction from `api.NewHandler`.
+- [x] Wire concrete services from `cmd/server/main.go`.
+- [x] Update API test server setup to inject dependencies intentionally.
+- [x] Keep event publisher interfaces narrow and explicit.
 
 Acceptance checks:
 
-- [ ] `api.NewHandler` no longer constructs repositories from `database.DB`.
-- [ ] Test setup owns handler dependencies.
-- [ ] No public API behavior changes.
+- [x] `api.NewHandler` no longer constructs repositories from `database.DB`.
+- [x] Test setup owns handler dependencies.
+- [x] No public API behavior changes in focused route/API smoke coverage.
 
 Verification:
 
-- [ ] `GOCACHE=/Users/zade/Code/asr/Scriberr/.tmp/go-build go test ./internal/api`
-- [ ] `GOCACHE=/Users/zade/Code/asr/Scriberr/.tmp/go-build go test ./cmd/server`
-- [ ] `git diff --check`
+- [x] `GOCACHE=/Users/zade/Code/asr/Scriberr/.tmp/go-build go test ./internal/api -run 'TestProductionAPIDatabaseAccessInventory|TestCanonicalRouteRegistration|TestEndpointContractSmoke'`
+- [x] `GOCACHE=/Users/zade/Code/asr/Scriberr/.tmp/go-build go test ./cmd/server`
+- [x] `git diff --check`
+
+Notes:
+
+- Full `go test ./internal/api` was blocked by sandbox loopback restrictions in an LLM provider test that starts `httptest.NewServer`.
 
 Artifacts:
 
 - `internal/api/router.go`
 - `cmd/server/main.go`
 - API test setup files.
+- `devnotes/v2.0.0/status-updates/backend-service-boundary-sprint-01-composition-notes.md`
 
 ## Sprint 2: Account and Settings Services
 

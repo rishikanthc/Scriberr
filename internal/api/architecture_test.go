@@ -26,7 +26,6 @@ func TestProductionAPIDatabaseAccessInventory(t *testing.T) {
 		"middleware.go",
 		"profile_handlers.go",
 		"recording_handlers.go",
-		"router.go",
 		"settings_handlers.go",
 		"summary_handlers.go",
 		"summary_widget_handlers.go",

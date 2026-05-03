@@ -23,8 +23,7 @@ func newTestRouter(t *testing.T, ready func() error) http.Handler {
 	handler := NewHandler(&config.Config{
 		Environment:    "test",
 		AllowedOrigins: []string{"http://localhost:5173"},
-	}, authService)
-	handler.readinessCheck = ready
+	}, authService, HandlerDependencies{ReadinessCheck: ready})
 
 	return SetupRoutes(handler, authService)
 }

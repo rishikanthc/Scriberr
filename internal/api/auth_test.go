@@ -13,10 +13,14 @@ import (
 	"testing"
 	"time"
 
+	"scriberr/internal/annotations"
 	"scriberr/internal/auth"
 	"scriberr/internal/config"
 	"scriberr/internal/database"
 	"scriberr/internal/models"
+	recordingdomain "scriberr/internal/recording"
+	"scriberr/internal/repository"
+	"scriberr/internal/tags"
 	"scriberr/pkg/logger"
 
 	"github.com/stretchr/testify/require"
@@ -40,7 +44,7 @@ func newAuthTestServer(t *testing.T) *authTestServer {
 
 	authService := auth.NewAuthService("test-secret")
 	uploadDir := filepath.Join(t.TempDir(), "uploads")
-	handler := NewHandler(&config.Config{
+	cfg := &config.Config{
 		Environment: "test",
 		UploadDir:   uploadDir,
 		Recordings: config.RecordingConfig{
@@ -50,8 +54,24 @@ func newAuthTestServer(t *testing.T) *authTestServer {
 			SessionTTL:       time.Hour,
 			AllowedMimeTypes: []string{"audio/webm;codecs=opus", "audio/webm"},
 		},
-	}, authService)
-	handler.readinessCheck = func() error { return nil }
+	}
+	jobRepo := repository.NewJobRepository(database.DB)
+	annotationService := annotations.NewService(repository.NewAnnotationRepository(database.DB), jobRepo)
+	tagService := tags.NewService(repository.NewTagRepository(database.DB), jobRepo)
+	recordingStorage, err := recordingdomain.NewStorage(cfg.Recordings.Dir)
+	require.NoError(t, err)
+	recordingService := recordingdomain.NewService(repository.NewRecordingRepository(database.DB), recordingStorage, recordingdomain.Config{
+		MaxChunkBytes:    cfg.Recordings.MaxChunkBytes,
+		MaxDuration:      cfg.Recordings.MaxDuration,
+		SessionTTL:       cfg.Recordings.SessionTTL,
+		AllowedMimeTypes: cfg.Recordings.AllowedMimeTypes,
+	})
+	handler := NewHandler(cfg, authService, HandlerDependencies{
+		ReadinessCheck: func() error { return nil },
+		Annotations:    annotationService,
+		Tags:           tagService,
+		Recordings:     recordingService,
+	})
 	youtubeImporter := &fakeYouTubeImporter{block: make(chan struct{})}
 	handler.youtubeImporter = youtubeImporter
 	t.Cleanup(func() {

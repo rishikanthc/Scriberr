@@ -11,12 +11,10 @@ import (
 	"scriberr/internal/annotations"
 	"scriberr/internal/auth"
 	"scriberr/internal/config"
-	"scriberr/internal/database"
 	"scriberr/internal/llm"
 	"scriberr/internal/mediaimport"
 	"scriberr/internal/models"
 	recordingdomain "scriberr/internal/recording"
-	"scriberr/internal/repository"
 	"scriberr/internal/summarization"
 	"scriberr/internal/tags"
 	"scriberr/internal/transcription/engineprovider"
@@ -49,14 +47,24 @@ type Handler struct {
 	chatLLMFactory  func(*models.LLMConfig) (llm.Service, error)
 }
 
-func NewHandler(cfg *config.Config, authService *auth.AuthService, services ...any) *Handler {
+type HandlerDependencies struct {
+	ReadinessCheck func() error
+	Queue          worker.QueueService
+	ModelRegistry  engineprovider.Registry
+	Annotations    *annotations.Service
+	Tags           *tags.Service
+	Recordings     *recordingdomain.Service
+	Finalizer      interface{ Notify() }
+}
+
+func NewHandler(cfg *config.Config, authService *auth.AuthService, deps HandlerDependencies) *Handler {
 	if cfg == nil {
 		cfg = &config.Config{}
 	}
 	handler := &Handler{
 		config:          cfg,
 		authService:     authService,
-		readinessCheck:  database.HealthCheck,
+		readinessCheck:  deps.ReadinessCheck,
 		idempotency:     newIdempotencyStore(),
 		events:          newEventBroker(),
 		youtubeImporter: mediaimport.YTDLPImporter{},
@@ -64,46 +72,21 @@ func NewHandler(cfg *config.Config, authService *auth.AuthService, services ...a
 		eventHeartbeat:  25 * time.Second,
 		maxUploadBytes:  defaultMaxUploadSizeBytes,
 		chatLLMFactory:  chatClientForConfig,
+		queueService:    deps.Queue,
+		modelRegistry:   deps.ModelRegistry,
+		annotations:     deps.Annotations,
+		tags:            deps.Tags,
+		recordings:      deps.Recordings,
+		finalizer:       deps.Finalizer,
 	}
-	for _, service := range services {
-		switch value := service.(type) {
-		case worker.QueueService:
-			handler.queueService = value
-		case engineprovider.Registry:
-			handler.modelRegistry = value
-		case *annotations.Service:
-			handler.annotations = value
-		case *tags.Service:
-			handler.tags = value
-		case *recordingdomain.Service:
-			handler.recordings = value
-		case interface{ Notify() }:
-			handler.finalizer = value
-		}
-	}
-	if handler.annotations == nil && database.DB != nil {
-		handler.annotations = annotations.NewService(repository.NewAnnotationRepository(database.DB), repository.NewJobRepository(database.DB))
+	if handler.annotations != nil {
 		handler.annotations.SetEventPublisher(handler)
 	}
-	if handler.tags == nil && database.DB != nil {
-		handler.tags = tags.NewService(repository.NewTagRepository(database.DB), repository.NewJobRepository(database.DB))
+	if handler.tags != nil {
 		handler.tags.SetEventPublisher(handler)
 	}
-	if handler.recordings == nil && database.DB != nil {
-		recordingDir := handler.config.Recordings.Dir
-		if recordingDir == "" {
-			recordingDir = "data/recordings"
-		}
-		storage, err := recordingdomain.NewStorage(recordingDir)
-		if err == nil {
-			handler.recordings = recordingdomain.NewService(repository.NewRecordingRepository(database.DB), storage, recordingdomain.Config{
-				MaxChunkBytes:    handler.config.Recordings.MaxChunkBytes,
-				MaxDuration:      handler.config.Recordings.MaxDuration,
-				SessionTTL:       handler.config.Recordings.SessionTTL,
-				AllowedMimeTypes: handler.config.Recordings.AllowedMimeTypes,
-			})
-			handler.recordings.SetEventPublisher(handler)
-		}
+	if handler.recordings != nil {
+		handler.recordings.SetEventPublisher(handler)
 	}
 	return handler
 }

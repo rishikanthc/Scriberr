@@ -18,6 +18,7 @@ import (
 	recordingdomain "scriberr/internal/recording"
 	"scriberr/internal/repository"
 	"scriberr/internal/summarization"
+	"scriberr/internal/tags"
 	"scriberr/internal/transcription/engineprovider"
 	"scriberr/internal/transcription/orchestrator"
 	"scriberr/internal/transcription/worker"
@@ -116,6 +117,7 @@ func main() {
 	llmConfigRepo := repository.NewLLMConfigRepository(database.DB)
 	recordingRepo := repository.NewRecordingRepository(database.DB)
 	profileRepo := repository.NewProfileRepository(database.DB)
+	tagRepo := repository.NewTagRepository(database.DB)
 
 	// Initialize local engine provider. This must not download models at startup.
 	logger.Startup("engine", "Initializing local engine provider")
@@ -143,6 +145,7 @@ func main() {
 	})
 	summaryService := summarization.NewService(summaryRepo, llmConfigRepo, jobRepo, summarization.Config{})
 	annotationService := annotations.NewService(annotationRepo, jobRepo)
+	tagService := tags.NewService(tagRepo, jobRepo)
 	recordingStorage, err := recordingdomain.NewStorage(cfg.Recordings.Dir)
 	if err != nil {
 		logger.Error("Failed to initialize recording storage", "error", err)
@@ -165,13 +168,19 @@ func main() {
 	recordingFinalizer.SetTranscriptionEnqueuer(queueService)
 
 	// Initialize API handlers
-	handler := api.NewHandler(cfg, authService, queueService, providerRegistry, annotationService, recordingService, recordingFinalizer)
+	handler := api.NewHandler(cfg, authService, api.HandlerDependencies{
+		ReadinessCheck: database.HealthCheck,
+		Queue:          queueService,
+		ModelRegistry:  providerRegistry,
+		Annotations:    annotationService,
+		Tags:           tagService,
+		Recordings:     recordingService,
+		Finalizer:      recordingFinalizer,
+	})
 	processor.Events = handler
 	queueService.SetEventPublisher(handler)
 	queueService.SetCompletionObserver(worker.CompletionObservers{summaryService, annotationService})
 	summaryService.SetEventPublisher(handler)
-	annotationService.SetEventPublisher(handler)
-	recordingService.SetEventPublisher(handler)
 	recordingFinalizer.SetEventPublisher(handler)
 
 	// Set up router
