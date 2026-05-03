@@ -475,10 +475,12 @@ function AudioListPage({ tagId }: { tagId?: string }) {
                 ))}
               </section>
             ) : (
-              <EmptyState
-                title={tagId ? "No audio for this tag" : "No recordings yet"}
-                description={tagId ? "Audio assigned to this tag will appear here." : "Uploaded audio files will appear here."}
-              />
+              <section className="scr-recording-list">
+                <EmptyState
+                  title={tagId ? "No audio for this tag" : "No recordings yet"}
+                  description={tagId ? "Audio assigned to this tag will appear here." : "Uploaded audio files will appear here."}
+                />
+              </section>
             )}
           </div>
         </main>

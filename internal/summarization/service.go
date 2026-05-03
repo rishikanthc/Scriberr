@@ -459,6 +459,9 @@ func (s *Service) processSummary(ctx context.Context, summary *models.Summary) e
 	if err := s.generateTitleForSummary(context.Background(), summary, content); err != nil {
 		logger.Error("Automatic title generation failed", "summary_id", summary.ID, "transcription_id", summary.TranscriptionID, "error", err)
 	}
+	if err := s.generateDescriptionForSummary(context.Background(), summary); err != nil {
+		logger.Error("Automatic description generation failed", "summary_id", summary.ID, "transcription_id", summary.TranscriptionID, "error", err)
+	}
 	return nil
 }
 
