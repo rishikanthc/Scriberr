@@ -182,6 +182,32 @@ func TestLocalTranscriptStoreRejectsTraversalJobID(t *testing.T) {
 	assert.NoFileExists(t, filepath.Join(outputDir, "..", "escape", "transcript.json"))
 }
 
+func TestLocalTranscriptStoreRequiresOutputDir(t *testing.T) {
+	store := NewLocalTranscriptStore("")
+
+	_, err := store.SaveTranscriptJSON(context.Background(), "job-artifact", []byte(`{}`))
+
+	require.Error(t, err)
+}
+
+func TestLocalExecutionLogStoreReadsOnlyWithinRoot(t *testing.T) {
+	root := t.TempDir()
+	logPath := filepath.Join(root, "job", "execution.log")
+	require.NoError(t, os.MkdirAll(filepath.Dir(logPath), 0o755))
+	require.NoError(t, os.WriteFile(logPath, []byte("hello\n"), 0o600))
+	store := NewLocalExecutionLogStore(root)
+
+	text, err := store.ReadExecutionLog(context.Background(), models.TranscriptionJobExecution{LogsPath: &logPath})
+
+	require.NoError(t, err)
+	assert.Equal(t, "hello\n", text)
+
+	outside := filepath.Join(t.TempDir(), "execution.log")
+	require.NoError(t, os.WriteFile(outside, []byte("secret"), 0o600))
+	_, err = store.ReadExecutionLog(context.Background(), models.TranscriptionJobExecution{LogsPath: &outside})
+	require.Error(t, err)
+}
+
 func TestProcessorNormalizesUnsupportedWhisperDecodingMethod(t *testing.T) {
 	db := openOrchestratorTestDB(t)
 	audioPath := filepath.Join(t.TempDir(), "audio.wav")

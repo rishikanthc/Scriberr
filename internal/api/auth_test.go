@@ -31,6 +31,7 @@ import (
 	"scriberr/internal/summarization"
 	"scriberr/internal/tags"
 	transcriptiondomain "scriberr/internal/transcription"
+	"scriberr/internal/transcription/orchestrator"
 	"scriberr/pkg/logger"
 
 	"github.com/stretchr/testify/require"
@@ -94,6 +95,7 @@ func newAuthTestServer(t *testing.T) *authTestServer {
 	})
 	transcriptionService := transcriptiondomain.NewService(jobRepo, profileRepo, nil)
 	transcriptionService.SetAudioStore(fileService)
+	transcriptionService.SetExecutionLogStore(orchestrator.NewLocalExecutionLogStore(cfg.TranscriptsDir))
 	summaryService := summarization.NewService(repository.NewSummaryRepository(database.DB), llmConfigRepo, jobRepo, summarization.Config{})
 	chatService := chatdomain.NewService(repository.NewChatRepository(database.DB), llmConfigRepo)
 	postFileAutomation := automation.NewService(jobRepo, repository.NewUserRepository(database.DB), profileRepo, llmConfigRepo, transcriptionService)

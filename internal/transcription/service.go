@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"strings"
 	"time"
@@ -67,11 +68,16 @@ type AudioStore interface {
 	OpenJobAudio(ctx context.Context, job *models.TranscriptionJob) (*os.File, error)
 }
 
+type ExecutionLogStore interface {
+	ReadExecutionLog(ctx context.Context, execution models.TranscriptionJobExecution) (string, error)
+}
+
 type Service struct {
 	jobs     JobStore
 	profiles ProfileStore
 	queue    Queue
 	audio    AudioStore
+	logs     ExecutionLogStore
 }
 
 type CreateCommand struct {
@@ -113,6 +119,10 @@ func (s *Service) SetQueue(queue Queue) {
 
 func (s *Service) SetAudioStore(audio AudioStore) {
 	s.audio = audio
+}
+
+func (s *Service) SetExecutionLogStore(logs ExecutionLogStore) {
+	s.logs = logs
 }
 
 func (s *Service) Create(ctx context.Context, cmd CreateCommand) (*models.TranscriptionJob, error) {
@@ -353,13 +363,13 @@ func (s *Service) Logs(ctx context.Context, userID uint, id string) (string, err
 		if execution.ErrorMessage != nil && *execution.ErrorMessage != "" {
 			fmt.Fprintf(&out, "error=%s\n", *execution.ErrorMessage)
 		}
-		if execution.LogsPath != nil && *execution.LogsPath != "" {
-			if data, err := os.ReadFile(*execution.LogsPath); err == nil {
-				out.Write(data)
+		if s.logs != nil && execution.LogsPath != nil && *execution.LogsPath != "" {
+			if data, err := s.logs.ReadExecutionLog(ctx, execution); err == nil {
+				out.WriteString(data)
 				if !strings.HasSuffix(out.String(), "\n") {
 					out.WriteByte('\n')
 				}
-			} else if !errors.Is(err, os.ErrNotExist) {
+			} else if !errors.Is(err, ErrNotFound) && !errors.Is(err, fs.ErrNotExist) {
 				return "", err
 			}
 		}
