@@ -16,6 +16,8 @@ const providerTimeout = 10 * time.Second
 var (
 	ErrEmptyMessage     = errors.New("chat message content is required")
 	ErrModelUnavailable = errors.New("chat model is not available")
+	ErrNotFound         = errors.New("chat resource not found")
+	ErrProviderMissing  = errors.New("llm provider is not configured")
 	publicPathPattern   = regexp.MustCompile(`(?:[A-Za-z]:\\|/)[^\s:;,'")]+`)
 	publicAPIKeyPattern = regexp.MustCompile(`(?i)\b([A-Za-z0-9_]*(?:token|api_key|apikey)[A-Za-z0-9_]*)=[^\s]+`)
 )

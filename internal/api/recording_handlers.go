@@ -12,7 +12,6 @@ import (
 	recordingdomain "scriberr/internal/recording"
 
 	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 )
 
 const statusClientClosedRequest = 499
@@ -286,7 +285,7 @@ func writeRecordingServiceError(c *gin.Context, err error) {
 	switch {
 	case errors.Is(err, recordingdomain.ErrValidation):
 		writeError(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", validationMessage(err), nil)
-	case errors.Is(err, recordingdomain.ErrNotFound), errors.Is(err, gorm.ErrRecordNotFound):
+	case errors.Is(err, recordingdomain.ErrNotFound):
 		writeError(c, http.StatusNotFound, "NOT_FOUND", "recording not found", nil)
 	case errors.Is(err, recordingdomain.ErrConflict):
 		writeError(c, http.StatusConflict, "CONFLICT", "recording state conflict", nil)

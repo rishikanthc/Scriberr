@@ -2,10 +2,13 @@ package chat
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"scriberr/internal/models"
 	"scriberr/internal/repository"
+
+	"gorm.io/gorm"
 )
 
 type Service struct {
@@ -19,15 +22,19 @@ func NewService(repo repository.ChatRepository, llmConfigs repository.LLMConfigR
 }
 
 func (s *Service) ActiveLLMConfig(ctx context.Context, userID uint) (*models.LLMConfig, error) {
-	return s.llmConfigs.GetActiveByUser(ctx, userID)
+	config, err := s.llmConfigs.GetActiveByUser(ctx, userID)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, ErrProviderMissing
+	}
+	return config, err
 }
 
 func (s *Service) CreateSession(ctx context.Context, session *models.ChatSession) error {
 	if err := s.repo.CreateSession(ctx, session); err != nil {
-		return err
+		return chatNotFound(err)
 	}
 	_, err := NewContextBuilder(s.repo, ApproxTokenEstimator{}).AddParentSource(ctx, session.UserID, session.ID)
-	return err
+	return chatNotFound(err)
 }
 
 func (s *Service) ListSessions(ctx context.Context, userID uint, parentID string) ([]models.ChatSession, error) {
@@ -36,15 +43,19 @@ func (s *Service) ListSessions(ctx context.Context, userID uint, parentID string
 }
 
 func (s *Service) GetSession(ctx context.Context, userID uint, sessionID string) (*models.ChatSession, error) {
-	return s.repo.FindSessionForUser(ctx, userID, sessionID)
+	session, err := s.repo.FindSessionForUser(ctx, userID, sessionID)
+	if err != nil {
+		return nil, chatNotFound(err)
+	}
+	return session, nil
 }
 
 func (s *Service) UpdateSession(ctx context.Context, session *models.ChatSession) error {
-	return s.repo.UpdateSession(ctx, session)
+	return chatNotFound(s.repo.UpdateSession(ctx, session))
 }
 
 func (s *Service) DeleteSession(ctx context.Context, userID uint, sessionID string) error {
-	return s.repo.DeleteSession(ctx, userID, sessionID)
+	return chatNotFound(s.repo.DeleteSession(ctx, userID, sessionID))
 }
 
 func (s *Service) ListMessages(ctx context.Context, userID uint, sessionID string, limit int) ([]models.ChatMessage, error) {
@@ -59,21 +70,25 @@ func (s *Service) ListContextSources(ctx context.Context, userID uint, sessionID
 func (s *Service) AddTranscriptSource(ctx context.Context, userID uint, sessionID string, transcriptionID string) (*models.ChatContextSource, error) {
 	mutation, err := NewContextBuilder(s.repo, ApproxTokenEstimator{}).AddTranscriptSource(ctx, userID, sessionID, transcriptionID, models.ChatContextSourceKindTranscript)
 	if err != nil {
-		return nil, err
+		return nil, chatNotFound(err)
 	}
 	return mutation.Source, nil
 }
 
 func (s *Service) SetContextSourceEnabled(ctx context.Context, userID uint, sessionID string, sourceID string, enabled bool) error {
-	return s.repo.SetContextSourceEnabled(ctx, userID, sessionID, sourceID, enabled)
+	return chatNotFound(s.repo.SetContextSourceEnabled(ctx, userID, sessionID, sourceID, enabled))
 }
 
 func (s *Service) FindContextSource(ctx context.Context, userID uint, sessionID string, sourceID string) (*models.ChatContextSource, error) {
-	return s.repo.FindContextSourceForUser(ctx, userID, sessionID, sourceID)
+	source, err := s.repo.FindContextSourceForUser(ctx, userID, sessionID, sourceID)
+	if err != nil {
+		return nil, chatNotFound(err)
+	}
+	return source, nil
 }
 
 func (s *Service) DeleteContextSource(ctx context.Context, userID uint, sessionID string, sourceID string) error {
-	return s.repo.DeleteContextSource(ctx, userID, sessionID, sourceID)
+	return chatNotFound(s.repo.DeleteContextSource(ctx, userID, sessionID, sourceID))
 }
 
 func (s *Service) CreateMessage(ctx context.Context, message *models.ChatMessage) error {
@@ -89,14 +104,25 @@ func (s *Service) CreateGenerationRun(ctx context.Context, run *models.ChatGener
 }
 
 func (s *Service) FindGenerationRun(ctx context.Context, userID uint, runID string) (*models.ChatGenerationRun, error) {
-	return s.repo.FindGenerationRunForUser(ctx, userID, runID)
+	run, err := s.repo.FindGenerationRunForUser(ctx, userID, runID)
+	if err != nil {
+		return nil, chatNotFound(err)
+	}
+	return run, nil
 }
 
 func (s *Service) UpdateGenerationRunStatus(ctx context.Context, userID uint, runID string, status models.ChatGenerationRunStatus, at time.Time, errorMessage *string) error {
-	return s.repo.UpdateGenerationRunStatus(ctx, userID, runID, status, at, errorMessage)
+	return chatNotFound(s.repo.UpdateGenerationRunStatus(ctx, userID, runID, status, at, errorMessage))
 }
 
 func (s *Service) BuildContext(ctx context.Context, userID uint, sessionID string, window int) (string, error) {
 	built, err := NewContextBuilder(s.repo, ApproxTokenEstimator{}).Build(ctx, userID, sessionID, BuildOptions{Budget: ContextBudget{ContextWindow: window, ReservedResponse: 512, ReservedChat: 1024, SafetyMarginTokens: 128}})
 	return built.Content, err
+}
+
+func chatNotFound(err error) error {
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return ErrNotFound
+	}
+	return err
 }

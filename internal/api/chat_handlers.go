@@ -12,7 +12,6 @@ import (
 	"scriberr/internal/models"
 
 	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 )
 
 type createChatSessionRequest struct {
@@ -109,7 +108,7 @@ func (h *Handler) createChatSession(c *gin.Context) {
 		SystemPrompt:          req.SystemPrompt,
 	}
 	if err := h.chat.CreateSession(c.Request.Context(), session); err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
+		if errors.Is(err, chatdomain.ErrNotFound) {
 			writeError(c, http.StatusNotFound, "NOT_FOUND", "parent transcription not found", nil)
 			return
 		}
@@ -193,7 +192,7 @@ func (h *Handler) deleteChatSession(c *gin.Context) {
 		return
 	}
 	err := h.chat.DeleteSession(c.Request.Context(), userID, sessionID)
-	if errors.Is(err, gorm.ErrRecordNotFound) {
+	if errors.Is(err, chatdomain.ErrNotFound) {
 		writeError(c, http.StatusNotFound, "NOT_FOUND", "chat session not found", nil)
 		return
 	}
@@ -253,7 +252,7 @@ func (h *Handler) addChatContextTranscript(c *gin.Context) {
 		return
 	}
 	source, err := h.chat.AddTranscriptSource(c.Request.Context(), session.UserID, session.ID, transcriptionID)
-	if errors.Is(err, gorm.ErrRecordNotFound) {
+	if errors.Is(err, chatdomain.ErrNotFound) {
 		writeError(c, http.StatusNotFound, "NOT_FOUND", "transcription not found", nil)
 		return
 	}
@@ -280,7 +279,7 @@ func (h *Handler) updateChatContextTranscript(c *gin.Context) {
 	}
 	if req.Enabled != nil {
 		err := h.chat.SetContextSourceEnabled(c.Request.Context(), session.UserID, session.ID, sourceID, *req.Enabled)
-		if errors.Is(err, gorm.ErrRecordNotFound) {
+		if errors.Is(err, chatdomain.ErrNotFound) {
 			writeError(c, http.StatusNotFound, "NOT_FOUND", "context source not found", nil)
 			return
 		}
@@ -308,7 +307,7 @@ func (h *Handler) deleteChatContextTranscript(c *gin.Context) {
 		return
 	}
 	err := h.chat.DeleteContextSource(c.Request.Context(), session.UserID, session.ID, sourceID)
-	if errors.Is(err, gorm.ErrRecordNotFound) {
+	if errors.Is(err, chatdomain.ErrNotFound) {
 		writeError(c, http.StatusNotFound, "NOT_FOUND", "context source not found", nil)
 		return
 	}
@@ -365,7 +364,7 @@ func (h *Handler) cancelChatRun(c *gin.Context, publicRunID string) {
 		return
 	}
 	run, err := h.chat.FindGenerationRun(c.Request.Context(), userID, runID)
-	if errors.Is(err, gorm.ErrRecordNotFound) {
+	if errors.Is(err, chatdomain.ErrNotFound) {
 		writeError(c, http.StatusNotFound, "NOT_FOUND", "chat run not found", nil)
 		return
 	}
@@ -403,7 +402,7 @@ func (h *Handler) generateChatTitle(c *gin.Context) {
 
 func (h *Handler) activeLLMConfig(c *gin.Context, userID uint, write bool) (*models.LLMConfig, bool) {
 	config, err := h.chat.ActiveLLMConfig(c.Request.Context(), userID)
-	if errors.Is(err, gorm.ErrRecordNotFound) {
+	if errors.Is(err, chatdomain.ErrProviderMissing) {
 		if write {
 			writeError(c, http.StatusConflict, "LLM_PROVIDER_NOT_CONFIGURED", "Configure an LLM provider before starting chat.", nil)
 		}
@@ -430,7 +429,7 @@ func (h *Handler) chatSessionByPublicID(c *gin.Context, publicID string) (*model
 		return nil, false
 	}
 	session, err := h.chat.GetSession(c.Request.Context(), userID, sessionID)
-	if errors.Is(err, gorm.ErrRecordNotFound) {
+	if errors.Is(err, chatdomain.ErrNotFound) {
 		writeError(c, http.StatusNotFound, "NOT_FOUND", "chat session not found", nil)
 		return nil, false
 	}
@@ -450,7 +449,7 @@ func (h *Handler) writeChatProviderError(c *gin.Context, err error) bool {
 		writeError(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "content is required", stringPtr("content"))
 	case errors.Is(err, chatdomain.ErrModelUnavailable):
 		writeError(c, http.StatusUnprocessableEntity, "MODEL_NOT_AVAILABLE", "model is not available from the configured provider", stringPtr("model"))
-	case errors.Is(err, gorm.ErrRecordNotFound):
+	case errors.Is(err, chatdomain.ErrProviderMissing):
 		writeError(c, http.StatusConflict, "LLM_PROVIDER_NOT_CONFIGURED", "Configure an LLM provider before starting chat.", nil)
 	default:
 		writeError(c, http.StatusServiceUnavailable, "LLM_PROVIDER_UNAVAILABLE", "LLM provider is not available.", nil)
