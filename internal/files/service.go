@@ -100,7 +100,7 @@ func NewService(repo Repository, cfg Config) *Service {
 	}
 	return &Service{
 		repo:      repo,
-		uploadDir: cfg.UploadDir,
+		uploadDir: strings.TrimSpace(cfg.UploadDir),
 		extractor: ffmpegExtractor{},
 		timeout:   timeout,
 	}
@@ -138,9 +138,9 @@ func (s *Service) Upload(ctx context.Context, cmd UploadCommand) (*UploadResult,
 	if kind == "" {
 		return nil, ErrUnsupportedMediaType
 	}
-	uploadDir := s.uploadDir
-	if uploadDir == "" {
-		uploadDir = filepath.Join(os.TempDir(), "scriberr-uploads")
+	uploadDir, err := s.configuredUploadDir()
+	if err != nil {
+		return nil, err
 	}
 	if err := os.MkdirAll(uploadDir, 0755); err != nil {
 		return nil, err
@@ -262,11 +262,34 @@ func (s *Service) OpenAudio(ctx context.Context, userID uint, id string) (*os.Fi
 		return nil, nil, ctx.Err()
 	default:
 	}
-	file, err := os.Open(job.AudioPath)
+	file, err := s.OpenJobAudio(ctx, job)
 	if err != nil {
 		return nil, nil, ErrNotFound
 	}
 	return file, job, nil
+}
+
+func (s *Service) OpenJobAudio(ctx context.Context, job *models.TranscriptionJob) (*os.File, error) {
+	if s == nil || job == nil {
+		return nil, ErrNotFound
+	}
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	default:
+	}
+	file, err := os.Open(job.AudioPath)
+	if err != nil {
+		return nil, ErrNotFound
+	}
+	return file, nil
+}
+
+func (s *Service) configuredUploadDir() (string, error) {
+	if s == nil || strings.TrimSpace(s.uploadDir) == "" {
+		return "", ErrNotConfigured
+	}
+	return s.uploadDir, nil
 }
 
 func (s *Service) createVideoImport(ctx context.Context, jobID string, userID uint, title, sourceName, videoPath, uploadDir string) (*models.TranscriptionJob, error) {

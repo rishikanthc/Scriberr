@@ -117,6 +117,7 @@ func Build(cfg *config.Config) (*App, error) {
 		UploadDir:  cfg.UploadDir,
 	})
 	transcriptionService := transcriptiondomain.NewService(jobRepo, profileRepo, queueService)
+	transcriptionService.SetAudioStore(fileService)
 	postFileAutomation := automation.NewService(jobRepo, userRepo, profileRepo, llmConfigRepo, transcriptionService)
 	fileService.SetReadyObserver(postFileAutomation)
 	annotationService := annotations.NewService(annotationRepo, jobRepo)

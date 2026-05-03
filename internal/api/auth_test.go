@@ -93,6 +93,7 @@ func newAuthTestServer(t *testing.T) *authTestServer {
 		UploadDir:  cfg.UploadDir,
 	})
 	transcriptionService := transcriptiondomain.NewService(jobRepo, profileRepo, nil)
+	transcriptionService.SetAudioStore(fileService)
 	summaryService := summarization.NewService(repository.NewSummaryRepository(database.DB), llmConfigRepo, jobRepo, summarization.Config{})
 	chatService := chatdomain.NewService(repository.NewChatRepository(database.DB), llmConfigRepo)
 	postFileAutomation := automation.NewService(jobRepo, repository.NewUserRepository(database.DB), profileRepo, llmConfigRepo, transcriptionService)

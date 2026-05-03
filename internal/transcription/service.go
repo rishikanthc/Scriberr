@@ -63,10 +63,15 @@ type ProfileStore interface {
 	FindDefaultByUser(ctx context.Context, userID uint) (*models.TranscriptionProfile, error)
 }
 
+type AudioStore interface {
+	OpenJobAudio(ctx context.Context, job *models.TranscriptionJob) (*os.File, error)
+}
+
 type Service struct {
 	jobs     JobStore
 	profiles ProfileStore
 	queue    Queue
+	audio    AudioStore
 }
 
 type CreateCommand struct {
@@ -104,6 +109,10 @@ func NewService(jobs JobStore, profiles ProfileStore, queue Queue) *Service {
 
 func (s *Service) SetQueue(queue Queue) {
 	s.queue = queue
+}
+
+func (s *Service) SetAudioStore(audio AudioStore) {
+	s.audio = audio
 }
 
 func (s *Service) Create(ctx context.Context, cmd CreateCommand) (*models.TranscriptionJob, error) {
@@ -290,12 +299,15 @@ func (s *Service) OpenAudio(ctx context.Context, userID uint, id string) (*os.Fi
 	if err != nil {
 		return nil, nil, err
 	}
+	if s.audio == nil {
+		return nil, nil, fmt.Errorf("audio store is not configured")
+	}
 	select {
 	case <-ctx.Done():
 		return nil, nil, ctx.Err()
 	default:
 	}
-	file, err := os.Open(job.AudioPath)
+	file, err := s.audio.OpenJobAudio(ctx, job)
 	if err != nil {
 		return nil, nil, ErrNotFound
 	}
