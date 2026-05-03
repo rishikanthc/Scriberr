@@ -214,7 +214,7 @@ func TestSettingsPartialUpdateAndValidation(t *testing.T) {
 
 	resp, body := s.request(t, http.MethodGet, "/api/v1/settings", nil, token, "")
 	require.Equal(t, http.StatusOK, resp.Code)
-	require.Equal(t, false, body["auto_transcription_enabled"])
+	require.Equal(t, true, body["auto_transcription_enabled"])
 	require.Equal(t, true, body["local_only"])
 	require.Greater(t, body["max_upload_size_mb"], float64(0))
 

@@ -2,7 +2,7 @@
 
 This tracker belongs to `devnotes/v2.0.0/sprint-plans/backend-architecture-review-remediation-sprint-plan.md`.
 
-Status: Sprint 7 complete.
+Status: Sprint 8 complete.
 
 ## Run Rules
 
@@ -373,34 +373,35 @@ Commit:
 
 ## Sprint 8: Final Enforcement, Documentation, And Broad Verification
 
-Status: pending
+Status: complete
 
 TDD and scope checks:
 
-- [ ] Tighten architecture tests from inventory mode to hard enforcement where feasible.
-- [ ] Add final regression tests for any previously unguarded finding.
-- [ ] Update architecture docs only for deliberate decisions made during implementation.
-- [ ] Write final status note `backend-architecture-review-remediation-sprint-08-final.md`.
-- [ ] Run broad backend verification or document blockers with substitutes.
+- [x] Tighten architecture tests from inventory mode to hard enforcement where feasible.
+- [x] Add final regression tests for any previously unguarded finding.
+- [x] Update architecture docs only for deliberate decisions made during implementation.
+- [x] Write final status note `backend-architecture-review-remediation-sprint-08-final.md`.
+- [x] Run broad backend verification or document blockers with substitutes.
 
 Acceptance checks:
 
-- [ ] Every review finding is completed or explicitly deferred with rationale.
-- [ ] Architecture guards protect new boundaries.
-- [ ] Final status note lists commits, verification, and residual debt.
-- [ ] Broad backend verification passes or blockers are documented.
+- [x] Every review finding is completed or explicitly deferred with rationale.
+- [x] Architecture guards protect new boundaries.
+- [x] Final status note lists commits, verification, and residual debt.
+- [x] Broad backend verification passes or blockers are documented.
 
 Verification:
 
-- [ ] `GOCACHE=/private/tmp/scriberr-go-cache go test ./internal/api ./internal/account ./internal/auth ./internal/chat ./internal/config ./internal/database ./internal/files ./internal/llm ./internal/llmprovider ./internal/recording ./internal/repository ./internal/summarization ./internal/transcription/... ./cmd/server`
-- [ ] `git diff --check`
+- [x] `GOCACHE=/private/tmp/scriberr-go-cache go test ./internal/api -run 'TestProduction|TestOnlyAppComposition|TestBackendDependencyDirection|TestSettingsPartialUpdateAndValidation'`
+- [x] `GOCACHE=/private/tmp/scriberr-go-cache go test ./internal/api ./internal/account ./internal/auth ./internal/chat ./internal/config ./internal/database ./internal/files ./internal/llm ./internal/llmprovider ./internal/recording ./internal/repository ./internal/summarization ./internal/transcription/... ./cmd/server`
+- [x] `git diff --check`
 
 Artifacts:
 
 - `devnotes/v2.0.0/status-updates/backend-architecture-review-remediation-sprint-08-final.md`
-- Architecture guard tests.
-- Documentation updates if needed.
+- `internal/api/architecture_test.go`
+- `internal/api/profile_settings_test.go`
 
 Commit:
 
-- [ ] `backend: finalize architecture review remediation`
+- [x] `backend: finalize architecture review remediation`

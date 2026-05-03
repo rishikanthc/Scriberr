@@ -14,22 +14,19 @@ import (
 
 const forbiddenDatabaseImport = "scriberr/internal/database"
 
-func TestProductionAPIDatabaseAccessInventory(t *testing.T) {
-	expected := []string{}
-
+func TestProductionAPIDoesNotImportDatabase(t *testing.T) {
 	actual, err := productionFilesImportingDatabase(".")
 	if err != nil {
 		t.Fatalf("scan API imports: %v", err)
 	}
 
-	if strings.Join(actual, "\n") != strings.Join(expected, "\n") {
-		t.Fatalf("production API database import inventory changed.\nexpected:\n%s\nactual:\n%s\nUpdate the backend service-boundary tracker when intentionally removing entries; do not add new entries.",
-			strings.Join(expected, "\n"),
+	if len(actual) > 0 {
+		t.Fatalf("production API imports internal/database:\n%s\nAPI handlers must use service boundaries instead of direct database access.",
 			strings.Join(actual, "\n"))
 	}
 }
 
-func TestProductionInternalDatabaseImportInventory(t *testing.T) {
+func TestOnlyAppCompositionImportsDatabase(t *testing.T) {
 	expected := []string{
 		"app/app.go",
 	}
@@ -40,13 +37,13 @@ func TestProductionInternalDatabaseImportInventory(t *testing.T) {
 	}
 
 	if strings.Join(actual, "\n") != strings.Join(expected, "\n") {
-		t.Fatalf("production internal database import inventory changed.\nexpected:\n%s\nactual:\n%s\nOnly composition/bootstrap code should import internal/database outside the database package itself.",
+		t.Fatalf("internal/database import boundary violation.\nexpected only:\n%s\nactual:\n%s\nOnly composition/bootstrap code should import internal/database outside the database package itself.",
 			strings.Join(expected, "\n"),
 			strings.Join(actual, "\n"))
 	}
 }
 
-func TestProductionInternalAPIImportInventory(t *testing.T) {
+func TestOnlyAppCompositionImportsAPI(t *testing.T) {
 	expected := []string{
 		"app/app.go",
 	}
@@ -57,7 +54,7 @@ func TestProductionInternalAPIImportInventory(t *testing.T) {
 	}
 
 	if strings.Join(actual, "\n") != strings.Join(expected, "\n") {
-		t.Fatalf("production internal api import inventory changed.\nexpected:\n%s\nactual:\n%s\nOnly composition/bootstrap code should import internal/api.",
+		t.Fatalf("internal/api import boundary violation.\nexpected only:\n%s\nactual:\n%s\nOnly composition/bootstrap code should import internal/api.",
 			strings.Join(expected, "\n"),
 			strings.Join(actual, "\n"))
 	}
