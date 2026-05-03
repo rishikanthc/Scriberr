@@ -105,7 +105,7 @@ type AdminQueueStats struct {
 type Repository interface {
 	RecoverOrphanedProcessing(ctx context.Context, now time.Time) (int64, error)
 	EnqueueTranscription(ctx context.Context, jobID string, now time.Time) error
-	FindByID(ctx context.Context, id interface{}) (*models.TranscriptionJob, error)
+	FindTranscriptionByIDForUser(ctx context.Context, id string, userID uint) (*models.TranscriptionJob, error)
 	CancelTranscription(ctx context.Context, jobID string, canceledAt time.Time) error
 	CountStatusesByUser(ctx context.Context, userID uint) (map[models.JobStatus]int64, error)
 	CountQueueStatuses(ctx context.Context) ([]models.QueueStatusByUser, error)
@@ -304,12 +304,9 @@ func (s *Service) Enqueue(ctx context.Context, jobID string) error {
 }
 
 func (s *Service) Cancel(ctx context.Context, userID uint, jobID string) error {
-	job, err := s.repo.FindByID(ctx, jobID)
+	job, err := s.repo.FindTranscriptionByIDForUser(ctx, jobID, userID)
 	if err != nil {
 		return err
-	}
-	if job.UserID != userID {
-		return gorm.ErrRecordNotFound
 	}
 	switch job.Status {
 	case models.StatusCompleted, models.StatusFailed, models.StatusStopped, models.StatusCanceled:
