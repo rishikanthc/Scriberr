@@ -102,6 +102,94 @@ func TestEnqueueRequiresConfiguredProviderAndModels(t *testing.T) {
 	require.Equal(t, int64(0), count)
 }
 
+func TestLatestForTranscriptionEnqueuesMissingCompletedSummary(t *testing.T) {
+	logger.Init("silent")
+	require.NoError(t, database.Initialize(filepath.Join(t.TempDir(), "scriberr.db")))
+	database.DB.Logger = gormlogger.Default.LogMode(gormlogger.Silent)
+	t.Cleanup(func() { _ = database.Close() })
+
+	user := models.User{Username: "summary-backfill-user", Password: "hash"}
+	require.NoError(t, database.DB.Create(&user).Error)
+	transcript := `{"text":"Hello world.","segments":[{"id":"seg_000001","start":0,"end":1,"text":"Hello world."}],"words":[]}`
+	job := models.TranscriptionJob{
+		ID:             "job-summary-backfill",
+		UserID:         user.ID,
+		Status:         models.StatusCompleted,
+		AudioPath:      "/tmp/audio.wav",
+		SourceFileName: "audio.wav",
+		SourceFileHash: stringPtr("source"),
+		Transcript:     &transcript,
+	}
+	require.NoError(t, database.DB.Create(&job).Error)
+	baseURL := "http://127.0.0.1:1234/v1"
+	largeModel := "large"
+	smallModel := "small"
+	require.NoError(t, database.DB.Create(&models.LLMConfig{
+		UserID: user.ID, Name: "configured", Provider: "openai_compatible", BaseURL: &baseURL, IsDefault: true, LargeModel: &largeModel, SmallModel: &smallModel,
+	}).Error)
+
+	service := NewService(
+		repository.NewSummaryRepository(database.DB),
+		repository.NewLLMConfigRepository(database.DB),
+		repository.NewJobRepository(database.DB),
+		Config{},
+	)
+
+	summary, err := service.LatestForTranscription(context.Background(), user.ID, job.ID)
+	require.NoError(t, err)
+	require.Equal(t, job.ID, summary.TranscriptionID)
+	require.Equal(t, user.ID, summary.UserID)
+	require.Equal(t, "pending", summary.Status)
+	require.Equal(t, smallModel, summary.Model)
+
+	var count int64
+	require.NoError(t, database.DB.Model(&models.Summary{}).Where("transcription_id = ? AND user_id = ?", job.ID, user.ID).Count(&count).Error)
+	require.Equal(t, int64(1), count)
+}
+
+func TestEnqueueMissingCompletedTranscriptionsBackfillsStartupWork(t *testing.T) {
+	logger.Init("silent")
+	require.NoError(t, database.Initialize(filepath.Join(t.TempDir(), "scriberr.db")))
+	database.DB.Logger = gormlogger.Default.LogMode(gormlogger.Silent)
+	t.Cleanup(func() { _ = database.Close() })
+
+	user := models.User{Username: "summary-startup-user", Password: "hash"}
+	require.NoError(t, database.DB.Create(&user).Error)
+	transcript := `{"text":"Hello world.","segments":[{"id":"seg_000001","start":0,"end":1,"text":"Hello world."}],"words":[]}`
+	job := models.TranscriptionJob{
+		ID:             "job-summary-startup",
+		UserID:         user.ID,
+		Status:         models.StatusCompleted,
+		AudioPath:      "/tmp/audio.wav",
+		SourceFileName: "audio.wav",
+		SourceFileHash: stringPtr("source"),
+		Transcript:     &transcript,
+	}
+	require.NoError(t, database.DB.Create(&job).Error)
+	baseURL := "http://127.0.0.1:1234/v1"
+	largeModel := "large"
+	smallModel := "small"
+	require.NoError(t, database.DB.Create(&models.LLMConfig{
+		UserID: user.ID, Name: "configured", Provider: "openai_compatible", BaseURL: &baseURL, IsDefault: true, LargeModel: &largeModel, SmallModel: &smallModel,
+	}).Error)
+
+	service := NewService(
+		repository.NewSummaryRepository(database.DB),
+		repository.NewLLMConfigRepository(database.DB),
+		repository.NewJobRepository(database.DB),
+		Config{},
+	)
+
+	enqueued, err := service.enqueueMissingCompletedTranscriptions(context.Background(), 100)
+	require.NoError(t, err)
+	require.Equal(t, 1, enqueued)
+
+	var summary models.Summary
+	require.NoError(t, database.DB.First(&summary, "transcription_id = ? AND user_id = ?", job.ID, user.ID).Error)
+	require.Equal(t, "pending", summary.Status)
+	require.Equal(t, smallModel, summary.Model)
+}
+
 func TestGenerateTitleForSummaryRenamesRecordingAndPublishesFileEvent(t *testing.T) {
 	logger.Init("silent")
 	require.NoError(t, database.Initialize(filepath.Join(t.TempDir(), "scriberr.db")))

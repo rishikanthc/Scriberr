@@ -1817,13 +1817,14 @@ type SummaryRepository interface {
 	SaveSettingsByUser(ctx context.Context, userID uint, settings *models.SummarySetting) error
 	SaveSummary(ctx context.Context, summary *models.Summary) error
 	EnqueueAutomaticSummary(ctx context.Context, transcriptionID string, userID uint, model string, provider string) (*models.Summary, bool, error)
+	ListCompletedTranscriptionsMissingSummaries(ctx context.Context, limit int) ([]models.TranscriptionJob, error)
 	ClaimNextPendingSummary(ctx context.Context, now time.Time) (*models.Summary, error)
 	CompleteSummary(ctx context.Context, id string, content string, truncated bool, contextWindow int, inputCharacters int, completedAt time.Time) error
 	FailSummary(ctx context.Context, id string, message string, failedAt time.Time) error
 	RecoverProcessingSummaries(ctx context.Context) (int64, error)
 	ListCompletedSummariesForTitleGeneration(ctx context.Context, limit int) ([]models.Summary, error)
 	GetCompletedOutlineRun(ctx context.Context, summaryID string, transcriptionID string, userID uint) (*models.SummaryWidgetRun, error)
-	GetLatestSummary(ctx context.Context, transcriptionID string) (*models.Summary, error)
+	GetLatestSummaryForUser(ctx context.Context, transcriptionID string, userID uint) (*models.Summary, error)
 	GetSummaryByID(ctx context.Context, id string) (*models.Summary, error)
 	DeleteByTranscriptionID(ctx context.Context, transcriptionID string) error
 	ListSummaryWidgetsByUser(ctx context.Context, userID uint) ([]models.SummaryWidget, error)
@@ -1923,6 +1924,28 @@ func (r *summaryRepository) EnqueueAutomaticSummary(ctx context.Context, transcr
 	return summary, true, nil
 }
 
+func (r *summaryRepository) ListCompletedTranscriptionsMissingSummaries(ctx context.Context, limit int) ([]models.TranscriptionJob, error) {
+	if limit <= 0 || limit > 500 {
+		limit = 100
+	}
+	var jobs []models.TranscriptionJob
+	err := r.db.WithContext(ctx).
+		Model(&models.TranscriptionJob{}).
+		Where("status = ?", models.StatusCompleted).
+		Where("TRIM(COALESCE(transcript_text, '')) <> ''").
+		Where("NOT EXISTS (?)",
+			r.db.Model(&models.Summary{}).
+				Select("1").
+				Where("summaries.transcription_id = transcriptions.id").
+				Where("summaries.user_id = transcriptions.user_id").
+				Where("summaries.status IN ?", []string{"pending", "processing", "completed"}),
+		).
+		Order("COALESCE(completed_at, updated_at, created_at) ASC").
+		Limit(limit).
+		Find(&jobs).Error
+	return jobs, err
+}
+
 func (r *summaryRepository) ClaimNextPendingSummary(ctx context.Context, now time.Time) (*models.Summary, error) {
 	var summary models.Summary
 	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
@@ -2014,9 +2037,9 @@ func (r *summaryRepository) GetCompletedOutlineRun(ctx context.Context, summaryI
 	return &run, nil
 }
 
-func (r *summaryRepository) GetLatestSummary(ctx context.Context, transcriptionID string) (*models.Summary, error) {
+func (r *summaryRepository) GetLatestSummaryForUser(ctx context.Context, transcriptionID string, userID uint) (*models.Summary, error) {
 	var summary models.Summary
-	err := r.db.WithContext(ctx).Where("transcription_id = ?", transcriptionID).Order("created_at DESC").First(&summary).Error
+	err := r.db.WithContext(ctx).Where("transcription_id = ? AND user_id = ?", transcriptionID, userID).Order("created_at DESC").First(&summary).Error
 	if err != nil {
 		return nil, err
 	}

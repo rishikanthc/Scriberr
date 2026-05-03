@@ -163,15 +163,30 @@ func (s *Service) SetUserSettingsReader(users UserSettingsReader) {
 }
 
 func (s *Service) LatestForTranscription(ctx context.Context, userID uint, transcriptionID string) (*models.Summary, error) {
-	summary, err := s.summaries.GetLatestSummary(ctx, transcriptionID)
+	summary, err := s.summaries.GetLatestSummaryForUser(ctx, transcriptionID, userID)
 	if errors.Is(err, repository.ErrRecordNotFound) {
-		return nil, ErrNotFound
+		job, jobErr := s.jobs.FindTranscriptionByIDForUser(ctx, transcriptionID, userID)
+		if errors.Is(jobErr, repository.ErrRecordNotFound) {
+			return nil, ErrNotFound
+		}
+		if jobErr != nil {
+			return nil, jobErr
+		}
+		queued, created, enqueueErr := s.enqueueForCompletedJob(ctx, job)
+		if enqueueErr != nil {
+			return nil, enqueueErr
+		}
+		if queued == nil {
+			return nil, ErrNotFound
+		}
+		if created {
+			s.publish(ctx, "summary.pending", queued)
+			s.notify()
+		}
+		return queued, nil
 	}
 	if err != nil {
 		return nil, err
-	}
-	if summary.UserID != userID {
-		return nil, ErrNotFound
 	}
 	return summary, nil
 }
@@ -239,6 +254,11 @@ func (s *Service) Start(ctx context.Context) error {
 	} else if recovered > 0 {
 		logger.Info("Recovered processing summary widget jobs", "count", recovered)
 	}
+	if enqueued, err := s.enqueueMissingCompletedTranscriptions(ctx, 100); err != nil {
+		return err
+	} else if enqueued > 0 {
+		logger.Info("Enqueued missing completed transcription summaries", "count", enqueued)
+	}
 	s.ctx, s.cancel = context.WithCancel(ctx)
 	s.started = true
 	s.wg.Add(1)
@@ -277,28 +297,51 @@ func (s *Service) Stop(ctx context.Context) error {
 }
 
 func (s *Service) EnqueueForTranscription(ctx context.Context, job *models.TranscriptionJob) error {
-	if job == nil || job.Status != models.StatusCompleted || job.Transcript == nil || strings.TrimSpace(*job.Transcript) == "" {
-		return nil
-	}
-	config, err := s.llmConfig.GetActiveByUser(ctx, job.UserID)
-	if errors.Is(err, repository.ErrRecordNotFound) {
-		return nil
-	}
+	summary, created, err := s.enqueueForCompletedJob(ctx, job)
 	if err != nil {
 		return err
 	}
-	if !llmReady(config) {
-		return nil
-	}
-	summary, created, err := s.summaries.EnqueueAutomaticSummary(ctx, job.ID, job.UserID, strings.TrimSpace(*config.SmallModel), config.Provider)
-	if err != nil {
-		return err
-	}
-	if created {
+	if summary != nil && created {
 		s.publish(ctx, "summary.pending", summary)
 		s.notify()
 	}
 	return nil
+}
+
+func (s *Service) enqueueForCompletedJob(ctx context.Context, job *models.TranscriptionJob) (*models.Summary, bool, error) {
+	if job == nil || job.Status != models.StatusCompleted || job.Transcript == nil || strings.TrimSpace(*job.Transcript) == "" {
+		return nil, false, nil
+	}
+	config, err := s.llmConfig.GetActiveByUser(ctx, job.UserID)
+	if errors.Is(err, repository.ErrRecordNotFound) {
+		return nil, false, nil
+	}
+	if err != nil {
+		return nil, false, err
+	}
+	if !llmReady(config) {
+		return nil, false, nil
+	}
+	return s.summaries.EnqueueAutomaticSummary(ctx, job.ID, job.UserID, strings.TrimSpace(*config.SmallModel), config.Provider)
+}
+
+func (s *Service) enqueueMissingCompletedTranscriptions(ctx context.Context, limit int) (int, error) {
+	jobs, err := s.summaries.ListCompletedTranscriptionsMissingSummaries(ctx, limit)
+	if err != nil {
+		return 0, err
+	}
+	enqueued := 0
+	for i := range jobs {
+		summary, created, err := s.enqueueForCompletedJob(ctx, &jobs[i])
+		if err != nil {
+			return enqueued, err
+		}
+		if summary != nil && created {
+			enqueued++
+			s.publish(ctx, "summary.pending", summary)
+		}
+	}
+	return enqueued, nil
 }
 
 func (s *Service) workerLoop() {
