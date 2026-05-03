@@ -1,6 +1,8 @@
 package api
 
 import (
+	"context"
+	"errors"
 	"net/http"
 	"strings"
 
@@ -233,11 +235,17 @@ func (h *Handler) requireAuthForNoRoute(c *gin.Context) bool {
 	if h.authenticateAPIKey(c) || h.authenticateJWT(c) {
 		return true
 	}
+	if writeAuthContextError(c) {
+		return false
+	}
 	writeError(c, http.StatusUnauthorized, "UNAUTHORIZED", "missing or invalid authentication", nil)
 	return false
 }
 func (h *Handler) requireAdminForNoRoute(c *gin.Context) bool {
 	if !h.authenticateJWT(c) && !h.authenticateAPIKey(c) {
+		if writeAuthContextError(c) {
+			return false
+		}
 		writeError(c, http.StatusUnauthorized, "UNAUTHORIZED", "missing or invalid authentication", nil)
 		return false
 	}
@@ -254,6 +262,10 @@ func (h *Handler) authRequired() gin.HandlerFunc {
 			c.Next()
 			return
 		}
+		if writeAuthContextError(c) {
+			c.Abort()
+			return
+		}
 		writeError(c, http.StatusUnauthorized, "UNAUTHORIZED", "missing or invalid authentication", nil)
 		c.Abort()
 	}
@@ -261,6 +273,10 @@ func (h *Handler) authRequired() gin.HandlerFunc {
 func (h *Handler) adminRequired() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if !h.authenticateJWT(c) && !h.authenticateAPIKey(c) {
+			if writeAuthContextError(c) {
+				c.Abort()
+				return
+			}
 			writeError(c, http.StatusUnauthorized, "UNAUTHORIZED", "missing or invalid authentication", nil)
 			c.Abort()
 			return
@@ -278,6 +294,10 @@ func (h *Handler) jwtRequired() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if h.authenticateJWT(c) {
 			c.Next()
+			return
+		}
+		if writeAuthContextError(c) {
+			c.Abort()
 			return
 		}
 		writeError(c, http.StatusUnauthorized, "UNAUTHORIZED", "missing or invalid bearer token", nil)
@@ -329,4 +349,20 @@ func (h *Handler) authenticateAPIKey(c *gin.Context) bool {
 	c.Set("user_id", apiKey.UserID)
 	c.Set("api_key_id", apiKey.ID)
 	return true
+}
+
+func writeAuthContextError(c *gin.Context) bool {
+	if c == nil || c.Request == nil {
+		return false
+	}
+	err := c.Request.Context().Err()
+	if errors.Is(err, context.Canceled) {
+		writeError(c, statusClientClosedRequest, "REQUEST_CANCELED", "request was canceled", nil)
+		return true
+	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		writeError(c, http.StatusGatewayTimeout, "REQUEST_TIMEOUT", "request timed out", nil)
+		return true
+	}
+	return false
 }
