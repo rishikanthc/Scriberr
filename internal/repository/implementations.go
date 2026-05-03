@@ -287,8 +287,6 @@ type TranscriptionListCursor struct {
 
 // JobRepository handles transcription job operations
 type JobRepository interface {
-	Repository[models.TranscriptionJob]
-	FindWithAssociations(ctx context.Context, id string) (*models.TranscriptionJob, error)
 	FindReadyFileByIDForUser(ctx context.Context, id string, userID uint) (*models.TranscriptionJob, error)
 	FindFileByIDForUser(ctx context.Context, id string, userID uint) (*models.TranscriptionJob, error)
 	FindTranscriptionByIDForUser(ctx context.Context, id string, userID uint) (*models.TranscriptionJob, error)
@@ -296,7 +294,6 @@ type JobRepository interface {
 	ListTranscriptionsByUser(ctx context.Context, userID uint, opts TranscriptionListOptions) ([]models.TranscriptionJob, error)
 	CountTranscriptionsBySourceFile(ctx context.Context, userID uint, fileID string) (int64, error)
 	FindLatestCompletedExecution(ctx context.Context, jobID string) (*models.TranscriptionJobExecution, error)
-	ListWithParams(ctx context.Context, offset, limit int, sortBy, sortOrder, searchQuery string, updatedAfter *time.Time) ([]models.TranscriptionJob, int64, error)
 	ListByUser(ctx context.Context, userID uint, offset, limit int) ([]models.TranscriptionJob, int64, error)
 	EnqueueTranscription(ctx context.Context, jobID string, now time.Time) error
 	ClaimNextTranscription(ctx context.Context, workerID string, leaseUntil time.Time, configs ...scheduler.Config) (*models.TranscriptionJob, error)
@@ -322,35 +319,17 @@ type JobRepository interface {
 	CreateExecution(ctx context.Context, execution *models.TranscriptionJobExecution) error
 	UpdateExecution(ctx context.Context, execution *models.TranscriptionJobExecution) error
 	DeleteExecutionsByJobID(ctx context.Context, jobID string) error
-	UpdateStatus(ctx context.Context, jobID string, status models.JobStatus) error
-	UpdateError(ctx context.Context, jobID string, errorMsg string) error
 	UpdateLLMGeneratedTitle(ctx context.Context, transcriptionID string, recordingID string, title string, generatedAt time.Time) error
 	UpdateLLMGeneratedDescription(ctx context.Context, transcriptionID string, recordingID string, summaryID string, description string, generatedAt time.Time) error
-	FindByStatus(ctx context.Context, status models.JobStatus) ([]models.TranscriptionJob, error)
-	CountByStatus(ctx context.Context, status models.JobStatus) (int64, error)
-	UpdateSummary(ctx context.Context, jobID string, summary string) error
 	CreateRecordingFileAndTranscription(ctx context.Context, file *models.TranscriptionJob, transcription *models.TranscriptionJob) error
 }
 
 type jobRepository struct {
-	*BaseRepository[models.TranscriptionJob]
+	db *gorm.DB
 }
 
 func NewJobRepository(db *gorm.DB) JobRepository {
-	return &jobRepository{
-		BaseRepository: NewBaseRepository[models.TranscriptionJob](db),
-	}
-}
-
-func (r *jobRepository) FindWithAssociations(ctx context.Context, id string) (*models.TranscriptionJob, error) {
-	var job models.TranscriptionJob
-	err := r.db.WithContext(ctx).
-		Where("id = ?", id).
-		First(&job).Error
-	if err != nil {
-		return nil, err
-	}
-	return &job, nil
+	return &jobRepository{db: db}
 }
 
 func (r *jobRepository) FindReadyFileByIDForUser(ctx context.Context, id string, userID uint) (*models.TranscriptionJob, error) {
@@ -500,48 +479,6 @@ func applyTranscriptionCursor(query *gorm.DB, opts TranscriptionListOptions) *go
 	default:
 		return query.Where("("+opts.SortColumn+" "+operator+" ?) OR ("+opts.SortColumn+" = ? AND id "+operator+" ?)", opts.Cursor.Value, opts.Cursor.Value, opts.Cursor.ID)
 	}
-}
-
-func (r *jobRepository) ListWithParams(ctx context.Context, offset, limit int, sortBy, sortOrder, searchQuery string, updatedAfter *time.Time) ([]models.TranscriptionJob, int64, error) {
-	var jobs []models.TranscriptionJob
-	var count int64
-
-	db := r.db.WithContext(ctx).Model(&models.TranscriptionJob{})
-
-	// Handle delta sync if updatedAfter provided
-	if updatedAfter != nil {
-		db = db.Unscoped().Where("updated_at > ?", *updatedAfter)
-	}
-
-	// Apply search filter
-	if searchQuery != "" {
-		search := "%" + searchQuery + "%"
-		db = db.Where("title LIKE ? OR source_file_path LIKE ? OR source_file_name LIKE ?", search, search, search)
-	}
-
-	// Count total matching records
-	if err := db.Count(&count).Error; err != nil {
-		return nil, 0, err
-	}
-
-	// Apply sorting
-	if sortBy != "" {
-		if sortOrder == "" {
-			sortOrder = "desc"
-		}
-		db = db.Order(sortBy + " " + sortOrder)
-	} else {
-		// Default sort
-		db = db.Order("created_at desc")
-	}
-
-	// Apply pagination
-	err := db.Offset(offset).Limit(limit).Find(&jobs).Error
-	if err != nil {
-		return nil, 0, err
-	}
-
-	return jobs, count, nil
 }
 
 func (r *jobRepository) ListByUser(ctx context.Context, userID uint, offset, limit int) ([]models.TranscriptionJob, int64, error) {
@@ -1099,14 +1036,6 @@ func (r *jobRepository) FindLatestCompletedExecution(ctx context.Context, jobID 
 	return &execution, nil
 }
 
-func (r *jobRepository) UpdateStatus(ctx context.Context, jobID string, status models.JobStatus) error {
-	return r.db.WithContext(ctx).Model(&models.TranscriptionJob{}).Where("id = ?", jobID).Update("status", status).Error
-}
-
-func (r *jobRepository) UpdateError(ctx context.Context, jobID string, errorMsg string) error {
-	return r.db.WithContext(ctx).Model(&models.TranscriptionJob{}).Where("id = ?", jobID).Update("last_error", errorMsg).Error
-}
-
 func (r *jobRepository) UpdateLLMGeneratedTitle(ctx context.Context, transcriptionID string, recordingID string, title string, generatedAt time.Time) error {
 	ids := []string{transcriptionID}
 	if recordingID != "" && recordingID != transcriptionID {
@@ -1133,30 +1062,6 @@ func (r *jobRepository) UpdateLLMGeneratedDescription(ctx context.Context, trans
 			"llm_description_generated_at":      generatedAt,
 			"llm_description_source_summary_id": summaryID,
 		}).Error
-}
-
-func (r *jobRepository) FindByStatus(ctx context.Context, status models.JobStatus) ([]models.TranscriptionJob, error) {
-	var jobs []models.TranscriptionJob
-	err := r.db.WithContext(ctx).Where("status = ?", status).Find(&jobs).Error
-	if err != nil {
-		return nil, err
-	}
-	return jobs, nil
-}
-
-func (r *jobRepository) CountByStatus(ctx context.Context, status models.JobStatus) (int64, error) {
-	var count int64
-	err := r.db.WithContext(ctx).Model(&models.TranscriptionJob{}).Where("status = ?", status).Count(&count).Error
-	return count, err
-}
-
-func (r *jobRepository) UpdateSummary(ctx context.Context, jobID string, summary string) error {
-	var job models.TranscriptionJob
-	if err := r.db.WithContext(ctx).First(&job, "id = ?", jobID).Error; err != nil {
-		return err
-	}
-	job.Summary = &summary
-	return r.db.WithContext(ctx).Save(&job).Error
 }
 
 func (r *jobRepository) CreateRecordingFileAndTranscription(ctx context.Context, file *models.TranscriptionJob, transcription *models.TranscriptionJob) error {
