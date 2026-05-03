@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"scriberr/internal/account"
+	"scriberr/internal/admin"
 	"scriberr/internal/annotations"
 	"scriberr/internal/api"
 	"scriberr/internal/auth"
@@ -104,6 +105,7 @@ func Build(cfg *config.Config) (*App, error) {
 	summaryService := summarization.NewService(summaryRepo, llmConfigRepo, jobRepo, summarization.Config{})
 	chatService := chatdomain.NewService(chatRepo, llmConfigRepo)
 	accountService := account.NewService(userRepo, refreshTokenRepo, apiKeyRepo, profileRepo, llmConfigRepo, authService)
+	adminService := admin.NewService(userRepo, refreshTokenRepo, apiKeyRepo)
 	profileService := profiledomain.NewService(profileRepo)
 	llmProviderService := llmprovider.NewService(llmConfigRepo, llmprovider.HTTPConnectionTester{})
 	fileService := filesdomain.NewService(jobRepo, filesdomain.Config{UploadDir: cfg.UploadDir})
@@ -144,6 +146,7 @@ func Build(cfg *config.Config) (*App, error) {
 		Queue:          queueService,
 		ModelRegistry:  providerRegistry,
 		Account:        accountService,
+		Admin:          adminService,
 		Profiles:       profileService,
 		LLMProvider:    llmProviderService,
 		Files:          fileService,

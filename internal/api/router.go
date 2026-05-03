@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"scriberr/internal/account"
+	admindomain "scriberr/internal/admin"
 	"scriberr/internal/annotations"
 	"scriberr/internal/auth"
 	chatdomain "scriberr/internal/chat"
@@ -44,6 +45,7 @@ type Handler struct {
 	queueService   worker.QueueService
 	modelRegistry  engineprovider.Registry
 	account        *account.Service
+	admin          *admindomain.Service
 	profiles       *profiledomain.Service
 	llmProvider    *llmprovider.Service
 	files          *filesdomain.Service
@@ -61,6 +63,7 @@ type HandlerDependencies struct {
 	Queue          worker.QueueService
 	ModelRegistry  engineprovider.Registry
 	Account        *account.Service
+	Admin          *admindomain.Service
 	Profiles       *profiledomain.Service
 	LLMProvider    *llmprovider.Service
 	Files          *filesdomain.Service
@@ -90,6 +93,7 @@ func NewHandler(cfg *config.Config, authService *auth.AuthService, deps HandlerD
 		queueService:   deps.Queue,
 		modelRegistry:  deps.ModelRegistry,
 		account:        deps.Account,
+		admin:          deps.Admin,
 		profiles:       deps.Profiles,
 		llmProvider:    deps.LLMProvider,
 		files:          deps.Files,
@@ -364,7 +368,15 @@ func SetupRoutes(handler *Handler, _ *auth.AuthService) *gin.Engine {
 
 		v1.GET("/events", handler.authRequired(), handler.streamEvents)
 		v1.GET("/models/transcription", handler.authRequired(), handler.listTranscriptionModels)
-		v1.GET("/admin/queue", handler.adminRequired(), handler.queueStats)
+		adminRoutes := v1.Group("/admin")
+		adminRoutes.Use(handler.adminRequired())
+		{
+			adminRoutes.GET("/queue", handler.queueStats)
+			adminRoutes.GET("/users", handler.listAdminUsers)
+			adminRoutes.POST("/users", handler.idempotencyMiddleware(), handler.createAdminUser)
+			adminRoutes.GET("/users/:user_id", handler.getAdminUser)
+			adminRoutes.PATCH("/users/:user_id", handler.updateAdminUser)
+		}
 	}
 
 	web.SetupStaticRoutes(router, handler.authService)

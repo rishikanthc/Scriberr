@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"scriberr/internal/account"
+	admindomain "scriberr/internal/admin"
 	"scriberr/internal/annotations"
 	"scriberr/internal/auth"
 	"scriberr/internal/automation"
@@ -77,6 +78,11 @@ func newAuthTestServer(t *testing.T) *authTestServer {
 		llmConfigRepo,
 		authService,
 	)
+	adminService := admindomain.NewService(
+		repository.NewUserRepository(database.DB),
+		repository.NewRefreshTokenRepository(database.DB),
+		repository.NewAPIKeyRepository(database.DB),
+	)
 	profileService := profiledomain.NewService(profileRepo)
 	llmProviderService := llmprovider.NewService(llmConfigRepo, llmprovider.HTTPConnectionTester{})
 	fileService := filesdomain.NewService(jobRepo, filesdomain.Config{UploadDir: cfg.UploadDir})
@@ -102,6 +108,7 @@ func newAuthTestServer(t *testing.T) *authTestServer {
 	handler := NewHandler(cfg, authService, HandlerDependencies{
 		ReadinessCheck: func() error { return nil },
 		Account:        accountService,
+		Admin:          adminService,
 		Profiles:       profileService,
 		LLMProvider:    llmProviderService,
 		Files:          fileService,

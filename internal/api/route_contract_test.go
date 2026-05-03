@@ -99,6 +99,10 @@ func TestCanonicalRouteRegistration(t *testing.T) {
 		"GET /api/v1/events",
 		"GET /api/v1/models/transcription",
 		"GET /api/v1/admin/queue",
+		"GET /api/v1/admin/users",
+		"POST /api/v1/admin/users",
+		"GET /api/v1/admin/users/:user_id",
+		"PATCH /api/v1/admin/users/:user_id",
 	}
 	for _, route := range expected {
 		require.True(t, registered[route], "missing route %s", route)
@@ -144,6 +148,8 @@ func TestEndpointContractSmoke(t *testing.T) {
 		{name: "events stream requires auth", method: http.MethodGet, path: "/api/v1/events", want: http.StatusUnauthorized},
 		{name: "models list", method: http.MethodGet, path: "/api/v1/models/transcription", token: token, want: http.StatusOK},
 		{name: "queue stats", method: http.MethodGet, path: "/api/v1/admin/queue", token: token, want: http.StatusOK},
+		{name: "admin users list", method: http.MethodGet, path: "/api/v1/admin/users", token: token, want: http.StatusOK},
+		{name: "admin users invalid create", method: http.MethodPost, path: "/api/v1/admin/users", body: map[string]any{"username": "u"}, token: token, want: http.StatusUnprocessableEntity},
 		{name: "youtube import", method: http.MethodPost, path: "/api/v1/files:import-youtube", body: map[string]any{"url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"}, token: token, want: http.StatusAccepted},
 		{name: "transcription submit malformed upload", method: http.MethodPost, path: "/api/v1/transcriptions:submit", token: token, want: http.StatusBadRequest},
 		{name: "legacy list absent", method: http.MethodGet, path: "/api/v1/transcription/list", token: token, want: http.StatusNotFound},

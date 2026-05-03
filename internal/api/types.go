@@ -107,6 +107,22 @@ type updateSettingsRequest struct {
 	AutoRenameEnabled        *bool   `json:"auto_rename_enabled"`
 	DefaultProfileID         *string `json:"default_profile_id"`
 }
+type adminCreateUserRequest struct {
+	Username    string  `json:"username"`
+	Email       *string `json:"email"`
+	DisplayName *string `json:"display_name"`
+	Role        string  `json:"role"`
+	Password    string  `json:"password"`
+}
+type adminUpdateUserRequest struct {
+	Email       *string `json:"email"`
+	DisplayName *string `json:"display_name"`
+	Role        *string `json:"role"`
+	Status      *string `json:"status"`
+}
+type adminResetPasswordRequest struct {
+	Password string `json:"password"`
+}
 type updateLLMProviderRequest struct {
 	BaseURL    string `json:"base_url"`
 	APIKey     string `json:"api_key"`

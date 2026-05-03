@@ -89,6 +89,25 @@ func (h *Handler) handleCommandRoute(c *gin.Context) bool {
 		h.runIdempotent(c, h.submitTranscription)
 		return true
 	default:
+		if publicID, command, ok := parseAdminUserCommandPath(c.Request.URL.Path); ok {
+			if !h.requireAdminForNoRoute(c) {
+				return true
+			}
+			c.Params = append(c.Params, gin.Param{Key: "user_id", Value: publicID})
+			h.runIdempotent(c, func(c *gin.Context) {
+				switch command {
+				case "reset-password":
+					h.resetAdminUserPassword(c)
+				case "disable":
+					h.disableAdminUser(c)
+				case "enable":
+					h.enableAdminUser(c)
+				default:
+					writeError(c, http.StatusNotFound, "NOT_FOUND", "API endpoint not found", nil)
+				}
+			})
+			return true
+		}
 		if sessionID, ok := parseChatMessageStreamPath(c.Request.URL.Path); ok {
 			if !h.requireAuthForNoRoute(c) {
 				return true
@@ -138,6 +157,23 @@ func (h *Handler) handleCommandRoute(c *gin.Context) bool {
 			return true
 		}
 		return false
+	}
+}
+
+func parseAdminUserCommandPath(requestPath string) (string, string, bool) {
+	trimmed := strings.TrimPrefix(requestPath, "/api/v1/admin/users/")
+	if trimmed == requestPath || trimmed == "" || strings.Contains(trimmed, "/") {
+		return "", "", false
+	}
+	publicID, command, ok := strings.Cut(trimmed, ":")
+	if !ok || publicID == "" || command == "" {
+		return "", "", false
+	}
+	switch command {
+	case "reset-password", "disable", "enable":
+		return publicID, command, true
+	default:
+		return "", "", false
 	}
 }
 
@@ -199,6 +235,18 @@ func (h *Handler) requireAuthForNoRoute(c *gin.Context) bool {
 	}
 	writeError(c, http.StatusUnauthorized, "UNAUTHORIZED", "missing or invalid authentication", nil)
 	return false
+}
+func (h *Handler) requireAdminForNoRoute(c *gin.Context) bool {
+	if !h.authenticateJWT(c) && !h.authenticateAPIKey(c) {
+		writeError(c, http.StatusUnauthorized, "UNAUTHORIZED", "missing or invalid authentication", nil)
+		return false
+	}
+	principal, ok := h.currentPrincipal(c)
+	if !ok || principal.AuthType != "jwt" || principal.Role != "admin" {
+		writeError(c, http.StatusForbidden, "FORBIDDEN", "admin access is required", nil)
+		return false
+	}
+	return true
 }
 func (h *Handler) authRequired() gin.HandlerFunc {
 	return func(c *gin.Context) {

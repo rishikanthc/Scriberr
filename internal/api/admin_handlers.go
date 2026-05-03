@@ -1,10 +1,13 @@
 package api
 
 import (
+	"errors"
 	"net/http"
 	"regexp"
+	"strconv"
 	"time"
 
+	admindomain "scriberr/internal/admin"
 	"scriberr/internal/models"
 	"scriberr/internal/transcription/engineprovider"
 
@@ -75,6 +78,216 @@ func (h *Handler) queueStats(c *gin.Context) {
 		"canceled":   stats.Canceled,
 		"running":    stats.Running,
 	})
+}
+
+func (h *Handler) listAdminUsers(c *gin.Context) {
+	actorID, ok := currentUserID(c)
+	if !ok {
+		writeError(c, http.StatusUnauthorized, "UNAUTHORIZED", "missing or invalid authentication", nil)
+		return
+	}
+	if h.admin == nil {
+		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "admin service is not configured", nil)
+		return
+	}
+	users, total, err := h.admin.ListUsers(c.Request.Context(), actorID, 0, 100)
+	if !writeAdminUserError(c, err, "could not list users") {
+		return
+	}
+	items := make([]gin.H, 0, len(users))
+	for i := range users {
+		items = append(items, adminUserResponse(&users[i]))
+	}
+	c.JSON(http.StatusOK, gin.H{"items": items, "total": total, "next_cursor": nil})
+}
+
+func (h *Handler) createAdminUser(c *gin.Context) {
+	actorID, ok := currentUserID(c)
+	if !ok {
+		writeError(c, http.StatusUnauthorized, "UNAUTHORIZED", "missing or invalid authentication", nil)
+		return
+	}
+	if h.admin == nil {
+		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "admin service is not configured", nil)
+		return
+	}
+	var req adminCreateUserRequest
+	if !bindJSON(c, &req) {
+		return
+	}
+	user, err := h.admin.CreateUser(c.Request.Context(), actorID, admindomain.CreateUserCommand{
+		Username:    req.Username,
+		Email:       req.Email,
+		DisplayName: req.DisplayName,
+		Role:        req.Role,
+		Password:    req.Password,
+	})
+	if !writeAdminUserError(c, err, "could not create user") {
+		return
+	}
+	c.JSON(http.StatusCreated, adminUserResponse(user))
+}
+
+func (h *Handler) getAdminUser(c *gin.Context) {
+	actorID, targetID, ok := h.adminUserIdentity(c)
+	if !ok {
+		return
+	}
+	if h.admin == nil {
+		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "admin service is not configured", nil)
+		return
+	}
+	user, err := h.admin.GetUser(c.Request.Context(), actorID, targetID)
+	if !writeAdminUserError(c, err, "could not load user") {
+		return
+	}
+	c.JSON(http.StatusOK, adminUserResponse(user))
+}
+
+func (h *Handler) updateAdminUser(c *gin.Context) {
+	actorID, targetID, ok := h.adminUserIdentity(c)
+	if !ok {
+		return
+	}
+	if h.admin == nil {
+		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "admin service is not configured", nil)
+		return
+	}
+	var req adminUpdateUserRequest
+	if !bindJSON(c, &req) {
+		return
+	}
+	user, err := h.admin.UpdateUser(c.Request.Context(), actorID, targetID, admindomain.UpdateUserCommand{
+		Email:            req.Email,
+		DisplayName:      req.DisplayName,
+		Role:             req.Role,
+		Status:           req.Status,
+		ClearEmail:       req.Email != nil && *req.Email == "",
+		ClearDisplayName: req.DisplayName != nil && *req.DisplayName == "",
+	})
+	if !writeAdminUserError(c, err, "could not update user") {
+		return
+	}
+	c.JSON(http.StatusOK, adminUserResponse(user))
+}
+
+func (h *Handler) resetAdminUserPassword(c *gin.Context) {
+	actorID, targetID, ok := h.adminUserIdentity(c)
+	if !ok {
+		return
+	}
+	if h.admin == nil {
+		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "admin service is not configured", nil)
+		return
+	}
+	var req adminResetPasswordRequest
+	if !bindJSON(c, &req) {
+		return
+	}
+	err := h.admin.ResetPassword(c.Request.Context(), actorID, targetID, req.Password)
+	if !writeAdminUserError(c, err, "could not reset password") {
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"ok": true})
+}
+
+func (h *Handler) disableAdminUser(c *gin.Context) {
+	actorID, targetID, ok := h.adminUserIdentity(c)
+	if !ok {
+		return
+	}
+	if h.admin == nil {
+		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "admin service is not configured", nil)
+		return
+	}
+	user, err := h.admin.DisableUser(c.Request.Context(), actorID, targetID)
+	if !writeAdminUserError(c, err, "could not disable user") {
+		return
+	}
+	c.JSON(http.StatusOK, adminUserResponse(user))
+}
+
+func (h *Handler) enableAdminUser(c *gin.Context) {
+	actorID, targetID, ok := h.adminUserIdentity(c)
+	if !ok {
+		return
+	}
+	if h.admin == nil {
+		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "admin service is not configured", nil)
+		return
+	}
+	user, err := h.admin.EnableUser(c.Request.Context(), actorID, targetID)
+	if !writeAdminUserError(c, err, "could not enable user") {
+		return
+	}
+	c.JSON(http.StatusOK, adminUserResponse(user))
+}
+
+func (h *Handler) adminUserIdentity(c *gin.Context) (uint, uint, bool) {
+	actorID, ok := currentUserID(c)
+	if !ok {
+		writeError(c, http.StatusUnauthorized, "UNAUTHORIZED", "missing or invalid authentication", nil)
+		return 0, 0, false
+	}
+	targetID, ok := parseAdminUserID(c.Param("user_id"))
+	if !ok {
+		writeError(c, http.StatusNotFound, "NOT_FOUND", "user not found", nil)
+		return 0, 0, false
+	}
+	return actorID, targetID, true
+}
+
+func parseAdminUserID(raw string) (uint, bool) {
+	trimmed := regexp.MustCompile(`^user_`).ReplaceAllString(raw, "")
+	id, err := strconv.ParseUint(trimmed, 10, 64)
+	if err != nil || id == 0 {
+		return 0, false
+	}
+	return uint(id), true
+}
+
+func adminUserResponse(user *models.User) gin.H {
+	email := any(nil)
+	if user.Email != nil {
+		email = *user.Email
+	}
+	displayName := any(nil)
+	if user.DisplayName != nil {
+		displayName = *user.DisplayName
+	}
+	return gin.H{
+		"id":                  "user_" + strconv.FormatUint(uint64(user.ID), 10),
+		"username":            user.Username,
+		"email":               email,
+		"display_name":        displayName,
+		"role":                user.Role,
+		"status":              user.Status,
+		"last_login_at":       user.LastLoginAt,
+		"password_changed_at": user.PasswordChangedAt,
+		"created_at":          user.CreatedAt,
+		"updated_at":          user.UpdatedAt,
+	}
+}
+
+func writeAdminUserError(c *gin.Context, err error, fallback string) bool {
+	if err == nil {
+		return true
+	}
+	switch {
+	case errors.Is(err, admindomain.ErrForbidden):
+		writeError(c, http.StatusForbidden, "FORBIDDEN", "admin access is required", nil)
+	case errors.Is(err, admindomain.ErrUserNotFound):
+		writeError(c, http.StatusNotFound, "NOT_FOUND", "user not found", nil)
+	case errors.Is(err, admindomain.ErrUsernameInUse):
+		writeError(c, http.StatusConflict, "CONFLICT", "username is already in use", stringPtr("username"))
+	case errors.Is(err, admindomain.ErrInvalidUser):
+		writeError(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "user fields are invalid", nil)
+	case errors.Is(err, admindomain.ErrLastActiveAdmin):
+		writeError(c, http.StatusConflict, "CONFLICT", "last active admin cannot be disabled or demoted", nil)
+	default:
+		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", fallback, nil)
+	}
+	return false
 }
 
 func (h *Handler) getTranscriptionExecutions(c *gin.Context) {

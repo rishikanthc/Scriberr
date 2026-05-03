@@ -20,7 +20,10 @@ type UserRepository interface {
 	Repository[models.User]
 	FindByUsername(ctx context.Context, username string) (*models.User, error)
 	FindAutomationUserByID(ctx context.Context, userID uint) (*models.User, error)
+	FindUserByIDForAdmin(ctx context.Context, userID uint) (*models.User, error)
+	ListUsersForAdmin(ctx context.Context, offset, limit int) ([]models.User, int64, error)
 	Count(ctx context.Context) (int64, error)
+	CountActiveAdmins(ctx context.Context) (int64, error)
 	CountWithAutoTranscription(ctx context.Context) (int64, error)
 }
 
@@ -47,9 +50,37 @@ func (r *userRepository) FindAutomationUserByID(ctx context.Context, userID uint
 	return r.FindByID(ctx, userID)
 }
 
+func (r *userRepository) FindUserByIDForAdmin(ctx context.Context, userID uint) (*models.User, error) {
+	return r.FindByID(ctx, userID)
+}
+
+func (r *userRepository) ListUsersForAdmin(ctx context.Context, offset, limit int) ([]models.User, int64, error) {
+	if limit <= 0 {
+		limit = 50
+	}
+	var users []models.User
+	var count int64
+	query := r.db.WithContext(ctx).Model(&models.User{})
+	if err := query.Count(&count).Error; err != nil {
+		return nil, 0, err
+	}
+	if err := query.Order("created_at DESC, id DESC").Offset(offset).Limit(limit).Find(&users).Error; err != nil {
+		return nil, 0, err
+	}
+	return users, count, nil
+}
+
 func (r *userRepository) Count(ctx context.Context) (int64, error) {
 	var count int64
 	err := r.db.WithContext(ctx).Model(&models.User{}).Count(&count).Error
+	return count, err
+}
+
+func (r *userRepository) CountActiveAdmins(ctx context.Context) (int64, error) {
+	var count int64
+	err := r.db.WithContext(ctx).Model(&models.User{}).
+		Where("role = ? AND status = ?", "admin", models.UserStatusActive).
+		Count(&count).Error
 	return count, err
 }
 
@@ -1439,6 +1470,7 @@ type APIKeyRepository interface {
 	// Deprecated: Legacy global access. Use RevokeForUser instead.
 	Revoke(ctx context.Context, id uint) error
 	RevokeForUser(ctx context.Context, id, userID uint) error
+	RevokeByUser(ctx context.Context, userID uint) error
 }
 
 type apiKeyRepository struct {
@@ -1504,6 +1536,13 @@ func (r *apiKeyRepository) RevokeForUser(ctx context.Context, id, userID uint) e
 	now := time.Now()
 	return r.db.WithContext(ctx).Model(&models.APIKey{}).
 		Where("id = ? AND user_id = ?", id, userID).
+		Update("revoked_at", &now).Error
+}
+
+func (r *apiKeyRepository) RevokeByUser(ctx context.Context, userID uint) error {
+	now := time.Now()
+	return r.db.WithContext(ctx).Model(&models.APIKey{}).
+		Where("user_id = ? AND revoked_at IS NULL", userID).
 		Update("revoked_at", &now).Error
 }
 
