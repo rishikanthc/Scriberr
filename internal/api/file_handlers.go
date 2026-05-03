@@ -138,7 +138,7 @@ func (h *Handler) listFiles(c *gin.Context) {
 		return
 	}
 	jobs, nextCursor := trimListPage(jobs, opts)
-	items := make([]gin.H, 0, len(jobs))
+	items := make([]FileResponse, 0, len(jobs))
 	for i := range jobs {
 		mimeType := mediaType("", jobs[i].SourceFileName)
 		items = append(items, fileResponse(&jobs[i], mimeType, fileKind(mimeType)))

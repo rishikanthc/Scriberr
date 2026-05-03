@@ -54,8 +54,8 @@ func (h *Handler) createTranscription(c *gin.Context) {
 		return
 	}
 	response := transcriptionResponse(job)
-	h.publishTranscriptionEvent("transcription.created", response["id"].(string), gin.H{"id": response["id"], "file_id": response["file_id"], "status": response["status"]})
-	h.publishEvent("transcription.created", gin.H{"id": response["id"], "file_id": response["file_id"], "status": response["status"]})
+	h.publishTranscriptionEvent("transcription.created", response.ID, gin.H{"id": response.ID, "file_id": response.FileID, "status": response.Status})
+	h.publishEvent("transcription.created", gin.H{"id": response.ID, "file_id": response.FileID, "status": response.Status})
 	c.JSON(http.StatusAccepted, response)
 }
 func (h *Handler) submitTranscription(c *gin.Context) {
@@ -171,7 +171,7 @@ func (h *Handler) listTranscriptions(c *gin.Context) {
 		return
 	}
 	jobs, nextCursor := trimListPage(jobs, opts)
-	items := make([]gin.H, 0, len(jobs))
+	items := make([]TranscriptionListResponse, 0, len(jobs))
 	for i := range jobs {
 		items = append(items, transcriptionListResponse(&jobs[i]))
 	}
@@ -204,8 +204,8 @@ func (h *Handler) updateTranscription(c *gin.Context) {
 		return
 	}
 	response := transcriptionResponse(job)
-	h.publishTranscriptionEvent("transcription.updated", response["id"].(string), gin.H{"id": response["id"], "status": response["status"]})
-	h.publishEvent("transcription.updated", gin.H{"id": response["id"], "status": response["status"]})
+	h.publishTranscriptionEvent("transcription.updated", response.ID, gin.H{"id": response.ID, "status": response.Status})
+	h.publishEvent("transcription.updated", gin.H{"id": response.ID, "status": response.Status})
 	c.JSON(http.StatusOK, response)
 }
 func (h *Handler) deleteTranscription(c *gin.Context) {

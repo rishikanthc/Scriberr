@@ -20,13 +20,106 @@ import (
 
 const defaultMaxUploadSizeBytes int64 = 50 << 30
 
-func userResponse(user *models.User) gin.H {
-	return gin.H{
-		"id":       "user_self",
-		"username": user.Username,
-	}
+type UserResponse struct {
+	ID       string `json:"id"`
+	Username string `json:"username"`
 }
-func recordingResponse(session *models.RecordingSession) gin.H {
+
+type RecordingResponse struct {
+	ID              string    `json:"id"`
+	Title           string    `json:"title"`
+	Status          string    `json:"status"`
+	SourceKind      string    `json:"source_kind"`
+	MimeType        string    `json:"mime_type"`
+	ReceivedChunks  int       `json:"received_chunks"`
+	ReceivedBytes   int64     `json:"received_bytes"`
+	DurationSeconds any       `json:"duration_seconds"`
+	FileID          any       `json:"file_id"`
+	TranscriptionID any       `json:"transcription_id"`
+	Progress        float64   `json:"progress"`
+	ProgressStage   string    `json:"progress_stage"`
+	StartedAt       time.Time `json:"started_at"`
+	StoppedAt       any       `json:"stopped_at"`
+	CompletedAt     any       `json:"completed_at"`
+	FailedAt        any       `json:"failed_at"`
+	CreatedAt       time.Time `json:"created_at"`
+	UpdatedAt       time.Time `json:"updated_at"`
+}
+
+type RecordingChunkResponse struct {
+	RecordingID    string `json:"recording_id"`
+	ChunkIndex     int    `json:"chunk_index"`
+	Status         string `json:"status"`
+	ReceivedChunks int    `json:"received_chunks"`
+	ReceivedBytes  int64  `json:"received_bytes"`
+}
+
+type FileResponse struct {
+	ID              string    `json:"id"`
+	Title           string    `json:"title"`
+	Description     string    `json:"description"`
+	Kind            string    `json:"kind"`
+	Status          string    `json:"status"`
+	MimeType        string    `json:"mime_type"`
+	SizeBytes       int64     `json:"size_bytes"`
+	DurationSeconds any       `json:"duration_seconds"`
+	CreatedAt       time.Time `json:"created_at"`
+	UpdatedAt       time.Time `json:"updated_at"`
+}
+
+type TranscriptionResponse struct {
+	ID            string    `json:"id"`
+	FileID        string    `json:"file_id"`
+	Title         string    `json:"title"`
+	Status        string    `json:"status"`
+	Language      any       `json:"language"`
+	Diarization   bool      `json:"diarization"`
+	CreatedAt     time.Time `json:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at"`
+	Progress      float64   `json:"progress"`
+	ProgressStage string    `json:"progress_stage"`
+	StartedAt     any       `json:"started_at"`
+	CompletedAt   any       `json:"completed_at"`
+	FailedAt      any       `json:"failed_at"`
+	Error         any       `json:"error"`
+}
+
+type TranscriptionListResponse struct {
+	ID              string    `json:"id"`
+	FileID          string    `json:"file_id"`
+	Title           string    `json:"title"`
+	Status          string    `json:"status"`
+	Progress        float64   `json:"progress"`
+	ProgressStage   string    `json:"progress_stage"`
+	DurationSeconds any       `json:"duration_seconds"`
+	CreatedAt       time.Time `json:"created_at"`
+	UpdatedAt       time.Time `json:"updated_at"`
+}
+
+type ProfileResponse struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	IsDefault   bool   `json:"is_default"`
+	Options     gin.H  `json:"options"`
+	Parameters  gin.H  `json:"parameters"`
+	CreatedAt   any    `json:"created_at"`
+	UpdatedAt   any    `json:"updated_at"`
+}
+
+type SettingsResponse struct {
+	AutoTranscriptionEnabled bool `json:"auto_transcription_enabled"`
+	AutoRenameEnabled        bool `json:"auto_rename_enabled"`
+	DefaultProfileID         any  `json:"default_profile_id"`
+	LocalOnly                bool `json:"local_only"`
+	MaxUploadSizeMB          int  `json:"max_upload_size_mb"`
+}
+
+func userResponse(user *models.User) UserResponse {
+	return UserResponse{ID: "user_self", Username: user.Username}
+}
+
+func recordingResponse(session *models.RecordingSession) RecordingResponse {
 	title := ""
 	if session.Title != nil {
 		title = *session.Title
@@ -43,39 +136,39 @@ func recordingResponse(session *models.RecordingSession) gin.H {
 	if session.TranscriptionID != nil && *session.TranscriptionID != "" {
 		transcriptionID = "tr_" + *session.TranscriptionID
 	}
-	return gin.H{
-		"id":               recordingdomain.PublicID(session.ID),
-		"title":            title,
-		"status":           string(session.Status),
-		"source_kind":      string(session.SourceKind),
-		"mime_type":        session.MimeType,
-		"received_chunks":  session.ReceivedChunks,
-		"received_bytes":   session.ReceivedBytes,
-		"duration_seconds": durationSeconds,
-		"file_id":          fileID,
-		"transcription_id": transcriptionID,
-		"progress":         session.Progress,
-		"progress_stage":   session.ProgressStage,
-		"started_at":       session.StartedAt,
-		"stopped_at":       session.StoppedAt,
-		"completed_at":     session.CompletedAt,
-		"failed_at":        session.FailedAt,
-		"created_at":       session.CreatedAt,
-		"updated_at":       session.UpdatedAt,
+	return RecordingResponse{
+		ID:              recordingdomain.PublicID(session.ID),
+		Title:           title,
+		Status:          string(session.Status),
+		SourceKind:      string(session.SourceKind),
+		MimeType:        session.MimeType,
+		ReceivedChunks:  session.ReceivedChunks,
+		ReceivedBytes:   session.ReceivedBytes,
+		DurationSeconds: durationSeconds,
+		FileID:          fileID,
+		TranscriptionID: transcriptionID,
+		Progress:        session.Progress,
+		ProgressStage:   session.ProgressStage,
+		StartedAt:       session.StartedAt,
+		StoppedAt:       session.StoppedAt,
+		CompletedAt:     session.CompletedAt,
+		FailedAt:        session.FailedAt,
+		CreatedAt:       session.CreatedAt,
+		UpdatedAt:       session.UpdatedAt,
 	}
 }
 
-func recordingChunkResponse(result *recordingdomain.ChunkResult) gin.H {
+func recordingChunkResponse(result *recordingdomain.ChunkResult) RecordingChunkResponse {
 	status := "stored"
 	if result.AlreadyStored {
 		status = "already_stored"
 	}
-	return gin.H{
-		"recording_id":    recordingdomain.PublicID(result.Session.ID),
-		"chunk_index":     result.Chunk.ChunkIndex,
-		"status":          status,
-		"received_chunks": result.ReceivedChunks,
-		"received_bytes":  result.ReceivedBytes,
+	return RecordingChunkResponse{
+		RecordingID:    recordingdomain.PublicID(result.Session.ID),
+		ChunkIndex:     result.Chunk.ChunkIndex,
+		Status:         status,
+		ReceivedChunks: result.ReceivedChunks,
+		ReceivedBytes:  result.ReceivedBytes,
 	}
 }
 func publicAPIKeyID(id uint) string {
@@ -115,7 +208,7 @@ func sha256Hex(value string) string {
 	sum := sha256.Sum256([]byte(value))
 	return hex.EncodeToString(sum[:])
 }
-func fileResponse(job *models.TranscriptionJob, mimeType, kind string) gin.H {
+func fileResponse(job *models.TranscriptionJob, mimeType, kind string) FileResponse {
 	title := ""
 	if job.Title != nil {
 		title = *job.Title
@@ -144,17 +237,17 @@ func fileResponse(job *models.TranscriptionJob, mimeType, kind string) gin.H {
 	if job.SourceDurationMs != nil {
 		durationSeconds = float64(*job.SourceDurationMs) / 1000
 	}
-	return gin.H{
-		"id":               "file_" + job.ID,
-		"title":            title,
-		"description":      description,
-		"kind":             kind,
-		"status":           status,
-		"mime_type":        mimeType,
-		"size_bytes":       size,
-		"duration_seconds": durationSeconds,
-		"created_at":       job.CreatedAt,
-		"updated_at":       job.UpdatedAt,
+	return FileResponse{
+		ID:              "file_" + job.ID,
+		Title:           title,
+		Description:     description,
+		Kind:            kind,
+		Status:          status,
+		MimeType:        mimeType,
+		SizeBytes:       size,
+		DurationSeconds: durationSeconds,
+		CreatedAt:       job.CreatedAt,
+		UpdatedAt:       job.UpdatedAt,
 	}
 }
 func mediaType(headerValue, filename string) string {
@@ -212,7 +305,7 @@ func safeFilename(filename string) string {
 	}
 	return strings.NewReplacer("/", "_", "\\", "_", "\x00", "").Replace(base)
 }
-func transcriptionResponse(job *models.TranscriptionJob) gin.H {
+func transcriptionResponse(job *models.TranscriptionJob) TranscriptionResponse {
 	title := ""
 	if job.Title != nil {
 		title = *job.Title
@@ -225,24 +318,25 @@ func transcriptionResponse(job *models.TranscriptionJob) gin.H {
 	if job.ErrorMessage != nil && *job.ErrorMessage != "" {
 		errorValue = sanitizePublicText(*job.ErrorMessage)
 	}
-	return gin.H{
-		"id":             "tr_" + job.ID,
-		"file_id":        fileIDForTranscription(job),
-		"title":          title,
-		"status":         string(job.Status),
-		"language":       language,
-		"diarization":    job.Diarization,
-		"created_at":     job.CreatedAt,
-		"updated_at":     job.UpdatedAt,
-		"progress":       job.Progress,
-		"progress_stage": job.ProgressStage,
-		"started_at":     job.StartedAt,
-		"completed_at":   job.CompletedAt,
-		"failed_at":      job.FailedAt,
-		"error":          errorValue,
+	return TranscriptionResponse{
+		ID:            "tr_" + job.ID,
+		FileID:        fileIDForTranscription(job),
+		Title:         title,
+		Status:        string(job.Status),
+		Language:      language,
+		Diarization:   job.Diarization,
+		CreatedAt:     job.CreatedAt,
+		UpdatedAt:     job.UpdatedAt,
+		Progress:      job.Progress,
+		ProgressStage: job.ProgressStage,
+		StartedAt:     job.StartedAt,
+		CompletedAt:   job.CompletedAt,
+		FailedAt:      job.FailedAt,
+		Error:         errorValue,
 	}
 }
-func transcriptionListResponse(job *models.TranscriptionJob) gin.H {
+
+func transcriptionListResponse(job *models.TranscriptionJob) TranscriptionListResponse {
 	title := ""
 	if job.Title != nil {
 		title = *job.Title
@@ -251,16 +345,16 @@ func transcriptionListResponse(job *models.TranscriptionJob) gin.H {
 	if job.SourceDurationMs != nil {
 		durationSeconds = float64(*job.SourceDurationMs) / 1000
 	}
-	return gin.H{
-		"id":               "tr_" + job.ID,
-		"file_id":          fileIDForTranscription(job),
-		"title":            title,
-		"status":           string(job.Status),
-		"progress":         job.Progress,
-		"progress_stage":   job.ProgressStage,
-		"duration_seconds": durationSeconds,
-		"created_at":       job.CreatedAt,
-		"updated_at":       job.UpdatedAt,
+	return TranscriptionListResponse{
+		ID:              "tr_" + job.ID,
+		FileID:          fileIDForTranscription(job),
+		Title:           title,
+		Status:          string(job.Status),
+		Progress:        job.Progress,
+		ProgressStage:   job.ProgressStage,
+		DurationSeconds: durationSeconds,
+		CreatedAt:       job.CreatedAt,
+		UpdatedAt:       job.UpdatedAt,
 	}
 }
 func fileIDForTranscription(job *models.TranscriptionJob) string {
@@ -296,21 +390,21 @@ func validFileStatus(status string) bool {
 		return false
 	}
 }
-func profileResponse(profile *models.TranscriptionProfile) gin.H {
+func profileResponse(profile *models.TranscriptionProfile) ProfileResponse {
 	description := ""
 	if profile.Description != nil {
 		description = *profile.Description
 	}
 	options := profileOptionsMap(profile.Parameters)
-	return gin.H{
-		"id":          publicIDForProfile(profile.ID),
-		"name":        profile.Name,
-		"description": description,
-		"is_default":  profile.IsDefault,
-		"options":     options,
-		"parameters":  options,
-		"created_at":  profile.CreatedAt,
-		"updated_at":  profile.UpdatedAt,
+	return ProfileResponse{
+		ID:          publicIDForProfile(profile.ID),
+		Name:        profile.Name,
+		Description: description,
+		IsDefault:   profile.IsDefault,
+		Options:     options,
+		Parameters:  options,
+		CreatedAt:   profile.CreatedAt,
+		UpdatedAt:   profile.UpdatedAt,
 	}
 }
 func profileOptionsMap(params models.WhisperXParams) gin.H {
@@ -325,17 +419,17 @@ func profileOptionsMap(params models.WhisperXParams) gin.H {
 	options["diarization"] = params.Diarize
 	return options
 }
-func settingsResponse(h *Handler, user *models.User) gin.H {
+func settingsResponse(h *Handler, user *models.User) SettingsResponse {
 	defaultProfileID := any(nil)
 	if user.DefaultProfileID != nil && *user.DefaultProfileID != "" {
 		defaultProfileID = publicIDForProfile(*user.DefaultProfileID)
 	}
-	return gin.H{
-		"auto_transcription_enabled": user.AutoTranscriptionEnabled,
-		"auto_rename_enabled":        user.AutoRenameEnabled,
-		"default_profile_id":         defaultProfileID,
-		"local_only":                 true,
-		"max_upload_size_mb":         maxUploadSizeMB(h),
+	return SettingsResponse{
+		AutoTranscriptionEnabled: user.AutoTranscriptionEnabled,
+		AutoRenameEnabled:        user.AutoRenameEnabled,
+		DefaultProfileID:         defaultProfileID,
+		LocalOnly:                true,
+		MaxUploadSizeMB:          maxUploadSizeMB(h),
 	}
 }
 func maxUploadSizeMB(h *Handler) int {

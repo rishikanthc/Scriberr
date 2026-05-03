@@ -24,7 +24,7 @@ func (h *Handler) listProfiles(c *gin.Context) {
 		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not list profiles", nil)
 		return
 	}
-	items := make([]gin.H, 0, len(profiles))
+	items := make([]ProfileResponse, 0, len(profiles))
 	for i := range profiles {
 		items = append(items, profileResponse(&profiles[i]))
 	}
@@ -57,7 +57,7 @@ func (h *Handler) createProfile(c *gin.Context) {
 		return
 	}
 	response := profileResponse(profile)
-	h.publishEvent("profile.updated", gin.H{"id": response["id"]})
+	h.publishEvent("profile.updated", gin.H{"id": response.ID})
 	c.JSON(http.StatusCreated, response)
 }
 func (h *Handler) getProfile(c *gin.Context) {

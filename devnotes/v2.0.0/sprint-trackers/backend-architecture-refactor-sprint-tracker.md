@@ -2,7 +2,7 @@
 
 This tracker belongs to `devnotes/v2.0.0/sprint-plans/backend-architecture-refactor-sprint-plan.md`.
 
-Status: completed through Sprint 0.
+Status: completed through Sprint 1.
 
 ## Run Rules
 
@@ -45,34 +45,41 @@ Commit:
 
 ## Sprint 1: API DTO Boundary
 
-Status: planned
+Status: completed
 
-Planned tasks:
+Completed tasks:
 
-- [ ] Inventory handlers returning persistence models directly.
-- [ ] Add DTO mapper tests for files, transcriptions, profiles, recordings, and summaries.
-- [ ] Introduce explicit DTOs/mappers while preserving JSON shape.
-- [ ] Add path omission and public ID formatting tests.
+- [x] Inventory handlers returning persistence models directly.
+- [x] Add DTO mapper tests for files, transcriptions, profiles, recordings, and summaries.
+- [x] Introduce explicit DTOs/mappers while preserving JSON shape.
+- [x] Add path omission and public ID formatting tests.
 
 Acceptance checks:
 
-- [ ] Route/API contract tests remain stable.
-- [ ] Public responses do not expose raw local paths.
-- [ ] New API response work has DTO coverage.
+- [x] Route/API contract tests remain stable.
+- [x] Public responses do not expose raw local paths.
+- [x] New API response work has DTO coverage.
 
 Verification:
 
-- [ ] `GOCACHE=/Users/zade/Code/asr/Scriberr/.tmp/go-build go test ./internal/api`
-- [ ] `git diff --check`
+- [x] `GOCACHE=/Users/zade/Code/asr/Scriberr/.tmp/go-build go test ./internal/api -run 'Test.*ResponseDTO|TestRepresentativeResponseShapes|TestCanonicalRouteRegistration|TestEndpointContractSmoke|TestProductionAPIDatabaseAccessInventory|TestBackendDependencyDirection'`
+- [x] `git diff --check`
+
+Notes:
+
+- Full `go test ./internal/api` is blocked by sandbox loopback restrictions in `TestLLMProviderSettingsSaveTestsConnectionAndMasksKey`, which uses `httptest.NewServer`.
 
 Artifacts:
 
-- DTO/mapping files in `internal/api`.
+- `internal/api/response_models.go`
+- `internal/api/summary_handlers.go`
+- `internal/api/response_models_test.go`
+- Handler list/event call-site updates.
 - `devnotes/v2.0.0/status-updates/backend-architecture-refactor-sprint-01-api-dto-boundary.md`
 
 Commit:
 
-- [ ] `backend: harden api dto boundary`
+- [x] `backend: harden api dto boundary`
 
 ## Sprint 2: Storage Boundary Consolidation
 

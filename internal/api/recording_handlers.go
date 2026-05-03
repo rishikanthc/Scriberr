@@ -79,7 +79,7 @@ func (h *Handler) listRecordings(c *gin.Context) {
 		writeRecordingServiceError(c, err)
 		return
 	}
-	responses := make([]gin.H, 0, len(items))
+	responses := make([]RecordingResponse, 0, len(items))
 	for i := range items {
 		responses = append(responses, recordingResponse(&items[i]))
 	}
