@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"scriberr/internal/account"
 	"scriberr/internal/annotations"
 	"scriberr/internal/api"
 	"scriberr/internal/auth"
@@ -118,6 +119,9 @@ func main() {
 	recordingRepo := repository.NewRecordingRepository(database.DB)
 	profileRepo := repository.NewProfileRepository(database.DB)
 	tagRepo := repository.NewTagRepository(database.DB)
+	userRepo := repository.NewUserRepository(database.DB)
+	refreshTokenRepo := repository.NewRefreshTokenRepository(database.DB)
+	apiKeyRepo := repository.NewAPIKeyRepository(database.DB)
 
 	// Initialize local engine provider. This must not download models at startup.
 	logger.Startup("engine", "Initializing local engine provider")
@@ -144,6 +148,7 @@ func main() {
 		LeaseTimeout: cfg.Worker.LeaseTimeout,
 	})
 	summaryService := summarization.NewService(summaryRepo, llmConfigRepo, jobRepo, summarization.Config{})
+	accountService := account.NewService(userRepo, refreshTokenRepo, apiKeyRepo, profileRepo, llmConfigRepo, authService)
 	annotationService := annotations.NewService(annotationRepo, jobRepo)
 	tagService := tags.NewService(tagRepo, jobRepo)
 	recordingStorage, err := recordingdomain.NewStorage(cfg.Recordings.Dir)
@@ -172,6 +177,7 @@ func main() {
 		ReadinessCheck: database.HealthCheck,
 		Queue:          queueService,
 		ModelRegistry:  providerRegistry,
+		Account:        accountService,
 		Annotations:    annotationService,
 		Tags:           tagService,
 		Recordings:     recordingService,

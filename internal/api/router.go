@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"scriberr/internal/account"
 	"scriberr/internal/annotations"
 	"scriberr/internal/auth"
 	"scriberr/internal/config"
@@ -40,6 +41,7 @@ type Handler struct {
 	maxUploadBytes  int64
 	queueService    worker.QueueService
 	modelRegistry   engineprovider.Registry
+	account         *account.Service
 	annotations     *annotations.Service
 	tags            *tags.Service
 	recordings      *recordingdomain.Service
@@ -51,6 +53,7 @@ type HandlerDependencies struct {
 	ReadinessCheck func() error
 	Queue          worker.QueueService
 	ModelRegistry  engineprovider.Registry
+	Account        *account.Service
 	Annotations    *annotations.Service
 	Tags           *tags.Service
 	Recordings     *recordingdomain.Service
@@ -74,6 +77,7 @@ func NewHandler(cfg *config.Config, authService *auth.AuthService, deps HandlerD
 		chatLLMFactory:  chatClientForConfig,
 		queueService:    deps.Queue,
 		modelRegistry:   deps.ModelRegistry,
+		account:         deps.Account,
 		annotations:     deps.Annotations,
 		tags:            deps.Tags,
 		recordings:      deps.Recordings,

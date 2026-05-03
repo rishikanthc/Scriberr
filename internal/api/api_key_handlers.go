@@ -1,12 +1,11 @@
 package api
 
 import (
+	"errors"
 	"net/http"
 	"strings"
-	"time"
 
-	"scriberr/internal/database"
-	"scriberr/internal/models"
+	"scriberr/internal/account"
 
 	"github.com/gin-gonic/gin"
 )
@@ -17,8 +16,8 @@ func (h *Handler) listAPIKeys(c *gin.Context) {
 		writeError(c, http.StatusUnauthorized, "UNAUTHORIZED", "missing or invalid bearer token", nil)
 		return
 	}
-	var keys []models.APIKey
-	if err := database.DB.Where("user_id = ? AND revoked_at IS NULL", userID).Order("created_at DESC").Find(&keys).Error; err != nil {
+	keys, err := h.account.ListAPIKeys(c.Request.Context(), userID)
+	if err != nil {
 		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not list api keys", nil)
 		return
 	}
@@ -55,17 +54,8 @@ func (h *Handler) createAPIKey(c *gin.Context) {
 		writeError(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "name is required", stringPtr("name"))
 		return
 	}
-	rawKey := "sk_" + randomHex(32)
-	description := req.Description
-	key := models.APIKey{
-		UserID:      userID,
-		Name:        strings.TrimSpace(req.Name),
-		Key:         rawKey,
-		KeyPrefix:   rawKey[:8],
-		KeyHash:     sha256Hex(rawKey),
-		Description: &description,
-	}
-	if err := database.DB.Create(&key).Error; err != nil {
+	key, rawKey, err := h.account.CreateAPIKey(c.Request.Context(), userID, req.Name, req.Description)
+	if err != nil {
 		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not create api key", nil)
 		return
 	}
@@ -89,16 +79,11 @@ func (h *Handler) deleteAPIKey(c *gin.Context) {
 		writeError(c, http.StatusNotFound, "NOT_FOUND", "api key not found", nil)
 		return
 	}
-	now := time.Now()
-	result := database.DB.Model(&models.APIKey{}).
-		Where("id = ? AND user_id = ? AND revoked_at IS NULL", id, userID).
-		Update("revoked_at", &now)
-	if result.Error != nil {
-		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not delete api key", nil)
-		return
-	}
-	if result.RowsAffected == 0 {
+	if err := h.account.DeleteAPIKey(c.Request.Context(), userID, id); errors.Is(err, account.ErrAPIKeyNotFound) {
 		writeError(c, http.StatusNotFound, "NOT_FOUND", "api key not found", nil)
+		return
+	} else if err != nil {
+		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not delete api key", nil)
 		return
 	}
 	c.Status(http.StatusNoContent)

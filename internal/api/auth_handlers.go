@@ -1,25 +1,23 @@
 package api
 
 import (
+	"errors"
 	"net/http"
 	"strings"
-	"time"
 
-	"scriberr/internal/auth"
-	"scriberr/internal/database"
+	"scriberr/internal/account"
 	"scriberr/internal/models"
 
 	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 )
 
 func (h *Handler) registrationStatus(c *gin.Context) {
-	var count int64
-	if err := database.DB.Model(&models.User{}).Count(&count).Error; err != nil {
+	enabled, err := h.account.RegistrationEnabled(c.Request.Context())
+	if err != nil {
 		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not read registration status", nil)
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"registration_enabled": count == 0})
+	c.JSON(http.StatusOK, gin.H{"registration_enabled": enabled})
 }
 func (h *Handler) register(c *gin.Context) {
 	var req registerRequest
@@ -30,28 +28,20 @@ func (h *Handler) register(c *gin.Context) {
 		writeError(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "username and password are invalid", nil)
 		return
 	}
-
-	var count int64
-	if err := database.DB.Model(&models.User{}).Count(&count).Error; err != nil {
-		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not register user", nil)
-		return
-	}
-	if count > 0 {
+	response, err := h.account.Register(c.Request.Context(), req.Username, req.Password)
+	if errors.Is(err, account.ErrRegistrationClosed) {
 		writeError(c, http.StatusConflict, "CONFLICT", "registration is already complete", nil)
 		return
 	}
-
-	passwordHash, err := auth.HashPassword(req.Password)
+	if errors.Is(err, account.ErrUsernameInUse) {
+		writeError(c, http.StatusConflict, "CONFLICT", "username is already in use", nil)
+		return
+	}
 	if err != nil {
 		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not register user", nil)
 		return
 	}
-	user := models.User{Username: req.Username, Password: passwordHash}
-	if err := database.DB.Create(&user).Error; err != nil {
-		writeError(c, http.StatusConflict, "CONFLICT", "username is already in use", nil)
-		return
-	}
-	h.writeTokenResponse(c, http.StatusOK, &user)
+	writeTokenResponse(c, http.StatusOK, response)
 }
 func (h *Handler) login(c *gin.Context) {
 	var req loginRequest
@@ -62,52 +52,41 @@ func (h *Handler) login(c *gin.Context) {
 		writeError(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "username and password are required", nil)
 		return
 	}
-
-	var user models.User
-	if err := database.DB.Where("username = ?", req.Username).First(&user).Error; err != nil {
+	response, err := h.account.Login(c.Request.Context(), req.Username, req.Password)
+	if errors.Is(err, account.ErrInvalidCredentials) {
 		writeError(c, http.StatusUnauthorized, "UNAUTHORIZED", "invalid username or password", nil)
 		return
 	}
-	if !auth.CheckPassword(req.Password, user.Password) {
-		writeError(c, http.StatusUnauthorized, "UNAUTHORIZED", "invalid username or password", nil)
+	if err != nil {
+		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not login", nil)
 		return
 	}
-	h.writeTokenResponse(c, http.StatusOK, &user)
+	writeTokenResponse(c, http.StatusOK, response)
 }
 func (h *Handler) refresh(c *gin.Context) {
 	var req refreshRequest
 	if !bindJSON(c, &req) {
 		return
 	}
-	refreshToken, err := h.findUsableRefreshToken(req.RefreshToken)
-	if err != nil {
+	response, err := h.account.Refresh(c.Request.Context(), req.RefreshToken)
+	if errors.Is(err, account.ErrInvalidRefreshToken) {
 		writeError(c, http.StatusUnauthorized, "UNAUTHORIZED", "invalid refresh token", nil)
 		return
 	}
-
-	now := time.Now()
-	if err := database.DB.Model(&models.RefreshToken{}).Where("id = ?", refreshToken.ID).Update("revoked_at", &now).Error; err != nil {
+	if err != nil {
 		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not rotate refresh token", nil)
 		return
 	}
-
-	var user models.User
-	if err := database.DB.First(&user, refreshToken.UserID).Error; err != nil {
-		writeError(c, http.StatusUnauthorized, "UNAUTHORIZED", "invalid refresh token", nil)
-		return
-	}
-	h.writeTokenResponse(c, http.StatusOK, &user)
+	writeTokenResponse(c, http.StatusOK, response)
 }
 func (h *Handler) logout(c *gin.Context) {
 	var req refreshRequest
 	if !bindJSON(c, &req) {
 		return
 	}
-	if req.RefreshToken != "" {
-		now := time.Now()
-		_ = database.DB.Model(&models.RefreshToken{}).
-			Where("token_hash = ? AND revoked_at IS NULL", sha256Hex(req.RefreshToken)).
-			Update("revoked_at", &now).Error
+	if err := h.account.Logout(c.Request.Context(), req.RefreshToken); err != nil {
+		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not logout", nil)
+		return
 	}
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
@@ -117,15 +96,15 @@ func (h *Handler) me(c *gin.Context) {
 		writeError(c, http.StatusUnauthorized, "UNAUTHORIZED", "missing or invalid bearer token", nil)
 		return
 	}
-	var user models.User
-	if err := database.DB.First(&user, userID).Error; err != nil {
+	user, err := h.account.GetUser(c.Request.Context(), userID)
+	if err != nil {
 		writeError(c, http.StatusUnauthorized, "UNAUTHORIZED", "missing or invalid bearer token", nil)
 		return
 	}
-	c.JSON(http.StatusOK, userResponse(&user))
+	c.JSON(http.StatusOK, userResponse(user))
 }
 func (h *Handler) changePassword(c *gin.Context) {
-	user, ok := h.currentUser(c)
+	userID, ok := currentUserID(c)
 	if !ok {
 		writeError(c, http.StatusUnauthorized, "UNAUTHORIZED", "missing or invalid bearer token", nil)
 		return
@@ -138,23 +117,19 @@ func (h *Handler) changePassword(c *gin.Context) {
 		writeError(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "new password is invalid", nil)
 		return
 	}
-	if !auth.CheckPassword(req.CurrentPassword, user.Password) {
+	err := h.account.ChangePassword(c.Request.Context(), userID, req.CurrentPassword, req.NewPassword)
+	if errors.Is(err, account.ErrInvalidCurrentPassword) {
 		writeError(c, http.StatusUnauthorized, "UNAUTHORIZED", "current password is invalid", nil)
 		return
 	}
-	passwordHash, err := auth.HashPassword(req.NewPassword)
 	if err != nil {
-		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not change password", nil)
-		return
-	}
-	if err := database.DB.Model(&models.User{}).Where("id = ?", user.ID).Update("password_hash", passwordHash).Error; err != nil {
 		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not change password", nil)
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 func (h *Handler) changeUsername(c *gin.Context) {
-	user, ok := h.currentUser(c)
+	userID, ok := currentUserID(c)
 	if !ok {
 		writeError(c, http.StatusUnauthorized, "UNAUTHORIZED", "missing or invalid bearer token", nil)
 		return
@@ -163,62 +138,42 @@ func (h *Handler) changeUsername(c *gin.Context) {
 	if !bindJSON(c, &req) {
 		return
 	}
-	if len(req.NewUsername) < 3 || !auth.CheckPassword(req.Password, user.Password) {
+	if len(req.NewUsername) < 3 {
 		writeError(c, http.StatusUnauthorized, "UNAUTHORIZED", "username change is not authorized", nil)
 		return
 	}
-	if err := database.DB.Model(&models.User{}).Where("id = ?", user.ID).Update("username", req.NewUsername).Error; err != nil {
+	user, err := h.account.ChangeUsername(c.Request.Context(), userID, req.NewUsername, req.Password)
+	if errors.Is(err, account.ErrInvalidCurrentPassword) {
+		writeError(c, http.StatusUnauthorized, "UNAUTHORIZED", "username change is not authorized", nil)
+		return
+	}
+	if errors.Is(err, account.ErrUsernameInUse) {
 		writeError(c, http.StatusConflict, "CONFLICT", "username is already in use", nil)
 		return
 	}
-	user.Username = req.NewUsername
+	if err != nil {
+		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not change username", nil)
+		return
+	}
 	c.JSON(http.StatusOK, userResponse(user))
 }
-func (h *Handler) writeTokenResponse(c *gin.Context, status int, user *models.User) {
-	accessToken, err := h.authService.GenerateToken(user)
-	if err != nil {
-		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not issue access token", nil)
-		return
-	}
-	refreshToken := "rt_" + randomHex(32)
-	stored := models.RefreshToken{
-		UserID:    user.ID,
-		Hashed:    sha256Hex(refreshToken),
-		ExpiresAt: time.Now().Add(30 * 24 * time.Hour),
-	}
-	if err := database.DB.Create(&stored).Error; err != nil {
-		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not issue refresh token", nil)
-		return
-	}
+func writeTokenResponse(c *gin.Context, status int, response *account.TokenResponse) {
 	c.JSON(status, gin.H{
-		"access_token":  accessToken,
-		"refresh_token": refreshToken,
-		"user":          userResponse(user),
+		"access_token":  response.AccessToken,
+		"refresh_token": response.RefreshToken,
+		"user":          userResponse(response.User),
 	})
-}
-func (h *Handler) findUsableRefreshToken(raw string) (*models.RefreshToken, error) {
-	if raw == "" {
-		return nil, gorm.ErrRecordNotFound
-	}
-	var refreshToken models.RefreshToken
-	err := database.DB.
-		Where("token_hash = ? AND revoked_at IS NULL AND expires_at > ?", sha256Hex(raw), time.Now()).
-		First(&refreshToken).Error
-	if err != nil {
-		return nil, err
-	}
-	return &refreshToken, nil
 }
 func (h *Handler) currentUser(c *gin.Context) (*models.User, bool) {
 	userID, ok := currentUserID(c)
 	if !ok {
 		return nil, false
 	}
-	var user models.User
-	if err := database.DB.First(&user, userID).Error; err != nil {
+	user, err := h.account.GetUser(c.Request.Context(), userID)
+	if err != nil {
 		return nil, false
 	}
-	return &user, true
+	return user, true
 }
 func currentUserID(c *gin.Context) (uint, bool) {
 	value, ok := c.Get("user_id")

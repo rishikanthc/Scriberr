@@ -1146,7 +1146,10 @@ func (r *apiKeyRepository) ListActive(ctx context.Context) ([]models.APIKey, err
 
 func (r *apiKeyRepository) ListActiveByUser(ctx context.Context, userID uint) ([]models.APIKey, error) {
 	var apiKeys []models.APIKey
-	if err := r.db.WithContext(ctx).Where("user_id = ? AND revoked_at IS NULL", userID).Find(&apiKeys).Error; err != nil {
+	if err := r.db.WithContext(ctx).
+		Where("user_id = ? AND revoked_at IS NULL", userID).
+		Order("created_at DESC").
+		Find(&apiKeys).Error; err != nil {
 		return nil, err
 	}
 	return apiKeys, nil

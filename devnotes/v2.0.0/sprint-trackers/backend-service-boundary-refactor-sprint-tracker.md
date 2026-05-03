@@ -2,7 +2,7 @@
 
 This tracker belongs to `devnotes/v2.0.0/sprint-plans/backend-service-boundary-refactor-sprint-plan.md`.
 
-Status: in progress. Sprints 0 and 1 are complete; Sprint 2 is pending.
+Status: in progress. Sprints 0 through 2 are complete; Sprint 3 is pending.
 
 ## Sprint 0: Inventory, Dependency Map, and Stop-The-Line Guard
 
@@ -72,38 +72,42 @@ Artifacts:
 
 ## Sprint 2: Account and Settings Services
 
-Status: pending
+Status: completed
 
-Planned tasks:
+Completed tasks:
 
-- [ ] Move registration/login/refresh/logout/account commands into an account service.
-- [ ] Move password and username changes into the account service.
-- [ ] Move settings get/update into a settings service.
-- [ ] Add user repository methods for account and settings persistence.
-- [ ] Add `auto_rename_enabled` to persisted user settings.
-- [ ] Validate `auto_transcription_enabled=true` requires a valid default profile.
-- [ ] Validate `auto_rename_enabled=true` requires an active LLM provider and configured small model.
-- [ ] Return capability metadata needed to disable invalid settings toggles.
+- [x] Move registration/login/refresh/logout/account commands into an account service.
+- [x] Move password and username changes into the account service.
+- [x] Move settings get/update into the account service.
+- [x] Reuse existing user, refresh-token, API-key, profile, and LLM config repositories for account and settings persistence.
+- [x] Add `auto_rename_enabled` to persisted user settings.
+- [x] Validate `auto_transcription_enabled=true` requires a valid default profile.
+- [x] Validate `auto_rename_enabled=true` requires an active LLM provider and configured small model.
+- [x] Return the new setting field in settings responses.
 
 Acceptance checks:
 
-- [ ] Auth handlers perform no database queries.
-- [ ] Settings handlers perform no database queries.
-- [ ] Password change behavior remains stable.
-- [ ] Invalid auto-transcribe and auto-rename enablement fails with structured validation errors.
+- [x] Auth handlers perform no database queries.
+- [x] Settings handlers perform no database queries.
+- [x] Password change behavior remains stable.
+- [x] Invalid auto-transcribe and auto-rename enablement fails with structured validation errors.
 
 Verification:
 
-- [ ] `GOCACHE=/Users/zade/Code/asr/Scriberr/.tmp/go-build go test ./internal/api -run 'TestAuth|TestSettings|TestSecurity'`
-- [ ] `GOCACHE=/Users/zade/Code/asr/Scriberr/.tmp/go-build go test ./internal/database ./internal/repository`
-- [ ] `git diff --check`
+- [x] `GOCACHE=/Users/zade/Code/asr/Scriberr/.tmp/go-build go test ./internal/api -run 'TestAPIKey|TestIdempotency|TestSettings|TestAuth|TestProductionAPIDatabaseAccessInventory|TestSecurity'`
+- [x] `GOCACHE=/Users/zade/Code/asr/Scriberr/.tmp/go-build go test ./internal/database ./internal/repository ./internal/account`
+- [x] `GOCACHE=/Users/zade/Code/asr/Scriberr/.tmp/go-build go test ./cmd/server`
+- [x] `git diff --check`
 
 Artifacts:
 
-- Account service files.
-- Settings service files.
-- User repository changes.
-- Migration/schema updates if needed for settings persistence.
+- `internal/account/service.go`
+- `internal/api/auth_handlers.go`
+- `internal/api/api_key_handlers.go`
+- `internal/api/settings_handlers.go`
+- `internal/api/middleware.go`
+- `internal/models/auth.go`
+- `devnotes/v2.0.0/status-updates/backend-service-boundary-sprint-02-account-settings-notes.md`
 
 ## Sprint 3: Profile and LLM Provider Services
 

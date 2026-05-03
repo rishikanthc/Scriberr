@@ -332,6 +332,7 @@ func settingsResponse(h *Handler, user *models.User) gin.H {
 	}
 	return gin.H{
 		"auto_transcription_enabled": user.AutoTranscriptionEnabled,
+		"auto_rename_enabled":        user.AutoRenameEnabled,
 		"default_profile_id":         defaultProfileID,
 		"local_only":                 true,
 		"max_upload_size_mb":         maxUploadSizeMB(h),

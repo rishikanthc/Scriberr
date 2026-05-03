@@ -250,6 +250,43 @@ func TestSettingsPartialUpdateAndValidation(t *testing.T) {
 	require.Equal(t, "default_profile_id", errBody["field"])
 }
 
+func TestSettingsAutomationEnablementRequiresDependencies(t *testing.T) {
+	s := newAuthTestServer(t)
+	token := registerForFileTests(t, s)
+
+	resp, body := s.request(t, http.MethodPatch, "/api/v1/settings", map[string]any{
+		"auto_transcription_enabled": true,
+	}, token, "")
+	require.Equal(t, http.StatusUnprocessableEntity, resp.Code)
+	errBody := body["error"].(map[string]any)
+	require.Equal(t, "default_profile_id", errBody["field"])
+
+	resp, body = s.request(t, http.MethodPatch, "/api/v1/settings", map[string]any{
+		"auto_rename_enabled": true,
+	}, token, "")
+	require.Equal(t, http.StatusUnprocessableEntity, resp.Code)
+	errBody = body["error"].(map[string]any)
+	require.Equal(t, "auto_rename_enabled", errBody["field"])
+
+	baseURL := "http://localhost:11434/v1"
+	smallModel := "small-model"
+	require.NoError(t, database.DB.Create(&models.LLMConfig{
+		UserID:        1,
+		Name:          "Default LLM",
+		Provider:      "openai_compatible",
+		BaseURL:       &baseURL,
+		OpenAIBaseURL: &baseURL,
+		SmallModel:    &smallModel,
+		IsDefault:     true,
+	}).Error)
+
+	resp, body = s.request(t, http.MethodPatch, "/api/v1/settings", map[string]any{
+		"auto_rename_enabled": true,
+	}, token, "")
+	require.Equal(t, http.StatusOK, resp.Code)
+	require.Equal(t, true, body["auto_rename_enabled"])
+}
+
 func TestCapabilitiesQueueAndEvents(t *testing.T) {
 	s := newAuthTestServer(t)
 	token := registerForFileTests(t, s)

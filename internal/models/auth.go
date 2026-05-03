@@ -9,6 +9,7 @@ import (
 type userSettings struct {
 	DefaultProfileID         *string `json:"default_profile_id,omitempty"`
 	AutoTranscriptionEnabled bool    `json:"auto_transcription_enabled,omitempty"`
+	AutoRenameEnabled        bool    `json:"auto_rename_enabled,omitempty"`
 	SummaryDefaultModel      string  `json:"summary_default_model,omitempty"`
 }
 
@@ -46,6 +47,7 @@ type User struct {
 
 	DefaultProfileID         *string `json:"default_profile_id,omitempty" gorm:"-"`
 	AutoTranscriptionEnabled bool    `json:"auto_transcription_enabled" gorm:"-"`
+	AutoRenameEnabled        bool    `json:"auto_rename_enabled" gorm:"-"`
 	SummaryDefaultModel      string  `json:"-" gorm:"-"`
 }
 
@@ -58,6 +60,7 @@ func (u *User) BeforeSave(tx *gorm.DB) error {
 	settingsJSON, err := marshalJSONColumn("users.settings_json", userSettings{
 		DefaultProfileID:         u.DefaultProfileID,
 		AutoTranscriptionEnabled: u.AutoTranscriptionEnabled,
+		AutoRenameEnabled:        u.AutoRenameEnabled,
 		SummaryDefaultModel:      u.SummaryDefaultModel,
 	})
 	if err != nil {
@@ -77,6 +80,7 @@ func (u *User) AfterFind(tx *gorm.DB) error {
 	}
 	u.DefaultProfileID = settings.DefaultProfileID
 	u.AutoTranscriptionEnabled = settings.AutoTranscriptionEnabled
+	u.AutoRenameEnabled = settings.AutoRenameEnabled
 	u.SummaryDefaultModel = settings.SummaryDefaultModel
 	return nil
 }

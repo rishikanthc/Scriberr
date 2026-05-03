@@ -1,10 +1,11 @@
 package api
 
 import (
+	"errors"
 	"net/http"
 	"strings"
 
-	"scriberr/internal/database"
+	"scriberr/internal/account"
 
 	"github.com/gin-gonic/gin"
 )
@@ -27,31 +28,45 @@ func (h *Handler) updateSettings(c *gin.Context) {
 	if !bindJSON(c, &req) {
 		return
 	}
-	defaultProfileID := user.DefaultProfileID
+	update := account.SettingsUpdate{}
 	if req.DefaultProfileID != nil {
+		update.DefaultProfileIDSet = true
 		rawProfileID := strings.TrimSpace(*req.DefaultProfileID)
 		if rawProfileID == "" {
-			defaultProfileID = nil
+			update.DefaultProfileID = nil
 		} else {
 			parsedID, ok := parseProfileID(rawProfileID)
-			if !ok || !profileExistsForUser(user.ID, parsedID) {
+			if !ok {
 				writeError(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "default_profile_id is invalid", stringPtr("default_profile_id"))
 				return
 			}
-			defaultProfileID = &parsedID
+			update.DefaultProfileID = &parsedID
 		}
 	}
-	autoTranscription := user.AutoTranscriptionEnabled
-	if req.AutoTranscriptionEnabled != nil {
-		autoTranscription = *req.AutoTranscriptionEnabled
+	update.AutoTranscriptionEnabled = req.AutoTranscriptionEnabled
+	update.AutoRenameEnabled = req.AutoRenameEnabled
+	updated, err := h.account.UpdateSettings(c.Request.Context(), user.ID, update)
+	if errors.Is(err, account.ErrInvalidDefaultProfile) {
+		writeError(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "default_profile_id is invalid", stringPtr("default_profile_id"))
+		return
 	}
-	user.DefaultProfileID = defaultProfileID
-	user.AutoTranscriptionEnabled = autoTranscription
-	if err := database.DB.Save(user).Error; err != nil {
+	if errors.Is(err, account.ErrDefaultProfileRequired) {
+		writeError(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "default_profile_id is required before enabling auto transcription", stringPtr("default_profile_id"))
+		return
+	}
+	if errors.Is(err, account.ErrSmallLLMRequired) {
+		writeError(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "small LLM model is required before enabling auto rename", stringPtr("auto_rename_enabled"))
+		return
+	}
+	if err != nil {
 		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not update settings", nil)
 		return
 	}
-	response := settingsResponse(h, user)
-	h.publishEvent("settings.updated", gin.H{"auto_transcription_enabled": response["auto_transcription_enabled"], "default_profile_id": response["default_profile_id"]})
+	response := settingsResponse(h, updated)
+	h.publishEvent("settings.updated", gin.H{
+		"auto_transcription_enabled": response["auto_transcription_enabled"],
+		"auto_rename_enabled":        response["auto_rename_enabled"],
+		"default_profile_id":         response["default_profile_id"],
+	})
 	c.JSON(http.StatusOK, response)
 }

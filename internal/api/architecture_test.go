@@ -18,15 +18,11 @@ func TestProductionAPIDatabaseAccessInventory(t *testing.T) {
 	// this allowlist as handlers move behind service interfaces.
 	expected := []string{
 		"admin_handlers.go",
-		"api_key_handlers.go",
-		"auth_handlers.go",
 		"chat_handlers.go",
 		"file_handlers.go",
 		"llm_provider_handlers.go",
-		"middleware.go",
 		"profile_handlers.go",
 		"recording_handlers.go",
-		"settings_handlers.go",
 		"summary_handlers.go",
 		"summary_widget_handlers.go",
 		"transcription_handlers.go",

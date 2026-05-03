@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"scriberr/internal/account"
 	"scriberr/internal/annotations"
 	"scriberr/internal/auth"
 	"scriberr/internal/config"
@@ -56,6 +57,16 @@ func newAuthTestServer(t *testing.T) *authTestServer {
 		},
 	}
 	jobRepo := repository.NewJobRepository(database.DB)
+	profileRepo := repository.NewProfileRepository(database.DB)
+	llmConfigRepo := repository.NewLLMConfigRepository(database.DB)
+	accountService := account.NewService(
+		repository.NewUserRepository(database.DB),
+		repository.NewRefreshTokenRepository(database.DB),
+		repository.NewAPIKeyRepository(database.DB),
+		profileRepo,
+		llmConfigRepo,
+		authService,
+	)
 	annotationService := annotations.NewService(repository.NewAnnotationRepository(database.DB), jobRepo)
 	tagService := tags.NewService(repository.NewTagRepository(database.DB), jobRepo)
 	recordingStorage, err := recordingdomain.NewStorage(cfg.Recordings.Dir)
@@ -68,6 +79,7 @@ func newAuthTestServer(t *testing.T) *authTestServer {
 	})
 	handler := NewHandler(cfg, authService, HandlerDependencies{
 		ReadinessCheck: func() error { return nil },
+		Account:        accountService,
 		Annotations:    annotationService,
 		Tags:           tagService,
 		Recordings:     recordingService,

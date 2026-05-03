@@ -3,11 +3,8 @@ package api
 import (
 	"net/http"
 	"strings"
-	"time"
 
 	"scriberr/internal/config"
-	"scriberr/internal/database"
-	"scriberr/internal/models"
 	"scriberr/pkg/logger"
 
 	"github.com/gin-gonic/gin"
@@ -239,17 +236,13 @@ func (h *Handler) authenticateJWT(c *gin.Context) bool {
 }
 func (h *Handler) authenticateAPIKey(c *gin.Context) bool {
 	key := strings.TrimSpace(c.GetHeader("X-API-Key"))
-	if key == "" || database.DB == nil {
+	if key == "" || h.account == nil {
 		return false
 	}
-
-	var apiKey models.APIKey
-	if err := database.DB.Where("key_hash = ? AND revoked_at IS NULL", sha256Hex(key)).First(&apiKey).Error; err != nil {
+	apiKey, err := h.account.AuthenticateAPIKey(c.Request.Context(), key)
+	if err != nil {
 		return false
 	}
-	now := time.Now()
-	apiKey.LastUsed = &now
-	_ = database.DB.Save(&apiKey).Error
 
 	c.Set("auth_type", "api_key")
 	c.Set("user_id", apiKey.UserID)

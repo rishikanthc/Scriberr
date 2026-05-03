@@ -104,6 +104,7 @@ type updateProfileRequest struct {
 }
 type updateSettingsRequest struct {
 	AutoTranscriptionEnabled *bool   `json:"auto_transcription_enabled"`
+	AutoRenameEnabled        *bool   `json:"auto_rename_enabled"`
 	DefaultProfileID         *string `json:"default_profile_id"`
 }
 type updateLLMProviderRequest struct {
