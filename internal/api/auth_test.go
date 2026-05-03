@@ -76,7 +76,7 @@ func newAuthTestServer(t *testing.T) *authTestServer {
 		authService,
 	)
 	profileService := profiledomain.NewService(profileRepo)
-	llmProviderService := llmprovider.NewService(llmConfigRepo, LLMProviderConnectionTester{})
+	llmProviderService := llmprovider.NewService(llmConfigRepo, llmprovider.HTTPConnectionTester{})
 	fileService := filesdomain.NewService(jobRepo, filesdomain.Config{UploadDir: cfg.UploadDir})
 	mediaImportService := mediaimport.NewService(mediaimport.ServiceOptions{
 		Repository: jobRepo,

@@ -5,6 +5,7 @@ import (
 	"go/parser"
 	"go/token"
 	"io/fs"
+	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -105,6 +106,24 @@ func TestBackendDependencyDirection(t *testing.T) {
 	}
 }
 
+func TestProductionAPIDoesNotOwnLLMProviderConnectionTester(t *testing.T) {
+	for _, symbol := range []string{
+		"LLMProviderConnectionTester",
+		"testLLMProviderConnection",
+		"fetchOpenAICompatibleModels",
+		"fetchOllamaNativeModels",
+	} {
+		locations, err := productionAPIFilesContainingSymbol(".", symbol)
+		if err != nil {
+			t.Fatalf("scan API symbols: %v", err)
+		}
+		if len(locations) > 0 {
+			t.Fatalf("production API owns LLM provider probing symbol %q in:\n%s\nMove concrete provider probing to internal/llmprovider and keep API handlers request/response-only.",
+				symbol, strings.Join(locations, "\n"))
+		}
+	}
+}
+
 func productionFilesImportingDatabase(root string) ([]string, error) {
 	var files []string
 	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
@@ -192,6 +211,31 @@ func productionImportViolations(root string, forbidden, allowed []string) ([]str
 	})
 	sort.Strings(violations)
 	return violations, err
+}
+
+func productionAPIFilesContainingSymbol(root, symbol string) ([]string, error) {
+	var files []string
+	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			return nil
+		}
+		if !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
+			return nil
+		}
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		if strings.Contains(string(data), symbol) {
+			files = append(files, filepath.ToSlash(path))
+		}
+		return nil
+	})
+	sort.Strings(files)
+	return files, err
 }
 
 func fileImports(path string, importPath string) (bool, error) {

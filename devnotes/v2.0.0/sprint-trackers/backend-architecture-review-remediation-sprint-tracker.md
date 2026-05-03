@@ -2,7 +2,7 @@
 
 This tracker belongs to `devnotes/v2.0.0/sprint-plans/backend-architecture-review-remediation-sprint-plan.md`.
 
-Status: Sprint 2 complete.
+Status: Sprint 3 complete.
 
 ## Run Rules
 
@@ -23,7 +23,7 @@ Status: Sprint 2 complete.
 | Queue terminal updates are not claim-owned | High | Sprint 5 | pending |
 | Recovery requeues every processing job | High | Sprint 5 | pending |
 | Chat generation runs inside HTTP handler | High | Sprint 6 | pending |
-| External LLM provider adapter lives in API | Medium | Sprint 3 | pending |
+| External LLM provider adapter lives in API | Medium | Sprint 3 | complete |
 | Admin route has no admin authorization | Medium | Sprint 1 | complete |
 | Generic/global repository methods remain exposed | Medium | Sprint 7 | pending |
 
@@ -148,7 +148,7 @@ Commit:
 
 ## Sprint 3: Move LLM Provider Probing Out Of API
 
-Status: pending
+Status: complete
 
 Addresses:
 
@@ -156,25 +156,25 @@ Addresses:
 
 TDD and scope checks:
 
-- [ ] Add failing architecture guard or inventory test for API-owned LLM provider adapters.
-- [ ] Add or move LLM provider probing tests into `internal/llmprovider`.
-- [ ] Move concrete HTTP tester out of `internal/api`.
-- [ ] Wire concrete tester from `internal/app`.
-- [ ] Keep API handlers limited to request/response mapping.
-- [ ] Write status note `backend-architecture-review-remediation-sprint-03-llm-provider-boundary.md`.
+- [x] Add failing architecture guard or inventory test for API-owned LLM provider adapters.
+- [x] Add or move LLM provider probing tests into `internal/llmprovider`.
+- [x] Move concrete HTTP tester out of `internal/api`.
+- [x] Wire concrete tester from `internal/app`.
+- [x] Keep API handlers limited to request/response mapping.
+- [x] Write status note `backend-architecture-review-remediation-sprint-03-llm-provider-boundary.md`.
 
 Acceptance checks:
 
-- [ ] `internal/app` no longer wires `llmprovider.Service` using an `api` concrete tester.
-- [ ] Provider probing behavior is covered outside API tests.
-- [ ] LLM provider settings response shape remains stable.
-- [ ] Architecture guard protects the new boundary.
+- [x] `internal/app` no longer wires `llmprovider.Service` using an `api` concrete tester.
+- [x] Provider probing behavior is covered outside API tests.
+- [x] LLM provider settings response shape remains stable.
+- [x] Architecture guard protects the new boundary.
 
 Verification:
 
-- [ ] `GOCACHE=/private/tmp/scriberr-go-cache go test ./internal/llmprovider ./internal/api -run 'TestLLMProvider|TestProduction|TestBackendDependencyDirection'`
-- [ ] `GOCACHE=/private/tmp/scriberr-go-cache go test ./internal/app ./cmd/server`
-- [ ] `git diff --check`
+- [x] `GOCACHE=/private/tmp/scriberr-go-cache go test ./internal/llmprovider ./internal/api -run 'TestHTTPConnectionTester|TestLLMProvider|TestProduction|TestBackendDependencyDirection'`
+- [x] `GOCACHE=/private/tmp/scriberr-go-cache go test ./internal/app ./cmd/server`
+- [x] `git diff --check`
 
 Artifacts:
 
@@ -186,7 +186,7 @@ Artifacts:
 
 Commit:
 
-- [ ] `backend: move llm provider probing out of api`
+- [x] `backend: move llm provider probing out of api`
 
 ## Sprint 4: Protect LLM Provider Credentials
 
