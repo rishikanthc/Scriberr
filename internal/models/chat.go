@@ -70,7 +70,7 @@ const (
 // ChatSession is the durable root for one transcript chat workflow.
 type ChatSession struct {
 	ID                    string            `json:"id" gorm:"primaryKey;type:varchar(36)"`
-	UserID                uint              `json:"user_id" gorm:"not null;index;default:1"`
+	UserID                uint              `json:"user_id" gorm:"not null;index"`
 	ParentTranscriptionID string            `json:"parent_transcription_id" gorm:"type:varchar(36);not null;index"`
 	Title                 string            `json:"title" gorm:"type:varchar(255);not null"`
 	Provider              string            `json:"provider" gorm:"type:varchar(50);not null"`
@@ -100,8 +100,8 @@ func (s *ChatSession) BeforeCreate(tx *gorm.DB) error {
 }
 
 func (s *ChatSession) BeforeSave(tx *gorm.DB) error {
-	if s.UserID == 0 {
-		s.UserID = primaryUserID
+	if err := requireUserIDForIdentifiedSave("chat session", s.UserID, s.ID != ""); err != nil {
+		return err
 	}
 	if s.Title == "" {
 		s.Title = "New Chat Session"
@@ -121,7 +121,7 @@ func (s *ChatSession) BeforeSave(tx *gorm.DB) error {
 // ChatContextSource is a backend-managed transcript included in a chat context.
 type ChatContextSource struct {
 	ID                string                      `json:"id" gorm:"primaryKey;type:varchar(36)"`
-	UserID            uint                        `json:"user_id" gorm:"not null;index;default:1"`
+	UserID            uint                        `json:"user_id" gorm:"not null;index"`
 	ChatSessionID     string                      `json:"chat_session_id" gorm:"type:varchar(36);not null;index"`
 	TranscriptionID   string                      `json:"transcription_id" gorm:"type:varchar(36);not null;index"`
 	Kind              ChatContextSourceKind       `json:"kind" gorm:"type:varchar(30);not null"`
@@ -150,8 +150,8 @@ func (s *ChatContextSource) BeforeCreate(tx *gorm.DB) error {
 }
 
 func (s *ChatContextSource) BeforeSave(tx *gorm.DB) error {
-	if s.UserID == 0 {
-		s.UserID = primaryUserID
+	if err := requireUserIDForIdentifiedSave("chat context source", s.UserID, s.ID != ""); err != nil {
+		return err
 	}
 	if s.Kind == "" {
 		s.Kind = ChatContextSourceKindTranscript
@@ -174,7 +174,7 @@ func (s *ChatContextSource) BeforeSave(tx *gorm.DB) error {
 // ChatMessage stores user, assistant, system, and tool messages separately from provider runs.
 type ChatMessage struct {
 	ID               string            `json:"id" gorm:"primaryKey;type:varchar(36)"`
-	UserID           uint              `json:"user_id" gorm:"not null;index;default:1"`
+	UserID           uint              `json:"user_id" gorm:"not null;index"`
 	ChatSessionID    string            `json:"chat_session_id" gorm:"type:varchar(36);not null;index"`
 	Role             ChatMessageRole   `json:"role" gorm:"type:varchar(20);not null"`
 	Content          string            `json:"content" gorm:"type:text;not null;default:''"`
@@ -204,8 +204,8 @@ func (m *ChatMessage) BeforeCreate(tx *gorm.DB) error {
 }
 
 func (m *ChatMessage) BeforeSave(tx *gorm.DB) error {
-	if m.UserID == 0 {
-		m.UserID = primaryUserID
+	if err := requireUserIDForIdentifiedSave("chat message", m.UserID, m.ID != ""); err != nil {
+		return err
 	}
 	if m.Status == "" {
 		m.Status = ChatMessageStatusCompleted
@@ -225,7 +225,7 @@ func (m *ChatMessage) BeforeSave(tx *gorm.DB) error {
 // ChatGenerationRun tracks a durable model generation lifecycle.
 type ChatGenerationRun struct {
 	ID                     string                  `json:"id" gorm:"primaryKey;type:varchar(36)"`
-	UserID                 uint                    `json:"user_id" gorm:"not null;index;default:1"`
+	UserID                 uint                    `json:"user_id" gorm:"not null;index"`
 	ChatSessionID          string                  `json:"chat_session_id" gorm:"type:varchar(36);not null;index"`
 	AssistantMessageID     *string                 `json:"assistant_message_id,omitempty" gorm:"type:varchar(36);index"`
 	Status                 ChatGenerationRunStatus `json:"status" gorm:"type:varchar(20);not null;default:'pending';index"`
@@ -256,8 +256,8 @@ func (r *ChatGenerationRun) BeforeCreate(tx *gorm.DB) error {
 }
 
 func (r *ChatGenerationRun) BeforeSave(tx *gorm.DB) error {
-	if r.UserID == 0 {
-		r.UserID = primaryUserID
+	if err := requireUserIDForIdentifiedSave("chat generation run", r.UserID, r.ID != ""); err != nil {
+		return err
 	}
 	if r.Status == "" {
 		r.Status = ChatGenerationRunStatusPending
@@ -271,7 +271,7 @@ func (r *ChatGenerationRun) BeforeSave(tx *gorm.DB) error {
 // ChatContextSummary stores compacted transcript or session context.
 type ChatContextSummary struct {
 	ID                     string                 `json:"id" gorm:"primaryKey;type:varchar(36)"`
-	UserID                 uint                   `json:"user_id" gorm:"not null;index;default:1"`
+	UserID                 uint                   `json:"user_id" gorm:"not null;index"`
 	ChatSessionID          string                 `json:"chat_session_id" gorm:"type:varchar(36);not null;index"`
 	SummaryType            ChatContextSummaryType `json:"summary_type" gorm:"type:varchar(20);not null"`
 	SourceTranscriptionID  *string                `json:"source_transcription_id,omitempty" gorm:"type:varchar(36);index"`
@@ -299,8 +299,8 @@ func (s *ChatContextSummary) BeforeCreate(tx *gorm.DB) error {
 }
 
 func (s *ChatContextSummary) BeforeSave(tx *gorm.DB) error {
-	if s.UserID == 0 {
-		s.UserID = primaryUserID
+	if err := requireUserIDForIdentifiedSave("chat context summary", s.UserID, s.ID != ""); err != nil {
+		return err
 	}
 	return validateChatContextSummaryType(s.SummaryType)
 }

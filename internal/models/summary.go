@@ -10,7 +10,7 @@ import (
 // SummaryTemplate represents a saved summarization template.
 type SummaryTemplate struct {
 	ID          string         `json:"id" gorm:"primaryKey;type:varchar(36)"`
-	UserID      uint           `json:"user_id" gorm:"not null;index;default:1"`
+	UserID      uint           `json:"user_id" gorm:"not null;index"`
 	Name        string         `json:"name" gorm:"type:varchar(255);not null"`
 	Prompt      string         `json:"prompt" gorm:"type:text;not null"`
 	Description *string        `json:"description,omitempty" gorm:"type:text"`
@@ -34,8 +34,8 @@ func (st *SummaryTemplate) BeforeCreate(tx *gorm.DB) error {
 }
 
 func (st *SummaryTemplate) BeforeSave(tx *gorm.DB) error {
-	if st.UserID == 0 {
-		st.UserID = primaryUserID
+	if err := requireUserIDForIdentifiedSave("summary template", st.UserID, st.ID != ""); err != nil {
+		return err
 	}
 	configJSON, err := marshalJSONColumn("summary_templates.config_json", map[string]any{
 		"model":                st.Model,
@@ -78,7 +78,7 @@ type SummarySetting struct {
 type Summary struct {
 	ID                  string     `json:"id" gorm:"primaryKey;type:varchar(36)"`
 	TranscriptionID     string     `json:"transcription_id" gorm:"type:varchar(36);not null;index"`
-	UserID              uint       `json:"user_id" gorm:"not null;index;default:1"`
+	UserID              uint       `json:"user_id" gorm:"not null;index"`
 	TemplateID          *string    `json:"template_id,omitempty" gorm:"type:varchar(36);index"`
 	Title               *string    `json:"title,omitempty" gorm:"type:text"`
 	Content             string     `json:"content" gorm:"type:text;not null"`
@@ -104,8 +104,8 @@ func (s *Summary) BeforeCreate(tx *gorm.DB) error {
 	if s.ID == "" {
 		s.ID = uuid.New().String()
 	}
-	if s.UserID == 0 {
-		s.UserID = primaryUserID
+	if err := requireUserID("summary", s.UserID); err != nil {
+		return err
 	}
 	if s.Status == "" {
 		s.Status = "completed"
@@ -116,7 +116,7 @@ func (s *Summary) BeforeCreate(tx *gorm.DB) error {
 // SummaryWidget stores a user-defined extraction widget for generated summaries.
 type SummaryWidget struct {
 	ID             string         `json:"id" gorm:"primaryKey;type:varchar(36)"`
-	UserID         uint           `json:"user_id" gorm:"not null;index;default:1"`
+	UserID         uint           `json:"user_id" gorm:"not null;index"`
 	Name           string         `json:"name" gorm:"type:varchar(120);not null"`
 	Description    *string        `json:"description,omitempty" gorm:"type:text"`
 	AlwaysEnabled  bool           `json:"always_enabled" gorm:"not null;default:false"`
@@ -137,8 +137,8 @@ func (w *SummaryWidget) BeforeCreate(tx *gorm.DB) error {
 	if w.ID == "" {
 		w.ID = uuid.New().String()
 	}
-	if w.UserID == 0 {
-		w.UserID = primaryUserID
+	if err := requireUserID("summary widget", w.UserID); err != nil {
+		return err
 	}
 	if w.ContextSource == "" {
 		w.ContextSource = "summary"
@@ -152,7 +152,7 @@ type SummaryWidgetRun struct {
 	SummaryID        string     `json:"summary_id" gorm:"type:varchar(36);not null;index"`
 	TranscriptionID  string     `json:"transcription_id" gorm:"type:varchar(36);not null;index"`
 	WidgetID         string     `json:"widget_id" gorm:"type:varchar(36);not null;index"`
-	UserID           uint       `json:"user_id" gorm:"not null;index;default:1"`
+	UserID           uint       `json:"user_id" gorm:"not null;index"`
 	WidgetName       string     `json:"widget_name" gorm:"type:varchar(120);not null"`
 	DisplayTitle     string     `json:"display_title" gorm:"type:varchar(160);not null"`
 	ContextSource    string     `json:"context_source" gorm:"type:varchar(20);not null"`
@@ -181,8 +181,8 @@ func (r *SummaryWidgetRun) BeforeCreate(tx *gorm.DB) error {
 	if r.ID == "" {
 		r.ID = uuid.New().String()
 	}
-	if r.UserID == 0 {
-		r.UserID = primaryUserID
+	if err := requireUserID("summary widget run", r.UserID); err != nil {
+		return err
 	}
 	if r.Status == "" {
 		r.Status = "pending"

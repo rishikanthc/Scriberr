@@ -12,7 +12,7 @@ import (
 // AudioTag is a user-owned label that can be assigned to audio/transcription records.
 type AudioTag struct {
 	ID             string         `json:"id" gorm:"primaryKey;type:varchar(36)"`
-	UserID         uint           `json:"user_id" gorm:"not null;index;default:1"`
+	UserID         uint           `json:"user_id" gorm:"not null;index"`
 	Name           string         `json:"name" gorm:"type:varchar(120);not null"`
 	NormalizedName string         `json:"normalized_name" gorm:"type:varchar(120);not null;index"`
 	Color          *string        `json:"color,omitempty" gorm:"type:varchar(32)"`
@@ -36,8 +36,8 @@ func (t *AudioTag) BeforeCreate(tx *gorm.DB) error {
 }
 
 func (t *AudioTag) BeforeSave(tx *gorm.DB) error {
-	if t.UserID == 0 {
-		t.UserID = primaryUserID
+	if err := requireUserIDForIdentifiedSave("audio tag", t.UserID, t.ID != ""); err != nil {
+		return err
 	}
 	t.Name = strings.TrimSpace(t.Name)
 	if t.Name == "" {
@@ -63,7 +63,7 @@ func NormalizeAudioTagName(name string) string {
 // AudioTagAssignment links one tag to one audio/transcription record.
 type AudioTagAssignment struct {
 	ID              string         `json:"id" gorm:"primaryKey;type:varchar(36)"`
-	UserID          uint           `json:"user_id" gorm:"not null;index;default:1"`
+	UserID          uint           `json:"user_id" gorm:"not null;index"`
 	TagID           string         `json:"tag_id" gorm:"type:varchar(36);not null;index"`
 	TranscriptionID string         `json:"transcription_id" gorm:"type:varchar(36);not null;index"`
 	CreatedAt       time.Time      `json:"created_at" gorm:"autoCreateTime"`
@@ -79,8 +79,8 @@ func (a *AudioTagAssignment) BeforeCreate(tx *gorm.DB) error {
 	if a.ID == "" {
 		a.ID = uuid.New().String()
 	}
-	if a.UserID == 0 {
-		a.UserID = primaryUserID
+	if err := requireUserID("audio tag assignment", a.UserID); err != nil {
+		return err
 	}
 	if strings.TrimSpace(a.TagID) == "" {
 		return fmt.Errorf("audio tag assignment tag_id is required")

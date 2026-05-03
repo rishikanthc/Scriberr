@@ -31,7 +31,7 @@ func clearOtherDefaultsForUser(tx *gorm.DB, model any, userID uint, currentID an
 	if userID == 0 {
 		return fmt.Errorf("clear defaults: missing user_id")
 	}
-	return tx.Model(model).
+	return tx.Session(&gorm.Session{SkipHooks: true}).Model(model).
 		Where("user_id = ? AND id <> ?", userID, currentID).
 		Update("is_default", false).Error
 }

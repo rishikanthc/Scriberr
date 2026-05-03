@@ -99,7 +99,7 @@ type transcriptionMetadata struct {
 // TranscriptionJob represents the durable transcription record.
 type TranscriptionJob struct {
 	ID                            string         `json:"id" gorm:"primaryKey;type:varchar(36)"`
-	UserID                        uint           `json:"user_id" gorm:"not null;index;default:1"`
+	UserID                        uint           `json:"user_id" gorm:"not null;index"`
 	Title                         *string        `json:"title,omitempty" gorm:"type:text"`
 	Status                        JobStatus      `json:"status" gorm:"column:status;type:varchar(20);not null;default:'uploaded';index"`
 	AudioPath                     string         `json:"audio_path" gorm:"column:source_file_path;type:text;not null"`
@@ -144,12 +144,16 @@ func (tj *TranscriptionJob) BeforeCreate(tx *gorm.DB) error {
 	if tj.ID == "" {
 		tj.ID = uuid.New().String()
 	}
-	tj.applyDefaults()
+	if err := tj.applyDefaults(); err != nil {
+		return err
+	}
 	return tj.syncColumnsFromCompat()
 }
 
 func (tj *TranscriptionJob) BeforeSave(tx *gorm.DB) error {
-	tj.applyDefaults()
+	if err := tj.applyDefaults(); err != nil {
+		return err
+	}
 	return tj.syncColumnsFromCompat()
 }
 
@@ -157,13 +161,14 @@ func (tj *TranscriptionJob) AfterFind(tx *gorm.DB) error {
 	return tj.syncCompatFromColumns()
 }
 
-func (tj *TranscriptionJob) applyDefaults() {
-	if tj.UserID == 0 {
-		tj.UserID = primaryUserID
+func (tj *TranscriptionJob) applyDefaults() error {
+	if err := requireUserIDForIdentifiedSave("transcription", tj.UserID, tj.ID != ""); err != nil {
+		return err
 	}
 	if tj.SourceFileName == "" && tj.AudioPath != "" {
 		tj.SourceFileName = filepath.Base(tj.AudioPath)
 	}
+	return nil
 }
 
 func (tj *TranscriptionJob) syncColumnsFromCompat() error {
@@ -251,7 +256,7 @@ type executionPayload struct {
 type TranscriptionJobExecution struct {
 	ID                 string     `json:"id" gorm:"primaryKey;type:varchar(36)"`
 	TranscriptionJobID string     `json:"transcription_job_id" gorm:"column:transcription_id;type:varchar(36);not null;index"`
-	UserID             uint       `json:"user_id" gorm:"not null;index;default:1"`
+	UserID             uint       `json:"user_id" gorm:"not null;index"`
 	ExecutionNumber    int        `json:"execution_number" gorm:"not null;default:1"`
 	TriggerType        string     `json:"trigger_type" gorm:"type:varchar(20);not null;default:'manual'"`
 	Status             JobStatus  `json:"status" gorm:"type:varchar(20);not null;index"`
@@ -295,8 +300,8 @@ func (tje *TranscriptionJobExecution) AfterFind(tx *gorm.DB) error {
 }
 
 func (tje *TranscriptionJobExecution) syncColumnsFromCompat() error {
-	if tje.UserID == 0 {
-		tje.UserID = primaryUserID
+	if err := requireUserIDForIdentifiedSave("transcription execution", tje.UserID, tje.ID != ""); err != nil {
+		return err
 	}
 	if tje.ModelName == "" {
 		tje.ModelName = tje.ActualParameters.Model
@@ -384,7 +389,7 @@ func (tje *TranscriptionJobExecution) CalculateProcessingDuration() {
 // SpeakerMapping represents transcript-local speaker naming.
 type SpeakerMapping struct {
 	ID                 uint      `json:"id" gorm:"primaryKey;autoIncrement"`
-	UserID             uint      `json:"user_id" gorm:"not null;index;default:1"`
+	UserID             uint      `json:"user_id" gorm:"not null;index"`
 	TranscriptionJobID string    `json:"transcription_job_id" gorm:"column:transcription_id;type:varchar(36);not null;index"`
 	OriginalSpeaker    string    `json:"original_speaker" gorm:"type:varchar(100);not null"`
 	CustomName         string    `json:"custom_name" gorm:"column:display_name;type:varchar(255);not null"`
@@ -397,16 +402,13 @@ type SpeakerMapping struct {
 func (SpeakerMapping) TableName() string { return "speaker_mappings" }
 
 func (sm *SpeakerMapping) BeforeCreate(tx *gorm.DB) error {
-	if sm.UserID == 0 {
-		sm.UserID = primaryUserID
-	}
-	return nil
+	return requireUserID("speaker mapping", sm.UserID)
 }
 
 // TranscriptionProfile represents a saved transcription profile.
 type TranscriptionProfile struct {
 	ID                 string    `json:"id" gorm:"primaryKey;type:varchar(36)"`
-	UserID             uint      `json:"user_id" gorm:"not null;index;default:1"`
+	UserID             uint      `json:"user_id" gorm:"not null;index"`
 	Name               string    `json:"name" gorm:"type:varchar(255);not null"`
 	Description        *string   `json:"description,omitempty" gorm:"type:text"`
 	ModelName          string    `json:"model_name,omitempty" gorm:"type:varchar(100)"`
@@ -434,8 +436,8 @@ func (tp *TranscriptionProfile) BeforeCreate(tx *gorm.DB) error {
 }
 
 func (tp *TranscriptionProfile) BeforeSave(tx *gorm.DB) error {
-	if tp.UserID == 0 {
-		tp.UserID = primaryUserID
+	if err := requireUserID("transcription profile", tp.UserID); err != nil {
+		return err
 	}
 	tp.ModelName = tp.Parameters.Model
 	tp.ModelFamily = tp.Parameters.ModelFamily
@@ -484,7 +486,7 @@ func (tp *TranscriptionProfile) AfterFind(tx *gorm.DB) error {
 // LLMConfig represents a saved LLM profile.
 type LLMConfig struct {
 	ID         uint      `json:"id" gorm:"primaryKey"`
-	UserID     uint      `json:"user_id" gorm:"not null;index;default:1"`
+	UserID     uint      `json:"user_id" gorm:"not null;index"`
 	Name       string    `json:"name" gorm:"type:varchar(255);not null;default:'default'"`
 	Provider   string    `json:"provider" gorm:"not null;type:varchar(50)"`
 	ModelName  string    `json:"model_name,omitempty" gorm:"type:varchar(100)"`
@@ -503,9 +505,13 @@ type LLMConfig struct {
 
 func (LLMConfig) TableName() string { return "llm_profiles" }
 
+func (lc *LLMConfig) BeforeCreate(tx *gorm.DB) error {
+	return requireUserID("llm profile", lc.UserID)
+}
+
 func (lc *LLMConfig) BeforeSave(tx *gorm.DB) error {
-	if lc.UserID == 0 {
-		lc.UserID = primaryUserID
+	if err := requireUserIDForIdentifiedSave("llm profile", lc.UserID, lc.ID != 0); err != nil {
+		return err
 	}
 	configJSON, err := marshalJSONColumn("llm_profiles.config_json", map[string]any{
 		"openai_base_url": lc.OpenAIBaseURL,

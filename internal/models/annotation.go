@@ -24,7 +24,7 @@ const (
 // TranscriptAnnotation stores a user-owned highlight or note anchored to a transcript range.
 type TranscriptAnnotation struct {
 	ID              string         `json:"id" gorm:"primaryKey;type:varchar(36)"`
-	UserID          uint           `json:"user_id" gorm:"not null;index;default:1"`
+	UserID          uint           `json:"user_id" gorm:"not null;index"`
 	TranscriptionID string         `json:"transcription_id" gorm:"type:varchar(36);not null;index"`
 	Kind            AnnotationKind `json:"kind" gorm:"type:varchar(20);not null;index"`
 	Content         *string        `json:"content,omitempty" gorm:"type:text"`
@@ -57,8 +57,8 @@ func (a *TranscriptAnnotation) BeforeCreate(tx *gorm.DB) error {
 }
 
 func (a *TranscriptAnnotation) BeforeSave(tx *gorm.DB) error {
-	if a.UserID == 0 {
-		a.UserID = primaryUserID
+	if err := requireUserIDForIdentifiedSave("transcript annotation", a.UserID, a.ID != ""); err != nil {
+		return err
 	}
 	if a.Status == "" {
 		a.Status = AnnotationStatusActive
@@ -88,7 +88,7 @@ func validAnnotationKind(kind AnnotationKind) bool {
 type TranscriptAnnotationEntry struct {
 	ID           string         `json:"id" gorm:"primaryKey;type:varchar(36)"`
 	AnnotationID string         `json:"annotation_id" gorm:"type:varchar(36);not null;index"`
-	UserID       uint           `json:"user_id" gorm:"not null;index;default:1"`
+	UserID       uint           `json:"user_id" gorm:"not null;index"`
 	Content      string         `json:"content" gorm:"type:text;not null"`
 	CreatedAt    time.Time      `json:"created_at" gorm:"autoCreateTime"`
 	UpdatedAt    time.Time      `json:"updated_at" gorm:"autoUpdateTime"`
@@ -107,8 +107,8 @@ func (e *TranscriptAnnotationEntry) BeforeCreate(tx *gorm.DB) error {
 }
 
 func (e *TranscriptAnnotationEntry) BeforeSave(tx *gorm.DB) error {
-	if e.UserID == 0 {
-		e.UserID = primaryUserID
+	if err := requireUserIDForIdentifiedSave("transcript annotation entry", e.UserID, e.ID != ""); err != nil {
+		return err
 	}
 	e.Content = strings.TrimSpace(e.Content)
 	if e.Content == "" {

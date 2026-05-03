@@ -428,7 +428,7 @@ type defaultUintRow struct {
 
 func enforceLatestDefaultPerUserForProfiles(tx *gorm.DB) error {
 	var rows []defaultProfileRow
-	if err := tx.Model(&models.TranscriptionProfile{}).
+	if err := tx.Session(&gorm.Session{SkipHooks: true}).Model(&models.TranscriptionProfile{}).
 		Where("is_default = ?", true).
 		Order("user_id ASC, created_at DESC, id DESC").
 		Find(&rows).Error; err != nil {
@@ -452,7 +452,7 @@ func enforceLatestDefaultPerUserForProfiles(tx *gorm.DB) error {
 	if len(idsToClear) == 0 {
 		return nil
 	}
-	if err := tx.Model(&models.TranscriptionProfile{}).
+	if err := tx.Session(&gorm.Session{SkipHooks: true}).Model(&models.TranscriptionProfile{}).
 		Where("id IN ?", idsToClear).
 		Update("is_default", false).Error; err != nil {
 		return fmt.Errorf("clear duplicate profile defaults: %w", err)
@@ -462,7 +462,7 @@ func enforceLatestDefaultPerUserForProfiles(tx *gorm.DB) error {
 
 func enforceLatestDefaultPerUserForSummaryTemplates(tx *gorm.DB) error {
 	var rows []defaultStringRow
-	if err := tx.Model(&models.SummaryTemplate{}).
+	if err := tx.Session(&gorm.Session{SkipHooks: true}).Model(&models.SummaryTemplate{}).
 		Where("is_default = ?", true).
 		Order("user_id ASC, created_at DESC, id DESC").
 		Find(&rows).Error; err != nil {
@@ -486,7 +486,7 @@ func enforceLatestDefaultPerUserForSummaryTemplates(tx *gorm.DB) error {
 	if len(idsToClear) == 0 {
 		return nil
 	}
-	if err := tx.Model(&models.SummaryTemplate{}).
+	if err := tx.Session(&gorm.Session{SkipHooks: true}).Model(&models.SummaryTemplate{}).
 		Where("id IN ?", idsToClear).
 		Update("is_default", false).Error; err != nil {
 		return fmt.Errorf("clear duplicate summary template defaults: %w", err)
@@ -496,7 +496,7 @@ func enforceLatestDefaultPerUserForSummaryTemplates(tx *gorm.DB) error {
 
 func enforceLatestDefaultPerUserForLLMProfiles(tx *gorm.DB) error {
 	var rows []defaultUintRow
-	if err := tx.Model(&models.LLMConfig{}).
+	if err := tx.Session(&gorm.Session{SkipHooks: true}).Model(&models.LLMConfig{}).
 		Where("is_default = ?", true).
 		Order("user_id ASC, created_at DESC, id DESC").
 		Find(&rows).Error; err != nil {
@@ -520,7 +520,7 @@ func enforceLatestDefaultPerUserForLLMProfiles(tx *gorm.DB) error {
 	if len(idsToClear) == 0 {
 		return nil
 	}
-	if err := tx.Model(&models.LLMConfig{}).
+	if err := tx.Session(&gorm.Session{SkipHooks: true}).Model(&models.LLMConfig{}).
 		Where("id IN ?", idsToClear).
 		Update("is_default", false).Error; err != nil {
 		return fmt.Errorf("clear duplicate llm defaults: %w", err)

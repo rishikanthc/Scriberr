@@ -32,7 +32,7 @@ const (
 // RecordingSession stores the durable lifecycle for browser-captured audio.
 type RecordingSession struct {
 	ID                          string              `json:"id" gorm:"primaryKey;type:varchar(36)"`
-	UserID                      uint                `json:"user_id" gorm:"not null;index;default:1"`
+	UserID                      uint                `json:"user_id" gorm:"not null;index"`
 	Title                       *string             `json:"title,omitempty" gorm:"type:text"`
 	Status                      RecordingStatus     `json:"status" gorm:"type:varchar(20);not null;default:'recording';index"`
 	SourceKind                  RecordingSourceKind `json:"source_kind" gorm:"type:varchar(20);not null;default:'microphone'"`
@@ -83,8 +83,8 @@ func (s *RecordingSession) BeforeCreate(tx *gorm.DB) error {
 }
 
 func (s *RecordingSession) BeforeSave(tx *gorm.DB) error {
-	if s.UserID == 0 {
-		s.UserID = primaryUserID
+	if err := requireUserIDForIdentifiedSave("recording session", s.UserID, s.ID != ""); err != nil {
+		return err
 	}
 	if s.Status == "" {
 		s.Status = RecordingStatusRecording
@@ -145,7 +145,7 @@ func validRecordingSourceKind(kind RecordingSourceKind) bool {
 type RecordingChunk struct {
 	ID         string    `json:"id" gorm:"primaryKey;type:varchar(36)"`
 	SessionID  string    `json:"session_id" gorm:"type:varchar(36);not null;index"`
-	UserID     uint      `json:"user_id" gorm:"not null;index;default:1"`
+	UserID     uint      `json:"user_id" gorm:"not null;index"`
 	ChunkIndex int       `json:"chunk_index" gorm:"not null"`
 	Path       string    `json:"-" gorm:"type:text;not null"`
 	MimeType   string    `json:"mime_type" gorm:"type:varchar(120);not null"`
@@ -165,8 +165,8 @@ func (c *RecordingChunk) BeforeCreate(tx *gorm.DB) error {
 	if c.ID == "" {
 		c.ID = uuid.New().String()
 	}
-	if c.UserID == 0 {
-		c.UserID = primaryUserID
+	if err := requireUserID("recording chunk", c.UserID); err != nil {
+		return err
 	}
 	c.SessionID = strings.TrimSpace(c.SessionID)
 	if c.SessionID == "" {
