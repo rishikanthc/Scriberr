@@ -11,12 +11,9 @@ import (
 	"testing"
 )
 
-const forbiddenAPIImport = "scriberr/internal/database"
+const forbiddenDatabaseImport = "scriberr/internal/database"
 
 func TestProductionAPIDatabaseAccessInventory(t *testing.T) {
-	// This is a stop-the-line guard for the backend service-boundary refactor.
-	// Sprint 0 freezes existing API database access. Later sprints must shrink
-	// this allowlist as handlers move behind service interfaces.
 	expected := []string{}
 
 	actual, err := productionFilesImportingDatabase(".")
@@ -26,6 +23,40 @@ func TestProductionAPIDatabaseAccessInventory(t *testing.T) {
 
 	if strings.Join(actual, "\n") != strings.Join(expected, "\n") {
 		t.Fatalf("production API database import inventory changed.\nexpected:\n%s\nactual:\n%s\nUpdate the backend service-boundary tracker when intentionally removing entries; do not add new entries.",
+			strings.Join(expected, "\n"),
+			strings.Join(actual, "\n"))
+	}
+}
+
+func TestProductionInternalDatabaseImportInventory(t *testing.T) {
+	expected := []string{
+		"app/app.go",
+	}
+
+	actual, err := productionInternalFilesImportingDatabase("..")
+	if err != nil {
+		t.Fatalf("scan internal imports: %v", err)
+	}
+
+	if strings.Join(actual, "\n") != strings.Join(expected, "\n") {
+		t.Fatalf("production internal database import inventory changed.\nexpected:\n%s\nactual:\n%s\nOnly composition/bootstrap code should import internal/database outside the database package itself.",
+			strings.Join(expected, "\n"),
+			strings.Join(actual, "\n"))
+	}
+}
+
+func TestProductionInternalAPIImportInventory(t *testing.T) {
+	expected := []string{
+		"app/app.go",
+	}
+
+	actual, err := productionInternalFilesImporting("..", "scriberr/internal/api", "api")
+	if err != nil {
+		t.Fatalf("scan internal imports: %v", err)
+	}
+
+	if strings.Join(actual, "\n") != strings.Join(expected, "\n") {
+		t.Fatalf("production internal api import inventory changed.\nexpected:\n%s\nactual:\n%s\nOnly composition/bootstrap code should import internal/api.",
 			strings.Join(expected, "\n"),
 			strings.Join(actual, "\n"))
 	}
@@ -86,12 +117,48 @@ func productionFilesImportingDatabase(root string) ([]string, error) {
 		if !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
 			return nil
 		}
-		importsDatabase, err := fileImports(path, forbiddenAPIImport)
+		importsDatabase, err := fileImports(path, forbiddenDatabaseImport)
 		if err != nil {
 			return err
 		}
 		if importsDatabase {
 			files = append(files, filepath.Base(path))
+		}
+		return nil
+	})
+	sort.Strings(files)
+	return files, err
+}
+
+func productionInternalFilesImportingDatabase(root string) ([]string, error) {
+	return productionInternalFilesImporting(root, forbiddenDatabaseImport, "database")
+}
+
+func productionInternalFilesImporting(root, importPath, skipPackageDir string) ([]string, error) {
+	var files []string
+	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			if filepath.Base(path) == skipPackageDir {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
+			return nil
+		}
+		importsTarget, err := fileImports(path, importPath)
+		if err != nil {
+			return err
+		}
+		if importsTarget {
+			rel, err := filepath.Rel(root, path)
+			if err != nil {
+				return err
+			}
+			files = append(files, filepath.ToSlash(rel))
 		}
 		return nil
 	})

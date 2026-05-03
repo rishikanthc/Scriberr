@@ -17,7 +17,8 @@ No inner package imports `internal/api`. No service reaches through another serv
 Use the existing packages as the migration base:
 
 ```txt
-cmd/server              composition root and process lifecycle
+cmd/server              process lifecycle: flags, config, listener, signals
+internal/app            composition root for repositories, services, API, workers
 internal/config         typed configuration loading and validation
 internal/database       DB open, migrations, health checks only
 internal/models         persistence records and migration compatibility
@@ -45,14 +46,15 @@ internal/mediaimport    YouTube/video import adapter
 internal/web            static frontend serving adapter
 ```
 
-Future cleanup may introduce `internal/app` for bootstrap structs and `internal/domain` for pure domain types. Do not block current refactors on that rename; first enforce behavior and dependency direction.
+Future cleanup may introduce `internal/domain` for pure domain types. Do not block current refactors on that rename; first enforce behavior and dependency direction.
 
 ## Dependency Direction
 
 Allowed:
 
 ```txt
-cmd/server -> every concrete package needed for wiring
+cmd/server -> internal/app, config, logger, and process/runtime packages
+internal/app -> every concrete package needed for wiring
 internal/api -> service interfaces/concrete services, auth helpers, response DTOs
 services -> repositories, provider registries, storage boundaries, domain/persistence models
 worker -> repository queue methods, orchestrator processor
@@ -67,6 +69,8 @@ Forbidden:
 ```txt
 internal/api -> internal/database for production code
 internal/api -> database.DB
+non-bootstrap packages -> internal/api
+non-bootstrap packages -> internal/database
 repository -> api
 models -> api, services, providers
 engineprovider -> api or repository
@@ -78,19 +82,27 @@ Tests may seed databases directly when it is the clearest verification path.
 
 ## Composition Root
 
-`cmd/server/main.go` owns construction and lifecycle:
+`internal/app` owns backend construction and bounded application lifecycle:
 
-1. Initialize logger.
-2. Load and validate `config.Config`.
-3. Open database and run migrations.
-4. Construct repositories from `database.DB`.
-5. Construct provider registries and external adapters.
-6. Construct services.
-7. Wire event publishers, completion observers, and file-ready handoffs.
-8. Build `api.Handler` from explicit `api.HandlerDependencies`.
-9. Start workers after queue recovery.
-10. Start HTTP server.
-11. On shutdown, stop workers, finalizers, summaries, providers, then close DB.
+1. Open database and run migrations.
+2. Construct repositories from `database.DB`.
+3. Construct provider registries and external adapters.
+4. Construct services.
+5. Wire event publishers, completion observers, and file-ready handoffs.
+6. Build `api.Handler` from explicit `api.HandlerDependencies`.
+7. Build routes without starting the HTTP listener.
+8. Start durable workers after queue recovery.
+9. On shutdown, stop workers, summaries, finalizers, providers, then close DB.
+
+`cmd/server/main.go` owns only process concerns:
+
+1. Parse flags.
+2. Initialize logger.
+3. Load, validate, and log `config.Config`.
+4. Call `app.Build`.
+5. Call `App.Start`.
+6. Start the HTTP server from `App.Server`.
+7. Handle shutdown signals and process exit.
 
 `api.NewHandler` must not create fallback repositories or services.
 
@@ -161,7 +173,7 @@ Avoid adding generic query plumbing to services when a query has lifecycle, owne
 
 ## File And Storage Boundary
 
-Current local storage is implemented inside `internal/files`, `internal/recording`, and transcript output paths in `orchestrator`. The target is one explicit storage boundary before adding S3/MinIO or user-scoped storage.
+Current local storage is implemented inside `internal/files`, `internal/recording`, media import code, and the transcript artifact store in `orchestrator`. The target is one explicit storage boundary before adding S3/MinIO or user-scoped storage.
 
 Rules now:
 
@@ -300,8 +312,7 @@ Parse public IDs at the API boundary. Services and repositories use internal IDs
 
 1. Finish removing production `internal/api` imports of `internal/database`.
 2. Move remaining handler persistence into account, profile, LLM provider, file, summary, chat, and admin services.
-3. Split storage path handling out of handlers and centralize transcript/audio object access.
-4. Reduce `internal/models` usage at API boundaries by adding DTO mappers.
-5. Introduce `internal/app` only after composition code gets large enough to justify it.
-6. Add capability-based provider selection after the local provider path is stable.
-7. Add remote provider discovery and health checks as adapter work, not core workflow work.
+3. Continue centralizing transcript/audio object access behind explicit storage APIs.
+4. Keep API DTO mappers as the public contract boundary and avoid exposing persistence structs.
+5. Keep capability-based provider selection behind `engineprovider.Registry`.
+6. Add remote provider discovery and health checks as adapter work, not core workflow work.

@@ -2,7 +2,7 @@
 
 This tracker belongs to `devnotes/v2.0.0/sprint-plans/backend-architecture-refactor-sprint-plan.md`.
 
-Status: completed through Sprint 7.
+Status: completed through Sprint 8.
 
 ## Run Rules
 
@@ -297,33 +297,45 @@ Commit:
 
 ## Sprint 8: Cleanup, Documentation, And Final Architecture Gate
 
-Status: planned
+Status: completed
 
-Planned tasks:
+Completed tasks:
 
-- [ ] Remove dead legacy interfaces/packages that are no longer referenced.
-- [ ] Update root architecture docs with final decisions.
-- [ ] Tighten architecture guards to hard enforcement where feasible.
-- [ ] Run broad backend verification.
-- [ ] Write final residual-debt status note.
+- [x] Remove dead legacy interfaces/packages that are no longer referenced.
+- [x] Update root architecture docs with final decisions.
+- [x] Tighten architecture guards to hard enforcement where feasible.
+- [x] Run broad backend verification, with known sandbox blocker documented.
+- [x] Write final residual-debt status note.
 
 Acceptance checks:
 
-- [ ] Architecture docs match code.
-- [ ] Architecture guards protect final dependency direction.
-- [ ] Tracker records all verification and commits.
+- [x] Architecture docs match code.
+- [x] Architecture guards protect final dependency direction.
+- [x] Tracker records all verification and commits.
 
 Verification:
 
-- [ ] `GOCACHE=/Users/zade/Code/asr/Scriberr/.tmp/go-build go test ./internal/api ./internal/config ./internal/database ./internal/repository ./internal/transcription/... ./internal/files ./internal/recording ./internal/summarization ./internal/chat ./internal/account ./internal/profile ./internal/llmprovider ./internal/automation ./cmd/server`
-- [ ] `git diff --check`
+- [x] `GOCACHE=/Users/zade/Code/asr/Scriberr/.tmp/go-build go test ./internal/api -run 'TestEvent|TestSSE|Test.*ResponseDTO|TestRepresentativeResponseShapes|TestCanonicalRouteRegistration|TestEndpointContractSmoke|TestProductionAPIDatabaseAccessInventory|TestProductionInternalDatabaseImportInventory|TestProductionInternalAPIImportInventory|TestBackendDependencyDirection'`
+- [x] `GOCACHE=/Users/zade/Code/asr/Scriberr/.tmp/go-build go test ./internal/config ./internal/database ./internal/repository ./internal/transcription/... ./internal/files ./internal/recording ./internal/summarization ./internal/chat ./internal/account ./internal/profile ./internal/llmprovider ./internal/automation ./cmd/server ./internal/app`
+- [x] `GOCACHE=/Users/zade/Code/asr/Scriberr/.tmp/go-build go list ./...`
+- [x] `git diff --check`
+
+Notes:
+
+- Full broad verification including all `./internal/api` tests is still blocked by sandbox loopback restrictions in `TestLLMProviderSettingsSaveTestsConnectionAndMasksKey`, which uses `httptest.NewServer`.
 
 Artifacts:
 
-- Updated architecture docs.
-- Final architecture guard tests.
+- `internal/api/architecture_test.go`
+- `devnotes/v2.0.0/architecture-design.md`
+- `devnotes/v2.0.0/backend-rules.md`
+- `devnotes/v2.0.0/rules/backend-architecture-rules.md`
+- Removed unreferenced legacy packages:
+  - `internal/dropzone`
+  - `internal/interfaces`
+  - `internal/service`
 - `devnotes/v2.0.0/status-updates/backend-architecture-refactor-sprint-08-final.md`
 
 Commit:
 
-- [ ] `backend: finalize architecture refactor gates`
+- [x] `backend: finalize architecture refactor gates`

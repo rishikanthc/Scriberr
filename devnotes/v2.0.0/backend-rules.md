@@ -19,3 +19,5 @@
 9. Events are small notifications, not source of truth. Persist durable state first, publish after, and make clients able to recover by re-fetching REST resources.
 
 10. Configuration is loaded once, validated at startup, and injected. Runtime code must not read environment variables directly or silently create missing dependencies.
+
+11. `internal/app` is the only backend composition root. `cmd/server` owns process concerns only, and non-bootstrap packages must not import `internal/api` or `internal/database`.

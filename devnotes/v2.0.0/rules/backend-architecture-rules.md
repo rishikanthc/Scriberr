@@ -21,6 +21,8 @@ response mapper -> public API shape
 
 Handlers should be thin. Services should own decisions. Repositories should own database shape. Providers should own engine details.
 
+The backend composition root is `internal/app`. `cmd/server` should stay limited to process concerns: flags, startup logging, config loading, HTTP listener startup, signal handling, and exit status.
+
 ## 2. The HTTP Layer Is an Adapter
 
 `internal/api` should translate HTTP into domain commands and translate domain results back into responses. It should not own queue policy, transcription execution, profile resolution policy, filesystem layout, or database invariants.
