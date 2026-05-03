@@ -2,7 +2,7 @@
 
 This tracker belongs to `devnotes/v2.0.0/sprint-plans/backend-service-boundary-refactor-sprint-plan.md`.
 
-Status: in progress. Sprints 0 through 3 are complete; Sprint 4 is in progress.
+Status: in progress. Sprints 0 through 4 are complete; Sprint 5 is pending.
 
 ## Sprint 0: Inventory, Dependency Map, and Stop-The-Line Guard
 
@@ -151,7 +151,7 @@ Artifacts:
 
 ## Sprint 4: File and Media Import Service Boundary
 
-Status: in progress
+Status: completed
 
 Planned tasks:
 
@@ -159,28 +159,28 @@ Planned tasks:
 - [x] Move upload storage path construction out of handlers.
 - [x] Move direct upload persistence into repository/service methods.
 - [x] Move video extraction completion persistence behind service/repository methods.
-- [x] Adapt YouTube import completion service construction to composition-root injection.
-- [ ] Ensure direct upload, video extraction, YouTube import, and recording finalizer call one file-ready handoff.
+- [x] Adapt YouTube import completion to report file readiness through the shared boundary.
+- [x] Ensure direct upload, video extraction, YouTube import, and recording finalizer call one file-ready handoff.
 
 Acceptance checks:
 
 - [x] File handlers perform no database queries.
 - [x] File handlers do not construct durable storage paths.
-- [ ] File-ready behavior is shared by all file creation paths.
+- [x] File-ready behavior is shared by all file creation paths.
 - [x] File responses remain path-free.
 
 Verification:
 
 - [x] `GOCACHE=/Users/zade/Code/asr/Scriberr/.tmp/go-build go test ./internal/api -run 'TestRecording|TestFile|TestProductionAPIDatabaseAccessInventory'`
 - [x] `GOCACHE=/Users/zade/Code/asr/Scriberr/.tmp/go-build go test ./internal/files ./internal/mediaimport ./internal/recording ./internal/repository ./cmd/server`
-- [ ] `git diff --check`
+- [x] `git diff --check`
 
 Artifacts:
 
 - `internal/files/service.go`
 - File repository method additions in `internal/repository/implementations.go`.
-- Media import service injection changes.
-- Recording finalizer handoff changes remain pending.
+- Media import adapter changes.
+- Recording finalizer handoff changes.
 - `devnotes/v2.0.0/status-updates/backend-service-boundary-sprint-04-file-service-notes.md`
 
 ## Sprint 5: Transcription Command Service Boundary

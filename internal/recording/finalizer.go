@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	filesdomain "scriberr/internal/files"
 	"scriberr/internal/models"
 	"scriberr/internal/repository"
 	"scriberr/pkg/logger"
@@ -66,6 +67,7 @@ type FinalizerService struct {
 	media      MediaFinalizer
 	queue      TranscriptionEnqueuer
 	events     FinalizerEventPublisher
+	fileReady  filesdomain.ReadyHandoff
 	cfg        FinalizerConfig
 
 	mu      sync.Mutex
@@ -98,6 +100,10 @@ func (s *FinalizerService) SetEventPublisher(events FinalizerEventPublisher) {
 
 func (s *FinalizerService) SetTranscriptionEnqueuer(queue TranscriptionEnqueuer) {
 	s.queue = queue
+}
+
+func (s *FinalizerService) SetFileReadyHandoff(fileReady filesdomain.ReadyHandoff) {
+	s.fileReady = fileReady
 }
 
 func normalizeFinalizerConfig(cfg FinalizerConfig) FinalizerConfig {
@@ -330,7 +336,7 @@ func (s *FinalizerService) finalize(ctx context.Context, workerID string, sessio
 	completed.Progress = 1
 	completed.ProgressStage = "ready"
 	s.publishRecording(ctx, "recording.ready", &completed)
-	s.publishFile(ctx, file)
+	s.handoffFileReady(ctx, file)
 	if transcription != nil {
 		s.publishTranscription(ctx, transcription)
 	}
@@ -521,11 +527,19 @@ func (s *FinalizerService) publishRecording(ctx context.Context, name string, se
 	s.events.PublishRecordingEvent(ctx, event)
 }
 
-func (s *FinalizerService) publishFile(ctx context.Context, file *models.TranscriptionJob) {
-	if s.events == nil || file == nil {
+func (s *FinalizerService) handoffFileReady(ctx context.Context, file *models.TranscriptionJob) {
+	if file == nil {
 		return
 	}
-	s.events.PublishFileEvent(ctx, "file.ready", map[string]any{"id": "file_" + file.ID, "kind": "audio", "status": "ready"})
+	if s.fileReady != nil {
+		if err := s.fileReady.FileReady(ctx, filesdomain.ReadyEvent{FileID: file.ID, Kind: "audio", Status: "ready"}); err != nil {
+			logger.Warn("Recording file-ready handoff failed", "recording_file_id", file.ID, "error", err)
+		}
+		return
+	}
+	if s.events != nil {
+		s.events.PublishFileEvent(ctx, "file.ready", map[string]any{"id": "file_" + file.ID, "kind": "audio", "status": "ready"})
+	}
 }
 
 func (s *FinalizerService) publishTranscription(ctx context.Context, transcription *models.TranscriptionJob) {

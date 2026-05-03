@@ -17,6 +17,7 @@ import (
 	"sync"
 	"time"
 
+	filesdomain "scriberr/internal/files"
 	"scriberr/internal/models"
 )
 
@@ -54,6 +55,7 @@ type Service struct {
 	repo      Repository
 	importer  YouTubeImporter
 	publisher EventPublisher
+	ready     filesdomain.ReadyHandoff
 	uploadDir string
 	timeout   time.Duration
 	asyncJobs *sync.WaitGroup
@@ -63,6 +65,7 @@ type ServiceOptions struct {
 	Repository Repository
 	Importer   YouTubeImporter
 	Publisher  EventPublisher
+	Ready      filesdomain.ReadyHandoff
 	UploadDir  string
 	Timeout    time.Duration
 	AsyncJobs  *sync.WaitGroup
@@ -87,6 +90,7 @@ func NewService(opts ServiceOptions) *Service {
 		repo:      opts.Repository,
 		importer:  importer,
 		publisher: opts.Publisher,
+		ready:     opts.Ready,
 		uploadDir: opts.UploadDir,
 		timeout:   timeout,
 		asyncJobs: opts.AsyncJobs,
@@ -99,6 +103,10 @@ func (s *Service) SetPublisher(publisher EventPublisher) {
 
 func (s *Service) SetAsyncJobs(asyncJobs *sync.WaitGroup) {
 	s.asyncJobs = asyncJobs
+}
+
+func (s *Service) SetReadyHandoff(ready filesdomain.ReadyHandoff) {
+	s.ready = ready
 }
 
 func (s *Service) SetImporter(importer YouTubeImporter) {
@@ -193,7 +201,11 @@ func (s *Service) startDownload(jobID, rawURL, title, storagePath string) {
 			s.publish(ctx, "file.failed", jobID, "youtube", string(models.StatusFailed), 0)
 			return
 		}
-		s.publish(ctx, "file.ready", jobID, "youtube", "ready", 100)
+		if s.ready != nil {
+			_ = s.ready.FileReady(ctx, filesdomain.ReadyEvent{FileID: jobID, Kind: "youtube", Status: "ready"})
+		} else {
+			s.publish(ctx, "file.ready", jobID, "youtube", "ready", 100)
+		}
 	}()
 }
 

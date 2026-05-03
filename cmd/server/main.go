@@ -182,6 +182,7 @@ func main() {
 		FailedRetention: cfg.Recordings.FailedRetention,
 	})
 	recordingFinalizer.SetTranscriptionEnqueuer(queueService)
+	recordingFinalizer.SetFileReadyHandoff(fileService)
 
 	// Initialize API handlers
 	handler := api.NewHandler(cfg, authService, api.HandlerDependencies{

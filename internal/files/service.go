@@ -32,6 +32,16 @@ type EventPublisher interface {
 	PublishFileEvent(ctx context.Context, name string, payload map[string]any)
 }
 
+type ReadyHandoff interface {
+	FileReady(ctx context.Context, event ReadyEvent) error
+}
+
+type ReadyEvent struct {
+	FileID string
+	Kind   string
+	Status string
+}
+
 type MediaExtractor interface {
 	ExtractAudio(ctx context.Context, inputPath, outputPath string) error
 }
@@ -155,7 +165,7 @@ func (s *Service) Upload(ctx context.Context, cmd UploadCommand) (*UploadResult,
 		_ = os.Remove(storagePath)
 		return nil, err
 	}
-	s.publish(ctx, "file.ready", job.ID, "audio", "ready")
+	_ = s.FileReady(ctx, ReadyEvent{FileID: job.ID, Kind: "audio", Status: "ready"})
 	return &UploadResult{Job: job, MimeType: mimeType, Kind: kind}, nil
 }
 
@@ -265,8 +275,20 @@ func (s *Service) startVideoAudioExtraction(jobID, title, videoPath, extractedPa
 			return
 		}
 		_ = os.Remove(videoPath)
-		s.publish(ctx, "file.ready", jobID, "audio", "ready")
+		_ = s.FileReady(ctx, ReadyEvent{FileID: jobID, Kind: "audio", Status: "ready"})
 	}()
+}
+
+func (s *Service) FileReady(ctx context.Context, event ReadyEvent) error {
+	if event.FileID == "" {
+		return fmt.Errorf("file id is required")
+	}
+	status := event.Status
+	if status == "" {
+		status = "ready"
+	}
+	s.publish(ctx, "file.ready", event.FileID, event.Kind, status)
+	return nil
 }
 
 func (s *Service) publish(ctx context.Context, name, jobID, kind, status string) {

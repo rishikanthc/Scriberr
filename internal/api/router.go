@@ -110,6 +110,7 @@ func NewHandler(cfg *config.Config, authService *auth.AuthService, deps HandlerD
 	if handler.mediaImport != nil {
 		handler.mediaImport.SetPublisher(handler)
 		handler.mediaImport.SetAsyncJobs(&handler.asyncJobs)
+		handler.mediaImport.SetReadyHandoff(handler.files)
 	}
 	return handler
 }
