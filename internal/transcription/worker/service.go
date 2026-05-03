@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"scriberr/internal/models"
+	"scriberr/internal/transcription/scheduler"
 	"scriberr/pkg/logger"
 
 	"gorm.io/gorm"
@@ -24,6 +25,7 @@ type QueueService interface {
 	Start(ctx context.Context) error
 	Stop(ctx context.Context) error
 	Stats(ctx context.Context, userID uint) (QueueStats, error)
+	AdminStats(ctx context.Context) (AdminQueueStats, error)
 }
 
 type Processor interface {
@@ -84,19 +86,44 @@ type QueueStats struct {
 	Running    int64 `json:"running"`
 }
 
+type QueueStatsByUser struct {
+	UserID     uint   `json:"user_id"`
+	Username   string `json:"username"`
+	Queued     int64  `json:"queued"`
+	Processing int64  `json:"processing"`
+	Completed  int64  `json:"completed"`
+	Failed     int64  `json:"failed"`
+	Canceled   int64  `json:"canceled"`
+	Running    int64  `json:"running"`
+}
+
+type AdminQueueStats struct {
+	QueueStats
+	ByUser []QueueStatsByUser `json:"by_user"`
+}
+
 type Repository interface {
 	RecoverOrphanedProcessing(ctx context.Context, now time.Time) (int64, error)
 	EnqueueTranscription(ctx context.Context, jobID string, now time.Time) error
 	FindByID(ctx context.Context, id interface{}) (*models.TranscriptionJob, error)
 	CancelTranscription(ctx context.Context, jobID string, canceledAt time.Time) error
 	CountStatusesByUser(ctx context.Context, userID uint) (map[models.JobStatus]int64, error)
-	ClaimNextTranscription(ctx context.Context, workerID string, leaseUntil time.Time) (*models.TranscriptionJob, error)
+	CountQueueStatuses(ctx context.Context) ([]models.QueueStatusByUser, error)
+	ClaimNextTranscription(ctx context.Context, workerID string, leaseUntil time.Time, configs ...scheduler.Config) (*models.TranscriptionJob, error)
 	CompleteTranscription(ctx context.Context, jobID string, transcriptJSON string, outputPath *string, completedAt time.Time) error
 	CompleteTranscriptionClaimed(ctx context.Context, jobID, workerID, executionID string, transcriptJSON string, outputPath *string, completedAt time.Time) error
 	FailTranscription(ctx context.Context, jobID string, message string, failedAt time.Time) error
 	FailTranscriptionClaimed(ctx context.Context, jobID, workerID, executionID string, message string, failedAt time.Time) error
 	CancelTranscriptionClaimed(ctx context.Context, jobID, workerID, executionID string, canceledAt time.Time) error
 	RenewClaim(ctx context.Context, jobID, workerID string, leaseUntil time.Time) error
+}
+
+type SchedulerConfigProvider interface {
+	QueueSchedulerConfig(ctx context.Context) (scheduler.Config, error)
+}
+
+type SystemSettingsStore interface {
+	FindByKey(ctx context.Context, key string) (*models.SystemSetting, error)
 }
 
 type Config struct {
@@ -113,6 +140,7 @@ type Service struct {
 	processor  Processor
 	events     EventPublisher
 	completion CompletionObserver
+	scheduler  SchedulerConfigProvider
 	cfg        Config
 
 	mu      sync.Mutex
@@ -146,6 +174,32 @@ func (s *Service) SetEventPublisher(events EventPublisher) {
 
 func (s *Service) SetCompletionObserver(completion CompletionObserver) {
 	s.completion = completion
+}
+
+func (s *Service) SetSchedulerConfigProvider(provider SchedulerConfigProvider) {
+	s.scheduler = provider
+}
+
+type systemSettingsSchedulerConfigProvider struct {
+	settings SystemSettingsStore
+}
+
+func NewSystemSettingsSchedulerConfigProvider(settings SystemSettingsStore) SchedulerConfigProvider {
+	return systemSettingsSchedulerConfigProvider{settings: settings}
+}
+
+func (p systemSettingsSchedulerConfigProvider) QueueSchedulerConfig(ctx context.Context) (scheduler.Config, error) {
+	if p.settings == nil {
+		return scheduler.DefaultConfig(), nil
+	}
+	setting, err := p.settings.FindByKey(ctx, scheduler.SettingKey)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return scheduler.DefaultConfig(), nil
+	}
+	if err != nil {
+		return scheduler.Config{}, err
+	}
+	return scheduler.ParseJSON(setting.ValueJSON)
 }
 
 func normalizeConfig(cfg Config) Config {
@@ -295,6 +349,40 @@ func (s *Service) Stats(ctx context.Context, userID uint) (QueueStats, error) {
 	return stats, nil
 }
 
+func (s *Service) AdminStats(ctx context.Context) (AdminQueueStats, error) {
+	rows, err := s.repo.CountQueueStatuses(ctx)
+	if err != nil {
+		return AdminQueueStats{}, err
+	}
+	byUserIndex := map[uint]int{}
+	stats := AdminQueueStats{ByUser: []QueueStatsByUser{}}
+	for _, row := range rows {
+		stats.addStatus(row.Status, row.Count)
+		index, ok := byUserIndex[row.UserID]
+		if !ok {
+			stats.ByUser = append(stats.ByUser, QueueStatsByUser{
+				UserID:   row.UserID,
+				Username: row.Username,
+			})
+			index = len(stats.ByUser) - 1
+			byUserIndex[row.UserID] = index
+		}
+		stats.ByUser[index].addStatus(row.Status, row.Count)
+	}
+	runningByUser := s.runningCountByUser()
+	for userID, running := range runningByUser {
+		stats.Running += running
+		index, ok := byUserIndex[userID]
+		if !ok {
+			stats.ByUser = append(stats.ByUser, QueueStatsByUser{UserID: userID, Running: running})
+			byUserIndex[userID] = len(stats.ByUser) - 1
+			continue
+		}
+		stats.ByUser[index].Running = running
+	}
+	return stats, nil
+}
+
 func (s *Service) workerLoop(workerID string) {
 	defer s.wg.Done()
 	logger.Info("Transcription worker started", "worker_id", workerID)
@@ -317,7 +405,15 @@ func (s *Service) workerLoop(workerID string) {
 }
 
 func (s *Service) claimAndProcess(workerID string) error {
-	job, err := s.repo.ClaimNextTranscription(s.ctx, workerID, time.Now().Add(s.cfg.LeaseTimeout))
+	config := scheduler.DefaultConfig()
+	if s.scheduler != nil {
+		loaded, err := s.scheduler.QueueSchedulerConfig(s.ctx)
+		if err != nil {
+			return err
+		}
+		config = loaded
+	}
+	job, err := s.repo.ClaimNextTranscription(s.ctx, workerID, time.Now().Add(s.cfg.LeaseTimeout), config)
 	if err != nil {
 		return err
 	}
@@ -378,6 +474,36 @@ func (s *Service) claimAndProcess(workerID string) error {
 		return nil
 	default:
 		return fmt.Errorf("unsupported worker processor result status %q", result.Status)
+	}
+}
+
+func (s *QueueStats) addStatus(status models.JobStatus, count int64) {
+	switch status {
+	case models.StatusPending:
+		s.Queued += count
+	case models.StatusProcessing:
+		s.Processing += count
+	case models.StatusCompleted:
+		s.Completed += count
+	case models.StatusFailed:
+		s.Failed += count
+	case models.StatusStopped, models.StatusCanceled:
+		s.Canceled += count
+	}
+}
+
+func (s *QueueStatsByUser) addStatus(status models.JobStatus, count int64) {
+	switch status {
+	case models.StatusPending:
+		s.Queued += count
+	case models.StatusProcessing:
+		s.Processing += count
+	case models.StatusCompleted:
+		s.Completed += count
+	case models.StatusFailed:
+		s.Failed += count
+	case models.StatusStopped, models.StatusCanceled:
+		s.Canceled += count
 	}
 }
 
@@ -516,6 +642,16 @@ func (s *Service) runningCountForUser(userID uint) int64 {
 		}
 	}
 	return count
+}
+
+func (s *Service) runningCountByUser() map[uint]int64 {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	counts := make(map[uint]int64)
+	for _, job := range s.running {
+		counts[job.userID]++
+	}
+	return counts
 }
 
 func nonZeroTime(value time.Time) time.Time {

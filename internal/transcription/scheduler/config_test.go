@@ -15,11 +15,12 @@ func TestSchedulerDefaultConfigUsesPriorityPolicy(t *testing.T) {
 }
 
 func TestSchedulerConfigValidationAcceptsPlannedPolicies(t *testing.T) {
-	for _, policy := range []Policy{PolicyPriority, PolicyFIFO, PolicyWeightedDuration, PolicyFairShare} {
+	for _, policy := range []Policy{PolicyPriority, PolicyFIFO, PolicyWeightedDuration} {
 		t.Run(string(policy), func(t *testing.T) {
 			require.NoError(t, Config{Policy: policy}.Validate())
 		})
 	}
+	require.NoError(t, Config{Policy: PolicyFairShare, MaxConcurrentPerUser: 1}.Validate())
 }
 
 func TestSchedulerParseJSONRejectsInvalidOrLooseConfig(t *testing.T) {
@@ -27,6 +28,8 @@ func TestSchedulerParseJSONRejectsInvalidOrLooseConfig(t *testing.T) {
 		"unknown policy":  `{"policy":"random"}`,
 		"unknown field":   `{"policy":"priority","extra":true}`,
 		"missing policy":  `{}`,
+		"fair share cap":  `{"policy":"fair_share"}`,
+		"negative cap":    `{"policy":"priority","max_concurrent_per_user":-1}`,
 		"malformed json":  `{"policy":`,
 		"trailing object": `{"policy":"priority"} {"policy":"fifo"}`,
 	}

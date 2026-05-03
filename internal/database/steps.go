@@ -23,6 +23,7 @@ var schemaSteps = map[int]migrationStep{
 	9:  migrateStepV8ToV9,
 	10: migrateStepV9ToV10,
 	11: migrateStepV10ToV11,
+	12: migrateStepV11ToV12,
 }
 
 func runSchemaSteps(tx *gorm.DB, currentVersion int) error {
@@ -93,6 +94,21 @@ func migrateStepV10ToV11(tx *gorm.DB) error {
 		return err
 	}
 	return backfillSystemSettings(tx)
+}
+
+func migrateStepV11ToV12(tx *gorm.DB) error {
+	statements := []string{
+		`CREATE INDEX IF NOT EXISTS idx_transcriptions_queue_fifo ON transcriptions(status, queued_at, created_at, id)`,
+		`CREATE INDEX IF NOT EXISTS idx_transcriptions_queue_user_status ON transcriptions(user_id, status, queued_at)`,
+		`CREATE INDEX IF NOT EXISTS idx_transcriptions_queue_duration ON transcriptions(status, source_duration_ms, queued_at, created_at, id)`,
+		`CREATE INDEX IF NOT EXISTS idx_transcriptions_user_status_updated ON transcriptions(user_id, status, updated_at DESC, id)`,
+	}
+	for _, statement := range statements {
+		if err := tx.Exec(statement).Error; err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func backfillCompatibilityColumns(tx *gorm.DB) error {

@@ -29,12 +29,29 @@ type Stats struct {
 	Running    int64
 }
 
+type StatsByUser struct {
+	UserID     uint
+	Username   string
+	Queued     int64
+	Processing int64
+	Completed  int64
+	Failed     int64
+	Canceled   int64
+	Running    int64
+}
+
+type AdminStats struct {
+	Stats
+	ByUser []StatsByUser
+}
+
 type JobStore interface {
 	Create(ctx context.Context, entity *models.TranscriptionJob) error
 	FindFileByIDForUser(ctx context.Context, id string, userID uint) (*models.TranscriptionJob, error)
 	FindTranscriptionByIDForUser(ctx context.Context, id string, userID uint) (*models.TranscriptionJob, error)
 	ListTranscriptionsByUser(ctx context.Context, userID uint, opts ListOptions) ([]models.TranscriptionJob, error)
 	CountStatusesByUser(ctx context.Context, userID uint) (map[models.JobStatus]int64, error)
+	CountQueueStatuses(ctx context.Context) ([]models.QueueStatusByUser, error)
 	UpdateTranscriptionTitle(ctx context.Context, id string, userID uint, title string) error
 	DeleteTranscription(ctx context.Context, id string, userID uint) error
 	CancelTranscription(ctx context.Context, jobID string, canceledAt time.Time) error
@@ -130,6 +147,59 @@ func (s *Service) Stats(ctx context.Context, userID uint) (Stats, error) {
 		Failed:     counts[models.StatusFailed],
 		Canceled:   counts[models.StatusStopped] + counts[models.StatusCanceled],
 	}, nil
+}
+
+func (s *Service) AdminStats(ctx context.Context) (AdminStats, error) {
+	if s == nil || s.jobs == nil {
+		return AdminStats{}, fmt.Errorf("transcription service is not configured")
+	}
+	rows, err := s.jobs.CountQueueStatuses(ctx)
+	if err != nil {
+		return AdminStats{}, err
+	}
+	byUserIndex := map[uint]int{}
+	stats := AdminStats{ByUser: []StatsByUser{}}
+	for _, row := range rows {
+		stats.addStatus(row.Status, row.Count)
+		index, ok := byUserIndex[row.UserID]
+		if !ok {
+			stats.ByUser = append(stats.ByUser, StatsByUser{UserID: row.UserID, Username: row.Username})
+			index = len(stats.ByUser) - 1
+			byUserIndex[row.UserID] = index
+		}
+		stats.ByUser[index].addStatus(row.Status, row.Count)
+	}
+	return stats, nil
+}
+
+func (s *Stats) addStatus(status models.JobStatus, count int64) {
+	switch status {
+	case models.StatusPending:
+		s.Queued += count
+	case models.StatusProcessing:
+		s.Processing += count
+	case models.StatusCompleted:
+		s.Completed += count
+	case models.StatusFailed:
+		s.Failed += count
+	case models.StatusStopped, models.StatusCanceled:
+		s.Canceled += count
+	}
+}
+
+func (s *StatsByUser) addStatus(status models.JobStatus, count int64) {
+	switch status {
+	case models.StatusPending:
+		s.Queued += count
+	case models.StatusProcessing:
+		s.Processing += count
+	case models.StatusCompleted:
+		s.Completed += count
+	case models.StatusFailed:
+		s.Failed += count
+	case models.StatusStopped, models.StatusCanceled:
+		s.Canceled += count
+	}
 }
 
 func (s *Service) Get(ctx context.Context, userID uint, id string) (*models.TranscriptionJob, error) {

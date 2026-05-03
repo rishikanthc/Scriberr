@@ -124,7 +124,8 @@ type adminResetPasswordRequest struct {
 	Password string `json:"password"`
 }
 type adminSchedulerRequest struct {
-	Policy string `json:"policy"`
+	Policy               string `json:"policy"`
+	MaxConcurrentPerUser int    `json:"max_concurrent_per_user"`
 }
 type updateLLMProviderRequest struct {
 	BaseURL    string `json:"base_url"`

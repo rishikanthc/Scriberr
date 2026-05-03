@@ -9,8 +9,10 @@ import (
 
 	admindomain "scriberr/internal/admin"
 	"scriberr/internal/models"
+	transcriptiondomain "scriberr/internal/transcription"
 	"scriberr/internal/transcription/engineprovider"
 	"scriberr/internal/transcription/scheduler"
+	"scriberr/internal/transcription/worker"
 
 	"github.com/gin-gonic/gin"
 )
@@ -43,6 +45,24 @@ func (h *Handler) listTranscriptionModels(c *gin.Context) {
 	})
 }
 func (h *Handler) queueStats(c *gin.Context) {
+	if h.queueService != nil {
+		stats, err := h.queueService.AdminStats(c.Request.Context())
+		if err != nil {
+			writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not read queue stats", nil)
+			return
+		}
+		c.JSON(http.StatusOK, adminQueueStatsResponse(stats))
+		return
+	}
+	stats, err := h.transcriptions.AdminStats(c.Request.Context())
+	if err != nil {
+		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not read queue stats", nil)
+		return
+	}
+	c.JSON(http.StatusOK, transcriptionAdminQueueStatsResponse(stats))
+}
+
+func (h *Handler) userQueueStats(c *gin.Context) {
 	userID, ok := currentUserID(c)
 	if !ok {
 		writeError(c, http.StatusUnauthorized, "UNAUTHORIZED", "missing or invalid authentication", nil)
@@ -54,15 +74,7 @@ func (h *Handler) queueStats(c *gin.Context) {
 			writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not read queue stats", nil)
 			return
 		}
-		c.JSON(http.StatusOK, gin.H{
-			"queued":     stats.Queued,
-			"processing": stats.Processing,
-			"completed":  stats.Completed,
-			"failed":     stats.Failed,
-			"stopped":    stats.Canceled,
-			"canceled":   stats.Canceled,
-			"running":    stats.Running,
-		})
+		c.JSON(http.StatusOK, queueStatsResponse(stats))
 		return
 	}
 	stats, err := h.transcriptions.Stats(c.Request.Context(), userID)
@@ -70,7 +82,11 @@ func (h *Handler) queueStats(c *gin.Context) {
 		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not read queue stats", nil)
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{
+	c.JSON(http.StatusOK, transcriptionQueueStatsResponse(stats))
+}
+
+func queueStatsResponse(stats worker.QueueStats) gin.H {
+	return gin.H{
 		"queued":     stats.Queued,
 		"processing": stats.Processing,
 		"completed":  stats.Completed,
@@ -78,7 +94,59 @@ func (h *Handler) queueStats(c *gin.Context) {
 		"stopped":    stats.Canceled,
 		"canceled":   stats.Canceled,
 		"running":    stats.Running,
-	})
+	}
+}
+
+func adminQueueStatsResponse(stats worker.AdminQueueStats) gin.H {
+	body := queueStatsResponse(stats.QueueStats)
+	items := make([]gin.H, 0, len(stats.ByUser))
+	for _, item := range stats.ByUser {
+		items = append(items, gin.H{
+			"user_id":    "user_" + strconv.FormatUint(uint64(item.UserID), 10),
+			"username":   item.Username,
+			"queued":     item.Queued,
+			"processing": item.Processing,
+			"completed":  item.Completed,
+			"failed":     item.Failed,
+			"stopped":    item.Canceled,
+			"canceled":   item.Canceled,
+			"running":    item.Running,
+		})
+	}
+	body["by_user"] = items
+	return body
+}
+
+func transcriptionQueueStatsResponse(stats transcriptiondomain.Stats) gin.H {
+	return gin.H{
+		"queued":     stats.Queued,
+		"processing": stats.Processing,
+		"completed":  stats.Completed,
+		"failed":     stats.Failed,
+		"stopped":    stats.Canceled,
+		"canceled":   stats.Canceled,
+		"running":    stats.Running,
+	}
+}
+
+func transcriptionAdminQueueStatsResponse(stats transcriptiondomain.AdminStats) gin.H {
+	body := transcriptionQueueStatsResponse(stats.Stats)
+	items := make([]gin.H, 0, len(stats.ByUser))
+	for _, item := range stats.ByUser {
+		items = append(items, gin.H{
+			"user_id":    "user_" + strconv.FormatUint(uint64(item.UserID), 10),
+			"username":   item.Username,
+			"queued":     item.Queued,
+			"processing": item.Processing,
+			"completed":  item.Completed,
+			"failed":     item.Failed,
+			"stopped":    item.Canceled,
+			"canceled":   item.Canceled,
+			"running":    item.Running,
+		})
+	}
+	body["by_user"] = items
+	return body
 }
 
 func (h *Handler) getAdminQueueScheduler(c *gin.Context) {
@@ -112,7 +180,10 @@ func (h *Handler) updateAdminQueueScheduler(c *gin.Context) {
 	if !bindJSON(c, &req) {
 		return
 	}
-	config, err := h.admin.UpdateSchedulerConfig(c.Request.Context(), actorID, scheduler.Config{Policy: scheduler.Policy(req.Policy)})
+	config, err := h.admin.UpdateSchedulerConfig(c.Request.Context(), actorID, scheduler.Config{
+		Policy:               scheduler.Policy(req.Policy),
+		MaxConcurrentPerUser: req.MaxConcurrentPerUser,
+	})
 	if !writeAdminSchedulerError(c, err, "could not update scheduler config") {
 		return
 	}
@@ -309,7 +380,10 @@ func adminUserResponse(user *models.User) gin.H {
 }
 
 func adminSchedulerResponse(config scheduler.Config) gin.H {
-	return gin.H{"policy": string(config.Policy)}
+	return gin.H{
+		"policy":                  string(config.Policy),
+		"max_concurrent_per_user": config.MaxConcurrentPerUser,
+	}
 }
 
 func writeAdminSchedulerError(c *gin.Context, err error, fallback string) bool {

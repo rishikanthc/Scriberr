@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"scriberr/internal/models"
+	"scriberr/internal/transcription/scheduler"
 	"strings"
 	"time"
 
@@ -298,7 +299,7 @@ type JobRepository interface {
 	ListWithParams(ctx context.Context, offset, limit int, sortBy, sortOrder, searchQuery string, updatedAfter *time.Time) ([]models.TranscriptionJob, int64, error)
 	ListByUser(ctx context.Context, userID uint, offset, limit int) ([]models.TranscriptionJob, int64, error)
 	EnqueueTranscription(ctx context.Context, jobID string, now time.Time) error
-	ClaimNextTranscription(ctx context.Context, workerID string, leaseUntil time.Time) (*models.TranscriptionJob, error)
+	ClaimNextTranscription(ctx context.Context, workerID string, leaseUntil time.Time, configs ...scheduler.Config) (*models.TranscriptionJob, error)
 	RenewClaim(ctx context.Context, jobID, workerID string, leaseUntil time.Time) error
 	RecoverOrphanedProcessing(ctx context.Context, now time.Time) (int64, error)
 	UpdateProgress(ctx context.Context, jobID string, progress float64, stage string) error
@@ -312,6 +313,7 @@ type JobRepository interface {
 	CancelTranscriptionClaimed(ctx context.Context, jobID, workerID, executionID string, canceledAt time.Time) error
 	ListExecutions(ctx context.Context, jobID string) ([]models.TranscriptionJobExecution, error)
 	CountStatusesByUser(ctx context.Context, userID uint) (map[models.JobStatus]int64, error)
+	CountQueueStatuses(ctx context.Context) ([]models.QueueStatusByUser, error)
 	UpdateTranscript(ctx context.Context, jobID string, transcript string) error
 	UpdateFileTitle(ctx context.Context, id string, userID uint, title string) error
 	DeleteFile(ctx context.Context, id string, userID uint) error
@@ -578,15 +580,19 @@ func (r *jobRepository) EnqueueTranscription(ctx context.Context, jobID string, 
 	return nil
 }
 
-func (r *jobRepository) ClaimNextTranscription(ctx context.Context, workerID string, leaseUntil time.Time) (*models.TranscriptionJob, error) {
+func (r *jobRepository) ClaimNextTranscription(ctx context.Context, workerID string, leaseUntil time.Time, configs ...scheduler.Config) (*models.TranscriptionJob, error) {
+	config := scheduler.DefaultConfig()
+	if len(configs) > 0 {
+		config = configs[0]
+	}
+	if err := config.Validate(); err != nil {
+		return nil, err
+	}
 	var claimed models.TranscriptionJob
 	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var candidate models.TranscriptionJob
-		result := tx.
-			Where("status = ?", models.StatusPending).
-			Order("priority DESC, queued_at ASC, created_at ASC, id ASC").
-			Limit(1).
-			Find(&candidate)
+		result := applyQueueScheduler(tx.Model(&models.TranscriptionJob{}).Where("status = ?", models.StatusPending), config, time.Now()).
+			Limit(1).Find(&candidate)
 		if result.Error != nil {
 			return result.Error
 		}
@@ -616,6 +622,28 @@ func (r *jobRepository) ClaimNextTranscription(ctx context.Context, workerID str
 		return nil, err
 	}
 	return &claimed, nil
+}
+
+func applyQueueScheduler(query *gorm.DB, config scheduler.Config, now time.Time) *gorm.DB {
+	switch config.Policy {
+	case scheduler.PolicyFIFO:
+		return query.Order("queued_at ASC, created_at ASC, id ASC")
+	case scheduler.PolicyWeightedDuration:
+		return query.
+			Order(clause.Expr{
+				SQL:  "(COALESCE(source_duration_ms, 0) / 1000.0) - ((julianday(?) - julianday(COALESCE(queued_at, created_at))) * 86400.0) ASC",
+				Vars: []any{now},
+			}).
+			Order("queued_at ASC, created_at ASC, id ASC")
+	case scheduler.PolicyFairShare:
+		query = query.Joins("LEFT JOIN (SELECT user_id, COUNT(*) AS active_count FROM transcriptions WHERE status = ? GROUP BY user_id) active_queue ON active_queue.user_id = transcriptions.user_id", models.StatusProcessing)
+		if config.MaxConcurrentPerUser > 0 {
+			query = query.Where("COALESCE(active_queue.active_count, 0) < ?", config.MaxConcurrentPerUser)
+		}
+		return query.Order("COALESCE(active_queue.active_count, 0) ASC, queued_at ASC, created_at ASC, transcriptions.id ASC")
+	default:
+		return query.Order("priority DESC, queued_at ASC, created_at ASC, id ASC")
+	}
 }
 
 func (r *jobRepository) RenewClaim(ctx context.Context, jobID, workerID string, leaseUntil time.Time) error {
@@ -849,6 +877,18 @@ func (r *jobRepository) CountStatusesByUser(ctx context.Context, userID uint) (m
 		counts[row.Status] = row.Count
 	}
 	return counts, nil
+}
+
+func (r *jobRepository) CountQueueStatuses(ctx context.Context) ([]models.QueueStatusByUser, error) {
+	var rows []models.QueueStatusByUser
+	err := r.db.WithContext(ctx).Model(&models.TranscriptionJob{}).
+		Select("transcriptions.user_id, users.username, transcriptions.status, count(*) as count").
+		Joins("LEFT JOIN users ON users.id = transcriptions.user_id").
+		Where("transcriptions.source_file_hash IS NOT NULL").
+		Group("transcriptions.user_id, users.username, transcriptions.status").
+		Order("users.username ASC, transcriptions.user_id ASC, transcriptions.status ASC").
+		Find(&rows).Error
+	return rows, err
 }
 
 func updateLatestExecutionTerminal(tx *gorm.DB, jobID string, status models.JobStatus, updates map[string]any) error {

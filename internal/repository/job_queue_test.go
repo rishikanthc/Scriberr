@@ -10,6 +10,7 @@ import (
 
 	"scriberr/internal/database"
 	"scriberr/internal/models"
+	"scriberr/internal/transcription/scheduler"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -69,6 +70,10 @@ func TestJobRepositoryQueueSchemaIndexesExist(t *testing.T) {
 	assert.True(t, db.Migrator().HasColumn(&models.TranscriptionJob{}, "claim_expires_at"))
 	assert.True(t, db.Migrator().HasColumn(&models.TranscriptionJob{}, "engine_id"))
 	assert.True(t, db.Migrator().HasIndex(&models.TranscriptionJob{}, "idx_transcriptions_queue_claim"))
+	assert.True(t, db.Migrator().HasIndex(&models.TranscriptionJob{}, "idx_transcriptions_queue_fifo"))
+	assert.True(t, db.Migrator().HasIndex(&models.TranscriptionJob{}, "idx_transcriptions_queue_user_status"))
+	assert.True(t, db.Migrator().HasIndex(&models.TranscriptionJob{}, "idx_transcriptions_queue_duration"))
+	assert.True(t, db.Migrator().HasIndex(&models.TranscriptionJob{}, "idx_transcriptions_user_status_updated"))
 	assert.True(t, db.Migrator().HasIndex(&models.TranscriptionJob{}, "idx_transcriptions_claim_expires_at"))
 }
 
@@ -224,6 +229,92 @@ func TestJobRepositoryClaimPrefersHigherPriorityThenFIFO(t *testing.T) {
 	claimed, err = repo.ClaimNextTranscription(context.Background(), "worker-c", base.Add(10*time.Minute))
 	require.NoError(t, err)
 	assert.Equal(t, lowPriority.ID, claimed.ID)
+}
+
+func TestSchedulerFIFOIgnoresPriority(t *testing.T) {
+	db := openJobQueueTestDB(t)
+	user := createQueueTestUser(t, db)
+	repo := NewJobRepository(db)
+	base := time.Now().Add(-time.Hour).Truncate(time.Millisecond)
+	olderLowPriority := createQueueTestJob(t, db, user.ID, "scheduler-fifo-older", models.StatusUploaded, base)
+	newerHighPriority := createQueueTestJob(t, db, user.ID, "scheduler-fifo-newer", models.StatusUploaded, base.Add(time.Minute))
+	require.NoError(t, db.Model(&models.TranscriptionJob{}).Where("id = ?", newerHighPriority.ID).Update("priority", 100).Error)
+	require.NoError(t, repo.EnqueueTranscription(context.Background(), newerHighPriority.ID, base.Add(20*time.Second)))
+	require.NoError(t, repo.EnqueueTranscription(context.Background(), olderLowPriority.ID, base.Add(10*time.Second)))
+
+	claimed, err := repo.ClaimNextTranscription(context.Background(), "worker-a", base.Add(10*time.Minute), scheduler.Config{Policy: scheduler.PolicyFIFO})
+
+	require.NoError(t, err)
+	assert.Equal(t, olderLowPriority.ID, claimed.ID)
+}
+
+func TestSchedulerWeightedDurationAgesJobs(t *testing.T) {
+	db := openJobQueueTestDB(t)
+	user := createQueueTestUser(t, db)
+	repo := NewJobRepository(db)
+	now := time.Now().Truncate(time.Millisecond)
+	oldLong := createQueueTestJob(t, db, user.ID, "scheduler-weighted-old-long", models.StatusUploaded, now.Add(-2*time.Hour))
+	newShort := createQueueTestJob(t, db, user.ID, "scheduler-weighted-new-short", models.StatusUploaded, now)
+	require.NoError(t, db.Model(&models.TranscriptionJob{}).Where("id = ?", oldLong.ID).Update("source_duration_ms", int64(60*60*1000)).Error)
+	require.NoError(t, db.Model(&models.TranscriptionJob{}).Where("id = ?", newShort.ID).Update("source_duration_ms", int64(60*1000)).Error)
+	require.NoError(t, repo.EnqueueTranscription(context.Background(), oldLong.ID, now.Add(-2*time.Hour)))
+	require.NoError(t, repo.EnqueueTranscription(context.Background(), newShort.ID, now))
+
+	claimed, err := repo.ClaimNextTranscription(context.Background(), "worker-a", now.Add(10*time.Minute), scheduler.Config{Policy: scheduler.PolicyWeightedDuration})
+
+	require.NoError(t, err)
+	assert.Equal(t, oldLong.ID, claimed.ID)
+}
+
+func TestSchedulerFairShareSkipsUsersAtConcurrencyLimit(t *testing.T) {
+	db := openJobQueueTestDB(t)
+	userA := createQueueTestUser(t, db)
+	userB := createQueueTestUser(t, db)
+	repo := NewJobRepository(db)
+	now := time.Now().Truncate(time.Millisecond)
+	activeA := createQueueTestJob(t, db, userA.ID, "scheduler-fair-active-a", models.StatusProcessing, now)
+	queuedA := createQueueTestJob(t, db, userA.ID, "scheduler-fair-queued-a", models.StatusUploaded, now)
+	queuedB := createQueueTestJob(t, db, userB.ID, "scheduler-fair-queued-b", models.StatusUploaded, now.Add(time.Minute))
+	workerID := "worker-active"
+	require.NoError(t, db.Model(&models.TranscriptionJob{}).Where("id = ?", activeA.ID).Updates(map[string]any{
+		"claimed_by":       workerID,
+		"claim_expires_at": now.Add(time.Hour),
+	}).Error)
+	require.NoError(t, repo.EnqueueTranscription(context.Background(), queuedA.ID, now.Add(10*time.Second)))
+	require.NoError(t, repo.EnqueueTranscription(context.Background(), queuedB.ID, now.Add(20*time.Second)))
+
+	claimed, err := repo.ClaimNextTranscription(context.Background(), "worker-a", now.Add(10*time.Minute), scheduler.Config{
+		Policy:               scheduler.PolicyFairShare,
+		MaxConcurrentPerUser: 1,
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, queuedB.ID, claimed.ID)
+}
+
+func TestJobRepositoryCountQueueStatusesIsGlobalByUser(t *testing.T) {
+	db := openJobQueueTestDB(t)
+	userA := createQueueTestUser(t, db)
+	userB := createQueueTestUser(t, db)
+	repo := NewJobRepository(db)
+	now := time.Now().Truncate(time.Millisecond)
+	createQueueTestJob(t, db, userA.ID, "global-queued-a", models.StatusPending, now)
+	createQueueTestJob(t, db, userA.ID, "global-completed-a", models.StatusCompleted, now)
+	createQueueTestJob(t, db, userB.ID, "global-failed-b", models.StatusFailed, now)
+
+	rows, err := repo.CountQueueStatuses(context.Background())
+
+	require.NoError(t, err)
+	counts := map[uint]map[models.JobStatus]int64{}
+	for _, row := range rows {
+		if counts[row.UserID] == nil {
+			counts[row.UserID] = map[models.JobStatus]int64{}
+		}
+		counts[row.UserID][row.Status] = row.Count
+	}
+	assert.Equal(t, int64(1), counts[userA.ID][models.StatusPending])
+	assert.Equal(t, int64(1), counts[userA.ID][models.StatusCompleted])
+	assert.Equal(t, int64(1), counts[userB.ID][models.StatusFailed])
 }
 
 func TestJobRepositoryClaimNextReturnsNotFoundWhenQueueEmpty(t *testing.T) {

@@ -10,6 +10,7 @@ import (
 	"scriberr/internal/database"
 	"scriberr/internal/models"
 	"scriberr/internal/repository"
+	"scriberr/internal/transcription/scheduler"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -31,6 +32,14 @@ type observedStatusEvent struct {
 type recordingStatusPublisher struct {
 	db     *gorm.DB
 	events chan observedStatusEvent
+}
+
+type staticSchedulerConfigProvider struct {
+	config scheduler.Config
+}
+
+func (p staticSchedulerConfigProvider) QueueSchedulerConfig(context.Context) (scheduler.Config, error) {
+	return p.config, nil
 }
 
 func (p *recordingStatusPublisher) PublishStatus(ctx context.Context, event StatusEvent) {
@@ -150,6 +159,32 @@ func TestServiceEnqueueWakeAndComplete(t *testing.T) {
 	assert.Equal(t, 1.0, completed.Progress)
 	assert.Equal(t, "completed", completed.ProgressStage)
 	assert.NotNil(t, completed.CompletedAt)
+}
+
+func TestQueueWorkerLoadsSchedulerConfigForClaims(t *testing.T) {
+	db := openWorkerTestDB(t)
+	user := createWorkerTestUser(t, db, "worker-user-scheduler")
+	olderLowPriority := createWorkerTestJob(t, db, user.ID, "job-worker-fifo-older", models.StatusUploaded)
+	newerHighPriority := createWorkerTestJob(t, db, user.ID, "job-worker-fifo-newer", models.StatusUploaded)
+	repo := repository.NewJobRepository(db)
+	now := time.Now().Truncate(time.Millisecond)
+	require.NoError(t, db.Model(&models.TranscriptionJob{}).Where("id = ?", newerHighPriority.ID).Update("priority", 100).Error)
+	require.NoError(t, repo.EnqueueTranscription(context.Background(), newerHighPriority.ID, now.Add(20*time.Second)))
+	require.NoError(t, repo.EnqueueTranscription(context.Background(), olderLowPriority.ID, now.Add(10*time.Second)))
+	processor := newFakeProcessor()
+	service := NewService(repo, processor, testConfig())
+	service.SetSchedulerConfigProvider(staticSchedulerConfigProvider{config: scheduler.Config{Policy: scheduler.PolicyFIFO}})
+
+	require.NoError(t, service.Start(context.Background()))
+	defer service.Stop(context.Background())
+
+	select {
+	case started := <-processor.started:
+		require.Equal(t, olderLowPriority.ID, started)
+	case <-time.After(2 * time.Second):
+		t.Fatal("worker did not claim a job")
+	}
+	processor.complete()
 }
 
 func TestServicePublishesTerminalStatusAfterCompletionCommit(t *testing.T) {

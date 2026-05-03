@@ -22,7 +22,8 @@ const (
 var ErrInvalidConfig = errors.New("invalid scheduler config")
 
 type Config struct {
-	Policy Policy `json:"policy"`
+	Policy               Policy `json:"policy"`
+	MaxConcurrentPerUser int    `json:"max_concurrent_per_user,omitempty"`
 }
 
 func DefaultConfig() Config {
@@ -30,8 +31,14 @@ func DefaultConfig() Config {
 }
 
 func (c Config) Validate() error {
+	if c.MaxConcurrentPerUser < 0 {
+		return fmt.Errorf("%w: max_concurrent_per_user cannot be negative", ErrInvalidConfig)
+	}
 	switch c.Policy {
 	case PolicyPriority, PolicyFIFO, PolicyWeightedDuration, PolicyFairShare:
+		if c.Policy == PolicyFairShare && c.MaxConcurrentPerUser <= 0 {
+			return fmt.Errorf("%w: fair_share requires max_concurrent_per_user", ErrInvalidConfig)
+		}
 		return nil
 	default:
 		return fmt.Errorf("%w: unsupported policy %q", ErrInvalidConfig, c.Policy)

@@ -18,12 +18,13 @@ import (
 )
 
 type fakeQueueService struct {
-	mu        sync.Mutex
-	enqueued  []string
-	canceled  []string
-	stats     worker.QueueStats
-	err       error
-	cancelErr error
+	mu         sync.Mutex
+	enqueued   []string
+	canceled   []string
+	stats      worker.QueueStats
+	adminStats worker.AdminQueueStats
+	err        error
+	cancelErr  error
 }
 
 func (q *fakeQueueService) Enqueue(ctx context.Context, jobID string) error {
@@ -42,6 +43,12 @@ func (q *fakeQueueService) Start(context.Context) error { return nil }
 func (q *fakeQueueService) Stop(context.Context) error  { return nil }
 func (q *fakeQueueService) Stats(context.Context, uint) (worker.QueueStats, error) {
 	return q.stats, q.err
+}
+func (q *fakeQueueService) AdminStats(context.Context) (worker.AdminQueueStats, error) {
+	if q.adminStats.ByUser == nil {
+		return worker.AdminQueueStats{QueueStats: q.stats}, q.err
+	}
+	return q.adminStats, q.err
 }
 
 func setTestQueueService(s *authTestServer, queue *fakeQueueService) {

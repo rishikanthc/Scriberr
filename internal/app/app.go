@@ -104,6 +104,7 @@ func Build(cfg *config.Config) (*App, error) {
 		PollInterval: cfg.Worker.PollInterval,
 		LeaseTimeout: cfg.Worker.LeaseTimeout,
 	})
+	queueService.SetSchedulerConfigProvider(worker.NewSystemSettingsSchedulerConfigProvider(systemSettingsRepo))
 	summaryService := summarization.NewService(summaryRepo, llmConfigRepo, jobRepo, summarization.Config{})
 	chatService := chatdomain.NewService(chatRepo, llmConfigRepo)
 	accountService := account.NewService(userRepo, userSettingsRepo, refreshTokenRepo, apiKeyRepo, profileRepo, llmConfigRepo, authService)
