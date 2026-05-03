@@ -8,8 +8,8 @@ import (
 
 type userSettings struct {
 	DefaultProfileID         *string `json:"default_profile_id,omitempty"`
-	AutoTranscriptionEnabled bool    `json:"auto_transcription_enabled,omitempty"`
-	AutoRenameEnabled        bool    `json:"auto_rename_enabled,omitempty"`
+	AutoTranscriptionEnabled *bool   `json:"auto_transcription_enabled,omitempty"`
+	AutoRenameEnabled        *bool   `json:"auto_rename_enabled,omitempty"`
 	SummaryDefaultModel      string  `json:"summary_default_model,omitempty"`
 }
 
@@ -59,8 +59,8 @@ func (u *User) BeforeSave(tx *gorm.DB) error {
 	}
 	settingsJSON, err := marshalJSONColumn("users.settings_json", userSettings{
 		DefaultProfileID:         u.DefaultProfileID,
-		AutoTranscriptionEnabled: u.AutoTranscriptionEnabled,
-		AutoRenameEnabled:        u.AutoRenameEnabled,
+		AutoTranscriptionEnabled: boolSetting(u.AutoTranscriptionEnabled),
+		AutoRenameEnabled:        boolSetting(u.AutoRenameEnabled),
 		SummaryDefaultModel:      u.SummaryDefaultModel,
 	})
 	if err != nil {
@@ -71,6 +71,8 @@ func (u *User) BeforeSave(tx *gorm.DB) error {
 }
 
 func (u *User) AfterFind(tx *gorm.DB) error {
+	u.AutoTranscriptionEnabled = true
+	u.AutoRenameEnabled = true
 	if u.SettingsJSON == "" {
 		return nil
 	}
@@ -79,10 +81,18 @@ func (u *User) AfterFind(tx *gorm.DB) error {
 		return err
 	}
 	u.DefaultProfileID = settings.DefaultProfileID
-	u.AutoTranscriptionEnabled = settings.AutoTranscriptionEnabled
-	u.AutoRenameEnabled = settings.AutoRenameEnabled
+	if settings.AutoTranscriptionEnabled != nil {
+		u.AutoTranscriptionEnabled = *settings.AutoTranscriptionEnabled
+	}
+	if settings.AutoRenameEnabled != nil {
+		u.AutoRenameEnabled = *settings.AutoRenameEnabled
+	}
 	u.SummaryDefaultModel = settings.SummaryDefaultModel
 	return nil
+}
+
+func boolSetting(value bool) *bool {
+	return &value
 }
 
 // APIKey represents an API key for external authentication.

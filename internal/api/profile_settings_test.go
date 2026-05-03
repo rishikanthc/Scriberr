@@ -254,7 +254,20 @@ func TestSettingsAutomationEnablementRequiresDependencies(t *testing.T) {
 	s := newAuthTestServer(t)
 	token := registerForFileTests(t, s)
 
-	resp, body := s.request(t, http.MethodPatch, "/api/v1/settings", map[string]any{
+	resp, body := s.request(t, http.MethodGet, "/api/v1/settings", nil, token, "")
+	require.Equal(t, http.StatusOK, resp.Code)
+	require.Equal(t, true, body["auto_transcription_enabled"])
+	require.Equal(t, true, body["auto_rename_enabled"])
+
+	resp, body = s.request(t, http.MethodPatch, "/api/v1/settings", map[string]any{
+		"auto_transcription_enabled": false,
+		"auto_rename_enabled":        false,
+	}, token, "")
+	require.Equal(t, http.StatusOK, resp.Code)
+	require.Equal(t, false, body["auto_transcription_enabled"])
+	require.Equal(t, false, body["auto_rename_enabled"])
+
+	resp, body = s.request(t, http.MethodPatch, "/api/v1/settings", map[string]any{
 		"auto_transcription_enabled": true,
 	}, token, "")
 	require.Equal(t, http.StatusUnprocessableEntity, resp.Code)

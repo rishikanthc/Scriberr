@@ -80,7 +80,12 @@ func (s *Service) Register(ctx context.Context, username, password string) (*Tok
 	if err != nil {
 		return nil, err
 	}
-	user := &models.User{Username: username, Password: passwordHash}
+	user := &models.User{
+		Username:                 username,
+		Password:                 passwordHash,
+		AutoTranscriptionEnabled: true,
+		AutoRenameEnabled:        true,
+	}
 	if err := s.users.Create(ctx, user); err != nil {
 		return nil, ErrUsernameInUse
 	}
@@ -176,14 +181,14 @@ func (s *Service) UpdateSettings(ctx context.Context, userID uint, update Settin
 	if update.AutoTranscriptionEnabled != nil {
 		autoTranscription = *update.AutoTranscriptionEnabled
 	}
-	if autoTranscription && (defaultProfileID == nil || strings.TrimSpace(*defaultProfileID) == "") {
+	if update.AutoTranscriptionEnabled != nil && *update.AutoTranscriptionEnabled && (defaultProfileID == nil || strings.TrimSpace(*defaultProfileID) == "") {
 		return nil, ErrDefaultProfileRequired
 	}
 	autoRename := user.AutoRenameEnabled
 	if update.AutoRenameEnabled != nil {
 		autoRename = *update.AutoRenameEnabled
 	}
-	if autoRename && !s.smallLLMReady(ctx, userID) {
+	if update.AutoRenameEnabled != nil && *update.AutoRenameEnabled && !s.smallLLMReady(ctx, userID) {
 		return nil, ErrSmallLLMRequired
 	}
 	user.DefaultProfileID = defaultProfileID
