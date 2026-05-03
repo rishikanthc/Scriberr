@@ -18,6 +18,25 @@ type userSettings struct {
 	SummaryDefaultModel      string  `json:"summary_default_model,omitempty"`
 }
 
+type UserSettings struct {
+	UserID                   uint      `json:"user_id" gorm:"primaryKey;not null"`
+	DefaultProfileID         *string   `json:"default_profile_id,omitempty" gorm:"type:varchar(36);index"`
+	AutoTranscriptionEnabled bool      `json:"auto_transcription_enabled" gorm:"not null;default:true"`
+	AutoRenameEnabled        bool      `json:"auto_rename_enabled" gorm:"not null;default:true"`
+	SummaryDefaultModel      string    `json:"summary_default_model,omitempty" gorm:"type:varchar(100)"`
+	CreatedAt                time.Time `json:"created_at" gorm:"autoCreateTime"`
+	UpdatedAt                time.Time `json:"updated_at" gorm:"autoUpdateTime"`
+
+	User User `json:"-" gorm:"foreignKey:UserID;references:ID;constraint:OnDelete:CASCADE"`
+}
+
+func (UserSettings) TableName() string { return "user_settings" }
+
+func (s *UserSettings) ApplyDefaults() {
+	s.AutoTranscriptionEnabled = true
+	s.AutoRenameEnabled = true
+}
+
 // RefreshToken represents a persistent refresh token for rotating access.
 type RefreshToken struct {
 	ID        uint       `json:"id" gorm:"primaryKey"`

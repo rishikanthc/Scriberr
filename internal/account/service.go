@@ -27,10 +27,12 @@ var (
 	ErrSmallLLMRequired       = errors.New("small LLM model is required")
 	ErrAPIKeyNotFound         = errors.New("api key not found")
 	ErrUserDisabled           = errors.New("user is disabled")
+	ErrSettingsUnavailable    = errors.New("user settings repository is unavailable")
 )
 
 type Service struct {
 	users         repository.UserRepository
+	settings      repository.UserSettingsRepository
 	refreshTokens repository.RefreshTokenRepository
 	apiKeys       repository.APIKeyRepository
 	profiles      repository.ProfileRepository
@@ -52,9 +54,10 @@ type SettingsUpdate struct {
 	AutoRenameEnabled        *bool
 }
 
-func NewService(users repository.UserRepository, refreshTokens repository.RefreshTokenRepository, apiKeys repository.APIKeyRepository, profiles repository.ProfileRepository, llmConfigs repository.LLMConfigRepository, authService *auth.AuthService) *Service {
+func NewService(users repository.UserRepository, settings repository.UserSettingsRepository, refreshTokens repository.RefreshTokenRepository, apiKeys repository.APIKeyRepository, profiles repository.ProfileRepository, llmConfigs repository.LLMConfigRepository, authService *auth.AuthService) *Service {
 	return &Service{
 		users:         users,
+		settings:      settings,
 		refreshTokens: refreshTokens,
 		apiKeys:       apiKeys,
 		profiles:      profiles,
@@ -185,6 +188,10 @@ func (s *Service) UpdateSettings(ctx context.Context, userID uint, update Settin
 	if err != nil {
 		return nil, err
 	}
+	settings, err := s.settingsForUser(ctx, user)
+	if err != nil {
+		return nil, err
+	}
 	defaultProfileID := user.DefaultProfileID
 	if update.DefaultProfileIDSet {
 		defaultProfileID = update.DefaultProfileID
@@ -211,10 +218,13 @@ func (s *Service) UpdateSettings(ctx context.Context, userID uint, update Settin
 	user.DefaultProfileID = defaultProfileID
 	user.AutoTranscriptionEnabled = autoTranscription
 	user.AutoRenameEnabled = autoRename
-	if err := s.users.Update(ctx, user); err != nil {
+	settings.DefaultProfileID = defaultProfileID
+	settings.AutoTranscriptionEnabled = autoTranscription
+	settings.AutoRenameEnabled = autoRename
+	if err := s.settings.Upsert(ctx, settings); err != nil {
 		return nil, err
 	}
-	return user, nil
+	return s.users.FindByID(ctx, userID)
 }
 
 func (s *Service) ListAPIKeys(ctx context.Context, userID uint) ([]models.APIKey, error) {
@@ -308,6 +318,31 @@ func (s *Service) smallLLMReady(ctx context.Context, userID uint) bool {
 		strings.TrimSpace(llmBaseURL(config)) != "" &&
 		config.SmallModel != nil &&
 		strings.TrimSpace(*config.SmallModel) != ""
+}
+
+func (s *Service) settingsForUser(ctx context.Context, user *models.User) (*models.UserSettings, error) {
+	if s.settings == nil {
+		return nil, ErrSettingsUnavailable
+	}
+	settings, err := s.settings.FindByUser(ctx, user.ID)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		settings = &models.UserSettings{
+			UserID:                   user.ID,
+			DefaultProfileID:         user.DefaultProfileID,
+			AutoTranscriptionEnabled: user.AutoTranscriptionEnabled,
+			AutoRenameEnabled:        user.AutoRenameEnabled,
+			SummaryDefaultModel:      user.SummaryDefaultModel,
+		}
+		if user.SettingsJSON == "" {
+			settings.AutoTranscriptionEnabled = true
+			settings.AutoRenameEnabled = true
+		}
+		return settings, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return settings, nil
 }
 
 func llmBaseURL(config *models.LLMConfig) string {

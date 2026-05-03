@@ -72,6 +72,7 @@ func newAuthTestServer(t *testing.T) *authTestServer {
 	require.NoError(t, err)
 	accountService := account.NewService(
 		repository.NewUserRepository(database.DB),
+		repository.NewUserSettingsRepository(database.DB),
 		repository.NewRefreshTokenRepository(database.DB),
 		repository.NewAPIKeyRepository(database.DB),
 		profileRepo,

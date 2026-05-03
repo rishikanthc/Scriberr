@@ -63,6 +63,7 @@ func TestFreshSchemaInitialization(t *testing.T) {
 	expectedTables := []string{
 		"schema_migrations",
 		"users",
+		"user_settings",
 		"api_keys",
 		"refresh_tokens",
 		"transcription_profiles",
@@ -121,11 +122,18 @@ func TestFreshSchemaInitialization(t *testing.T) {
 	assert.True(t, db.Migrator().HasColumn(&models.User{}, "status"))
 	assert.True(t, db.Migrator().HasColumn(&models.User{}, "last_login_at"))
 	assert.True(t, db.Migrator().HasColumn(&models.User{}, "password_changed_at"))
+	assert.True(t, db.Migrator().HasColumn(&models.UserSettings{}, "default_profile_id"))
+	assert.True(t, db.Migrator().HasColumn(&models.UserSettings{}, "auto_transcription_enabled"))
+	assert.True(t, db.Migrator().HasColumn(&models.UserSettings{}, "auto_rename_enabled"))
 
 	title := "Fresh transcription"
 	user := models.User{Username: "fresh-user", Password: "pw"}
-	require.NoError(t, db.Create(&user).Error)
+	require.NoError(t, repository.NewUserRepository(db).Create(t.Context(), &user))
 	assert.Equal(t, models.UserStatusActive, user.Status)
+	var userSettings models.UserSettings
+	require.NoError(t, db.First(&userSettings, "user_id = ?", user.ID).Error)
+	assert.True(t, userSettings.AutoTranscriptionEnabled)
+	assert.True(t, userSettings.AutoRenameEnabled)
 
 	job := models.TranscriptionJob{UserID: 1, Title: &title, Status: models.StatusUploaded, AudioPath: "/tmp/audio.wav"}
 	require.NoError(t, db.Create(&job).Error)

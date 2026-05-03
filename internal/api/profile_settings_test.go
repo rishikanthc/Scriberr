@@ -237,10 +237,13 @@ func TestSettingsPartialUpdateAndValidation(t *testing.T) {
 	require.Equal(t, profileID, body["default_profile_id"])
 	require.Equal(t, true, body["local_only"])
 
+	var settings models.UserSettings
+	require.NoError(t, database.DB.First(&settings).Error)
+	require.NotNil(t, settings.DefaultProfileID)
+	require.Equal(t, strings.TrimPrefix(profileID, "profile_"), *settings.DefaultProfileID)
 	var user models.User
 	require.NoError(t, database.DB.First(&user).Error)
-	require.NotNil(t, user.DefaultProfileID)
-	require.Equal(t, strings.TrimPrefix(profileID, "profile_"), *user.DefaultProfileID)
+	require.NotContains(t, user.SettingsJSON, strings.TrimPrefix(profileID, "profile_"))
 
 	resp, body = s.request(t, http.MethodPatch, "/api/v1/settings", map[string]any{
 		"default_profile_id": "profile_missing",

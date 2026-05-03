@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 var ErrQueueClaimConflict = errors.New("queue claim is no longer owned by this worker")
@@ -37,10 +38,50 @@ func NewUserRepository(db *gorm.DB) UserRepository {
 	}
 }
 
+func (r *userRepository) Create(ctx context.Context, user *models.User) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(user).Error; err != nil {
+			return err
+		}
+		settings := models.UserSettings{
+			UserID:                   user.ID,
+			DefaultProfileID:         user.DefaultProfileID,
+			AutoTranscriptionEnabled: true,
+			AutoRenameEnabled:        true,
+			SummaryDefaultModel:      user.SummaryDefaultModel,
+		}
+		if user.AutoTranscriptionEnabled {
+			settings.AutoTranscriptionEnabled = user.AutoTranscriptionEnabled
+		}
+		if user.AutoRenameEnabled {
+			settings.AutoRenameEnabled = user.AutoRenameEnabled
+		}
+		return tx.FirstOrCreate(&settings, "user_id = ?", user.ID).Error
+	})
+}
+
+func (r *userRepository) FindByID(ctx context.Context, id interface{}) (*models.User, error) {
+	var user models.User
+	if err := r.db.WithContext(ctx).First(&user, "id = ?", id).Error; err != nil {
+		return nil, err
+	}
+	if err := r.hydrateSettings(ctx, &user); err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
+func (r *userRepository) Update(ctx context.Context, user *models.User) error {
+	return r.db.WithContext(ctx).Save(user).Error
+}
+
 func (r *userRepository) FindByUsername(ctx context.Context, username string) (*models.User, error) {
 	var user models.User
 	err := r.db.WithContext(ctx).Where("username = ?", username).First(&user).Error
 	if err != nil {
+		return nil, err
+	}
+	if err := r.hydrateSettings(ctx, &user); err != nil {
 		return nil, err
 	}
 	return &user, nil
@@ -67,6 +108,11 @@ func (r *userRepository) ListUsersForAdmin(ctx context.Context, offset, limit in
 	if err := query.Order("created_at DESC, id DESC").Offset(offset).Limit(limit).Find(&users).Error; err != nil {
 		return nil, 0, err
 	}
+	for i := range users {
+		if err := r.hydrateSettings(ctx, &users[i]); err != nil {
+			return nil, 0, err
+		}
+	}
 	return users, count, nil
 }
 
@@ -85,17 +131,80 @@ func (r *userRepository) CountActiveAdmins(ctx context.Context) (int64, error) {
 }
 
 func (r *userRepository) CountWithAutoTranscription(ctx context.Context) (int64, error) {
-	var users []models.User
-	if err := r.db.WithContext(ctx).Find(&users).Error; err != nil {
-		return 0, err
-	}
 	var count int64
-	for _, user := range users {
-		if user.AutoTranscriptionEnabled {
-			count++
-		}
+	err := r.db.WithContext(ctx).Model(&models.UserSettings{}).
+		Where("auto_transcription_enabled = ?", true).
+		Count(&count).Error
+	return count, err
+}
+
+func (r *userRepository) hydrateSettings(ctx context.Context, user *models.User) error {
+	if user == nil || user.ID == 0 {
+		return nil
 	}
-	return count, nil
+	var settings models.UserSettings
+	err := r.db.WithContext(ctx).First(&settings, "user_id = ?", user.ID).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	user.DefaultProfileID = settings.DefaultProfileID
+	user.AutoTranscriptionEnabled = settings.AutoTranscriptionEnabled
+	user.AutoRenameEnabled = settings.AutoRenameEnabled
+	user.SummaryDefaultModel = settings.SummaryDefaultModel
+	return nil
+}
+
+type UserSettingsRepository interface {
+	FindByUser(ctx context.Context, userID uint) (*models.UserSettings, error)
+	Upsert(ctx context.Context, settings *models.UserSettings) error
+}
+
+type userSettingsRepository struct {
+	db *gorm.DB
+}
+
+func NewUserSettingsRepository(db *gorm.DB) UserSettingsRepository {
+	return &userSettingsRepository{db: db}
+}
+
+func (r *userSettingsRepository) FindByUser(ctx context.Context, userID uint) (*models.UserSettings, error) {
+	var settings models.UserSettings
+	if err := r.db.WithContext(ctx).First(&settings, "user_id = ?", userID).Error; err != nil {
+		return nil, err
+	}
+	return &settings, nil
+}
+
+func (r *userSettingsRepository) Upsert(ctx context.Context, settings *models.UserSettings) error {
+	if settings == nil {
+		return fmt.Errorf("user settings are required")
+	}
+	if settings.UserID == 0 {
+		return fmt.Errorf("user settings user ID is required")
+	}
+	now := time.Now()
+	values := map[string]any{
+		"user_id":                    settings.UserID,
+		"default_profile_id":         settings.DefaultProfileID,
+		"auto_transcription_enabled": settings.AutoTranscriptionEnabled,
+		"auto_rename_enabled":        settings.AutoRenameEnabled,
+		"summary_default_model":      settings.SummaryDefaultModel,
+		"created_at":                 now,
+		"updated_at":                 now,
+	}
+	return r.db.WithContext(ctx).Table((&models.UserSettings{}).TableName()).Clauses(clause.OnConflict{
+		Columns: []clause.Column{{Name: "user_id"}},
+		DoUpdates: clause.AssignmentColumns([]string{
+			"default_profile_id",
+			"auto_transcription_enabled",
+			"auto_rename_enabled",
+			"summary_default_model",
+			"updated_at",
+		}),
+	}).Create(values).Error
 }
 
 type FileListOptions struct {
@@ -1698,24 +1807,38 @@ func (r *profileRepository) SetDefaultForUser(ctx context.Context, id string, us
 }
 
 func saveUserDefaultProfileTx(tx *gorm.DB, userID uint, profileID *string) error {
-	var user models.User
-	if err := tx.First(&user, userID).Error; err != nil {
-		return err
+	settings := models.UserSettings{
+		UserID:                   userID,
+		DefaultProfileID:         profileID,
+		AutoTranscriptionEnabled: true,
+		AutoRenameEnabled:        true,
 	}
-	user.DefaultProfileID = profileID
-	return tx.Save(&user).Error
+	return tx.Where("user_id = ?", userID).Assign(map[string]any{
+		"default_profile_id": profileID,
+	}).FirstOrCreate(&settings).Error
 }
 
 func clearUserDefaultProfileIfMatchesTx(tx *gorm.DB, userID uint, profileID string) error {
+	result := tx.Model(&models.UserSettings{}).
+		Where("user_id = ? AND default_profile_id = ?", userID, profileID).
+		Update("default_profile_id", nil)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected > 0 {
+		return nil
+	}
 	var user models.User
 	if err := tx.First(&user, userID).Error; err != nil {
 		return err
 	}
-	if user.DefaultProfileID == nil || *user.DefaultProfileID != profileID {
-		return nil
+	settings := models.UserSettings{
+		UserID:                   userID,
+		DefaultProfileID:         nil,
+		AutoTranscriptionEnabled: true,
+		AutoRenameEnabled:        true,
 	}
-	user.DefaultProfileID = nil
-	return tx.Save(&user).Error
+	return tx.Where("user_id = ?", userID).FirstOrCreate(&settings).Error
 }
 
 // LLMConfigRepository handles LLM configuration operations
@@ -1849,20 +1972,23 @@ func (r *summaryRepository) FindByIDForUser(ctx context.Context, id string, user
 }
 
 func (r *summaryRepository) GetSettingsByUser(ctx context.Context, userID uint) (*models.SummarySetting, error) {
-	var user models.User
-	if err := r.db.WithContext(ctx).Where("id = ?", userID).First(&user).Error; err != nil {
+	var settings models.UserSettings
+	if err := r.db.WithContext(ctx).Where("user_id = ?", userID).First(&settings).Error; err != nil {
 		return nil, err
 	}
-	return &models.SummarySetting{DefaultModel: user.SummaryDefaultModel}, nil
+	return &models.SummarySetting{DefaultModel: settings.SummaryDefaultModel}, nil
 }
 
 func (r *summaryRepository) SaveSettingsByUser(ctx context.Context, userID uint, settings *models.SummarySetting) error {
-	var user models.User
-	if err := r.db.WithContext(ctx).Where("id = ?", userID).First(&user).Error; err != nil {
-		return err
+	userSettings := models.UserSettings{
+		UserID:                   userID,
+		AutoTranscriptionEnabled: true,
+		AutoRenameEnabled:        true,
+		SummaryDefaultModel:      settings.DefaultModel,
 	}
-	user.SummaryDefaultModel = settings.DefaultModel
-	return r.db.WithContext(ctx).Save(&user).Error
+	return r.db.WithContext(ctx).Where("user_id = ?", userID).Assign(map[string]any{
+		"summary_default_model": settings.DefaultModel,
+	}).FirstOrCreate(&userSettings).Error
 }
 
 func (r *summaryRepository) SaveSummary(ctx context.Context, summary *models.Summary) error {

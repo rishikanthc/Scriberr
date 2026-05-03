@@ -12,14 +12,15 @@ import (
 type migrationStep func(*gorm.DB) error
 
 var schemaSteps = map[int]migrationStep{
-	2: migrateStepV1ToV2,
-	3: migrateStepV2ToV3,
-	4: migrateStepV3ToV4,
-	5: migrateStepV4ToV5,
-	6: migrateStepV5ToV6,
-	7: migrateStepV6ToV7,
-	8: migrateStepV7ToV8,
-	9: migrateStepV8ToV9,
+	2:  migrateStepV1ToV2,
+	3:  migrateStepV2ToV3,
+	4:  migrateStepV3ToV4,
+	5:  migrateStepV4ToV5,
+	6:  migrateStepV5ToV6,
+	7:  migrateStepV6ToV7,
+	8:  migrateStepV7ToV8,
+	9:  migrateStepV8ToV9,
+	10: migrateStepV9ToV10,
 }
 
 func runSchemaSteps(tx *gorm.DB, currentVersion int) error {
@@ -78,6 +79,13 @@ func migrateStepV8ToV9(tx *gorm.DB) error {
 	return tx.Exec(`CREATE INDEX IF NOT EXISTS idx_recording_sessions_artifact_cleanup ON recording_sessions(status, temporary_artifacts_cleaned_at)`).Error
 }
 
+func migrateStepV9ToV10(tx *gorm.DB) error {
+	if err := tx.AutoMigrate(&models.UserSettings{}); err != nil {
+		return err
+	}
+	return backfillUserSettings(tx)
+}
+
 func backfillCompatibilityColumns(tx *gorm.DB) error {
 	if err := backfillUsers(tx); err != nil {
 		return err
@@ -117,6 +125,38 @@ func backfillUsers(tx *gorm.DB) error {
 		}
 		if err := withPreservedUpdatedAt(tx.Model(&models.User{}).Where("id = ?", row.ID), updates, row.UpdatedAt).
 			Updates(updates).Error; err != nil {
+			return err
+		}
+	}
+	if err := backfillUserSettings(tx); err != nil {
+		return err
+	}
+	return nil
+}
+
+func backfillUserSettings(tx *gorm.DB) error {
+	var users []models.User
+	if err := tx.Find(&users).Error; err != nil {
+		return err
+	}
+	for _, user := range users {
+		settings := models.UserSettings{
+			UserID:                   user.ID,
+			DefaultProfileID:         user.DefaultProfileID,
+			AutoTranscriptionEnabled: user.AutoTranscriptionEnabled,
+			AutoRenameEnabled:        user.AutoRenameEnabled,
+			SummaryDefaultModel:      user.SummaryDefaultModel,
+		}
+		if settings.UserID == 0 {
+			continue
+		}
+		if !settings.AutoTranscriptionEnabled && user.SettingsJSON == "" {
+			settings.AutoTranscriptionEnabled = true
+		}
+		if !settings.AutoRenameEnabled && user.SettingsJSON == "" {
+			settings.AutoRenameEnabled = true
+		}
+		if err := tx.Where("user_id = ?", settings.UserID).Assign(settings).FirstOrCreate(&settings).Error; err != nil {
 			return err
 		}
 	}
