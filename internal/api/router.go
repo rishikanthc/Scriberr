@@ -13,8 +13,10 @@ import (
 	"scriberr/internal/auth"
 	"scriberr/internal/config"
 	"scriberr/internal/llm"
+	"scriberr/internal/llmprovider"
 	"scriberr/internal/mediaimport"
 	"scriberr/internal/models"
+	profiledomain "scriberr/internal/profile"
 	recordingdomain "scriberr/internal/recording"
 	"scriberr/internal/summarization"
 	"scriberr/internal/tags"
@@ -42,6 +44,8 @@ type Handler struct {
 	queueService    worker.QueueService
 	modelRegistry   engineprovider.Registry
 	account         *account.Service
+	profiles        *profiledomain.Service
+	llmProvider     *llmprovider.Service
 	annotations     *annotations.Service
 	tags            *tags.Service
 	recordings      *recordingdomain.Service
@@ -54,6 +58,8 @@ type HandlerDependencies struct {
 	Queue          worker.QueueService
 	ModelRegistry  engineprovider.Registry
 	Account        *account.Service
+	Profiles       *profiledomain.Service
+	LLMProvider    *llmprovider.Service
 	Annotations    *annotations.Service
 	Tags           *tags.Service
 	Recordings     *recordingdomain.Service
@@ -78,6 +84,8 @@ func NewHandler(cfg *config.Config, authService *auth.AuthService, deps HandlerD
 		queueService:    deps.Queue,
 		modelRegistry:   deps.ModelRegistry,
 		account:         deps.Account,
+		profiles:        deps.Profiles,
+		llmProvider:     deps.LLMProvider,
 		annotations:     deps.Annotations,
 		tags:            deps.Tags,
 		recordings:      deps.Recordings,

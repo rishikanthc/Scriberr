@@ -1,15 +1,15 @@
 package api
 
 import (
+	"errors"
 	"net/http"
 	"strings"
 
-	"scriberr/internal/database"
 	"scriberr/internal/models"
+	profiledomain "scriberr/internal/profile"
 	"scriberr/internal/transcription/engineprovider"
 
 	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 	speechmodels "scriberr-engine/speech/models"
 )
 
@@ -19,8 +19,8 @@ func (h *Handler) listProfiles(c *gin.Context) {
 		writeError(c, http.StatusUnauthorized, "UNAUTHORIZED", "missing or invalid authentication", nil)
 		return
 	}
-	var profiles []models.TranscriptionProfile
-	if err := database.DB.Where("user_id = ?", userID).Order("created_at DESC").Find(&profiles).Error; err != nil {
+	profiles, err := h.profiles.List(c.Request.Context(), userID)
+	if err != nil {
 		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not list profiles", nil)
 		return
 	}
@@ -44,7 +44,7 @@ func (h *Handler) createProfile(c *gin.Context) {
 		return
 	}
 	description := strings.TrimSpace(req.Description)
-	profile := models.TranscriptionProfile{
+	profile := &models.TranscriptionProfile{
 		ID:          randomHex(16),
 		UserID:      userID,
 		Name:        strings.TrimSpace(req.Name),
@@ -52,19 +52,11 @@ func (h *Handler) createProfile(c *gin.Context) {
 		IsDefault:   req.IsDefault,
 		Parameters:  profileParams(req.Options),
 	}
-	if err := database.DB.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Create(&profile).Error; err != nil {
-			return err
-		}
-		if profile.IsDefault {
-			return saveUserDefaultProfile(tx, userID, &profile.ID)
-		}
-		return nil
-	}); err != nil {
+	if err := h.profiles.Create(c.Request.Context(), profile); err != nil {
 		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not create profile", nil)
 		return
 	}
-	response := profileResponse(&profile)
+	response := profileResponse(profile)
 	h.publishEvent("profile.updated", gin.H{"id": response["id"]})
 	c.JSON(http.StatusCreated, response)
 }
@@ -94,18 +86,7 @@ func (h *Handler) updateProfile(c *gin.Context) {
 	if req.IsDefault != nil {
 		profile.IsDefault = *req.IsDefault
 	}
-	if err := database.DB.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Save(profile).Error; err != nil {
-			return err
-		}
-		if req.IsDefault != nil {
-			if *req.IsDefault {
-				return saveUserDefaultProfile(tx, profile.UserID, &profile.ID)
-			}
-			return clearUserDefaultProfileIfMatches(tx, profile.UserID, profile.ID)
-		}
-		return nil
-	}); err != nil {
+	if err := h.profiles.Update(c.Request.Context(), profile, req.IsDefault != nil); err != nil {
 		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not update profile", nil)
 		return
 	}
@@ -116,14 +97,9 @@ func (h *Handler) deleteProfile(c *gin.Context) {
 	if !ok {
 		return
 	}
-	if err := database.DB.Delete(&models.TranscriptionProfile{}, "id = ? AND user_id = ?", profile.ID, profile.UserID).Error; err != nil {
+	if err := h.profiles.Delete(c.Request.Context(), profile.UserID, profile.ID); err != nil {
 		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not delete profile", nil)
 		return
-	}
-	var user models.User
-	if err := database.DB.First(&user, profile.UserID).Error; err == nil && user.DefaultProfileID != nil && *user.DefaultProfileID == profile.ID {
-		user.DefaultProfileID = nil
-		_ = database.DB.Save(&user).Error
 	}
 	h.publishEvent("profile.updated", gin.H{"id": publicIDForProfile(profile.ID), "deleted": true})
 	c.Status(http.StatusNoContent)
@@ -133,19 +109,7 @@ func (h *Handler) setDefaultProfile(c *gin.Context, publicID string) {
 	if !ok {
 		return
 	}
-	if err := database.DB.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Model(&models.TranscriptionProfile{}).
-			Where("user_id = ? AND id <> ?", profile.UserID, profile.ID).
-			Update("is_default", false).Error; err != nil {
-			return err
-		}
-		if err := tx.Model(&models.TranscriptionProfile{}).
-			Where("id = ? AND user_id = ?", profile.ID, profile.UserID).
-			Update("is_default", true).Error; err != nil {
-			return err
-		}
-		return saveUserDefaultProfile(tx, profile.UserID, &profile.ID)
-	}); err != nil {
+	if err := h.profiles.SetDefault(c.Request.Context(), profile.UserID, profile.ID); err != nil {
 		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not set default profile", nil)
 		return
 	}
@@ -329,12 +293,16 @@ func (h *Handler) profileByPublicID(c *gin.Context, publicID string) (*models.Tr
 		writeError(c, http.StatusNotFound, "NOT_FOUND", "profile not found", nil)
 		return nil, false
 	}
-	var profile models.TranscriptionProfile
-	if err := database.DB.Where("id = ? AND user_id = ?", id, userID).First(&profile).Error; err != nil {
+	profile, err := h.profiles.Get(c.Request.Context(), userID, id)
+	if errors.Is(err, profiledomain.ErrNotFound) {
 		writeError(c, http.StatusNotFound, "NOT_FOUND", "profile not found", nil)
 		return nil, false
 	}
-	return &profile, true
+	if err != nil {
+		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not load profile", nil)
+		return nil, false
+	}
+	return profile, true
 }
 func parseProfileID(publicID string) (string, bool) {
 	id := strings.TrimPrefix(publicID, "profile_")
@@ -345,29 +313,4 @@ func parseProfileID(publicID string) (string, bool) {
 }
 func publicIDForProfile(id string) string {
 	return "profile_" + id
-}
-func profileExistsForUser(userID uint, profileID string) bool {
-	var count int64
-	return database.DB.Model(&models.TranscriptionProfile{}).
-		Where("id = ? AND user_id = ?", profileID, userID).
-		Count(&count).Error == nil && count == 1
-}
-func saveUserDefaultProfile(tx *gorm.DB, userID uint, profileID *string) error {
-	var user models.User
-	if err := tx.First(&user, userID).Error; err != nil {
-		return err
-	}
-	user.DefaultProfileID = profileID
-	return tx.Save(&user).Error
-}
-func clearUserDefaultProfileIfMatches(tx *gorm.DB, userID uint, profileID string) error {
-	var user models.User
-	if err := tx.First(&user, userID).Error; err != nil {
-		return err
-	}
-	if user.DefaultProfileID == nil || *user.DefaultProfileID != profileID {
-		return nil
-	}
-	user.DefaultProfileID = nil
-	return tx.Save(&user).Error
 }

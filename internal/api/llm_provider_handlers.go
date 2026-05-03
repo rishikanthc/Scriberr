@@ -11,11 +11,10 @@ import (
 	"strings"
 	"time"
 
-	"scriberr/internal/database"
+	"scriberr/internal/llmprovider"
 	"scriberr/internal/models"
 
 	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 )
 
 const llmProviderTimeout = 10 * time.Second
@@ -40,6 +39,16 @@ type ollamaTagsResponse struct {
 	} `json:"models"`
 }
 
+type LLMProviderConnectionTester struct{}
+
+func (LLMProviderConnectionTester) TestLLMProviderConnection(ctx context.Context, rawBaseURL, apiKey string) (llmprovider.TestResult, error) {
+	result, err := testLLMProviderConnection(ctx, rawBaseURL, apiKey)
+	if err != nil {
+		return llmprovider.TestResult{}, err
+	}
+	return llmprovider.TestResult{Provider: result.Provider, BaseURL: result.BaseURL, Models: result.Models}, nil
+}
+
 func (h *Handler) getLLMProvider(c *gin.Context) {
 	user, ok := h.currentUser(c)
 	if !ok {
@@ -47,9 +56,8 @@ func (h *Handler) getLLMProvider(c *gin.Context) {
 		return
 	}
 
-	var config models.LLMConfig
-	err := database.DB.WithContext(c.Request.Context()).Where("user_id = ? AND is_default = ?", user.ID, true).First(&config).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
+	result, err := h.llmProvider.Get(c.Request.Context(), user.ID)
+	if errors.Is(err, llmprovider.ErrNotConfigured) {
 		c.JSON(http.StatusOK, gin.H{
 			"configured":  false,
 			"provider":    "openai_compatible",
@@ -67,23 +75,13 @@ func (h *Handler) getLLMProvider(c *gin.Context) {
 		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not load LLM provider", nil)
 		return
 	}
-
-	baseURL := llmProviderBaseURL(&config)
-	apiKey := ""
-	if config.APIKey != nil {
-		apiKey = strings.TrimSpace(*config.APIKey)
-	}
-	testResult, err := testLLMProviderConnection(c.Request.Context(), baseURL, apiKey)
-	if err != nil {
-		response := llmProviderResponse(&config, nil)
-		response["connection_error"] = err.Error()
+	if result.ConnectionError != nil {
+		response := llmProviderResponse(result.Config, nil)
+		response["connection_error"] = result.ConnectionError.Error()
 		c.JSON(http.StatusOK, response)
 		return
 	}
-	config.Provider = testResult.Provider
-	config.BaseURL = stringPtr(testResult.BaseURL)
-	config.OpenAIBaseURL = stringPtr(testResult.BaseURL)
-	c.JSON(http.StatusOK, llmProviderResponse(&config, testResult.Models))
+	c.JSON(http.StatusOK, llmProviderResponse(result.Config, result.Models))
 }
 
 func (h *Handler) updateLLMProvider(c *gin.Context) {
@@ -98,71 +96,30 @@ func (h *Handler) updateLLMProvider(c *gin.Context) {
 		return
 	}
 
-	baseURL := strings.TrimSpace(req.BaseURL)
-	apiKey := strings.TrimSpace(req.APIKey)
-	largeModel := strings.TrimSpace(req.LargeModel)
-	smallModel := strings.TrimSpace(req.SmallModel)
-	if baseURL == "" {
+	if strings.TrimSpace(req.BaseURL) == "" {
 		writeError(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "base_url is required", stringPtr("base_url"))
 		return
 	}
-
-	var existing models.LLMConfig
-	existingErr := database.DB.WithContext(c.Request.Context()).Where("user_id = ? AND is_default = ?", user.ID, true).First(&existing).Error
-	if existingErr != nil && !errors.Is(existingErr, gorm.ErrRecordNotFound) {
-		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not load LLM provider", nil)
+	result, err := h.llmProvider.Save(c.Request.Context(), user.ID, llmprovider.SaveRequest{
+		BaseURL:    req.BaseURL,
+		APIKey:     req.APIKey,
+		LargeModel: req.LargeModel,
+		SmallModel: req.SmallModel,
+	})
+	if errors.Is(err, llmprovider.ErrLargeModelUnavailable) {
+		writeError(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "large_model is not available from this provider", stringPtr("large_model"))
 		return
 	}
-
-	effectiveAPIKey := apiKey
-	if effectiveAPIKey == "" && existing.APIKey != nil {
-		effectiveAPIKey = strings.TrimSpace(*existing.APIKey)
+	if errors.Is(err, llmprovider.ErrSmallModelUnavailable) {
+		writeError(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "small_model is not available from this provider", stringPtr("small_model"))
+		return
 	}
-
-	testResult, err := testLLMProviderConnection(c.Request.Context(), baseURL, effectiveAPIKey)
 	if err != nil {
 		writeError(c, http.StatusUnprocessableEntity, "PROVIDER_CONNECTION_FAILED", err.Error(), stringPtr("base_url"))
 		return
 	}
-	if largeModel != "" && !stringInSlice(testResult.Models, largeModel) {
-		writeError(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "large_model is not available from this provider", stringPtr("large_model"))
-		return
-	}
-	if smallModel != "" && !stringInSlice(testResult.Models, smallModel) {
-		writeError(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "small_model is not available from this provider", stringPtr("small_model"))
-		return
-	}
 
-	config := models.LLMConfig{
-		UserID:        user.ID,
-		Name:          "Default LLM provider",
-		Provider:      testResult.Provider,
-		BaseURL:       stringPtr(testResult.BaseURL),
-		OpenAIBaseURL: stringPtr(testResult.BaseURL),
-		IsDefault:     true,
-	}
-	if effectiveAPIKey != "" {
-		config.APIKey = stringPtr(effectiveAPIKey)
-	}
-	if largeModel != "" {
-		config.LargeModel = stringPtr(largeModel)
-	}
-	if smallModel != "" {
-		config.SmallModel = stringPtr(smallModel)
-	}
-
-	err = database.DB.WithContext(c.Request.Context()).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Where("user_id = ? AND is_default = ?", user.ID, true).Delete(&models.LLMConfig{}).Error; err != nil {
-			return err
-		}
-		return tx.Create(&config).Error
-	})
-	if err != nil {
-		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not save LLM provider", nil)
-		return
-	}
-
-	response := llmProviderResponse(&config, testResult.Models)
+	response := llmProviderResponse(result.Config, result.Models)
 	h.publishEvent("settings.updated", gin.H{"llm_provider_configured": true})
 	c.JSON(http.StatusOK, response)
 }
@@ -317,7 +274,7 @@ func fetchOllamaNativeModels(ctx context.Context, baseURL string) ([]string, err
 }
 
 func llmProviderResponse(config *models.LLMConfig, models []string) gin.H {
-	baseURL := llmProviderBaseURL(config)
+	baseURL := llmprovider.BaseURL(config)
 	hasKey := config.APIKey != nil && strings.TrimSpace(*config.APIKey) != ""
 	var keyPreviewValue any
 	if hasKey {
@@ -340,16 +297,6 @@ func llmProviderResponse(config *models.LLMConfig, models []string) gin.H {
 	}
 }
 
-func llmProviderBaseURL(config *models.LLMConfig) string {
-	if config.BaseURL != nil {
-		return strings.TrimSpace(*config.BaseURL)
-	}
-	if config.OpenAIBaseURL != nil {
-		return strings.TrimSpace(*config.OpenAIBaseURL)
-	}
-	return ""
-}
-
 func uniqueStrings(values []string) []string {
 	seen := map[string]bool{}
 	out := make([]string, 0, len(values))
@@ -361,6 +308,10 @@ func uniqueStrings(values []string) []string {
 		out = append(out, value)
 	}
 	return out
+}
+
+func llmProviderBaseURL(config *models.LLMConfig) string {
+	return llmprovider.BaseURL(config)
 }
 
 func stringInSlice(values []string, needle string) bool {

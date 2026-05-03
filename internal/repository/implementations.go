@@ -1191,6 +1191,10 @@ type ProfileRepository interface {
 	FindByIDForUser(ctx context.Context, id string, userID uint) (*models.TranscriptionProfile, error)
 	FindDefaultByUser(ctx context.Context, userID uint) (*models.TranscriptionProfile, error)
 	FindByNameForUser(ctx context.Context, userID uint, name string) (*models.TranscriptionProfile, error)
+	CreateForUser(ctx context.Context, profile *models.TranscriptionProfile) error
+	UpdateForUser(ctx context.Context, profile *models.TranscriptionProfile, defaultChanged bool) error
+	DeleteForUser(ctx context.Context, id string, userID uint) error
+	SetDefaultForUser(ctx context.Context, id string, userID uint) error
 }
 
 type profileRepository struct {
@@ -1257,12 +1261,104 @@ func (r *profileRepository) FindByNameForUser(ctx context.Context, userID uint, 
 	return &profile, nil
 }
 
+func (r *profileRepository) CreateForUser(ctx context.Context, profile *models.TranscriptionProfile) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if profile.IsDefault {
+			if err := tx.Model(&models.TranscriptionProfile{}).
+				Where("user_id = ?", profile.UserID).
+				Update("is_default", false).Error; err != nil {
+				return err
+			}
+		}
+		if err := tx.Create(profile).Error; err != nil {
+			return err
+		}
+		if profile.IsDefault {
+			return saveUserDefaultProfileTx(tx, profile.UserID, &profile.ID)
+		}
+		return nil
+	})
+}
+
+func (r *profileRepository) UpdateForUser(ctx context.Context, profile *models.TranscriptionProfile, defaultChanged bool) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if profile.IsDefault {
+			if err := tx.Model(&models.TranscriptionProfile{}).
+				Where("user_id = ? AND id <> ?", profile.UserID, profile.ID).
+				Update("is_default", false).Error; err != nil {
+				return err
+			}
+		}
+		if err := tx.Save(profile).Error; err != nil {
+			return err
+		}
+		if !defaultChanged {
+			return nil
+		}
+		if profile.IsDefault {
+			return saveUserDefaultProfileTx(tx, profile.UserID, &profile.ID)
+		}
+		return clearUserDefaultProfileIfMatchesTx(tx, profile.UserID, profile.ID)
+	})
+}
+
+func (r *profileRepository) DeleteForUser(ctx context.Context, id string, userID uint) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Delete(&models.TranscriptionProfile{}, "id = ? AND user_id = ?", id, userID).Error; err != nil {
+			return err
+		}
+		return clearUserDefaultProfileIfMatchesTx(tx, userID, id)
+	})
+}
+
+func (r *profileRepository) SetDefaultForUser(ctx context.Context, id string, userID uint) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Model(&models.TranscriptionProfile{}).
+			Where("user_id = ? AND id <> ?", userID, id).
+			Update("is_default", false).Error; err != nil {
+			return err
+		}
+		result := tx.Model(&models.TranscriptionProfile{}).
+			Where("id = ? AND user_id = ?", id, userID).
+			Update("is_default", true)
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected == 0 {
+			return gorm.ErrRecordNotFound
+		}
+		return saveUserDefaultProfileTx(tx, userID, &id)
+	})
+}
+
+func saveUserDefaultProfileTx(tx *gorm.DB, userID uint, profileID *string) error {
+	var user models.User
+	if err := tx.First(&user, userID).Error; err != nil {
+		return err
+	}
+	user.DefaultProfileID = profileID
+	return tx.Save(&user).Error
+}
+
+func clearUserDefaultProfileIfMatchesTx(tx *gorm.DB, userID uint, profileID string) error {
+	var user models.User
+	if err := tx.First(&user, userID).Error; err != nil {
+		return err
+	}
+	if user.DefaultProfileID == nil || *user.DefaultProfileID != profileID {
+		return nil
+	}
+	user.DefaultProfileID = nil
+	return tx.Save(&user).Error
+}
+
 // LLMConfigRepository handles LLM configuration operations
 type LLMConfigRepository interface {
 	Repository[models.LLMConfig]
 	// Deprecated: Legacy global access. Use GetActiveByUser instead.
 	GetActive(ctx context.Context) (*models.LLMConfig, error)
 	GetActiveByUser(ctx context.Context, userID uint) (*models.LLMConfig, error)
+	ReplaceActiveByUser(ctx context.Context, userID uint, config *models.LLMConfig) error
 }
 
 type llmConfigRepository struct {
@@ -1289,6 +1385,17 @@ func (r *llmConfigRepository) GetActiveByUser(ctx context.Context, userID uint) 
 		return nil, err
 	}
 	return &config, nil
+}
+
+func (r *llmConfigRepository) ReplaceActiveByUser(ctx context.Context, userID uint, config *models.LLMConfig) error {
+	config.UserID = userID
+	config.IsDefault = true
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("user_id = ? AND is_default = ?", userID, true).Delete(&models.LLMConfig{}).Error; err != nil {
+			return err
+		}
+		return tx.Create(config).Error
+	})
 }
 
 // SummaryRepository handles summary templates and settings

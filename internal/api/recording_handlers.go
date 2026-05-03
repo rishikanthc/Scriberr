@@ -8,7 +8,6 @@ import (
 	"strconv"
 	"strings"
 
-	"scriberr/internal/database"
 	"scriberr/internal/models"
 	recordingdomain "scriberr/internal/recording"
 
@@ -230,12 +229,12 @@ func (h *Handler) validateRecordingProfile(c *gin.Context, userID uint, publicPr
 		writeError(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "profile_id is invalid", stringPtr("profile_id"))
 		return nil, false
 	}
-	var count int64
-	if err := database.DB.Model(&models.TranscriptionProfile{}).Where("id = ? AND user_id = ?", profileID, userID).Count(&count).Error; err != nil {
+	exists, err := h.profiles.Exists(c.Request.Context(), userID, profileID)
+	if err != nil {
 		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not validate profile", nil)
 		return nil, false
 	}
-	if count == 0 {
+	if !exists {
 		writeError(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "profile_id is invalid", stringPtr("profile_id"))
 		return nil, false
 	}
