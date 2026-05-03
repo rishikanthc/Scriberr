@@ -83,6 +83,7 @@ func newAuthTestServer(t *testing.T) *authTestServer {
 		repository.NewUserRepository(database.DB),
 		repository.NewRefreshTokenRepository(database.DB),
 		repository.NewAPIKeyRepository(database.DB),
+		repository.NewSystemSettingsRepository(database.DB),
 	)
 	profileService := profiledomain.NewService(profileRepo)
 	llmProviderService := llmprovider.NewService(llmConfigRepo, llmprovider.HTTPConnectionTester{})

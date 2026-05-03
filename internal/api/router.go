@@ -372,6 +372,8 @@ func SetupRoutes(handler *Handler, _ *auth.AuthService) *gin.Engine {
 		adminRoutes.Use(handler.adminRequired())
 		{
 			adminRoutes.GET("/queue", handler.queueStats)
+			adminRoutes.GET("/queue/scheduler", handler.getAdminQueueScheduler)
+			adminRoutes.PUT("/queue/scheduler", handler.updateAdminQueueScheduler)
 			adminRoutes.GET("/users", handler.listAdminUsers)
 			adminRoutes.POST("/users", handler.idempotencyMiddleware(), handler.createAdminUser)
 			adminRoutes.GET("/users/:user_id", handler.getAdminUser)

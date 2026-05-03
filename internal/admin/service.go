@@ -8,14 +8,18 @@ import (
 
 	"scriberr/internal/auth"
 	"scriberr/internal/models"
+	"scriberr/internal/transcription/scheduler"
+
+	"gorm.io/gorm"
 )
 
 var (
-	ErrForbidden       = errors.New("admin access is required")
-	ErrUserNotFound    = errors.New("user not found")
-	ErrUsernameInUse   = errors.New("username is already in use")
-	ErrInvalidUser     = errors.New("user fields are invalid")
-	ErrLastActiveAdmin = errors.New("last active admin cannot be disabled or demoted")
+	ErrForbidden        = errors.New("admin access is required")
+	ErrUserNotFound     = errors.New("user not found")
+	ErrUsernameInUse    = errors.New("username is already in use")
+	ErrInvalidUser      = errors.New("user fields are invalid")
+	ErrLastActiveAdmin  = errors.New("last active admin cannot be disabled or demoted")
+	ErrInvalidScheduler = errors.New("scheduler config is invalid")
 )
 
 type UserRepository interface {
@@ -34,11 +38,17 @@ type APIKeyRepository interface {
 	RevokeByUser(ctx context.Context, userID uint) error
 }
 
+type SystemSettingsRepository interface {
+	FindByKey(ctx context.Context, key string) (*models.SystemSetting, error)
+	Upsert(ctx context.Context, setting *models.SystemSetting) error
+}
+
 type Service struct {
-	users         UserRepository
-	refreshTokens RefreshTokenRepository
-	apiKeys       APIKeyRepository
-	now           func() time.Time
+	users          UserRepository
+	refreshTokens  RefreshTokenRepository
+	apiKeys        APIKeyRepository
+	systemSettings SystemSettingsRepository
+	now            func() time.Time
 }
 
 type CreateUserCommand struct {
@@ -58,12 +68,17 @@ type UpdateUserCommand struct {
 	ClearDisplayName bool
 }
 
-func NewService(users UserRepository, refreshTokens RefreshTokenRepository, apiKeys APIKeyRepository) *Service {
+func NewService(users UserRepository, refreshTokens RefreshTokenRepository, apiKeys APIKeyRepository, systemSettings ...SystemSettingsRepository) *Service {
+	var settings SystemSettingsRepository
+	if len(systemSettings) > 0 {
+		settings = systemSettings[0]
+	}
 	return &Service{
-		users:         users,
-		refreshTokens: refreshTokens,
-		apiKeys:       apiKeys,
-		now:           time.Now,
+		users:          users,
+		refreshTokens:  refreshTokens,
+		apiKeys:        apiKeys,
+		systemSettings: settings,
+		now:            time.Now,
 	}
 }
 
@@ -187,6 +202,48 @@ func (s *Service) DisableUser(ctx context.Context, actorID uint, targetID uint) 
 
 func (s *Service) EnableUser(ctx context.Context, actorID uint, targetID uint) (*models.User, error) {
 	return s.UpdateUser(ctx, actorID, targetID, UpdateUserCommand{Status: stringPtr(models.UserStatusActive)})
+}
+
+func (s *Service) GetSchedulerConfig(ctx context.Context, actorID uint) (scheduler.Config, error) {
+	if _, err := s.requireActiveAdmin(ctx, actorID); err != nil {
+		return scheduler.Config{}, err
+	}
+	if s.systemSettings == nil {
+		return scheduler.DefaultConfig(), nil
+	}
+	setting, err := s.systemSettings.FindByKey(ctx, scheduler.SettingKey)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return scheduler.DefaultConfig(), nil
+	}
+	if err != nil {
+		return scheduler.Config{}, err
+	}
+	config, err := scheduler.ParseJSON(setting.ValueJSON)
+	if err != nil {
+		return scheduler.Config{}, ErrInvalidScheduler
+	}
+	return config, nil
+}
+
+func (s *Service) UpdateSchedulerConfig(ctx context.Context, actorID uint, config scheduler.Config) (scheduler.Config, error) {
+	if _, err := s.requireActiveAdmin(ctx, actorID); err != nil {
+		return scheduler.Config{}, err
+	}
+	raw, err := scheduler.Marshal(config)
+	if err != nil {
+		return scheduler.Config{}, ErrInvalidScheduler
+	}
+	if s.systemSettings == nil {
+		return scheduler.Config{}, ErrInvalidScheduler
+	}
+	setting := &models.SystemSetting{
+		Key:       scheduler.SettingKey,
+		ValueJSON: raw,
+	}
+	if err := s.systemSettings.Upsert(ctx, setting); err != nil {
+		return scheduler.Config{}, err
+	}
+	return config, nil
 }
 
 func (s *Service) requireActiveAdmin(ctx context.Context, actorID uint) (*models.User, error) {

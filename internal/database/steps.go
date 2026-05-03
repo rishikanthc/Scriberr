@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"scriberr/internal/models"
+	"scriberr/internal/transcription/scheduler"
 
 	"gorm.io/gorm"
 )
@@ -21,6 +22,7 @@ var schemaSteps = map[int]migrationStep{
 	8:  migrateStepV7ToV8,
 	9:  migrateStepV8ToV9,
 	10: migrateStepV9ToV10,
+	11: migrateStepV10ToV11,
 }
 
 func runSchemaSteps(tx *gorm.DB, currentVersion int) error {
@@ -84,6 +86,13 @@ func migrateStepV9ToV10(tx *gorm.DB) error {
 		return err
 	}
 	return backfillUserSettings(tx)
+}
+
+func migrateStepV10ToV11(tx *gorm.DB) error {
+	if err := tx.AutoMigrate(&models.SystemSetting{}); err != nil {
+		return err
+	}
+	return backfillSystemSettings(tx)
 }
 
 func backfillCompatibilityColumns(tx *gorm.DB) error {
@@ -161,6 +170,18 @@ func backfillUserSettings(tx *gorm.DB) error {
 		}
 	}
 	return nil
+}
+
+func backfillSystemSettings(tx *gorm.DB) error {
+	raw, err := scheduler.Marshal(scheduler.DefaultConfig())
+	if err != nil {
+		return err
+	}
+	setting := models.SystemSetting{
+		Key:       scheduler.SettingKey,
+		ValueJSON: raw,
+	}
+	return tx.Where("key = ?", setting.Key).FirstOrCreate(&setting).Error
 }
 
 func backfillAPIKeys(tx *gorm.DB) error {

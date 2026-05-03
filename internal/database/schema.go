@@ -11,11 +11,12 @@ import (
 	"gorm.io/gorm"
 )
 
-const latestSchemaVersion = 10
+const latestSchemaVersion = 11
 
 var schemaModels = []any{
 	&models.User{},
 	&models.UserSettings{},
+	&models.SystemSetting{},
 	&models.APIKey{},
 	&models.RefreshToken{},
 	&models.TranscriptionProfile{},

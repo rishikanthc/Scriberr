@@ -40,6 +40,9 @@ func Migrate(db *gorm.DB) error {
 		if err := createTargetSchema(tx); err != nil {
 			return err
 		}
+		if err := backfillSystemSettings(tx); err != nil {
+			return err
+		}
 		return recordSchemaVersion(tx, latestSchemaVersion)
 	})
 }

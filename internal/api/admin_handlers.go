@@ -10,6 +10,7 @@ import (
 	admindomain "scriberr/internal/admin"
 	"scriberr/internal/models"
 	"scriberr/internal/transcription/engineprovider"
+	"scriberr/internal/transcription/scheduler"
 
 	"github.com/gin-gonic/gin"
 )
@@ -78,6 +79,44 @@ func (h *Handler) queueStats(c *gin.Context) {
 		"canceled":   stats.Canceled,
 		"running":    stats.Running,
 	})
+}
+
+func (h *Handler) getAdminQueueScheduler(c *gin.Context) {
+	actorID, ok := currentUserID(c)
+	if !ok {
+		writeError(c, http.StatusUnauthorized, "UNAUTHORIZED", "missing or invalid authentication", nil)
+		return
+	}
+	if h.admin == nil {
+		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "admin service is not configured", nil)
+		return
+	}
+	config, err := h.admin.GetSchedulerConfig(c.Request.Context(), actorID)
+	if !writeAdminSchedulerError(c, err, "could not load scheduler config") {
+		return
+	}
+	c.JSON(http.StatusOK, adminSchedulerResponse(config))
+}
+
+func (h *Handler) updateAdminQueueScheduler(c *gin.Context) {
+	actorID, ok := currentUserID(c)
+	if !ok {
+		writeError(c, http.StatusUnauthorized, "UNAUTHORIZED", "missing or invalid authentication", nil)
+		return
+	}
+	if h.admin == nil {
+		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "admin service is not configured", nil)
+		return
+	}
+	var req adminSchedulerRequest
+	if !bindJSON(c, &req) {
+		return
+	}
+	config, err := h.admin.UpdateSchedulerConfig(c.Request.Context(), actorID, scheduler.Config{Policy: scheduler.Policy(req.Policy)})
+	if !writeAdminSchedulerError(c, err, "could not update scheduler config") {
+		return
+	}
+	c.JSON(http.StatusOK, adminSchedulerResponse(config))
 }
 
 func (h *Handler) listAdminUsers(c *gin.Context) {
@@ -267,6 +306,25 @@ func adminUserResponse(user *models.User) gin.H {
 		"created_at":          user.CreatedAt,
 		"updated_at":          user.UpdatedAt,
 	}
+}
+
+func adminSchedulerResponse(config scheduler.Config) gin.H {
+	return gin.H{"policy": string(config.Policy)}
+}
+
+func writeAdminSchedulerError(c *gin.Context, err error, fallback string) bool {
+	if err == nil {
+		return true
+	}
+	switch {
+	case errors.Is(err, admindomain.ErrForbidden):
+		writeError(c, http.StatusForbidden, "FORBIDDEN", "admin access is required", nil)
+	case errors.Is(err, admindomain.ErrInvalidScheduler):
+		writeError(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "scheduler config is invalid", stringPtr("policy"))
+	default:
+		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", fallback, nil)
+	}
+	return false
 }
 
 func writeAdminUserError(c *gin.Context, err error, fallback string) bool {

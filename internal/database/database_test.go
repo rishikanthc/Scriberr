@@ -64,6 +64,7 @@ func TestFreshSchemaInitialization(t *testing.T) {
 		"schema_migrations",
 		"users",
 		"user_settings",
+		"system_settings",
 		"api_keys",
 		"refresh_tokens",
 		"transcription_profiles",
@@ -125,6 +126,10 @@ func TestFreshSchemaInitialization(t *testing.T) {
 	assert.True(t, db.Migrator().HasColumn(&models.UserSettings{}, "default_profile_id"))
 	assert.True(t, db.Migrator().HasColumn(&models.UserSettings{}, "auto_transcription_enabled"))
 	assert.True(t, db.Migrator().HasColumn(&models.UserSettings{}, "auto_rename_enabled"))
+	assert.True(t, db.Migrator().HasColumn(&models.SystemSetting{}, "value_json"))
+	var schedulerSetting models.SystemSetting
+	require.NoError(t, db.First(&schedulerSetting, "key = ?", "queue.scheduler").Error)
+	assert.JSONEq(t, `{"policy":"priority"}`, schedulerSetting.ValueJSON)
 
 	title := "Fresh transcription"
 	user := models.User{Username: "fresh-user", Password: "pw"}
@@ -857,6 +862,9 @@ func TestLegacyMigrationOnEmptyDatabase(t *testing.T) {
 	var count int64
 	require.NoError(t, db.Model(&models.User{}).Count(&count).Error)
 	assert.Zero(t, count, "empty legacy DB should not invent a user")
+	var schedulerSetting models.SystemSetting
+	require.NoError(t, db.First(&schedulerSetting, "key = ?", "queue.scheduler").Error)
+	assert.JSONEq(t, `{"policy":"priority"}`, schedulerSetting.ValueJSON)
 }
 
 func openMigratedTestDB(t *testing.T, name string) *gorm.DB {

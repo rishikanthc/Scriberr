@@ -207,6 +207,50 @@ func (r *userSettingsRepository) Upsert(ctx context.Context, settings *models.Us
 	}).Create(values).Error
 }
 
+type SystemSettingsRepository interface {
+	FindByKey(ctx context.Context, key string) (*models.SystemSetting, error)
+	Upsert(ctx context.Context, setting *models.SystemSetting) error
+}
+
+type systemSettingsRepository struct {
+	db *gorm.DB
+}
+
+func NewSystemSettingsRepository(db *gorm.DB) SystemSettingsRepository {
+	return &systemSettingsRepository{db: db}
+}
+
+func (r *systemSettingsRepository) FindByKey(ctx context.Context, key string) (*models.SystemSetting, error) {
+	var setting models.SystemSetting
+	if err := r.db.WithContext(ctx).First(&setting, "key = ?", key).Error; err != nil {
+		return nil, err
+	}
+	return &setting, nil
+}
+
+func (r *systemSettingsRepository) Upsert(ctx context.Context, setting *models.SystemSetting) error {
+	if setting == nil {
+		return fmt.Errorf("system setting is required")
+	}
+	if strings.TrimSpace(setting.Key) == "" {
+		return fmt.Errorf("system setting key is required")
+	}
+	now := time.Now()
+	values := map[string]any{
+		"key":        setting.Key,
+		"value_json": setting.ValueJSON,
+		"created_at": now,
+		"updated_at": now,
+	}
+	return r.db.WithContext(ctx).Table(setting.TableName()).Clauses(clause.OnConflict{
+		Columns: []clause.Column{{Name: "key"}},
+		DoUpdates: clause.AssignmentColumns([]string{
+			"value_json",
+			"updated_at",
+		}),
+	}).Create(values).Error
+}
+
 type FileListOptions struct {
 	Kind         string
 	Status       string

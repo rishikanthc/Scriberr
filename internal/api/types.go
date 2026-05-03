@@ -123,6 +123,9 @@ type adminUpdateUserRequest struct {
 type adminResetPasswordRequest struct {
 	Password string `json:"password"`
 }
+type adminSchedulerRequest struct {
+	Policy string `json:"policy"`
+}
 type updateLLMProviderRequest struct {
 	BaseURL    string `json:"base_url"`
 	APIKey     string `json:"api_key"`

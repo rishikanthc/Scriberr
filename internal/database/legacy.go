@@ -193,6 +193,9 @@ func migrateLegacy(db *gorm.DB) error {
 		if err := updateLatestExecutions(tx); err != nil {
 			return err
 		}
+		if err := backfillSystemSettings(tx); err != nil {
+			return err
+		}
 		return recordSchemaVersion(tx, latestSchemaVersion)
 	})
 }
