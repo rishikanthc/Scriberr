@@ -54,8 +54,8 @@ func (h *Handler) createTranscription(c *gin.Context) {
 		return
 	}
 	response := transcriptionResponse(job)
-	h.publishTranscriptionEvent("transcription.created", response.ID, gin.H{"id": response.ID, "file_id": response.FileID, "status": response.Status})
-	h.publishEvent("transcription.created", gin.H{"id": response.ID, "file_id": response.FileID, "status": response.Status})
+	h.publishTranscriptionEvent("transcription.created", response.ID, gin.H{"id": response.ID, "file_id": response.FileID, "status": response.Status}, userID)
+	h.publishEventForUser("transcription.created", gin.H{"id": response.ID, "file_id": response.FileID, "status": response.Status}, userID)
 	c.JSON(http.StatusAccepted, response)
 }
 func (h *Handler) submitTranscription(c *gin.Context) {
@@ -105,8 +105,8 @@ func (h *Handler) submitTranscription(c *gin.Context) {
 		"file_id": fileIDForTranscription(job),
 		"status":  string(job.Status),
 	}
-	h.publishTranscriptionEvent("transcription.created", response["id"].(string), response)
-	h.publishEvent("transcription.created", response)
+	h.publishTranscriptionEvent("transcription.created", response["id"].(string), response, userID)
+	h.publishEventForUser("transcription.created", response, userID)
 	c.JSON(http.StatusAccepted, response)
 }
 
@@ -204,8 +204,8 @@ func (h *Handler) updateTranscription(c *gin.Context) {
 		return
 	}
 	response := transcriptionResponse(job)
-	h.publishTranscriptionEvent("transcription.updated", response.ID, gin.H{"id": response.ID, "status": response.Status})
-	h.publishEvent("transcription.updated", gin.H{"id": response.ID, "status": response.Status})
+	h.publishTranscriptionEvent("transcription.updated", response.ID, gin.H{"id": response.ID, "status": response.Status}, userID)
+	h.publishEventForUser("transcription.updated", gin.H{"id": response.ID, "status": response.Status}, userID)
 	c.JSON(http.StatusOK, response)
 }
 func (h *Handler) deleteTranscription(c *gin.Context) {
@@ -217,8 +217,8 @@ func (h *Handler) deleteTranscription(c *gin.Context) {
 		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not delete transcription", nil)
 		return
 	}
-	h.publishTranscriptionEvent("transcription.deleted", "tr_"+id, gin.H{"id": "tr_" + id})
-	h.publishEvent("transcription.deleted", gin.H{"id": "tr_" + id})
+	h.publishTranscriptionEvent("transcription.deleted", "tr_"+id, gin.H{"id": "tr_" + id}, userID)
+	h.publishEventForUser("transcription.deleted", gin.H{"id": "tr_" + id}, userID)
 	c.Status(http.StatusNoContent)
 }
 func (h *Handler) cancelTranscription(c *gin.Context, publicID string) {
@@ -236,8 +236,8 @@ func (h *Handler) cancelTranscription(c *gin.Context, publicID string) {
 		return
 	}
 	response := gin.H{"id": "tr_" + job.ID, "file_id": fileIDForTranscription(job), "status": string(models.StatusStopped), "stage": "stopped"}
-	h.publishTranscriptionEvent("transcription.stopped", response["id"].(string), response)
-	h.publishEvent("transcription.stopped", response)
+	h.publishTranscriptionEvent("transcription.stopped", response["id"].(string), response, userID)
+	h.publishEventForUser("transcription.stopped", response, userID)
 	c.JSON(http.StatusOK, response)
 }
 func (h *Handler) retryTranscription(c *gin.Context, publicID string) {
@@ -255,8 +255,8 @@ func (h *Handler) retryTranscription(c *gin.Context, publicID string) {
 		"source_transcription_id": "tr_" + id,
 		"status":                  string(retry.Status),
 	}
-	h.publishTranscriptionEvent("transcription.created", response["id"].(string), response)
-	h.publishEvent("transcription.created", response)
+	h.publishTranscriptionEvent("transcription.created", response["id"].(string), response, userID)
+	h.publishEventForUser("transcription.created", response, userID)
 	c.JSON(http.StatusAccepted, response)
 }
 func (h *Handler) getTranscript(c *gin.Context) {

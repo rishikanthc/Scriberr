@@ -157,6 +157,7 @@ func (s *Service) publishCreated(ctx context.Context, job *models.TranscriptionJ
 	id := "tr_" + job.ID
 	payload := map[string]any{
 		"id":      id,
+		"user_id": job.UserID,
 		"file_id": fileIDForTranscription(job),
 		"status":  string(job.Status),
 	}

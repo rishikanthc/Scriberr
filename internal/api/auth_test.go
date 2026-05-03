@@ -175,6 +175,22 @@ func (s *authTestServer) rawRequest(t *testing.T, method, path string, body any,
 	return recorder, recorder.Body.String()
 }
 
+func tokenForTestUser(t *testing.T, username, role string) string {
+	t.Helper()
+	user := models.User{Username: username, Password: "pw", Role: role}
+	require.NoError(t, database.DB.Create(&user).Error)
+	token, err := auth.NewAuthService("test-secret").GenerateToken(&user)
+	require.NoError(t, err)
+	return token
+}
+
+func currentTestUserID(t *testing.T, username string) uint {
+	t.Helper()
+	var user models.User
+	require.NoError(t, database.DB.Where("username = ?", username).First(&user).Error)
+	return user.ID
+}
+
 func TestAuthRegisterLoginRefreshMeLogout(t *testing.T) {
 	s := newAuthTestServer(t)
 

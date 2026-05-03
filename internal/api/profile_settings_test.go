@@ -195,7 +195,7 @@ func TestGetProfileDoesNotPublishUpdateEvent(t *testing.T) {
 	require.Equal(t, http.StatusCreated, resp.Code)
 	profileID := body["id"].(string)
 
-	sub, unsubscribe := s.handler.events.subscribe("")
+	sub, unsubscribe := s.handler.events.subscribe(currentTestUserID(t, "admin"), "")
 	defer unsubscribe()
 
 	resp, _ = s.request(t, http.MethodGet, "/api/v1/profiles/"+profileID, nil, token, "")

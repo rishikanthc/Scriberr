@@ -15,11 +15,13 @@ type apiEvent struct {
 	Name            string
 	Data            gin.H
 	TranscriptionID string
+	UserID          uint
 }
 
 type eventSubscriber struct {
 	id              string
 	transcriptionID string
+	userID          uint
 	ch              chan apiEvent
 }
 
@@ -32,10 +34,11 @@ func newEventBroker() *eventBroker {
 	return &eventBroker{subscribers: map[string]*eventSubscriber{}}
 }
 
-func (b *eventBroker) subscribe(transcriptionID string) (*eventSubscriber, func()) {
+func (b *eventBroker) subscribe(userID uint, transcriptionID string) (*eventSubscriber, func()) {
 	sub := &eventSubscriber{
 		id:              randomHex(8),
 		transcriptionID: transcriptionID,
+		userID:          userID,
 		ch:              make(chan apiEvent, 16),
 	}
 	b.mu.Lock()
@@ -52,7 +55,7 @@ func (b *eventBroker) publish(event apiEvent) {
 	b.mu.Lock()
 	subscribers := make([]*eventSubscriber, 0, len(b.subscribers))
 	for _, sub := range b.subscribers {
-		if sub.transcriptionID == "" || sub.transcriptionID == event.TranscriptionID {
+		if sub.matches(event) {
 			subscribers = append(subscribers, sub)
 		}
 	}
@@ -64,6 +67,16 @@ func (b *eventBroker) publish(event apiEvent) {
 		default:
 		}
 	}
+}
+
+func (s *eventSubscriber) matches(event apiEvent) bool {
+	if s.transcriptionID != "" && s.transcriptionID != event.TranscriptionID {
+		return false
+	}
+	if event.UserID == 0 {
+		return true
+	}
+	return s.userID == event.UserID
 }
 
 func (b *eventBroker) subscriberCount() int {
@@ -85,6 +98,11 @@ func (h *Handler) streamTranscriptionEvents(c *gin.Context) {
 }
 
 func (h *Handler) streamEventChannel(c *gin.Context, transcriptionID string) {
+	principal, ok := h.currentPrincipal(c)
+	if !ok {
+		writeError(c, http.StatusUnauthorized, "UNAUTHORIZED", "missing or invalid authentication", nil)
+		return
+	}
 	flusher, ok := c.Writer.(http.Flusher)
 	if !ok {
 		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "streaming is not supported", nil)
@@ -97,7 +115,7 @@ func (h *Handler) streamEventChannel(c *gin.Context, transcriptionID string) {
 	c.Header("Vary", "Authorization")
 	c.Status(http.StatusOK)
 
-	sub, unsubscribe := h.events.subscribe(transcriptionID)
+	sub, unsubscribe := h.events.subscribe(principal.UserID, transcriptionID)
 	defer unsubscribe()
 
 	_, _ = c.Writer.Write([]byte(": connected\n\n"))
@@ -134,14 +152,18 @@ func writeSSE(c *gin.Context, flusher http.Flusher, event apiEvent) {
 }
 
 func (h *Handler) publishEvent(name string, data gin.H) {
-	h.events.publish(apiEvent{Name: name, Data: data})
+	h.publishEventForUser(name, data, 0)
+}
+
+func (h *Handler) publishEventForUser(name string, data gin.H, userID uint) {
+	h.events.publish(apiEvent{Name: name, Data: data, UserID: userID})
 }
 
 func (h *Handler) PublishFileEvent(_ context.Context, name string, payload map[string]any) {
 	if h == nil {
 		return
 	}
-	h.publishEvent(name, sanitizeEventPayload(payload))
+	h.publishEventForUser(name, sanitizeEventPayload(payload), eventPayloadUserID(payload))
 }
 
 func (h *Handler) PublishTranscriptionEvent(_ context.Context, name string, transcriptionID string, payload map[string]any) {
@@ -149,12 +171,13 @@ func (h *Handler) PublishTranscriptionEvent(_ context.Context, name string, tran
 		return
 	}
 	sanitized := sanitizeEventPayload(payload)
-	h.publishTranscriptionEvent(name, transcriptionID, sanitized)
-	h.publishEvent(name, sanitized)
+	userID := eventPayloadUserID(payload)
+	h.publishTranscriptionEvent(name, transcriptionID, sanitized, userID)
+	h.publishEventForUser(name, sanitized, userID)
 }
 
-func (h *Handler) publishTranscriptionEvent(name, transcriptionID string, data gin.H) {
-	h.events.publish(apiEvent{Name: name, Data: data, TranscriptionID: transcriptionID})
+func (h *Handler) publishTranscriptionEvent(name, transcriptionID string, data gin.H, userID uint) {
+	h.events.publish(apiEvent{Name: name, Data: data, TranscriptionID: transcriptionID, UserID: userID})
 }
 
 func sanitizeEventPayload(payload map[string]any) gin.H {
@@ -170,9 +193,32 @@ func sanitizeEventPayload(payload map[string]any) gin.H {
 
 func eventPayloadKeyIsInternal(key string) bool {
 	switch key {
-	case "path", "audio_path", "source_file_path", "output_json_path", "output_srt_path", "output_vtt_path", "logs_path":
+	case "user_id", "path", "audio_path", "source_file_path", "output_json_path", "output_srt_path", "output_vtt_path", "logs_path":
 		return true
 	default:
 		return false
 	}
+}
+
+func eventPayloadUserID(payload map[string]any) uint {
+	if payload == nil {
+		return 0
+	}
+	switch value := payload["user_id"].(type) {
+	case uint:
+		return value
+	case int:
+		if value > 0 {
+			return uint(value)
+		}
+	case int64:
+		if value > 0 {
+			return uint(value)
+		}
+	case float64:
+		if value > 0 {
+			return uint(value)
+		}
+	}
+	return 0
 }

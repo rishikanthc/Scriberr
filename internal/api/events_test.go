@@ -79,6 +79,31 @@ func TestGlobalSSEReceivesFileEventsAndCleansUp(t *testing.T) {
 	require.NotContains(t, stream, s.uploadDir)
 }
 
+func TestGlobalSSEFiltersFileEventsByUser(t *testing.T) {
+	s := newAuthTestServer(t)
+	firstToken := registerForFileTests(t, s)
+	secondToken := tokenForTestUser(t, "second-user", "user")
+
+	recorder, cancel, done := startEventStream(t, s, firstToken, "/api/v1/events")
+	_, secondBody := uploadMultipart(t, s, secondToken, "file", "second.wav", "audio/wav", []byte("RIFF----WAVEfmt data"), "Second user")
+	secondFileID := secondBody["id"].(string)
+
+	resp, firstBody := uploadMultipart(t, s, firstToken, "file", "first.wav", "audio/wav", []byte("RIFF----WAVEfmt data"), "First user")
+	require.Equal(t, http.StatusCreated, resp.Code)
+	firstFileID := firstBody["id"].(string)
+
+	require.Eventually(t, func() bool {
+		return strings.Contains(recorder.Body.String(), `"id":"`+firstFileID+`"`)
+	}, time.Second, 10*time.Millisecond)
+	stopEventStream(t, cancel, done)
+
+	stream := recorder.Body.String()
+	require.Contains(t, stream, "event: file.ready")
+	require.Contains(t, stream, `"id":"`+firstFileID+`"`)
+	require.NotContains(t, stream, secondFileID)
+	require.NotContains(t, stream, "user_id")
+}
+
 func TestTranscriptionSSEFiltersByTranscription(t *testing.T) {
 	s := newAuthTestServer(t)
 	token := registerForFileTests(t, s)
@@ -112,12 +137,51 @@ func TestTranscriptionSSEFiltersByTranscription(t *testing.T) {
 	require.NotContains(t, stream, s.uploadDir)
 }
 
+func TestTranscriptionSSEFiltersProgressByUser(t *testing.T) {
+	s := newAuthTestServer(t)
+	firstToken := registerForFileTests(t, s)
+	firstUserID := currentTestUserID(t, "admin")
+	secondToken := tokenForTestUser(t, "second-progress-user", "user")
+	secondUserID := currentTestUserID(t, "second-progress-user")
+	firstFileID, _ := createUploadedFileForTranscription(t, s, firstToken)
+	secondFileID, _ := createUploadedFileForTranscription(t, s, secondToken)
+
+	resp, body := s.request(t, http.MethodPost, "/api/v1/transcriptions", map[string]any{
+		"file_id": firstFileID,
+		"title":   "First transcript",
+	}, firstToken, "")
+	require.Equal(t, http.StatusAccepted, resp.Code)
+	firstID := body["id"].(string)
+
+	resp, body = s.request(t, http.MethodPost, "/api/v1/transcriptions", map[string]any{
+		"file_id": secondFileID,
+		"title":   "Second transcript",
+	}, secondToken, "")
+	require.Equal(t, http.StatusAccepted, resp.Code)
+	secondID := body["id"].(string)
+
+	recorder, cancel, done := startEventStream(t, s, firstToken, "/api/v1/transcriptions/"+firstID+"/events")
+	s.handler.Publish(context.Background(), progressEventForTest(strings.TrimPrefix(secondID, "tr_"), secondUserID, "transcription.progress"))
+	s.handler.Publish(context.Background(), progressEventForTest(strings.TrimPrefix(firstID, "tr_"), firstUserID, "transcription.progress"))
+
+	require.Eventually(t, func() bool {
+		return strings.Contains(recorder.Body.String(), `"id":"`+firstID+`"`)
+	}, time.Second, 10*time.Millisecond)
+	stopEventStream(t, cancel, done)
+
+	stream := recorder.Body.String()
+	require.Contains(t, stream, "event: transcription.progress")
+	require.Contains(t, stream, `"id":"`+firstID+`"`)
+	require.NotContains(t, stream, secondID)
+	require.NotContains(t, stream, "user_id")
+}
+
 func TestGlobalSSEReceivesTranscriptionProgressOnce(t *testing.T) {
 	s := newAuthTestServer(t)
 	token := registerForFileTests(t, s)
 
 	recorder, cancel, done := startEventStream(t, s, token, "/api/v1/events")
-	s.handler.Publish(context.Background(), progressEventForTest("job-1", "transcription.progress"))
+	s.handler.Publish(context.Background(), progressEventForTest("job-1", currentTestUserID(t, "admin"), "transcription.progress"))
 
 	require.Eventually(t, func() bool {
 		return strings.Count(recorder.Body.String(), "event: transcription.progress") >= 1
@@ -200,11 +264,11 @@ func TestSSEReceivesTagEvents(t *testing.T) {
 	require.NotContains(t, globalRecorder.Body.String(), "Renamed Stream Tag")
 }
 
-func progressEventForTest(jobID, name string) orchestrator.ProgressEvent {
+func progressEventForTest(jobID string, userID uint, name string) orchestrator.ProgressEvent {
 	return orchestrator.ProgressEvent{
 		Name:     name,
 		JobID:    jobID,
-		UserID:   1,
+		UserID:   userID,
 		Stage:    "transcribing",
 		Progress: 0.42,
 		Status:   models.StatusProcessing,
@@ -222,7 +286,7 @@ func TestSSERequiresAuthentication(t *testing.T) {
 
 func TestEventBrokerUnsubscribeDoesNotCloseChannel(t *testing.T) {
 	broker := newEventBroker()
-	sub, unsubscribe := broker.subscribe("")
+	sub, unsubscribe := broker.subscribe(7, "")
 
 	unsubscribe()
 	broker.publish(apiEvent{Name: "file.ready"})
@@ -249,7 +313,7 @@ func TestSSESendsHeartbeat(t *testing.T) {
 
 func TestEventAdaptersEmitPublicIDsAndOmitInternalDetails(t *testing.T) {
 	handler := NewHandler(nil, nil, HandlerDependencies{})
-	sub, unsubscribe := handler.events.subscribe("")
+	sub, unsubscribe := handler.events.subscribe(7, "")
 	defer unsubscribe()
 
 	handler.PublishRecordingEvent(context.Background(), recordingdomain.Event{

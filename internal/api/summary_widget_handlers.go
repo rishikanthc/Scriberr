@@ -62,7 +62,7 @@ func (h *Handler) createSummaryWidget(c *gin.Context) {
 		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not create summary widget", nil)
 		return
 	}
-	h.publishEvent("settings.updated", gin.H{"summary_widgets": true})
+	h.publishEventForUser("settings.updated", gin.H{"summary_widgets": true}, userID)
 	c.JSON(http.StatusCreated, summaryWidgetResponse(&widget))
 }
 
@@ -105,7 +105,7 @@ func (h *Handler) updateSummaryWidget(c *gin.Context) {
 		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not update summary widget", nil)
 		return
 	}
-	h.publishEvent("settings.updated", gin.H{"summary_widgets": true})
+	h.publishEventForUser("settings.updated", gin.H{"summary_widgets": true}, userID)
 	c.JSON(http.StatusOK, summaryWidgetResponse(widget))
 }
 
@@ -122,7 +122,7 @@ func (h *Handler) deleteSummaryWidget(c *gin.Context) {
 		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not delete summary widget", nil)
 		return
 	}
-	h.publishEvent("settings.updated", gin.H{"summary_widgets": true})
+	h.publishEventForUser("settings.updated", gin.H{"summary_widgets": true}, userID)
 	c.Status(http.StatusNoContent)
 }
 

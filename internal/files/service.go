@@ -38,6 +38,7 @@ type ReadyHandoff interface {
 
 type ReadyEvent struct {
 	FileID string
+	UserID uint
 	Kind   string
 	Status string
 }
@@ -170,7 +171,7 @@ func (s *Service) Upload(ctx context.Context, cmd UploadCommand) (*UploadResult,
 		_ = os.Remove(storagePath)
 		return nil, err
 	}
-	_ = s.FileReady(ctx, ReadyEvent{FileID: job.ID, Kind: "audio", Status: "ready"})
+	_ = s.FileReady(ctx, ReadyEvent{FileID: job.ID, UserID: cmd.UserID, Kind: "audio", Status: "ready"})
 	return &UploadResult{Job: job, MimeType: mimeType, Kind: kind}, nil
 }
 
@@ -210,7 +211,7 @@ func (s *Service) Delete(ctx context.Context, userID uint, id string) error {
 	if err := s.repo.DeleteFile(ctx, id, userID); err != nil {
 		return ErrNotFound
 	}
-	s.publish(ctx, "file.deleted", id, "", "")
+	s.publish(ctx, "file.deleted", id, userID, "", "")
 	return nil
 }
 
@@ -243,14 +244,14 @@ func (s *Service) createVideoImport(ctx context.Context, jobID string, userID ui
 	if err := s.repo.Create(ctx, job); err != nil {
 		return nil, err
 	}
-	s.publish(ctx, "file.processing", job.ID, "video", string(models.StatusProcessing))
+	s.publish(ctx, "file.processing", job.ID, userID, "video", string(models.StatusProcessing))
 	extractedPath := filepath.Join(uploadDir, jobID+".mp3")
 	extractedName := strings.TrimSuffix(sourceName, filepath.Ext(sourceName)) + ".mp3"
-	s.startVideoAudioExtraction(job.ID, title, videoPath, extractedPath, extractedName)
+	s.startVideoAudioExtraction(job.ID, userID, title, videoPath, extractedPath, extractedName)
 	return job, nil
 }
 
-func (s *Service) startVideoAudioExtraction(jobID, title, videoPath, extractedPath, extractedFilename string) {
+func (s *Service) startVideoAudioExtraction(jobID string, userID uint, title, videoPath, extractedPath, extractedFilename string) {
 	if s.asyncJobs != nil {
 		s.asyncJobs.Add(1)
 	}
@@ -267,7 +268,7 @@ func (s *Service) startVideoAudioExtraction(jobID, title, videoPath, extractedPa
 		if err := extractor.ExtractAudio(ctx, videoPath, extractedPath); err != nil {
 			_ = os.Remove(extractedPath)
 			_ = s.repo.FailMediaImport(ctx, jobID, "video audio extraction failed", time.Now())
-			s.publish(ctx, "file.failed", jobID, "video", string(models.StatusFailed))
+			s.publish(ctx, "file.failed", jobID, userID, "video", string(models.StatusFailed))
 			return
 		}
 		safeExtractedName := safeFilename(extractedFilename)
@@ -276,11 +277,11 @@ func (s *Service) startVideoAudioExtraction(jobID, title, videoPath, extractedPa
 		}
 		if err := s.repo.CompleteMediaImport(ctx, jobID, title, extractedPath, safeExtractedName, nil, time.Now()); err != nil {
 			_ = s.repo.FailMediaImport(ctx, jobID, "video audio extraction failed", time.Now())
-			s.publish(ctx, "file.failed", jobID, "video", string(models.StatusFailed))
+			s.publish(ctx, "file.failed", jobID, userID, "video", string(models.StatusFailed))
 			return
 		}
 		_ = os.Remove(videoPath)
-		_ = s.FileReady(ctx, ReadyEvent{FileID: jobID, Kind: "audio", Status: "ready"})
+		_ = s.FileReady(ctx, ReadyEvent{FileID: jobID, UserID: userID, Kind: "audio", Status: "ready"})
 	}()
 }
 
@@ -293,19 +294,19 @@ func (s *Service) FileReady(ctx context.Context, event ReadyEvent) error {
 		status = "ready"
 	}
 	if s.ready != nil {
-		if err := s.ready.FileReady(ctx, ReadyEvent{FileID: event.FileID, Kind: event.Kind, Status: status}); err != nil {
+		if err := s.ready.FileReady(ctx, ReadyEvent{FileID: event.FileID, UserID: event.UserID, Kind: event.Kind, Status: status}); err != nil {
 			return err
 		}
 	}
-	s.publish(ctx, "file.ready", event.FileID, event.Kind, status)
+	s.publish(ctx, "file.ready", event.FileID, event.UserID, event.Kind, status)
 	return nil
 }
 
-func (s *Service) publish(ctx context.Context, name, jobID, kind, status string) {
+func (s *Service) publish(ctx context.Context, name, jobID string, userID uint, kind, status string) {
 	if s.events == nil {
 		return
 	}
-	payload := map[string]any{"id": "file_" + jobID}
+	payload := map[string]any{"id": "file_" + jobID, "user_id": userID}
 	if kind != "" {
 		payload["kind"] = kind
 	}

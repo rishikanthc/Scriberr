@@ -524,9 +524,10 @@ func (s *Service) generateTitleForSummary(ctx context.Context, summary *models.S
 	}
 	if s.events != nil && !sameGeneratedTitle(currentTitle, title) {
 		s.events.PublishFileEvent(ctx, "file.updated", map[string]any{
-			"id":     "file_" + recording.ID,
-			"title":  title,
-			"status": string(recording.Status),
+			"user_id": recording.UserID,
+			"id":      "file_" + recording.ID,
+			"title":   title,
+			"status":  string(recording.Status),
 		})
 	}
 	return nil
@@ -740,6 +741,7 @@ func (s *Service) generateDescriptionForSummary(ctx context.Context, summary *mo
 	if s.events != nil {
 		s.events.PublishFileEvent(ctx, "file.updated", map[string]any{
 			"id":          "file_" + recording.ID,
+			"user_id":     recording.UserID,
 			"description": description,
 			"status":      string(recording.Status),
 		})

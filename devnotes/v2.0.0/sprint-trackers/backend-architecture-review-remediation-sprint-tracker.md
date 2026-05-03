@@ -2,7 +2,7 @@
 
 This tracker belongs to `devnotes/v2.0.0/sprint-plans/backend-architecture-review-remediation-sprint-plan.md`.
 
-Status: Sprint 1 complete.
+Status: Sprint 2 complete.
 
 ## Run Rules
 
@@ -18,7 +18,7 @@ Status: Sprint 1 complete.
 
 | Finding | Severity | Sprint | Status |
 | --- | --- | --- | --- |
-| Global SSE is not user-scoped | High | Sprint 2 | pending |
+| Global SSE is not user-scoped | High | Sprint 2 | complete |
 | LLM API keys are stored raw | High | Sprint 4 | pending |
 | Queue terminal updates are not claim-owned | High | Sprint 5 | pending |
 | Recovery requeues every processing job | High | Sprint 5 | pending |
@@ -104,7 +104,7 @@ Commit:
 
 ## Sprint 2: User-Scoped Event Delivery
 
-Status: pending
+Status: complete
 
 Addresses:
 
@@ -112,27 +112,28 @@ Addresses:
 
 TDD and scope checks:
 
-- [ ] Add failing two-user SSE isolation tests.
-- [ ] Add failing test that global event stream filters another user's file event.
-- [ ] Add failing test that transcription event stream filters another user's progress.
-- [ ] Extend event types and subscriber state with user/audience metadata.
-- [ ] Update all event publisher adapters to include user ID.
-- [ ] Preserve path sanitization and public IDs.
-- [ ] Write status note `backend-architecture-review-remediation-sprint-02-user-scoped-events.md`.
+- [x] Add failing two-user SSE isolation tests.
+- [x] Add failing test that global event stream filters another user's file event.
+- [x] Add failing test that transcription event stream filters another user's progress.
+- [x] Extend event types and subscriber state with user/audience metadata.
+- [x] Update all event publisher adapters to include user ID.
+- [x] Preserve path sanitization and public IDs.
+- [x] Write status note `backend-architecture-review-remediation-sprint-02-user-scoped-events.md`.
 
 Acceptance checks:
 
-- [ ] User A does not receive user B global events.
-- [ ] User A does not receive user B transcription-specific events.
-- [ ] User-specific events still deliver correctly.
-- [ ] Admin event visibility, if any, is explicitly tested and documented.
-- [ ] Event payloads remain small and path-free.
+- [x] User A does not receive user B global events.
+- [x] User A does not receive user B transcription-specific events.
+- [x] User-specific events still deliver correctly.
+- [x] Admin event visibility, if any, is explicitly tested and documented.
+- [x] Event payloads remain small and path-free.
 
 Verification:
 
-- [ ] `GOCACHE=/private/tmp/scriberr-go-cache go test ./internal/api -run 'TestEvent|TestSSE|TestSecurity|TestProduction'`
-- [ ] `GOCACHE=/private/tmp/scriberr-go-cache go test ./internal/files ./internal/recording ./internal/summarization ./internal/tags ./internal/annotations ./internal/transcription/worker`
-- [ ] `git diff --check`
+- [x] `GOCACHE=/private/tmp/scriberr-go-cache go test ./internal/api -run 'TestEvent|TestSSE|TestSecurity|TestProduction'`
+- [x] `GOCACHE=/private/tmp/scriberr-go-cache go test ./internal/files ./internal/recording ./internal/summarization ./internal/tags ./internal/annotations ./internal/transcription/worker`
+- [x] `GOCACHE=/private/tmp/scriberr-go-cache go test ./internal/mediaimport ./internal/automation`
+- [x] `git diff --check`
 
 Artifacts:
 
@@ -143,7 +144,7 @@ Artifacts:
 
 Commit:
 
-- [ ] `backend: scope sse events by user`
+- [x] `backend: scope sse events by user`
 
 ## Sprint 3: Move LLM Provider Probing Out Of API
 

@@ -120,7 +120,7 @@ func (h *Handler) updateLLMProvider(c *gin.Context) {
 	}
 
 	response := llmProviderResponse(result.Config, result.Models)
-	h.publishEvent("settings.updated", gin.H{"llm_provider_configured": true})
+	h.publishEventForUser("settings.updated", gin.H{"llm_provider_configured": true}, user.ID)
 	c.JSON(http.StatusOK, response)
 }
 

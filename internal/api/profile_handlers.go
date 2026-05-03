@@ -57,7 +57,7 @@ func (h *Handler) createProfile(c *gin.Context) {
 		return
 	}
 	response := profileResponse(profile)
-	h.publishEvent("profile.updated", gin.H{"id": response.ID})
+	h.publishEventForUser("profile.updated", gin.H{"id": response.ID}, userID)
 	c.JSON(http.StatusCreated, response)
 }
 func (h *Handler) getProfile(c *gin.Context) {
@@ -101,7 +101,7 @@ func (h *Handler) deleteProfile(c *gin.Context) {
 		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not delete profile", nil)
 		return
 	}
-	h.publishEvent("profile.updated", gin.H{"id": publicIDForProfile(profile.ID), "deleted": true})
+	h.publishEventForUser("profile.updated", gin.H{"id": publicIDForProfile(profile.ID), "deleted": true}, profile.UserID)
 	c.Status(http.StatusNoContent)
 }
 func (h *Handler) setDefaultProfile(c *gin.Context, publicID string) {
@@ -114,7 +114,7 @@ func (h *Handler) setDefaultProfile(c *gin.Context, publicID string) {
 		return
 	}
 	response := gin.H{"id": publicIDForProfile(profile.ID), "is_default": true}
-	h.publishEvent("profile.updated", response)
+	h.publishEventForUser("profile.updated", response, profile.UserID)
 	c.JSON(http.StatusOK, response)
 }
 func (h *Handler) profileCommand(c *gin.Context) {

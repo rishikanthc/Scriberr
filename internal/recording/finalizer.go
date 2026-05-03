@@ -532,13 +532,13 @@ func (s *FinalizerService) handoffFileReady(ctx context.Context, file *models.Tr
 		return
 	}
 	if s.fileReady != nil {
-		if err := s.fileReady.FileReady(ctx, filesdomain.ReadyEvent{FileID: file.ID, Kind: "audio", Status: "ready"}); err != nil {
+		if err := s.fileReady.FileReady(ctx, filesdomain.ReadyEvent{FileID: file.ID, UserID: file.UserID, Kind: "audio", Status: "ready"}); err != nil {
 			logger.Warn("Recording file-ready handoff failed", "recording_file_id", file.ID, "error", err)
 		}
 		return
 	}
 	if s.events != nil {
-		s.events.PublishFileEvent(ctx, "file.ready", map[string]any{"id": "file_" + file.ID, "kind": "audio", "status": "ready"})
+		s.events.PublishFileEvent(ctx, "file.ready", map[string]any{"id": "file_" + file.ID, "user_id": file.UserID, "kind": "audio", "status": "ready"})
 	}
 }
 
@@ -546,7 +546,7 @@ func (s *FinalizerService) publishTranscription(ctx context.Context, transcripti
 	if s.events == nil || transcription == nil {
 		return
 	}
-	s.events.PublishTranscriptionEvent(ctx, "transcription.created", "tr_"+transcription.ID, map[string]any{"id": "tr_" + transcription.ID, "file_id": fileIDForTranscription(transcription), "status": string(transcription.Status)})
+	s.events.PublishTranscriptionEvent(ctx, "transcription.created", "tr_"+transcription.ID, map[string]any{"id": "tr_" + transcription.ID, "user_id": transcription.UserID, "file_id": fileIDForTranscription(transcription), "status": string(transcription.Status)})
 }
 
 func fileIDForTranscription(job *models.TranscriptionJob) string {

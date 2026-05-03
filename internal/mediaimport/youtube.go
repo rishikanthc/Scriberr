@@ -149,12 +149,12 @@ func (s *Service) ImportYouTube(ctx context.Context, cmd ImportYouTubeCommand) (
 	if err := s.repo.Create(ctx, &job); err != nil {
 		return nil, err
 	}
-	s.publish(ctx, "file.processing", jobID, "youtube", "processing", 1)
-	s.startDownload(jobID, rawURL, title, storagePath)
+	s.publish(ctx, "file.processing", jobID, cmd.UserID, "youtube", "processing", 1)
+	s.startDownload(jobID, cmd.UserID, rawURL, title, storagePath)
 	return &job, nil
 }
 
-func (s *Service) startDownload(jobID, rawURL, title, storagePath string) {
+func (s *Service) startDownload(jobID string, userID uint, rawURL, title, storagePath string) {
 	if s.asyncJobs != nil {
 		s.asyncJobs.Add(1)
 	}
@@ -172,12 +172,12 @@ func (s *Service) startDownload(jobID, rawURL, title, storagePath string) {
 		}, func(progress float64) {
 			progress = clamp(progress, 1, 99)
 			_ = s.repo.UpdateProgress(ctx, jobID, progress/100, "downloading")
-			s.publish(ctx, "file.processing", jobID, "youtube", "processing", progress)
+			s.publish(ctx, "file.processing", jobID, userID, "youtube", "processing", progress)
 		})
 		if err != nil {
 			_ = os.Remove(storagePath)
 			_ = s.repo.FailMediaImport(ctx, jobID, "YouTube import failed", time.Now())
-			s.publish(ctx, "file.failed", jobID, "youtube", string(models.StatusFailed), 0)
+			s.publish(ctx, "file.failed", jobID, userID, "youtube", string(models.StatusFailed), 0)
 			return
 		}
 
@@ -198,23 +198,24 @@ func (s *Service) startDownload(jobID, rawURL, title, storagePath string) {
 		}
 		if err := s.repo.CompleteMediaImport(ctx, jobID, finalTitle, storagePath, sourceName, result.DurationMs, time.Now()); err != nil {
 			_ = s.repo.FailMediaImport(ctx, jobID, "YouTube import failed", time.Now())
-			s.publish(ctx, "file.failed", jobID, "youtube", string(models.StatusFailed), 0)
+			s.publish(ctx, "file.failed", jobID, userID, "youtube", string(models.StatusFailed), 0)
 			return
 		}
 		if s.ready != nil {
-			_ = s.ready.FileReady(ctx, filesdomain.ReadyEvent{FileID: jobID, Kind: "youtube", Status: "ready"})
+			_ = s.ready.FileReady(ctx, filesdomain.ReadyEvent{FileID: jobID, UserID: userID, Kind: "youtube", Status: "ready"})
 		} else {
-			s.publish(ctx, "file.ready", jobID, "youtube", "ready", 100)
+			s.publish(ctx, "file.ready", jobID, userID, "youtube", "ready", 100)
 		}
 	}()
 }
 
-func (s *Service) publish(ctx context.Context, name, jobID, kind, status string, progress float64) {
+func (s *Service) publish(ctx context.Context, name, jobID string, userID uint, kind, status string, progress float64) {
 	if s.publisher == nil {
 		return
 	}
 	s.publisher.PublishFileEvent(ctx, name, map[string]any{
 		"id":       "file_" + jobID,
+		"user_id":  userID,
 		"kind":     kind,
 		"status":   status,
 		"progress": progress,

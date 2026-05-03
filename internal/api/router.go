@@ -127,11 +127,11 @@ func NewHandler(cfg *config.Config, authService *auth.AuthService, deps HandlerD
 }
 
 func (h *Handler) Publish(_ context.Context, event orchestrator.ProgressEvent) {
-	h.publishTranscriptionStatus(event.Name, event.JobID, event.FileID, string(event.Status), event.Progress, event.Stage)
+	h.publishTranscriptionStatus(event.Name, event.JobID, event.FileID, event.UserID, string(event.Status), event.Progress, event.Stage)
 }
 
 func (h *Handler) PublishStatus(_ context.Context, event worker.StatusEvent) {
-	h.publishTranscriptionStatus(event.Name, event.JobID, event.FileID, string(event.Status), event.Progress, event.Stage)
+	h.publishTranscriptionStatus(event.Name, event.JobID, event.FileID, event.UserID, string(event.Status), event.Progress, event.Stage)
 }
 
 func (h *Handler) PublishSummaryStatus(_ context.Context, event summarization.StatusEvent) {
@@ -149,8 +149,8 @@ func (h *Handler) PublishSummaryStatus(_ context.Context, event summarization.St
 		payload["widget_id"] = event.WidgetID
 		payload["context_truncated"] = event.Truncated
 	}
-	h.publishTranscriptionEvent(event.Name, "tr_"+event.TranscriptionID, payload)
-	h.publishEvent(event.Name, payload)
+	h.publishTranscriptionEvent(event.Name, "tr_"+event.TranscriptionID, payload, event.UserID)
+	h.publishEventForUser(event.Name, payload, event.UserID)
 }
 
 func (h *Handler) PublishAnnotationEvent(_ context.Context, event annotations.Event) {
@@ -166,8 +166,8 @@ func (h *Handler) PublishAnnotationEvent(_ context.Context, event annotations.Ev
 	if event.EntryID != "" {
 		payload["entry_id"] = event.EntryID
 	}
-	h.publishTranscriptionEvent(event.Name, event.TranscriptionID, payload)
-	h.publishEvent(event.Name, payload)
+	h.publishTranscriptionEvent(event.Name, event.TranscriptionID, payload, event.UserID)
+	h.publishEventForUser(event.Name, payload, event.UserID)
 }
 
 func (h *Handler) PublishTagEvent(_ context.Context, event tags.Event) {
@@ -182,9 +182,9 @@ func (h *Handler) PublishTagEvent(_ context.Context, event tags.Event) {
 		payload["transcription_id"] = event.TranscriptionID
 	}
 	if event.TranscriptionID != "" {
-		h.publishTranscriptionEvent(event.Name, event.TranscriptionID, payload)
+		h.publishTranscriptionEvent(event.Name, event.TranscriptionID, payload, event.UserID)
 	}
-	h.publishEvent(event.Name, payload)
+	h.publishEventForUser(event.Name, payload, event.UserID)
 }
 
 func (h *Handler) PublishRecordingEvent(_ context.Context, event recordingdomain.Event) {
@@ -203,10 +203,10 @@ func (h *Handler) PublishRecordingEvent(_ context.Context, event recordingdomain
 	if event.TranscriptionID != "" {
 		payload["transcription_id"] = event.TranscriptionID
 	}
-	h.publishEvent(event.Name, payload)
+	h.publishEventForUser(event.Name, payload, event.UserID)
 }
 
-func (h *Handler) publishTranscriptionStatus(name, jobID, fileID, status string, progress float64, stage string) {
+func (h *Handler) publishTranscriptionStatus(name, jobID, fileID string, userID uint, status string, progress float64, stage string) {
 	if h == nil {
 		return
 	}
@@ -219,7 +219,7 @@ func (h *Handler) publishTranscriptionStatus(name, jobID, fileID, status string,
 	if fileID != "" {
 		payload["file_id"] = fileID
 	}
-	h.publishTranscriptionEvent(name, "tr_"+jobID, payload)
+	h.publishTranscriptionEvent(name, "tr_"+jobID, payload, userID)
 }
 
 func SetupRoutes(handler *Handler, _ *auth.AuthService) *gin.Engine {

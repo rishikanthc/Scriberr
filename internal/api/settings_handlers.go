@@ -63,10 +63,10 @@ func (h *Handler) updateSettings(c *gin.Context) {
 		return
 	}
 	response := settingsResponse(h, updated)
-	h.publishEvent("settings.updated", gin.H{
+	h.publishEventForUser("settings.updated", gin.H{
 		"auto_transcription_enabled": response.AutoTranscriptionEnabled,
 		"auto_rename_enabled":        response.AutoRenameEnabled,
 		"default_profile_id":         response.DefaultProfileID,
-	})
+	}, user.ID)
 	c.JSON(http.StatusOK, response)
 }
