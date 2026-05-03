@@ -11,7 +11,6 @@ import (
 	"scriberr/internal/models"
 
 	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 )
 
 const (
@@ -89,42 +88,6 @@ func parseSort(raw string, allowed map[string]string) (string, bool, bool) {
 	key := strings.TrimPrefix(raw, "-")
 	column, ok := allowed[key]
 	return column, desc, ok
-}
-
-func applyListQuery(query *gorm.DB, opts *listQuery) *gorm.DB {
-	if opts.Query != "" {
-		query = query.Where("LOWER(COALESCE(title, '')) LIKE ?", "%"+strings.ToLower(opts.Query)+"%")
-	}
-	if opts.UpdatedAfter != nil {
-		query = query.Where("updated_at > ?", *opts.UpdatedAfter)
-	}
-	if opts.Cursor != nil {
-		query = applyCursor(query, opts)
-	}
-	direction := "ASC"
-	comparisonDirection := "asc"
-	if opts.SortDesc {
-		direction = "DESC"
-		comparisonDirection = "desc"
-	}
-	return query.Order(opts.SortColumn + " " + direction).Order("id " + comparisonDirection).Limit(opts.Limit + 1)
-}
-
-func applyCursor(query *gorm.DB, opts *listQuery) *gorm.DB {
-	operator := ">"
-	if opts.SortDesc {
-		operator = "<"
-	}
-	switch opts.SortColumn {
-	case "created_at", "updated_at":
-		value, err := time.Parse(time.RFC3339Nano, opts.Cursor.Value)
-		if err != nil {
-			return query.Where("1 = 0")
-		}
-		return query.Where("("+opts.SortColumn+" "+operator+" ?) OR ("+opts.SortColumn+" = ? AND id "+operator+" ?)", value, value, opts.Cursor.ID)
-	default:
-		return query.Where("("+opts.SortColumn+" "+operator+" ?) OR ("+opts.SortColumn+" = ? AND id "+operator+" ?)", opts.Cursor.Value, opts.Cursor.Value, opts.Cursor.ID)
-	}
 }
 
 func trimListPage(jobs []models.TranscriptionJob, opts *listQuery) ([]models.TranscriptionJob, any) {
