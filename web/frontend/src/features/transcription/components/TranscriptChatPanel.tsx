@@ -3,7 +3,6 @@ import { Check, ChevronDown, Copy, FileText, ListFilter, MessageSquarePlus, Plus
 import ReactMarkdown from "react-markdown";
 import rehypeHighlight from "rehype-highlight";
 import rehypeKatex from "rehype-katex";
-import rehypeRaw from "rehype-raw";
 import remarkMath from "remark-math";
 import {
   AlertDialog,
@@ -716,7 +715,7 @@ function ChatMarkdown({ content, isStreaming }: { content: string; isStreaming: 
     <div className="scr-chat-markdown-rendered">
       <ReactMarkdown
         remarkPlugins={[remarkMath]}
-        rehypePlugins={[rehypeRaw, rehypeKatex, rehypeHighlight]}
+        rehypePlugins={[rehypeKatex, rehypeHighlight]}
       >
         {content}
       </ReactMarkdown>
