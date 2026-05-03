@@ -2,7 +2,7 @@
 
 This tracker belongs to `devnotes/v2.0.0/sprint-plans/backend-architecture-review-remediation-sprint-plan.md`.
 
-Status: Sprint 11 complete. Follow-up Sprints 12-14 planned from second backend architecture review.
+Status: Sprint 12 complete. Follow-up Sprints 13-14 planned from second backend architecture review.
 
 ## Run Rules
 
@@ -27,10 +27,10 @@ Status: Sprint 11 complete. Follow-up Sprints 12-14 planned from second backend 
 | Admin route has no admin authorization | Medium | Sprint 1 | complete |
 | Generic/global repository methods remain exposed | Medium | Sprint 7 | complete |
 | Admin queue stats are still user-scoped | High | Sprint 13 | planned |
-| Scheduler policy boundary is still missing | High | Sprint 12, Sprint 13 | planned |
+| Scheduler policy boundary is still missing | High | Sprint 12, Sprint 13 | partial: settings boundary complete, claim behavior planned |
 | User status and disabled-user enforcement are absent | High | Sprint 9 | complete |
 | Admin user-management API is not implemented | High | Sprint 10 | complete |
-| Settings remain in `users.settings_json` instead of relational settings tables | Medium | Sprint 11, Sprint 12 | partial: user settings complete, system settings planned |
+| Settings remain in `users.settings_json` instead of relational settings tables | Medium | Sprint 11, Sprint 12 | complete |
 | API response mapping still touches local file paths | Medium | Sprint 14 | planned |
 
 ## Sprint 0: Baseline, Guard Plan, And Review Anchors
@@ -551,7 +551,7 @@ Commit:
 
 ## Sprint 12: System Settings And Scheduler Policy Boundary
 
-Status: planned
+Status: complete
 
 Addresses:
 
@@ -560,28 +560,28 @@ Addresses:
 
 TDD and scope checks:
 
-- [ ] Add failing scheduler config validation tests.
-- [ ] Add `models.SystemSetting`.
-- [ ] Add `repository.SystemSettingsRepository`.
-- [ ] Add default `queue.scheduler` migration/backfill.
-- [ ] Add `internal/transcription/scheduler` policy/config package.
-- [ ] Add admin service methods for scheduler get/update.
-- [ ] Add `GET` and `PUT /api/v1/admin/queue/scheduler`.
-- [ ] Keep queue claim behavior unchanged until Sprint 13.
-- [ ] Write status note `backend-architecture-review-remediation-sprint-12-scheduler-settings.md`.
+- [x] Add failing scheduler config validation tests.
+- [x] Add `models.SystemSetting`.
+- [x] Add `repository.SystemSettingsRepository`.
+- [x] Add default `queue.scheduler` migration/backfill.
+- [x] Add `internal/transcription/scheduler` policy/config package.
+- [x] Add admin service methods for scheduler get/update.
+- [x] Add `GET` and `PUT /api/v1/admin/queue/scheduler`.
+- [x] Keep queue claim behavior unchanged until Sprint 13.
+- [x] Write status note `backend-architecture-review-remediation-sprint-12-scheduler-settings.md`.
 
 Acceptance checks:
 
-- [ ] Scheduler config is persisted in `system_settings`.
-- [ ] Invalid scheduler config is rejected before persistence.
-- [ ] Default policy is `priority`.
-- [ ] Admin scheduler routes require active admin JWT auth.
+- [x] Scheduler config is persisted in `system_settings`.
+- [x] Invalid scheduler config is rejected before persistence.
+- [x] Default policy is `priority`.
+- [x] Admin scheduler routes require active admin JWT auth.
 
 Verification:
 
-- [ ] `GOCACHE=/private/tmp/scriberr-go-cache go test ./internal/transcription/scheduler ./internal/admin ./internal/api -run 'TestAdmin|TestScheduler|TestSecurity'`
-- [ ] `GOCACHE=/private/tmp/scriberr-go-cache go test ./internal/database ./internal/repository ./internal/app`
-- [ ] `git diff --check`
+- [x] `GOCACHE=/private/tmp/scriberr-go-cache go test ./internal/transcription/scheduler ./internal/admin ./internal/api -run 'TestAdmin|TestScheduler|TestSecurity'`
+- [x] `GOCACHE=/private/tmp/scriberr-go-cache go test ./internal/database ./internal/repository ./internal/app`
+- [x] `git diff --check`
 
 Artifacts:
 
@@ -594,7 +594,7 @@ Artifacts:
 
 Commit:
 
-- [ ] `backend: add scheduler system settings`
+- [x] `backend: add scheduler system settings`
 
 ## Sprint 13: Configurable Queue Claims And Admin Queue Stats
 
