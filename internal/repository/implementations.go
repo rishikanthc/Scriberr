@@ -146,6 +146,14 @@ func (r *userRepository) hydrateSettings(ctx context.Context, user *models.User)
 	var settings models.UserSettings
 	err := r.db.WithContext(ctx).First(&settings, "user_id = ?", user.ID).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
+		settings = settingsFromUser(user)
+		if err := r.db.WithContext(ctx).Where("user_id = ?", user.ID).FirstOrCreate(&settings).Error; err != nil {
+			return err
+		}
+		user.DefaultProfileID = settings.DefaultProfileID
+		user.AutoTranscriptionEnabled = settings.AutoTranscriptionEnabled
+		user.AutoRenameEnabled = settings.AutoRenameEnabled
+		user.SummaryDefaultModel = settings.SummaryDefaultModel
 		return nil
 	}
 	if err != nil {
@@ -156,6 +164,21 @@ func (r *userRepository) hydrateSettings(ctx context.Context, user *models.User)
 	user.AutoRenameEnabled = settings.AutoRenameEnabled
 	user.SummaryDefaultModel = settings.SummaryDefaultModel
 	return nil
+}
+
+func settingsFromUser(user *models.User) models.UserSettings {
+	settings := models.UserSettings{
+		UserID:                   user.ID,
+		DefaultProfileID:         user.DefaultProfileID,
+		AutoTranscriptionEnabled: user.AutoTranscriptionEnabled,
+		AutoRenameEnabled:        user.AutoRenameEnabled,
+		SummaryDefaultModel:      user.SummaryDefaultModel,
+	}
+	if user.SettingsJSON == "" {
+		settings.AutoTranscriptionEnabled = true
+		settings.AutoRenameEnabled = true
+	}
+	return settings
 }
 
 type UserSettingsRepository interface {

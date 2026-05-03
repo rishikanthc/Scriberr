@@ -11,7 +11,7 @@ import (
 	"gorm.io/gorm"
 )
 
-const latestSchemaVersion = 12
+const latestSchemaVersion = 13
 
 var schemaModels = []any{
 	&models.User{},
@@ -80,6 +80,8 @@ func createTargetSchema(tx *gorm.DB) error {
 		`CREATE INDEX IF NOT EXISTS idx_transcriptions_queue_user_status ON transcriptions(user_id, status, queued_at)`,
 		`CREATE INDEX IF NOT EXISTS idx_transcriptions_queue_duration ON transcriptions(status, source_duration_ms, queued_at, created_at, id)`,
 		`CREATE INDEX IF NOT EXISTS idx_transcriptions_user_status_updated ON transcriptions(user_id, status, updated_at DESC, id)`,
+		`CREATE INDEX IF NOT EXISTS idx_transcriptions_user_source_created ON transcriptions(user_id, source_file_hash, created_at DESC, id)`,
+		`CREATE INDEX IF NOT EXISTS idx_transcriptions_user_files_created ON transcriptions(user_id, created_at DESC, id DESC) WHERE source_file_hash IS NOT NULL AND deleted_at IS NULL`,
 		`CREATE INDEX IF NOT EXISTS idx_transcriptions_claim_expires_at ON transcriptions(claim_expires_at)`,
 		`CREATE INDEX IF NOT EXISTS idx_chat_sessions_user_parent_updated_at ON chat_sessions(user_id, parent_transcription_id, updated_at DESC)`,
 		`CREATE INDEX IF NOT EXISTS idx_chat_context_sources_session_enabled_position ON chat_context_sources(chat_session_id, enabled, position)`,
@@ -199,6 +201,8 @@ var expectedSQLiteIndexes = map[string]expectedSQLiteIndex{
 	"idx_transcriptions_queue_user_status":                           {Table: "transcriptions", Columns: []string{"user_id", "status", "queued_at"}, Unique: false},
 	"idx_transcriptions_queue_duration":                              {Table: "transcriptions", Columns: []string{"status", "source_duration_ms", "queued_at", "created_at", "id"}, Unique: false},
 	"idx_transcriptions_user_status_updated":                         {Table: "transcriptions", Columns: []string{"user_id", "status", "updated_at", "id"}, Unique: false},
+	"idx_transcriptions_user_source_created":                         {Table: "transcriptions", Columns: []string{"user_id", "source_file_hash", "created_at", "id"}, Unique: false},
+	"idx_transcriptions_user_files_created":                          {Table: "transcriptions", Columns: []string{"user_id", "created_at", "id"}, Unique: false, Partial: true, WherePredicate: "source_file_hash IS NOT NULL AND deleted_at IS NULL"},
 	"idx_transcriptions_claim_expires_at":                            {Table: "transcriptions", Columns: []string{"claim_expires_at"}, Unique: false},
 	"idx_transcription_executions_transcription_job_id":              {Table: "transcription_executions", Columns: []string{"transcription_id"}, Unique: false},
 	"idx_transcription_executions_user_id":                           {Table: "transcription_executions", Columns: []string{"user_id"}, Unique: false},

@@ -24,6 +24,7 @@ var schemaSteps = map[int]migrationStep{
 	10: migrateStepV9ToV10,
 	11: migrateStepV10ToV11,
 	12: migrateStepV11ToV12,
+	13: migrateStepV12ToV13,
 }
 
 func runSchemaSteps(tx *gorm.DB, currentVersion int) error {
@@ -102,6 +103,25 @@ func migrateStepV11ToV12(tx *gorm.DB) error {
 		`CREATE INDEX IF NOT EXISTS idx_transcriptions_queue_user_status ON transcriptions(user_id, status, queued_at)`,
 		`CREATE INDEX IF NOT EXISTS idx_transcriptions_queue_duration ON transcriptions(status, source_duration_ms, queued_at, created_at, id)`,
 		`CREATE INDEX IF NOT EXISTS idx_transcriptions_user_status_updated ON transcriptions(user_id, status, updated_at DESC, id)`,
+	}
+	for _, statement := range statements {
+		if err := tx.Exec(statement).Error; err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func migrateStepV12ToV13(tx *gorm.DB) error {
+	if err := tx.AutoMigrate(&models.UserSettings{}); err != nil {
+		return err
+	}
+	if err := backfillUserSettings(tx); err != nil {
+		return err
+	}
+	statements := []string{
+		`CREATE INDEX IF NOT EXISTS idx_transcriptions_user_source_created ON transcriptions(user_id, source_file_hash, created_at DESC, id)`,
+		`CREATE INDEX IF NOT EXISTS idx_transcriptions_user_files_created ON transcriptions(user_id, created_at DESC, id DESC) WHERE source_file_hash IS NOT NULL AND deleted_at IS NULL`,
 	}
 	for _, statement := range statements {
 		if err := tx.Exec(statement).Error; err != nil {

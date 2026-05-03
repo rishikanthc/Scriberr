@@ -259,6 +259,11 @@ func TestGenerateTitleForSummarySkipsWhenAutoRenameDisabled(t *testing.T) {
 	t.Cleanup(func() { _ = database.Close() })
 
 	user, job := createTitleGenerationFixture(t, "job-title-disabled")
+	require.NoError(t, repository.NewUserSettingsRepository(database.DB).Upsert(context.Background(), &models.UserSettings{
+		UserID:                   user.ID,
+		AutoTranscriptionEnabled: true,
+		AutoRenameEnabled:        false,
+	}))
 	baseURL := "http://127.0.0.1:1234/v1"
 	smallModel := "small"
 	require.NoError(t, database.DB.Create(&models.LLMConfig{

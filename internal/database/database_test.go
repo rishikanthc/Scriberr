@@ -116,6 +116,8 @@ func TestFreshSchemaInitialization(t *testing.T) {
 	assert.True(t, hasIndex(t, db, "chat_messages", "idx_chat_messages_session_created_at"))
 	assert.True(t, hasIndex(t, db, "chat_generation_runs", "idx_chat_generation_runs_session_created_at"))
 	assert.True(t, hasIndex(t, db, "chat_generation_runs", "idx_chat_generation_runs_status_created_at"))
+	assert.True(t, hasIndex(t, db, "transcriptions", "idx_transcriptions_user_source_created"))
+	assert.True(t, hasIndex(t, db, "transcriptions", "idx_transcriptions_user_files_created"))
 	assert.True(t, db.Migrator().HasColumn(&models.TranscriptionJob{}, "llm_description"))
 	assert.True(t, db.Migrator().HasColumn(&models.TranscriptionJob{}, "llm_description_generated_at"))
 	assert.True(t, db.Migrator().HasColumn(&models.TranscriptionJob{}, "llm_description_source_summary_id"))
@@ -664,6 +666,35 @@ func TestSchemaUpgradeRunsVersionedBackfill(t *testing.T) {
 	assert.True(t, reloadedB.IsDefault)
 	assert.Equal(t, "medium", reloadedA.Parameters.Model)
 	assert.Equal(t, "large-v3", reloadedB.Parameters.Model)
+}
+
+func TestSchemaUpgradeBackfillsMissingUserSettingsAndListIndex(t *testing.T) {
+	db := openUnmigratedTestDB(t, "schema-upgrade-user-settings.db")
+
+	defaultProfileID := "profile-default"
+	user := models.User{
+		ID:                       81,
+		Username:                 "settings-missing",
+		Password:                 "pw",
+		DefaultProfileID:         &defaultProfileID,
+		AutoTranscriptionEnabled: true,
+		AutoRenameEnabled:        true,
+	}
+	require.NoError(t, db.Create(&user).Error)
+	require.NoError(t, db.AutoMigrate(&models.UserSettings{}))
+	require.NoError(t, db.Exec("DELETE FROM user_settings WHERE user_id = ?", user.ID).Error)
+	require.NoError(t, recordSchemaVersion(db, 12))
+
+	require.NoError(t, Migrate(db))
+
+	assert.Equal(t, latestSchemaVersion, schemaVersion(t, db))
+	assert.True(t, hasIndex(t, db, "transcriptions", "idx_transcriptions_user_source_created"))
+	assert.True(t, hasIndex(t, db, "transcriptions", "idx_transcriptions_user_files_created"))
+	var settings models.UserSettings
+	require.NoError(t, db.First(&settings, "user_id = ?", user.ID).Error)
+	assert.Equal(t, defaultProfileID, *settings.DefaultProfileID)
+	assert.True(t, settings.AutoTranscriptionEnabled)
+	assert.True(t, settings.AutoRenameEnabled)
 }
 
 func TestSchemaUpgradePreservesUpdatedAt(t *testing.T) {
