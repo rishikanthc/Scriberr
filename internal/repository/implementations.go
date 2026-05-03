@@ -60,11 +60,29 @@ func (r *userRepository) CountWithAutoTranscription(ctx context.Context) (int64,
 	return count, nil
 }
 
+type FileListOptions struct {
+	Kind         string
+	Status       string
+	Query        string
+	UpdatedAfter *time.Time
+	Limit        int
+	SortColumn   string
+	SortDesc     bool
+	Cursor       *FileListCursor
+}
+
+type FileListCursor struct {
+	Value string
+	ID    string
+}
+
 // JobRepository handles transcription job operations
 type JobRepository interface {
 	Repository[models.TranscriptionJob]
 	FindWithAssociations(ctx context.Context, id string) (*models.TranscriptionJob, error)
+	FindFileByIDForUser(ctx context.Context, id string, userID uint) (*models.TranscriptionJob, error)
 	FindTranscriptionByIDForUser(ctx context.Context, id string, userID uint) (*models.TranscriptionJob, error)
+	ListFilesByUser(ctx context.Context, userID uint, opts FileListOptions) ([]models.TranscriptionJob, error)
 	FindLatestCompletedExecution(ctx context.Context, jobID string) (*models.TranscriptionJobExecution, error)
 	ListWithParams(ctx context.Context, offset, limit int, sortBy, sortOrder, searchQuery string, updatedAfter *time.Time) ([]models.TranscriptionJob, int64, error)
 	ListByUser(ctx context.Context, userID uint, offset, limit int) ([]models.TranscriptionJob, int64, error)
@@ -81,6 +99,8 @@ type JobRepository interface {
 	ListExecutions(ctx context.Context, jobID string) ([]models.TranscriptionJobExecution, error)
 	CountStatusesByUser(ctx context.Context, userID uint) (map[models.JobStatus]int64, error)
 	UpdateTranscript(ctx context.Context, jobID string, transcript string) error
+	UpdateFileTitle(ctx context.Context, id string, userID uint, title string) error
+	DeleteFile(ctx context.Context, id string, userID uint) error
 	CreateExecution(ctx context.Context, execution *models.TranscriptionJobExecution) error
 	UpdateExecution(ctx context.Context, execution *models.TranscriptionJobExecution) error
 	DeleteExecutionsByJobID(ctx context.Context, jobID string) error
@@ -115,6 +135,17 @@ func (r *jobRepository) FindWithAssociations(ctx context.Context, id string) (*m
 	return &job, nil
 }
 
+func (r *jobRepository) FindFileByIDForUser(ctx context.Context, id string, userID uint) (*models.TranscriptionJob, error) {
+	var job models.TranscriptionJob
+	err := r.db.WithContext(ctx).
+		Where("id = ? AND user_id = ? AND source_file_hash IS NULL", id, userID).
+		First(&job).Error
+	if err != nil {
+		return nil, err
+	}
+	return &job, nil
+}
+
 func (r *jobRepository) FindTranscriptionByIDForUser(ctx context.Context, id string, userID uint) (*models.TranscriptionJob, error) {
 	var job models.TranscriptionJob
 	err := r.db.WithContext(ctx).
@@ -124,6 +155,64 @@ func (r *jobRepository) FindTranscriptionByIDForUser(ctx context.Context, id str
 		return nil, err
 	}
 	return &job, nil
+}
+
+func (r *jobRepository) ListFilesByUser(ctx context.Context, userID uint, opts FileListOptions) ([]models.TranscriptionJob, error) {
+	var jobs []models.TranscriptionJob
+	query := r.db.WithContext(ctx).Where("user_id = ? AND source_file_hash IS NULL", userID)
+	switch opts.Status {
+	case "ready", "uploaded":
+		query = query.Where("status = ?", models.StatusUploaded)
+	case string(models.StatusProcessing), string(models.StatusFailed):
+		query = query.Where("status = ?", opts.Status)
+	}
+	switch opts.Kind {
+	case "youtube":
+		query = query.Where("source_file_name LIKE ?", "youtube:%")
+	case "audio":
+		query = query.Where("source_file_name NOT LIKE ?", "youtube:%")
+		query = query.Where("LOWER(source_file_name) LIKE ? OR LOWER(source_file_name) LIKE ? OR LOWER(source_file_name) LIKE ? OR LOWER(source_file_name) LIKE ? OR LOWER(source_file_name) LIKE ? OR LOWER(source_file_name) LIKE ? OR LOWER(source_file_name) LIKE ?", "%.wav", "%.mp3", "%.m4a", "%.aac", "%.flac", "%.ogg", "%.opus")
+	case "video":
+		query = query.Where("source_file_name NOT LIKE ?", "youtube:%")
+		query = query.Where("LOWER(source_file_name) LIKE ? OR LOWER(source_file_name) LIKE ? OR LOWER(source_file_name) LIKE ? OR LOWER(source_file_name) LIKE ? OR LOWER(source_file_name) LIKE ? OR LOWER(source_file_name) LIKE ?", "%.mp4", "%.mov", "%.mkv", "%.avi", "%.wmv", "%.flv")
+	}
+	if opts.Query != "" {
+		query = query.Where("LOWER(COALESCE(title, '')) LIKE ?", "%"+strings.ToLower(opts.Query)+"%")
+	}
+	if opts.UpdatedAfter != nil {
+		query = query.Where("updated_at > ?", *opts.UpdatedAfter)
+	}
+	if opts.Cursor != nil {
+		query = applyFileCursor(query, opts)
+	}
+	direction := "ASC"
+	idDirection := "asc"
+	if opts.SortDesc {
+		direction = "DESC"
+		idDirection = "desc"
+	}
+	if opts.Limit <= 0 {
+		opts.Limit = 50
+	}
+	err := query.Order(opts.SortColumn + " " + direction).Order("id " + idDirection).Limit(opts.Limit + 1).Find(&jobs).Error
+	return jobs, err
+}
+
+func applyFileCursor(query *gorm.DB, opts FileListOptions) *gorm.DB {
+	operator := ">"
+	if opts.SortDesc {
+		operator = "<"
+	}
+	switch opts.SortColumn {
+	case "created_at", "updated_at":
+		value, err := time.Parse(time.RFC3339Nano, opts.Cursor.Value)
+		if err != nil {
+			return query.Where("1 = 0")
+		}
+		return query.Where("("+opts.SortColumn+" "+operator+" ?) OR ("+opts.SortColumn+" = ? AND id "+operator+" ?)", value, value, opts.Cursor.ID)
+	default:
+		return query.Where("("+opts.SortColumn+" "+operator+" ?) OR ("+opts.SortColumn+" = ? AND id "+operator+" ?)", opts.Cursor.Value, opts.Cursor.Value, opts.Cursor.ID)
+	}
 }
 
 func (r *jobRepository) ListWithParams(ctx context.Context, offset, limit int, sortBy, sortOrder, searchQuery string, updatedAfter *time.Time) ([]models.TranscriptionJob, int64, error) {
@@ -455,6 +544,32 @@ func (r *jobRepository) UpdateTranscript(ctx context.Context, jobID string, tran
 	return r.db.WithContext(ctx).Model(&models.TranscriptionJob{}).
 		Where("id = ?", jobID).
 		Update("transcript_text", transcript).Error
+}
+
+func (r *jobRepository) UpdateFileTitle(ctx context.Context, id string, userID uint, title string) error {
+	result := r.db.WithContext(ctx).Model(&models.TranscriptionJob{}).
+		Where("id = ? AND user_id = ? AND source_file_hash IS NULL", id, userID).
+		Update("title", title)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
+
+func (r *jobRepository) DeleteFile(ctx context.Context, id string, userID uint) error {
+	result := r.db.WithContext(ctx).
+		Where("id = ? AND user_id = ? AND source_file_hash IS NULL", id, userID).
+		Delete(&models.TranscriptionJob{})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
 }
 
 func (r *jobRepository) CreateExecution(ctx context.Context, execution *models.TranscriptionJobExecution) error {

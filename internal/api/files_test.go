@@ -240,7 +240,7 @@ func TestFileUploadValidationAndSecurity(t *testing.T) {
 func TestVideoUploadExtractsAudioInBackground(t *testing.T) {
 	s := newAuthTestServer(t)
 	extractor := &fakeMediaExtractor{content: []byte("mp3 audio"), done: make(chan struct{})}
-	s.handler.mediaExtractor = extractor
+	s.handler.files.SetMediaExtractor(extractor)
 	token := registerForFileTests(t, s)
 
 	resp, body := uploadMultipart(t, s, token, "file", "lecture.mp4", "video/mp4", []byte("video bytes"), "Lecture")
@@ -287,7 +287,7 @@ func TestFileUploadSizeLimit(t *testing.T) {
 func TestYouTubeImportDownloadsWithFakeImporterAndStreamsResult(t *testing.T) {
 	s := newAuthTestServer(t)
 	importer := &fakeYouTubeImporter{content: []byte("ID3 youtube audio"), title: "Original YouTube Video Title", completed: make(chan struct{})}
-	s.handler.youtubeImporter = importer
+	s.handler.mediaImport.SetImporter(importer)
 	token := registerForFileTests(t, s)
 
 	resp, body := s.request(t, http.MethodPost, "/api/v1/files:import-youtube", map[string]any{
@@ -338,7 +338,7 @@ func TestYouTubeImportDownloadsWithFakeImporterAndStreamsResult(t *testing.T) {
 func TestYouTubeImportFailureIsSanitizedAndPublishesFailedEvent(t *testing.T) {
 	s := newAuthTestServer(t)
 	importer := &fakeYouTubeImporter{err: errors.New("yt-dlp failed /tmp/private/raw-url"), completed: make(chan struct{})}
-	s.handler.youtubeImporter = importer
+	s.handler.mediaImport.SetImporter(importer)
 	token := registerForFileTests(t, s)
 
 	recorder, cancel, done := startEventStream(t, s, token, "/api/v1/events")
@@ -377,7 +377,7 @@ func TestYouTubeImportFailureIsSanitizedAndPublishesFailedEvent(t *testing.T) {
 
 func TestYouTubeImportURLValidation(t *testing.T) {
 	s := newAuthTestServer(t)
-	s.handler.youtubeImporter = &fakeYouTubeImporter{completed: make(chan struct{})}
+	s.handler.mediaImport.SetImporter(&fakeYouTubeImporter{completed: make(chan struct{})})
 	token := registerForFileTests(t, s)
 
 	for _, rawURL := range []string{

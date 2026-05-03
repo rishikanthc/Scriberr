@@ -107,10 +107,11 @@ func (h *Handler) submitTranscription(c *gin.Context) {
 		return
 	}
 
-	source, _, _, ok := h.storeUploadedFile(c, userID)
+	upload, ok := h.storeUploadedFile(c, userID)
 	if !ok {
 		return
 	}
+	source := upload.Job
 
 	title := strings.TrimSpace(c.PostForm("title"))
 	if title == "" && source.Title != nil {

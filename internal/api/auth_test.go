@@ -18,7 +18,9 @@ import (
 	"scriberr/internal/auth"
 	"scriberr/internal/config"
 	"scriberr/internal/database"
+	filesdomain "scriberr/internal/files"
 	"scriberr/internal/llmprovider"
+	"scriberr/internal/mediaimport"
 	"scriberr/internal/models"
 	profiledomain "scriberr/internal/profile"
 	recordingdomain "scriberr/internal/recording"
@@ -71,6 +73,11 @@ func newAuthTestServer(t *testing.T) *authTestServer {
 	)
 	profileService := profiledomain.NewService(profileRepo)
 	llmProviderService := llmprovider.NewService(llmConfigRepo, LLMProviderConnectionTester{})
+	fileService := filesdomain.NewService(jobRepo, filesdomain.Config{UploadDir: cfg.UploadDir})
+	mediaImportService := mediaimport.NewService(mediaimport.ServiceOptions{
+		Repository: jobRepo,
+		UploadDir:  cfg.UploadDir,
+	})
 	annotationService := annotations.NewService(repository.NewAnnotationRepository(database.DB), jobRepo)
 	tagService := tags.NewService(repository.NewTagRepository(database.DB), jobRepo)
 	recordingStorage, err := recordingdomain.NewStorage(cfg.Recordings.Dir)
@@ -86,12 +93,14 @@ func newAuthTestServer(t *testing.T) *authTestServer {
 		Account:        accountService,
 		Profiles:       profileService,
 		LLMProvider:    llmProviderService,
+		Files:          fileService,
+		MediaImport:    mediaImportService,
 		Annotations:    annotationService,
 		Tags:           tagService,
 		Recordings:     recordingService,
 	})
 	youtubeImporter := &fakeYouTubeImporter{block: make(chan struct{})}
-	handler.youtubeImporter = youtubeImporter
+	mediaImportService.SetImporter(youtubeImporter)
 	t.Cleanup(func() {
 		youtubeImporter.unblock()
 		handler.asyncJobs.Wait()

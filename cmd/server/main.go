@@ -16,7 +16,9 @@ import (
 	"scriberr/internal/auth"
 	"scriberr/internal/config"
 	"scriberr/internal/database"
+	filesdomain "scriberr/internal/files"
 	"scriberr/internal/llmprovider"
+	"scriberr/internal/mediaimport"
 	profiledomain "scriberr/internal/profile"
 	recordingdomain "scriberr/internal/recording"
 	"scriberr/internal/repository"
@@ -153,6 +155,11 @@ func main() {
 	accountService := account.NewService(userRepo, refreshTokenRepo, apiKeyRepo, profileRepo, llmConfigRepo, authService)
 	profileService := profiledomain.NewService(profileRepo)
 	llmProviderService := llmprovider.NewService(llmConfigRepo, api.LLMProviderConnectionTester{})
+	fileService := filesdomain.NewService(jobRepo, filesdomain.Config{UploadDir: cfg.UploadDir})
+	mediaImportService := mediaimport.NewService(mediaimport.ServiceOptions{
+		Repository: jobRepo,
+		UploadDir:  cfg.UploadDir,
+	})
 	annotationService := annotations.NewService(annotationRepo, jobRepo)
 	tagService := tags.NewService(tagRepo, jobRepo)
 	recordingStorage, err := recordingdomain.NewStorage(cfg.Recordings.Dir)
@@ -184,6 +191,8 @@ func main() {
 		Account:        accountService,
 		Profiles:       profileService,
 		LLMProvider:    llmProviderService,
+		Files:          fileService,
+		MediaImport:    mediaImportService,
 		Annotations:    annotationService,
 		Tags:           tagService,
 		Recordings:     recordingService,

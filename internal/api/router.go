@@ -12,6 +12,7 @@ import (
 	"scriberr/internal/annotations"
 	"scriberr/internal/auth"
 	"scriberr/internal/config"
+	filesdomain "scriberr/internal/files"
 	"scriberr/internal/llm"
 	"scriberr/internal/llmprovider"
 	"scriberr/internal/mediaimport"
@@ -31,26 +32,26 @@ import (
 )
 
 type Handler struct {
-	config          *config.Config
-	authService     *auth.AuthService
-	readinessCheck  func() error
-	idempotency     *idempotencyStore
-	events          *eventBroker
-	youtubeImporter mediaimport.YouTubeImporter
-	mediaExtractor  MediaExtractor
-	eventHeartbeat  time.Duration
-	asyncJobs       sync.WaitGroup
-	maxUploadBytes  int64
-	queueService    worker.QueueService
-	modelRegistry   engineprovider.Registry
-	account         *account.Service
-	profiles        *profiledomain.Service
-	llmProvider     *llmprovider.Service
-	annotations     *annotations.Service
-	tags            *tags.Service
-	recordings      *recordingdomain.Service
-	finalizer       interface{ Notify() }
-	chatLLMFactory  func(*models.LLMConfig) (llm.Service, error)
+	config         *config.Config
+	authService    *auth.AuthService
+	readinessCheck func() error
+	idempotency    *idempotencyStore
+	events         *eventBroker
+	mediaImport    *mediaimport.Service
+	eventHeartbeat time.Duration
+	asyncJobs      sync.WaitGroup
+	maxUploadBytes int64
+	queueService   worker.QueueService
+	modelRegistry  engineprovider.Registry
+	account        *account.Service
+	profiles       *profiledomain.Service
+	llmProvider    *llmprovider.Service
+	files          *filesdomain.Service
+	annotations    *annotations.Service
+	tags           *tags.Service
+	recordings     *recordingdomain.Service
+	finalizer      interface{ Notify() }
+	chatLLMFactory func(*models.LLMConfig) (llm.Service, error)
 }
 
 type HandlerDependencies struct {
@@ -60,6 +61,8 @@ type HandlerDependencies struct {
 	Account        *account.Service
 	Profiles       *profiledomain.Service
 	LLMProvider    *llmprovider.Service
+	Files          *filesdomain.Service
+	MediaImport    *mediaimport.Service
 	Annotations    *annotations.Service
 	Tags           *tags.Service
 	Recordings     *recordingdomain.Service
@@ -71,25 +74,25 @@ func NewHandler(cfg *config.Config, authService *auth.AuthService, deps HandlerD
 		cfg = &config.Config{}
 	}
 	handler := &Handler{
-		config:          cfg,
-		authService:     authService,
-		readinessCheck:  deps.ReadinessCheck,
-		idempotency:     newIdempotencyStore(),
-		events:          newEventBroker(),
-		youtubeImporter: mediaimport.YTDLPImporter{},
-		mediaExtractor:  ffmpegMediaExtractor{},
-		eventHeartbeat:  25 * time.Second,
-		maxUploadBytes:  defaultMaxUploadSizeBytes,
-		chatLLMFactory:  chatClientForConfig,
-		queueService:    deps.Queue,
-		modelRegistry:   deps.ModelRegistry,
-		account:         deps.Account,
-		profiles:        deps.Profiles,
-		llmProvider:     deps.LLMProvider,
-		annotations:     deps.Annotations,
-		tags:            deps.Tags,
-		recordings:      deps.Recordings,
-		finalizer:       deps.Finalizer,
+		config:         cfg,
+		authService:    authService,
+		readinessCheck: deps.ReadinessCheck,
+		idempotency:    newIdempotencyStore(),
+		events:         newEventBroker(),
+		mediaImport:    deps.MediaImport,
+		eventHeartbeat: 25 * time.Second,
+		maxUploadBytes: defaultMaxUploadSizeBytes,
+		chatLLMFactory: chatClientForConfig,
+		queueService:   deps.Queue,
+		modelRegistry:  deps.ModelRegistry,
+		account:        deps.Account,
+		profiles:       deps.Profiles,
+		llmProvider:    deps.LLMProvider,
+		files:          deps.Files,
+		annotations:    deps.Annotations,
+		tags:           deps.Tags,
+		recordings:     deps.Recordings,
+		finalizer:      deps.Finalizer,
 	}
 	if handler.annotations != nil {
 		handler.annotations.SetEventPublisher(handler)
@@ -99,6 +102,14 @@ func NewHandler(cfg *config.Config, authService *auth.AuthService, deps HandlerD
 	}
 	if handler.recordings != nil {
 		handler.recordings.SetEventPublisher(handler)
+	}
+	if handler.files != nil {
+		handler.files.SetEventPublisher(handler)
+		handler.files.SetAsyncJobs(&handler.asyncJobs)
+	}
+	if handler.mediaImport != nil {
+		handler.mediaImport.SetPublisher(handler)
+		handler.mediaImport.SetAsyncJobs(&handler.asyncJobs)
 	}
 	return handler
 }

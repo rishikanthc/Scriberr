@@ -93,6 +93,21 @@ func NewService(opts ServiceOptions) *Service {
 	}
 }
 
+func (s *Service) SetPublisher(publisher EventPublisher) {
+	s.publisher = publisher
+}
+
+func (s *Service) SetAsyncJobs(asyncJobs *sync.WaitGroup) {
+	s.asyncJobs = asyncJobs
+}
+
+func (s *Service) SetImporter(importer YouTubeImporter) {
+	if importer == nil {
+		importer = YTDLPImporter{}
+	}
+	s.importer = importer
+}
+
 func (s *Service) ImportYouTube(ctx context.Context, cmd ImportYouTubeCommand) (*models.TranscriptionJob, error) {
 	if s == nil || s.repo == nil {
 		return nil, fmt.Errorf("media import service is not configured")

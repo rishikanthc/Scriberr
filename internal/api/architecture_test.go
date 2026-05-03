@@ -19,7 +19,6 @@ func TestProductionAPIDatabaseAccessInventory(t *testing.T) {
 	expected := []string{
 		"admin_handlers.go",
 		"chat_handlers.go",
-		"file_handlers.go",
 		"summary_handlers.go",
 		"summary_widget_handlers.go",
 		"transcription_handlers.go",
