@@ -839,7 +839,7 @@ func TestLegacyMigrationPreservesData(t *testing.T) {
 	assert.True(t, migratedToken.Revoked)
 
 	llmRepo := repository.NewLLMConfigRepository(db)
-	llmConfig, err := llmRepo.GetActive(t.Context())
+	llmConfig, err := llmRepo.GetActiveByUser(t.Context(), user.ID)
 	require.NoError(t, err)
 	assert.Equal(t, "openai", llmConfig.Provider)
 	require.NotNil(t, llmConfig.APIKey)

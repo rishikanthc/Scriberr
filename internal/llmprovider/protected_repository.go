@@ -89,14 +89,6 @@ func (r *ProtectedRepository) List(ctx context.Context, offset, limit int) ([]mo
 	return configs, count, nil
 }
 
-func (r *ProtectedRepository) GetActive(ctx context.Context) (*models.LLMConfig, error) {
-	config, err := r.inner.GetActive(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return r.decryptConfig(config), nil
-}
-
 func (r *ProtectedRepository) GetActiveByUser(ctx context.Context, userID uint) (*models.LLMConfig, error) {
 	config, err := r.inner.GetActiveByUser(ctx, userID)
 	if err != nil {
