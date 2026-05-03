@@ -2,7 +2,7 @@
 
 This tracker belongs to `devnotes/v2.0.0/sprint-plans/backend-architecture-refactor-sprint-plan.md`.
 
-Status: completed through Sprint 3.
+Status: completed through Sprint 4.
 
 ## Run Rules
 
@@ -154,34 +154,38 @@ Commit:
 
 ## Sprint 4: Queue Fairness And Performance Prep
 
-Status: planned
+Status: completed
 
-Planned tasks:
+Completed tasks:
 
-- [ ] Add claim ordering and index coverage tests.
-- [ ] Review queue polling and list endpoint indexes.
-- [ ] Refactor claim logic for future per-user fairness.
-- [ ] Preserve current default single-user behavior.
+- [x] Add claim ordering and index coverage tests.
+- [x] Review queue polling and list endpoint indexes.
+- [x] Refactor claim logic for future priority and per-user fairness.
+- [x] Preserve current default single-user behavior for equal-priority jobs.
 
 Acceptance checks:
 
-- [ ] Queue claim behavior is covered by tests.
-- [ ] Queue hot paths are indexed and bounded.
-- [ ] State transitions remain atomic.
+- [x] Queue claim behavior is covered by tests.
+- [x] Queue hot paths are indexed and bounded.
+- [x] State transitions remain atomic.
 
 Verification:
 
-- [ ] `GOCACHE=/Users/zade/Code/asr/Scriberr/.tmp/go-build go test ./internal/repository ./internal/transcription/worker`
-- [ ] `git diff --check`
+- [x] `GOCACHE=/Users/zade/Code/asr/Scriberr/.tmp/go-build go test ./internal/database ./internal/repository ./internal/transcription/worker ./cmd/server`
+- [x] `GOCACHE=/Users/zade/Code/asr/Scriberr/.tmp/go-build go test ./internal/api -run 'Test.*ResponseDTO|TestRepresentativeResponseShapes|TestCanonicalRouteRegistration|TestEndpointContractSmoke|TestProductionAPIDatabaseAccessInventory|TestBackendDependencyDirection'`
+- [x] `git diff --check`
 
 Artifacts:
 
-- Queue repository tests and claim/index changes.
+- `internal/models/transcription.go`
+- `internal/database/schema.go`
+- `internal/repository/implementations.go`
+- `internal/repository/job_queue_test.go`
 - `devnotes/v2.0.0/status-updates/backend-architecture-refactor-sprint-04-queue-performance.md`
 
 Commit:
 
-- [ ] `backend: prepare queue fairness and performance`
+- [x] `backend: prepare queue fairness and performance`
 
 ## Sprint 5: Provider Capability Selection
 

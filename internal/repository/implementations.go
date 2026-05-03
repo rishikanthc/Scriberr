@@ -395,7 +395,7 @@ func (r *jobRepository) ClaimNextTranscription(ctx context.Context, workerID str
 		var candidate models.TranscriptionJob
 		result := tx.
 			Where("status = ?", models.StatusPending).
-			Order("queued_at ASC, created_at ASC, id ASC").
+			Order("priority DESC, queued_at ASC, created_at ASC, id ASC").
 			Limit(1).
 			Find(&candidate)
 		if result.Error != nil {

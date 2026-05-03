@@ -115,6 +115,7 @@ type TranscriptionJob struct {
 	ErrorMessage                  *string        `json:"error_message,omitempty" gorm:"column:last_error;type:text"`
 	MetadataJSON                  string         `json:"-" gorm:"column:metadata_json;type:json"`
 	QueuedAt                      *time.Time     `json:"queued_at,omitempty"`
+	Priority                      int            `json:"priority" gorm:"not null;default:0"`
 	StartedAt                     *time.Time     `json:"started_at,omitempty"`
 	FailedAt                      *time.Time     `json:"failed_at,omitempty"`
 	Progress                      float64        `json:"progress" gorm:"not null;default:0"`

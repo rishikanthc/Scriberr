@@ -60,6 +60,7 @@ func TestJobRepositoryQueueSchemaIndexesExist(t *testing.T) {
 	db := openJobQueueTestDB(t)
 
 	assert.True(t, db.Migrator().HasColumn(&models.TranscriptionJob{}, "queued_at"))
+	assert.True(t, db.Migrator().HasColumn(&models.TranscriptionJob{}, "priority"))
 	assert.True(t, db.Migrator().HasColumn(&models.TranscriptionJob{}, "started_at"))
 	assert.True(t, db.Migrator().HasColumn(&models.TranscriptionJob{}, "failed_at"))
 	assert.True(t, db.Migrator().HasColumn(&models.TranscriptionJob{}, "progress"))
@@ -196,6 +197,33 @@ func TestJobRepositoryEnqueueAndClaimFIFO(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, claimed)
 	assert.Equal(t, newer.ID, claimed.ID)
+}
+
+func TestJobRepositoryClaimPrefersHigherPriorityThenFIFO(t *testing.T) {
+	db := openJobQueueTestDB(t)
+	user := createQueueTestUser(t, db)
+	repo := NewJobRepository(db)
+	base := time.Now().Add(-time.Hour).Truncate(time.Millisecond)
+	lowPriority := createQueueTestJob(t, db, user.ID, "job-low-priority", models.StatusUploaded, base)
+	highPriorityNewer := createQueueTestJob(t, db, user.ID, "job-high-priority-newer", models.StatusUploaded, base.Add(2*time.Minute))
+	highPriorityOlder := createQueueTestJob(t, db, user.ID, "job-high-priority-older", models.StatusUploaded, base.Add(time.Minute))
+	require.NoError(t, db.Model(&models.TranscriptionJob{}).Where("id IN ?", []string{highPriorityNewer.ID, highPriorityOlder.ID}).Update("priority", 10).Error)
+
+	require.NoError(t, repo.EnqueueTranscription(context.Background(), lowPriority.ID, base.Add(10*time.Second)))
+	require.NoError(t, repo.EnqueueTranscription(context.Background(), highPriorityNewer.ID, base.Add(30*time.Second)))
+	require.NoError(t, repo.EnqueueTranscription(context.Background(), highPriorityOlder.ID, base.Add(20*time.Second)))
+
+	claimed, err := repo.ClaimNextTranscription(context.Background(), "worker-a", base.Add(10*time.Minute))
+	require.NoError(t, err)
+	assert.Equal(t, highPriorityOlder.ID, claimed.ID)
+
+	claimed, err = repo.ClaimNextTranscription(context.Background(), "worker-b", base.Add(10*time.Minute))
+	require.NoError(t, err)
+	assert.Equal(t, highPriorityNewer.ID, claimed.ID)
+
+	claimed, err = repo.ClaimNextTranscription(context.Background(), "worker-c", base.Add(10*time.Minute))
+	require.NoError(t, err)
+	assert.Equal(t, lowPriority.ID, claimed.ID)
 }
 
 func TestJobRepositoryClaimNextReturnsNotFoundWhenQueueEmpty(t *testing.T) {
