@@ -10,8 +10,6 @@ import { BrowserRouter } from 'react-router-dom'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { ToastProvider } from '@/components/ui/toast'
-import { ChatEventsProvider } from './contexts/ChatEventsContext'
-import { GlobalUploadProvider } from './contexts/GlobalUploadContext'
 import { RecordingProvider } from '@/features/recording/components/RecordingProvider'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { setupAuthInterceptor } from './lib/authInterceptor'
@@ -40,15 +38,11 @@ createRoot(document.getElementById('root')!).render(
         <BrowserRouter>
           <TooltipProvider>
             <ToastProvider>
-              <ChatEventsProvider>
-                <ProtectedRoute>
-                  <GlobalUploadProvider>
-                    <RecordingProvider>
-                      <App />
-                    </RecordingProvider>
-                  </GlobalUploadProvider>
-                </ProtectedRoute>
-              </ChatEventsProvider>
+              <ProtectedRoute>
+                <RecordingProvider>
+                  <App />
+                </RecordingProvider>
+              </ProtectedRoute>
             </ToastProvider>
           </TooltipProvider>
         </BrowserRouter>
