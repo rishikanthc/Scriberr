@@ -23,6 +23,11 @@ import {
   stopRecordingDuration,
   type RecordingDurationState,
 } from "@/features/recording/utils/recordingDuration";
+import {
+  deleteRecordingChunk,
+  listRecordingChunks,
+  storeRecordingChunk,
+} from "@/features/recording/utils/recordingChunkOutbox";
 
 export type BrowserRecorderStatus =
   | "idle"
@@ -112,6 +117,37 @@ export function useBrowserRecorder() {
   const failedChunksRef = useRef<PendingChunk[]>([]);
   const stopResolverRef = useRef<(() => void) | null>(null);
   const acceptingChunksRef = useRef(false);
+  const drainedOutboxRef = useRef(false);
+
+  useEffect(() => {
+    if (drainedOutboxRef.current) return;
+    drainedOutboxRef.current = true;
+    let canceled = false;
+    const drainOutbox = async () => {
+      const chunks = await listRecordingChunks().catch(() => []);
+      for (const chunk of chunks) {
+        if (canceled) return;
+        try {
+          const sha256 = await sha256Blob(chunk.blob);
+          await uploadChunkMutation.mutateAsync({
+            recordingId: chunk.recordingId,
+            chunkIndex: chunk.chunkIndex,
+            chunk: chunk.blob,
+            mimeType: chunk.mimeType,
+            sha256,
+            durationMs: chunk.durationMs,
+          });
+          await deleteRecordingChunk(chunk.recordingId, chunk.chunkIndex);
+        } catch {
+          return;
+        }
+      }
+    };
+    void drainOutbox();
+    return () => {
+      canceled = true;
+    };
+  }, [uploadChunkMutation]);
 
   const setError = useCallback((error: unknown, fallback: string) => {
     setState((current) => ({
@@ -249,6 +285,17 @@ export function useBrowserRecorder() {
   }, [stopStream]);
 
   const enqueueChunkUpload = useCallback((chunk: PendingChunk) => {
+    const recording = sessionRef.current;
+    const persisted = recording
+      ? storeRecordingChunk({
+        recordingId: recording.id,
+        chunkIndex: chunk.index,
+        blob: chunk.blob,
+        mimeType: chunk.mimeType,
+        durationMs: chunk.durationMs,
+      }).catch(() => undefined)
+      : Promise.resolve();
+
     setState((current) => ({
       ...current,
       pendingChunks: current.pendingChunks + 1,
@@ -257,6 +304,7 @@ export function useBrowserRecorder() {
 
     uploadChainRef.current = uploadChainRef.current
       .then(async () => {
+        await persisted;
         const recording = sessionRef.current;
         if (!recording) return;
         const sha256 = await sha256Blob(chunk.blob);
@@ -268,6 +316,7 @@ export function useBrowserRecorder() {
           sha256,
           durationMs: chunk.durationMs,
         });
+        await deleteRecordingChunk(recording.id, chunk.index).catch(() => undefined);
         setState((current) => ({
           ...current,
           pendingChunks: Math.max(0, current.pendingChunks - 1),
