@@ -28,7 +28,7 @@ func UploadFile(filePath string) error {
 
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
-	part, err := writer.CreateFormFile("audio", filepath.Base(filePath))
+	part, err := writer.CreateFormFile("file", filepath.Base(filePath))
 	if err != nil {
 		return fmt.Errorf("failed to create form file: %w", err)
 	}
@@ -46,7 +46,7 @@ func UploadFile(filePath string) error {
 		return fmt.Errorf("failed to close writer: %w", err)
 	}
 
-	url := fmt.Sprintf("%s/api/v1/transcription/upload", config.ServerURL)
+	url := fmt.Sprintf("%s/api/v1/files", config.ServerURL)
 	req, err := http.NewRequest("POST", url, body)
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
@@ -62,7 +62,7 @@ func UploadFile(filePath string) error {
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
+	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusAccepted {
 		respBody, _ := io.ReadAll(resp.Body)
 		return fmt.Errorf("upload failed with status %d: %s", resp.StatusCode, string(respBody))
 	}
