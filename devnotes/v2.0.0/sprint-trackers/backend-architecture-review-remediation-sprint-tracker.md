@@ -2,7 +2,7 @@
 
 This tracker belongs to `devnotes/v2.0.0/sprint-plans/backend-architecture-review-remediation-sprint-plan.md`.
 
-Status: Sprint 9 complete. Follow-up Sprints 10-14 planned from second backend architecture review.
+Status: Sprint 10 complete. Follow-up Sprints 11-14 planned from second backend architecture review.
 
 ## Run Rules
 
@@ -29,7 +29,7 @@ Status: Sprint 9 complete. Follow-up Sprints 10-14 planned from second backend a
 | Admin queue stats are still user-scoped | High | Sprint 13 | planned |
 | Scheduler policy boundary is still missing | High | Sprint 12, Sprint 13 | planned |
 | User status and disabled-user enforcement are absent | High | Sprint 9 | complete |
-| Admin user-management API is not implemented | High | Sprint 10 | planned |
+| Admin user-management API is not implemented | High | Sprint 10 | complete |
 | Settings remain in `users.settings_json` instead of relational settings tables | Medium | Sprint 11, Sprint 12 | planned |
 | API response mapping still touches local file paths | Medium | Sprint 14 | planned |
 
@@ -459,7 +459,7 @@ Commit:
 
 ## Sprint 10: Admin User Management Service And Routes
 
-Status: planned
+Status: complete
 
 Addresses:
 
@@ -467,30 +467,30 @@ Addresses:
 
 TDD and scope checks:
 
-- [ ] Add failing admin route contract/security tests for user-management endpoints.
-- [ ] Add `internal/admin.Service`.
-- [ ] Add admin-scoped user repository methods.
-- [ ] Add admin user routes for list/create/get/update/reset-password/disable/enable.
-- [ ] Enforce active admin JWT only; keep API keys disallowed for admin operations.
-- [ ] Enforce last-active-admin invariant.
-- [ ] Revoke refresh tokens and API keys on disable.
-- [ ] Revoke refresh tokens on password reset.
-- [ ] Write status note `backend-architecture-review-remediation-sprint-10-admin-users.md`.
+- [x] Add failing admin route contract/security tests for user-management endpoints.
+- [x] Add `internal/admin.Service`.
+- [x] Add admin-scoped user repository methods.
+- [x] Add admin user routes for list/create/get/update/reset-password/disable/enable.
+- [x] Enforce active admin JWT only; keep API keys disallowed for admin operations.
+- [x] Enforce last-active-admin invariant.
+- [x] Revoke refresh tokens and API keys on disable.
+- [x] Revoke refresh tokens on password reset.
+- [x] Write status note `backend-architecture-review-remediation-sprint-10-admin-users.md`.
 
 Acceptance checks:
 
-- [ ] Admin can create a normal user.
-- [ ] Admin can list and inspect users.
-- [ ] Admin can disable and enable users.
-- [ ] Admin can reset user passwords.
-- [ ] Admin cannot disable or demote the last active admin.
-- [ ] Normal users and API keys cannot access admin user management.
+- [x] Admin can create a normal user.
+- [x] Admin can list and inspect users.
+- [x] Admin can disable and enable users.
+- [x] Admin can reset user passwords.
+- [x] Admin cannot disable or demote the last active admin.
+- [x] Normal users and API keys cannot access admin user management.
 
 Verification:
 
-- [ ] `GOCACHE=/private/tmp/scriberr-go-cache go test ./internal/admin ./internal/account ./internal/api -run 'TestAdmin|TestSecurity|TestAuth|TestCanonicalRouteRegistration|TestEndpointContractSmoke'`
-- [ ] `GOCACHE=/private/tmp/scriberr-go-cache go test ./internal/repository ./internal/database`
-- [ ] `git diff --check`
+- [x] `GOCACHE=/private/tmp/scriberr-go-cache go test ./internal/admin ./internal/account ./internal/api -run 'TestAdmin|TestSecurity|TestAuth|TestCanonicalRouteRegistration|TestEndpointContractSmoke'`
+- [x] `GOCACHE=/private/tmp/scriberr-go-cache go test ./internal/repository ./internal/database ./internal/app`
+- [x] `git diff --check -- internal/admin/service.go internal/repository/implementations.go internal/api/router.go internal/app/app.go internal/api/types.go internal/api/admin_handlers.go internal/api/auth_test.go internal/api/route_contract_test.go internal/api/admin_user_handlers_test.go internal/api/middleware.go`
 
 Artifacts:
 
@@ -502,7 +502,7 @@ Artifacts:
 
 Commit:
 
-- [ ] `backend: add admin user management`
+- [x] `backend: add admin user management`
 
 ## Sprint 11: Relational User Settings
 
