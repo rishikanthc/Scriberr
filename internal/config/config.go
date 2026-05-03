@@ -25,7 +25,8 @@ type Config struct {
 	DatabasePath string
 
 	// JWT configuration
-	JWTSecret string
+	JWTSecret           string
+	LLMCredentialSecret string
 
 	// File storage
 	UploadDir      string
@@ -110,16 +111,18 @@ func loadUnchecked() *Config {
 		defaultSecure = "true"
 	}
 
+	jwtSecret := getJWTSecret()
 	return &Config{
-		Port:           getEnv("PORT", "8080"),
-		Host:           getEnv("HOST", "0.0.0.0"),
-		Environment:    getEnv("APP_ENV", "development"),
-		AllowedOrigins: strings.Split(getEnv("ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:8080"), ","),
-		DatabasePath:   getEnv("DATABASE_PATH", "data/scriberr.db"),
-		JWTSecret:      getJWTSecret(),
-		UploadDir:      getEnv("UPLOAD_DIR", "data/uploads"),
-		TranscriptsDir: getEnv("TRANSCRIPTS_DIR", "data/transcripts"),
-		TempDir:        getEnv("TEMP_DIR", "data/temp"),
+		Port:                getEnv("PORT", "8080"),
+		Host:                getEnv("HOST", "0.0.0.0"),
+		Environment:         getEnv("APP_ENV", "development"),
+		AllowedOrigins:      strings.Split(getEnv("ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:8080"), ","),
+		DatabasePath:        getEnv("DATABASE_PATH", "data/scriberr.db"),
+		JWTSecret:           jwtSecret,
+		LLMCredentialSecret: getEnv("LLM_CREDENTIAL_SECRET", jwtSecret),
+		UploadDir:           getEnv("UPLOAD_DIR", "data/uploads"),
+		TranscriptsDir:      getEnv("TRANSCRIPTS_DIR", "data/transcripts"),
+		TempDir:             getEnv("TEMP_DIR", "data/temp"),
 		Recordings: RecordingConfig{
 			Dir:                   getEnv("RECORDINGS_DIR", "data/recordings"),
 			MaxChunkBytes:         getEnvInt64Unchecked("RECORDING_MAX_CHUNK_BYTES", 25<<20),

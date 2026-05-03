@@ -59,7 +59,16 @@ func Build(cfg *config.Config) (*App, error) {
 	jobRepo := repository.NewJobRepository(database.DB)
 	annotationRepo := repository.NewAnnotationRepository(database.DB)
 	summaryRepo := repository.NewSummaryRepository(database.DB)
-	llmConfigRepo := repository.NewLLMConfigRepository(database.DB)
+	rawLLMConfigRepo := repository.NewLLMConfigRepository(database.DB)
+	llmCredentialSecret := cfg.LLMCredentialSecret
+	if llmCredentialSecret == "" {
+		llmCredentialSecret = cfg.JWTSecret
+	}
+	llmConfigRepo, err := llmprovider.NewProtectedRepository(rawLLMConfigRepo, llmCredentialSecret)
+	if err != nil {
+		_ = database.Close()
+		return nil, fmt.Errorf("initialize llm credential protection: %w", err)
+	}
 	recordingRepo := repository.NewRecordingRepository(database.DB)
 	profileRepo := repository.NewProfileRepository(database.DB)
 	tagRepo := repository.NewTagRepository(database.DB)

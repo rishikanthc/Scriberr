@@ -66,7 +66,9 @@ func newAuthTestServer(t *testing.T) *authTestServer {
 	}
 	jobRepo := repository.NewJobRepository(database.DB)
 	profileRepo := repository.NewProfileRepository(database.DB)
-	llmConfigRepo := repository.NewLLMConfigRepository(database.DB)
+	rawLLMConfigRepo := repository.NewLLMConfigRepository(database.DB)
+	llmConfigRepo, err := llmprovider.NewProtectedRepository(rawLLMConfigRepo, "test-llm-credential-secret")
+	require.NoError(t, err)
 	accountService := account.NewService(
 		repository.NewUserRepository(database.DB),
 		repository.NewRefreshTokenRepository(database.DB),

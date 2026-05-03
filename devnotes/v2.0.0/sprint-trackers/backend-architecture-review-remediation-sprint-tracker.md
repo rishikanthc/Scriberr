@@ -2,7 +2,7 @@
 
 This tracker belongs to `devnotes/v2.0.0/sprint-plans/backend-architecture-review-remediation-sprint-plan.md`.
 
-Status: Sprint 3 complete.
+Status: Sprint 4 complete.
 
 ## Run Rules
 
@@ -19,7 +19,7 @@ Status: Sprint 3 complete.
 | Finding | Severity | Sprint | Status |
 | --- | --- | --- | --- |
 | Global SSE is not user-scoped | High | Sprint 2 | complete |
-| LLM API keys are stored raw | High | Sprint 4 | pending |
+| LLM API keys are stored raw | High | Sprint 4 | complete |
 | Queue terminal updates are not claim-owned | High | Sprint 5 | pending |
 | Recovery requeues every processing job | High | Sprint 5 | pending |
 | Chat generation runs inside HTTP handler | High | Sprint 6 | pending |
@@ -190,7 +190,7 @@ Commit:
 
 ## Sprint 4: Protect LLM Provider Credentials
 
-Status: pending
+Status: complete
 
 Addresses:
 
@@ -198,25 +198,27 @@ Addresses:
 
 TDD and scope checks:
 
-- [ ] Add failing test proving saved LLM config does not contain the raw API key.
-- [ ] Add failing API test proving raw API key is never returned.
-- [ ] Add backward-compatibility test for existing plaintext config, if migration is deferred.
-- [ ] Implement minimal credential protection boundary.
-- [ ] Inject credential protection through config/app/service wiring.
-- [ ] Avoid logging or returning raw keys.
-- [ ] Write status note `backend-architecture-review-remediation-sprint-04-llm-secrets.md`.
+- [x] Add failing test proving saved LLM config does not contain the raw API key.
+- [x] Add failing API test proving raw API key is never returned.
+- [x] Add backward-compatibility test for existing plaintext config, if migration is deferred.
+- [x] Implement minimal credential protection boundary.
+- [x] Inject credential protection through config/app/service wiring.
+- [x] Avoid logging or returning raw keys.
+- [x] Write status note `backend-architecture-review-remediation-sprint-04-llm-secrets.md`.
 
 Acceptance checks:
 
-- [ ] New LLM provider API keys are not stored raw.
-- [ ] Existing provider settings behavior remains usable.
-- [ ] Public DTOs expose only safe credential metadata.
-- [ ] Credential behavior is tested without network/model dependencies.
+- [x] New LLM provider API keys are not stored raw.
+- [x] Existing provider settings behavior remains usable.
+- [x] Public DTOs expose only safe credential metadata.
+- [x] Credential behavior is tested without network/model dependencies.
 
 Verification:
 
-- [ ] `GOCACHE=/private/tmp/scriberr-go-cache go test ./internal/config ./internal/database ./internal/models ./internal/repository ./internal/llmprovider ./internal/api -run 'TestLLMProvider|TestSecurity'`
-- [ ] `git diff --check`
+- [x] `GOCACHE=/private/tmp/scriberr-go-cache go test ./internal/config ./internal/database ./internal/models ./internal/repository ./internal/llmprovider`
+- [x] `GOCACHE=/private/tmp/scriberr-go-cache go test ./internal/api -run 'TestLLMProvider|TestSecurity'`
+- [x] `GOCACHE=/private/tmp/scriberr-go-cache go test ./internal/app ./cmd/server`
+- [x] `git diff --check`
 
 Artifacts:
 
@@ -229,7 +231,7 @@ Artifacts:
 
 Commit:
 
-- [ ] `backend: protect llm provider credentials`
+- [x] `backend: protect llm provider credentials`
 
 ## Sprint 5: Queue Lease Ownership And Safe Recovery
 

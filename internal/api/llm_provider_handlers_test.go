@@ -57,7 +57,9 @@ func TestLLMProviderSettingsSaveTestsConnectionAndMasksKey(t *testing.T) {
 	require.NoError(t, database.DB.First(&stored).Error)
 	require.Equal(t, "openai_compatible", stored.Provider)
 	require.NotNil(t, stored.APIKey)
-	require.Equal(t, "sk-test-secret", *stored.APIKey)
+	require.NotEqual(t, "sk-test-secret", *stored.APIKey)
+	require.NotContains(t, stored.ConfigJSON, "sk-test-secret")
+	require.Contains(t, *stored.APIKey, "enc:v1:")
 
 	resp, body = s.request(t, http.MethodGet, "/api/v1/settings/llm-provider", nil, token, "")
 	require.Equal(t, http.StatusOK, resp.Code)
