@@ -9,6 +9,10 @@ import (
 	"strings"
 	"testing"
 
+	"scriberr/internal/auth"
+	"scriberr/internal/database"
+	"scriberr/internal/models"
+
 	"github.com/stretchr/testify/require"
 )
 
@@ -36,6 +40,43 @@ func TestSecurityRegressionAuthRequiredRoutes(t *testing.T) {
 			errBody := body["error"].(map[string]any)
 			require.Equal(t, "UNAUTHORIZED", errBody["code"])
 			require.NotEmpty(t, errBody["request_id"])
+		})
+	}
+}
+
+func TestSecurityRegressionAdminQueueRequiresAdminJWT(t *testing.T) {
+	s := newAuthTestServer(t)
+
+	adminToken := registerForFileTests(t, s)
+	nonAdmin := models.User{Username: "member", Password: "pw", Role: "user"}
+	require.NoError(t, database.DB.Create(&nonAdmin).Error)
+	nonAdminToken, err := auth.NewAuthService("test-secret").GenerateToken(&nonAdmin)
+	require.NoError(t, err)
+
+	resp, body := s.request(t, http.MethodPost, "/api/v1/api-keys", map[string]any{"name": "worker"}, adminToken, "")
+	require.Equal(t, http.StatusCreated, resp.Code)
+	rawAPIKey := body["key"].(string)
+
+	cases := []struct {
+		name   string
+		token  string
+		apiKey string
+		want   int
+		code   string
+	}{
+		{name: "anonymous", want: http.StatusUnauthorized, code: "UNAUTHORIZED"},
+		{name: "non-admin jwt", token: nonAdminToken, want: http.StatusForbidden, code: "FORBIDDEN"},
+		{name: "api key", apiKey: rawAPIKey, want: http.StatusForbidden, code: "FORBIDDEN"},
+		{name: "admin jwt", token: adminToken, want: http.StatusOK},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			resp, body := s.request(t, http.MethodGet, "/api/v1/admin/queue", nil, tc.token, tc.apiKey)
+			require.Equal(t, tc.want, resp.Code)
+			if tc.code != "" {
+				errBody := body["error"].(map[string]any)
+				require.Equal(t, tc.code, errBody["code"])
+			}
 		})
 	}
 }

@@ -368,7 +368,7 @@ func SetupRoutes(handler *Handler, _ *auth.AuthService) *gin.Engine {
 
 		v1.GET("/events", handler.authRequired(), handler.streamEvents)
 		v1.GET("/models/transcription", handler.authRequired(), handler.listTranscriptionModels)
-		v1.GET("/admin/queue", handler.authRequired(), handler.queueStats)
+		v1.GET("/admin/queue", handler.adminRequired(), handler.queueStats)
 	}
 
 	web.SetupStaticRoutes(router, handler.authService)

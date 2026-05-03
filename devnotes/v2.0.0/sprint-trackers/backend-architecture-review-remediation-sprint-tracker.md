@@ -2,7 +2,7 @@
 
 This tracker belongs to `devnotes/v2.0.0/sprint-plans/backend-architecture-review-remediation-sprint-plan.md`.
 
-Status: Sprint 0 complete. Runtime remediation starts with Sprint 1.
+Status: Sprint 1 complete.
 
 ## Run Rules
 
@@ -24,7 +24,7 @@ Status: Sprint 0 complete. Runtime remediation starts with Sprint 1.
 | Recovery requeues every processing job | High | Sprint 5 | pending |
 | Chat generation runs inside HTTP handler | High | Sprint 6 | pending |
 | External LLM provider adapter lives in API | Medium | Sprint 3 | pending |
-| Admin route has no admin authorization | Medium | Sprint 1 | pending |
+| Admin route has no admin authorization | Medium | Sprint 1 | complete |
 | Generic/global repository methods remain exposed | Medium | Sprint 7 | pending |
 
 ## Sprint 0: Baseline, Guard Plan, And Review Anchors
@@ -61,7 +61,7 @@ Commit:
 
 ## Sprint 1: Auth Principal And Admin Authorization
 
-Status: pending
+Status: complete
 
 Addresses:
 
@@ -69,27 +69,27 @@ Addresses:
 
 TDD and scope checks:
 
-- [ ] Add failing tests for non-admin access to `/api/v1/admin/queue`.
-- [ ] Add failing tests for API-key access policy to admin routes.
-- [ ] Add principal/role helper tests.
-- [ ] Implement principal extraction and `adminRequired()` middleware.
-- [ ] Apply admin middleware to admin routes.
-- [ ] Keep non-admin route auth behavior unchanged.
-- [ ] Write status note `backend-architecture-review-remediation-sprint-01-admin-auth.md`.
+- [x] Add failing tests for non-admin access to `/api/v1/admin/queue`.
+- [x] Add failing tests for API-key access policy to admin routes.
+- [x] Add principal/role helper tests.
+- [x] Implement principal extraction and `adminRequired()` middleware.
+- [x] Apply admin middleware to admin routes.
+- [x] Keep non-admin route auth behavior unchanged.
+- [x] Write status note `backend-architecture-review-remediation-sprint-01-admin-auth.md`.
 
 Acceptance checks:
 
-- [ ] Anonymous admin route access returns 401.
-- [ ] Non-admin JWT admin route access returns 403.
-- [ ] API key admin route access follows the documented policy.
-- [ ] Admin JWT access succeeds.
-- [ ] Admin authorization is centralized and reusable.
+- [x] Anonymous admin route access returns 401.
+- [x] Non-admin JWT admin route access returns 403.
+- [x] API key admin route access follows the documented policy.
+- [x] Admin JWT access succeeds.
+- [x] Admin authorization is centralized and reusable.
 
 Verification:
 
-- [ ] `GOCACHE=/private/tmp/scriberr-go-cache go test ./internal/api -run 'TestSecurity|TestAuth|TestAPIKey|TestCanonicalRouteRegistration|TestEndpointContractSmoke'`
-- [ ] `GOCACHE=/private/tmp/scriberr-go-cache go test ./internal/account ./internal/auth ./cmd/server`
-- [ ] `git diff --check`
+- [x] `GOCACHE=/private/tmp/scriberr-go-cache go test ./internal/api -run 'TestSecurity|TestAuth|TestAPIKey|TestCurrentPrincipal|TestCanonicalRouteRegistration|TestEndpointContractSmoke'`
+- [x] `GOCACHE=/private/tmp/scriberr-go-cache go test ./internal/account ./internal/auth ./cmd/server`
+- [x] `git diff --check`
 
 Artifacts:
 
@@ -100,7 +100,7 @@ Artifacts:
 
 Commit:
 
-- [ ] `backend: enforce admin authorization`
+- [x] `backend: enforce admin authorization`
 
 ## Sprint 2: User-Scoped Event Delivery
 

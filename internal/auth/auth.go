@@ -26,6 +26,7 @@ func NewAuthService(jwtSecret string) *AuthService {
 type Claims struct {
 	UserID   uint   `json:"user_id"`
 	Username string `json:"username"`
+	Role     string `json:"role"`
 	jwt.RegisteredClaims
 }
 
@@ -34,6 +35,7 @@ func (as *AuthService) GenerateToken(user *models.User) (string, error) {
 	claims := &Claims{
 		UserID:   user.ID,
 		Username: user.Username,
+		Role:     user.Role,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
@@ -49,6 +51,7 @@ func (as *AuthService) GenerateLongLivedToken(user *models.User) (string, error)
 	claims := &Claims{
 		UserID:   user.ID,
 		Username: user.Username,
+		Role:     user.Role,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(365 * 24 * time.Hour)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),

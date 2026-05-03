@@ -12,6 +12,14 @@ import (
 
 const requestIDKey = "request_id"
 
+type principal struct {
+	UserID   uint
+	Username string
+	Role     string
+	AuthType string
+	APIKeyID *uint
+}
+
 func requestIDMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		requestID := strings.TrimSpace(c.GetHeader("X-Request-ID"))
@@ -202,6 +210,22 @@ func (h *Handler) authRequired() gin.HandlerFunc {
 		c.Abort()
 	}
 }
+func (h *Handler) adminRequired() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if !h.authenticateJWT(c) && !h.authenticateAPIKey(c) {
+			writeError(c, http.StatusUnauthorized, "UNAUTHORIZED", "missing or invalid authentication", nil)
+			c.Abort()
+			return
+		}
+		principal, ok := h.currentPrincipal(c)
+		if !ok || principal.AuthType != "jwt" || principal.Role != "admin" {
+			writeError(c, http.StatusForbidden, "FORBIDDEN", "admin access is required", nil)
+			c.Abort()
+			return
+		}
+		c.Next()
+	}
+}
 func (h *Handler) jwtRequired() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if h.authenticateJWT(c) {
@@ -232,6 +256,7 @@ func (h *Handler) authenticateJWT(c *gin.Context) bool {
 	c.Set("auth_type", "jwt")
 	c.Set("user_id", claims.UserID)
 	c.Set("username", claims.Username)
+	c.Set("role", claims.Role)
 	return true
 }
 func (h *Handler) authenticateAPIKey(c *gin.Context) bool {

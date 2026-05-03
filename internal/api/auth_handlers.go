@@ -175,8 +175,39 @@ func (h *Handler) currentUser(c *gin.Context) (*models.User, bool) {
 	}
 	return user, true
 }
+func (h *Handler) currentPrincipal(c *gin.Context) (principal, bool) {
+	userID, ok := currentUserID(c)
+	if !ok {
+		return principal{}, false
+	}
+	authType, _ := stringContextValue(c, "auth_type")
+	username, _ := stringContextValue(c, "username")
+	role, _ := stringContextValue(c, "role")
+	if role == "" && h.account != nil && authType == "jwt" {
+		if user, ok := h.currentUser(c); ok {
+			username = user.Username
+			role = user.Role
+			c.Set("username", username)
+			c.Set("role", role)
+		}
+	}
+	var apiKeyID *uint
+	if value, ok := uintContextValue(c, "api_key_id"); ok {
+		apiKeyID = &value
+	}
+	return principal{
+		UserID:   userID,
+		Username: username,
+		Role:     role,
+		AuthType: authType,
+		APIKeyID: apiKeyID,
+	}, true
+}
 func currentUserID(c *gin.Context) (uint, bool) {
-	value, ok := c.Get("user_id")
+	return uintContextValue(c, "user_id")
+}
+func uintContextValue(c *gin.Context, key string) (uint, bool) {
+	value, ok := c.Get(key)
 	if !ok {
 		return 0, false
 	}
@@ -190,6 +221,14 @@ func currentUserID(c *gin.Context) (uint, bool) {
 	default:
 		return 0, false
 	}
+}
+func stringContextValue(c *gin.Context, key string) (string, bool) {
+	value, ok := c.Get(key)
+	if !ok {
+		return "", false
+	}
+	typed, ok := value.(string)
+	return typed, ok
 }
 func bearerToken(header string) string {
 	parts := strings.SplitN(header, " ", 2)
