@@ -2,7 +2,7 @@
 
 This tracker belongs to `devnotes/v2.0.0/sprint-plans/backend-architecture-review-remediation-sprint-plan.md`.
 
-Status: Sprint 8 complete.
+Status: Sprint 8 complete. Follow-up Sprints 9-14 planned from second backend architecture review.
 
 ## Run Rules
 
@@ -26,6 +26,12 @@ Status: Sprint 8 complete.
 | External LLM provider adapter lives in API | Medium | Sprint 3 | complete |
 | Admin route has no admin authorization | Medium | Sprint 1 | complete |
 | Generic/global repository methods remain exposed | Medium | Sprint 7 | complete |
+| Admin queue stats are still user-scoped | High | Sprint 13 | planned |
+| Scheduler policy boundary is still missing | High | Sprint 12, Sprint 13 | planned |
+| User status and disabled-user enforcement are absent | High | Sprint 9 | planned |
+| Admin user-management API is not implemented | High | Sprint 10 | planned |
+| Settings remain in `users.settings_json` instead of relational settings tables | Medium | Sprint 11, Sprint 12 | planned |
+| API response mapping still touches local file paths | Medium | Sprint 14 | planned |
 
 ## Sprint 0: Baseline, Guard Plan, And Review Anchors
 
@@ -405,3 +411,282 @@ Artifacts:
 Commit:
 
 - [x] `backend: finalize architecture review remediation`
+
+## Sprint 9: User Status And Auth Enforcement
+
+Status: planned
+
+Addresses:
+
+- Follow-up Finding 11: User status and disabled-user enforcement are absent.
+
+TDD and scope checks:
+
+- [ ] Add failing tests for disabled-user login, refresh, API-key auth, events, and transcription enqueue.
+- [ ] Add user status lifecycle fields and migration/backfill.
+- [ ] Enforce active-user checks in account/API-key auth paths.
+- [ ] Update login/password-change timestamp behavior.
+- [ ] Revoke or reject stale credentials as required by the multi-user spec.
+- [ ] Write status note `backend-architecture-review-remediation-sprint-09-user-status.md`.
+
+Acceptance checks:
+
+- [ ] Existing users migrate to `active`.
+- [ ] First registration creates an active admin.
+- [ ] Disabled users cannot login.
+- [ ] Disabled users cannot refresh.
+- [ ] Disabled users cannot use API keys.
+- [ ] Disabled users cannot open event streams.
+- [ ] Disabled users cannot enqueue transcription work.
+
+Verification:
+
+- [ ] `GOCACHE=/private/tmp/scriberr-go-cache go test ./internal/account ./internal/auth ./internal/api -run 'TestAuth|TestSecurity|TestAPIKey|TestEvent|TestTranscription'`
+- [ ] `GOCACHE=/private/tmp/scriberr-go-cache go test ./internal/database ./internal/repository`
+- [ ] `git diff --check`
+
+Artifacts:
+
+- `internal/models/auth.go`
+- `internal/account/service.go`
+- `internal/api/middleware.go`
+- `internal/database/*`
+- `devnotes/v2.0.0/status-updates/backend-architecture-review-remediation-sprint-09-user-status.md`
+
+Commit:
+
+- [ ] `backend: enforce user account status`
+
+## Sprint 10: Admin User Management Service And Routes
+
+Status: planned
+
+Addresses:
+
+- Follow-up Finding 12: Admin user-management API is not implemented.
+
+TDD and scope checks:
+
+- [ ] Add failing admin route contract/security tests for user-management endpoints.
+- [ ] Add `internal/admin.Service`.
+- [ ] Add admin-scoped user repository methods.
+- [ ] Add admin user routes for list/create/get/update/reset-password/disable/enable.
+- [ ] Enforce active admin JWT only; keep API keys disallowed for admin operations.
+- [ ] Enforce last-active-admin invariant.
+- [ ] Revoke refresh tokens and API keys on disable.
+- [ ] Revoke refresh tokens on password reset.
+- [ ] Write status note `backend-architecture-review-remediation-sprint-10-admin-users.md`.
+
+Acceptance checks:
+
+- [ ] Admin can create a normal user.
+- [ ] Admin can list and inspect users.
+- [ ] Admin can disable and enable users.
+- [ ] Admin can reset user passwords.
+- [ ] Admin cannot disable or demote the last active admin.
+- [ ] Normal users and API keys cannot access admin user management.
+
+Verification:
+
+- [ ] `GOCACHE=/private/tmp/scriberr-go-cache go test ./internal/admin ./internal/account ./internal/api -run 'TestAdmin|TestSecurity|TestAuth|TestCanonicalRouteRegistration|TestEndpointContractSmoke'`
+- [ ] `GOCACHE=/private/tmp/scriberr-go-cache go test ./internal/repository ./internal/database`
+- [ ] `git diff --check`
+
+Artifacts:
+
+- `internal/admin/*`
+- `internal/api/admin_handlers.go`
+- `internal/api/router.go`
+- `internal/repository/*`
+- `devnotes/v2.0.0/status-updates/backend-architecture-review-remediation-sprint-10-admin-users.md`
+
+Commit:
+
+- [ ] `backend: add admin user management`
+
+## Sprint 11: Relational User Settings
+
+Status: planned
+
+Addresses:
+
+- Follow-up Finding 13: Settings remain in `users.settings_json` instead of relational settings tables.
+
+TDD and scope checks:
+
+- [ ] Add failing migration/backfill tests for `user_settings`.
+- [ ] Add `models.UserSettings`.
+- [ ] Add `repository.UserSettingsRepository`.
+- [ ] Move account settings reads/writes to `user_settings`.
+- [ ] Preserve `/api/v1/settings` response shape.
+- [ ] Enforce same-user default profile ownership.
+- [ ] Keep legacy JSON only as explicit migration fallback.
+- [ ] Write status note `backend-architecture-review-remediation-sprint-11-user-settings.md`.
+
+Acceptance checks:
+
+- [ ] Existing settings backfill into `user_settings`.
+- [ ] New writes use relational settings rows.
+- [ ] Partial settings updates preserve unrelated fields.
+- [ ] Auto-transcription/default-profile validation still works.
+- [ ] Auto-rename/small-model validation still works.
+
+Verification:
+
+- [ ] `GOCACHE=/private/tmp/scriberr-go-cache go test ./internal/account ./internal/api -run 'TestSettings|TestProfile'`
+- [ ] `GOCACHE=/private/tmp/scriberr-go-cache go test ./internal/database ./internal/repository ./internal/automation ./internal/summarization`
+- [ ] `git diff --check`
+
+Artifacts:
+
+- `internal/models/auth.go`
+- `internal/database/*`
+- `internal/repository/*`
+- `internal/account/service.go`
+- `devnotes/v2.0.0/status-updates/backend-architecture-review-remediation-sprint-11-user-settings.md`
+
+Commit:
+
+- [ ] `backend: move user settings to relational table`
+
+## Sprint 12: System Settings And Scheduler Policy Boundary
+
+Status: planned
+
+Addresses:
+
+- Follow-up Finding 10: Scheduler policy boundary is still missing.
+- Follow-up Finding 13: Settings remain in `users.settings_json` instead of relational settings tables.
+
+TDD and scope checks:
+
+- [ ] Add failing scheduler config validation tests.
+- [ ] Add `models.SystemSetting`.
+- [ ] Add `repository.SystemSettingsRepository`.
+- [ ] Add default `queue.scheduler` migration/backfill.
+- [ ] Add `internal/transcription/scheduler` policy/config package.
+- [ ] Add admin service methods for scheduler get/update.
+- [ ] Add `GET` and `PUT /api/v1/admin/queue/scheduler`.
+- [ ] Keep queue claim behavior unchanged until Sprint 13.
+- [ ] Write status note `backend-architecture-review-remediation-sprint-12-scheduler-settings.md`.
+
+Acceptance checks:
+
+- [ ] Scheduler config is persisted in `system_settings`.
+- [ ] Invalid scheduler config is rejected before persistence.
+- [ ] Default policy is `priority`.
+- [ ] Admin scheduler routes require active admin JWT auth.
+
+Verification:
+
+- [ ] `GOCACHE=/private/tmp/scriberr-go-cache go test ./internal/transcription/scheduler ./internal/admin ./internal/api -run 'TestAdmin|TestScheduler|TestSecurity'`
+- [ ] `GOCACHE=/private/tmp/scriberr-go-cache go test ./internal/database ./internal/repository ./internal/app`
+- [ ] `git diff --check`
+
+Artifacts:
+
+- `internal/transcription/scheduler/*`
+- `internal/admin/*`
+- `internal/models/*`
+- `internal/repository/*`
+- `internal/api/admin_handlers.go`
+- `devnotes/v2.0.0/status-updates/backend-architecture-review-remediation-sprint-12-scheduler-settings.md`
+
+Commit:
+
+- [ ] `backend: add scheduler system settings`
+
+## Sprint 13: Configurable Queue Claims And Admin Queue Stats
+
+Status: planned
+
+Addresses:
+
+- Follow-up Finding 9: Admin queue stats are still user-scoped.
+- Follow-up Finding 10: Scheduler policy boundary is still missing.
+
+TDD and scope checks:
+
+- [ ] Add failing tests proving admin queue stats include multiple users.
+- [ ] Add failing tests proving normal queue stats remain user-scoped.
+- [ ] Add failing scheduler claim tests for priority, FIFO, weighted duration, and fair share.
+- [ ] Change worker service to load scheduler config through a narrow port.
+- [ ] Change repository claim method to accept `scheduler.Config`.
+- [ ] Implement deterministic claim policies.
+- [ ] Add queue indexes required by policy/list paths.
+- [ ] Update `/api/v1/admin/queue` to return global aggregates and `by_user`.
+- [ ] Write status note `backend-architecture-review-remediation-sprint-13-queue-scheduler.md`.
+
+Acceptance checks:
+
+- [ ] Admin queue stats are global and include per-user breakdown.
+- [ ] Normal queue stats are scoped to current user.
+- [ ] Priority remains default scheduler policy.
+- [ ] FIFO ordering is deterministic.
+- [ ] Weighted-duration policy is deterministic and includes aging.
+- [ ] Fair-share respects configured per-user concurrency.
+- [ ] Queue claim remains repository-owned and atomic.
+
+Verification:
+
+- [ ] `GOCACHE=/private/tmp/scriberr-go-cache go test ./internal/repository -run 'TestJobRepository|TestScheduler|TestQueue'`
+- [ ] `GOCACHE=/private/tmp/scriberr-go-cache go test ./internal/transcription/worker ./internal/transcription/scheduler ./internal/admin ./internal/api -run 'TestAdmin|TestQueue|TestScheduler|TestSecurity'`
+- [ ] `GOCACHE=/private/tmp/scriberr-go-cache go test ./internal/database`
+- [ ] `git diff --check`
+
+Artifacts:
+
+- `internal/repository/implementations.go`
+- `internal/transcription/worker/service.go`
+- `internal/transcription/scheduler/*`
+- `internal/api/admin_handlers.go`
+- `internal/database/*`
+- `devnotes/v2.0.0/status-updates/backend-architecture-review-remediation-sprint-13-queue-scheduler.md`
+
+Commit:
+
+- [ ] `backend: configure shared queue scheduler`
+
+## Sprint 14: File Metadata And Storage Boundary Cleanup
+
+Status: planned
+
+Addresses:
+
+- Follow-up Finding 14: API response mapping still touches local file paths.
+
+TDD and scope checks:
+
+- [ ] Add failing architecture guard for API file response filesystem access.
+- [ ] Add failing tests for file metadata responses without direct path probing.
+- [ ] Move size/kind/MIME metadata lookup behind `internal/files`.
+- [ ] Prefer persisted metadata over filesystem probing for list/get responses.
+- [ ] Keep audio streaming ownership checks in the file service path.
+- [ ] Ensure public file DTOs remain path-free.
+- [ ] Write status note `backend-architecture-review-remediation-sprint-14-file-metadata-boundary.md`.
+
+Acceptance checks:
+
+- [ ] `internal/api/response_models.go` no longer imports `os` for file metadata.
+- [ ] API code does not construct or inspect local file paths for DTO mapping.
+- [ ] File list/get response shape remains stable.
+- [ ] Missing physical files do not leak local paths.
+- [ ] Audio streaming still checks database ownership before opening storage.
+
+Verification:
+
+- [ ] `GOCACHE=/private/tmp/scriberr-go-cache go test ./internal/files ./internal/api -run 'TestFile|TestResponse|TestProduction|TestBackendDependencyDirection'`
+- [ ] `GOCACHE=/private/tmp/scriberr-go-cache go test ./internal/recording ./internal/mediaimport ./internal/transcription/orchestrator`
+- [ ] `git diff --check`
+
+Artifacts:
+
+- `internal/files/service.go`
+- `internal/api/file_handlers.go`
+- `internal/api/response_models.go`
+- `internal/api/architecture_test.go`
+- `devnotes/v2.0.0/status-updates/backend-architecture-review-remediation-sprint-14-file-metadata-boundary.md`
+
+Commit:
+
+- [ ] `backend: keep file metadata behind service boundary`

@@ -17,7 +17,7 @@ Related tracker:
 
 Bring the backend closer to strict compliance with the v2.0.0 architecture rules before more multi-user, scheduler, remote-provider, or automation work is built on top of it.
 
-This series addresses eight review findings:
+This series initially addressed eight review findings:
 
 1. Global SSE is not user-scoped.
 2. LLM API keys are stored raw.
@@ -27,6 +27,15 @@ This series addresses eight review findings:
 6. External LLM provider adapter lives in `internal/api`.
 7. Admin route has no admin authorization.
 8. Generic/global repository methods remain exposed.
+
+A follow-up backend review after Sprint 8 added six more multi-user and architecture findings:
+
+9. Admin queue stats are still user-scoped.
+10. Scheduler policy boundary is still missing.
+11. User status and disabled-user enforcement are absent.
+12. Admin user-management API is not implemented.
+13. Settings remain in `users.settings_json` instead of relational settings tables.
+14. API response mapping still touches local file paths.
 
 ## Refactor Goal
 
@@ -120,6 +129,12 @@ If network, loopback, ASR model, or sandbox restrictions block a test, record th
 | External LLM provider adapter lives in API | Sprint 3 |
 | Admin route has no admin authorization | Sprint 1 |
 | Generic/global repository methods remain exposed | Sprint 7 |
+| Admin queue stats are still user-scoped | Sprint 13 |
+| Scheduler policy boundary is still missing | Sprint 12, Sprint 13 |
+| User status and disabled-user enforcement are absent | Sprint 9 |
+| Admin user-management API is not implemented | Sprint 10 |
+| Settings remain in `users.settings_json` instead of relational settings tables | Sprint 11, Sprint 12 |
+| API response mapping still touches local file paths | Sprint 14 |
 
 ## Sprint 0: Baseline, Guard Plan, And Review Anchors
 
@@ -540,6 +555,321 @@ Commit:
 backend: finalize architecture review remediation
 ```
 
+## Sprint 9: User Status And Auth Enforcement
+
+Addresses:
+
+- Follow-up Finding 11: User status and disabled-user enforcement are absent.
+
+Goal: add durable user lifecycle state and enforce disabled-user behavior consistently across authentication and product entry points.
+
+Tasks:
+
+- Add typed user lifecycle fields:
+  - `status` with `active` and `disabled`;
+  - `last_login_at`;
+  - `password_changed_at`.
+- Add schema migration/backfill that preserves existing installs as active users.
+- Update account/auth service flows:
+  - login rejects disabled users;
+  - refresh rejects disabled users;
+  - API-key authentication rejects disabled users;
+  - successful login updates `last_login_at`;
+  - password changes update `password_changed_at` and revoke existing refresh tokens when required.
+- Update request auth middleware or account service ports so event streams and enqueue-capable routes cannot proceed for disabled users.
+- Keep JWT validation pure; perform active-user checks through account/auth boundaries where persisted state matters.
+- Add tests:
+  - first registration creates an active admin;
+  - disabled user cannot login;
+  - disabled user cannot refresh;
+  - disabled user cannot authenticate with API key;
+  - disabled user cannot open `/api/v1/events`;
+  - disabled user cannot enqueue transcription work.
+
+Acceptance criteria:
+
+- Disabled-user restrictions match the multi-user spec.
+- Existing users migrate to `status = active`.
+- Auth and API-key behavior remains stable for active users.
+- No public DTO leaks password or token state.
+
+Testing focus:
+
+```sh
+GOCACHE=/private/tmp/scriberr-go-cache go test ./internal/account ./internal/auth ./internal/api -run 'TestAuth|TestSecurity|TestAPIKey|TestEvent|TestTranscription'
+GOCACHE=/private/tmp/scriberr-go-cache go test ./internal/database ./internal/repository
+git diff --check
+```
+
+Commit:
+
+```txt
+backend: enforce user account status
+```
+
+## Sprint 10: Admin User Management Service And Routes
+
+Addresses:
+
+- Follow-up Finding 12: Admin user-management API is not implemented.
+
+Goal: implement explicit admin-only user lifecycle workflows behind an `internal/admin` service.
+
+Tasks:
+
+- Add `internal/admin.Service` for cross-user workflows.
+- Add repository methods for admin user management:
+  - create user by admin;
+  - list users for admin;
+  - get user by admin;
+  - update role/status/display/email fields;
+  - reset password;
+  - disable user;
+  - enable user;
+  - count active admins.
+- Add admin routes:
+  - `GET /api/v1/admin/users`
+  - `POST /api/v1/admin/users`
+  - `GET /api/v1/admin/users/:user_id`
+  - `PATCH /api/v1/admin/users/:user_id`
+  - `POST /api/v1/admin/users/:user_id:reset-password`
+  - `POST /api/v1/admin/users/:user_id:disable`
+  - `POST /api/v1/admin/users/:user_id:enable`
+- Enforce last-active-admin invariant for disable and demotion.
+- Revoke target refresh tokens and API keys on disable.
+- Revoke target refresh tokens on password reset.
+- Keep API keys disallowed for admin operations until explicit scopes exist.
+- Add route contract and security tests for anonymous, non-admin, API-key, and admin JWT access.
+
+Acceptance criteria:
+
+- Admin user routes exist and require active admin JWT auth.
+- Normal users cannot manage other users.
+- Admin cannot disable or demote the last active admin.
+- Disable and password-reset side effects are persisted and tested.
+- Admin DTOs may include user IDs/status/role; normal user DTOs remain self-scoped.
+
+Testing focus:
+
+```sh
+GOCACHE=/private/tmp/scriberr-go-cache go test ./internal/admin ./internal/account ./internal/api -run 'TestAdmin|TestSecurity|TestAuth|TestCanonicalRouteRegistration|TestEndpointContractSmoke'
+GOCACHE=/private/tmp/scriberr-go-cache go test ./internal/repository ./internal/database
+git diff --check
+```
+
+Commit:
+
+```txt
+backend: add admin user management
+```
+
+## Sprint 11: Relational User Settings
+
+Addresses:
+
+- Follow-up Finding 13: Settings remain in `users.settings_json` instead of relational settings tables.
+
+Goal: move core per-user settings into a typed `user_settings` table while preserving the current settings API shape.
+
+Tasks:
+
+- Add `models.UserSettings`.
+- Add `repository.UserSettingsRepository`.
+- Add migration/backfill from `users.settings_json`.
+- Keep compatibility reads from legacy JSON only as an explicit migration fallback.
+- Move account settings reads/writes to `user_settings`:
+  - `default_profile_id`;
+  - `auto_transcription_enabled`;
+  - `auto_rename_enabled`;
+  - `summary_default_model`.
+- Enforce that `default_profile_id` belongs to the same user.
+- Preserve current `/api/v1/settings` response shape.
+- Add tests:
+  - settings row is created/backfilled for existing users;
+  - partial updates do not overwrite unrelated fields;
+  - default profile ownership is enforced;
+  - auto-transcription and auto-rename validation still works.
+
+Acceptance criteria:
+
+- Durable core user settings no longer depend on expanding `users.settings_json`.
+- Settings API behavior remains backward compatible.
+- Per-user settings have relational indexes and foreign-key behavior where SQLite can enforce it.
+- Legacy settings JSON is not used by new write paths.
+
+Testing focus:
+
+```sh
+GOCACHE=/private/tmp/scriberr-go-cache go test ./internal/account ./internal/api -run 'TestSettings|TestProfile'
+GOCACHE=/private/tmp/scriberr-go-cache go test ./internal/database ./internal/repository ./internal/automation ./internal/summarization
+git diff --check
+```
+
+Commit:
+
+```txt
+backend: move user settings to relational table
+```
+
+## Sprint 12: System Settings And Scheduler Policy Boundary
+
+Addresses:
+
+- Follow-up Finding 10: Scheduler policy boundary is still missing.
+- Follow-up Finding 13: Settings remain in `users.settings_json` instead of relational settings tables.
+
+Goal: introduce durable system settings and a scheduler policy package without changing queue behavior yet.
+
+Tasks:
+
+- Add `models.SystemSetting` and `repository.SystemSettingsRepository`.
+- Add migration/backfill with initial key `queue.scheduler = {"policy":"priority"}`.
+- Add `internal/transcription/scheduler` with:
+  - policy constants;
+  - config struct;
+  - strict validation;
+  - default config.
+- Add admin service methods for queue scheduler config:
+  - get scheduler config;
+  - update scheduler config.
+- Add admin routes:
+  - `GET /api/v1/admin/queue/scheduler`
+  - `PUT /api/v1/admin/queue/scheduler`
+- Keep API handlers thin; validation belongs in admin/scheduler service code.
+- Add tests for strict scheduler config validation and admin route access.
+
+Acceptance criteria:
+
+- Scheduler config is durable and admin-managed.
+- Invalid scheduler config is rejected before persistence.
+- Priority remains the default behavior after migration.
+- No worker claim SQL changes are made until Sprint 13.
+
+Testing focus:
+
+```sh
+GOCACHE=/private/tmp/scriberr-go-cache go test ./internal/transcription/scheduler ./internal/admin ./internal/api -run 'TestAdmin|TestScheduler|TestSecurity'
+GOCACHE=/private/tmp/scriberr-go-cache go test ./internal/database ./internal/repository ./internal/app
+git diff --check
+```
+
+Commit:
+
+```txt
+backend: add scheduler system settings
+```
+
+## Sprint 13: Configurable Queue Claims And Admin Queue Stats
+
+Addresses:
+
+- Follow-up Finding 9: Admin queue stats are still user-scoped.
+- Follow-up Finding 10: Scheduler policy boundary is still missing.
+
+Goal: make shared queue claiming policy configurable while giving admins a true global queue view.
+
+Tasks:
+
+- Change worker service to load scheduler config through a narrow settings/admin port.
+- Change repository claim method to accept `scheduler.Config`.
+- Implement claim policies:
+  - priority default;
+  - FIFO;
+  - weighted duration;
+  - fair share with `MaxConcurrentPerUser`.
+- Keep claim atomicity inside repository transactions.
+- Add repository indexes recommended by the multi-user spec where missing:
+  - FIFO queue path;
+  - priority queue path;
+  - user/status queue path;
+  - duration queue path;
+  - user/status/updated list path.
+- Add global queue stats repository/service method for admins:
+  - aggregate status counts across all users;
+  - running counts;
+  - per-user breakdown with username.
+- Update `/api/v1/admin/queue` to return global aggregate stats and `by_user`.
+- Keep normal user stats scoped to the current user.
+- Add tests:
+  - admin stats include jobs from multiple users;
+  - normal stats do not include other users;
+  - FIFO ordering is deterministic;
+  - priority ordering remains default;
+  - weighted-duration scoring is deterministic and ages jobs;
+  - fair-share respects per-user concurrency.
+
+Acceptance criteria:
+
+- Queue scheduler policy is configurable by admin and used by workers.
+- Admin queue stats are truly global.
+- Normal queue stats and events remain user-isolated.
+- Claim behavior remains atomic and deterministic.
+
+Testing focus:
+
+```sh
+GOCACHE=/private/tmp/scriberr-go-cache go test ./internal/repository -run 'TestJobRepository|TestScheduler|TestQueue'
+GOCACHE=/private/tmp/scriberr-go-cache go test ./internal/transcription/worker ./internal/transcription/scheduler ./internal/admin ./internal/api -run 'TestAdmin|TestQueue|TestScheduler|TestSecurity'
+GOCACHE=/private/tmp/scriberr-go-cache go test ./internal/database
+git diff --check
+```
+
+Commit:
+
+```txt
+backend: configure shared queue scheduler
+```
+
+## Sprint 14: File Metadata And Storage Boundary Cleanup
+
+Addresses:
+
+- Follow-up Finding 14: API response mapping still touches local file paths.
+
+Goal: remove filesystem path access from API response mapping and keep file metadata behind file/storage services.
+
+Tasks:
+
+- Remove `os.Stat` and path-derived filesystem metadata from `internal/api/response_models.go`.
+- Add file service metadata methods or DTOs for:
+  - size bytes;
+  - MIME type;
+  - kind;
+  - duration;
+  - safe display filename/title.
+- Prefer persisted file metadata over filesystem probing for list/get responses.
+- Keep audio streaming through `files.Service.OpenAudio` or an equivalent storage boundary.
+- Ensure public responses never include local paths, object paths, or original unsafe filenames.
+- Add/update architecture guard:
+  - production API response mapping must not import `os` for file metadata;
+  - production API must not construct local file paths.
+- Add tests:
+  - file list/get responses do not touch local path directly;
+  - response still includes expected size/kind/mime metadata;
+  - missing physical file does not leak a path in metadata responses;
+  - audio streaming still performs ownership check before opening.
+
+Acceptance criteria:
+
+- API DTO mapping has no direct filesystem dependency for files.
+- File metadata is owned by file/storage service boundaries.
+- Existing response shape remains stable.
+- Path redaction tests remain green.
+
+Testing focus:
+
+```sh
+GOCACHE=/private/tmp/scriberr-go-cache go test ./internal/files ./internal/api -run 'TestFile|TestResponse|TestProduction|TestBackendDependencyDirection'
+GOCACHE=/private/tmp/scriberr-go-cache go test ./internal/recording ./internal/mediaimport ./internal/transcription/orchestrator
+git diff --check
+```
+
+Commit:
+
+```txt
+backend: keep file metadata behind service boundary
+```
+
 ## Expected Status Notes
 
 Each sprint should add one note under `devnotes/v2.0.0/status-updates/` using this naming pattern:
@@ -554,6 +884,12 @@ backend-architecture-review-remediation-sprint-05-queue-leases.md
 backend-architecture-review-remediation-sprint-06-chat-service.md
 backend-architecture-review-remediation-sprint-07-repository-legacy.md
 backend-architecture-review-remediation-sprint-08-final.md
+backend-architecture-review-remediation-sprint-09-user-status.md
+backend-architecture-review-remediation-sprint-10-admin-users.md
+backend-architecture-review-remediation-sprint-11-user-settings.md
+backend-architecture-review-remediation-sprint-12-scheduler-settings.md
+backend-architecture-review-remediation-sprint-13-queue-scheduler.md
+backend-architecture-review-remediation-sprint-14-file-metadata-boundary.md
 ```
 
 Each status note should include:
