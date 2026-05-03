@@ -167,6 +167,7 @@ func TestTranscriptExecutionsLogsModelsAndStatsUseEngineServices(t *testing.T) {
 	s.handler.modelRegistry = registry
 
 	token := registerForFileTests(t, s)
+	userID := firstUserID(t)
 	fileID, _ := createUploadedFileForTranscription(t, s, token)
 	resp, body := s.request(t, http.MethodPost, "/api/v1/transcriptions", map[string]any{"file_id": fileID}, token, "")
 	require.Equal(t, http.StatusAccepted, resp.Code)
@@ -186,6 +187,7 @@ func TestTranscriptExecutionsLogsModelsAndStatsUseEngineServices(t *testing.T) {
 	errorMessage := "failed at /tmp/private/model.bin api_key=secret-value"
 	require.NoError(t, database.DB.Create(&models.TranscriptionJobExecution{
 		TranscriptionJobID: jobID,
+		UserID:             userID,
 		Status:             models.StatusFailed,
 		Provider:           "local",
 		ModelName:          "whisper-base",

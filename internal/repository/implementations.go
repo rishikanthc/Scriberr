@@ -328,8 +328,12 @@ type jobRepository struct {
 	db *gorm.DB
 }
 
-func NewJobRepository(db *gorm.DB) JobRepository {
+func NewJobRepository(db *gorm.DB) *jobRepository {
 	return &jobRepository{db: db}
+}
+
+func (r *jobRepository) Create(ctx context.Context, job *models.TranscriptionJob) error {
+	return r.db.WithContext(ctx).Create(job).Error
 }
 
 func (r *jobRepository) FindReadyFileByIDForUser(ctx context.Context, id string, userID uint) (*models.TranscriptionJob, error) {
@@ -1728,7 +1732,7 @@ func (r *profileRepository) FindByNameForUser(ctx context.Context, userID uint, 
 func (r *profileRepository) CreateForUser(ctx context.Context, profile *models.TranscriptionProfile) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if profile.IsDefault {
-			if err := tx.Model(&models.TranscriptionProfile{}).
+			if err := tx.Session(&gorm.Session{SkipHooks: true}).Model(&models.TranscriptionProfile{}).
 				Where("user_id = ?", profile.UserID).
 				Update("is_default", false).Error; err != nil {
 				return err
@@ -1747,7 +1751,7 @@ func (r *profileRepository) CreateForUser(ctx context.Context, profile *models.T
 func (r *profileRepository) UpdateForUser(ctx context.Context, profile *models.TranscriptionProfile, defaultChanged bool) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if profile.IsDefault {
-			if err := tx.Model(&models.TranscriptionProfile{}).
+			if err := tx.Session(&gorm.Session{SkipHooks: true}).Model(&models.TranscriptionProfile{}).
 				Where("user_id = ? AND id <> ?", profile.UserID, profile.ID).
 				Update("is_default", false).Error; err != nil {
 				return err
@@ -1777,12 +1781,12 @@ func (r *profileRepository) DeleteForUser(ctx context.Context, id string, userID
 
 func (r *profileRepository) SetDefaultForUser(ctx context.Context, id string, userID uint) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Model(&models.TranscriptionProfile{}).
+		if err := tx.Session(&gorm.Session{SkipHooks: true}).Model(&models.TranscriptionProfile{}).
 			Where("user_id = ? AND id <> ?", userID, id).
 			Update("is_default", false).Error; err != nil {
 			return err
 		}
-		result := tx.Model(&models.TranscriptionProfile{}).
+		result := tx.Session(&gorm.Session{SkipHooks: true}).Model(&models.TranscriptionProfile{}).
 			Where("id = ? AND user_id = ?", id, userID).
 			Update("is_default", true)
 		if result.Error != nil {
