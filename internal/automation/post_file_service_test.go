@@ -71,13 +71,27 @@ func TestFileReadySkipsWhenTranscriptionAlreadyExists(t *testing.T) {
 	require.Empty(t, transcriptions.commands)
 }
 
+func TestFileReadyNoOpsWhenEventDoesNotReferenceReadyFile(t *testing.T) {
+	transcriptions := &fakeTranscriptionCreator{job: &models.TranscriptionJob{ID: "tr-1"}}
+	service := NewService(
+		&fakeAutomationFiles{err: gorm.ErrRecordNotFound},
+		&fakeAutomationUsers{user: &models.User{ID: 7, AutoTranscriptionEnabled: true}},
+		&fakeAutomationProfiles{profile: &models.TranscriptionProfile{ID: "profile-1"}},
+		nil,
+		transcriptions,
+	)
+
+	require.NoError(t, service.FileReady(context.Background(), filesdomain.ReadyEvent{FileID: "transcription-1", Kind: "audio", Status: "ready"}))
+	require.Empty(t, transcriptions.commands)
+}
+
 type fakeAutomationFiles struct {
 	file               *models.TranscriptionJob
 	transcriptionCount int64
 	err                error
 }
 
-func (f *fakeAutomationFiles) FindByID(context.Context, interface{}) (*models.TranscriptionJob, error) {
+func (f *fakeAutomationFiles) FindReadyFileByID(context.Context, string) (*models.TranscriptionJob, error) {
 	return f.file, f.err
 }
 
@@ -90,7 +104,7 @@ type fakeAutomationUsers struct {
 	err  error
 }
 
-func (f *fakeAutomationUsers) FindByID(context.Context, interface{}) (*models.User, error) {
+func (f *fakeAutomationUsers) FindAutomationUserByID(context.Context, uint) (*models.User, error) {
 	return f.user, f.err
 }
 

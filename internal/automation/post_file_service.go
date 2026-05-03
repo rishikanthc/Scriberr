@@ -13,12 +13,12 @@ import (
 )
 
 type FileRepository interface {
-	FindByID(ctx context.Context, id interface{}) (*models.TranscriptionJob, error)
+	FindReadyFileByID(ctx context.Context, id string) (*models.TranscriptionJob, error)
 	CountTranscriptionsBySourceFile(ctx context.Context, userID uint, fileID string) (int64, error)
 }
 
 type UserRepository interface {
-	FindByID(ctx context.Context, id interface{}) (*models.User, error)
+	FindAutomationUserByID(ctx context.Context, userID uint) (*models.User, error)
 }
 
 type ProfileRepository interface {
@@ -67,7 +67,7 @@ func (s *Service) FileReady(ctx context.Context, event filesdomain.ReadyEvent) e
 	if event.FileID == "" || (event.Kind != "" && event.Kind != "audio" && event.Kind != "youtube") {
 		return nil
 	}
-	file, err := s.files.FindByID(ctx, event.FileID)
+	file, err := s.files.FindReadyFileByID(ctx, event.FileID)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil
 	}
@@ -77,7 +77,7 @@ func (s *Service) FileReady(ctx context.Context, event filesdomain.ReadyEvent) e
 	if file == nil || file.SourceFileHash != nil || file.Status != models.StatusUploaded {
 		return nil
 	}
-	user, err := s.users.FindByID(ctx, file.UserID)
+	user, err := s.users.FindAutomationUserByID(ctx, file.UserID)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil
 	}

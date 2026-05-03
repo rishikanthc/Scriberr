@@ -29,9 +29,26 @@ type Stats struct {
 	Running    int64
 }
 
+type JobStore interface {
+	Create(ctx context.Context, entity *models.TranscriptionJob) error
+	FindFileByIDForUser(ctx context.Context, id string, userID uint) (*models.TranscriptionJob, error)
+	FindTranscriptionByIDForUser(ctx context.Context, id string, userID uint) (*models.TranscriptionJob, error)
+	ListTranscriptionsByUser(ctx context.Context, userID uint, opts ListOptions) ([]models.TranscriptionJob, error)
+	CountStatusesByUser(ctx context.Context, userID uint) (map[models.JobStatus]int64, error)
+	UpdateTranscriptionTitle(ctx context.Context, id string, userID uint, title string) error
+	DeleteTranscription(ctx context.Context, id string, userID uint) error
+	CancelTranscription(ctx context.Context, jobID string, canceledAt time.Time) error
+	ListExecutions(ctx context.Context, jobID string) ([]models.TranscriptionJobExecution, error)
+}
+
+type ProfileStore interface {
+	FindByIDForUser(ctx context.Context, id string, userID uint) (*models.TranscriptionProfile, error)
+	FindDefaultByUser(ctx context.Context, userID uint) (*models.TranscriptionProfile, error)
+}
+
 type Service struct {
-	jobs     repository.JobRepository
-	profiles repository.ProfileRepository
+	jobs     JobStore
+	profiles ProfileStore
 	queue    Queue
 }
 
@@ -64,7 +81,7 @@ var (
 	ErrStateConflict  = errors.New("transcription state conflict")
 )
 
-func NewService(jobs repository.JobRepository, profiles repository.ProfileRepository, queue Queue) *Service {
+func NewService(jobs JobStore, profiles ProfileStore, queue Queue) *Service {
 	return &Service{jobs: jobs, profiles: profiles, queue: queue}
 }
 

@@ -2,7 +2,7 @@
 
 This tracker belongs to `devnotes/v2.0.0/sprint-plans/backend-architecture-refactor-sprint-plan.md`.
 
-Status: completed through Sprint 2.
+Status: completed through Sprint 3.
 
 ## Run Rules
 
@@ -118,35 +118,39 @@ Commit:
 
 ## Sprint 3: Repository Interface Narrowing
 
-Status: planned
+Status: completed
 
-Planned tasks:
+Completed tasks:
 
-- [ ] Inventory broad repository dependencies in services.
-- [ ] Split workflow-specific repository ports.
-- [ ] Replace unsafe generic lookups with user-scoped methods.
-- [ ] Add fake-backed service tests for narrowed ports.
+- [x] Inventory broad repository dependencies in services.
+- [x] Split workflow-specific repository ports for automation and transcription.
+- [x] Replace unsafe generic automation lookups with file/user-specific methods.
+- [x] Add fake-backed service tests for narrowed ports.
 
 Acceptance checks:
 
-- [ ] Services depend on small workflow-specific persistence ports.
-- [ ] User-owned operations are scoped by `user_id`.
-- [ ] Concrete repository tests still cover GORM implementation.
+- [x] Services depend on smaller workflow-specific persistence ports where touched.
+- [x] User-owned automation decisions load only ready file records before deriving the user scope.
+- [x] Concrete repository tests still cover GORM implementation.
 
 Verification:
 
-- [ ] `GOCACHE=/Users/zade/Code/asr/Scriberr/.tmp/go-build go test ./internal/account ./internal/profile ./internal/files ./internal/transcription ./internal/automation ./internal/repository`
-- [ ] `git diff --check`
+- [x] `GOCACHE=/Users/zade/Code/asr/Scriberr/.tmp/go-build go test ./internal/account ./internal/profile ./internal/files ./internal/transcription ./internal/automation ./internal/repository ./cmd/server`
+- [x] `GOCACHE=/Users/zade/Code/asr/Scriberr/.tmp/go-build go test ./internal/api -run 'Test.*ResponseDTO|TestRepresentativeResponseShapes|TestCanonicalRouteRegistration|TestEndpointContractSmoke|TestProductionAPIDatabaseAccessInventory|TestBackendDependencyDirection'`
+- [x] `git diff --check`
 
 Artifacts:
 
-- Service port/interface changes.
-- Repository method additions/removals.
+- `internal/automation/post_file_service.go`
+- `internal/automation/post_file_service_test.go`
+- `internal/transcription/service.go`
+- `internal/repository/implementations.go`
+- `internal/repository/job_queue_test.go`
 - `devnotes/v2.0.0/status-updates/backend-architecture-refactor-sprint-03-repository-ports.md`
 
 Commit:
 
-- [ ] `backend: narrow repository service ports`
+- [x] `backend: narrow repository service ports`
 
 ## Sprint 4: Queue Fairness And Performance Prep
 

@@ -118,6 +118,51 @@ func TestJobRepositoryUpdateLLMGeneratedDescriptionUpdatesRecordingAndTranscript
 	assert.Equal(t, "summary-1", *updatedTranscription.LLMDescriptionSourceSummaryID)
 }
 
+func TestJobRepositoryFindReadyFileByIDOnlyReturnsUploadedSourceFiles(t *testing.T) {
+	db := openJobQueueTestDB(t)
+	user := createQueueTestUser(t, db)
+	repo := NewJobRepository(db)
+	title := "Ready file"
+	readyFile := models.TranscriptionJob{
+		ID:             "ready-file",
+		UserID:         user.ID,
+		Title:          &title,
+		Status:         models.StatusUploaded,
+		AudioPath:      filepath.Join(t.TempDir(), "ready.wav"),
+		SourceFileName: "ready.wav",
+	}
+	require.NoError(t, db.Create(&readyFile).Error)
+	sourceID := readyFile.ID
+	transcription := models.TranscriptionJob{
+		ID:             "not-a-file",
+		UserID:         user.ID,
+		Title:          &title,
+		Status:         models.StatusUploaded,
+		AudioPath:      readyFile.AudioPath,
+		SourceFileName: readyFile.SourceFileName,
+		SourceFileHash: &sourceID,
+	}
+	require.NoError(t, db.Create(&transcription).Error)
+	processingFile := models.TranscriptionJob{
+		ID:             "processing-file",
+		UserID:         user.ID,
+		Title:          &title,
+		Status:         models.StatusProcessing,
+		AudioPath:      filepath.Join(t.TempDir(), "processing.wav"),
+		SourceFileName: "processing.wav",
+	}
+	require.NoError(t, db.Create(&processingFile).Error)
+
+	found, err := repo.FindReadyFileByID(context.Background(), readyFile.ID)
+
+	require.NoError(t, err)
+	assert.Equal(t, readyFile.ID, found.ID)
+	_, err = repo.FindReadyFileByID(context.Background(), transcription.ID)
+	require.ErrorIs(t, err, gorm.ErrRecordNotFound)
+	_, err = repo.FindReadyFileByID(context.Background(), processingFile.ID)
+	require.ErrorIs(t, err, gorm.ErrRecordNotFound)
+}
+
 func TestJobRepositoryEnqueueAndClaimFIFO(t *testing.T) {
 	db := openJobQueueTestDB(t)
 	user := createQueueTestUser(t, db)

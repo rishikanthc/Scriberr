@@ -17,6 +17,7 @@ import (
 type UserRepository interface {
 	Repository[models.User]
 	FindByUsername(ctx context.Context, username string) (*models.User, error)
+	FindAutomationUserByID(ctx context.Context, userID uint) (*models.User, error)
 	Count(ctx context.Context) (int64, error)
 	CountWithAutoTranscription(ctx context.Context) (int64, error)
 }
@@ -38,6 +39,10 @@ func (r *userRepository) FindByUsername(ctx context.Context, username string) (*
 		return nil, err
 	}
 	return &user, nil
+}
+
+func (r *userRepository) FindAutomationUserByID(ctx context.Context, userID uint) (*models.User, error) {
+	return r.FindByID(ctx, userID)
 }
 
 func (r *userRepository) Count(ctx context.Context) (int64, error) {
@@ -97,6 +102,7 @@ type TranscriptionListCursor struct {
 type JobRepository interface {
 	Repository[models.TranscriptionJob]
 	FindWithAssociations(ctx context.Context, id string) (*models.TranscriptionJob, error)
+	FindReadyFileByID(ctx context.Context, id string) (*models.TranscriptionJob, error)
 	FindFileByIDForUser(ctx context.Context, id string, userID uint) (*models.TranscriptionJob, error)
 	FindTranscriptionByIDForUser(ctx context.Context, id string, userID uint) (*models.TranscriptionJob, error)
 	ListFilesByUser(ctx context.Context, userID uint, opts FileListOptions) ([]models.TranscriptionJob, error)
@@ -149,6 +155,17 @@ func (r *jobRepository) FindWithAssociations(ctx context.Context, id string) (*m
 	var job models.TranscriptionJob
 	err := r.db.WithContext(ctx).
 		Where("id = ?", id).
+		First(&job).Error
+	if err != nil {
+		return nil, err
+	}
+	return &job, nil
+}
+
+func (r *jobRepository) FindReadyFileByID(ctx context.Context, id string) (*models.TranscriptionJob, error) {
+	var job models.TranscriptionJob
+	err := r.db.WithContext(ctx).
+		Where("id = ? AND source_file_hash IS NULL AND status = ?", id, models.StatusUploaded).
 		First(&job).Error
 	if err != nil {
 		return nil, err
