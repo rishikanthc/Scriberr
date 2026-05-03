@@ -141,17 +141,38 @@ func (h *Handler) PublishFileEvent(_ context.Context, name string, payload map[s
 	if h == nil {
 		return
 	}
-	h.publishEvent(name, gin.H(payload))
+	h.publishEvent(name, sanitizeEventPayload(payload))
 }
 
 func (h *Handler) PublishTranscriptionEvent(_ context.Context, name string, transcriptionID string, payload map[string]any) {
 	if h == nil {
 		return
 	}
-	h.publishTranscriptionEvent(name, transcriptionID, gin.H(payload))
-	h.publishEvent(name, gin.H(payload))
+	sanitized := sanitizeEventPayload(payload)
+	h.publishTranscriptionEvent(name, transcriptionID, sanitized)
+	h.publishEvent(name, sanitized)
 }
 
 func (h *Handler) publishTranscriptionEvent(name, transcriptionID string, data gin.H) {
 	h.events.publish(apiEvent{Name: name, Data: data, TranscriptionID: transcriptionID})
+}
+
+func sanitizeEventPayload(payload map[string]any) gin.H {
+	out := gin.H{}
+	for key, value := range payload {
+		if eventPayloadKeyIsInternal(key) {
+			continue
+		}
+		out[key] = value
+	}
+	return out
+}
+
+func eventPayloadKeyIsInternal(key string) bool {
+	switch key {
+	case "path", "audio_path", "source_file_path", "output_json_path", "output_srt_path", "output_vtt_path", "logs_path":
+		return true
+	default:
+		return false
+	}
 }

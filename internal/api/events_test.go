@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -9,7 +10,10 @@ import (
 	"time"
 
 	"scriberr/internal/models"
+	recordingdomain "scriberr/internal/recording"
+	"scriberr/internal/summarization"
 	"scriberr/internal/transcription/orchestrator"
+	"scriberr/internal/transcription/worker"
 
 	"github.com/stretchr/testify/require"
 )
@@ -241,4 +245,78 @@ func TestSSESendsHeartbeat(t *testing.T) {
 		return strings.Contains(recorder.Body.String(), ": heartbeat")
 	}, time.Second, 10*time.Millisecond)
 	stopEventStream(t, cancel, done)
+}
+
+func TestEventAdaptersEmitPublicIDsAndOmitInternalDetails(t *testing.T) {
+	handler := NewHandler(nil, nil, HandlerDependencies{})
+	sub, unsubscribe := handler.events.subscribe("")
+	defer unsubscribe()
+
+	handler.PublishRecordingEvent(context.Background(), recordingdomain.Event{
+		Name:            "recording.ready",
+		RecordingID:     "rec_recording-1",
+		Status:          models.RecordingStatusReady,
+		Stage:           "ready",
+		Progress:        1,
+		FileID:          "file_file-1",
+		TranscriptionID: "tr_transcription-1",
+	})
+	handler.PublishSummaryStatus(context.Background(), summarization.StatusEvent{
+		Name:            "summary.completed",
+		SummaryID:       "summary-1",
+		TranscriptionID: "transcription-1",
+		Status:          "completed",
+		Truncated:       true,
+	})
+	handler.PublishStatus(context.Background(), worker.StatusEvent{
+		Name:     "transcription.completed",
+		JobID:    "transcription-1",
+		FileID:   "file_file-1",
+		Stage:    "completed",
+		Progress: 1,
+		Status:   models.StatusCompleted,
+	})
+	handler.PublishFileEvent(context.Background(), "file.ready", map[string]any{
+		"id":     "file_file-1",
+		"kind":   "audio",
+		"status": "ready",
+		"path":   "/tmp/private/audio.wav",
+	})
+
+	events := drainPublishedEvents(sub)
+	require.Len(t, events, 5)
+	body := eventsJSON(t, events)
+	require.Contains(t, body, `"id":"rec_recording-1"`)
+	require.Contains(t, body, `"file_id":"file_file-1"`)
+	require.Contains(t, body, `"transcription_id":"tr_transcription-1"`)
+	require.Contains(t, body, `"id":"summary-1"`)
+	require.Contains(t, body, `"transcription_id":"tr_transcription-1"`)
+	require.Contains(t, body, `"id":"tr_transcription-1"`)
+	require.NotContains(t, body, "/tmp/private")
+	require.NotContains(t, body, "audio.wav")
+	require.NotContains(t, body, `"path"`)
+}
+
+func drainPublishedEvents(sub *eventSubscriber) []apiEvent {
+	var events []apiEvent
+	for {
+		select {
+		case event := <-sub.ch:
+			events = append(events, event)
+		default:
+			return events
+		}
+	}
+}
+
+func eventsJSON(t *testing.T, events []apiEvent) string {
+	t.Helper()
+	var out strings.Builder
+	for _, event := range events {
+		payload, err := json.Marshal(event.Data)
+		require.NoError(t, err)
+		out.WriteString(event.Name)
+		out.Write(payload)
+	}
+	return out.String()
 }

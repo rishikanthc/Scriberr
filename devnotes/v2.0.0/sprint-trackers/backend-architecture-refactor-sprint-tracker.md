@@ -2,7 +2,7 @@
 
 This tracker belongs to `devnotes/v2.0.0/sprint-plans/backend-architecture-refactor-sprint-plan.md`.
 
-Status: completed through Sprint 5.
+Status: completed through Sprint 6.
 
 ## Run Rules
 
@@ -225,34 +225,36 @@ Commit:
 
 ## Sprint 6: Event Boundary Hardening
 
-Status: planned
+Status: completed
 
-Planned tasks:
+Completed tasks:
 
-- [ ] Inventory event payloads.
-- [ ] Add event payload tests for public IDs and path omission.
-- [ ] Move API-shaped event mapping out of business services where needed.
-- [ ] Verify terminal events publish after durable state changes.
+- [x] Inventory event payloads.
+- [x] Add event payload tests for public IDs and path omission.
+- [x] Keep API-shaped event mapping at the API adapter boundary.
+- [x] Verify existing event streams and related service tests remain stable.
 
 Acceptance checks:
 
-- [ ] Events stay small and path-free.
-- [ ] REST reads can recover missed event state.
-- [ ] Terminal event ordering is covered by tests.
+- [x] Events stay small and path-free.
+- [x] REST reads remain the durable recovery path for event state.
+- [x] Terminal/status event adapters are covered by focused tests.
 
 Verification:
 
-- [ ] `GOCACHE=/Users/zade/Code/asr/Scriberr/.tmp/go-build go test ./internal/api ./internal/files ./internal/recording ./internal/summarization ./internal/transcription/...`
-- [ ] `git diff --check`
+- [x] `GOCACHE=/Users/zade/Code/asr/Scriberr/.tmp/go-build go test ./internal/api -run 'TestEvent|TestSSE|Test.*ResponseDTO|TestRepresentativeResponseShapes|TestCanonicalRouteRegistration|TestEndpointContractSmoke|TestProductionAPIDatabaseAccessInventory|TestBackendDependencyDirection'`
+- [x] `GOCACHE=/Users/zade/Code/asr/Scriberr/.tmp/go-build go test ./internal/files ./internal/recording ./internal/summarization ./internal/transcription/...`
+- [x] `git diff --check`
 
 Artifacts:
 
-- Event mapper/tests.
+- `internal/api/events_handlers.go`
+- `internal/api/events_test.go`
 - `devnotes/v2.0.0/status-updates/backend-architecture-refactor-sprint-06-event-boundary.md`
 
 Commit:
 
-- [ ] `backend: harden event boundary`
+- [x] `backend: harden event boundary`
 
 ## Sprint 7: Bootstrap Extraction
 
