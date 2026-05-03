@@ -2,7 +2,7 @@
 
 This tracker belongs to `devnotes/v2.0.0/sprint-plans/backend-architecture-review-remediation-sprint-plan.md`.
 
-Status: Sprint 5 complete.
+Status: Sprint 6 complete.
 
 ## Run Rules
 
@@ -22,7 +22,7 @@ Status: Sprint 5 complete.
 | LLM API keys are stored raw | High | Sprint 4 | complete |
 | Queue terminal updates are not claim-owned | High | Sprint 5 | complete |
 | Recovery requeues every processing job | High | Sprint 5 | complete |
-| Chat generation runs inside HTTP handler | High | Sprint 6 | pending |
+| Chat generation runs inside HTTP handler | High | Sprint 6 | complete |
 | External LLM provider adapter lives in API | Medium | Sprint 3 | complete |
 | Admin route has no admin authorization | Medium | Sprint 1 | complete |
 | Generic/global repository methods remain exposed | Medium | Sprint 7 | pending |
@@ -282,7 +282,7 @@ Commit:
 
 ## Sprint 6: Move Chat Generation Workflow Into Chat Service
 
-Status: pending
+Status: complete
 
 Addresses:
 
@@ -290,38 +290,41 @@ Addresses:
 
 TDD and scope checks:
 
-- [ ] Add failing service-level tests for chat streaming workflow with fake LLM.
-- [ ] Add or update handler test proving handler delegates to service and writes SSE.
-- [ ] Move model selection, context build, LLM calls, persistence, and terminal run handling into `internal/chat`.
-- [ ] Move `chatClientForConfig` out of `internal/api`.
-- [ ] Add architecture guard: production API must not import `internal/llm`.
-- [ ] Preserve existing SSE event names and payload shape unless deliberately changed.
-- [ ] Write status note `backend-architecture-review-remediation-sprint-06-chat-service.md`.
+- [x] Add failing service-level tests for chat streaming workflow with fake LLM.
+- [x] Add or update handler test proving handler delegates to service and writes SSE.
+- [x] Move model selection, context build, LLM calls, persistence, and terminal run handling into `internal/chat`.
+- [x] Move `chatClientForConfig` out of `internal/api`.
+- [x] Add architecture guard: production API must not import `internal/llm`.
+- [x] Preserve existing SSE event names and payload shape unless deliberately changed.
+- [x] Write status note `backend-architecture-review-remediation-sprint-06-chat-service.md`.
 
 Acceptance checks:
 
-- [ ] Chat generation is testable without Gin.
-- [ ] Handler is thin and HTTP/SSE-focused.
-- [ ] Existing chat route behavior remains stable.
-- [ ] API no longer owns concrete LLM client construction.
+- [x] Chat generation is testable without Gin.
+- [x] Handler is thin and HTTP/SSE-focused.
+- [x] Existing chat route behavior remains stable.
+- [x] API no longer owns concrete LLM client construction.
 
 Verification:
 
-- [ ] `GOCACHE=/private/tmp/scriberr-go-cache go test ./internal/chat ./internal/api -run 'TestChat|TestProduction|TestBackendDependencyDirection'`
-- [ ] `GOCACHE=/private/tmp/scriberr-go-cache go test ./internal/llm ./internal/llmprovider ./cmd/server`
-- [ ] `git diff --check`
+- [x] `GOCACHE=/private/tmp/scriberr-go-cache go test ./internal/chat ./internal/api -run 'TestChat|TestProduction|TestBackendDependencyDirection'`
+- [x] `GOCACHE=/private/tmp/scriberr-go-cache go test ./internal/chat`
+- [x] `GOCACHE=/private/tmp/scriberr-go-cache go test ./internal/llm ./internal/llmprovider ./cmd/server`
+- [x] `git diff --check`
 
 Artifacts:
 
 - `internal/chat/service.go`
-- `internal/chat/service_test.go`
+- `internal/chat/generation.go`
+- `internal/chat/llm_client.go`
+- `internal/chat/generation_service_test.go`
 - `internal/api/chat_handlers.go`
 - `internal/api/architecture_test.go`
 - `devnotes/v2.0.0/status-updates/backend-architecture-review-remediation-sprint-06-chat-service.md`
 
 Commit:
 
-- [ ] `backend: move chat generation into service`
+- [x] `backend: move chat generation into service`
 
 ## Sprint 7: Quarantine Legacy And Global Repository Methods
 

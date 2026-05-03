@@ -11,10 +11,11 @@ import (
 type Service struct {
 	repo       repository.ChatRepository
 	llmConfigs repository.LLMConfigRepository
+	llmFactory LLMClientFactory
 }
 
 func NewService(repo repository.ChatRepository, llmConfigs repository.LLMConfigRepository) *Service {
-	return &Service{repo: repo, llmConfigs: llmConfigs}
+	return &Service{repo: repo, llmConfigs: llmConfigs, llmFactory: ClientForConfig}
 }
 
 func (s *Service) ActiveLLMConfig(ctx context.Context, userID uint) (*models.LLMConfig, error) {

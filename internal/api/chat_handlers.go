@@ -1,7 +1,6 @@
 package api
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -10,14 +9,11 @@ import (
 	"time"
 
 	chatdomain "scriberr/internal/chat"
-	"scriberr/internal/llm"
 	"scriberr/internal/models"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
-
-const chatProviderTimeout = 10 * time.Second
 
 type createChatSessionRequest struct {
 	ParentTranscriptionID string  `json:"parent_transcription_id"`
@@ -52,35 +48,22 @@ func (h *Handler) listChatModels(c *gin.Context) {
 		writeError(c, http.StatusUnauthorized, "UNAUTHORIZED", "missing or invalid authentication", nil)
 		return
 	}
-	config, ok := h.activeLLMConfig(c, userID, true)
-	if !ok {
+	result, err := h.chat.ListProviderModels(c.Request.Context(), userID)
+	if !h.writeChatProviderError(c, err) {
 		return
 	}
-	client, err := h.chatLLMFactory(config)
-	if err != nil {
-		writeError(c, http.StatusUnprocessableEntity, "LLM_PROVIDER_UNAVAILABLE", "LLM provider is not available.", nil)
-		return
-	}
-	ctx, cancel := context.WithTimeout(c.Request.Context(), chatProviderTimeout)
-	defer cancel()
-	models, err := client.GetModels(ctx)
-	if err != nil {
-		writeError(c, http.StatusServiceUnavailable, "LLM_PROVIDER_UNAVAILABLE", "LLM provider is not available.", nil)
-		return
-	}
-	items := make([]gin.H, 0, len(models))
-	for _, model := range models {
-		window, _ := client.GetContextWindow(ctx, model)
+	items := make([]gin.H, 0, len(result.Models))
+	for _, model := range result.Models {
 		items = append(items, gin.H{
-			"id":                    model,
-			"display_name":          model,
-			"context_window":        window,
-			"context_window_source": "provider",
-			"supports_streaming":    true,
-			"supports_reasoning":    true,
+			"id":                    model.ID,
+			"display_name":          model.DisplayName,
+			"context_window":        model.ContextWindow,
+			"context_window_source": model.ContextWindowSource,
+			"supports_streaming":    model.SupportsStreaming,
+			"supports_reasoning":    model.SupportsReasoning,
 		})
 	}
-	c.JSON(http.StatusOK, gin.H{"provider": config.Provider, "configured": true, "models": items})
+	c.JSON(http.StatusOK, gin.H{"provider": result.Provider, "configured": result.Configured, "models": items})
 }
 
 func (h *Handler) createChatSession(c *gin.Context) {
@@ -110,7 +93,7 @@ func (h *Handler) createChatSession(c *gin.Context) {
 		writeError(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "model is required", stringPtr("model"))
 		return
 	}
-	if !h.chatModelAvailable(c, config, model) {
+	if err := h.chat.EnsureModelAvailable(c.Request.Context(), config, model); !h.writeChatProviderError(c, err) {
 		return
 	}
 	title := strings.TrimSpace(req.Title)
@@ -345,115 +328,29 @@ func (h *Handler) streamChatMessage(c *gin.Context, publicSessionID string) {
 	if !bindJSON(c, &req) {
 		return
 	}
-	content := strings.TrimSpace(req.Content)
-	if content == "" {
-		writeError(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "content is required", stringPtr("content"))
-		return
-	}
-	config, ok := h.activeLLMConfig(c, session.UserID, true)
-	if !ok {
-		return
-	}
-	model := strings.TrimSpace(req.Model)
-	if model == "" {
-		model = session.Model
-	}
-	if !h.chatModelAvailable(c, config, model) {
-		return
-	}
-	client, err := h.chatLLMFactory(config)
-	if err != nil {
-		writeError(c, http.StatusServiceUnavailable, "LLM_PROVIDER_UNAVAILABLE", "LLM provider is not available.", nil)
-		return
-	}
 	flusher, ok := c.Writer.(http.Flusher)
 	if !ok {
 		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "streaming is not supported", nil)
 		return
 	}
-	ctx := c.Request.Context()
-	userMessage := &models.ChatMessage{UserID: session.UserID, ChatSessionID: session.ID, Role: models.ChatMessageRoleUser, Content: content}
-	if err := h.chat.CreateMessage(ctx, userMessage); err != nil {
-		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not persist user message", nil)
+	events, err := h.chat.StreamMessage(c.Request.Context(), chatdomain.StreamMessageCommand{
+		UserID:      session.UserID,
+		SessionID:   session.ID,
+		Content:     req.Content,
+		Model:       req.Model,
+		Temperature: req.Temperature,
+	})
+	if !h.writeChatProviderError(c, err) {
 		return
 	}
-	provider := config.Provider
-	assistant := &models.ChatMessage{UserID: session.UserID, ChatSessionID: session.ID, Role: models.ChatMessageRoleAssistant, Status: models.ChatMessageStatusStreaming, Provider: &provider, Model: &model}
-	if err := h.chat.CreateMessage(ctx, assistant); err != nil {
-		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not persist assistant message", nil)
-		return
-	}
-	window, _ := client.GetContextWindow(ctx, model)
-	if window <= 0 {
-		window = 4096
-	}
-	run := &models.ChatGenerationRun{UserID: session.UserID, ChatSessionID: session.ID, AssistantMessageID: &assistant.ID, Status: models.ChatGenerationRunStatusPending, Provider: provider, Model: model, ContextWindow: window, ContextWindowSource: "provider"}
-	if err := h.chat.CreateGenerationRun(ctx, run); err != nil {
-		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not create chat run", nil)
-		return
-	}
-	assistant.RunID = &run.ID
-	_ = h.chat.UpdateMessage(ctx, assistant)
 
 	c.Header("Content-Type", "text/event-stream")
 	c.Header("Cache-Control", "no-cache")
 	c.Header("Connection", "keep-alive")
 	c.Status(http.StatusOK)
-	chatWriteSSE(c, flusher, "chat.run.started", chatRunPayload(session.ID, run.ID, assistant.ID, gin.H{"status": string(models.ChatGenerationRunStatusStreaming)}))
-	chatWriteSSE(c, flusher, "chat.message.created", gin.H{
-		"session_id":           publicChatSessionID(session.ID),
-		"run_id":               publicChatRunID(run.ID),
-		"message_id":           publicChatMessageID(userMessage.ID),
-		"assistant_message_id": publicChatMessageID(assistant.ID),
-		"user_message":         chatMessageResponse(userMessage),
-		"assistant_message":    chatMessageResponse(assistant),
-	})
-
-	now := time.Now()
-	_ = h.chat.UpdateGenerationRunStatus(context.Background(), session.UserID, run.ID, models.ChatGenerationRunStatusStreaming, now, nil)
-	messages, _ := h.chat.ListMessages(ctx, session.UserID, session.ID, 100)
-	llmMessages := h.buildLLMMessages(ctx, session, messages, content, window)
-	events, errorsChan := client.ChatCompletionStreamEvents(ctx, model, llmMessages, req.Temperature)
-	var responseContent, reasoningContent strings.Builder
-	var usage *llm.TokenUsage
 	for event := range events {
-		switch event.Type {
-		case llm.StreamEventReasoningDelta:
-			reasoningContent.WriteString(event.ReasoningDelta)
-			chatWriteSSE(c, flusher, "chat.delta.reasoning", chatRunPayload(session.ID, run.ID, assistant.ID, gin.H{"delta": event.ReasoningDelta}))
-		case llm.StreamEventContentDelta:
-			responseContent.WriteString(event.ContentDelta)
-			chatWriteSSE(c, flusher, "chat.delta.content", chatRunPayload(session.ID, run.ID, assistant.ID, gin.H{"delta": event.ContentDelta}))
-		case llm.StreamEventUsage:
-			usage = event.Usage
-		}
+		chatWriteSSE(c, flusher, event.Name, h.chatStreamPayload(event))
 	}
-	if err := firstStreamError(errorsChan); err != nil {
-		message := sanitizePublicText(err.Error())
-		assistant.Status = models.ChatMessageStatusFailed
-		assistant.Content = responseContent.String()
-		assistant.ReasoningContent = reasoningContent.String()
-		_ = h.chat.UpdateMessage(context.Background(), assistant)
-		_ = h.chat.UpdateGenerationRunStatus(context.Background(), session.UserID, run.ID, models.ChatGenerationRunStatusFailed, time.Now(), &message)
-		chatWriteSSE(c, flusher, "chat.run.failed", chatRunPayload(session.ID, run.ID, assistant.ID, gin.H{"error": message}))
-		return
-	}
-	assistant.Status = models.ChatMessageStatusCompleted
-	assistant.Content = responseContent.String()
-	assistant.ReasoningContent = reasoningContent.String()
-	completionPayload := gin.H{"status": string(models.ChatGenerationRunStatusCompleted)}
-	if usage != nil {
-		assistant.PromptTokens = intPtr(usage.PromptTokens)
-		assistant.CompletionTokens = intPtr(usage.CompletionTokens)
-		assistant.ReasoningTokens = intPtr(usage.ReasoningTokens)
-		assistant.TotalTokens = intPtr(usage.TotalTokens)
-		run.ContextTokensEstimated = usage.PromptTokens
-		completionPayload["usage"] = chatUsageResponse(usage)
-	}
-	_ = h.chat.UpdateMessage(context.Background(), assistant)
-	_ = h.chat.UpdateGenerationRunStatus(context.Background(), session.UserID, run.ID, models.ChatGenerationRunStatusCompleted, time.Now(), nil)
-	completionPayload["assistant_message"] = chatMessageResponse(assistant)
-	chatWriteSSE(c, flusher, "chat.run.completed", chatRunPayload(session.ID, run.ID, assistant.ID, completionPayload))
 }
 
 func (h *Handler) cancelChatRun(c *gin.Context, publicRunID string) {
@@ -504,30 +401,6 @@ func (h *Handler) generateChatTitle(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"id": publicChatSessionID(session.ID), "title": title})
 }
 
-func (h *Handler) buildLLMMessages(ctx context.Context, session *models.ChatSession, messages []models.ChatMessage, current string, window int) []llm.ChatMessage {
-	var out []llm.ChatMessage
-	if session.SystemPrompt != nil && strings.TrimSpace(*session.SystemPrompt) != "" {
-		out = append(out, llm.ChatMessage{Role: "system", Content: strings.TrimSpace(*session.SystemPrompt)})
-	}
-	built, err := h.chat.BuildContext(ctx, session.UserID, session.ID, window)
-	if err == nil && strings.TrimSpace(built) != "" {
-		out = append(out, llm.ChatMessage{Role: "system", Content: "Active transcript contexts:\n" + built})
-	}
-	start := 0
-	if len(messages) > 12 {
-		start = len(messages) - 12
-	}
-	for _, message := range messages[start:] {
-		if message.ID != "" && strings.TrimSpace(message.Content) != "" {
-			out = append(out, llm.ChatMessage{Role: string(message.Role), Content: message.Content})
-		}
-	}
-	if len(out) == 0 || out[len(out)-1].Content != current {
-		out = append(out, llm.ChatMessage{Role: "user", Content: current})
-	}
-	return out
-}
-
 func (h *Handler) activeLLMConfig(c *gin.Context, userID uint, write bool) (*models.LLMConfig, bool) {
 	config, err := h.chat.ActiveLLMConfig(c.Request.Context(), userID)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -543,26 +416,6 @@ func (h *Handler) activeLLMConfig(c *gin.Context, userID uint, write bool) (*mod
 		return nil, false
 	}
 	return config, true
-}
-
-func (h *Handler) chatModelAvailable(c *gin.Context, config *models.LLMConfig, model string) bool {
-	client, err := h.chatLLMFactory(config)
-	if err != nil {
-		writeError(c, http.StatusServiceUnavailable, "LLM_PROVIDER_UNAVAILABLE", "LLM provider is not available.", nil)
-		return false
-	}
-	ctx, cancel := context.WithTimeout(c.Request.Context(), chatProviderTimeout)
-	defer cancel()
-	models, err := client.GetModels(ctx)
-	if err != nil {
-		writeError(c, http.StatusServiceUnavailable, "LLM_PROVIDER_UNAVAILABLE", "LLM provider is not available.", nil)
-		return false
-	}
-	if !stringInSlice(models, model) {
-		writeError(c, http.StatusUnprocessableEntity, "MODEL_NOT_AVAILABLE", "model is not available from the configured provider", stringPtr("model"))
-		return false
-	}
-	return true
 }
 
 func (h *Handler) chatSessionByPublicID(c *gin.Context, publicID string) (*models.ChatSession, bool) {
@@ -588,19 +441,50 @@ func (h *Handler) chatSessionByPublicID(c *gin.Context, publicID string) (*model
 	return session, true
 }
 
-func chatClientForConfig(config *models.LLMConfig) (llm.Service, error) {
-	baseURL := llmProviderBaseURL(config)
-	switch config.Provider {
-	case "ollama":
-		return llm.NewOllamaService(baseURL), nil
-	case "openai", "openai_compatible":
-		apiKey := ""
-		if config.APIKey != nil {
-			apiKey = strings.TrimSpace(*config.APIKey)
-		}
-		return llm.NewOpenAIService(apiKey, &baseURL), nil
+func (h *Handler) writeChatProviderError(c *gin.Context, err error) bool {
+	if err == nil {
+		return true
+	}
+	switch {
+	case errors.Is(err, chatdomain.ErrEmptyMessage):
+		writeError(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "content is required", stringPtr("content"))
+	case errors.Is(err, chatdomain.ErrModelUnavailable):
+		writeError(c, http.StatusUnprocessableEntity, "MODEL_NOT_AVAILABLE", "model is not available from the configured provider", stringPtr("model"))
+	case errors.Is(err, gorm.ErrRecordNotFound):
+		writeError(c, http.StatusConflict, "LLM_PROVIDER_NOT_CONFIGURED", "Configure an LLM provider before starting chat.", nil)
 	default:
-		return nil, fmt.Errorf("unsupported LLM provider")
+		writeError(c, http.StatusServiceUnavailable, "LLM_PROVIDER_UNAVAILABLE", "LLM provider is not available.", nil)
+	}
+	return false
+}
+
+func (h *Handler) chatStreamPayload(event chatdomain.StreamEvent) gin.H {
+	switch event.Name {
+	case "chat.message.created":
+		assistantMessageID := ""
+		if event.AssistantMessage != nil {
+			assistantMessageID = event.AssistantMessage.ID
+		}
+		return gin.H{
+			"session_id":           publicChatSessionID(event.SessionID),
+			"run_id":               publicChatRunID(event.RunID),
+			"message_id":           publicChatMessageID(event.MessageID),
+			"assistant_message_id": publicChatMessageID(assistantMessageID),
+			"user_message":         chatMessageResponse(event.UserMessage),
+			"assistant_message":    chatMessageResponse(event.AssistantMessage),
+		}
+	case "chat.delta.reasoning", "chat.delta.content":
+		return chatRunPayload(event.SessionID, event.RunID, event.MessageID, gin.H{"delta": event.Delta})
+	case "chat.run.failed":
+		return chatRunPayload(event.SessionID, event.RunID, event.MessageID, gin.H{"error": event.Error})
+	case "chat.run.completed":
+		payload := gin.H{"status": string(event.Status), "assistant_message": chatMessageResponse(event.AssistantMessage)}
+		if event.Usage != nil {
+			payload["usage"] = chatUsageResponse(event.Usage)
+		}
+		return chatRunPayload(event.SessionID, event.RunID, event.MessageID, payload)
+	default:
+		return chatRunPayload(event.SessionID, event.RunID, event.MessageID, gin.H{"status": string(event.Status)})
 	}
 }
 
@@ -622,15 +506,6 @@ func chatRunPayload(sessionID, runID, messageID string, payload gin.H) gin.H {
 	payload["run_id"] = publicChatRunID(runID)
 	payload["message_id"] = publicChatMessageID(messageID)
 	return payload
-}
-
-func firstStreamError(errors <-chan error) error {
-	for err := range errors {
-		if err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 func parsePublicID(value, prefix string) (string, bool) {
@@ -693,8 +568,6 @@ func nullablePublicChatMessageID(id *string) any {
 	return publicChatMessageID(*id)
 }
 
-func intPtr(value int) *int { return &value }
-
 func chatMessageResponse(message *models.ChatMessage) gin.H {
 	if message == nil {
 		return gin.H{}
@@ -725,7 +598,7 @@ func nullablePublicChatRunID(id *string) any {
 	return publicChatRunID(*id)
 }
 
-func chatUsageResponse(usage *llm.TokenUsage) gin.H {
+func chatUsageResponse(usage *chatdomain.TokenUsage) gin.H {
 	if usage == nil {
 		return gin.H{}
 	}

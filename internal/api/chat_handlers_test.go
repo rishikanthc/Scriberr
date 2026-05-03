@@ -69,9 +69,9 @@ func TestChatModelsRequireProviderAndReturnCapabilities(t *testing.T) {
 
 	userID := firstUserID(t)
 	saveChatLLMConfig(t, userID, "qwen")
-	s.handler.chatLLMFactory = func(config *models.LLMConfig) (llm.Service, error) {
+	s.handler.chat.SetLLMClientFactory(func(config *models.LLMConfig) (llm.Service, error) {
 		return &fakeChatLLM{models: []string{"qwen"}}, nil
-	}
+	})
 
 	resp, body = s.request(t, http.MethodGet, "/api/v1/chat/models", nil, token, "")
 	require.Equal(t, http.StatusOK, resp.Code)
@@ -88,7 +88,7 @@ func TestChatSessionContextAndStreamingLifecycle(t *testing.T) {
 	parent := createCompletedChatTranscript(t, userID, "parent transcript")
 	extra := createCompletedChatTranscript(t, userID, "extra transcript")
 	saveChatLLMConfig(t, userID, "qwen")
-	s.handler.chatLLMFactory = func(config *models.LLMConfig) (llm.Service, error) {
+	s.handler.chat.SetLLMClientFactory(func(config *models.LLMConfig) (llm.Service, error) {
 		return &fakeChatLLM{
 			models: []string{"qwen"},
 			events: []llm.StreamEvent{
@@ -98,7 +98,7 @@ func TestChatSessionContextAndStreamingLifecycle(t *testing.T) {
 				{Type: llm.StreamEventDone, FinishReason: "stop"},
 			},
 		}, nil
-	}
+	})
 
 	resp, body := s.request(t, http.MethodPost, "/api/v1/chat/sessions", map[string]any{
 		"parent_transcription_id": "tr_" + parent.ID,

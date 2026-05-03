@@ -124,6 +124,17 @@ func TestProductionAPIDoesNotOwnLLMProviderConnectionTester(t *testing.T) {
 	}
 }
 
+func TestProductionAPIDoesNotImportLLM(t *testing.T) {
+	violations, err := productionImportViolations(".", []string{"scriberr/internal/llm"}, nil)
+	if err != nil {
+		t.Fatalf("scan API imports: %v", err)
+	}
+	if len(violations) > 0 {
+		t.Fatalf("production API imports internal/llm:\n%s\nMove chat generation workflow and concrete LLM client usage into internal/chat.",
+			strings.Join(violations, "\n"))
+	}
+}
+
 func productionFilesImportingDatabase(root string) ([]string, error) {
 	var files []string
 	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {

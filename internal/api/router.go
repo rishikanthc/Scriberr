@@ -14,10 +14,8 @@ import (
 	chatdomain "scriberr/internal/chat"
 	"scriberr/internal/config"
 	filesdomain "scriberr/internal/files"
-	"scriberr/internal/llm"
 	"scriberr/internal/llmprovider"
 	"scriberr/internal/mediaimport"
-	"scriberr/internal/models"
 	profiledomain "scriberr/internal/profile"
 	recordingdomain "scriberr/internal/recording"
 	"scriberr/internal/summarization"
@@ -56,7 +54,6 @@ type Handler struct {
 	summaries      *summarization.Service
 	chat           *chatdomain.Service
 	finalizer      interface{ Notify() }
-	chatLLMFactory func(*models.LLMConfig) (llm.Service, error)
 }
 
 type HandlerDependencies struct {
@@ -90,7 +87,6 @@ func NewHandler(cfg *config.Config, authService *auth.AuthService, deps HandlerD
 		mediaImport:    deps.MediaImport,
 		eventHeartbeat: 25 * time.Second,
 		maxUploadBytes: defaultMaxUploadSizeBytes,
-		chatLLMFactory: chatClientForConfig,
 		queueService:   deps.Queue,
 		modelRegistry:  deps.ModelRegistry,
 		account:        deps.Account,
