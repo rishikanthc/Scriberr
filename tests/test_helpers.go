@@ -48,8 +48,6 @@ func NewTestHelper(t *testing.T, dbName string) *TestHelper {
 		DatabasePath: dbName,
 		JWTSecret:    "test-secret-key-for-unit-tests",
 		UploadDir:    "test_uploads_" + dbName,
-
-		WhisperXEnv: "test_whisperx_env",
 	}
 
 	// Initialize test database

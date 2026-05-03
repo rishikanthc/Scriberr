@@ -28,7 +28,7 @@ Close the backend architecture refactor with matching docs, stricter dependency 
 
 ## Residual Debt
 
-- The legacy Python transcription adapter tree remains because it is build-tagged or still covered by explicit tests. It is not wired into `cmd/server`.
+- The legacy Python transcription adapter tree has since been removed from the active repository; it is not wired into `cmd/server`.
 - The older `internal/queue` package remains because tests still exercise it. The production server uses `internal/transcription/worker`.
 - The full `internal/api` package test run is still blocked in the sandbox by `httptest.NewServer` loopback bind restrictions.
 

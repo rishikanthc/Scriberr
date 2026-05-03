@@ -24,19 +24,6 @@ Completed jobs store canonical JSON in `transcriptions.transcript_text` and writ
 
 The API must always expose `words` as an array. Older plain-text rows and older JSON without `words` are parsed through the compatibility mapper in `orchestrator`.
 
-## Legacy Python Stack
-
-The old Python adapter registry, pipeline, unified service, quick transcription service, and adapter tests are behind the `legacy_python` build tag. They are not part of normal server startup.
-
-Do not add new runtime dependencies on:
-
-- `internal/transcription/adapters`
-- `internal/transcription/registry`
-- `internal/transcription/pipeline`
-- `internal/transcription/unified_service.go`
-- `internal/transcription/queue_integration.go`
-- `internal/transcription/quick_transcription.go`
-
 ## Verification
 
 Default fake-provider validation:

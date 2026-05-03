@@ -13,13 +13,6 @@ func TestServerMainDoesNotReferenceLegacyPythonStartup(t *testing.T) {
 	}
 	for _, forbidden := range []string{
 		"internal/queue",
-		"internal/transcription/adapters",
-		"internal/transcription/registry",
-		"NewUnifiedJobProcessor",
-		"NewQuickTranscriptionService",
-		"InitEmbeddedPythonEnv",
-		"registerAdapters",
-		"WhisperXEnv",
 	} {
 		if strings.Contains(string(source), forbidden) {
 			t.Fatalf("server main still references legacy startup symbol %q", forbidden)

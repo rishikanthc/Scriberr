@@ -33,10 +33,6 @@ type Config struct {
 	TempDir        string
 	Recordings     RecordingConfig
 
-	// Python/WhisperX configuration
-	// Deprecated: retained until the legacy adapter startup path is removed.
-	WhisperXEnv string
-
 	// Local speech engine configuration
 	Engine EngineConfig
 
@@ -137,7 +133,6 @@ func loadUnchecked() *Config {
 			FailedRetention:       getEnvDurationUnchecked("RECORDING_FAILED_RETENTION", 24*time.Hour),
 			AllowedMimeTypes:      splitCSVEnv("RECORDING_ALLOWED_MIME_TYPES", []string{"audio/webm;codecs=opus", "audio/webm"}),
 		},
-		WhisperXEnv: getEnv("WHISPERX_ENV", "data/whisperx-env"),
 		Engine: EngineConfig{
 			CacheDir:     getEnv("SPEECH_ENGINE_CACHE_DIR", "data/models"),
 			Provider:     strings.ToLower(strings.TrimSpace(getEnv("SPEECH_ENGINE_PROVIDER", "auto"))),
