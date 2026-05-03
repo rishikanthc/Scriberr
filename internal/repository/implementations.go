@@ -13,6 +13,8 @@ import (
 	"gorm.io/gorm"
 )
 
+var ErrQueueClaimConflict = errors.New("queue claim is no longer owned by this worker")
+
 // UserRepository handles user-specific database operations
 type UserRepository interface {
 	Repository[models.User]
@@ -119,8 +121,11 @@ type JobRepository interface {
 	CompleteMediaImport(ctx context.Context, jobID, title, audioPath, sourceFileName string, durationMs *int64, completedAt time.Time) error
 	FailMediaImport(ctx context.Context, jobID string, message string, failedAt time.Time) error
 	CompleteTranscription(ctx context.Context, jobID string, transcriptJSON string, outputPath *string, completedAt time.Time) error
+	CompleteTranscriptionClaimed(ctx context.Context, jobID, workerID, executionID string, transcriptJSON string, outputPath *string, completedAt time.Time) error
 	FailTranscription(ctx context.Context, jobID string, message string, failedAt time.Time) error
+	FailTranscriptionClaimed(ctx context.Context, jobID, workerID, executionID string, message string, failedAt time.Time) error
 	CancelTranscription(ctx context.Context, jobID string, canceledAt time.Time) error
+	CancelTranscriptionClaimed(ctx context.Context, jobID, workerID, executionID string, canceledAt time.Time) error
 	ListExecutions(ctx context.Context, jobID string) ([]models.TranscriptionJobExecution, error)
 	CountStatusesByUser(ctx context.Context, userID uint) (map[models.JobStatus]int64, error)
 	UpdateTranscript(ctx context.Context, jobID string, transcript string) error
@@ -444,7 +449,7 @@ func (r *jobRepository) RenewClaim(ctx context.Context, jobID, workerID string, 
 
 func (r *jobRepository) RecoverOrphanedProcessing(ctx context.Context, now time.Time) (int64, error) {
 	result := r.db.WithContext(ctx).Model(&models.TranscriptionJob{}).
-		Where("status = ?", models.StatusProcessing).
+		Where("status = ? AND (claim_expires_at IS NULL OR claim_expires_at <= ?)", models.StatusProcessing, now).
 		Updates(map[string]any{
 			"status":           models.StatusPending,
 			"queued_at":        now,
@@ -541,6 +546,28 @@ func (r *jobRepository) CompleteTranscription(ctx context.Context, jobID string,
 	})
 }
 
+func (r *jobRepository) CompleteTranscriptionClaimed(ctx context.Context, jobID, workerID, executionID string, transcriptJSON string, outputPath *string, completedAt time.Time) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := updateClaimedTranscriptionTerminal(tx, jobID, workerID, executionID, models.StatusCompleted, map[string]any{
+			"transcript_text":  transcriptJSON,
+			"output_json_path": outputPath,
+			"completed_at":     completedAt,
+			"failed_at":        nil,
+			"progress":         1.0,
+			"progress_stage":   "completed",
+			"last_error":       nil,
+		}); err != nil {
+			return err
+		}
+		return updateExecutionTerminal(tx, jobID, executionID, models.StatusCompleted, map[string]any{
+			"completed_at":     completedAt,
+			"failed_at":        nil,
+			"error_message":    nil,
+			"output_json_path": outputPath,
+		})
+	})
+}
+
 func (r *jobRepository) FailTranscription(ctx context.Context, jobID string, message string, failedAt time.Time) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Model(&models.TranscriptionJob{}).
@@ -562,6 +589,22 @@ func (r *jobRepository) FailTranscription(ctx context.Context, jobID string, mes
 	})
 }
 
+func (r *jobRepository) FailTranscriptionClaimed(ctx context.Context, jobID, workerID, executionID string, message string, failedAt time.Time) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := updateClaimedTranscriptionTerminal(tx, jobID, workerID, executionID, models.StatusFailed, map[string]any{
+			"failed_at":      failedAt,
+			"progress_stage": "failed",
+			"last_error":     message,
+		}); err != nil {
+			return err
+		}
+		return updateExecutionTerminal(tx, jobID, executionID, models.StatusFailed, map[string]any{
+			"failed_at":     failedAt,
+			"error_message": message,
+		})
+	})
+}
+
 func (r *jobRepository) CancelTranscription(ctx context.Context, jobID string, canceledAt time.Time) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Model(&models.TranscriptionJob{}).
@@ -575,6 +618,20 @@ func (r *jobRepository) CancelTranscription(ctx context.Context, jobID string, c
 			return err
 		}
 		return updateLatestExecutionTerminal(tx, jobID, models.StatusStopped, map[string]any{
+			"completed_at": nil,
+			"failed_at":    canceledAt,
+		})
+	})
+}
+
+func (r *jobRepository) CancelTranscriptionClaimed(ctx context.Context, jobID, workerID, executionID string, canceledAt time.Time) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := updateClaimedTranscriptionTerminal(tx, jobID, workerID, executionID, models.StatusStopped, map[string]any{
+			"progress_stage": "stopped",
+		}); err != nil {
+			return err
+		}
+		return updateExecutionTerminal(tx, jobID, executionID, models.StatusStopped, map[string]any{
 			"completed_at": nil,
 			"failed_at":    canceledAt,
 		})
@@ -632,6 +689,39 @@ func updateLatestExecutionTerminal(tx *gorm.DB, jobID string, status models.JobS
 	updates["status"] = status
 	if err := executionQuery.Updates(updates).Error; err != nil {
 		return err
+	}
+	return nil
+}
+
+func updateClaimedTranscriptionTerminal(tx *gorm.DB, jobID, workerID, executionID string, status models.JobStatus, updates map[string]any) error {
+	if strings.TrimSpace(workerID) == "" || strings.TrimSpace(executionID) == "" {
+		return ErrQueueClaimConflict
+	}
+	updates["status"] = status
+	updates["claimed_by"] = nil
+	updates["claim_expires_at"] = nil
+	result := tx.Model(&models.TranscriptionJob{}).
+		Where("id = ? AND status = ? AND claimed_by = ? AND latest_execution_id = ?", jobID, models.StatusProcessing, workerID, executionID).
+		Updates(updates)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return ErrQueueClaimConflict
+	}
+	return nil
+}
+
+func updateExecutionTerminal(tx *gorm.DB, jobID, executionID string, status models.JobStatus, updates map[string]any) error {
+	updates["status"] = status
+	result := tx.Model(&models.TranscriptionJobExecution{}).
+		Where("id = ? AND transcription_id = ?", executionID, jobID).
+		Updates(updates)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return ErrQueueClaimConflict
 	}
 	return nil
 }

@@ -86,20 +86,24 @@ func (p *Processor) Process(ctx context.Context, job *models.TranscriptionJob) (
 	if err := p.Jobs.CreateExecution(ctx, execution); err != nil {
 		return failedResult(sanitizeErrorMessage(err)), err
 	}
+	withExecution := func(result worker.ProcessResult, err error) (worker.ProcessResult, error) {
+		result.ExecutionID = execution.ID
+		return result, err
+	}
 
 	if err := p.publishProgress(ctx, job, "preparing", 0.05, models.StatusProcessing); err != nil {
-		return canceledResult(), err
+		return withExecution(canceledResult(), err)
 	}
 	if err := validateAudioPath(job.AudioPath); err != nil {
 		message := sanitizeErrorMessage(err)
-		return failedResult(message), err
+		return withExecution(failedResult(message), err)
 	}
 	if err := provider.Prepare(ctx); err != nil {
-		return p.errorResult(ctx, err)
+		return withExecution(p.errorResult(ctx, err))
 	}
 
 	if err := p.publishProgress(ctx, job, "transcribing", 0.20, models.StatusProcessing); err != nil {
-		return canceledResult(), err
+		return withExecution(canceledResult(), err)
 	}
 	transcription, err := provider.Transcribe(ctx, engineprovider.TranscriptionRequest{
 		JobID:                   job.ID,
@@ -120,10 +124,10 @@ func (p *Processor) Process(ctx context.Context, job *models.TranscriptionJob) (
 		ChunkDurationSec:        float64(job.Parameters.ChunkSize),
 	})
 	if err != nil {
-		return p.errorResult(ctx, err)
+		return withExecution(p.errorResult(ctx, err))
 	}
 	if transcription == nil {
-		return failedResult("transcription provider returned no result"), fmt.Errorf("transcription provider returned no result")
+		return withExecution(failedResult("transcription provider returned no result"), fmt.Errorf("transcription provider returned no result"))
 	}
 	if transcription.ModelID == "" {
 		transcription.ModelID = transcriptionModel
@@ -135,7 +139,7 @@ func (p *Processor) Process(ctx context.Context, job *models.TranscriptionJob) (
 	var diarization *engineprovider.DiarizationResult
 	if diarizationEnabled {
 		if err := p.publishProgress(ctx, job, "diarizing", 0.70, models.StatusProcessing); err != nil {
-			return canceledResult(), err
+			return withExecution(canceledResult(), err)
 		}
 		diarization, err = provider.Diarize(ctx, engineprovider.DiarizationRequest{
 			JobID:          job.ID,
@@ -148,7 +152,7 @@ func (p *Processor) Process(ctx context.Context, job *models.TranscriptionJob) (
 			MinDurationOff: job.Parameters.MinDurationOff,
 		})
 		if err != nil {
-			return p.errorResult(ctx, err)
+			return withExecution(p.errorResult(ctx, err))
 		}
 		if diarization != nil {
 			if diarization.ModelID == "" {
@@ -161,30 +165,31 @@ func (p *Processor) Process(ctx context.Context, job *models.TranscriptionJob) (
 	}
 
 	if err := p.publishProgress(ctx, job, "merging", 0.85, models.StatusProcessing); err != nil {
-		return canceledResult(), err
+		return withExecution(canceledResult(), err)
 	}
 	canonical, err := BuildCanonicalTranscript(transcription, diarization)
 	if err != nil {
 		message := sanitizeErrorMessage(err)
-		return failedResult(message), err
+		return withExecution(failedResult(message), err)
 	}
 	transcriptJSON, err := json.Marshal(canonical)
 	if err != nil {
 		message := sanitizeErrorMessage(err)
-		return failedResult(message), err
+		return withExecution(failedResult(message), err)
 	}
 
 	if err := p.publishProgress(ctx, job, "saving", 0.95, models.StatusProcessing); err != nil {
-		return canceledResult(), err
+		return withExecution(canceledResult(), err)
 	}
 	outputPath, err := p.transcriptStore().SaveTranscriptJSON(ctx, job.ID, transcriptJSON)
 	if err != nil {
 		message := sanitizeErrorMessage(err)
-		return failedResult(message), err
+		return withExecution(failedResult(message), err)
 	}
 	p.publishFinal(ctx, job, "completed", 1.0, models.StatusCompleted)
 	logger.Info("Transcription job processed", "job_id", job.ID, "provider", providerID, "model", transcriptionModel)
 	return worker.ProcessResult{
+		ExecutionID:    execution.ID,
 		Status:         models.StatusCompleted,
 		TranscriptJSON: string(transcriptJSON),
 		OutputJSONPath: &outputPath,

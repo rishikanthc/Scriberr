@@ -304,27 +304,47 @@ func TestJobRepositoryRecoverOrphanedProcessingJobs(t *testing.T) {
 	user := createQueueTestUser(t, db)
 	repo := NewJobRepository(db)
 	now := time.Now().Truncate(time.Millisecond)
-	job := createQueueTestJob(t, db, user.ID, "job-recover", models.StatusProcessing, now)
+	active := createQueueTestJob(t, db, user.ID, "job-active-lease", models.StatusProcessing, now)
+	missingLease := createQueueTestJob(t, db, user.ID, "job-missing-lease", models.StatusProcessing, now)
+	expired := createQueueTestJob(t, db, user.ID, "job-expired-lease", models.StatusProcessing, now)
 	workerID := "old-worker"
-	claimExpiry := now.Add(time.Hour)
-	require.NoError(t, db.Model(&models.TranscriptionJob{}).Where("id = ?", job.ID).Updates(map[string]any{
+	require.NoError(t, db.Model(&models.TranscriptionJob{}).Where("id = ?", active.ID).Updates(map[string]any{
 		"progress":         0.5,
 		"progress_stage":   "transcribing",
 		"claimed_by":       workerID,
-		"claim_expires_at": claimExpiry,
+		"claim_expires_at": now.Add(time.Hour),
+	}).Error)
+	require.NoError(t, db.Model(&models.TranscriptionJob{}).Where("id = ?", missingLease.ID).Updates(map[string]any{
+		"progress":       0.5,
+		"progress_stage": "transcribing",
+		"claimed_by":     workerID,
+	}).Error)
+	require.NoError(t, db.Model(&models.TranscriptionJob{}).Where("id = ?", expired.ID).Updates(map[string]any{
+		"progress":         0.5,
+		"progress_stage":   "transcribing",
+		"claimed_by":       workerID,
+		"claim_expires_at": now.Add(-time.Second),
 	}).Error)
 
 	recovered, err := repo.RecoverOrphanedProcessing(context.Background(), now.Add(time.Second))
 	require.NoError(t, err)
-	assert.Equal(t, int64(1), recovered)
+	assert.Equal(t, int64(2), recovered)
 
-	var persisted models.TranscriptionJob
-	require.NoError(t, db.First(&persisted, "id = ?", job.ID).Error)
-	assert.Equal(t, models.StatusPending, persisted.Status)
-	assert.Equal(t, "recovered", persisted.ProgressStage)
-	assert.Nil(t, persisted.ClaimedBy)
-	assert.Nil(t, persisted.ClaimExpiresAt)
-	require.NotNil(t, persisted.QueuedAt)
+	var activePersisted models.TranscriptionJob
+	require.NoError(t, db.First(&activePersisted, "id = ?", active.ID).Error)
+	assert.Equal(t, models.StatusProcessing, activePersisted.Status)
+	require.NotNil(t, activePersisted.ClaimedBy)
+	require.NotNil(t, activePersisted.ClaimExpiresAt)
+
+	for _, id := range []string{missingLease.ID, expired.ID} {
+		var persisted models.TranscriptionJob
+		require.NoError(t, db.First(&persisted, "id = ?", id).Error)
+		assert.Equal(t, models.StatusPending, persisted.Status)
+		assert.Equal(t, "recovered", persisted.ProgressStage)
+		assert.Nil(t, persisted.ClaimedBy)
+		assert.Nil(t, persisted.ClaimExpiresAt)
+		require.NotNil(t, persisted.QueuedAt)
+	}
 }
 
 func TestJobRepositoryProgressAndTerminalTransitionsUpdateLatestExecution(t *testing.T) {
@@ -377,6 +397,98 @@ func TestJobRepositoryProgressAndTerminalTransitionsUpdateLatestExecution(t *tes
 	require.NoError(t, err)
 	require.Len(t, executions, 1)
 	assert.Equal(t, execution.ID, executions[0].ID)
+}
+
+func TestJobRepositoryClaimOwnedCompleteRejectsStaleWorkerAfterRecovery(t *testing.T) {
+	db := openJobQueueTestDB(t)
+	user := createQueueTestUser(t, db)
+	repo := NewJobRepository(db)
+	now := time.Now().Truncate(time.Millisecond)
+	job := createQueueTestJob(t, db, user.ID, "job-stale-complete", models.StatusUploaded, now)
+	require.NoError(t, repo.EnqueueTranscription(context.Background(), job.ID, now))
+	firstClaim, err := repo.ClaimNextTranscription(context.Background(), "worker-a", now.Add(time.Minute))
+	require.NoError(t, err)
+	firstExecution := &models.TranscriptionJobExecution{TranscriptionJobID: firstClaim.ID, UserID: user.ID, Status: models.StatusProcessing, StartedAt: now}
+	require.NoError(t, repo.CreateExecution(context.Background(), firstExecution))
+
+	require.NoError(t, db.Model(&models.TranscriptionJob{}).Where("id = ?", firstClaim.ID).Update("claim_expires_at", now.Add(-time.Second)).Error)
+	recovered, err := repo.RecoverOrphanedProcessing(context.Background(), now)
+	require.NoError(t, err)
+	require.Equal(t, int64(1), recovered)
+	secondClaim, err := repo.ClaimNextTranscription(context.Background(), "worker-b", now.Add(time.Minute))
+	require.NoError(t, err)
+	secondExecution := &models.TranscriptionJobExecution{TranscriptionJobID: secondClaim.ID, UserID: user.ID, Status: models.StatusProcessing, StartedAt: now.Add(time.Second)}
+	require.NoError(t, repo.CreateExecution(context.Background(), secondExecution))
+
+	outputPath := "/internal/transcripts/job-stale-complete/transcript.json"
+	err = repo.CompleteTranscriptionClaimed(context.Background(), firstClaim.ID, "worker-a", firstExecution.ID, `{"text":"stale"}`, &outputPath, now.Add(2*time.Second))
+	require.ErrorIs(t, err, ErrQueueClaimConflict)
+
+	var persisted models.TranscriptionJob
+	require.NoError(t, db.First(&persisted, "id = ?", firstClaim.ID).Error)
+	assert.Equal(t, models.StatusProcessing, persisted.Status)
+	require.NotNil(t, persisted.ClaimedBy)
+	assert.Equal(t, "worker-b", *persisted.ClaimedBy)
+
+	var staleExecution models.TranscriptionJobExecution
+	require.NoError(t, db.First(&staleExecution, "id = ?", firstExecution.ID).Error)
+	assert.Equal(t, models.StatusProcessing, staleExecution.Status)
+}
+
+func TestJobRepositoryClaimOwnedFailRejectsStaleWorkerAfterCancellation(t *testing.T) {
+	db := openJobQueueTestDB(t)
+	user := createQueueTestUser(t, db)
+	repo := NewJobRepository(db)
+	now := time.Now().Truncate(time.Millisecond)
+	job := createQueueTestJob(t, db, user.ID, "job-stale-fail", models.StatusUploaded, now)
+	require.NoError(t, repo.EnqueueTranscription(context.Background(), job.ID, now))
+	claimed, err := repo.ClaimNextTranscription(context.Background(), "worker-a", now.Add(time.Minute))
+	require.NoError(t, err)
+	execution := &models.TranscriptionJobExecution{TranscriptionJobID: claimed.ID, UserID: user.ID, Status: models.StatusProcessing, StartedAt: now}
+	require.NoError(t, repo.CreateExecution(context.Background(), execution))
+
+	require.NoError(t, repo.CancelTranscription(context.Background(), claimed.ID, now.Add(time.Second)))
+	err = repo.FailTranscriptionClaimed(context.Background(), claimed.ID, "worker-a", execution.ID, "late failure", now.Add(2*time.Second))
+	require.ErrorIs(t, err, ErrQueueClaimConflict)
+
+	var persisted models.TranscriptionJob
+	require.NoError(t, db.First(&persisted, "id = ?", claimed.ID).Error)
+	assert.Equal(t, models.StatusStopped, persisted.Status)
+	assert.Nil(t, persisted.ClaimedBy)
+	assert.Nil(t, persisted.ClaimExpiresAt)
+
+	var persistedExecution models.TranscriptionJobExecution
+	require.NoError(t, db.First(&persistedExecution, "id = ?", execution.ID).Error)
+	assert.Equal(t, models.StatusStopped, persistedExecution.Status)
+}
+
+func TestJobRepositoryClaimOwnedTerminalUpdatesOnlyCurrentExecution(t *testing.T) {
+	db := openJobQueueTestDB(t)
+	user := createQueueTestUser(t, db)
+	repo := NewJobRepository(db)
+	now := time.Now().Truncate(time.Millisecond)
+	job := createQueueTestJob(t, db, user.ID, "job-current-execution", models.StatusUploaded, now)
+	require.NoError(t, repo.EnqueueTranscription(context.Background(), job.ID, now))
+	claimed, err := repo.ClaimNextTranscription(context.Background(), "worker-a", now.Add(time.Minute))
+	require.NoError(t, err)
+	oldExecution := &models.TranscriptionJobExecution{TranscriptionJobID: claimed.ID, UserID: user.ID, Status: models.StatusProcessing, StartedAt: now}
+	require.NoError(t, repo.CreateExecution(context.Background(), oldExecution))
+	currentExecution := &models.TranscriptionJobExecution{TranscriptionJobID: claimed.ID, UserID: user.ID, Status: models.StatusProcessing, StartedAt: now.Add(time.Second)}
+	require.NoError(t, repo.CreateExecution(context.Background(), currentExecution))
+
+	outputPath := "/internal/transcripts/job-current-execution/transcript.json"
+	err = repo.CompleteTranscriptionClaimed(context.Background(), claimed.ID, "worker-a", oldExecution.ID, `{"text":"old"}`, &outputPath, now.Add(2*time.Second))
+	require.ErrorIs(t, err, ErrQueueClaimConflict)
+
+	require.NoError(t, repo.CompleteTranscriptionClaimed(context.Background(), claimed.ID, "worker-a", currentExecution.ID, `{"text":"current"}`, &outputPath, now.Add(3*time.Second)))
+
+	var oldPersisted models.TranscriptionJobExecution
+	require.NoError(t, db.First(&oldPersisted, "id = ?", oldExecution.ID).Error)
+	assert.Equal(t, models.StatusProcessing, oldPersisted.Status)
+
+	var currentPersisted models.TranscriptionJobExecution
+	require.NoError(t, db.First(&currentPersisted, "id = ?", currentExecution.ID).Error)
+	assert.Equal(t, models.StatusCompleted, currentPersisted.Status)
 }
 
 func TestJobRepositoryFailAndCancelTranscription(t *testing.T) {

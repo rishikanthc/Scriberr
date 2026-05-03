@@ -68,6 +68,7 @@ type StatusEvent struct {
 
 type ProcessResult struct {
 	Status         models.JobStatus
+	ExecutionID    string
 	TranscriptJSON string
 	OutputJSONPath *string
 	ErrorMessage   string
@@ -319,7 +320,7 @@ func (s *Service) claimAndProcess(workerID string) error {
 	close(renewDone)
 
 	if errors.Is(jobCtx.Err(), context.Canceled) || errors.Is(processErr, context.Canceled) {
-		if err := s.repo.CancelTranscription(context.Background(), job.ID, time.Now()); err != nil {
+		if err := s.cancelClaimed(context.Background(), job, workerID, result.ExecutionID, time.Now()); err != nil {
 			return err
 		}
 		s.publishTerminalStatus(context.Background(), job, models.StatusStopped)
@@ -330,7 +331,7 @@ func (s *Service) claimAndProcess(workerID string) error {
 		if result.ErrorMessage != "" {
 			message = result.ErrorMessage
 		}
-		if err := s.repo.FailTranscription(context.Background(), job.ID, message, nonZeroTime(result.FailedAt)); err != nil {
+		if err := s.failClaimed(context.Background(), job, workerID, result.ExecutionID, message, nonZeroTime(result.FailedAt)); err != nil {
 			return err
 		}
 		s.publishTerminalStatus(context.Background(), job, models.StatusFailed)
@@ -338,7 +339,7 @@ func (s *Service) claimAndProcess(workerID string) error {
 	}
 	switch result.Status {
 	case "", models.StatusCompleted:
-		if err := s.repo.CompleteTranscription(context.Background(), job.ID, result.TranscriptJSON, result.OutputJSONPath, nonZeroTime(result.CompletedAt)); err != nil {
+		if err := s.completeClaimed(context.Background(), job, workerID, result.ExecutionID, result.TranscriptJSON, result.OutputJSONPath, nonZeroTime(result.CompletedAt)); err != nil {
 			return err
 		}
 		completedJob := *job
@@ -350,13 +351,13 @@ func (s *Service) claimAndProcess(workerID string) error {
 		s.publishTerminalStatus(context.Background(), job, models.StatusCompleted)
 		return nil
 	case models.StatusFailed:
-		if err := s.repo.FailTranscription(context.Background(), job.ID, result.ErrorMessage, nonZeroTime(result.FailedAt)); err != nil {
+		if err := s.failClaimed(context.Background(), job, workerID, result.ExecutionID, result.ErrorMessage, nonZeroTime(result.FailedAt)); err != nil {
 			return err
 		}
 		s.publishTerminalStatus(context.Background(), job, models.StatusFailed)
 		return nil
 	case models.StatusStopped, models.StatusCanceled:
-		if err := s.repo.CancelTranscription(context.Background(), job.ID, nonZeroTime(result.FailedAt)); err != nil {
+		if err := s.cancelClaimed(context.Background(), job, workerID, result.ExecutionID, nonZeroTime(result.FailedAt)); err != nil {
 			return err
 		}
 		s.publishTerminalStatus(context.Background(), job, models.StatusStopped)
@@ -364,6 +365,27 @@ func (s *Service) claimAndProcess(workerID string) error {
 	default:
 		return fmt.Errorf("unsupported worker processor result status %q", result.Status)
 	}
+}
+
+func (s *Service) completeClaimed(ctx context.Context, job *models.TranscriptionJob, workerID, executionID, transcriptJSON string, outputPath *string, completedAt time.Time) error {
+	if executionID == "" {
+		return s.repo.CompleteTranscription(ctx, job.ID, transcriptJSON, outputPath, completedAt)
+	}
+	return s.repo.CompleteTranscriptionClaimed(ctx, job.ID, workerID, executionID, transcriptJSON, outputPath, completedAt)
+}
+
+func (s *Service) failClaimed(ctx context.Context, job *models.TranscriptionJob, workerID, executionID, message string, failedAt time.Time) error {
+	if executionID == "" {
+		return s.repo.FailTranscription(ctx, job.ID, message, failedAt)
+	}
+	return s.repo.FailTranscriptionClaimed(ctx, job.ID, workerID, executionID, message, failedAt)
+}
+
+func (s *Service) cancelClaimed(ctx context.Context, job *models.TranscriptionJob, workerID, executionID string, canceledAt time.Time) error {
+	if executionID == "" {
+		return s.repo.CancelTranscription(ctx, job.ID, canceledAt)
+	}
+	return s.repo.CancelTranscriptionClaimed(ctx, job.ID, workerID, executionID, canceledAt)
 }
 
 func (s *Service) enqueueCompletionWork(ctx context.Context, job *models.TranscriptionJob) error {

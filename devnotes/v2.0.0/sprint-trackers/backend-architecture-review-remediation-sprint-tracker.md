@@ -2,7 +2,7 @@
 
 This tracker belongs to `devnotes/v2.0.0/sprint-plans/backend-architecture-review-remediation-sprint-plan.md`.
 
-Status: Sprint 4 complete.
+Status: Sprint 5 complete.
 
 ## Run Rules
 
@@ -20,8 +20,8 @@ Status: Sprint 4 complete.
 | --- | --- | --- | --- |
 | Global SSE is not user-scoped | High | Sprint 2 | complete |
 | LLM API keys are stored raw | High | Sprint 4 | complete |
-| Queue terminal updates are not claim-owned | High | Sprint 5 | pending |
-| Recovery requeues every processing job | High | Sprint 5 | pending |
+| Queue terminal updates are not claim-owned | High | Sprint 5 | complete |
+| Recovery requeues every processing job | High | Sprint 5 | complete |
 | Chat generation runs inside HTTP handler | High | Sprint 6 | pending |
 | External LLM provider adapter lives in API | Medium | Sprint 3 | complete |
 | Admin route has no admin authorization | Medium | Sprint 1 | complete |
@@ -235,7 +235,7 @@ Commit:
 
 ## Sprint 5: Queue Lease Ownership And Safe Recovery
 
-Status: pending
+Status: complete
 
 Addresses:
 
@@ -244,28 +244,29 @@ Addresses:
 
 TDD and scope checks:
 
-- [ ] Add failing test: active processing job with future lease is not recovered.
-- [ ] Add failing test: expired processing job is recovered.
-- [ ] Add failing test: stale worker cannot complete after recovery/reclaim.
-- [ ] Add failing test: stale worker cannot fail after cancellation.
-- [ ] Add failing test: terminal transition updates only latest/current execution.
-- [ ] Implement lease-aware recovery.
-- [ ] Implement claim-owned terminal transitions.
-- [ ] Update worker flow to pass worker/execution ownership.
-- [ ] Write status note `backend-architecture-review-remediation-sprint-05-queue-leases.md`.
+- [x] Add failing test: active processing job with future lease is not recovered.
+- [x] Add failing test: expired processing job is recovered.
+- [x] Add failing test: stale worker cannot complete after recovery/reclaim.
+- [x] Add failing test: stale worker cannot fail after cancellation.
+- [x] Add failing test: terminal transition updates only latest/current execution.
+- [x] Implement lease-aware recovery.
+- [x] Implement claim-owned terminal transitions.
+- [x] Update worker flow to pass worker/execution ownership.
+- [x] Write status note `backend-architecture-review-remediation-sprint-05-queue-leases.md`.
 
 Acceptance checks:
 
-- [ ] Recovery only targets expired or missing leases.
-- [ ] Complete/fail/cancel terminal writes require current claim owner.
-- [ ] Stale workers cannot overwrite newer terminal state.
-- [ ] Existing FIFO/priority behavior remains stable.
+- [x] Recovery only targets expired or missing leases.
+- [x] Complete/fail/cancel terminal writes require current claim owner.
+- [x] Stale workers cannot overwrite newer terminal state.
+- [x] Existing FIFO/priority behavior remains stable.
 
 Verification:
 
-- [ ] `GOCACHE=/private/tmp/scriberr-go-cache go test ./internal/repository -run 'TestJobRepository'`
-- [ ] `GOCACHE=/private/tmp/scriberr-go-cache go test ./internal/transcription/worker ./internal/transcription/orchestrator ./internal/api -run 'TestCapabilitiesQueue|TestEngineWorker'`
-- [ ] `git diff --check`
+- [x] `GOCACHE=/private/tmp/scriberr-go-cache go test ./internal/repository -run 'TestJobRepository'`
+- [x] `GOCACHE=/private/tmp/scriberr-go-cache go test ./internal/transcription/worker ./internal/transcription/orchestrator ./internal/api -run 'TestCapabilitiesQueue|TestEngineWorker'`
+- [x] `GOCACHE=/private/tmp/scriberr-go-cache go test ./internal/transcription/worker ./internal/transcription/orchestrator`
+- [x] `git diff --check`
 
 Artifacts:
 
@@ -277,7 +278,7 @@ Artifacts:
 
 Commit:
 
-- [ ] `backend: enforce queue lease ownership`
+- [x] `backend: enforce queue lease ownership`
 
 ## Sprint 6: Move Chat Generation Workflow Into Chat Service
 
