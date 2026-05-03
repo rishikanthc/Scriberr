@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type PropsWithChildren } fro
 import { RecordingDialog } from "@/features/recording/components/RecordingDialog";
 import { useBrowserRecorder, type BrowserRecorderState } from "@/features/recording/hooks/useBrowserRecorder";
 import { RecordingContext, type OptimisticRecordingSummary } from "@/features/recording/hooks/useRecordingController";
-import { useRecordingEvents, type RecordingEvent } from "@/features/recording/hooks/useRecordingEvents";
+import { useAppEventSubscription, type RecordingEvent } from "@/features/events/AppEventsProvider";
 import { useRecording } from "@/features/recording/hooks/useRecordingSession";
 
 const minimizedStatuses: BrowserRecorderState["status"][] = ["recording", "paused", "stopping", "finalizing", "failed"];
@@ -29,7 +29,7 @@ export function RecordingProvider({ children }: PropsWithChildren) {
     });
   }, [sessionId]);
 
-  useRecordingEvents(handleRecordingEvent);
+  useAppEventSubscription<RecordingEvent>("recording.", handleRecordingEvent);
   const [dialogOpen, setDialogOpen] = useState(false);
   const minimized = !dialogOpen && minimizedStatuses.includes(recorder.state.status);
   const minimizedRecording = useMemo(() => (

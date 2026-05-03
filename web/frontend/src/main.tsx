@@ -11,6 +11,7 @@ import { ProtectedRoute } from './components/ProtectedRoute'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { ToastProvider } from '@/components/ui/toast'
 import { RecordingProvider } from '@/features/recording/components/RecordingProvider'
+import { AppEventsProvider } from '@/features/events/AppEventsProvider'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { setupAuthInterceptor } from './lib/authInterceptor'
 
@@ -39,9 +40,11 @@ createRoot(document.getElementById('root')!).render(
           <TooltipProvider>
             <ToastProvider>
               <ProtectedRoute>
-                <RecordingProvider>
-                  <App />
-                </RecordingProvider>
+                <AppEventsProvider>
+                  <RecordingProvider>
+                    <App />
+                  </RecordingProvider>
+                </AppEventsProvider>
               </ProtectedRoute>
             </ToastProvider>
           </TooltipProvider>

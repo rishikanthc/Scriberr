@@ -15,13 +15,11 @@ import { TranscriptNoteComposer, type TranscriptNoteComposerSelection } from "@/
 import { TranscriptNotesSidebar } from "@/features/transcription/components/TranscriptNotesSidebar";
 import { TranscriptSelectionMenu } from "@/features/transcription/components/TranscriptSelectionMenu";
 import { AudioTagSection } from "@/features/tags/components/AudioTagSection";
-import { useFileEvents } from "@/features/files/hooks/useFileEvents";
 import { useTranscriptionDetailEvents } from "@/features/transcription/hooks/useTranscriptionDetailEvents";
 import { computeWordOffsets, computeWordOffsetsInText, createPlaybackSync, useTranscriptKaraokeHighlight, type KaraokeHighlightSegment, type PlaybackSync } from "@/features/transcription/hooks/useKaraokeHighlight";
 import { useTranscriptClickSeek } from "@/features/transcription/hooks/useTranscriptClickSeek";
 import { useTranscriptTextSelection } from "@/features/transcription/hooks/useTranscriptTextSelection";
 import { selectTranscriptNotes, useCreateTranscriptHighlight, useCreateTranscriptNote, useCreateTranscriptNoteEntry, useDeleteTranscriptHighlight, useDeleteTranscriptNoteEntry, useTranscriptAnnotations, useUpdateTranscriptNoteEntry } from "@/features/transcription/hooks/useTranscriptAnnotations";
-import { useTranscriptionListEvents } from "@/features/transcription/hooks/useTranscriptionListEvents";
 import { useTranscriptionSummary, useTranscriptionSummaryWidgets } from "@/features/transcription/hooks/useTranscriptionSummaries";
 import { preferVisibleTranscription, useFileTranscriptions, useTranscriptionTranscript } from "@/features/transcription/hooks/useTranscriptions";
 import { ReadOnlyMarkdown } from "@/features/transcription/components/ReadOnlyMarkdown";
@@ -131,8 +129,6 @@ export function AudioDetailView() {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  useTranscriptionListEvents();
-  useFileEvents();
   useTranscriptionDetailEvents(selectedTranscription?.id, { onSummaryTruncated: handleSummaryTruncated });
 
   const meta = useMemo(() => {

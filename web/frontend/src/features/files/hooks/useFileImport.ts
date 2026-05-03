@@ -3,7 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { importYouTube, uploadFile, type ScriberrFile } from "@/features/files/api/filesApi";
 import { filesQueryKey } from "@/features/files/hooks/useFiles";
-import type { FileEvent } from "@/features/files/hooks/useFileEvents";
+import type { FileEvent } from "@/features/events/AppEventsProvider";
 
 export type UploadItemStatus = "uploading" | "processing" | "ready" | "failed";
 export type UploadItemSource = "file" | "youtube";
@@ -78,7 +78,6 @@ export function useFileImport() {
           );
 
           queryClient.invalidateQueries({ queryKey: filesQueryKey });
-          queryClient.invalidateQueries({ queryKey: ["audioFiles"] });
         } catch (error) {
           setItems((current) =>
             current.map((item) =>
@@ -125,7 +124,6 @@ export function useFileImport() {
         )
       );
       queryClient.invalidateQueries({ queryKey: filesQueryKey });
-      queryClient.invalidateQueries({ queryKey: ["audioFiles"] });
     } catch (error) {
       setItems((current) =>
         current.map((item) =>

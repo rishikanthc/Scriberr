@@ -8,15 +8,14 @@ import { WandAdvancedIcon } from "@/components/icons/WandAdvancedIcon";
 import { UploadProgressShelf } from "@/features/files/components/UploadProgressShelf";
 import { YouTubeImportDialog } from "@/features/files/components/YouTubeImportDialog";
 import type { ScriberrFile } from "@/features/files/api/filesApi";
-import { useFileEvents } from "@/features/files/hooks/useFileEvents";
 import { importAccept, type UploadItem, useFileImport } from "@/features/files/hooks/useFileImport";
 import { useFiles } from "@/features/files/hooks/useFiles";
+import { useAppEventSubscription, type FileEvent } from "@/features/events/AppEventsProvider";
 import { useProfiles } from "@/features/settings/hooks/useProfiles";
 import type { TranscriptionProfile } from "@/features/settings/api/profilesApi";
 import type { Transcription, TranscriptionStatus } from "@/features/transcription/api/transcriptionsApi";
 import type { AudioTag } from "@/features/tags/api/tagsApi";
 import { useTags, useTranscriptionTags } from "@/features/tags/hooks/useTags";
-import { useTranscriptionListEvents } from "@/features/transcription/hooks/useTranscriptionListEvents";
 import { preferVisibleTranscription, useCreateTranscription, useStopTranscription, useTaggedTranscriptions, useTranscriptions } from "@/features/transcription/hooks/useTranscriptions";
 import { EmptyState } from "@/shared/ui/EmptyState";
 import { AppButton, IconButton } from "@/shared/ui/Button";
@@ -335,8 +334,7 @@ function AudioListPage({ tagId }: { tagId?: string }) {
   const createTranscriptionMutation = useCreateTranscription();
   const stopTranscriptionMutation = useStopTranscription();
   const { uploadItems, importFiles, importFromYouTube, dismissItem, handleFileEvent } = useFileImport();
-  useFileEvents(handleFileEvent);
-  useTranscriptionListEvents();
+  useAppEventSubscription<FileEvent>("file.", handleFileEvent);
   const selectedTag = useMemo(() => (
     tagId ? (tagsQuery.data?.items || []).find((tag) => tag.id === tagId) : undefined
   ), [tagId, tagsQuery.data?.items]);

@@ -100,7 +100,6 @@ export function useStopTranscription() {
     mutationFn: (transcriptionId: string) => stopTranscription(transcriptionId, getAuthHeaders()),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: transcriptionsQueryKey });
-      queryClient.invalidateQueries({ queryKey: ["audioFiles"] });
     },
   });
 }

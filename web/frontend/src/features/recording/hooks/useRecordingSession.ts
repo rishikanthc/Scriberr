@@ -92,7 +92,6 @@ export function useStopRecording() {
     onSuccess: (recording) => {
       upsertRecordingSession(queryClient, recording);
       queryClient.invalidateQueries({ queryKey: filesQueryKey });
-      queryClient.invalidateQueries({ queryKey: ["audioFiles"] });
     },
   });
 }
@@ -127,7 +126,6 @@ export function useRetryFinalizeRecording() {
     onSuccess: (recording) => {
       upsertRecordingSession(queryClient, recording);
       queryClient.invalidateQueries({ queryKey: filesQueryKey });
-      queryClient.invalidateQueries({ queryKey: ["audioFiles"] });
     },
   });
 }
