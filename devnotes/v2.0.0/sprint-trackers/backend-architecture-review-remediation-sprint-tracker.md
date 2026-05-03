@@ -2,7 +2,7 @@
 
 This tracker belongs to `devnotes/v2.0.0/sprint-plans/backend-architecture-review-remediation-sprint-plan.md`.
 
-Status: Sprint 8 complete. Follow-up Sprints 9-14 planned from second backend architecture review.
+Status: Sprint 9 complete. Follow-up Sprints 10-14 planned from second backend architecture review.
 
 ## Run Rules
 
@@ -28,7 +28,7 @@ Status: Sprint 8 complete. Follow-up Sprints 9-14 planned from second backend ar
 | Generic/global repository methods remain exposed | Medium | Sprint 7 | complete |
 | Admin queue stats are still user-scoped | High | Sprint 13 | planned |
 | Scheduler policy boundary is still missing | High | Sprint 12, Sprint 13 | planned |
-| User status and disabled-user enforcement are absent | High | Sprint 9 | planned |
+| User status and disabled-user enforcement are absent | High | Sprint 9 | complete |
 | Admin user-management API is not implemented | High | Sprint 10 | planned |
 | Settings remain in `users.settings_json` instead of relational settings tables | Medium | Sprint 11, Sprint 12 | planned |
 | API response mapping still touches local file paths | Medium | Sprint 14 | planned |
@@ -414,7 +414,7 @@ Commit:
 
 ## Sprint 9: User Status And Auth Enforcement
 
-Status: planned
+Status: complete
 
 Addresses:
 
@@ -422,28 +422,28 @@ Addresses:
 
 TDD and scope checks:
 
-- [ ] Add failing tests for disabled-user login, refresh, API-key auth, events, and transcription enqueue.
-- [ ] Add user status lifecycle fields and migration/backfill.
-- [ ] Enforce active-user checks in account/API-key auth paths.
-- [ ] Update login/password-change timestamp behavior.
-- [ ] Revoke or reject stale credentials as required by the multi-user spec.
-- [ ] Write status note `backend-architecture-review-remediation-sprint-09-user-status.md`.
+- [x] Add failing tests for disabled-user login, refresh, API-key auth, events, and transcription enqueue.
+- [x] Add user status lifecycle fields and migration/backfill.
+- [x] Enforce active-user checks in account/API-key auth paths.
+- [x] Update login/password-change timestamp behavior.
+- [x] Revoke or reject stale credentials as required by the multi-user spec.
+- [x] Write status note `backend-architecture-review-remediation-sprint-09-user-status.md`.
 
 Acceptance checks:
 
-- [ ] Existing users migrate to `active`.
-- [ ] First registration creates an active admin.
-- [ ] Disabled users cannot login.
-- [ ] Disabled users cannot refresh.
-- [ ] Disabled users cannot use API keys.
-- [ ] Disabled users cannot open event streams.
-- [ ] Disabled users cannot enqueue transcription work.
+- [x] Existing users migrate to `active`.
+- [x] First registration creates an active admin.
+- [x] Disabled users cannot login.
+- [x] Disabled users cannot refresh.
+- [x] Disabled users cannot use API keys.
+- [x] Disabled users cannot open event streams.
+- [x] Disabled users cannot enqueue transcription work.
 
 Verification:
 
-- [ ] `GOCACHE=/private/tmp/scriberr-go-cache go test ./internal/account ./internal/auth ./internal/api -run 'TestAuth|TestSecurity|TestAPIKey|TestEvent|TestTranscription'`
-- [ ] `GOCACHE=/private/tmp/scriberr-go-cache go test ./internal/database ./internal/repository`
-- [ ] `git diff --check`
+- [x] `GOCACHE=/private/tmp/scriberr-go-cache go test ./internal/account ./internal/auth ./internal/api -run 'TestAuth|TestSecurity|TestAPIKey|TestEvent|TestTranscription'`
+- [x] `GOCACHE=/private/tmp/scriberr-go-cache go test ./internal/database ./internal/repository`
+- [x] `git diff --check -- internal/models/auth.go internal/account/service.go internal/api/middleware.go internal/repository/implementations.go internal/api/auth_test.go internal/database/database_test.go`
 
 Artifacts:
 
@@ -455,7 +455,7 @@ Artifacts:
 
 Commit:
 
-- [ ] `backend: enforce user account status`
+- [x] `backend: enforce user account status`
 
 ## Sprint 10: Admin User Management Service And Routes
 
