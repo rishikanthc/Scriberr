@@ -2,7 +2,7 @@
 
 This tracker belongs to `devnotes/v2.0.0/sprint-plans/backend-architecture-review-remediation-sprint-plan.md`.
 
-Status: Sprint 6 complete.
+Status: Sprint 7 complete.
 
 ## Run Rules
 
@@ -25,7 +25,7 @@ Status: Sprint 6 complete.
 | Chat generation runs inside HTTP handler | High | Sprint 6 | complete |
 | External LLM provider adapter lives in API | Medium | Sprint 3 | complete |
 | Admin route has no admin authorization | Medium | Sprint 1 | complete |
-| Generic/global repository methods remain exposed | Medium | Sprint 7 | pending |
+| Generic/global repository methods remain exposed | Medium | Sprint 7 | complete |
 
 ## Sprint 0: Baseline, Guard Plan, And Review Anchors
 
@@ -328,7 +328,7 @@ Commit:
 
 ## Sprint 7: Quarantine Legacy And Global Repository Methods
 
-Status: pending
+Status: complete
 
 Addresses:
 
@@ -336,37 +336,40 @@ Addresses:
 
 TDD and scope checks:
 
-- [ ] Add inventory/guard test for production imports of legacy `internal/queue`.
-- [ ] Add inventory/guard test for unsafe global repository methods where practical.
-- [ ] Inventory all production references to generic/unscoped methods.
-- [ ] Remove dead legacy queue code or quarantine it behind explicit legacy build/test boundaries.
-- [ ] Split worker/system repository interfaces from user-facing service interfaces.
-- [ ] Replace unscoped product-service lookups with `ForUser`/`ByUser` methods.
-- [ ] Write status note `backend-architecture-review-remediation-sprint-07-repository-legacy.md`.
+- [x] Add inventory/guard test for production imports of legacy `internal/queue`.
+- [x] Add inventory/guard test for unsafe global repository methods where practical.
+- [x] Inventory all production references to generic/unscoped methods.
+- [x] Remove dead legacy queue code or quarantine it behind explicit legacy build/test boundaries.
+- [x] Split worker/system repository interfaces from user-facing service interfaces.
+- [x] Replace unscoped product-service lookups with `ForUser`/`ByUser` methods.
+- [x] Write status note `backend-architecture-review-remediation-sprint-07-repository-legacy.md`.
 
 Acceptance checks:
 
-- [ ] Product services do not use generic unscoped repository methods for user-owned data.
-- [ ] Legacy queue paths are removed or guarded.
-- [ ] New unsafe production imports/usages fail tests.
-- [ ] Repository implementation tests remain stable.
+- [x] Product services do not use generic unscoped repository methods for user-owned data.
+- [x] Legacy queue paths are removed or guarded.
+- [x] New unsafe production imports/usages fail tests.
+- [x] Repository implementation tests remain stable.
 
 Verification:
 
-- [ ] `GOCACHE=/private/tmp/scriberr-go-cache go test ./internal/repository ./internal/transcription/... ./internal/files ./internal/account ./internal/profile ./internal/automation ./internal/api -run 'TestProduction|TestBackendDependencyDirection'`
-- [ ] `git diff --check`
+- [x] `GOCACHE=/private/tmp/scriberr-go-cache go test ./internal/repository ./internal/transcription/... ./internal/files ./internal/account ./internal/profile ./internal/automation ./internal/api -run 'TestProduction|TestBackendDependencyDirection'`
+- [x] `GOCACHE=/private/tmp/scriberr-go-cache go test ./internal/summarization ./internal/transcription/worker ./internal/repository`
+- [x] `git diff --check`
 
 Artifacts:
 
 - `internal/repository/repository.go`
 - `internal/repository/implementations.go`
 - `internal/api/architecture_test.go`
-- Service interfaces touched by the cleanup.
+- `internal/summarization/service.go`
+- `internal/transcription/worker/service.go`
+- Removed legacy `internal/queue`.
 - `devnotes/v2.0.0/status-updates/backend-architecture-review-remediation-sprint-07-repository-legacy.md`
 
 Commit:
 
-- [ ] `backend: quarantine legacy repository paths`
+- [x] `backend: quarantine legacy repository paths`
 
 ## Sprint 8: Final Enforcement, Documentation, And Broad Verification
 

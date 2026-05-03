@@ -116,12 +116,19 @@ type UserSettingsReader interface {
 	FindByID(ctx context.Context, id interface{}) (*models.User, error)
 }
 
+type JobRepository interface {
+	FindTranscriptionByIDForUser(ctx context.Context, id string, userID uint) (*models.TranscriptionJob, error)
+	FindFileByIDForUser(ctx context.Context, id string, userID uint) (*models.TranscriptionJob, error)
+	UpdateLLMGeneratedTitle(ctx context.Context, transcriptionID string, recordingID string, title string, generatedAt time.Time) error
+	UpdateLLMGeneratedDescription(ctx context.Context, transcriptionID string, recordingID string, summaryID string, description string, generatedAt time.Time) error
+}
+
 var ErrNotFound = errors.New("summary not found")
 
 type Service struct {
 	summaries repository.SummaryRepository
 	llmConfig repository.LLMConfigRepository
-	jobs      repository.JobRepository
+	jobs      JobRepository
 	users     UserSettingsReader
 	events    EventPublisher
 	cfg       Config
@@ -135,7 +142,7 @@ type Service struct {
 	wake    chan struct{}
 }
 
-func NewService(summaries repository.SummaryRepository, llmConfig repository.LLMConfigRepository, jobs repository.JobRepository, cfg Config) *Service {
+func NewService(summaries repository.SummaryRepository, llmConfig repository.LLMConfigRepository, jobs JobRepository, cfg Config) *Service {
 	if cfg.StopTimeout <= 0 {
 		cfg.StopTimeout = 30 * time.Second
 	}
@@ -400,7 +407,7 @@ func (s *Service) claimAndProcessWidgetRun() error {
 }
 
 func (s *Service) processSummary(ctx context.Context, summary *models.Summary) error {
-	job, err := s.jobs.FindByID(ctx, summary.TranscriptionID)
+	job, err := s.jobs.FindTranscriptionByIDForUser(ctx, summary.TranscriptionID, summary.UserID)
 	if err != nil {
 		return err
 	}
@@ -472,13 +479,13 @@ func (s *Service) generateTitleForSummary(ctx context.Context, summary *models.S
 	if enabled, err := s.autoRenameEnabled(ctx, summary.UserID); err != nil || !enabled {
 		return err
 	}
-	job, err := s.jobs.FindByID(ctx, summary.TranscriptionID)
+	job, err := s.jobs.FindTranscriptionByIDForUser(ctx, summary.TranscriptionID, summary.UserID)
 	if err != nil {
 		return err
 	}
 	recording := job
 	if job.SourceFileHash != nil && strings.TrimSpace(*job.SourceFileHash) != "" {
-		parent, err := s.jobs.FindByID(ctx, strings.TrimSpace(*job.SourceFileHash))
+		parent, err := s.jobs.FindFileByIDForUser(ctx, strings.TrimSpace(*job.SourceFileHash), summary.UserID)
 		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 			return err
 		}
@@ -612,7 +619,7 @@ func (s *Service) processWidgetRun(ctx context.Context, run *models.SummaryWidge
 	if err != nil {
 		return err
 	}
-	job, err := s.jobs.FindByID(ctx, run.TranscriptionID)
+	job, err := s.jobs.FindTranscriptionByIDForUser(ctx, run.TranscriptionID, run.UserID)
 	if err != nil {
 		return err
 	}
@@ -699,13 +706,13 @@ func (s *Service) generateDescriptionForSummary(ctx context.Context, summary *mo
 	if !titleLLMReady(config) {
 		return nil
 	}
-	job, err := s.jobs.FindByID(ctx, summary.TranscriptionID)
+	job, err := s.jobs.FindTranscriptionByIDForUser(ctx, summary.TranscriptionID, summary.UserID)
 	if err != nil {
 		return err
 	}
 	recording := job
 	if job.SourceFileHash != nil && strings.TrimSpace(*job.SourceFileHash) != "" {
-		parent, err := s.jobs.FindByID(ctx, strings.TrimSpace(*job.SourceFileHash))
+		parent, err := s.jobs.FindFileByIDForUser(ctx, strings.TrimSpace(*job.SourceFileHash), summary.UserID)
 		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 			return err
 		}

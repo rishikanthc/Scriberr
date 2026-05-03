@@ -113,7 +113,7 @@ func TestProductionAPIDoesNotOwnLLMProviderConnectionTester(t *testing.T) {
 		"fetchOpenAICompatibleModels",
 		"fetchOllamaNativeModels",
 	} {
-		locations, err := productionAPIFilesContainingSymbol(".", symbol)
+		locations, err := productionFilesContainingSymbol(".", symbol)
 		if err != nil {
 			t.Fatalf("scan API symbols: %v", err)
 		}
@@ -132,6 +132,39 @@ func TestProductionAPIDoesNotImportLLM(t *testing.T) {
 	if len(violations) > 0 {
 		t.Fatalf("production API imports internal/llm:\n%s\nMove chat generation workflow and concrete LLM client usage into internal/chat.",
 			strings.Join(violations, "\n"))
+	}
+}
+
+func TestProductionDoesNotImportLegacyQueue(t *testing.T) {
+	actual, err := productionInternalFilesImporting("../..", "scriberr/internal/queue", "queue")
+	if err != nil {
+		t.Fatalf("scan legacy queue imports: %v", err)
+	}
+	if len(actual) > 0 {
+		t.Fatalf("production code imports legacy internal/queue:\n%s\nUse internal/transcription/worker for queue execution paths.",
+			strings.Join(actual, "\n"))
+	}
+}
+
+func TestProductServicesDoNotUseUnscopedJobFindByID(t *testing.T) {
+	for _, symbol := range []string{
+		"s.jobs.FindByID(",
+		"s.repo.FindByID(",
+	} {
+		locations, err := productionFilesContainingSymbol("../..", symbol)
+		if err != nil {
+			t.Fatalf("scan repository symbols: %v", err)
+		}
+		locations = excludePaths(locations,
+			"internal/repository/",
+			"internal/transcription/worker/",
+			"internal/llmprovider/protected_repository.go",
+			"internal/account/service.go",
+		)
+		if len(locations) > 0 {
+			t.Fatalf("production product service uses unscoped job lookup %q in:\n%s\nUse user-scoped repository methods for user-owned transcription data.",
+				symbol, strings.Join(locations, "\n"))
+		}
 	}
 }
 
@@ -224,7 +257,7 @@ func productionImportViolations(root string, forbidden, allowed []string) ([]str
 	return violations, err
 }
 
-func productionAPIFilesContainingSymbol(root, symbol string) ([]string, error) {
+func productionFilesContainingSymbol(root, symbol string) ([]string, error) {
 	var files []string
 	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -247,6 +280,25 @@ func productionAPIFilesContainingSymbol(root, symbol string) ([]string, error) {
 	})
 	sort.Strings(files)
 	return files, err
+}
+
+func excludePaths(paths []string, prefixes ...string) []string {
+	var filtered []string
+	for _, path := range paths {
+		normalized := strings.TrimPrefix(path, "../../")
+		normalized = strings.TrimPrefix(normalized, "./")
+		matched := false
+		for _, prefix := range prefixes {
+			if strings.HasPrefix(normalized, prefix) {
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			filtered = append(filtered, path)
+		}
+	}
+	return filtered
 }
 
 func fileImports(path string, importPath string) (bool, error) {

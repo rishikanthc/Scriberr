@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"scriberr/internal/models"
-	"scriberr/internal/repository"
 	"scriberr/pkg/logger"
 
 	"gorm.io/gorm"
@@ -85,6 +84,21 @@ type QueueStats struct {
 	Running    int64 `json:"running"`
 }
 
+type Repository interface {
+	RecoverOrphanedProcessing(ctx context.Context, now time.Time) (int64, error)
+	EnqueueTranscription(ctx context.Context, jobID string, now time.Time) error
+	FindByID(ctx context.Context, id interface{}) (*models.TranscriptionJob, error)
+	CancelTranscription(ctx context.Context, jobID string, canceledAt time.Time) error
+	CountStatusesByUser(ctx context.Context, userID uint) (map[models.JobStatus]int64, error)
+	ClaimNextTranscription(ctx context.Context, workerID string, leaseUntil time.Time) (*models.TranscriptionJob, error)
+	CompleteTranscription(ctx context.Context, jobID string, transcriptJSON string, outputPath *string, completedAt time.Time) error
+	CompleteTranscriptionClaimed(ctx context.Context, jobID, workerID, executionID string, transcriptJSON string, outputPath *string, completedAt time.Time) error
+	FailTranscription(ctx context.Context, jobID string, message string, failedAt time.Time) error
+	FailTranscriptionClaimed(ctx context.Context, jobID, workerID, executionID string, message string, failedAt time.Time) error
+	CancelTranscriptionClaimed(ctx context.Context, jobID, workerID, executionID string, canceledAt time.Time) error
+	RenewClaim(ctx context.Context, jobID, workerID string, leaseUntil time.Time) error
+}
+
 type Config struct {
 	Workers       int
 	PollInterval  time.Duration
@@ -95,7 +109,7 @@ type Config struct {
 }
 
 type Service struct {
-	repo       repository.JobRepository
+	repo       Repository
 	processor  Processor
 	events     EventPublisher
 	completion CompletionObserver
@@ -115,7 +129,7 @@ type runningJob struct {
 	cancel context.CancelFunc
 }
 
-func NewService(repo repository.JobRepository, processor Processor, cfg Config) *Service {
+func NewService(repo Repository, processor Processor, cfg Config) *Service {
 	cfg = normalizeConfig(cfg)
 	return &Service{
 		repo:      repo,
