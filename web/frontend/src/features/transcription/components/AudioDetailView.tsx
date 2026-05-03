@@ -5,6 +5,7 @@ import { Sidebar } from "@/features/home/components/HomePage";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { useToast } from "@/components/ui/toast";
 import { useFile, useUpdateFile } from "@/features/files/hooks/useFiles";
+import { getFileAudioStreamToken } from "@/features/files/api/filesApi";
 import type { FileStatus } from "@/features/files/api/filesApi";
 import type { TranscriptAnnotation } from "@/features/transcription/api/annotationsApi";
 import type { SummaryWidgetRun, TranscriptionSummary } from "@/features/transcription/api/summariesApi";
@@ -731,25 +732,37 @@ type StreamingAudioPlayerProps = {
 function StreamingAudioPlayer({ fileId, durationSeconds, title, playbackSync, seekRequest, onDurationChange }: StreamingAudioPlayerProps) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const handledSeekToken = useRef<number | null>(null);
-  const { token } = useAuth();
+  const { getAuthHeaders } = useAuth();
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(durationSeconds ?? 0);
   const [hasError, setHasError] = useState(false);
+  const [streamUrl, setStreamUrl] = useState("");
 
   useEffect(() => {
     setDuration(durationSeconds ?? 0);
   }, [durationSeconds]);
 
   useEffect(() => {
-    if (!token) return;
-    document.cookie = `scriberr_access_token=${encodeURIComponent(token)}; path=/; SameSite=Lax`;
-  }, [token]);
-
-  useEffect(() => {
     playbackSync.publish({ currentTime: 0, isPlaying: false });
     return () => playbackSync.publish({ isPlaying: false });
   }, [fileId, playbackSync]);
+
+  useEffect(() => {
+    let canceled = false;
+    setStreamUrl("");
+    setHasError(false);
+    getFileAudioStreamToken(fileId, getAuthHeaders())
+      .then((stream) => {
+        if (!canceled) setStreamUrl(stream.url);
+      })
+      .catch(() => {
+        if (!canceled) setHasError(true);
+      });
+    return () => {
+      canceled = true;
+    };
+  }, [fileId, getAuthHeaders]);
 
   useEffect(() => {
     if (!isPlaying) return;
@@ -778,12 +791,11 @@ function StreamingAudioPlayer({ fileId, durationSeconds, title, playbackSync, se
     }
   }, [duration, isPlaying, playbackSync, seekRequest]);
 
-  const streamUrl = `/api/v1/files/${fileId}/audio`;
   const progress = duration > 0 ? currentTime / duration : 0;
 
   const handleToggle = () => {
     const audio = audioRef.current;
-    if (!audio) return;
+    if (!audio || !streamUrl) return;
     if (audio.paused) {
       void audio.play().catch(() => setHasError(true));
       return;
@@ -829,7 +841,7 @@ function StreamingAudioPlayer({ fileId, durationSeconds, title, playbackSync, se
       {hasError ? <div className="scr-player-error">Audio stream unavailable</div> : null}
       <audio
         ref={audioRef}
-        src={streamUrl}
+        src={streamUrl || undefined}
         preload="metadata"
         onLoadedMetadata={(event) => {
           const nextDuration = event.currentTarget.duration;

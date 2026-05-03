@@ -258,7 +258,7 @@ func (h *Handler) requireAdminForNoRoute(c *gin.Context) bool {
 }
 func (h *Handler) authRequired() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if h.authenticateAPIKey(c) || h.authenticateJWT(c) {
+		if h.authenticateAPIKey(c) || h.authenticateJWT(c) || h.authenticateStreamToken(c) {
 			c.Next()
 			return
 		}

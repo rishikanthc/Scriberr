@@ -30,6 +30,12 @@ export type ImportYouTubePayload = {
   title?: string;
 };
 
+export type AudioStreamToken = {
+  token: string;
+  url: string;
+  expires_at: string;
+};
+
 async function readErrorMessage(response: Response, fallback: string) {
   try {
     const body = await response.json() as { error?: { message?: string } };
@@ -59,6 +65,17 @@ export function getFile(fileId: string, headers: Record<string, string>): Promis
     }
     return response.json() as Promise<ScriberrFile>;
   });
+}
+
+export async function getFileAudioStreamToken(fileId: string, headers: Record<string, string>): Promise<AudioStreamToken> {
+  const response = await fetch(`/api/v1/files/${fileId}/audio-token`, {
+    method: "POST",
+    headers,
+  });
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response, "Failed to prepare audio stream"));
+  }
+  return response.json() as Promise<AudioStreamToken>;
 }
 
 export async function updateFile(

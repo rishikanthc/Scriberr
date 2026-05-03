@@ -283,6 +283,7 @@ func SetupRoutes(handler *Handler, _ *auth.AuthService) *gin.Engine {
 			files.GET("/:id", handler.getFile)
 			files.PATCH("/:id", handler.updateFile)
 			files.DELETE("/:id", handler.deleteFile)
+			files.POST("/:id/audio-token", handler.issueFileAudioToken)
 			files.GET("/:id/audio", handler.streamFileAudio)
 		}
 		recordings := v1.Group("/recordings")
@@ -316,6 +317,7 @@ func SetupRoutes(handler *Handler, _ *auth.AuthService) *gin.Engine {
 			transcriptions.DELETE("/:id/annotations/:annotation_id/entries/:entry_id", handler.deleteAnnotationEntry)
 			transcriptions.GET("/:id/summary", handler.getTranscriptionSummary)
 			transcriptions.GET("/:id/summary/widgets", handler.listTranscriptionSummaryWidgets)
+			transcriptions.POST("/:id/audio-token", handler.issueTranscriptionAudioToken)
 			transcriptions.GET("/:id/audio", handler.streamTranscriptionAudio)
 			transcriptions.GET("/:id/events", handler.streamTranscriptionEvents)
 			transcriptions.GET("/:id/logs", handler.getTranscriptionLogs)
