@@ -109,7 +109,7 @@ func Build(cfg *config.Config) (*App, error) {
 	chatService := chatdomain.NewService(chatRepo, llmConfigRepo)
 	accountService := account.NewService(userRepo, userSettingsRepo, refreshTokenRepo, apiKeyRepo, profileRepo, llmConfigRepo, authService)
 	adminService := admin.NewService(userRepo, refreshTokenRepo, apiKeyRepo, systemSettingsRepo)
-	profileService := profiledomain.NewService(profileRepo)
+	profileService := profiledomain.NewService(profileRepo, profiledomain.NewProviderModelCatalog(providerRegistry))
 	llmProviderService := llmprovider.NewService(llmConfigRepo, llmprovider.HTTPConnectionTester{})
 	fileService := filesdomain.NewService(jobRepo, filesdomain.Config{UploadDir: cfg.UploadDir})
 	mediaImportService := mediaimport.NewService(mediaimport.ServiceOptions{

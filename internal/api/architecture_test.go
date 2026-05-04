@@ -105,7 +105,6 @@ func TestBackendDependencyDirection(t *testing.T) {
 
 func TestASREngineImportInventory(t *testing.T) {
 	expected := []string{
-		"internal/api/profile_handlers.go", // Current compatibility exception; ASRP-Sprint 3 must remove this.
 		"internal/transcription/engineprovider/local_provider.go",
 	}
 

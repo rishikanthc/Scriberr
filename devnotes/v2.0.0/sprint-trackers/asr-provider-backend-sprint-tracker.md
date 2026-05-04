@@ -2,7 +2,7 @@
 
 Run ID: `ASRP`
 
-Status: completed through ASRP-Sprint 2.
+Status: completed through ASRP-Sprint 3.
 
 This tracker belongs to `devnotes/v2.0.0/sprint-plans/asr-provider-backend-sprint-plan.md` and the design spec in `devnotes/v2.0.0/specs/asr-provider-backend-architecture.md`.
 
@@ -150,30 +150,42 @@ Commit:
 
 ## ASRP-Sprint 3: Model Catalog Service And Profile Validation
 
-Status: pending
+Status: completed
 
-Planned tasks:
+Completed tasks:
 
-- [ ] Add model catalog service backed by provider registry.
-- [ ] Move profile model validation into service layer.
-- [ ] Remove `scriberr-engine` imports from profile handlers.
-- [ ] Keep existing profile JSON shape initially.
-- [ ] Back `/api/v1/models/transcription` with registry model cards.
+- [x] Added model catalog seam backed by provider registry model cards.
+- [x] Moved profile model normalization and invalid model rejection into the profile service.
+- [x] Removed `scriberr-engine` imports from profile handlers.
+- [x] Kept existing profile JSON shape initially.
+- [x] Kept `/api/v1/models/transcription` on the registry path while profile validation now uses the model catalog seam.
 
 Acceptance checks:
 
-- [ ] API profile handlers do not import `scriberr-engine`.
-- [ ] Profile validation is service-owned and test-backed.
-- [ ] Existing profile create/update/list/get response shape remains stable.
-- [ ] Model listing is registry/model-card backed.
+- [x] API profile handlers do not import `scriberr-engine`.
+- [x] Profile validation is service-owned and test-backed.
+- [x] Existing profile create/update/list/get response shape remains stable.
+- [x] Model listing remains registry-backed.
 
 Verification:
 
-- [ ] Not run yet.
+- [x] `GOCACHE=/tmp/scriberr-go-cache go test ./internal/profile`
+- [x] `GOCACHE=/tmp/scriberr-go-cache go test ./internal/api -run 'TestProfileValidationAndAuth|TestASREngineImportInventory|TestProfileServiceDoesNotImportSherpaEngine|TestListTranscriptionModels'`
+- [x] `GOCACHE=/tmp/scriberr-go-cache go test ./internal/api -run 'TestProfile|TestSettingsDefaultProfile|TestListTranscriptionModels|TestASREngineImportInventory|TestBackendDependencyDirection'`
+- [x] `GOCACHE=/tmp/scriberr-go-cache go test ./internal/profile ./internal/api -run 'TestService|TestProfile|TestListTranscriptionModels|TestASREngineImportInventory'`
+- [x] `GOCACHE=/tmp/scriberr-go-cache go test ./internal/app ./internal/profile ./internal/api -run 'TestProfile|TestListTranscriptionModels|TestASREngineImportInventory|TestBuild|TestService'`
+- [x] `GOCACHE=/tmp/scriberr-go-cache go vet ./internal/profile ./internal/api ./internal/app`
+- [x] `rg -n "scriberr-engine" internal/api internal/profile --glob '*.go'` returns only architecture test guard text.
 
 Artifacts:
 
-- To be filled during implementation.
+- `internal/profile/service.go`
+- `internal/profile/model_catalog.go`
+- `internal/profile/service_test.go`
+- `internal/api/profile_handlers.go`
+- `internal/api/architecture_test.go`
+- `internal/app/app.go`
+- `devnotes/v2.0.0/sprint-trackers/asr-provider-backend-sprint-tracker.md`
 
 Commit:
 

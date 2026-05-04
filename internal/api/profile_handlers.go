@@ -10,7 +10,6 @@ import (
 	"scriberr/internal/transcription/engineprovider"
 
 	"github.com/gin-gonic/gin"
-	speechmodels "scriberr-engine/speech/models"
 )
 
 func (h *Handler) listProfiles(c *gin.Context) {
@@ -53,6 +52,10 @@ func (h *Handler) createProfile(c *gin.Context) {
 		Parameters:  profileParams(req.Options),
 	}
 	if err := h.profiles.Create(c.Request.Context(), profile); err != nil {
+		if errors.Is(err, profiledomain.ErrInvalidModel) {
+			writeError(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "model is invalid", stringPtr("options.model"))
+			return
+		}
 		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not create profile", nil)
 		return
 	}
@@ -87,6 +90,10 @@ func (h *Handler) updateProfile(c *gin.Context) {
 		profile.IsDefault = *req.IsDefault
 	}
 	if err := h.profiles.Update(c.Request.Context(), profile, req.IsDefault != nil); err != nil {
+		if errors.Is(err, profiledomain.ErrInvalidModel) {
+			writeError(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "model is invalid", stringPtr("options.model"))
+			return
+		}
 		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not update profile", nil)
 		return
 	}
@@ -132,12 +139,6 @@ func validateProfileInput(c *gin.Context, name string, options profileOptionsReq
 	if options.Language != nil && strings.TrimSpace(*options.Language) != "" && !validLanguage(strings.TrimSpace(*options.Language)) {
 		writeError(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "language is invalid", stringPtr("options.language"))
 		return false
-	}
-	if strings.TrimSpace(options.Model) != "" {
-		if _, ok := speechmodels.DefaultModelRegistry().Resolve(strings.TrimSpace(options.Model)); !ok {
-			writeError(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "model is invalid", stringPtr("options.model"))
-			return false
-		}
 	}
 	if task := strings.TrimSpace(options.Task); task != "" && task != "transcribe" && task != "translate" {
 		writeError(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "task is invalid", stringPtr("options.task"))
@@ -204,9 +205,7 @@ func profileParams(options profileOptionsRequest) models.WhisperXParams {
 
 func supportedProfileParams(input models.WhisperXParams) models.WhisperXParams {
 	model := strings.TrimSpace(input.Model)
-	if spec, ok := speechmodels.DefaultModelRegistry().ResolveOrDefault(model, speechmodels.ModelDefaultTranscription); ok {
-		model = string(spec.ID)
-	} else {
+	if model == "" {
 		model = engineprovider.DefaultTranscriptionModel
 	}
 	task := strings.TrimSpace(input.Task)
@@ -215,9 +214,6 @@ func supportedProfileParams(input models.WhisperXParams) models.WhisperXParams {
 	}
 	decodingMethod := strings.TrimSpace(input.DecodingMethod)
 	if decodingMethod == "" {
-		decodingMethod = "greedy_search"
-	}
-	if familyForModel(model) == "whisper" {
 		decodingMethod = "greedy_search"
 	}
 	chunkingStrategy := strings.ToLower(strings.TrimSpace(input.ChunkingStrategy))
@@ -244,7 +240,6 @@ func supportedProfileParams(input models.WhisperXParams) models.WhisperXParams {
 		minDurationOff = 0.3
 	}
 	return models.WhisperXParams{
-		ModelFamily:             familyForModel(model),
 		Model:                   model,
 		Language:                language,
 		Task:                    task,
@@ -263,23 +258,6 @@ func supportedProfileParams(input models.WhisperXParams) models.WhisperXParams {
 		DiarizationThreshold:    diarizationThreshold,
 		MinDurationOn:           minDurationOn,
 		MinDurationOff:          minDurationOff,
-	}
-}
-
-func familyForModel(modelID string) string {
-	spec, ok := speechmodels.DefaultModelRegistry().Resolve(modelID)
-	if !ok {
-		return "transcription"
-	}
-	switch spec.Family {
-	case speechmodels.FamilyWhisper:
-		return "whisper"
-	case speechmodels.FamilyNemo:
-		return "nemo_transducer"
-	case speechmodels.FamilyCanary:
-		return "canary"
-	default:
-		return string(spec.Family)
 	}
 }
 func (h *Handler) profileByPublicID(c *gin.Context, publicID string) (*models.TranscriptionProfile, bool) {
