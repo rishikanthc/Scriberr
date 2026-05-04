@@ -2,7 +2,7 @@
 
 Run ID: `ASRP`
 
-Status: completed through ASRP-Sprint 11.
+Status: completed through ASRP-Sprint 12.
 
 This tracker belongs to `devnotes/v2.0.0/sprint-plans/asr-provider-backend-sprint-plan.md` and the design spec in `devnotes/v2.0.0/specs/asr-provider-backend-architecture.md`.
 
@@ -535,31 +535,44 @@ Commit:
 
 ## ASRP-Sprint 12: Contract Tests, Example Provider, And Hardening
 
-Status: pending
+Status: completed
 
-Planned tasks:
+Completed tasks:
 
-- [ ] Add provider contract test helpers.
-- [ ] Add minimal fake/example provider server for development tests.
-- [ ] Add provider author docs.
-- [ ] Tighten architecture tests where feasible.
-- [ ] Review performance hot paths.
-- [ ] Run broad validation baseline.
+- [x] Added reusable provider contract test helper.
+- [x] Added minimal REST example provider server test.
+- [x] Added provider author guide.
+- [x] Tightened architecture tests for ASR contract purity and provider docs coverage.
+- [x] Reviewed performance hot paths and recorded residual follow-up.
+- [x] Removed remaining stale ASR parameter test usage found by broad validation.
+- [x] Ran broad validation baseline.
 
 Acceptance checks:
 
-- [ ] Third-party provider implementers have a testable contract.
-- [ ] Architecture guards prevent API/model/provider coupling regressions.
-- [ ] Remote provider failures do not destabilize local-only transcription.
-- [ ] Existing frontend and backend features remain green in focused tests.
+- [x] Third-party provider implementers have a testable contract.
+- [x] Architecture guards prevent API/model/provider coupling regressions.
+- [x] Remote provider failures do not destabilize local-only transcription.
+- [x] Existing frontend and backend features remain green in focused tests.
 
 Verification:
 
-- [ ] Not run yet.
+- [x] `GOCACHE=/tmp/scriberr-go-cache go test ./internal/transcription/engineprovider/contracttest ./internal/transcription/engineprovider/remote -run 'TestExampleProviderServerSatisfiesContract|TestClient'` with localhost binding allowed for `httptest`.
+- [x] `GOCACHE=/tmp/scriberr-go-cache go test ./internal/transcription/... ./internal/profile ./internal/recording` with localhost binding allowed.
+- [x] `GOCACHE=/tmp/scriberr-go-cache go test ./internal/api -run 'TestASRContractPackageDoesNotDependOnBackendRuntime|TestASRProviderAuthorGuideDocumentsRequiredContract|TestASREngineImportInventory|TestProductionCodeDoesNotUseOldASRParameterIdentifiers|TestASRProvidersDoNotDependOnAPIOrRepositories|TestBackendDependencyDirection|TestAdminASRProvider'`
+- [x] `GOCACHE=/tmp/scriberr-go-cache go test ./internal/...` with localhost binding allowed.
+- [x] `GOCACHE=/tmp/scriberr-go-cache go test ./tests` with localhost binding allowed.
+- [x] `GOCACHE=/tmp/scriberr-go-cache go vet ./internal/...`
+- [x] `git diff --check`
 
 Artifacts:
 
-- To be filled during implementation.
+- `internal/transcription/engineprovider/contracttest/provider_contract.go`
+- `internal/transcription/engineprovider/remote/example_provider_test.go`
+- `internal/api/architecture_test.go`
+- `internal/database/database_test.go`
+- `devnotes/v2.0.0/specs/asr-provider-author-guide.md`
+- `devnotes/v2.0.0/status-updates/asr-provider-backend-sprint-12-hardening.md`
+- `devnotes/v2.0.0/sprint-trackers/asr-provider-backend-sprint-tracker.md`
 
 Commit:
 

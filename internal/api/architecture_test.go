@@ -145,6 +145,45 @@ func TestASRProvidersDoNotDependOnAPIOrRepositories(t *testing.T) {
 	}
 }
 
+func TestASRContractPackageDoesNotDependOnBackendRuntime(t *testing.T) {
+	violations, err := productionImportViolations("../transcription/asrcontract", []string{
+		"scriberr/internal/api",
+		"scriberr/internal/models",
+		"scriberr/internal/repository",
+		"scriberr/internal/transcription/engineprovider",
+	}, nil)
+	if err != nil {
+		t.Fatalf("scan ASR contract imports: %v", err)
+	}
+	if len(violations) > 0 {
+		t.Fatalf("ASR contract package imports backend runtime packages:\n%s\nThe provider contract must stay serializable and independent of Scriberr runtime internals.",
+			strings.Join(violations, "\n"))
+	}
+}
+
+func TestASRProviderAuthorGuideDocumentsRequiredContract(t *testing.T) {
+	data, err := os.ReadFile("../../devnotes/v2.0.0/specs/asr-provider-author-guide.md")
+	if err != nil {
+		t.Fatalf("read ASR provider author guide: %v", err)
+	}
+	text := string(data)
+	for _, required := range []string{
+		"GET /v1/provider",
+		"GET /v1/models",
+		"GET /v1/status",
+		"POST /v1/jobs",
+		"GET /v1/jobs/{job_id}",
+		"GET /v1/jobs/{job_id}/events",
+		"POST /v1/models/{model}:load",
+		"POST /v1/models/{model}:unload",
+		"RunProviderContract",
+	} {
+		if !strings.Contains(text, required) {
+			t.Fatalf("ASR provider author guide does not mention required contract item %q", required)
+		}
+	}
+}
+
 func TestProductionCodeDoesNotUseOldASRParameterIdentifiers(t *testing.T) {
 	for _, symbol := range []string{"WhisperXParams", "WhisperX", "DiarizeModel", "diarize_model"} {
 		locations, err := productionFilesContainingSymbol("../..", symbol)
