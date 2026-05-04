@@ -51,6 +51,32 @@ RUN mkdir -p /out/bin/cli \
 ########################
 FROM python:3.11-slim AS runtime
 
+# OCI image annotations — set at build time for provenance (OCI image spec).
+# Example:
+#   docker build \
+#     --build-arg VCS_REF="$(git rev-parse HEAD)" \
+#     --build-arg BUILD_DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+#     --build-arg VERSION="$(git describe --tags --always)" \
+#     -f Dockerfile .
+ARG VCS_REF=unknown
+ARG BUILD_DATE=unknown
+ARG VERSION=unknown
+ARG OCI_SOURCE=https://github.com/rishikanthc/Scriberr.git
+ARG OCI_URL=https://github.com/rishikanthc/Scriberr
+ARG OCI_DOCUMENTATION=https://github.com/rishikanthc/Scriberr/blob/main/README.md
+ARG OCI_LICENSES=MIT
+ARG OCI_TITLE=Scriberr
+ARG OCI_DESCRIPTION=Self-hosted audio transcription with WhisperX, web UI, and REST API. CPU runtime image.
+LABEL org.opencontainers.image.title="${OCI_TITLE}" \
+      org.opencontainers.image.description="${OCI_DESCRIPTION}" \
+      org.opencontainers.image.revision="${VCS_REF}" \
+      org.opencontainers.image.version="${VERSION}" \
+      org.opencontainers.image.created="${BUILD_DATE}" \
+      org.opencontainers.image.source="${OCI_SOURCE}" \
+      org.opencontainers.image.url="${OCI_URL}" \
+      org.opencontainers.image.documentation="${OCI_DOCUMENTATION}" \
+      org.opencontainers.image.licenses="${OCI_LICENSES}"
+
 ENV PYTHONUNBUFFERED=1 \
   HOST=0.0.0.0 \
   PORT=8080 \
