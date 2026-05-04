@@ -131,9 +131,12 @@ func (suite *LLMTestSuite) handleNonStreamingResponse(w http.ResponseWriter, cha
 			},
 		},
 		Usage: struct {
-			PromptTokens     int `json:"prompt_tokens"`
-			CompletionTokens int `json:"completion_tokens"`
-			TotalTokens      int `json:"total_tokens"`
+			PromptTokens            int `json:"prompt_tokens"`
+			CompletionTokens        int `json:"completion_tokens"`
+			CompletionTokensDetails struct {
+				ReasoningTokens int `json:"reasoning_tokens"`
+			} `json:"completion_tokens_details,omitempty"`
+			TotalTokens int `json:"total_tokens"`
 		}{
 			PromptTokens:     10,
 			CompletionTokens: 15,
@@ -162,16 +165,20 @@ func (suite *LLMTestSuite) handleStreamingResponse(w http.ResponseWriter, chatRe
 			Choices: []struct {
 				Index int `json:"index"`
 				Delta struct {
-					Role    string `json:"role,omitempty"`
-					Content string `json:"content,omitempty"`
+					Role             string `json:"role,omitempty"`
+					Content          string `json:"content,omitempty"`
+					ReasoningContent string `json:"reasoning_content,omitempty"`
+					Reasoning        string `json:"reasoning,omitempty"`
 				} `json:"delta"`
 				FinishReason string `json:"finish_reason"`
 			}{
 				{
 					Index: 0,
 					Delta: struct {
-						Role    string `json:"role,omitempty"`
-						Content string `json:"content,omitempty"`
+						Role             string `json:"role,omitempty"`
+						Content          string `json:"content,omitempty"`
+						ReasoningContent string `json:"reasoning_content,omitempty"`
+						Reasoning        string `json:"reasoning,omitempty"`
 					}{
 						Content: chunk,
 					},

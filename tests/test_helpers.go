@@ -40,6 +40,7 @@ type TestHelper struct {
 func NewTestHelper(t *testing.T, dbName string) *TestHelper {
 	// Set Gin to test mode
 	gin.SetMode(gin.TestMode)
+	_ = os.Remove(dbName)
 
 	// Create unique test config
 	cfg := &config.Config{
@@ -92,7 +93,6 @@ func (h *TestHelper) Cleanup() {
 func (h *TestHelper) ResetDB(t *testing.T) {
 	// List of models to clean
 	modelsToClean := []interface{}{
-		&models.Note{},
 		&models.SpeakerMapping{},
 		&models.ChatMessage{},
 		&models.ChatSession{},
@@ -161,6 +161,7 @@ func (h *TestHelper) createTestCredentials(t *testing.T) {
 func (h *TestHelper) CreateTestTranscriptionJob(t *testing.T, title string) *models.TranscriptionJob {
 	// Let GORM assign a unique UUID via model hook to avoid ID collisions
 	job := &models.TranscriptionJob{
+		UserID:    h.TestUser.ID,
 		Title:     &title,
 		Status:    models.StatusPending,
 		AudioPath: "test/path/audio.mp3",
@@ -178,6 +179,7 @@ func (h *TestHelper) CreateTestTranscriptionJob(t *testing.T, title string) *mod
 func (h *TestHelper) CreateTestProfile(t *testing.T, name string, isDefault bool) *models.TranscriptionProfile {
 	profile := &models.TranscriptionProfile{
 		ID:          "test-profile-" + strings.ReplaceAll(t.Name(), "/", "_"),
+		UserID:      h.TestUser.ID,
 		Name:        name,
 		Description: stringPtr("Test profile description"),
 		IsDefault:   isDefault,
@@ -189,24 +191,6 @@ func (h *TestHelper) CreateTestProfile(t *testing.T, name string, isDefault bool
 	result := h.DB.Create(profile)
 	assert.NoError(t, result.Error)
 	return profile
-}
-
-// CreateTestNote creates a test note for a transcription
-func (h *TestHelper) CreateTestNote(t *testing.T, transcriptionID string) *models.Note {
-	note := &models.Note{
-		ID:              "test-note-" + strings.ReplaceAll(t.Name(), "/", "_"),
-		TranscriptionID: transcriptionID,
-		StartWordIndex:  0,
-		EndWordIndex:    5,
-		StartTime:       0.0,
-		EndTime:         2.5,
-		Quote:           "Test quote text",
-		Content:         "Test note content",
-	}
-
-	result := h.DB.Create(note)
-	assert.NoError(t, result.Error)
-	return note
 }
 
 // CreateTestSummaryTemplate creates a test summary template
@@ -227,14 +211,13 @@ func (h *TestHelper) CreateTestSummaryTemplate(t *testing.T, name string) *model
 // CreateTestChatSession creates a test chat session
 func (h *TestHelper) CreateTestChatSession(t *testing.T, transcriptionID string) *models.ChatSession {
 	session := &models.ChatSession{
-		ID:              "test-chat-session-" + strings.ReplaceAll(t.Name(), "/", "_"),
-		JobID:           transcriptionID,
-		TranscriptionID: transcriptionID,
-		Title:           "Test Chat Session",
-		Model:           "gpt-4",
-		Provider:        "openai",
-		MessageCount:    0,
-		IsActive:        true,
+		ID:                    "test-chat-session-" + strings.ReplaceAll(t.Name(), "/", "_"),
+		UserID:                h.TestUser.ID,
+		ParentTranscriptionID: transcriptionID,
+		Title:                 "Test Chat Session",
+		Model:                 "gpt-4",
+		Provider:              "openai",
+		Status:                models.ChatSessionStatusActive,
 	}
 
 	result := h.DB.Create(session)
@@ -519,16 +502,20 @@ func handleStreamingResponse(w http.ResponseWriter, chatReq llm.ChatRequest) {
 			Choices: []struct {
 				Index int `json:"index"`
 				Delta struct {
-					Role    string `json:"role,omitempty"`
-					Content string `json:"content,omitempty"`
+					Role             string `json:"role,omitempty"`
+					Content          string `json:"content,omitempty"`
+					ReasoningContent string `json:"reasoning_content,omitempty"`
+					Reasoning        string `json:"reasoning,omitempty"`
 				} `json:"delta"`
 				FinishReason string `json:"finish_reason"`
 			}{
 				{
 					Index: 0,
 					Delta: struct {
-						Role    string `json:"role,omitempty"`
-						Content string `json:"content,omitempty"`
+						Role             string `json:"role,omitempty"`
+						Content          string `json:"content,omitempty"`
+						ReasoningContent string `json:"reasoning_content,omitempty"`
+						Reasoning        string `json:"reasoning,omitempty"`
 					}{
 						Content: token,
 					},

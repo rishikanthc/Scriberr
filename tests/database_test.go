@@ -75,6 +75,7 @@ func (suite *DatabaseTestSuite) TestTranscriptionJobPersistsPipelineMetadata() {
 
 	job := models.TranscriptionJob{
 		ID:         "job-compat-1",
+		UserID:     suite.helper.TestUser.ID,
 		Title:      &title,
 		Status:     models.StatusCompleted,
 		AudioPath:  "/tmp/input.wav",
@@ -127,37 +128,11 @@ func (suite *DatabaseTestSuite) TestAPIKeyRepositoryUsesHashedStorage() {
 	assert.Equal(suite.T(), "Test description", *found.Description)
 	assert.True(suite.T(), found.IsActive)
 
-	require.NoError(suite.T(), repo.Revoke(suite.T().Context(), apiKey.ID))
+	require.NoError(suite.T(), repo.RevokeForUser(suite.T().Context(), apiKey.ID, suite.helper.TestUser.ID))
 
 	var reloaded models.APIKey
 	require.NoError(suite.T(), db.First(&reloaded, apiKey.ID).Error)
 	assert.NotNil(suite.T(), reloaded.RevokedAt)
-}
-
-func (suite *DatabaseTestSuite) TestNoteCompatibilityMetadataRoundTrip() {
-	db := suite.helper.GetDB()
-	job := suite.helper.CreateTestTranscriptionJob(suite.T(), "Test Job for Note")
-
-	note := models.Note{
-		ID:              "test-note-crud-123",
-		TranscriptionID: job.ID,
-		StartWordIndex:  0,
-		EndWordIndex:    5,
-		StartTime:       1.25,
-		EndTime:         2.50,
-		Quote:           "Test quote text",
-		Content:         "Test note content",
-	}
-
-	require.NoError(suite.T(), db.Create(&note).Error)
-
-	var found models.Note
-	require.NoError(suite.T(), db.First(&found, "id = ?", note.ID).Error)
-	assert.Equal(suite.T(), int64(1250), found.StartMS)
-	assert.Equal(suite.T(), int64(2500), found.EndMS)
-	assert.Equal(suite.T(), note.Quote, found.Quote)
-	assert.Equal(suite.T(), note.StartWordIndex, found.StartWordIndex)
-	assert.Equal(suite.T(), note.EndWordIndex, found.EndWordIndex)
 }
 
 func (suite *DatabaseTestSuite) TestRefreshTokenRevocationSemantics() {
@@ -184,16 +159,13 @@ func (suite *DatabaseTestSuite) TestRefreshTokenRevocationSemantics() {
 func (suite *DatabaseTestSuite) TestDatabaseConstraints() {
 	db := suite.helper.GetDB()
 	title := "Constraint job"
-	job := models.TranscriptionJob{Title: &title, Status: models.StatusUploaded, AudioPath: "/tmp/audio.wav"}
+	job := models.TranscriptionJob{UserID: suite.helper.TestUser.ID, Title: &title, Status: models.StatusUploaded, AudioPath: "/tmp/audio.wav"}
 	require.NoError(suite.T(), db.Create(&job).Error)
 
-	mapping := models.SpeakerMapping{TranscriptionJobID: job.ID, OriginalSpeaker: "speaker_00", CustomName: "Alice"}
+	mapping := models.SpeakerMapping{UserID: suite.helper.TestUser.ID, TranscriptionJobID: job.ID, OriginalSpeaker: "speaker_00", CustomName: "Alice"}
 	require.NoError(suite.T(), db.Create(&mapping).Error)
-	duplicate := models.SpeakerMapping{TranscriptionJobID: job.ID, OriginalSpeaker: "speaker_00", CustomName: "Bob"}
+	duplicate := models.SpeakerMapping{UserID: suite.helper.TestUser.ID, TranscriptionJobID: job.ID, OriginalSpeaker: "speaker_00", CustomName: "Bob"}
 	assert.Error(suite.T(), db.Create(&duplicate).Error)
-
-	badNote := models.Note{ID: "bad-note", TranscriptionID: "missing-job", Content: "bad"}
-	assert.Error(suite.T(), db.Create(&badNote).Error)
 }
 
 func (suite *DatabaseTestSuite) TestDatabaseClose() {
