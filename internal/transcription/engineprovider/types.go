@@ -59,6 +59,7 @@ type TranscriptionRequest struct {
 	JobID                   string
 	UserID                  uint
 	AudioPath               string
+	Progress                ProgressSink
 	ModelID                 string
 	Language                string
 	Task                    string
@@ -78,6 +79,7 @@ type DiarizationRequest struct {
 	JobID          string
 	UserID         uint
 	AudioPath      string
+	Progress       ProgressSink
 	ModelID        string
 	NumSpeakers    int
 	Threshold      float64

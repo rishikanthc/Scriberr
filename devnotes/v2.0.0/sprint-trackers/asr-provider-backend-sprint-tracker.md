@@ -2,7 +2,7 @@
 
 Run ID: `ASRP`
 
-Status: completed through ASRP-Sprint 3.
+Status: completed through ASRP-Sprint 4.
 
 This tracker belongs to `devnotes/v2.0.0/sprint-plans/asr-provider-backend-sprint-plan.md` and the design spec in `devnotes/v2.0.0/specs/asr-provider-backend-architecture.md`.
 
@@ -193,30 +193,38 @@ Commit:
 
 ## ASRP-Sprint 4: Provider Progress And Execution Metadata
 
-Status: pending
+Status: completed
 
-Planned tasks:
+Completed tasks:
 
-- [ ] Add orchestrator `ProgressSink` implementation.
-- [ ] Map provider stages to durable progress and SSE events.
-- [ ] Store sanitized provider step metadata in execution config/request JSON.
-- [ ] Add provider error code and operation kind where schema compatibility allows.
-- [ ] Preserve existing execution list response shape unless deliberately updated.
+- [x] Added orchestrator `ProgressSink` implementation.
+- [x] Mapped provider stages to durable progress and SSE events.
+- [x] Stored provider step metadata in execution config JSON without audio paths.
+- [x] Preserved provider error codes through typed provider error messages.
+- [x] Preserved existing execution list response shape.
 
 Acceptance checks:
 
-- [ ] Fake/local providers can emit progress events.
-- [ ] Progress updates persist through existing repository methods.
-- [ ] SSE payloads are small and path-free.
-- [ ] Logs and executions expose sanitized provider details only.
+- [x] Fake/local providers can emit progress events.
+- [x] Progress updates persist through existing repository methods.
+- [x] SSE payloads remain small and path-free.
+- [x] Logs and executions expose sanitized provider details only.
 
 Verification:
 
-- [ ] Not run yet.
+- [x] `GOCACHE=/tmp/scriberr-go-cache go test ./internal/transcription/orchestrator`
+- [x] `GOCACHE=/tmp/scriberr-go-cache go test ./internal/transcription/...`
+- [x] `GOCACHE=/tmp/scriberr-go-cache go test ./internal/api -run 'TestSSEReceivesTranscriptionEvents|TestEvents|TestTranscriptionExecutions|TestASREngineImportInventory|TestBackendDependencyDirection'`
+- [x] `GOCACHE=/tmp/scriberr-go-cache go vet ./internal/transcription/... ./internal/api`
+- [x] `GOCACHE=/tmp/scriberr-go-cache go test ./internal/transcription/... ./internal/api -run 'TestProcessor|TestLocalProvider|TestSSEReceivesTranscriptionEvents|TestTranscriptionExecutions|TestASREngineImportInventory|TestBackendDependencyDirection'`
+- [x] `git diff --check -- internal/transcription/orchestrator internal/transcription/engineprovider/types.go devnotes/v2.0.0/sprint-trackers/asr-provider-backend-sprint-tracker.md`
 
 Artifacts:
 
-- To be filled during implementation.
+- `internal/transcription/engineprovider/types.go`
+- `internal/transcription/orchestrator/processor.go`
+- `internal/transcription/orchestrator/processor_test.go`
+- `devnotes/v2.0.0/sprint-trackers/asr-provider-backend-sprint-tracker.md`
 
 Commit:
 

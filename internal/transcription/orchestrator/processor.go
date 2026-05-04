@@ -12,6 +12,7 @@ import (
 
 	"scriberr/internal/models"
 	"scriberr/internal/repository"
+	"scriberr/internal/transcription/asrcontract"
 	"scriberr/internal/transcription/engineprovider"
 	"scriberr/internal/transcription/worker"
 	"scriberr/pkg/logger"
@@ -34,6 +35,23 @@ type ProgressEvent struct {
 	Stage    string           `json:"stage"`
 	Progress float64          `json:"progress"`
 	Status   models.JobStatus `json:"status"`
+}
+
+type providerProgressSink struct {
+	processor *Processor
+	job       *models.TranscriptionJob
+}
+
+func (s providerProgressSink) Report(ctx context.Context, event asrcontract.ProviderProgress) {
+	if s.processor == nil || s.job == nil {
+		return
+	}
+	stage := string(event.Stage)
+	if strings.TrimSpace(stage) == "" {
+		stage = "processing"
+	}
+	progress := providerProgressValue(event)
+	_ = s.processor.publishProgress(ctx, s.job, stage, progress, models.StatusProcessing)
 }
 
 type Processor struct {
@@ -81,7 +99,7 @@ func (p *Processor) Process(ctx context.Context, job *models.TranscriptionJob) (
 		ModelFamily:        defaultString(job.Parameters.ModelFamily, "transcription"),
 		StartedAt:          startedAt,
 		ActualParameters:   job.Parameters,
-		ConfigJSON:         executionConfigJSON(providerID, transcriptionModel, diarizationModel),
+		ConfigJSON:         executionConfigJSON(providerID, transcriptionModel, diarizationModel, diarizationEnabled),
 	}
 	if err := p.Jobs.CreateExecution(ctx, execution); err != nil {
 		return failedResult(sanitizeErrorMessage(err)), err
@@ -105,10 +123,12 @@ func (p *Processor) Process(ctx context.Context, job *models.TranscriptionJob) (
 	if err := p.publishProgress(ctx, job, "transcribing", 0.20, models.StatusProcessing); err != nil {
 		return withExecution(canceledResult(), err)
 	}
+	progressSink := providerProgressSink{processor: p, job: job}
 	transcription, err := provider.Transcribe(ctx, engineprovider.TranscriptionRequest{
 		JobID:                   job.ID,
 		UserID:                  job.UserID,
 		AudioPath:               job.AudioPath,
+		Progress:                progressSink,
 		ModelID:                 transcriptionModel,
 		Language:                languageFromJob(job),
 		Task:                    job.Parameters.Task,
@@ -145,6 +165,7 @@ func (p *Processor) Process(ctx context.Context, job *models.TranscriptionJob) (
 			JobID:          job.ID,
 			UserID:         job.UserID,
 			AudioPath:      job.AudioPath,
+			Progress:       progressSink,
 			ModelID:        diarizationModel,
 			NumSpeakers:    job.Parameters.NumSpeakers,
 			Threshold:      job.Parameters.DiarizationThreshold,
@@ -275,19 +296,70 @@ func (p *Processor) transcriptStore() TranscriptStore {
 	return NewLocalTranscriptStore(p.OutputDir)
 }
 
-func executionConfigJSON(providerID, transcriptionModel, diarizationModel string) string {
-	payload := map[string]string{
-		"provider":            providerID,
-		"transcription_model": transcriptionModel,
+func executionConfigJSON(providerID, transcriptionModel, diarizationModel string, diarizationEnabled bool) string {
+	type executionStep struct {
+		Operation string `json:"operation"`
+		Provider  string `json:"provider"`
+		Model     string `json:"model"`
+	}
+	payload := struct {
+		Provider           string          `json:"provider"`
+		TranscriptionModel string          `json:"transcription_model"`
+		DiarizationModel   string          `json:"diarization_model,omitempty"`
+		Steps              []executionStep `json:"steps"`
+	}{
+		Provider:           providerID,
+		TranscriptionModel: transcriptionModel,
+		Steps: []executionStep{{
+			Operation: "transcription",
+			Provider:  providerID,
+			Model:     transcriptionModel,
+		}},
 	}
 	if diarizationModel != "" {
-		payload["diarization_model"] = diarizationModel
+		payload.DiarizationModel = diarizationModel
+	}
+	if diarizationEnabled {
+		payload.Steps = append(payload.Steps, executionStep{
+			Operation: "diarization",
+			Provider:  providerID,
+			Model:     diarizationModel,
+		})
 	}
 	data, err := json.Marshal(payload)
 	if err != nil {
 		return "{}"
 	}
 	return string(data)
+}
+
+func providerProgressValue(event asrcontract.ProviderProgress) float64 {
+	if event.Progress != nil {
+		switch {
+		case *event.Progress < 0:
+			return 0
+		case *event.Progress > 1:
+			return 1
+		default:
+			return *event.Progress
+		}
+	}
+	switch event.Stage {
+	case asrcontract.StagePreprocessing:
+		return 0.10
+	case asrcontract.StageLoadingModel:
+		return 0.15
+	case asrcontract.StageTranscribing:
+		return 0.35
+	case asrcontract.StageDiarizing:
+		return 0.70
+	case asrcontract.StagePostprocessing:
+		return 0.82
+	case asrcontract.StageCompleted:
+		return 0.90
+	default:
+		return 0.20
+	}
 }
 
 func languageFromJob(job *models.TranscriptionJob) string {

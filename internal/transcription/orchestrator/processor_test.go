@@ -25,6 +25,7 @@ type fakeProvider struct {
 	diarize    *engineprovider.DiarizationResult
 	transErr   error
 	diarizeErr error
+	progress   []asrcontract.ProviderProgress
 	transReq   engineprovider.TranscriptionRequest
 	diarizeReq engineprovider.DiarizationRequest
 }
@@ -50,6 +51,9 @@ func (p *fakeProvider) Transcribe(ctx context.Context, req engineprovider.Transc
 	p.transReq = req
 	if err := ctx.Err(); err != nil {
 		return nil, err
+	}
+	for _, event := range p.progress {
+		req.Progress.Report(ctx, event)
 	}
 	return p.transcribe, p.transErr
 }
@@ -171,8 +175,56 @@ func TestProcessorCreatesExecutionAndReturnsCanonicalTranscript(t *testing.T) {
 	assert.Equal(t, "local", executions[0].Provider)
 	assert.Equal(t, "custom-transcriber", executions[0].ModelName)
 	assert.NotContains(t, executions[0].RequestJSON, audioPath)
+	assert.NotContains(t, executions[0].ConfigJSON, audioPath)
+	assert.Contains(t, executions[0].ConfigJSON, `"operation":"transcription"`)
+	assert.Contains(t, executions[0].ConfigJSON, `"operation":"diarization"`)
 
 	assertEventStages(t, events.events, []string{"preparing", "transcribing", "diarizing", "merging", "saving", "completed"})
+}
+
+func TestProcessorPersistsProviderProgress(t *testing.T) {
+	db := openOrchestratorTestDB(t)
+	audioPath := filepath.Join(t.TempDir(), "audio.wav")
+	require.NoError(t, os.WriteFile(audioPath, []byte("fake wav"), 0o600))
+	job := createOrchestratorJob(t, db, audioPath, models.WhisperXParams{})
+	progress := 0.31
+	provider := &fakeProvider{
+		id: "local",
+		transcribe: &engineprovider.TranscriptionResult{
+			Text:     "Hello there.",
+			Language: "en",
+		},
+		progress: []asrcontract.ProviderProgress{{
+			Stage:     asrcontract.StageLoadingModel,
+			Progress:  &progress,
+			Message:   "loading /tmp/private/model api_key=secret",
+			Operation: asrcontract.OperationTranscription,
+			Model:     "whisper-base",
+			Timestamp: time.Now(),
+		}},
+	}
+	registry, err := engineprovider.NewRegistry("local", provider)
+	require.NoError(t, err)
+	events := &recordingEvents{}
+	processor := &Processor{
+		Jobs:      repository.NewJobRepository(db),
+		Providers: registry,
+		Events:    events,
+		OutputDir: t.TempDir(),
+	}
+
+	result, err := processor.Process(context.Background(), &job)
+
+	require.NoError(t, err)
+	require.Equal(t, models.StatusCompleted, result.Status)
+	var stored models.TranscriptionJob
+	require.NoError(t, db.First(&stored, "id = ?", job.ID).Error)
+	require.InDelta(t, 0.95, stored.Progress, 0.001)
+	assert.Equal(t, "saving", stored.ProgressStage)
+	require.GreaterOrEqual(t, len(events.events), 3)
+	assert.Equal(t, "loading_model", events.events[2].Stage)
+	assert.InDelta(t, 0.31, events.events[2].Progress, 0.001)
+	assert.NotContains(t, events.events[2].Stage, "/tmp/private")
 }
 
 func TestLocalTranscriptStoreWritesPathSafeArtifact(t *testing.T) {
