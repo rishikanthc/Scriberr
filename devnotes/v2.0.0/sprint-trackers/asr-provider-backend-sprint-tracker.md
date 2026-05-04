@@ -1,0 +1,424 @@
+# Sprint Run Tracker: ASR Provider Backend Architecture
+
+Run ID: `ASRP`
+
+Status: completed through ASRP-Sprint 0.
+
+This tracker belongs to `devnotes/v2.0.0/sprint-plans/asr-provider-backend-sprint-plan.md` and the design spec in `devnotes/v2.0.0/specs/asr-provider-backend-architecture.md`.
+
+## Run Rules
+
+- Follow `devnotes/v2.0.0/rules/backend-rules.md`.
+- Do not edit `references/engine` during this sprint run.
+- Use fake providers, fake remote servers, and placeholders where needed.
+- Keep local sherpa in-process through Go APIs.
+- Keep external providers behind the REST adapter.
+- Write tests or architecture guards before implementation.
+- Update this tracker in the same change set as each completed sprint.
+- Run `git diff --check` before closing every sprint.
+- Document any skipped validation and the reason.
+- Leave unrelated dirty worktree changes untouched and documented.
+
+## Validation Checklist
+
+Required before closing each implementation sprint when practical:
+
+- [ ] Focused package tests for the sprint.
+- [ ] Broad backend test baseline from the sprint plan, or documented blocker.
+- [ ] `go vet` for touched backend packages, or documented blocker.
+- [ ] `git diff --check`.
+- [ ] Architecture boundary check for `scriberr-engine` imports.
+- [ ] Path/secret leakage review for API responses, logs, events, and execution records touched by the sprint.
+
+## ASRP-Sprint 0: Inventory, Guardrails, And Compatibility Map
+
+Status: completed
+
+Completed tasks:
+
+- [x] Inventoried `scriberr-engine` imports and current ASR coupling.
+- [x] Inventoried `ModelCapability`, profile validation, orchestrator selection, execution metadata, and audio path handling.
+- [x] Added architecture tests for ASR dependency guardrails.
+- [x] Documented legacy `WhisperXParams` compatibility behavior.
+- [x] Created route/API impact matrix for models, profiles, transcriptions, events, logs, and executions.
+
+Acceptance checks:
+
+- [x] Current ASR coupling is documented.
+- [x] Guard tests fail on newly introduced forbidden imports.
+- [x] Existing public API behavior is intentionally preserved.
+- [x] No runtime behavior changes.
+
+Verification:
+
+- [x] `GOCACHE=/tmp/scriberr-go-cache go test ./internal/api -run 'TestASREngineImportInventory|TestProfileServiceDoesNotImportSherpaEngine|TestASRProvidersDoNotDependOnAPIOrRepositories|TestBackendDependencyDirection'`
+- [x] `git diff --check -- internal/api/architecture_test.go devnotes/v2.0.0/status-updates/asr-provider-backend-sprint-00-inventory.md devnotes/v2.0.0/sprint-trackers/asr-provider-backend-sprint-tracker.md`
+
+Artifacts:
+
+- `internal/api/architecture_test.go`
+- `devnotes/v2.0.0/status-updates/asr-provider-backend-sprint-00-inventory.md`
+- `devnotes/v2.0.0/sprint-trackers/asr-provider-backend-sprint-tracker.md`
+
+Commit:
+
+- Pending.
+
+## ASRP-Sprint 1: Pure ASR Contract Types
+
+Status: pending
+
+Planned tasks:
+
+- [ ] Add `internal/transcription/asrcontract`.
+- [ ] Define provider info, model cards, capabilities, status, loaded models, progress, requests, results, and typed errors.
+- [ ] Add capability matching helpers.
+- [ ] Add provider error classification helpers.
+- [ ] Add JSON compatibility tests.
+
+Acceptance checks:
+
+- [ ] Contract package imports only standard library packages.
+- [ ] Typed capabilities replace free-form strings in new code paths.
+- [ ] Provider errors include code, sanitized message, retryable flag, and bounded details.
+- [ ] No runtime provider behavior changes.
+
+Verification:
+
+- [ ] Not run yet.
+
+Artifacts:
+
+- To be filled during implementation.
+
+Commit:
+
+- Pending.
+
+## ASRP-Sprint 2: Provider Interface And Registry V2
+
+Status: pending
+
+Planned tasks:
+
+- [ ] Update `engineprovider` to use `asrcontract` model cards and status types.
+- [ ] Add provider interface methods for inspect, models, status, model lifecycle, operations, and close.
+- [ ] Add `ProgressSink`.
+- [ ] Implement deterministic provider/model selection.
+- [ ] Preserve current local provider behavior.
+- [ ] Keep unsupported local operations as typed unsupported responses/placeholders where needed.
+
+Acceptance checks:
+
+- [ ] Registry represents local and remote providers through one interface.
+- [ ] Selection is deterministic and test-backed.
+- [ ] Existing default provider/model behavior remains stable.
+- [ ] A second fake provider requires no API, repository, or worker changes.
+
+Verification:
+
+- [ ] Not run yet.
+
+Artifacts:
+
+- To be filled during implementation.
+
+Commit:
+
+- Pending.
+
+## ASRP-Sprint 3: Model Catalog Service And Profile Validation
+
+Status: pending
+
+Planned tasks:
+
+- [ ] Add model catalog service backed by provider registry.
+- [ ] Move profile model validation into service layer.
+- [ ] Remove `scriberr-engine` imports from profile handlers.
+- [ ] Keep existing profile JSON shape initially.
+- [ ] Back `/api/v1/models/transcription` with registry model cards.
+
+Acceptance checks:
+
+- [ ] API profile handlers do not import `scriberr-engine`.
+- [ ] Profile validation is service-owned and test-backed.
+- [ ] Existing profile create/update/list/get response shape remains stable.
+- [ ] Model listing is registry/model-card backed.
+
+Verification:
+
+- [ ] Not run yet.
+
+Artifacts:
+
+- To be filled during implementation.
+
+Commit:
+
+- Pending.
+
+## ASRP-Sprint 4: Provider Progress And Execution Metadata
+
+Status: pending
+
+Planned tasks:
+
+- [ ] Add orchestrator `ProgressSink` implementation.
+- [ ] Map provider stages to durable progress and SSE events.
+- [ ] Store sanitized provider step metadata in execution config/request JSON.
+- [ ] Add provider error code and operation kind where schema compatibility allows.
+- [ ] Preserve existing execution list response shape unless deliberately updated.
+
+Acceptance checks:
+
+- [ ] Fake/local providers can emit progress events.
+- [ ] Progress updates persist through existing repository methods.
+- [ ] SSE payloads are small and path-free.
+- [ ] Logs and executions expose sanitized provider details only.
+
+Verification:
+
+- [ ] Not run yet.
+
+Artifacts:
+
+- To be filled during implementation.
+
+Commit:
+
+- Pending.
+
+## ASRP-Sprint 5: Audio Preprocessing Boundary
+
+Status: pending
+
+Planned tasks:
+
+- [ ] Add `internal/transcription/preprocess`.
+- [ ] Produce 16 kHz mono WAV provider artifacts.
+- [ ] Add config for normalized audio dir and provider mount root.
+- [ ] Cache normalized artifacts by source hash/job id where safe.
+- [ ] Update orchestrator to use preprocessed audio.
+- [ ] Keep original audio API behavior unchanged.
+
+Acceptance checks:
+
+- [ ] Providers receive provider-visible normalized paths.
+- [ ] Public APIs never expose normalized artifact paths.
+- [ ] Existing authorized audio streaming still serves original audio.
+- [ ] Preprocessing failures are sanitized.
+
+Verification:
+
+- [ ] Not run yet.
+
+Artifacts:
+
+- To be filled during implementation.
+
+Commit:
+
+- Pending.
+
+## ASRP-Sprint 6: Remote Provider REST Client
+
+Status: pending
+
+Planned tasks:
+
+- [ ] Add `internal/transcription/engineprovider/remote`.
+- [ ] Implement control-plane REST endpoints.
+- [ ] Implement ephemeral job REST endpoints.
+- [ ] Enforce timeouts and response size limits.
+- [ ] Poll remote job status and replay progress.
+- [ ] Map typed remote errors.
+- [ ] Propagate cancellation through `DELETE /v1/jobs/{job_id}`.
+
+Acceptance checks:
+
+- [ ] Remote client implements the internal provider interface.
+- [ ] Fake HTTP provider tests cover success, progress, busy, unsupported operation, provider error, malformed JSON, timeout, and cancellation.
+- [ ] Remote provider URLs come only from injected config.
+- [ ] No URL/path/token leaks through public surfaces.
+
+Verification:
+
+- [ ] Not run yet.
+
+Artifacts:
+
+- To be filled during implementation.
+
+Commit:
+
+- Pending.
+
+## ASRP-Sprint 7: Remote Provider Configuration And App Wiring
+
+Status: pending
+
+Planned tasks:
+
+- [ ] Extend `internal/config` with ASR provider configuration.
+- [ ] Validate remote provider specs, duplicates, defaults, durations, and mount values.
+- [ ] Build local provider directly in-process.
+- [ ] Build remote provider clients from config.
+- [ ] Register providers before worker startup.
+- [ ] Preserve local-only default behavior.
+
+Acceptance checks:
+
+- [ ] Existing local-only deployments keep working.
+- [ ] Invalid config fails startup with actionable errors.
+- [ ] Remote provider wiring is testable without starting the HTTP listener.
+- [ ] `internal/app` remains the only composition root.
+
+Verification:
+
+- [ ] Not run yet.
+
+Artifacts:
+
+- To be filled during implementation.
+
+Commit:
+
+- Pending.
+
+## ASRP-Sprint 8: Pipeline Execution And Provider Chaining
+
+Status: pending
+
+Planned tasks:
+
+- [ ] Add internal pipeline representation.
+- [ ] Convert existing profile options into a compatibility pipeline.
+- [ ] Resolve each step through the registry.
+- [ ] Execute steps serially.
+- [ ] Merge typed artifacts into canonical transcript JSON.
+- [ ] Cover local/fake transcription plus remote/fake diarization.
+
+Acceptance checks:
+
+- [ ] Existing single-model jobs run through one-step compatibility pipeline.
+- [ ] Diarization can run on a different provider than transcription.
+- [ ] Provider step failures stop the pipeline with sanitized error metadata.
+- [ ] Cancellation interrupts the active provider step.
+- [ ] Canonical transcript output remains compatible.
+
+Verification:
+
+- [ ] Not run yet.
+
+Artifacts:
+
+- To be filled during implementation.
+
+Commit:
+
+- Pending.
+
+## ASRP-Sprint 9: Profile Pipeline Persistence
+
+Status: pending
+
+Planned tasks:
+
+- [ ] Store ordered pipeline steps in profile JSON.
+- [ ] Keep legacy profile fields populated where needed.
+- [ ] Add compatibility logic from current `WhisperXParams`.
+- [ ] Validate provider-specific options against model-card schemas where supported.
+- [ ] Bound and sanitize provider-specific option data.
+
+Acceptance checks:
+
+- [ ] Existing profiles survive migration and still run.
+- [ ] New profiles can persist multiple provider steps.
+- [ ] List/get profile responses remain backwards compatible or explicitly versioned.
+- [ ] Invalid pipeline shape is rejected before enqueue.
+
+Verification:
+
+- [ ] Not run yet.
+
+Artifacts:
+
+- To be filled during implementation.
+
+Commit:
+
+- Pending.
+
+## ASRP-Sprint 10: Provider Admin/Diagnostics API
+
+Status: pending
+
+Planned tasks:
+
+- [ ] Add service methods for provider list/status/model load/unload.
+- [ ] Add authenticated/admin-gated diagnostics endpoints as appropriate.
+- [ ] Keep `/api/v1/models/transcription` user-readable.
+- [ ] Use bounded timeouts for load/unload commands.
+- [ ] Sanitize provider status messages.
+
+Acceptance checks:
+
+- [ ] Users can still list selectable transcription models.
+- [ ] Admin diagnostics show provider state, active operation, and loaded models without paths/secrets.
+- [ ] Load/unload failures return typed safe errors.
+- [ ] Route contract and security regression tests cover new endpoints.
+
+Verification:
+
+- [ ] Not run yet.
+
+Artifacts:
+
+- To be filled during implementation.
+
+Commit:
+
+- Pending.
+
+## ASRP-Sprint 11: Contract Tests, Example Provider, And Hardening
+
+Status: pending
+
+Planned tasks:
+
+- [ ] Add provider contract test helpers.
+- [ ] Add minimal fake/example provider server for development tests.
+- [ ] Add provider author docs.
+- [ ] Tighten architecture tests where feasible.
+- [ ] Review performance hot paths.
+- [ ] Run broad validation baseline.
+
+Acceptance checks:
+
+- [ ] Third-party provider implementers have a testable contract.
+- [ ] Architecture guards prevent API/model/provider coupling regressions.
+- [ ] Remote provider failures do not destabilize local-only transcription.
+- [ ] Existing frontend and backend features remain green in focused tests.
+
+Verification:
+
+- [ ] Not run yet.
+
+Artifacts:
+
+- To be filled during implementation.
+
+Commit:
+
+- Pending.
+
+## Deferred Work
+
+- Rewriting `references/engine`.
+- Moving local sherpa into a sidecar container.
+- gRPC or WebSocket provider transports.
+- Live streaming transcription.
+- Multi-job concurrent execution inside a single provider.
+- Automatic Docker service discovery.
+- Cloud/object-storage audio handoff.

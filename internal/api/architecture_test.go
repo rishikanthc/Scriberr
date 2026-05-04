@@ -103,6 +103,49 @@ func TestBackendDependencyDirection(t *testing.T) {
 	}
 }
 
+func TestASREngineImportInventory(t *testing.T) {
+	expected := []string{
+		"internal/api/profile_handlers.go", // Current compatibility exception; ASRP-Sprint 3 must remove this.
+		"internal/transcription/engineprovider/local_provider.go",
+	}
+
+	actual, err := productionInternalFilesImportingPrefix("../..", "scriberr-engine", "engine")
+	if err != nil {
+		t.Fatalf("scan scriberr-engine imports: %v", err)
+	}
+
+	if strings.Join(actual, "\n") != strings.Join(expected, "\n") {
+		t.Fatalf("scriberr-engine import inventory changed.\nexpected only:\n%s\nactual:\n%s\nOnly the local ASR provider adapter should import scriberr-engine after ASRP-Sprint 3; do not add new dependencies on engine internals.",
+			strings.Join(expected, "\n"),
+			strings.Join(actual, "\n"))
+	}
+}
+
+func TestProfileServiceDoesNotImportSherpaEngine(t *testing.T) {
+	violations, err := productionImportViolations("../profile", []string{"scriberr-engine"}, nil)
+	if err != nil {
+		t.Fatalf("scan profile service imports: %v", err)
+	}
+	if len(violations) > 0 {
+		t.Fatalf("profile service imports scriberr-engine:\n%s\nProfile validation must use the ASR provider model catalog, not sherpa engine metadata.",
+			strings.Join(violations, "\n"))
+	}
+}
+
+func TestASRProvidersDoNotDependOnAPIOrRepositories(t *testing.T) {
+	violations, err := productionImportViolations("../transcription/engineprovider", []string{
+		"scriberr/internal/api",
+		"scriberr/internal/repository",
+	}, nil)
+	if err != nil {
+		t.Fatalf("scan ASR provider imports: %v", err)
+	}
+	if len(violations) > 0 {
+		t.Fatalf("ASR provider boundary violations:\n%s\nProviders must remain adapter boundaries and must not depend on API or repository packages.",
+			strings.Join(violations, "\n"))
+	}
+}
+
 func TestProductionAPIDoesNotOwnLLMProviderConnectionTester(t *testing.T) {
 	for _, symbol := range []string{
 		"LLMProviderConnectionTester",
@@ -248,6 +291,38 @@ func productionInternalFilesImporting(root, importPath, skipPackageDir string) (
 	return files, err
 }
 
+func productionInternalFilesImportingPrefix(root, importPathPrefix, skipPackageDir string) ([]string, error) {
+	var files []string
+	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			if filepath.Base(path) == skipPackageDir {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
+			return nil
+		}
+		imports, err := fileImportPaths(path)
+		if err != nil {
+			return err
+		}
+		if matchesAnyImport(imports, importPathPrefix) {
+			rel, err := filepath.Rel(root, path)
+			if err != nil {
+				return err
+			}
+			files = append(files, filepath.ToSlash(rel))
+		}
+		return nil
+	})
+	sort.Strings(files)
+	return files, err
+}
+
 func productionImportViolations(root string, forbidden, allowed []string) ([]string, error) {
 	var violations []string
 	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
@@ -350,6 +425,15 @@ func fileImportPaths(path string) ([]string, error) {
 
 func matchesAny(importPath string, prefixes []string) bool {
 	for _, prefix := range prefixes {
+		if importPath == prefix || strings.HasPrefix(importPath, prefix+"/") {
+			return true
+		}
+	}
+	return false
+}
+
+func matchesAnyImport(imports []string, prefix string) bool {
+	for _, importPath := range imports {
 		if importPath == prefix || strings.HasPrefix(importPath, prefix+"/") {
 			return true
 		}
