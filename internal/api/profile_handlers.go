@@ -178,8 +178,8 @@ func validateProfileInput(c *gin.Context, name string, options profileOptionsReq
 	}
 	return true
 }
-func profileParams(options profileOptionsRequest) models.WhisperXParams {
-	params := supportedProfileParams(models.WhisperXParams{
+func profileParams(options profileOptionsRequest) models.ASRParams {
+	params := normalizeProfileASRParams(models.ASRParams{
 		Model:                options.Model,
 		Language:             options.Language,
 		Task:                 options.Task,
@@ -203,7 +203,7 @@ func profileParams(options profileOptionsRequest) models.WhisperXParams {
 	return params
 }
 
-func supportedProfileParams(input models.WhisperXParams) models.WhisperXParams {
+func normalizeProfileASRParams(input models.ASRParams) models.ASRParams {
 	model := strings.TrimSpace(input.Model)
 	if model == "" {
 		model = engineprovider.DefaultTranscriptionModel
@@ -239,8 +239,9 @@ func supportedProfileParams(input models.WhisperXParams) models.WhisperXParams {
 	if minDurationOff == 0 {
 		minDurationOff = 0.3
 	}
-	return models.WhisperXParams{
+	params := models.ASRParams{
 		Model:                   model,
+		ModelFamily:             strings.TrimSpace(input.ModelFamily),
 		Language:                language,
 		Task:                    task,
 		Threads:                 input.Threads,
@@ -259,6 +260,13 @@ func supportedProfileParams(input models.WhisperXParams) models.WhisperXParams {
 		MinDurationOn:           minDurationOn,
 		MinDurationOff:          minDurationOff,
 	}
+	params.Pipeline = []models.ASRStep{
+		{Kind: models.ASRStepTranscription, Model: params.Model, ModelFamily: params.ModelFamily},
+	}
+	if params.Diarize {
+		params.Pipeline = append(params.Pipeline, models.ASRStep{Kind: models.ASRStepDiarization, Model: params.DiarizeModel})
+	}
+	return params
 }
 func (h *Handler) profileByPublicID(c *gin.Context, publicID string) (*models.TranscriptionProfile, bool) {
 	userID, ok := currentUserID(c)

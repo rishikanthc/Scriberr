@@ -87,7 +87,7 @@ func TestServiceCreateNormalizesProfileModelFromCatalog(t *testing.T) {
 	err := service.Create(context.Background(), &models.TranscriptionProfile{
 		UserID: 1,
 		Name:   "Parakeet",
-		Parameters: models.WhisperXParams{
+		Parameters: models.ASRParams{
 			Model: "parakeet-v2",
 		},
 	})
@@ -100,6 +100,13 @@ func TestServiceCreateNormalizesProfileModelFromCatalog(t *testing.T) {
 	if repo.created.Parameters.Model != "parakeet-v2" || repo.created.Parameters.ModelFamily != "nemo_transducer" {
 		t.Fatalf("profile parameters were not normalized: %#v", repo.created.Parameters)
 	}
+	if len(repo.created.Parameters.Pipeline) != 1 {
+		t.Fatalf("profile pipeline length = %d, want 1", len(repo.created.Parameters.Pipeline))
+	}
+	step := repo.created.Parameters.Pipeline[0]
+	if step.Kind != models.ASRStepTranscription || step.Model != "parakeet-v2" || step.ModelFamily != "nemo_transducer" {
+		t.Fatalf("profile pipeline was not normalized: %#v", step)
+	}
 }
 
 func TestServiceCreateRejectsUnknownModel(t *testing.T) {
@@ -108,7 +115,7 @@ func TestServiceCreateRejectsUnknownModel(t *testing.T) {
 	err := service.Create(context.Background(), &models.TranscriptionProfile{
 		UserID: 1,
 		Name:   "Invalid",
-		Parameters: models.WhisperXParams{
+		Parameters: models.ASRParams{
 			Model: "large-v3",
 		},
 	})

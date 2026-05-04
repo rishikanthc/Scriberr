@@ -107,7 +107,26 @@ func (s *Service) normalizeProfile(ctx context.Context, profile *models.Transcri
 	if strings.TrimSpace(profile.Parameters.DiarizeModel) == "" {
 		profile.Parameters.DiarizeModel = defaultDiarizationModel
 	}
+	profile.Parameters.Pipeline = buildDefaultPipeline(profile.Parameters)
 	return nil
+}
+
+func buildDefaultPipeline(params models.ASRParams) []models.ASRStep {
+	pipeline := []models.ASRStep{
+		{
+			Kind:        models.ASRStepTranscription,
+			Provider:    strings.TrimSpace(params.Provider),
+			Model:       strings.TrimSpace(params.Model),
+			ModelFamily: strings.TrimSpace(params.ModelFamily),
+		},
+	}
+	if params.Diarize {
+		pipeline = append(pipeline, models.ASRStep{
+			Kind:  models.ASRStepDiarization,
+			Model: strings.TrimSpace(params.DiarizeModel),
+		})
+	}
+	return pipeline
 }
 
 type ModelInfo struct {

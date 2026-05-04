@@ -2,7 +2,7 @@
 
 Run ID: `ASRP`
 
-Status: completed through ASRP-Sprint 5.
+Status: completed through ASRP-Sprint 6.
 
 This tracker belongs to `devnotes/v2.0.0/sprint-plans/asr-provider-backend-sprint-plan.md` and the design spec in `devnotes/v2.0.0/specs/asr-provider-backend-architecture.md`.
 
@@ -39,7 +39,7 @@ Completed tasks:
 - [x] Inventoried `scriberr-engine` imports and current ASR coupling.
 - [x] Inventoried `ModelCapability`, profile validation, orchestrator selection, execution metadata, and audio path handling.
 - [x] Added architecture tests for ASR dependency guardrails.
-- [x] Documented legacy `WhisperXParams` usage and removal target.
+- [x] Documented legacy provider-specific ASR parameter usage and removal target.
 - [x] Created route/API impact matrix for models, profiles, transcriptions, events, logs, and executions.
 
 Acceptance checks:
@@ -275,32 +275,46 @@ Commit:
 
 ## ASRP-Sprint 6: Legacy ASR Parameter Removal And Backend Streamlining
 
-Status: pending
+Status: completed
 
-Planned tasks:
+Completed tasks:
 
-- [ ] Replace `models.WhisperXParams` with provider-neutral ASR profile/job option types.
-- [ ] Remove old WhisperX naming from services, handlers, repository payload helpers, tests, and docs.
-- [ ] Replace single-model profile assumptions with explicit one-step pipeline data.
-- [ ] Update create/update/list/get profile API tests to use the new pipeline contract.
-- [ ] Update transcription creation and recording finalizer paths to pass pipeline/profile options, not WhisperX params.
-- [ ] Add architecture guards that fail if production code references `WhisperXParams` or `WhisperX`.
-- [ ] Remove dead compatibility helpers created only for the earlier migration path.
+- [x] Replaced provider-specific ASR parameter structs with provider-neutral ASR profile/job option types.
+- [x] Removed old provider-specific naming from services, handlers, repository payload helpers, tests, and docs.
+- [x] Replaced single-model profile assumptions with explicit one-step pipeline data.
+- [x] Updated create/update/list/get profile API tests to use the new pipeline-bearing contract.
+- [x] Updated transcription creation and recording finalizer paths to pass ASR profile options.
+- [x] Added architecture guards that fail if production code references old provider-specific ASR identifiers.
+- [x] Removed dead option fields from the shared ASR parameter surface.
 
 Acceptance checks:
 
-- [ ] No production code references `WhisperXParams`.
-- [ ] New ASR option types are provider-neutral and pipeline-oriented.
-- [ ] Existing backend features compile against the new types.
-- [ ] Old compatibility helpers are deleted, not left as wrappers.
+- [x] No production code references old provider-specific ASR parameter identifiers.
+- [x] New ASR option types are provider-neutral and pipeline-oriented.
+- [x] Existing backend features compile against the new types.
+- [x] Old compatibility helpers are deleted, not left as wrappers.
 
 Verification:
 
-- [ ] Not run yet.
+- [x] `GOCACHE=/tmp/scriberr-go-cache go test ./internal/models ./internal/profile ./internal/transcription/... ./internal/recording ./internal/database`
+- [x] `GOCACHE=/tmp/scriberr-go-cache go test ./internal/api -run 'TestASREngineImportInventory|TestProductionCodeDoesNotUseOldASRParameterIdentifiers|TestProfileServiceDoesNotImportSherpaEngine|TestBackendDependencyDirection|TestProfile|TestListTranscriptionModels|TestTranscriptionExecutions'`
+- [x] `GOCACHE=/tmp/scriberr-go-cache go test ./internal/profile ./internal/api -run 'TestService|TestProfile|TestSettingsDefaultProfile|TestASREngineImportInventory|TestProductionCodeDoesNotUseOldASRParameterIdentifiers|TestProfileServiceDoesNotImportSherpaEngine|TestBackendDependencyDirection|TestListTranscriptionModels|TestTranscriptionExecutions'`
+- [x] `GOCACHE=/tmp/scriberr-go-cache go vet ./internal/models ./internal/profile ./internal/transcription/... ./internal/recording ./internal/database ./internal/api`
+- [x] `git diff --check`
+- [x] Broad `GOCACHE=/tmp/scriberr-go-cache go test ./internal/api ...` was blocked by the existing sandbox loopback restriction in `TestLLMProviderSettingsSaveTestsConnectionAndMasksKey`.
 
 Artifacts:
 
-- To be filled during implementation.
+- `internal/models/transcription.go`
+- `internal/profile/service.go`
+- `internal/api/profile_handlers.go`
+- `internal/api/response_models.go`
+- `internal/api/architecture_test.go`
+- `internal/transcription/service.go`
+- `internal/recording/finalizer.go`
+- `internal/database/legacy.go`
+- `devnotes/v2.0.0/sprint-plans/asr-provider-backend-sprint-plan.md`
+- `devnotes/v2.0.0/sprint-trackers/asr-provider-backend-sprint-tracker.md`
 
 Commit:
 

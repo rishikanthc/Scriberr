@@ -24,7 +24,7 @@ var (
 
 // @title Scriberr API
 // @version 1.0
-// @description Audio transcription service using WhisperX
+// @description Audio transcription service using ASR
 // @termsOfService http://swagger.io/terms/
 
 // @contact.name API Support

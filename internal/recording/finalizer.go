@@ -381,23 +381,23 @@ func (s *FinalizerService) buildHandoffRecords(ctx context.Context, session *mod
 	return file, transcription, nil
 }
 
-func (s *FinalizerService) resolveParams(ctx context.Context, session *models.RecordingSession) (models.WhisperXParams, error) {
+func (s *FinalizerService) resolveParams(ctx context.Context, session *models.RecordingSession) (models.ASRParams, error) {
 	if s.profiles == nil {
-		return models.WhisperXParams{}, nil
+		return models.ASRParams{}, nil
 	}
 	if session.ProfileID != nil && *session.ProfileID != "" {
 		profile, err := s.profiles.FindByIDForUser(ctx, *session.ProfileID, session.UserID)
 		if err != nil {
-			return models.WhisperXParams{}, err
+			return models.ASRParams{}, err
 		}
 		return profile.Parameters, nil
 	}
 	profile, err := s.profiles.FindDefaultByUser(ctx, session.UserID)
 	if err != nil {
 		if errors.Is(err, repository.ErrRecordNotFound) {
-			return models.WhisperXParams{}, nil
+			return models.ASRParams{}, nil
 		}
-		return models.WhisperXParams{}, err
+		return models.ASRParams{}, err
 	}
 	return profile.Parameters, nil
 }
@@ -407,7 +407,7 @@ type recordingOptions struct {
 	Diarization *bool  `json:"diarization"`
 }
 
-func applyRecordingOptions(params *models.WhisperXParams, raw string) {
+func applyRecordingOptions(params *models.ASRParams, raw string) {
 	var opts recordingOptions
 	if err := json.Unmarshal([]byte(raw), &opts); err != nil {
 		return

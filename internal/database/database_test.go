@@ -626,11 +626,9 @@ func TestSchemaUpgradeRunsVersionedBackfill(t *testing.T) {
 		UserID:    userA.ID,
 		Name:      "profile-a",
 		IsDefault: true,
-		Parameters: models.WhisperXParams{
+		Parameters: models.ASRParams{
 			Model:       "medium",
 			ModelFamily: "whisper",
-			Device:      "cpu",
-			ComputeType: "float32",
 		},
 		CreatedAt: base,
 		UpdatedAt: base,
@@ -640,11 +638,9 @@ func TestSchemaUpgradeRunsVersionedBackfill(t *testing.T) {
 		UserID:    userB.ID,
 		Name:      "profile-b",
 		IsDefault: true,
-		Parameters: models.WhisperXParams{
+		Parameters: models.ASRParams{
 			Model:       "large-v3",
 			ModelFamily: "whisper",
-			Device:      "cuda",
-			ComputeType: "float16",
 		},
 		CreatedAt: base,
 		UpdatedAt: base,
@@ -992,10 +988,10 @@ func createLegacyDatabase(t *testing.T, dbPath string, withData bool) {
 	user := legacyUser{ID: 7, Username: "legacy-admin", Password: "hashed", DefaultProfileID: &defaultProfileID, AutoTranscriptionEnabled: true, CreatedAt: now, UpdatedAt: now}
 	require.NoError(t, db.Table("users").Create(&user).Error)
 
-	profile := legacyTranscriptionProfile{ID: "profile-1", Name: "Legacy Profile", Description: &profileDescription, IsDefault: true, Parameters: models.WhisperXParams{Model: "medium", ModelFamily: "whisper", Device: "cpu", ComputeType: "float32", Diarize: true}, CreatedAt: now, UpdatedAt: now}
+	profile := legacyTranscriptionProfile{ID: "profile-1", Name: "Legacy Profile", Description: &profileDescription, IsDefault: true, Parameters: models.ASRParams{Model: "medium", ModelFamily: "whisper", Diarize: true}, CreatedAt: now, UpdatedAt: now}
 	require.NoError(t, db.Table("transcription_profiles").Create(&profile).Error)
 
-	job := legacyTranscriptionJob{ID: "job-1", Title: &title, Status: "pending", AudioPath: "/legacy/audio.wav", Transcript: &transcriptJSON, Diarization: true, Summary: ptr("legacy summary cache"), ErrorMessage: &errorMessage, CreatedAt: now, UpdatedAt: completedAt, Parameters: models.WhisperXParams{Model: "medium", ModelFamily: "whisper", Device: "cpu", ComputeType: "float32", Diarize: true}}
+	job := legacyTranscriptionJob{ID: "job-1", Title: &title, Status: "pending", AudioPath: "/legacy/audio.wav", Transcript: &transcriptJSON, Diarization: true, Summary: ptr("legacy summary cache"), ErrorMessage: &errorMessage, CreatedAt: now, UpdatedAt: completedAt, Parameters: models.ASRParams{Model: "medium", ModelFamily: "whisper", Diarize: true}}
 	require.NoError(t, db.Table("transcription_jobs").Create(&job).Error)
 
 	execution := legacyTranscriptionExecution{ID: "exec-1", TranscriptionJobID: "job-1", StartedAt: now, CompletedAt: &completedAt, ProcessingDuration: &processingDuration, ActualParameters: job.Parameters, Status: "completed", CreatedAt: completedAt, UpdatedAt: completedAt}

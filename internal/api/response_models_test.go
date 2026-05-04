@@ -85,7 +85,7 @@ func TestProfileRecordingAndSummaryResponsesUseDTOs(t *testing.T) {
 		Name:        "Default",
 		Description: &description,
 		IsDefault:   true,
-		Parameters:  models.WhisperXParams{Model: "whisper-base", Diarize: true},
+		Parameters:  models.ASRParams{Model: "whisper-base", Diarize: true},
 	})
 	if profile.ID != "profile_profile-id" {
 		t.Fatalf("unexpected profile id: %q", profile.ID)

@@ -205,7 +205,7 @@ func TestFinalizerCreatesAndEnqueuesAutoTranscription(t *testing.T) {
 		UserID:    user.ID,
 		Name:      "Default",
 		IsDefault: true,
-		Parameters: models.WhisperXParams{
+		Parameters: models.ASRParams{
 			Language: &language,
 			Diarize:  true,
 		},

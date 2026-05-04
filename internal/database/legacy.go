@@ -51,7 +51,7 @@ type legacyTranscriptionProfile struct {
 	Name        string
 	Description *string
 	IsDefault   bool
-	Parameters  models.WhisperXParams `gorm:"embedded"`
+	Parameters  models.ASRParams `gorm:"embedded"`
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
 }
@@ -68,7 +68,7 @@ type legacyTranscriptionJob struct {
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
 	DeletedAt    gorm.DeletedAt
-	Parameters   models.WhisperXParams `gorm:"embedded"`
+	Parameters   models.ASRParams `gorm:"embedded"`
 }
 
 type legacyTranscriptionExecution struct {
@@ -77,7 +77,7 @@ type legacyTranscriptionExecution struct {
 	StartedAt          time.Time
 	CompletedAt        *time.Time
 	ProcessingDuration *int64
-	ActualParameters   models.WhisperXParams `gorm:"embedded;embeddedPrefix:actual_"`
+	ActualParameters   models.ASRParams `gorm:"embedded;embeddedPrefix:actual_"`
 	Status             string
 	ErrorMessage       *string
 	CreatedAt          time.Time

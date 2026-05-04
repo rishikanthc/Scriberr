@@ -42,6 +42,10 @@ func TestProfileCRUDAndDefaultSelection(t *testing.T) {
 	require.Equal(t, float64(0.5), options["diarization_threshold"])
 	require.Equal(t, float64(0.2), options["min_duration_on"])
 	require.Equal(t, float64(0.3), options["min_duration_off"])
+	pipeline := options["pipeline"].([]any)
+	require.Len(t, pipeline, 1)
+	require.Equal(t, "transcription", pipeline[0].(map[string]any)["kind"])
+	require.Equal(t, "whisper-base", pipeline[0].(map[string]any)["model"])
 	require.NotContains(t, options, "enable_token_timestamps")
 	require.NotContains(t, options, "enable_segment_timestamps")
 
@@ -52,6 +56,8 @@ func TestProfileCRUDAndDefaultSelection(t *testing.T) {
 	require.NotNil(t, storedProfile.Parameters.EnableSegmentTimestamps)
 	require.True(t, *storedProfile.Parameters.EnableSegmentTimestamps)
 	require.Equal(t, "vad", storedProfile.Parameters.ChunkingStrategy)
+	require.Len(t, storedProfile.Parameters.Pipeline, 1)
+	require.Equal(t, models.ASRStepTranscription, storedProfile.Parameters.Pipeline[0].Kind)
 
 	resp, body = s.request(t, http.MethodGet, "/api/v1/settings", nil, token, "")
 	require.Equal(t, http.StatusOK, resp.Code)

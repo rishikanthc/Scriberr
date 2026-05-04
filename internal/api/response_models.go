@@ -342,8 +342,8 @@ func profileResponse(profile *models.TranscriptionProfile) ProfileResponse {
 		UpdatedAt:   profile.UpdatedAt,
 	}
 }
-func profileOptionsMap(params models.WhisperXParams) gin.H {
-	params = supportedProfileParams(params)
+func profileOptionsMap(params models.ASRParams) gin.H {
+	params = normalizeProfileASRParams(params)
 	params.EnableTokenTimestamps = nil
 	params.EnableSegmentTimestamps = nil
 	var options gin.H

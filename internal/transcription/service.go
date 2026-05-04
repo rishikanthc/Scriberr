@@ -413,23 +413,23 @@ func (s *Service) createFromSource(ctx context.Context, userID uint, source *mod
 	return job, nil
 }
 
-func (s *Service) resolveParams(ctx context.Context, userID uint, profileID string) (models.WhisperXParams, error) {
+func (s *Service) resolveParams(ctx context.Context, userID uint, profileID string) (models.ASRParams, error) {
 	if s.profiles == nil {
-		return models.WhisperXParams{}, nil
+		return models.ASRParams{}, nil
 	}
 	if strings.TrimSpace(profileID) != "" {
 		profile, err := s.profiles.FindByIDForUser(ctx, profileID, userID)
 		if err != nil {
-			return models.WhisperXParams{}, ErrInvalidProfile
+			return models.ASRParams{}, ErrInvalidProfile
 		}
 		return profile.Parameters, nil
 	}
 	profile, err := s.profiles.FindDefaultByUser(ctx, userID)
 	if err != nil {
 		if errors.Is(err, repository.ErrRecordNotFound) {
-			return models.WhisperXParams{}, nil
+			return models.ASRParams{}, nil
 		}
-		return models.WhisperXParams{}, err
+		return models.ASRParams{}, err
 	}
 	return profile.Parameters, nil
 }

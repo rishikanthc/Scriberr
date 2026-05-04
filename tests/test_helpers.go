@@ -164,11 +164,8 @@ func (h *TestHelper) CreateTestTranscriptionJob(t *testing.T, title string) *mod
 		Title:     &title,
 		Status:    models.StatusPending,
 		AudioPath: "test/path/audio.mp3",
-		Parameters: models.WhisperXParams{
-			Model:       "base",
-			BatchSize:   16,
-			ComputeType: "float16",
-			Device:      "auto",
+		Parameters: models.ASRParams{
+			Model: "base",
 		},
 	}
 
@@ -184,11 +181,8 @@ func (h *TestHelper) CreateTestProfile(t *testing.T, name string, isDefault bool
 		Name:        name,
 		Description: stringPtr("Test profile description"),
 		IsDefault:   isDefault,
-		Parameters: models.WhisperXParams{
-			Model:       "small",
-			BatchSize:   8,
-			ComputeType: "float32",
-			Device:      "cpu",
+		Parameters: models.ASRParams{
+			Model: "small",
 		},
 	}
 

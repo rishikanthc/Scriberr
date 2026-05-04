@@ -23,77 +23,51 @@ const (
 	StatusCanceled   JobStatus = "canceled" // legacy persisted value
 )
 
-// WhisperXParams contains parameters for transcription execution.
-type WhisperXParams struct {
-	ModelFamily                    string  `json:"model_family,omitempty"`
-	Model                          string  `json:"model,omitempty"`
-	ModelCacheOnly                 bool    `json:"model_cache_only,omitempty"`
-	ModelDir                       *string `json:"model_dir,omitempty"`
-	Device                         string  `json:"device,omitempty"`
-	DeviceIndex                    int     `json:"device_index,omitempty"`
-	BatchSize                      int     `json:"batch_size,omitempty"`
-	ComputeType                    string  `json:"compute_type,omitempty"`
-	Threads                        int     `json:"threads,omitempty"`
-	TailPaddings                   *int    `json:"tail_paddings,omitempty"`
-	EnableTokenTimestamps          *bool   `json:"enable_token_timestamps,omitempty"`
-	EnableSegmentTimestamps        *bool   `json:"enable_segment_timestamps,omitempty"`
-	CanarySourceLanguage           string  `json:"canary_source_language,omitempty"`
-	CanaryTargetLanguage           string  `json:"canary_target_language,omitempty"`
-	CanaryUsePunctuation           *bool   `json:"canary_use_punctuation,omitempty"`
-	DecodingMethod                 string  `json:"decoding_method,omitempty"`
-	ChunkingStrategy               string  `json:"chunking_strategy,omitempty"`
-	OutputFormat                   string  `json:"output_format,omitempty"`
-	Verbose                        bool    `json:"verbose,omitempty"`
-	Task                           string  `json:"task,omitempty"`
-	Language                       *string `json:"language,omitempty"`
-	AlignModel                     *string `json:"align_model,omitempty"`
-	InterpolateMethod              string  `json:"interpolate_method,omitempty"`
-	NoAlign                        bool    `json:"no_align,omitempty"`
-	ReturnCharAlignments           bool    `json:"return_char_alignments,omitempty"`
-	VadMethod                      string  `json:"vad_method,omitempty"`
-	VadOnset                       float64 `json:"vad_onset,omitempty"`
-	VadOffset                      float64 `json:"vad_offset,omitempty"`
-	ChunkSize                      int     `json:"chunk_size,omitempty"`
-	Diarize                        bool    `json:"diarize,omitempty"`
-	NumSpeakers                    int     `json:"num_speakers,omitempty"`
-	DiarizationThreshold           float64 `json:"diarization_threshold,omitempty"`
-	MinDurationOn                  float64 `json:"min_duration_on,omitempty"`
-	MinDurationOff                 float64 `json:"min_duration_off,omitempty"`
-	MinSpeakers                    *int    `json:"min_speakers,omitempty"`
-	MaxSpeakers                    *int    `json:"max_speakers,omitempty"`
-	DiarizeModel                   string  `json:"diarize_model,omitempty"`
-	SpeakerEmbeddings              bool    `json:"speaker_embeddings,omitempty"`
-	Temperature                    float64 `json:"temperature,omitempty"`
-	BestOf                         int     `json:"best_of,omitempty"`
-	BeamSize                       int     `json:"beam_size,omitempty"`
-	Patience                       float64 `json:"patience,omitempty"`
-	LengthPenalty                  float64 `json:"length_penalty,omitempty"`
-	SuppressTokens                 *string `json:"suppress_tokens,omitempty"`
-	SuppressNumerals               bool    `json:"suppress_numerals,omitempty"`
-	InitialPrompt                  *string `json:"initial_prompt,omitempty"`
-	ConditionOnPreviousText        bool    `json:"condition_on_previous_text,omitempty"`
-	Fp16                           bool    `json:"fp16,omitempty"`
-	TemperatureIncrementOnFallback float64 `json:"temperature_increment_on_fallback,omitempty"`
-	CompressionRatioThreshold      float64 `json:"compression_ratio_threshold,omitempty"`
-	LogprobThreshold               float64 `json:"logprob_threshold,omitempty"`
-	NoSpeechThreshold              float64 `json:"no_speech_threshold,omitempty"`
-	MaxLineWidth                   *int    `json:"max_line_width,omitempty"`
-	MaxLineCount                   *int    `json:"max_line_count,omitempty"`
-	HighlightWords                 bool    `json:"highlight_words,omitempty"`
-	SegmentResolution              string  `json:"segment_resolution,omitempty"`
-	HfToken                        *string `json:"hf_token,omitempty"`
-	PrintProgress                  bool    `json:"print_progress,omitempty"`
-	AttentionContextLeft           int     `json:"attention_context_left,omitempty"`
-	AttentionContextRight          int     `json:"attention_context_right,omitempty"`
-	CallbackURL                    *string `json:"callback_url,omitempty"`
-	APIKey                         *string `json:"api_key,omitempty"`
-	MaxNewTokens                   *int    `json:"max_new_tokens,omitempty"`
+const (
+	ASRStepTranscription         = "transcription"
+	ASRStepDiarization           = "diarization"
+	ASRStepSpeakerIdentification = "speaker_identification"
+)
+
+// ASRStep describes one provider operation in an ASR pipeline.
+type ASRStep struct {
+	Kind        string         `json:"kind"`
+	Provider    string         `json:"provider,omitempty"`
+	Model       string         `json:"model,omitempty"`
+	ModelFamily string         `json:"model_family,omitempty"`
+	Options     map[string]any `json:"options,omitempty"`
+}
+
+// ASRParams contains provider-neutral parameters for ASR execution.
+type ASRParams struct {
+	Pipeline                []ASRStep `json:"pipeline,omitempty" gorm:"-"`
+	Provider                string    `json:"provider,omitempty"`
+	ModelFamily             string    `json:"model_family,omitempty"`
+	Model                   string    `json:"model,omitempty"`
+	Task                    string    `json:"task,omitempty"`
+	Language                *string   `json:"language,omitempty"`
+	Threads                 int       `json:"threads,omitempty"`
+	TailPaddings            *int      `json:"tail_paddings,omitempty"`
+	EnableTokenTimestamps   *bool     `json:"enable_token_timestamps,omitempty"`
+	EnableSegmentTimestamps *bool     `json:"enable_segment_timestamps,omitempty"`
+	CanarySourceLanguage    string    `json:"canary_source_language,omitempty"`
+	CanaryTargetLanguage    string    `json:"canary_target_language,omitempty"`
+	CanaryUsePunctuation    *bool     `json:"canary_use_punctuation,omitempty"`
+	DecodingMethod          string    `json:"decoding_method,omitempty"`
+	ChunkingStrategy        string    `json:"chunking_strategy,omitempty"`
+	ChunkSize               int       `json:"chunk_size,omitempty"`
+	Diarize                 bool      `json:"diarize,omitempty"`
+	NumSpeakers             int       `json:"num_speakers,omitempty"`
+	DiarizationThreshold    float64   `json:"diarization_threshold,omitempty"`
+	MinDurationOn           float64   `json:"min_duration_on,omitempty"`
+	MinDurationOff          float64   `json:"min_duration_off,omitempty"`
+	DiarizeModel            string    `json:"diarize_model,omitempty"`
 }
 
 type transcriptionMetadata struct {
-	Diarization bool           `json:"diarization,omitempty"`
-	Summary     *string        `json:"summary,omitempty"`
-	Parameters  WhisperXParams `json:"parameters,omitempty"`
+	Diarization bool      `json:"diarization,omitempty"`
+	Summary     *string   `json:"summary,omitempty"`
+	Parameters  ASRParams `json:"parameters,omitempty"`
 }
 
 // TranscriptionJob represents the durable transcription record.
@@ -133,9 +107,9 @@ type TranscriptionJob struct {
 	UpdatedAt                     time.Time      `json:"updated_at" gorm:"autoUpdateTime"`
 	DeletedAt                     gorm.DeletedAt `json:"deleted_at,omitempty" gorm:"index" swaggertype:"string"`
 
-	Diarization bool           `json:"diarization" gorm:"-"`
-	Summary     *string        `json:"summary,omitempty" gorm:"-"`
-	Parameters  WhisperXParams `json:"parameters" gorm:"-"`
+	Diarization bool      `json:"diarization" gorm:"-"`
+	Summary     *string   `json:"summary,omitempty" gorm:"-"`
+	Parameters  ASRParams `json:"parameters" gorm:"-"`
 }
 
 func (TranscriptionJob) TableName() string { return "transcriptions" }
@@ -248,8 +222,8 @@ func coalesceString(current, fallback string) string {
 }
 
 type executionPayload struct {
-	Parameters         WhisperXParams `json:"parameters,omitempty"`
-	ProcessingDuration *int64         `json:"processing_duration,omitempty"`
+	Parameters         ASRParams `json:"parameters,omitempty"`
+	ProcessingDuration *int64    `json:"processing_duration,omitempty"`
 }
 
 // TranscriptionJobExecution represents execution metadata for a transcription.
@@ -276,8 +250,8 @@ type TranscriptionJobExecution struct {
 	OutputJSONPath     *string    `json:"output_json_path,omitempty" gorm:"type:text"`
 	CreatedAt          time.Time  `json:"created_at" gorm:"autoCreateTime"`
 
-	ProcessingDuration *int64         `json:"processing_duration,omitempty" gorm:"-"`
-	ActualParameters   WhisperXParams `json:"actual_parameters" gorm:"-"`
+	ProcessingDuration *int64    `json:"processing_duration,omitempty" gorm:"-"`
+	ActualParameters   ASRParams `json:"actual_parameters" gorm:"-"`
 
 	TranscriptionJob TranscriptionJob `json:"transcription_job,omitempty" gorm:"foreignKey:TranscriptionJobID;references:ID;constraint:OnDelete:CASCADE"`
 }
@@ -309,12 +283,6 @@ func (tje *TranscriptionJobExecution) syncColumnsFromCompat() error {
 	if tje.ModelFamily == "" {
 		tje.ModelFamily = tje.ActualParameters.ModelFamily
 	}
-	if tje.Device == "" {
-		tje.Device = tje.ActualParameters.Device
-	}
-	if tje.ComputeType == "" {
-		tje.ComputeType = tje.ActualParameters.ComputeType
-	}
 	payload := executionPayload{Parameters: tje.ActualParameters, ProcessingDuration: tje.ProcessingDuration}
 	requestJSON, err := marshalJSONColumn("transcription_executions.request_json", payload)
 	if err != nil {
@@ -343,12 +311,6 @@ func (tje *TranscriptionJobExecution) SyncColumnsForMigration() error {
 	}
 	if tje.ModelFamily == "" {
 		tje.ModelFamily = tje.ActualParameters.ModelFamily
-	}
-	if tje.Device == "" {
-		tje.Device = tje.ActualParameters.Device
-	}
-	if tje.ComputeType == "" {
-		tje.ComputeType = tje.ActualParameters.ComputeType
 	}
 	payload := executionPayload{
 		Parameters:         tje.ActualParameters,
@@ -423,7 +385,7 @@ type TranscriptionProfile struct {
 	CreatedAt          time.Time `json:"created_at" gorm:"autoCreateTime"`
 	UpdatedAt          time.Time `json:"updated_at" gorm:"autoUpdateTime"`
 
-	Parameters WhisperXParams `json:"parameters" gorm:"-"`
+	Parameters ASRParams `json:"parameters" gorm:"-"`
 }
 
 func (TranscriptionProfile) TableName() string { return "transcription_profiles" }
@@ -443,8 +405,6 @@ func (tp *TranscriptionProfile) BeforeSave(tx *gorm.DB) error {
 	tp.ModelFamily = tp.Parameters.ModelFamily
 	tp.Language = tp.Parameters.Language
 	tp.DiarizationEnabled = tp.Parameters.Diarize
-	tp.Device = tp.Parameters.Device
-	tp.ComputeType = tp.Parameters.ComputeType
 	configJSON, err := marshalJSONColumn("transcription_profiles.config_json", tp.Parameters)
 	if err != nil {
 		return err
@@ -474,12 +434,6 @@ func (tp *TranscriptionProfile) AfterFind(tx *gorm.DB) error {
 		tp.Parameters.Language = tp.Language
 	}
 	tp.Parameters.Diarize = tp.DiarizationEnabled
-	if tp.Parameters.Device == "" {
-		tp.Parameters.Device = tp.Device
-	}
-	if tp.Parameters.ComputeType == "" {
-		tp.Parameters.ComputeType = tp.ComputeType
-	}
 	return nil
 }
 

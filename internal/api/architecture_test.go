@@ -145,6 +145,19 @@ func TestASRProvidersDoNotDependOnAPIOrRepositories(t *testing.T) {
 	}
 }
 
+func TestProductionCodeDoesNotUseOldASRParameterIdentifiers(t *testing.T) {
+	for _, symbol := range []string{"WhisperXParams", "WhisperX"} {
+		locations, err := productionFilesContainingSymbol("../..", symbol)
+		if err != nil {
+			t.Fatalf("scan old ASR parameter identifiers: %v", err)
+		}
+		if len(locations) > 0 {
+			t.Fatalf("production code still references old ASR parameter identifier %q in:\n%s\nUse provider-neutral ASR contracts and ASRParams instead.",
+				symbol, strings.Join(locations, "\n"))
+		}
+	}
+}
+
 func TestProductionAPIDoesNotOwnLLMProviderConnectionTester(t *testing.T) {
 	for _, symbol := range []string{
 		"LLMProviderConnectionTester",

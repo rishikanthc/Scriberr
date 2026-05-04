@@ -80,11 +80,9 @@ func (suite *DatabaseTestSuite) TestTranscriptionJobPersistsCompatibilityFields(
 		AudioPath:  "/tmp/input.wav",
 		Transcript: &transcript,
 		Summary:    &summary,
-		Parameters: models.WhisperXParams{
+		Parameters: models.ASRParams{
 			Model:       "base",
 			ModelFamily: "whisper",
-			Device:      "cpu",
-			ComputeType: "float32",
 			Diarize:     true,
 		},
 	}

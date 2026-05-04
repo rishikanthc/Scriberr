@@ -28,7 +28,7 @@ The bundled sherpa-onnx provider remains in-process and is called through Go API
 - Do not introduce runtime environment reads outside `internal/config`.
 - Do not expose local paths, normalized audio paths, provider URLs, tokens, model cache paths, or stack traces through API responses, SSE events, logs endpoints, or execution rows.
 - Prefer deterministic fake providers and fake remote servers for tests. Real engine and real provider integration tests must be opt-in.
-- Do not preserve legacy ASR internals indefinitely. During the pipeline/persistence sprints, remove `WhisperXParams` and old single-model compatibility paths instead of wrapping them.
+- Do not preserve legacy ASR internals indefinitely. During the pipeline/persistence sprints, remove provider-specific parameter structs and old single-model compatibility paths instead of wrapping them.
 - Each sprint should be reviewable as one coherent change set. Avoid broad package renames and unrelated cleanup.
 
 ## Validation Baseline
@@ -75,7 +75,7 @@ Tasks:
   - profile handlers/services must not import `scriberr-engine`
   - only the local provider adapter may import `scriberr-engine`
   - provider packages must not import API or repository packages
-- Document current `WhisperXParams` usage and mark it for removal.
+- Document current provider-specific parameter usage and mark it for removal.
 - Create a short route/API impact matrix for models, profiles, transcription creation, events, logs, and executions.
 
 Acceptance criteria:
@@ -278,21 +278,21 @@ Commit guidance:
 
 ## ASRP-Sprint 6: Legacy ASR Parameter Removal And Backend Streamlining
 
-Goal: remove old WhisperX-shaped ASR internals before adding remote provider complexity.
+Goal: remove old provider-specific ASR internals before adding remote provider complexity.
 
 Tasks:
 
-- Replace `models.WhisperXParams` with provider-neutral ASR profile/job option types.
-- Remove old WhisperX naming from services, handlers, repository payload helpers, tests, and docs.
+- Replace provider-specific ASR parameter structs with provider-neutral ASR profile/job option types.
+- Remove old provider-specific naming from services, handlers, repository payload helpers, tests, and docs.
 - Replace single-model profile assumptions with explicit one-step pipeline data.
 - Update create/update/list/get profile API tests to use the new pipeline contract.
-- Update transcription creation and recording finalizer paths to pass pipeline/profile options, not WhisperX params.
-- Add architecture guards that fail if production code references `WhisperXParams` or `WhisperX`.
+- Update transcription creation and recording finalizer paths to pass pipeline/profile options, not provider-specific params.
+- Add architecture guards that fail if production code references old provider-specific ASR identifiers.
 - Remove dead compatibility helpers created only for the earlier migration path.
 
 Acceptance criteria:
 
-- No production code references `WhisperXParams`.
+- No production code references old provider-specific ASR parameter identifiers.
 - New ASR option types are provider-neutral and pipeline-oriented.
 - Existing backend features compile against the new types.
 - Old compatibility helpers are deleted, not left as wrappers.
@@ -302,7 +302,7 @@ Testing focus:
 - Profile CRUD with one-step and multi-step pipeline payloads.
 - Transcription creation from file and recording finalization.
 - Orchestrator request resolution from new pipeline data.
-- Architecture guard for old WhisperX identifiers.
+- Architecture guard for old provider-specific ASR identifiers.
 
 Commit guidance:
 

@@ -93,7 +93,7 @@ func openOrchestratorTestDB(t *testing.T) *gorm.DB {
 	return db
 }
 
-func createOrchestratorJob(t *testing.T, db *gorm.DB, audioPath string, params models.WhisperXParams) models.TranscriptionJob {
+func createOrchestratorJob(t *testing.T, db *gorm.DB, audioPath string, params models.ASRParams) models.TranscriptionJob {
 	t.Helper()
 	user := models.User{Username: "orchestrator-user-" + time.Now().Format("150405.000000000"), Password: "pw"}
 	require.NoError(t, db.Create(&user).Error)
@@ -116,7 +116,7 @@ func TestProcessorCreatesExecutionAndReturnsCanonicalTranscript(t *testing.T) {
 	db := openOrchestratorTestDB(t)
 	audioPath := filepath.Join(t.TempDir(), "audio.wav")
 	require.NoError(t, os.WriteFile(audioPath, []byte("fake wav"), 0o600))
-	job := createOrchestratorJob(t, db, audioPath, models.WhisperXParams{
+	job := createOrchestratorJob(t, db, audioPath, models.ASRParams{
 		Model:            "custom-transcriber",
 		Task:             "translate",
 		ChunkingStrategy: "vad",
@@ -189,7 +189,7 @@ func TestProcessorPassesPreprocessedAudioToProvider(t *testing.T) {
 	db := openOrchestratorTestDB(t)
 	sourcePath := filepath.Join(t.TempDir(), "source.wav")
 	require.NoError(t, os.WriteFile(sourcePath, []byte("fake wav"), 0o600))
-	job := createOrchestratorJob(t, db, sourcePath, models.WhisperXParams{Diarize: true})
+	job := createOrchestratorJob(t, db, sourcePath, models.ASRParams{Diarize: true})
 	provider := &fakeProvider{
 		id: "local",
 		transcribe: &engineprovider.TranscriptionResult{
@@ -223,7 +223,7 @@ func TestProcessorPersistsProviderProgress(t *testing.T) {
 	db := openOrchestratorTestDB(t)
 	audioPath := filepath.Join(t.TempDir(), "audio.wav")
 	require.NoError(t, os.WriteFile(audioPath, []byte("fake wav"), 0o600))
-	job := createOrchestratorJob(t, db, audioPath, models.WhisperXParams{})
+	job := createOrchestratorJob(t, db, audioPath, models.ASRParams{})
 	progress := 0.31
 	provider := &fakeProvider{
 		id: "local",
@@ -317,7 +317,7 @@ func TestProcessorNormalizesUnsupportedWhisperDecodingMethod(t *testing.T) {
 	db := openOrchestratorTestDB(t)
 	audioPath := filepath.Join(t.TempDir(), "audio.wav")
 	require.NoError(t, os.WriteFile(audioPath, []byte("fake wav"), 0o600))
-	job := createOrchestratorJob(t, db, audioPath, models.WhisperXParams{
+	job := createOrchestratorJob(t, db, audioPath, models.ASRParams{
 		ModelFamily:    "whisper",
 		Model:          "whisper-base-en",
 		DecodingMethod: "modified_beam_search",
@@ -352,7 +352,7 @@ func TestProcessorUsesExplicitEngineProviderSelection(t *testing.T) {
 	audioPath := filepath.Join(t.TempDir(), "audio.wav")
 	require.NoError(t, os.WriteFile(audioPath, []byte("fake wav"), 0o600))
 	engineID := "remote"
-	job := createOrchestratorJob(t, db, audioPath, models.WhisperXParams{Model: "remote-model"})
+	job := createOrchestratorJob(t, db, audioPath, models.ASRParams{Model: "remote-model"})
 	job.EngineID = &engineID
 	require.NoError(t, db.Model(&models.TranscriptionJob{}).Where("id = ?", job.ID).Update("engine_id", engineID).Error)
 	local := &fakeProvider{
@@ -390,7 +390,7 @@ func TestProcessorReturnsSanitizedFailure(t *testing.T) {
 	db := openOrchestratorTestDB(t)
 	audioPath := filepath.Join(t.TempDir(), "audio.wav")
 	require.NoError(t, os.WriteFile(audioPath, []byte("fake wav"), 0o600))
-	job := createOrchestratorJob(t, db, audioPath, models.WhisperXParams{})
+	job := createOrchestratorJob(t, db, audioPath, models.ASRParams{})
 	provider := &fakeProvider{
 		id:       "local",
 		transErr: errors.New("open /tmp/private/model.bin failed api_key=secret-value"),
@@ -417,7 +417,7 @@ func TestProcessorCancellationReturnsCanceled(t *testing.T) {
 	db := openOrchestratorTestDB(t)
 	audioPath := filepath.Join(t.TempDir(), "audio.wav")
 	require.NoError(t, os.WriteFile(audioPath, []byte("fake wav"), 0o600))
-	job := createOrchestratorJob(t, db, audioPath, models.WhisperXParams{})
+	job := createOrchestratorJob(t, db, audioPath, models.ASRParams{})
 	provider := &fakeProvider{id: "local"}
 	registry, err := engineprovider.NewRegistry("local", provider)
 	require.NoError(t, err)
