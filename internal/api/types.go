@@ -106,6 +106,17 @@ type updateSettingsRequest struct {
 	AutoRenameEnabled        *bool   `json:"auto_rename_enabled"`
 	DefaultProfileID         *string `json:"default_profile_id"`
 }
+type loadASRProviderModelRequest struct {
+	Model      string         `json:"model"`
+	Operation  string         `json:"operation"`
+	LoadPolicy string         `json:"load_policy"`
+	Options    map[string]any `json:"options"`
+}
+type unloadASRProviderModelRequest struct {
+	Model   string         `json:"model"`
+	Force   bool           `json:"force"`
+	Options map[string]any `json:"options"`
+}
 type adminCreateUserRequest struct {
 	Username    string  `json:"username"`
 	Email       *string `json:"email"`

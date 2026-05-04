@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"scriberr/internal/auth"
 	"scriberr/internal/database"
 	"scriberr/internal/models"
 	"scriberr/internal/transcription/asrcontract"
@@ -96,6 +97,82 @@ func (p fakeCapabilityProvider) IdentifySpeakers(context.Context, asrcontract.Sp
 	return nil, asrcontract.NewProviderError(asrcontract.CodeUnsupportedOperation, "speaker identification is not supported", false)
 }
 func (p fakeCapabilityProvider) Close() error { return nil }
+
+type fakeAdminASRProvider struct {
+	mu         sync.Mutex
+	id         string
+	status     asrcontract.ProviderStatus
+	models     []asrcontract.ModelCard
+	loaded     []asrcontract.LoadedModel
+	loads      []asrcontract.LoadModelRequest
+	unloads    []asrcontract.UnloadModelRequest
+	loadErr    error
+	unloadErr  error
+	statusErr  error
+	inspectErr error
+	modelsErr  error
+	loadedErr  error
+}
+
+func (p *fakeAdminASRProvider) ID() string { return p.id }
+func (p *fakeAdminASRProvider) Inspect(context.Context) (*asrcontract.ProviderInfo, error) {
+	if p.inspectErr != nil {
+		return nil, p.inspectErr
+	}
+	return &asrcontract.ProviderInfo{
+		ContractVersion: asrcontract.ContractVersionV1,
+		Provider:        asrcontract.ProviderIdentity{ID: p.id, Name: "Fake ASR"},
+		Runtime:         asrcontract.RuntimeInfo{DeviceBackends: []string{"cpu"}, MaxConcurrentJobs: 1},
+	}, nil
+}
+func (p *fakeAdminASRProvider) Models(context.Context) ([]asrcontract.ModelCard, error) {
+	if p.modelsErr != nil {
+		return nil, p.modelsErr
+	}
+	return p.models, nil
+}
+func (p *fakeAdminASRProvider) Status(context.Context) (*asrcontract.ProviderStatus, error) {
+	if p.statusErr != nil {
+		return nil, p.statusErr
+	}
+	status := p.status
+	if status.State == "" {
+		status.State = asrcontract.ProviderStateIdle
+	}
+	return &status, nil
+}
+func (p *fakeAdminASRProvider) LoadModel(_ context.Context, req asrcontract.LoadModelRequest) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.loads = append(p.loads, req)
+	return p.loadErr
+}
+func (p *fakeAdminASRProvider) UnloadModel(_ context.Context, req asrcontract.UnloadModelRequest) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.unloads = append(p.unloads, req)
+	return p.unloadErr
+}
+func (p *fakeAdminASRProvider) LoadedModels(context.Context) ([]asrcontract.LoadedModel, error) {
+	if p.loadedErr != nil {
+		return nil, p.loadedErr
+	}
+	return p.loaded, nil
+}
+func (p *fakeAdminASRProvider) Capabilities(context.Context) ([]engineprovider.ModelCapability, error) {
+	return []engineprovider.ModelCapability{{ID: "whisper-base", Provider: p.id, Installed: true, Capabilities: []string{"transcription"}}}, nil
+}
+func (p *fakeAdminASRProvider) Prepare(context.Context) error { return nil }
+func (p *fakeAdminASRProvider) Transcribe(context.Context, engineprovider.TranscriptionRequest) (*engineprovider.TranscriptionResult, error) {
+	return nil, nil
+}
+func (p *fakeAdminASRProvider) Diarize(context.Context, engineprovider.DiarizationRequest) (*engineprovider.DiarizationResult, error) {
+	return nil, nil
+}
+func (p *fakeAdminASRProvider) IdentifySpeakers(context.Context, asrcontract.SpeakerIDRequest) (*asrcontract.SpeakerIDResult, error) {
+	return nil, nil
+}
+func (p *fakeAdminASRProvider) Close() error { return nil }
 
 func TestCreateSubmitRetryUseQueueService(t *testing.T) {
 	s := newAuthTestServer(t)
@@ -281,4 +358,112 @@ func TestQueueServiceErrorDoesNotLeakInternals(t *testing.T) {
 	message := body["error"].(map[string]any)["message"].(string)
 	require.NotContains(t, message, "/tmp/private")
 	require.NotContains(t, message, "secret")
+}
+
+func TestAdminASRProviderDiagnosticsAndModelCommands(t *testing.T) {
+	s := newAuthTestServer(t)
+	adminToken := registerForFileTests(t, s)
+	loadedAt := time.Now().UTC().Truncate(time.Millisecond)
+	memory := 512
+	progress := 0.42
+	provider := &fakeAdminASRProvider{
+		id: "local",
+		status: asrcontract.ProviderStatus{
+			State: asrcontract.ProviderStateBusy,
+			ActiveJob: &asrcontract.ActiveJob{
+				ID:        "job-/tmp/private/audio.wav",
+				Operation: asrcontract.OperationTranscription,
+				Model:     "whisper-base api_key=secret",
+				Stage:     asrcontract.StageTranscribing,
+				Progress:  &progress,
+			},
+			Capacity: asrcontract.ProviderCapacity{MaxConcurrentJobs: 1},
+		},
+		models: []asrcontract.ModelCard{{
+			ID:          "whisper-base",
+			DisplayName: "Whisper Base",
+			Provider:    "local",
+			Family:      "whisper",
+			Installed:   true,
+			Loaded:      true,
+			Default:     true,
+			SourceURL:   "file:///tmp/private/model.bin?api_key=secret",
+			Capabilities: asrcontract.Capabilities{
+				Transcription:  true,
+				WordTimestamps: true,
+			},
+		}},
+		loaded: []asrcontract.LoadedModel{{ID: "whisper-base", LoadedAt: &loadedAt, MemoryMB: &memory}},
+	}
+	registry, err := engineprovider.NewRegistry("local", provider)
+	require.NoError(t, err)
+	s.handler.modelRegistry = registry
+
+	resp, body := s.request(t, http.MethodGet, "/api/v1/admin/asr-providers", nil, adminToken, "")
+	require.Equal(t, http.StatusOK, resp.Code)
+	item := body["items"].([]any)[0].(map[string]any)
+	require.Equal(t, "local", item["id"])
+	status := item["status"].(map[string]any)
+	activeJob := status["active_job"].(map[string]any)
+	require.NotContains(t, activeJob["id"], "/tmp/private")
+	require.NotContains(t, activeJob["model"], "secret")
+
+	resp, body = s.request(t, http.MethodGet, "/api/v1/admin/asr-providers/local", nil, adminToken, "")
+	require.Equal(t, http.StatusOK, resp.Code)
+	model := body["models"].([]any)[0].(map[string]any)
+	require.Equal(t, "whisper-base", model["id"])
+	require.NotContains(t, model, "source_url")
+	require.Len(t, body["loaded_models"].([]any), 1)
+
+	resp, body = s.request(t, http.MethodPost, "/api/v1/admin/asr-providers/local/models/load", map[string]any{
+		"model":       "whisper-base",
+		"operation":   "transcription",
+		"load_policy": "require",
+	}, adminToken, "")
+	require.Equal(t, http.StatusAccepted, resp.Code)
+	require.Equal(t, "loading", body["status"])
+	require.Len(t, provider.loads, 1)
+	require.Equal(t, asrcontract.OperationTranscription, provider.loads[0].Operation)
+	require.Equal(t, asrcontract.LoadPolicyRequire, provider.loads[0].LoadPolicy)
+
+	resp, body = s.request(t, http.MethodPost, "/api/v1/admin/asr-providers/local/models/unload", map[string]any{
+		"model": "whisper-base",
+		"force": true,
+	}, adminToken, "")
+	require.Equal(t, http.StatusAccepted, resp.Code)
+	require.Equal(t, "unloading", body["status"])
+	require.Len(t, provider.unloads, 1)
+	require.True(t, provider.unloads[0].Force)
+}
+
+func TestAdminASRProviderRoutesAreAdminOnlyAndMapProviderErrors(t *testing.T) {
+	s := newAuthTestServer(t)
+	adminToken := registerForFileTests(t, s)
+	nonAdmin := models.User{Username: "asr-member", Password: "pw", Role: "user"}
+	require.NoError(t, database.DB.Create(&nonAdmin).Error)
+	nonAdminToken, err := auth.NewAuthService("test-secret").GenerateToken(&nonAdmin)
+	require.NoError(t, err)
+	provider := &fakeAdminASRProvider{
+		id:      "local",
+		loadErr: asrcontract.NewProviderError(asrcontract.CodeProviderBusy, "busy at /tmp/private/model.bin token=secret", true),
+	}
+	registry, err := engineprovider.NewRegistry("local", provider)
+	require.NoError(t, err)
+	s.handler.modelRegistry = registry
+
+	resp, body := s.request(t, http.MethodGet, "/api/v1/admin/asr-providers", nil, nonAdminToken, "")
+	require.Equal(t, http.StatusForbidden, resp.Code)
+	require.Equal(t, "FORBIDDEN", body["error"].(map[string]any)["code"])
+
+	resp, body = s.request(t, http.MethodGet, "/api/v1/admin/asr-providers/missing", nil, adminToken, "")
+	require.Equal(t, http.StatusNotFound, resp.Code)
+
+	resp, body = s.request(t, http.MethodPost, "/api/v1/admin/asr-providers/local/models/load", map[string]any{
+		"model": "whisper-base",
+	}, adminToken, "")
+	require.Equal(t, http.StatusConflict, resp.Code)
+	errBody := body["error"].(map[string]any)
+	require.Equal(t, string(asrcontract.CodeProviderBusy), errBody["code"])
+	require.NotContains(t, errBody["message"], "/tmp/private")
+	require.NotContains(t, errBody["message"], "secret")
 }

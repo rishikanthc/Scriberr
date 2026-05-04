@@ -2,7 +2,7 @@
 
 Run ID: `ASRP`
 
-Status: completed through ASRP-Sprint 10.
+Status: completed through ASRP-Sprint 11.
 
 This tracker belongs to `devnotes/v2.0.0/sprint-plans/asr-provider-backend-sprint-plan.md` and the design spec in `devnotes/v2.0.0/specs/asr-provider-backend-architecture.md`.
 
@@ -492,30 +492,42 @@ Commit:
 
 ## ASRP-Sprint 11: Provider Admin/Diagnostics API
 
-Status: pending
+Status: completed
 
-Planned tasks:
+Completed tasks:
 
-- [ ] Add service methods for provider list/status/model load/unload.
-- [ ] Add authenticated/admin-gated diagnostics endpoints as appropriate.
-- [ ] Keep `/api/v1/models/transcription` user-readable.
-- [ ] Use bounded timeouts for load/unload commands.
-- [ ] Sanitize provider status messages.
+- [x] Added registry provider enumeration for diagnostics.
+- [x] Added admin-only ASR provider list/detail endpoints.
+- [x] Added admin-only provider model load/unload endpoints.
+- [x] Kept `/api/v1/models/transcription` user-readable and unchanged.
+- [x] Added bounded timeouts around provider diagnostics and model commands.
+- [x] Sanitized provider diagnostics and provider error messages before API output.
 
 Acceptance checks:
 
-- [ ] Users can still list selectable transcription models.
-- [ ] Admin diagnostics show provider state, active operation, and loaded models without paths/secrets.
-- [ ] Load/unload failures return typed safe errors.
-- [ ] Route contract and security regression tests cover new endpoints.
+- [x] Users can still list selectable transcription models.
+- [x] Admin diagnostics show provider state, active operation, and loaded models without paths/secrets.
+- [x] Load/unload failures return typed safe errors.
+- [x] Route contract and security regression tests cover new endpoints.
 
 Verification:
 
-- [ ] Not run yet.
+- [x] `GOCACHE=/tmp/scriberr-go-cache go test ./internal/transcription/engineprovider ./internal/api -run 'TestAdminASRProvider|TestEndpointContractSmoke|TestRouteContract|TestListTranscriptionModels|TestTranscriptExecutionsLogsModelsAndStatsUseEngineServices'`
+- [x] `GOCACHE=/tmp/scriberr-go-cache go test ./internal/transcription/... ./internal/profile ./internal/recording`
+- [x] `GOCACHE=/tmp/scriberr-go-cache go test ./internal/api -run 'Test(AdminASRProvider|EndpointContractSmoke|RouteContract|ListTranscriptionModels|TranscriptExecutionsLogsModelsAndStatsUseEngineServices|ASREngineImportInventory|ProductionCodeDoesNotUseOldASRParameterIdentifiers|ASRProvidersDoNotDependOnAPIOrRepositories|BackendDependencyDirection)'`
+- [x] `GOCACHE=/tmp/scriberr-go-cache go test ./internal/api` with localhost binding allowed for existing `httptest` LLM provider tests.
+- [x] `GOCACHE=/tmp/scriberr-go-cache go vet ./internal/api ./internal/transcription/... ./internal/profile ./internal/recording`
 
 Artifacts:
 
-- To be filled during implementation.
+- `internal/api/asr_provider_admin_handlers.go`
+- `internal/api/router.go`
+- `internal/api/types.go`
+- `internal/api/engine_worker_api_test.go`
+- `internal/api/route_contract_test.go`
+- `internal/transcription/engineprovider/types.go`
+- `internal/transcription/engineprovider/registry.go`
+- `devnotes/v2.0.0/sprint-trackers/asr-provider-backend-sprint-tracker.md`
 
 Commit:
 

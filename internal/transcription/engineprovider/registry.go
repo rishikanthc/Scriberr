@@ -50,6 +50,19 @@ func (r *StaticRegistry) Provider(id string) (Provider, bool) {
 	return provider, ok
 }
 
+func (r *StaticRegistry) Providers() []Provider {
+	ids := make([]string, 0, len(r.providers))
+	for id := range r.providers {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	out := make([]Provider, 0, len(ids))
+	for _, id := range ids {
+		out = append(out, r.providers[id])
+	}
+	return out
+}
+
 func (r *StaticRegistry) Models(ctx context.Context) ([]asrcontract.ModelCard, error) {
 	ids := make([]string, 0, len(r.providers))
 	for id := range r.providers {

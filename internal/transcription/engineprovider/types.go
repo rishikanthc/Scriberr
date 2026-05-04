@@ -35,6 +35,7 @@ type ProgressSink interface {
 type Registry interface {
 	DefaultProvider() Provider
 	Provider(id string) (Provider, bool)
+	Providers() []Provider
 	Models(ctx context.Context) ([]asrcontract.ModelCard, error)
 	Capabilities(ctx context.Context) ([]ModelCapability, error)
 	Select(ctx context.Context, req SelectionRequest) (Provider, *ModelCapability, error)
