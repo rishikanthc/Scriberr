@@ -1,0 +1,173 @@
+package asrcontract
+
+import (
+	"encoding/json"
+	"errors"
+	"testing"
+	"time"
+)
+
+func TestModelCardSupportsCapabilities(t *testing.T) {
+	card := ModelCard{
+		ID:       "parakeet-v3",
+		Provider: "local-sherpa",
+		Capabilities: Capabilities{
+			Transcription:     true,
+			WordTimestamps:    true,
+			SegmentTimestamps: true,
+		},
+	}
+
+	if !card.Supports(CapabilityTranscription, CapabilityWordTimestamps) {
+		t.Fatal("expected card to support transcription and word timestamps")
+	}
+	if card.Supports(CapabilityDiarization) {
+		t.Fatal("did not expect card to support diarization")
+	}
+	if card.Supports(Capability("custom_extension")) {
+		t.Fatal("unknown capabilities should not be supported unless present in extensions")
+	}
+
+	card.Capabilities.Extensions = map[string]bool{"custom_extension": true}
+	if !card.Supports(Capability("custom_extension")) {
+		t.Fatal("expected extension capability to be supported")
+	}
+}
+
+func TestProviderErrorClassification(t *testing.T) {
+	err := NewProviderError(CodeProviderBusy, "provider is busy", true)
+
+	if !IsCode(err, CodeProviderBusy) {
+		t.Fatal("expected provider busy code")
+	}
+	if !Retryable(err) {
+		t.Fatal("expected retryable provider error")
+	}
+	if IsCode(err, CodeModelNotInstalled) {
+		t.Fatal("did not expect model-not-installed code")
+	}
+	if Retryable(errors.New("plain error")) {
+		t.Fatal("plain errors should not be classified retryable")
+	}
+}
+
+func TestContractJSONRoundTrip(t *testing.T) {
+	now := time.Date(2026, 5, 3, 12, 0, 0, 0, time.UTC)
+	payload := struct {
+		Provider ProviderInfo        `json:"provider"`
+		Model    ModelCard           `json:"model"`
+		Status   ProviderStatus      `json:"status"`
+		Progress ProviderProgress    `json:"progress"`
+		Result   TranscriptionResult `json:"result"`
+	}{
+		Provider: ProviderInfo{
+			ContractVersion: ContractVersionV1,
+			Provider: ProviderIdentity{
+				ID:      "local-sherpa",
+				Name:    "Sherpa ONNX",
+				Version: "2.0.0",
+				Vendor:  "scriberr",
+			},
+			Runtime: RuntimeInfo{
+				DeviceBackends:       []string{"cpu", "cuda"},
+				ActiveBackend:        "cpu",
+				SupportsConcurrent:   false,
+				MaxConcurrentJobs:    1,
+				ProviderCapabilities: []Capability{CapabilityTranscription},
+			},
+			AudioInput: AudioInputSpec{
+				RequiredSampleRate: 16000,
+				RequiredChannels:   1,
+				Formats:            []string{"wav"},
+				PathMode:           PathModeMountedFile,
+			},
+		},
+		Model: ModelCard{
+			ID:          "whisper-base",
+			DisplayName: "Whisper Base",
+			Provider:    "local-sherpa",
+			Family:      "whisper",
+			Version:     "base",
+			Installed:   true,
+			Default:     true,
+			Tasks:       []Task{TaskTranscribe},
+			Languages:   []string{"en"},
+			Capabilities: Capabilities{
+				Transcription:     true,
+				WordTimestamps:    true,
+				SegmentTimestamps: true,
+			},
+			Limits: ModelLimits{RecommendedChunkSec: floatPtr(30)},
+			ResourceRequirements: ResourceRequirements{
+				Backends: []string{"cpu"},
+			},
+			ParameterSchema: json.RawMessage(`{"decoding_method":{"type":"string"}}`),
+		},
+		Status: ProviderStatus{
+			State: ProviderStateBusy,
+			ActiveJob: &ActiveJob{
+				ID:        "job_123",
+				Operation: OperationTranscription,
+				Model:     "whisper-base",
+				Stage:     StageTranscribing,
+				Progress:  floatPtr(0.5),
+			},
+			LoadedModels: []LoadedModel{{ID: "whisper-base", LoadedAt: &now, MemoryMB: intPtr(512)}},
+			Capacity: ProviderCapacity{
+				MaxConcurrentJobs: 1,
+				AvailableSlots:    0,
+			},
+		},
+		Progress: ProviderProgress{
+			Stage:     StageLoadingModel,
+			Progress:  floatPtr(0.2),
+			Message:   "loading",
+			Operation: OperationTranscription,
+			Model:     "whisper-base",
+			Timestamp: now,
+		},
+		Result: TranscriptionResult{
+			Model:    "whisper-base",
+			Language: "en",
+			Text:     "hello world",
+			Segments: []TranscriptSegment{{ID: "seg_0001", Start: 0, End: 1.2, Text: "hello world"}},
+			Words:    []TranscriptWord{{Start: 0, End: 0.5, Word: "hello", Confidence: floatPtr(0.9)}},
+			Metadata: map[string]any{"processing_time_sec": 1.25},
+		},
+	}
+
+	data, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatalf("marshal contract payload: %v", err)
+	}
+
+	var decoded struct {
+		Provider ProviderInfo        `json:"provider"`
+		Model    ModelCard           `json:"model"`
+		Status   ProviderStatus      `json:"status"`
+		Progress ProviderProgress    `json:"progress"`
+		Result   TranscriptionResult `json:"result"`
+	}
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		t.Fatalf("unmarshal contract payload: %v", err)
+	}
+	if decoded.Provider.ContractVersion != ContractVersionV1 {
+		t.Fatalf("contract version mismatch: %q", decoded.Provider.ContractVersion)
+	}
+	if !decoded.Model.Supports(CapabilityTranscription, CapabilityWordTimestamps) {
+		t.Fatal("decoded model lost capabilities")
+	}
+	if decoded.Status.State != ProviderStateBusy || decoded.Status.ActiveJob == nil {
+		t.Fatalf("decoded status mismatch: %+v", decoded.Status)
+	}
+	if decoded.Progress.Stage != StageLoadingModel {
+		t.Fatalf("decoded progress mismatch: %+v", decoded.Progress)
+	}
+	if len(decoded.Result.Words) != 1 || decoded.Result.Words[0].Word != "hello" {
+		t.Fatalf("decoded result mismatch: %+v", decoded.Result)
+	}
+}
+
+func floatPtr(v float64) *float64 { return &v }
+
+func intPtr(v int) *int { return &v }

@@ -2,7 +2,7 @@
 
 Run ID: `ASRP`
 
-Status: completed through ASRP-Sprint 0.
+Status: completed through ASRP-Sprint 1.
 
 This tracker belongs to `devnotes/v2.0.0/sprint-plans/asr-provider-backend-sprint-plan.md` and the design spec in `devnotes/v2.0.0/specs/asr-provider-backend-architecture.md`.
 
@@ -66,30 +66,36 @@ Commit:
 
 ## ASRP-Sprint 1: Pure ASR Contract Types
 
-Status: pending
+Status: completed
 
-Planned tasks:
+Completed tasks:
 
-- [ ] Add `internal/transcription/asrcontract`.
-- [ ] Define provider info, model cards, capabilities, status, loaded models, progress, requests, results, and typed errors.
-- [ ] Add capability matching helpers.
-- [ ] Add provider error classification helpers.
-- [ ] Add JSON compatibility tests.
+- [x] Added `internal/transcription/asrcontract`.
+- [x] Defined provider info, model cards, capabilities, status, loaded models, progress, requests, results, and typed errors.
+- [x] Added capability matching helpers.
+- [x] Added provider error classification helpers.
+- [x] Added JSON compatibility tests.
 
 Acceptance checks:
 
-- [ ] Contract package imports only standard library packages.
-- [ ] Typed capabilities replace free-form strings in new code paths.
-- [ ] Provider errors include code, sanitized message, retryable flag, and bounded details.
-- [ ] No runtime provider behavior changes.
+- [x] Contract package imports only standard library packages.
+- [x] Typed capabilities are available for new code paths.
+- [x] Provider errors include code, sanitized message, retryable flag, and bounded details.
+- [x] No runtime provider behavior changes.
 
 Verification:
 
-- [ ] Not run yet.
+- [x] `GOCACHE=/tmp/scriberr-go-cache go test ./internal/transcription/asrcontract`
+- [x] `go list -f '{{join .Imports "\n"}}' ./internal/transcription/asrcontract`
+- [x] `GOCACHE=/tmp/scriberr-go-cache go test ./internal/transcription/...`
+- [x] `GOCACHE=/tmp/scriberr-go-cache go vet ./internal/transcription/asrcontract`
+- [x] `git diff --check -- internal/transcription/asrcontract devnotes/v2.0.0/sprint-trackers/asr-provider-backend-sprint-tracker.md`
 
 Artifacts:
 
-- To be filled during implementation.
+- `internal/transcription/asrcontract/types.go`
+- `internal/transcription/asrcontract/types_test.go`
+- `devnotes/v2.0.0/sprint-trackers/asr-provider-backend-sprint-tracker.md`
 
 Commit:
 
