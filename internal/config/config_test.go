@@ -19,6 +19,8 @@ func setConfigTestBaseEnv(t *testing.T) {
 	t.Setenv("TRANSCRIPTION_WORKERS", "")
 	t.Setenv("TRANSCRIPTION_QUEUE_POLL_INTERVAL", "")
 	t.Setenv("TRANSCRIPTION_LEASE_TIMEOUT", "")
+	t.Setenv("ASR_NORMALIZED_AUDIO_DIR", "")
+	t.Setenv("ASR_PROVIDER_AUDIO_MOUNT", "")
 	t.Setenv("RECORDINGS_DIR", "")
 	t.Setenv("RECORDING_MAX_CHUNK_BYTES", "")
 	t.Setenv("RECORDING_MAX_SESSION_BYTES", "")
@@ -63,6 +65,12 @@ func TestLoadWithErrorEngineAndWorkerDefaults(t *testing.T) {
 	}
 	if cfg.Worker.LeaseTimeout != 10*time.Minute {
 		t.Fatalf("Worker.LeaseTimeout = %s, want 10m", cfg.Worker.LeaseTimeout)
+	}
+	if cfg.ASR.NormalizedAudioDir != "data/asr-normalized" {
+		t.Fatalf("ASR.NormalizedAudioDir = %q", cfg.ASR.NormalizedAudioDir)
+	}
+	if cfg.ASR.ProviderAudioMountRoot != "/provider-input/audio" {
+		t.Fatalf("ASR.ProviderAudioMountRoot = %q", cfg.ASR.ProviderAudioMountRoot)
 	}
 	if cfg.Recordings.Dir != "data/recordings" {
 		t.Fatalf("Recordings.Dir = %q, want data/recordings", cfg.Recordings.Dir)
@@ -109,6 +117,8 @@ func TestLoadWithErrorEngineAndWorkerOverrides(t *testing.T) {
 	t.Setenv("TRANSCRIPTION_WORKERS", "2")
 	t.Setenv("TRANSCRIPTION_QUEUE_POLL_INTERVAL", "500ms")
 	t.Setenv("TRANSCRIPTION_LEASE_TIMEOUT", "30s")
+	t.Setenv("ASR_NORMALIZED_AUDIO_DIR", "/tmp/scriberr-normalized")
+	t.Setenv("ASR_PROVIDER_AUDIO_MOUNT", "/mnt/audio")
 	t.Setenv("RECORDINGS_DIR", "/tmp/scriberr-recordings")
 	t.Setenv("RECORDING_MAX_CHUNK_BYTES", "1048576")
 	t.Setenv("RECORDING_MAX_SESSION_BYTES", "2097152")
@@ -149,6 +159,12 @@ func TestLoadWithErrorEngineAndWorkerOverrides(t *testing.T) {
 	}
 	if cfg.Worker.LeaseTimeout != 30*time.Second {
 		t.Fatalf("Worker.LeaseTimeout = %s", cfg.Worker.LeaseTimeout)
+	}
+	if cfg.ASR.NormalizedAudioDir != "/tmp/scriberr-normalized" {
+		t.Fatalf("ASR.NormalizedAudioDir = %q", cfg.ASR.NormalizedAudioDir)
+	}
+	if cfg.ASR.ProviderAudioMountRoot != "/mnt/audio" {
+		t.Fatalf("ASR.ProviderAudioMountRoot = %q", cfg.ASR.ProviderAudioMountRoot)
 	}
 	if cfg.Recordings.Dir != "/tmp/scriberr-recordings" {
 		t.Fatalf("Recordings.Dir = %q", cfg.Recordings.Dir)
@@ -210,6 +226,8 @@ func TestLoadWithErrorRejectsInvalidEngineAndWorkerValues(t *testing.T) {
 		{name: "workers", env: "TRANSCRIPTION_WORKERS", val: "two"},
 		{name: "poll interval", env: "TRANSCRIPTION_QUEUE_POLL_INTERVAL", val: "quickly"},
 		{name: "lease timeout", env: "TRANSCRIPTION_LEASE_TIMEOUT", val: "later"},
+		{name: "asr mount relative", env: "ASR_PROVIDER_AUDIO_MOUNT", val: "relative/audio"},
+		{name: "asr mount traversal", env: "ASR_PROVIDER_AUDIO_MOUNT", val: "/provider/../audio"},
 		{name: "recording max chunk bytes", env: "RECORDING_MAX_CHUNK_BYTES", val: "large"},
 		{name: "recording max session bytes", env: "RECORDING_MAX_SESSION_BYTES", val: "huge"},
 		{name: "recording max duration", env: "RECORDING_MAX_DURATION", val: "forever"},
@@ -234,6 +252,23 @@ func TestLoadWithErrorRejectsInvalidEngineAndWorkerValues(t *testing.T) {
 				t.Fatalf("error %q does not mention %s", err.Error(), tt.env)
 			}
 		})
+	}
+}
+
+func TestConfigValidateRejectsEmptyASRNormalizedAudioDir(t *testing.T) {
+	setConfigTestBaseEnv(t)
+	cfg, err := LoadWithError()
+	if err != nil {
+		t.Fatalf("LoadWithError returned error: %v", err)
+	}
+	cfg.ASR.NormalizedAudioDir = ""
+
+	err = cfg.validate()
+	if err == nil {
+		t.Fatal("validate returned nil error for empty ASR normalized audio dir")
+	}
+	if !strings.Contains(err.Error(), "ASR_NORMALIZED_AUDIO_DIR") {
+		t.Fatalf("error %q does not mention ASR_NORMALIZED_AUDIO_DIR", err.Error())
 	}
 }
 

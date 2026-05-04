@@ -14,6 +14,7 @@ import (
 	"scriberr/internal/repository"
 	"scriberr/internal/transcription/asrcontract"
 	"scriberr/internal/transcription/engineprovider"
+	"scriberr/internal/transcription/preprocess"
 	"scriberr/internal/transcription/worker"
 	"scriberr/pkg/logger"
 )
@@ -60,6 +61,7 @@ type Processor struct {
 	Events    EventPublisher
 	Logs      JobLogger
 	Artifacts TranscriptStore
+	Audio     preprocess.Preprocessor
 	OutputDir string
 }
 
@@ -116,6 +118,15 @@ func (p *Processor) Process(ctx context.Context, job *models.TranscriptionJob) (
 		message := sanitizeErrorMessage(err)
 		return withExecution(failedResult(message), err)
 	}
+	audio, err := p.audioPreprocessor().Prepare(ctx, preprocess.Request{
+		JobID:          job.ID,
+		SourcePath:     job.AudioPath,
+		SourceFileHash: sourceHashForJob(job),
+	})
+	if err != nil {
+		message := sanitizeErrorMessage(err)
+		return withExecution(failedResult(message), err)
+	}
 	if err := provider.Prepare(ctx); err != nil {
 		return withExecution(p.errorResult(ctx, err))
 	}
@@ -127,7 +138,7 @@ func (p *Processor) Process(ctx context.Context, job *models.TranscriptionJob) (
 	transcription, err := provider.Transcribe(ctx, engineprovider.TranscriptionRequest{
 		JobID:                   job.ID,
 		UserID:                  job.UserID,
-		AudioPath:               job.AudioPath,
+		AudioPath:               audio.ProviderPath,
 		Progress:                progressSink,
 		ModelID:                 transcriptionModel,
 		Language:                languageFromJob(job),
@@ -164,7 +175,7 @@ func (p *Processor) Process(ctx context.Context, job *models.TranscriptionJob) (
 		diarization, err = provider.Diarize(ctx, engineprovider.DiarizationRequest{
 			JobID:          job.ID,
 			UserID:         job.UserID,
-			AudioPath:      job.AudioPath,
+			AudioPath:      audio.ProviderPath,
 			Progress:       progressSink,
 			ModelID:        diarizationModel,
 			NumSpeakers:    job.Parameters.NumSpeakers,
@@ -281,6 +292,13 @@ func fileIDForJob(job *models.TranscriptionJob) string {
 	return "file_" + job.ID
 }
 
+func sourceHashForJob(job *models.TranscriptionJob) string {
+	if job == nil || job.SourceFileHash == nil {
+		return ""
+	}
+	return *job.SourceFileHash
+}
+
 func (p *Processor) errorResult(ctx context.Context, err error) (worker.ProcessResult, error) {
 	if errors.Is(ctx.Err(), context.Canceled) || errors.Is(err, context.Canceled) {
 		return canceledResult(), context.Canceled
@@ -294,6 +312,13 @@ func (p *Processor) transcriptStore() TranscriptStore {
 		return p.Artifacts
 	}
 	return NewLocalTranscriptStore(p.OutputDir)
+}
+
+func (p *Processor) audioPreprocessor() preprocess.Preprocessor {
+	if p.Audio != nil {
+		return p.Audio
+	}
+	return preprocess.PassthroughPreprocessor{}
 }
 
 func executionConfigJSON(providerID, transcriptionModel, diarizationModel string, diarizationEnabled bool) string {

@@ -28,7 +28,7 @@ The bundled sherpa-onnx provider remains in-process and is called through Go API
 - Do not introduce runtime environment reads outside `internal/config`.
 - Do not expose local paths, normalized audio paths, provider URLs, tokens, model cache paths, or stack traces through API responses, SSE events, logs endpoints, or execution rows.
 - Prefer deterministic fake providers and fake remote servers for tests. Real engine and real provider integration tests must be opt-in.
-- Keep behavior backwards compatible unless a sprint explicitly owns a migration. Existing single-model profiles must continue to run.
+- Do not preserve legacy ASR internals indefinitely. During the pipeline/persistence sprints, remove `WhisperXParams` and old single-model compatibility paths instead of wrapping them.
 - Each sprint should be reviewable as one coherent change set. Avoid broad package renames and unrelated cleanup.
 
 ## Validation Baseline
@@ -59,7 +59,7 @@ Expected outcome:
 
 ## ASRP-Sprint 0: Inventory, Guardrails, And Compatibility Map
 
-Goal: lock down current ASR coupling and compatibility requirements before behavior changes.
+Goal: lock down current ASR coupling and legacy removal requirements before behavior changes.
 
 Tasks:
 
@@ -75,14 +75,14 @@ Tasks:
   - profile handlers/services must not import `scriberr-engine`
   - only the local provider adapter may import `scriberr-engine`
   - provider packages must not import API or repository packages
-- Document compatibility behavior for existing profiles using current `WhisperXParams`.
+- Document current `WhisperXParams` usage and mark it for removal.
 - Create a short route/API impact matrix for models, profiles, transcription creation, events, logs, and executions.
 
 Acceptance criteria:
 
 - Current ASR coupling is documented.
 - Guard tests fail on newly introduced forbidden imports.
-- Existing public API behavior is intentionally preserved.
+- No runtime behavior changes.
 - No runtime behavior changes.
 
 Testing focus:
@@ -151,7 +151,7 @@ Tasks:
   - close
 - Add `ProgressSink`.
 - Implement deterministic provider/model selection by provider ID, model ID, capability requirements, health, and busy state.
-- Preserve compatibility adapters for existing callers where needed.
+- Keep temporary adapters only where needed to sequence the migration safely; remove them in the legacy cleanup sprint.
 - Keep the local provider in-process. Do not route local sherpa through REST.
 - Do not edit `references/engine`; unsupported local operations may return `UNSUPPORTED_OPERATION` or placeholder status.
 
@@ -169,13 +169,13 @@ Testing focus:
 - Capability-only selection.
 - Busy/unhealthy provider exclusion.
 - Unsupported operation behavior.
-- Backwards-compatible capability listing.
+- Current capability listing remains stable until the public API is switched to model cards.
 
 Commit guidance:
 
 - Commit fake-provider registry tests first.
 - Commit interface/registry implementation second.
-- Commit compatibility cleanup separately if needed.
+- Commit temporary adapter cleanup separately if needed.
 
 ## ASRP-Sprint 3: Model Catalog Service And Profile Validation
 
@@ -187,7 +187,7 @@ Tasks:
 - Update profile service validation to use model cards and capability checks.
 - Keep API handlers as request/response adapters only.
 - Preserve existing profile JSON shape initially.
-- Normalize existing single-model profile inputs into a legacy-compatible internal selection command.
+- Keep existing profile request shape temporarily, but route validation through the model catalog and mark old parameter structs for removal.
 - Add validation for unsupported provider/model/feature combinations.
 - Keep old profiles loadable and runnable.
 
@@ -204,7 +204,7 @@ Testing focus:
 - Invalid model.
 - Unsupported capability.
 - Explicit provider unavailable.
-- Existing profile compatibility.
+- Existing profile API shape until the pipeline API sprint replaces old ASR parameters.
 - API route/response shape tests.
 
 Commit guidance:
@@ -220,7 +220,7 @@ Tasks:
 - Add `ProgressSink` implementation in the orchestrator.
 - Map provider stages to job progress and small SSE events.
 - Store provider step metadata in execution config/request JSON without leaking paths.
-- Add provider error code and operation kind to execution metadata where schema compatibility allows.
+- Add provider error code and operation kind to execution metadata without leaking paths.
 - Preserve existing execution list API response shape, adding fields only if route contract tests are updated deliberately.
 - Ensure terminal state is persisted before terminal events are published.
 
@@ -276,7 +276,41 @@ Commit guidance:
 - Commit pure preprocess unit tests first.
 - Commit orchestrator integration tests second.
 
-## ASRP-Sprint 6: Remote Provider REST Client
+## ASRP-Sprint 6: Legacy ASR Parameter Removal And Backend Streamlining
+
+Goal: remove old WhisperX-shaped ASR internals before adding remote provider complexity.
+
+Tasks:
+
+- Replace `models.WhisperXParams` with provider-neutral ASR profile/job option types.
+- Remove old WhisperX naming from services, handlers, repository payload helpers, tests, and docs.
+- Replace single-model profile assumptions with explicit one-step pipeline data.
+- Update create/update/list/get profile API tests to use the new pipeline contract.
+- Update transcription creation and recording finalizer paths to pass pipeline/profile options, not WhisperX params.
+- Add architecture guards that fail if production code references `WhisperXParams` or `WhisperX`.
+- Remove dead compatibility helpers created only for the earlier migration path.
+
+Acceptance criteria:
+
+- No production code references `WhisperXParams`.
+- New ASR option types are provider-neutral and pipeline-oriented.
+- Existing backend features compile against the new types.
+- Old compatibility helpers are deleted, not left as wrappers.
+
+Testing focus:
+
+- Profile CRUD with one-step and multi-step pipeline payloads.
+- Transcription creation from file and recording finalization.
+- Orchestrator request resolution from new pipeline data.
+- Architecture guard for old WhisperX identifiers.
+
+Commit guidance:
+
+- Commit failing architecture/profile tests first.
+- Commit model/service/API migration second.
+- Commit dead-code cleanup separately if the diff is large.
+
+## ASRP-Sprint 7: Remote Provider REST Client
 
 Goal: add REST support for external provider containers using fake HTTP providers only.
 
@@ -321,7 +355,7 @@ Commit guidance:
 
 - Commit fake server tests and contract fixtures first.
 
-## ASRP-Sprint 7: Remote Provider Configuration And App Wiring
+## ASRP-Sprint 8: Remote Provider Configuration And App Wiring
 
 Goal: wire local and remote providers in `internal/app` without changing the durable queue contract.
 
@@ -361,14 +395,14 @@ Commit guidance:
 - Commit config tests first.
 - Commit app wiring after provider client tests pass.
 
-## ASRP-Sprint 8: Pipeline Execution And Provider Chaining
+## ASRP-Sprint 9: Pipeline Execution And Provider Chaining
 
 Goal: let one transcription job run an ordered provider pipeline while preserving existing single-step jobs.
 
 Tasks:
 
 - Add internal pipeline representation for transcription, diarization, and speaker identification steps.
-- Convert existing profile options into a compatibility pipeline.
+- Replace old single-model job execution with an internal provider pipeline.
 - Resolve each pipeline step through the provider registry.
 - Execute steps serially because providers process one job at a time.
 - Merge typed artifacts into canonical transcript JSON in Scriberr.
@@ -377,15 +411,15 @@ Tasks:
 
 Acceptance criteria:
 
-- Existing single-model jobs run through a one-step compatibility pipeline.
+- Jobs run through the new pipeline representation.
 - Diarization can run on a different provider than transcription.
 - Provider step failures stop the pipeline and fail the job with sanitized error metadata.
 - Cancellation interrupts the active provider step.
-- Canonical transcript output remains compatible with existing transcript API/UI consumers.
+- Canonical transcript output remains stable for transcript API/UI consumers.
 
 Testing focus:
 
-- Single-step compatibility.
+- Single-step transcription pipeline.
 - Local/fake transcription plus fake remote diarization.
 - Unsupported step kind.
 - Step selection failure.
@@ -397,29 +431,25 @@ Commit guidance:
 
 - Commit orchestrator pipeline tests before implementation.
 
-## ASRP-Sprint 9: Profile Pipeline Persistence
+## ASRP-Sprint 10: Profile Pipeline Persistence
 
-Goal: persist ordered provider pipeline configuration while preserving legacy profile compatibility.
+Goal: persist ordered provider pipeline configuration as the durable ASR profile contract.
 
 Tasks:
 
 - Extend profile persistence to store ordered pipeline steps in JSON.
-- Keep legacy profile fields populated for existing API consumers where needed.
-- Add migration/compatibility logic from current `WhisperXParams` fields into pipeline steps.
 - Validate provider-specific options against model-card parameter schemas where supported.
 - Keep provider-specific option data bounded and sanitized.
 - Avoid schema churn for every provider-specific model option.
 
 Acceptance criteria:
 
-- Existing profiles survive migration and still run.
 - New profiles can persist multiple provider steps.
-- List/get profile responses remain backwards compatible or explicitly versioned.
+- List/get profile responses expose the new pipeline contract.
 - Invalid pipeline shape is rejected by the service before enqueue.
 
 Testing focus:
 
-- Legacy profile read/write.
 - Multi-step profile read/write.
 - Default profile behavior.
 - Provider option validation.
@@ -429,7 +459,7 @@ Commit guidance:
 
 - Commit persistence tests before model changes.
 
-## ASRP-Sprint 10: Provider Admin/Diagnostics API
+## ASRP-Sprint 11: Provider Admin/Diagnostics API
 
 Goal: expose safe provider and model diagnostics for the UI/admin workflows without leaking internals.
 
@@ -464,7 +494,7 @@ Commit guidance:
 
 - Commit API route contract tests first.
 
-## ASRP-Sprint 11: Contract Tests, Example Provider, And Hardening
+## ASRP-Sprint 12: Contract Tests, Example Provider, And Hardening
 
 Goal: finish the provider architecture with reusable tests and final guardrails.
 

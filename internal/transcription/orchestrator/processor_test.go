@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 	"scriberr/internal/repository"
 	"scriberr/internal/transcription/asrcontract"
 	"scriberr/internal/transcription/engineprovider"
+	"scriberr/internal/transcription/preprocess"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -163,6 +165,7 @@ func TestProcessorCreatesExecutionAndReturnsCanonicalTranscript(t *testing.T) {
 	assert.Contains(t, result.TranscriptJSON, `"speaker":"SPEAKER_00"`)
 	assert.FileExists(t, *result.OutputJSONPath)
 	assert.Equal(t, "custom-transcriber", provider.transReq.ModelID)
+	assert.Equal(t, audioPath, provider.transReq.AudioPath)
 	assert.Equal(t, "custom-diarizer", provider.diarizeReq.ModelID)
 	assert.Equal(t, "translate", provider.transReq.Task)
 	assert.Equal(t, "vad", provider.transReq.Chunking)
@@ -180,6 +183,40 @@ func TestProcessorCreatesExecutionAndReturnsCanonicalTranscript(t *testing.T) {
 	assert.Contains(t, executions[0].ConfigJSON, `"operation":"diarization"`)
 
 	assertEventStages(t, events.events, []string{"preparing", "transcribing", "diarizing", "merging", "saving", "completed"})
+}
+
+func TestProcessorPassesPreprocessedAudioToProvider(t *testing.T) {
+	db := openOrchestratorTestDB(t)
+	sourcePath := filepath.Join(t.TempDir(), "source.wav")
+	require.NoError(t, os.WriteFile(sourcePath, []byte("fake wav"), 0o600))
+	job := createOrchestratorJob(t, db, sourcePath, models.WhisperXParams{Diarize: true})
+	provider := &fakeProvider{
+		id: "local",
+		transcribe: &engineprovider.TranscriptionResult{
+			Text: "Hello.",
+		},
+		diarize: &engineprovider.DiarizationResult{},
+	}
+	registry, err := engineprovider.NewRegistry("local", provider)
+	require.NoError(t, err)
+	processor := &Processor{
+		Jobs:      repository.NewJobRepository(db),
+		Providers: registry,
+		Audio: preprocess.NewLocalPreprocessor(preprocess.Config{
+			Dir:               t.TempDir(),
+			ProviderMountRoot: "/provider-input/audio",
+			FFmpegPath:        fakeFFmpegForOrchestrator(t),
+		}),
+		OutputDir: t.TempDir(),
+	}
+
+	result, err := processor.Process(context.Background(), &job)
+
+	require.NoError(t, err)
+	require.Equal(t, models.StatusCompleted, result.Status)
+	assert.Equal(t, "/provider-input/audio/file-orchestrator.wav", provider.transReq.AudioPath)
+	assert.Equal(t, provider.transReq.AudioPath, provider.diarizeReq.AudioPath)
+	assert.NotEqual(t, sourcePath, provider.transReq.AudioPath)
 }
 
 func TestProcessorPersistsProviderProgress(t *testing.T) {
@@ -404,4 +441,15 @@ func assertEventStages(t *testing.T, events []ProgressEvent, stages []string) {
 	for i, stage := range stages {
 		assert.Equal(t, stage, events[i].Stage)
 	}
+}
+
+func fakeFFmpegForOrchestrator(t *testing.T) string {
+	t.Helper()
+	if runtime.GOOS == "windows" {
+		t.Skip("fake ffmpeg shell script is unix-only")
+	}
+	path := filepath.Join(t.TempDir(), "ffmpeg")
+	script := "#!/bin/sh\nset -eu\nout=\"\"\nfor arg in \"$@\"; do out=\"$arg\"; done\nprintf 'normalized audio\\n' > \"$out\"\n"
+	require.NoError(t, os.WriteFile(path, []byte(script), 0o700))
+	return path
 }

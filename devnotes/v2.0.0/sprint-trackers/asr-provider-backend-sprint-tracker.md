@@ -2,7 +2,7 @@
 
 Run ID: `ASRP`
 
-Status: completed through ASRP-Sprint 4.
+Status: completed through ASRP-Sprint 5.
 
 This tracker belongs to `devnotes/v2.0.0/sprint-plans/asr-provider-backend-sprint-plan.md` and the design spec in `devnotes/v2.0.0/specs/asr-provider-backend-architecture.md`.
 
@@ -39,14 +39,14 @@ Completed tasks:
 - [x] Inventoried `scriberr-engine` imports and current ASR coupling.
 - [x] Inventoried `ModelCapability`, profile validation, orchestrator selection, execution metadata, and audio path handling.
 - [x] Added architecture tests for ASR dependency guardrails.
-- [x] Documented legacy `WhisperXParams` compatibility behavior.
+- [x] Documented legacy `WhisperXParams` usage and removal target.
 - [x] Created route/API impact matrix for models, profiles, transcriptions, events, logs, and executions.
 
 Acceptance checks:
 
 - [x] Current ASR coupling is documented.
 - [x] Guard tests fail on newly introduced forbidden imports.
-- [x] Existing public API behavior is intentionally preserved.
+- [x] No runtime behavior changes.
 - [x] No runtime behavior changes.
 
 Verification:
@@ -232,23 +232,67 @@ Commit:
 
 ## ASRP-Sprint 5: Audio Preprocessing Boundary
 
+Status: completed
+
+Completed tasks:
+
+- [x] Added `internal/transcription/preprocess`.
+- [x] Produce provider-ready 16 kHz mono WAV artifacts through `ffmpeg`.
+- [x] Added config for normalized audio dir and provider mount root.
+- [x] Cache normalized artifacts by source hash/job id where safe.
+- [x] Updated orchestrator to use preprocessed audio.
+- [x] Kept original audio API behavior unchanged.
+
+Acceptance checks:
+
+- [x] Providers receive provider-visible normalized paths.
+- [x] Public APIs never expose normalized artifact paths.
+- [x] Existing authorized audio streaming still serves original audio.
+- [x] Preprocessing failures are sanitized.
+
+Verification:
+
+- [x] `GOCACHE=/tmp/scriberr-go-cache go test ./internal/transcription/preprocess ./internal/config ./internal/transcription/orchestrator`
+- [x] `GOCACHE=/tmp/scriberr-go-cache go test ./internal/transcription/... ./internal/config ./internal/app`
+- [x] `GOCACHE=/tmp/scriberr-go-cache go vet ./internal/transcription/... ./internal/config ./internal/app`
+- [x] `git diff --check -- internal/transcription/preprocess internal/transcription/orchestrator internal/config internal/app devnotes/v2.0.0/sprint-plans/asr-provider-backend-sprint-plan.md devnotes/v2.0.0/sprint-trackers/asr-provider-backend-sprint-tracker.md`
+
+Artifacts:
+
+- `internal/transcription/preprocess/preprocess.go`
+- `internal/transcription/preprocess/preprocess_test.go`
+- `internal/transcription/orchestrator/processor.go`
+- `internal/transcription/orchestrator/processor_test.go`
+- `internal/config/config.go`
+- `internal/config/config_test.go`
+- `internal/app/app.go`
+- `devnotes/v2.0.0/sprint-plans/asr-provider-backend-sprint-plan.md`
+- `devnotes/v2.0.0/sprint-trackers/asr-provider-backend-sprint-tracker.md`
+
+Commit:
+
+- Pending.
+
+## ASRP-Sprint 6: Legacy ASR Parameter Removal And Backend Streamlining
+
 Status: pending
 
 Planned tasks:
 
-- [ ] Add `internal/transcription/preprocess`.
-- [ ] Produce 16 kHz mono WAV provider artifacts.
-- [ ] Add config for normalized audio dir and provider mount root.
-- [ ] Cache normalized artifacts by source hash/job id where safe.
-- [ ] Update orchestrator to use preprocessed audio.
-- [ ] Keep original audio API behavior unchanged.
+- [ ] Replace `models.WhisperXParams` with provider-neutral ASR profile/job option types.
+- [ ] Remove old WhisperX naming from services, handlers, repository payload helpers, tests, and docs.
+- [ ] Replace single-model profile assumptions with explicit one-step pipeline data.
+- [ ] Update create/update/list/get profile API tests to use the new pipeline contract.
+- [ ] Update transcription creation and recording finalizer paths to pass pipeline/profile options, not WhisperX params.
+- [ ] Add architecture guards that fail if production code references `WhisperXParams` or `WhisperX`.
+- [ ] Remove dead compatibility helpers created only for the earlier migration path.
 
 Acceptance checks:
 
-- [ ] Providers receive provider-visible normalized paths.
-- [ ] Public APIs never expose normalized artifact paths.
-- [ ] Existing authorized audio streaming still serves original audio.
-- [ ] Preprocessing failures are sanitized.
+- [ ] No production code references `WhisperXParams`.
+- [ ] New ASR option types are provider-neutral and pipeline-oriented.
+- [ ] Existing backend features compile against the new types.
+- [ ] Old compatibility helpers are deleted, not left as wrappers.
 
 Verification:
 
@@ -262,7 +306,7 @@ Commit:
 
 - Pending.
 
-## ASRP-Sprint 6: Remote Provider REST Client
+## ASRP-Sprint 7: Remote Provider REST Client
 
 Status: pending
 
@@ -295,7 +339,7 @@ Commit:
 
 - Pending.
 
-## ASRP-Sprint 7: Remote Provider Configuration And App Wiring
+## ASRP-Sprint 8: Remote Provider Configuration And App Wiring
 
 Status: pending
 
@@ -306,11 +350,11 @@ Planned tasks:
 - [ ] Build local provider directly in-process.
 - [ ] Build remote provider clients from config.
 - [ ] Register providers before worker startup.
-- [ ] Preserve local-only default behavior.
+- [ ] Keep local-only deployment behavior intentional after legacy ASR removal.
 
 Acceptance checks:
 
-- [ ] Existing local-only deployments keep working.
+- [ ] Local-only deployments use the new provider pipeline contract.
 - [ ] Invalid config fails startup with actionable errors.
 - [ ] Remote provider wiring is testable without starting the HTTP listener.
 - [ ] `internal/app` remains the only composition root.
@@ -327,14 +371,14 @@ Commit:
 
 - Pending.
 
-## ASRP-Sprint 8: Pipeline Execution And Provider Chaining
+## ASRP-Sprint 9: Pipeline Execution And Provider Chaining
 
 Status: pending
 
 Planned tasks:
 
 - [ ] Add internal pipeline representation.
-- [ ] Convert existing profile options into a compatibility pipeline.
+- [ ] Replace old single-model execution with an internal provider pipeline.
 - [ ] Resolve each step through the registry.
 - [ ] Execute steps serially.
 - [ ] Merge typed artifacts into canonical transcript JSON.
@@ -342,11 +386,11 @@ Planned tasks:
 
 Acceptance checks:
 
-- [ ] Existing single-model jobs run through one-step compatibility pipeline.
+- [ ] Jobs run through the new pipeline representation.
 - [ ] Diarization can run on a different provider than transcription.
 - [ ] Provider step failures stop the pipeline with sanitized error metadata.
 - [ ] Cancellation interrupts the active provider step.
-- [ ] Canonical transcript output remains compatible.
+- [ ] Canonical transcript output remains stable for transcript API/UI consumers.
 
 Verification:
 
@@ -360,23 +404,20 @@ Commit:
 
 - Pending.
 
-## ASRP-Sprint 9: Profile Pipeline Persistence
+## ASRP-Sprint 10: Profile Pipeline Persistence
 
 Status: pending
 
 Planned tasks:
 
 - [ ] Store ordered pipeline steps in profile JSON.
-- [ ] Keep legacy profile fields populated where needed.
-- [ ] Add compatibility logic from current `WhisperXParams`.
 - [ ] Validate provider-specific options against model-card schemas where supported.
 - [ ] Bound and sanitize provider-specific option data.
 
 Acceptance checks:
 
-- [ ] Existing profiles survive migration and still run.
 - [ ] New profiles can persist multiple provider steps.
-- [ ] List/get profile responses remain backwards compatible or explicitly versioned.
+- [ ] List/get profile responses expose the new pipeline contract.
 - [ ] Invalid pipeline shape is rejected before enqueue.
 
 Verification:
@@ -391,7 +432,7 @@ Commit:
 
 - Pending.
 
-## ASRP-Sprint 10: Provider Admin/Diagnostics API
+## ASRP-Sprint 11: Provider Admin/Diagnostics API
 
 Status: pending
 
@@ -422,7 +463,7 @@ Commit:
 
 - Pending.
 
-## ASRP-Sprint 11: Contract Tests, Example Provider, And Hardening
+## ASRP-Sprint 12: Contract Tests, Example Provider, And Hardening
 
 Status: pending
 

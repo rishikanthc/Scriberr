@@ -26,6 +26,7 @@ import (
 	transcriptiondomain "scriberr/internal/transcription"
 	"scriberr/internal/transcription/engineprovider"
 	"scriberr/internal/transcription/orchestrator"
+	"scriberr/internal/transcription/preprocess"
 	"scriberr/internal/transcription/worker"
 	"scriberr/pkg/logger"
 )
@@ -98,6 +99,10 @@ func Build(cfg *config.Config) (*App, error) {
 		Jobs:      jobRepo,
 		Providers: providerRegistry,
 		Artifacts: orchestrator.NewLocalTranscriptStore(cfg.TranscriptsDir),
+		Audio: preprocess.NewLocalPreprocessor(preprocess.Config{
+			Dir:               cfg.ASR.NormalizedAudioDir,
+			ProviderMountRoot: cfg.ASR.ProviderAudioMountRoot,
+		}),
 	}
 	queueService := worker.NewService(jobRepo, processor, worker.Config{
 		Workers:      cfg.Worker.Workers,

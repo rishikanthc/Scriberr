@@ -33,6 +33,7 @@ type Config struct {
 	TranscriptsDir string
 	TempDir        string
 	Recordings     RecordingConfig
+	ASR            ASRConfig
 
 	// Local speech engine configuration
 	Engine EngineConfig
@@ -63,6 +64,11 @@ type WorkerConfig struct {
 	Workers      int
 	PollInterval time.Duration
 	LeaseTimeout time.Duration
+}
+
+type ASRConfig struct {
+	NormalizedAudioDir     string
+	ProviderAudioMountRoot string
 }
 
 type RecordingConfig struct {
@@ -123,6 +129,10 @@ func loadUnchecked() *Config {
 		UploadDir:           getEnv("UPLOAD_DIR", "data/uploads"),
 		TranscriptsDir:      getEnv("TRANSCRIPTS_DIR", "data/transcripts"),
 		TempDir:             getEnv("TEMP_DIR", "data/temp"),
+		ASR: ASRConfig{
+			NormalizedAudioDir:     getEnv("ASR_NORMALIZED_AUDIO_DIR", "data/asr-normalized"),
+			ProviderAudioMountRoot: strings.TrimRight(getEnv("ASR_PROVIDER_AUDIO_MOUNT", "/provider-input/audio"), "/"),
+		},
 		Recordings: RecordingConfig{
 			Dir:                   getEnv("RECORDINGS_DIR", "data/recordings"),
 			MaxChunkBytes:         getEnvInt64Unchecked("RECORDING_MAX_CHUNK_BYTES", 25<<20),
@@ -176,6 +186,12 @@ func (c *Config) validate() error {
 	if _, err := getEnvDuration("TRANSCRIPTION_LEASE_TIMEOUT", 10*time.Minute); err != nil {
 		return err
 	}
+	if strings.TrimSpace(c.ASR.NormalizedAudioDir) == "" {
+		return fmt.Errorf("ASR_NORMALIZED_AUDIO_DIR must not be empty")
+	}
+	if err := validateProviderMountRoot(c.ASR.ProviderAudioMountRoot); err != nil {
+		return err
+	}
 	if _, err := getEnvInt64("RECORDING_MAX_CHUNK_BYTES", 25<<20, 1); err != nil {
 		return err
 	}
@@ -210,6 +226,24 @@ func (c *Config) validate() error {
 		if !validRecordingMimeType(mimeType) {
 			return fmt.Errorf("RECORDING_ALLOWED_MIME_TYPES contains invalid MIME type %q", mimeType)
 		}
+	}
+	return nil
+}
+
+func validateProviderMountRoot(value string) error {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return fmt.Errorf("ASR_PROVIDER_AUDIO_MOUNT must not be empty")
+	}
+	if strings.Contains(value, "\x00") || strings.Contains(value, "..") {
+		return fmt.Errorf("ASR_PROVIDER_AUDIO_MOUNT is invalid")
+	}
+	clean := filepath.Clean(value)
+	if clean == "." || clean != value {
+		return fmt.Errorf("ASR_PROVIDER_AUDIO_MOUNT must be a clean absolute provider path")
+	}
+	if !filepath.IsAbs(clean) {
+		return fmt.Errorf("ASR_PROVIDER_AUDIO_MOUNT must be absolute")
 	}
 	return nil
 }
