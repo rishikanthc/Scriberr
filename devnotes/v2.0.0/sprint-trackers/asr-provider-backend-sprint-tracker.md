@@ -2,7 +2,7 @@
 
 Run ID: `ASRP`
 
-Status: completed through ASRP-Sprint 8.
+Status: completed through ASRP-Sprint 9.
 
 This tracker belongs to `devnotes/v2.0.0/sprint-plans/asr-provider-backend-sprint-plan.md` and the design spec in `devnotes/v2.0.0/specs/asr-provider-backend-architecture.md`.
 
@@ -401,32 +401,38 @@ Commit:
 
 ## ASRP-Sprint 9: Pipeline Execution And Provider Chaining
 
-Status: pending
+Status: completed
 
-Planned tasks:
+Completed tasks:
 
-- [ ] Add internal pipeline representation.
-- [ ] Replace old single-model execution with an internal provider pipeline.
-- [ ] Resolve each step through the registry.
-- [ ] Execute steps serially.
-- [ ] Merge typed artifacts into canonical transcript JSON.
-- [ ] Cover local/fake transcription plus remote/fake diarization.
+- [x] Added internal pipeline resolution for transcription, diarization, and speaker identification steps.
+- [x] Replaced old single-model execution with an internal provider pipeline path.
+- [x] Resolved each step through the registry by provider, model, and required capability.
+- [x] Executed steps serially.
+- [x] Merged typed transcription and diarization artifacts into canonical transcript JSON.
+- [x] Covered local/fake transcription plus remote/fake diarization.
 
 Acceptance checks:
 
-- [ ] Jobs run through the new pipeline representation.
-- [ ] Diarization can run on a different provider than transcription.
-- [ ] Provider step failures stop the pipeline with sanitized error metadata.
-- [ ] Cancellation interrupts the active provider step.
-- [ ] Canonical transcript output remains stable for transcript API/UI consumers.
+- [x] Jobs run through the new pipeline representation.
+- [x] Diarization can run on a different provider than transcription.
+- [x] Provider step failures stop the pipeline with sanitized error metadata.
+- [x] Cancellation interrupts the active provider step.
+- [x] Canonical transcript output remains stable for transcript API/UI consumers.
 
 Verification:
 
-- [ ] Not run yet.
+- [x] `GOCACHE=/tmp/scriberr-go-cache go test ./internal/transcription/orchestrator`
+- [x] `GOCACHE=/tmp/scriberr-go-cache go test ./internal/transcription/...`
+- [x] `GOCACHE=/tmp/scriberr-go-cache go test ./internal/api -run 'TestASREngineImportInventory|TestProductionCodeDoesNotUseOldASRParameterIdentifiers|TestASRProvidersDoNotDependOnAPIOrRepositories|TestBackendDependencyDirection|TestListTranscriptionModels|TestTranscriptionExecutions'`
+- [x] `GOCACHE=/tmp/scriberr-go-cache go vet ./internal/transcription/...`
+- [x] `git diff --check`
 
 Artifacts:
 
-- To be filled during implementation.
+- `internal/transcription/orchestrator/processor.go`
+- `internal/transcription/orchestrator/processor_test.go`
+- `devnotes/v2.0.0/sprint-trackers/asr-provider-backend-sprint-tracker.md`
 
 Commit:
 

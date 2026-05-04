@@ -65,6 +65,14 @@ type Processor struct {
 	OutputDir string
 }
 
+type resolvedASRStep struct {
+	Kind        string
+	ProviderID  string
+	Provider    engineprovider.Provider
+	Model       string
+	ModelFamily string
+}
+
 func (p *Processor) Process(ctx context.Context, job *models.TranscriptionJob) (worker.ProcessResult, error) {
 	if err := ctx.Err(); err != nil {
 		return canceledResult(), err
@@ -79,17 +87,18 @@ func (p *Processor) Process(ctx context.Context, job *models.TranscriptionJob) (
 		return failedResult("engine provider registry is required"), fmt.Errorf("engine provider registry is required")
 	}
 
-	provider, providerID, err := p.resolveProvider(job)
+	pipeline, err := p.resolvePipeline(ctx, job)
 	if err != nil {
-		return failedResult(err.Error()), err
+		return failedResult(sanitizeErrorMessage(err)), err
 	}
-	transcriptionModel := defaultString(job.Parameters.Model, engineprovider.DefaultTranscriptionModel)
-	decodingMethod := supportedDecodingMethod(job.Parameters.ModelFamily, job.Parameters.DecodingMethod)
-	diarizationEnabled := job.Diarization || job.Parameters.Diarize
-	diarizationModel := ""
-	if diarizationEnabled {
-		diarizationModel = defaultString(job.Parameters.DiarizeModel, engineprovider.DefaultDiarizationModel)
+	transcriptionStep, ok := firstStepByKind(pipeline, models.ASRStepTranscription)
+	if !ok {
+		err := fmt.Errorf("ASR pipeline requires a transcription step")
+		return failedResult(sanitizeErrorMessage(err)), err
 	}
+	diarizationStep, diarizationEnabled := firstStepByKind(pipeline, models.ASRStepDiarization)
+	transcriptionModel := transcriptionStep.Model
+	providerID := transcriptionStep.ProviderID
 
 	startedAt := time.Now()
 	execution := &models.TranscriptionJobExecution{
@@ -98,10 +107,10 @@ func (p *Processor) Process(ctx context.Context, job *models.TranscriptionJob) (
 		Status:             models.StatusProcessing,
 		Provider:           providerID,
 		ModelName:          transcriptionModel,
-		ModelFamily:        defaultString(job.Parameters.ModelFamily, "transcription"),
+		ModelFamily:        defaultString(transcriptionStep.ModelFamily, "transcription"),
 		StartedAt:          startedAt,
 		ActualParameters:   job.Parameters,
-		ConfigJSON:         executionConfigJSON(providerID, transcriptionModel, diarizationModel, diarizationEnabled),
+		ConfigJSON:         executionConfigJSON(pipeline),
 	}
 	if err := p.Jobs.CreateExecution(ctx, execution); err != nil {
 		return failedResult(sanitizeErrorMessage(err)), err
@@ -127,15 +136,14 @@ func (p *Processor) Process(ctx context.Context, job *models.TranscriptionJob) (
 		message := sanitizeErrorMessage(err)
 		return withExecution(failedResult(message), err)
 	}
-	if err := provider.Prepare(ctx); err != nil {
-		return withExecution(p.errorResult(ctx, err))
-	}
-
 	if err := p.publishProgress(ctx, job, "transcribing", 0.20, models.StatusProcessing); err != nil {
 		return withExecution(canceledResult(), err)
 	}
 	progressSink := providerProgressSink{processor: p, job: job}
-	transcription, err := provider.Transcribe(ctx, engineprovider.TranscriptionRequest{
+	if err := prepareStepProvider(ctx, transcriptionStep); err != nil {
+		return withExecution(p.errorResult(ctx, err))
+	}
+	transcription, err := transcriptionStep.Provider.Transcribe(ctx, engineprovider.TranscriptionRequest{
 		JobID:                   job.ID,
 		UserID:                  job.UserID,
 		AudioPath:               audio.ProviderPath,
@@ -150,7 +158,7 @@ func (p *Processor) Process(ctx context.Context, job *models.TranscriptionJob) (
 		CanarySourceLanguage:    job.Parameters.CanarySourceLanguage,
 		CanaryTargetLanguage:    job.Parameters.CanaryTargetLanguage,
 		CanaryUsePunctuation:    job.Parameters.CanaryUsePunctuation,
-		DecodingMethod:          decodingMethod,
+		DecodingMethod:          supportedDecodingMethod(transcriptionStep.ModelFamily, job.Parameters.DecodingMethod),
 		Chunking:                job.Parameters.ChunkingStrategy,
 		ChunkDurationSec:        float64(job.Parameters.ChunkSize),
 	})
@@ -164,7 +172,7 @@ func (p *Processor) Process(ctx context.Context, job *models.TranscriptionJob) (
 		transcription.ModelID = transcriptionModel
 	}
 	if transcription.EngineID == "" {
-		transcription.EngineID = providerID
+		transcription.EngineID = transcriptionStep.ProviderID
 	}
 
 	var diarization *engineprovider.DiarizationResult
@@ -172,12 +180,15 @@ func (p *Processor) Process(ctx context.Context, job *models.TranscriptionJob) (
 		if err := p.publishProgress(ctx, job, "diarizing", 0.70, models.StatusProcessing); err != nil {
 			return withExecution(canceledResult(), err)
 		}
-		diarization, err = provider.Diarize(ctx, engineprovider.DiarizationRequest{
+		if err := prepareStepProvider(ctx, diarizationStep); err != nil {
+			return withExecution(p.errorResult(ctx, err))
+		}
+		diarization, err = diarizationStep.Provider.Diarize(ctx, engineprovider.DiarizationRequest{
 			JobID:          job.ID,
 			UserID:         job.UserID,
 			AudioPath:      audio.ProviderPath,
 			Progress:       progressSink,
-			ModelID:        diarizationModel,
+			ModelID:        diarizationStep.Model,
 			NumSpeakers:    job.Parameters.NumSpeakers,
 			Threshold:      job.Parameters.DiarizationThreshold,
 			MinDurationOn:  job.Parameters.MinDurationOn,
@@ -188,11 +199,32 @@ func (p *Processor) Process(ctx context.Context, job *models.TranscriptionJob) (
 		}
 		if diarization != nil {
 			if diarization.ModelID == "" {
-				diarization.ModelID = diarizationModel
+				diarization.ModelID = diarizationStep.Model
 			}
 			if diarization.EngineID == "" {
-				diarization.EngineID = providerID
+				diarization.EngineID = diarizationStep.ProviderID
 			}
+		}
+	}
+	for _, speakerStep := range stepsByKind(pipeline, models.ASRStepSpeakerIdentification) {
+		if err := p.publishProgress(ctx, job, "identifying_speakers", 0.78, models.StatusProcessing); err != nil {
+			return withExecution(canceledResult(), err)
+		}
+		if err := prepareStepProvider(ctx, speakerStep); err != nil {
+			return withExecution(p.errorResult(ctx, err))
+		}
+		_, err := speakerStep.Provider.IdentifySpeakers(ctx, asrcontract.SpeakerIDRequest{
+			RequestID: job.ID,
+			Audio: asrcontract.AudioInput{
+				Path:       audio.ProviderPath,
+				SampleRate: 16000,
+				Channels:   1,
+				Format:     "wav",
+			},
+			Model: speakerStep.Model,
+		})
+		if err != nil {
+			return withExecution(p.errorResult(ctx, err))
 		}
 	}
 
@@ -229,19 +261,104 @@ func (p *Processor) Process(ctx context.Context, job *models.TranscriptionJob) (
 	}, nil
 }
 
-func (p *Processor) resolveProvider(job *models.TranscriptionJob) (engineprovider.Provider, string, error) {
-	req := engineprovider.SelectionRequest{}
-	if job.EngineID != nil && strings.TrimSpace(*job.EngineID) != "" {
-		req.ProviderID = strings.TrimSpace(*job.EngineID)
+func (p *Processor) resolvePipeline(ctx context.Context, job *models.TranscriptionJob) ([]resolvedASRStep, error) {
+	steps := pipelineStepsForJob(job)
+	out := make([]resolvedASRStep, 0, len(steps))
+	for _, step := range steps {
+		kind := strings.TrimSpace(step.Kind)
+		model := strings.TrimSpace(step.Model)
+		requires := []string{}
+		switch kind {
+		case models.ASRStepTranscription:
+			model = defaultString(model, engineprovider.DefaultTranscriptionModel)
+			requires = []string{string(asrcontract.CapabilityTranscription)}
+		case models.ASRStepDiarization:
+			model = defaultString(model, engineprovider.DefaultDiarizationModel)
+			requires = []string{string(asrcontract.CapabilityDiarization)}
+		case models.ASRStepSpeakerIdentification:
+			requires = []string{string(asrcontract.CapabilitySpeakerIdentification)}
+		default:
+			return nil, fmt.Errorf("unsupported ASR pipeline step %q", kind)
+		}
+		provider, capability, err := p.Providers.Select(ctx, engineprovider.SelectionRequest{
+			ProviderID: strings.TrimSpace(step.Provider),
+			ModelID:    model,
+			Requires:   requires,
+		})
+		if err != nil {
+			return nil, err
+		}
+		if provider == nil {
+			return nil, fmt.Errorf("selected engine provider is not available")
+		}
+		if model == "" && capability != nil {
+			model = capability.ID
+		}
+		out = append(out, resolvedASRStep{
+			Kind:        kind,
+			ProviderID:  provider.ID(),
+			Provider:    provider,
+			Model:       model,
+			ModelFamily: strings.TrimSpace(step.ModelFamily),
+		})
 	}
-	provider, _, err := p.Providers.Select(context.Background(), req)
-	if err != nil {
-		return nil, "", err
+	return out, nil
+}
+
+func pipelineStepsForJob(job *models.TranscriptionJob) []models.ASRStep {
+	if job == nil {
+		return nil
 	}
-	if provider == nil {
-		return nil, "", fmt.Errorf("selected engine provider is not available")
+	if len(job.Parameters.Pipeline) > 0 {
+		return job.Parameters.Pipeline
 	}
-	return provider, provider.ID(), nil
+	providerID := ""
+	if job.EngineID != nil {
+		providerID = strings.TrimSpace(*job.EngineID)
+	}
+	if providerID == "" {
+		providerID = strings.TrimSpace(job.Parameters.Provider)
+	}
+	steps := []models.ASRStep{{
+		Kind:        models.ASRStepTranscription,
+		Provider:    providerID,
+		Model:       job.Parameters.Model,
+		ModelFamily: job.Parameters.ModelFamily,
+	}}
+	if job.Diarization || job.Parameters.Diarize {
+		steps = append(steps, models.ASRStep{
+			Kind:     models.ASRStepDiarization,
+			Provider: providerID,
+			Model:    job.Parameters.DiarizeModel,
+		})
+	}
+	return steps
+}
+
+func firstStepByKind(steps []resolvedASRStep, kind string) (resolvedASRStep, bool) {
+	for _, step := range steps {
+		if step.Kind == kind {
+			return step, true
+		}
+	}
+	return resolvedASRStep{}, false
+}
+
+func stepsByKind(steps []resolvedASRStep, kind string) []resolvedASRStep {
+	out := []resolvedASRStep{}
+	for _, step := range steps {
+		if step.Kind == kind {
+			out = append(out, step)
+		}
+	}
+	return out
+}
+
+func prepareStepProvider(ctx context.Context, step resolvedASRStep) error {
+	if step.Provider == nil {
+		return fmt.Errorf("selected engine provider is not available")
+	}
+	return step.Provider.Prepare(ctx)
 }
 
 func (p *Processor) publishProgress(ctx context.Context, job *models.TranscriptionJob, stage string, progress float64, status models.JobStatus) error {
@@ -321,35 +438,34 @@ func (p *Processor) audioPreprocessor() preprocess.Preprocessor {
 	return preprocess.PassthroughPreprocessor{}
 }
 
-func executionConfigJSON(providerID, transcriptionModel, diarizationModel string, diarizationEnabled bool) string {
+func executionConfigJSON(steps []resolvedASRStep) string {
 	type executionStep struct {
 		Operation string `json:"operation"`
 		Provider  string `json:"provider"`
 		Model     string `json:"model"`
 	}
+	executionSteps := make([]executionStep, 0, len(steps))
+	for _, step := range steps {
+		executionSteps = append(executionSteps, executionStep{
+			Operation: step.Kind,
+			Provider:  step.ProviderID,
+			Model:     step.Model,
+		})
+	}
+	transcriptionStep, _ := firstStepByKind(steps, models.ASRStepTranscription)
+	diarizationStep, hasDiarization := firstStepByKind(steps, models.ASRStepDiarization)
 	payload := struct {
 		Provider           string          `json:"provider"`
 		TranscriptionModel string          `json:"transcription_model"`
 		DiarizationModel   string          `json:"diarization_model,omitempty"`
 		Steps              []executionStep `json:"steps"`
 	}{
-		Provider:           providerID,
-		TranscriptionModel: transcriptionModel,
-		Steps: []executionStep{{
-			Operation: "transcription",
-			Provider:  providerID,
-			Model:     transcriptionModel,
-		}},
+		Provider:           transcriptionStep.ProviderID,
+		TranscriptionModel: transcriptionStep.Model,
+		Steps:              executionSteps,
 	}
-	if diarizationModel != "" {
-		payload.DiarizationModel = diarizationModel
-	}
-	if diarizationEnabled {
-		payload.Steps = append(payload.Steps, executionStep{
-			Operation: "diarization",
-			Provider:  providerID,
-			Model:     diarizationModel,
-		})
+	if hasDiarization {
+		payload.DiarizationModel = diarizationStep.Model
 	}
 	data, err := json.Marshal(payload)
 	if err != nil {

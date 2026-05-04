@@ -23,13 +23,17 @@ import (
 
 type fakeProvider struct {
 	id         string
+	caps       []engineprovider.ModelCapability
 	transcribe *engineprovider.TranscriptionResult
 	diarize    *engineprovider.DiarizationResult
+	speakerID  *asrcontract.SpeakerIDResult
 	transErr   error
 	diarizeErr error
+	speakerErr error
 	progress   []asrcontract.ProviderProgress
 	transReq   engineprovider.TranscriptionRequest
 	diarizeReq engineprovider.DiarizationRequest
+	speakerReq asrcontract.SpeakerIDRequest
 }
 
 func (p *fakeProvider) ID() string { return p.id }
@@ -46,7 +50,18 @@ func (p *fakeProvider) LoadedModels(context.Context) ([]asrcontract.LoadedModel,
 	return nil, nil
 }
 func (p *fakeProvider) Capabilities(context.Context) ([]engineprovider.ModelCapability, error) {
-	return nil, nil
+	if p.caps != nil {
+		return p.caps, nil
+	}
+	return []engineprovider.ModelCapability{
+		{ID: "whisper-base", Provider: p.id, Installed: true, Default: true, Capabilities: []string{"transcription"}},
+		{ID: "whisper-base-en", Provider: p.id, Installed: true, Capabilities: []string{"transcription"}},
+		{ID: "custom-transcriber", Provider: p.id, Installed: true, Capabilities: []string{"transcription"}},
+		{ID: "remote-model", Provider: p.id, Installed: true, Capabilities: []string{"transcription"}},
+		{ID: "diarization-default", Provider: p.id, Installed: true, Default: true, Capabilities: []string{"diarization"}},
+		{ID: "custom-diarizer", Provider: p.id, Installed: true, Capabilities: []string{"diarization"}},
+		{ID: "speaker-id-default", Provider: p.id, Installed: true, Capabilities: []string{"speaker_identification"}},
+	}, nil
 }
 func (p *fakeProvider) Prepare(context.Context) error { return nil }
 func (p *fakeProvider) Transcribe(ctx context.Context, req engineprovider.TranscriptionRequest) (*engineprovider.TranscriptionResult, error) {
@@ -66,7 +81,14 @@ func (p *fakeProvider) Diarize(ctx context.Context, req engineprovider.Diarizati
 	}
 	return p.diarize, p.diarizeErr
 }
-func (p *fakeProvider) IdentifySpeakers(context.Context, asrcontract.SpeakerIDRequest) (*asrcontract.SpeakerIDResult, error) {
+func (p *fakeProvider) IdentifySpeakers(ctx context.Context, req asrcontract.SpeakerIDRequest) (*asrcontract.SpeakerIDResult, error) {
+	p.speakerReq = req
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if p.speakerID != nil || p.speakerErr != nil {
+		return p.speakerID, p.speakerErr
+	}
 	return nil, asrcontract.NewProviderError(asrcontract.CodeUnsupportedOperation, "speaker identification is not supported", false)
 }
 func (p *fakeProvider) Close() error { return nil }
@@ -183,6 +205,176 @@ func TestProcessorCreatesExecutionAndReturnsCanonicalTranscript(t *testing.T) {
 	assert.Contains(t, executions[0].ConfigJSON, `"operation":"diarization"`)
 
 	assertEventStages(t, events.events, []string{"preparing", "transcribing", "diarizing", "merging", "saving", "completed"})
+}
+
+func TestProcessorChainsDiarizationAcrossProviders(t *testing.T) {
+	db := openOrchestratorTestDB(t)
+	audioPath := filepath.Join(t.TempDir(), "audio.wav")
+	require.NoError(t, os.WriteFile(audioPath, []byte("fake wav"), 0o600))
+	job := createOrchestratorJob(t, db, audioPath, models.ASRParams{
+		Pipeline: []models.ASRStep{
+			{Kind: models.ASRStepTranscription, Provider: "local", Model: "local-transcriber", ModelFamily: "nemo_transducer"},
+			{Kind: models.ASRStepDiarization, Provider: "remote-diarizer", Model: "remote-diarizer-model"},
+		},
+	})
+	local := &fakeProvider{
+		id: "local",
+		caps: []engineprovider.ModelCapability{{
+			ID:           "local-transcriber",
+			Provider:     "local",
+			Installed:    true,
+			Capabilities: []string{"transcription"},
+		}},
+		transcribe: &engineprovider.TranscriptionResult{
+			Text: "Hello.",
+			Words: []engineprovider.TranscriptWord{
+				{Start: 0, End: 0.4, Word: "Hello"},
+			},
+			ModelID:  "local-transcriber",
+			EngineID: "local",
+		},
+	}
+	remote := &fakeProvider{
+		id: "remote-diarizer",
+		caps: []engineprovider.ModelCapability{{
+			ID:           "remote-diarizer-model",
+			Provider:     "remote-diarizer",
+			Installed:    true,
+			Capabilities: []string{"diarization"},
+		}},
+		diarize: &engineprovider.DiarizationResult{
+			ModelID:  "remote-diarizer-model",
+			EngineID: "remote-diarizer",
+			Segments: []engineprovider.DiarizationSegment{
+				{Start: 0, End: 1, Speaker: "remote-speaker"},
+			},
+		},
+	}
+	registry, err := engineprovider.NewRegistry("local", local, remote)
+	require.NoError(t, err)
+	events := &recordingEvents{}
+	processor := &Processor{
+		Jobs:      repository.NewJobRepository(db),
+		Providers: registry,
+		Events:    events,
+		OutputDir: t.TempDir(),
+	}
+
+	result, err := processor.Process(context.Background(), &job)
+
+	require.NoError(t, err)
+	require.Equal(t, models.StatusCompleted, result.Status)
+	assert.Equal(t, job.ID, local.transReq.JobID)
+	assert.Empty(t, local.diarizeReq.JobID)
+	assert.Equal(t, job.ID, remote.diarizeReq.JobID)
+	assert.Empty(t, remote.transReq.JobID)
+	assert.Equal(t, "local-transcriber", local.transReq.ModelID)
+	assert.Equal(t, "remote-diarizer-model", remote.diarizeReq.ModelID)
+	assert.Contains(t, result.TranscriptJSON, `"speaker":"SPEAKER_00"`)
+
+	var executions []models.TranscriptionJobExecution
+	require.NoError(t, db.Where("transcription_id = ?", job.ID).Find(&executions).Error)
+	require.Len(t, executions, 1)
+	assert.Contains(t, executions[0].ConfigJSON, `"provider":"local"`)
+	assert.Contains(t, executions[0].ConfigJSON, `"provider":"remote-diarizer"`)
+	assert.NotContains(t, executions[0].ConfigJSON, audioPath)
+}
+
+func TestProcessorRejectsUnsupportedPipelineStep(t *testing.T) {
+	db := openOrchestratorTestDB(t)
+	audioPath := filepath.Join(t.TempDir(), "audio.wav")
+	require.NoError(t, os.WriteFile(audioPath, []byte("fake wav"), 0o600))
+	job := createOrchestratorJob(t, db, audioPath, models.ASRParams{
+		Pipeline: []models.ASRStep{{Kind: "summarization", Provider: "local", Model: "bad-step"}},
+	})
+	provider := &fakeProvider{id: "local"}
+	registry, err := engineprovider.NewRegistry("local", provider)
+	require.NoError(t, err)
+	processor := &Processor{
+		Jobs:      repository.NewJobRepository(db),
+		Providers: registry,
+		OutputDir: t.TempDir(),
+	}
+
+	result, err := processor.Process(context.Background(), &job)
+
+	require.Error(t, err)
+	assert.Equal(t, models.StatusFailed, result.Status)
+	assert.Contains(t, result.ErrorMessage, "unsupported ASR pipeline step")
+	assert.Empty(t, provider.transReq.JobID)
+}
+
+func TestProcessorFailsWhenPipelineStepProviderUnavailable(t *testing.T) {
+	db := openOrchestratorTestDB(t)
+	audioPath := filepath.Join(t.TempDir(), "audio.wav")
+	require.NoError(t, os.WriteFile(audioPath, []byte("fake wav"), 0o600))
+	job := createOrchestratorJob(t, db, audioPath, models.ASRParams{
+		Pipeline: []models.ASRStep{{Kind: models.ASRStepTranscription, Provider: "missing", Model: "remote-model"}},
+	})
+	provider := &fakeProvider{id: "local"}
+	registry, err := engineprovider.NewRegistry("local", provider)
+	require.NoError(t, err)
+	processor := &Processor{
+		Jobs:      repository.NewJobRepository(db),
+		Providers: registry,
+		OutputDir: t.TempDir(),
+	}
+
+	result, err := processor.Process(context.Background(), &job)
+
+	require.Error(t, err)
+	assert.Equal(t, models.StatusFailed, result.Status)
+	assert.Contains(t, result.ErrorMessage, "missing")
+	assert.Empty(t, provider.transReq.JobID)
+}
+
+func TestProcessorExecutesSpeakerIdentificationStep(t *testing.T) {
+	db := openOrchestratorTestDB(t)
+	audioPath := filepath.Join(t.TempDir(), "audio.wav")
+	require.NoError(t, os.WriteFile(audioPath, []byte("fake wav"), 0o600))
+	job := createOrchestratorJob(t, db, audioPath, models.ASRParams{
+		Pipeline: []models.ASRStep{
+			{Kind: models.ASRStepTranscription, Provider: "local", Model: "whisper-base"},
+			{Kind: models.ASRStepSpeakerIdentification, Provider: "speaker-provider", Model: "speaker-id-default"},
+		},
+	})
+	local := &fakeProvider{
+		id: "local",
+		transcribe: &engineprovider.TranscriptionResult{
+			Text: "Hello.",
+		},
+	}
+	speakerProvider := &fakeProvider{
+		id: "speaker-provider",
+		caps: []engineprovider.ModelCapability{{
+			ID:           "speaker-id-default",
+			Provider:     "speaker-provider",
+			Installed:    true,
+			Capabilities: []string{"speaker_identification"},
+		}},
+		speakerID: &asrcontract.SpeakerIDResult{
+			Model:    "speaker-id-default",
+			Speakers: []asrcontract.SpeakerIdentity{{Speaker: "SPEAKER_00", Label: "Ada"}},
+		},
+	}
+	registry, err := engineprovider.NewRegistry("local", local, speakerProvider)
+	require.NoError(t, err)
+	events := &recordingEvents{}
+	processor := &Processor{
+		Jobs:      repository.NewJobRepository(db),
+		Providers: registry,
+		Events:    events,
+		OutputDir: t.TempDir(),
+	}
+
+	result, err := processor.Process(context.Background(), &job)
+
+	require.NoError(t, err)
+	require.Equal(t, models.StatusCompleted, result.Status)
+	assert.Equal(t, job.ID, speakerProvider.speakerReq.RequestID)
+	assert.Equal(t, "speaker-id-default", speakerProvider.speakerReq.Model)
+	assert.Empty(t, speakerProvider.transReq.JobID)
+	assertEventStages(t, events.events, []string{"preparing", "transcribing", "identifying_speakers", "merging", "saving", "completed"})
 }
 
 func TestProcessorPassesPreprocessedAudioToProvider(t *testing.T) {
