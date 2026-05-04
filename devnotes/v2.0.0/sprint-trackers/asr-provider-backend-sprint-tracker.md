@@ -2,7 +2,7 @@
 
 Run ID: `ASRP`
 
-Status: completed through ASRP-Sprint 6.
+Status: completed through ASRP-Sprint 7.
 
 This tracker belongs to `devnotes/v2.0.0/sprint-plans/asr-provider-backend-sprint-plan.md` and the design spec in `devnotes/v2.0.0/specs/asr-provider-backend-architecture.md`.
 
@@ -322,32 +322,38 @@ Commit:
 
 ## ASRP-Sprint 7: Remote Provider REST Client
 
-Status: pending
+Status: completed
 
-Planned tasks:
+Completed tasks:
 
-- [ ] Add `internal/transcription/engineprovider/remote`.
-- [ ] Implement control-plane REST endpoints.
-- [ ] Implement ephemeral job REST endpoints.
-- [ ] Enforce timeouts and response size limits.
-- [ ] Poll remote job status and replay progress.
-- [ ] Map typed remote errors.
-- [ ] Propagate cancellation through `DELETE /v1/jobs/{job_id}`.
+- [x] Added `internal/transcription/engineprovider/remote`.
+- [x] Implemented control-plane REST endpoints.
+- [x] Implemented ephemeral job REST endpoints.
+- [x] Enforced request timeouts and response size limits.
+- [x] Poll remote job status and replay progress/events.
+- [x] Mapped typed remote errors with bounded sanitized details.
+- [x] Propagated cancellation through `DELETE /v1/jobs/{job_id}`.
 
 Acceptance checks:
 
-- [ ] Remote client implements the internal provider interface.
-- [ ] Fake HTTP provider tests cover success, progress, busy, unsupported operation, provider error, malformed JSON, timeout, and cancellation.
-- [ ] Remote provider URLs come only from injected config.
-- [ ] No URL/path/token leaks through public surfaces.
+- [x] Remote client implements the internal provider interface.
+- [x] Fake HTTP provider tests cover success, progress, busy, unsupported operation, provider error, malformed JSON, timeout, and cancellation.
+- [x] Remote provider URLs come only from injected config.
+- [x] No URL/path/token leaks through public surfaces.
 
 Verification:
 
-- [ ] Not run yet.
+- [x] `GOCACHE=/tmp/scriberr-go-cache go test ./internal/transcription/engineprovider/remote`
+- [x] `GOCACHE=/tmp/scriberr-go-cache go test ./internal/transcription/...`
+- [x] `GOCACHE=/tmp/scriberr-go-cache go test ./internal/api -run 'TestASREngineImportInventory|TestProductionCodeDoesNotUseOldASRParameterIdentifiers|TestASRProvidersDoNotDependOnAPIOrRepositories|TestBackendDependencyDirection|TestListTranscriptionModels|TestTranscriptionExecutions'`
+- [x] `GOCACHE=/tmp/scriberr-go-cache go vet ./internal/transcription/...`
+- [x] `git diff --check`
 
 Artifacts:
 
-- To be filled during implementation.
+- `internal/transcription/engineprovider/remote/client.go`
+- `internal/transcription/engineprovider/remote/client_test.go`
+- `devnotes/v2.0.0/sprint-trackers/asr-provider-backend-sprint-tracker.md`
 
 Commit:
 
