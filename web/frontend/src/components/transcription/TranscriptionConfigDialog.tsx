@@ -197,13 +197,6 @@ const LANGUAGES = [
     { value: "cy", label: "Welsh" },
 ];
 
-const CANARY_LANGUAGES = [
-    { value: "en", label: "English" },
-    { value: "de", label: "German" },
-    { value: "es", label: "Spanish" },
-    { value: "fr", label: "French" },
-];
-
 const PARAM_DESCRIPTIONS = {
     model: "Size of the Whisper model. Larger = more accurate but slower.",
     language: "Source language. Auto-detect works for most cases.",
@@ -369,7 +362,6 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
                         options={[
                             { value: "whisper", label: "Whisper" },
                             { value: "nvidia_parakeet", label: "NVIDIA Parakeet" },
-                            { value: "nvidia_canary", label: "NVIDIA Canary" },
                             { value: "mistral_voxtral", label: "Mistral Voxtral" },
                             { value: "openai", label: "OpenAI" },
                         ]}
@@ -388,9 +380,6 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
                     )}
                     {params.model_family === "nvidia_parakeet" && (
                         <ParakeetConfig params={params} updateParam={updateParam} isMultiTrack={isMultiTrack} />
-                    )}
-                    {params.model_family === "nvidia_canary" && (
-                        <CanaryConfig params={params} updateParam={updateParam} isMultiTrack={isMultiTrack} />
                     )}
                     {params.model_family === "openai" && (
                         <OpenAIConfig
@@ -604,20 +593,6 @@ function ParakeetConfig({ params, updateParam, isMultiTrack }: ConfigProps) {
 
             {!isMultiTrack && (
                 <DiarizationSection id="parakeet_diarize" params={params} updateParam={updateParam} />
-            )}
-        </div>
-    );
-}
-
-function CanaryConfig({ params, updateParam, isMultiTrack }: ConfigProps) {
-    return (
-        <div className="space-y-6">
-            <Section title="Language Settings">
-                <SelectField label="Source Language" value={params.language || "en"} onValueChange={(v) => updateParam('language', v)} options={CANARY_LANGUAGES} />
-            </Section>
-
-            {!isMultiTrack && (
-                <DiarizationSection id="canary_diarize" params={params} updateParam={updateParam} />
             )}
         </div>
     );

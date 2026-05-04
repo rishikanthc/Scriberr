@@ -39,18 +39,10 @@ const languageOptions = [
   { value: "zh", label: "Chinese" },
 ];
 
-const canaryLanguageOptions = [
-  { value: "en", label: "English" },
-  { value: "es", label: "Spanish" },
-  { value: "de", label: "German" },
-  { value: "fr", label: "French" },
-];
-
 const fallbackModels: TranscriptionModel[] = [
   { id: "whisper-base", name: "Whisper Base", provider: "local", installed: false, default: true, capabilities: ["transcription", "word_timestamps"] },
   { id: "whisper-small", name: "Whisper Small", provider: "local", installed: false, default: false, capabilities: ["transcription", "word_timestamps"] },
   { id: "parakeet-v2", name: "NVIDIA Parakeet TDT v2", provider: "local", installed: false, default: false, capabilities: ["transcription", "word_timestamps"] },
-  { id: "canary-180m", name: "NVIDIA NeMo Canary 180m", provider: "local", installed: false, default: false, capabilities: ["transcription", "word_timestamps"] },
 ];
 
 export function ASRProfileDialog({ open, profile, models, onClose, onSave }: ASRProfileDialogProps) {
@@ -153,17 +145,6 @@ export function ASRProfileDialog({ open, profile, models, onClose, onSave }: ASR
               <OptionalNumberField label="Tail paddings" value={params.tail_paddings} min={-1} max={16} onChange={(value) => updateParam("tail_paddings", value)} />
             </div>
           </section>
-
-          {params.model_family === "canary" ? (
-            <section className="scr-settings-section">
-              <h3 className="scr-settings-section-title">Canary</h3>
-              <div className="scr-form-grid">
-                <SelectField label="Source language" value={params.canary_source_language} options={canaryLanguageOptions} onChange={(value) => updateParam("canary_source_language", value)} />
-                <SelectField label="Target language" value={params.canary_target_language} options={canaryLanguageOptions} onChange={(value) => updateParam("canary_target_language", value)} />
-              </div>
-              <CheckRow label="Use punctuation and capitalization" checked={params.canary_use_punctuation ?? true} onChange={(value) => updateParam("canary_use_punctuation", value)} />
-            </section>
-          ) : null}
 
           <section className="scr-settings-section">
             <h3 className="scr-settings-section-title">Diarization</h3>

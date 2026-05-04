@@ -1,4 +1,4 @@
-export type ModelFamily = "whisper" | "nemo_transducer" | "canary";
+export type ModelFamily = "whisper" | "nemo_transducer";
 
 export type TranscriptionProfileOptions = {
   model_family: ModelFamily;
@@ -7,9 +7,6 @@ export type TranscriptionProfileOptions = {
   task: "transcribe" | "translate";
   threads: number;
   tail_paddings?: number;
-  canary_source_language: string;
-  canary_target_language: string;
-  canary_use_punctuation?: boolean;
   decoding_method: "greedy_search" | "modified_beam_search";
   chunking_strategy: "fixed" | "vad";
   diarize: boolean;
@@ -46,9 +43,6 @@ export const defaultProfileParams: TranscriptionProfileOptions = {
   task: "transcribe",
   threads: 0,
   decoding_method: "greedy_search",
-  canary_source_language: "en",
-  canary_target_language: "en",
-  canary_use_punctuation: true,
   diarize: false,
   chunking_strategy: "fixed",
   diarize_model: "diarization-default",
@@ -98,9 +92,6 @@ export async function saveProfile(profile: {
       task: profile.options.task,
       threads: profile.options.threads,
       tail_paddings: profile.options.tail_paddings,
-      canary_source_language: profile.options.canary_source_language,
-      canary_target_language: profile.options.canary_target_language,
-      canary_use_punctuation: profile.options.canary_use_punctuation,
       decoding_method: profile.options.decoding_method,
       chunking_strategy: profile.options.chunking_strategy,
       diarize: profile.options.diarize,
@@ -137,8 +128,6 @@ export function normalizeParams(params?: Partial<TranscriptionProfileOptions> & 
     task: params?.task === "translate" ? "translate" : "transcribe",
     decoding_method: params?.decoding_method === "modified_beam_search" ? "modified_beam_search" : "greedy_search",
     chunking_strategy: params?.chunking_strategy === "vad" ? "vad" : "fixed",
-    canary_source_language: params?.canary_source_language || "en",
-    canary_target_language: params?.canary_target_language || "en",
     diarize: params?.diarize ?? Boolean(params?.diarization),
     diarize_model: "diarization-default",
     num_speakers: params?.num_speakers || 0,
@@ -150,7 +139,6 @@ export function normalizeParams(params?: Partial<TranscriptionProfileOptions> & 
 
 export function familyForModel(model: string): ModelFamily {
   if (model.startsWith("parakeet")) return "nemo_transducer";
-  if (model.startsWith("canary")) return "canary";
   return "whisper";
 }
 
