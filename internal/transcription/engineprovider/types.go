@@ -1,6 +1,10 @@
 package engineprovider
 
-import "context"
+import (
+	"context"
+
+	"scriberr/internal/transcription/asrcontract"
+)
 
 const (
 	DefaultProviderID         = "local"
@@ -10,16 +14,28 @@ const (
 
 type Provider interface {
 	ID() string
+	Inspect(ctx context.Context) (*asrcontract.ProviderInfo, error)
+	Models(ctx context.Context) ([]asrcontract.ModelCard, error)
+	Status(ctx context.Context) (*asrcontract.ProviderStatus, error)
+	LoadModel(ctx context.Context, req asrcontract.LoadModelRequest) error
+	UnloadModel(ctx context.Context, req asrcontract.UnloadModelRequest) error
+	LoadedModels(ctx context.Context) ([]asrcontract.LoadedModel, error)
 	Capabilities(ctx context.Context) ([]ModelCapability, error)
 	Prepare(ctx context.Context) error
 	Transcribe(ctx context.Context, req TranscriptionRequest) (*TranscriptionResult, error)
 	Diarize(ctx context.Context, req DiarizationRequest) (*DiarizationResult, error)
+	IdentifySpeakers(ctx context.Context, req asrcontract.SpeakerIDRequest) (*asrcontract.SpeakerIDResult, error)
 	Close() error
+}
+
+type ProgressSink interface {
+	Report(ctx context.Context, event asrcontract.ProviderProgress)
 }
 
 type Registry interface {
 	DefaultProvider() Provider
 	Provider(id string) (Provider, bool)
+	Models(ctx context.Context) ([]asrcontract.ModelCard, error)
 	Capabilities(ctx context.Context) ([]ModelCapability, error)
 	Select(ctx context.Context, req SelectionRequest) (Provider, *ModelCapability, error)
 }

@@ -11,6 +11,7 @@ import (
 	"scriberr/internal/database"
 	"scriberr/internal/models"
 	"scriberr/internal/repository"
+	"scriberr/internal/transcription/asrcontract"
 	"scriberr/internal/transcription/engineprovider"
 
 	"github.com/stretchr/testify/assert"
@@ -29,6 +30,18 @@ type fakeProvider struct {
 }
 
 func (p *fakeProvider) ID() string { return p.id }
+func (p *fakeProvider) Inspect(context.Context) (*asrcontract.ProviderInfo, error) {
+	return &asrcontract.ProviderInfo{ContractVersion: asrcontract.ContractVersionV1}, nil
+}
+func (p *fakeProvider) Models(context.Context) ([]asrcontract.ModelCard, error) { return nil, nil }
+func (p *fakeProvider) Status(context.Context) (*asrcontract.ProviderStatus, error) {
+	return &asrcontract.ProviderStatus{State: asrcontract.ProviderStateIdle}, nil
+}
+func (p *fakeProvider) LoadModel(context.Context, asrcontract.LoadModelRequest) error     { return nil }
+func (p *fakeProvider) UnloadModel(context.Context, asrcontract.UnloadModelRequest) error { return nil }
+func (p *fakeProvider) LoadedModels(context.Context) ([]asrcontract.LoadedModel, error) {
+	return nil, nil
+}
 func (p *fakeProvider) Capabilities(context.Context) ([]engineprovider.ModelCapability, error) {
 	return nil, nil
 }
@@ -46,6 +59,9 @@ func (p *fakeProvider) Diarize(ctx context.Context, req engineprovider.Diarizati
 		return nil, err
 	}
 	return p.diarize, p.diarizeErr
+}
+func (p *fakeProvider) IdentifySpeakers(context.Context, asrcontract.SpeakerIDRequest) (*asrcontract.SpeakerIDResult, error) {
+	return nil, asrcontract.NewProviderError(asrcontract.CodeUnsupportedOperation, "speaker identification is not supported", false)
 }
 func (p *fakeProvider) Close() error { return nil }
 

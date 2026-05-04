@@ -4,15 +4,36 @@ import (
 	"context"
 	"errors"
 	"testing"
+
+	"scriberr/internal/transcription/asrcontract"
 )
 
 type stubProvider struct {
 	id           string
 	capabilities []ModelCapability
+	models       []asrcontract.ModelCard
+	status       asrcontract.ProviderStatus
 	err          error
 }
 
 func (p stubProvider) ID() string { return p.id }
+func (p stubProvider) Inspect(context.Context) (*asrcontract.ProviderInfo, error) {
+	return &asrcontract.ProviderInfo{ContractVersion: asrcontract.ContractVersionV1}, nil
+}
+func (p stubProvider) Models(ctx context.Context) ([]asrcontract.ModelCard, error) {
+	if p.err != nil {
+		return nil, p.err
+	}
+	return p.models, nil
+}
+func (p stubProvider) Status(context.Context) (*asrcontract.ProviderStatus, error) {
+	return &p.status, nil
+}
+func (p stubProvider) LoadModel(context.Context, asrcontract.LoadModelRequest) error     { return nil }
+func (p stubProvider) UnloadModel(context.Context, asrcontract.UnloadModelRequest) error { return nil }
+func (p stubProvider) LoadedModels(context.Context) ([]asrcontract.LoadedModel, error) {
+	return p.status.LoadedModels, nil
+}
 func (p stubProvider) Capabilities(ctx context.Context) ([]ModelCapability, error) {
 	if p.err != nil {
 		return nil, p.err
@@ -25,6 +46,9 @@ func (p stubProvider) Transcribe(ctx context.Context, req TranscriptionRequest) 
 }
 func (p stubProvider) Diarize(ctx context.Context, req DiarizationRequest) (*DiarizationResult, error) {
 	return nil, nil
+}
+func (p stubProvider) IdentifySpeakers(context.Context, asrcontract.SpeakerIDRequest) (*asrcontract.SpeakerIDResult, error) {
+	return nil, asrcontract.NewProviderError(asrcontract.CodeUnsupportedOperation, "speaker identification is not supported", false)
 }
 func (p stubProvider) Close() error { return nil }
 
@@ -62,6 +86,44 @@ func TestRegistryReturnsDefaultProviderAndAggregatesCapabilities(t *testing.T) {
 	}
 	if capabilities[0].Provider != "local" || capabilities[1].Provider != "other" {
 		t.Fatalf("capabilities not sorted by provider id: %#v", capabilities)
+	}
+}
+
+func TestRegistryAggregatesModelCards(t *testing.T) {
+	local := stubProvider{
+		id: "local",
+		models: []asrcontract.ModelCard{{
+			ID:       "whisper-base",
+			Provider: "local",
+			Capabilities: asrcontract.Capabilities{
+				Transcription: true,
+			},
+		}},
+	}
+	remote := stubProvider{
+		id: "remote",
+		models: []asrcontract.ModelCard{{
+			ID:       "remote-diarizer",
+			Provider: "remote",
+			Capabilities: asrcontract.Capabilities{
+				Diarization: true,
+			},
+		}},
+	}
+	registry, err := NewRegistry("local", remote, local)
+	if err != nil {
+		t.Fatalf("NewRegistry returned error: %v", err)
+	}
+
+	models, err := registry.Models(context.Background())
+	if err != nil {
+		t.Fatalf("Models returned error: %v", err)
+	}
+	if len(models) != 2 {
+		t.Fatalf("models length = %d, want 2", len(models))
+	}
+	if models[0].Provider != "local" || models[1].Provider != "remote" {
+		t.Fatalf("models not sorted by provider id: %#v", models)
 	}
 }
 
@@ -146,5 +208,33 @@ func TestRegistrySelectReportsUnavailableProviderOrCapability(t *testing.T) {
 	}
 	if _, _, err := registry.Select(context.Background(), SelectionRequest{Requires: []string{"streaming"}}); err == nil {
 		t.Fatalf("Select returned nil error for missing capability")
+	}
+}
+
+func TestRegistrySkipsBusyProviderForFallbackSelection(t *testing.T) {
+	busy := stubProvider{
+		id:           "busy",
+		capabilities: []ModelCapability{{ID: "busy-diarizer", Provider: "busy", Capabilities: []string{"diarization"}}},
+		status:       asrcontract.ProviderStatus{State: asrcontract.ProviderStateBusy},
+	}
+	idle := stubProvider{
+		id:           "idle",
+		capabilities: []ModelCapability{{ID: "idle-diarizer", Provider: "idle", Capabilities: []string{"diarization"}}},
+		status:       asrcontract.ProviderStatus{State: asrcontract.ProviderStateIdle},
+	}
+	registry, err := NewRegistry("idle", busy, idle)
+	if err != nil {
+		t.Fatalf("NewRegistry returned error: %v", err)
+	}
+
+	selected, capability, err := registry.Select(context.Background(), SelectionRequest{Requires: []string{"diarization"}})
+	if err != nil {
+		t.Fatalf("Select returned error: %v", err)
+	}
+	if selected.ID() != "idle" {
+		t.Fatalf("provider = %q, want idle", selected.ID())
+	}
+	if capability == nil || capability.ID != "idle-diarizer" {
+		t.Fatalf("capability = %#v, want idle-diarizer", capability)
 	}
 }

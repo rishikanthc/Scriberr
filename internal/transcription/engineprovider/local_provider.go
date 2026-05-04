@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	appconfig "scriberr/internal/config"
+	"scriberr/internal/transcription/asrcontract"
 	"scriberr/pkg/logger"
 
 	speechengine "scriberr-engine/speech/engine"
@@ -27,6 +28,12 @@ type speechEngine interface {
 	Diarize(ctx context.Context, req speechengine.DiarizationRequest) (*speechengine.DiarizationResult, error)
 	IsModelInstalled(modelID string) bool
 	Close() error
+}
+
+type modelLoader interface {
+	LoadModel(ctx context.Context, modelID string) error
+	UnloadModel(modelID string) error
+	ListLoadedModels() []speechmodels.ModelID
 }
 
 type LocalProvider struct {
@@ -93,19 +100,130 @@ func (p *LocalProvider) ID() string {
 	return p.id
 }
 
-func (p *LocalProvider) Capabilities(ctx context.Context) ([]ModelCapability, error) {
+func (p *LocalProvider) Inspect(ctx context.Context) (*asrcontract.ProviderInfo, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	out := make([]ModelCapability, 0, len(p.specs))
+	return &asrcontract.ProviderInfo{
+		ContractVersion: asrcontract.ContractVersionV1,
+		Provider: asrcontract.ProviderIdentity{
+			ID:     p.id,
+			Name:   "Sherpa ONNX",
+			Vendor: "scriberr",
+		},
+		Runtime: asrcontract.RuntimeInfo{
+			DeviceBackends:       []string{"cpu", "cuda"},
+			ActiveBackend:        p.provider.String(),
+			SupportsConcurrent:   false,
+			MaxConcurrentJobs:    1,
+			ProviderCapabilities: []asrcontract.Capability{asrcontract.CapabilityTranscription, asrcontract.CapabilityDiarization},
+		},
+		AudioInput: asrcontract.AudioInputSpec{
+			RequiredSampleRate: 16000,
+			RequiredChannels:   1,
+			Formats:            []string{"wav"},
+			PathMode:           asrcontract.PathModeMountedFile,
+		},
+	}, nil
+}
+
+func (p *LocalProvider) Models(ctx context.Context) ([]asrcontract.ModelCard, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	loaded := make(map[string]struct{})
+	if loader, ok := p.engine.(modelLoader); ok {
+		for _, id := range loader.ListLoadedModels() {
+			loaded[string(id)] = struct{}{}
+		}
+	}
+	out := make([]asrcontract.ModelCard, 0, len(p.specs))
 	for _, spec := range p.specs {
-		capability := ModelCapability{
+		_, isLoaded := loaded[string(spec.ID)]
+		out = append(out, asrcontract.ModelCard{
 			ID:           string(spec.ID),
-			Name:         spec.DisplayName,
+			DisplayName:  spec.DisplayName,
 			Provider:     p.id,
+			Family:       modelFamilyName(spec.Family),
+			Version:      spec.ModelType,
 			Installed:    p.engine.IsModelInstalled(string(spec.ID)),
+			Loaded:       isLoaded,
 			Default:      isDefaultModel(spec.ID),
-			Capabilities: capabilitiesForFamily(spec.Family),
+			Tasks:        tasksForFamily(spec.Family),
+			Capabilities: capabilitiesForModelCard(spec.Family),
+			ResourceRequirements: asrcontract.ResourceRequirements{
+				Backends: []string{p.provider.String()},
+			},
+		})
+	}
+	return out, nil
+}
+
+func (p *LocalProvider) Status(ctx context.Context) (*asrcontract.ProviderStatus, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	loaded, err := p.LoadedModels(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &asrcontract.ProviderStatus{
+		State:        asrcontract.ProviderStateIdle,
+		LoadedModels: loaded,
+		Capacity: asrcontract.ProviderCapacity{
+			MaxConcurrentJobs: 1,
+			AvailableSlots:    1,
+		},
+	}, nil
+}
+
+func (p *LocalProvider) LoadModel(ctx context.Context, req asrcontract.LoadModelRequest) error {
+	if loader, ok := p.engine.(modelLoader); ok {
+		return sanitizeError(loader.LoadModel(ctx, req.Model))
+	}
+	return asrcontract.NewProviderError(asrcontract.CodeUnsupportedOperation, "local engine model loading is not available", false)
+}
+
+func (p *LocalProvider) UnloadModel(ctx context.Context, req asrcontract.UnloadModelRequest) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if loader, ok := p.engine.(modelLoader); ok {
+		return sanitizeError(loader.UnloadModel(req.Model))
+	}
+	return asrcontract.NewProviderError(asrcontract.CodeUnsupportedOperation, "local engine model unloading is not available", false)
+}
+
+func (p *LocalProvider) LoadedModels(ctx context.Context) ([]asrcontract.LoadedModel, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	loader, ok := p.engine.(modelLoader)
+	if !ok {
+		return []asrcontract.LoadedModel{}, nil
+	}
+	ids := loader.ListLoadedModels()
+	out := make([]asrcontract.LoadedModel, 0, len(ids))
+	for _, id := range ids {
+		out = append(out, asrcontract.LoadedModel{ID: string(id)})
+	}
+	return out, nil
+}
+
+func (p *LocalProvider) Capabilities(ctx context.Context) ([]ModelCapability, error) {
+	models, err := p.Models(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]ModelCapability, 0, len(p.specs))
+	for _, model := range models {
+		capability := ModelCapability{
+			ID:           model.ID,
+			Name:         model.DisplayName,
+			Provider:     p.id,
+			Installed:    model.Installed,
+			Default:      model.Default,
+			Capabilities: legacyCapabilities(model.Capabilities),
 		}
 		out = append(out, capability)
 	}
@@ -215,6 +333,13 @@ func (p *LocalProvider) Diarize(ctx context.Context, req DiarizationRequest) (*D
 	}, nil
 }
 
+func (p *LocalProvider) IdentifySpeakers(ctx context.Context, req asrcontract.SpeakerIDRequest) (*asrcontract.SpeakerIDResult, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	return nil, asrcontract.NewProviderError(asrcontract.CodeUnsupportedOperation, "local provider does not support speaker identification", false)
+}
+
 func (p *LocalProvider) Close() error {
 	if p.engine == nil {
 		return nil
@@ -233,6 +358,57 @@ func capabilitiesForFamily(family speechmodels.Family) []string {
 		return []string{"transcription", "word_timestamps"}
 	default:
 		return []string{}
+	}
+}
+
+func capabilitiesForModelCard(family speechmodels.Family) asrcontract.Capabilities {
+	switch family {
+	case speechmodels.FamilyDiarize:
+		return asrcontract.Capabilities{Diarization: true}
+	case speechmodels.FamilyWhisper, speechmodels.FamilyNemo, speechmodels.FamilyCanary:
+		return asrcontract.Capabilities{
+			Transcription:     true,
+			WordTimestamps:    true,
+			SegmentTimestamps: true,
+		}
+	default:
+		return asrcontract.Capabilities{}
+	}
+}
+
+func legacyCapabilities(capabilities asrcontract.Capabilities) []string {
+	out := []string{}
+	if capabilities.Transcription {
+		out = append(out, "transcription")
+	}
+	if capabilities.Diarization {
+		out = append(out, "diarization")
+	}
+	if capabilities.WordTimestamps {
+		out = append(out, "word_timestamps")
+	}
+	return out
+}
+
+func tasksForFamily(family speechmodels.Family) []asrcontract.Task {
+	switch family {
+	case speechmodels.FamilyWhisper, speechmodels.FamilyNemo, speechmodels.FamilyCanary:
+		return []asrcontract.Task{asrcontract.TaskTranscribe}
+	default:
+		return nil
+	}
+}
+
+func modelFamilyName(family speechmodels.Family) string {
+	switch family {
+	case speechmodels.FamilyWhisper:
+		return "whisper"
+	case speechmodels.FamilyNemo:
+		return "nemo_transducer"
+	case speechmodels.FamilyCanary:
+		return "canary"
+	default:
+		return string(family)
 	}
 }
 

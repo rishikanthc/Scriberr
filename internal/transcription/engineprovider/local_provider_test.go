@@ -6,19 +6,24 @@ import (
 	"strings"
 	"testing"
 
+	"scriberr/internal/transcription/asrcontract"
+
 	speechengine "scriberr-engine/speech/engine"
 	speechmodels "scriberr-engine/speech/models"
 	"scriberr-engine/speech/runtime"
 )
 
 type fakeSpeechEngine struct {
-	transcriptionReq speechengine.TranscriptionRequest
-	diarizationReq   speechengine.DiarizationRequest
-	transcriptionOut *speechengine.TranscriptionResult
-	diarizationOut   *speechengine.DiarizationResult
-	err              error
-	installed        map[string]bool
-	closed           bool
+	transcriptionReq  speechengine.TranscriptionRequest
+	diarizationReq    speechengine.DiarizationRequest
+	transcriptionOut  *speechengine.TranscriptionResult
+	diarizationOut    *speechengine.DiarizationResult
+	err               error
+	installed         map[string]bool
+	loaded            []speechmodels.ModelID
+	loadedRequested   string
+	unloadedRequested string
+	closed            bool
 }
 
 func (e *fakeSpeechEngine) Transcribe(ctx context.Context, req speechengine.TranscriptionRequest) (*speechengine.TranscriptionResult, error) {
@@ -44,6 +49,20 @@ func (e *fakeSpeechEngine) IsModelInstalled(modelID string) bool {
 func (e *fakeSpeechEngine) Close() error {
 	e.closed = true
 	return nil
+}
+
+func (e *fakeSpeechEngine) LoadModel(ctx context.Context, modelID string) error {
+	e.loadedRequested = modelID
+	return e.err
+}
+
+func (e *fakeSpeechEngine) UnloadModel(modelID string) error {
+	e.unloadedRequested = modelID
+	return e.err
+}
+
+func (e *fakeSpeechEngine) ListLoadedModels() []speechmodels.ModelID {
+	return e.loaded
 }
 
 func TestLocalProviderTranscribeMapsRequestAndWords(t *testing.T) {
@@ -222,6 +241,54 @@ func TestLocalProviderCapabilitiesUseModelRegistryAndInstallState(t *testing.T) 
 	}
 	if strings.Join(capabilities[1].Capabilities, ",") != "diarization" {
 		t.Fatalf("diarization capabilities = %#v", capabilities[1].Capabilities)
+	}
+}
+
+func TestLocalProviderModelsStatusAndLifecycle(t *testing.T) {
+	fake := &fakeSpeechEngine{
+		installed: map[string]bool{"whisper-base": true},
+		loaded:    []speechmodels.ModelID{"whisper-base"},
+	}
+	specs := []speechmodels.ModelSpec{
+		{ID: "whisper-base", DisplayName: "Whisper Base", Family: speechmodels.FamilyWhisper, ModelType: "whisper"},
+	}
+	provider := newLocalProviderWithEngine("local", LocalConfig{}, runtime.ProviderCPU, fake, specs)
+
+	info, err := provider.Inspect(context.Background())
+	if err != nil {
+		t.Fatalf("Inspect returned error: %v", err)
+	}
+	if info.ContractVersion != asrcontract.ContractVersionV1 || info.Provider.ID != "local" {
+		t.Fatalf("unexpected provider info: %#v", info)
+	}
+
+	models, err := provider.Models(context.Background())
+	if err != nil {
+		t.Fatalf("Models returned error: %v", err)
+	}
+	if len(models) != 1 || !models[0].Loaded || !models[0].Installed || !models[0].Supports(asrcontract.CapabilityTranscription) {
+		t.Fatalf("unexpected model cards: %#v", models)
+	}
+
+	status, err := provider.Status(context.Background())
+	if err != nil {
+		t.Fatalf("Status returned error: %v", err)
+	}
+	if status.State != asrcontract.ProviderStateIdle || len(status.LoadedModels) != 1 {
+		t.Fatalf("unexpected status: %#v", status)
+	}
+
+	if err := provider.LoadModel(context.Background(), asrcontract.LoadModelRequest{Model: "whisper-base"}); err != nil {
+		t.Fatalf("LoadModel returned error: %v", err)
+	}
+	if fake.loadedRequested != "whisper-base" {
+		t.Fatalf("loaded model = %q", fake.loadedRequested)
+	}
+	if err := provider.UnloadModel(context.Background(), asrcontract.UnloadModelRequest{Model: "whisper-base"}); err != nil {
+		t.Fatalf("UnloadModel returned error: %v", err)
+	}
+	if fake.unloadedRequested != "whisper-base" {
+		t.Fatalf("unloaded model = %q", fake.unloadedRequested)
 	}
 }
 

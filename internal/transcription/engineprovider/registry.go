@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+
+	"scriberr/internal/transcription/asrcontract"
 )
 
 type StaticRegistry struct {
@@ -46,6 +48,24 @@ func (r *StaticRegistry) DefaultProvider() Provider {
 func (r *StaticRegistry) Provider(id string) (Provider, bool) {
 	provider, ok := r.providers[strings.TrimSpace(id)]
 	return provider, ok
+}
+
+func (r *StaticRegistry) Models(ctx context.Context) ([]asrcontract.ModelCard, error) {
+	ids := make([]string, 0, len(r.providers))
+	for id := range r.providers {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+
+	var out []asrcontract.ModelCard
+	for _, id := range ids {
+		models, err := r.providers[id].Models(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("engine provider %q models: %w", id, err)
+		}
+		out = append(out, models...)
+	}
+	return out, nil
 }
 
 func (r *StaticRegistry) Capabilities(ctx context.Context) ([]ModelCapability, error) {
@@ -98,6 +118,9 @@ func (r *StaticRegistry) selectByCapability(ctx context.Context, modelID string,
 	sort.Strings(ids)
 	for _, id := range ids {
 		provider := r.providers[id]
+		if !providerSelectable(ctx, provider) {
+			continue
+		}
 		capability, err := selectCapabilityForProvider(ctx, provider, modelID, requires)
 		if err == nil {
 			return provider, capability, nil
@@ -125,6 +148,19 @@ func selectCapabilityForProvider(ctx context.Context, provider Provider, modelID
 		return nil, fmt.Errorf("engine provider %q does not support model %q", provider.ID(), modelID)
 	}
 	return nil, fmt.Errorf("engine provider %q does not support requested capabilities", provider.ID())
+}
+
+func providerSelectable(ctx context.Context, provider Provider) bool {
+	status, err := provider.Status(ctx)
+	if err != nil || status == nil {
+		return true
+	}
+	switch status.State {
+	case asrcontract.ProviderStateBusy, asrcontract.ProviderStateUnhealthy, asrcontract.ProviderStateStopping:
+		return false
+	default:
+		return true
+	}
 }
 
 func capabilitySupportsAll(capability ModelCapability, requires []string) bool {

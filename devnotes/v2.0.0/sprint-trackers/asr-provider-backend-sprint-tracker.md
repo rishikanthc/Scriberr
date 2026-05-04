@@ -2,7 +2,7 @@
 
 Run ID: `ASRP`
 
-Status: completed through ASRP-Sprint 1.
+Status: completed through ASRP-Sprint 2.
 
 This tracker belongs to `devnotes/v2.0.0/sprint-plans/asr-provider-backend-sprint-plan.md` and the design spec in `devnotes/v2.0.0/specs/asr-provider-backend-architecture.md`.
 
@@ -103,31 +103,46 @@ Commit:
 
 ## ASRP-Sprint 2: Provider Interface And Registry V2
 
-Status: pending
+Status: completed
 
-Planned tasks:
+Completed tasks:
 
-- [ ] Update `engineprovider` to use `asrcontract` model cards and status types.
-- [ ] Add provider interface methods for inspect, models, status, model lifecycle, operations, and close.
-- [ ] Add `ProgressSink`.
-- [ ] Implement deterministic provider/model selection.
-- [ ] Preserve current local provider behavior.
-- [ ] Keep unsupported local operations as typed unsupported responses/placeholders where needed.
+- [x] Updated `engineprovider` to expose `asrcontract` model cards and status types.
+- [x] Added provider interface methods for inspect, models, status, model lifecycle, operations, and close.
+- [x] Added `ProgressSink`.
+- [x] Kept deterministic provider/model selection and added busy/unhealthy fallback exclusion.
+- [x] Preserved current local provider behavior and legacy `Capabilities()` API.
+- [x] Kept unsupported local speaker identification as a typed `UNSUPPORTED_OPERATION` response.
 
 Acceptance checks:
 
-- [ ] Registry represents local and remote providers through one interface.
-- [ ] Selection is deterministic and test-backed.
-- [ ] Existing default provider/model behavior remains stable.
-- [ ] A second fake provider requires no API, repository, or worker changes.
+- [x] Registry represents local and future remote providers through one interface.
+- [x] Selection is deterministic and test-backed.
+- [x] Existing default provider/model behavior remains stable.
+- [x] A second fake provider requires no API, repository, or worker changes.
 
 Verification:
 
-- [ ] Not run yet.
+- [x] `GOCACHE=/tmp/scriberr-go-cache go test ./internal/transcription/engineprovider`
+- [x] `GOCACHE=/tmp/scriberr-go-cache go test ./internal/transcription/...`
+- [x] `GOCACHE=/tmp/scriberr-go-cache go test ./internal/api -run 'TestListTranscriptionModels|TestCreateSubmitRetryUseQueueService|TestASREngineImportInventory|TestBackendDependencyDirection'`
+- [x] `GOCACHE=/tmp/scriberr-go-cache go vet ./internal/transcription/... ./internal/api`
+- [x] `git diff --check -- internal/transcription/engineprovider internal/transcription/orchestrator/processor_test.go internal/api/engine_worker_api_test.go devnotes/v2.0.0/sprint-trackers/asr-provider-backend-sprint-tracker.md`
+
+Notes:
+
+- A broader `go test ./internal/api -run 'Test.*Models|...'` was blocked by the existing `TestLLMProviderSettingsSavesSelectedModels` sandbox loopback failure from `httptest.NewServer`; the focused ASR/API subset passed.
 
 Artifacts:
 
-- To be filled during implementation.
+- `internal/transcription/engineprovider/types.go`
+- `internal/transcription/engineprovider/registry.go`
+- `internal/transcription/engineprovider/local_provider.go`
+- `internal/transcription/engineprovider/local_provider_test.go`
+- `internal/transcription/engineprovider/registry_test.go`
+- `internal/transcription/orchestrator/processor_test.go`
+- `internal/api/engine_worker_api_test.go`
+- `devnotes/v2.0.0/sprint-trackers/asr-provider-backend-sprint-tracker.md`
 
 Commit:
 

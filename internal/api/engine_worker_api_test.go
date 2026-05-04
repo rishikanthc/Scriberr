@@ -11,6 +11,7 @@ import (
 
 	"scriberr/internal/database"
 	"scriberr/internal/models"
+	"scriberr/internal/transcription/asrcontract"
 	"scriberr/internal/transcription/engineprovider"
 	"scriberr/internal/transcription/worker"
 
@@ -63,6 +64,24 @@ type fakeCapabilityProvider struct {
 }
 
 func (p fakeCapabilityProvider) ID() string { return "local" }
+func (p fakeCapabilityProvider) Inspect(context.Context) (*asrcontract.ProviderInfo, error) {
+	return &asrcontract.ProviderInfo{ContractVersion: asrcontract.ContractVersionV1}, nil
+}
+func (p fakeCapabilityProvider) Models(context.Context) ([]asrcontract.ModelCard, error) {
+	return nil, nil
+}
+func (p fakeCapabilityProvider) Status(context.Context) (*asrcontract.ProviderStatus, error) {
+	return &asrcontract.ProviderStatus{State: asrcontract.ProviderStateIdle}, nil
+}
+func (p fakeCapabilityProvider) LoadModel(context.Context, asrcontract.LoadModelRequest) error {
+	return nil
+}
+func (p fakeCapabilityProvider) UnloadModel(context.Context, asrcontract.UnloadModelRequest) error {
+	return nil
+}
+func (p fakeCapabilityProvider) LoadedModels(context.Context) ([]asrcontract.LoadedModel, error) {
+	return nil, nil
+}
 func (p fakeCapabilityProvider) Capabilities(context.Context) ([]engineprovider.ModelCapability, error) {
 	return p.caps, nil
 }
@@ -72,6 +91,9 @@ func (p fakeCapabilityProvider) Transcribe(context.Context, engineprovider.Trans
 }
 func (p fakeCapabilityProvider) Diarize(context.Context, engineprovider.DiarizationRequest) (*engineprovider.DiarizationResult, error) {
 	return nil, nil
+}
+func (p fakeCapabilityProvider) IdentifySpeakers(context.Context, asrcontract.SpeakerIDRequest) (*asrcontract.SpeakerIDResult, error) {
+	return nil, asrcontract.NewProviderError(asrcontract.CodeUnsupportedOperation, "speaker identification is not supported", false)
 }
 func (p fakeCapabilityProvider) Close() error { return nil }
 
