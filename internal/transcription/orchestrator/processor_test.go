@@ -128,10 +128,19 @@ func createOrchestratorJob(t *testing.T, db *gorm.DB, audioPath string, params m
 		SourceFileName: filepath.Base(audioPath),
 		SourceFileHash: &sourceID,
 		Parameters:     params,
-		Diarization:    params.Diarize,
+		Diarization:    testHasASRStep(params.Pipeline, models.ASRStepDiarization),
 	}
 	require.NoError(t, db.Create(&job).Error)
 	return job
+}
+
+func testHasASRStep(steps []models.ASRStep, kind string) bool {
+	for _, step := range steps {
+		if step.Kind == kind {
+			return true
+		}
+	}
+	return false
 }
 
 func TestProcessorCreatesExecutionAndReturnsCanonicalTranscript(t *testing.T) {
@@ -139,12 +148,13 @@ func TestProcessorCreatesExecutionAndReturnsCanonicalTranscript(t *testing.T) {
 	audioPath := filepath.Join(t.TempDir(), "audio.wav")
 	require.NoError(t, os.WriteFile(audioPath, []byte("fake wav"), 0o600))
 	job := createOrchestratorJob(t, db, audioPath, models.ASRParams{
-		Model:            "custom-transcriber",
 		Task:             "translate",
 		ChunkingStrategy: "vad",
 		ChunkSize:        24,
-		Diarize:          true,
-		DiarizeModel:     "custom-diarizer",
+		Pipeline: []models.ASRStep{
+			{Kind: models.ASRStepTranscription, Model: "custom-transcriber", ModelFamily: "whisper"},
+			{Kind: models.ASRStepDiarization, Model: "custom-diarizer"},
+		},
 	})
 	provider := &fakeProvider{
 		id: "local",
@@ -381,7 +391,12 @@ func TestProcessorPassesPreprocessedAudioToProvider(t *testing.T) {
 	db := openOrchestratorTestDB(t)
 	sourcePath := filepath.Join(t.TempDir(), "source.wav")
 	require.NoError(t, os.WriteFile(sourcePath, []byte("fake wav"), 0o600))
-	job := createOrchestratorJob(t, db, sourcePath, models.ASRParams{Diarize: true})
+	job := createOrchestratorJob(t, db, sourcePath, models.ASRParams{
+		Pipeline: []models.ASRStep{
+			{Kind: models.ASRStepTranscription, Model: engineprovider.DefaultTranscriptionModel},
+			{Kind: models.ASRStepDiarization, Model: engineprovider.DefaultDiarizationModel},
+		},
+	})
 	provider := &fakeProvider{
 		id: "local",
 		transcribe: &engineprovider.TranscriptionResult{
@@ -510,9 +525,10 @@ func TestProcessorNormalizesUnsupportedWhisperDecodingMethod(t *testing.T) {
 	audioPath := filepath.Join(t.TempDir(), "audio.wav")
 	require.NoError(t, os.WriteFile(audioPath, []byte("fake wav"), 0o600))
 	job := createOrchestratorJob(t, db, audioPath, models.ASRParams{
-		ModelFamily:    "whisper",
-		Model:          "whisper-base-en",
 		DecodingMethod: "modified_beam_search",
+		Pipeline: []models.ASRStep{
+			{Kind: models.ASRStepTranscription, Model: "whisper-base-en", ModelFamily: "whisper"},
+		},
 	})
 	provider := &fakeProvider{
 		id: "local",
@@ -544,7 +560,11 @@ func TestProcessorUsesExplicitEngineProviderSelection(t *testing.T) {
 	audioPath := filepath.Join(t.TempDir(), "audio.wav")
 	require.NoError(t, os.WriteFile(audioPath, []byte("fake wav"), 0o600))
 	engineID := "remote"
-	job := createOrchestratorJob(t, db, audioPath, models.ASRParams{Model: "remote-model"})
+	job := createOrchestratorJob(t, db, audioPath, models.ASRParams{
+		Pipeline: []models.ASRStep{
+			{Kind: models.ASRStepTranscription, Provider: "remote", Model: "remote-model"},
+		},
+	})
 	job.EngineID = &engineID
 	require.NoError(t, db.Model(&models.TranscriptionJob{}).Where("id = ?", job.ID).Update("engine_id", engineID).Error)
 	local := &fakeProvider{

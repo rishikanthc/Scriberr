@@ -255,9 +255,8 @@ func TestFileReadyAutoTranscribesWithDefaultProfile(t *testing.T) {
 		"name":       "Default profile",
 		"is_default": true,
 		"options": map[string]any{
-			"model":       "whisper-small",
-			"language":    "en",
-			"diarization": true,
+			"pipeline": pipelineRequest("transcription", "whisper-small", "diarization", "diarization-default"),
+			"language": "en",
 		},
 	}, token, "")
 	require.Equal(t, http.StatusCreated, resp.Code)

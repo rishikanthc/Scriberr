@@ -14,6 +14,7 @@ import (
 	filesdomain "scriberr/internal/files"
 	"scriberr/internal/models"
 	"scriberr/internal/repository"
+	"scriberr/internal/transcription/engineprovider"
 	"scriberr/pkg/logger"
 
 	"github.com/google/uuid"
@@ -375,7 +376,7 @@ func (s *FinalizerService) buildHandoffRecords(ctx context.Context, session *mod
 		SourceFileHash:   &fileID,
 		SourceDurationMs: session.DurationMs,
 		Language:         params.Language,
-		Diarization:      params.Diarize,
+		Diarization:      hasASRStep(params.Pipeline, models.ASRStepDiarization),
 		Parameters:       params,
 	}
 	return file, transcription, nil
@@ -416,8 +417,41 @@ func applyRecordingOptions(params *models.ASRParams, raw string) {
 		params.Language = &opts.Language
 	}
 	if opts.Diarization != nil {
-		params.Diarize = *opts.Diarization
+		setDiarizationPipeline(params, *opts.Diarization)
 	}
+}
+
+func setDiarizationPipeline(params *models.ASRParams, enabled bool) {
+	if params == nil {
+		return
+	}
+	filtered := make([]models.ASRStep, 0, len(params.Pipeline)+1)
+	var existing *models.ASRStep
+	for _, step := range params.Pipeline {
+		if step.Kind != models.ASRStepDiarization {
+			filtered = append(filtered, step)
+			continue
+		}
+		copied := step
+		existing = &copied
+	}
+	if enabled {
+		step := models.ASRStep{Kind: models.ASRStepDiarization, Model: engineprovider.DefaultDiarizationModel}
+		if existing != nil {
+			step = *existing
+		}
+		filtered = append(filtered, step)
+	}
+	params.Pipeline = filtered
+}
+
+func hasASRStep(steps []models.ASRStep, kind string) bool {
+	for _, step := range steps {
+		if step.Kind == kind {
+			return true
+		}
+	}
+	return false
 }
 
 func validateContiguousChunks(session *models.RecordingSession, chunks []models.RecordingChunk) error {

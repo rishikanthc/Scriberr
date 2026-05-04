@@ -12,6 +12,17 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func pipelineRequest(kindModel ...string) []map[string]any {
+	steps := make([]map[string]any, 0, len(kindModel)/2)
+	for i := 0; i+1 < len(kindModel); i += 2 {
+		steps = append(steps, map[string]any{
+			"kind":  kindModel[i],
+			"model": kindModel[i+1],
+		})
+	}
+	return steps
+}
+
 func TestProfileCRUDAndDefaultSelection(t *testing.T) {
 	s := newAuthTestServer(t)
 	token := registerForFileTests(t, s)
@@ -21,10 +32,9 @@ func TestProfileCRUDAndDefaultSelection(t *testing.T) {
 		"description": "Fast local transcription",
 		"is_default":  true,
 		"options": map[string]any{
-			"model":                     "whisper-base",
+			"pipeline":                  pipelineRequest("transcription", "whisper-base"),
 			"language":                  "en",
 			"chunking_strategy":         "vad",
-			"diarization":               false,
 			"threads":                   2,
 			"enable_token_timestamps":   false,
 			"enable_segment_timestamps": false,
@@ -36,7 +46,6 @@ func TestProfileCRUDAndDefaultSelection(t *testing.T) {
 	require.Equal(t, true, body["is_default"])
 	require.Equal(t, "Fast local", body["name"])
 	options := body["options"].(map[string]any)
-	require.Equal(t, "whisper-base", options["model"])
 	require.Equal(t, "greedy_search", options["decoding_method"])
 	require.Equal(t, "vad", options["chunking_strategy"])
 	require.Equal(t, float64(0.5), options["diarization_threshold"])
@@ -67,9 +76,8 @@ func TestProfileCRUDAndDefaultSelection(t *testing.T) {
 		"name":       "Accurate",
 		"is_default": true,
 		"options": map[string]any{
-			"model":       "whisper-small",
-			"language":    "en",
-			"diarization": true,
+			"pipeline": pipelineRequest("transcription", "whisper-small", "diarization", "diarization-default"),
+			"language": "en",
 		},
 	}, token, "")
 	require.Equal(t, http.StatusCreated, resp.Code)
@@ -99,15 +107,15 @@ func TestProfileCRUDAndDefaultSelection(t *testing.T) {
 		"name":        "Fast local renamed",
 		"description": "Updated",
 		"options": map[string]any{
-			"model":       "parakeet-v2",
-			"language":    "fr",
-			"diarization": true,
-			"threads":     4,
+			"pipeline": pipelineRequest("transcription", "parakeet-v2", "diarization", "diarization-default"),
+			"language": "fr",
+			"threads":  4,
 		},
 	}, token, "")
 	require.Equal(t, http.StatusOK, resp.Code)
 	require.Equal(t, "Fast local renamed", body["name"])
-	require.Equal(t, "parakeet-v2", body["options"].(map[string]any)["model"])
+	updatedPipeline := body["options"].(map[string]any)["pipeline"].([]any)
+	require.Equal(t, "parakeet-v2", updatedPipeline[0].(map[string]any)["model"])
 
 	resp, body = s.request(t, http.MethodGet, "/api/v1/profiles/"+firstID, nil, token, "")
 	require.Equal(t, http.StatusOK, resp.Code)
@@ -130,6 +138,7 @@ func TestProfileValidationAndAuth(t *testing.T) {
 	resp, body := s.request(t, http.MethodPost, "/api/v1/profiles", map[string]any{
 		"name": "Invalid",
 		"options": map[string]any{
+			"pipeline": pipelineRequest("transcription", "whisper-base"),
 			"language": "english",
 		},
 	}, token, "")
@@ -140,16 +149,17 @@ func TestProfileValidationAndAuth(t *testing.T) {
 	resp, body = s.request(t, http.MethodPost, "/api/v1/profiles", map[string]any{
 		"name": "Invalid model",
 		"options": map[string]any{
-			"model": "large-v3",
+			"pipeline": pipelineRequest("transcription", "large-v3"),
 		},
 	}, token, "")
 	require.Equal(t, http.StatusUnprocessableEntity, resp.Code)
 	errBody = body["error"].(map[string]any)
-	require.Equal(t, "options.model", errBody["field"])
+	require.Equal(t, "options.pipeline", errBody["field"])
 
 	resp, body = s.request(t, http.MethodPost, "/api/v1/profiles", map[string]any{
 		"name": "Invalid chunking",
 		"options": map[string]any{
+			"pipeline":          pipelineRequest("transcription", "whisper-base"),
 			"chunking_strategy": "dynamic",
 		},
 	}, token, "")
@@ -160,7 +170,7 @@ func TestProfileValidationAndAuth(t *testing.T) {
 	resp, body = s.request(t, http.MethodPost, "/api/v1/profiles", map[string]any{
 		"name": "Invalid threshold",
 		"options": map[string]any{
-			"model":                 "whisper-base",
+			"pipeline":              pipelineRequest("transcription", "whisper-base"),
 			"diarization_threshold": 1.5,
 		},
 	}, token, "")
@@ -179,7 +189,7 @@ func TestWhisperProfileForcesGreedyDecoding(t *testing.T) {
 	resp, body := s.request(t, http.MethodPost, "/api/v1/profiles", map[string]any{
 		"name": "Whisper",
 		"options": map[string]any{
-			"model":           "whisper-base",
+			"pipeline":        pipelineRequest("transcription", "whisper-base"),
 			"decoding_method": "modified_beam_search",
 		},
 	}, token, "")
@@ -195,7 +205,7 @@ func TestGetProfileDoesNotPublishUpdateEvent(t *testing.T) {
 	resp, body := s.request(t, http.MethodPost, "/api/v1/profiles", map[string]any{
 		"name": "Read only profile",
 		"options": map[string]any{
-			"model": "whisper-base",
+			"pipeline": pipelineRequest("transcription", "whisper-base"),
 		},
 	}, token, "")
 	require.Equal(t, http.StatusCreated, resp.Code)
@@ -228,7 +238,7 @@ func TestSettingsPartialUpdateAndValidation(t *testing.T) {
 		"name":       "Default",
 		"is_default": true,
 		"options": map[string]any{
-			"model": "whisper-base",
+			"pipeline": pipelineRequest("transcription", "whisper-base"),
 		},
 	}, token, "")
 	require.Equal(t, http.StatusCreated, resp.Code)

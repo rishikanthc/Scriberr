@@ -11,6 +11,7 @@ import (
 
 	"scriberr/internal/models"
 	"scriberr/internal/repository"
+	"scriberr/internal/transcription/engineprovider"
 
 	"github.com/google/uuid"
 )
@@ -401,9 +402,9 @@ func (s *Service) createFromSource(ctx context.Context, userID uint, source *mod
 		job.Parameters.Language = &language
 	}
 	if diarization != nil {
-		job.Parameters.Diarize = *diarization
+		setDiarizationPipeline(&job.Parameters, *diarization)
 	}
-	job.Diarization = job.Parameters.Diarize
+	job.Diarization = hasASRStep(job.Parameters.Pipeline, models.ASRStepDiarization)
 	if err := s.jobs.Create(ctx, job); err != nil {
 		return nil, err
 	}
@@ -411,6 +412,39 @@ func (s *Service) createFromSource(ctx context.Context, userID uint, source *mod
 		return nil, err
 	}
 	return job, nil
+}
+
+func setDiarizationPipeline(params *models.ASRParams, enabled bool) {
+	if params == nil {
+		return
+	}
+	filtered := make([]models.ASRStep, 0, len(params.Pipeline)+1)
+	var existing *models.ASRStep
+	for _, step := range params.Pipeline {
+		if step.Kind != models.ASRStepDiarization {
+			filtered = append(filtered, step)
+			continue
+		}
+		copied := step
+		existing = &copied
+	}
+	if enabled {
+		step := models.ASRStep{Kind: models.ASRStepDiarization, Model: engineprovider.DefaultDiarizationModel}
+		if existing != nil {
+			step = *existing
+		}
+		filtered = append(filtered, step)
+	}
+	params.Pipeline = filtered
+}
+
+func hasASRStep(steps []models.ASRStep, kind string) bool {
+	for _, step := range steps {
+		if step.Kind == kind {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *Service) resolveParams(ctx context.Context, userID uint, profileID string) (models.ASRParams, error) {

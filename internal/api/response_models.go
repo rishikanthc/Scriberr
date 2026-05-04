@@ -343,7 +343,6 @@ func profileResponse(profile *models.TranscriptionProfile) ProfileResponse {
 	}
 }
 func profileOptionsMap(params models.ASRParams) gin.H {
-	params = normalizeProfileASRParams(params)
 	params.EnableTokenTimestamps = nil
 	params.EnableSegmentTimestamps = nil
 	var options gin.H
@@ -351,7 +350,6 @@ func profileOptionsMap(params models.ASRParams) gin.H {
 	if err != nil || json.Unmarshal(bytes, &options) != nil {
 		options = gin.H{}
 	}
-	options["diarization"] = params.Diarize
 	return options
 }
 func settingsResponse(h *Handler, user *models.User) SettingsResponse {

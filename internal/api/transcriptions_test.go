@@ -121,10 +121,9 @@ func TestTranscriptionCreateAppliesDefaultAndSelectedProfiles(t *testing.T) {
 		"name":       "Default profile",
 		"is_default": true,
 		"options": map[string]any{
-			"model":             "whisper-small",
+			"pipeline":          pipelineRequest("transcription", "whisper-small", "diarization", "diarization-default"),
 			"language":          "fr",
 			"chunking_strategy": "vad",
-			"diarization":       true,
 			"threads":           2,
 		},
 	}, token, "")
@@ -149,10 +148,9 @@ func TestTranscriptionCreateAppliesDefaultAndSelectedProfiles(t *testing.T) {
 	resp, body = s.request(t, http.MethodPost, "/api/v1/profiles", map[string]any{
 		"name": "Selected profile",
 		"options": map[string]any{
-			"model":       "parakeet-v2",
-			"language":    "es",
-			"diarization": true,
-			"threads":     4,
+			"pipeline": pipelineRequest("transcription", "parakeet-v2", "diarization", "diarization-default"),
+			"language": "es",
+			"threads":  4,
 		},
 	}, token, "")
 	require.Equal(t, http.StatusCreated, resp.Code)

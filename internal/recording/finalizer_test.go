@@ -207,7 +207,10 @@ func TestFinalizerCreatesAndEnqueuesAutoTranscription(t *testing.T) {
 		IsDefault: true,
 		Parameters: models.ASRParams{
 			Language: &language,
-			Diarize:  true,
+			Pipeline: []models.ASRStep{
+				{Kind: models.ASRStepTranscription, Model: "whisper-base"},
+				{Kind: models.ASRStepDiarization, Model: "diarization-default"},
+			},
 		},
 	}
 	if err := db.Create(&profile).Error; err != nil {

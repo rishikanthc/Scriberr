@@ -59,6 +59,10 @@ type fakeModelCatalog struct {
 }
 
 func (c fakeModelCatalog) ResolveTranscriptionModel(ctx context.Context, model string) (ModelInfo, error) {
+	return c.ResolveModel(ctx, model, asrcontract.CapabilityTranscription)
+}
+
+func (c fakeModelCatalog) ResolveModel(ctx context.Context, model string, capability asrcontract.Capability) (ModelInfo, error) {
 	if c.err != nil {
 		return ModelInfo{}, c.err
 	}
@@ -67,6 +71,9 @@ func (c fakeModelCatalog) ResolveTranscriptionModel(ctx context.Context, model s
 	}
 	info, ok := c.models[model]
 	if !ok {
+		return ModelInfo{}, ErrInvalidModel
+	}
+	if !info.Capabilities.Supports(capability) {
 		return ModelInfo{}, ErrInvalidModel
 	}
 	return info, nil
@@ -88,7 +95,7 @@ func TestServiceCreateNormalizesProfileModelFromCatalog(t *testing.T) {
 		UserID: 1,
 		Name:   "Parakeet",
 		Parameters: models.ASRParams{
-			Model: "parakeet-v2",
+			Pipeline: []models.ASRStep{{Kind: models.ASRStepTranscription, Model: "parakeet-v2"}},
 		},
 	})
 	if err != nil {
@@ -116,10 +123,72 @@ func TestServiceCreateRejectsUnknownModel(t *testing.T) {
 		UserID: 1,
 		Name:   "Invalid",
 		Parameters: models.ASRParams{
-			Model: "large-v3",
+			Pipeline: []models.ASRStep{{Kind: models.ASRStepTranscription, Model: "large-v3"}},
 		},
 	})
-	if !errors.Is(err, ErrInvalidModel) {
-		t.Fatalf("Create error = %v, want ErrInvalidModel", err)
+	if !errors.Is(err, ErrInvalidPipeline) {
+		t.Fatalf("Create error = %v, want ErrInvalidPipeline", err)
+	}
+}
+
+func TestServiceCreateRejectsMissingPipeline(t *testing.T) {
+	service := NewService(&fakeProfileRepository{}, fakeModelCatalog{models: map[string]ModelInfo{}})
+
+	err := service.Create(context.Background(), &models.TranscriptionProfile{
+		UserID:     1,
+		Name:       "Missing pipeline",
+		Parameters: models.ASRParams{},
+	})
+	if !errors.Is(err, ErrInvalidPipeline) {
+		t.Fatalf("Create error = %v, want ErrInvalidPipeline", err)
+	}
+}
+
+func TestServiceCreatePersistsMultiStepPipelineAndSanitizesOptions(t *testing.T) {
+	repo := &fakeProfileRepository{}
+	service := NewService(repo, fakeModelCatalog{models: map[string]ModelInfo{
+		"parakeet-v2": {
+			ID:     "parakeet-v2",
+			Family: "nemo_transducer",
+			Capabilities: asrcontract.Capabilities{
+				Transcription: true,
+			},
+		},
+		"diarization-default": {
+			ID:     "diarization-default",
+			Family: "diarization",
+			Capabilities: asrcontract.Capabilities{
+				Diarization: true,
+			},
+		},
+	}})
+
+	err := service.Create(context.Background(), &models.TranscriptionProfile{
+		UserID: 1,
+		Name:   "Pipeline",
+		Parameters: models.ASRParams{
+			Pipeline: []models.ASRStep{
+				{Kind: models.ASRStepTranscription, Provider: "local", Model: "parakeet-v2", Options: map[string]any{"beam": float64(4), "api_key": "secret"}},
+				{Kind: models.ASRStepDiarization, Provider: "remote-diarizer", Model: "diarization-default", Options: map[string]any{"threshold": float64(0.7), "audio_path": "/secret.wav"}},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("Create returned error: %v", err)
+	}
+	if repo.created == nil {
+		t.Fatal("profile was not created")
+	}
+	if len(repo.created.Parameters.Pipeline) != 2 {
+		t.Fatalf("pipeline length = %d", len(repo.created.Parameters.Pipeline))
+	}
+	if _, ok := repo.created.Parameters.Pipeline[0].Options["api_key"]; ok {
+		t.Fatalf("sensitive option was not removed: %#v", repo.created.Parameters.Pipeline[0].Options)
+	}
+	if _, ok := repo.created.Parameters.Pipeline[1].Options["audio_path"]; ok {
+		t.Fatalf("path option was not removed: %#v", repo.created.Parameters.Pipeline[1].Options)
+	}
+	if repo.created.Parameters.Pipeline[1].Provider != "remote-diarizer" {
+		t.Fatalf("provider not preserved: %#v", repo.created.Parameters.Pipeline[1])
 	}
 }

@@ -7,7 +7,6 @@ import (
 
 	"scriberr/internal/models"
 	profiledomain "scriberr/internal/profile"
-	"scriberr/internal/transcription/engineprovider"
 
 	"github.com/gin-gonic/gin"
 )
@@ -52,8 +51,12 @@ func (h *Handler) createProfile(c *gin.Context) {
 		Parameters:  profileParams(req.Options),
 	}
 	if err := h.profiles.Create(c.Request.Context(), profile); err != nil {
+		if errors.Is(err, profiledomain.ErrInvalidPipeline) {
+			writeError(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "pipeline is invalid", stringPtr("options.pipeline"))
+			return
+		}
 		if errors.Is(err, profiledomain.ErrInvalidModel) {
-			writeError(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "model is invalid", stringPtr("options.model"))
+			writeError(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "model is invalid", stringPtr("options.pipeline"))
 			return
 		}
 		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not create profile", nil)
@@ -90,8 +93,12 @@ func (h *Handler) updateProfile(c *gin.Context) {
 		profile.IsDefault = *req.IsDefault
 	}
 	if err := h.profiles.Update(c.Request.Context(), profile, req.IsDefault != nil); err != nil {
+		if errors.Is(err, profiledomain.ErrInvalidPipeline) {
+			writeError(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "pipeline is invalid", stringPtr("options.pipeline"))
+			return
+		}
 		if errors.Is(err, profiledomain.ErrInvalidModel) {
-			writeError(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "model is invalid", stringPtr("options.model"))
+			writeError(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "model is invalid", stringPtr("options.pipeline"))
 			return
 		}
 		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not update profile", nil)
@@ -134,6 +141,10 @@ func (h *Handler) profileCommand(c *gin.Context) {
 func validateProfileInput(c *gin.Context, name string, options profileOptionsRequest) bool {
 	if strings.TrimSpace(name) == "" {
 		writeError(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "name is required", stringPtr("name"))
+		return false
+	}
+	if len(options.Pipeline) == 0 {
+		writeError(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "pipeline is required", stringPtr("options.pipeline"))
 		return false
 	}
 	if options.Language != nil && strings.TrimSpace(*options.Language) != "" && !validLanguage(strings.TrimSpace(*options.Language)) {
@@ -179,94 +190,55 @@ func validateProfileInput(c *gin.Context, name string, options profileOptionsReq
 	return true
 }
 func profileParams(options profileOptionsRequest) models.ASRParams {
-	params := normalizeProfileASRParams(models.ASRParams{
-		Model:                options.Model,
-		Language:             options.Language,
-		Task:                 options.Task,
-		Threads:              options.Threads,
-		TailPaddings:         options.TailPaddings,
-		CanarySourceLanguage: options.CanarySourceLanguage,
-		CanaryTargetLanguage: options.CanaryTargetLanguage,
-		CanaryUsePunctuation: options.CanaryUsePunctuation,
-		DecodingMethod:       options.DecodingMethod,
-		ChunkingStrategy:     options.ChunkingStrategy,
-		Diarize:              options.Diarize,
-		DiarizeModel:         options.DiarizeModel,
-		NumSpeakers:          options.NumSpeakers,
-		DiarizationThreshold: options.DiarizationThreshold,
-		MinDurationOn:        options.MinDurationOn,
-		MinDurationOff:       options.MinDurationOff,
-	})
-	if options.Diarization != nil {
-		params.Diarize = *options.Diarization
-	}
-	return params
-}
-
-func normalizeProfileASRParams(input models.ASRParams) models.ASRParams {
-	model := strings.TrimSpace(input.Model)
-	if model == "" {
-		model = engineprovider.DefaultTranscriptionModel
-	}
-	task := strings.TrimSpace(input.Task)
+	task := strings.TrimSpace(options.Task)
 	if task == "" {
 		task = "transcribe"
 	}
-	decodingMethod := strings.TrimSpace(input.DecodingMethod)
+	decodingMethod := strings.TrimSpace(options.DecodingMethod)
 	if decodingMethod == "" {
 		decodingMethod = "greedy_search"
 	}
-	chunkingStrategy := strings.ToLower(strings.TrimSpace(input.ChunkingStrategy))
+	chunkingStrategy := strings.ToLower(strings.TrimSpace(options.ChunkingStrategy))
 	if chunkingStrategy == "" {
 		chunkingStrategy = "fixed"
 	}
 	var language *string
-	if input.Language != nil {
-		trimmed := strings.TrimSpace(*input.Language)
+	if options.Language != nil {
+		trimmed := strings.TrimSpace(*options.Language)
 		if trimmed != "" && trimmed != "auto" {
 			language = &trimmed
 		}
 	}
-	diarizationThreshold := input.DiarizationThreshold
+	diarizationThreshold := options.DiarizationThreshold
 	if diarizationThreshold == 0 {
 		diarizationThreshold = 0.5
 	}
-	minDurationOn := input.MinDurationOn
+	minDurationOn := options.MinDurationOn
 	if minDurationOn == 0 {
 		minDurationOn = 0.2
 	}
-	minDurationOff := input.MinDurationOff
+	minDurationOff := options.MinDurationOff
 	if minDurationOff == 0 {
 		minDurationOff = 0.3
 	}
-	params := models.ASRParams{
-		Model:                   model,
-		ModelFamily:             strings.TrimSpace(input.ModelFamily),
+	return models.ASRParams{
+		Pipeline:                options.Pipeline,
 		Language:                language,
 		Task:                    task,
-		Threads:                 input.Threads,
-		TailPaddings:            input.TailPaddings,
+		Threads:                 options.Threads,
+		TailPaddings:            options.TailPaddings,
 		EnableTokenTimestamps:   boolPtr(true),
 		EnableSegmentTimestamps: boolPtr(true),
-		CanarySourceLanguage:    strings.TrimSpace(input.CanarySourceLanguage),
-		CanaryTargetLanguage:    strings.TrimSpace(input.CanaryTargetLanguage),
-		CanaryUsePunctuation:    input.CanaryUsePunctuation,
+		CanarySourceLanguage:    strings.TrimSpace(options.CanarySourceLanguage),
+		CanaryTargetLanguage:    strings.TrimSpace(options.CanaryTargetLanguage),
+		CanaryUsePunctuation:    options.CanaryUsePunctuation,
 		DecodingMethod:          decodingMethod,
 		ChunkingStrategy:        chunkingStrategy,
-		Diarize:                 input.Diarize,
-		DiarizeModel:            engineprovider.DefaultDiarizationModel,
-		NumSpeakers:             input.NumSpeakers,
+		NumSpeakers:             options.NumSpeakers,
 		DiarizationThreshold:    diarizationThreshold,
 		MinDurationOn:           minDurationOn,
 		MinDurationOff:          minDurationOff,
 	}
-	params.Pipeline = []models.ASRStep{
-		{Kind: models.ASRStepTranscription, Model: params.Model, ModelFamily: params.ModelFamily},
-	}
-	if params.Diarize {
-		params.Pipeline = append(params.Pipeline, models.ASRStep{Kind: models.ASRStepDiarization, Model: params.DiarizeModel})
-	}
-	return params
 }
 func (h *Handler) profileByPublicID(c *gin.Context, publicID string) (*models.TranscriptionProfile, bool) {
 	userID, ok := currentUserID(c)

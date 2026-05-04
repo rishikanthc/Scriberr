@@ -312,27 +312,22 @@ func pipelineStepsForJob(job *models.TranscriptionJob) []models.ASRStep {
 	if len(job.Parameters.Pipeline) > 0 {
 		return job.Parameters.Pipeline
 	}
-	providerID := ""
-	if job.EngineID != nil {
-		providerID = strings.TrimSpace(*job.EngineID)
-	}
-	if providerID == "" {
-		providerID = strings.TrimSpace(job.Parameters.Provider)
-	}
-	steps := []models.ASRStep{{
+	return []models.ASRStep{{
 		Kind:        models.ASRStepTranscription,
-		Provider:    providerID,
-		Model:       job.Parameters.Model,
-		ModelFamily: job.Parameters.ModelFamily,
+		Provider:    providerFromJob(job),
+		Model:       engineprovider.DefaultTranscriptionModel,
+		ModelFamily: "whisper",
 	}}
-	if job.Diarization || job.Parameters.Diarize {
-		steps = append(steps, models.ASRStep{
-			Kind:     models.ASRStepDiarization,
-			Provider: providerID,
-			Model:    job.Parameters.DiarizeModel,
-		})
+}
+
+func providerFromJob(job *models.TranscriptionJob) string {
+	if job == nil {
+		return ""
 	}
-	return steps
+	if job.EngineID != nil && strings.TrimSpace(*job.EngineID) != "" {
+		return strings.TrimSpace(*job.EngineID)
+	}
+	return strings.TrimSpace(job.Parameters.Provider)
 }
 
 func firstStepByKind(steps []resolvedASRStep, kind string) (resolvedASRStep, bool) {

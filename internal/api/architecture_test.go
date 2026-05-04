@@ -146,7 +146,7 @@ func TestASRProvidersDoNotDependOnAPIOrRepositories(t *testing.T) {
 }
 
 func TestProductionCodeDoesNotUseOldASRParameterIdentifiers(t *testing.T) {
-	for _, symbol := range []string{"WhisperXParams", "WhisperX"} {
+	for _, symbol := range []string{"WhisperXParams", "WhisperX", "DiarizeModel", "diarize_model"} {
 		locations, err := productionFilesContainingSymbol("../..", symbol)
 		if err != nil {
 			t.Fatalf("scan old ASR parameter identifiers: %v", err)

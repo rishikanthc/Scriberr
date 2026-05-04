@@ -2,7 +2,7 @@
 
 Run ID: `ASRP`
 
-Status: completed through ASRP-Sprint 9.
+Status: completed through ASRP-Sprint 10.
 
 This tracker belongs to `devnotes/v2.0.0/sprint-plans/asr-provider-backend-sprint-plan.md` and the design spec in `devnotes/v2.0.0/specs/asr-provider-backend-architecture.md`.
 
@@ -440,27 +440,51 @@ Commit:
 
 ## ASRP-Sprint 10: Profile Pipeline Persistence
 
-Status: pending
+Status: completed
 
-Planned tasks:
+Completed tasks:
 
-- [ ] Store ordered pipeline steps in profile JSON.
-- [ ] Validate provider-specific options against model-card schemas where supported.
-- [ ] Bound and sanitize provider-specific option data.
+- [x] Store ordered ASR pipeline steps in profile JSON.
+- [x] Require profile create/update requests to provide `options.pipeline`.
+- [x] Resolve each profile step against provider model-card capabilities.
+- [x] Bound and sanitize provider-specific option data.
+- [x] Removed profile compatibility behavior that synthesized pipelines from old model/diarization fields.
+- [x] Removed old ASR `diarize` and `diarize_model` parameter fields from `ASRParams`.
+- [x] Extended architecture guard coverage for removed ASR parameter identifiers.
+- [x] Updated job and profile metadata derivation to use pipeline steps.
+- [x] Removed the stale `internal/queue` test file that imported deleted queue code.
 
 Acceptance checks:
 
-- [ ] New profiles can persist multiple provider steps.
-- [ ] List/get profile responses expose the new pipeline contract.
-- [ ] Invalid pipeline shape is rejected before enqueue.
+- [x] New profiles can persist multiple provider steps.
+- [x] List/get profile responses expose the new pipeline contract.
+- [x] Invalid pipeline shape is rejected before enqueue.
+- [x] Legacy profile model/diarization inputs are not accepted as a fallback contract.
 
 Verification:
 
-- [ ] Not run yet.
+- [x] `GOCACHE=/tmp/scriberr-go-cache go test ./internal/profile ./internal/transcription/... ./internal/recording`
+- [x] `GOCACHE=/tmp/scriberr-go-cache go test ./internal/api -run 'Test(Profile|Transcription|Recording|File)'`
+- [x] `GOCACHE=/tmp/scriberr-go-cache go test ./internal/api -run 'TestASREngineImportInventory|TestProductionCodeDoesNotUseOldASRParameterIdentifiers|TestASRProvidersDoNotDependOnAPIOrRepositories|TestBackendDependencyDirection'`
+- [x] `GOCACHE=/tmp/scriberr-go-cache go vet ./internal/profile ./internal/api ./internal/transcription/... ./internal/recording`
+- [x] `git diff --check`
+- [ ] `GOCACHE=/tmp/scriberr-go-cache go test ./internal/api` blocked in sandbox by `httptest.NewServer` bind denial in `TestLLMProviderSettingsSaveTestsConnectionAndMasksKey`.
+- [ ] `GOCACHE=/tmp/scriberr-go-cache go test ./tests` blocked by pre-existing stale helpers referencing removed `models.Note`, old chat fields, and old API key repository APIs.
 
 Artifacts:
 
-- To be filled during implementation.
+- `internal/profile/service.go`
+- `internal/profile/model_catalog.go`
+- `internal/api/profile_handlers.go`
+- `internal/api/response_models.go`
+- `internal/api/types.go`
+- `internal/api/architecture_test.go`
+- `internal/models/transcription.go`
+- `internal/transcription/orchestrator/processor.go`
+- `internal/transcription/service.go`
+- `internal/recording/finalizer.go`
+- `tests/queue_test.go`
+- `devnotes/v2.0.0/sprint-trackers/asr-provider-backend-sprint-tracker.md`
 
 Commit:
 

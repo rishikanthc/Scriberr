@@ -223,7 +223,7 @@ func (p *LocalProvider) Capabilities(ctx context.Context) ([]ModelCapability, er
 			Provider:     p.id,
 			Installed:    model.Installed,
 			Default:      model.Default,
-			Capabilities: legacyCapabilities(model.Capabilities),
+			Capabilities: capabilityNames(model.Capabilities),
 		}
 		out = append(out, capability)
 	}
@@ -376,7 +376,7 @@ func capabilitiesForModelCard(family speechmodels.Family) asrcontract.Capabiliti
 	}
 }
 
-func legacyCapabilities(capabilities asrcontract.Capabilities) []string {
+func capabilityNames(capabilities asrcontract.Capabilities) []string {
 	out := []string{}
 	if capabilities.Transcription {
 		out = append(out, "transcription")

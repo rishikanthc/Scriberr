@@ -1,5 +1,7 @@
 package api
 
+import "scriberr/internal/models"
+
 type ErrorBody struct {
 	Error APIError `json:"error"`
 }
@@ -72,23 +74,20 @@ type updateTranscriptionRequest struct {
 	Title string `json:"title"`
 }
 type profileOptionsRequest struct {
-	Model                string  `json:"model"`
-	Language             *string `json:"language,omitempty"`
-	Task                 string  `json:"task"`
-	Threads              int     `json:"threads"`
-	TailPaddings         *int    `json:"tail_paddings,omitempty"`
-	CanarySourceLanguage string  `json:"canary_source_language"`
-	CanaryTargetLanguage string  `json:"canary_target_language"`
-	CanaryUsePunctuation *bool   `json:"canary_use_punctuation,omitempty"`
-	DecodingMethod       string  `json:"decoding_method"`
-	ChunkingStrategy     string  `json:"chunking_strategy"`
-	Diarize              bool    `json:"diarize"`
-	Diarization          *bool   `json:"diarization,omitempty"`
-	DiarizeModel         string  `json:"diarize_model"`
-	NumSpeakers          int     `json:"num_speakers"`
-	DiarizationThreshold float64 `json:"diarization_threshold"`
-	MinDurationOn        float64 `json:"min_duration_on"`
-	MinDurationOff       float64 `json:"min_duration_off"`
+	Pipeline             []models.ASRStep `json:"pipeline,omitempty"`
+	Language             *string          `json:"language,omitempty"`
+	Task                 string           `json:"task"`
+	Threads              int              `json:"threads"`
+	TailPaddings         *int             `json:"tail_paddings,omitempty"`
+	CanarySourceLanguage string           `json:"canary_source_language"`
+	CanaryTargetLanguage string           `json:"canary_target_language"`
+	CanaryUsePunctuation *bool            `json:"canary_use_punctuation,omitempty"`
+	DecodingMethod       string           `json:"decoding_method"`
+	ChunkingStrategy     string           `json:"chunking_strategy"`
+	NumSpeakers          int              `json:"num_speakers"`
+	DiarizationThreshold float64          `json:"diarization_threshold"`
+	MinDurationOn        float64          `json:"min_duration_on"`
+	MinDurationOff       float64          `json:"min_duration_off"`
 }
 type createProfileRequest struct {
 	Name        string                `json:"name"`

@@ -56,12 +56,10 @@ type ASRParams struct {
 	DecodingMethod          string    `json:"decoding_method,omitempty"`
 	ChunkingStrategy        string    `json:"chunking_strategy,omitempty"`
 	ChunkSize               int       `json:"chunk_size,omitempty"`
-	Diarize                 bool      `json:"diarize,omitempty"`
 	NumSpeakers             int       `json:"num_speakers,omitempty"`
 	DiarizationThreshold    float64   `json:"diarization_threshold,omitempty"`
 	MinDurationOn           float64   `json:"min_duration_on,omitempty"`
 	MinDurationOff          float64   `json:"min_duration_off,omitempty"`
-	DiarizeModel            string    `json:"diarize_model,omitempty"`
 }
 
 type transcriptionMetadata struct {
@@ -158,7 +156,7 @@ func (tj *TranscriptionJob) syncColumnsFromCompat() error {
 	}
 
 	metadata := transcriptionMetadata{
-		Diarization: tj.Diarization || tj.Parameters.Diarize,
+		Diarization: tj.Diarization || hasASRStep(tj.Parameters.Pipeline, ASRStepDiarization),
 		Summary:     tj.Summary,
 		Parameters:  tj.Parameters,
 	}
@@ -181,7 +179,7 @@ func (tj *TranscriptionJob) SyncColumnsForMigration() error {
 		tj.Language = tj.Parameters.Language
 	}
 	metadata := transcriptionMetadata{
-		Diarization: tj.Diarization || tj.Parameters.Diarize,
+		Diarization: tj.Diarization || hasASRStep(tj.Parameters.Pipeline, ASRStepDiarization),
 		Summary:     tj.Summary,
 		Parameters:  tj.Parameters,
 	}
@@ -404,7 +402,7 @@ func (tp *TranscriptionProfile) BeforeSave(tx *gorm.DB) error {
 	tp.ModelName = tp.Parameters.Model
 	tp.ModelFamily = tp.Parameters.ModelFamily
 	tp.Language = tp.Parameters.Language
-	tp.DiarizationEnabled = tp.Parameters.Diarize
+	tp.DiarizationEnabled = hasASRStep(tp.Parameters.Pipeline, ASRStepDiarization)
 	configJSON, err := marshalJSONColumn("transcription_profiles.config_json", tp.Parameters)
 	if err != nil {
 		return err
@@ -433,8 +431,16 @@ func (tp *TranscriptionProfile) AfterFind(tx *gorm.DB) error {
 	if tp.Parameters.Language == nil {
 		tp.Parameters.Language = tp.Language
 	}
-	tp.Parameters.Diarize = tp.DiarizationEnabled
 	return nil
+}
+
+func hasASRStep(steps []ASRStep, kind string) bool {
+	for _, step := range steps {
+		if step.Kind == kind {
+			return true
+		}
+	}
+	return false
 }
 
 // LLMConfig represents a saved LLM profile.

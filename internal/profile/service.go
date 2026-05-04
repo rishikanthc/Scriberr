@@ -3,6 +3,7 @@ package profile
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 
 	"scriberr/internal/models"
@@ -12,6 +13,7 @@ import (
 
 var ErrNotFound = errors.New("profile not found")
 var ErrInvalidModel = errors.New("profile model is invalid")
+var ErrInvalidPipeline = errors.New("profile pipeline is invalid")
 
 const (
 	defaultTranscriptionModel = "whisper-base"
@@ -94,39 +96,136 @@ func (s *Service) normalizeProfile(ctx context.Context, profile *models.Transcri
 	if profile == nil {
 		return nil
 	}
-	model := strings.TrimSpace(profile.Parameters.Model)
-	info, err := s.catalog.ResolveTranscriptionModel(ctx, model)
+	params := profile.Parameters
+	pipeline, err := s.normalizePipeline(ctx, params.Pipeline)
 	if err != nil {
 		return err
 	}
-	profile.Parameters.Model = info.ID
-	profile.Parameters.ModelFamily = info.Family
+	transcription := pipeline[0]
+	info, err := s.catalog.ResolveTranscriptionModel(ctx, transcription.Model)
+	if err != nil {
+		return err
+	}
+	params.Pipeline = pipeline
+	params.Model = info.ID
+	params.ModelFamily = info.Family
 	if info.Family == "whisper" {
-		profile.Parameters.DecodingMethod = "greedy_search"
+		params.DecodingMethod = "greedy_search"
 	}
-	if strings.TrimSpace(profile.Parameters.DiarizeModel) == "" {
-		profile.Parameters.DiarizeModel = defaultDiarizationModel
-	}
-	profile.Parameters.Pipeline = buildDefaultPipeline(profile.Parameters)
+	profile.Parameters = params
 	return nil
 }
 
-func buildDefaultPipeline(params models.ASRParams) []models.ASRStep {
-	pipeline := []models.ASRStep{
-		{
-			Kind:        models.ASRStepTranscription,
-			Provider:    strings.TrimSpace(params.Provider),
-			Model:       strings.TrimSpace(params.Model),
-			ModelFamily: strings.TrimSpace(params.ModelFamily),
-		},
+func (s *Service) normalizePipeline(ctx context.Context, steps []models.ASRStep) ([]models.ASRStep, error) {
+	if len(steps) == 0 {
+		return nil, fmt.Errorf("%w: pipeline must contain at least one step", ErrInvalidPipeline)
 	}
-	if params.Diarize {
-		pipeline = append(pipeline, models.ASRStep{
-			Kind:  models.ASRStepDiarization,
-			Model: strings.TrimSpace(params.DiarizeModel),
+	if len(steps) > 8 {
+		return nil, fmt.Errorf("%w: pipeline cannot contain more than 8 steps", ErrInvalidPipeline)
+	}
+	out := make([]models.ASRStep, 0, len(steps))
+	var transcriptionCount int
+	for i, step := range steps {
+		kind := strings.TrimSpace(step.Kind)
+		if kind == "" {
+			return nil, fmt.Errorf("%w: step %d kind is required", ErrInvalidPipeline, i)
+		}
+		capability, defaultModel, err := pipelineStepCapability(kind)
+		if err != nil {
+			return nil, err
+		}
+		model := strings.TrimSpace(step.Model)
+		if model == "" {
+			model = defaultModel
+		}
+		info, err := s.catalog.ResolveModel(ctx, model, capability)
+		if err != nil {
+			return nil, fmt.Errorf("%w: step %d model is invalid", ErrInvalidPipeline, i)
+		}
+		if kind == models.ASRStepTranscription {
+			transcriptionCount++
+			if i != 0 {
+				return nil, fmt.Errorf("%w: transcription step must be first", ErrInvalidPipeline)
+			}
+		}
+		out = append(out, models.ASRStep{
+			Kind:        kind,
+			Provider:    strings.TrimSpace(step.Provider),
+			Model:       info.ID,
+			ModelFamily: info.Family,
+			Options:     sanitizeStepOptions(step.Options),
 		})
 	}
-	return pipeline
+	if transcriptionCount != 1 {
+		return nil, fmt.Errorf("%w: pipeline must contain exactly one transcription step", ErrInvalidPipeline)
+	}
+	return out, nil
+}
+
+func pipelineStepCapability(kind string) (asrcontract.Capability, string, error) {
+	switch kind {
+	case models.ASRStepTranscription:
+		return asrcontract.CapabilityTranscription, defaultTranscriptionModel, nil
+	case models.ASRStepDiarization:
+		return asrcontract.CapabilityDiarization, defaultDiarizationModel, nil
+	case models.ASRStepSpeakerIdentification:
+		return asrcontract.CapabilitySpeakerIdentification, "", nil
+	default:
+		return "", "", fmt.Errorf("%w: unsupported step kind %q", ErrInvalidPipeline, kind)
+	}
+}
+
+func sanitizeStepOptions(options map[string]any) map[string]any {
+	if len(options) == 0 {
+		return nil
+	}
+	out := make(map[string]any, len(options))
+	for key, value := range options {
+		if len(out) >= 32 {
+			break
+		}
+		key = strings.TrimSpace(key)
+		lower := strings.ToLower(key)
+		if key == "" || len(key) > 64 || strings.Contains(lower, "token") || strings.Contains(lower, "api_key") || strings.Contains(lower, "apikey") || strings.Contains(lower, "path") || strings.Contains(lower, "url") {
+			continue
+		}
+		if sanitized, ok := sanitizeOptionValue(value); ok {
+			out[key] = sanitized
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func sanitizeOptionValue(value any) (any, bool) {
+	switch typed := value.(type) {
+	case nil:
+		return nil, true
+	case bool, int, int32, int64, float32, float64:
+		return typed, true
+	case string:
+		typed = strings.TrimSpace(typed)
+		if len(typed) > 512 {
+			typed = typed[:512]
+		}
+		return typed, true
+	case []any:
+		if len(typed) > 16 {
+			typed = typed[:16]
+		}
+		out := make([]any, 0, len(typed))
+		for _, item := range typed {
+			value, ok := sanitizeOptionValue(item)
+			if ok {
+				out = append(out, value)
+			}
+		}
+		return out, true
+	default:
+		return nil, false
+	}
 }
 
 type ModelInfo struct {
@@ -138,6 +237,7 @@ type ModelInfo struct {
 
 type ModelCatalog interface {
 	ResolveTranscriptionModel(ctx context.Context, model string) (ModelInfo, error)
+	ResolveModel(ctx context.Context, model string, capability asrcontract.Capability) (ModelInfo, error)
 }
 
 type staticModelCatalog map[string]ModelInfo
@@ -180,19 +280,35 @@ func defaultModelCatalog() staticModelCatalog {
 			WordTimestamps: true,
 		},
 	}
+	models[defaultDiarizationModel] = ModelInfo{
+		ID:     defaultDiarizationModel,
+		Family: "diarization",
+		Capabilities: asrcontract.Capabilities{
+			Diarization: true,
+		},
+	}
 	return models
 }
 
 func (c staticModelCatalog) ResolveTranscriptionModel(ctx context.Context, model string) (ModelInfo, error) {
+	return c.ResolveModel(ctx, model, asrcontract.CapabilityTranscription)
+}
+
+func (c staticModelCatalog) ResolveModel(ctx context.Context, model string, capability asrcontract.Capability) (ModelInfo, error) {
 	if err := ctx.Err(); err != nil {
 		return ModelInfo{}, err
 	}
 	model = strings.TrimSpace(model)
 	if model == "" {
-		model = defaultTranscriptionModel
+		switch capability {
+		case asrcontract.CapabilityTranscription:
+			model = defaultTranscriptionModel
+		case asrcontract.CapabilityDiarization:
+			model = defaultDiarizationModel
+		}
 	}
 	info, ok := c[model]
-	if !ok || !info.Capabilities.Transcription {
+	if !ok || !info.Capabilities.Supports(capability) {
 		return ModelInfo{}, ErrInvalidModel
 	}
 	return info, nil

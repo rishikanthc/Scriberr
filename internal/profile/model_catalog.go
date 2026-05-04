@@ -21,11 +21,15 @@ func NewProviderModelCatalog(registry ProviderModelRegistry) *ProviderModelCatal
 }
 
 func (c *ProviderModelCatalog) ResolveTranscriptionModel(ctx context.Context, model string) (ModelInfo, error) {
+	return c.ResolveModel(ctx, model, asrcontract.CapabilityTranscription)
+}
+
+func (c *ProviderModelCatalog) ResolveModel(ctx context.Context, model string, capability asrcontract.Capability) (ModelInfo, error) {
 	if c == nil {
-		return defaultModelCatalog().ResolveTranscriptionModel(ctx, model)
+		return defaultModelCatalog().ResolveModel(ctx, model, capability)
 	}
 	if c.registry == nil {
-		return c.fallback.ResolveTranscriptionModel(ctx, model)
+		return c.fallback.ResolveModel(ctx, model, capability)
 	}
 	model = strings.TrimSpace(model)
 	models, err := c.registry.Models(ctx)
@@ -39,7 +43,7 @@ func (c *ProviderModelCatalog) ResolveTranscriptionModel(ctx context.Context, mo
 		if model == "" && !card.Default {
 			continue
 		}
-		if !card.Supports(asrcontract.CapabilityTranscription) {
+		if !card.Supports(capability) {
 			continue
 		}
 		return ModelInfo{
@@ -50,7 +54,7 @@ func (c *ProviderModelCatalog) ResolveTranscriptionModel(ctx context.Context, mo
 		}, nil
 	}
 	if model == "" {
-		return c.fallback.ResolveTranscriptionModel(ctx, model)
+		return c.fallback.ResolveModel(ctx, model, capability)
 	}
 	return ModelInfo{}, ErrInvalidModel
 }

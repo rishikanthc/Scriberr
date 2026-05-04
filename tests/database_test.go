@@ -67,7 +67,7 @@ func (suite *DatabaseTestSuite) TestUserSettingsRoundTrip() {
 	assert.Equal(suite.T(), "gpt-4o-mini", found.SummaryDefaultModel)
 }
 
-func (suite *DatabaseTestSuite) TestTranscriptionJobPersistsCompatibilityFields() {
+func (suite *DatabaseTestSuite) TestTranscriptionJobPersistsPipelineMetadata() {
 	db := suite.helper.GetDB()
 	title := "Persisted Job"
 	transcript := `{"text":"hello"}`
@@ -81,9 +81,12 @@ func (suite *DatabaseTestSuite) TestTranscriptionJobPersistsCompatibilityFields(
 		Transcript: &transcript,
 		Summary:    &summary,
 		Parameters: models.ASRParams{
-			Model:       "base",
+			Model:       "whisper-base",
 			ModelFamily: "whisper",
-			Diarize:     true,
+			Pipeline: []models.ASRStep{
+				{Kind: models.ASRStepTranscription, Model: "whisper-base"},
+				{Kind: models.ASRStepDiarization, Model: "diarization-default"},
+			},
 		},
 	}
 
@@ -95,8 +98,9 @@ func (suite *DatabaseTestSuite) TestTranscriptionJobPersistsCompatibilityFields(
 	assert.Equal(suite.T(), transcript, *found.Transcript)
 	require.NotNil(suite.T(), found.Summary)
 	assert.Equal(suite.T(), summary, *found.Summary)
-	assert.Equal(suite.T(), "base", found.Parameters.Model)
-	assert.True(suite.T(), found.Parameters.Diarize)
+	assert.Equal(suite.T(), "whisper-base", found.Parameters.Model)
+	assert.True(suite.T(), found.Diarization)
+	require.Len(suite.T(), found.Parameters.Pipeline, 2)
 	require.NotNil(suite.T(), found.CompletedAt)
 }
 
