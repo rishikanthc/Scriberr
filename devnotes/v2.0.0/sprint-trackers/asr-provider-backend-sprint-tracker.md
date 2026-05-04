@@ -2,7 +2,7 @@
 
 Run ID: `ASRP`
 
-Status: completed through ASRP-Sprint 7.
+Status: completed through ASRP-Sprint 8.
 
 This tracker belongs to `devnotes/v2.0.0/sprint-plans/asr-provider-backend-sprint-plan.md` and the design spec in `devnotes/v2.0.0/specs/asr-provider-backend-architecture.md`.
 
@@ -361,31 +361,39 @@ Commit:
 
 ## ASRP-Sprint 8: Remote Provider Configuration And App Wiring
 
-Status: pending
+Status: completed
 
-Planned tasks:
+Completed tasks:
 
-- [ ] Extend `internal/config` with ASR provider configuration.
-- [ ] Validate remote provider specs, duplicates, defaults, durations, and mount values.
-- [ ] Build local provider directly in-process.
-- [ ] Build remote provider clients from config.
-- [ ] Register providers before worker startup.
-- [ ] Keep local-only deployment behavior intentional after legacy ASR removal.
+- [x] Extended `internal/config` with ASR provider configuration.
+- [x] Validated remote provider specs, duplicates, defaults, durations, and mount values.
+- [x] Kept the local provider directly in-process.
+- [x] Built remote provider clients from config.
+- [x] Registered providers before worker startup.
+- [x] Kept local-only deployment behavior intentional after legacy ASR removal.
 
 Acceptance checks:
 
-- [ ] Local-only deployments use the new provider pipeline contract.
-- [ ] Invalid config fails startup with actionable errors.
-- [ ] Remote provider wiring is testable without starting the HTTP listener.
-- [ ] `internal/app` remains the only composition root.
+- [x] Local-only deployments use the new provider registry path.
+- [x] Invalid config fails startup with actionable errors.
+- [x] Remote provider wiring is testable without starting the HTTP listener.
+- [x] `internal/app` remains the only composition root.
 
 Verification:
 
-- [ ] Not run yet.
+- [x] `GOCACHE=/tmp/scriberr-go-cache go test ./internal/config ./internal/app`
+- [x] `GOCACHE=/tmp/scriberr-go-cache go test ./internal/config ./internal/app ./internal/transcription/...`
+- [x] `GOCACHE=/tmp/scriberr-go-cache go test ./internal/api -run 'TestASREngineImportInventory|TestProductionCodeDoesNotUseOldASRParameterIdentifiers|TestASRProvidersDoNotDependOnAPIOrRepositories|TestBackendDependencyDirection|TestListTranscriptionModels|TestTranscriptionExecutions'`
+- [x] `GOCACHE=/tmp/scriberr-go-cache go vet ./internal/config ./internal/app ./internal/transcription/...`
+- [x] `git diff --check`
 
 Artifacts:
 
-- To be filled during implementation.
+- `internal/config/config.go`
+- `internal/config/config_test.go`
+- `internal/app/app.go`
+- `internal/app/app_test.go`
+- `devnotes/v2.0.0/sprint-trackers/asr-provider-backend-sprint-tracker.md`
 
 Commit:
 

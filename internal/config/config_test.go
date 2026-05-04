@@ -21,6 +21,13 @@ func setConfigTestBaseEnv(t *testing.T) {
 	t.Setenv("TRANSCRIPTION_LEASE_TIMEOUT", "")
 	t.Setenv("ASR_NORMALIZED_AUDIO_DIR", "")
 	t.Setenv("ASR_PROVIDER_AUDIO_MOUNT", "")
+	t.Setenv("ASR_LOCAL_PROVIDER_ENABLED", "")
+	t.Setenv("ASR_DEFAULT_PROVIDER", "")
+	t.Setenv("ASR_REMOTE_PROVIDERS", "")
+	t.Setenv("ASR_REMOTE_PROVIDER_REQUIRED", "")
+	t.Setenv("ASR_REMOTE_PROVIDER_TIMEOUT", "")
+	t.Setenv("ASR_REMOTE_PROVIDER_POLL_INTERVAL", "")
+	t.Setenv("ASR_REMOTE_PROVIDER_MAX_RESPONSE_BYTES", "")
 	t.Setenv("RECORDINGS_DIR", "")
 	t.Setenv("RECORDING_MAX_CHUNK_BYTES", "")
 	t.Setenv("RECORDING_MAX_SESSION_BYTES", "")
@@ -72,6 +79,24 @@ func TestLoadWithErrorEngineAndWorkerDefaults(t *testing.T) {
 	if cfg.ASR.ProviderAudioMountRoot != "/provider-input/audio" {
 		t.Fatalf("ASR.ProviderAudioMountRoot = %q", cfg.ASR.ProviderAudioMountRoot)
 	}
+	if !cfg.ASR.LocalProviderEnabled {
+		t.Fatalf("ASR.LocalProviderEnabled = false, want true")
+	}
+	if cfg.ASR.DefaultProvider != "local" {
+		t.Fatalf("ASR.DefaultProvider = %q, want local", cfg.ASR.DefaultProvider)
+	}
+	if len(cfg.ASR.RemoteProviders) != 0 {
+		t.Fatalf("ASR.RemoteProviders = %#v, want empty", cfg.ASR.RemoteProviders)
+	}
+	if cfg.ASR.RemoteProviderTimeout != 30*time.Second {
+		t.Fatalf("ASR.RemoteProviderTimeout = %s", cfg.ASR.RemoteProviderTimeout)
+	}
+	if cfg.ASR.RemoteProviderPoll != 2*time.Second {
+		t.Fatalf("ASR.RemoteProviderPoll = %s", cfg.ASR.RemoteProviderPoll)
+	}
+	if cfg.ASR.RemoteMaxResponseBytes != 4<<20 {
+		t.Fatalf("ASR.RemoteMaxResponseBytes = %d", cfg.ASR.RemoteMaxResponseBytes)
+	}
 	if cfg.Recordings.Dir != "data/recordings" {
 		t.Fatalf("Recordings.Dir = %q, want data/recordings", cfg.Recordings.Dir)
 	}
@@ -119,6 +144,13 @@ func TestLoadWithErrorEngineAndWorkerOverrides(t *testing.T) {
 	t.Setenv("TRANSCRIPTION_LEASE_TIMEOUT", "30s")
 	t.Setenv("ASR_NORMALIZED_AUDIO_DIR", "/tmp/scriberr-normalized")
 	t.Setenv("ASR_PROVIDER_AUDIO_MOUNT", "/mnt/audio")
+	t.Setenv("ASR_LOCAL_PROVIDER_ENABLED", "false")
+	t.Setenv("ASR_DEFAULT_PROVIDER", "remote-a")
+	t.Setenv("ASR_REMOTE_PROVIDERS", "remote-a=https://asr-a.internal, remote-b=http://asr-b.internal/api")
+	t.Setenv("ASR_REMOTE_PROVIDER_REQUIRED", "remote-b")
+	t.Setenv("ASR_REMOTE_PROVIDER_TIMEOUT", "10s")
+	t.Setenv("ASR_REMOTE_PROVIDER_POLL_INTERVAL", "250ms")
+	t.Setenv("ASR_REMOTE_PROVIDER_MAX_RESPONSE_BYTES", "1048576")
 	t.Setenv("RECORDINGS_DIR", "/tmp/scriberr-recordings")
 	t.Setenv("RECORDING_MAX_CHUNK_BYTES", "1048576")
 	t.Setenv("RECORDING_MAX_SESSION_BYTES", "2097152")
@@ -165,6 +197,27 @@ func TestLoadWithErrorEngineAndWorkerOverrides(t *testing.T) {
 	}
 	if cfg.ASR.ProviderAudioMountRoot != "/mnt/audio" {
 		t.Fatalf("ASR.ProviderAudioMountRoot = %q", cfg.ASR.ProviderAudioMountRoot)
+	}
+	if cfg.ASR.LocalProviderEnabled {
+		t.Fatalf("ASR.LocalProviderEnabled = true, want false")
+	}
+	if cfg.ASR.DefaultProvider != "remote-a" {
+		t.Fatalf("ASR.DefaultProvider = %q", cfg.ASR.DefaultProvider)
+	}
+	if len(cfg.ASR.RemoteProviders) != 2 {
+		t.Fatalf("ASR.RemoteProviders length = %d", len(cfg.ASR.RemoteProviders))
+	}
+	if cfg.ASR.RemoteProviders[1].ID != "remote-b" || !cfg.ASR.RemoteProviders[1].Required {
+		t.Fatalf("remote provider parsing failed: %#v", cfg.ASR.RemoteProviders)
+	}
+	if cfg.ASR.RemoteProviderTimeout != 10*time.Second {
+		t.Fatalf("ASR.RemoteProviderTimeout = %s", cfg.ASR.RemoteProviderTimeout)
+	}
+	if cfg.ASR.RemoteProviderPoll != 250*time.Millisecond {
+		t.Fatalf("ASR.RemoteProviderPoll = %s", cfg.ASR.RemoteProviderPoll)
+	}
+	if cfg.ASR.RemoteMaxResponseBytes != 1048576 {
+		t.Fatalf("ASR.RemoteMaxResponseBytes = %d", cfg.ASR.RemoteMaxResponseBytes)
 	}
 	if cfg.Recordings.Dir != "/tmp/scriberr-recordings" {
 		t.Fatalf("Recordings.Dir = %q", cfg.Recordings.Dir)
@@ -228,6 +281,10 @@ func TestLoadWithErrorRejectsInvalidEngineAndWorkerValues(t *testing.T) {
 		{name: "lease timeout", env: "TRANSCRIPTION_LEASE_TIMEOUT", val: "later"},
 		{name: "asr mount relative", env: "ASR_PROVIDER_AUDIO_MOUNT", val: "relative/audio"},
 		{name: "asr mount traversal", env: "ASR_PROVIDER_AUDIO_MOUNT", val: "/provider/../audio"},
+		{name: "asr local enabled", env: "ASR_LOCAL_PROVIDER_ENABLED", val: "sometimes"},
+		{name: "asr remote timeout", env: "ASR_REMOTE_PROVIDER_TIMEOUT", val: "eventually"},
+		{name: "asr remote poll", env: "ASR_REMOTE_PROVIDER_POLL_INTERVAL", val: "often"},
+		{name: "asr remote response bytes", env: "ASR_REMOTE_PROVIDER_MAX_RESPONSE_BYTES", val: "large"},
 		{name: "recording max chunk bytes", env: "RECORDING_MAX_CHUNK_BYTES", val: "large"},
 		{name: "recording max session bytes", env: "RECORDING_MAX_SESSION_BYTES", val: "huge"},
 		{name: "recording max duration", env: "RECORDING_MAX_DURATION", val: "forever"},
@@ -250,6 +307,62 @@ func TestLoadWithErrorRejectsInvalidEngineAndWorkerValues(t *testing.T) {
 			}
 			if !strings.Contains(err.Error(), tt.env) {
 				t.Fatalf("error %q does not mention %s", err.Error(), tt.env)
+			}
+		})
+	}
+}
+
+func TestLoadWithErrorRejectsInvalidASRProviderConfig(t *testing.T) {
+	tests := []struct {
+		name string
+		env  map[string]string
+		want string
+	}{
+		{
+			name: "duplicate remote id",
+			env:  map[string]string{"ASR_REMOTE_PROVIDERS": "remote-a=https://a.example,remote-a=https://b.example"},
+			want: "duplicate provider id",
+		},
+		{
+			name: "remote redefines local",
+			env:  map[string]string{"ASR_REMOTE_PROVIDERS": "local=https://a.example"},
+			want: "local provider",
+		},
+		{
+			name: "invalid remote url",
+			env:  map[string]string{"ASR_REMOTE_PROVIDERS": "remote-a=ftp://a.example"},
+			want: "base URL scheme",
+		},
+		{
+			name: "default missing",
+			env:  map[string]string{"ASR_DEFAULT_PROVIDER": "remote-a"},
+			want: "ASR_DEFAULT_PROVIDER",
+		},
+		{
+			name: "local disabled no remote",
+			env:  map[string]string{"ASR_LOCAL_PROVIDER_ENABLED": "false"},
+			want: "ASR_DEFAULT_PROVIDER",
+		},
+		{
+			name: "malformed remote entry",
+			env:  map[string]string{"ASR_REMOTE_PROVIDERS": "remote-a"},
+			want: "ASR_REMOTE_PROVIDERS",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			setConfigTestBaseEnv(t)
+			for key, value := range tt.env {
+				t.Setenv(key, value)
+			}
+
+			_, err := LoadWithError()
+			if err == nil {
+				t.Fatal("LoadWithError returned nil error")
+			}
+			if !strings.Contains(err.Error(), tt.want) {
+				t.Fatalf("error %q does not contain %q", err.Error(), tt.want)
 			}
 		})
 	}

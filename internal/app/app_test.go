@@ -11,6 +11,8 @@ import (
 
 	"scriberr/internal/config"
 	"scriberr/internal/database"
+	"scriberr/internal/transcription/asrcontract"
+	"scriberr/internal/transcription/engineprovider"
 )
 
 func TestBuildConstructsRouterWithoutStartingListener(t *testing.T) {
@@ -63,6 +65,43 @@ func TestServerUsesConfiguredAddressAndRouter(t *testing.T) {
 	}
 }
 
+func TestBuildProviderRegistryRegistersRemoteProviders(t *testing.T) {
+	local := fakeProvider{id: engineprovider.DefaultProviderID}
+	registry, providers, err := buildProviderRegistry(config.ASRConfig{
+		LocalProviderEnabled: true,
+		DefaultProvider:      "remote-a",
+		RemoteProviders: []config.ASRRemoteProviderConfig{
+			{ID: "remote-a", BaseURL: "https://asr-a.example/api"},
+			{ID: "remote-b", BaseURL: "http://asr-b.example"},
+		},
+		RemoteProviderTimeout:  time.Second,
+		RemoteProviderPoll:     time.Second,
+		RemoteMaxResponseBytes: 1 << 20,
+	}, local)
+	if err != nil {
+		t.Fatalf("buildProviderRegistry returned error: %v", err)
+	}
+	if len(providers) != 3 {
+		t.Fatalf("providers length = %d, want 3", len(providers))
+	}
+	if registry.DefaultProvider().ID() != "remote-a" {
+		t.Fatalf("default provider = %q", registry.DefaultProvider().ID())
+	}
+	if _, ok := registry.Provider("remote-b"); !ok {
+		t.Fatal("remote-b provider was not registered")
+	}
+}
+
+func TestBuildProviderRegistryRejectsMissingLocalProvider(t *testing.T) {
+	_, _, err := buildProviderRegistry(config.ASRConfig{
+		LocalProviderEnabled: true,
+		DefaultProvider:      engineprovider.DefaultProviderID,
+	}, nil)
+	if err == nil {
+		t.Fatal("buildProviderRegistry returned nil error")
+	}
+}
+
 func testConfig(root string) *config.Config {
 	return &config.Config{
 		Host:           "127.0.0.1",
@@ -74,6 +113,15 @@ func testConfig(root string) *config.Config {
 		UploadDir:      filepath.Join(root, "uploads"),
 		TranscriptsDir: filepath.Join(root, "transcripts"),
 		TempDir:        filepath.Join(root, "temp"),
+		ASR: config.ASRConfig{
+			NormalizedAudioDir:     filepath.Join(root, "asr-normalized"),
+			ProviderAudioMountRoot: "/provider-input/audio",
+			LocalProviderEnabled:   true,
+			DefaultProvider:        engineprovider.DefaultProviderID,
+			RemoteProviderTimeout:  30 * time.Second,
+			RemoteProviderPoll:     2 * time.Second,
+			RemoteMaxResponseBytes: 4 << 20,
+		},
 		Recordings: config.RecordingConfig{
 			Dir:                   filepath.Join(root, "recordings"),
 			MaxChunkBytes:         1 << 20,
@@ -100,3 +148,41 @@ func testConfig(root string) *config.Config {
 		},
 	}
 }
+
+type fakeProvider struct {
+	id string
+}
+
+func (p fakeProvider) ID() string { return p.id }
+func (p fakeProvider) Inspect(ctx context.Context) (*asrcontract.ProviderInfo, error) {
+	return &asrcontract.ProviderInfo{Provider: asrcontract.ProviderIdentity{ID: p.id}}, nil
+}
+func (p fakeProvider) Models(ctx context.Context) ([]asrcontract.ModelCard, error) {
+	return nil, nil
+}
+func (p fakeProvider) Status(ctx context.Context) (*asrcontract.ProviderStatus, error) {
+	return &asrcontract.ProviderStatus{State: asrcontract.ProviderStateIdle}, nil
+}
+func (p fakeProvider) LoadModel(ctx context.Context, req asrcontract.LoadModelRequest) error {
+	return nil
+}
+func (p fakeProvider) UnloadModel(ctx context.Context, req asrcontract.UnloadModelRequest) error {
+	return nil
+}
+func (p fakeProvider) LoadedModels(ctx context.Context) ([]asrcontract.LoadedModel, error) {
+	return nil, nil
+}
+func (p fakeProvider) Capabilities(ctx context.Context) ([]engineprovider.ModelCapability, error) {
+	return nil, nil
+}
+func (p fakeProvider) Prepare(ctx context.Context) error { return nil }
+func (p fakeProvider) Transcribe(ctx context.Context, req engineprovider.TranscriptionRequest) (*engineprovider.TranscriptionResult, error) {
+	return nil, nil
+}
+func (p fakeProvider) Diarize(ctx context.Context, req engineprovider.DiarizationRequest) (*engineprovider.DiarizationResult, error) {
+	return nil, nil
+}
+func (p fakeProvider) IdentifySpeakers(ctx context.Context, req asrcontract.SpeakerIDRequest) (*asrcontract.SpeakerIDResult, error) {
+	return nil, nil
+}
+func (p fakeProvider) Close() error { return nil }

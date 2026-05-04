@@ -25,6 +25,7 @@ import (
 	"scriberr/internal/tags"
 	transcriptiondomain "scriberr/internal/transcription"
 	"scriberr/internal/transcription/engineprovider"
+	"scriberr/internal/transcription/engineprovider/remote"
 	"scriberr/internal/transcription/orchestrator"
 	"scriberr/internal/transcription/preprocess"
 	"scriberr/internal/transcription/worker"
@@ -39,7 +40,7 @@ type App struct {
 	queueService       *worker.Service
 	summaryService     *summarization.Service
 	recordingFinalizer *recordingdomain.FinalizerService
-	localProvider      *engineprovider.LocalProvider
+	providers          []engineprovider.Provider
 }
 
 // Build initializes durable dependencies, repositories, services, API handlers, and routes.
@@ -81,16 +82,19 @@ func Build(cfg *config.Config) (*App, error) {
 	apiKeyRepo := repository.NewAPIKeyRepository(database.DB)
 	chatRepo := repository.NewChatRepository(database.DB)
 
-	logger.Startup("engine", "Initializing local engine provider")
-	localProvider, err := engineprovider.NewLocalProvider(cfg.Engine)
-	if err != nil {
-		_ = database.Close()
-		return nil, fmt.Errorf("initialize local engine provider: %w", err)
+	var localProvider engineprovider.Provider
+	if cfg.ASR.LocalProviderEnabled {
+		logger.Startup("engine", "Initializing local engine provider")
+		provider, err := engineprovider.NewLocalProvider(cfg.Engine)
+		if err != nil {
+			_ = database.Close()
+			return nil, fmt.Errorf("initialize local engine provider: %w", err)
+		}
+		localProvider = provider
 	}
-
-	providerRegistry, err := engineprovider.NewRegistry(engineprovider.DefaultProviderID, localProvider)
+	providerRegistry, providers, err := buildProviderRegistry(cfg.ASR, localProvider)
 	if err != nil {
-		_ = localProvider.Close()
+		closeProviders(providers)
 		_ = database.Close()
 		return nil, fmt.Errorf("initialize engine provider registry: %w", err)
 	}
@@ -130,7 +134,7 @@ func Build(cfg *config.Config) (*App, error) {
 	tagService := tags.NewService(tagRepo, jobRepo)
 	recordingStorage, err := recordingdomain.NewStorage(cfg.Recordings.Dir)
 	if err != nil {
-		_ = localProvider.Close()
+		closeProviders(providers)
 		_ = database.Close()
 		return nil, fmt.Errorf("initialize recording storage: %w", err)
 	}
@@ -183,8 +187,50 @@ func Build(cfg *config.Config) (*App, error) {
 		queueService:       queueService,
 		summaryService:     summaryService,
 		recordingFinalizer: recordingFinalizer,
-		localProvider:      localProvider,
+		providers:          providers,
 	}, nil
+}
+
+func buildProviderRegistry(cfg config.ASRConfig, localProvider engineprovider.Provider) (engineprovider.Registry, []engineprovider.Provider, error) {
+	defaultProvider := cfg.DefaultProvider
+	if defaultProvider == "" {
+		defaultProvider = engineprovider.DefaultProviderID
+	}
+	providers := []engineprovider.Provider{}
+	if cfg.LocalProviderEnabled {
+		if localProvider == nil {
+			return nil, nil, fmt.Errorf("local ASR provider is enabled but was not initialized")
+		}
+		providers = append(providers, localProvider)
+	}
+	for _, remoteProvider := range cfg.RemoteProviders {
+		provider, err := remote.NewClient(remote.Config{
+			ID:               remoteProvider.ID,
+			BaseURL:          remoteProvider.BaseURL,
+			Timeout:          cfg.RemoteProviderTimeout,
+			PollInterval:     cfg.RemoteProviderPoll,
+			MaxResponseBytes: cfg.RemoteMaxResponseBytes,
+		})
+		if err != nil {
+			closeProviders(providers)
+			return nil, nil, fmt.Errorf("initialize remote ASR provider %q: %w", remoteProvider.ID, err)
+		}
+		providers = append(providers, provider)
+	}
+	registry, err := engineprovider.NewRegistry(defaultProvider, providers...)
+	if err != nil {
+		closeProviders(providers)
+		return nil, nil, err
+	}
+	return registry, providers, nil
+}
+
+func closeProviders(providers []engineprovider.Provider) {
+	for _, provider := range providers {
+		if provider != nil {
+			_ = provider.Close()
+		}
+	}
 }
 
 func (a *App) Server() *http.Server {
@@ -222,8 +268,13 @@ func (a *App) Shutdown(ctx context.Context) error {
 	if err := a.recordingFinalizer.Stop(ctx); err != nil {
 		shutdownErrs = append(shutdownErrs, fmt.Errorf("stop recording finalizers: %w", err))
 	}
-	if err := a.localProvider.Close(); err != nil {
-		logger.Warn("Failed to close local engine provider", "error", err)
+	for _, provider := range a.providers {
+		if provider == nil {
+			continue
+		}
+		if err := provider.Close(); err != nil {
+			logger.Warn("Failed to close ASR provider", "provider", provider.ID(), "error", err)
+		}
 	}
 	if err := database.Close(); err != nil {
 		shutdownErrs = append(shutdownErrs, fmt.Errorf("close database: %w", err))
