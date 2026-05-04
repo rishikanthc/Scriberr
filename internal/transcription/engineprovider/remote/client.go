@@ -179,9 +179,6 @@ func (c *Client) Transcribe(ctx context.Context, req engineprovider.Transcriptio
 		Options: map[string]any{
 			"threads":                   req.Threads,
 			"tail_paddings":             req.TailPaddings,
-			"canary_source_language":    req.CanarySourceLanguage,
-			"canary_target_language":    req.CanaryTargetLanguage,
-			"canary_use_punctuation":    req.CanaryUsePunctuation,
 			"decoding_method":           req.DecodingMethod,
 			"chunking":                  req.Chunking,
 			"chunk_duration_sec":        req.ChunkDurationSec,

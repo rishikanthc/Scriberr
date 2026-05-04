@@ -79,9 +79,6 @@ type profileOptionsRequest struct {
 	Task                 string           `json:"task"`
 	Threads              int              `json:"threads"`
 	TailPaddings         *int             `json:"tail_paddings,omitempty"`
-	CanarySourceLanguage string           `json:"canary_source_language"`
-	CanaryTargetLanguage string           `json:"canary_target_language"`
-	CanaryUsePunctuation *bool            `json:"canary_use_punctuation,omitempty"`
 	DecodingMethod       string           `json:"decoding_method"`
 	ChunkingStrategy     string           `json:"chunking_strategy"`
 	NumSpeakers          int              `json:"num_speakers"`

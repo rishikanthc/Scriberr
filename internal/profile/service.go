@@ -272,14 +272,6 @@ func defaultModelCatalog() staticModelCatalog {
 			},
 		}
 	}
-	models["canary-180m"] = ModelInfo{
-		ID:     "canary-180m",
-		Family: "canary",
-		Capabilities: asrcontract.Capabilities{
-			Transcription:  true,
-			WordTimestamps: true,
-		},
-	}
 	models[defaultDiarizationModel] = ModelInfo{
 		ID:     defaultDiarizationModel,
 		Family: "diarization",

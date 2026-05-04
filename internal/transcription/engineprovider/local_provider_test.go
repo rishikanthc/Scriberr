@@ -9,7 +9,6 @@ import (
 	"scriberr/internal/transcription/asrcontract"
 
 	speechengine "scriberr-engine/speech/engine"
-	speechmodels "scriberr-engine/speech/models"
 	"scriberr-engine/speech/runtime"
 )
 
@@ -19,11 +18,75 @@ type fakeSpeechEngine struct {
 	transcriptionOut  *speechengine.TranscriptionResult
 	diarizationOut    *speechengine.DiarizationResult
 	err               error
-	installed         map[string]bool
-	loaded            []speechmodels.ModelID
+	info              *speechengine.ProviderInfo
+	models            []speechengine.ModelCard
+	status            *speechengine.ProviderStatus
+	loaded            []speechengine.LoadedModel
 	loadedRequested   string
 	unloadedRequested string
 	closed            bool
+}
+
+type captureProgressSink struct {
+	events []asrcontract.ProviderProgress
+}
+
+func (s *captureProgressSink) Report(ctx context.Context, event asrcontract.ProviderProgress) {
+	s.events = append(s.events, event)
+}
+
+func (e *fakeSpeechEngine) Inspect(ctx context.Context) (*speechengine.ProviderInfo, error) {
+	if e.err != nil {
+		return nil, e.err
+	}
+	if e.info != nil {
+		return e.info, nil
+	}
+	return &speechengine.ProviderInfo{
+		ContractVersion: speechengine.ContractVersionV1,
+		Provider: speechengine.ProviderIdentity{
+			ID:     "local",
+			Name:   "Sherpa ONNX",
+			Vendor: "scriberr",
+		},
+		Runtime: speechengine.RuntimeInfo{
+			DeviceBackends:       []string{"cpu", "cuda"},
+			ActiveBackend:        "cpu",
+			SupportsConcurrent:   false,
+			MaxConcurrentJobs:    1,
+			ProviderCapabilities: []speechengine.Capability{speechengine.CapabilityTranscription, speechengine.CapabilityDiarization},
+		},
+		AudioInput: speechengine.AudioInputSpec{
+			RequiredSampleRate: 16000,
+			RequiredChannels:   1,
+			Formats:            []string{"wav"},
+			PathMode:           speechengine.PathModeMountedFile,
+		},
+	}, nil
+}
+
+func (e *fakeSpeechEngine) Models(ctx context.Context) ([]speechengine.ModelCard, error) {
+	if e.err != nil {
+		return nil, e.err
+	}
+	return e.models, nil
+}
+
+func (e *fakeSpeechEngine) Status(ctx context.Context) (*speechengine.ProviderStatus, error) {
+	if e.err != nil {
+		return nil, e.err
+	}
+	if e.status != nil {
+		return e.status, nil
+	}
+	return &speechengine.ProviderStatus{
+		State:        speechengine.ProviderStateIdle,
+		LoadedModels: e.loaded,
+		Capacity: speechengine.ProviderCapacity{
+			MaxConcurrentJobs: 1,
+			AvailableSlots:    1,
+		},
+	}, nil
 }
 
 func (e *fakeSpeechEngine) Transcribe(ctx context.Context, req speechengine.TranscriptionRequest) (*speechengine.TranscriptionResult, error) {
@@ -42,10 +105,6 @@ func (e *fakeSpeechEngine) Diarize(ctx context.Context, req speechengine.Diariza
 	return e.diarizationOut, nil
 }
 
-func (e *fakeSpeechEngine) IsModelInstalled(modelID string) bool {
-	return e.installed[modelID]
-}
-
 func (e *fakeSpeechEngine) Close() error {
 	e.closed = true
 	return nil
@@ -61,7 +120,7 @@ func (e *fakeSpeechEngine) UnloadModel(modelID string) error {
 	return e.err
 }
 
-func (e *fakeSpeechEngine) ListLoadedModels() []speechmodels.ModelID {
+func (e *fakeSpeechEngine) LoadedModels() []speechengine.LoadedModel {
 	return e.loaded
 }
 
@@ -79,12 +138,14 @@ func TestLocalProviderTranscribeMapsRequestAndWords(t *testing.T) {
 			},
 		},
 	}
-	provider := newLocalProviderWithEngine("local", LocalConfig{Threads: 4}, runtime.ProviderCPU, fake, nil)
+	provider := newLocalProviderWithEngine("local", LocalConfig{Threads: 4}, runtime.ProviderCPU, fake)
+	progress := &captureProgressSink{}
 
 	result, err := provider.Transcribe(context.Background(), TranscriptionRequest{
 		JobID:            "job-1",
 		UserID:           7,
 		AudioPath:        "/tmp/audio.wav",
+		Progress:         progress,
 		ModelID:          "whisper-tiny",
 		Language:         "en",
 		Task:             "translate",
@@ -98,6 +159,9 @@ func TestLocalProviderTranscribeMapsRequestAndWords(t *testing.T) {
 
 	if fake.transcriptionReq.ModelID != "whisper-tiny" {
 		t.Fatalf("ModelID = %q", fake.transcriptionReq.ModelID)
+	}
+	if fake.transcriptionReq.RequestID != "job-1" {
+		t.Fatalf("RequestID = %q", fake.transcriptionReq.RequestID)
 	}
 	if fake.transcriptionReq.Language != "en" {
 		t.Fatalf("Language = %q", fake.transcriptionReq.Language)
@@ -120,6 +184,14 @@ func TestLocalProviderTranscribeMapsRequestAndWords(t *testing.T) {
 	if fake.transcriptionReq.EnableSegmentTimestamps == nil || !*fake.transcriptionReq.EnableSegmentTimestamps {
 		t.Fatalf("EnableSegmentTimestamps was not forced on")
 	}
+	fake.transcriptionReq.Progress.Report(context.Background(), speechengine.Progress{
+		Stage:     speechengine.StageTranscribing,
+		Operation: speechengine.OperationTranscription,
+		Model:     "whisper-tiny",
+	})
+	if len(progress.events) != 1 || progress.events[0].Stage != asrcontract.StageTranscribing {
+		t.Fatalf("progress was not bridged: %#v", progress.events)
+	}
 	if result.Text != "hello world" || result.Language != "en" {
 		t.Fatalf("unexpected result: %#v", result)
 	}
@@ -138,7 +210,7 @@ func TestLocalProviderTranscribeDefaultsAndEmptyWords(t *testing.T) {
 	fake := &fakeSpeechEngine{
 		transcriptionOut: &speechengine.TranscriptionResult{Text: "text"},
 	}
-	provider := newLocalProviderWithEngine("local", LocalConfig{Threads: 4}, runtime.ProviderCPU, fake, nil)
+	provider := newLocalProviderWithEngine("local", LocalConfig{Threads: 4}, runtime.ProviderCPU, fake)
 
 	result, err := provider.Transcribe(context.Background(), TranscriptionRequest{})
 	if err != nil {
@@ -159,7 +231,7 @@ func TestLocalProviderTranscribeDefaultsAndEmptyWords(t *testing.T) {
 }
 
 func TestLocalProviderTranscribeRejectsNilEngineResult(t *testing.T) {
-	provider := newLocalProviderWithEngine("local", LocalConfig{}, runtime.ProviderCPU, &fakeSpeechEngine{}, nil)
+	provider := newLocalProviderWithEngine("local", LocalConfig{}, runtime.ProviderCPU, &fakeSpeechEngine{})
 
 	_, err := provider.Transcribe(context.Background(), TranscriptionRequest{})
 	if err == nil {
@@ -179,9 +251,10 @@ func TestLocalProviderDiarizeMapsRequestAndSpeakers(t *testing.T) {
 			},
 		},
 	}
-	provider := newLocalProviderWithEngine("local", LocalConfig{Threads: 3}, runtime.ProviderCPU, fake, nil)
+	provider := newLocalProviderWithEngine("local", LocalConfig{Threads: 3}, runtime.ProviderCPU, fake)
 
 	result, err := provider.Diarize(context.Background(), DiarizationRequest{
+		JobID:       "job-2",
 		AudioPath:   "/tmp/audio.wav",
 		ModelID:     "diarization-default",
 		NumSpeakers: 2,
@@ -191,6 +264,9 @@ func TestLocalProviderDiarizeMapsRequestAndSpeakers(t *testing.T) {
 	}
 	if fake.diarizationReq.ModelID != "diarization-default" {
 		t.Fatalf("ModelID = %q", fake.diarizationReq.ModelID)
+	}
+	if fake.diarizationReq.RequestID != "job-2" {
+		t.Fatalf("RequestID = %q", fake.diarizationReq.RequestID)
 	}
 	if fake.diarizationReq.NumClusters != 2 {
 		t.Fatalf("NumClusters = %d", fake.diarizationReq.NumClusters)
@@ -204,7 +280,7 @@ func TestLocalProviderDiarizeMapsRequestAndSpeakers(t *testing.T) {
 }
 
 func TestLocalProviderDiarizeRejectsNilEngineResult(t *testing.T) {
-	provider := newLocalProviderWithEngine("local", LocalConfig{}, runtime.ProviderCPU, &fakeSpeechEngine{}, nil)
+	provider := newLocalProviderWithEngine("local", LocalConfig{}, runtime.ProviderCPU, &fakeSpeechEngine{})
 
 	_, err := provider.Diarize(context.Background(), DiarizationRequest{})
 	if err == nil {
@@ -215,13 +291,33 @@ func TestLocalProviderDiarizeRejectsNilEngineResult(t *testing.T) {
 	}
 }
 
-func TestLocalProviderCapabilitiesUseModelRegistryAndInstallState(t *testing.T) {
-	fake := &fakeSpeechEngine{installed: map[string]bool{"whisper-base": true}}
-	specs := []speechmodels.ModelSpec{
-		{ID: "whisper-base", DisplayName: "Whisper Base", Family: speechmodels.FamilyWhisper},
-		{ID: "diarization-default", DisplayName: "Diarization", Family: speechmodels.FamilyDiarize},
-	}
-	provider := newLocalProviderWithEngine("local", LocalConfig{}, runtime.ProviderCPU, fake, specs)
+func TestLocalProviderCapabilitiesUseEngineModelCards(t *testing.T) {
+	fake := &fakeSpeechEngine{models: []speechengine.ModelCard{
+		{
+			ID:          "whisper-base",
+			DisplayName: "Whisper Base",
+			Provider:    "local",
+			Family:      "whisper",
+			Installed:   true,
+			Default:     true,
+			Tasks:       []speechengine.Task{speechengine.TaskTranscribe},
+			Capabilities: speechengine.Capabilities{
+				Transcription:  true,
+				WordTimestamps: true,
+			},
+		},
+		{
+			ID:          "diarization-default",
+			DisplayName: "Diarization",
+			Provider:    "local",
+			Family:      "pyannote",
+			Default:     true,
+			Capabilities: speechengine.Capabilities{
+				Diarization: true,
+			},
+		},
+	}}
+	provider := newLocalProviderWithEngine("local", LocalConfig{}, runtime.ProviderCPU, fake)
 
 	capabilities, err := provider.Capabilities(context.Background())
 	if err != nil {
@@ -246,13 +342,25 @@ func TestLocalProviderCapabilitiesUseModelRegistryAndInstallState(t *testing.T) 
 
 func TestLocalProviderModelsStatusAndLifecycle(t *testing.T) {
 	fake := &fakeSpeechEngine{
-		installed: map[string]bool{"whisper-base": true},
-		loaded:    []speechmodels.ModelID{"whisper-base"},
+		loaded: []speechengine.LoadedModel{{ID: "whisper-base"}},
+		models: []speechengine.ModelCard{
+			{
+				ID:          "whisper-base",
+				DisplayName: "Whisper Base",
+				Provider:    "local",
+				Family:      "whisper",
+				Version:     "whisper",
+				Installed:   true,
+				Loaded:      true,
+				Default:     true,
+				Tasks:       []speechengine.Task{speechengine.TaskTranscribe},
+				Capabilities: speechengine.Capabilities{
+					Transcription: true,
+				},
+			},
+		},
 	}
-	specs := []speechmodels.ModelSpec{
-		{ID: "whisper-base", DisplayName: "Whisper Base", Family: speechmodels.FamilyWhisper, ModelType: "whisper"},
-	}
-	provider := newLocalProviderWithEngine("local", LocalConfig{}, runtime.ProviderCPU, fake, specs)
+	provider := newLocalProviderWithEngine("local", LocalConfig{}, runtime.ProviderCPU, fake)
 
 	info, err := provider.Inspect(context.Background())
 	if err != nil {
@@ -296,7 +404,7 @@ func TestLocalProviderSanitizesErrors(t *testing.T) {
 	fake := &fakeSpeechEngine{
 		err: errors.New("load /Users/zade/Code/asr/Scriberr/data/uploads/audio.wav failed token=secret"),
 	}
-	provider := newLocalProviderWithEngine("local", LocalConfig{}, runtime.ProviderCPU, fake, nil)
+	provider := newLocalProviderWithEngine("local", LocalConfig{}, runtime.ProviderCPU, fake)
 
 	_, err := provider.Transcribe(context.Background(), TranscriptionRequest{})
 	if err == nil {
@@ -313,7 +421,7 @@ func TestLocalProviderSanitizesErrors(t *testing.T) {
 
 func TestLocalProviderCloseClosesEngine(t *testing.T) {
 	fake := &fakeSpeechEngine{}
-	provider := newLocalProviderWithEngine("local", LocalConfig{}, runtime.ProviderCPU, fake, nil)
+	provider := newLocalProviderWithEngine("local", LocalConfig{}, runtime.ProviderCPU, fake)
 
 	if err := provider.Close(); err != nil {
 		t.Fatalf("Close returned error: %v", err)

@@ -68,9 +68,6 @@ type TranscriptionRequest struct {
 	TailPaddings            *int
 	EnableTokenTimestamps   *bool
 	EnableSegmentTimestamps *bool
-	CanarySourceLanguage    string
-	CanaryTargetLanguage    string
-	CanaryUsePunctuation    *bool
 	DecodingMethod          string
 	Chunking                string
 	ChunkDurationSec        float64

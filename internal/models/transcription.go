@@ -50,9 +50,6 @@ type ASRParams struct {
 	TailPaddings            *int      `json:"tail_paddings,omitempty"`
 	EnableTokenTimestamps   *bool     `json:"enable_token_timestamps,omitempty"`
 	EnableSegmentTimestamps *bool     `json:"enable_segment_timestamps,omitempty"`
-	CanarySourceLanguage    string    `json:"canary_source_language,omitempty"`
-	CanaryTargetLanguage    string    `json:"canary_target_language,omitempty"`
-	CanaryUsePunctuation    *bool     `json:"canary_use_punctuation,omitempty"`
 	DecodingMethod          string    `json:"decoding_method,omitempty"`
 	ChunkingStrategy        string    `json:"chunking_strategy,omitempty"`
 	ChunkSize               int       `json:"chunk_size,omitempty"`
