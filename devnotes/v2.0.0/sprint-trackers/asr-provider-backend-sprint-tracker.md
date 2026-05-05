@@ -630,30 +630,46 @@ Commit:
 
 ## ASRP-Sprint 14: Execution Planner And Engine-Owned Chunking Contract
 
-Status: planned
+Status: completed
 
-Planned tasks:
+Completed tasks:
 
-- [ ] Add execution planner for profile params, model defaults, provider status, audio metadata, and global limits.
-- [ ] Represent fixed, VAD, provider-owned, and no-chunking modes explicitly.
-- [ ] Represent batching as an execution-plan concern.
-- [ ] Add deterministic sanitized plan summaries.
-- [ ] Add cancellation and progress hooks at chunk/batch boundaries.
+- [x] Added execution planner for profile params, model defaults, provider status, audio metadata, and global limits.
+- [x] Represented fixed, VAD, provider-owned, and no-chunking modes explicitly.
+- [x] Represented batching as an execution-plan concern.
+- [x] Added deterministic sanitized plan summaries.
+- [x] Added cancellation and progress hooks at chunk/batch boundaries.
 
 Acceptance checks:
 
-- [ ] Planner validates combinations before long-running provider work.
-- [ ] Unsupported chunking/batching combinations fail before execution.
-- [ ] Provider-owned chunking remains available for models that require it.
-- [ ] Execution metadata remains path-free.
+- [x] Planner validates combinations before long-running provider work.
+- [x] Unsupported chunking/batching combinations fail before execution.
+- [x] Provider-owned chunking remains available for models that require it.
+- [x] Execution metadata remains path-free.
 
 Verification:
 
-- [ ] Not started.
+- [x] `GOCACHE=/tmp/scriberr-go-cache go test ./internal/transcription/asrcontract ./internal/transcription/orchestrator ./internal/transcription/engineprovider ./internal/transcription/engineprovider/contracttest`
+- [x] `GOCACHE=/tmp/scriberr-go-cache go test ./internal/api -run 'TestASRContractPackageDoesNotDependOnBackendRuntime|TestASRProviderAuthorGuideDocumentsRequiredContract|TestASREngineImportInventory|TestProductionCodeDoesNotUseOldASRParameterIdentifiers|TestASRProvidersDoNotDependOnAPIOrRepositories|TestBackendDependencyDirection|TestListTranscriptionModels|TestProfile|TestTranscriptionExecutions'`
+- [x] `GOCACHE=/tmp/scriberr-go-cache go test ./internal/transcription/engineprovider/remote -run TestExampleProviderServerSatisfiesContract` with localhost binding allowed.
+- [x] `GOCACHE=/tmp/scriberr-go-cache go vet ./internal/transcription/asrcontract ./internal/transcription/orchestrator ./internal/transcription/engineprovider ./internal/transcription/engineprovider/contracttest`
+- [x] `GOCACHE=/tmp/scriberr-go-cache go vet ./internal/transcription/... ./internal/api`
+- [x] `git diff --check -- internal/transcription/asrcontract/types.go internal/transcription/orchestrator/planner.go internal/transcription/orchestrator/planner_test.go internal/transcription/orchestrator/processor.go internal/transcription/orchestrator/processor_test.go`
+- [x] `git diff --check`
+- [x] Documented blocker: `GOCACHE=/tmp/scriberr-go-cache go test ./internal/transcription/...` was blocked in sandbox by `httptest.NewServer` bind denial in `TestExampleProviderServerSatisfiesContract`; the same test passed with localhost binding allowed.
+
+Artifacts:
+
+- `internal/transcription/asrcontract/types.go`
+- `internal/transcription/orchestrator/planner.go`
+- `internal/transcription/orchestrator/planner_test.go`
+- `internal/transcription/orchestrator/processor.go`
+- `internal/transcription/orchestrator/processor_test.go`
 
 Commit:
 
-- Pending.
+- `3b70fa81` (`ASRP Sprint 14 add execution planner`)
+- `f9a5cd49` (`ASRP Sprint 14 wire execution planner`)
 
 ## ASRP-Sprint 15: Local Sherpa Model Registry And Runtime Defaults
 
