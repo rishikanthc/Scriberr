@@ -458,6 +458,24 @@ func TestLocalProviderModelDescriptorsDistinguishWhisperAndParakeet(t *testing.T
 	requireParameter(t, parakeet.ParameterSchema, "sherpa.nemo_transducer.decoder")
 	requireParameter(t, parakeet.ParameterSchema, "sherpa.nemo_transducer.joiner")
 	requireParameter(t, parakeet.ParameterSchema, "sherpa.tokens")
+	requireReloadParameter(t, parakeet.ParameterSchema, "sherpa.nemo_transducer.encoder")
+	requireReloadParameter(t, parakeet.ParameterSchema, "sherpa.nemo_transducer.decoder")
+	requireReloadParameter(t, parakeet.ParameterSchema, "sherpa.nemo_transducer.joiner")
+	requireReloadParameter(t, parakeet.ParameterSchema, "sherpa.tokens")
+	requireReloadParameter(t, parakeet.ParameterSchema, "sherpa.model_type")
+	requireReloadParameter(t, parakeet.ParameterSchema, "sherpa.runtime.provider")
+	requireReloadParameter(t, parakeet.ParameterSchema, asrcontract.CommonParameterRuntimeNumThreads)
+	requireParameter(t, parakeet.ParameterSchema, "sherpa.offline.sample_rate")
+	requireParameter(t, parakeet.ParameterSchema, "sherpa.offline.feature_dim")
+	requireParameter(t, parakeet.ParameterSchema, "sherpa.runtime.debug")
+	requireParameter(t, parakeet.ParameterSchema, "sherpa.decoding.max_active_paths")
+	requireParameter(t, parakeet.ParameterSchema, "sherpa.decoding.hotwords_file")
+	requireParameter(t, parakeet.ParameterSchema, "sherpa.decoding.hotwords_score")
+	requireParameter(t, parakeet.ParameterSchema, "sherpa.decoding.blank_penalty")
+	requireParameter(t, parakeet.ParameterSchema, "sherpa.decoding.rule_fsts")
+	requireParameter(t, parakeet.ParameterSchema, "sherpa.decoding.rule_fars")
+	requireParameter(t, parakeet.ParameterSchema, "sherpa.lm.model")
+	requireParameter(t, parakeet.ParameterSchema, "sherpa.lm.scale")
 
 	if got := parakeet.RecommendedDefaults[asrcontract.CommonParameterChunkingMode]; got != "fixed" {
 		t.Fatalf("parakeet chunking default = %#v, want fixed", got)
@@ -470,6 +488,13 @@ func TestLocalProviderModelDescriptorsDistinguishWhisperAndParakeet(t *testing.T
 	}
 	if parakeet.Chunking == nil || parakeet.Chunking.RecommendedChunkSeconds == nil || *parakeet.Chunking.RecommendedChunkSeconds != 30 {
 		t.Fatalf("parakeet chunking metadata missing fixed 30s recommendation: %#v", parakeet.Chunking)
+	}
+	requireArtifactRequirement(t, parakeet, "encoder")
+	requireArtifactRequirement(t, parakeet, "decoder")
+	requireArtifactRequirement(t, parakeet, "joiner")
+	requireArtifactRequirement(t, parakeet, "tokens")
+	if parakeet.Extensions["model_type"] != "nemo_transducer" {
+		t.Fatalf("parakeet model_type extension = %#v", parakeet.Extensions["model_type"])
 	}
 
 	data, err := json.Marshal(models)
@@ -563,6 +588,37 @@ func requireParameter(t *testing.T, schema asrcontract.ParameterSchema, key stri
 	if !hasParameter(schema, key) {
 		t.Fatalf("parameter %q not found in %#v", key, schema)
 	}
+}
+
+func requireReloadParameter(t *testing.T, schema asrcontract.ParameterSchema, key string) {
+	t.Helper()
+	for _, parameter := range schema {
+		if parameter.Key == key {
+			if !parameter.RequiresReload {
+				t.Fatalf("parameter %q should require reload: %#v", key, parameter)
+			}
+			return
+		}
+	}
+	t.Fatalf("parameter %q not found in %#v", key, schema)
+}
+
+func requireArtifactRequirement(t *testing.T, model asrcontract.ModelCard, requirement string) {
+	t.Helper()
+	raw, ok := model.Extensions["artifact_requirements"]
+	if !ok {
+		t.Fatalf("model %q missing artifact requirements", model.ID)
+	}
+	items, ok := raw.([]string)
+	if !ok {
+		t.Fatalf("artifact requirements should be []string: %#v", raw)
+	}
+	for _, item := range items {
+		if item == requirement {
+			return
+		}
+	}
+	t.Fatalf("artifact requirement %q not found in %#v", requirement, items)
 }
 
 func hasParameter(schema asrcontract.ParameterSchema, key string) bool {
