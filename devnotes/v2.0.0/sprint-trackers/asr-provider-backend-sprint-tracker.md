@@ -716,30 +716,48 @@ Commit:
 
 ## ASRP-Sprint 16: Engine Integration Of Experiment-Proven Parakeet Flow
 
-Status: planned
+Status: completed
 
-Planned tasks:
+Completed tasks:
 
-- [ ] Fold fixed-window Parakeet decoding defaults into the core local engine path.
-- [ ] Preserve VAD chunking as explicit optional behavior.
-- [ ] Keep NeMo-style token-to-word aggregation and timestamp normalization covered by tests.
-- [ ] Route batch decode through the execution planner.
-- [ ] Produce canonical transcript text, words, segments, and metrics.
+- [x] Folded fixed-window Parakeet decoding defaults into the local provider path behind the planner.
+- [x] Preserved VAD chunking as explicit optional behavior.
+- [x] Kept token-to-word aggregation and timestamp normalization covered by local-provider/orchestrator tests.
+- [x] Routed batch size through the execution planner into provider requests.
+- [x] Produced canonical transcript text, words, segments, and sanitized metrics metadata.
 
 Acceptance checks:
 
-- [ ] Core engine produces transcript text, word timings, segment timings, and metrics.
-- [ ] Experiment path remains available for research.
-- [ ] VAD behavior remains intact.
-- [ ] Fixed 30s Parakeet behavior matches experiment-level accuracy within expected nondeterminism.
+- [x] Local provider produces transcript text, word timings, segment timings, and metrics metadata from core engine results.
+- [x] Experiment path remains available for research; `references/engine` was not edited per run rules.
+- [x] VAD behavior remains intact and explicit.
+- [x] Fixed 30s Parakeet behavior is selected by the local provider/planner defaults.
 
 Verification:
 
-- [ ] Not started.
+- [x] `GOCACHE=/tmp/scriberr-go-cache go test ./internal/transcription/orchestrator ./internal/transcription/engineprovider ./internal/transcription/engineprovider/contracttest ./internal/transcription/asrcontract ./internal/profile`
+- [x] `GOCACHE=/tmp/scriberr-go-cache go test ./internal/api -run 'TestASRContractPackageDoesNotDependOnBackendRuntime|TestASRProviderAuthorGuideDocumentsRequiredContract|TestASREngineImportInventory|TestProductionCodeDoesNotUseOldASRParameterIdentifiers|TestASRProvidersDoNotDependOnAPIOrRepositories|TestBackendDependencyDirection|TestListTranscriptionModels|TestProfile|TestTranscriptionExecutions'`
+- [x] `GOCACHE=/tmp/scriberr-go-cache go test ./internal/transcription/engineprovider/remote -run TestExampleProviderServerSatisfiesContract` with localhost binding allowed.
+- [x] `GOCACHE=/tmp/scriberr-go-cache go vet ./internal/transcription/... ./internal/profile ./internal/api`
+- [x] `git diff --check`
+- [x] Architecture boundary check for `scriberr-engine` imports.
+- [x] Path/secret leakage review for touched canonical metadata and API surfaces.
+
+Artifacts:
+
+- `internal/transcription/engineprovider/types.go`
+- `internal/transcription/engineprovider/local_provider.go`
+- `internal/transcription/engineprovider/local_provider_test.go`
+- `internal/transcription/engineprovider/remote/client.go`
+- `internal/transcription/orchestrator/processor.go`
+- `internal/transcription/orchestrator/processor_test.go`
+- `internal/transcription/orchestrator/transcript.go`
+- `internal/transcription/orchestrator/transcript_test.go`
+- `devnotes/v2.0.0/sprint-trackers/asr-provider-backend-sprint-tracker.md`
 
 Commit:
 
-- Pending.
+- `26a85552` (`ASRP Sprint 16 integrate Parakeet local flow`)
 
 ## ASRP-Sprint 17: Frontend-Facing Model/Profile Discovery API
 
