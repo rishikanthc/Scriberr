@@ -120,7 +120,6 @@ const (
 	CommonParameterOutputTimestamps       = "output.timestamps"
 	CommonParameterOutputWordTimestamps   = "output.word_timestamps"
 	CommonParameterOutputTokenTimestamps  = "output.token_timestamps"
-	CommonParameterBatchSize              = "runtime.batch_size"
 	CommonParameterBatchingBatchSize      = "batching.batch_size"
 )
 
@@ -476,7 +475,6 @@ func isCommonParameterKey(key string) bool {
 		CommonParameterOutputTimestamps,
 		CommonParameterOutputWordTimestamps,
 		CommonParameterOutputTokenTimestamps,
-		CommonParameterBatchSize,
 		CommonParameterBatchingBatchSize:
 		return true
 	default:

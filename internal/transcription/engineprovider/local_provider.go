@@ -114,7 +114,7 @@ func (p *LocalProvider) Models(ctx context.Context) ([]asrcontract.ModelCard, er
 	}
 	out := make([]asrcontract.ModelCard, 0, len(models))
 	for _, model := range models {
-		out = append(out, modelCardFromEngine(model, p.id))
+		out = append(out, modelCardFromEngine(model, p.id, p.cfg, p.provider))
 	}
 	return out, nil
 }
@@ -366,7 +366,7 @@ func providerInfoFromEngine(info *speechengine.ProviderInfo, providerID string) 
 	}
 }
 
-func modelCardFromEngine(model speechengine.ModelCard, providerID string) asrcontract.ModelCard {
+func modelCardFromEngine(model speechengine.ModelCard, providerID string, cfg LocalConfig, provider runtime.Provider) asrcontract.ModelCard {
 	capabilities := capabilitiesFromEngine(model.Capabilities)
 	return asrcontract.ModelCard{
 		ID:                   model.ID,
@@ -382,9 +382,10 @@ func modelCardFromEngine(model speechengine.ModelCard, providerID string) asrcon
 		LanguageSupport:      languageSupportForModel(model),
 		Capabilities:         capabilities,
 		ResourceRequirements: resourceRequirementsFromEngine(model.ResourceRequirements),
-		Chunking:             chunkingCapabilitiesForModel(capabilities),
-		ParameterSchema:      parameterSchemaForModel(model, capabilities),
-		RecommendedDefaults:  recommendedDefaultsForModel(model, capabilities),
+		Chunking:             chunkingCapabilitiesForModel(model, capabilities),
+		ParameterSchema:      parameterSchemaForModel(model, capabilities, cfg, provider),
+		RecommendedDefaults:  recommendedDefaultsForModel(model, capabilities, cfg, provider),
+		Extensions:           modelDescriptorExtensions(model, capabilities),
 	}
 }
 
@@ -399,9 +400,21 @@ func languageSupportForModel(model speechengine.ModelCard) *asrcontract.Language
 	return &asrcontract.LanguageSupport{Languages: append([]string(nil), model.Languages...), Mode: mode}
 }
 
-func chunkingCapabilitiesForModel(capabilities asrcontract.Capabilities) *asrcontract.ChunkingCapabilities {
+func chunkingCapabilitiesForModel(model speechengine.ModelCard, capabilities asrcontract.Capabilities) *asrcontract.ChunkingCapabilities {
 	if !capabilities.Transcription {
 		return nil
+	}
+	if isParakeetFamily(model.Family) {
+		return &asrcontract.ChunkingCapabilities{
+			SupportsEngineChunking:   true,
+			SupportsProviderChunking: false,
+			PreferredMode:            "fixed",
+			RecommendedChunkSeconds:  float64Ptr(30),
+			MaxChunkSeconds:          float64Ptr(120),
+			SupportsBatching:         true,
+			RecommendedBatchSize:     intPtr(1),
+			MaxBatchSize:             intPtr(1),
+		}
 	}
 	return &asrcontract.ChunkingCapabilities{
 		SupportsEngineChunking:   true,
@@ -415,15 +428,49 @@ func chunkingCapabilitiesForModel(capabilities asrcontract.Capabilities) *asrcon
 	}
 }
 
-func parameterSchemaForModel(model speechengine.ModelCard, capabilities asrcontract.Capabilities) asrcontract.ParameterSchema {
+func parameterSchemaForModel(model speechengine.ModelCard, capabilities asrcontract.Capabilities, cfg LocalConfig, provider runtime.Provider) asrcontract.ParameterSchema {
 	var schema asrcontract.ParameterSchema
 	if capabilities.Transcription {
 		schema = append(schema,
 			asrcontract.ParameterDescriptor{
+				Key:            "sherpa.offline.sample_rate",
+				Label:          "Sample rate",
+				Type:           asrcontract.ParameterTypeInteger,
+				Default:        float64(16000),
+				Min:            float64Ptr(8000),
+				Max:            float64Ptr(48000),
+				Step:           float64Ptr(1000),
+				Scope:          asrcontract.ParameterScopeModel,
+				Advanced:       true,
+				RequiresReload: true,
+			},
+			asrcontract.ParameterDescriptor{
+				Key:            "sherpa.offline.feature_dim",
+				Label:          "Feature dim",
+				Type:           asrcontract.ParameterTypeInteger,
+				Default:        float64(80),
+				Min:            float64Ptr(40),
+				Max:            float64Ptr(128),
+				Step:           float64Ptr(1),
+				Scope:          asrcontract.ParameterScopeModel,
+				Advanced:       true,
+				RequiresReload: true,
+			},
+			asrcontract.ParameterDescriptor{
+				Key:            "sherpa.runtime.provider",
+				Label:          "Provider",
+				Type:           asrcontract.ParameterTypeEnum,
+				Default:        string(provider),
+				Options:        sherpaProviderOptions(),
+				Scope:          asrcontract.ParameterScopeRuntime,
+				Advanced:       true,
+				RequiresReload: true,
+			},
+			asrcontract.ParameterDescriptor{
 				Key:            asrcontract.CommonParameterRuntimeNumThreads,
 				Label:          "Threads",
 				Type:           asrcontract.ParameterTypeInteger,
-				Default:        float64(0),
+				Default:        float64(defaultThreadsForModel(model, cfg)),
 				Min:            float64Ptr(0),
 				Max:            float64Ptr(64),
 				Step:           float64Ptr(1),
@@ -447,12 +494,116 @@ func parameterSchemaForModel(model speechengine.ModelCard, capabilities asrcontr
 				Key:     asrcontract.CommonParameterChunkingMode,
 				Label:   "Chunking mode",
 				Type:    asrcontract.ParameterTypeEnum,
-				Default: "vad",
+				Default: defaultChunkingModeForModel(model),
 				Options: []asrcontract.ParameterOption{
 					{Value: "fixed", Label: "Fixed"},
 					{Value: "vad", Label: "VAD"},
+					{Value: "provider", Label: "Provider"},
+					{Value: "none", Label: "None"},
 				},
 				Scope: asrcontract.ParameterScopeChunking,
+			},
+			asrcontract.ParameterDescriptor{
+				Key:     asrcontract.CommonParameterChunkingChunkSeconds,
+				Label:   "Chunk seconds",
+				Type:    asrcontract.ParameterTypeNumber,
+				Default: defaultChunkSecondsForModel(model),
+				Min:     float64Ptr(1),
+				Max:     float64Ptr(120),
+				Step:    float64Ptr(1),
+				Scope:   asrcontract.ParameterScopeChunking,
+			},
+			asrcontract.ParameterDescriptor{
+				Key:      asrcontract.CommonParameterBatchingBatchSize,
+				Label:    "Batch size",
+				Type:     asrcontract.ParameterTypeInteger,
+				Default:  float64(defaultBatchSizeForModel(model)),
+				Min:      float64Ptr(1),
+				Max:      float64Ptr(float64(defaultBatchSizeForModel(model))),
+				Step:     float64Ptr(1),
+				Scope:    asrcontract.ParameterScopeRuntime,
+				Advanced: true,
+			},
+			asrcontract.ParameterDescriptor{
+				Key:            "sherpa.runtime.debug",
+				Label:          "Debug",
+				Type:           asrcontract.ParameterTypeBoolean,
+				Default:        false,
+				Scope:          asrcontract.ParameterScopeRuntime,
+				Advanced:       true,
+				RequiresReload: true,
+			},
+			asrcontract.ParameterDescriptor{
+				Key:      "sherpa.decoding.max_active_paths",
+				Label:    "Max active paths",
+				Type:     asrcontract.ParameterTypeInteger,
+				Default:  float64(4),
+				Min:      float64Ptr(1),
+				Max:      float64Ptr(32),
+				Step:     float64Ptr(1),
+				Scope:    asrcontract.ParameterScopeDecoding,
+				Advanced: true,
+			},
+			asrcontract.ParameterDescriptor{
+				Key:      "sherpa.decoding.hotwords_file",
+				Label:    "Hotwords file",
+				Type:     asrcontract.ParameterTypePathRef,
+				Scope:    asrcontract.ParameterScopeDecoding,
+				Advanced: true,
+			},
+			asrcontract.ParameterDescriptor{
+				Key:      "sherpa.decoding.hotwords_score",
+				Label:    "Hotwords score",
+				Type:     asrcontract.ParameterTypeNumber,
+				Default:  float64(1.5),
+				Min:      float64Ptr(0),
+				Max:      float64Ptr(20),
+				Step:     float64Ptr(0.1),
+				Scope:    asrcontract.ParameterScopeDecoding,
+				Advanced: true,
+			},
+			asrcontract.ParameterDescriptor{
+				Key:      "sherpa.decoding.blank_penalty",
+				Label:    "Blank penalty",
+				Type:     asrcontract.ParameterTypeNumber,
+				Default:  float64(0),
+				Min:      float64Ptr(0),
+				Max:      float64Ptr(10),
+				Step:     float64Ptr(0.1),
+				Scope:    asrcontract.ParameterScopeDecoding,
+				Advanced: true,
+			},
+			asrcontract.ParameterDescriptor{
+				Key:      "sherpa.decoding.rule_fsts",
+				Label:    "Rule FSTs",
+				Type:     asrcontract.ParameterTypePathRef,
+				Scope:    asrcontract.ParameterScopePostprocess,
+				Advanced: true,
+			},
+			asrcontract.ParameterDescriptor{
+				Key:      "sherpa.decoding.rule_fars",
+				Label:    "Rule FARs",
+				Type:     asrcontract.ParameterTypePathRef,
+				Scope:    asrcontract.ParameterScopePostprocess,
+				Advanced: true,
+			},
+			asrcontract.ParameterDescriptor{
+				Key:      "sherpa.lm.model",
+				Label:    "LM model",
+				Type:     asrcontract.ParameterTypePathRef,
+				Scope:    asrcontract.ParameterScopeDecoding,
+				Advanced: true,
+			},
+			asrcontract.ParameterDescriptor{
+				Key:      "sherpa.lm.scale",
+				Label:    "LM scale",
+				Type:     asrcontract.ParameterTypeNumber,
+				Default:  float64(0),
+				Min:      float64Ptr(0),
+				Max:      float64Ptr(5),
+				Step:     float64Ptr(0.1),
+				Scope:    asrcontract.ParameterScopeDecoding,
+				Advanced: true,
 			},
 			asrcontract.ParameterDescriptor{
 				Key:      asrcontract.CommonParameterOutputWordTimestamps,
@@ -465,17 +616,100 @@ func parameterSchemaForModel(model speechengine.ModelCard, capabilities asrcontr
 		)
 	}
 	if capabilities.Transcription && strings.Contains(strings.ToLower(model.Family), "whisper") {
-		schema = append(schema, asrcontract.ParameterDescriptor{
-			Key:      "sherpa.whisper.tail_paddings",
-			Label:    "Tail paddings",
-			Type:     asrcontract.ParameterTypeInteger,
-			Default:  float64(-1),
-			Min:      float64Ptr(-1),
-			Max:      float64Ptr(16),
-			Step:     float64Ptr(1),
-			Scope:    asrcontract.ParameterScopeDecoding,
-			Advanced: true,
-		})
+		schema = append(schema,
+			asrcontract.ParameterDescriptor{
+				Key:      "sherpa.whisper.language",
+				Label:    "Language",
+				Type:     asrcontract.ParameterTypeString,
+				Default:  "auto",
+				Scope:    asrcontract.ParameterScopeDecoding,
+				Advanced: false,
+			},
+			asrcontract.ParameterDescriptor{
+				Key:     "sherpa.whisper.task",
+				Label:   "Task",
+				Type:    asrcontract.ParameterTypeEnum,
+				Default: "transcribe",
+				Options: []asrcontract.ParameterOption{
+					{Value: "transcribe", Label: "Transcribe"},
+					{Value: "translate", Label: "Translate"},
+				},
+				Scope: asrcontract.ParameterScopeDecoding,
+			},
+			asrcontract.ParameterDescriptor{
+				Key:      "sherpa.whisper.tail_paddings",
+				Label:    "Tail paddings",
+				Type:     asrcontract.ParameterTypeInteger,
+				Default:  float64(-1),
+				Min:      float64Ptr(-1),
+				Max:      float64Ptr(16),
+				Step:     float64Ptr(1),
+				Scope:    asrcontract.ParameterScopeDecoding,
+				Advanced: true,
+			},
+			asrcontract.ParameterDescriptor{
+				Key:      asrcontract.CommonParameterOutputTokenTimestamps,
+				Label:    "Token timestamps",
+				Type:     asrcontract.ParameterTypeBoolean,
+				Default:  false,
+				Scope:    asrcontract.ParameterScopeOutput,
+				Advanced: true,
+			},
+			asrcontract.ParameterDescriptor{
+				Key:      asrcontract.CommonParameterOutputTimestamps,
+				Label:    "Segment timestamps",
+				Type:     asrcontract.ParameterTypeBoolean,
+				Default:  true,
+				Scope:    asrcontract.ParameterScopeOutput,
+				Advanced: true,
+			},
+		)
+	}
+	if capabilities.Transcription && isParakeetFamily(model.Family) {
+		schema = append(schema,
+			asrcontract.ParameterDescriptor{
+				Key:            "sherpa.nemo_transducer.encoder",
+				Label:          "Encoder artifact",
+				Type:           asrcontract.ParameterTypePathRef,
+				Scope:          asrcontract.ParameterScopeModel,
+				Advanced:       true,
+				RequiresReload: true,
+			},
+			asrcontract.ParameterDescriptor{
+				Key:            "sherpa.nemo_transducer.decoder",
+				Label:          "Decoder artifact",
+				Type:           asrcontract.ParameterTypePathRef,
+				Scope:          asrcontract.ParameterScopeModel,
+				Advanced:       true,
+				RequiresReload: true,
+			},
+			asrcontract.ParameterDescriptor{
+				Key:            "sherpa.nemo_transducer.joiner",
+				Label:          "Joiner artifact",
+				Type:           asrcontract.ParameterTypePathRef,
+				Scope:          asrcontract.ParameterScopeModel,
+				Advanced:       true,
+				RequiresReload: true,
+			},
+			asrcontract.ParameterDescriptor{
+				Key:            "sherpa.tokens",
+				Label:          "Tokens artifact",
+				Type:           asrcontract.ParameterTypePathRef,
+				Scope:          asrcontract.ParameterScopeModel,
+				Advanced:       true,
+				RequiresReload: true,
+			},
+			asrcontract.ParameterDescriptor{
+				Key:            "sherpa.model_type",
+				Label:          "Model type",
+				Type:           asrcontract.ParameterTypeEnum,
+				Default:        "nemo_transducer",
+				Options:        []asrcontract.ParameterOption{{Value: "nemo_transducer", Label: "NeMo transducer"}},
+				Scope:          asrcontract.ParameterScopeModel,
+				Advanced:       true,
+				RequiresReload: true,
+			},
+		)
 	}
 	if capabilities.Diarization {
 		schema = append(schema,
@@ -505,16 +739,28 @@ func parameterSchemaForModel(model speechengine.ModelCard, capabilities asrcontr
 	return schema
 }
 
-func recommendedDefaultsForModel(model speechengine.ModelCard, capabilities asrcontract.Capabilities) map[string]any {
+func recommendedDefaultsForModel(model speechengine.ModelCard, capabilities asrcontract.Capabilities, cfg LocalConfig, provider runtime.Provider) map[string]any {
 	defaults := map[string]any{}
 	if capabilities.Transcription {
-		defaults[asrcontract.CommonParameterRuntimeNumThreads] = 0
+		defaults["sherpa.offline.sample_rate"] = 16000
+		defaults["sherpa.offline.feature_dim"] = 80
+		defaults["sherpa.runtime.provider"] = string(provider)
+		defaults[asrcontract.CommonParameterRuntimeNumThreads] = defaultThreadsForModel(model, cfg)
 		defaults[asrcontract.CommonParameterDecodingMethod] = "greedy_search"
-		defaults[asrcontract.CommonParameterChunkingMode] = "vad"
+		defaults[asrcontract.CommonParameterChunkingMode] = defaultChunkingModeForModel(model)
+		defaults[asrcontract.CommonParameterChunkingChunkSeconds] = defaultChunkSecondsForModel(model)
+		defaults[asrcontract.CommonParameterBatchingBatchSize] = defaultBatchSizeForModel(model)
 		defaults[asrcontract.CommonParameterOutputWordTimestamps] = true
 	}
 	if capabilities.Transcription && strings.Contains(strings.ToLower(model.Family), "whisper") {
+		defaults["sherpa.whisper.language"] = "auto"
+		defaults["sherpa.whisper.task"] = "transcribe"
 		defaults["sherpa.whisper.tail_paddings"] = -1
+		defaults[asrcontract.CommonParameterOutputTokenTimestamps] = false
+		defaults[asrcontract.CommonParameterOutputTimestamps] = true
+	}
+	if capabilities.Transcription && isParakeetFamily(model.Family) {
+		defaults["sherpa.model_type"] = "nemo_transducer"
 	}
 	if capabilities.Diarization {
 		defaults["diarization.num_speakers"] = 0
@@ -524,6 +770,58 @@ func recommendedDefaultsForModel(model speechengine.ModelCard, capabilities asrc
 		return nil
 	}
 	return defaults
+}
+
+func sherpaProviderOptions() []asrcontract.ParameterOption {
+	return []asrcontract.ParameterOption{
+		{Value: string(runtime.ProviderAuto), Label: "Auto"},
+		{Value: string(runtime.ProviderCPU), Label: "CPU"},
+		{Value: string(runtime.ProviderCUDA), Label: "CUDA"},
+	}
+}
+
+func defaultThreadsForModel(model speechengine.ModelCard, cfg LocalConfig) int {
+	if isParakeetFamily(model.Family) {
+		return 4
+	}
+	if cfg.Threads > 0 {
+		return cfg.Threads
+	}
+	return 0
+}
+
+func defaultChunkingModeForModel(model speechengine.ModelCard) string {
+	if isParakeetFamily(model.Family) {
+		return "fixed"
+	}
+	return "vad"
+}
+
+func defaultChunkSecondsForModel(model speechengine.ModelCard) float64 {
+	if isParakeetFamily(model.Family) {
+		return 30
+	}
+	return 30
+}
+
+func defaultBatchSizeForModel(model speechengine.ModelCard) int {
+	return 1
+}
+
+func modelDescriptorExtensions(model speechengine.ModelCard, capabilities asrcontract.Capabilities) map[string]any {
+	if !capabilities.Transcription || !isParakeetFamily(model.Family) {
+		return nil
+	}
+	return map[string]any{
+		"artifact_requirements": []string{"encoder", "decoder", "joiner", "tokens"},
+		"model_type":            "nemo_transducer",
+		"default_profile":       "measured_cpu_fixed_30s_threads_4_batch_1",
+	}
+}
+
+func isParakeetFamily(family string) bool {
+	normalized := strings.ToLower(strings.TrimSpace(family))
+	return normalized == "nemo_transducer" || strings.Contains(normalized, "parakeet")
 }
 
 func providerStatusFromEngine(status *speechengine.ProviderStatus) *asrcontract.ProviderStatus {

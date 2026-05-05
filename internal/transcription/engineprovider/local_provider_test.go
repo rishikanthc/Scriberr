@@ -2,6 +2,7 @@ package engineprovider
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"strings"
 	"testing"
@@ -400,6 +401,133 @@ func TestLocalProviderModelsStatusAndLifecycle(t *testing.T) {
 	}
 }
 
+func TestLocalProviderModelDescriptorsDistinguishWhisperAndParakeet(t *testing.T) {
+	fake := &fakeSpeechEngine{
+		models: []speechengine.ModelCard{
+			{
+				ID:          "whisper-base",
+				DisplayName: "Whisper Base",
+				Provider:    "local",
+				Family:      "whisper",
+				Version:     "base",
+				Installed:   true,
+				Tasks:       []speechengine.Task{speechengine.TaskTranscribe, speechengine.Task("translate")},
+				Languages:   []string{"auto", "en", "es"},
+				Capabilities: speechengine.Capabilities{
+					Transcription:     true,
+					WordTimestamps:    true,
+					SegmentTimestamps: true,
+					TokenTimestamps:   true,
+					LanguageDetection: true,
+				},
+			},
+			{
+				ID:          "parakeet-v3",
+				DisplayName: "Parakeet V3",
+				Provider:    "local",
+				Family:      "nemo_transducer",
+				Version:     "v3",
+				Installed:   true,
+				Tasks:       []speechengine.Task{speechengine.TaskTranscribe},
+				Languages:   []string{"en"},
+				Capabilities: speechengine.Capabilities{
+					Transcription:     true,
+					WordTimestamps:    true,
+					SegmentTimestamps: true,
+				},
+			},
+		},
+	}
+	provider := newLocalProviderWithEngine("local", LocalConfig{Provider: "cpu", Threads: 4, CacheDir: "/Users/zade/private/cache"}, runtime.ProviderCPU, fake)
+
+	models, err := provider.Models(context.Background())
+	if err != nil {
+		t.Fatalf("Models returned error: %v", err)
+	}
+	whisper := modelByID(t, models, "whisper-base")
+	parakeet := modelByID(t, models, "parakeet-v3")
+
+	requireParameter(t, whisper.ParameterSchema, "sherpa.whisper.language")
+	requireParameter(t, whisper.ParameterSchema, "sherpa.whisper.task")
+	requireParameter(t, whisper.ParameterSchema, "sherpa.whisper.tail_paddings")
+	requireParameter(t, whisper.ParameterSchema, asrcontract.CommonParameterOutputTokenTimestamps)
+	if hasParameter(parakeet.ParameterSchema, "sherpa.whisper.language") {
+		t.Fatalf("parakeet descriptor should not expose whisper language parameter: %#v", parakeet.ParameterSchema)
+	}
+	requireParameter(t, parakeet.ParameterSchema, "sherpa.nemo_transducer.encoder")
+	requireParameter(t, parakeet.ParameterSchema, "sherpa.nemo_transducer.decoder")
+	requireParameter(t, parakeet.ParameterSchema, "sherpa.nemo_transducer.joiner")
+	requireParameter(t, parakeet.ParameterSchema, "sherpa.tokens")
+
+	if got := parakeet.RecommendedDefaults[asrcontract.CommonParameterChunkingMode]; got != "fixed" {
+		t.Fatalf("parakeet chunking default = %#v, want fixed", got)
+	}
+	if got := parakeet.RecommendedDefaults[asrcontract.CommonParameterRuntimeNumThreads]; got != 4 {
+		t.Fatalf("parakeet threads default = %#v, want 4", got)
+	}
+	if got := parakeet.RecommendedDefaults[asrcontract.CommonParameterBatchingBatchSize]; got != 1 {
+		t.Fatalf("parakeet batch default = %#v, want 1", got)
+	}
+	if parakeet.Chunking == nil || parakeet.Chunking.RecommendedChunkSeconds == nil || *parakeet.Chunking.RecommendedChunkSeconds != 30 {
+		t.Fatalf("parakeet chunking metadata missing fixed 30s recommendation: %#v", parakeet.Chunking)
+	}
+
+	data, err := json.Marshal(models)
+	if err != nil {
+		t.Fatalf("marshal model descriptors: %v", err)
+	}
+	text := string(data)
+	if strings.Contains(text, "/Users/") || strings.Contains(text, "private/cache") || strings.Contains(text, "CacheDir") {
+		t.Fatalf("model descriptors leaked host/cache details: %s", text)
+	}
+}
+
+func TestLocalProviderModelDescriptorParameterSchemasValidate(t *testing.T) {
+	fake := &fakeSpeechEngine{
+		models: []speechengine.ModelCard{
+			{
+				ID:     "whisper-base",
+				Family: "whisper",
+				Capabilities: speechengine.Capabilities{
+					Transcription: true,
+				},
+			},
+			{
+				ID:     "parakeet-v3",
+				Family: "nemo_transducer",
+				Capabilities: speechengine.Capabilities{
+					Transcription: true,
+				},
+			},
+		},
+	}
+	provider := newLocalProviderWithEngine("local", LocalConfig{Provider: "cpu", Threads: 4}, runtime.ProviderCPU, fake)
+
+	models, err := provider.Models(context.Background())
+	if err != nil {
+		t.Fatalf("Models returned error: %v", err)
+	}
+	for _, model := range models {
+		if err := asrcontract.ValidateModelCard(model); err != nil {
+			t.Fatalf("model %q descriptor did not validate: %v", model.ID, err)
+		}
+	}
+
+	parakeet := modelByID(t, models, "parakeet-v3")
+	_, err = asrcontract.ValidateParameterValues(parakeet.ParameterSchema, map[string]any{
+		asrcontract.CommonParameterChunkingMode:         "fixed",
+		asrcontract.CommonParameterChunkingChunkSeconds: float64(30),
+		asrcontract.CommonParameterBatchingBatchSize:    float64(1),
+	})
+	if err != nil {
+		t.Fatalf("parakeet measured defaults should validate: %v", err)
+	}
+	_, err = asrcontract.ValidateParameterValues(parakeet.ParameterSchema, map[string]any{"sherpa.whisper.language": "en"})
+	if err == nil {
+		t.Fatal("parakeet schema accepted whisper-specific parameter")
+	}
+}
+
 func TestLocalProviderSanitizesErrors(t *testing.T) {
 	fake := &fakeSpeechEngine{
 		err: errors.New("load /Users/zade/Code/asr/Scriberr/data/uploads/audio.wav failed token=secret"),
@@ -417,6 +545,33 @@ func TestLocalProviderSanitizesErrors(t *testing.T) {
 	if !strings.Contains(msg, "[redacted-path]") || !strings.Contains(msg, "token=[redacted]") {
 		t.Fatalf("error missing sanitized markers: %q", msg)
 	}
+}
+
+func modelByID(t *testing.T, models []asrcontract.ModelCard, id string) asrcontract.ModelCard {
+	t.Helper()
+	for _, model := range models {
+		if model.ID == id {
+			return model
+		}
+	}
+	t.Fatalf("model %q not found in %#v", id, models)
+	return asrcontract.ModelCard{}
+}
+
+func requireParameter(t *testing.T, schema asrcontract.ParameterSchema, key string) {
+	t.Helper()
+	if !hasParameter(schema, key) {
+		t.Fatalf("parameter %q not found in %#v", key, schema)
+	}
+}
+
+func hasParameter(schema asrcontract.ParameterSchema, key string) bool {
+	for _, parameter := range schema {
+		if parameter.Key == key {
+			return true
+		}
+	}
+	return false
 }
 
 func TestLocalProviderCloseClosesEngine(t *testing.T) {

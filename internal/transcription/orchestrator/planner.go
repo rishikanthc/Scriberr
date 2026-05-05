@@ -240,9 +240,6 @@ func planChunking(params models.ASRParams, options map[string]any, card asrcontr
 
 func planBatching(options map[string]any, card asrcontract.ModelCard, hasCard bool, limits PlanLimits) (BatchingPlan, error) {
 	batchSize := intOption(options, asrcontract.CommonParameterBatchingBatchSize, 0, intDefault(card.RecommendedDefaults, asrcontract.CommonParameterBatchingBatchSize))
-	if batchSize <= 0 {
-		batchSize = intOption(options, asrcontract.CommonParameterBatchSize, 0, intDefault(card.RecommendedDefaults, asrcontract.CommonParameterBatchSize))
-	}
 	if batchSize <= 0 && hasCard && card.Chunking != nil && card.Chunking.RecommendedBatchSize != nil {
 		batchSize = *card.Chunking.RecommendedBatchSize
 	}
