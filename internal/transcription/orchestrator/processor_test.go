@@ -24,6 +24,7 @@ import (
 type fakeProvider struct {
 	id         string
 	caps       []engineprovider.ModelCapability
+	modelCards []asrcontract.ModelCard
 	transcribe *engineprovider.TranscriptionResult
 	diarize    *engineprovider.DiarizationResult
 	speakerID  *asrcontract.SpeakerIDResult
@@ -40,7 +41,9 @@ func (p *fakeProvider) ID() string { return p.id }
 func (p *fakeProvider) Inspect(context.Context) (*asrcontract.ProviderInfo, error) {
 	return &asrcontract.ProviderInfo{ContractVersion: asrcontract.ContractVersionV1}, nil
 }
-func (p *fakeProvider) Models(context.Context) ([]asrcontract.ModelCard, error) { return nil, nil }
+func (p *fakeProvider) Models(context.Context) ([]asrcontract.ModelCard, error) {
+	return p.modelCards, nil
+}
 func (p *fakeProvider) Status(context.Context) (*asrcontract.ProviderStatus, error) {
 	return &asrcontract.ProviderStatus{State: asrcontract.ProviderStateIdle}, nil
 }
@@ -213,8 +216,63 @@ func TestProcessorCreatesExecutionAndReturnsCanonicalTranscript(t *testing.T) {
 	assert.NotContains(t, executions[0].ConfigJSON, audioPath)
 	assert.Contains(t, executions[0].ConfigJSON, `"operation":"transcription"`)
 	assert.Contains(t, executions[0].ConfigJSON, `"operation":"diarization"`)
+	assert.Contains(t, executions[0].ConfigJSON, `"plan"`)
+	assert.Contains(t, executions[0].ConfigJSON, `"chunking_mode":"vad"`)
 
 	assertEventStages(t, events.events, []string{"preparing", "transcribing", "diarizing", "merging", "saving", "completed"})
+}
+
+func TestProcessorRejectsUnsupportedPlanBeforeProviderExecution(t *testing.T) {
+	db := openOrchestratorTestDB(t)
+	audioPath := filepath.Join(t.TempDir(), "audio.wav")
+	require.NoError(t, os.WriteFile(audioPath, []byte("fake wav"), 0o600))
+	job := createOrchestratorJob(t, db, audioPath, models.ASRParams{
+		Pipeline: []models.ASRStep{{
+			Kind:     models.ASRStepTranscription,
+			Provider: "remote",
+			Model:    "provider-chunker",
+			Options:  map[string]any{asrcontract.CommonParameterChunkingMode: string(ChunkingModeFixed)},
+		}},
+	})
+	provider := &fakeProvider{
+		id: "remote",
+		caps: []engineprovider.ModelCapability{{
+			ID:           "provider-chunker",
+			Provider:     "remote",
+			Installed:    true,
+			Capabilities: []string{"transcription"},
+		}},
+		modelCards: []asrcontract.ModelCard{{
+			ID:       "provider-chunker",
+			Provider: "remote",
+			Capabilities: asrcontract.Capabilities{
+				Transcription: true,
+			},
+			Chunking: &asrcontract.ChunkingCapabilities{
+				SupportsEngineChunking:   false,
+				SupportsProviderChunking: true,
+				PreferredMode:            string(ChunkingModeProvider),
+			},
+		}},
+		transcribe: &engineprovider.TranscriptionResult{Text: "should not run"},
+	}
+	registry, err := engineprovider.NewRegistry("remote", provider)
+	require.NoError(t, err)
+	processor := &Processor{
+		Jobs:      repository.NewJobRepository(db),
+		Providers: registry,
+		OutputDir: t.TempDir(),
+	}
+
+	result, err := processor.Process(context.Background(), &job)
+
+	require.Error(t, err)
+	assert.Equal(t, models.StatusFailed, result.Status)
+	assert.Contains(t, result.ErrorMessage, "chunking mode")
+	assert.Empty(t, provider.transReq.JobID)
+	var executions []models.TranscriptionJobExecution
+	require.NoError(t, db.Where("transcription_id = ?", job.ID).Find(&executions).Error)
+	assert.Empty(t, executions)
 }
 
 func TestProcessorChainsDiarizationAcrossProviders(t *testing.T) {

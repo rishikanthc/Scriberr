@@ -140,6 +140,52 @@ func TestExecutionPlanSummaryIsPathFreeAndDeterministic(t *testing.T) {
 	require.False(t, strings.Contains(strings.ToLower(text), "token"))
 }
 
+func TestExecutionPlanBoundaryHookChecksCancellation(t *testing.T) {
+	plan := ExecutionPlan{Steps: []PlannedStep{{
+		Operation:  models.ASRStepTranscription,
+		ProviderID: "local",
+		Model:      "parakeet-v3",
+	}}}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	err := plan.ReportBoundary(ctx, models.ASRStepTranscription, &boundaryRecorder{})
+
+	require.ErrorIs(t, err, context.Canceled)
+}
+
+func TestExecutionPlanBoundaryHookReportsProgress(t *testing.T) {
+	plan := ExecutionPlan{Steps: []PlannedStep{{
+		Operation:  models.ASRStepDiarization,
+		ProviderID: "remote",
+		Model:      "diarization-default",
+	}}}
+	recorder := &boundaryRecorder{}
+
+	err := plan.ReportBoundary(context.Background(), models.ASRStepDiarization, recorder)
+
+	require.NoError(t, err)
+	require.Equal(t, models.ASRStepDiarization, recorder.boundary.Operation)
+	require.Equal(t, "remote", recorder.boundary.ProviderID)
+	require.Equal(t, 0.70, recorder.boundary.Progress)
+}
+
+type boundaryRecorder struct {
+	boundary PlanBoundary
+	err      error
+}
+
+func (r *boundaryRecorder) ReportPlanBoundary(ctx context.Context, boundary PlanBoundary) error {
+	if r == nil {
+		return nil
+	}
+	if r.err != nil {
+		return r.err
+	}
+	r.boundary = boundary
+	return nil
+}
+
 func parakeetPlanCard() asrcontract.ModelCard {
 	return asrcontract.ModelCard{
 		ID:       "parakeet-v3",

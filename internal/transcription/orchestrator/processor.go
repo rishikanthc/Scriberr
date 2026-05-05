@@ -55,6 +55,27 @@ func (s providerProgressSink) Report(ctx context.Context, event asrcontract.Prov
 	_ = s.processor.publishProgress(ctx, s.job, stage, progress, models.StatusProcessing)
 }
 
+type processorBoundaryReporter struct {
+	processor *Processor
+	job       *models.TranscriptionJob
+}
+
+func (r processorBoundaryReporter) ReportPlanBoundary(ctx context.Context, boundary PlanBoundary) error {
+	if r.processor == nil || r.job == nil {
+		return ctx.Err()
+	}
+	stage := "processing"
+	switch boundary.Operation {
+	case models.ASRStepTranscription:
+		stage = "transcribing"
+	case models.ASRStepDiarization:
+		stage = "diarizing"
+	case models.ASRStepSpeakerIdentification:
+		stage = "identifying_speakers"
+	}
+	return r.processor.publishProgress(ctx, r.job, stage, boundary.Progress, models.StatusProcessing)
+}
+
 type Processor struct {
 	Jobs      repository.JobRepository
 	Providers engineprovider.Registry
@@ -99,6 +120,10 @@ func (p *Processor) Process(ctx context.Context, job *models.TranscriptionJob) (
 	diarizationStep, diarizationEnabled := firstStepByKind(pipeline, models.ASRStepDiarization)
 	transcriptionModel := transcriptionStep.Model
 	providerID := transcriptionStep.ProviderID
+	plan, err := p.buildPlan(ctx, job, pipeline)
+	if err != nil {
+		return failedResult(sanitizeErrorMessage(err)), err
+	}
 
 	startedAt := time.Now()
 	execution := &models.TranscriptionJobExecution{
@@ -110,7 +135,7 @@ func (p *Processor) Process(ctx context.Context, job *models.TranscriptionJob) (
 		ModelFamily:        defaultString(transcriptionStep.ModelFamily, "transcription"),
 		StartedAt:          startedAt,
 		ActualParameters:   job.Parameters,
-		ConfigJSON:         executionConfigJSON(pipeline),
+		ConfigJSON:         executionConfigJSON(pipeline, plan),
 	}
 	if err := p.Jobs.CreateExecution(ctx, execution); err != nil {
 		return failedResult(sanitizeErrorMessage(err)), err
@@ -136,7 +161,8 @@ func (p *Processor) Process(ctx context.Context, job *models.TranscriptionJob) (
 		message := sanitizeErrorMessage(err)
 		return withExecution(failedResult(message), err)
 	}
-	if err := p.publishProgress(ctx, job, "transcribing", 0.20, models.StatusProcessing); err != nil {
+	boundaryReporter := processorBoundaryReporter{processor: p, job: job}
+	if err := plan.ReportBoundary(ctx, models.ASRStepTranscription, boundaryReporter); err != nil {
 		return withExecution(canceledResult(), err)
 	}
 	progressSink := providerProgressSink{processor: p, job: job}
@@ -156,8 +182,8 @@ func (p *Processor) Process(ctx context.Context, job *models.TranscriptionJob) (
 		EnableTokenTimestamps:   job.Parameters.EnableTokenTimestamps,
 		EnableSegmentTimestamps: job.Parameters.EnableSegmentTimestamps,
 		DecodingMethod:          supportedDecodingMethod(transcriptionStep.ModelFamily, job.Parameters.DecodingMethod),
-		Chunking:                job.Parameters.ChunkingStrategy,
-		ChunkDurationSec:        float64(job.Parameters.ChunkSize),
+		Chunking:                string(planStepForOperation(plan, models.ASRStepTranscription).Chunking.Mode),
+		ChunkDurationSec:        planStepForOperation(plan, models.ASRStepTranscription).Chunking.ChunkSeconds,
 	})
 	if err != nil {
 		return withExecution(p.errorResult(ctx, err))
@@ -174,7 +200,7 @@ func (p *Processor) Process(ctx context.Context, job *models.TranscriptionJob) (
 
 	var diarization *engineprovider.DiarizationResult
 	if diarizationEnabled {
-		if err := p.publishProgress(ctx, job, "diarizing", 0.70, models.StatusProcessing); err != nil {
+		if err := plan.ReportBoundary(ctx, models.ASRStepDiarization, boundaryReporter); err != nil {
 			return withExecution(canceledResult(), err)
 		}
 		if err := prepareStepProvider(ctx, diarizationStep); err != nil {
@@ -204,7 +230,7 @@ func (p *Processor) Process(ctx context.Context, job *models.TranscriptionJob) (
 		}
 	}
 	for _, speakerStep := range stepsByKind(pipeline, models.ASRStepSpeakerIdentification) {
-		if err := p.publishProgress(ctx, job, "identifying_speakers", 0.78, models.StatusProcessing); err != nil {
+		if err := plan.ReportBoundary(ctx, models.ASRStepSpeakerIdentification, boundaryReporter); err != nil {
 			return withExecution(canceledResult(), err)
 		}
 		if err := prepareStepProvider(ctx, speakerStep); err != nil {
@@ -256,6 +282,22 @@ func (p *Processor) Process(ctx context.Context, job *models.TranscriptionJob) (
 		OutputJSONPath: &outputPath,
 		CompletedAt:    time.Now(),
 	}, nil
+}
+
+func (p *Processor) buildPlan(ctx context.Context, job *models.TranscriptionJob, steps []resolvedASRStep) (ExecutionPlan, error) {
+	models := []asrcontract.ModelCard{}
+	if p != nil && p.Providers != nil {
+		cards, err := p.Providers.Models(ctx)
+		if err == nil {
+			models = cards
+		}
+	}
+	return buildExecutionPlan(ctx, planRequest{
+		Params: job.Parameters,
+		Steps:  steps,
+		Models: models,
+		Limits: defaultPlanLimits(),
+	})
 }
 
 func (p *Processor) resolvePipeline(ctx context.Context, job *models.TranscriptionJob) ([]resolvedASRStep, error) {
@@ -430,7 +472,7 @@ func (p *Processor) audioPreprocessor() preprocess.Preprocessor {
 	return preprocess.PassthroughPreprocessor{}
 }
 
-func executionConfigJSON(steps []resolvedASRStep) string {
+func executionConfigJSON(steps []resolvedASRStep, plan ExecutionPlan) string {
 	type executionStep struct {
 		Operation string `json:"operation"`
 		Provider  string `json:"provider"`
@@ -451,10 +493,12 @@ func executionConfigJSON(steps []resolvedASRStep) string {
 		TranscriptionModel string          `json:"transcription_model"`
 		DiarizationModel   string          `json:"diarization_model,omitempty"`
 		Steps              []executionStep `json:"steps"`
+		Plan               any             `json:"plan,omitempty"`
 	}{
 		Provider:           transcriptionStep.ProviderID,
 		TranscriptionModel: transcriptionStep.Model,
 		Steps:              executionSteps,
+		Plan:               plan.Summary(),
 	}
 	if hasDiarization {
 		payload.DiarizationModel = diarizationStep.Model
@@ -464,6 +508,15 @@ func executionConfigJSON(steps []resolvedASRStep) string {
 		return "{}"
 	}
 	return string(data)
+}
+
+func planStepForOperation(plan ExecutionPlan, operation string) PlannedStep {
+	for _, step := range plan.Steps {
+		if step.Operation == operation {
+			return step
+		}
+	}
+	return PlannedStep{}
 }
 
 func providerProgressValue(event asrcontract.ProviderProgress) float64 {

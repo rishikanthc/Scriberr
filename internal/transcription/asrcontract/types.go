@@ -105,18 +105,23 @@ const (
 )
 
 const (
-	CommonParameterRuntimeNumThreads     = "runtime.num_threads"
-	CommonParameterDecodingMethod        = "decoding.method"
-	CommonParameterChunkingMode          = "chunking.mode"
-	CommonParameterChunkingChunkSeconds  = "chunking.chunk_seconds"
-	CommonParameterVADThreshold          = "vad.threshold"
-	CommonParameterVADMinDurationOn      = "vad.min_duration_on"
-	CommonParameterVADMinDurationOff     = "vad.min_duration_off"
-	CommonParameterOutputTimestamps      = "output.timestamps"
-	CommonParameterOutputWordTimestamps  = "output.word_timestamps"
-	CommonParameterOutputTokenTimestamps = "output.token_timestamps"
-	CommonParameterBatchSize             = "runtime.batch_size"
-	CommonParameterBatchingBatchSize     = "batching.batch_size"
+	CommonParameterRuntimeNumThreads      = "runtime.num_threads"
+	CommonParameterDecodingMethod         = "decoding.method"
+	CommonParameterChunkingMode           = "chunking.mode"
+	CommonParameterChunkingChunkSeconds   = "chunking.chunk_seconds"
+	CommonParameterChunkingOverlapSeconds = "chunking.overlap_seconds"
+	CommonParameterVADThreshold           = "vad.threshold"
+	CommonParameterVADMinSpeechSeconds    = "vad.min_speech_seconds"
+	CommonParameterVADMinSilenceSeconds   = "vad.min_silence_seconds"
+	CommonParameterVADMaxSpeechSeconds    = "vad.max_speech_seconds"
+	CommonParameterVADPaddingSeconds      = "vad.padding_seconds"
+	CommonParameterVADMinDurationOn       = "vad.min_duration_on"
+	CommonParameterVADMinDurationOff      = "vad.min_duration_off"
+	CommonParameterOutputTimestamps       = "output.timestamps"
+	CommonParameterOutputWordTimestamps   = "output.word_timestamps"
+	CommonParameterOutputTokenTimestamps  = "output.token_timestamps"
+	CommonParameterBatchSize              = "runtime.batch_size"
+	CommonParameterBatchingBatchSize      = "batching.batch_size"
 )
 
 type ProviderInfo struct {
@@ -460,7 +465,12 @@ func isCommonParameterKey(key string) bool {
 		CommonParameterDecodingMethod,
 		CommonParameterChunkingMode,
 		CommonParameterChunkingChunkSeconds,
+		CommonParameterChunkingOverlapSeconds,
 		CommonParameterVADThreshold,
+		CommonParameterVADMinSpeechSeconds,
+		CommonParameterVADMinSilenceSeconds,
+		CommonParameterVADMaxSpeechSeconds,
+		CommonParameterVADPaddingSeconds,
 		CommonParameterVADMinDurationOn,
 		CommonParameterVADMinDurationOff,
 		CommonParameterOutputTimestamps,

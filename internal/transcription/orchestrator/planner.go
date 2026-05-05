@@ -67,6 +67,19 @@ type BatchingPlan struct {
 	BatchSize int
 }
 
+type PlanBoundary struct {
+	Operation  string
+	ProviderID string
+	Model      string
+	ChunkIndex int
+	BatchIndex int
+	Progress   float64
+}
+
+type BoundaryReporter interface {
+	ReportPlanBoundary(ctx context.Context, boundary PlanBoundary) error
+}
+
 type ExecutionPlanSummary struct {
 	Steps []PlannedStepSummary `json:"steps"`
 }
@@ -140,6 +153,42 @@ func (p ExecutionPlan) Summary() ExecutionPlanSummary {
 	return out
 }
 
+func (p ExecutionPlan) ReportBoundary(ctx context.Context, operation string, reporter BoundaryReporter) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if reporter == nil {
+		return nil
+	}
+	for _, step := range p.Steps {
+		if step.Operation != operation {
+			continue
+		}
+		return reporter.ReportPlanBoundary(ctx, PlanBoundary{
+			Operation:  step.Operation,
+			ProviderID: step.ProviderID,
+			Model:      step.Model,
+			ChunkIndex: 0,
+			BatchIndex: 0,
+			Progress:   boundaryProgress(operation),
+		})
+	}
+	return nil
+}
+
+func boundaryProgress(operation string) float64 {
+	switch operation {
+	case models.ASRStepTranscription:
+		return 0.20
+	case models.ASRStepDiarization:
+		return 0.70
+	case models.ASRStepSpeakerIdentification:
+		return 0.78
+	default:
+		return 0
+	}
+}
+
 func planChunking(params models.ASRParams, options map[string]any, card asrcontract.ModelCard, hasCard bool, limits PlanLimits) (ChunkingPlan, error) {
 	explicitMode := hasOption(options, asrcontract.CommonParameterChunkingMode) || strings.TrimSpace(params.ChunkingStrategy) != ""
 	mode := ChunkingMode(stringOption(options, asrcontract.CommonParameterChunkingMode, params.ChunkingStrategy, stringDefault(card.RecommendedDefaults, asrcontract.CommonParameterChunkingMode)))
@@ -178,13 +227,13 @@ func planChunking(params models.ASRParams, options map[string]any, card asrcontr
 		Mode:           mode,
 		ProviderOwned:  providerOwned,
 		ChunkSeconds:   chunkSeconds,
-		OverlapSeconds: floatOption(options, "chunking.overlap_seconds", 0, 0),
+		OverlapSeconds: floatOption(options, asrcontract.CommonParameterChunkingOverlapSeconds, 0, 0),
 		VAD: VADPlan{
 			Threshold:         floatOption(options, asrcontract.CommonParameterVADThreshold, params.DiarizationThreshold, floatDefault(card.RecommendedDefaults, asrcontract.CommonParameterVADThreshold)),
-			MinSpeechSeconds:  floatOption(options, "vad.min_speech_seconds", params.MinDurationOn, 0),
-			MinSilenceSeconds: floatOption(options, "vad.min_silence_seconds", params.MinDurationOff, 0),
-			MaxSpeechSeconds:  floatOption(options, "vad.max_speech_seconds", 0, 0),
-			PaddingSeconds:    floatOption(options, "vad.padding_seconds", 0, 0),
+			MinSpeechSeconds:  floatOption(options, asrcontract.CommonParameterVADMinSpeechSeconds, params.MinDurationOn, 0),
+			MinSilenceSeconds: floatOption(options, asrcontract.CommonParameterVADMinSilenceSeconds, params.MinDurationOff, 0),
+			MaxSpeechSeconds:  floatOption(options, asrcontract.CommonParameterVADMaxSpeechSeconds, 0, 0),
+			PaddingSeconds:    floatOption(options, asrcontract.CommonParameterVADPaddingSeconds, 0, 0),
 		},
 	}, nil
 }
