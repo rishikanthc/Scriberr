@@ -116,6 +116,7 @@ const (
 	CommonParameterOutputWordTimestamps  = "output.word_timestamps"
 	CommonParameterOutputTokenTimestamps = "output.token_timestamps"
 	CommonParameterBatchSize             = "runtime.batch_size"
+	CommonParameterBatchingBatchSize     = "batching.batch_size"
 )
 
 type ProviderInfo struct {
@@ -465,7 +466,8 @@ func isCommonParameterKey(key string) bool {
 		CommonParameterOutputTimestamps,
 		CommonParameterOutputWordTimestamps,
 		CommonParameterOutputTokenTimestamps,
-		CommonParameterBatchSize:
+		CommonParameterBatchSize,
+		CommonParameterBatchingBatchSize:
 		return true
 	default:
 		return false
