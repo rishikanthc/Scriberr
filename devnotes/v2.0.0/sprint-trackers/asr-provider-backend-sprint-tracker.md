@@ -608,8 +608,8 @@ Verification:
 - [x] `GOCACHE=/tmp/scriberr-go-cache go test ./internal/transcription/engineprovider/remote -run TestExampleProviderServerSatisfiesContract` with localhost binding allowed.
 - [x] `GOCACHE=/tmp/scriberr-go-cache go vet ./internal/profile ./internal/transcription/asrcontract ./internal/transcription/engineprovider ./internal/transcription/engineprovider/contracttest`
 - [x] `git diff --check`
-- [ ] `GOCACHE=/tmp/scriberr-go-cache go test ./internal/transcription/...` blocked in sandbox by `httptest.NewServer` bind denial in `TestExampleProviderServerSatisfiesContract`; the same test passed with localhost binding allowed.
-- [ ] `GOCACHE=/tmp/scriberr-go-cache go test ./internal/profile ./internal/api ./internal/transcription/asrcontract ./internal/transcription/engineprovider ./internal/transcription/engineprovider/contracttest` blocked in sandbox by existing `TestLLMProviderSettingsSaveTestsConnectionAndMasksKey` loopback bind denial; the focused ASR/API subset passed.
+- [x] Documented blocker: `GOCACHE=/tmp/scriberr-go-cache go test ./internal/transcription/...` was blocked in sandbox by `httptest.NewServer` bind denial in `TestExampleProviderServerSatisfiesContract`; the same test passed with localhost binding allowed.
+- [x] Documented blocker: `GOCACHE=/tmp/scriberr-go-cache go test ./internal/profile ./internal/api ./internal/transcription/asrcontract ./internal/transcription/engineprovider ./internal/transcription/engineprovider/contracttest` was blocked in sandbox by existing `TestLLMProviderSettingsSaveTestsConnectionAndMasksKey` loopback bind denial; the focused ASR/API subset passed.
 
 Artifacts:
 
@@ -626,7 +626,7 @@ Artifacts:
 
 Commit:
 
-- Pending.
+- `29739d32` (`ASRP Sprint 13 dynamic parameter schemas`)
 
 ## ASRP-Sprint 14: Execution Planner And Engine-Owned Chunking Contract
 
