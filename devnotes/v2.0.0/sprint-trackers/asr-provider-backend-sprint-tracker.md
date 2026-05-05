@@ -673,31 +673,46 @@ Commit:
 
 ## ASRP-Sprint 15: Local Sherpa Model Registry And Runtime Defaults
 
-Status: planned
+Status: completed
 
-Planned tasks:
+Completed tasks:
 
-- [ ] Add local sherpa descriptors for Whisper and Parakeet families.
-- [ ] Expose common sherpa offline runtime/decoding parameters.
-- [ ] Expose Whisper-specific language/task/timestamp parameters.
-- [ ] Expose Parakeet/NeMo transducer artifact and model-type metadata.
-- [ ] Mark construction-time parameters with `requires_reload`.
-- [ ] Capture experiment-derived defaults as recommendations.
+- [x] Added local sherpa descriptors for Whisper and Parakeet families.
+- [x] Exposed common sherpa offline runtime/decoding parameters.
+- [x] Exposed Whisper-specific language/task/timestamp parameters.
+- [x] Exposed Parakeet/NeMo transducer artifact and model-type metadata.
+- [x] Marked construction-time parameters with `requires_reload`.
+- [x] Captured experiment-derived defaults as recommendations.
 
 Acceptance checks:
 
-- [ ] Dynamic profile UI has enough metadata for Whisper and Parakeet.
-- [ ] Whisper and Parakeet expose different valid parameter sets.
-- [ ] Parakeet CPU defaults prefer fixed 30s chunks, four threads, and batch size 1 for the measured local profile.
-- [ ] Registry data does not leak cache paths or host internals.
+- [x] Dynamic profile UI has enough metadata for Whisper and Parakeet.
+- [x] Whisper and Parakeet expose different valid parameter sets.
+- [x] Parakeet CPU defaults prefer fixed 30s chunks, four threads, and batch size 1 for the measured local profile.
+- [x] Registry data does not leak cache paths or host internals.
 
 Verification:
 
-- [ ] Not started.
+- [x] `GOCACHE=/tmp/scriberr-go-cache go test ./internal/transcription/asrcontract ./internal/transcription/orchestrator ./internal/transcription/engineprovider ./internal/transcription/engineprovider/contracttest ./internal/profile`
+- [x] `GOCACHE=/tmp/scriberr-go-cache go test ./internal/api -run 'TestASRContractPackageDoesNotDependOnBackendRuntime|TestASRProviderAuthorGuideDocumentsRequiredContract|TestASREngineImportInventory|TestProductionCodeDoesNotUseOldASRParameterIdentifiers|TestASRProvidersDoNotDependOnAPIOrRepositories|TestBackendDependencyDirection|TestListTranscriptionModels|TestProfile'`
+- [x] `GOCACHE=/tmp/scriberr-go-cache go test ./internal/transcription/engineprovider/remote -run TestExampleProviderServerSatisfiesContract` with localhost binding allowed.
+- [x] `GOCACHE=/tmp/scriberr-go-cache go vet ./internal/transcription/... ./internal/profile ./internal/api`
+- [x] `git diff --check`
+- [x] Architecture boundary check for `scriberr-engine` imports.
+- [x] Path/secret leakage review for touched descriptor and API surfaces.
+
+Artifacts:
+
+- `internal/transcription/asrcontract/types.go`
+- `internal/transcription/orchestrator/planner.go`
+- `internal/transcription/engineprovider/local_provider.go`
+- `internal/transcription/engineprovider/local_provider_test.go`
+- `devnotes/v2.0.0/sprint-trackers/asr-provider-backend-sprint-tracker.md`
 
 Commit:
 
-- Pending.
+- `9d8ad445` (`ASRP Sprint 15 add local sherpa descriptors`)
+- `d36f40f2` (`ASRP Sprint 15 harden descriptor tests`)
 
 ## ASRP-Sprint 16: Engine Integration Of Experiment-Proven Parakeet Flow
 
