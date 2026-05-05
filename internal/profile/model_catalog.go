@@ -47,10 +47,11 @@ func (c *ProviderModelCatalog) ResolveModel(ctx context.Context, model string, c
 			continue
 		}
 		return ModelInfo{
-			ID:           card.ID,
-			Family:       card.Family,
-			Capabilities: card.Capabilities,
-			Default:      card.Default,
+			ID:              card.ID,
+			Family:          card.Family,
+			Capabilities:    card.Capabilities,
+			Default:         card.Default,
+			ParameterSchema: card.ParameterSchema,
 		}, nil
 	}
 	if model == "" {

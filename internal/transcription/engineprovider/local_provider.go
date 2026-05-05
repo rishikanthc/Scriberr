@@ -367,6 +367,7 @@ func providerInfoFromEngine(info *speechengine.ProviderInfo, providerID string) 
 }
 
 func modelCardFromEngine(model speechengine.ModelCard, providerID string) asrcontract.ModelCard {
+	capabilities := capabilitiesFromEngine(model.Capabilities)
 	return asrcontract.ModelCard{
 		ID:                   model.ID,
 		DisplayName:          model.DisplayName,
@@ -378,9 +379,151 @@ func modelCardFromEngine(model speechengine.ModelCard, providerID string) asrcon
 		Default:              model.Default,
 		Tasks:                tasksFromEngine(model.Tasks),
 		Languages:            append([]string(nil), model.Languages...),
-		Capabilities:         capabilitiesFromEngine(model.Capabilities),
+		LanguageSupport:      languageSupportForModel(model),
+		Capabilities:         capabilities,
 		ResourceRequirements: resourceRequirementsFromEngine(model.ResourceRequirements),
+		Chunking:             chunkingCapabilitiesForModel(capabilities),
+		ParameterSchema:      parameterSchemaForModel(model, capabilities),
+		RecommendedDefaults:  recommendedDefaultsForModel(model, capabilities),
 	}
+}
+
+func languageSupportForModel(model speechengine.ModelCard) *asrcontract.LanguageSupport {
+	if len(model.Languages) == 0 {
+		return nil
+	}
+	mode := "fixed"
+	if len(model.Languages) > 1 {
+		mode = "user_configurable"
+	}
+	return &asrcontract.LanguageSupport{Languages: append([]string(nil), model.Languages...), Mode: mode}
+}
+
+func chunkingCapabilitiesForModel(capabilities asrcontract.Capabilities) *asrcontract.ChunkingCapabilities {
+	if !capabilities.Transcription {
+		return nil
+	}
+	return &asrcontract.ChunkingCapabilities{
+		SupportsEngineChunking:   true,
+		SupportsProviderChunking: false,
+		PreferredMode:            "vad",
+		RecommendedChunkSeconds:  float64Ptr(30),
+		MaxChunkSeconds:          float64Ptr(120),
+		SupportsBatching:         false,
+		RecommendedBatchSize:     intPtr(1),
+		MaxBatchSize:             intPtr(1),
+	}
+}
+
+func parameterSchemaForModel(model speechengine.ModelCard, capabilities asrcontract.Capabilities) asrcontract.ParameterSchema {
+	var schema asrcontract.ParameterSchema
+	if capabilities.Transcription {
+		schema = append(schema,
+			asrcontract.ParameterDescriptor{
+				Key:            asrcontract.CommonParameterRuntimeNumThreads,
+				Label:          "Threads",
+				Type:           asrcontract.ParameterTypeInteger,
+				Default:        float64(0),
+				Min:            float64Ptr(0),
+				Max:            float64Ptr(64),
+				Step:           float64Ptr(1),
+				Scope:          asrcontract.ParameterScopeRuntime,
+				Advanced:       true,
+				RequiresReload: true,
+			},
+			asrcontract.ParameterDescriptor{
+				Key:     asrcontract.CommonParameterDecodingMethod,
+				Label:   "Decoding method",
+				Type:    asrcontract.ParameterTypeEnum,
+				Default: "greedy_search",
+				Options: []asrcontract.ParameterOption{
+					{Value: "greedy_search", Label: "Greedy search"},
+					{Value: "modified_beam_search", Label: "Modified beam search"},
+				},
+				Scope:    asrcontract.ParameterScopeDecoding,
+				Advanced: true,
+			},
+			asrcontract.ParameterDescriptor{
+				Key:     asrcontract.CommonParameterChunkingMode,
+				Label:   "Chunking mode",
+				Type:    asrcontract.ParameterTypeEnum,
+				Default: "vad",
+				Options: []asrcontract.ParameterOption{
+					{Value: "fixed", Label: "Fixed"},
+					{Value: "vad", Label: "VAD"},
+				},
+				Scope: asrcontract.ParameterScopeChunking,
+			},
+			asrcontract.ParameterDescriptor{
+				Key:      asrcontract.CommonParameterOutputWordTimestamps,
+				Label:    "Word timestamps",
+				Type:     asrcontract.ParameterTypeBoolean,
+				Default:  true,
+				Scope:    asrcontract.ParameterScopeOutput,
+				Advanced: true,
+			},
+		)
+	}
+	if capabilities.Transcription && strings.Contains(strings.ToLower(model.Family), "whisper") {
+		schema = append(schema, asrcontract.ParameterDescriptor{
+			Key:      "sherpa.whisper.tail_paddings",
+			Label:    "Tail paddings",
+			Type:     asrcontract.ParameterTypeInteger,
+			Default:  float64(-1),
+			Min:      float64Ptr(-1),
+			Max:      float64Ptr(16),
+			Step:     float64Ptr(1),
+			Scope:    asrcontract.ParameterScopeDecoding,
+			Advanced: true,
+		})
+	}
+	if capabilities.Diarization {
+		schema = append(schema,
+			asrcontract.ParameterDescriptor{
+				Key:      "diarization.num_speakers",
+				Label:    "Speakers",
+				Type:     asrcontract.ParameterTypeInteger,
+				Default:  float64(0),
+				Min:      float64Ptr(0),
+				Max:      float64Ptr(64),
+				Step:     float64Ptr(1),
+				Scope:    asrcontract.ParameterScopeDecoding,
+				Advanced: true,
+			},
+			asrcontract.ParameterDescriptor{
+				Key:     asrcontract.CommonParameterVADThreshold,
+				Label:   "Threshold",
+				Type:    asrcontract.ParameterTypeNumber,
+				Default: float64(0.5),
+				Min:     float64Ptr(0),
+				Max:     float64Ptr(1),
+				Step:    float64Ptr(0.01),
+				Scope:   asrcontract.ParameterScopeVAD,
+			},
+		)
+	}
+	return schema
+}
+
+func recommendedDefaultsForModel(model speechengine.ModelCard, capabilities asrcontract.Capabilities) map[string]any {
+	defaults := map[string]any{}
+	if capabilities.Transcription {
+		defaults[asrcontract.CommonParameterRuntimeNumThreads] = 0
+		defaults[asrcontract.CommonParameterDecodingMethod] = "greedy_search"
+		defaults[asrcontract.CommonParameterChunkingMode] = "vad"
+		defaults[asrcontract.CommonParameterOutputWordTimestamps] = true
+	}
+	if capabilities.Transcription && strings.Contains(strings.ToLower(model.Family), "whisper") {
+		defaults["sherpa.whisper.tail_paddings"] = -1
+	}
+	if capabilities.Diarization {
+		defaults["diarization.num_speakers"] = 0
+		defaults[asrcontract.CommonParameterVADThreshold] = 0.5
+	}
+	if len(defaults) == 0 {
+		return nil
+	}
+	return defaults
 }
 
 func providerStatusFromEngine(status *speechengine.ProviderStatus) *asrcontract.ProviderStatus {
@@ -455,3 +598,7 @@ func resourceRequirementsFromEngine(requirements speechengine.ResourceRequiremen
 		Backends: append([]string(nil), requirements.Backends...),
 	}
 }
+
+func float64Ptr(value float64) *float64 { return &value }
+
+func intPtr(value int) *int { return &value }

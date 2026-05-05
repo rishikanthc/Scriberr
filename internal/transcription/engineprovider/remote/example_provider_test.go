@@ -146,6 +146,40 @@ func exampleModelCard() asrcontract.ModelCard {
 			WordTimestamps:    true,
 			SegmentTimestamps: true,
 		},
+		LanguageSupport: &asrcontract.LanguageSupport{
+			Languages: []string{"en"},
+			Mode:      "fixed",
+		},
+		Chunking: &asrcontract.ChunkingCapabilities{
+			SupportsEngineChunking:   true,
+			SupportsProviderChunking: false,
+			PreferredMode:            "fixed",
+			RecommendedChunkSeconds:  floatPtr(30),
+			MaxChunkSeconds:          floatPtr(120),
+			SupportsBatching:         false,
+			RecommendedBatchSize:     intPtr(1),
+			MaxBatchSize:             intPtr(1),
+		},
+		ParameterSchema: asrcontract.ParameterSchema{
+			{
+				Key:            asrcontract.CommonParameterRuntimeNumThreads,
+				Label:          "Threads",
+				Type:           asrcontract.ParameterTypeInteger,
+				Default:        float64(1),
+				Min:            floatPtr(1),
+				Max:            floatPtr(8),
+				Step:           floatPtr(1),
+				Scope:          asrcontract.ParameterScopeRuntime,
+				RequiresReload: true,
+			},
+			{
+				Key:     asrcontract.CommonParameterOutputWordTimestamps,
+				Label:   "Word timestamps",
+				Type:    asrcontract.ParameterTypeBoolean,
+				Default: true,
+				Scope:   asrcontract.ParameterScopeOutput,
+			},
+		},
 	}
 }
 
@@ -166,3 +200,5 @@ func writeExampleError(t *testing.T, w http.ResponseWriter, status int, code asr
 }
 
 func floatPtr(v float64) *float64 { return &v }
+
+func intPtr(v int) *int { return &v }

@@ -34,6 +34,71 @@ func TestModelCardSupportsCapabilities(t *testing.T) {
 	}
 }
 
+func TestParameterSchemaValidationAndProfileValues(t *testing.T) {
+	schema := ParameterSchema{
+		{
+			Key:            CommonParameterRuntimeNumThreads,
+			Label:          "Threads",
+			Type:           ParameterTypeInteger,
+			Default:        float64(4),
+			Min:            floatPtr(1),
+			Max:            floatPtr(16),
+			Step:           floatPtr(1),
+			Scope:          ParameterScopeRuntime,
+			RequiresReload: true,
+		},
+		{
+			Key:     CommonParameterDecodingMethod,
+			Label:   "Decoding",
+			Type:    ParameterTypeEnum,
+			Default: "greedy_search",
+			Options: []ParameterOption{
+				{Value: "greedy_search", Label: "Greedy"},
+				{Value: "modified_beam_search", Label: "Beam"},
+			},
+			Scope: ParameterScopeDecoding,
+		},
+		{
+			Key:      "sherpa.whisper.tail_paddings",
+			Label:    "Tail paddings",
+			Type:     ParameterTypeInteger,
+			Default:  float64(-1),
+			Min:      floatPtr(-1),
+			Max:      floatPtr(16),
+			Scope:    ParameterScopeDecoding,
+			Advanced: true,
+		},
+	}
+
+	if err := ValidateParameterSchema(schema); err != nil {
+		t.Fatalf("ValidateParameterSchema returned error: %v", err)
+	}
+	values, err := ValidateParameterValues(schema, map[string]any{
+		CommonParameterRuntimeNumThreads: float64(8),
+		CommonParameterDecodingMethod:    "modified_beam_search",
+		"sherpa.whisper.tail_paddings":   float64(2),
+	})
+	if err != nil {
+		t.Fatalf("ValidateParameterValues returned error: %v", err)
+	}
+	if values[CommonParameterRuntimeNumThreads] != int64(8) {
+		t.Fatalf("integer parameter was not normalized: %#v", values)
+	}
+
+	if err := ValidateParameterSchema(ParameterSchema{{Key: "tail_paddings", Type: ParameterTypeInteger, Scope: ParameterScopeDecoding}}); err == nil {
+		t.Fatal("expected unnamespaced provider-specific key to fail schema validation")
+	}
+	if _, err := ValidateParameterValues(schema, map[string]any{CommonParameterRuntimeNumThreads: float64(99)}); err == nil {
+		t.Fatal("expected numeric bound violation")
+	}
+	if _, err := ValidateParameterValues(schema, map[string]any{CommonParameterDecodingMethod: "unknown"}); err == nil {
+		t.Fatal("expected enum value violation")
+	}
+	if _, err := ValidateParameterValues(schema, map[string]any{"unknown.option": true}); err == nil {
+		t.Fatal("expected unknown parameter rejection")
+	}
+}
+
 func TestProviderErrorClassification(t *testing.T) {
 	err := NewProviderError(CodeProviderBusy, "provider is busy", true)
 
@@ -101,7 +166,17 @@ func TestContractJSONRoundTrip(t *testing.T) {
 			ResourceRequirements: ResourceRequirements{
 				Backends: []string{"cpu"},
 			},
-			ParameterSchema: json.RawMessage(`{"decoding_method":{"type":"string"}}`),
+			ParameterSchema: ParameterSchema{{
+				Key:     CommonParameterDecodingMethod,
+				Label:   "Decoding",
+				Type:    ParameterTypeEnum,
+				Default: "greedy_search",
+				Options: []ParameterOption{
+					{Value: "greedy_search", Label: "Greedy"},
+					{Value: "modified_beam_search", Label: "Beam"},
+				},
+				Scope: ParameterScopeDecoding,
+			}},
 		},
 		Status: ProviderStatus{
 			State: ProviderStateBusy,

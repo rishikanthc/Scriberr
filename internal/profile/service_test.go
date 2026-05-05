@@ -192,3 +192,75 @@ func TestServiceCreatePersistsMultiStepPipelineAndSanitizesOptions(t *testing.T)
 		t.Fatalf("provider not preserved: %#v", repo.created.Parameters.Pipeline[1])
 	}
 }
+
+func TestServiceCreateValidatesStepOptionsFromModelSchema(t *testing.T) {
+	repo := &fakeProfileRepository{}
+	service := NewService(repo, fakeModelCatalog{models: map[string]ModelInfo{
+		"schema-model": {
+			ID:     "schema-model",
+			Family: "whisper",
+			Capabilities: asrcontract.Capabilities{
+				Transcription: true,
+			},
+			ParameterSchema: asrcontract.ParameterSchema{
+				{
+					Key:     asrcontract.CommonParameterDecodingMethod,
+					Label:   "Decoding",
+					Type:    asrcontract.ParameterTypeEnum,
+					Default: "greedy_search",
+					Options: []asrcontract.ParameterOption{
+						{Value: "greedy_search", Label: "Greedy"},
+						{Value: "modified_beam_search", Label: "Beam"},
+					},
+					Scope: asrcontract.ParameterScopeDecoding,
+				},
+				{
+					Key:   "sherpa.whisper.tail_paddings",
+					Label: "Tail paddings",
+					Type:  asrcontract.ParameterTypeInteger,
+					Min:   floatPtr(-1),
+					Max:   floatPtr(16),
+					Scope: asrcontract.ParameterScopeDecoding,
+				},
+			},
+		},
+	}})
+
+	err := service.Create(context.Background(), &models.TranscriptionProfile{
+		UserID: 1,
+		Name:   "Schema",
+		Parameters: models.ASRParams{
+			Pipeline: []models.ASRStep{{
+				Kind:  models.ASRStepTranscription,
+				Model: "schema-model",
+				Options: map[string]any{
+					asrcontract.CommonParameterDecodingMethod: "modified_beam_search",
+					"sherpa.whisper.tail_paddings":            float64(4),
+				},
+			}},
+		},
+	})
+	if err != nil {
+		t.Fatalf("Create returned error: %v", err)
+	}
+	if got := repo.created.Parameters.Pipeline[0].Options["sherpa.whisper.tail_paddings"]; got != int64(4) {
+		t.Fatalf("schema option was not normalized: %#v", repo.created.Parameters.Pipeline[0].Options)
+	}
+
+	err = service.Create(context.Background(), &models.TranscriptionProfile{
+		UserID: 1,
+		Name:   "Invalid schema option",
+		Parameters: models.ASRParams{
+			Pipeline: []models.ASRStep{{
+				Kind:    models.ASRStepTranscription,
+				Model:   "schema-model",
+				Options: map[string]any{asrcontract.CommonParameterDecodingMethod: "unsupported"},
+			}},
+		},
+	})
+	if !errors.Is(err, ErrInvalidPipeline) {
+		t.Fatalf("Create error = %v, want ErrInvalidPipeline", err)
+	}
+}
+
+func floatPtr(v float64) *float64 { return &v }

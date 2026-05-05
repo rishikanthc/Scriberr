@@ -64,6 +64,9 @@ func RunProviderContract(t testing.TB, provider engineprovider.Provider, opts Op
 		if !hasAnyCapability(model.Capabilities) {
 			t.Fatalf("model %q must declare at least one capability", model.ID)
 		}
+		if err := asrcontract.ValidateModelCard(model); err != nil {
+			t.Fatalf("model %q contract is invalid: %v", model.ID, err)
+		}
 		if opts.RequiredModel != "" && model.ID == opts.RequiredModel {
 			matchedRequiredModel = true
 			for _, capability := range opts.RequiredCapabilities {

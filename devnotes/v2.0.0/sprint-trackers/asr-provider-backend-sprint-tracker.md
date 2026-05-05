@@ -2,7 +2,7 @@
 
 Run ID: `ASRP`
 
-Status: completed through ASRP-Sprint 12.
+Status: completed through ASRP-Sprint 13.
 
 This tracker belongs to `devnotes/v2.0.0/sprint-plans/asr-provider-backend-sprint-plan.md` and the design spec in `devnotes/v2.0.0/specs/asr-provider-backend-architecture.md`.
 
@@ -573,6 +573,165 @@ Artifacts:
 - `devnotes/v2.0.0/specs/asr-provider-author-guide.md`
 - `devnotes/v2.0.0/status-updates/asr-provider-backend-sprint-12-hardening.md`
 - `devnotes/v2.0.0/sprint-trackers/asr-provider-backend-sprint-tracker.md`
+
+Commit:
+
+- Pending.
+
+## ASRP-Sprint 13: Provider Registry V2 And Dynamic Parameter Schemas
+
+Status: completed
+
+Completed tasks:
+
+- [x] Extended model cards with provider-owned descriptor data for language support, chunking, parameter schemas, and recommended defaults.
+- [x] Added typed parameter schema with scopes, defaults, bounds, enum options, and reload semantics.
+- [x] Added provider-neutral common parameter keys.
+- [x] Required provider-specific keys to be namespaced and bounded.
+- [x] Updated local and fake/example provider descriptors.
+- [x] Expanded provider contract tests for schema well-formedness.
+
+Acceptance checks:
+
+- [x] Profile parameters can be validated from registry data alone.
+- [x] Existing model-list behavior remains compatible with additive descriptor fields.
+- [x] Fake providers can expose different capabilities without API handler changes.
+- [x] Invalid schemas fail contract tests.
+
+Verification:
+
+- [x] `GOCACHE=/tmp/scriberr-go-cache go test ./internal/transcription/asrcontract`
+- [x] `GOCACHE=/tmp/scriberr-go-cache go test ./internal/profile`
+- [x] `GOCACHE=/tmp/scriberr-go-cache go test ./internal/transcription/engineprovider`
+- [x] `GOCACHE=/tmp/scriberr-go-cache go test ./internal/transcription/engineprovider/contracttest`
+- [x] `GOCACHE=/tmp/scriberr-go-cache go test ./internal/api -run 'TestASRContractPackageDoesNotDependOnBackendRuntime|TestASRProviderAuthorGuideDocumentsRequiredContract|TestASREngineImportInventory|TestProductionCodeDoesNotUseOldASRParameterIdentifiers|TestASRProvidersDoNotDependOnAPIOrRepositories|TestBackendDependencyDirection|TestListTranscriptionModels|TestProfile'`
+- [x] `GOCACHE=/tmp/scriberr-go-cache go test ./internal/transcription/engineprovider/remote -run TestExampleProviderServerSatisfiesContract` with localhost binding allowed.
+- [x] `GOCACHE=/tmp/scriberr-go-cache go vet ./internal/profile ./internal/transcription/asrcontract ./internal/transcription/engineprovider ./internal/transcription/engineprovider/contracttest`
+- [x] `git diff --check`
+- [ ] `GOCACHE=/tmp/scriberr-go-cache go test ./internal/transcription/...` blocked in sandbox by `httptest.NewServer` bind denial in `TestExampleProviderServerSatisfiesContract`; the same test passed with localhost binding allowed.
+- [ ] `GOCACHE=/tmp/scriberr-go-cache go test ./internal/profile ./internal/api ./internal/transcription/asrcontract ./internal/transcription/engineprovider ./internal/transcription/engineprovider/contracttest` blocked in sandbox by existing `TestLLMProviderSettingsSaveTestsConnectionAndMasksKey` loopback bind denial; the focused ASR/API subset passed.
+
+Artifacts:
+
+- `internal/transcription/asrcontract/types.go`
+- `internal/transcription/asrcontract/types_test.go`
+- `internal/transcription/engineprovider/contracttest/provider_contract.go`
+- `internal/transcription/engineprovider/contracttest/provider_contract_test.go`
+- `internal/transcription/engineprovider/local_provider.go`
+- `internal/transcription/engineprovider/remote/example_provider_test.go`
+- `internal/profile/model_catalog.go`
+- `internal/profile/service.go`
+- `internal/profile/service_test.go`
+- `devnotes/v2.0.0/sprint-trackers/asr-provider-backend-sprint-tracker.md`
+
+Commit:
+
+- Pending.
+
+## ASRP-Sprint 14: Execution Planner And Engine-Owned Chunking Contract
+
+Status: planned
+
+Planned tasks:
+
+- [ ] Add execution planner for profile params, model defaults, provider status, audio metadata, and global limits.
+- [ ] Represent fixed, VAD, provider-owned, and no-chunking modes explicitly.
+- [ ] Represent batching as an execution-plan concern.
+- [ ] Add deterministic sanitized plan summaries.
+- [ ] Add cancellation and progress hooks at chunk/batch boundaries.
+
+Acceptance checks:
+
+- [ ] Planner validates combinations before long-running provider work.
+- [ ] Unsupported chunking/batching combinations fail before execution.
+- [ ] Provider-owned chunking remains available for models that require it.
+- [ ] Execution metadata remains path-free.
+
+Verification:
+
+- [ ] Not started.
+
+Commit:
+
+- Pending.
+
+## ASRP-Sprint 15: Local Sherpa Model Registry And Runtime Defaults
+
+Status: planned
+
+Planned tasks:
+
+- [ ] Add local sherpa descriptors for Whisper and Parakeet families.
+- [ ] Expose common sherpa offline runtime/decoding parameters.
+- [ ] Expose Whisper-specific language/task/timestamp parameters.
+- [ ] Expose Parakeet/NeMo transducer artifact and model-type metadata.
+- [ ] Mark construction-time parameters with `requires_reload`.
+- [ ] Capture experiment-derived defaults as recommendations.
+
+Acceptance checks:
+
+- [ ] Dynamic profile UI has enough metadata for Whisper and Parakeet.
+- [ ] Whisper and Parakeet expose different valid parameter sets.
+- [ ] Parakeet CPU defaults prefer fixed 30s chunks, four threads, and batch size 1 for the measured local profile.
+- [ ] Registry data does not leak cache paths or host internals.
+
+Verification:
+
+- [ ] Not started.
+
+Commit:
+
+- Pending.
+
+## ASRP-Sprint 16: Engine Integration Of Experiment-Proven Parakeet Flow
+
+Status: planned
+
+Planned tasks:
+
+- [ ] Fold fixed-window Parakeet decoding defaults into the core local engine path.
+- [ ] Preserve VAD chunking as explicit optional behavior.
+- [ ] Keep NeMo-style token-to-word aggregation and timestamp normalization covered by tests.
+- [ ] Route batch decode through the execution planner.
+- [ ] Produce canonical transcript text, words, segments, and metrics.
+
+Acceptance checks:
+
+- [ ] Core engine produces transcript text, word timings, segment timings, and metrics.
+- [ ] Experiment path remains available for research.
+- [ ] VAD behavior remains intact.
+- [ ] Fixed 30s Parakeet behavior matches experiment-level accuracy within expected nondeterminism.
+
+Verification:
+
+- [ ] Not started.
+
+Commit:
+
+- Pending.
+
+## ASRP-Sprint 17: Frontend-Facing Model/Profile Discovery API
+
+Status: planned
+
+Planned tasks:
+
+- [ ] Expose task, language, capability, chunking, runtime, and parameter metadata for profile UI.
+- [ ] Keep backend schema display metadata lightweight.
+- [ ] Return validation errors keyed by stable parameter IDs.
+- [ ] Add compatibility mapping for existing profiles.
+- [ ] Prevent provider internals from leaking through discovery payloads.
+
+Acceptance checks:
+
+- [ ] Frontend can render ASR profile fields without hardcoding Whisper or Parakeet parameters.
+- [ ] Invalid profile submissions fail with useful parameter-keyed errors.
+- [ ] Existing profiles remain readable.
+- [ ] Non-admin discovery payloads are bounded and path-free.
+
+Verification:
+
+- [ ] Not started.
 
 Commit:
 

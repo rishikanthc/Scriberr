@@ -148,12 +148,16 @@ func (s *Service) normalizePipeline(ctx context.Context, steps []models.ASRStep)
 				return nil, fmt.Errorf("%w: transcription step must be first", ErrInvalidPipeline)
 			}
 		}
+		options, err := validateStepOptions(info.ParameterSchema, step.Options)
+		if err != nil {
+			return nil, fmt.Errorf("%w: step %d options are invalid", ErrInvalidPipeline, i)
+		}
 		out = append(out, models.ASRStep{
 			Kind:        kind,
 			Provider:    strings.TrimSpace(step.Provider),
 			Model:       info.ID,
 			ModelFamily: info.Family,
-			Options:     sanitizeStepOptions(step.Options),
+			Options:     options,
 		})
 	}
 	if transcriptionCount != 1 {
@@ -173,6 +177,18 @@ func pipelineStepCapability(kind string) (asrcontract.Capability, string, error)
 	default:
 		return "", "", fmt.Errorf("%w: unsupported step kind %q", ErrInvalidPipeline, kind)
 	}
+}
+
+func validateStepOptions(schema asrcontract.ParameterSchema, options map[string]any) (map[string]any, error) {
+	sanitized := sanitizeStepOptions(options)
+	if len(sanitized) == 0 || len(schema) == 0 {
+		return sanitized, nil
+	}
+	values, err := asrcontract.ValidateParameterValues(schema, sanitized)
+	if err != nil {
+		return nil, err
+	}
+	return values, nil
 }
 
 func sanitizeStepOptions(options map[string]any) map[string]any {
@@ -229,10 +245,11 @@ func sanitizeOptionValue(value any) (any, bool) {
 }
 
 type ModelInfo struct {
-	ID           string
-	Family       string
-	Capabilities asrcontract.Capabilities
-	Default      bool
+	ID              string
+	Family          string
+	Capabilities    asrcontract.Capabilities
+	Default         bool
+	ParameterSchema asrcontract.ParameterSchema
 }
 
 type ModelCatalog interface {
