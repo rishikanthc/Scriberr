@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -204,6 +205,74 @@ func TestLocalProviderTranscribeMapsRequestAndWords(t *testing.T) {
 	}
 	if result.ModelID != "whisper-tiny" || result.EngineID != "local" {
 		t.Fatalf("unexpected model/engine ids: %#v", result)
+	}
+}
+
+func TestLocalProviderTranscribeAppliesParakeetFixedPlanDefaultsAndMetadata(t *testing.T) {
+	fake := &fakeSpeechEngine{
+		transcriptionOut: &speechengine.TranscriptionResult{
+			Text: "hello parakeet",
+			Words: []speechengine.TranscriptWord{
+				{Text: "hello", StartSec: 0.1, EndSec: 0.4},
+				{Text: "parakeet", StartSec: 0.5, EndSec: 1.1},
+			},
+			Segments: []speechengine.TranscriptSegment{
+				{Text: "hello parakeet", StartSec: 0.1, EndSec: 1.1},
+			},
+		},
+	}
+	provider := newLocalProviderWithEngine("local", LocalConfig{Threads: 4}, runtime.ProviderCPU, fake)
+
+	result, err := provider.Transcribe(context.Background(), TranscriptionRequest{
+		JobID:     "job-parakeet",
+		AudioPath: "/provider/audio.wav",
+		ModelID:   "parakeet-v3",
+	})
+	if err != nil {
+		t.Fatalf("Transcribe returned error: %v", err)
+	}
+
+	if fake.transcriptionReq.Chunking != "fixed" {
+		t.Fatalf("Chunking = %q, want fixed", fake.transcriptionReq.Chunking)
+	}
+	if fake.transcriptionReq.ChunkDurationSec != 30 {
+		t.Fatalf("ChunkDurationSec = %v, want 30", fake.transcriptionReq.ChunkDurationSec)
+	}
+	if fake.transcriptionReq.NumThreads != 4 {
+		t.Fatalf("NumThreads = %d, want 4", fake.transcriptionReq.NumThreads)
+	}
+	if result.Metadata["chunking_mode"] != "fixed" || result.Metadata["batch_size"] != 1 {
+		t.Fatalf("metadata missing selected plan: %#v", result.Metadata)
+	}
+	if result.Metadata["hypothesis_words"] != 2 {
+		t.Fatalf("metadata hypothesis words = %#v", result.Metadata["hypothesis_words"])
+	}
+	if _, ok := result.Metadata["decode_time_ms"]; !ok {
+		t.Fatalf("metadata missing decode_time_ms: %#v", result.Metadata)
+	}
+	if strings.Contains(fmt.Sprint(result.Metadata), "/provider/audio.wav") {
+		t.Fatalf("metadata leaked audio path: %#v", result.Metadata)
+	}
+}
+
+func TestLocalProviderTranscribePreservesExplicitParakeetVAD(t *testing.T) {
+	fake := &fakeSpeechEngine{transcriptionOut: &speechengine.TranscriptionResult{Text: "hello"}}
+	provider := newLocalProviderWithEngine("local", LocalConfig{Threads: 4}, runtime.ProviderCPU, fake)
+
+	_, err := provider.Transcribe(context.Background(), TranscriptionRequest{
+		ModelID:          "parakeet-v3",
+		Chunking:         "vad",
+		ChunkDurationSec: 12,
+		BatchSize:        1,
+	})
+	if err != nil {
+		t.Fatalf("Transcribe returned error: %v", err)
+	}
+	if fake.transcriptionReq.Chunking != "vad" {
+		t.Fatalf("Chunking = %q, want vad", fake.transcriptionReq.Chunking)
+	}
+	if fake.transcriptionReq.ChunkDurationSec != 12 {
+		t.Fatalf("ChunkDurationSec = %v, want 12", fake.transcriptionReq.ChunkDurationSec)
 	}
 }
 

@@ -15,6 +15,7 @@ type CanonicalTranscript struct {
 	Segments []CanonicalSegment `json:"segments"`
 	Words    []CanonicalWord    `json:"words"`
 	Engine   TranscriptEngine   `json:"engine,omitempty"`
+	Metadata map[string]any     `json:"metadata,omitempty"`
 }
 
 type CanonicalSegment struct {
@@ -90,7 +91,34 @@ func BuildCanonicalTranscript(transcription *engineprovider.TranscriptionResult,
 			TranscriptionModel: transcription.ModelID,
 			DiarizationModel:   diarizationModelID(diarization),
 		},
+		Metadata: sanitizeTranscriptMetadata(transcription.Metadata),
 	}, nil
+}
+
+func sanitizeTranscriptMetadata(metadata map[string]any) map[string]any {
+	if len(metadata) == 0 {
+		return nil
+	}
+	out := make(map[string]any, len(metadata))
+	for key, value := range metadata {
+		key = strings.TrimSpace(key)
+		if key == "" || strings.Contains(strings.ToLower(key), "path") || strings.Contains(strings.ToLower(key), "token") {
+			continue
+		}
+		switch typed := value.(type) {
+		case string:
+			if strings.Contains(typed, "/") || strings.Contains(strings.ToLower(typed), "token") {
+				continue
+			}
+			out[key] = typed
+		case bool, int, int64, float64:
+			out[key] = typed
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
 
 func hasUsableTranscript(transcription *engineprovider.TranscriptionResult) bool {

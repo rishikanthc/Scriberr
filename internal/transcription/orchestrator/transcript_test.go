@@ -102,6 +102,41 @@ func TestBuildCanonicalTranscriptGeneratesFallbackSegmentFromWords(t *testing.T)
 	assert.Equal(t, "Fallback segment.", transcript.Segments[0].Text)
 }
 
+func TestBuildCanonicalTranscriptPreservesSanitizedMetrics(t *testing.T) {
+	transcript, err := BuildCanonicalTranscript(
+		&engineprovider.TranscriptionResult{
+			Text:     "Parakeet output.",
+			ModelID:  "parakeet-v3",
+			EngineID: "local",
+			Segments: []engineprovider.TranscriptSegment{
+				{Start: 0, End: 1.2, Text: "Parakeet output."},
+			},
+			Metadata: map[string]any{
+				"chunking_mode":    "fixed",
+				"chunk_count":      1,
+				"batch_size":       1,
+				"decode_time_ms":   int64(25),
+				"audio_duration_s": 1.2,
+				"rtf":              0.02,
+				"audio_path":       "/provider/audio.wav",
+				"hf_token":         "secret",
+			},
+		},
+		nil,
+	)
+
+	require.NoError(t, err)
+	require.Equal(t, "fixed", transcript.Metadata["chunking_mode"])
+	require.Equal(t, 1, transcript.Metadata["chunk_count"])
+	require.NotContains(t, transcript.Metadata, "audio_path")
+	require.NotContains(t, transcript.Metadata, "hf_token")
+	encoded, err := json.Marshal(transcript)
+	require.NoError(t, err)
+	assert.Contains(t, string(encoded), `"metadata"`)
+	assert.NotContains(t, string(encoded), "/provider/audio.wav")
+	assert.NotContains(t, string(encoded), "secret")
+}
+
 func TestBuildCanonicalTranscriptRejectsEmptyEngineOutput(t *testing.T) {
 	_, err := BuildCanonicalTranscript(&engineprovider.TranscriptionResult{
 		ModelID:  "parakeet-v3",

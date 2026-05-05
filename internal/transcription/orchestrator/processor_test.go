@@ -205,6 +205,7 @@ func TestProcessorCreatesExecutionAndReturnsCanonicalTranscript(t *testing.T) {
 	assert.Equal(t, "translate", provider.transReq.Task)
 	assert.Equal(t, "vad", provider.transReq.Chunking)
 	assert.Equal(t, float64(24), provider.transReq.ChunkDurationSec)
+	assert.Equal(t, 1, provider.transReq.BatchSize)
 
 	var executions []models.TranscriptionJobExecution
 	require.NoError(t, db.Where("transcription_id = ?", job.ID).Find(&executions).Error)

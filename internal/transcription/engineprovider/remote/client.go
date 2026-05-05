@@ -182,6 +182,7 @@ func (c *Client) Transcribe(ctx context.Context, req engineprovider.Transcriptio
 			"decoding_method":           req.DecodingMethod,
 			"chunking":                  req.Chunking,
 			"chunk_duration_sec":        req.ChunkDurationSec,
+			"batching.batch_size":       req.BatchSize,
 			"enable_token_timestamps":   req.EnableTokenTimestamps,
 			"enable_segment_timestamps": req.EnableSegmentTimestamps,
 		},

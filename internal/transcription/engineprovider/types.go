@@ -71,6 +71,7 @@ type TranscriptionRequest struct {
 	DecodingMethod          string
 	Chunking                string
 	ChunkDurationSec        float64
+	BatchSize               int
 }
 
 type DiarizationRequest struct {
@@ -113,6 +114,7 @@ type TranscriptionResult struct {
 	Segments []TranscriptSegment
 	ModelID  string
 	EngineID string
+	Metadata map[string]any
 }
 
 type DiarizationResult struct {

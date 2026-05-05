@@ -184,6 +184,7 @@ func (p *Processor) Process(ctx context.Context, job *models.TranscriptionJob) (
 		DecodingMethod:          supportedDecodingMethod(transcriptionStep.ModelFamily, job.Parameters.DecodingMethod),
 		Chunking:                string(planStepForOperation(plan, models.ASRStepTranscription).Chunking.Mode),
 		ChunkDurationSec:        planStepForOperation(plan, models.ASRStepTranscription).Chunking.ChunkSeconds,
+		BatchSize:               planStepForOperation(plan, models.ASRStepTranscription).Batching.BatchSize,
 	})
 	if err != nil {
 		return withExecution(p.errorResult(ctx, err))

@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"math"
 	"strings"
+	"time"
 
 	appconfig "scriberr/internal/config"
 	"scriberr/internal/transcription/asrcontract"
@@ -189,6 +191,7 @@ func (p *LocalProvider) Transcribe(ctx context.Context, req TranscriptionRequest
 	if task == "" {
 		task = "transcribe"
 	}
+	req = normalizeLocalTranscriptionRequest(req, modelID, p.cfg)
 	enableTokenTimestamps := true
 	enableSegmentTimestamps := true
 	engineReq := speechengine.TranscriptionRequest{
@@ -207,7 +210,9 @@ func (p *LocalProvider) Transcribe(ctx context.Context, req TranscriptionRequest
 		NumThreads:              coalesceInt(req.Threads, p.cfg.Threads),
 		Provider:                p.provider,
 	}
+	started := time.Now()
 	out, err := p.engine.Transcribe(ctx, engineReq)
+	decodeDuration := time.Since(started)
 	if err != nil {
 		return nil, sanitizeError(err)
 	}
@@ -238,7 +243,75 @@ func (p *LocalProvider) Transcribe(ctx context.Context, req TranscriptionRequest
 		Segments: segments,
 		ModelID:  modelID,
 		EngineID: p.id,
+		Metadata: localTranscriptionMetadata(modelID, req, words, segments, decodeDuration),
 	}, nil
+}
+
+func normalizeLocalTranscriptionRequest(req TranscriptionRequest, modelID string, cfg LocalConfig) TranscriptionRequest {
+	if isParakeetModelID(modelID) {
+		if strings.TrimSpace(req.Chunking) == "" {
+			req.Chunking = "fixed"
+		}
+		if req.ChunkDurationSec <= 0 {
+			req.ChunkDurationSec = 30
+		}
+		if req.Threads <= 0 {
+			req.Threads = 4
+		}
+		if req.BatchSize <= 0 {
+			req.BatchSize = 1
+		}
+		return req
+	}
+	if req.BatchSize <= 0 {
+		req.BatchSize = 1
+	}
+	return req
+}
+
+func localTranscriptionMetadata(modelID string, req TranscriptionRequest, words []TranscriptWord, segments []TranscriptSegment, decodeDuration time.Duration) map[string]any {
+	audioDuration := estimatedAudioDuration(words, segments)
+	metadata := map[string]any{
+		"model":            modelID,
+		"chunking_mode":    strings.TrimSpace(req.Chunking),
+		"chunk_seconds":    req.ChunkDurationSec,
+		"batch_size":       coalesceInt(req.BatchSize, 1),
+		"decode_time_ms":   decodeDuration.Milliseconds(),
+		"audio_duration_s": audioDuration,
+		"hypothesis_words": len(words),
+	}
+	if metadata["chunking_mode"] == "" {
+		metadata["chunking_mode"] = "none"
+	}
+	if req.ChunkDurationSec > 0 && audioDuration > 0 {
+		metadata["chunk_count"] = max(1, int(math.Ceil(audioDuration/req.ChunkDurationSec)))
+	} else {
+		metadata["chunk_count"] = 1
+	}
+	if audioDuration > 0 && decodeDuration > 0 {
+		metadata["rtf"] = decodeDuration.Seconds() / audioDuration
+	}
+	return metadata
+}
+
+func estimatedAudioDuration(words []TranscriptWord, segments []TranscriptSegment) float64 {
+	var duration float64
+	for _, word := range words {
+		if word.End > duration {
+			duration = word.End
+		}
+	}
+	for _, segment := range segments {
+		if segment.End > duration {
+			duration = segment.End
+		}
+	}
+	return duration
+}
+
+func isParakeetModelID(modelID string) bool {
+	normalized := strings.ToLower(strings.TrimSpace(modelID))
+	return strings.Contains(normalized, "parakeet") || strings.Contains(normalized, "nemo")
 }
 
 func (p *LocalProvider) Diarize(ctx context.Context, req DiarizationRequest) (*DiarizationResult, error) {
