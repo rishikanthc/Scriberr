@@ -11,6 +11,8 @@ The default sherpa-onnx provider remains in-process and is called through Go API
 - Keep Scriberr responsible for queueing, retries, cancellation, audio preprocessing, transcript persistence, authorization, and canonical transcript merging.
 - Keep providers responsible for model discovery, model lifecycle, inference, provider-local status, and typed progress events.
 - Allow providers to expose richer model cards and optional features such as diarization, speaker identification, token timestamps, custom vocabulary, language detection, translation, and hardware-specific backends.
+- Allow providers to expose a model registry with typed parameter schemas so backend validation and frontend ASR profile controls are generated from the same source of truth.
+- Keep long-form decode planning, chunking, batching, timestamp stitching, and result normalization owned by the execution runtime that performs model decode.
 - Allow a single transcription job to run as a provider pipeline, for example local sherpa transcription followed by remote diarization.
 - Make provider development practical for third parties by keeping the external wire contract simple, testable, and language agnostic.
 
@@ -73,7 +75,7 @@ providers -> internal/api DTOs
 
 ## Internal Provider Interface
 
-The internal Go interface is the single surface used by the orchestrator:
+The internal Go provider base interface covers model discovery, status, lifecycle, and cleanup:
 
 ```go
 type Provider interface {
@@ -87,15 +89,30 @@ type Provider interface {
     UnloadModel(ctx context.Context, req UnloadModelRequest) error
     LoadedModels(ctx context.Context) ([]LoadedModel, error)
 
-    Transcribe(ctx context.Context, req TranscriptionRequest, progress ProgressSink) (*TranscriptionResult, error)
-    Diarize(ctx context.Context, req DiarizationRequest, progress ProgressSink) (*DiarizationResult, error)
-    IdentifySpeakers(ctx context.Context, req SpeakerIDRequest, progress ProgressSink) (*SpeakerIDResult, error)
-
     Close() error
 }
 ```
 
-Providers may return `UNSUPPORTED_OPERATION` for operations they do not implement. A provider can support transcription only, diarization only, speaker identification only, or any combination.
+Task execution is split into small task-specific interfaces:
+
+```go
+type TranscriptionProvider interface {
+    Provider
+    Transcribe(ctx context.Context, req TranscriptionRequest) (*TranscriptionResult, error)
+}
+
+type DiarizationProvider interface {
+    Provider
+    Diarize(ctx context.Context, req DiarizationRequest) (*DiarizationResult, error)
+}
+
+type SpeakerIdentificationProvider interface {
+    Provider
+    IdentifySpeakers(ctx context.Context, req SpeakerIDRequest) (*SpeakerIDResult, error)
+}
+```
+
+Providers implement only the task interfaces they can actually execute. The registry selects by advertised model capability, and the orchestrator verifies the selected provider implements the required task interface before execution.
 
 `ProgressSink` is a Scriberr-owned callback. Local providers call it directly. Remote providers translate remote job progress into the same callback.
 
@@ -111,6 +128,7 @@ Responsibilities:
 - Cache model cards with a short TTL.
 - Select providers by explicit provider ID, model ID, required capabilities, load state, and health.
 - Expose aggregated model/provider status to services.
+- Derive selectable `ModelCapability` projections from `Models()` instead of requiring a second provider-level capability API.
 
 Selection rules:
 
@@ -119,6 +137,125 @@ Selection rules:
 3. If a step pins model only, choose any healthy provider exposing that model.
 4. If neither is pinned, use Scriberr defaults.
 5. If a requested feature is unavailable, fail before queue execution when possible.
+
+### Registry V2 Model Descriptors
+
+Model cards are evolving into provider-owned model descriptors. They remain JSON-friendly wire objects, but they must carry enough metadata for Scriberr to validate profiles, plan execution, and render model-specific frontend controls.
+
+Required descriptor groups:
+
+- identity: provider ID, model ID, family, display name, version, license, and install/load state
+- tasks: transcription, diarization, speaker identification, audio tagging, translation, or language detection
+- language support: supported languages, fixed language, automatic detection, or runtime language parameter
+- output capabilities: word timestamps, segment timestamps, token timestamps, speaker labels, tags, emotions, language spans, and confidence when available
+- runtime capabilities: CPU/CUDA/CoreML support, thread support, batching support, memory class, and load/reload behavior
+- chunking capabilities: whether Scriberr may chunk audio, whether provider-owned chunking is supported, preferred chunking mode, recommended chunk size, max chunk size, and batching limits
+- parameter schema: typed, bounded, frontend-renderable parameters with defaults
+
+The provider registry is descriptive. The orchestrator execution planner remains responsible for choosing the final plan after applying user profile settings, global safety limits, and measured defaults.
+
+### Parameter Schema Contract
+
+Profile settings should be stored as generic provider/model parameters validated against each model descriptor, not as permanent provider-specific backend structs.
+
+Parameter descriptors should include:
+
+```json
+{
+  "key": "runtime.num_threads",
+  "label": "CPU threads",
+  "type": "integer",
+  "default": 4,
+  "min": 1,
+  "max": 16,
+  "scope": "runtime",
+  "advanced": true,
+  "requires_reload": true
+}
+```
+
+Allowed scopes:
+
+```txt
+model
+runtime
+decoding
+chunking
+vad
+output
+postprocess
+```
+
+Rules:
+
+- Common concepts should use common keys across providers.
+- Provider-specific keys must be namespaced, bounded, and documented.
+- Frontend-generated controls are convenience only; the backend must validate every submitted parameter.
+- Parameters that affect recognizer construction, such as sherpa thread count or model provider, must be marked `requires_reload`.
+- Runtime paths, secrets, raw URLs, and credentials are not allowed in profile parameter values.
+
+## Execution Planning, Chunking, And Batching
+
+Scriberr backend owns job-level orchestration, not model-level chunk planning:
+
+```txt
+profile + provider registry + model descriptor + audio metadata
+  -> validate parameters
+  -> ensure/preload model when needed
+  -> preprocess audio once
+  -> call selected provider task with pipeline step options
+  -> merge typed task results into canonical transcript
+```
+
+For the bundled local sherpa provider, `scriberr-engine` owns the model-level execution plan: fixed-window chunking, VAD chunking, batching, timestamp offsetting, provider result stitching, and decode metrics. The backend passes full normalized audio and descriptor-keyed `pipeline[].options` through the direct Go adapter.
+
+For external REST providers, the provider service owns any long-form segmentation needed for its model. The backend does not split audio into spans for remote providers in this contract.
+
+Chunking modes:
+
+```txt
+none      send full audio when model/provider can handle it safely
+fixed     split by fixed duration with optional overlap
+vad       split by speech spans from Scriberr-owned VAD planning
+provider  send full audio and let provider plan chunks internally
+```
+
+Batching belongs to the execution runtime plan, not the backend transcript result contract. A provider can advertise batch decode support while recommending `batch_size: 1` when measured CPU performance is better without batching.
+
+Initial measured default for sherpa Parakeet v3 on CPU:
+
+```txt
+chunking.mode: fixed
+chunking.chunk_seconds: 30
+runtime.num_threads: 4
+batching.batch_size: 1
+```
+
+VAD remains available but should be selected by profile or workload. It is useful for silence-heavy audio; fixed-window chunking gave the best accuracy in the current dense-speech experiments.
+
+## Task-Oriented Provider Capabilities
+
+Avoid one large provider method surface that assumes every provider supports every future feature. Capability execution is task-oriented:
+
+```txt
+ASR/transcription
+diarization
+speaker identification
+audio tagging
+language detection
+translation
+```
+
+Each task should have:
+
+- input contract
+- output contract
+- capability flags
+- parameter schema scopes
+- progress stages
+- result normalization rules
+
+This keeps future speaker identification and audio tagging support from contaminating the ASR-only hot path.
 
 ## Audio Preprocessing
 
@@ -303,17 +440,17 @@ Example:
 ```json
 {
   "name": "Parakeet + external diarization",
-  "steps": [
+  "pipeline": [
     {
       "kind": "transcription",
       "provider": "local-sherpa",
       "model": "parakeet-v3",
-      "features": {
-        "word_timestamps": true,
-        "segment_timestamps": true
-      },
       "options": {
-        "decoding_method": "greedy_search"
+        "decoding.method": "greedy_search",
+        "chunking.mode": "fixed",
+        "chunking.chunk_seconds": 30,
+        "output.word_timestamps": true,
+        "output.timestamps": true
       }
     },
     {
@@ -332,23 +469,19 @@ Example:
 }
 ```
 
-Common options should remain first-class where Scriberr needs consistent behavior:
+Common options should use provider-neutral descriptor keys inside the owning step's `options` map:
 
 ```txt
-language
-task
-word_timestamps
-segment_timestamps
-token_timestamps
-diarization
-speaker count hints
-initial prompt
-custom vocabulary
-chunking
-decoding method or preset
+runtime.num_threads
+decoding.method
+chunking.mode
+chunking.chunk_seconds
+output.word_timestamps
+output.timestamps
+vad.threshold
 ```
 
-Provider-specific options belong in a JSON object validated against the selected model card's `parameter_schema`.
+Provider-specific options belong in the same `options` map with a namespace and must be validated against the selected model card's `parameter_schema`.
 
 ## Orchestrator Flow
 
@@ -525,7 +658,7 @@ Planned changes:
 - `/models/transcription` should return model cards aggregated from the provider registry.
 - Profile validation should use registry/model-card data, not `scriberr-engine`.
 - Execution rows should store provider step details, model IDs, operation kind, sanitized options, and provider error codes.
-- Existing single-model profiles can be migrated into one transcription step plus optional diarization step.
+- Profile options should be stored as `pipeline[].options`, validated against selected model descriptors.
 
 ## Migration Plan
 
@@ -536,7 +669,7 @@ Planned changes:
 5. Add audio preprocessing that produces normalized provider-ready artifacts before provider execution.
 6. Add the remote REST provider client and a fake/test remote provider.
 7. Add pipeline execution in the orchestrator, initially supporting transcription plus optional diarization.
-8. Expand profile persistence to store ordered pipeline steps while preserving compatibility with existing profile options.
+8. Expand profile persistence to store ordered pipeline steps with descriptor-keyed options.
 9. Add contract tests and a minimal provider SDK/example container.
 
 ## Verification

@@ -220,24 +220,28 @@ Commit:
 
 ## BE-ENG-PROVIDER-Sprint 7: Hardening And Documentation
 
-Status: planned
+Status: complete
 
 Planned tasks:
 
-- [ ] Update provider specs and author guide.
-- [ ] Update backend and engine architecture docs.
-- [ ] Add final architecture guardrails.
-- [ ] Run full validation.
+- [x] Update provider specs and author guide.
+- [x] Update backend and engine architecture docs.
+- [x] Add final architecture guardrails.
+- [x] Run full validation.
 
 Acceptance checks:
 
-- [ ] Docs match implementation.
-- [ ] Local sherpa path is direct Go API only.
-- [ ] Remote provider extension path is clear.
+- [x] Docs match implementation.
+- [x] Local sherpa path is direct Go API only.
+- [x] Remote provider extension path is clear.
 
 Verification:
 
-- [ ] Not started.
+- [x] `GOCACHE=/private/tmp/scriberr-go-cache go test ./...`
+- [x] `GOCACHE=/private/tmp/scriberr-go-cache go vet ./internal/transcription/... ./internal/profile ./internal/api`
+- [x] `GOCACHE=/private/tmp/scriberr-engine-go-cache go test ./...`
+- [x] `GOCACHE=/private/tmp/scriberr-engine-go-cache go vet ./...`
+- [x] `git diff --check`
 
 Commit:
 
