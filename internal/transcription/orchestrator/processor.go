@@ -92,6 +92,7 @@ type resolvedASRStep struct {
 	Provider    engineprovider.Provider
 	Model       string
 	ModelFamily string
+	Options     map[string]any
 }
 
 func (p *Processor) Process(ctx context.Context, job *models.TranscriptionJob) (worker.ProcessResult, error) {
@@ -170,21 +171,12 @@ func (p *Processor) Process(ctx context.Context, job *models.TranscriptionJob) (
 		return withExecution(p.errorResult(ctx, err))
 	}
 	transcription, err := transcriptionStep.Provider.Transcribe(ctx, engineprovider.TranscriptionRequest{
-		JobID:                   job.ID,
-		UserID:                  job.UserID,
-		AudioPath:               audio.ProviderPath,
-		Progress:                progressSink,
-		ModelID:                 transcriptionModel,
-		Language:                languageFromJob(job),
-		Task:                    job.Parameters.Task,
-		Threads:                 job.Parameters.Threads,
-		TailPaddings:            job.Parameters.TailPaddings,
-		EnableTokenTimestamps:   job.Parameters.EnableTokenTimestamps,
-		EnableSegmentTimestamps: job.Parameters.EnableSegmentTimestamps,
-		DecodingMethod:          supportedDecodingMethod(transcriptionStep.ModelFamily, job.Parameters.DecodingMethod),
-		Chunking:                string(planStepForOperation(plan, models.ASRStepTranscription).Chunking.Mode),
-		ChunkDurationSec:        planStepForOperation(plan, models.ASRStepTranscription).Chunking.ChunkSeconds,
-		BatchSize:               planStepForOperation(plan, models.ASRStepTranscription).Batching.BatchSize,
+		JobID:      job.ID,
+		UserID:     job.UserID,
+		AudioPath:  audio.ProviderPath,
+		Progress:   progressSink,
+		ModelID:    transcriptionModel,
+		Parameters: providerParametersForStep(transcriptionStep),
 	})
 	if err != nil {
 		return withExecution(p.errorResult(ctx, err))
@@ -208,15 +200,12 @@ func (p *Processor) Process(ctx context.Context, job *models.TranscriptionJob) (
 			return withExecution(p.errorResult(ctx, err))
 		}
 		diarization, err = diarizationStep.Provider.Diarize(ctx, engineprovider.DiarizationRequest{
-			JobID:          job.ID,
-			UserID:         job.UserID,
-			AudioPath:      audio.ProviderPath,
-			Progress:       progressSink,
-			ModelID:        diarizationStep.Model,
-			NumSpeakers:    job.Parameters.NumSpeakers,
-			Threshold:      job.Parameters.DiarizationThreshold,
-			MinDurationOn:  job.Parameters.MinDurationOn,
-			MinDurationOff: job.Parameters.MinDurationOff,
+			JobID:      job.ID,
+			UserID:     job.UserID,
+			AudioPath:  audio.ProviderPath,
+			Progress:   progressSink,
+			ModelID:    diarizationStep.Model,
+			Parameters: providerParametersForStep(diarizationStep),
 		})
 		if err != nil {
 			return withExecution(p.errorResult(ctx, err))
@@ -340,9 +329,25 @@ func (p *Processor) resolvePipeline(ctx context.Context, job *models.Transcripti
 			Provider:    provider,
 			Model:       model,
 			ModelFamily: strings.TrimSpace(step.ModelFamily),
+			Options:     copyStepOptions(step.Options),
 		})
 	}
 	return out, nil
+}
+
+func providerParametersForStep(step resolvedASRStep) map[string]any {
+	return copyStepOptions(step.Options)
+}
+
+func copyStepOptions(in map[string]any) map[string]any {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make(map[string]any, len(in))
+	for key, value := range in {
+		out[key] = value
+	}
+	return out
 }
 
 func pipelineStepsForJob(job *models.TranscriptionJob) []models.ASRStep {
@@ -549,29 +554,11 @@ func providerProgressValue(event asrcontract.ProviderProgress) float64 {
 	}
 }
 
-func languageFromJob(job *models.TranscriptionJob) string {
-	if job.Language != nil {
-		return *job.Language
-	}
-	if job.Parameters.Language != nil {
-		return *job.Parameters.Language
-	}
-	return ""
-}
-
 func defaultString(value, fallback string) string {
 	if strings.TrimSpace(value) != "" {
 		return strings.TrimSpace(value)
 	}
 	return fallback
-}
-
-func supportedDecodingMethod(modelFamily, decodingMethod string) string {
-	method := strings.TrimSpace(decodingMethod)
-	if strings.TrimSpace(modelFamily) == "whisper" {
-		return "greedy_search"
-	}
-	return method
 }
 
 func validateAudioPath(path string) error {

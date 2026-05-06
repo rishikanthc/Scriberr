@@ -57,33 +57,21 @@ type SelectionRequest struct {
 }
 
 type TranscriptionRequest struct {
-	JobID                   string
-	UserID                  uint
-	AudioPath               string
-	Progress                ProgressSink
-	ModelID                 string
-	Language                string
-	Task                    string
-	Threads                 int
-	TailPaddings            *int
-	EnableTokenTimestamps   *bool
-	EnableSegmentTimestamps *bool
-	DecodingMethod          string
-	Chunking                string
-	ChunkDurationSec        float64
-	BatchSize               int
+	JobID      string
+	UserID     uint
+	AudioPath  string
+	Progress   ProgressSink
+	ModelID    string
+	Parameters map[string]any
 }
 
 type DiarizationRequest struct {
-	JobID          string
-	UserID         uint
-	AudioPath      string
-	Progress       ProgressSink
-	ModelID        string
-	NumSpeakers    int
-	Threshold      float64
-	MinDurationOn  float64
-	MinDurationOff float64
+	JobID      string
+	UserID     uint
+	AudioPath  string
+	Progress   ProgressSink
+	ModelID    string
+	Parameters map[string]any
 }
 
 type TranscriptWord struct {

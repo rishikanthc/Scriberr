@@ -4,9 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"math"
 	"strings"
-	"time"
 
 	appconfig "scriberr/internal/config"
 	"scriberr/internal/transcription/asrcontract"
@@ -187,32 +185,14 @@ func (p *LocalProvider) Transcribe(ctx context.Context, req TranscriptionRequest
 	if modelID == "" {
 		modelID = DefaultTranscriptionModel
 	}
-	task := strings.TrimSpace(req.Task)
-	if task == "" {
-		task = "transcribe"
-	}
-	req = normalizeLocalTranscriptionRequest(req, modelID, p.cfg)
-	enableTokenTimestamps := true
-	enableSegmentTimestamps := true
 	engineReq := speechengine.TranscriptionRequest{
-		RequestID:               req.JobID,
-		ModelID:                 modelID,
-		AudioPath:               req.AudioPath,
-		Progress:                localProgressSink{downstream: req.Progress},
-		Language:                req.Language,
-		Task:                    task,
-		TailPaddings:            req.TailPaddings,
-		EnableTokenTimestamps:   &enableTokenTimestamps,
-		EnableSegmentTimestamps: &enableSegmentTimestamps,
-		DecodingMethod:          req.DecodingMethod,
-		Chunking:                req.Chunking,
-		ChunkDurationSec:        req.ChunkDurationSec,
-		NumThreads:              coalesceInt(req.Threads, p.cfg.Threads),
-		Provider:                p.provider,
+		RequestID:  req.JobID,
+		ModelID:    modelID,
+		AudioPath:  req.AudioPath,
+		Parameters: copyParameters(req.Parameters),
+		Progress:   localProgressSink{downstream: req.Progress},
 	}
-	started := time.Now()
 	out, err := p.engine.Transcribe(ctx, engineReq)
-	decodeDuration := time.Since(started)
 	if err != nil {
 		return nil, sanitizeError(err)
 	}
@@ -243,75 +223,54 @@ func (p *LocalProvider) Transcribe(ctx context.Context, req TranscriptionRequest
 		Segments: segments,
 		ModelID:  modelID,
 		EngineID: p.id,
-		Metadata: localTranscriptionMetadata(modelID, req, words, segments, decodeDuration),
+		Metadata: localTranscriptionMetadata(modelID, out),
 	}, nil
 }
 
-func normalizeLocalTranscriptionRequest(req TranscriptionRequest, modelID string, cfg LocalConfig) TranscriptionRequest {
-	if isParakeetModelID(modelID) {
-		if strings.TrimSpace(req.Chunking) == "" {
-			req.Chunking = "fixed"
-		}
-		if req.ChunkDurationSec <= 0 {
-			req.ChunkDurationSec = 30
-		}
-		if req.Threads <= 0 {
-			req.Threads = 4
-		}
-		if req.BatchSize <= 0 {
-			req.BatchSize = 1
-		}
-		return req
-	}
-	if req.BatchSize <= 0 {
-		req.BatchSize = 1
-	}
-	return req
-}
-
-func localTranscriptionMetadata(modelID string, req TranscriptionRequest, words []TranscriptWord, segments []TranscriptSegment, decodeDuration time.Duration) map[string]any {
-	audioDuration := estimatedAudioDuration(words, segments)
+func localTranscriptionMetadata(modelID string, out *speechengine.TranscriptionResult) map[string]any {
 	metadata := map[string]any{
-		"model":            modelID,
-		"chunking_mode":    strings.TrimSpace(req.Chunking),
-		"chunk_seconds":    req.ChunkDurationSec,
-		"batch_size":       coalesceInt(req.BatchSize, 1),
-		"decode_time_ms":   decodeDuration.Milliseconds(),
-		"audio_duration_s": audioDuration,
-		"hypothesis_words": len(words),
+		"model": modelID,
 	}
-	if metadata["chunking_mode"] == "" {
-		metadata["chunking_mode"] = "none"
+	if out == nil {
+		return metadata
 	}
-	if req.ChunkDurationSec > 0 && audioDuration > 0 {
-		metadata["chunk_count"] = max(1, int(math.Ceil(audioDuration/req.ChunkDurationSec)))
-	} else {
-		metadata["chunk_count"] = 1
+	if out.Metrics.AudioDurationSec > 0 {
+		metadata["audio_duration_s"] = out.Metrics.AudioDurationSec
 	}
-	if audioDuration > 0 && decodeDuration > 0 {
-		metadata["rtf"] = decodeDuration.Seconds() / audioDuration
+	if out.Metrics.DecodeDuration > 0 {
+		metadata["decode_time_ms"] = out.Metrics.DecodeDuration.Milliseconds()
 	}
+	if out.Metrics.ChunkCount > 0 {
+		metadata["chunk_count"] = out.Metrics.ChunkCount
+	}
+	if out.Metrics.BatchSize > 0 {
+		metadata["batch_size"] = out.Metrics.BatchSize
+	}
+	if out.Metrics.HypothesisWords > 0 {
+		metadata["hypothesis_words"] = out.Metrics.HypothesisWords
+	}
+	if rtf := out.Metrics.RealTimeFactor(); rtf > 0 {
+		metadata["rtf"] = rtf
+	}
+	if strings.TrimSpace(out.Plan.ChunkingMode) != "" {
+		metadata["chunking_mode"] = out.Plan.ChunkingMode
+	}
+	if strings.TrimSpace(out.Plan.Task) != "" {
+		metadata["task"] = out.Plan.Task
+	}
+	metadata["plan"] = out.Plan
 	return metadata
 }
 
-func estimatedAudioDuration(words []TranscriptWord, segments []TranscriptSegment) float64 {
-	var duration float64
-	for _, word := range words {
-		if word.End > duration {
-			duration = word.End
-		}
+func copyParameters(in map[string]any) map[string]any {
+	if len(in) == 0 {
+		return nil
 	}
-	for _, segment := range segments {
-		if segment.End > duration {
-			duration = segment.End
-		}
+	out := make(map[string]any, len(in))
+	for key, value := range in {
+		out[key] = value
 	}
-	return duration
-}
-
-func isParakeetModelID(modelID string) bool {
-	normalized := strings.ToLower(strings.TrimSpace(modelID))
-	return strings.Contains(normalized, "parakeet") || strings.Contains(normalized, "nemo")
+	return out
 }
 
 func (p *LocalProvider) Diarize(ctx context.Context, req DiarizationRequest) (*DiarizationResult, error) {
@@ -320,16 +279,11 @@ func (p *LocalProvider) Diarize(ctx context.Context, req DiarizationRequest) (*D
 		modelID = DefaultDiarizationModel
 	}
 	engineReq := speechengine.DiarizationRequest{
-		RequestID:      req.JobID,
-		ModelID:        modelID,
-		AudioPath:      req.AudioPath,
-		Progress:       localProgressSink{downstream: req.Progress},
-		NumClusters:    req.NumSpeakers,
-		Threshold:      req.Threshold,
-		MinDurationOn:  req.MinDurationOn,
-		MinDurationOff: req.MinDurationOff,
-		NumThreads:     p.cfg.Threads,
-		Provider:       p.provider,
+		RequestID:  req.JobID,
+		ModelID:    modelID,
+		AudioPath:  req.AudioPath,
+		Parameters: copyParameters(req.Parameters),
+		Progress:   localProgressSink{downstream: req.Progress},
 	}
 	out, err := p.engine.Diarize(ctx, engineReq)
 	if err != nil {

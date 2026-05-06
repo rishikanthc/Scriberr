@@ -151,11 +151,18 @@ func TestProcessorCreatesExecutionAndReturnsCanonicalTranscript(t *testing.T) {
 	audioPath := filepath.Join(t.TempDir(), "audio.wav")
 	require.NoError(t, os.WriteFile(audioPath, []byte("fake wav"), 0o600))
 	job := createOrchestratorJob(t, db, audioPath, models.ASRParams{
-		Task:             "translate",
-		ChunkingStrategy: "vad",
-		ChunkSize:        24,
 		Pipeline: []models.ASRStep{
-			{Kind: models.ASRStepTranscription, Model: "custom-transcriber", ModelFamily: "whisper"},
+			{
+				Kind:        models.ASRStepTranscription,
+				Model:       "custom-transcriber",
+				ModelFamily: "whisper",
+				Options: map[string]any{
+					"task":                                  "translate",
+					asrcontract.CommonParameterChunkingMode: "vad",
+					asrcontract.CommonParameterChunkingChunkSeconds: float64(24),
+					asrcontract.CommonParameterBatchingBatchSize:    1,
+				},
+			},
 			{Kind: models.ASRStepDiarization, Model: "custom-diarizer"},
 		},
 	})
@@ -202,10 +209,10 @@ func TestProcessorCreatesExecutionAndReturnsCanonicalTranscript(t *testing.T) {
 	assert.Equal(t, "custom-transcriber", provider.transReq.ModelID)
 	assert.Equal(t, audioPath, provider.transReq.AudioPath)
 	assert.Equal(t, "custom-diarizer", provider.diarizeReq.ModelID)
-	assert.Equal(t, "translate", provider.transReq.Task)
-	assert.Equal(t, "vad", provider.transReq.Chunking)
-	assert.Equal(t, float64(24), provider.transReq.ChunkDurationSec)
-	assert.Equal(t, 1, provider.transReq.BatchSize)
+	assert.Equal(t, "translate", provider.transReq.Parameters["task"])
+	assert.Equal(t, "vad", provider.transReq.Parameters[asrcontract.CommonParameterChunkingMode])
+	assert.Equal(t, float64(24), provider.transReq.Parameters[asrcontract.CommonParameterChunkingChunkSeconds])
+	assert.Equal(t, 1, provider.transReq.Parameters[asrcontract.CommonParameterBatchingBatchSize])
 
 	var executions []models.TranscriptionJobExecution
 	require.NoError(t, db.Where("transcription_id = ?", job.ID).Find(&executions).Error)
@@ -579,14 +586,20 @@ func TestLocalExecutionLogStoreReadsOnlyWithinRoot(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestProcessorNormalizesUnsupportedWhisperDecodingMethod(t *testing.T) {
+func TestProcessorPassesPipelineOptionsToProvider(t *testing.T) {
 	db := openOrchestratorTestDB(t)
 	audioPath := filepath.Join(t.TempDir(), "audio.wav")
 	require.NoError(t, os.WriteFile(audioPath, []byte("fake wav"), 0o600))
 	job := createOrchestratorJob(t, db, audioPath, models.ASRParams{
-		DecodingMethod: "modified_beam_search",
 		Pipeline: []models.ASRStep{
-			{Kind: models.ASRStepTranscription, Model: "whisper-base-en", ModelFamily: "whisper"},
+			{
+				Kind:        models.ASRStepTranscription,
+				Model:       "whisper-base-en",
+				ModelFamily: "whisper",
+				Options: map[string]any{
+					asrcontract.CommonParameterDecodingMethod: "modified_beam_search",
+				},
+			},
 		},
 	})
 	provider := &fakeProvider{
@@ -611,7 +624,7 @@ func TestProcessorNormalizesUnsupportedWhisperDecodingMethod(t *testing.T) {
 
 	require.NoError(t, err)
 	require.Equal(t, models.StatusCompleted, result.Status)
-	require.Equal(t, "greedy_search", provider.transReq.DecodingMethod)
+	require.Equal(t, "modified_beam_search", provider.transReq.Parameters[asrcontract.CommonParameterDecodingMethod])
 }
 
 func TestProcessorUsesExplicitEngineProviderSelection(t *testing.T) {

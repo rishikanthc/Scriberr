@@ -52,24 +52,27 @@ Commit:
 
 ## BE-ENG-PROVIDER-Sprint 1: Backend Request Contract Collapse
 
-Status: planned
+Status: complete
 
 Planned tasks:
 
-- [ ] Replace backend transcription request typed model fields with `Parameters map[string]any`.
-- [ ] Replace backend diarization request typed tuning fields with `Parameters map[string]any`.
-- [ ] Pass pipeline step options directly to local engine provider.
-- [ ] Remove active use of legacy flat ASR fields in execution.
+- [x] Replace backend transcription request typed model fields with `Parameters map[string]any`.
+- [x] Replace backend diarization request typed tuning fields with `Parameters map[string]any`.
+- [x] Pass pipeline step options directly to local engine provider.
+- [x] Remove active use of legacy flat ASR fields in execution.
 
 Acceptance checks:
 
-- [ ] Backend compiles against current engine API.
-- [ ] Local provider uses `speechengine.TranscriptionRequest.Parameters`.
-- [ ] No new execution path uses legacy flat ASR fields.
+- [x] Backend compiles against current engine API.
+- [x] Local provider uses `speechengine.TranscriptionRequest.Parameters`.
+- [x] No new execution path uses legacy flat ASR fields.
 
 Verification:
 
-- [ ] Not started.
+- [x] `GOCACHE=/tmp/scriberr-go-cache go test ./internal/transcription/engineprovider`
+- [x] `GOCACHE=/tmp/scriberr-go-cache go test ./internal/transcription/...`
+- [x] `GOCACHE=/tmp/scriberr-go-cache go test ./internal/profile ./internal/api`
+- [x] `GOCACHE=/tmp/scriberr-engine-go-cache go test ./...` in `references/engine`
 
 Commit:
 

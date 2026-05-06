@@ -164,28 +164,20 @@ func (c *Client) Prepare(ctx context.Context) error {
 }
 
 func (c *Client) Transcribe(ctx context.Context, req engineprovider.TranscriptionRequest) (*engineprovider.TranscriptionResult, error) {
+	parameters := copyParameters(req.Parameters)
 	remoteReq := asrcontract.TranscriptionRequest{
 		RequestID: req.JobID,
 		Audio:     mountedWAV(req.AudioPath),
 		Model:     coalesceString(req.ModelID, engineprovider.DefaultTranscriptionModel),
-		Task:      asrcontract.Task(coalesceString(req.Task, string(asrcontract.TaskTranscribe))),
-		Language:  req.Language,
+		Task:      asrcontract.Task(coalesceString(stringParameter(parameters, "task"), string(asrcontract.TaskTranscribe))),
+		Language:  stringParameter(parameters, "language"),
 		Features: asrcontract.Capabilities{
 			Transcription:     true,
-			WordTimestamps:    boolValue(req.EnableTokenTimestamps, true),
-			SegmentTimestamps: boolValue(req.EnableSegmentTimestamps, true),
-			TokenTimestamps:   boolValue(req.EnableTokenTimestamps, false),
+			WordTimestamps:    boolParameter(parameters, asrcontract.CommonParameterOutputWordTimestamps, true),
+			SegmentTimestamps: boolParameter(parameters, asrcontract.CommonParameterOutputTimestamps, true),
+			TokenTimestamps:   boolParameter(parameters, asrcontract.CommonParameterOutputTokenTimestamps, false),
 		},
-		Options: map[string]any{
-			"threads":                   req.Threads,
-			"tail_paddings":             req.TailPaddings,
-			"decoding_method":           req.DecodingMethod,
-			"chunking":                  req.Chunking,
-			"chunk_duration_sec":        req.ChunkDurationSec,
-			"batching.batch_size":       req.BatchSize,
-			"enable_token_timestamps":   req.EnableTokenTimestamps,
-			"enable_segment_timestamps": req.EnableSegmentTimestamps,
-		},
+		Options: parameters,
 	}
 	var result asrcontract.TranscriptionResult
 	if err := c.runJob(ctx, jobCreateRequest{Operation: asrcontract.OperationTranscription, Transcription: &remoteReq}, req.Progress, &result); err != nil {
@@ -199,12 +191,7 @@ func (c *Client) Diarize(ctx context.Context, req engineprovider.DiarizationRequ
 		RequestID: req.JobID,
 		Audio:     mountedWAV(req.AudioPath),
 		Model:     coalesceString(req.ModelID, engineprovider.DefaultDiarizationModel),
-		Options: map[string]any{
-			"num_speakers":     req.NumSpeakers,
-			"threshold":        req.Threshold,
-			"min_duration_on":  req.MinDurationOn,
-			"min_duration_off": req.MinDurationOff,
-		},
+		Options:   copyParameters(req.Parameters),
 	}
 	var result asrcontract.DiarizationResult
 	if err := c.runJob(ctx, jobCreateRequest{Operation: asrcontract.OperationDiarization, Diarization: &remoteReq}, req.Progress, &result); err != nil {
@@ -566,13 +553,6 @@ func capabilityStrings(capabilities asrcontract.Capabilities) []string {
 	return out
 }
 
-func boolValue(value *bool, fallback bool) bool {
-	if value == nil {
-		return fallback
-	}
-	return *value
-}
-
 func coalesceString(values ...string) string {
 	for _, value := range values {
 		if trimmed := strings.TrimSpace(value); trimmed != "" {
@@ -580,6 +560,35 @@ func coalesceString(values ...string) string {
 		}
 	}
 	return ""
+}
+
+func copyParameters(in map[string]any) map[string]any {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make(map[string]any, len(in))
+	for key, value := range in {
+		out[key] = value
+	}
+	return out
+}
+
+func stringParameter(parameters map[string]any, key string) string {
+	if value, ok := parameters[key]; ok {
+		if typed, ok := value.(string); ok {
+			return strings.TrimSpace(typed)
+		}
+	}
+	return ""
+}
+
+func boolParameter(parameters map[string]any, key string, fallback bool) bool {
+	if value, ok := parameters[key]; ok {
+		if typed, ok := value.(bool); ok {
+			return typed
+		}
+	}
+	return fallback
 }
 
 var _ engineprovider.Provider = (*Client)(nil)

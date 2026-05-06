@@ -177,8 +177,10 @@ func TestClientTranscribeSubmitsPollsAndReplaysProgress(t *testing.T) {
 		JobID:     "local-job",
 		AudioPath: "/mnt/audio/job.wav",
 		ModelID:   "remote-transcriber",
-		Language:  "en",
-		Progress:  sink,
+		Parameters: map[string]any{
+			"language": "en",
+		},
+		Progress: sink,
 	})
 	if err != nil {
 		t.Fatalf("Transcribe returned error: %v", err)

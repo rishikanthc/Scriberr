@@ -7,10 +7,12 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	"scriberr/internal/transcription/asrcontract"
 
 	speechengine "scriberr-engine/speech/engine"
+	engresults "scriberr-engine/speech/results"
 	"scriberr-engine/speech/runtime"
 )
 
@@ -144,16 +146,22 @@ func TestLocalProviderTranscribeMapsRequestAndWords(t *testing.T) {
 	progress := &captureProgressSink{}
 
 	result, err := provider.Transcribe(context.Background(), TranscriptionRequest{
-		JobID:            "job-1",
-		UserID:           7,
-		AudioPath:        "/tmp/audio.wav",
-		Progress:         progress,
-		ModelID:          "whisper-tiny",
-		Language:         "en",
-		Task:             "translate",
-		Threads:          2,
-		Chunking:         "vad",
-		ChunkDurationSec: 25,
+		JobID:     "job-1",
+		UserID:    7,
+		AudioPath: "/tmp/audio.wav",
+		Progress:  progress,
+		ModelID:   "whisper-tiny",
+		Parameters: map[string]any{
+			"language": "en",
+			"task":     "translate",
+			asrcontract.CommonParameterRuntimeNumThreads:      2,
+			asrcontract.CommonParameterChunkingMode:           "vad",
+			asrcontract.CommonParameterChunkingChunkSeconds:   float64(25),
+			asrcontract.CommonParameterOutputWordTimestamps:   true,
+			asrcontract.CommonParameterOutputTimestamps:       true,
+			asrcontract.CommonParameterOutputTokenTimestamps:  true,
+			asrcontract.CommonParameterChunkingOverlapSeconds: float64(0),
+		},
 	})
 	if err != nil {
 		t.Fatalf("Transcribe returned error: %v", err)
@@ -165,26 +173,18 @@ func TestLocalProviderTranscribeMapsRequestAndWords(t *testing.T) {
 	if fake.transcriptionReq.RequestID != "job-1" {
 		t.Fatalf("RequestID = %q", fake.transcriptionReq.RequestID)
 	}
-	if fake.transcriptionReq.Language != "en" {
-		t.Fatalf("Language = %q", fake.transcriptionReq.Language)
+	if fake.transcriptionReq.Parameters["language"] != "en" {
+		t.Fatalf("language parameter = %#v", fake.transcriptionReq.Parameters["language"])
 	}
-	if fake.transcriptionReq.Task != "translate" {
-		t.Fatalf("Task = %q", fake.transcriptionReq.Task)
+	if fake.transcriptionReq.Parameters["task"] != "translate" {
+		t.Fatalf("task parameter = %#v", fake.transcriptionReq.Parameters["task"])
 	}
-	if fake.transcriptionReq.NumThreads != 2 {
-		t.Fatalf("NumThreads = %d", fake.transcriptionReq.NumThreads)
+	if fake.transcriptionReq.Parameters[asrcontract.CommonParameterRuntimeNumThreads] != 2 {
+		t.Fatalf("runtime parameter = %#v", fake.transcriptionReq.Parameters[asrcontract.CommonParameterRuntimeNumThreads])
 	}
-	if fake.transcriptionReq.Provider != runtime.ProviderCPU {
-		t.Fatalf("Provider = %q", fake.transcriptionReq.Provider)
-	}
-	if fake.transcriptionReq.Chunking != "vad" || fake.transcriptionReq.ChunkDurationSec != 25 {
-		t.Fatalf("unexpected chunking request: %#v", fake.transcriptionReq)
-	}
-	if fake.transcriptionReq.EnableTokenTimestamps == nil || !*fake.transcriptionReq.EnableTokenTimestamps {
-		t.Fatalf("EnableTokenTimestamps was not forced on")
-	}
-	if fake.transcriptionReq.EnableSegmentTimestamps == nil || !*fake.transcriptionReq.EnableSegmentTimestamps {
-		t.Fatalf("EnableSegmentTimestamps was not forced on")
+	if fake.transcriptionReq.Parameters[asrcontract.CommonParameterChunkingMode] != "vad" ||
+		fake.transcriptionReq.Parameters[asrcontract.CommonParameterChunkingChunkSeconds] != float64(25) {
+		t.Fatalf("unexpected chunking parameters: %#v", fake.transcriptionReq.Parameters)
 	}
 	fake.transcriptionReq.Progress.Report(context.Background(), speechengine.Progress{
 		Stage:     speechengine.StageTranscribing,
@@ -208,7 +208,7 @@ func TestLocalProviderTranscribeMapsRequestAndWords(t *testing.T) {
 	}
 }
 
-func TestLocalProviderTranscribeAppliesParakeetFixedPlanDefaultsAndMetadata(t *testing.T) {
+func TestLocalProviderTranscribeUsesEnginePlanAndMetricsMetadata(t *testing.T) {
 	fake := &fakeSpeechEngine{
 		transcriptionOut: &speechengine.TranscriptionResult{
 			Text: "hello parakeet",
@@ -218,6 +218,17 @@ func TestLocalProviderTranscribeAppliesParakeetFixedPlanDefaultsAndMetadata(t *t
 			},
 			Segments: []speechengine.TranscriptSegment{
 				{Text: "hello parakeet", StartSec: 0.1, EndSec: 1.1},
+			},
+			Metrics: engresults.Metrics{
+				AudioDurationSec: 10,
+				DecodeDuration:   2 * time.Second,
+				ChunkCount:       1,
+				BatchSize:        1,
+				HypothesisWords:  2,
+			},
+			Plan: engresults.PlanSummary{
+				ChunkingMode: "fixed",
+				Task:         "transcribe",
 			},
 		},
 	}
@@ -232,14 +243,8 @@ func TestLocalProviderTranscribeAppliesParakeetFixedPlanDefaultsAndMetadata(t *t
 		t.Fatalf("Transcribe returned error: %v", err)
 	}
 
-	if fake.transcriptionReq.Chunking != "fixed" {
-		t.Fatalf("Chunking = %q, want fixed", fake.transcriptionReq.Chunking)
-	}
-	if fake.transcriptionReq.ChunkDurationSec != 30 {
-		t.Fatalf("ChunkDurationSec = %v, want 30", fake.transcriptionReq.ChunkDurationSec)
-	}
-	if fake.transcriptionReq.NumThreads != 4 {
-		t.Fatalf("NumThreads = %d, want 4", fake.transcriptionReq.NumThreads)
+	if fake.transcriptionReq.Parameters != nil {
+		t.Fatalf("local provider synthesized parameters: %#v", fake.transcriptionReq.Parameters)
 	}
 	if result.Metadata["chunking_mode"] != "fixed" || result.Metadata["batch_size"] != 1 {
 		t.Fatalf("metadata missing selected plan: %#v", result.Metadata)
@@ -260,19 +265,21 @@ func TestLocalProviderTranscribePreservesExplicitParakeetVAD(t *testing.T) {
 	provider := newLocalProviderWithEngine("local", LocalConfig{Threads: 4}, runtime.ProviderCPU, fake)
 
 	_, err := provider.Transcribe(context.Background(), TranscriptionRequest{
-		ModelID:          "parakeet-v3",
-		Chunking:         "vad",
-		ChunkDurationSec: 12,
-		BatchSize:        1,
+		ModelID: "parakeet-v3",
+		Parameters: map[string]any{
+			asrcontract.CommonParameterChunkingMode:         "vad",
+			asrcontract.CommonParameterChunkingChunkSeconds: float64(12),
+			asrcontract.CommonParameterBatchingBatchSize:    1,
+		},
 	})
 	if err != nil {
 		t.Fatalf("Transcribe returned error: %v", err)
 	}
-	if fake.transcriptionReq.Chunking != "vad" {
-		t.Fatalf("Chunking = %q, want vad", fake.transcriptionReq.Chunking)
+	if fake.transcriptionReq.Parameters[asrcontract.CommonParameterChunkingMode] != "vad" {
+		t.Fatalf("chunking parameter = %#v, want vad", fake.transcriptionReq.Parameters[asrcontract.CommonParameterChunkingMode])
 	}
-	if fake.transcriptionReq.ChunkDurationSec != 12 {
-		t.Fatalf("ChunkDurationSec = %v, want 12", fake.transcriptionReq.ChunkDurationSec)
+	if fake.transcriptionReq.Parameters[asrcontract.CommonParameterChunkingChunkSeconds] != float64(12) {
+		t.Fatalf("chunk seconds parameter = %#v, want 12", fake.transcriptionReq.Parameters[asrcontract.CommonParameterChunkingChunkSeconds])
 	}
 }
 
@@ -289,11 +296,8 @@ func TestLocalProviderTranscribeDefaultsAndEmptyWords(t *testing.T) {
 	if fake.transcriptionReq.ModelID != DefaultTranscriptionModel {
 		t.Fatalf("ModelID = %q, want %q", fake.transcriptionReq.ModelID, DefaultTranscriptionModel)
 	}
-	if fake.transcriptionReq.Task != "transcribe" {
-		t.Fatalf("Task = %q, want transcribe", fake.transcriptionReq.Task)
-	}
-	if fake.transcriptionReq.NumThreads != 4 {
-		t.Fatalf("NumThreads = %d, want 4", fake.transcriptionReq.NumThreads)
+	if fake.transcriptionReq.Parameters != nil {
+		t.Fatalf("local provider synthesized parameters: %#v", fake.transcriptionReq.Parameters)
 	}
 	if result.Words == nil {
 		t.Fatalf("Words is nil, want empty array")
@@ -324,10 +328,12 @@ func TestLocalProviderDiarizeMapsRequestAndSpeakers(t *testing.T) {
 	provider := newLocalProviderWithEngine("local", LocalConfig{Threads: 3}, runtime.ProviderCPU, fake)
 
 	result, err := provider.Diarize(context.Background(), DiarizationRequest{
-		JobID:       "job-2",
-		AudioPath:   "/tmp/audio.wav",
-		ModelID:     "diarization-default",
-		NumSpeakers: 2,
+		JobID:     "job-2",
+		AudioPath: "/tmp/audio.wav",
+		ModelID:   "diarization-default",
+		Parameters: map[string]any{
+			"num_speakers": 2,
+		},
 	})
 	if err != nil {
 		t.Fatalf("Diarize returned error: %v", err)
@@ -338,11 +344,8 @@ func TestLocalProviderDiarizeMapsRequestAndSpeakers(t *testing.T) {
 	if fake.diarizationReq.RequestID != "job-2" {
 		t.Fatalf("RequestID = %q", fake.diarizationReq.RequestID)
 	}
-	if fake.diarizationReq.NumClusters != 2 {
-		t.Fatalf("NumClusters = %d", fake.diarizationReq.NumClusters)
-	}
-	if fake.diarizationReq.NumThreads != 3 {
-		t.Fatalf("NumThreads = %d", fake.diarizationReq.NumThreads)
+	if fake.diarizationReq.Parameters["num_speakers"] != 2 {
+		t.Fatalf("num_speakers parameter = %#v", fake.diarizationReq.Parameters["num_speakers"])
 	}
 	if len(result.Segments) != 2 || result.Segments[0].Speaker != "SPEAKER_00" || result.Segments[1].Speaker != "SPEAKER_12" {
 		t.Fatalf("unexpected segments: %#v", result.Segments)

@@ -29,8 +29,10 @@ func TestRealEngineJFKTranscription(t *testing.T) {
 		UserID:    1,
 		AudioPath: audioPath,
 		ModelID:   DefaultTranscriptionModel,
-		Language:  "en",
-		Task:      "transcribe",
+		Parameters: map[string]any{
+			"language": "en",
+			"task":     "transcribe",
+		},
 	})
 	if err != nil {
 		skipIfExternalRealEngineDependency(t, err)
@@ -66,7 +68,9 @@ func TestRealEngineAutoDownloadDisabledMissingModelIsSanitized(t *testing.T) {
 		UserID:    1,
 		AudioPath: audioPath,
 		ModelID:   DefaultTranscriptionModel,
-		Language:  "en",
+		Parameters: map[string]any{
+			"language": "en",
+		},
 	})
 	if err == nil {
 		t.Fatalf("expected missing model error with auto-download disabled")
@@ -101,7 +105,9 @@ func BenchmarkRealEngineJFKTranscription(b *testing.B) {
 			UserID:    1,
 			AudioPath: audioPath,
 			ModelID:   DefaultTranscriptionModel,
-			Language:  "en",
+			Parameters: map[string]any{
+				"language": "en",
+			},
 		})
 		if err != nil {
 			skipIfExternalRealEngineDependency(b, err)

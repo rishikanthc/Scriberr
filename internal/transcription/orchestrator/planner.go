@@ -114,7 +114,10 @@ func buildExecutionPlan(ctx context.Context, req planRequest) (ExecutionPlan, er
 	steps := make([]PlannedStep, 0, len(req.Steps))
 	for _, step := range req.Steps {
 		card, hasCard := modelCardForStep(req.Models, step)
-		sourceOptions := optionsForStep(req.Params, step)
+		sourceOptions := step.Options
+		if sourceOptions == nil {
+			sourceOptions = optionsForStep(req.Params, step)
+		}
 		chunking, err := planChunking(req.Params, sourceOptions, card, hasCard, limits)
 		if err != nil {
 			return ExecutionPlan{}, fmt.Errorf("plan %s step %q: %w", step.Kind, step.Model, err)
@@ -127,7 +130,7 @@ func buildExecutionPlan(ctx context.Context, req planRequest) (ExecutionPlan, er
 			Operation:  step.Kind,
 			ProviderID: step.ProviderID,
 			Model:      step.Model,
-			Runtime:    RuntimePlan{NumThreads: intOption(sourceOptions, asrcontract.CommonParameterRuntimeNumThreads, req.Params.Threads, intDefault(card.RecommendedDefaults, asrcontract.CommonParameterRuntimeNumThreads))},
+			Runtime:    RuntimePlan{NumThreads: intOption(sourceOptions, asrcontract.CommonParameterRuntimeNumThreads, 0, intDefault(card.RecommendedDefaults, asrcontract.CommonParameterRuntimeNumThreads))},
 			Chunking:   chunking,
 			Batching:   batching,
 		})
@@ -190,8 +193,8 @@ func boundaryProgress(operation string) float64 {
 }
 
 func planChunking(params models.ASRParams, options map[string]any, card asrcontract.ModelCard, hasCard bool, limits PlanLimits) (ChunkingPlan, error) {
-	explicitMode := hasOption(options, asrcontract.CommonParameterChunkingMode) || strings.TrimSpace(params.ChunkingStrategy) != ""
-	mode := ChunkingMode(stringOption(options, asrcontract.CommonParameterChunkingMode, params.ChunkingStrategy, stringDefault(card.RecommendedDefaults, asrcontract.CommonParameterChunkingMode)))
+	explicitMode := hasOption(options, asrcontract.CommonParameterChunkingMode)
+	mode := ChunkingMode(stringOption(options, asrcontract.CommonParameterChunkingMode, "", stringDefault(card.RecommendedDefaults, asrcontract.CommonParameterChunkingMode)))
 	if strings.TrimSpace(string(mode)) == "" {
 		mode = preferredChunkingMode(card, hasCard)
 	}
@@ -210,7 +213,7 @@ func planChunking(params models.ASRParams, options map[string]any, card asrcontr
 		}
 	}
 	providerOwned := mode == ChunkingModeProvider
-	chunkSeconds := floatOption(options, asrcontract.CommonParameterChunkingChunkSeconds, float64(params.ChunkSize), floatDefault(card.RecommendedDefaults, asrcontract.CommonParameterChunkingChunkSeconds))
+	chunkSeconds := floatOption(options, asrcontract.CommonParameterChunkingChunkSeconds, 0, floatDefault(card.RecommendedDefaults, asrcontract.CommonParameterChunkingChunkSeconds))
 	if chunkSeconds <= 0 && capabilities != nil && capabilities.RecommendedChunkSeconds != nil {
 		chunkSeconds = *capabilities.RecommendedChunkSeconds
 	}
@@ -229,9 +232,9 @@ func planChunking(params models.ASRParams, options map[string]any, card asrcontr
 		ChunkSeconds:   chunkSeconds,
 		OverlapSeconds: floatOption(options, asrcontract.CommonParameterChunkingOverlapSeconds, 0, 0),
 		VAD: VADPlan{
-			Threshold:         floatOption(options, asrcontract.CommonParameterVADThreshold, params.DiarizationThreshold, floatDefault(card.RecommendedDefaults, asrcontract.CommonParameterVADThreshold)),
-			MinSpeechSeconds:  floatOption(options, asrcontract.CommonParameterVADMinSpeechSeconds, params.MinDurationOn, 0),
-			MinSilenceSeconds: floatOption(options, asrcontract.CommonParameterVADMinSilenceSeconds, params.MinDurationOff, 0),
+			Threshold:         floatOption(options, asrcontract.CommonParameterVADThreshold, 0, floatDefault(card.RecommendedDefaults, asrcontract.CommonParameterVADThreshold)),
+			MinSpeechSeconds:  floatOption(options, asrcontract.CommonParameterVADMinSpeechSeconds, 0, 0),
+			MinSilenceSeconds: floatOption(options, asrcontract.CommonParameterVADMinSilenceSeconds, 0, 0),
 			MaxSpeechSeconds:  floatOption(options, asrcontract.CommonParameterVADMaxSpeechSeconds, 0, 0),
 			PaddingSeconds:    floatOption(options, asrcontract.CommonParameterVADPaddingSeconds, 0, 0),
 		},
