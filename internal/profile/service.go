@@ -101,17 +101,7 @@ func (s *Service) normalizeProfile(ctx context.Context, profile *models.Transcri
 	if err != nil {
 		return err
 	}
-	transcription := pipeline[0]
-	info, err := s.catalog.ResolveTranscriptionModel(ctx, transcription.Model)
-	if err != nil {
-		return err
-	}
 	params.Pipeline = pipeline
-	params.Model = info.ID
-	params.ModelFamily = info.Family
-	if info.Family == "whisper" {
-		params.DecodingMethod = "greedy_search"
-	}
 	profile.Parameters = params
 	return nil
 }

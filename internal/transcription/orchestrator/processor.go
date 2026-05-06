@@ -307,25 +307,7 @@ func pipelineStepsForJob(job *models.TranscriptionJob) []models.ASRStep {
 	if job == nil {
 		return nil
 	}
-	if len(job.Parameters.Pipeline) > 0 {
-		return job.Parameters.Pipeline
-	}
-	return []models.ASRStep{{
-		Kind:        models.ASRStepTranscription,
-		Provider:    providerFromJob(job),
-		Model:       engineprovider.DefaultTranscriptionModel,
-		ModelFamily: "whisper",
-	}}
-}
-
-func providerFromJob(job *models.TranscriptionJob) string {
-	if job == nil {
-		return ""
-	}
-	if job.EngineID != nil && strings.TrimSpace(*job.EngineID) != "" {
-		return strings.TrimSpace(*job.EngineID)
-	}
-	return strings.TrimSpace(job.Parameters.Provider)
+	return job.Parameters.Pipeline
 }
 
 func firstStepByKind(steps []resolvedASRStep, kind string) (resolvedASRStep, bool) {

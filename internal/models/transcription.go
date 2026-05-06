@@ -396,9 +396,16 @@ func (tp *TranscriptionProfile) BeforeSave(tx *gorm.DB) error {
 	if err := requireUserID("transcription profile", tp.UserID); err != nil {
 		return err
 	}
-	tp.ModelName = tp.Parameters.Model
-	tp.ModelFamily = tp.Parameters.ModelFamily
-	tp.Language = tp.Parameters.Language
+	if step, ok := firstASRStep(tp.Parameters.Pipeline, ASRStepTranscription); ok {
+		tp.Provider = step.Provider
+		tp.ModelName = step.Model
+		tp.ModelFamily = step.ModelFamily
+	} else {
+		tp.Provider = ""
+		tp.ModelName = ""
+		tp.ModelFamily = ""
+	}
+	tp.Language = nil
 	tp.DiarizationEnabled = hasASRStep(tp.Parameters.Pipeline, ASRStepDiarization)
 	configJSON, err := marshalJSONColumn("transcription_profiles.config_json", tp.Parameters)
 	if err != nil {
@@ -419,15 +426,6 @@ func (tp *TranscriptionProfile) AfterFind(tx *gorm.DB) error {
 			return err
 		}
 	}
-	if tp.Parameters.Model == "" {
-		tp.Parameters.Model = tp.ModelName
-	}
-	if tp.Parameters.ModelFamily == "" {
-		tp.Parameters.ModelFamily = tp.ModelFamily
-	}
-	if tp.Parameters.Language == nil {
-		tp.Parameters.Language = tp.Language
-	}
 	return nil
 }
 
@@ -438,6 +436,15 @@ func hasASRStep(steps []ASRStep, kind string) bool {
 		}
 	}
 	return false
+}
+
+func firstASRStep(steps []ASRStep, kind string) (ASRStep, bool) {
+	for _, step := range steps {
+		if step.Kind == kind {
+			return step, true
+		}
+	}
+	return ASRStep{}, false
 }
 
 // LLMConfig represents a saved LLM profile.

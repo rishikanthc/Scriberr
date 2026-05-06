@@ -137,6 +137,10 @@ func createOrchestratorJob(t *testing.T, db *gorm.DB, audioPath string, params m
 	return job
 }
 
+func transcriptionOnlyParams() models.ASRParams {
+	return models.ASRParams{Pipeline: []models.ASRStep{{Kind: models.ASRStepTranscription, Model: "whisper-base"}}}
+}
+
 func testHasASRStep(steps []models.ASRStep, kind string) bool {
 	for _, step := range steps {
 		if step.Kind == kind {
@@ -508,7 +512,7 @@ func TestProcessorPersistsProviderProgress(t *testing.T) {
 	db := openOrchestratorTestDB(t)
 	audioPath := filepath.Join(t.TempDir(), "audio.wav")
 	require.NoError(t, os.WriteFile(audioPath, []byte("fake wav"), 0o600))
-	job := createOrchestratorJob(t, db, audioPath, models.ASRParams{})
+	job := createOrchestratorJob(t, db, audioPath, transcriptionOnlyParams())
 	progress := 0.31
 	provider := &fakeProvider{
 		id: "local",
@@ -685,7 +689,7 @@ func TestProcessorReturnsSanitizedFailure(t *testing.T) {
 	db := openOrchestratorTestDB(t)
 	audioPath := filepath.Join(t.TempDir(), "audio.wav")
 	require.NoError(t, os.WriteFile(audioPath, []byte("fake wav"), 0o600))
-	job := createOrchestratorJob(t, db, audioPath, models.ASRParams{})
+	job := createOrchestratorJob(t, db, audioPath, transcriptionOnlyParams())
 	provider := &fakeProvider{
 		id:       "local",
 		transErr: errors.New("open /tmp/private/model.bin failed api_key=secret-value"),

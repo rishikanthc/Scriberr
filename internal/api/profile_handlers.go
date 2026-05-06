@@ -147,94 +147,40 @@ func validateProfileInput(c *gin.Context, name string, options profileOptionsReq
 		writeError(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "pipeline is required", stringPtr("options.pipeline"))
 		return false
 	}
-	if options.Language != nil && strings.TrimSpace(*options.Language) != "" && !validLanguage(strings.TrimSpace(*options.Language)) {
-		writeError(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "language is invalid", stringPtr("options.language"))
-		return false
-	}
-	if task := strings.TrimSpace(options.Task); task != "" && task != "transcribe" && task != "translate" {
-		writeError(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "task is invalid", stringPtr("options.task"))
-		return false
-	}
-	if method := strings.TrimSpace(options.DecodingMethod); method != "" && method != "greedy_search" && method != "modified_beam_search" {
-		writeError(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "decoding method is invalid", stringPtr("options.decoding_method"))
-		return false
-	}
-	if chunking := strings.ToLower(strings.TrimSpace(options.ChunkingStrategy)); chunking != "" && chunking != "fixed" && chunking != "vad" {
-		writeError(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "chunking strategy is invalid", stringPtr("options.chunking_strategy"))
-		return false
-	}
-	if options.Threads < 0 {
-		writeError(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "threads must be zero or greater", stringPtr("options.threads"))
-		return false
-	}
-	if options.TailPaddings != nil && (*options.TailPaddings < -1 || *options.TailPaddings > 16) {
-		writeError(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "tail paddings is invalid", stringPtr("options.tail_paddings"))
-		return false
-	}
-	if options.NumSpeakers < 0 {
-		writeError(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "number of speakers must be zero or greater", stringPtr("options.num_speakers"))
-		return false
-	}
-	if options.DiarizationThreshold < 0 || options.DiarizationThreshold > 1 {
-		writeError(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "diarization threshold is invalid", stringPtr("options.diarization_threshold"))
-		return false
-	}
-	if options.MinDurationOn < 0 || options.MinDurationOn > 2 {
-		writeError(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "minimum speech duration is invalid", stringPtr("options.min_duration_on"))
-		return false
-	}
-	if options.MinDurationOff < 0 || options.MinDurationOff > 2 {
-		writeError(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "minimum silence duration is invalid", stringPtr("options.min_duration_off"))
+	if field, ok := legacyProfileOptionField(options); ok {
+		writeError(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "profile option must be configured on the owning pipeline step", stringPtr(field))
 		return false
 	}
 	return true
 }
 func profileParams(options profileOptionsRequest) models.ASRParams {
-	task := strings.TrimSpace(options.Task)
-	if task == "" {
-		task = "transcribe"
-	}
-	decodingMethod := strings.TrimSpace(options.DecodingMethod)
-	if decodingMethod == "" {
-		decodingMethod = "greedy_search"
-	}
-	chunkingStrategy := strings.ToLower(strings.TrimSpace(options.ChunkingStrategy))
-	if chunkingStrategy == "" {
-		chunkingStrategy = "fixed"
-	}
-	var language *string
-	if options.Language != nil {
-		trimmed := strings.TrimSpace(*options.Language)
-		if trimmed != "" && trimmed != "auto" {
-			language = &trimmed
-		}
-	}
-	diarizationThreshold := options.DiarizationThreshold
-	if diarizationThreshold == 0 {
-		diarizationThreshold = 0.5
-	}
-	minDurationOn := options.MinDurationOn
-	if minDurationOn == 0 {
-		minDurationOn = 0.2
-	}
-	minDurationOff := options.MinDurationOff
-	if minDurationOff == 0 {
-		minDurationOff = 0.3
-	}
-	return models.ASRParams{
-		Pipeline:                options.Pipeline,
-		Language:                language,
-		Task:                    task,
-		Threads:                 options.Threads,
-		TailPaddings:            options.TailPaddings,
-		EnableTokenTimestamps:   boolPtr(true),
-		EnableSegmentTimestamps: boolPtr(true),
-		DecodingMethod:          decodingMethod,
-		ChunkingStrategy:        chunkingStrategy,
-		NumSpeakers:             options.NumSpeakers,
-		DiarizationThreshold:    diarizationThreshold,
-		MinDurationOn:           minDurationOn,
-		MinDurationOff:          minDurationOff,
+	return models.ASRParams{Pipeline: options.Pipeline}
+}
+
+func legacyProfileOptionField(options profileOptionsRequest) (string, bool) {
+	switch {
+	case options.Language != nil:
+		return "options.language", true
+	case strings.TrimSpace(options.Task) != "":
+		return "options.task", true
+	case options.Threads != nil:
+		return "options.threads", true
+	case options.TailPaddings != nil:
+		return "options.tail_paddings", true
+	case strings.TrimSpace(options.DecodingMethod) != "":
+		return "options.decoding_method", true
+	case strings.TrimSpace(options.ChunkingStrategy) != "":
+		return "options.chunking_strategy", true
+	case options.NumSpeakers != nil:
+		return "options.num_speakers", true
+	case options.DiarizationThreshold != nil:
+		return "options.diarization_threshold", true
+	case options.MinDurationOn != nil:
+		return "options.min_duration_on", true
+	case options.MinDurationOff != nil:
+		return "options.min_duration_off", true
+	default:
+		return "", false
 	}
 }
 func (h *Handler) profileByPublicID(c *gin.Context, publicID string) (*models.TranscriptionProfile, bool) {

@@ -32,12 +32,15 @@ func TestProfileCRUDAndDefaultSelection(t *testing.T) {
 		"description": "Fast local transcription",
 		"is_default":  true,
 		"options": map[string]any{
-			"pipeline":                  pipelineRequest("transcription", "whisper-base"),
-			"language":                  "en",
-			"chunking_strategy":         "vad",
-			"threads":                   2,
-			"enable_token_timestamps":   false,
-			"enable_segment_timestamps": false,
+			"pipeline": []map[string]any{{
+				"kind":  "transcription",
+				"model": "whisper-base",
+				"options": map[string]any{
+					"sherpa.whisper.language": "en",
+					"chunking.mode":           "vad",
+					"runtime.num_threads":     2,
+				},
+			}},
 		},
 	}, token, "")
 	require.Equal(t, http.StatusCreated, resp.Code)
@@ -46,27 +49,26 @@ func TestProfileCRUDAndDefaultSelection(t *testing.T) {
 	require.Equal(t, true, body["is_default"])
 	require.Equal(t, "Fast local", body["name"])
 	options := body["options"].(map[string]any)
-	require.Equal(t, "greedy_search", options["decoding_method"])
-	require.Equal(t, "vad", options["chunking_strategy"])
-	require.Equal(t, float64(0.5), options["diarization_threshold"])
-	require.Equal(t, float64(0.2), options["min_duration_on"])
-	require.Equal(t, float64(0.3), options["min_duration_off"])
 	pipeline := options["pipeline"].([]any)
 	require.Len(t, pipeline, 1)
-	require.Equal(t, "transcription", pipeline[0].(map[string]any)["kind"])
-	require.Equal(t, "whisper-base", pipeline[0].(map[string]any)["model"])
-	require.NotContains(t, options, "enable_token_timestamps")
-	require.NotContains(t, options, "enable_segment_timestamps")
+	step := pipeline[0].(map[string]any)
+	require.Equal(t, "transcription", step["kind"])
+	require.Equal(t, "whisper-base", step["model"])
+	require.Equal(t, "whisper", step["model_family"])
+	stepOptions := step["options"].(map[string]any)
+	require.Equal(t, "en", stepOptions["sherpa.whisper.language"])
+	require.Equal(t, "vad", stepOptions["chunking.mode"])
+	require.Equal(t, float64(2), stepOptions["runtime.num_threads"])
+	require.NotContains(t, options, "decoding_method")
+	require.NotContains(t, options, "chunking_strategy")
 
 	var storedProfile models.TranscriptionProfile
 	require.NoError(t, database.DB.First(&storedProfile, "id = ?", strings.TrimPrefix(firstID, "profile_")).Error)
-	require.NotNil(t, storedProfile.Parameters.EnableTokenTimestamps)
-	require.True(t, *storedProfile.Parameters.EnableTokenTimestamps)
-	require.NotNil(t, storedProfile.Parameters.EnableSegmentTimestamps)
-	require.True(t, *storedProfile.Parameters.EnableSegmentTimestamps)
-	require.Equal(t, "vad", storedProfile.Parameters.ChunkingStrategy)
+	require.Empty(t, storedProfile.Parameters.Model)
+	require.Empty(t, storedProfile.Parameters.ChunkingStrategy)
 	require.Len(t, storedProfile.Parameters.Pipeline, 1)
 	require.Equal(t, models.ASRStepTranscription, storedProfile.Parameters.Pipeline[0].Kind)
+	require.Equal(t, "vad", storedProfile.Parameters.Pipeline[0].Options["chunking.mode"])
 
 	resp, body = s.request(t, http.MethodGet, "/api/v1/settings", nil, token, "")
 	require.Equal(t, http.StatusOK, resp.Code)
@@ -77,7 +79,6 @@ func TestProfileCRUDAndDefaultSelection(t *testing.T) {
 		"is_default": true,
 		"options": map[string]any{
 			"pipeline": pipelineRequest("transcription", "whisper-small", "diarization", "diarization-default"),
-			"language": "en",
 		},
 	}, token, "")
 	require.Equal(t, http.StatusCreated, resp.Code)
@@ -108,8 +109,6 @@ func TestProfileCRUDAndDefaultSelection(t *testing.T) {
 		"description": "Updated",
 		"options": map[string]any{
 			"pipeline": pipelineRequest("transcription", "parakeet-v2", "diarization", "diarization-default"),
-			"language": "fr",
-			"threads":  4,
 		},
 	}, token, "")
 	require.Equal(t, http.StatusOK, resp.Code)
@@ -182,7 +181,7 @@ func TestProfileValidationAndAuth(t *testing.T) {
 	require.Equal(t, http.StatusNotFound, resp.Code)
 }
 
-func TestWhisperProfileForcesGreedyDecoding(t *testing.T) {
+func TestProfileRejectsLegacyDecodingOption(t *testing.T) {
 	s := newAuthTestServer(t)
 	token := registerForFileTests(t, s)
 
@@ -193,9 +192,9 @@ func TestWhisperProfileForcesGreedyDecoding(t *testing.T) {
 			"decoding_method": "modified_beam_search",
 		},
 	}, token, "")
-	require.Equal(t, http.StatusCreated, resp.Code)
-	options := body["options"].(map[string]any)
-	require.Equal(t, "greedy_search", options["decoding_method"])
+	require.Equal(t, http.StatusUnprocessableEntity, resp.Code)
+	errBody := body["error"].(map[string]any)
+	require.Equal(t, "options.decoding_method", errBody["field"])
 }
 
 func TestGetProfileDoesNotPublishUpdateEvent(t *testing.T) {

@@ -104,8 +104,8 @@ func TestServiceCreateNormalizesProfileModelFromCatalog(t *testing.T) {
 	if repo.created == nil {
 		t.Fatal("profile was not created")
 	}
-	if repo.created.Parameters.Model != "parakeet-v2" || repo.created.Parameters.ModelFamily != "nemo_transducer" {
-		t.Fatalf("profile parameters were not normalized: %#v", repo.created.Parameters)
+	if repo.created.Parameters.Model != "" || repo.created.Parameters.ModelFamily != "" {
+		t.Fatalf("flat profile parameters should remain empty: %#v", repo.created.Parameters)
 	}
 	if len(repo.created.Parameters.Pipeline) != 1 {
 		t.Fatalf("profile pipeline length = %d, want 1", len(repo.created.Parameters.Pipeline))

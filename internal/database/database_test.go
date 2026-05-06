@@ -627,8 +627,11 @@ func TestSchemaUpgradeRunsVersionedBackfill(t *testing.T) {
 		Name:      "profile-a",
 		IsDefault: true,
 		Parameters: models.ASRParams{
-			Model:       "medium",
-			ModelFamily: "whisper",
+			Pipeline: []models.ASRStep{{
+				Kind:        models.ASRStepTranscription,
+				Model:       "medium",
+				ModelFamily: "whisper",
+			}},
 		},
 		CreatedAt: base,
 		UpdatedAt: base,
@@ -639,8 +642,11 @@ func TestSchemaUpgradeRunsVersionedBackfill(t *testing.T) {
 		Name:      "profile-b",
 		IsDefault: true,
 		Parameters: models.ASRParams{
-			Model:       "large-v3",
-			ModelFamily: "whisper",
+			Pipeline: []models.ASRStep{{
+				Kind:        models.ASRStepTranscription,
+				Model:       "large-v3",
+				ModelFamily: "whisper",
+			}},
 		},
 		CreatedAt: base,
 		UpdatedAt: base,
@@ -660,8 +666,8 @@ func TestSchemaUpgradeRunsVersionedBackfill(t *testing.T) {
 	require.NoError(t, db.First(&reloadedB, "id = ?", profileB.ID).Error)
 	assert.True(t, reloadedA.IsDefault)
 	assert.True(t, reloadedB.IsDefault)
-	assert.Equal(t, "medium", reloadedA.Parameters.Model)
-	assert.Equal(t, "large-v3", reloadedB.Parameters.Model)
+	assert.Empty(t, reloadedA.Parameters.Pipeline)
+	assert.Empty(t, reloadedB.Parameters.Pipeline)
 }
 
 func TestSchemaUpgradeBackfillsMissingUserSettingsAndListIndex(t *testing.T) {

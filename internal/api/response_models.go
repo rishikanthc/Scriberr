@@ -4,7 +4,6 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
@@ -343,14 +342,7 @@ func profileResponse(profile *models.TranscriptionProfile) ProfileResponse {
 	}
 }
 func profileOptionsMap(params models.ASRParams) gin.H {
-	params.EnableTokenTimestamps = nil
-	params.EnableSegmentTimestamps = nil
-	var options gin.H
-	bytes, err := json.Marshal(params)
-	if err != nil || json.Unmarshal(bytes, &options) != nil {
-		options = gin.H{}
-	}
-	return options
+	return gin.H{"pipeline": params.Pipeline}
 }
 func settingsResponse(h *Handler, user *models.User) SettingsResponse {
 	defaultProfileID := any(nil)

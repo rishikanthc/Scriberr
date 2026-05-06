@@ -162,24 +162,28 @@ Commit:
 
 ## BE-ENG-PROVIDER-Sprint 5: Profile Parameter Model Cleanup
 
-Status: planned
+Status: complete
 
 Planned tasks:
 
-- [ ] Make profiles store pipeline step options as descriptor-keyed maps.
-- [ ] Validate against provider model descriptors.
-- [ ] Remove active flat `ASRParams` execution usage.
-- [ ] Return schemas for frontend dynamic ASR controls.
+- [x] Make profiles store pipeline step options as descriptor-keyed maps.
+- [x] Validate against provider model descriptors.
+- [x] Remove active flat `ASRParams` execution usage.
+- [x] Return schemas for frontend dynamic ASR controls.
 
 Acceptance checks:
 
-- [ ] Frontend can render ASR profile controls from descriptors.
-- [ ] Unsupported options fail validation.
-- [ ] Adding local model support does not require backend schema edits.
+- [x] Frontend can render ASR profile controls from descriptors.
+- [x] Unsupported options fail validation.
+- [x] Adding local model support does not require backend schema edits.
 
 Verification:
 
-- [ ] Not started.
+- [x] `GOCACHE=/private/tmp/scriberr-go-cache go test ./internal/profile`
+- [x] `GOCACHE=/private/tmp/scriberr-go-cache go test ./internal/transcription/orchestrator`
+- [x] `GOCACHE=/private/tmp/scriberr-go-cache go test ./internal/api`
+- [x] `GOCACHE=/private/tmp/scriberr-go-cache go test ./internal/transcription/...`
+- [x] `GOCACHE=/private/tmp/scriberr-go-cache go test ./internal/models`
 
 Commit:
 

@@ -76,15 +76,15 @@ type updateTranscriptionRequest struct {
 type profileOptionsRequest struct {
 	Pipeline             []models.ASRStep `json:"pipeline,omitempty"`
 	Language             *string          `json:"language,omitempty"`
-	Task                 string           `json:"task"`
-	Threads              int              `json:"threads"`
+	Task                 string           `json:"task,omitempty"`
+	Threads              *int             `json:"threads,omitempty"`
 	TailPaddings         *int             `json:"tail_paddings,omitempty"`
-	DecodingMethod       string           `json:"decoding_method"`
-	ChunkingStrategy     string           `json:"chunking_strategy"`
-	NumSpeakers          int              `json:"num_speakers"`
-	DiarizationThreshold float64          `json:"diarization_threshold"`
-	MinDurationOn        float64          `json:"min_duration_on"`
-	MinDurationOff       float64          `json:"min_duration_off"`
+	DecodingMethod       string           `json:"decoding_method,omitempty"`
+	ChunkingStrategy     string           `json:"chunking_strategy,omitempty"`
+	NumSpeakers          *int             `json:"num_speakers,omitempty"`
+	DiarizationThreshold *float64         `json:"diarization_threshold,omitempty"`
+	MinDurationOn        *float64         `json:"min_duration_on,omitempty"`
+	MinDurationOff       *float64         `json:"min_duration_off,omitempty"`
 }
 type createProfileRequest struct {
 	Name        string                `json:"name"`

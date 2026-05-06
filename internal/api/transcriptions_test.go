@@ -121,10 +121,18 @@ func TestTranscriptionCreateAppliesDefaultAndSelectedProfiles(t *testing.T) {
 		"name":       "Default profile",
 		"is_default": true,
 		"options": map[string]any{
-			"pipeline":          pipelineRequest("transcription", "whisper-small", "diarization", "diarization-default"),
-			"language":          "fr",
-			"chunking_strategy": "vad",
-			"threads":           2,
+			"pipeline": []map[string]any{
+				{
+					"kind":  "transcription",
+					"model": "whisper-small",
+					"options": map[string]any{
+						"sherpa.whisper.language": "fr",
+						"chunking.mode":           "vad",
+						"runtime.num_threads":     2,
+					},
+				},
+				{"kind": "diarization", "model": "diarization-default"},
+			},
 		},
 	}, token, "")
 	require.Equal(t, http.StatusCreated, resp.Code)
@@ -138,19 +146,18 @@ func TestTranscriptionCreateAppliesDefaultAndSelectedProfiles(t *testing.T) {
 
 	var defaultJob models.TranscriptionJob
 	require.NoError(t, database.DB.First(&defaultJob, "id = ?", defaultJobID).Error)
-	require.Equal(t, "whisper-small", defaultJob.Parameters.Model)
-	require.Equal(t, 2, defaultJob.Parameters.Threads)
-	require.NotNil(t, defaultJob.Parameters.Language)
-	require.Equal(t, "fr", *defaultJob.Parameters.Language)
-	require.Equal(t, "vad", defaultJob.Parameters.ChunkingStrategy)
+	require.Empty(t, defaultJob.Parameters.Model)
+	require.Len(t, defaultJob.Parameters.Pipeline, 2)
+	require.Equal(t, "whisper-small", defaultJob.Parameters.Pipeline[0].Model)
+	require.Equal(t, "fr", defaultJob.Parameters.Pipeline[0].Options["sherpa.whisper.language"])
+	require.Equal(t, "vad", defaultJob.Parameters.Pipeline[0].Options["chunking.mode"])
+	require.Equal(t, float64(2), defaultJob.Parameters.Pipeline[0].Options["runtime.num_threads"])
 	require.True(t, defaultJob.Diarization)
 
 	resp, body = s.request(t, http.MethodPost, "/api/v1/profiles", map[string]any{
 		"name": "Selected profile",
 		"options": map[string]any{
 			"pipeline": pipelineRequest("transcription", "parakeet-v2", "diarization", "diarization-default"),
-			"language": "es",
-			"threads":  4,
 		},
 	}, token, "")
 	require.Equal(t, http.StatusCreated, resp.Code)
@@ -171,8 +178,9 @@ func TestTranscriptionCreateAppliesDefaultAndSelectedProfiles(t *testing.T) {
 
 	var selectedJob models.TranscriptionJob
 	require.NoError(t, database.DB.First(&selectedJob, "id = ?", selectedJobID).Error)
-	require.Equal(t, "parakeet-v2", selectedJob.Parameters.Model)
-	require.Equal(t, 4, selectedJob.Parameters.Threads)
+	require.Empty(t, selectedJob.Parameters.Model)
+	require.Len(t, selectedJob.Parameters.Pipeline, 1)
+	require.Equal(t, "parakeet-v2", selectedJob.Parameters.Pipeline[0].Model)
 	require.NotNil(t, selectedJob.Parameters.Language)
 	require.Equal(t, "en", *selectedJob.Parameters.Language)
 	require.False(t, selectedJob.Diarization)
