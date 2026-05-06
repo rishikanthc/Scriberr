@@ -66,12 +66,15 @@ type Processor struct {
 }
 
 type resolvedASRStep struct {
-	Kind        string
-	ProviderID  string
-	Provider    engineprovider.Provider
-	Model       string
-	ModelFamily string
-	Options     map[string]any
+	Kind              string
+	ProviderID        string
+	Provider          engineprovider.Provider
+	Transcriber       engineprovider.TranscriptionProvider
+	Diarizer          engineprovider.DiarizationProvider
+	SpeakerIdentifier engineprovider.SpeakerIdentificationProvider
+	Model             string
+	ModelFamily       string
+	Options           map[string]any
 }
 
 func (p *Processor) Process(ctx context.Context, job *models.TranscriptionJob) (worker.ProcessResult, error) {
@@ -138,10 +141,7 @@ func (p *Processor) Process(ctx context.Context, job *models.TranscriptionJob) (
 		return withExecution(failedResult(message), err)
 	}
 	progressSink := providerProgressSink{processor: p, job: job}
-	if err := prepareStepProvider(ctx, transcriptionStep); err != nil {
-		return withExecution(p.errorResult(ctx, err))
-	}
-	transcription, err := transcriptionStep.Provider.Transcribe(ctx, engineprovider.TranscriptionRequest{
+	transcription, err := transcriptionStep.Transcriber.Transcribe(ctx, engineprovider.TranscriptionRequest{
 		JobID:      job.ID,
 		UserID:     job.UserID,
 		AudioPath:  audio.ProviderPath,
@@ -168,10 +168,7 @@ func (p *Processor) Process(ctx context.Context, job *models.TranscriptionJob) (
 
 	var diarization *engineprovider.DiarizationResult
 	if diarizationEnabled {
-		if err := prepareStepProvider(ctx, diarizationStep); err != nil {
-			return withExecution(p.errorResult(ctx, err))
-		}
-		diarization, err = diarizationStep.Provider.Diarize(ctx, engineprovider.DiarizationRequest{
+		diarization, err = diarizationStep.Diarizer.Diarize(ctx, engineprovider.DiarizationRequest{
 			JobID:      job.ID,
 			UserID:     job.UserID,
 			AudioPath:  audio.ProviderPath,
@@ -192,10 +189,7 @@ func (p *Processor) Process(ctx context.Context, job *models.TranscriptionJob) (
 		}
 	}
 	for _, speakerStep := range stepsByKind(pipeline, models.ASRStepSpeakerIdentification) {
-		if err := prepareStepProvider(ctx, speakerStep); err != nil {
-			return withExecution(p.errorResult(ctx, err))
-		}
-		_, err := speakerStep.Provider.IdentifySpeakers(ctx, asrcontract.SpeakerIDRequest{
+		_, err := speakerStep.SpeakerIdentifier.IdentifySpeakers(ctx, asrcontract.SpeakerIDRequest{
 			RequestID: job.ID,
 			Audio: asrcontract.AudioInput{
 				Path:       audio.ProviderPath,
@@ -273,19 +267,67 @@ func (p *Processor) resolvePipeline(ctx context.Context, job *models.Transcripti
 		if provider == nil {
 			return nil, fmt.Errorf("selected engine provider is not available")
 		}
+		if err := providerSupportsStep(provider, kind); err != nil {
+			return nil, err
+		}
 		if model == "" && capability != nil {
 			model = capability.ID
 		}
 		out = append(out, resolvedASRStep{
-			Kind:        kind,
-			ProviderID:  provider.ID(),
-			Provider:    provider,
-			Model:       model,
-			ModelFamily: strings.TrimSpace(step.ModelFamily),
-			Options:     copyStepOptions(step.Options),
+			Kind:              kind,
+			ProviderID:        provider.ID(),
+			Provider:          provider,
+			Transcriber:       transcriberForStep(provider, kind),
+			Diarizer:          diarizerForStep(provider, kind),
+			SpeakerIdentifier: speakerIdentifierForStep(provider, kind),
+			Model:             model,
+			ModelFamily:       strings.TrimSpace(step.ModelFamily),
+			Options:           copyStepOptions(step.Options),
 		})
 	}
 	return out, nil
+}
+
+func providerSupportsStep(provider engineprovider.Provider, kind string) error {
+	switch kind {
+	case models.ASRStepTranscription:
+		if _, ok := provider.(engineprovider.TranscriptionProvider); !ok {
+			return fmt.Errorf("engine provider %q does not implement transcription", provider.ID())
+		}
+	case models.ASRStepDiarization:
+		if _, ok := provider.(engineprovider.DiarizationProvider); !ok {
+			return fmt.Errorf("engine provider %q does not implement diarization", provider.ID())
+		}
+	case models.ASRStepSpeakerIdentification:
+		if _, ok := provider.(engineprovider.SpeakerIdentificationProvider); !ok {
+			return fmt.Errorf("engine provider %q does not implement speaker identification", provider.ID())
+		}
+	}
+	return nil
+}
+
+func transcriberForStep(provider engineprovider.Provider, kind string) engineprovider.TranscriptionProvider {
+	if kind != models.ASRStepTranscription {
+		return nil
+	}
+	transcriber, _ := provider.(engineprovider.TranscriptionProvider)
+	return transcriber
+}
+
+func diarizerForStep(provider engineprovider.Provider, kind string) engineprovider.DiarizationProvider {
+	if kind != models.ASRStepDiarization {
+		return nil
+	}
+	diarizer, _ := provider.(engineprovider.DiarizationProvider)
+	return diarizer
+}
+
+func speakerIdentifierForStep(provider engineprovider.Provider, kind string) engineprovider.SpeakerIdentificationProvider {
+	if kind != models.ASRStepSpeakerIdentification {
+		return nil
+	}
+	identifier, _ := provider.(engineprovider.SpeakerIdentificationProvider)
+	return identifier
 }
 
 func providerParametersForStep(step resolvedASRStep) map[string]any {
@@ -327,13 +369,6 @@ func stepsByKind(steps []resolvedASRStep, kind string) []resolvedASRStep {
 		}
 	}
 	return out
-}
-
-func prepareStepProvider(ctx context.Context, step resolvedASRStep) error {
-	if step.Provider == nil {
-		return fmt.Errorf("selected engine provider is not available")
-	}
-	return step.Provider.Prepare(ctx)
 }
 
 func (p *Processor) publishProgress(ctx context.Context, job *models.TranscriptionJob, stage string, progress float64, status models.JobStatus) error {

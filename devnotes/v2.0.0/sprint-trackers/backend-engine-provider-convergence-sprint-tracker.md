@@ -191,24 +191,28 @@ Commit:
 
 ## BE-ENG-PROVIDER-Sprint 6: Provider Interface Slimming
 
-Status: planned
+Status: complete
 
 Planned tasks:
 
-- [ ] Split provider capabilities by task interface.
-- [ ] Remove redundant `Capabilities()` if covered by `Models()`.
-- [ ] Remove or justify `Prepare()`.
-- [ ] Keep local Go provider separate from future remote REST adapter.
+- [x] Split provider capabilities by task interface.
+- [x] Remove redundant `Capabilities()` if covered by `Models()`.
+- [x] Remove or justify `Prepare()`.
+- [x] Keep local Go provider separate from future remote REST adapter.
 
 Acceptance checks:
 
-- [ ] Transcription-only provider interface is small.
-- [ ] Providers implement only advertised task methods.
-- [ ] Registry selection remains capability-driven.
+- [x] Transcription-only provider interface is small.
+- [x] Providers implement only advertised task methods.
+- [x] Registry selection remains capability-driven.
 
 Verification:
 
-- [ ] Not started.
+- [x] `GOCACHE=/private/tmp/scriberr-go-cache go test ./internal/transcription/engineprovider ./internal/transcription/engineprovider/remote ./internal/transcription/engineprovider/contracttest`
+- [x] `GOCACHE=/private/tmp/scriberr-go-cache go test ./internal/transcription/orchestrator`
+- [x] `GOCACHE=/private/tmp/scriberr-go-cache go test ./internal/api ./internal/app`
+- [x] `GOCACHE=/private/tmp/scriberr-go-cache go test ./internal/transcription/...`
+- [x] `GOCACHE=/private/tmp/scriberr-go-cache go vet ./internal/transcription/... ./internal/profile ./internal/api`
 
 Commit:
 

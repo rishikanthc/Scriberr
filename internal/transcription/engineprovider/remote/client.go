@@ -140,29 +140,6 @@ func (c *Client) LoadedModels(ctx context.Context) ([]asrcontract.LoadedModel, e
 	return out, nil
 }
 
-func (c *Client) Capabilities(ctx context.Context) ([]engineprovider.ModelCapability, error) {
-	models, err := c.Models(ctx)
-	if err != nil {
-		return nil, err
-	}
-	out := make([]engineprovider.ModelCapability, 0, len(models))
-	for _, model := range models {
-		out = append(out, engineprovider.ModelCapability{
-			ID:           model.ID,
-			Name:         model.DisplayName,
-			Provider:     coalesceString(model.Provider, c.id),
-			Installed:    model.Installed,
-			Default:      model.Default,
-			Capabilities: capabilityStrings(model.Capabilities),
-		})
-	}
-	return out, nil
-}
-
-func (c *Client) Prepare(ctx context.Context) error {
-	return c.doJSON(ctx, http.MethodGet, "/v1/health", nil, nil)
-}
-
 func (c *Client) Transcribe(ctx context.Context, req engineprovider.TranscriptionRequest) (*engineprovider.TranscriptionResult, error) {
 	parameters := copyParameters(req.Parameters)
 	remoteReq := asrcontract.TranscriptionRequest{
@@ -531,26 +508,6 @@ func diarizationResult(in asrcontract.DiarizationResult, providerID string) *eng
 		ModelID:  in.Model,
 		EngineID: providerID,
 	}
-}
-
-func capabilityStrings(capabilities asrcontract.Capabilities) []string {
-	out := []string{}
-	if capabilities.Transcription {
-		out = append(out, string(asrcontract.CapabilityTranscription))
-	}
-	if capabilities.Diarization {
-		out = append(out, string(asrcontract.CapabilityDiarization))
-	}
-	if capabilities.SpeakerIdentification {
-		out = append(out, string(asrcontract.CapabilitySpeakerIdentification))
-	}
-	if capabilities.WordTimestamps {
-		out = append(out, string(asrcontract.CapabilityWordTimestamps))
-	}
-	if capabilities.SegmentTimestamps {
-		out = append(out, string(asrcontract.CapabilitySegmentTimestamps))
-	}
-	return out
 }
 
 func coalesceString(values ...string) string {

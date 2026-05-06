@@ -69,7 +69,7 @@ func (p fakeCapabilityProvider) Inspect(context.Context) (*asrcontract.ProviderI
 	return &asrcontract.ProviderInfo{ContractVersion: asrcontract.ContractVersionV1}, nil
 }
 func (p fakeCapabilityProvider) Models(context.Context) ([]asrcontract.ModelCard, error) {
-	return nil, nil
+	return modelCardsFromTestCapabilities(p.caps), nil
 }
 func (p fakeCapabilityProvider) Status(context.Context) (*asrcontract.ProviderStatus, error) {
 	return &asrcontract.ProviderStatus{State: asrcontract.ProviderStateIdle}, nil
@@ -83,10 +83,6 @@ func (p fakeCapabilityProvider) UnloadModel(context.Context, asrcontract.UnloadM
 func (p fakeCapabilityProvider) LoadedModels(context.Context) ([]asrcontract.LoadedModel, error) {
 	return nil, nil
 }
-func (p fakeCapabilityProvider) Capabilities(context.Context) ([]engineprovider.ModelCapability, error) {
-	return p.caps, nil
-}
-func (p fakeCapabilityProvider) Prepare(context.Context) error { return nil }
 func (p fakeCapabilityProvider) Transcribe(context.Context, engineprovider.TranscriptionRequest) (*engineprovider.TranscriptionResult, error) {
 	return nil, nil
 }
@@ -97,6 +93,42 @@ func (p fakeCapabilityProvider) IdentifySpeakers(context.Context, asrcontract.Sp
 	return nil, asrcontract.NewProviderError(asrcontract.CodeUnsupportedOperation, "speaker identification is not supported", false)
 }
 func (p fakeCapabilityProvider) Close() error { return nil }
+
+func modelCardsFromTestCapabilities(capabilities []engineprovider.ModelCapability) []asrcontract.ModelCard {
+	out := make([]asrcontract.ModelCard, 0, len(capabilities))
+	for _, capability := range capabilities {
+		out = append(out, asrcontract.ModelCard{
+			ID:           capability.ID,
+			Provider:     capability.Provider,
+			Installed:    capability.Installed,
+			Default:      capability.Default,
+			Capabilities: testASRCapabilities(capability.Capabilities),
+		})
+	}
+	return out
+}
+
+func testASRCapabilities(names []string) asrcontract.Capabilities {
+	out := asrcontract.Capabilities{Extensions: map[string]bool{}}
+	for _, name := range names {
+		switch name {
+		case string(asrcontract.CapabilityTranscription):
+			out.Transcription = true
+		case string(asrcontract.CapabilityDiarization):
+			out.Diarization = true
+		case string(asrcontract.CapabilitySpeakerIdentification):
+			out.SpeakerIdentification = true
+		case string(asrcontract.CapabilityWordTimestamps):
+			out.WordTimestamps = true
+		default:
+			out.Extensions[name] = true
+		}
+	}
+	if len(out.Extensions) == 0 {
+		out.Extensions = nil
+	}
+	return out
+}
 
 type fakeAdminASRProvider struct {
 	mu         sync.Mutex
@@ -159,10 +191,6 @@ func (p *fakeAdminASRProvider) LoadedModels(context.Context) ([]asrcontract.Load
 	}
 	return p.loaded, nil
 }
-func (p *fakeAdminASRProvider) Capabilities(context.Context) ([]engineprovider.ModelCapability, error) {
-	return []engineprovider.ModelCapability{{ID: "whisper-base", Provider: p.id, Installed: true, Capabilities: []string{"transcription"}}}, nil
-}
-func (p *fakeAdminASRProvider) Prepare(context.Context) error { return nil }
 func (p *fakeAdminASRProvider) Transcribe(context.Context, engineprovider.TranscriptionRequest) (*engineprovider.TranscriptionResult, error) {
 	return nil, nil
 }

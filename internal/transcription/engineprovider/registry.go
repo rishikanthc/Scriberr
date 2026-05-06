@@ -90,7 +90,7 @@ func (r *StaticRegistry) Capabilities(ctx context.Context) ([]ModelCapability, e
 
 	var out []ModelCapability
 	for _, id := range ids {
-		capabilities, err := r.providers[id].Capabilities(ctx)
+		capabilities, err := capabilitiesForProvider(ctx, r.providers[id])
 		if err != nil {
 			return nil, fmt.Errorf("engine provider %q capabilities: %w", id, err)
 		}
@@ -143,7 +143,7 @@ func (r *StaticRegistry) selectByCapability(ctx context.Context, modelID string,
 }
 
 func selectCapabilityForProvider(ctx context.Context, provider Provider, modelID string, requires []string) (*ModelCapability, error) {
-	capabilities, err := provider.Capabilities(ctx)
+	capabilities, err := capabilitiesForProvider(ctx, provider)
 	if err != nil {
 		return nil, fmt.Errorf("engine provider %q capabilities: %w", provider.ID(), err)
 	}
@@ -161,6 +161,67 @@ func selectCapabilityForProvider(ctx context.Context, provider Provider, modelID
 		return nil, fmt.Errorf("engine provider %q does not support model %q", provider.ID(), modelID)
 	}
 	return nil, fmt.Errorf("engine provider %q does not support requested capabilities", provider.ID())
+}
+
+func capabilitiesForProvider(ctx context.Context, provider Provider) ([]ModelCapability, error) {
+	models, err := provider.Models(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]ModelCapability, 0, len(models))
+	for _, model := range models {
+		out = append(out, ModelCapability{
+			ID:           model.ID,
+			Name:         model.DisplayName,
+			Provider:     defaultString(model.Provider, provider.ID()),
+			Installed:    model.Installed,
+			Default:      model.Default,
+			Capabilities: capabilityNames(model.Capabilities),
+		})
+	}
+	return out, nil
+}
+
+func capabilityNames(capabilities asrcontract.Capabilities) []string {
+	names := make([]string, 0, 8)
+	if capabilities.Transcription {
+		names = append(names, string(asrcontract.CapabilityTranscription))
+	}
+	if capabilities.Diarization {
+		names = append(names, string(asrcontract.CapabilityDiarization))
+	}
+	if capabilities.SpeakerIdentification {
+		names = append(names, string(asrcontract.CapabilitySpeakerIdentification))
+	}
+	if capabilities.Translation {
+		names = append(names, string(asrcontract.CapabilityTranslation))
+	}
+	if capabilities.WordTimestamps {
+		names = append(names, string(asrcontract.CapabilityWordTimestamps))
+	}
+	if capabilities.SegmentTimestamps {
+		names = append(names, string(asrcontract.CapabilitySegmentTimestamps))
+	}
+	if capabilities.TokenTimestamps {
+		names = append(names, string(asrcontract.CapabilityTokenTimestamps))
+	}
+	if capabilities.Streaming {
+		names = append(names, string(asrcontract.CapabilityStreaming))
+	}
+	for key, enabled := range capabilities.Extensions {
+		if enabled {
+			names = append(names, strings.TrimSpace(key))
+		}
+	}
+	return names
+}
+
+func defaultString(value, fallback string) string {
+	value = strings.TrimSpace(value)
+	if value != "" {
+		return value
+	}
+	return strings.TrimSpace(fallback)
 }
 
 func providerSelectable(ctx context.Context, provider Provider) bool {

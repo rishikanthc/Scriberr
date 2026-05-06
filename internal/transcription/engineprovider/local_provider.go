@@ -157,30 +157,6 @@ func (p *LocalProvider) LoadedModels(ctx context.Context) ([]asrcontract.LoadedM
 	return out, nil
 }
 
-func (p *LocalProvider) Capabilities(ctx context.Context) ([]ModelCapability, error) {
-	models, err := p.Models(ctx)
-	if err != nil {
-		return nil, err
-	}
-	out := make([]ModelCapability, 0, len(models))
-	for _, model := range models {
-		capability := ModelCapability{
-			ID:           model.ID,
-			Name:         model.DisplayName,
-			Provider:     p.id,
-			Installed:    model.Installed,
-			Default:      model.Default,
-			Capabilities: capabilityNames(model.Capabilities),
-		}
-		out = append(out, capability)
-	}
-	return out, nil
-}
-
-func (p *LocalProvider) Prepare(ctx context.Context) error {
-	return ctx.Err()
-}
-
 func (p *LocalProvider) Transcribe(ctx context.Context, req TranscriptionRequest) (*TranscriptionResult, error) {
 	modelID := strings.TrimSpace(req.ModelID)
 	if modelID == "" {
@@ -306,20 +282,6 @@ func (p *LocalProvider) Close() error {
 		return sanitizeError(err)
 	}
 	return nil
-}
-
-func capabilityNames(capabilities asrcontract.Capabilities) []string {
-	out := []string{}
-	if capabilities.Transcription {
-		out = append(out, "transcription")
-	}
-	if capabilities.Diarization {
-		out = append(out, "diarization")
-	}
-	if capabilities.WordTimestamps {
-		out = append(out, "word_timestamps")
-	}
-	return out
 }
 
 type localProgressSink struct {

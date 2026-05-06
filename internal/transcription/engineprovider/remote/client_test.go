@@ -88,9 +88,6 @@ func TestClientControlPlaneEndpoints(t *testing.T) {
 	}}
 	client := newTestClient(t, transport)
 
-	if err := client.Prepare(context.Background()); err != nil {
-		t.Fatalf("Prepare returned error: %v", err)
-	}
 	info, err := client.Inspect(context.Background())
 	if err != nil {
 		t.Fatalf("Inspect returned error: %v", err)
@@ -105,7 +102,11 @@ func TestClientControlPlaneEndpoints(t *testing.T) {
 	if models[0].Provider != "remote-a" {
 		t.Fatalf("model provider = %q, want remote-a", models[0].Provider)
 	}
-	capabilities, err := client.Capabilities(context.Background())
+	registry, err := engineprovider.NewRegistry("remote-a", client)
+	if err != nil {
+		t.Fatalf("NewRegistry returned error: %v", err)
+	}
+	capabilities, err := registry.Capabilities(context.Background())
 	if err != nil {
 		t.Fatalf("Capabilities returned error: %v", err)
 	}

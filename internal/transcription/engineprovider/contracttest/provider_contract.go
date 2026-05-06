@@ -80,25 +80,6 @@ func RunProviderContract(t testing.TB, provider engineprovider.Provider, opts Op
 		t.Fatalf("required model %q was not advertised", opts.RequiredModel)
 	}
 
-	capabilities, err := provider.Capabilities(ctx)
-	if err != nil {
-		t.Fatalf("Capabilities returned error: %v", err)
-	}
-	if len(capabilities) == 0 {
-		t.Fatal("provider must expose at least one selectable capability")
-	}
-	for _, capability := range capabilities {
-		if strings.TrimSpace(capability.ID) == "" {
-			t.Fatal("capability model id is required")
-		}
-		if strings.TrimSpace(capability.Provider) == "" {
-			t.Fatalf("capability %q provider is required", capability.ID)
-		}
-		if len(capability.Capabilities) == 0 {
-			t.Fatalf("capability %q must list supported features", capability.ID)
-		}
-	}
-
 	status, err := provider.Status(ctx)
 	if err != nil {
 		t.Fatalf("Status returned error: %v", err)

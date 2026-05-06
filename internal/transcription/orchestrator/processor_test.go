@@ -42,6 +42,9 @@ func (p *fakeProvider) Inspect(context.Context) (*asrcontract.ProviderInfo, erro
 	return &asrcontract.ProviderInfo{ContractVersion: asrcontract.ContractVersionV1}, nil
 }
 func (p *fakeProvider) Models(context.Context) ([]asrcontract.ModelCard, error) {
+	if p.modelCards == nil {
+		return orchestratorModelCardsFromCapabilities(p.modelCapabilities()), nil
+	}
 	return p.modelCards, nil
 }
 func (p *fakeProvider) Status(context.Context) (*asrcontract.ProviderStatus, error) {
@@ -52,9 +55,9 @@ func (p *fakeProvider) UnloadModel(context.Context, asrcontract.UnloadModelReque
 func (p *fakeProvider) LoadedModels(context.Context) ([]asrcontract.LoadedModel, error) {
 	return nil, nil
 }
-func (p *fakeProvider) Capabilities(context.Context) ([]engineprovider.ModelCapability, error) {
+func (p *fakeProvider) modelCapabilities() []engineprovider.ModelCapability {
 	if p.caps != nil {
-		return p.caps, nil
+		return p.caps
 	}
 	return []engineprovider.ModelCapability{
 		{ID: "whisper-base", Provider: p.id, Installed: true, Default: true, Capabilities: []string{"transcription"}},
@@ -64,9 +67,8 @@ func (p *fakeProvider) Capabilities(context.Context) ([]engineprovider.ModelCapa
 		{ID: "diarization-default", Provider: p.id, Installed: true, Default: true, Capabilities: []string{"diarization"}},
 		{ID: "custom-diarizer", Provider: p.id, Installed: true, Capabilities: []string{"diarization"}},
 		{ID: "speaker-id-default", Provider: p.id, Installed: true, Capabilities: []string{"speaker_identification"}},
-	}, nil
+	}
 }
-func (p *fakeProvider) Prepare(context.Context) error { return nil }
 func (p *fakeProvider) Transcribe(ctx context.Context, req engineprovider.TranscriptionRequest) (*engineprovider.TranscriptionResult, error) {
 	p.transReq = req
 	if err := ctx.Err(); err != nil {
@@ -95,6 +97,42 @@ func (p *fakeProvider) IdentifySpeakers(ctx context.Context, req asrcontract.Spe
 	return nil, asrcontract.NewProviderError(asrcontract.CodeUnsupportedOperation, "speaker identification is not supported", false)
 }
 func (p *fakeProvider) Close() error { return nil }
+
+func orchestratorModelCardsFromCapabilities(capabilities []engineprovider.ModelCapability) []asrcontract.ModelCard {
+	out := make([]asrcontract.ModelCard, 0, len(capabilities))
+	for _, capability := range capabilities {
+		out = append(out, asrcontract.ModelCard{
+			ID:           capability.ID,
+			Provider:     capability.Provider,
+			Installed:    capability.Installed,
+			Default:      capability.Default,
+			Capabilities: orchestratorCapabilitiesFromStrings(capability.Capabilities),
+		})
+	}
+	return out
+}
+
+func orchestratorCapabilitiesFromStrings(names []string) asrcontract.Capabilities {
+	out := asrcontract.Capabilities{Extensions: map[string]bool{}}
+	for _, name := range names {
+		switch name {
+		case string(asrcontract.CapabilityTranscription):
+			out.Transcription = true
+		case string(asrcontract.CapabilityDiarization):
+			out.Diarization = true
+		case string(asrcontract.CapabilitySpeakerIdentification):
+			out.SpeakerIdentification = true
+		case string(asrcontract.CapabilityWordTimestamps):
+			out.WordTimestamps = true
+		default:
+			out.Extensions[name] = true
+		}
+	}
+	if len(out.Extensions) == 0 {
+		out.Extensions = nil
+	}
+	return out
+}
 
 type recordingEvents struct {
 	events []ProgressEvent

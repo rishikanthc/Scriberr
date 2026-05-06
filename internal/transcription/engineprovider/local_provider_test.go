@@ -394,8 +394,12 @@ func TestLocalProviderCapabilitiesUseEngineModelCards(t *testing.T) {
 		},
 	}}
 	provider := newLocalProviderWithEngine("local", LocalConfig{}, runtime.ProviderCPU, fake)
+	registry, err := NewRegistry("local", provider)
+	if err != nil {
+		t.Fatalf("NewRegistry returned error: %v", err)
+	}
 
-	capabilities, err := provider.Capabilities(context.Background())
+	capabilities, err := registry.Capabilities(context.Background())
 	if err != nil {
 		t.Fatalf("Capabilities returned error: %v", err)
 	}

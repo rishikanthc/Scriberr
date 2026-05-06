@@ -24,6 +24,9 @@ func (p stubProvider) Models(ctx context.Context) ([]asrcontract.ModelCard, erro
 	if p.err != nil {
 		return nil, p.err
 	}
+	if p.models == nil {
+		return modelCardsFromCapabilities(p.capabilities), nil
+	}
 	return p.models, nil
 }
 func (p stubProvider) Status(context.Context) (*asrcontract.ProviderStatus, error) {
@@ -34,13 +37,6 @@ func (p stubProvider) UnloadModel(context.Context, asrcontract.UnloadModelReques
 func (p stubProvider) LoadedModels(context.Context) ([]asrcontract.LoadedModel, error) {
 	return p.status.LoadedModels, nil
 }
-func (p stubProvider) Capabilities(ctx context.Context) ([]ModelCapability, error) {
-	if p.err != nil {
-		return nil, p.err
-	}
-	return p.capabilities, nil
-}
-func (p stubProvider) Prepare(ctx context.Context) error { return nil }
 func (p stubProvider) Transcribe(ctx context.Context, req TranscriptionRequest) (*TranscriptionResult, error) {
 	return nil, nil
 }
@@ -51,6 +47,47 @@ func (p stubProvider) IdentifySpeakers(context.Context, asrcontract.SpeakerIDReq
 	return nil, asrcontract.NewProviderError(asrcontract.CodeUnsupportedOperation, "speaker identification is not supported", false)
 }
 func (p stubProvider) Close() error { return nil }
+
+func modelCardsFromCapabilities(capabilities []ModelCapability) []asrcontract.ModelCard {
+	out := make([]asrcontract.ModelCard, 0, len(capabilities))
+	for _, capability := range capabilities {
+		out = append(out, asrcontract.ModelCard{
+			ID:           capability.ID,
+			DisplayName:  capability.Name,
+			Provider:     capability.Provider,
+			Installed:    capability.Installed,
+			Default:      capability.Default,
+			Capabilities: asrCapabilitiesFromStrings(capability.Capabilities),
+		})
+	}
+	return out
+}
+
+func asrCapabilitiesFromStrings(names []string) asrcontract.Capabilities {
+	out := asrcontract.Capabilities{Extensions: map[string]bool{}}
+	for _, name := range names {
+		switch name {
+		case string(asrcontract.CapabilityTranscription):
+			out.Transcription = true
+		case string(asrcontract.CapabilityDiarization):
+			out.Diarization = true
+		case string(asrcontract.CapabilitySpeakerIdentification):
+			out.SpeakerIdentification = true
+		case string(asrcontract.CapabilityWordTimestamps):
+			out.WordTimestamps = true
+		case string(asrcontract.CapabilitySegmentTimestamps):
+			out.SegmentTimestamps = true
+		case string(asrcontract.CapabilityStreaming):
+			out.Streaming = true
+		default:
+			out.Extensions[name] = true
+		}
+	}
+	if len(out.Extensions) == 0 {
+		out.Extensions = nil
+	}
+	return out
+}
 
 func TestRegistryReturnsDefaultProviderAndAggregatesCapabilities(t *testing.T) {
 	local := stubProvider{

@@ -172,10 +172,6 @@ func (p fakeProvider) UnloadModel(ctx context.Context, req asrcontract.UnloadMod
 func (p fakeProvider) LoadedModels(ctx context.Context) ([]asrcontract.LoadedModel, error) {
 	return nil, nil
 }
-func (p fakeProvider) Capabilities(ctx context.Context) ([]engineprovider.ModelCapability, error) {
-	return nil, nil
-}
-func (p fakeProvider) Prepare(ctx context.Context) error { return nil }
 func (p fakeProvider) Transcribe(ctx context.Context, req engineprovider.TranscriptionRequest) (*engineprovider.TranscriptionResult, error) {
 	return nil, nil
 }

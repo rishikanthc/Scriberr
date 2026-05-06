@@ -39,10 +39,6 @@ func (p contractStubProvider) UnloadModel(context.Context, asrcontract.UnloadMod
 func (p contractStubProvider) LoadedModels(context.Context) ([]asrcontract.LoadedModel, error) {
 	return nil, nil
 }
-func (p contractStubProvider) Capabilities(context.Context) ([]engineprovider.ModelCapability, error) {
-	return []engineprovider.ModelCapability{{ID: "bad-model", Provider: "contract-stub", Capabilities: []string{"transcription"}}}, nil
-}
-func (p contractStubProvider) Prepare(context.Context) error { return nil }
 func (p contractStubProvider) Transcribe(context.Context, engineprovider.TranscriptionRequest) (*engineprovider.TranscriptionResult, error) {
 	return nil, nil
 }

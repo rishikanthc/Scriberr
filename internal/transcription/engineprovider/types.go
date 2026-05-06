@@ -20,12 +20,22 @@ type Provider interface {
 	LoadModel(ctx context.Context, req asrcontract.LoadModelRequest) error
 	UnloadModel(ctx context.Context, req asrcontract.UnloadModelRequest) error
 	LoadedModels(ctx context.Context) ([]asrcontract.LoadedModel, error)
-	Capabilities(ctx context.Context) ([]ModelCapability, error)
-	Prepare(ctx context.Context) error
-	Transcribe(ctx context.Context, req TranscriptionRequest) (*TranscriptionResult, error)
-	Diarize(ctx context.Context, req DiarizationRequest) (*DiarizationResult, error)
-	IdentifySpeakers(ctx context.Context, req asrcontract.SpeakerIDRequest) (*asrcontract.SpeakerIDResult, error)
 	Close() error
+}
+
+type TranscriptionProvider interface {
+	Provider
+	Transcribe(ctx context.Context, req TranscriptionRequest) (*TranscriptionResult, error)
+}
+
+type DiarizationProvider interface {
+	Provider
+	Diarize(ctx context.Context, req DiarizationRequest) (*DiarizationResult, error)
+}
+
+type SpeakerIdentificationProvider interface {
+	Provider
+	IdentifySpeakers(ctx context.Context, req asrcontract.SpeakerIDRequest) (*asrcontract.SpeakerIDResult, error)
 }
 
 type ProgressSink interface {
