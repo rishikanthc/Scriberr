@@ -13,6 +13,7 @@ import (
 
 	speechengine "scriberr-engine/speech/engine"
 	speechmodels "scriberr-engine/speech/models"
+	speechproviders "scriberr-engine/speech/providers"
 	engresults "scriberr-engine/speech/results"
 	"scriberr-engine/speech/runtime"
 )
@@ -24,7 +25,7 @@ type fakeSpeechEngine struct {
 	diarizationOut    *speechengine.DiarizationResult
 	err               error
 	info              *speechengine.ProviderInfo
-	models            []speechengine.ModelCard
+	models            []speechproviders.ModelDescriptor
 	status            *speechengine.ProviderStatus
 	loaded            []speechengine.LoadedModel
 	loadedRequested   string
@@ -59,7 +60,7 @@ func (e *fakeSpeechEngine) Inspect(ctx context.Context) (*speechengine.ProviderI
 			ActiveBackend:        "cpu",
 			SupportsConcurrent:   false,
 			MaxConcurrentJobs:    1,
-			ProviderCapabilities: []speechengine.Capability{speechengine.CapabilityTranscription, speechengine.CapabilityDiarization},
+			ProviderCapabilities: []speechproviders.TaskKind{speechproviders.TaskTranscription, speechproviders.TaskDiarization},
 		},
 		AudioInput: speechengine.AudioInputSpec{
 			RequiredSampleRate: 16000,
@@ -70,7 +71,7 @@ func (e *fakeSpeechEngine) Inspect(ctx context.Context) (*speechengine.ProviderI
 	}, nil
 }
 
-func (e *fakeSpeechEngine) Models(ctx context.Context) ([]speechengine.ModelCard, error) {
+func (e *fakeSpeechEngine) Models(ctx context.Context) ([]speechproviders.ModelDescriptor, error) {
 	if e.err != nil {
 		return nil, e.err
 	}
@@ -367,31 +368,15 @@ func TestLocalProviderDiarizeRejectsNilEngineResult(t *testing.T) {
 	}
 }
 
-func TestLocalProviderCapabilitiesUseEngineModelCards(t *testing.T) {
-	fake := &fakeSpeechEngine{models: []speechengine.ModelCard{
-		{
-			ID:          "whisper-base",
-			DisplayName: "Whisper Base",
-			Provider:    "local",
-			Family:      "whisper",
-			Installed:   true,
-			Default:     true,
-			Tasks:       []speechengine.Task{speechengine.TaskTranscribe},
-			Capabilities: speechengine.Capabilities{
-				Transcription:  true,
-				WordTimestamps: true,
-			},
-		},
-		{
-			ID:          "diarization-default",
-			DisplayName: "Diarization",
-			Provider:    "local",
-			Family:      "pyannote",
-			Default:     true,
-			Capabilities: speechengine.Capabilities{
-				Diarization: true,
-			},
-		},
+func TestLocalProviderCapabilitiesUseEngineDescriptors(t *testing.T) {
+	fake := &fakeSpeechEngine{models: []speechproviders.ModelDescriptor{
+		descriptorForModelWith(t, speechmodels.ModelWhisperBase, func(desc *speechproviders.ModelDescriptor) {
+			desc.Installed = true
+			desc.Default = true
+		}),
+		descriptorForModelWith(t, speechmodels.ModelDiarizationDefault, func(desc *speechproviders.ModelDescriptor) {
+			desc.Default = true
+		}),
 	}}
 	provider := newLocalProviderWithEngine("local", LocalConfig{}, runtime.ProviderCPU, fake)
 	registry, err := NewRegistry("local", provider)
@@ -409,7 +394,7 @@ func TestLocalProviderCapabilitiesUseEngineModelCards(t *testing.T) {
 	if !capabilities[0].Installed || !capabilities[0].Default {
 		t.Fatalf("whisper-base capability missing installed/default: %#v", capabilities[0])
 	}
-	if strings.Join(capabilities[0].Capabilities, ",") != "transcription,word_timestamps" {
+	if strings.Join(capabilities[0].Capabilities, ",") != "transcription,translation,word_timestamps,segment_timestamps,token_timestamps" {
 		t.Fatalf("whisper capabilities = %#v", capabilities[0].Capabilities)
 	}
 	if capabilities[1].Installed || !capabilities[1].Default {
@@ -423,21 +408,12 @@ func TestLocalProviderCapabilitiesUseEngineModelCards(t *testing.T) {
 func TestLocalProviderModelsStatusAndLifecycle(t *testing.T) {
 	fake := &fakeSpeechEngine{
 		loaded: []speechengine.LoadedModel{{ID: "whisper-base"}},
-		models: []speechengine.ModelCard{
-			{
-				ID:          "whisper-base",
-				DisplayName: "Whisper Base",
-				Provider:    "local",
-				Family:      "whisper",
-				Version:     "whisper",
-				Installed:   true,
-				Loaded:      true,
-				Default:     true,
-				Tasks:       []speechengine.Task{speechengine.TaskTranscribe},
-				Capabilities: speechengine.Capabilities{
-					Transcription: true,
-				},
-			},
+		models: []speechproviders.ModelDescriptor{
+			descriptorForModelWith(t, speechmodels.ModelWhisperBase, func(desc *speechproviders.ModelDescriptor) {
+				desc.Installed = true
+				desc.Loaded = true
+				desc.Default = true
+			}),
 		},
 	}
 	provider := newLocalProviderWithEngine("local", LocalConfig{}, runtime.ProviderCPU, fake)
@@ -482,41 +458,13 @@ func TestLocalProviderModelsStatusAndLifecycle(t *testing.T) {
 
 func TestLocalProviderModelDescriptorsDistinguishWhisperAndParakeet(t *testing.T) {
 	fake := &fakeSpeechEngine{
-		models: []speechengine.ModelCard{
-			{
-				ID:          "whisper-base",
-				DisplayName: "Whisper Base",
-				Provider:    "local",
-				Family:      "whisper",
-				Version:     "base",
-				Installed:   true,
-				Tasks:       []speechengine.Task{speechengine.TaskTranscribe, speechengine.Task("translate")},
-				Languages:   []string{"auto", "en", "es"},
-				Descriptor:  descriptorForModel(t, speechmodels.ModelWhisperBase),
-				Capabilities: speechengine.Capabilities{
-					Transcription:     true,
-					WordTimestamps:    true,
-					SegmentTimestamps: true,
-					TokenTimestamps:   true,
-					LanguageDetection: true,
-				},
-			},
-			{
-				ID:          "parakeet-v3",
-				DisplayName: "Parakeet V3",
-				Provider:    "local",
-				Family:      "nemo_transducer",
-				Version:     "v3",
-				Installed:   true,
-				Tasks:       []speechengine.Task{speechengine.TaskTranscribe},
-				Languages:   []string{"en"},
-				Descriptor:  descriptorForModel(t, speechmodels.ModelParakeetV3),
-				Capabilities: speechengine.Capabilities{
-					Transcription:     true,
-					WordTimestamps:    true,
-					SegmentTimestamps: true,
-				},
-			},
+		models: []speechproviders.ModelDescriptor{
+			descriptorForModelWith(t, speechmodels.ModelWhisperBase, func(desc *speechproviders.ModelDescriptor) {
+				desc.Installed = true
+			}),
+			descriptorForModelWith(t, speechmodels.ModelParakeetV3, func(desc *speechproviders.ModelDescriptor) {
+				desc.Installed = true
+			}),
 		},
 	}
 	provider := newLocalProviderWithEngine("local", LocalConfig{Provider: "cpu", Threads: 4, CacheDir: "/Users/zade/private/cache"}, runtime.ProviderCPU, fake)
@@ -568,23 +516,9 @@ func TestLocalProviderModelDescriptorsDistinguishWhisperAndParakeet(t *testing.T
 
 func TestLocalProviderModelDescriptorParameterSchemasValidate(t *testing.T) {
 	fake := &fakeSpeechEngine{
-		models: []speechengine.ModelCard{
-			{
-				ID:         "whisper-base",
-				Family:     "whisper",
-				Descriptor: descriptorForModel(t, speechmodels.ModelWhisperBase),
-				Capabilities: speechengine.Capabilities{
-					Transcription: true,
-				},
-			},
-			{
-				ID:         "parakeet-v3",
-				Family:     "nemo_transducer",
-				Descriptor: descriptorForModel(t, speechmodels.ModelParakeetV3),
-				Capabilities: speechengine.Capabilities{
-					Transcription: true,
-				},
-			},
+		models: []speechproviders.ModelDescriptor{
+			descriptorForModel(t, speechmodels.ModelWhisperBase),
+			descriptorForModel(t, speechmodels.ModelParakeetV3),
 		},
 	}
 	provider := newLocalProviderWithEngine("local", LocalConfig{Provider: "cpu", Threads: 4}, runtime.ProviderCPU, fake)
@@ -688,6 +622,13 @@ func descriptorForModel(t *testing.T, id speechmodels.ModelID) speechmodels.Desc
 	if !ok {
 		t.Fatalf("descriptor %q not found", id)
 	}
+	return descriptor
+}
+
+func descriptorForModelWith(t *testing.T, id speechmodels.ModelID, edit func(*speechproviders.ModelDescriptor)) speechmodels.Descriptor {
+	t.Helper()
+	descriptor := descriptorForModel(t, id)
+	edit(&descriptor)
 	return descriptor
 }
 

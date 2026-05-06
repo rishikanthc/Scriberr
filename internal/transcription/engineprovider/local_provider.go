@@ -25,7 +25,7 @@ type LocalConfig struct {
 
 type speechEngine interface {
 	Inspect(ctx context.Context) (*speechengine.ProviderInfo, error)
-	Models(ctx context.Context) ([]speechengine.ModelCard, error)
+	Models(ctx context.Context) ([]speechproviders.ModelDescriptor, error)
 	Status(ctx context.Context) (*speechengine.ProviderStatus, error)
 	LoadedModels() []speechengine.LoadedModel
 	Transcribe(ctx context.Context, req speechengine.TranscriptionRequest) (*speechengine.TranscriptionResult, error)
@@ -115,7 +115,7 @@ func (p *LocalProvider) Models(ctx context.Context) ([]asrcontract.ModelCard, er
 	}
 	out := make([]asrcontract.ModelCard, 0, len(models))
 	for _, model := range models {
-		out = append(out, modelCardFromEngine(model, p.id, p.cfg, p.provider))
+		out = append(out, modelCardFromEngine(model, p.id))
 	}
 	return out, nil
 }
@@ -330,26 +330,22 @@ func providerInfoFromEngine(info *speechengine.ProviderInfo, providerID string) 
 	}
 }
 
-func modelCardFromEngine(model speechengine.ModelCard, providerID string, cfg LocalConfig, provider runtime.Provider) asrcontract.ModelCard {
-	capabilities := capabilitiesFromEngine(model.Capabilities)
-	descriptor := model.Descriptor
-	if strings.TrimSpace(descriptor.ID) == "" {
-		return fallbackModelCardFromEngine(model, providerID, capabilities)
-	}
+func modelCardFromEngine(descriptor speechproviders.ModelDescriptor, providerID string) asrcontract.ModelCard {
+	capabilities := capabilitiesFromDescriptor(descriptor)
 	return asrcontract.ModelCard{
-		ID:                   firstNonEmpty(descriptor.ID, model.ID),
-		DisplayName:          firstNonEmpty(descriptor.DisplayName, model.DisplayName),
+		ID:                   descriptor.ID,
+		DisplayName:          descriptor.DisplayName,
 		Provider:             providerID,
-		Family:               firstNonEmpty(descriptor.Family, model.Family),
-		Version:              firstNonEmpty(descriptor.Version, model.Version),
-		Installed:            model.Installed,
-		Loaded:               model.Loaded,
-		Default:              model.Default,
-		Tasks:                tasksFromDescriptor(descriptor.Tasks, model.Tasks),
-		Languages:            languageIDsFromDescriptor(descriptor.Languages, model.Languages),
-		LanguageSupport:      languageSupportFromDescriptor(descriptor.Languages, model.Languages),
+		Family:               descriptor.Family,
+		Version:              descriptor.Version,
+		Installed:            descriptor.Installed,
+		Loaded:               descriptor.Loaded,
+		Default:              descriptor.Default,
+		Tasks:                tasksFromDescriptor(descriptor.Tasks),
+		Languages:            languageIDsFromDescriptor(descriptor.Languages),
+		LanguageSupport:      languageSupportFromDescriptor(descriptor.Languages),
 		Capabilities:         capabilities,
-		ResourceRequirements: resourceRequirementsFromDescriptor(descriptor.Runtime, model.ResourceRequirements),
+		ResourceRequirements: resourceRequirementsFromDescriptor(descriptor.Runtime),
 		Chunking:             chunkingCapabilitiesFromDescriptor(descriptor.Chunking, descriptor.Runtime, capabilities),
 		ParameterSchema:      parameterSchemaFromDescriptor(descriptor.Parameters),
 		RecommendedDefaults:  copyRecommendedDefaults(descriptor.RecommendedDefaults),
@@ -357,39 +353,7 @@ func modelCardFromEngine(model speechengine.ModelCard, providerID string, cfg Lo
 	}
 }
 
-func fallbackModelCardFromEngine(model speechengine.ModelCard, providerID string, capabilities asrcontract.Capabilities) asrcontract.ModelCard {
-	return asrcontract.ModelCard{
-		ID:                   model.ID,
-		DisplayName:          model.DisplayName,
-		Provider:             providerID,
-		Family:               model.Family,
-		Version:              model.Version,
-		Installed:            model.Installed,
-		Loaded:               model.Loaded,
-		Default:              model.Default,
-		Tasks:                tasksFromEngine(model.Tasks),
-		Languages:            append([]string(nil), model.Languages...),
-		LanguageSupport:      fallbackLanguageSupport(model.Languages),
-		Capabilities:         capabilities,
-		ResourceRequirements: resourceRequirementsFromEngine(model.ResourceRequirements),
-	}
-}
-
-func fallbackLanguageSupport(languages []string) *asrcontract.LanguageSupport {
-	if len(languages) == 0 {
-		return nil
-	}
-	mode := "fixed"
-	if len(languages) > 1 {
-		mode = "configurable"
-	}
-	return &asrcontract.LanguageSupport{Languages: append([]string(nil), languages...), Mode: mode}
-}
-
-func languageSupportFromDescriptor(languages []speechproviders.LanguageSupport, fallback []string) *asrcontract.LanguageSupport {
-	if len(languages) == 0 {
-		return fallbackLanguageSupport(fallback)
-	}
+func languageSupportFromDescriptor(languages []speechproviders.LanguageSupport) *asrcontract.LanguageSupport {
 	ids := make([]string, 0, len(languages))
 	mode := ""
 	for _, language := range languages {
@@ -409,10 +373,7 @@ func languageSupportFromDescriptor(languages []speechproviders.LanguageSupport, 
 	return &asrcontract.LanguageSupport{Languages: ids, Mode: mode}
 }
 
-func languageIDsFromDescriptor(languages []speechproviders.LanguageSupport, fallback []string) []string {
-	if len(languages) == 0 {
-		return append([]string(nil), fallback...)
-	}
+func languageIDsFromDescriptor(languages []speechproviders.LanguageSupport) []string {
 	out := make([]string, 0, len(languages))
 	for _, language := range languages {
 		if strings.TrimSpace(language.ID) != "" {
@@ -422,10 +383,7 @@ func languageIDsFromDescriptor(languages []speechproviders.LanguageSupport, fall
 	return out
 }
 
-func tasksFromDescriptor(tasks []speechproviders.TaskDescriptor, fallback []speechengine.Task) []asrcontract.Task {
-	if len(tasks) == 0 {
-		return tasksFromEngine(fallback)
-	}
+func tasksFromDescriptor(tasks []speechproviders.TaskDescriptor) []asrcontract.Task {
 	out := make([]asrcontract.Task, 0, len(tasks))
 	for _, task := range tasks {
 		switch task.Kind {
@@ -440,10 +398,7 @@ func tasksFromDescriptor(tasks []speechproviders.TaskDescriptor, fallback []spee
 	return out
 }
 
-func resourceRequirementsFromDescriptor(runtime speechproviders.RuntimeCapabilities, fallback speechengine.ResourceRequirements) asrcontract.ResourceRequirements {
-	if len(runtime.Backends) == 0 {
-		return resourceRequirementsFromEngine(fallback)
-	}
+func resourceRequirementsFromDescriptor(runtime speechproviders.RuntimeCapabilities) asrcontract.ResourceRequirements {
 	backends := make([]string, 0, len(runtime.Backends))
 	for _, backend := range runtime.Backends {
 		backends = append(backends, string(backend))
@@ -547,15 +502,6 @@ func descriptorExtensionsFromEngine(descriptor speechproviders.ModelDescriptor) 
 	return extensions
 }
 
-func firstNonEmpty(values ...string) string {
-	for _, value := range values {
-		if strings.TrimSpace(value) != "" {
-			return strings.TrimSpace(value)
-		}
-	}
-	return ""
-}
-
 func cloneFloat64(value *float64) *float64 {
 	if value == nil {
 		return nil
@@ -607,36 +553,45 @@ func loadedModelFromEngine(model speechengine.LoadedModel) asrcontract.LoadedMod
 	}
 }
 
-func providerCapabilitiesFromEngine(capabilities []speechengine.Capability) []asrcontract.Capability {
+func providerCapabilitiesFromEngine(capabilities []speechproviders.TaskKind) []asrcontract.Capability {
 	out := make([]asrcontract.Capability, 0, len(capabilities))
 	for _, capability := range capabilities {
-		out = append(out, asrcontract.Capability(capability))
+		switch capability {
+		case speechproviders.TaskTranscription:
+			out = append(out, asrcontract.CapabilityTranscription)
+		case speechproviders.TaskDiarization:
+			out = append(out, asrcontract.CapabilityDiarization)
+		case speechproviders.TaskSpeakerIdentification:
+			out = append(out, asrcontract.CapabilitySpeakerIdentification)
+		case speechproviders.TaskTranslation:
+			out = append(out, asrcontract.CapabilityTranslation)
+		default:
+			out = append(out, asrcontract.Capability(capability))
+		}
 	}
 	return out
 }
 
-func tasksFromEngine(tasks []speechengine.Task) []asrcontract.Task {
-	out := make([]asrcontract.Task, 0, len(tasks))
-	for _, task := range tasks {
-		out = append(out, asrcontract.Task(task))
+func capabilitiesFromDescriptor(descriptor speechproviders.ModelDescriptor) asrcontract.Capabilities {
+	capabilities := asrcontract.Capabilities{
+		WordTimestamps:    descriptor.Output.WordTimestamps,
+		SegmentTimestamps: descriptor.Output.SegmentTimestamps,
+		TokenTimestamps:   descriptor.Output.TokenTimestamps,
+		LanguageDetection: descriptor.Output.LanguageSpans,
+		SpeakerEmbeddings: descriptor.Output.SpeakerLabels,
+		Translation:       descriptor.Output.Translation,
 	}
-	return out
-}
-
-func capabilitiesFromEngine(capabilities speechengine.Capabilities) asrcontract.Capabilities {
-	return asrcontract.Capabilities{
-		Transcription:     capabilities.Transcription,
-		Diarization:       capabilities.Diarization,
-		WordTimestamps:    capabilities.WordTimestamps,
-		SegmentTimestamps: capabilities.SegmentTimestamps,
-		TokenTimestamps:   capabilities.TokenTimestamps,
-		LanguageDetection: capabilities.LanguageDetection,
-		SpeakerEmbeddings: capabilities.SpeakerEmbeddings,
+	for _, task := range descriptor.Tasks {
+		switch task.Kind {
+		case speechproviders.TaskTranscription:
+			capabilities.Transcription = true
+		case speechproviders.TaskDiarization:
+			capabilities.Diarization = true
+		case speechproviders.TaskSpeakerIdentification:
+			capabilities.SpeakerIdentification = true
+		case speechproviders.TaskTranslation:
+			capabilities.Translation = true
+		}
 	}
-}
-
-func resourceRequirementsFromEngine(requirements speechengine.ResourceRequirements) asrcontract.ResourceRequirements {
-	return asrcontract.ResourceRequirements{
-		Backends: append([]string(nil), requirements.Backends...),
-	}
+	return capabilities
 }
