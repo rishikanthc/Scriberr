@@ -107,24 +107,27 @@ Commit:
 
 ## BE-ENG-PROVIDER-Sprint 3: Delete Backend Chunking And Batching Planner
 
-Status: planned
+Status: complete
 
 Planned tasks:
 
-- [ ] Remove local execution chunk/batch planning from orchestrator.
-- [ ] Keep pipeline sequencing only.
-- [ ] Persist provider/engine plan summary.
-- [ ] Remove duplicated boundary progress events.
+- [x] Remove local execution chunk/batch planning from orchestrator.
+- [x] Keep pipeline sequencing only.
+- [x] Persist provider/engine plan summary.
+- [x] Remove duplicated boundary progress events.
 
 Acceptance checks:
 
-- [ ] Backend does not compute local chunk count.
-- [ ] Backend does not choose fixed vs VAD for local engine execution.
-- [ ] Engine progress drives transcription progress.
+- [x] Backend does not compute local chunk count.
+- [x] Backend does not choose fixed vs VAD for local engine execution.
+- [x] Engine progress drives transcription progress.
 
 Verification:
 
-- [ ] Not started.
+- [x] `GOCACHE=/tmp/scriberr-go-cache go test ./internal/transcription/orchestrator`
+- [x] `GOCACHE=/tmp/scriberr-go-cache go test ./internal/transcription/...`
+- [x] `GOCACHE=/tmp/scriberr-go-cache go test ./internal/profile ./internal/api`
+- [x] `GOCACHE=/tmp/scriberr-engine-go-cache go test ./...` in `references/engine`
 
 Commit:
 

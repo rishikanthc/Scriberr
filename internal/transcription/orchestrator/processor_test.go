@@ -168,6 +168,12 @@ func TestProcessorCreatesExecutionAndReturnsCanonicalTranscript(t *testing.T) {
 	})
 	provider := &fakeProvider{
 		id: "local",
+		progress: []asrcontract.ProviderProgress{{
+			Stage:     asrcontract.StageTranscribing,
+			Operation: asrcontract.OperationTranscription,
+			Model:     "custom-transcriber",
+			Timestamp: time.Now(),
+		}},
 		transcribe: &engineprovider.TranscriptionResult{
 			Text:     "Hello there.",
 			Language: "en",
@@ -176,6 +182,13 @@ func TestProcessorCreatesExecutionAndReturnsCanonicalTranscript(t *testing.T) {
 			Words: []engineprovider.TranscriptWord{
 				{Start: 0, End: 0.4, Word: "Hello"},
 				{Start: 0.5, End: 0.9, Word: "there"},
+			},
+			Metadata: map[string]any{
+				"chunking_mode": "vad",
+				"plan": map[string]any{
+					"chunking_mode": "vad",
+					"chunk_count":   float64(2),
+				},
 			},
 		},
 		diarize: &engineprovider.DiarizationResult{
@@ -224,13 +237,13 @@ func TestProcessorCreatesExecutionAndReturnsCanonicalTranscript(t *testing.T) {
 	assert.NotContains(t, executions[0].ConfigJSON, audioPath)
 	assert.Contains(t, executions[0].ConfigJSON, `"operation":"transcription"`)
 	assert.Contains(t, executions[0].ConfigJSON, `"operation":"diarization"`)
-	assert.Contains(t, executions[0].ConfigJSON, `"plan"`)
+	assert.Contains(t, executions[0].ConfigJSON, `"provider_metadata"`)
 	assert.Contains(t, executions[0].ConfigJSON, `"chunking_mode":"vad"`)
 
-	assertEventStages(t, events.events, []string{"preparing", "transcribing", "diarizing", "merging", "saving", "completed"})
+	assertEventStages(t, events.events, []string{"preparing", "transcribing", "merging", "saving", "completed"})
 }
 
-func TestProcessorRejectsUnsupportedPlanBeforeProviderExecution(t *testing.T) {
+func TestProcessorPassesProviderSpecificChunkingOptionsWithoutBackendPlanning(t *testing.T) {
 	db := openOrchestratorTestDB(t)
 	audioPath := filepath.Join(t.TempDir(), "audio.wav")
 	require.NoError(t, os.WriteFile(audioPath, []byte("fake wav"), 0o600))
@@ -239,7 +252,7 @@ func TestProcessorRejectsUnsupportedPlanBeforeProviderExecution(t *testing.T) {
 			Kind:     models.ASRStepTranscription,
 			Provider: "remote",
 			Model:    "provider-chunker",
-			Options:  map[string]any{asrcontract.CommonParameterChunkingMode: string(ChunkingModeFixed)},
+			Options:  map[string]any{asrcontract.CommonParameterChunkingMode: "fixed"},
 		}},
 	})
 	provider := &fakeProvider{
@@ -259,10 +272,10 @@ func TestProcessorRejectsUnsupportedPlanBeforeProviderExecution(t *testing.T) {
 			Chunking: &asrcontract.ChunkingCapabilities{
 				SupportsEngineChunking:   false,
 				SupportsProviderChunking: true,
-				PreferredMode:            string(ChunkingModeProvider),
+				PreferredMode:            "provider",
 			},
 		}},
-		transcribe: &engineprovider.TranscriptionResult{Text: "should not run"},
+		transcribe: &engineprovider.TranscriptionResult{Text: "provider owns validation"},
 	}
 	registry, err := engineprovider.NewRegistry("remote", provider)
 	require.NoError(t, err)
@@ -274,13 +287,12 @@ func TestProcessorRejectsUnsupportedPlanBeforeProviderExecution(t *testing.T) {
 
 	result, err := processor.Process(context.Background(), &job)
 
-	require.Error(t, err)
-	assert.Equal(t, models.StatusFailed, result.Status)
-	assert.Contains(t, result.ErrorMessage, "chunking mode")
-	assert.Empty(t, provider.transReq.JobID)
+	require.NoError(t, err)
+	assert.Equal(t, models.StatusCompleted, result.Status)
+	assert.Equal(t, "fixed", provider.transReq.Parameters[asrcontract.CommonParameterChunkingMode])
 	var executions []models.TranscriptionJobExecution
 	require.NoError(t, db.Where("transcription_id = ?", job.ID).Find(&executions).Error)
-	assert.Empty(t, executions)
+	assert.Len(t, executions, 1)
 }
 
 func TestProcessorChainsDiarizationAcrossProviders(t *testing.T) {
@@ -450,7 +462,7 @@ func TestProcessorExecutesSpeakerIdentificationStep(t *testing.T) {
 	assert.Equal(t, job.ID, speakerProvider.speakerReq.RequestID)
 	assert.Equal(t, "speaker-id-default", speakerProvider.speakerReq.Model)
 	assert.Empty(t, speakerProvider.transReq.JobID)
-	assertEventStages(t, events.events, []string{"preparing", "transcribing", "identifying_speakers", "merging", "saving", "completed"})
+	assertEventStages(t, events.events, []string{"preparing", "merging", "saving", "completed"})
 }
 
 func TestProcessorPassesPreprocessedAudioToProvider(t *testing.T) {
@@ -531,10 +543,9 @@ func TestProcessorPersistsProviderProgress(t *testing.T) {
 	require.NoError(t, db.First(&stored, "id = ?", job.ID).Error)
 	require.InDelta(t, 0.95, stored.Progress, 0.001)
 	assert.Equal(t, "saving", stored.ProgressStage)
-	require.GreaterOrEqual(t, len(events.events), 3)
-	assert.Equal(t, "loading_model", events.events[2].Stage)
-	assert.InDelta(t, 0.31, events.events[2].Progress, 0.001)
-	assert.NotContains(t, events.events[2].Stage, "/tmp/private")
+	event := requireEventStage(t, events.events, "loading_model")
+	assert.InDelta(t, 0.31, event.Progress, 0.001)
+	assert.NotContains(t, event.Stage, "/tmp/private")
 }
 
 func TestLocalTranscriptStoreWritesPathSafeArtifact(t *testing.T) {
@@ -725,6 +736,17 @@ func assertEventStages(t *testing.T, events []ProgressEvent, stages []string) {
 	for i, stage := range stages {
 		assert.Equal(t, stage, events[i].Stage)
 	}
+}
+
+func requireEventStage(t *testing.T, events []ProgressEvent, stage string) ProgressEvent {
+	t.Helper()
+	for _, event := range events {
+		if event.Stage == stage {
+			return event
+		}
+	}
+	t.Fatalf("stage %q not found in %#v", stage, events)
+	return ProgressEvent{}
 }
 
 func fakeFFmpegForOrchestrator(t *testing.T) string {
