@@ -80,23 +80,26 @@ Commit:
 
 ## BE-ENG-PROVIDER-Sprint 2: Descriptor Passthrough For Local Provider
 
-Status: planned
+Status: complete
 
 Planned tasks:
 
-- [ ] Expose full engine descriptors or descriptor-equivalent model cards.
-- [ ] Map engine descriptors mechanically into backend `asrcontract.ModelCard`.
-- [ ] Delete local backend schema/default synthesis.
+- [x] Expose full engine descriptors or descriptor-equivalent model cards.
+- [x] Map engine descriptors mechanically into backend `asrcontract.ModelCard`.
+- [x] Delete local backend schema/default synthesis.
 
 Acceptance checks:
 
-- [ ] Local model cards match engine descriptors.
-- [ ] Whisper and Parakeet options/defaults come from engine.
-- [ ] Backend no longer hardcodes local sherpa model schemas.
+- [x] Local model cards match engine descriptors.
+- [x] Whisper and Parakeet options/defaults come from engine.
+- [x] Backend no longer hardcodes local sherpa model schemas.
 
 Verification:
 
-- [ ] Not started.
+- [x] `GOCACHE=/tmp/scriberr-go-cache go test ./internal/transcription/engineprovider`
+- [x] `GOCACHE=/tmp/scriberr-go-cache go test ./internal/transcription/...`
+- [x] `GOCACHE=/tmp/scriberr-go-cache go test ./internal/profile ./internal/api`
+- [x] `GOCACHE=/tmp/scriberr-engine-go-cache go test ./...` in `references/engine`
 
 Commit:
 

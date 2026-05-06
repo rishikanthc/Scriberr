@@ -12,6 +12,7 @@ import (
 	"scriberr/internal/transcription/asrcontract"
 
 	speechengine "scriberr-engine/speech/engine"
+	speechmodels "scriberr-engine/speech/models"
 	engresults "scriberr-engine/speech/results"
 	"scriberr-engine/speech/runtime"
 )
@@ -485,6 +486,7 @@ func TestLocalProviderModelDescriptorsDistinguishWhisperAndParakeet(t *testing.T
 				Installed:   true,
 				Tasks:       []speechengine.Task{speechengine.TaskTranscribe, speechengine.Task("translate")},
 				Languages:   []string{"auto", "en", "es"},
+				Descriptor:  descriptorForModel(t, speechmodels.ModelWhisperBase),
 				Capabilities: speechengine.Capabilities{
 					Transcription:     true,
 					WordTimestamps:    true,
@@ -502,6 +504,7 @@ func TestLocalProviderModelDescriptorsDistinguishWhisperAndParakeet(t *testing.T
 				Installed:   true,
 				Tasks:       []speechengine.Task{speechengine.TaskTranscribe},
 				Languages:   []string{"en"},
+				Descriptor:  descriptorForModel(t, speechmodels.ModelParakeetV3),
 				Capabilities: speechengine.Capabilities{
 					Transcription:     true,
 					WordTimestamps:    true,
@@ -522,40 +525,21 @@ func TestLocalProviderModelDescriptorsDistinguishWhisperAndParakeet(t *testing.T
 	requireParameter(t, whisper.ParameterSchema, "sherpa.whisper.language")
 	requireParameter(t, whisper.ParameterSchema, "sherpa.whisper.task")
 	requireParameter(t, whisper.ParameterSchema, "sherpa.whisper.tail_paddings")
-	requireParameter(t, whisper.ParameterSchema, asrcontract.CommonParameterOutputTokenTimestamps)
+	requireParameter(t, whisper.ParameterSchema, "sherpa.whisper.enable_token_timestamps")
 	if hasParameter(parakeet.ParameterSchema, "sherpa.whisper.language") {
 		t.Fatalf("parakeet descriptor should not expose whisper language parameter: %#v", parakeet.ParameterSchema)
 	}
-	requireParameter(t, parakeet.ParameterSchema, "sherpa.nemo_transducer.encoder")
-	requireParameter(t, parakeet.ParameterSchema, "sherpa.nemo_transducer.decoder")
-	requireParameter(t, parakeet.ParameterSchema, "sherpa.nemo_transducer.joiner")
-	requireParameter(t, parakeet.ParameterSchema, "sherpa.tokens")
-	requireReloadParameter(t, parakeet.ParameterSchema, "sherpa.nemo_transducer.encoder")
-	requireReloadParameter(t, parakeet.ParameterSchema, "sherpa.nemo_transducer.decoder")
-	requireReloadParameter(t, parakeet.ParameterSchema, "sherpa.nemo_transducer.joiner")
-	requireReloadParameter(t, parakeet.ParameterSchema, "sherpa.tokens")
 	requireReloadParameter(t, parakeet.ParameterSchema, "sherpa.model_type")
-	requireReloadParameter(t, parakeet.ParameterSchema, "sherpa.runtime.provider")
+	requireReloadParameter(t, parakeet.ParameterSchema, "runtime.provider")
 	requireReloadParameter(t, parakeet.ParameterSchema, asrcontract.CommonParameterRuntimeNumThreads)
-	requireParameter(t, parakeet.ParameterSchema, "sherpa.offline.sample_rate")
-	requireParameter(t, parakeet.ParameterSchema, "sherpa.offline.feature_dim")
-	requireParameter(t, parakeet.ParameterSchema, "sherpa.runtime.debug")
-	requireParameter(t, parakeet.ParameterSchema, "sherpa.decoding.max_active_paths")
-	requireParameter(t, parakeet.ParameterSchema, "sherpa.decoding.hotwords_file")
-	requireParameter(t, parakeet.ParameterSchema, "sherpa.decoding.hotwords_score")
-	requireParameter(t, parakeet.ParameterSchema, "sherpa.decoding.blank_penalty")
-	requireParameter(t, parakeet.ParameterSchema, "sherpa.decoding.rule_fsts")
-	requireParameter(t, parakeet.ParameterSchema, "sherpa.decoding.rule_fars")
-	requireParameter(t, parakeet.ParameterSchema, "sherpa.lm.model")
-	requireParameter(t, parakeet.ParameterSchema, "sherpa.lm.scale")
 
 	if got := parakeet.RecommendedDefaults[asrcontract.CommonParameterChunkingMode]; got != "fixed" {
 		t.Fatalf("parakeet chunking default = %#v, want fixed", got)
 	}
-	if got := parakeet.RecommendedDefaults[asrcontract.CommonParameterRuntimeNumThreads]; got != 4 {
+	if got := parakeet.RecommendedDefaults[asrcontract.CommonParameterRuntimeNumThreads]; got != float64(4) {
 		t.Fatalf("parakeet threads default = %#v, want 4", got)
 	}
-	if got := parakeet.RecommendedDefaults[asrcontract.CommonParameterBatchingBatchSize]; got != 1 {
+	if got := parakeet.RecommendedDefaults[asrcontract.CommonParameterBatchingBatchSize]; got != float64(1) {
 		t.Fatalf("parakeet batch default = %#v, want 1", got)
 	}
 	if parakeet.Chunking == nil || parakeet.Chunking.RecommendedChunkSeconds == nil || *parakeet.Chunking.RecommendedChunkSeconds != 30 {
@@ -565,9 +549,6 @@ func TestLocalProviderModelDescriptorsDistinguishWhisperAndParakeet(t *testing.T
 	requireArtifactRequirement(t, parakeet, "decoder")
 	requireArtifactRequirement(t, parakeet, "joiner")
 	requireArtifactRequirement(t, parakeet, "tokens")
-	if parakeet.Extensions["model_type"] != "nemo_transducer" {
-		t.Fatalf("parakeet model_type extension = %#v", parakeet.Extensions["model_type"])
-	}
 
 	data, err := json.Marshal(models)
 	if err != nil {
@@ -583,15 +564,17 @@ func TestLocalProviderModelDescriptorParameterSchemasValidate(t *testing.T) {
 	fake := &fakeSpeechEngine{
 		models: []speechengine.ModelCard{
 			{
-				ID:     "whisper-base",
-				Family: "whisper",
+				ID:         "whisper-base",
+				Family:     "whisper",
+				Descriptor: descriptorForModel(t, speechmodels.ModelWhisperBase),
 				Capabilities: speechengine.Capabilities{
 					Transcription: true,
 				},
 			},
 			{
-				ID:     "parakeet-v3",
-				Family: "nemo_transducer",
+				ID:         "parakeet-v3",
+				Family:     "nemo_transducer",
+				Descriptor: descriptorForModel(t, speechmodels.ModelParakeetV3),
 				Capabilities: speechengine.Capabilities{
 					Transcription: true,
 				},
@@ -677,20 +660,29 @@ func requireReloadParameter(t *testing.T, schema asrcontract.ParameterSchema, ke
 
 func requireArtifactRequirement(t *testing.T, model asrcontract.ModelCard, requirement string) {
 	t.Helper()
-	raw, ok := model.Extensions["artifact_requirements"]
+	raw, ok := model.Extensions["artifacts"]
 	if !ok {
 		t.Fatalf("model %q missing artifact requirements", model.ID)
 	}
-	items, ok := raw.([]string)
+	items, ok := raw.([]map[string]any)
 	if !ok {
-		t.Fatalf("artifact requirements should be []string: %#v", raw)
+		t.Fatalf("artifact requirements should be []map[string]any: %#v", raw)
 	}
 	for _, item := range items {
-		if item == requirement {
+		if item["key"] == requirement {
 			return
 		}
 	}
 	t.Fatalf("artifact requirement %q not found in %#v", requirement, items)
+}
+
+func descriptorForModel(t *testing.T, id speechmodels.ModelID) speechmodels.Descriptor {
+	t.Helper()
+	descriptor, ok := speechmodels.DefaultModelRegistry().ResolveDescriptor(string(id))
+	if !ok {
+		t.Fatalf("descriptor %q not found", id)
+	}
+	return descriptor
 }
 
 func hasParameter(schema asrcontract.ParameterSchema, key string) bool {
