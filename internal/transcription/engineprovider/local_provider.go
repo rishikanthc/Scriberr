@@ -235,29 +235,12 @@ func localTranscriptionMetadata(modelID string, out *speechengine.TranscriptionR
 	if out == nil {
 		return metadata
 	}
-	if out.Metrics.AudioDurationSec > 0 {
-		metadata["audio_duration_s"] = out.Metrics.AudioDurationSec
-	}
-	if out.Metrics.DecodeDuration > 0 {
-		metadata["decode_time_ms"] = out.Metrics.DecodeDuration.Milliseconds()
-	}
-	if out.Metrics.ChunkCount > 0 {
-		metadata["chunk_count"] = out.Metrics.ChunkCount
-	}
-	if out.Metrics.BatchSize > 0 {
-		metadata["batch_size"] = out.Metrics.BatchSize
-	}
-	if out.Metrics.HypothesisWords > 0 {
-		metadata["hypothesis_words"] = out.Metrics.HypothesisWords
-	}
-	if rtf := out.Metrics.RealTimeFactor(); rtf > 0 {
-		metadata["rtf"] = rtf
-	}
-	if strings.TrimSpace(out.Plan.ChunkingMode) != "" {
-		metadata["chunking_mode"] = out.Plan.ChunkingMode
-	}
-	if strings.TrimSpace(out.Plan.Task) != "" {
-		metadata["task"] = out.Plan.Task
+	if out.Metrics.AudioDurationSec > 0 ||
+		out.Metrics.DecodeDuration > 0 ||
+		out.Metrics.ChunkCount > 0 ||
+		out.Metrics.BatchSize > 0 ||
+		out.Metrics.HypothesisWords > 0 {
+		metadata["metrics"] = out.Metrics
 	}
 	metadata["plan"] = out.Plan
 	return metadata

@@ -112,22 +112,30 @@ func TestBuildCanonicalTranscriptPreservesSanitizedMetrics(t *testing.T) {
 				{Start: 0, End: 1.2, Text: "Parakeet output."},
 			},
 			Metadata: map[string]any{
-				"chunking_mode":    "fixed",
-				"chunk_count":      1,
-				"batch_size":       1,
-				"decode_time_ms":   int64(25),
-				"audio_duration_s": 1.2,
-				"rtf":              0.02,
-				"audio_path":       "/provider/audio.wav",
-				"hf_token":         "secret",
+				"plan": map[string]any{
+					"chunking_mode": "fixed",
+					"chunk_count":   1,
+				},
+				"metrics": map[string]any{
+					"batch_size":         1,
+					"decode_duration_ms": 25,
+					"audio_duration_s":   1.2,
+				},
+				"audio_path": "/provider/audio.wav",
+				"hf_token":   "secret",
 			},
 		},
 		nil,
 	)
 
 	require.NoError(t, err)
-	require.Equal(t, "fixed", transcript.Metadata["chunking_mode"])
-	require.Equal(t, 1, transcript.Metadata["chunk_count"])
+	plan, ok := transcript.Metadata["plan"].(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, "fixed", plan["chunking_mode"])
+	require.Equal(t, float64(1), plan["chunk_count"])
+	metrics, ok := transcript.Metadata["metrics"].(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, float64(1), metrics["batch_size"])
 	require.NotContains(t, transcript.Metadata, "audio_path")
 	require.NotContains(t, transcript.Metadata, "hf_token")
 	encoded, err := json.Marshal(transcript)

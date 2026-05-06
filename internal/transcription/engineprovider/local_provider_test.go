@@ -247,14 +247,16 @@ func TestLocalProviderTranscribeUsesEnginePlanAndMetricsMetadata(t *testing.T) {
 	if fake.transcriptionReq.Parameters != nil {
 		t.Fatalf("local provider synthesized parameters: %#v", fake.transcriptionReq.Parameters)
 	}
-	if result.Metadata["chunking_mode"] != "fixed" || result.Metadata["batch_size"] != 1 {
-		t.Fatalf("metadata missing selected plan: %#v", result.Metadata)
+	metrics, ok := result.Metadata["metrics"].(engresults.Metrics)
+	if !ok {
+		t.Fatalf("metadata missing metrics: %#v", result.Metadata)
 	}
-	if result.Metadata["hypothesis_words"] != 2 {
-		t.Fatalf("metadata hypothesis words = %#v", result.Metadata["hypothesis_words"])
+	if metrics.BatchSize != 1 || metrics.HypothesisWords != 2 {
+		t.Fatalf("metadata metrics mismatch: %#v", metrics)
 	}
-	if _, ok := result.Metadata["decode_time_ms"]; !ok {
-		t.Fatalf("metadata missing decode_time_ms: %#v", result.Metadata)
+	plan, ok := result.Metadata["plan"].(engresults.PlanSummary)
+	if !ok || plan.ChunkingMode != "fixed" {
+		t.Fatalf("metadata missing plan: %#v", result.Metadata)
 	}
 	if strings.Contains(fmt.Sprint(result.Metadata), "/provider/audio.wav") {
 		t.Fatalf("metadata leaked audio path: %#v", result.Metadata)

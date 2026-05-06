@@ -99,26 +99,61 @@ func sanitizeTranscriptMetadata(metadata map[string]any) map[string]any {
 	if len(metadata) == 0 {
 		return nil
 	}
-	out := make(map[string]any, len(metadata))
-	for key, value := range metadata {
-		key = strings.TrimSpace(key)
-		if key == "" || strings.Contains(strings.ToLower(key), "path") || strings.Contains(strings.ToLower(key), "token") {
-			continue
-		}
-		switch typed := value.(type) {
-		case string:
-			if strings.Contains(typed, "/") || strings.Contains(strings.ToLower(typed), "token") {
-				continue
-			}
-			out[key] = typed
-		case bool, int, int64, float64:
-			out[key] = typed
-		}
-	}
-	if len(out) == 0 {
+	raw, err := json.Marshal(metadata)
+	if err != nil {
 		return nil
 	}
-	return out
+	var decoded any
+	if err := json.Unmarshal(raw, &decoded); err != nil {
+		return nil
+	}
+	safe, ok := sanitizeMetadataValue(decoded).(map[string]any)
+	if !ok || len(safe) == 0 {
+		return nil
+	}
+	return safe
+}
+
+func sanitizeMetadataValue(value any) any {
+	switch typed := value.(type) {
+	case map[string]any:
+		out := make(map[string]any, len(typed))
+		for key, value := range typed {
+			key = strings.TrimSpace(key)
+			lowerKey := strings.ToLower(key)
+			if key == "" || strings.Contains(lowerKey, "path") || strings.Contains(lowerKey, "token") || strings.Contains(lowerKey, "secret") {
+				continue
+			}
+			if safe := sanitizeMetadataValue(value); safe != nil {
+				out[key] = safe
+			}
+		}
+		if len(out) == 0 {
+			return nil
+		}
+		return out
+	case []any:
+		out := make([]any, 0, len(typed))
+		for _, value := range typed {
+			if safe := sanitizeMetadataValue(value); safe != nil {
+				out = append(out, safe)
+			}
+		}
+		if len(out) == 0 {
+			return nil
+		}
+		return out
+	case string:
+		lowerValue := strings.ToLower(typed)
+		if strings.Contains(typed, "/") || strings.Contains(lowerValue, "token") || strings.Contains(lowerValue, "secret") {
+			return nil
+		}
+		return typed
+	case bool, float64:
+		return typed
+	default:
+		return nil
+	}
 }
 
 func hasUsableTranscript(transcription *engineprovider.TranscriptionResult) bool {

@@ -135,23 +135,26 @@ Commit:
 
 ## BE-ENG-PROVIDER-Sprint 4: Canonical Result And Metrics Alignment
 
-Status: planned
+Status: complete
 
 Planned tasks:
 
-- [ ] Preserve engine metrics and plan summary in execution metadata.
-- [ ] Delete local metric recomputation from backend provider adapter.
-- [ ] Keep canonical transcript merge in orchestrator.
+- [x] Preserve engine metrics and plan summary in execution metadata.
+- [x] Delete local metric recomputation from backend provider adapter.
+- [x] Keep canonical transcript merge in orchestrator.
 
 Acceptance checks:
 
-- [ ] Execution metadata uses engine metrics where available.
-- [ ] Backend does not infer local audio duration from words/segments.
-- [ ] Transcript JSON remains stable.
+- [x] Execution metadata uses engine metrics where available.
+- [x] Backend does not infer local audio duration from words/segments.
+- [x] Transcript JSON remains stable.
 
 Verification:
 
-- [ ] Not started.
+- [x] `GOCACHE=/tmp/scriberr-go-cache go test ./internal/transcription/engineprovider ./internal/transcription/orchestrator`
+- [x] `GOCACHE=/tmp/scriberr-go-cache go test ./internal/transcription/...`
+- [x] `GOCACHE=/tmp/scriberr-go-cache go test ./internal/profile ./internal/api`
+- [x] `GOCACHE=/tmp/scriberr-engine-go-cache go test ./...` in `references/engine`
 
 Commit:
 

@@ -470,64 +470,7 @@ func executionConfigJSON(steps []resolvedASRStep, providerMetadata map[string]an
 }
 
 func sanitizeProviderExecutionMetadata(metadata map[string]any) map[string]any {
-	if len(metadata) == 0 {
-		return nil
-	}
-	raw, err := json.Marshal(metadata)
-	if err != nil {
-		return sanitizeTranscriptMetadata(metadata)
-	}
-	var decoded any
-	if err := json.Unmarshal(raw, &decoded); err != nil {
-		return sanitizeTranscriptMetadata(metadata)
-	}
-	safe, ok := sanitizeMetadataValue(decoded).(map[string]any)
-	if !ok || len(safe) == 0 {
-		return nil
-	}
-	return safe
-}
-
-func sanitizeMetadataValue(value any) any {
-	switch typed := value.(type) {
-	case map[string]any:
-		out := make(map[string]any, len(typed))
-		for key, value := range typed {
-			key = strings.TrimSpace(key)
-			lowerKey := strings.ToLower(key)
-			if key == "" || strings.Contains(lowerKey, "path") || strings.Contains(lowerKey, "token") || strings.Contains(lowerKey, "secret") {
-				continue
-			}
-			if safe := sanitizeMetadataValue(value); safe != nil {
-				out[key] = safe
-			}
-		}
-		if len(out) == 0 {
-			return nil
-		}
-		return out
-	case []any:
-		out := make([]any, 0, len(typed))
-		for _, value := range typed {
-			if safe := sanitizeMetadataValue(value); safe != nil {
-				out = append(out, safe)
-			}
-		}
-		if len(out) == 0 {
-			return nil
-		}
-		return out
-	case string:
-		lowerValue := strings.ToLower(typed)
-		if strings.Contains(typed, "/") || strings.Contains(lowerValue, "token") || strings.Contains(lowerValue, "secret") {
-			return nil
-		}
-		return typed
-	case bool, float64:
-		return typed
-	default:
-		return nil
-	}
+	return sanitizeTranscriptMetadata(metadata)
 }
 
 func providerProgressValue(event asrcontract.ProviderProgress) float64 {
