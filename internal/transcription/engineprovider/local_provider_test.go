@@ -323,9 +323,9 @@ func TestLocalProviderTranscribeRejectsNilEngineResult(t *testing.T) {
 func TestLocalProviderDiarizeMapsRequestAndSpeakers(t *testing.T) {
 	fake := &fakeSpeechEngine{
 		diarizationOut: &speechengine.DiarizationResult{
-			Segments: []speechengine.DiarizationSegment{
-				{Speaker: 0, Start: 0, End: 1.5},
-				{Speaker: 12, Start: 1.6, End: 3.2},
+			SpeakerSegments: []speechengine.SpeakerSegment{
+				{SpeakerID: "SPEAKER_00", StartSec: 0, EndSec: 1.5},
+				{SpeakerID: "SPEAKER_12", StartSec: 1.6, EndSec: 3.2},
 			},
 		},
 	}

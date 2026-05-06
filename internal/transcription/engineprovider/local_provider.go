@@ -252,12 +252,12 @@ func (p *LocalProvider) Diarize(ctx context.Context, req DiarizationRequest) (*D
 	if out == nil {
 		return nil, sanitizeErrorf("local engine returned no diarization result")
 	}
-	segments := make([]DiarizationSegment, 0, len(out.Segments))
-	for _, segment := range out.Segments {
+	segments := make([]DiarizationSegment, 0, len(out.SpeakerSegments))
+	for _, segment := range out.SpeakerSegments {
 		segments = append(segments, DiarizationSegment{
-			Start:   segment.Start,
-			End:     segment.End,
-			Speaker: fmt.Sprintf("SPEAKER_%02d", segment.Speaker),
+			Start:   segment.StartSec,
+			End:     segment.EndSec,
+			Speaker: segment.SpeakerID,
 		})
 	}
 	return &DiarizationResult{
