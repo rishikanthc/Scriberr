@@ -336,7 +336,7 @@ func modelCardFromEngine(descriptor speechproviders.ModelDescriptor, providerID 
 		ID:                   descriptor.ID,
 		DisplayName:          descriptor.DisplayName,
 		Provider:             providerID,
-		Family:               descriptor.Family,
+		Family:               descriptor.ModelType,
 		Version:              descriptor.Version,
 		Installed:            descriptor.Installed,
 		Loaded:               descriptor.Loaded,

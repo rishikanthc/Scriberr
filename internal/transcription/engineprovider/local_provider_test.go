@@ -14,6 +14,7 @@ import (
 	speechengine "scriberr-engine/speech/engine"
 	speechmodels "scriberr-engine/speech/models"
 	speechproviders "scriberr-engine/speech/providers"
+	"scriberr-engine/speech/providers/sherpa/catalog"
 	engresults "scriberr-engine/speech/results"
 	"scriberr-engine/speech/runtime"
 )
@@ -370,11 +371,11 @@ func TestLocalProviderDiarizeRejectsNilEngineResult(t *testing.T) {
 
 func TestLocalProviderCapabilitiesUseEngineDescriptors(t *testing.T) {
 	fake := &fakeSpeechEngine{models: []speechproviders.ModelDescriptor{
-		descriptorForModelWith(t, speechmodels.ModelWhisperBase, func(desc *speechproviders.ModelDescriptor) {
+		descriptorForModelWith(t, catalog.ModelWhisperBase, func(desc *speechproviders.ModelDescriptor) {
 			desc.Installed = true
 			desc.Default = true
 		}),
-		descriptorForModelWith(t, speechmodels.ModelDiarizationDefault, func(desc *speechproviders.ModelDescriptor) {
+		descriptorForModelWith(t, catalog.ModelDiarizationDefault, func(desc *speechproviders.ModelDescriptor) {
 			desc.Default = true
 		}),
 	}}
@@ -409,7 +410,7 @@ func TestLocalProviderModelsStatusAndLifecycle(t *testing.T) {
 	fake := &fakeSpeechEngine{
 		loaded: []speechengine.LoadedModel{{ID: "whisper-base"}},
 		models: []speechproviders.ModelDescriptor{
-			descriptorForModelWith(t, speechmodels.ModelWhisperBase, func(desc *speechproviders.ModelDescriptor) {
+			descriptorForModelWith(t, catalog.ModelWhisperBase, func(desc *speechproviders.ModelDescriptor) {
 				desc.Installed = true
 				desc.Loaded = true
 				desc.Default = true
@@ -459,10 +460,10 @@ func TestLocalProviderModelsStatusAndLifecycle(t *testing.T) {
 func TestLocalProviderModelDescriptorsDistinguishWhisperAndParakeet(t *testing.T) {
 	fake := &fakeSpeechEngine{
 		models: []speechproviders.ModelDescriptor{
-			descriptorForModelWith(t, speechmodels.ModelWhisperBase, func(desc *speechproviders.ModelDescriptor) {
+			descriptorForModelWith(t, catalog.ModelWhisperBase, func(desc *speechproviders.ModelDescriptor) {
 				desc.Installed = true
 			}),
-			descriptorForModelWith(t, speechmodels.ModelParakeetV3, func(desc *speechproviders.ModelDescriptor) {
+			descriptorForModelWith(t, catalog.ModelParakeetV3, func(desc *speechproviders.ModelDescriptor) {
 				desc.Installed = true
 			}),
 		},
@@ -517,8 +518,8 @@ func TestLocalProviderModelDescriptorsDistinguishWhisperAndParakeet(t *testing.T
 func TestLocalProviderModelDescriptorParameterSchemasValidate(t *testing.T) {
 	fake := &fakeSpeechEngine{
 		models: []speechproviders.ModelDescriptor{
-			descriptorForModel(t, speechmodels.ModelWhisperBase),
-			descriptorForModel(t, speechmodels.ModelParakeetV3),
+			descriptorForModel(t, catalog.ModelWhisperBase),
+			descriptorForModel(t, catalog.ModelParakeetV3),
 		},
 	}
 	provider := newLocalProviderWithEngine("local", LocalConfig{Provider: "cpu", Threads: 4}, runtime.ProviderCPU, fake)
@@ -618,7 +619,7 @@ func requireArtifactRequirement(t *testing.T, model asrcontract.ModelCard, requi
 
 func descriptorForModel(t *testing.T, id speechmodels.ModelID) speechmodels.Descriptor {
 	t.Helper()
-	descriptor, ok := speechmodels.DefaultModelRegistry().ResolveDescriptor(string(id))
+	descriptor, ok := catalog.DefaultModelRegistry().ResolveDescriptor(string(id))
 	if !ok {
 		t.Fatalf("descriptor %q not found", id)
 	}
