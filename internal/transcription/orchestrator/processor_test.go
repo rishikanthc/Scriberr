@@ -211,7 +211,7 @@ func TestProcessorCreatesExecutionAndReturnsCanonicalTranscript(t *testing.T) {
 	provider := &fakeProvider{
 		id: "local",
 		progress: []asrcontract.ProviderProgress{{
-			Stage:     asrcontract.StageTranscribing,
+			Stage:     asrcontract.StageRunning,
 			Operation: asrcontract.OperationTranscription,
 			Model:     "custom-transcriber",
 			Timestamp: time.Now(),
@@ -282,7 +282,7 @@ func TestProcessorCreatesExecutionAndReturnsCanonicalTranscript(t *testing.T) {
 	assert.Contains(t, executions[0].ConfigJSON, `"provider_metadata"`)
 	assert.Contains(t, executions[0].ConfigJSON, `"chunking_mode":"vad"`)
 
-	assertEventStages(t, events.events, []string{"preparing", "transcribing", "merging", "saving", "completed"})
+	assertEventStages(t, events.events, []string{"preparing", "running", "merging", "saving", "completed"})
 }
 
 func TestProcessorPassesProviderSpecificChunkingOptionsWithoutBackendPlanning(t *testing.T) {

@@ -189,11 +189,11 @@ func TestLocalProviderTranscribeMapsRequestAndWords(t *testing.T) {
 		t.Fatalf("unexpected chunking parameters: %#v", fake.transcriptionReq.Parameters)
 	}
 	fake.transcriptionReq.Progress.Report(context.Background(), speechengine.Progress{
-		Stage:     speechengine.StageTranscribing,
+		Stage:     speechengine.StageRunning,
 		Operation: speechengine.OperationTranscription,
 		Model:     "whisper-tiny",
 	})
-	if len(progress.events) != 1 || progress.events[0].Stage != asrcontract.StageTranscribing {
+	if len(progress.events) != 1 || progress.events[0].Stage != asrcontract.Stage("running") {
 		t.Fatalf("progress was not bridged: %#v", progress.events)
 	}
 	if result.Text != "hello world" || result.Language != "en" {

@@ -506,10 +506,8 @@ func providerProgressValue(event asrcontract.ProviderProgress) float64 {
 		return 0.10
 	case asrcontract.StageLoadingModel:
 		return 0.15
-	case asrcontract.StageTranscribing:
+	case asrcontract.StageRunning:
 		return 0.35
-	case asrcontract.StageDiarizing:
-		return 0.70
 	case asrcontract.StagePostprocessing:
 		return 0.82
 	case asrcontract.StageCompleted:

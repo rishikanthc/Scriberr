@@ -236,9 +236,14 @@ func sanitizeLoadedModels(models []asrcontract.LoadedModel) []gin.H {
 	out := make([]gin.H, 0, len(models))
 	for _, model := range models {
 		out = append(out, gin.H{
-			"id":        sanitizePublicText(model.ID),
-			"loaded_at": model.LoadedAt,
-			"memory_mb": model.MemoryMB,
+			"id":              sanitizePublicText(model.ID),
+			"resource_kind":   sanitizePublicText(model.ResourceKind),
+			"resource_role":   sanitizePublicText(model.ResourceRole),
+			"runtime_backend": sanitizePublicText(model.RuntimeBackend),
+			"threads":         model.Threads,
+			"reload_key":      sanitizePublicText(model.ReloadKey),
+			"loaded_at":       model.LoadedAt,
+			"memory_mb":       model.MemoryMB,
 		})
 	}
 	return out

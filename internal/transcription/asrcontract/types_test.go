@@ -184,7 +184,7 @@ func TestContractJSONRoundTrip(t *testing.T) {
 				ID:        "job_123",
 				Operation: OperationTranscription,
 				Model:     "whisper-base",
-				Stage:     StageTranscribing,
+				Stage:     StageRunning,
 				Progress:  floatPtr(0.5),
 			},
 			LoadedModels: []LoadedModel{{ID: "whisper-base", LoadedAt: &now, MemoryMB: intPtr(512)}},

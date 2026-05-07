@@ -47,10 +47,11 @@ type Stage string
 const (
 	StageAccepted            Stage = "accepted"
 	StagePreprocessing       Stage = "preprocessing"
+	StagePlanning            Stage = "planning"
+	StageChunking            Stage = "chunking"
+	StageLoadingDependencies Stage = "loading_dependencies"
 	StageLoadingModel        Stage = "loading_model"
-	StageTranscribing        Stage = "transcribing"
-	StageDiarizing           Stage = "diarizing"
-	StageIdentifyingSpeakers Stage = "identifying_speakers"
+	StageRunning             Stage = "running"
 	StagePostprocessing      Stage = "postprocessing"
 	StageCompleted           Stage = "completed"
 	StageFailed              Stage = "failed"
@@ -498,9 +499,14 @@ type ActiveJob struct {
 }
 
 type LoadedModel struct {
-	ID       string     `json:"id"`
-	LoadedAt *time.Time `json:"loaded_at,omitempty"`
-	MemoryMB *int       `json:"memory_mb,omitempty"`
+	ID             string     `json:"id"`
+	ResourceKind   string     `json:"resource_kind,omitempty"`
+	ResourceRole   string     `json:"resource_role,omitempty"`
+	RuntimeBackend string     `json:"runtime_backend,omitempty"`
+	Threads        int        `json:"threads,omitempty"`
+	ReloadKey      string     `json:"reload_key,omitempty"`
+	LoadedAt       *time.Time `json:"loaded_at,omitempty"`
+	MemoryMB       *int       `json:"memory_mb,omitempty"`
 }
 
 type ProviderCapacity struct {

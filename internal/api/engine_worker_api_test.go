@@ -402,7 +402,7 @@ func TestAdminASRProviderDiagnosticsAndModelCommands(t *testing.T) {
 				ID:        "job-/tmp/private/audio.wav",
 				Operation: asrcontract.OperationTranscription,
 				Model:     "whisper-base api_key=secret",
-				Stage:     asrcontract.StageTranscribing,
+				Stage:     asrcontract.StageRunning,
 				Progress:  &progress,
 			},
 			Capacity: asrcontract.ProviderCapacity{MaxConcurrentJobs: 1},

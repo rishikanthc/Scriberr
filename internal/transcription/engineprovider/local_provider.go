@@ -548,8 +548,13 @@ func activeJobFromEngine(job *speechengine.ActiveJob) *asrcontract.ActiveJob {
 
 func loadedModelFromEngine(model speechengine.LoadedModel) asrcontract.LoadedModel {
 	return asrcontract.LoadedModel{
-		ID:       model.ID,
-		LoadedAt: model.LoadedAt,
+		ID:             model.ID,
+		ResourceKind:   model.ResourceKind,
+		ResourceRole:   model.ResourceRole,
+		RuntimeBackend: model.RuntimeBackend,
+		Threads:        model.Threads,
+		ReloadKey:      model.ReloadKey,
+		LoadedAt:       model.LoadedAt,
 	}
 }
 

@@ -148,7 +148,7 @@ func TestClientTranscribeSubmitsPollsAndReplaysProgress(t *testing.T) {
 				JobID:  "job-remote-1",
 				Status: "completed",
 				Progress: &asrcontract.ProviderProgress{
-					Stage:     asrcontract.StageTranscribing,
+					Stage:     asrcontract.StageRunning,
 					Progress:  &progress,
 					Operation: asrcontract.OperationTranscription,
 					Timestamp: time.Now(),
@@ -327,7 +327,7 @@ func TestClientCancelsRemoteJobWhenContextIsCanceled(t *testing.T) {
 				JobID:  "job-cancel",
 				Status: "processing",
 				Progress: &asrcontract.ProviderProgress{
-					Stage:     asrcontract.StageTranscribing,
+					Stage:     asrcontract.StageRunning,
 					Operation: asrcontract.OperationTranscription,
 					Timestamp: time.Now(),
 				},
