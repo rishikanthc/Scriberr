@@ -13,11 +13,10 @@ type ProviderModelRegistry interface {
 
 type ProviderModelCatalog struct {
 	registry ProviderModelRegistry
-	fallback ModelCatalog
 }
 
 func NewProviderModelCatalog(registry ProviderModelRegistry) *ProviderModelCatalog {
-	return &ProviderModelCatalog{registry: registry, fallback: defaultModelCatalog()}
+	return &ProviderModelCatalog{registry: registry}
 }
 
 func (c *ProviderModelCatalog) ResolveTranscriptionModel(ctx context.Context, model string) (ModelInfo, error) {
@@ -26,10 +25,10 @@ func (c *ProviderModelCatalog) ResolveTranscriptionModel(ctx context.Context, mo
 
 func (c *ProviderModelCatalog) ResolveModel(ctx context.Context, model string, capability asrcontract.Capability) (ModelInfo, error) {
 	if c == nil {
-		return defaultModelCatalog().ResolveModel(ctx, model, capability)
+		return ModelInfo{}, ErrInvalidModel
 	}
 	if c.registry == nil {
-		return c.fallback.ResolveModel(ctx, model, capability)
+		return ModelInfo{}, ErrInvalidModel
 	}
 	model = strings.TrimSpace(model)
 	models, err := c.registry.Models(ctx)
@@ -48,14 +47,11 @@ func (c *ProviderModelCatalog) ResolveModel(ctx context.Context, model string, c
 		}
 		return ModelInfo{
 			ID:              card.ID,
-			Family:          card.Family,
+			ModelType:       card.ModelType,
 			Capabilities:    card.Capabilities,
 			Default:         card.Default,
 			ParameterSchema: card.ParameterSchema,
 		}, nil
-	}
-	if model == "" {
-		return c.fallback.ResolveModel(ctx, model, capability)
 	}
 	return ModelInfo{}, ErrInvalidModel
 }

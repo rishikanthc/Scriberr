@@ -135,7 +135,7 @@ func exampleModelCard() asrcontract.ModelCard {
 		ID:          "example-transcriber",
 		DisplayName: "Example Transcriber",
 		Provider:    "example",
-		Family:      "example",
+		ModelType:   "example",
 		Installed:   true,
 		Loaded:      true,
 		Default:     true,

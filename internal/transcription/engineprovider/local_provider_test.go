@@ -298,8 +298,8 @@ func TestLocalProviderTranscribeDefaultsAndEmptyWords(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Transcribe returned error: %v", err)
 	}
-	if fake.transcriptionReq.ModelID != DefaultTranscriptionModel {
-		t.Fatalf("ModelID = %q, want %q", fake.transcriptionReq.ModelID, DefaultTranscriptionModel)
+	if fake.transcriptionReq.ModelID != "" {
+		t.Fatalf("ModelID = %q, want engine/provider default", fake.transcriptionReq.ModelID)
 	}
 	if fake.transcriptionReq.Parameters != nil {
 		t.Fatalf("local provider synthesized parameters: %#v", fake.transcriptionReq.Parameters)
@@ -601,20 +601,12 @@ func requireReloadParameter(t *testing.T, schema asrcontract.ParameterSchema, ke
 
 func requireArtifactRequirement(t *testing.T, model asrcontract.ModelCard, requirement string) {
 	t.Helper()
-	raw, ok := model.Extensions["artifacts"]
-	if !ok {
-		t.Fatalf("model %q missing artifact requirements", model.ID)
-	}
-	items, ok := raw.([]map[string]any)
-	if !ok {
-		t.Fatalf("artifact requirements should be []map[string]any: %#v", raw)
-	}
-	for _, item := range items {
-		if item["key"] == requirement {
+	for _, item := range model.Artifacts {
+		if item.Key == requirement {
 			return
 		}
 	}
-	t.Fatalf("artifact requirement %q not found in %#v", requirement, items)
+	t.Fatalf("artifact requirement %q not found in %#v", requirement, model.Artifacts)
 }
 
 func descriptorForModel(t *testing.T, id speechmodels.ModelID) speechmodels.Descriptor {

@@ -158,10 +158,48 @@ func (p *LocalProvider) LoadedModels(ctx context.Context) ([]asrcontract.LoadedM
 }
 
 func (p *LocalProvider) Transcribe(ctx context.Context, req TranscriptionRequest) (*TranscriptionResult, error) {
-	modelID := strings.TrimSpace(req.ModelID)
-	if modelID == "" {
-		modelID = DefaultTranscriptionModel
+	out, err := p.ExecuteTask(ctx, TaskRequest{
+		JobID:      req.JobID,
+		UserID:     req.UserID,
+		Operation:  asrcontract.OperationTranscription,
+		AudioPath:  req.AudioPath,
+		Progress:   req.Progress,
+		ModelID:    req.ModelID,
+		Parameters: req.Parameters,
+	})
+	if err != nil {
+		return nil, err
 	}
+	result, ok := out.Result.(*TranscriptionResult)
+	if !ok || result == nil {
+		return nil, sanitizeErrorf("local engine returned no transcription result")
+	}
+	return result, nil
+}
+
+func (p *LocalProvider) ExecuteTask(ctx context.Context, req TaskRequest) (*TaskResult, error) {
+	switch req.Operation {
+	case asrcontract.OperationTranscription:
+		result, err := p.executeTranscription(ctx, req)
+		if err != nil {
+			return nil, err
+		}
+		return &TaskResult{Operation: req.Operation, ModelID: result.ModelID, EngineID: result.EngineID, Result: result, Metadata: result.Metadata}, nil
+	case asrcontract.OperationDiarization:
+		result, err := p.executeDiarization(ctx, req)
+		if err != nil {
+			return nil, err
+		}
+		return &TaskResult{Operation: req.Operation, ModelID: result.ModelID, EngineID: result.EngineID, Result: result}, nil
+	case asrcontract.OperationSpeakerIdentification:
+		return nil, asrcontract.NewProviderError(asrcontract.CodeUnsupportedOperation, "local provider does not support speaker identification", false)
+	default:
+		return nil, asrcontract.NewProviderError(asrcontract.CodeUnsupportedOperation, "local provider task is not supported", false)
+	}
+}
+
+func (p *LocalProvider) executeTranscription(ctx context.Context, req TaskRequest) (*TranscriptionResult, error) {
+	modelID := strings.TrimSpace(req.ModelID)
 	engineReq := speechengine.TranscriptionRequest{
 		RequestID:  req.JobID,
 		ModelID:    modelID,
@@ -175,6 +213,10 @@ func (p *LocalProvider) Transcribe(ctx context.Context, req TranscriptionRequest
 	}
 	if out == nil {
 		return nil, sanitizeErrorf("local engine returned no transcription result")
+	}
+	modelID = defaultString(out.Plan.ModelID, modelID)
+	if modelID == "" {
+		modelID = p.defaultModelID(ctx, asrcontract.CapabilityTranscription)
 	}
 	words := make([]TranscriptWord, 0, len(out.Words))
 	for _, word := range out.Words {
@@ -222,6 +264,19 @@ func localTranscriptionMetadata(modelID string, out *speechengine.TranscriptionR
 	return metadata
 }
 
+func (p *LocalProvider) defaultModelID(ctx context.Context, capability asrcontract.Capability) string {
+	models, err := p.Models(ctx)
+	if err != nil {
+		return ""
+	}
+	for _, model := range models {
+		if model.Default && model.Supports(capability) {
+			return model.ID
+		}
+	}
+	return ""
+}
+
 func copyParameters(in map[string]any) map[string]any {
 	if len(in) == 0 {
 		return nil
@@ -234,10 +289,27 @@ func copyParameters(in map[string]any) map[string]any {
 }
 
 func (p *LocalProvider) Diarize(ctx context.Context, req DiarizationRequest) (*DiarizationResult, error) {
-	modelID := strings.TrimSpace(req.ModelID)
-	if modelID == "" {
-		modelID = DefaultDiarizationModel
+	out, err := p.ExecuteTask(ctx, TaskRequest{
+		JobID:      req.JobID,
+		UserID:     req.UserID,
+		Operation:  asrcontract.OperationDiarization,
+		AudioPath:  req.AudioPath,
+		Progress:   req.Progress,
+		ModelID:    req.ModelID,
+		Parameters: req.Parameters,
+	})
+	if err != nil {
+		return nil, err
 	}
+	result, ok := out.Result.(*DiarizationResult)
+	if !ok || result == nil {
+		return nil, sanitizeErrorf("local engine returned no diarization result")
+	}
+	return result, nil
+}
+
+func (p *LocalProvider) executeDiarization(ctx context.Context, req TaskRequest) (*DiarizationResult, error) {
+	modelID := strings.TrimSpace(req.ModelID)
 	engineReq := speechengine.DiarizationRequest{
 		RequestID:  req.JobID,
 		ModelID:    modelID,
@@ -251,6 +323,9 @@ func (p *LocalProvider) Diarize(ctx context.Context, req DiarizationRequest) (*D
 	}
 	if out == nil {
 		return nil, sanitizeErrorf("local engine returned no diarization result")
+	}
+	if modelID == "" {
+		modelID = p.defaultModelID(ctx, asrcontract.CapabilityDiarization)
 	}
 	segments := make([]DiarizationSegment, 0, len(out.SpeakerSegments))
 	for _, segment := range out.SpeakerSegments {
@@ -268,10 +343,21 @@ func (p *LocalProvider) Diarize(ctx context.Context, req DiarizationRequest) (*D
 }
 
 func (p *LocalProvider) IdentifySpeakers(ctx context.Context, req asrcontract.SpeakerIDRequest) (*asrcontract.SpeakerIDResult, error) {
-	if err := ctx.Err(); err != nil {
+	out, err := p.ExecuteTask(ctx, TaskRequest{
+		JobID:      req.RequestID,
+		Operation:  asrcontract.OperationSpeakerIdentification,
+		AudioPath:  req.Audio.Path,
+		ModelID:    req.Model,
+		Parameters: req.Options,
+	})
+	if err != nil {
 		return nil, err
 	}
-	return nil, asrcontract.NewProviderError(asrcontract.CodeUnsupportedOperation, "local provider does not support speaker identification", false)
+	result, ok := out.Result.(*asrcontract.SpeakerIDResult)
+	if !ok || result == nil {
+		return nil, sanitizeErrorf("local engine returned no speaker identification result")
+	}
+	return result, nil
 }
 
 func (p *LocalProvider) Close() error {
@@ -336,7 +422,7 @@ func modelCardFromEngine(descriptor speechproviders.ModelDescriptor, providerID 
 		ID:                   descriptor.ID,
 		DisplayName:          descriptor.DisplayName,
 		Provider:             providerID,
-		Family:               descriptor.ModelType,
+		ModelType:            descriptor.ModelType,
 		Version:              descriptor.Version,
 		Installed:            descriptor.Installed,
 		Loaded:               descriptor.Loaded,
@@ -347,6 +433,8 @@ func modelCardFromEngine(descriptor speechproviders.ModelDescriptor, providerID 
 		Capabilities:         capabilities,
 		ResourceRequirements: resourceRequirementsFromDescriptor(descriptor.Runtime),
 		Chunking:             chunkingCapabilitiesFromDescriptor(descriptor.Chunking, descriptor.Runtime, capabilities),
+		Dependencies:         dependencyRequirementsFromDescriptor(descriptor.Dependencies),
+		Artifacts:            artifactRequirementsFromDescriptor(descriptor.Artifacts),
 		ParameterSchema:      parameterSchemaFromDescriptor(descriptor.Parameters),
 		RecommendedDefaults:  copyRecommendedDefaults(descriptor.RecommendedDefaults),
 		Extensions:           descriptorExtensionsFromEngine(descriptor),
@@ -441,17 +529,58 @@ func parameterSchemaFromDescriptor(parameters []speechproviders.ParameterDescrip
 	out := make(asrcontract.ParameterSchema, 0, len(parameters))
 	for _, parameter := range parameters {
 		out = append(out, asrcontract.ParameterDescriptor{
-			Key:            parameter.Key,
-			Label:          parameter.Label,
-			Type:           asrcontract.ParameterType(parameter.Type),
-			Default:        parameter.Default,
-			Min:            cloneFloat64(parameter.Min),
-			Max:            cloneFloat64(parameter.Max),
-			Step:           cloneFloat64(parameter.Step),
-			Options:        parameterOptionsFromDescriptor(parameter.Options),
-			Scope:          asrcontract.ParameterScope(parameter.Scope),
-			Advanced:       parameter.Advanced,
-			RequiresReload: parameter.RequiresReload,
+			Key:             parameter.Key,
+			Label:           parameter.Label,
+			Type:            asrcontract.ParameterType(parameter.Type),
+			Default:         parameter.Default,
+			Min:             cloneFloat64(parameter.Min),
+			Max:             cloneFloat64(parameter.Max),
+			Step:            cloneFloat64(parameter.Step),
+			Options:         parameterOptionsFromDescriptor(parameter.Options),
+			Scope:           asrcontract.ParameterScope(parameter.Scope),
+			Required:        parameter.Required,
+			Advanced:        parameter.Advanced,
+			RequiresReload:  parameter.RequiresReload,
+			ExposeInSummary: parameter.ExposeInSummary,
+			VisibleWhen:     activationRulesFromDescriptor(parameter.VisibleWhen),
+		})
+	}
+	return out
+}
+
+func dependencyRequirementsFromDescriptor(dependencies []speechproviders.DependencyRequirement) []asrcontract.DependencyRequirement {
+	out := make([]asrcontract.DependencyRequirement, 0, len(dependencies))
+	for _, dependency := range dependencies {
+		out = append(out, asrcontract.DependencyRequirement{
+			ID:          dependency.ID,
+			Required:    dependency.Required,
+			Description: dependency.Description,
+			Activation:  activationRulesFromDescriptor(dependency.Activation),
+		})
+	}
+	return out
+}
+
+func artifactRequirementsFromDescriptor(artifacts []speechproviders.ArtifactRequirement) []asrcontract.ArtifactRequirement {
+	out := make([]asrcontract.ArtifactRequirement, 0, len(artifacts))
+	for _, artifact := range artifacts {
+		out = append(out, asrcontract.ArtifactRequirement{
+			Key:             artifact.Key,
+			Required:        artifact.Required,
+			ExternalWeights: artifact.ExternalWeights,
+			Description:     artifact.Description,
+		})
+	}
+	return out
+}
+
+func activationRulesFromDescriptor(rules []speechproviders.ActivationRule) []asrcontract.ActivationRule {
+	out := make([]asrcontract.ActivationRule, 0, len(rules))
+	for _, rule := range rules {
+		out = append(out, asrcontract.ActivationRule{
+			Parameter: rule.Parameter,
+			Operator:  asrcontract.ActivationOperator(rule.Operator),
+			Value:     rule.Value,
 		})
 	}
 	return out
@@ -483,18 +612,6 @@ func descriptorExtensionsFromEngine(descriptor speechproviders.ModelDescriptor) 
 	extensions := map[string]any{}
 	if descriptor.License != "" {
 		extensions["license"] = descriptor.License
-	}
-	if len(descriptor.Artifacts) > 0 {
-		artifacts := make([]map[string]any, 0, len(descriptor.Artifacts))
-		for _, artifact := range descriptor.Artifacts {
-			artifacts = append(artifacts, map[string]any{
-				"key":              artifact.Key,
-				"required":         artifact.Required,
-				"external_weights": artifact.ExternalWeights,
-				"description":      artifact.Description,
-			})
-		}
-		extensions["artifacts"] = artifacts
 	}
 	if len(extensions) == 0 {
 		return nil

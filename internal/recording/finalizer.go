@@ -14,7 +14,6 @@ import (
 	filesdomain "scriberr/internal/files"
 	"scriberr/internal/models"
 	"scriberr/internal/repository"
-	"scriberr/internal/transcription/engineprovider"
 	"scriberr/pkg/logger"
 
 	"github.com/google/uuid"
@@ -436,7 +435,7 @@ func setDiarizationPipeline(params *models.ASRParams, enabled bool) {
 		existing = &copied
 	}
 	if enabled {
-		step := models.ASRStep{Kind: models.ASRStepDiarization, Model: engineprovider.DefaultDiarizationModel}
+		step := models.ASRStep{Kind: models.ASRStepDiarization}
 		if existing != nil {
 			step = *existing
 		}

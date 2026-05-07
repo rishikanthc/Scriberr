@@ -39,6 +39,9 @@ func (p contractStubProvider) UnloadModel(context.Context, asrcontract.UnloadMod
 func (p contractStubProvider) LoadedModels(context.Context) ([]asrcontract.LoadedModel, error) {
 	return nil, nil
 }
+func (p contractStubProvider) ExecuteTask(context.Context, engineprovider.TaskRequest) (*engineprovider.TaskResult, error) {
+	return nil, nil
+}
 func (p contractStubProvider) Transcribe(context.Context, engineprovider.TranscriptionRequest) (*engineprovider.TranscriptionResult, error) {
 	return nil, nil
 }

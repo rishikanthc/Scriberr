@@ -31,6 +31,7 @@ import (
 	"scriberr/internal/summarization"
 	"scriberr/internal/tags"
 	transcriptiondomain "scriberr/internal/transcription"
+	"scriberr/internal/transcription/engineprovider"
 	"scriberr/internal/transcription/orchestrator"
 	"scriberr/pkg/logger"
 
@@ -86,7 +87,14 @@ func newAuthTestServer(t *testing.T) *authTestServer {
 		repository.NewAPIKeyRepository(database.DB),
 		repository.NewSystemSettingsRepository(database.DB),
 	)
-	profileService := profiledomain.NewService(profileRepo)
+	providerRegistry, err := engineprovider.NewRegistry("local", fakeCapabilityProvider{caps: []engineprovider.ModelCapability{
+		{ID: "whisper-base", Name: "Whisper Base", Provider: "local", Installed: true, Default: true, Capabilities: []string{"transcription", "word_timestamps"}},
+		{ID: "whisper-small", Name: "Whisper Small", Provider: "local", Installed: true, Capabilities: []string{"transcription", "word_timestamps"}},
+		{ID: "parakeet-v2", Name: "Parakeet v2", Provider: "local", Installed: true, Capabilities: []string{"transcription", "word_timestamps"}},
+		{ID: "diarization-default", Name: "Diarization", Provider: "local", Installed: true, Default: true, Capabilities: []string{"diarization"}},
+	}})
+	require.NoError(t, err)
+	profileService := profiledomain.NewService(profileRepo, profiledomain.NewProviderModelCatalog(providerRegistry))
 	llmProviderService := llmprovider.NewService(llmConfigRepo, llmprovider.HTTPConnectionTester{})
 	fileService := filesdomain.NewService(jobRepo, filesdomain.Config{UploadDir: cfg.UploadDir})
 	mediaImportService := mediaimport.NewService(mediaimport.ServiceOptions{
@@ -125,6 +133,7 @@ func newAuthTestServer(t *testing.T) *authTestServer {
 		Summaries:      summaryService,
 		Chat:           chatService,
 	})
+	handler.modelRegistry = providerRegistry
 	postFileAutomation.SetEventPublisher(handler)
 	youtubeImporter := &fakeYouTubeImporter{block: make(chan struct{})}
 	mediaImportService.SetImporter(youtubeImporter)

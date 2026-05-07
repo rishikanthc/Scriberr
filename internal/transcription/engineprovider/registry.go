@@ -147,6 +147,15 @@ func selectCapabilityForProvider(ctx context.Context, provider Provider, modelID
 	if err != nil {
 		return nil, fmt.Errorf("engine provider %q capabilities: %w", provider.ID(), err)
 	}
+	if modelID == "" {
+		for i := range capabilities {
+			capability := capabilities[i]
+			if !capability.Default || !capabilitySupportsAll(capability, requires) {
+				continue
+			}
+			return &capabilities[i], nil
+		}
+	}
 	for i := range capabilities {
 		capability := capabilities[i]
 		if modelID != "" && capability.ID != modelID {

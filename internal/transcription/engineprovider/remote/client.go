@@ -141,11 +141,60 @@ func (c *Client) LoadedModels(ctx context.Context) ([]asrcontract.LoadedModel, e
 }
 
 func (c *Client) Transcribe(ctx context.Context, req engineprovider.TranscriptionRequest) (*engineprovider.TranscriptionResult, error) {
+	out, err := c.ExecuteTask(ctx, engineprovider.TaskRequest{
+		JobID:      req.JobID,
+		UserID:     req.UserID,
+		Operation:  asrcontract.OperationTranscription,
+		AudioPath:  req.AudioPath,
+		Progress:   req.Progress,
+		ModelID:    req.ModelID,
+		Parameters: req.Parameters,
+	})
+	if err != nil {
+		return nil, err
+	}
+	result, ok := out.Result.(*engineprovider.TranscriptionResult)
+	if !ok || result == nil {
+		return nil, asrcontract.NewProviderError(asrcontract.CodeInferenceFailed, "remote provider returned no transcription result", false)
+	}
+	return result, nil
+}
+
+func (c *Client) ExecuteTask(ctx context.Context, req engineprovider.TaskRequest) (*engineprovider.TaskResult, error) {
+	switch req.Operation {
+	case asrcontract.OperationTranscription:
+		result, err := c.executeTranscription(ctx, req)
+		if err != nil {
+			return nil, err
+		}
+		return &engineprovider.TaskResult{Operation: req.Operation, ModelID: result.ModelID, EngineID: result.EngineID, Result: result, Metadata: result.Metadata}, nil
+	case asrcontract.OperationDiarization:
+		result, err := c.executeDiarization(ctx, req)
+		if err != nil {
+			return nil, err
+		}
+		return &engineprovider.TaskResult{Operation: req.Operation, ModelID: result.ModelID, EngineID: result.EngineID, Result: result}, nil
+	case asrcontract.OperationSpeakerIdentification:
+		result, err := c.executeSpeakerIdentification(ctx, req)
+		if err != nil {
+			return nil, err
+		}
+		return &engineprovider.TaskResult{Operation: req.Operation, ModelID: result.Model, EngineID: c.id, Result: result, Metadata: result.Metadata}, nil
+	default:
+		return nil, asrcontract.NewProviderError(asrcontract.CodeUnsupportedOperation, "remote provider task is not supported", false)
+	}
+}
+
+func (c *Client) executeTranscription(ctx context.Context, req engineprovider.TaskRequest) (*engineprovider.TranscriptionResult, error) {
 	parameters := copyParameters(req.Parameters)
+	model := strings.TrimSpace(req.ModelID)
+	if model == "" {
+		model = c.defaultModelID(ctx, asrcontract.CapabilityTranscription)
+	}
 	remoteReq := asrcontract.TranscriptionRequest{
 		RequestID: req.JobID,
 		Audio:     mountedWAV(req.AudioPath),
-		Model:     coalesceString(req.ModelID, engineprovider.DefaultTranscriptionModel),
+		Model:     model,
 		Task:      asrcontract.Task(coalesceString(stringParameter(parameters, "task"), string(asrcontract.TaskTranscribe))),
 		Language:  stringParameter(parameters, "language"),
 		Features: asrcontract.Capabilities{
@@ -164,10 +213,34 @@ func (c *Client) Transcribe(ctx context.Context, req engineprovider.Transcriptio
 }
 
 func (c *Client) Diarize(ctx context.Context, req engineprovider.DiarizationRequest) (*engineprovider.DiarizationResult, error) {
+	out, err := c.ExecuteTask(ctx, engineprovider.TaskRequest{
+		JobID:      req.JobID,
+		UserID:     req.UserID,
+		Operation:  asrcontract.OperationDiarization,
+		AudioPath:  req.AudioPath,
+		Progress:   req.Progress,
+		ModelID:    req.ModelID,
+		Parameters: req.Parameters,
+	})
+	if err != nil {
+		return nil, err
+	}
+	result, ok := out.Result.(*engineprovider.DiarizationResult)
+	if !ok || result == nil {
+		return nil, asrcontract.NewProviderError(asrcontract.CodeInferenceFailed, "remote provider returned no diarization result", false)
+	}
+	return result, nil
+}
+
+func (c *Client) executeDiarization(ctx context.Context, req engineprovider.TaskRequest) (*engineprovider.DiarizationResult, error) {
+	model := strings.TrimSpace(req.ModelID)
+	if model == "" {
+		model = c.defaultModelID(ctx, asrcontract.CapabilityDiarization)
+	}
 	remoteReq := asrcontract.DiarizationRequest{
 		RequestID: req.JobID,
 		Audio:     mountedWAV(req.AudioPath),
-		Model:     coalesceString(req.ModelID, engineprovider.DefaultDiarizationModel),
+		Model:     model,
 		Options:   copyParameters(req.Parameters),
 	}
 	var result asrcontract.DiarizationResult
@@ -178,11 +251,48 @@ func (c *Client) Diarize(ctx context.Context, req engineprovider.DiarizationRequ
 }
 
 func (c *Client) IdentifySpeakers(ctx context.Context, req asrcontract.SpeakerIDRequest) (*asrcontract.SpeakerIDResult, error) {
+	out, err := c.ExecuteTask(ctx, engineprovider.TaskRequest{
+		JobID:      req.RequestID,
+		Operation:  asrcontract.OperationSpeakerIdentification,
+		AudioPath:  req.Audio.Path,
+		ModelID:    req.Model,
+		Parameters: req.Options,
+	})
+	if err != nil {
+		return nil, err
+	}
+	result, ok := out.Result.(*asrcontract.SpeakerIDResult)
+	if !ok || result == nil {
+		return nil, asrcontract.NewProviderError(asrcontract.CodeInferenceFailed, "remote provider returned no speaker identification result", false)
+	}
+	return result, nil
+}
+
+func (c *Client) executeSpeakerIdentification(ctx context.Context, req engineprovider.TaskRequest) (*asrcontract.SpeakerIDResult, error) {
+	remoteReq := asrcontract.SpeakerIDRequest{
+		RequestID: req.JobID,
+		Audio:     mountedWAV(req.AudioPath),
+		Model:     strings.TrimSpace(req.ModelID),
+		Options:   copyParameters(req.Parameters),
+	}
 	var result asrcontract.SpeakerIDResult
-	if err := c.runJob(ctx, jobCreateRequest{Operation: asrcontract.OperationSpeakerIdentification, SpeakerIdentification: &req}, nil, &result); err != nil {
+	if err := c.runJob(ctx, jobCreateRequest{Operation: asrcontract.OperationSpeakerIdentification, SpeakerIdentification: &remoteReq}, nil, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil
+}
+
+func (c *Client) defaultModelID(ctx context.Context, capability asrcontract.Capability) string {
+	models, err := c.Models(ctx)
+	if err != nil {
+		return ""
+	}
+	for _, model := range models {
+		if model.Default && model.Supports(capability) {
+			return model.ID
+		}
+	}
+	return ""
 }
 
 func (c *Client) Close() error {

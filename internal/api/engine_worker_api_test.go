@@ -83,6 +83,9 @@ func (p fakeCapabilityProvider) UnloadModel(context.Context, asrcontract.UnloadM
 func (p fakeCapabilityProvider) LoadedModels(context.Context) ([]asrcontract.LoadedModel, error) {
 	return nil, nil
 }
+func (p fakeCapabilityProvider) ExecuteTask(context.Context, engineprovider.TaskRequest) (*engineprovider.TaskResult, error) {
+	return nil, nil
+}
 func (p fakeCapabilityProvider) Transcribe(context.Context, engineprovider.TranscriptionRequest) (*engineprovider.TranscriptionResult, error) {
 	return nil, nil
 }
@@ -100,12 +103,31 @@ func modelCardsFromTestCapabilities(capabilities []engineprovider.ModelCapabilit
 		out = append(out, asrcontract.ModelCard{
 			ID:           capability.ID,
 			Provider:     capability.Provider,
+			ModelType:    testModelType(capability),
 			Installed:    capability.Installed,
 			Default:      capability.Default,
 			Capabilities: testASRCapabilities(capability.Capabilities),
 		})
 	}
 	return out
+}
+
+func testModelType(capability engineprovider.ModelCapability) string {
+	for _, name := range capability.Capabilities {
+		if name == string(asrcontract.CapabilityDiarization) {
+			return "diarization"
+		}
+	}
+	switch {
+	case strings.HasPrefix(capability.ID, "whisper-"):
+		return "whisper"
+	case strings.HasPrefix(capability.ID, "parakeet-"):
+		return "nemo_transducer"
+	case strings.Contains(capability.ID, "diarization"):
+		return "diarization"
+	default:
+		return ""
+	}
 }
 
 func testASRCapabilities(names []string) asrcontract.Capabilities {
@@ -190,6 +212,9 @@ func (p *fakeAdminASRProvider) LoadedModels(context.Context) ([]asrcontract.Load
 		return nil, p.loadedErr
 	}
 	return p.loaded, nil
+}
+func (p *fakeAdminASRProvider) ExecuteTask(context.Context, engineprovider.TaskRequest) (*engineprovider.TaskResult, error) {
+	return nil, nil
 }
 func (p *fakeAdminASRProvider) Transcribe(context.Context, engineprovider.TranscriptionRequest) (*engineprovider.TranscriptionResult, error) {
 	return nil, nil
@@ -411,7 +436,7 @@ func TestAdminASRProviderDiagnosticsAndModelCommands(t *testing.T) {
 			ID:          "whisper-base",
 			DisplayName: "Whisper Base",
 			Provider:    "local",
-			Family:      "whisper",
+			ModelType:   "whisper",
 			Installed:   true,
 			Loaded:      true,
 			Default:     true,

@@ -28,7 +28,6 @@ func TestRealEngineJFKTranscription(t *testing.T) {
 		JobID:     "real-jfk",
 		UserID:    1,
 		AudioPath: audioPath,
-		ModelID:   DefaultTranscriptionModel,
 		Parameters: map[string]any{
 			"language": "en",
 			"task":     "transcribe",
@@ -67,7 +66,6 @@ func TestRealEngineAutoDownloadDisabledMissingModelIsSanitized(t *testing.T) {
 		JobID:     "real-jfk-cache-disabled",
 		UserID:    1,
 		AudioPath: audioPath,
-		ModelID:   DefaultTranscriptionModel,
 		Parameters: map[string]any{
 			"language": "en",
 		},
@@ -104,7 +102,6 @@ func BenchmarkRealEngineJFKTranscription(b *testing.B) {
 			JobID:     "bench-real-jfk",
 			UserID:    1,
 			AudioPath: audioPath,
-			ModelID:   DefaultTranscriptionModel,
 			Parameters: map[string]any{
 				"language": "en",
 			},

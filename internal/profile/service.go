@@ -15,18 +15,13 @@ var ErrNotFound = errors.New("profile not found")
 var ErrInvalidModel = errors.New("profile model is invalid")
 var ErrInvalidPipeline = errors.New("profile pipeline is invalid")
 
-const (
-	defaultTranscriptionModel = "whisper-base"
-	defaultDiarizationModel   = "diarization-default"
-)
-
 type Service struct {
 	profiles repository.ProfileRepository
 	catalog  ModelCatalog
 }
 
 func NewService(profiles repository.ProfileRepository, catalog ...ModelCatalog) *Service {
-	modelCatalog := ModelCatalog(defaultModelCatalog())
+	var modelCatalog ModelCatalog
 	if len(catalog) > 0 && catalog[0] != nil {
 		modelCatalog = catalog[0]
 	}
@@ -120,13 +115,13 @@ func (s *Service) normalizePipeline(ctx context.Context, steps []models.ASRStep)
 		if kind == "" {
 			return nil, fmt.Errorf("%w: step %d kind is required", ErrInvalidPipeline, i)
 		}
-		capability, defaultModel, err := pipelineStepCapability(kind)
+		capability, err := pipelineStepCapability(kind)
 		if err != nil {
 			return nil, err
 		}
 		model := strings.TrimSpace(step.Model)
-		if model == "" {
-			model = defaultModel
+		if s.catalog == nil {
+			return nil, fmt.Errorf("%w: model catalog is required", ErrInvalidPipeline)
 		}
 		info, err := s.catalog.ResolveModel(ctx, model, capability)
 		if err != nil {
@@ -146,7 +141,7 @@ func (s *Service) normalizePipeline(ctx context.Context, steps []models.ASRStep)
 			Kind:        kind,
 			Provider:    strings.TrimSpace(step.Provider),
 			Model:       info.ID,
-			ModelFamily: info.Family,
+			ModelFamily: info.ModelType,
 			Options:     options,
 		})
 	}
@@ -156,16 +151,16 @@ func (s *Service) normalizePipeline(ctx context.Context, steps []models.ASRStep)
 	return out, nil
 }
 
-func pipelineStepCapability(kind string) (asrcontract.Capability, string, error) {
+func pipelineStepCapability(kind string) (asrcontract.Capability, error) {
 	switch kind {
 	case models.ASRStepTranscription:
-		return asrcontract.CapabilityTranscription, defaultTranscriptionModel, nil
+		return asrcontract.CapabilityTranscription, nil
 	case models.ASRStepDiarization:
-		return asrcontract.CapabilityDiarization, defaultDiarizationModel, nil
+		return asrcontract.CapabilityDiarization, nil
 	case models.ASRStepSpeakerIdentification:
-		return asrcontract.CapabilitySpeakerIdentification, "", nil
+		return asrcontract.CapabilitySpeakerIdentification, nil
 	default:
-		return "", "", fmt.Errorf("%w: unsupported step kind %q", ErrInvalidPipeline, kind)
+		return "", fmt.Errorf("%w: unsupported step kind %q", ErrInvalidPipeline, kind)
 	}
 }
 
@@ -236,7 +231,7 @@ func sanitizeOptionValue(value any) (any, bool) {
 
 type ModelInfo struct {
 	ID              string
-	Family          string
+	ModelType       string
 	Capabilities    asrcontract.Capabilities
 	Default         bool
 	ParameterSchema asrcontract.ParameterSchema
@@ -245,70 +240,4 @@ type ModelInfo struct {
 type ModelCatalog interface {
 	ResolveTranscriptionModel(ctx context.Context, model string) (ModelInfo, error)
 	ResolveModel(ctx context.Context, model string, capability asrcontract.Capability) (ModelInfo, error)
-}
-
-type staticModelCatalog map[string]ModelInfo
-
-func defaultModelCatalog() staticModelCatalog {
-	models := staticModelCatalog{}
-	for _, id := range []string{
-		"whisper-tiny",
-		"whisper-tiny-en",
-		"whisper-base",
-		"whisper-base-en",
-		"whisper-small",
-		"whisper-small-en",
-	} {
-		models[id] = ModelInfo{
-			ID:     id,
-			Family: "whisper",
-			Capabilities: asrcontract.Capabilities{
-				Transcription:  true,
-				WordTimestamps: true,
-			},
-			Default: id == defaultTranscriptionModel,
-		}
-	}
-	for _, id := range []string{"parakeet-v2", "parakeet-v3"} {
-		models[id] = ModelInfo{
-			ID:     id,
-			Family: "nemo_transducer",
-			Capabilities: asrcontract.Capabilities{
-				Transcription:  true,
-				WordTimestamps: true,
-			},
-		}
-	}
-	models[defaultDiarizationModel] = ModelInfo{
-		ID:     defaultDiarizationModel,
-		Family: "diarization",
-		Capabilities: asrcontract.Capabilities{
-			Diarization: true,
-		},
-	}
-	return models
-}
-
-func (c staticModelCatalog) ResolveTranscriptionModel(ctx context.Context, model string) (ModelInfo, error) {
-	return c.ResolveModel(ctx, model, asrcontract.CapabilityTranscription)
-}
-
-func (c staticModelCatalog) ResolveModel(ctx context.Context, model string, capability asrcontract.Capability) (ModelInfo, error) {
-	if err := ctx.Err(); err != nil {
-		return ModelInfo{}, err
-	}
-	model = strings.TrimSpace(model)
-	if model == "" {
-		switch capability {
-		case asrcontract.CapabilityTranscription:
-			model = defaultTranscriptionModel
-		case asrcontract.CapabilityDiarization:
-			model = defaultDiarizationModel
-		}
-	}
-	info, ok := c[model]
-	if !ok || !info.Capabilities.Supports(capability) {
-		return ModelInfo{}, ErrInvalidModel
-	}
-	return info, nil
 }

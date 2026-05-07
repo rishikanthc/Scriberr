@@ -31,18 +31,7 @@ func (h *Handler) listTranscriptionModels(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"items": items})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{
-		"items": []gin.H{
-			{
-				"id":           engineprovider.DefaultTranscriptionModel,
-				"name":         "Whisper Base",
-				"provider":     "local",
-				"installed":    false,
-				"default":      true,
-				"capabilities": []string{"transcription", "word_timestamps"},
-			},
-		},
-	})
+	c.JSON(http.StatusOK, gin.H{"items": []gin.H{}})
 }
 func (h *Handler) queueStats(c *gin.Context) {
 	if h.queueService != nil {

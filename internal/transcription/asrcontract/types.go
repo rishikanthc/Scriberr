@@ -154,26 +154,54 @@ type AudioInputSpec struct {
 }
 
 type ModelCard struct {
-	ID                   string                `json:"id"`
-	DisplayName          string                `json:"display_name"`
-	Provider             string                `json:"provider"`
-	Family               string                `json:"family"`
-	Version              string                `json:"version,omitempty"`
-	Installed            bool                  `json:"installed"`
-	Loaded               bool                  `json:"loaded"`
-	Default              bool                  `json:"default"`
-	Tasks                []Task                `json:"tasks,omitempty"`
-	Languages            []string              `json:"languages,omitempty"`
-	LanguageSupport      *LanguageSupport      `json:"language_support,omitempty"`
-	Capabilities         Capabilities          `json:"capabilities"`
-	Limits               ModelLimits           `json:"limits,omitempty"`
-	ResourceRequirements ResourceRequirements  `json:"resource_requirements,omitempty"`
-	Chunking             *ChunkingCapabilities `json:"chunking,omitempty"`
-	ParameterSchema      ParameterSchema       `json:"parameter_schema,omitempty"`
-	RecommendedDefaults  map[string]any        `json:"recommended_defaults,omitempty"`
-	License              string                `json:"license,omitempty"`
-	SourceURL            string                `json:"source_url,omitempty"`
-	Extensions           map[string]any        `json:"extensions,omitempty"`
+	ID                   string                  `json:"id"`
+	DisplayName          string                  `json:"display_name"`
+	Provider             string                  `json:"provider"`
+	ModelType            string                  `json:"model_type,omitempty"`
+	Version              string                  `json:"version,omitempty"`
+	Installed            bool                    `json:"installed"`
+	Loaded               bool                    `json:"loaded"`
+	Default              bool                    `json:"default"`
+	Tasks                []Task                  `json:"tasks,omitempty"`
+	Languages            []string                `json:"languages,omitempty"`
+	LanguageSupport      *LanguageSupport        `json:"language_support,omitempty"`
+	Capabilities         Capabilities            `json:"capabilities"`
+	Limits               ModelLimits             `json:"limits,omitempty"`
+	ResourceRequirements ResourceRequirements    `json:"resource_requirements,omitempty"`
+	Chunking             *ChunkingCapabilities   `json:"chunking,omitempty"`
+	Dependencies         []DependencyRequirement `json:"dependencies,omitempty"`
+	Artifacts            []ArtifactRequirement   `json:"artifacts,omitempty"`
+	ParameterSchema      ParameterSchema         `json:"parameter_schema,omitempty"`
+	RecommendedDefaults  map[string]any          `json:"recommended_defaults,omitempty"`
+	License              string                  `json:"license,omitempty"`
+	SourceURL            string                  `json:"source_url,omitempty"`
+	Extensions           map[string]any          `json:"extensions,omitempty"`
+}
+
+type ArtifactRequirement struct {
+	Key             string `json:"key"`
+	Required        bool   `json:"required"`
+	ExternalWeights bool   `json:"external_weights,omitempty"`
+	Description     string `json:"description,omitempty"`
+}
+
+type DependencyRequirement struct {
+	ID          string           `json:"id"`
+	Required    bool             `json:"required"`
+	Description string           `json:"description,omitempty"`
+	Activation  []ActivationRule `json:"activation,omitempty"`
+}
+
+type ActivationOperator string
+
+const (
+	ActivationEquals ActivationOperator = "equals"
+)
+
+type ActivationRule struct {
+	Parameter string             `json:"parameter"`
+	Operator  ActivationOperator `json:"operator"`
+	Value     any                `json:"value"`
 }
 
 func (m ModelCard) Supports(required ...Capability) bool {
@@ -262,17 +290,20 @@ type ChunkingCapabilities struct {
 type ParameterSchema []ParameterDescriptor
 
 type ParameterDescriptor struct {
-	Key            string            `json:"key"`
-	Label          string            `json:"label,omitempty"`
-	Type           ParameterType     `json:"type"`
-	Default        any               `json:"default,omitempty"`
-	Min            *float64          `json:"min,omitempty"`
-	Max            *float64          `json:"max,omitempty"`
-	Step           *float64          `json:"step,omitempty"`
-	Options        []ParameterOption `json:"options,omitempty"`
-	Scope          ParameterScope    `json:"scope"`
-	Advanced       bool              `json:"advanced,omitempty"`
-	RequiresReload bool              `json:"requires_reload,omitempty"`
+	Key             string            `json:"key"`
+	Label           string            `json:"label,omitempty"`
+	Type            ParameterType     `json:"type"`
+	Default         any               `json:"default,omitempty"`
+	Min             *float64          `json:"min,omitempty"`
+	Max             *float64          `json:"max,omitempty"`
+	Step            *float64          `json:"step,omitempty"`
+	Options         []ParameterOption `json:"options,omitempty"`
+	Scope           ParameterScope    `json:"scope"`
+	Required        bool              `json:"required,omitempty"`
+	Advanced        bool              `json:"advanced,omitempty"`
+	RequiresReload  bool              `json:"requires_reload,omitempty"`
+	ExposeInSummary bool              `json:"expose_in_summary,omitempty"`
+	VisibleWhen     []ActivationRule  `json:"visible_when,omitempty"`
 }
 
 type ParameterOption struct {
@@ -287,7 +318,13 @@ func ValidateModelCard(card ModelCard) error {
 	if strings.TrimSpace(card.Provider) == "" {
 		return fmt.Errorf("model provider is required")
 	}
-	return ValidateParameterSchema(card.ParameterSchema)
+	if err := ValidateParameterSchema(card.ParameterSchema); err != nil {
+		return err
+	}
+	if err := validateDependencyActivation(card.ParameterSchema, card.Dependencies); err != nil {
+		return err
+	}
+	return nil
 }
 
 func ValidateParameterSchema(schema ParameterSchema) error {
@@ -329,6 +366,53 @@ func ValidateParameterSchema(schema ParameterSchema) error {
 				return fmt.Errorf("parameter %q default is invalid: %w", key, err)
 			}
 		}
+	}
+	for _, parameter := range schema {
+		key := strings.TrimSpace(parameter.Key)
+		for _, rule := range parameter.VisibleWhen {
+			if err := validateActivationRule(seen, rule); err != nil {
+				return fmt.Errorf("parameter %q visibility rule is invalid: %w", key, err)
+			}
+		}
+	}
+	return nil
+}
+
+func validateDependencyActivation(schema ParameterSchema, dependencies []DependencyRequirement) error {
+	if len(dependencies) == 0 {
+		return nil
+	}
+	seen := make(map[string]struct{}, len(schema))
+	for _, parameter := range schema {
+		seen[strings.TrimSpace(parameter.Key)] = struct{}{}
+	}
+	for _, dependency := range dependencies {
+		id := strings.TrimSpace(dependency.ID)
+		if id == "" {
+			return fmt.Errorf("dependency id is required")
+		}
+		for _, rule := range dependency.Activation {
+			if err := validateActivationRule(seen, rule); err != nil {
+				return fmt.Errorf("dependency %q activation rule is invalid: %w", id, err)
+			}
+		}
+	}
+	return nil
+}
+
+func validateActivationRule(parameters map[string]struct{}, rule ActivationRule) error {
+	key := strings.TrimSpace(rule.Parameter)
+	if key == "" {
+		return fmt.Errorf("parameter is required")
+	}
+	if _, ok := parameters[key]; !ok {
+		return fmt.Errorf("parameter %q is not declared", key)
+	}
+	if rule.Operator != ActivationEquals {
+		return fmt.Errorf("operator %q is not supported", rule.Operator)
+	}
+	if rule.Value == nil {
+		return fmt.Errorf("value is required")
 	}
 	return nil
 }

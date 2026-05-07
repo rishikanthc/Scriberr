@@ -151,7 +151,7 @@ func TestContractJSONRoundTrip(t *testing.T) {
 			ID:          "whisper-base",
 			DisplayName: "Whisper Base",
 			Provider:    "local-sherpa",
-			Family:      "whisper",
+			ModelType:   "whisper",
 			Version:     "base",
 			Installed:   true,
 			Default:     true,

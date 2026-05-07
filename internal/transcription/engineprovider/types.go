@@ -7,9 +7,7 @@ import (
 )
 
 const (
-	DefaultProviderID         = "local"
-	DefaultTranscriptionModel = "whisper-base"
-	DefaultDiarizationModel   = "diarization-default"
+	DefaultProviderID = "local"
 )
 
 type Provider interface {
@@ -20,22 +18,8 @@ type Provider interface {
 	LoadModel(ctx context.Context, req asrcontract.LoadModelRequest) error
 	UnloadModel(ctx context.Context, req asrcontract.UnloadModelRequest) error
 	LoadedModels(ctx context.Context) ([]asrcontract.LoadedModel, error)
+	ExecuteTask(ctx context.Context, req TaskRequest) (*TaskResult, error)
 	Close() error
-}
-
-type TranscriptionProvider interface {
-	Provider
-	Transcribe(ctx context.Context, req TranscriptionRequest) (*TranscriptionResult, error)
-}
-
-type DiarizationProvider interface {
-	Provider
-	Diarize(ctx context.Context, req DiarizationRequest) (*DiarizationResult, error)
-}
-
-type SpeakerIdentificationProvider interface {
-	Provider
-	IdentifySpeakers(ctx context.Context, req asrcontract.SpeakerIDRequest) (*asrcontract.SpeakerIDResult, error)
 }
 
 type ProgressSink interface {
@@ -64,6 +48,24 @@ type SelectionRequest struct {
 	ProviderID string
 	ModelID    string
 	Requires   []string
+}
+
+type TaskRequest struct {
+	JobID      string
+	UserID     uint
+	Operation  asrcontract.Operation
+	AudioPath  string
+	Progress   ProgressSink
+	ModelID    string
+	Parameters map[string]any
+}
+
+type TaskResult struct {
+	Operation asrcontract.Operation
+	ModelID   string
+	EngineID  string
+	Result    any
+	Metadata  map[string]any
 }
 
 type TranscriptionRequest struct {

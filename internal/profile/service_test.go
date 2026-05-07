@@ -83,8 +83,8 @@ func TestServiceCreateNormalizesProfileModelFromCatalog(t *testing.T) {
 	repo := &fakeProfileRepository{}
 	service := NewService(repo, fakeModelCatalog{models: map[string]ModelInfo{
 		"parakeet-v2": {
-			ID:     "parakeet-v2",
-			Family: "nemo_transducer",
+			ID:        "parakeet-v2",
+			ModelType: "nemo_transducer",
 			Capabilities: asrcontract.Capabilities{
 				Transcription: true,
 			},
@@ -148,15 +148,15 @@ func TestServiceCreatePersistsMultiStepPipelineAndSanitizesOptions(t *testing.T)
 	repo := &fakeProfileRepository{}
 	service := NewService(repo, fakeModelCatalog{models: map[string]ModelInfo{
 		"parakeet-v2": {
-			ID:     "parakeet-v2",
-			Family: "nemo_transducer",
+			ID:        "parakeet-v2",
+			ModelType: "nemo_transducer",
 			Capabilities: asrcontract.Capabilities{
 				Transcription: true,
 			},
 		},
 		"diarization-default": {
-			ID:     "diarization-default",
-			Family: "diarization",
+			ID:        "diarization-default",
+			ModelType: "diarization",
 			Capabilities: asrcontract.Capabilities{
 				Diarization: true,
 			},
@@ -197,8 +197,8 @@ func TestServiceCreateValidatesStepOptionsFromModelSchema(t *testing.T) {
 	repo := &fakeProfileRepository{}
 	service := NewService(repo, fakeModelCatalog{models: map[string]ModelInfo{
 		"schema-model": {
-			ID:     "schema-model",
-			Family: "whisper",
+			ID:        "schema-model",
+			ModelType: "whisper",
 			Capabilities: asrcontract.Capabilities{
 				Transcription: true,
 			},

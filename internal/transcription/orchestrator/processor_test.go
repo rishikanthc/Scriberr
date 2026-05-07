@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -70,14 +71,52 @@ func (p *fakeProvider) modelCapabilities() []engineprovider.ModelCapability {
 	}
 }
 func (p *fakeProvider) Transcribe(ctx context.Context, req engineprovider.TranscriptionRequest) (*engineprovider.TranscriptionResult, error) {
-	p.transReq = req
-	if err := ctx.Err(); err != nil {
+	out, err := p.ExecuteTask(ctx, engineprovider.TaskRequest{
+		JobID:      req.JobID,
+		UserID:     req.UserID,
+		Operation:  asrcontract.OperationTranscription,
+		AudioPath:  req.AudioPath,
+		Progress:   req.Progress,
+		ModelID:    req.ModelID,
+		Parameters: req.Parameters,
+	})
+	if err != nil {
 		return nil, err
 	}
-	for _, event := range p.progress {
-		req.Progress.Report(ctx, event)
+	result, _ := out.Result.(*engineprovider.TranscriptionResult)
+	return result, nil
+}
+func (p *fakeProvider) ExecuteTask(ctx context.Context, req engineprovider.TaskRequest) (*engineprovider.TaskResult, error) {
+	switch req.Operation {
+	case asrcontract.OperationTranscription:
+		p.transReq = engineprovider.TranscriptionRequest{JobID: req.JobID, UserID: req.UserID, AudioPath: req.AudioPath, Progress: req.Progress, ModelID: req.ModelID, Parameters: req.Parameters}
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+		for _, event := range p.progress {
+			if req.Progress != nil {
+				req.Progress.Report(ctx, event)
+			}
+		}
+		return &engineprovider.TaskResult{Operation: req.Operation, Result: p.transcribe}, p.transErr
+	case asrcontract.OperationDiarization:
+		p.diarizeReq = engineprovider.DiarizationRequest{JobID: req.JobID, UserID: req.UserID, AudioPath: req.AudioPath, Progress: req.Progress, ModelID: req.ModelID, Parameters: req.Parameters}
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+		return &engineprovider.TaskResult{Operation: req.Operation, Result: p.diarize}, p.diarizeErr
+	case asrcontract.OperationSpeakerIdentification:
+		p.speakerReq = asrcontract.SpeakerIDRequest{RequestID: req.JobID, Audio: asrcontract.AudioInput{Path: req.AudioPath}, Model: req.ModelID, Options: req.Parameters}
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+		if p.speakerID != nil || p.speakerErr != nil {
+			return &engineprovider.TaskResult{Operation: req.Operation, Result: p.speakerID}, p.speakerErr
+		}
+		return nil, asrcontract.NewProviderError(asrcontract.CodeUnsupportedOperation, "speaker identification is not supported", false)
+	default:
+		return nil, asrcontract.NewProviderError(asrcontract.CodeUnsupportedOperation, "task is not supported", false)
 	}
-	return p.transcribe, p.transErr
 }
 func (p *fakeProvider) Diarize(ctx context.Context, req engineprovider.DiarizationRequest) (*engineprovider.DiarizationResult, error) {
 	p.diarizeReq = req
@@ -104,12 +143,31 @@ func orchestratorModelCardsFromCapabilities(capabilities []engineprovider.ModelC
 		out = append(out, asrcontract.ModelCard{
 			ID:           capability.ID,
 			Provider:     capability.Provider,
+			ModelType:    orchestratorModelType(capability),
 			Installed:    capability.Installed,
 			Default:      capability.Default,
 			Capabilities: orchestratorCapabilitiesFromStrings(capability.Capabilities),
 		})
 	}
 	return out
+}
+
+func orchestratorModelType(capability engineprovider.ModelCapability) string {
+	for _, name := range capability.Capabilities {
+		if name == string(asrcontract.CapabilityDiarization) {
+			return "diarization"
+		}
+	}
+	switch {
+	case strings.HasPrefix(capability.ID, "whisper-"):
+		return "whisper"
+	case strings.HasPrefix(capability.ID, "parakeet-"):
+		return "nemo_transducer"
+	case strings.Contains(capability.ID, "diarization"):
+		return "diarization"
+	default:
+		return ""
+	}
 }
 
 func orchestratorCapabilitiesFromStrings(names []string) asrcontract.Capabilities {
@@ -513,8 +571,8 @@ func TestProcessorPassesPreprocessedAudioToProvider(t *testing.T) {
 	require.NoError(t, os.WriteFile(sourcePath, []byte("fake wav"), 0o600))
 	job := createOrchestratorJob(t, db, sourcePath, models.ASRParams{
 		Pipeline: []models.ASRStep{
-			{Kind: models.ASRStepTranscription, Model: engineprovider.DefaultTranscriptionModel},
-			{Kind: models.ASRStepDiarization, Model: engineprovider.DefaultDiarizationModel},
+			{Kind: models.ASRStepTranscription},
+			{Kind: models.ASRStepDiarization},
 		},
 	})
 	provider := &fakeProvider{
