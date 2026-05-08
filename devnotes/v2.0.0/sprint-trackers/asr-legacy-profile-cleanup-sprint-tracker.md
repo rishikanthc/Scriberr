@@ -2,7 +2,7 @@
 
 Run ID: `ASR-LEGACY-CLEANUP`
 
-Status: completed through ASR-LEGACY-CLEANUP-Sprint 3.
+Status: completed.
 
 This tracker belongs to `devnotes/v2.0.0/sprint-plans/asr-legacy-profile-cleanup-sprint-plan.md`.
 
@@ -16,12 +16,12 @@ This tracker belongs to `devnotes/v2.0.0/sprint-plans/asr-legacy-profile-cleanup
 
 ## Validation Checklist
 
-- [ ] Focused tests for touched frontend/backend/database packages.
-- [ ] `GOCACHE=/tmp/scriberr-go-cache go test ./internal/profile ./internal/api ./internal/database ./internal/repository ./internal/models`.
-- [ ] `GOCACHE=/tmp/scriberr-go-cache go vet ./internal/profile ./internal/api ./internal/database ./internal/repository ./internal/models`.
-- [ ] `npm --prefix web/frontend run build` for frontend changes.
-- [ ] `git diff --check`.
-- [ ] Final `rg` check for removed legacy flat ASR fields.
+- [x] Focused tests for touched frontend/backend/database packages.
+- [x] `GOCACHE=/tmp/scriberr-go-cache go test ./internal/profile ./internal/api ./internal/database ./internal/repository ./internal/models`.
+- [x] `GOCACHE=/tmp/scriberr-go-cache go vet ./internal/profile ./internal/api ./internal/database ./internal/repository ./internal/models`.
+- [x] `npm --prefix web/frontend run build` for frontend changes.
+- [x] `git diff --check`.
+- [x] Final `rg` check for removed legacy flat ASR fields.
 
 ## ASR-LEGACY-CLEANUP-Sprint 0: Inventory And Deletion Map
 
@@ -180,27 +180,32 @@ Commit:
 
 ## ASR-LEGACY-CLEANUP-Sprint 4: Guardrails And Final Search
 
-Status: pending
+Status: completed
 
 Planned tasks:
 
-- [ ] Add or update guardrails for removed field names where practical.
-- [ ] Run `rg` for removed legacy fields in active code.
-- [ ] Allow mentions only in devnotes, absence/rejection tests, or changelog-style docs.
-- [ ] Run validation baseline.
+- [x] Add or update guardrails for removed field names where practical.
+- [x] Run `rg` for removed legacy fields in active code.
+- [x] Allow mentions only in devnotes, absence/rejection tests, or changelog-style docs.
+- [x] Run validation baseline.
 
 Acceptance checks:
 
-- [ ] Active code has no legacy flat ASR profile compatibility.
-- [ ] Guardrails catch obvious reintroduction.
+- [x] Active code has no legacy flat ASR profile compatibility.
+- [x] Guardrails catch obvious reintroduction.
 
 Verification:
 
-- [ ] Pending.
+- [x] `rg -n "tail_paddings|decoding_method|chunking_strategy|num_speakers|diarization_threshold|min_duration_on|min_duration_off|defaultProfileParams|normalizeParams|familyForModel|legacyProfileOptionField|legacyTranscriptionProfile|migrateProfiles" internal web/frontend/src -g '*.go' -g '*.ts' -g '*.tsx'` (remaining matches are descriptor-backed parameter keys or rejection/contract tests, not flat profile compatibility)
+- [x] `GOCACHE=/tmp/scriberr-go-cache go vet ./internal/profile ./internal/api ./internal/database ./internal/repository ./internal/models`
+- [x] `GOCACHE=/tmp/scriberr-go-cache go test ./internal/profile ./internal/api ./internal/database ./internal/repository ./internal/models` (rerun with sandbox escalation because `httptest.NewServer` needs localhost bind)
+- [x] `npm --prefix web/frontend run build`
+- [x] `npm --prefix web/frontend run lint` (passes with existing warnings outside this sprint)
+- [x] `git diff --check -- devnotes/v2.0.0/sprint-trackers/asr-legacy-profile-cleanup-sprint-tracker.md`
 
 Artifacts:
 
-- Pending.
+- `devnotes/v2.0.0/sprint-trackers/asr-legacy-profile-cleanup-sprint-tracker.md`
 
 Commit:
 
