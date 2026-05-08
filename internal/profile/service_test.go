@@ -248,6 +248,12 @@ func TestServiceCreateValidatesStepOptionsFromModelSchema(t *testing.T) {
 					Max:   floatPtr(16),
 					Scope: asrcontract.ParameterScopeDecoding,
 				},
+				{
+					Key:   "speaker.embedding_path",
+					Label: "Speaker embedding",
+					Type:  asrcontract.ParameterTypePathRef,
+					Scope: asrcontract.ParameterScopeOutput,
+				},
 			},
 		},
 	}})
@@ -262,6 +268,7 @@ func TestServiceCreateValidatesStepOptionsFromModelSchema(t *testing.T) {
 				Options: map[string]any{
 					asrcontract.CommonParameterDecodingMethod: "modified_beam_search",
 					"sherpa.whisper.tail_paddings":            float64(4),
+					"speaker.embedding_path":                  "speaker-a",
 				},
 			}},
 		},
@@ -271,6 +278,9 @@ func TestServiceCreateValidatesStepOptionsFromModelSchema(t *testing.T) {
 	}
 	if got := repo.created.Parameters.Pipeline[0].Options["sherpa.whisper.tail_paddings"]; got != int64(4) {
 		t.Fatalf("schema option was not normalized: %#v", repo.created.Parameters.Pipeline[0].Options)
+	}
+	if got := repo.created.Parameters.Pipeline[0].Options["speaker.embedding_path"]; got != "speaker-a" {
+		t.Fatalf("declared path_ref option was not preserved: %#v", repo.created.Parameters.Pipeline[0].Options)
 	}
 
 	err = service.Create(context.Background(), &models.TranscriptionProfile{

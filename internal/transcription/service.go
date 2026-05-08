@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"scriberr/internal/asrpipeline"
 	"scriberr/internal/models"
 	"scriberr/internal/repository"
 
@@ -400,9 +401,10 @@ func (s *Service) createFromSource(ctx context.Context, userID uint, source *mod
 		job.Language = &language
 	}
 	if diarization != nil {
-		setDiarizationPipeline(&job.Parameters, *diarization)
+		asrpipeline.SetDiarization(&job.Parameters, *diarization)
 	}
-	job.Diarization = hasASRStep(job.Parameters.Pipeline, models.ASRStepDiarization)
+	job.Parameters = asrpipeline.EnsureTranscription(job.Parameters)
+	job.Diarization = asrpipeline.HasStep(job.Parameters.Pipeline, models.ASRStepDiarization)
 	if err := s.jobs.Create(ctx, job); err != nil {
 		return nil, err
 	}
@@ -412,42 +414,9 @@ func (s *Service) createFromSource(ctx context.Context, userID uint, source *mod
 	return job, nil
 }
 
-func setDiarizationPipeline(params *models.ASRParams, enabled bool) {
-	if params == nil {
-		return
-	}
-	filtered := make([]models.ASRStep, 0, len(params.Pipeline)+1)
-	var existing *models.ASRStep
-	for _, step := range params.Pipeline {
-		if step.Kind != models.ASRStepDiarization {
-			filtered = append(filtered, step)
-			continue
-		}
-		copied := step
-		existing = &copied
-	}
-	if enabled {
-		step := models.ASRStep{Kind: models.ASRStepDiarization}
-		if existing != nil {
-			step = *existing
-		}
-		filtered = append(filtered, step)
-	}
-	params.Pipeline = filtered
-}
-
-func hasASRStep(steps []models.ASRStep, kind string) bool {
-	for _, step := range steps {
-		if step.Kind == kind {
-			return true
-		}
-	}
-	return false
-}
-
 func (s *Service) resolveParams(ctx context.Context, userID uint, profileID string) (models.ASRParams, error) {
 	if s.profiles == nil {
-		return models.ASRParams{}, nil
+		return asrpipeline.DefaultTranscription(), nil
 	}
 	if strings.TrimSpace(profileID) != "" {
 		profile, err := s.profiles.FindByIDForUser(ctx, profileID, userID)
@@ -459,7 +428,7 @@ func (s *Service) resolveParams(ctx context.Context, userID uint, profileID stri
 	profile, err := s.profiles.FindDefaultByUser(ctx, userID)
 	if err != nil {
 		if errors.Is(err, repository.ErrRecordNotFound) {
-			return models.ASRParams{}, nil
+			return asrpipeline.DefaultTranscription(), nil
 		}
 		return models.ASRParams{}, err
 	}

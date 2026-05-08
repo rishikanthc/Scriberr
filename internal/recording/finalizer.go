@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"scriberr/internal/asrpipeline"
 	filesdomain "scriberr/internal/files"
 	"scriberr/internal/models"
 	"scriberr/internal/repository"
@@ -375,15 +376,15 @@ func (s *FinalizerService) buildHandoffRecords(ctx context.Context, session *mod
 		SourceFileHash:   &fileID,
 		SourceDurationMs: session.DurationMs,
 		Language:         language,
-		Diarization:      hasASRStep(params.Pipeline, models.ASRStepDiarization),
-		Parameters:       params,
+		Diarization:      asrpipeline.HasStep(params.Pipeline, models.ASRStepDiarization),
+		Parameters:       asrpipeline.EnsureTranscription(params),
 	}
 	return file, transcription, nil
 }
 
 func (s *FinalizerService) resolveParams(ctx context.Context, session *models.RecordingSession) (models.ASRParams, error) {
 	if s.profiles == nil {
-		return models.ASRParams{}, nil
+		return asrpipeline.DefaultTranscription(), nil
 	}
 	if session.ProfileID != nil && *session.ProfileID != "" {
 		profile, err := s.profiles.FindByIDForUser(ctx, *session.ProfileID, session.UserID)
@@ -395,7 +396,7 @@ func (s *FinalizerService) resolveParams(ctx context.Context, session *models.Re
 	profile, err := s.profiles.FindDefaultByUser(ctx, session.UserID)
 	if err != nil {
 		if errors.Is(err, repository.ErrRecordNotFound) {
-			return models.ASRParams{}, nil
+			return asrpipeline.DefaultTranscription(), nil
 		}
 		return models.ASRParams{}, err
 	}
@@ -417,42 +418,9 @@ func applyRecordingOptions(params *models.ASRParams, raw string) *string {
 		language = &opts.Language
 	}
 	if opts.Diarization != nil {
-		setDiarizationPipeline(params, *opts.Diarization)
+		asrpipeline.SetDiarization(params, *opts.Diarization)
 	}
 	return language
-}
-
-func setDiarizationPipeline(params *models.ASRParams, enabled bool) {
-	if params == nil {
-		return
-	}
-	filtered := make([]models.ASRStep, 0, len(params.Pipeline)+1)
-	var existing *models.ASRStep
-	for _, step := range params.Pipeline {
-		if step.Kind != models.ASRStepDiarization {
-			filtered = append(filtered, step)
-			continue
-		}
-		copied := step
-		existing = &copied
-	}
-	if enabled {
-		step := models.ASRStep{Kind: models.ASRStepDiarization}
-		if existing != nil {
-			step = *existing
-		}
-		filtered = append(filtered, step)
-	}
-	params.Pipeline = filtered
-}
-
-func hasASRStep(steps []models.ASRStep, kind string) bool {
-	for _, step := range steps {
-		if step.Kind == kind {
-			return true
-		}
-	}
-	return false
 }
 
 func validateContiguousChunks(session *models.RecordingSession, chunks []models.RecordingChunk) error {

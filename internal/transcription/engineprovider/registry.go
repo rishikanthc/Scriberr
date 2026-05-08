@@ -123,13 +123,59 @@ func (r *StaticRegistry) Select(ctx context.Context, req SelectionRequest) (Prov
 	return provider, nil, nil
 }
 
+func (r *StaticRegistry) SelectModel(ctx context.Context, providerID string, modelID string, required ...asrcontract.Capability) (asrcontract.ModelCard, error) {
+	names := make([]string, 0, len(required))
+	for _, capability := range required {
+		names = append(names, string(capability))
+	}
+	provider, capability, err := r.Select(ctx, SelectionRequest{
+		ProviderID: providerID,
+		ModelID:    modelID,
+		Requires:   names,
+	})
+	if err != nil {
+		return asrcontract.ModelCard{}, err
+	}
+	if provider == nil {
+		return asrcontract.ModelCard{}, fmt.Errorf("selected engine provider is not available")
+	}
+	selectedModel := strings.TrimSpace(modelID)
+	if selectedModel == "" && capability != nil {
+		selectedModel = capability.ID
+	}
+	models, err := provider.Models(ctx)
+	if err != nil {
+		return asrcontract.ModelCard{}, fmt.Errorf("engine provider %q models: %w", provider.ID(), err)
+	}
+	for _, model := range models {
+		if selectedModel != "" && model.ID != selectedModel {
+			continue
+		}
+		if !model.Supports(required...) {
+			continue
+		}
+		if strings.TrimSpace(model.Provider) == "" {
+			model.Provider = provider.ID()
+		}
+		return model, nil
+	}
+	if selectedModel != "" {
+		return asrcontract.ModelCard{}, fmt.Errorf("engine provider %q does not expose selected model %q", provider.ID(), selectedModel)
+	}
+	return asrcontract.ModelCard{}, fmt.Errorf("engine provider %q does not expose a model for requested capabilities", provider.ID())
+}
+
 func (r *StaticRegistry) selectByCapability(ctx context.Context, modelID string, requires []string) (Provider, *ModelCapability, error) {
 	ids := make([]string, 0, len(r.providers))
 	for id := range r.providers {
+		if id == r.defaultID {
+			continue
+		}
 		ids = append(ids, id)
 	}
 	sort.Strings(ids)
-	for _, id := range ids {
+	ordered := append([]string{r.defaultID}, ids...)
+	for _, id := range ordered {
 		provider := r.providers[id]
 		if !providerSelectable(ctx, provider) {
 			continue

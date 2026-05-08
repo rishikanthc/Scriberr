@@ -434,6 +434,7 @@ func TestLocalProviderModelsStatusAndLifecycle(t *testing.T) {
 				desc.Installed = true
 				desc.Loaded = true
 				desc.Default = true
+				desc.License = "cc-by-4.0"
 			}),
 		},
 	}
@@ -453,6 +454,12 @@ func TestLocalProviderModelsStatusAndLifecycle(t *testing.T) {
 	}
 	if len(models) != 1 || !models[0].Loaded || !models[0].Installed || !models[0].Supports(asrcontract.CapabilityTranscription) {
 		t.Fatalf("unexpected model cards: %#v", models)
+	}
+	if models[0].License != "cc-by-4.0" {
+		t.Fatalf("license not mapped to first-class model card field: %#v", models[0])
+	}
+	if _, ok := models[0].Extensions["license"]; ok {
+		t.Fatalf("license should not be duplicated in extensions: %#v", models[0].Extensions)
 	}
 
 	status, err := provider.Status(context.Background())

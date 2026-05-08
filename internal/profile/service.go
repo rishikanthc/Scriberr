@@ -166,7 +166,7 @@ func pipelineStepCapability(kind string) (asrcontract.Capability, error) {
 }
 
 func validateStepOptions(schema asrcontract.ParameterSchema, options map[string]any) (map[string]any, error) {
-	sanitized := sanitizeStepOptions(options)
+	sanitized := sanitizeStepOptions(schema, options)
 	if len(sanitized) == 0 || len(schema) == 0 {
 		return sanitized, nil
 	}
@@ -177,9 +177,16 @@ func validateStepOptions(schema asrcontract.ParameterSchema, options map[string]
 	return values, nil
 }
 
-func sanitizeStepOptions(options map[string]any) map[string]any {
+func sanitizeStepOptions(schema asrcontract.ParameterSchema, options map[string]any) map[string]any {
 	if len(options) == 0 {
 		return nil
+	}
+	declared := make(map[string]struct{}, len(schema))
+	for _, parameter := range schema {
+		key := strings.TrimSpace(parameter.Key)
+		if key != "" {
+			declared[key] = struct{}{}
+		}
 	}
 	out := make(map[string]any, len(options))
 	for key, value := range options {
@@ -188,7 +195,10 @@ func sanitizeStepOptions(options map[string]any) map[string]any {
 		}
 		key = strings.TrimSpace(key)
 		lower := strings.ToLower(key)
-		if key == "" || len(key) > 64 || strings.Contains(lower, "token") || strings.Contains(lower, "api_key") || strings.Contains(lower, "apikey") || strings.Contains(lower, "path") || strings.Contains(lower, "url") {
+		if key == "" || len(key) > 64 || strings.Contains(lower, "token") || strings.Contains(lower, "api_key") || strings.Contains(lower, "apikey") {
+			continue
+		}
+		if len(declared) == 0 && (strings.Contains(lower, "path") || strings.Contains(lower, "url")) {
 			continue
 		}
 		if sanitized, ok := sanitizeOptionValue(value); ok {

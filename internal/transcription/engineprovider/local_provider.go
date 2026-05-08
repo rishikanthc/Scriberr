@@ -388,7 +388,7 @@ func modelCardFromEngine(descriptor speechproviders.ModelDescriptor, providerID 
 		Artifacts:            artifactRequirementsFromDescriptor(descriptor.Artifacts),
 		ParameterSchema:      parameterSchemaFromDescriptor(descriptor.Parameters),
 		RecommendedDefaults:  copyRecommendedDefaults(descriptor.RecommendedDefaults),
-		Extensions:           descriptorExtensionsFromEngine(descriptor),
+		License:              descriptor.License,
 	}
 }
 
@@ -557,17 +557,6 @@ func copyRecommendedDefaults(defaults map[string]any) map[string]any {
 		out[key] = value
 	}
 	return out
-}
-
-func descriptorExtensionsFromEngine(descriptor speechproviders.ModelDescriptor) map[string]any {
-	extensions := map[string]any{}
-	if descriptor.License != "" {
-		extensions["license"] = descriptor.License
-	}
-	if len(extensions) == 0 {
-		return nil
-	}
-	return extensions
 }
 
 func cloneFloat64(value *float64) *float64 {

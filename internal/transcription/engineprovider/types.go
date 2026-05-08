@@ -32,6 +32,7 @@ type Registry interface {
 	Providers() []Provider
 	Models(ctx context.Context) ([]asrcontract.ModelCard, error)
 	Capabilities(ctx context.Context) ([]ModelCapability, error)
+	SelectModel(ctx context.Context, providerID string, modelID string, required ...asrcontract.Capability) (asrcontract.ModelCard, error)
 	Select(ctx context.Context, req SelectionRequest) (Provider, *ModelCapability, error)
 }
 

@@ -257,6 +257,53 @@ func TestFinalizerCreatesAndEnqueuesAutoTranscription(t *testing.T) {
 	}
 }
 
+func TestFinalizerAutoTranscriptionUsesProviderResolvedDefaultPipelineWithoutProfile(t *testing.T) {
+	db, recordings, jobs, profiles, storage, user := openFinalizerTest(t)
+	session := createStoppedRecordingWithChunks(t, recordings, storage, user, true)
+	if err := db.Model(&models.RecordingSession{}).Where("id = ?", session.ID).UpdateColumn("transcription_options_json", `{"diarization":true}`).Error; err != nil {
+		t.Fatalf("update recording options returned error: %v", err)
+	}
+	queue := &fakeEnqueuer{}
+	service := NewFinalizerService(recordings, jobs, profiles, storage, fakeMediaFinalizer{}, FinalizerConfig{})
+	service.SetTranscriptionEnqueuer(queue)
+
+	claimed, err := recordings.ClaimNextFinalization(context.Background(), "worker-a", time.Now().Add(time.Minute))
+	if err != nil {
+		t.Fatalf("ClaimNextFinalization returned error: %v", err)
+	}
+	if err := service.finalize(context.Background(), "worker-a", claimed); err != nil {
+		t.Fatalf("finalize returned error: %v", err)
+	}
+
+	updated, err := recordings.FindSessionForUser(context.Background(), user.ID, session.ID)
+	if err != nil {
+		t.Fatalf("FindSessionForUser returned error: %v", err)
+	}
+	if updated.TranscriptionID == nil {
+		t.Fatal("transcription_id was not set")
+	}
+	var transcription models.TranscriptionJob
+	if err := db.First(&transcription, "id = ?", *updated.TranscriptionID).Error; err != nil {
+		t.Fatalf("transcription row missing: %v", err)
+	}
+	steps := transcription.Parameters.Pipeline
+	if len(steps) != 2 {
+		t.Fatalf("pipeline length = %d, want transcription plus diarization: %#v", len(steps), steps)
+	}
+	if steps[0].Kind != models.ASRStepTranscription || steps[0].Provider != "" || steps[0].Model != "" {
+		t.Fatalf("default transcription step should be provider resolved: %#v", steps[0])
+	}
+	if steps[1].Kind != models.ASRStepDiarization {
+		t.Fatalf("diarization step missing: %#v", steps)
+	}
+	if !transcription.Diarization {
+		t.Fatalf("Diarization flag was not set")
+	}
+	if len(queue.ids) != 1 || queue.ids[0] != *updated.TranscriptionID {
+		t.Fatalf("queued ids = %#v", queue.ids)
+	}
+}
+
 func TestFinalizerMaintenanceExpiresRecoversAndCleansArtifacts(t *testing.T) {
 	db, recordings, jobs, profiles, storage, user := openFinalizerTest(t)
 	now := time.Now().Truncate(time.Millisecond)

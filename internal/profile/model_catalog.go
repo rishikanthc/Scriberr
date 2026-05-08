@@ -8,7 +8,7 @@ import (
 )
 
 type ProviderModelRegistry interface {
-	Models(ctx context.Context) ([]asrcontract.ModelCard, error)
+	SelectModel(ctx context.Context, providerID string, modelID string, required ...asrcontract.Capability) (asrcontract.ModelCard, error)
 }
 
 type ProviderModelCatalog struct {
@@ -32,30 +32,15 @@ func (c *ProviderModelCatalog) ResolveModel(ctx context.Context, provider string
 	}
 	provider = strings.TrimSpace(provider)
 	model = strings.TrimSpace(model)
-	models, err := c.registry.Models(ctx)
+	card, err := c.registry.SelectModel(ctx, provider, model, capability)
 	if err != nil {
-		return ModelInfo{}, err
+		return ModelInfo{}, ErrInvalidModel
 	}
-	for _, card := range models {
-		if provider != "" && card.Provider != provider {
-			continue
-		}
-		if model != "" && card.ID != model {
-			continue
-		}
-		if model == "" && !card.Default {
-			continue
-		}
-		if !card.Supports(capability) {
-			continue
-		}
-		return ModelInfo{
-			ID:              card.ID,
-			ModelType:       card.ModelType,
-			Capabilities:    card.Capabilities,
-			Default:         card.Default,
-			ParameterSchema: card.ParameterSchema,
-		}, nil
-	}
-	return ModelInfo{}, ErrInvalidModel
+	return ModelInfo{
+		ID:              card.ID,
+		ModelType:       card.ModelType,
+		Capabilities:    card.Capabilities,
+		Default:         card.Default,
+		ParameterSchema: card.ParameterSchema,
+	}, nil
 }

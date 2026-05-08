@@ -225,6 +225,55 @@ func TestRegistrySelectsCapabilityFallbackDeterministically(t *testing.T) {
 	}
 }
 
+func TestRegistrySelectsDefaultProviderBeforeFallback(t *testing.T) {
+	defaultProvider := stubProvider{id: "z-default", capabilities: []ModelCapability{{ID: "default-diarizer", Provider: "z-default", Default: true, Capabilities: []string{"diarization"}}}}
+	earlierProvider := stubProvider{id: "a-earlier", capabilities: []ModelCapability{{ID: "earlier-diarizer", Provider: "a-earlier", Default: true, Capabilities: []string{"diarization"}}}}
+	registry, err := NewRegistry("z-default", earlierProvider, defaultProvider)
+	if err != nil {
+		t.Fatalf("NewRegistry returned error: %v", err)
+	}
+
+	selected, capability, err := registry.Select(context.Background(), SelectionRequest{Requires: []string{"diarization"}})
+	if err != nil {
+		t.Fatalf("Select returned error: %v", err)
+	}
+	if selected.ID() != "z-default" {
+		t.Fatalf("provider = %q, want configured default", selected.ID())
+	}
+	if capability == nil || capability.ID != "default-diarizer" {
+		t.Fatalf("capability = %#v, want default-diarizer", capability)
+	}
+}
+
+func TestRegistrySelectModelReturnsDescriptorCard(t *testing.T) {
+	provider := stubProvider{id: "local", models: []asrcontract.ModelCard{{
+		ID:          "parakeet",
+		DisplayName: "Parakeet",
+		Default:     true,
+		Capabilities: asrcontract.Capabilities{
+			Transcription: true,
+		},
+		ParameterSchema: asrcontract.ParameterSchema{{
+			Key:   asrcontract.CommonParameterRuntimeNumThreads,
+			Label: "Threads",
+			Type:  asrcontract.ParameterTypeInteger,
+			Scope: asrcontract.ParameterScopeRuntime,
+		}},
+	}}}
+	registry, err := NewRegistry("local", provider)
+	if err != nil {
+		t.Fatalf("NewRegistry returned error: %v", err)
+	}
+
+	card, err := registry.SelectModel(context.Background(), "", "", asrcontract.CapabilityTranscription)
+	if err != nil {
+		t.Fatalf("SelectModel returned error: %v", err)
+	}
+	if card.ID != "parakeet" || card.Provider != "local" || len(card.ParameterSchema) != 1 {
+		t.Fatalf("unexpected model card: %#v", card)
+	}
+}
+
 func TestRegistrySelectReportsUnavailableProviderOrCapability(t *testing.T) {
 	registry, err := NewRegistry("local", stubProvider{id: "local", capabilities: []ModelCapability{{ID: "whisper-base", Provider: "local", Capabilities: []string{"batch"}}}})
 	if err != nil {
