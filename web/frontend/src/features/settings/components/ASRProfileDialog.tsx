@@ -3,12 +3,10 @@ import { Check, X } from "lucide-react";
 import { AppButton, IconButton } from "@/shared/ui/Button";
 import { Select, type SelectOption } from "@/shared/ui/Select";
 import {
-  defaultProfileParams,
-  familyForModel,
-  normalizeParams,
   type TranscriptionModel,
   type TranscriptionProfile,
   type TranscriptionProfileOptions,
+  normalizeProfileOptions,
 } from "../api/profilesApi";
 
 type ASRProfileDialogProps = {
@@ -25,63 +23,46 @@ type ASRProfileDialogProps = {
   }) => Promise<void>;
 };
 
-const languageOptions = [
-  { value: "", label: "Model default / auto" },
-  { value: "en", label: "English" },
-  { value: "es", label: "Spanish" },
-  { value: "fr", label: "French" },
-  { value: "de", label: "German" },
-  { value: "it", label: "Italian" },
-  { value: "pt", label: "Portuguese" },
-  { value: "nl", label: "Dutch" },
-  { value: "ja", label: "Japanese" },
-  { value: "ko", label: "Korean" },
-  { value: "zh", label: "Chinese" },
-];
-
 const fallbackModels: TranscriptionModel[] = [
   { id: "whisper-base", name: "Whisper Base", provider: "local", installed: false, default: true, capabilities: ["transcription", "word_timestamps"] },
   { id: "whisper-small", name: "Whisper Small", provider: "local", installed: false, default: false, capabilities: ["transcription", "word_timestamps"] },
   { id: "parakeet-v2", name: "NVIDIA Parakeet TDT v2", provider: "local", installed: false, default: false, capabilities: ["transcription", "word_timestamps"] },
+  { id: "parakeet-v3", name: "NVIDIA Parakeet TDT v3", provider: "local", installed: false, default: false, capabilities: ["transcription", "word_timestamps"] },
 ];
 
 export function ASRProfileDialog({ open, profile, models, onClose, onSave }: ASRProfileDialogProps) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [isDefault, setIsDefault] = useState(false);
-  const [params, setParams] = useState<TranscriptionProfileOptions>(defaultProfileParams);
+  const [options, setOptions] = useState<TranscriptionProfileOptions>({ pipeline: [] });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const availableModels = models.length ? models : fallbackModels;
 
   const modelOptions = useMemo<SelectOption[]>(() => {
-    const source = models.length ? models : fallbackModels;
-    return source.map((model) => ({
+    return availableModels.map((model) => ({
       value: model.id,
       label: model.name,
       description: model.installed ? "Installed locally" : "Downloads on use",
     }));
-  }, [models]);
+  }, [availableModels]);
+
+  const transcriptionStep = options.pipeline.find((step) => step.kind === "transcription");
+  const selectedModelID = transcriptionStep?.model || availableModels.find((model) => model.default)?.id || availableModels[0]?.id || "";
 
   useEffect(() => {
     if (!open) return;
-    const initial = normalizeParams(profile?.options);
     setName(profile?.name || "");
     setDescription(profile?.description || "");
     setIsDefault(profile?.is_default || false);
-    setParams(initial);
+    setOptions(ensureTranscriptionStep(normalizeProfileOptions(profile?.options), availableModels));
     setError("");
-  }, [open, profile]);
+  }, [availableModels, open, profile]);
 
   if (!open) return null;
 
-  const updateParam = <K extends keyof TranscriptionProfileOptions>(key: K, value: TranscriptionProfileOptions[K]) => {
-    setParams((current) => {
-      const next = { ...current, [key]: value };
-      if (key === "model") {
-        next.model_family = familyForModel(String(value));
-      }
-      return next;
-    });
+  const updateModel = (modelID: string) => {
+    setOptions((current) => withTranscriptionModel(current, availableModels, modelID));
   };
 
   const submit = async () => {
@@ -98,7 +79,7 @@ export function ASRProfileDialog({ open, profile, models, onClose, onSave }: ASR
         name: cleanName,
         description: description.trim(),
         is_default: isDefault,
-        options: normalizeParams(params),
+        options: ensureTranscriptionStep(options, availableModels),
       });
       onClose();
     } catch (err) {
@@ -136,33 +117,8 @@ export function ASRProfileDialog({ open, profile, models, onClose, onSave }: ASR
           <section className="scr-settings-section">
             <h3 className="scr-settings-section-title">Transcription</h3>
             <div className="scr-form-grid">
-              <SelectField label="Model" value={params.model} options={modelOptions} onChange={(value) => updateParam("model", value)} />
-              <SelectField label="Language" value={params.language || ""} options={languageOptions} onChange={(value) => updateParam("language", value || undefined)} />
-              <SelectField label="Task" value={params.task} options={[{ value: "transcribe", label: "Transcribe" }, { value: "translate", label: "Translate to English" }]} onChange={(value) => updateParam("task", value as TranscriptionProfileOptions["task"])} />
-              <SelectField label="Decoding" value={params.decoding_method} options={[{ value: "greedy_search", label: "Greedy search" }, { value: "modified_beam_search", label: "Modified beam search" }]} onChange={(value) => updateParam("decoding_method", value as TranscriptionProfileOptions["decoding_method"])} />
-              <SelectField label="Chunking" value={params.chunking_strategy} options={[{ value: "fixed", label: "Fixed windows" }, { value: "vad", label: "Voice activity" }]} onChange={(value) => updateParam("chunking_strategy", value as TranscriptionProfileOptions["chunking_strategy"])} />
-              <NumberField label="Threads" value={params.threads} min={0} max={32} onChange={(value) => updateParam("threads", value)} />
-              <OptionalNumberField label="Tail paddings" value={params.tail_paddings} min={-1} max={16} onChange={(value) => updateParam("tail_paddings", value)} />
+              <SelectField label="Model" value={selectedModelID} options={modelOptions} onChange={updateModel} />
             </div>
-          </section>
-
-          <section className="scr-settings-section">
-            <h3 className="scr-settings-section-title">Diarization</h3>
-            <CheckRow label="Identify speakers" checked={params.diarize} onChange={(value) => updateParam("diarize", value)} />
-            {params.diarize ? (
-              <>
-                <div className="scr-fixed-option">
-                  <span>Model</span>
-                  <span>Pyannote + 3D-Speaker</span>
-                </div>
-                <div className="scr-form-grid">
-                  <NumberField label="Known speakers" value={params.num_speakers} min={0} max={20} onChange={(value) => updateParam("num_speakers", value)} />
-                  <DecimalField label="Clustering threshold" value={params.diarization_threshold} min={0.05} max={1} step={0.05} onChange={(value) => updateParam("diarization_threshold", value)} />
-                  <DecimalField label="Min speech duration" value={params.min_duration_on} min={0.05} max={2} step={0.05} onChange={(value) => updateParam("min_duration_on", value)} />
-                  <DecimalField label="Min silence duration" value={params.min_duration_off} min={0.05} max={2} step={0.05} onChange={(value) => updateParam("min_duration_off", value)} />
-                </div>
-              </>
-            ) : null}
           </section>
         </div>
 
@@ -190,28 +146,6 @@ function SelectField({ label, value, options, onChange }: { label: string; value
   return <Select label={label} value={value} options={options} onChange={onChange} />;
 }
 
-function NumberField({ label, value, min, max, onChange }: { label: string; value: number; min: number; max: number; onChange: (value: number) => void }) {
-  return <DecimalField label={label} value={value} min={min} max={max} step={1} onChange={onChange} />;
-}
-
-function DecimalField({ label, value, min, max, step, onChange }: { label: string; value: number; min: number; max: number; step: number; onChange: (value: number) => void }) {
-  return (
-    <label className="scr-control">
-      <span>{label}</span>
-      <input className="scr-input" type="number" min={min} max={max} step={step} value={value} onChange={(event) => onChange(Number(event.target.value))} />
-    </label>
-  );
-}
-
-function OptionalNumberField({ label, value, min, max, onChange }: { label: string; value?: number; min: number; max: number; onChange: (value: number | undefined) => void }) {
-  return (
-    <label className="scr-control">
-      <span>{label}</span>
-      <input className="scr-input" type="number" min={min} max={max} value={value ?? ""} placeholder="Default" onChange={(event) => onChange(event.target.value === "" ? undefined : Number(event.target.value))} />
-    </label>
-  );
-}
-
 function CheckRow({ label, checked, onChange }: { label: string; checked: boolean; onChange: (checked: boolean) => void }) {
   return (
     <label className="scr-check-row">
@@ -220,4 +154,24 @@ function CheckRow({ label, checked, onChange }: { label: string; checked: boolea
       <span>{label}</span>
     </label>
   );
+}
+
+function ensureTranscriptionStep(options: TranscriptionProfileOptions, models: TranscriptionModel[]): TranscriptionProfileOptions {
+  if (options.pipeline.some((step) => step.kind === "transcription" && step.model)) {
+    return options;
+  }
+  const model = models.find((item) => item.default) || models[0] || fallbackModels[0];
+  return withTranscriptionModel(options, models.length ? models : fallbackModels, model.id);
+}
+
+function withTranscriptionModel(options: TranscriptionProfileOptions, models: TranscriptionModel[], modelID: string): TranscriptionProfileOptions {
+  const model = models.find((item) => item.id === modelID) || fallbackModels.find((item) => item.id === modelID) || fallbackModels[0];
+  const nextStep = {
+    ...(options.pipeline.find((step) => step.kind === "transcription") || {}),
+    kind: "transcription" as const,
+    provider: model.provider,
+    model: model.id,
+  };
+  const otherSteps = options.pipeline.filter((step) => step.kind !== "transcription");
+  return { pipeline: [nextStep, ...otherSteps] };
 }

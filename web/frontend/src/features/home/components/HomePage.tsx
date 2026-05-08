@@ -272,7 +272,7 @@ function RecordingCard({
                     ) : profiles.map((profile) => (
                       <CommandItem
                         key={profile.id}
-                        value={`${profile.name} ${profile.description} ${profile.options.model} ${profile.is_default ? "default" : ""}`}
+                        value={`${profile.name} ${profile.description} ${profileSearchText(profile)} ${profile.is_default ? "default" : ""}`}
                         onSelect={() => {
                           onTranscribeWithProfile(recording, profile);
                           setProfilePickerOpen(false);
@@ -626,10 +626,16 @@ function optimisticRecordingDate(summary: OptimisticRecordingSummary) {
 }
 
 function formatProfileDescription(profile: TranscriptionProfile) {
-  const parts = [profile.options.model];
-  if (profile.options.language) parts.push(profile.options.language.toUpperCase());
-  if (profile.options.diarize) parts.push("Diarization");
+  const transcriptionStep = profile.options.pipeline.find((step) => step.kind === "transcription");
+  const parts = [transcriptionStep?.model || "Model unset"];
+  if (profile.options.pipeline.some((step) => step.kind === "diarization")) parts.push("Diarization");
   return parts.join(" · ");
+}
+
+function profileSearchText(profile: TranscriptionProfile) {
+  return profile.options.pipeline
+    .map((step) => [step.provider, step.model, step.kind].filter(Boolean).join(" "))
+    .join(" ");
 }
 
 function formatProgress(progress: number) {

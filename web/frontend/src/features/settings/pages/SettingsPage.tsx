@@ -164,12 +164,12 @@ export function Settings() {
 }
 
 function ProfileRow({ profile, isDefault, onEdit, onDelete }: { profile: TranscriptionProfile; isDefault: boolean; onEdit: () => void; onDelete: () => void }) {
+  const transcriptionStep = profile.options.pipeline.find((step) => step.kind === "transcription");
+  const hasDiarization = profile.options.pipeline.some((step) => step.kind === "diarization");
   const optionSummary = [
-    profile.options.model,
-    profile.options.language || "auto language",
-    profile.options.task,
-    profile.options.chunking_strategy === "vad" ? "VAD chunks" : "fixed chunks",
-    profile.options.diarize ? "diarization on" : "diarization off",
+    transcriptionStep?.provider || "provider unset",
+    transcriptionStep?.model || "model unset",
+    hasDiarization ? "diarization on" : "diarization off",
   ].join(" · ");
 
   return (

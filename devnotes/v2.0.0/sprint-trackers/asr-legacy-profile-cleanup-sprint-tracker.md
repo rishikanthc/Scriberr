@@ -71,29 +71,36 @@ Commit:
 
 ## ASR-LEGACY-CLEANUP-Sprint 1: Frontend Type And Payload Cleanup
 
-Status: pending
+Status: completed
 
 Planned tasks:
 
-- [ ] Change frontend profile options to pipeline-only.
-- [ ] Delete flat-field default/normalization helpers.
-- [ ] Remove save payload mapping for legacy fields.
-- [ ] Update settings code to compile against pipeline-only types.
-- [ ] Leave full dialog revamp to `ASR-PROFILE-FE`.
+- [x] Change frontend profile options to pipeline-only.
+- [x] Delete flat-field default/normalization helpers.
+- [x] Remove save payload mapping for legacy fields.
+- [x] Update settings code to compile against pipeline-only types.
+- [x] Leave full dialog revamp to `ASR-PROFILE-FE`.
 
 Acceptance checks:
 
-- [ ] Frontend cannot emit legacy flat ASR profile fields.
-- [ ] Active TypeScript types are pipeline-only.
-- [ ] Build passes or compile blockers are explicitly handed to the frontend sprint.
+- [x] Frontend cannot emit legacy flat ASR profile fields.
+- [x] Active TypeScript types are pipeline-only.
+- [x] Build passes or compile blockers are explicitly handed to the frontend sprint.
 
 Verification:
 
-- [ ] Pending.
+- [x] `npm --prefix web/frontend run build`
+- [x] `npm --prefix web/frontend run lint` (passes with existing warnings outside this sprint)
+- [x] `rg -n "defaultProfileParams|normalizeParams|familyForModel|tail_paddings|decoding_method|chunking_strategy|num_speakers|diarization_threshold|min_duration_on|min_duration_off|profile\.options\.(model|language|task|diarize|chunking_strategy)" web/frontend/src/features -g '*.ts' -g '*.tsx'`
+- [x] `git diff --check -- web/frontend/src/features/settings/api/profilesApi.ts web/frontend/src/features/settings/components/ASRProfileDialog.tsx web/frontend/src/features/settings/pages/SettingsPage.tsx web/frontend/src/features/home/components/HomePage.tsx devnotes/v2.0.0/sprint-trackers/asr-legacy-profile-cleanup-sprint-tracker.md`
 
 Artifacts:
 
-- Pending.
+- `web/frontend/src/features/settings/api/profilesApi.ts`
+- `web/frontend/src/features/settings/components/ASRProfileDialog.tsx`
+- `web/frontend/src/features/settings/pages/SettingsPage.tsx`
+- `web/frontend/src/features/home/components/HomePage.tsx`
+- `devnotes/v2.0.0/sprint-trackers/asr-legacy-profile-cleanup-sprint-tracker.md`
 
 Commit:
 

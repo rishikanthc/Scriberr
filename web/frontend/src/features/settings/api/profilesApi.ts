@@ -1,5 +1,3 @@
-export type ModelFamily = "whisper" | "nemo_transducer";
-
 export type ASRCapability =
   | "transcription"
   | "diarization"
@@ -79,21 +77,18 @@ export type ASRModelCard = {
   license?: string;
 };
 
+export type ASRStepKind = "transcription" | "diarization" | "speaker_identification";
+
+export type ASRStep = {
+  kind: ASRStepKind;
+  provider?: string;
+  model?: string;
+  model_family?: string;
+  options?: Record<string, unknown>;
+};
+
 export type TranscriptionProfileOptions = {
-  model_family: ModelFamily;
-  model: string;
-  language?: string;
-  task: "transcribe" | "translate";
-  threads: number;
-  tail_paddings?: number;
-  decoding_method: "greedy_search" | "modified_beam_search";
-  chunking_strategy: "fixed" | "vad";
-  diarize: boolean;
-  diarize_model: "diarization-default";
-  num_speakers: number;
-  diarization_threshold: number;
-  min_duration_on: number;
-  min_duration_off: number;
+  pipeline: ASRStep[];
 };
 
 export type TranscriptionProfile = {
@@ -102,7 +97,7 @@ export type TranscriptionProfile = {
   description: string;
   is_default: boolean;
   options: TranscriptionProfileOptions;
-  parameters?: Partial<TranscriptionProfileOptions>;
+  parameters?: TranscriptionProfileOptions;
   created_at: string;
   updated_at: string;
 };
@@ -114,21 +109,6 @@ export type TranscriptionModel = {
   installed: boolean;
   default: boolean;
   capabilities: string[];
-};
-
-export const defaultProfileParams: TranscriptionProfileOptions = {
-  model_family: "whisper",
-  model: "whisper-base",
-  task: "transcribe",
-  threads: 0,
-  decoding_method: "greedy_search",
-  diarize: false,
-  chunking_strategy: "fixed",
-  diarize_model: "diarization-default",
-  num_speakers: 0,
-  diarization_threshold: 0.5,
-  min_duration_on: 0.2,
-  min_duration_off: 0.3,
 };
 
 type ProfileListResponse = {
@@ -174,22 +154,7 @@ export async function saveProfile(profile: {
     name: profile.name,
     description: profile.description,
     is_default: profile.is_default,
-    options: {
-      model: profile.options.model,
-      language: profile.options.language || undefined,
-      task: profile.options.task,
-      threads: profile.options.threads,
-      tail_paddings: profile.options.tail_paddings,
-      decoding_method: profile.options.decoding_method,
-      chunking_strategy: profile.options.chunking_strategy,
-      diarize: profile.options.diarize,
-      diarization: profile.options.diarize,
-      diarize_model: "diarization-default",
-      num_speakers: profile.options.num_speakers,
-      diarization_threshold: profile.options.diarization_threshold,
-      min_duration_on: profile.options.min_duration_on,
-      min_duration_off: profile.options.min_duration_off,
-    },
+    options: profile.options,
   };
   const response = await fetch(profile.id ? `/api/v1/profiles/${profile.id}` : "/api/v1/profiles", {
     method: profile.id ? "PATCH" : "POST",
@@ -205,37 +170,16 @@ export async function deleteProfile(profileId: string, headers?: Record<string, 
   if (!response.ok) throw new Error(await readError(response));
 }
 
-export function normalizeParams(params?: Partial<TranscriptionProfileOptions> & { diarization?: boolean }): TranscriptionProfileOptions {
-  const model = params?.model || defaultProfileParams.model;
-  return {
-    ...defaultProfileParams,
-    ...params,
-    model,
-    model_family: params?.model_family || familyForModel(model),
-    language: params?.language || undefined,
-    task: params?.task === "translate" ? "translate" : "transcribe",
-    decoding_method: params?.decoding_method === "modified_beam_search" ? "modified_beam_search" : "greedy_search",
-    chunking_strategy: params?.chunking_strategy === "vad" ? "vad" : "fixed",
-    diarize: params?.diarize ?? Boolean(params?.diarization),
-    diarize_model: "diarization-default",
-    num_speakers: params?.num_speakers || 0,
-    diarization_threshold: params?.diarization_threshold || 0.5,
-    min_duration_on: params?.min_duration_on || 0.2,
-    min_duration_off: params?.min_duration_off || 0.3,
-  };
-}
-
-export function familyForModel(model: string): ModelFamily {
-  if (model.startsWith("parakeet")) return "nemo_transducer";
-  return "whisper";
-}
-
 function normalizeProfile(profile: TranscriptionProfile): TranscriptionProfile {
   return {
     ...profile,
     description: profile.description || "",
-    options: normalizeParams(profile.options || profile.parameters),
+    options: normalizeProfileOptions(profile.options || profile.parameters),
   };
+}
+
+export function normalizeProfileOptions(options?: TranscriptionProfileOptions): TranscriptionProfileOptions {
+  return { pipeline: Array.isArray(options?.pipeline) ? options.pipeline : [] };
 }
 
 function modelCardToTranscriptionModel(model: ASRModelCard): TranscriptionModel {
