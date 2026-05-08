@@ -2,7 +2,7 @@
 
 Run ID: `ASR-PROFILE-FE`
 
-Status: not started.
+Status: completed through ASR-PROFILE-FE-Sprint 0.
 
 This tracker belongs to `devnotes/v2.0.0/sprint-plans/asr-profile-provider-frontend-sprint-plan.md`.
 
@@ -49,12 +49,12 @@ Tracker:
 
 Required before frontend:
 
-- [ ] Frontend-accessible model-card endpoint returns transcription and diarization models by capability.
-- [ ] `diarization-default` exposes its parameter schema through that endpoint.
+- [x] Frontend-accessible model-card endpoint returns transcription and diarization models by capability.
+- [x] `diarization-default` exposes its parameter schema through that endpoint.
 
 ### ASR-PARAM-CONTRACT
 
-Status: pending
+Status: completed
 
 Plan:
 
@@ -66,13 +66,13 @@ Tracker:
 
 Required before frontend:
 
-- [ ] Provider parameter descriptors can mark read-only values.
-- [ ] `sherpa.model_type` is read-only for Parakeet models.
-- [ ] Backend rejects changed read-only parameter values.
+- [x] Provider parameter descriptors can mark read-only values.
+- [x] `sherpa.model_type` is read-only for Parakeet models.
+- [x] Backend rejects changed read-only parameter values.
 
 ### ASR-LEGACY-CLEANUP
 
-Status: pending
+Status: completed
 
 Plan:
 
@@ -84,39 +84,43 @@ Tracker:
 
 Required before frontend:
 
-- [ ] Legacy flat ASR profile migration/normalization code is removed.
-- [ ] Canonical profile shape is `options.pipeline` only.
-- [ ] Frontend has no legacy flat profile types to preserve.
+- [x] Legacy flat ASR profile migration/normalization code is removed.
+- [x] Canonical profile shape is `options.pipeline` only.
+- [x] Frontend has no legacy flat profile types to preserve.
 
 ## ASR-PROFILE-FE-Sprint 0: Contract Verification And Guardrails
 
-Status: pending
+Status: completed
 
 Planned tasks:
 
-- [ ] Add or update focused tests confirming the canonical model-card endpoint includes `parakeet-v2` for transcription capability.
-- [ ] Add or update focused tests confirming the canonical model-card endpoint includes `parakeet-v3` for transcription capability.
-- [ ] Verify both Parakeet model cards include `parameter_schema`, `recommended_defaults`, `chunking`, `dependencies`, and `artifacts`.
-- [ ] Verify Parakeet parameter schema includes all common ASR parameters plus `sherpa.model_type`.
-- [ ] Verify Whisper schema includes common ASR parameters plus Whisper-specific fields.
-- [ ] Verify profile create/update rejects legacy flat fields and accepts `options.pipeline`.
-- [ ] Inventory legacy flat profile compatibility code paths for deletion.
-- [ ] Record backend contract gaps before frontend implementation.
+- [x] Add or update focused tests confirming the canonical model-card endpoint includes `parakeet-v2` for transcription capability.
+- [x] Add or update focused tests confirming the canonical model-card endpoint includes `parakeet-v3` for transcription capability.
+- [x] Verify both Parakeet model cards include `parameter_schema`, `recommended_defaults`, `chunking`, `dependencies`, and `artifacts`.
+- [x] Verify Parakeet parameter schema includes all common ASR parameters plus `sherpa.model_type`.
+- [x] Verify Whisper schema includes common ASR parameters plus Whisper-specific fields.
+- [x] Verify profile create/update rejects legacy flat fields and accepts `options.pipeline`.
+- [x] Inventory legacy flat profile compatibility code paths for deletion.
+- [x] Record backend contract gaps before frontend implementation.
 
 Acceptance checks:
 
-- [ ] The frontend can rely on the canonical capability-filtered model-card endpoint as the model-card source of truth.
-- [ ] Parakeet TDT v2 and v3 are visible through the public model-card endpoint.
-- [ ] Legacy flat ASR profile inputs have no supported save path.
-- [ ] Dependency sprint contract gaps are fixed.
+- [x] The frontend can rely on the canonical capability-filtered model-card endpoint as the model-card source of truth.
+- [x] Parakeet TDT v2 and v3 are visible through the public model-card endpoint.
+- [x] Legacy flat ASR profile inputs have no supported save path.
+- [x] Dependency sprint contract gaps are fixed.
 
 Verification:
 
-- [ ] Pending.
+- [x] `GOCACHE=/tmp/scriberr-go-cache go test ./internal/api -run 'TestASRModelCatalogEndpointFiltersCapabilities|TestProfileCRUDAndDefaultSelection|TestProfileValidationAndAuth'`
+- [x] `GOCACHE=/tmp/scriberr-go-cache go test ./internal/transcription/engineprovider -run 'TestLocalProviderModelDescriptor'`
+- [x] `git diff --check -- internal/api/engine_worker_api_test.go internal/transcription/engineprovider/local_provider_test.go devnotes/v2.0.0/sprint-trackers/asr-profile-provider-frontend-sprint-tracker.md`
 
 Artifacts:
 
-- Pending.
+- `internal/api/engine_worker_api_test.go`
+- `internal/transcription/engineprovider/local_provider_test.go`
+- `devnotes/v2.0.0/sprint-trackers/asr-profile-provider-frontend-sprint-tracker.md`
 
 Commit:
 

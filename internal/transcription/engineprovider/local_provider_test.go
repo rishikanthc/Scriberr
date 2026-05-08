@@ -490,6 +490,9 @@ func TestLocalProviderModelDescriptorsDistinguishWhisperAndParakeet(t *testing.T
 			descriptorForModelWith(t, catalog.ModelWhisperBase, func(desc *speechproviders.ModelDescriptor) {
 				desc.Installed = true
 			}),
+			descriptorForModelWith(t, catalog.ModelParakeetV2, func(desc *speechproviders.ModelDescriptor) {
+				desc.Installed = true
+			}),
 			descriptorForModelWith(t, catalog.ModelParakeetV3, func(desc *speechproviders.ModelDescriptor) {
 				desc.Installed = true
 			}),
@@ -502,36 +505,14 @@ func TestLocalProviderModelDescriptorsDistinguishWhisperAndParakeet(t *testing.T
 		t.Fatalf("Models returned error: %v", err)
 	}
 	whisper := modelByID(t, models, "whisper-base")
-	parakeet := modelByID(t, models, "parakeet-v3")
 
 	requireParameter(t, whisper.ParameterSchema, "sherpa.whisper.language")
 	requireParameter(t, whisper.ParameterSchema, "sherpa.whisper.task")
 	requireParameter(t, whisper.ParameterSchema, "sherpa.whisper.tail_paddings")
 	requireParameter(t, whisper.ParameterSchema, "sherpa.whisper.enable_token_timestamps")
-	if hasParameter(parakeet.ParameterSchema, "sherpa.whisper.language") {
-		t.Fatalf("parakeet descriptor should not expose whisper language parameter: %#v", parakeet.ParameterSchema)
+	for _, modelID := range []string{"parakeet-v2", "parakeet-v3"} {
+		requireParakeetModelCardContract(t, modelByID(t, models, modelID))
 	}
-	requireReadOnlyParameter(t, parakeet.ParameterSchema, "sherpa.model_type")
-	requireReloadParameter(t, parakeet.ParameterSchema, "sherpa.model_type")
-	requireReloadParameter(t, parakeet.ParameterSchema, "runtime.provider")
-	requireReloadParameter(t, parakeet.ParameterSchema, asrcontract.CommonParameterRuntimeNumThreads)
-
-	if got := parakeet.RecommendedDefaults[asrcontract.CommonParameterChunkingMode]; got != "fixed" {
-		t.Fatalf("parakeet chunking default = %#v, want fixed", got)
-	}
-	if got := parakeet.RecommendedDefaults[asrcontract.CommonParameterRuntimeNumThreads]; got != float64(4) {
-		t.Fatalf("parakeet threads default = %#v, want 4", got)
-	}
-	if got := parakeet.RecommendedDefaults[asrcontract.CommonParameterBatchingBatchSize]; got != float64(1) {
-		t.Fatalf("parakeet batch default = %#v, want 1", got)
-	}
-	if parakeet.Chunking == nil || parakeet.Chunking.RecommendedChunkSeconds == nil || *parakeet.Chunking.RecommendedChunkSeconds != 30 {
-		t.Fatalf("parakeet chunking metadata missing fixed 30s recommendation: %#v", parakeet.Chunking)
-	}
-	requireArtifactRequirement(t, parakeet, "encoder")
-	requireArtifactRequirement(t, parakeet, "decoder")
-	requireArtifactRequirement(t, parakeet, "joiner")
-	requireArtifactRequirement(t, parakeet, "tokens")
 
 	data, err := json.Marshal(models)
 	if err != nil {
@@ -547,6 +528,7 @@ func TestLocalProviderModelDescriptorParameterSchemasValidate(t *testing.T) {
 	fake := &fakeSpeechEngine{
 		models: []speechproviders.ModelDescriptor{
 			descriptorForModel(t, catalog.ModelWhisperBase),
+			descriptorForModel(t, catalog.ModelParakeetV2),
 			descriptorForModel(t, catalog.ModelParakeetV3),
 		},
 	}
@@ -562,22 +544,24 @@ func TestLocalProviderModelDescriptorParameterSchemasValidate(t *testing.T) {
 		}
 	}
 
-	parakeet := modelByID(t, models, "parakeet-v3")
-	_, err = asrcontract.ValidateParameterValues(parakeet.ParameterSchema, map[string]any{
-		asrcontract.CommonParameterChunkingMode:         "fixed",
-		asrcontract.CommonParameterChunkingChunkSeconds: float64(30),
-		asrcontract.CommonParameterBatchingBatchSize:    float64(1),
-	})
-	if err != nil {
-		t.Fatalf("parakeet measured defaults should validate: %v", err)
-	}
-	_, err = asrcontract.ValidateParameterValues(parakeet.ParameterSchema, map[string]any{"sherpa.whisper.language": "en"})
-	if err == nil {
-		t.Fatal("parakeet schema accepted whisper-specific parameter")
-	}
-	_, err = asrcontract.ValidateParameterValues(parakeet.ParameterSchema, map[string]any{"sherpa.model_type": "whisper"})
-	if err == nil {
-		t.Fatal("parakeet schema accepted changed read-only model type")
+	for _, modelID := range []string{"parakeet-v2", "parakeet-v3"} {
+		parakeet := modelByID(t, models, modelID)
+		_, err = asrcontract.ValidateParameterValues(parakeet.ParameterSchema, map[string]any{
+			asrcontract.CommonParameterChunkingMode:         "fixed",
+			asrcontract.CommonParameterChunkingChunkSeconds: float64(30),
+			asrcontract.CommonParameterBatchingBatchSize:    float64(1),
+		})
+		if err != nil {
+			t.Fatalf("%s measured defaults should validate: %v", modelID, err)
+		}
+		_, err = asrcontract.ValidateParameterValues(parakeet.ParameterSchema, map[string]any{"sherpa.whisper.language": "en"})
+		if err == nil {
+			t.Fatalf("%s schema accepted whisper-specific parameter", modelID)
+		}
+		_, err = asrcontract.ValidateParameterValues(parakeet.ParameterSchema, map[string]any{"sherpa.model_type": "whisper"})
+		if err == nil {
+			t.Fatalf("%s schema accepted changed read-only model type", modelID)
+		}
 	}
 }
 
@@ -616,6 +600,54 @@ func requireParameter(t *testing.T, schema asrcontract.ParameterSchema, key stri
 	if !hasParameter(schema, key) {
 		t.Fatalf("parameter %q not found in %#v", key, schema)
 	}
+}
+
+func requireParakeetModelCardContract(t *testing.T, parakeet asrcontract.ModelCard) {
+	t.Helper()
+	if hasParameter(parakeet.ParameterSchema, "sherpa.whisper.language") {
+		t.Fatalf("%s descriptor should not expose whisper language parameter: %#v", parakeet.ID, parakeet.ParameterSchema)
+	}
+	for _, key := range []string{
+		asrcontract.CommonParameterRuntimeNumThreads,
+		asrcontract.CommonParameterDecodingMethod,
+		asrcontract.CommonParameterChunkingMode,
+		asrcontract.CommonParameterChunkingChunkSeconds,
+		asrcontract.CommonParameterChunkingOverlapSeconds,
+		asrcontract.CommonParameterVADThreshold,
+		asrcontract.CommonParameterVADMinSpeechSeconds,
+		asrcontract.CommonParameterVADMinSilenceSeconds,
+		asrcontract.CommonParameterVADMaxSpeechSeconds,
+		asrcontract.CommonParameterOutputTimestamps,
+		asrcontract.CommonParameterBatchingBatchSize,
+		"vad.window_size",
+		"vad.buffer_seconds",
+		"vad.feed_seconds",
+		"runtime.provider",
+		"sherpa.model_type",
+	} {
+		requireParameter(t, parakeet.ParameterSchema, key)
+	}
+	requireReadOnlyParameter(t, parakeet.ParameterSchema, "sherpa.model_type")
+	requireReloadParameter(t, parakeet.ParameterSchema, "sherpa.model_type")
+	requireReloadParameter(t, parakeet.ParameterSchema, "runtime.provider")
+	requireReloadParameter(t, parakeet.ParameterSchema, asrcontract.CommonParameterRuntimeNumThreads)
+
+	if got := parakeet.RecommendedDefaults[asrcontract.CommonParameterChunkingMode]; got != "fixed" {
+		t.Fatalf("%s chunking default = %#v, want fixed", parakeet.ID, got)
+	}
+	if got := parakeet.RecommendedDefaults[asrcontract.CommonParameterRuntimeNumThreads]; got != float64(4) {
+		t.Fatalf("%s threads default = %#v, want 4", parakeet.ID, got)
+	}
+	if got := parakeet.RecommendedDefaults[asrcontract.CommonParameterBatchingBatchSize]; got != float64(1) {
+		t.Fatalf("%s batch default = %#v, want 1", parakeet.ID, got)
+	}
+	if parakeet.Chunking == nil || parakeet.Chunking.RecommendedChunkSeconds == nil || *parakeet.Chunking.RecommendedChunkSeconds != 30 {
+		t.Fatalf("%s chunking metadata missing fixed 30s recommendation: %#v", parakeet.ID, parakeet.Chunking)
+	}
+	requireArtifactRequirement(t, parakeet, "encoder")
+	requireArtifactRequirement(t, parakeet, "decoder")
+	requireArtifactRequirement(t, parakeet, "joiner")
+	requireArtifactRequirement(t, parakeet, "tokens")
 }
 
 func requireReloadParameter(t *testing.T, schema asrcontract.ParameterSchema, key string) {

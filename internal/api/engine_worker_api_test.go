@@ -141,6 +141,9 @@ func TestASRModelCatalogEndpointFiltersCapabilities(t *testing.T) {
 				{Key: "sherpa.model_type", Type: asrcontract.ParameterTypeString, Scope: asrcontract.ParameterScopeModel, Default: "nemo_transducer"},
 			},
 			RecommendedDefaults: map[string]any{"sherpa.model_type": "nemo_transducer"},
+			Chunking:            &asrcontract.ChunkingCapabilities{SupportsEngineChunking: true, PreferredMode: "fixed"},
+			Dependencies:        []asrcontract.DependencyRequirement{{ID: "sherpa-onnx", Required: true}},
+			Artifacts:           []asrcontract.ArtifactRequirement{{Key: "encoder", Required: true}},
 		},
 		{
 			ID:          "parakeet-v3",
@@ -158,6 +161,9 @@ func TestASRModelCatalogEndpointFiltersCapabilities(t *testing.T) {
 				{Key: "sherpa.model_type", Type: asrcontract.ParameterTypeString, Scope: asrcontract.ParameterScopeModel, Default: "nemo_transducer"},
 			},
 			RecommendedDefaults: map[string]any{"sherpa.model_type": "nemo_transducer"},
+			Chunking:            &asrcontract.ChunkingCapabilities{SupportsEngineChunking: true, PreferredMode: "fixed"},
+			Dependencies:        []asrcontract.DependencyRequirement{{ID: "sherpa-onnx", Required: true}},
+			Artifacts:           []asrcontract.ArtifactRequirement{{Key: "encoder", Required: true}},
 		},
 		{
 			ID:          "diarization-default",
@@ -194,6 +200,8 @@ func TestASRModelCatalogEndpointFiltersCapabilities(t *testing.T) {
 	require.ElementsMatch(t, []string{"parakeet-v2", "parakeet-v3"}, modelIDsFromResponse(body))
 	requireModelSchemaKey(t, body, "parakeet-v2", "sherpa.model_type")
 	requireModelSchemaKey(t, body, "parakeet-v3", "sherpa.model_type")
+	requireModelCardDescriptorFields(t, body, "parakeet-v2")
+	requireModelCardDescriptorFields(t, body, "parakeet-v3")
 
 	resp, body = s.request(t, http.MethodGet, "/api/v1/models?capability=diarization", nil, token, "")
 	require.Equal(t, http.StatusOK, resp.Code)
@@ -235,6 +243,24 @@ func requireModelSchemaKey(t *testing.T, body map[string]any, modelID string, ke
 			}
 		}
 		require.Failf(t, "missing schema key", "model %q missing parameter %q", modelID, key)
+	}
+	require.Failf(t, "missing model", "model %q not found", modelID)
+}
+
+func requireModelCardDescriptorFields(t *testing.T, body map[string]any, modelID string) {
+	t.Helper()
+	items := body["items"].([]any)
+	for _, item := range items {
+		model := item.(map[string]any)
+		if model["id"] != modelID {
+			continue
+		}
+		require.NotEmpty(t, model["parameter_schema"])
+		require.NotEmpty(t, model["recommended_defaults"])
+		require.NotEmpty(t, model["chunking"])
+		require.NotEmpty(t, model["dependencies"])
+		require.NotEmpty(t, model["artifacts"])
+		return
 	}
 	require.Failf(t, "missing model", "model %q not found", modelID)
 }
