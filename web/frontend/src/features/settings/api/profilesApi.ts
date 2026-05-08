@@ -102,14 +102,7 @@ export type TranscriptionProfile = {
   updated_at: string;
 };
 
-export type TranscriptionModel = {
-  id: string;
-  name: string;
-  provider: string;
-  installed: boolean;
-  default: boolean;
-  capabilities: string[];
-};
+export type TranscriptionModel = ASRModelCard;
 
 type ProfileListResponse = {
   items?: TranscriptionProfile[];
@@ -128,8 +121,7 @@ export async function listProfiles(headers?: Record<string, string>) {
 }
 
 export async function listTranscriptionModels(headers?: Record<string, string>) {
-  const models = await listASRModels(["transcription"], headers);
-  return models.map(modelCardToTranscriptionModel);
+  return listASRModels(["transcription"], headers);
 }
 
 export async function listASRModels(capabilities?: ASRCapability[], headers?: Record<string, string>) {
@@ -180,31 +172,6 @@ function normalizeProfile(profile: TranscriptionProfile): TranscriptionProfile {
 
 export function normalizeProfileOptions(options?: TranscriptionProfileOptions): TranscriptionProfileOptions {
   return { pipeline: Array.isArray(options?.pipeline) ? options.pipeline : [] };
-}
-
-function modelCardToTranscriptionModel(model: ASRModelCard): TranscriptionModel {
-  return {
-    id: model.id,
-    name: model.display_name || model.id,
-    provider: model.provider,
-    installed: model.installed,
-    default: model.default,
-    capabilities: capabilitiesToList(model.capabilities),
-  };
-}
-
-function capabilitiesToList(capabilities: ASRCapabilities) {
-  const out: string[] = [];
-  for (const [key, value] of Object.entries(capabilities)) {
-    if (key === "extensions") continue;
-    if (value === true) out.push(key);
-  }
-  if (capabilities.extensions) {
-    for (const [key, value] of Object.entries(capabilities.extensions)) {
-      if (value === true) out.push(key);
-    }
-  }
-  return out;
 }
 
 function modelSupportsCapability(model: ASRModelCard, capability: ASRCapability) {

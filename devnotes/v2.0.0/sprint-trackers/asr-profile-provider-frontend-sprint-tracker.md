@@ -2,7 +2,7 @@
 
 Run ID: `ASR-PROFILE-FE`
 
-Status: completed through ASR-PROFILE-FE-Sprint 0.
+Status: completed through ASR-PROFILE-FE-Sprint 1.
 
 This tracker belongs to `devnotes/v2.0.0/sprint-plans/asr-profile-provider-frontend-sprint-plan.md`.
 
@@ -128,31 +128,35 @@ Commit:
 
 ## ASR-PROFILE-FE-Sprint 1: Frontend API Contract Rewrite
 
-Status: pending
+Status: completed
 
 Planned tasks:
 
-- [ ] Update `profilesApi.ts` to model `TranscriptionModel` as the sanitized backend model card.
-- [ ] Add typed `ParameterDescriptor`, `ParameterOption`, `ActivationRule`, and `ASRStep` types.
-- [ ] Change `TranscriptionProfileOptions` to `{ pipeline: ASRStep[] }`.
-- [ ] Remove frontend normalization for legacy flat ASR response fields.
-- [ ] Save profiles by sending only `options.pipeline`.
-- [ ] Keep `listTranscriptionModels` filtering by `capabilities.transcription`.
+- [x] Update `profilesApi.ts` to model `TranscriptionModel` as the sanitized backend model card.
+- [x] Add typed `ParameterDescriptor`, `ParameterOption`, `ActivationRule`, and `ASRStep` types.
+- [x] Change `TranscriptionProfileOptions` to `{ pipeline: ASRStep[] }`.
+- [x] Remove frontend normalization for legacy flat ASR response fields.
+- [x] Save profiles by sending only `options.pipeline`.
+- [x] Keep `listTranscriptionModels` filtering by `capabilities.transcription`.
 
 Acceptance checks:
 
-- [ ] TypeScript no longer models active ASR profile settings as legacy flat fields.
-- [ ] Save payloads match backend pipeline validation.
-- [ ] Legacy flat field normalization is deleted.
-- [ ] Model-card fields needed for dynamic rendering are preserved.
+- [x] TypeScript no longer models active ASR profile settings as legacy flat fields.
+- [x] Save payloads match backend pipeline validation.
+- [x] Legacy flat field normalization is deleted.
+- [x] Model-card fields needed for dynamic rendering are preserved.
 
 Verification:
 
-- [ ] Pending.
+- [x] `npm --prefix web/frontend run build`
+- [x] `npm --prefix web/frontend run lint` (passes with existing warnings outside this sprint)
+- [x] `git diff --check -- web/frontend/src/features/settings/api/profilesApi.ts web/frontend/src/features/settings/components/ASRProfileDialog.tsx devnotes/v2.0.0/sprint-trackers/asr-profile-provider-frontend-sprint-tracker.md`
 
 Artifacts:
 
-- Pending.
+- `web/frontend/src/features/settings/api/profilesApi.ts`
+- `web/frontend/src/features/settings/components/ASRProfileDialog.tsx`
+- `devnotes/v2.0.0/sprint-trackers/asr-profile-provider-frontend-sprint-tracker.md`
 
 Commit:
 

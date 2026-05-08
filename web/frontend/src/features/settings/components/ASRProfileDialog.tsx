@@ -24,10 +24,10 @@ type ASRProfileDialogProps = {
 };
 
 const fallbackModels: TranscriptionModel[] = [
-  { id: "whisper-base", name: "Whisper Base", provider: "local", installed: false, default: true, capabilities: ["transcription", "word_timestamps"] },
-  { id: "whisper-small", name: "Whisper Small", provider: "local", installed: false, default: false, capabilities: ["transcription", "word_timestamps"] },
-  { id: "parakeet-v2", name: "NVIDIA Parakeet TDT v2", provider: "local", installed: false, default: false, capabilities: ["transcription", "word_timestamps"] },
-  { id: "parakeet-v3", name: "NVIDIA Parakeet TDT v3", provider: "local", installed: false, default: false, capabilities: ["transcription", "word_timestamps"] },
+  { id: "whisper-base", display_name: "Whisper Base", provider: "local", installed: false, default: true, capabilities: { transcription: true, word_timestamps: true } },
+  { id: "whisper-small", display_name: "Whisper Small", provider: "local", installed: false, default: false, capabilities: { transcription: true, word_timestamps: true } },
+  { id: "parakeet-v2", display_name: "NVIDIA Parakeet TDT v2", provider: "local", installed: false, default: false, capabilities: { transcription: true, word_timestamps: true } },
+  { id: "parakeet-v3", display_name: "NVIDIA Parakeet TDT v3", provider: "local", installed: false, default: false, capabilities: { transcription: true, word_timestamps: true } },
 ];
 
 export function ASRProfileDialog({ open, profile, models, onClose, onSave }: ASRProfileDialogProps) {
@@ -42,7 +42,7 @@ export function ASRProfileDialog({ open, profile, models, onClose, onSave }: ASR
   const modelOptions = useMemo<SelectOption[]>(() => {
     return availableModels.map((model) => ({
       value: model.id,
-      label: model.name,
+      label: model.display_name || model.id,
       description: model.installed ? "Installed locally" : "Downloads on use",
     }));
   }, [availableModels]);
