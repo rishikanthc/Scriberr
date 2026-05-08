@@ -99,6 +99,31 @@ func TestParameterSchemaValidationAndProfileValues(t *testing.T) {
 	}
 }
 
+func TestValidateParameterValuesRejectsChangedReadOnlyParameter(t *testing.T) {
+	schema := ParameterSchema{{
+		Key:      "sherpa.model_type",
+		Label:    "Sherpa model type",
+		Type:     ParameterTypeString,
+		Default:  "nemo_transducer",
+		Scope:    ParameterScopeModel,
+		ReadOnly: true,
+	}}
+
+	if _, err := ValidateParameterValues(schema, nil); err != nil {
+		t.Fatalf("omitted read-only value should validate: %v", err)
+	}
+	values, err := ValidateParameterValues(schema, map[string]any{"sherpa.model_type": "nemo_transducer"})
+	if err != nil {
+		t.Fatalf("default read-only value should validate: %v", err)
+	}
+	if values["sherpa.model_type"] != "nemo_transducer" {
+		t.Fatalf("read-only default was not preserved: %#v", values)
+	}
+	if _, err := ValidateParameterValues(schema, map[string]any{"sherpa.model_type": "whisper"}); err == nil {
+		t.Fatal("expected changed read-only value to fail")
+	}
+}
+
 func TestProviderErrorClassification(t *testing.T) {
 	err := NewProviderError(CodeProviderBusy, "provider is busy", true)
 

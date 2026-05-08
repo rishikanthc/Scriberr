@@ -254,6 +254,14 @@ func TestServiceCreateValidatesStepOptionsFromModelSchema(t *testing.T) {
 					Type:  asrcontract.ParameterTypePathRef,
 					Scope: asrcontract.ParameterScopeOutput,
 				},
+				{
+					Key:      "sherpa.model_type",
+					Label:    "Sherpa model type",
+					Type:     asrcontract.ParameterTypeString,
+					Default:  "nemo_transducer",
+					Scope:    asrcontract.ParameterScopeModel,
+					ReadOnly: true,
+				},
 			},
 		},
 	}})
@@ -291,6 +299,36 @@ func TestServiceCreateValidatesStepOptionsFromModelSchema(t *testing.T) {
 				Kind:    models.ASRStepTranscription,
 				Model:   "schema-model",
 				Options: map[string]any{asrcontract.CommonParameterDecodingMethod: "unsupported"},
+			}},
+		},
+	})
+	if !errors.Is(err, ErrInvalidPipeline) {
+		t.Fatalf("Create error = %v, want ErrInvalidPipeline", err)
+	}
+
+	err = service.Create(context.Background(), &models.TranscriptionProfile{
+		UserID: 1,
+		Name:   "Read-only default",
+		Parameters: models.ASRParams{
+			Pipeline: []models.ASRStep{{
+				Kind:    models.ASRStepTranscription,
+				Model:   "schema-model",
+				Options: map[string]any{"sherpa.model_type": "nemo_transducer"},
+			}},
+		},
+	})
+	if err != nil {
+		t.Fatalf("Create with default read-only value returned error: %v", err)
+	}
+
+	err = service.Create(context.Background(), &models.TranscriptionProfile{
+		UserID: 1,
+		Name:   "Changed read-only",
+		Parameters: models.ASRParams{
+			Pipeline: []models.ASRStep{{
+				Kind:    models.ASRStepTranscription,
+				Model:   "schema-model",
+				Options: map[string]any{"sherpa.model_type": "whisper"},
 			}},
 		},
 	})

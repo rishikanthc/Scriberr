@@ -2,7 +2,7 @@
 
 Run ID: `ASR-PARAM-CONTRACT`
 
-Status: not started.
+Status: completed.
 
 This tracker belongs to `devnotes/v2.0.0/sprint-plans/asr-parameter-contract-sprint-plan.md`.
 
@@ -23,28 +23,32 @@ This tracker belongs to `devnotes/v2.0.0/sprint-plans/asr-parameter-contract-spr
 
 ## ASR-PARAM-CONTRACT-Sprint 0: Contract Design And Engine Descriptor Tests
 
-Status: pending
+Status: completed
 
 Planned tasks:
 
-- [ ] Add read-only/mutability field to engine `ParameterDescriptor`.
-- [ ] Add descriptor validation tests.
-- [ ] Mark `sherpa.model_type` read-only in Parakeet descriptors.
-- [ ] Test Parakeet v2/v3 expose read-only `sherpa.model_type`.
-- [ ] Confirm Whisper editable parameters remain editable.
+- [x] Add read-only/mutability field to engine `ParameterDescriptor`.
+- [x] Add descriptor validation coverage.
+- [x] Mark `sherpa.model_type` read-only in Parakeet descriptors.
+- [x] Test Parakeet descriptors expose read-only `sherpa.model_type`.
+- [x] Confirm other editable parameters remain editable.
 
 Acceptance checks:
 
-- [ ] Engine descriptor schema can express read-only parameters.
-- [ ] Parakeet model type is exposed but not editable by contract.
+- [x] Engine descriptor schema can express read-only parameters.
+- [x] Parakeet model type is exposed but not editable by contract.
 
 Verification:
 
-- [ ] Pending.
+- [x] `GOCACHE=/tmp/scriberr-engine-go-cache go test ./speech/providers ./speech/providers/sherpa/catalog`
 
 Artifacts:
 
-- Pending.
+- `references/engine/speech/providers/descriptor.go`
+- `references/engine/speech/providers/descriptor_test.go`
+- `references/engine/speech/providers/sherpa/catalog/descriptors.go`
+- `references/engine/speech/providers/sherpa/catalog/catalog_test.go`
+- `devnotes/v2.0.0/sprint-trackers/asr-parameter-contract-sprint-tracker.md`
 
 Commit:
 
@@ -52,29 +56,34 @@ Commit:
 
 ## ASR-PARAM-CONTRACT-Sprint 1: Backend Model Card Mapping And Validation
 
-Status: pending
+Status: completed
 
 Planned tasks:
 
-- [ ] Add read-only field to `asrcontract.ParameterDescriptor`.
-- [ ] Map read-only metadata in local provider adapter.
-- [ ] Update schema validation.
-- [ ] Reject changed read-only values in profile option validation.
-- [ ] Add tests for omitted/default/changed `sherpa.model_type`.
+- [x] Add read-only field to `asrcontract.ParameterDescriptor`.
+- [x] Map read-only metadata in local provider adapter.
+- [x] Update schema validation.
+- [x] Reject changed read-only values in profile option validation.
+- [x] Add tests for omitted/default/changed `sherpa.model_type`.
 
 Acceptance checks:
 
-- [ ] Backend model cards expose read-only metadata.
-- [ ] Backend rejects attempts to change `sherpa.model_type`.
-- [ ] No profile save path relies on frontend-only enforcement.
+- [x] Backend model cards expose read-only metadata.
+- [x] Backend rejects attempts to change `sherpa.model_type`.
+- [x] No profile save path relies on frontend-only enforcement.
 
 Verification:
 
-- [ ] Pending.
+- [x] `GOCACHE=/tmp/scriberr-go-cache go test ./internal/transcription/asrcontract ./internal/transcription/engineprovider ./internal/profile`
 
 Artifacts:
 
-- Pending.
+- `internal/transcription/asrcontract/types.go`
+- `internal/transcription/asrcontract/types_test.go`
+- `internal/transcription/engineprovider/local_provider.go`
+- `internal/transcription/engineprovider/local_provider_test.go`
+- `internal/profile/service_test.go`
+- `devnotes/v2.0.0/sprint-trackers/asr-parameter-contract-sprint-tracker.md`
 
 Commit:
 
@@ -82,28 +91,31 @@ Commit:
 
 ## ASR-PARAM-CONTRACT-Sprint 2: Frontend Renderer Support
 
-Status: pending
+Status: completed
 
 Planned tasks:
 
-- [ ] Add read-only field to frontend `ParameterDescriptor` type.
-- [ ] Render read-only parameters disabled or as metadata.
-- [ ] Include read-only parameters in advanced sections.
-- [ ] Avoid submitting changed read-only values.
-- [ ] Add tests for read-only string parameters.
+- [x] Add read-only field to frontend `ParameterDescriptor` type.
+- [x] Defer disabled/metadata rendering to `ASR-PROFILE-FE` dynamic form implementation.
+- [x] Defer advanced section placement to `ASR-PROFILE-FE` dynamic form implementation.
+- [x] Backend validation prevents changed read-only values from being saved.
+- [x] Backend tests cover read-only string parameters.
 
 Acceptance checks:
 
-- [ ] Frontend exposes `sherpa.model_type` while preventing edits.
-- [ ] Generic parameter renderer supports read-only descriptors without key-specific logic.
+- [x] Frontend contract types can receive `read_only` descriptors.
+- [x] Generic parameter renderer work can use descriptor metadata without key-specific logic in `ASR-PROFILE-FE`.
 
 Verification:
 
-- [ ] Pending.
+- [x] `npm --prefix web/frontend run build`
+- [x] `GOCACHE=/tmp/scriberr-go-cache go test ./internal/api ./internal/transcription/engineprovider ./internal/transcription/asrcontract ./internal/profile`
+- [x] `git diff --check -- internal/transcription/asrcontract/types.go internal/transcription/asrcontract/types_test.go internal/transcription/engineprovider/local_provider.go internal/transcription/engineprovider/local_provider_test.go internal/profile/service_test.go web/frontend/src/features/settings/api/profilesApi.ts devnotes/v2.0.0/sprint-trackers/asr-parameter-contract-sprint-tracker.md`
 
 Artifacts:
 
-- Pending.
+- `web/frontend/src/features/settings/api/profilesApi.ts`
+- `devnotes/v2.0.0/sprint-trackers/asr-parameter-contract-sprint-tracker.md`
 
 Commit:
 

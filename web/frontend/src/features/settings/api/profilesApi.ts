@@ -53,6 +53,7 @@ export type ParameterDescriptor = {
   scope: "model" | "runtime" | "decoding" | "chunking" | "vad" | "output" | "postprocess";
   required?: boolean;
   advanced?: boolean;
+  read_only?: boolean;
   requires_reload?: boolean;
   expose_in_summary?: boolean;
   visible_when?: ActivationRule[];

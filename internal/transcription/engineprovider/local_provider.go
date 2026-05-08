@@ -491,6 +491,7 @@ func parameterSchemaFromDescriptor(parameters []speechproviders.ParameterDescrip
 			Scope:           asrcontract.ParameterScope(parameter.Scope),
 			Required:        parameter.Required,
 			Advanced:        parameter.Advanced,
+			ReadOnly:        parameter.ReadOnly,
 			RequiresReload:  parameter.RequiresReload,
 			ExposeInSummary: parameter.ExposeInSummary,
 			VisibleWhen:     activationRulesFromDescriptor(parameter.VisibleWhen),

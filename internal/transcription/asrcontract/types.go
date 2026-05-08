@@ -301,6 +301,7 @@ type ParameterDescriptor struct {
 	Scope           ParameterScope    `json:"scope"`
 	Required        bool              `json:"required,omitempty"`
 	Advanced        bool              `json:"advanced,omitempty"`
+	ReadOnly        bool              `json:"read_only,omitempty"`
 	RequiresReload  bool              `json:"requires_reload,omitempty"`
 	ExposeInSummary bool              `json:"expose_in_summary,omitempty"`
 	VisibleWhen     []ActivationRule  `json:"visible_when,omitempty"`
@@ -439,9 +440,38 @@ func ValidateParameterValues(schema ParameterSchema, values map[string]any) (map
 		if err != nil {
 			return nil, fmt.Errorf("parameter %q is invalid: %w", key, err)
 		}
+		if parameter.ReadOnly && !readOnlyValueAllowed(parameter, normalized) {
+			return nil, fmt.Errorf("parameter %q is read-only", key)
+		}
 		out[key] = normalized
 	}
 	return out, nil
+}
+
+func readOnlyValueAllowed(parameter ParameterDescriptor, value any) bool {
+	if parameter.Default == nil {
+		return false
+	}
+	normalizedDefault, err := validateParameterValue(parameter, parameter.Default)
+	if err != nil {
+		return false
+	}
+	return parameterValuesEqual(normalizedDefault, value)
+}
+
+func parameterValuesEqual(left any, right any) bool {
+	switch typed := left.(type) {
+	case string:
+		rightString, ok := right.(string)
+		return ok && typed == rightString
+	case bool:
+		rightBool, ok := right.(bool)
+		return ok && typed == rightBool
+	default:
+		leftNumber, leftOK := numericValue(left)
+		rightNumber, rightOK := numericValue(right)
+		return leftOK && rightOK && leftNumber == rightNumber
+	}
 }
 
 func validateParameterValue(parameter ParameterDescriptor, value any) (any, error) {

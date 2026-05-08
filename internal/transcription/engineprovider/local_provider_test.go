@@ -511,6 +511,7 @@ func TestLocalProviderModelDescriptorsDistinguishWhisperAndParakeet(t *testing.T
 	if hasParameter(parakeet.ParameterSchema, "sherpa.whisper.language") {
 		t.Fatalf("parakeet descriptor should not expose whisper language parameter: %#v", parakeet.ParameterSchema)
 	}
+	requireReadOnlyParameter(t, parakeet.ParameterSchema, "sherpa.model_type")
 	requireReloadParameter(t, parakeet.ParameterSchema, "sherpa.model_type")
 	requireReloadParameter(t, parakeet.ParameterSchema, "runtime.provider")
 	requireReloadParameter(t, parakeet.ParameterSchema, asrcontract.CommonParameterRuntimeNumThreads)
@@ -574,6 +575,10 @@ func TestLocalProviderModelDescriptorParameterSchemasValidate(t *testing.T) {
 	if err == nil {
 		t.Fatal("parakeet schema accepted whisper-specific parameter")
 	}
+	_, err = asrcontract.ValidateParameterValues(parakeet.ParameterSchema, map[string]any{"sherpa.model_type": "whisper"})
+	if err == nil {
+		t.Fatal("parakeet schema accepted changed read-only model type")
+	}
 }
 
 func TestLocalProviderSanitizesErrors(t *testing.T) {
@@ -619,6 +624,19 @@ func requireReloadParameter(t *testing.T, schema asrcontract.ParameterSchema, ke
 		if parameter.Key == key {
 			if !parameter.RequiresReload {
 				t.Fatalf("parameter %q should require reload: %#v", key, parameter)
+			}
+			return
+		}
+	}
+	t.Fatalf("parameter %q not found in %#v", key, schema)
+}
+
+func requireReadOnlyParameter(t *testing.T, schema asrcontract.ParameterSchema, key string) {
+	t.Helper()
+	for _, parameter := range schema {
+		if parameter.Key == key {
+			if !parameter.ReadOnly {
+				t.Fatalf("parameter %q should be read-only: %#v", key, parameter)
 			}
 			return
 		}
