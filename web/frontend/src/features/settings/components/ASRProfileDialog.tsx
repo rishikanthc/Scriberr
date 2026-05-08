@@ -7,12 +7,16 @@ import {
   type TranscriptionProfile,
   type TranscriptionProfileOptions,
   normalizeProfileOptions,
+  type ASRStep,
 } from "../api/profilesApi";
+import { ASRParameterForm } from "./ASRParameterForm";
+import { resolveParameterValues, sanitizeParameterValues } from "./asrParameterValues";
 
 type ASRProfileDialogProps = {
   open: boolean;
   profile: TranscriptionProfile | null;
   models: TranscriptionModel[];
+  diarizationModels: TranscriptionModel[];
   onClose: () => void;
   onSave: (profile: {
     id?: string;
@@ -30,7 +34,7 @@ const fallbackModels: TranscriptionModel[] = [
   { id: "parakeet-v3", display_name: "NVIDIA Parakeet TDT v3", provider: "local", installed: false, default: false, capabilities: { transcription: true, word_timestamps: true } },
 ];
 
-export function ASRProfileDialog({ open, profile, models, onClose, onSave }: ASRProfileDialogProps) {
+export function ASRProfileDialog({ open, profile, models, diarizationModels, onClose, onSave }: ASRProfileDialogProps) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [isDefault, setIsDefault] = useState(false);
@@ -38,6 +42,7 @@ export function ASRProfileDialog({ open, profile, models, onClose, onSave }: ASR
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const availableModels = models.length ? models : fallbackModels;
+  const availableDiarizationModels = diarizationModels;
 
   const modelOptions = useMemo<SelectOption[]>(() => {
     return availableModels.map((model) => ({
@@ -48,7 +53,11 @@ export function ASRProfileDialog({ open, profile, models, onClose, onSave }: ASR
   }, [availableModels]);
 
   const transcriptionStep = options.pipeline.find((step) => step.kind === "transcription");
+  const diarizationStep = options.pipeline.find((step) => step.kind === "diarization");
   const selectedModelID = transcriptionStep?.model || availableModels.find((model) => model.default)?.id || availableModels[0]?.id || "";
+  const selectedModel = availableModels.find((model) => model.id === selectedModelID) || null;
+  const selectedDiarizationModelID = diarizationStep?.model || availableDiarizationModels.find((model) => model.default)?.id || availableDiarizationModels[0]?.id || "";
+  const selectedDiarizationModel = availableDiarizationModels.find((model) => model.id === selectedDiarizationModelID) || null;
 
   useEffect(() => {
     if (!open) return;
@@ -65,6 +74,27 @@ export function ASRProfileDialog({ open, profile, models, onClose, onSave }: ASR
     setOptions((current) => withTranscriptionModel(current, availableModels, modelID));
   };
 
+  const updateTranscriptionOptions = (values: Record<string, unknown>) => {
+    setOptions((current) => updateStepOptions(current, "transcription", values));
+  };
+
+  const updateDiarizationModel = (modelID: string) => {
+    setOptions((current) => withDiarizationModel(current, availableDiarizationModels, modelID));
+  };
+
+  const updateDiarizationOptions = (values: Record<string, unknown>) => {
+    setOptions((current) => updateStepOptions(current, "diarization", values));
+  };
+
+  const toggleDiarization = (enabled: boolean) => {
+    setOptions((current) => {
+      if (!enabled) {
+        return { pipeline: current.pipeline.filter((step) => step.kind !== "diarization") };
+      }
+      return withDiarizationModel(current, availableDiarizationModels, selectedDiarizationModelID);
+    });
+  };
+
   const submit = async () => {
     const cleanName = name.trim();
     if (!cleanName) {
@@ -79,7 +109,7 @@ export function ASRProfileDialog({ open, profile, models, onClose, onSave }: ASR
         name: cleanName,
         description: description.trim(),
         is_default: isDefault,
-        options: ensureTranscriptionStep(options, availableModels),
+        options: prepareProfileOptionsForSave(options, availableModels, availableDiarizationModels),
       });
       onClose();
     } catch (err) {
@@ -120,6 +150,31 @@ export function ASRProfileDialog({ open, profile, models, onClose, onSave }: ASR
               <SelectField label="Model" value={selectedModelID} options={modelOptions} onChange={updateModel} />
             </div>
           </section>
+
+          <ASRParameterForm
+            model={selectedModel}
+            values={transcriptionStep?.options || {}}
+            onChange={updateTranscriptionOptions}
+          />
+
+          <section className="scr-settings-section">
+            <h3 className="scr-settings-section-title">Diarization</h3>
+            <CheckRow label="Identify speakers" checked={Boolean(diarizationStep)} onChange={toggleDiarization} />
+            {diarizationStep && availableDiarizationModels.length > 0 ? (
+              <div className="scr-form-grid">
+                <SelectField label="Model" value={selectedDiarizationModelID} options={diarizationModelOptions(availableDiarizationModels)} onChange={updateDiarizationModel} />
+              </div>
+            ) : null}
+            {diarizationStep && availableDiarizationModels.length === 0 ? <div className="scr-alert">No diarization model card is available.</div> : null}
+          </section>
+
+          {diarizationStep ? (
+            <ASRParameterForm
+              model={selectedDiarizationModel}
+              values={diarizationStep.options || {}}
+              onChange={updateDiarizationOptions}
+            />
+          ) : null}
         </div>
 
         <footer className="scr-modal-footer">
@@ -166,12 +221,56 @@ function ensureTranscriptionStep(options: TranscriptionProfileOptions, models: T
 
 function withTranscriptionModel(options: TranscriptionProfileOptions, models: TranscriptionModel[], modelID: string): TranscriptionProfileOptions {
   const model = models.find((item) => item.id === modelID) || fallbackModels.find((item) => item.id === modelID) || fallbackModels[0];
+  const existingStep = options.pipeline.find((step) => step.kind === "transcription");
   const nextStep = {
-    ...(options.pipeline.find((step) => step.kind === "transcription") || {}),
+    ...(existingStep || {}),
     kind: "transcription" as const,
     provider: model.provider,
     model: model.id,
+    options: sanitizeParameterValues(model, resolveParameterValues(model, existingStep?.options || {})),
   };
   const otherSteps = options.pipeline.filter((step) => step.kind !== "transcription");
   return { pipeline: [nextStep, ...otherSteps] };
+}
+
+function withDiarizationModel(options: TranscriptionProfileOptions, models: TranscriptionModel[], modelID: string): TranscriptionProfileOptions {
+  const model = models.find((item) => item.id === modelID) || models[0];
+  if (!model) return options;
+  const existingStep = options.pipeline.find((step) => step.kind === "diarization");
+  const nextStep = {
+    ...(existingStep || {}),
+    kind: "diarization" as const,
+    provider: model.provider,
+    model: model.id,
+    options: sanitizeParameterValues(model, resolveParameterValues(model, existingStep?.options || {})),
+  };
+  const otherSteps = options.pipeline.filter((step) => step.kind !== "diarization");
+  return { pipeline: [...otherSteps, nextStep] };
+}
+
+function updateStepOptions(options: TranscriptionProfileOptions, kind: ASRStep["kind"], values: Record<string, unknown>): TranscriptionProfileOptions {
+  return {
+    pipeline: options.pipeline.map((step) => (step.kind === kind ? { ...step, options: values } : step)),
+  };
+}
+
+function prepareProfileOptionsForSave(options: TranscriptionProfileOptions, models: TranscriptionModel[], diarizationModels: TranscriptionModel[]): TranscriptionProfileOptions {
+  const withTranscription = ensureTranscriptionStep(options, models);
+  return {
+    pipeline: withTranscription.pipeline.map((step) => {
+      const model = step.kind === "diarization"
+        ? diarizationModels.find((item) => item.id === step.model)
+        : models.find((item) => item.id === step.model) || fallbackModels.find((item) => item.id === step.model);
+      if (!model) return step;
+      return { ...step, options: sanitizeParameterValues(model, resolveParameterValues(model, step.options || {})) };
+    }),
+  };
+}
+
+function diarizationModelOptions(models: TranscriptionModel[]): SelectOption[] {
+  return models.map((model) => ({
+    value: model.id,
+    label: model.display_name || model.id,
+    description: model.installed ? "Installed locally" : "Downloads on use",
+  }));
 }

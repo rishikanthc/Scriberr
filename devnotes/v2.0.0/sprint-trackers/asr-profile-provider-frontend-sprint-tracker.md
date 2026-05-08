@@ -2,7 +2,7 @@
 
 Run ID: `ASR-PROFILE-FE`
 
-Status: completed through ASR-PROFILE-FE-Sprint 2.
+Status: completed through ASR-PROFILE-FE-Sprint 3.
 
 This tracker belongs to `devnotes/v2.0.0/sprint-plans/asr-profile-provider-frontend-sprint-plan.md`.
 
@@ -201,32 +201,36 @@ Commit:
 
 ## ASR-PROFILE-FE-Sprint 3: Profile Dialog Revamp
 
-Status: pending
+Status: completed
 
 Planned tasks:
 
-- [ ] Keep profile name, description, and default toggle.
-- [ ] Render a transcription step selector using transcription model cards.
-- [ ] Save the first pipeline step as `kind`, `provider`, `model`, `model_family` if required, and `options`.
-- [ ] Add an optional diarization step toggle.
-- [ ] Render diarization parameters from a diarization model schema where available.
-- [ ] Remove hard-coded language/task/thread/tail-padding/chunking/diarization controls from `ASRProfileDialog.tsx`.
-- [ ] Add compact summaries for selected model, installed/download state, reload-required changes, and advanced fields.
+- [x] Keep profile name, description, and default toggle.
+- [x] Render a transcription step selector using transcription model cards.
+- [x] Save the first pipeline step as `kind`, `provider`, `model`, `model_family` if required, and `options`.
+- [x] Add an optional diarization step toggle.
+- [x] Render diarization parameters from a diarization model schema where available.
+- [x] Remove hard-coded language/task/thread/tail-padding/chunking/diarization controls from `ASRProfileDialog.tsx`.
+- [x] Add compact summaries for selected model, installed/download state, reload-required changes, and advanced fields.
 
 Acceptance checks:
 
-- [ ] The dialog exposes every parameter in the selected transcription model schema.
-- [ ] Parakeet TDT v2/v3 show Parakeet-supported parameters and no Whisper-only parameters.
-- [ ] Whisper models show Whisper-specific language/task/timestamp controls.
-- [ ] Diarization is descriptor-driven or explicitly blocked pending a backend model-card endpoint.
+- [x] The dialog exposes every parameter in the selected transcription model schema.
+- [x] Parakeet TDT v2/v3 show Parakeet-supported parameters and no Whisper-only parameters.
+- [x] Whisper models show Whisper-specific language/task/timestamp controls.
+- [x] Diarization is descriptor-driven or explicitly blocked pending a backend model-card endpoint.
 
 Verification:
 
-- [ ] Pending.
+- [x] `npm --prefix web/frontend run build`
+- [x] `npm --prefix web/frontend run lint` (passes with existing warnings outside this sprint)
+- [x] `git diff --check -- web/frontend/src/features/settings/components/ASRProfileDialog.tsx web/frontend/src/features/settings/pages/SettingsPage.tsx devnotes/v2.0.0/sprint-trackers/asr-profile-provider-frontend-sprint-tracker.md`
 
 Artifacts:
 
-- Pending.
+- `web/frontend/src/features/settings/components/ASRProfileDialog.tsx`
+- `web/frontend/src/features/settings/pages/SettingsPage.tsx`
+- `devnotes/v2.0.0/sprint-trackers/asr-profile-provider-frontend-sprint-tracker.md`
 
 Commit:
 

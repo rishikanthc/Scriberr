@@ -4,7 +4,7 @@ import { Sidebar } from "@/features/home/components/HomePage";
 import { AppButton, IconButton } from "@/shared/ui/Button";
 import { ConfirmDialog } from "@/shared/ui/ConfirmDialog";
 import { EmptyState } from "@/shared/ui/EmptyState";
-import { useDeleteProfile, useProfiles, useSaveProfile, useTranscriptionModels } from "@/features/settings/hooks/useProfiles";
+import { useASRModels, useDeleteProfile, useProfiles, useSaveProfile, useTranscriptionModels } from "@/features/settings/hooks/useProfiles";
 import { ASRProfileDialog } from "../components/ASRProfileDialog";
 import { GeneralSettingsPanel } from "../components/GeneralSettingsPanel";
 import { LLMProviderPanel } from "../components/LLMProviderPanel";
@@ -22,6 +22,7 @@ export function Settings() {
   const [profileToDelete, setProfileToDelete] = useState<TranscriptionProfile | null>(null);
   const profilesQuery = useProfiles();
   const modelsQuery = useTranscriptionModels();
+  const diarizationModelsQuery = useASRModels(["diarization"]);
   const saveProfileMutation = useSaveProfile();
   const deleteProfileMutation = useDeleteProfile();
   const profiles = useMemo(() => profilesQuery.data ?? [], [profilesQuery.data]);
@@ -142,6 +143,7 @@ export function Settings() {
         open={dialogOpen}
         profile={editingProfile}
         models={modelsQuery.data || []}
+        diarizationModels={diarizationModelsQuery.data || []}
         onClose={() => {
           setDialogOpen(false);
           setEditingProfile(null);
