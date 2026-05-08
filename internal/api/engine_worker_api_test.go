@@ -122,6 +122,123 @@ func testASRCapabilities(capabilities ...asrcontract.Capability) asrcontract.Cap
 	return out
 }
 
+func TestASRModelCatalogEndpointFiltersCapabilities(t *testing.T) {
+	s := newAuthTestServer(t)
+	registry, err := engineprovider.NewRegistry("local", fakeCapabilityProvider{models: []asrcontract.ModelCard{
+		{
+			ID:          "parakeet-v2",
+			DisplayName: "NVIDIA Parakeet TDT v2",
+			Provider:    "local",
+			ModelType:   "nemo_transducer",
+			Installed:   true,
+			Capabilities: testASRCapabilities(
+				asrcontract.CapabilityTranscription,
+				asrcontract.CapabilityWordTimestamps,
+				asrcontract.CapabilitySegmentTimestamps,
+			),
+			ParameterSchema: asrcontract.ParameterSchema{
+				{Key: asrcontract.CommonParameterChunkingMode, Type: asrcontract.ParameterTypeEnum, Scope: asrcontract.ParameterScopeChunking, Options: []asrcontract.ParameterOption{{Value: "fixed", Label: "Fixed"}}},
+				{Key: "sherpa.model_type", Type: asrcontract.ParameterTypeString, Scope: asrcontract.ParameterScopeModel, Default: "nemo_transducer"},
+			},
+			RecommendedDefaults: map[string]any{"sherpa.model_type": "nemo_transducer"},
+		},
+		{
+			ID:          "parakeet-v3",
+			DisplayName: "NVIDIA Parakeet TDT v3",
+			Provider:    "local",
+			ModelType:   "nemo_transducer",
+			Installed:   true,
+			Capabilities: testASRCapabilities(
+				asrcontract.CapabilityTranscription,
+				asrcontract.CapabilityWordTimestamps,
+				asrcontract.CapabilitySegmentTimestamps,
+			),
+			ParameterSchema: asrcontract.ParameterSchema{
+				{Key: asrcontract.CommonParameterChunkingMode, Type: asrcontract.ParameterTypeEnum, Scope: asrcontract.ParameterScopeChunking, Options: []asrcontract.ParameterOption{{Value: "fixed", Label: "Fixed"}}},
+				{Key: "sherpa.model_type", Type: asrcontract.ParameterTypeString, Scope: asrcontract.ParameterScopeModel, Default: "nemo_transducer"},
+			},
+			RecommendedDefaults: map[string]any{"sherpa.model_type": "nemo_transducer"},
+		},
+		{
+			ID:          "diarization-default",
+			DisplayName: "Pyannote + 3D-Speaker Diarization",
+			Provider:    "local",
+			ModelType:   "diarization",
+			Installed:   true,
+			Capabilities: testASRCapabilities(
+				asrcontract.CapabilityDiarization,
+			),
+			ParameterSchema: asrcontract.ParameterSchema{
+				{Key: "diarization.num_clusters", Type: asrcontract.ParameterTypeInteger, Scope: asrcontract.ParameterScopeModel, Default: float64(0)},
+			},
+		},
+		{
+			ID:           "speaker-id-default",
+			DisplayName:  "Speaker ID",
+			Provider:     "local",
+			ModelType:    "speaker_identification",
+			Installed:    true,
+			Capabilities: testASRCapabilities(asrcontract.CapabilitySpeakerIdentification),
+		},
+	}})
+	require.NoError(t, err)
+	s.handler.modelRegistry = registry
+	token := registerForFileTests(t, s)
+
+	resp, body := s.request(t, http.MethodGet, "/api/v1/models", nil, token, "")
+	require.Equal(t, http.StatusOK, resp.Code)
+	require.ElementsMatch(t, []string{"parakeet-v2", "parakeet-v3", "diarization-default", "speaker-id-default"}, modelIDsFromResponse(body))
+
+	resp, body = s.request(t, http.MethodGet, "/api/v1/models?capability=transcription", nil, token, "")
+	require.Equal(t, http.StatusOK, resp.Code)
+	require.ElementsMatch(t, []string{"parakeet-v2", "parakeet-v3"}, modelIDsFromResponse(body))
+	requireModelSchemaKey(t, body, "parakeet-v2", "sherpa.model_type")
+	requireModelSchemaKey(t, body, "parakeet-v3", "sherpa.model_type")
+
+	resp, body = s.request(t, http.MethodGet, "/api/v1/models?capability=diarization", nil, token, "")
+	require.Equal(t, http.StatusOK, resp.Code)
+	require.ElementsMatch(t, []string{"diarization-default"}, modelIDsFromResponse(body))
+	requireModelSchemaKey(t, body, "diarization-default", "diarization.num_clusters")
+
+	resp, body = s.request(t, http.MethodGet, "/api/v1/models?capability=transcription,diarization", nil, token, "")
+	require.Equal(t, http.StatusOK, resp.Code)
+	require.ElementsMatch(t, []string{"parakeet-v2", "parakeet-v3", "diarization-default"}, modelIDsFromResponse(body))
+
+	resp, body = s.request(t, http.MethodGet, "/api/v1/models?capability=unknown", nil, token, "")
+	require.Equal(t, http.StatusUnprocessableEntity, resp.Code)
+	require.Equal(t, "VALIDATION_ERROR", body["error"].(map[string]any)["code"])
+}
+
+func modelIDsFromResponse(body map[string]any) []string {
+	items := body["items"].([]any)
+	out := make([]string, 0, len(items))
+	for _, item := range items {
+		model := item.(map[string]any)
+		out = append(out, model["id"].(string))
+	}
+	return out
+}
+
+func requireModelSchemaKey(t *testing.T, body map[string]any, modelID string, key string) {
+	t.Helper()
+	items := body["items"].([]any)
+	for _, item := range items {
+		model := item.(map[string]any)
+		if model["id"] != modelID {
+			continue
+		}
+		schema := model["parameter_schema"].([]any)
+		for _, rawParameter := range schema {
+			parameter := rawParameter.(map[string]any)
+			if parameter["key"] == key {
+				return
+			}
+		}
+		require.Failf(t, "missing schema key", "model %q missing parameter %q", modelID, key)
+	}
+	require.Failf(t, "missing model", "model %q not found", modelID)
+}
+
 type fakeAdminASRProvider struct {
 	mu         sync.Mutex
 	id         string

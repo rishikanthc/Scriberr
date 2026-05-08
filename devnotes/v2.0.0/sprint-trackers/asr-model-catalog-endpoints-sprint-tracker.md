@@ -2,7 +2,7 @@
 
 Run ID: `ASR-MODEL-CATALOG`
 
-Status: not started.
+Status: completed through ASR-MODEL-CATALOG-Sprint 1.
 
 This tracker belongs to `devnotes/v2.0.0/sprint-plans/asr-model-catalog-endpoints-sprint-plan.md`.
 
@@ -23,29 +23,34 @@ This tracker belongs to `devnotes/v2.0.0/sprint-plans/asr-model-catalog-endpoint
 
 ## ASR-MODEL-CATALOG-Sprint 0: Route Contract And Capability Matrix
 
-Status: pending
+Status: completed
 
 Planned tasks:
 
-- [ ] Add route contract tests for the new model-card endpoint.
-- [ ] Test no filter returns all ASR model cards.
-- [ ] Test `capability=transcription` returns `parakeet-v2` and `parakeet-v3`.
-- [ ] Test `capability=diarization` returns `diarization-default`.
-- [ ] Test comma-separated filters.
-- [ ] Test invalid capability validation.
+- [x] Add route contract tests for the new model-card endpoint.
+- [x] Test no filter returns all ASR model cards.
+- [x] Test `capability=transcription` returns `parakeet-v2` and `parakeet-v3`.
+- [x] Test `capability=diarization` returns `diarization-default`.
+- [x] Test comma-separated filters.
+- [x] Test invalid capability validation.
 
 Acceptance checks:
 
-- [ ] API contract is explicit before implementation.
-- [ ] Route shape supports profile pipeline editing.
+- [x] API contract is explicit before implementation.
+- [x] Route shape supports profile pipeline editing.
 
 Verification:
 
-- [ ] Pending.
+- [x] `GOCACHE=/tmp/scriberr-go-cache go test ./internal/api -run 'TestASRModelCatalogEndpointFiltersCapabilities|TestRouteContract|TestTranscriptExecutionsLogsModelsAndStatsUseEngineServices'`
+- [x] `GOCACHE=/tmp/scriberr-go-cache go test ./internal/api ./internal/transcription/engineprovider ./internal/transcription/asrcontract`
+- [x] `GOCACHE=/tmp/scriberr-go-cache go vet ./internal/api ./internal/transcription/engineprovider ./internal/transcription/asrcontract`
+- [x] `git diff --check -- internal/api/admin_handlers.go internal/api/router.go internal/api/route_contract_test.go internal/api/engine_worker_api_test.go devnotes/v2.0.0/sprint-trackers/asr-model-catalog-endpoints-sprint-tracker.md`
 
 Artifacts:
 
-- Pending.
+- `internal/api/engine_worker_api_test.go`
+- `internal/api/route_contract_test.go`
+- `devnotes/v2.0.0/sprint-trackers/asr-model-catalog-endpoints-sprint-tracker.md`
 
 Commit:
 
@@ -53,29 +58,36 @@ Commit:
 
 ## ASR-MODEL-CATALOG-Sprint 1: Endpoint Implementation
 
-Status: pending
+Status: completed
 
 Planned tasks:
 
-- [ ] Register the new route under `/api/v1/models`.
-- [ ] Add capability query parsing.
-- [ ] Reuse registry model-card retrieval.
-- [ ] Reuse `sanitizeModelCards`.
-- [ ] Decide whether `/api/v1/models/transcription` remains or is removed.
+- [x] Register the new route under `/api/v1/models`.
+- [x] Add capability query parsing.
+- [x] Reuse registry model-card retrieval.
+- [x] Reuse `sanitizeModelCards`.
+- [x] Keep `/api/v1/models/transcription` until frontend callers migrate to `/api/v1/models?capability=transcription`.
 
 Acceptance checks:
 
-- [ ] Transcription and diarization model cards are available to the frontend.
-- [ ] `diarization-default` includes `parameter_schema`.
-- [ ] Parakeet TDT v2/v3 remain visible through the new endpoint.
+- [x] Transcription and diarization model cards are available to the frontend.
+- [x] `diarization-default` includes `parameter_schema`.
+- [x] Parakeet TDT v2/v3 remain visible through the new endpoint.
 
 Verification:
 
-- [ ] Pending.
+- [x] `GOCACHE=/tmp/scriberr-go-cache go test ./internal/api -run 'TestASRModelCatalogEndpointFiltersCapabilities|TestRouteContract|TestTranscriptExecutionsLogsModelsAndStatsUseEngineServices'`
+- [x] `GOCACHE=/tmp/scriberr-go-cache go test ./internal/api ./internal/transcription/engineprovider ./internal/transcription/asrcontract`
+- [x] `GOCACHE=/tmp/scriberr-go-cache go vet ./internal/api ./internal/transcription/engineprovider ./internal/transcription/asrcontract`
+- [x] `git diff --check -- internal/api/admin_handlers.go internal/api/router.go internal/api/route_contract_test.go internal/api/engine_worker_api_test.go devnotes/v2.0.0/sprint-trackers/asr-model-catalog-endpoints-sprint-tracker.md`
 
 Artifacts:
 
-- Pending.
+- `internal/api/admin_handlers.go`
+- `internal/api/router.go`
+- `internal/api/engine_worker_api_test.go`
+- `internal/api/route_contract_test.go`
+- `devnotes/v2.0.0/sprint-trackers/asr-model-catalog-endpoints-sprint-tracker.md`
 
 Commit:
 

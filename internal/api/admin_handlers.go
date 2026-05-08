@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"regexp"
 	"strconv"
+	"strings"
 	"time"
 
 	admindomain "scriberr/internal/admin"
@@ -18,23 +19,94 @@ import (
 )
 
 func (h *Handler) listTranscriptionModels(c *gin.Context) {
+	h.listASRModelsFiltered(c, []asrcontract.Capability{asrcontract.CapabilityTranscription})
+}
+
+func (h *Handler) listASRModels(c *gin.Context) {
+	capabilities, ok := parseModelCapabilityFilter(c)
+	if !ok {
+		return
+	}
+	h.listASRModelsFiltered(c, capabilities)
+}
+
+func (h *Handler) listASRModelsFiltered(c *gin.Context, capabilities []asrcontract.Capability) {
 	if h.modelRegistry != nil {
 		models, err := h.modelRegistry.Models(c.Request.Context())
 		if err != nil {
-			writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not list transcription models", nil)
+			writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not list ASR models", nil)
 			return
 		}
-		transcriptionModels := make([]asrcontract.ModelCard, 0, len(models))
+		filtered := make([]asrcontract.ModelCard, 0, len(models))
 		for _, model := range models {
-			if model.Supports(asrcontract.CapabilityTranscription) {
-				transcriptionModels = append(transcriptionModels, model)
+			if modelSupportsAny(model, capabilities) {
+				filtered = append(filtered, model)
 			}
 		}
-		c.JSON(http.StatusOK, gin.H{"items": sanitizeModelCards(transcriptionModels)})
+		c.JSON(http.StatusOK, gin.H{"items": sanitizeModelCards(filtered)})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"items": []gin.H{}})
 }
+
+func parseModelCapabilityFilter(c *gin.Context) ([]asrcontract.Capability, bool) {
+	raw := strings.TrimSpace(c.Query("capability"))
+	if raw == "" {
+		return nil, true
+	}
+	parts := strings.Split(raw, ",")
+	out := make([]asrcontract.Capability, 0, len(parts))
+	seen := make(map[asrcontract.Capability]struct{}, len(parts))
+	for _, part := range parts {
+		capability := asrcontract.Capability(strings.TrimSpace(part))
+		if capability == "" {
+			continue
+		}
+		if !validModelCapability(capability) {
+			writeError(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "capability is invalid", stringPtr("capability"))
+			return nil, false
+		}
+		if _, exists := seen[capability]; exists {
+			continue
+		}
+		seen[capability] = struct{}{}
+		out = append(out, capability)
+	}
+	return out, true
+}
+
+func validModelCapability(capability asrcontract.Capability) bool {
+	switch capability {
+	case asrcontract.CapabilityTranscription,
+		asrcontract.CapabilityDiarization,
+		asrcontract.CapabilitySpeakerIdentification,
+		asrcontract.CapabilityTranslation,
+		asrcontract.CapabilityWordTimestamps,
+		asrcontract.CapabilitySegmentTimestamps,
+		asrcontract.CapabilityTokenTimestamps,
+		asrcontract.CapabilityStreaming,
+		asrcontract.CapabilityCustomVocabulary,
+		asrcontract.CapabilityInitialPrompt,
+		asrcontract.CapabilityLanguageDetection,
+		asrcontract.CapabilitySpeakerEmbeddings:
+		return true
+	default:
+		return false
+	}
+}
+
+func modelSupportsAny(model asrcontract.ModelCard, capabilities []asrcontract.Capability) bool {
+	if len(capabilities) == 0 {
+		return true
+	}
+	for _, capability := range capabilities {
+		if model.Supports(capability) {
+			return true
+		}
+	}
+	return false
+}
+
 func (h *Handler) queueStats(c *gin.Context) {
 	if h.queueService != nil {
 		stats, err := h.queueService.AdminStats(c.Request.Context())

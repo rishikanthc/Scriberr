@@ -369,6 +369,7 @@ func SetupRoutes(handler *Handler, _ *auth.AuthService) *gin.Engine {
 		}
 
 		v1.GET("/events", handler.authRequired(), handler.streamEvents)
+		v1.GET("/models", handler.authRequired(), handler.listASRModels)
 		v1.GET("/models/transcription", handler.authRequired(), handler.listTranscriptionModels)
 		adminRoutes := v1.Group("/admin")
 		adminRoutes.Use(handler.adminRequired())

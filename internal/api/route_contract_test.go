@@ -99,6 +99,7 @@ func TestCanonicalRouteRegistration(t *testing.T) {
 		"DELETE /api/v1/chat/sessions/:session_id/context/transcripts/:context_source_id",
 		"POST /api/v1/chat/sessions/:session_id/title:generate",
 		"GET /api/v1/events",
+		"GET /api/v1/models",
 		"GET /api/v1/models/transcription",
 		"GET /api/v1/admin/queue",
 		"GET /api/v1/admin/queue/scheduler",
