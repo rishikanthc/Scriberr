@@ -31,24 +31,14 @@ type Registry interface {
 	Provider(id string) (Provider, bool)
 	Providers() []Provider
 	Models(ctx context.Context) ([]asrcontract.ModelCard, error)
-	Capabilities(ctx context.Context) ([]ModelCapability, error)
 	SelectModel(ctx context.Context, providerID string, modelID string, required ...asrcontract.Capability) (asrcontract.ModelCard, error)
-	Select(ctx context.Context, req SelectionRequest) (Provider, *ModelCapability, error)
-}
-
-type ModelCapability struct {
-	ID           string
-	Name         string
-	Provider     string
-	Installed    bool
-	Default      bool
-	Capabilities []string
+	Select(ctx context.Context, req SelectionRequest) (Provider, asrcontract.ModelCard, error)
 }
 
 type SelectionRequest struct {
 	ProviderID string
 	ModelID    string
-	Requires   []string
+	Requires   []asrcontract.Capability
 }
 
 type TaskRequest struct {

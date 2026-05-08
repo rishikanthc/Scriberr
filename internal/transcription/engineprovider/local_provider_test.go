@@ -405,24 +405,24 @@ func TestLocalProviderCapabilitiesUseEngineDescriptors(t *testing.T) {
 		t.Fatalf("NewRegistry returned error: %v", err)
 	}
 
-	capabilities, err := registry.Capabilities(context.Background())
+	models, err := registry.Models(context.Background())
 	if err != nil {
-		t.Fatalf("Capabilities returned error: %v", err)
+		t.Fatalf("Models returned error: %v", err)
 	}
-	if len(capabilities) != 2 {
-		t.Fatalf("capabilities length = %d", len(capabilities))
+	if len(models) != 2 {
+		t.Fatalf("models length = %d", len(models))
 	}
-	if !capabilities[0].Installed || !capabilities[0].Default {
-		t.Fatalf("whisper-base capability missing installed/default: %#v", capabilities[0])
+	if !models[0].Installed || !models[0].Default {
+		t.Fatalf("whisper-base model missing installed/default: %#v", models[0])
 	}
-	if strings.Join(capabilities[0].Capabilities, ",") != "transcription,translation,word_timestamps,segment_timestamps,token_timestamps" {
-		t.Fatalf("whisper capabilities = %#v", capabilities[0].Capabilities)
+	if !models[0].Capabilities.Transcription || !models[0].Capabilities.Translation || !models[0].Capabilities.WordTimestamps || !models[0].Capabilities.SegmentTimestamps || !models[0].Capabilities.TokenTimestamps {
+		t.Fatalf("whisper capabilities = %#v", models[0].Capabilities)
 	}
-	if capabilities[1].Installed || !capabilities[1].Default {
-		t.Fatalf("diarization capability installed/default mismatch: %#v", capabilities[1])
+	if models[1].Installed || !models[1].Default {
+		t.Fatalf("diarization model installed/default mismatch: %#v", models[1])
 	}
-	if strings.Join(capabilities[1].Capabilities, ",") != "diarization" {
-		t.Fatalf("diarization capabilities = %#v", capabilities[1].Capabilities)
+	if !models[1].Capabilities.Diarization {
+		t.Fatalf("diarization capabilities = %#v", models[1].Capabilities)
 	}
 }
 

@@ -6,7 +6,6 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"strings"
 	"testing"
 	"time"
 
@@ -24,7 +23,6 @@ import (
 
 type fakeProvider struct {
 	id         string
-	caps       []engineprovider.ModelCapability
 	modelCards []asrcontract.ModelCard
 	transcribe *engineprovider.TranscriptionResult
 	diarize    *engineprovider.DiarizationResult
@@ -44,7 +42,15 @@ func (p *fakeProvider) Inspect(context.Context) (*asrcontract.ProviderInfo, erro
 }
 func (p *fakeProvider) Models(context.Context) ([]asrcontract.ModelCard, error) {
 	if p.modelCards == nil {
-		return orchestratorModelCardsFromCapabilities(p.modelCapabilities()), nil
+		return []asrcontract.ModelCard{
+			orchestratorModelCard(p.id, "whisper-base", "whisper", true, asrcontract.CapabilityTranscription),
+			orchestratorModelCard(p.id, "whisper-base-en", "whisper", false, asrcontract.CapabilityTranscription),
+			orchestratorModelCard(p.id, "custom-transcriber", "whisper", false, asrcontract.CapabilityTranscription),
+			orchestratorModelCard(p.id, "remote-model", "whisper", false, asrcontract.CapabilityTranscription),
+			orchestratorModelCard(p.id, "diarization-default", "diarization", true, asrcontract.CapabilityDiarization),
+			orchestratorModelCard(p.id, "custom-diarizer", "diarization", false, asrcontract.CapabilityDiarization),
+			orchestratorModelCard(p.id, "speaker-id-default", "speaker_identification", false, asrcontract.CapabilitySpeakerIdentification),
+		}, nil
 	}
 	return p.modelCards, nil
 }
@@ -55,20 +61,6 @@ func (p *fakeProvider) LoadModel(context.Context, asrcontract.LoadModelRequest) 
 func (p *fakeProvider) UnloadModel(context.Context, asrcontract.UnloadModelRequest) error { return nil }
 func (p *fakeProvider) LoadedModels(context.Context) ([]asrcontract.LoadedModel, error) {
 	return nil, nil
-}
-func (p *fakeProvider) modelCapabilities() []engineprovider.ModelCapability {
-	if p.caps != nil {
-		return p.caps
-	}
-	return []engineprovider.ModelCapability{
-		{ID: "whisper-base", Provider: p.id, Installed: true, Default: true, Capabilities: []string{"transcription"}},
-		{ID: "whisper-base-en", Provider: p.id, Installed: true, Capabilities: []string{"transcription"}},
-		{ID: "custom-transcriber", Provider: p.id, Installed: true, Capabilities: []string{"transcription"}},
-		{ID: "remote-model", Provider: p.id, Installed: true, Capabilities: []string{"transcription"}},
-		{ID: "diarization-default", Provider: p.id, Installed: true, Default: true, Capabilities: []string{"diarization"}},
-		{ID: "custom-diarizer", Provider: p.id, Installed: true, Capabilities: []string{"diarization"}},
-		{ID: "speaker-id-default", Provider: p.id, Installed: true, Capabilities: []string{"speaker_identification"}},
-	}
 }
 func (p *fakeProvider) ExecuteTask(ctx context.Context, req engineprovider.TaskRequest) (*engineprovider.TaskResult, error) {
 	switch req.Operation {
@@ -104,53 +96,31 @@ func (p *fakeProvider) ExecuteTask(ctx context.Context, req engineprovider.TaskR
 }
 func (p *fakeProvider) Close() error { return nil }
 
-func orchestratorModelCardsFromCapabilities(capabilities []engineprovider.ModelCapability) []asrcontract.ModelCard {
-	out := make([]asrcontract.ModelCard, 0, len(capabilities))
-	for _, capability := range capabilities {
-		out = append(out, asrcontract.ModelCard{
-			ID:           capability.ID,
-			Provider:     capability.Provider,
-			ModelType:    orchestratorModelType(capability),
-			Installed:    capability.Installed,
-			Default:      capability.Default,
-			Capabilities: orchestratorCapabilitiesFromStrings(capability.Capabilities),
-		})
-	}
-	return out
-}
-
-func orchestratorModelType(capability engineprovider.ModelCapability) string {
-	for _, name := range capability.Capabilities {
-		if name == string(asrcontract.CapabilityDiarization) {
-			return "diarization"
-		}
-	}
-	switch {
-	case strings.HasPrefix(capability.ID, "whisper-"):
-		return "whisper"
-	case strings.HasPrefix(capability.ID, "parakeet-"):
-		return "nemo_transducer"
-	case strings.Contains(capability.ID, "diarization"):
-		return "diarization"
-	default:
-		return ""
+func orchestratorModelCard(provider, id, modelType string, isDefault bool, capabilities ...asrcontract.Capability) asrcontract.ModelCard {
+	return asrcontract.ModelCard{
+		ID:           id,
+		Provider:     provider,
+		ModelType:    modelType,
+		Installed:    true,
+		Default:      isDefault,
+		Capabilities: orchestratorCapabilities(capabilities...),
 	}
 }
 
-func orchestratorCapabilitiesFromStrings(names []string) asrcontract.Capabilities {
+func orchestratorCapabilities(capabilities ...asrcontract.Capability) asrcontract.Capabilities {
 	out := asrcontract.Capabilities{Extensions: map[string]bool{}}
-	for _, name := range names {
-		switch name {
-		case string(asrcontract.CapabilityTranscription):
+	for _, capability := range capabilities {
+		switch capability {
+		case asrcontract.CapabilityTranscription:
 			out.Transcription = true
-		case string(asrcontract.CapabilityDiarization):
+		case asrcontract.CapabilityDiarization:
 			out.Diarization = true
-		case string(asrcontract.CapabilitySpeakerIdentification):
+		case asrcontract.CapabilitySpeakerIdentification:
 			out.SpeakerIdentification = true
-		case string(asrcontract.CapabilityWordTimestamps):
+		case asrcontract.CapabilityWordTimestamps:
 			out.WordTimestamps = true
 		default:
-			out.Extensions[name] = true
+			out.Extensions[string(capability)] = true
 		}
 	}
 	if len(out.Extensions) == 0 {
@@ -324,12 +294,6 @@ func TestProcessorPassesProviderSpecificChunkingOptionsWithoutBackendPlanning(t 
 	})
 	provider := &fakeProvider{
 		id: "remote",
-		caps: []engineprovider.ModelCapability{{
-			ID:           "provider-chunker",
-			Provider:     "remote",
-			Installed:    true,
-			Capabilities: []string{"transcription"},
-		}},
 		modelCards: []asrcontract.ModelCard{{
 			ID:       "provider-chunker",
 			Provider: "remote",
@@ -373,13 +337,8 @@ func TestProcessorChainsDiarizationAcrossProviders(t *testing.T) {
 		},
 	})
 	local := &fakeProvider{
-		id: "local",
-		caps: []engineprovider.ModelCapability{{
-			ID:           "local-transcriber",
-			Provider:     "local",
-			Installed:    true,
-			Capabilities: []string{"transcription"},
-		}},
+		id:         "local",
+		modelCards: []asrcontract.ModelCard{orchestratorModelCard("local", "local-transcriber", "nemo_transducer", false, asrcontract.CapabilityTranscription)},
 		transcribe: &engineprovider.TranscriptionResult{
 			Text: "Hello.",
 			Words: []engineprovider.TranscriptWord{
@@ -390,13 +349,8 @@ func TestProcessorChainsDiarizationAcrossProviders(t *testing.T) {
 		},
 	}
 	remote := &fakeProvider{
-		id: "remote-diarizer",
-		caps: []engineprovider.ModelCapability{{
-			ID:           "remote-diarizer-model",
-			Provider:     "remote-diarizer",
-			Installed:    true,
-			Capabilities: []string{"diarization"},
-		}},
+		id:         "remote-diarizer",
+		modelCards: []asrcontract.ModelCard{orchestratorModelCard("remote-diarizer", "remote-diarizer-model", "diarization", false, asrcontract.CapabilityDiarization)},
 		diarize: &engineprovider.DiarizationResult{
 			ModelID:  "remote-diarizer-model",
 			EngineID: "remote-diarizer",
@@ -500,13 +454,8 @@ func TestProcessorExecutesSpeakerIdentificationStep(t *testing.T) {
 		},
 	}
 	speakerProvider := &fakeProvider{
-		id: "speaker-provider",
-		caps: []engineprovider.ModelCapability{{
-			ID:           "speaker-id-default",
-			Provider:     "speaker-provider",
-			Installed:    true,
-			Capabilities: []string{"speaker_identification"},
-		}},
+		id:         "speaker-provider",
+		modelCards: []asrcontract.ModelCard{orchestratorModelCard("speaker-provider", "speaker-id-default", "speaker_identification", false, asrcontract.CapabilitySpeakerIdentification)},
 		speakerID: &asrcontract.SpeakerIDResult{
 			Model:    "speaker-id-default",
 			Speakers: []asrcontract.SpeakerIdentity{{Speaker: "SPEAKER_00", Label: "Ada"}},

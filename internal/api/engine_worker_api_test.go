@@ -61,7 +61,7 @@ func setTestQueueService(s *authTestServer, queue *fakeQueueService) {
 }
 
 type fakeCapabilityProvider struct {
-	caps []engineprovider.ModelCapability
+	models []asrcontract.ModelCard
 }
 
 func (p fakeCapabilityProvider) ID() string { return "local" }
@@ -69,7 +69,7 @@ func (p fakeCapabilityProvider) Inspect(context.Context) (*asrcontract.ProviderI
 	return &asrcontract.ProviderInfo{ContractVersion: asrcontract.ContractVersionV1}, nil
 }
 func (p fakeCapabilityProvider) Models(context.Context) ([]asrcontract.ModelCard, error) {
-	return modelCardsFromTestCapabilities(p.caps), nil
+	return p.models, nil
 }
 func (p fakeCapabilityProvider) Status(context.Context) (*asrcontract.ProviderStatus, error) {
 	return &asrcontract.ProviderStatus{State: asrcontract.ProviderStateIdle}, nil
@@ -88,53 +88,32 @@ func (p fakeCapabilityProvider) ExecuteTask(context.Context, engineprovider.Task
 }
 func (p fakeCapabilityProvider) Close() error { return nil }
 
-func modelCardsFromTestCapabilities(capabilities []engineprovider.ModelCapability) []asrcontract.ModelCard {
-	out := make([]asrcontract.ModelCard, 0, len(capabilities))
-	for _, capability := range capabilities {
-		out = append(out, asrcontract.ModelCard{
-			ID:           capability.ID,
-			Provider:     capability.Provider,
-			ModelType:    testModelType(capability),
-			Installed:    capability.Installed,
-			Default:      capability.Default,
-			Capabilities: testASRCapabilities(capability.Capabilities),
-		})
-	}
-	return out
-}
-
-func testModelType(capability engineprovider.ModelCapability) string {
-	for _, name := range capability.Capabilities {
-		if name == string(asrcontract.CapabilityDiarization) {
-			return "diarization"
-		}
-	}
-	switch {
-	case strings.HasPrefix(capability.ID, "whisper-"):
-		return "whisper"
-	case strings.HasPrefix(capability.ID, "parakeet-"):
-		return "nemo_transducer"
-	case strings.Contains(capability.ID, "diarization"):
-		return "diarization"
-	default:
-		return ""
+func testASRModel(provider, id, name, modelType string, isDefault bool, capabilities ...asrcontract.Capability) asrcontract.ModelCard {
+	return asrcontract.ModelCard{
+		ID:           id,
+		DisplayName:  name,
+		Provider:     provider,
+		ModelType:    modelType,
+		Installed:    true,
+		Default:      isDefault,
+		Capabilities: testASRCapabilities(capabilities...),
 	}
 }
 
-func testASRCapabilities(names []string) asrcontract.Capabilities {
+func testASRCapabilities(capabilities ...asrcontract.Capability) asrcontract.Capabilities {
 	out := asrcontract.Capabilities{Extensions: map[string]bool{}}
-	for _, name := range names {
-		switch name {
-		case string(asrcontract.CapabilityTranscription):
+	for _, capability := range capabilities {
+		switch capability {
+		case asrcontract.CapabilityTranscription:
 			out.Transcription = true
-		case string(asrcontract.CapabilityDiarization):
+		case asrcontract.CapabilityDiarization:
 			out.Diarization = true
-		case string(asrcontract.CapabilitySpeakerIdentification):
+		case asrcontract.CapabilitySpeakerIdentification:
 			out.SpeakerIdentification = true
-		case string(asrcontract.CapabilityWordTimestamps):
+		case asrcontract.CapabilityWordTimestamps:
 			out.WordTimestamps = true
 		default:
-			out.Extensions[name] = true
+			out.Extensions[string(capability)] = true
 		}
 	}
 	if len(out.Extensions) == 0 {
@@ -294,8 +273,8 @@ func TestTranscriptExecutionsLogsModelsAndStatsUseEngineServices(t *testing.T) {
 	s := newAuthTestServer(t)
 	queue := &fakeQueueService{stats: worker.QueueStats{Queued: 2, Processing: 1, Completed: 3, Failed: 4, Canceled: 5, Running: 1}}
 	setTestQueueService(s, queue)
-	registry, err := engineprovider.NewRegistry("local", fakeCapabilityProvider{caps: []engineprovider.ModelCapability{
-		{ID: "whisper-base", Name: "Whisper Base", Provider: "local", Installed: true, Default: true, Capabilities: []string{"transcription", "word_timestamps"}},
+	registry, err := engineprovider.NewRegistry("local", fakeCapabilityProvider{models: []asrcontract.ModelCard{
+		testASRModel("local", "whisper-base", "Whisper Base", "whisper", true, asrcontract.CapabilityTranscription, asrcontract.CapabilityWordTimestamps),
 	}})
 	require.NoError(t, err)
 	s.handler.modelRegistry = registry

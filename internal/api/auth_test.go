@@ -31,6 +31,7 @@ import (
 	"scriberr/internal/summarization"
 	"scriberr/internal/tags"
 	transcriptiondomain "scriberr/internal/transcription"
+	"scriberr/internal/transcription/asrcontract"
 	"scriberr/internal/transcription/engineprovider"
 	"scriberr/internal/transcription/orchestrator"
 	"scriberr/pkg/logger"
@@ -87,11 +88,11 @@ func newAuthTestServer(t *testing.T) *authTestServer {
 		repository.NewAPIKeyRepository(database.DB),
 		repository.NewSystemSettingsRepository(database.DB),
 	)
-	providerRegistry, err := engineprovider.NewRegistry("local", fakeCapabilityProvider{caps: []engineprovider.ModelCapability{
-		{ID: "whisper-base", Name: "Whisper Base", Provider: "local", Installed: true, Default: true, Capabilities: []string{"transcription", "word_timestamps"}},
-		{ID: "whisper-small", Name: "Whisper Small", Provider: "local", Installed: true, Capabilities: []string{"transcription", "word_timestamps"}},
-		{ID: "parakeet-v2", Name: "Parakeet v2", Provider: "local", Installed: true, Capabilities: []string{"transcription", "word_timestamps"}},
-		{ID: "diarization-default", Name: "Diarization", Provider: "local", Installed: true, Default: true, Capabilities: []string{"diarization"}},
+	providerRegistry, err := engineprovider.NewRegistry("local", fakeCapabilityProvider{models: []asrcontract.ModelCard{
+		testASRModel("local", "whisper-base", "Whisper Base", "whisper", true, asrcontract.CapabilityTranscription, asrcontract.CapabilityWordTimestamps),
+		testASRModel("local", "whisper-small", "Whisper Small", "whisper", false, asrcontract.CapabilityTranscription, asrcontract.CapabilityWordTimestamps),
+		testASRModel("local", "parakeet-v2", "Parakeet v2", "nemo_transducer", false, asrcontract.CapabilityTranscription, asrcontract.CapabilityWordTimestamps),
+		testASRModel("local", "diarization-default", "Diarization", "diarization", true, asrcontract.CapabilityDiarization),
 	}})
 	require.NoError(t, err)
 	profileService := profiledomain.NewService(profileRepo, profiledomain.NewProviderModelCatalog(providerRegistry))

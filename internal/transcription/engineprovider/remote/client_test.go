@@ -106,12 +106,12 @@ func TestClientControlPlaneEndpoints(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewRegistry returned error: %v", err)
 	}
-	capabilities, err := registry.Capabilities(context.Background())
+	selected, err := registry.SelectModel(context.Background(), "", "", asrcontract.CapabilityTranscription)
 	if err != nil {
-		t.Fatalf("Capabilities returned error: %v", err)
+		t.Fatalf("SelectModel returned error: %v", err)
 	}
-	if len(capabilities) != 1 || capabilities[0].Capabilities[0] != "transcription" {
-		t.Fatalf("unexpected capabilities: %#v", capabilities)
+	if selected.ID != "remote-transcriber" || selected.Provider != "remote-a" {
+		t.Fatalf("unexpected selected model: %#v", selected)
 	}
 	if _, err := client.Status(context.Background()); err != nil {
 		t.Fatalf("Status returned error: %v", err)

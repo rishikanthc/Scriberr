@@ -81,57 +81,35 @@ func (r *StaticRegistry) Models(ctx context.Context) ([]asrcontract.ModelCard, e
 	return out, nil
 }
 
-func (r *StaticRegistry) Capabilities(ctx context.Context) ([]ModelCapability, error) {
-	ids := make([]string, 0, len(r.providers))
-	for id := range r.providers {
-		ids = append(ids, id)
-	}
-	sort.Strings(ids)
-
-	var out []ModelCapability
-	for _, id := range ids {
-		capabilities, err := capabilitiesForProvider(ctx, r.providers[id])
-		if err != nil {
-			return nil, fmt.Errorf("engine provider %q capabilities: %w", id, err)
-		}
-		out = append(out, capabilities...)
-	}
-	return out, nil
-}
-
-func (r *StaticRegistry) Select(ctx context.Context, req SelectionRequest) (Provider, *ModelCapability, error) {
+func (r *StaticRegistry) Select(ctx context.Context, req SelectionRequest) (Provider, asrcontract.ModelCard, error) {
 	providerID := strings.TrimSpace(req.ProviderID)
 	modelID := strings.TrimSpace(req.ModelID)
 	if providerID != "" {
 		provider, ok := r.Provider(providerID)
 		if !ok {
-			return nil, nil, fmt.Errorf("engine provider %q is not available", providerID)
+			return nil, asrcontract.ModelCard{}, fmt.Errorf("engine provider %q is not available", providerID)
 		}
 		if modelID == "" && len(req.Requires) == 0 {
-			return provider, nil, nil
+			return provider, asrcontract.ModelCard{}, nil
 		}
-		capability, err := selectCapabilityForProvider(ctx, provider, modelID, req.Requires)
+		model, err := selectModelForProvider(ctx, provider, modelID, req.Requires)
 		if err != nil {
-			return nil, nil, err
+			return nil, asrcontract.ModelCard{}, err
 		}
-		return provider, capability, nil
+		return provider, model, nil
 	}
 	if modelID != "" || len(req.Requires) > 0 {
 		return r.selectByCapability(ctx, modelID, req.Requires)
 	}
 	provider := r.DefaultProvider()
-	return provider, nil, nil
+	return provider, asrcontract.ModelCard{}, nil
 }
 
 func (r *StaticRegistry) SelectModel(ctx context.Context, providerID string, modelID string, required ...asrcontract.Capability) (asrcontract.ModelCard, error) {
-	names := make([]string, 0, len(required))
-	for _, capability := range required {
-		names = append(names, string(capability))
-	}
-	provider, capability, err := r.Select(ctx, SelectionRequest{
+	provider, model, err := r.Select(ctx, SelectionRequest{
 		ProviderID: providerID,
 		ModelID:    modelID,
-		Requires:   names,
+		Requires:   required,
 	})
 	if err != nil {
 		return asrcontract.ModelCard{}, err
@@ -139,33 +117,13 @@ func (r *StaticRegistry) SelectModel(ctx context.Context, providerID string, mod
 	if provider == nil {
 		return asrcontract.ModelCard{}, fmt.Errorf("selected engine provider is not available")
 	}
-	selectedModel := strings.TrimSpace(modelID)
-	if selectedModel == "" && capability != nil {
-		selectedModel = capability.ID
+	if strings.TrimSpace(model.ID) == "" {
+		return asrcontract.ModelCard{}, fmt.Errorf("engine provider %q did not select a model", provider.ID())
 	}
-	models, err := provider.Models(ctx)
-	if err != nil {
-		return asrcontract.ModelCard{}, fmt.Errorf("engine provider %q models: %w", provider.ID(), err)
-	}
-	for _, model := range models {
-		if selectedModel != "" && model.ID != selectedModel {
-			continue
-		}
-		if !model.Supports(required...) {
-			continue
-		}
-		if strings.TrimSpace(model.Provider) == "" {
-			model.Provider = provider.ID()
-		}
-		return model, nil
-	}
-	if selectedModel != "" {
-		return asrcontract.ModelCard{}, fmt.Errorf("engine provider %q does not expose selected model %q", provider.ID(), selectedModel)
-	}
-	return asrcontract.ModelCard{}, fmt.Errorf("engine provider %q does not expose a model for requested capabilities", provider.ID())
+	return model, nil
 }
 
-func (r *StaticRegistry) selectByCapability(ctx context.Context, modelID string, requires []string) (Provider, *ModelCapability, error) {
+func (r *StaticRegistry) selectByCapability(ctx context.Context, modelID string, requires []asrcontract.Capability) (Provider, asrcontract.ModelCard, error) {
 	ids := make([]string, 0, len(r.providers))
 	for id := range r.providers {
 		if id == r.defaultID {
@@ -180,95 +138,40 @@ func (r *StaticRegistry) selectByCapability(ctx context.Context, modelID string,
 		if !providerSelectable(ctx, provider) {
 			continue
 		}
-		capability, err := selectCapabilityForProvider(ctx, provider, modelID, requires)
+		model, err := selectModelForProvider(ctx, provider, modelID, requires)
 		if err == nil {
-			return provider, capability, nil
+			return provider, model, nil
 		}
 	}
-	return nil, nil, fmt.Errorf("no engine provider supports requested model or capabilities")
+	return nil, asrcontract.ModelCard{}, fmt.Errorf("no engine provider supports requested model or capabilities")
 }
 
-func selectCapabilityForProvider(ctx context.Context, provider Provider, modelID string, requires []string) (*ModelCapability, error) {
-	capabilities, err := capabilitiesForProvider(ctx, provider)
-	if err != nil {
-		return nil, fmt.Errorf("engine provider %q capabilities: %w", provider.ID(), err)
-	}
-	if modelID == "" {
-		for i := range capabilities {
-			capability := capabilities[i]
-			if !capability.Default || !capabilitySupportsAll(capability, requires) {
-				continue
-			}
-			return &capabilities[i], nil
-		}
-	}
-	for i := range capabilities {
-		capability := capabilities[i]
-		if modelID != "" && capability.ID != modelID {
-			continue
-		}
-		if !capabilitySupportsAll(capability, requires) {
-			continue
-		}
-		return &capabilities[i], nil
-	}
-	if modelID != "" {
-		return nil, fmt.Errorf("engine provider %q does not support model %q", provider.ID(), modelID)
-	}
-	return nil, fmt.Errorf("engine provider %q does not support requested capabilities", provider.ID())
-}
-
-func capabilitiesForProvider(ctx context.Context, provider Provider) ([]ModelCapability, error) {
+func selectModelForProvider(ctx context.Context, provider Provider, modelID string, requires []asrcontract.Capability) (asrcontract.ModelCard, error) {
 	models, err := provider.Models(ctx)
 	if err != nil {
-		return nil, err
+		return asrcontract.ModelCard{}, fmt.Errorf("engine provider %q models: %w", provider.ID(), err)
 	}
-	out := make([]ModelCapability, 0, len(models))
-	for _, model := range models {
-		out = append(out, ModelCapability{
-			ID:           model.ID,
-			Name:         model.DisplayName,
-			Provider:     defaultString(model.Provider, provider.ID()),
-			Installed:    model.Installed,
-			Default:      model.Default,
-			Capabilities: capabilityNames(model.Capabilities),
-		})
-	}
-	return out, nil
-}
-
-func capabilityNames(capabilities asrcontract.Capabilities) []string {
-	names := make([]string, 0, 8)
-	if capabilities.Transcription {
-		names = append(names, string(asrcontract.CapabilityTranscription))
-	}
-	if capabilities.Diarization {
-		names = append(names, string(asrcontract.CapabilityDiarization))
-	}
-	if capabilities.SpeakerIdentification {
-		names = append(names, string(asrcontract.CapabilitySpeakerIdentification))
-	}
-	if capabilities.Translation {
-		names = append(names, string(asrcontract.CapabilityTranslation))
-	}
-	if capabilities.WordTimestamps {
-		names = append(names, string(asrcontract.CapabilityWordTimestamps))
-	}
-	if capabilities.SegmentTimestamps {
-		names = append(names, string(asrcontract.CapabilitySegmentTimestamps))
-	}
-	if capabilities.TokenTimestamps {
-		names = append(names, string(asrcontract.CapabilityTokenTimestamps))
-	}
-	if capabilities.Streaming {
-		names = append(names, string(asrcontract.CapabilityStreaming))
-	}
-	for key, enabled := range capabilities.Extensions {
-		if enabled {
-			names = append(names, strings.TrimSpace(key))
+	if modelID == "" {
+		for _, model := range models {
+			if !model.Default || !model.Supports(requires...) {
+				continue
+			}
+			return modelWithProvider(model, provider.ID()), nil
 		}
 	}
-	return names
+	for _, model := range models {
+		if modelID != "" && model.ID != modelID {
+			continue
+		}
+		if !model.Supports(requires...) {
+			continue
+		}
+		return modelWithProvider(model, provider.ID()), nil
+	}
+	if modelID != "" {
+		return asrcontract.ModelCard{}, fmt.Errorf("engine provider %q does not support model %q", provider.ID(), modelID)
+	}
+	return asrcontract.ModelCard{}, fmt.Errorf("engine provider %q does not support requested capabilities", provider.ID())
 }
 
 func defaultString(value, fallback string) string {
@@ -292,18 +195,9 @@ func providerSelectable(ctx context.Context, provider Provider) bool {
 	}
 }
 
-func capabilitySupportsAll(capability ModelCapability, requires []string) bool {
-	if len(requires) == 0 {
-		return true
+func modelWithProvider(model asrcontract.ModelCard, providerID string) asrcontract.ModelCard {
+	if strings.TrimSpace(model.Provider) == "" {
+		model.Provider = providerID
 	}
-	available := make(map[string]struct{}, len(capability.Capabilities))
-	for _, item := range capability.Capabilities {
-		available[strings.TrimSpace(item)] = struct{}{}
-	}
-	for _, required := range requires {
-		if _, ok := available[strings.TrimSpace(required)]; !ok {
-			return false
-		}
-	}
-	return true
+	return model
 }

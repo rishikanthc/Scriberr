@@ -218,10 +218,10 @@ func (p *Processor) resolvePipeline(ctx context.Context, job *models.Transcripti
 		if !ok {
 			return nil, fmt.Errorf("unsupported ASR pipeline step %q", kind)
 		}
-		provider, capability, err := p.Providers.Select(ctx, engineprovider.SelectionRequest{
+		provider, modelCard, err := p.Providers.Select(ctx, engineprovider.SelectionRequest{
 			ProviderID: strings.TrimSpace(step.Provider),
 			ModelID:    model,
-			Requires:   []string{string(definition.capability)},
+			Requires:   []asrcontract.Capability{definition.capability},
 		})
 		if err != nil {
 			return nil, err
@@ -229,8 +229,12 @@ func (p *Processor) resolvePipeline(ctx context.Context, job *models.Transcripti
 		if provider == nil {
 			return nil, fmt.Errorf("selected engine provider is not available")
 		}
-		if model == "" && capability != nil {
-			model = capability.ID
+		if model == "" {
+			model = modelCard.ID
+		}
+		modelType := strings.TrimSpace(step.ModelFamily)
+		if modelType == "" {
+			modelType = strings.TrimSpace(modelCard.ModelType)
 		}
 		out = append(out, resolvedASRStep{
 			Kind:       kind,
@@ -238,7 +242,7 @@ func (p *Processor) resolvePipeline(ctx context.Context, job *models.Transcripti
 			ProviderID: provider.ID(),
 			Provider:   provider,
 			Model:      model,
-			ModelType:  strings.TrimSpace(step.ModelFamily),
+			ModelType:  modelType,
 			Options:    copyStepOptions(step.Options),
 			definition: definition,
 		})
