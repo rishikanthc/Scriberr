@@ -10,7 +10,7 @@ import { GeneralSettingsPanel } from "../components/GeneralSettingsPanel";
 import { LLMProviderPanel } from "../components/LLMProviderPanel";
 import { SummaryWidgetsPanel } from "../components/SummaryWidgetsPanel";
 import { TagsSettingsPanel } from "@/features/tags/components/TagsSettingsPanel";
-import type { TranscriptionProfile, TranscriptionProfileOptions } from "../api/profilesApi";
+import type { ASRModelCard, ASRStep, TranscriptionProfile, TranscriptionProfileOptions } from "../api/profilesApi";
 
 type SettingsTab = "general" | "asr" | "llm" | "summarization" | "tags";
 
@@ -115,6 +115,8 @@ export function Settings() {
                       <ProfileRow
                         key={profile.id}
                         profile={profile}
+                        models={modelsQuery.data || []}
+                        diarizationModels={diarizationModelsQuery.data || []}
                         isDefault={defaultProfile?.id === profile.id}
                         onEdit={() => {
                           setEditingProfile(profile);
@@ -165,14 +167,22 @@ export function Settings() {
   );
 }
 
-function ProfileRow({ profile, isDefault, onEdit, onDelete }: { profile: TranscriptionProfile; isDefault: boolean; onEdit: () => void; onDelete: () => void }) {
-  const transcriptionStep = profile.options.pipeline.find((step) => step.kind === "transcription");
-  const hasDiarization = profile.options.pipeline.some((step) => step.kind === "diarization");
-  const optionSummary = [
-    transcriptionStep?.provider || "provider unset",
-    transcriptionStep?.model || "model unset",
-    hasDiarization ? "diarization on" : "diarization off",
-  ].join(" · ");
+function ProfileRow({
+  profile,
+  models,
+  diarizationModels,
+  isDefault,
+  onEdit,
+  onDelete,
+}: {
+  profile: TranscriptionProfile;
+  models: ASRModelCard[];
+  diarizationModels: ASRModelCard[];
+  isDefault: boolean;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  const optionSummary = formatProfileSummary(profile, models, diarizationModels);
 
   return (
     <article className="scr-profile-row">
@@ -200,4 +210,43 @@ function ProfileRow({ profile, isDefault, onEdit, onDelete }: { profile: Transcr
       </div>
     </article>
   );
+}
+
+function formatProfileSummary(profile: TranscriptionProfile, models: ASRModelCard[], diarizationModels: ASRModelCard[]) {
+  const transcriptionStep = profile.options.pipeline.find((step) => step.kind === "transcription");
+  if (!transcriptionStep) {
+    return "Invalid profile: missing transcription step";
+  }
+  const transcriptionModel = models.find((model) => model.id === transcriptionStep.model);
+  const parts = [modelSummary(transcriptionStep, transcriptionModel)];
+  parts.push(...parameterSummary(transcriptionStep, transcriptionModel));
+
+  const diarizationStep = profile.options.pipeline.find((step) => step.kind === "diarization");
+  if (diarizationStep) {
+    const diarizationModel = diarizationModels.find((model) => model.id === diarizationStep.model);
+    parts.push(modelSummary(diarizationStep, diarizationModel));
+    parts.push(...parameterSummary(diarizationStep, diarizationModel));
+  } else {
+    parts.push("Diarization off");
+  }
+  return parts.join(" · ");
+}
+
+function modelSummary(step: ASRStep, model?: ASRModelCard) {
+  if (model) return model.display_name || model.id;
+  if (step.model) return `Missing model card: ${step.model}`;
+  return "Model unset";
+}
+
+function parameterSummary(step: ASRStep, model?: ASRModelCard) {
+  if (!model) return [];
+  return (model.parameter_schema || [])
+    .filter((parameter) => parameter.expose_in_summary)
+    .map((parameter) => {
+      const value = step.options?.[parameter.key] ?? model.recommended_defaults?.[parameter.key] ?? parameter.default;
+      if (value === undefined || value === "") return "";
+      return `${parameter.label || parameter.key}: ${String(value)}`;
+    })
+    .filter(Boolean)
+    .slice(0, 3);
 }

@@ -2,7 +2,7 @@
 
 Run ID: `ASR-PROFILE-FE`
 
-Status: completed through ASR-PROFILE-FE-Sprint 3.
+Status: completed through ASR-PROFILE-FE-Sprint 4.
 
 This tracker belongs to `devnotes/v2.0.0/sprint-plans/asr-profile-provider-frontend-sprint-plan.md`.
 
@@ -238,32 +238,36 @@ Commit:
 
 ## ASR-PROFILE-FE-Sprint 4: Profile List And Legacy Cleanup
 
-Status: pending
+Status: completed
 
 Planned tasks:
 
-- [ ] Update `ProfileRow` summaries to read from `options.pipeline`.
-- [ ] Show transcription provider/model, key selected parameters, and diarization state.
-- [ ] Use `parameter_schema.expose_in_summary` when model cards are available.
-- [ ] Show a clear missing-model error for profiles whose stored model is no longer available.
-- [ ] Treat profiles without a valid transcription pipeline step as invalid data, not frontend-repairable data.
-- [ ] Remove remaining frontend reads of legacy flat fields from profile summaries and dialogs.
-- [ ] Avoid mutating profile options during render.
+- [x] Update `ProfileRow` summaries to read from `options.pipeline`.
+- [x] Show transcription provider/model, key selected parameters, and diarization state.
+- [x] Use `parameter_schema.expose_in_summary` when model cards are available.
+- [x] Show a clear missing-model error for profiles whose stored model is no longer available.
+- [x] Treat profiles without a valid transcription pipeline step as invalid data, not frontend-repairable data.
+- [x] Remove remaining frontend reads of legacy flat fields from profile summaries and dialogs.
+- [x] Avoid mutating profile options during render.
 
 Acceptance checks:
 
-- [ ] Existing pipeline profiles display useful summaries.
-- [ ] Missing model cards produce clear errors instead of blank dialogs.
-- [ ] Profiles without a valid pipeline are not silently repaired or defaulted by the frontend.
-- [ ] Profile rows no longer depend on legacy flat option names.
+- [x] Existing pipeline profiles display useful summaries.
+- [x] Missing model cards produce clear errors instead of blank dialogs.
+- [x] Profiles without a valid pipeline are not silently repaired or defaulted by the frontend.
+- [x] Profile rows no longer depend on legacy flat option names.
 
 Verification:
 
-- [ ] Pending.
+- [x] `npm --prefix web/frontend run build`
+- [x] `npm --prefix web/frontend run lint` (passes with existing warnings outside this sprint)
+- [x] `rg -n "profile\.options\.(model|language|task|diarize|chunking_strategy)|tail_paddings|decoding_method|chunking_strategy|defaultProfileParams|normalizeParams|familyForModel" web/frontend/src/features/settings -g '*.ts' -g '*.tsx'`
+- [x] `git diff --check -- web/frontend/src/features/settings/pages/SettingsPage.tsx devnotes/v2.0.0/sprint-trackers/asr-profile-provider-frontend-sprint-tracker.md`
 
 Artifacts:
 
-- Pending.
+- `web/frontend/src/features/settings/pages/SettingsPage.tsx`
+- `devnotes/v2.0.0/sprint-trackers/asr-profile-provider-frontend-sprint-tracker.md`
 
 Commit:
 
