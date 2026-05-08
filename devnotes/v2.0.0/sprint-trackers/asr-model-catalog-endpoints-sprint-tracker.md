@@ -2,7 +2,7 @@
 
 Run ID: `ASR-MODEL-CATALOG`
 
-Status: completed through ASR-MODEL-CATALOG-Sprint 1.
+Status: completed.
 
 This tracker belongs to `devnotes/v2.0.0/sprint-plans/asr-model-catalog-endpoints-sprint-plan.md`.
 
@@ -95,27 +95,31 @@ Commit:
 
 ## ASR-MODEL-CATALOG-Sprint 2: Frontend API Hook Prep
 
-Status: pending
+Status: completed
 
 Planned tasks:
 
-- [ ] Add typed frontend API helper for the new endpoint.
-- [ ] Add TanStack Query hook keyed by capability filter.
-- [ ] Keep helper generic for future ASR tasks.
-- [ ] Avoid profile dialog rewrites in this run.
+- [x] Add typed frontend API helper for the new endpoint.
+- [x] Add TanStack Query hook keyed by capability filter.
+- [x] Keep helper generic for future ASR tasks.
+- [x] Avoid profile dialog rewrites in this run.
 
 Acceptance checks:
 
-- [ ] Frontend can fetch transcription and diarization model cards by capability.
-- [ ] No legacy profile UI behavior changes in this sprint.
+- [x] Frontend can fetch transcription and diarization model cards by capability.
+- [x] No legacy profile UI behavior changes in this sprint.
 
 Verification:
 
-- [ ] Pending.
+- [x] `npm --prefix web/frontend run build`
+- [x] `npm --prefix web/frontend run lint` (passes with existing warnings outside this sprint)
+- [x] `git diff --check -- web/frontend/src/features/settings/api/profilesApi.ts web/frontend/src/features/settings/hooks/useProfiles.ts devnotes/v2.0.0/sprint-trackers/asr-model-catalog-endpoints-sprint-tracker.md`
 
 Artifacts:
 
-- Pending.
+- `web/frontend/src/features/settings/api/profilesApi.ts`
+- `web/frontend/src/features/settings/hooks/useProfiles.ts`
+- `devnotes/v2.0.0/sprint-trackers/asr-model-catalog-endpoints-sprint-tracker.md`
 
 Commit:
 

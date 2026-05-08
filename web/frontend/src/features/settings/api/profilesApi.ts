@@ -1,5 +1,83 @@
 export type ModelFamily = "whisper" | "nemo_transducer";
 
+export type ASRCapability =
+  | "transcription"
+  | "diarization"
+  | "speaker_identification"
+  | "translation"
+  | "word_timestamps"
+  | "segment_timestamps"
+  | "token_timestamps"
+  | "streaming"
+  | "custom_vocabulary"
+  | "initial_prompt"
+  | "language_detection"
+  | "speaker_embeddings";
+
+export type ASRCapabilities = {
+  transcription?: boolean;
+  diarization?: boolean;
+  speaker_identification?: boolean;
+  translation?: boolean;
+  word_timestamps?: boolean;
+  segment_timestamps?: boolean;
+  token_timestamps?: boolean;
+  streaming?: boolean;
+  custom_vocabulary?: boolean;
+  initial_prompt?: boolean;
+  language_detection?: boolean;
+  speaker_embeddings?: boolean;
+  extensions?: Record<string, boolean>;
+};
+
+export type ParameterOption = {
+  value: unknown;
+  label?: string;
+};
+
+export type ActivationRule = {
+  parameter: string;
+  operator: "equals";
+  value: unknown;
+};
+
+export type ParameterDescriptor = {
+  key: string;
+  label?: string;
+  type: "boolean" | "integer" | "number" | "string" | "enum" | "duration" | "path_ref";
+  default?: unknown;
+  min?: number;
+  max?: number;
+  step?: number;
+  options?: ParameterOption[];
+  scope: "model" | "runtime" | "decoding" | "chunking" | "vad" | "output" | "postprocess";
+  required?: boolean;
+  advanced?: boolean;
+  requires_reload?: boolean;
+  expose_in_summary?: boolean;
+  visible_when?: ActivationRule[];
+};
+
+export type ASRModelCard = {
+  id: string;
+  display_name: string;
+  provider: string;
+  model_type?: string;
+  version?: string;
+  installed: boolean;
+  loaded?: boolean;
+  default: boolean;
+  tasks?: string[];
+  languages?: string[];
+  capabilities: ASRCapabilities;
+  chunking?: Record<string, unknown>;
+  dependencies?: unknown[];
+  artifacts?: unknown[];
+  parameter_schema?: ParameterDescriptor[];
+  recommended_defaults?: Record<string, unknown>;
+  license?: string;
+};
+
 export type TranscriptionProfileOptions = {
   model_family: ModelFamily;
   model: string;
@@ -57,7 +135,7 @@ type ProfileListResponse = {
 };
 
 type ModelListResponse = {
-  items?: TranscriptionModel[];
+  items?: ASRModelCard[];
 };
 
 export async function listProfiles(headers?: Record<string, string>) {
@@ -69,10 +147,19 @@ export async function listProfiles(headers?: Record<string, string>) {
 }
 
 export async function listTranscriptionModels(headers?: Record<string, string>) {
-  const response = await fetch("/api/v1/models/transcription", { headers });
+  const models = await listASRModels(["transcription"], headers);
+  return models.map(modelCardToTranscriptionModel);
+}
+
+export async function listASRModels(capabilities?: ASRCapability[], headers?: Record<string, string>) {
+  const query = new URLSearchParams();
+  if (capabilities && capabilities.length > 0) {
+    query.set("capability", capabilities.join(","));
+  }
+  const response = await fetch(`/api/v1/models${query.toString() ? `?${query.toString()}` : ""}`, { headers });
   if (!response.ok) throw new Error(await readError(response));
   const data = (await response.json()) as ModelListResponse;
-  return (data.items || []).filter((model) => model.capabilities.includes("transcription"));
+  return (data.items || []).filter((model) => !capabilities?.length || capabilities.some((capability) => modelSupportsCapability(model, capability)));
 }
 
 export async function saveProfile(profile: {
@@ -148,6 +235,36 @@ function normalizeProfile(profile: TranscriptionProfile): TranscriptionProfile {
     description: profile.description || "",
     options: normalizeParams(profile.options || profile.parameters),
   };
+}
+
+function modelCardToTranscriptionModel(model: ASRModelCard): TranscriptionModel {
+  return {
+    id: model.id,
+    name: model.display_name || model.id,
+    provider: model.provider,
+    installed: model.installed,
+    default: model.default,
+    capabilities: capabilitiesToList(model.capabilities),
+  };
+}
+
+function capabilitiesToList(capabilities: ASRCapabilities) {
+  const out: string[] = [];
+  for (const [key, value] of Object.entries(capabilities)) {
+    if (key === "extensions") continue;
+    if (value === true) out.push(key);
+  }
+  if (capabilities.extensions) {
+    for (const [key, value] of Object.entries(capabilities.extensions)) {
+      if (value === true) out.push(key);
+    }
+  }
+  return out;
+}
+
+function modelSupportsCapability(model: ASRModelCard, capability: ASRCapability) {
+  const direct = model.capabilities[capability as keyof ASRCapabilities];
+  return direct === true || model.capabilities.extensions?.[capability] === true;
 }
 
 async function readError(response: Response) {

@@ -2,14 +2,17 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import {
   deleteProfile,
+  listASRModels,
   listProfiles,
   listTranscriptionModels,
   saveProfile,
+  type ASRCapability,
   type TranscriptionProfileOptions,
 } from "@/features/settings/api/profilesApi";
 
 export const profilesQueryKey = ["profiles"] as const;
 export const transcriptionModelsQueryKey = ["transcription-models"] as const;
+export const asrModelsQueryKey = (capabilities?: ASRCapability[]) => ["asr-models", capabilities?.join(",") || "all"] as const;
 
 export function useProfiles() {
   const { getAuthHeaders, isAuthenticated } = useAuth();
@@ -27,6 +30,16 @@ export function useTranscriptionModels() {
   return useQuery({
     queryKey: transcriptionModelsQueryKey,
     queryFn: () => listTranscriptionModels(getAuthHeaders()),
+    enabled: isAuthenticated,
+  });
+}
+
+export function useASRModels(capabilities?: ASRCapability[]) {
+  const { getAuthHeaders, isAuthenticated } = useAuth();
+
+  return useQuery({
+    queryKey: asrModelsQueryKey(capabilities),
+    queryFn: () => listASRModels(capabilities, getAuthHeaders()),
     enabled: isAuthenticated,
   });
 }
