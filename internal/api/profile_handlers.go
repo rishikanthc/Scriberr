@@ -147,41 +147,10 @@ func validateProfileInput(c *gin.Context, name string, options profileOptionsReq
 		writeError(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "pipeline is required", stringPtr("options.pipeline"))
 		return false
 	}
-	if field, ok := legacyProfileOptionField(options); ok {
-		writeError(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "profile option must be configured on the owning pipeline step", stringPtr(field))
-		return false
-	}
 	return true
 }
 func profileParams(options profileOptionsRequest) models.ASRParams {
 	return models.ASRParams{Pipeline: options.Pipeline}
-}
-
-func legacyProfileOptionField(options profileOptionsRequest) (string, bool) {
-	switch {
-	case options.Language != nil:
-		return "options.language", true
-	case strings.TrimSpace(options.Task) != "":
-		return "options.task", true
-	case options.Threads != nil:
-		return "options.threads", true
-	case options.TailPaddings != nil:
-		return "options.tail_paddings", true
-	case strings.TrimSpace(options.DecodingMethod) != "":
-		return "options.decoding_method", true
-	case strings.TrimSpace(options.ChunkingStrategy) != "":
-		return "options.chunking_strategy", true
-	case options.NumSpeakers != nil:
-		return "options.num_speakers", true
-	case options.DiarizationThreshold != nil:
-		return "options.diarization_threshold", true
-	case options.MinDurationOn != nil:
-		return "options.min_duration_on", true
-	case options.MinDurationOff != nil:
-		return "options.min_duration_off", true
-	default:
-		return "", false
-	}
 }
 func (h *Handler) profileByPublicID(c *gin.Context, publicID string) (*models.TranscriptionProfile, bool) {
 	userID, ok := currentUserID(c)

@@ -2,7 +2,7 @@
 
 Run ID: `ASR-LEGACY-CLEANUP`
 
-Status: completed through ASR-LEGACY-CLEANUP-Sprint 0.
+Status: completed through ASR-LEGACY-CLEANUP-Sprint 2.
 
 This tracker belongs to `devnotes/v2.0.0/sprint-plans/asr-legacy-profile-cleanup-sprint-plan.md`.
 
@@ -101,29 +101,36 @@ Commit:
 
 ## ASR-LEGACY-CLEANUP-Sprint 2: Backend/API Cleanup
 
-Status: pending
+Status: completed
 
 Planned tasks:
 
-- [ ] Remove legacy flat fields from profile request DTOs.
-- [ ] Remove `legacyProfileOptionField` if no longer needed.
-- [ ] Keep validation focused on `options.pipeline`.
-- [ ] Update API tests.
-- [ ] Ensure profile service tests cover invalid/missing pipeline.
+- [x] Remove legacy flat fields from profile request DTOs.
+- [x] Remove `legacyProfileOptionField`.
+- [x] Keep validation focused on `options.pipeline`.
+- [x] Update API tests.
+- [x] Ensure profile service tests cover invalid/missing pipeline.
 
 Acceptance checks:
 
-- [ ] API profile create/update structs contain no legacy flat ASR fields.
-- [ ] Legacy field rejection does not require active legacy DTO fields.
-- [ ] Pipeline validation remains descriptor-backed.
+- [x] API profile create/update structs contain no legacy flat ASR fields.
+- [x] Legacy field rejection does not require active legacy DTO fields.
+- [x] Pipeline validation remains descriptor-backed.
 
 Verification:
 
-- [ ] Pending.
+- [x] `GOCACHE=/tmp/scriberr-go-cache go test ./internal/api -run 'TestProfile'`
+- [x] `GOCACHE=/tmp/scriberr-go-cache go test ./internal/profile ./internal/api`
+- [x] `GOCACHE=/tmp/scriberr-go-cache go vet ./internal/profile ./internal/api`
+- [x] `git diff --check -- internal/api/types.go internal/api/profile_handlers.go internal/api/profile_settings_test.go devnotes/v2.0.0/sprint-trackers/asr-legacy-profile-cleanup-sprint-tracker.md`
+- [x] `rg 'legacyProfileOptionField|tail_paddings|decoding_method|chunking_strategy|num_speakers|diarization_threshold|min_duration_on|min_duration_off' internal/api/types.go internal/api/profile_handlers.go internal/api/profile_settings_test.go -n`
 
 Artifacts:
 
-- Pending.
+- `internal/api/types.go`
+- `internal/api/profile_handlers.go`
+- `internal/api/profile_settings_test.go`
+- `devnotes/v2.0.0/sprint-trackers/asr-legacy-profile-cleanup-sprint-tracker.md`
 
 Commit:
 

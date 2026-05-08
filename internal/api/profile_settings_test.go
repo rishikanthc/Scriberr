@@ -139,9 +139,9 @@ func TestProfileValidationAndAuth(t *testing.T) {
 			"language": "english",
 		},
 	}, token, "")
-	require.Equal(t, http.StatusUnprocessableEntity, resp.Code)
+	require.Equal(t, http.StatusBadRequest, resp.Code)
 	errBody := body["error"].(map[string]any)
-	require.Equal(t, "options.language", errBody["field"])
+	require.Equal(t, "INVALID_REQUEST", errBody["code"])
 
 	resp, body = s.request(t, http.MethodPost, "/api/v1/profiles", map[string]any{
 		"name": "Invalid model",
@@ -153,46 +153,8 @@ func TestProfileValidationAndAuth(t *testing.T) {
 	errBody = body["error"].(map[string]any)
 	require.Equal(t, "options.pipeline", errBody["field"])
 
-	resp, body = s.request(t, http.MethodPost, "/api/v1/profiles", map[string]any{
-		"name": "Invalid chunking",
-		"options": map[string]any{
-			"pipeline":          pipelineRequest("transcription", "whisper-base"),
-			"chunking_strategy": "dynamic",
-		},
-	}, token, "")
-	require.Equal(t, http.StatusUnprocessableEntity, resp.Code)
-	errBody = body["error"].(map[string]any)
-	require.Equal(t, "options.chunking_strategy", errBody["field"])
-
-	resp, body = s.request(t, http.MethodPost, "/api/v1/profiles", map[string]any{
-		"name": "Invalid threshold",
-		"options": map[string]any{
-			"pipeline":              pipelineRequest("transcription", "whisper-base"),
-			"diarization_threshold": 1.5,
-		},
-	}, token, "")
-	require.Equal(t, http.StatusUnprocessableEntity, resp.Code)
-	errBody = body["error"].(map[string]any)
-	require.Equal(t, "options.diarization_threshold", errBody["field"])
-
 	resp, _ = s.request(t, http.MethodGet, "/api/v1/profiles/profile_missing", nil, token, "")
 	require.Equal(t, http.StatusNotFound, resp.Code)
-}
-
-func TestProfileRejectsLegacyDecodingOption(t *testing.T) {
-	s := newAuthTestServer(t)
-	token := registerForFileTests(t, s)
-
-	resp, body := s.request(t, http.MethodPost, "/api/v1/profiles", map[string]any{
-		"name": "Whisper",
-		"options": map[string]any{
-			"pipeline":        pipelineRequest("transcription", "whisper-base"),
-			"decoding_method": "modified_beam_search",
-		},
-	}, token, "")
-	require.Equal(t, http.StatusUnprocessableEntity, resp.Code)
-	errBody := body["error"].(map[string]any)
-	require.Equal(t, "options.decoding_method", errBody["field"])
 }
 
 func TestGetProfileDoesNotPublishUpdateEvent(t *testing.T) {

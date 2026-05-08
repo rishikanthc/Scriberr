@@ -1,6 +1,11 @@
 package api
 
-import "scriberr/internal/models"
+import (
+	"encoding/json"
+	"fmt"
+
+	"scriberr/internal/models"
+)
 
 type ErrorBody struct {
 	Error APIError `json:"error"`
@@ -74,18 +79,30 @@ type updateTranscriptionRequest struct {
 	Title string `json:"title"`
 }
 type profileOptionsRequest struct {
-	Pipeline             []models.ASRStep `json:"pipeline,omitempty"`
-	Language             *string          `json:"language,omitempty"`
-	Task                 string           `json:"task,omitempty"`
-	Threads              *int             `json:"threads,omitempty"`
-	TailPaddings         *int             `json:"tail_paddings,omitempty"`
-	DecodingMethod       string           `json:"decoding_method,omitempty"`
-	ChunkingStrategy     string           `json:"chunking_strategy,omitempty"`
-	NumSpeakers          *int             `json:"num_speakers,omitempty"`
-	DiarizationThreshold *float64         `json:"diarization_threshold,omitempty"`
-	MinDurationOn        *float64         `json:"min_duration_on,omitempty"`
-	MinDurationOff       *float64         `json:"min_duration_off,omitempty"`
+	Pipeline []models.ASRStep `json:"pipeline,omitempty"`
 }
+
+func (r *profileOptionsRequest) UnmarshalJSON(data []byte) error {
+	type profileOptionsPayload struct {
+		Pipeline []models.ASRStep `json:"pipeline,omitempty"`
+	}
+	var payload profileOptionsPayload
+	if err := json.Unmarshal(data, &payload); err != nil {
+		return err
+	}
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	for key := range raw {
+		if key != "pipeline" {
+			return fmt.Errorf("unsupported profile option %q", key)
+		}
+	}
+	r.Pipeline = payload.Pipeline
+	return nil
+}
+
 type createProfileRequest struct {
 	Name        string                `json:"name"`
 	Description string                `json:"description"`
