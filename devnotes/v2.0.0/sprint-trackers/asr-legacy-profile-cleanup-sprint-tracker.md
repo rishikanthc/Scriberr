@@ -2,7 +2,7 @@
 
 Run ID: `ASR-LEGACY-CLEANUP`
 
-Status: completed through ASR-LEGACY-CLEANUP-Sprint 2.
+Status: completed through ASR-LEGACY-CLEANUP-Sprint 3.
 
 This tracker belongs to `devnotes/v2.0.0/sprint-plans/asr-legacy-profile-cleanup-sprint-plan.md`.
 
@@ -138,29 +138,34 @@ Commit:
 
 ## ASR-LEGACY-CLEANUP-Sprint 3: Database And Migration Cleanup
 
-Status: pending
+Status: completed
 
 Planned tasks:
 
-- [ ] Delete obsolete legacy ASR profile migration structs/code.
-- [ ] Update database tests away from legacy flat ASR profile expectations.
-- [ ] Keep current target schema creation intact.
-- [ ] Keep non-ASR migration behavior intact.
-- [ ] Document any retained denormalized columns as pipeline-derived.
+- [x] Delete obsolete legacy ASR profile migration structs/code.
+- [x] Update database tests away from legacy flat ASR profile expectations.
+- [x] Keep current target schema creation intact.
+- [x] Keep non-ASR migration behavior intact.
+- [x] Document any retained denormalized columns as pipeline-derived.
 
 Acceptance checks:
 
-- [ ] Database migration code no longer preserves removed flat ASR profile fields.
-- [ ] Tests reflect pipeline-only ASR profiles.
-- [ ] No unrelated schema behavior changes.
+- [x] Database migration code no longer preserves removed flat ASR profile fields.
+- [x] Tests reflect pipeline-only ASR profiles.
+- [x] No unrelated schema behavior changes.
 
 Verification:
 
-- [ ] Pending.
+- [x] `GOCACHE=/tmp/scriberr-go-cache go test ./internal/database`
+- [x] `GOCACHE=/tmp/scriberr-go-cache go vet ./internal/database`
+- [x] `rg -n "legacyTranscriptionProfile|migrateProfiles|legacy_transcription_profiles|DefaultProfileID:\s*legacyUser\.DefaultProfileID" internal/database -g '*.go'`
+- [x] `git diff --check -- internal/database/legacy.go internal/database/database_test.go devnotes/v2.0.0/sprint-trackers/asr-legacy-profile-cleanup-sprint-tracker.md`
 
 Artifacts:
 
-- Pending.
+- `internal/database/legacy.go`
+- `internal/database/database_test.go`
+- `devnotes/v2.0.0/sprint-trackers/asr-legacy-profile-cleanup-sprint-tracker.md`
 
 Commit:
 

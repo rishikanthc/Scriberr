@@ -25,10 +25,6 @@ type legacyRefreshTokenTable legacyRefreshToken
 
 func (legacyRefreshTokenTable) TableName() string { return "refresh_tokens" }
 
-type legacyTranscriptionProfileTable legacyTranscriptionProfile
-
-func (legacyTranscriptionProfileTable) TableName() string { return "transcription_profiles" }
-
 type legacyTranscriptionJobTable legacyTranscriptionJob
 
 func (legacyTranscriptionJobTable) TableName() string { return "transcription_jobs" }
@@ -822,8 +818,7 @@ func TestLegacyMigrationPreservesData(t *testing.T) {
 	require.NoError(t, db.First(&user, "id = ?", 7).Error)
 	assert.Equal(t, "legacy-admin", user.Username)
 	assert.True(t, user.AutoTranscriptionEnabled)
-	require.NotNil(t, user.DefaultProfileID)
-	assert.Equal(t, "profile-1", *user.DefaultProfileID)
+	assert.Nil(t, user.DefaultProfileID)
 	assert.Equal(t, "gpt-4o-mini", user.SummaryDefaultModel)
 
 	var transcription models.TranscriptionJob
@@ -964,7 +959,6 @@ func createLegacyDatabase(t *testing.T, dbPath string, withData bool) {
 		&legacyUserTable{},
 		&legacyAPIKeyTable{},
 		&legacyRefreshTokenTable{},
-		&legacyTranscriptionProfileTable{},
 		&legacyTranscriptionJobTable{},
 		&legacyTranscriptionExecutionTable{},
 		&legacySpeakerMappingTable{},
@@ -978,20 +972,18 @@ func createLegacyDatabase(t *testing.T, dbPath string, withData bool) {
 		return
 	}
 
-	defaultProfileID := "profile-1"
 	now := time.Now().UTC().Truncate(time.Second)
 	completedAt := now.Add(10 * time.Minute)
 	processingDuration := int64(600000)
 	transcriptJSON := `{"text":"hello world","segments":[{"start":0,"end":1,"text":"hello world"}]}`
 	title := "Legacy job"
-	profileDescription := "legacy profile"
 	summaryDescription := "legacy summary template"
 	openAIBaseURL := "https://openai.example"
 	openAIKey := "openai-secret"
 	lastUsed := now.Add(2 * time.Hour)
 	errorMessage := "old error"
 
-	user := legacyUser{ID: 7, Username: "legacy-admin", Password: "hashed", DefaultProfileID: &defaultProfileID, AutoTranscriptionEnabled: true, CreatedAt: now, UpdatedAt: now}
+	user := legacyUser{ID: 7, Username: "legacy-admin", Password: "hashed", AutoTranscriptionEnabled: true, CreatedAt: now, UpdatedAt: now}
 	require.NoError(t, db.Table("users").Create(&user).Error)
 
 	asrParams := models.ASRParams{
@@ -1000,9 +992,6 @@ func createLegacyDatabase(t *testing.T, dbPath string, withData bool) {
 			{Kind: models.ASRStepDiarization, Model: "diarization-default"},
 		},
 	}
-	profile := legacyTranscriptionProfile{ID: "profile-1", Name: "Legacy Profile", Description: &profileDescription, IsDefault: true, Parameters: asrParams, CreatedAt: now, UpdatedAt: now}
-	require.NoError(t, db.Table("transcription_profiles").Create(&profile).Error)
-
 	job := legacyTranscriptionJob{ID: "job-1", Title: &title, Status: "pending", AudioPath: "/legacy/audio.wav", Transcript: &transcriptJSON, Diarization: true, Summary: ptr("legacy summary cache"), ErrorMessage: &errorMessage, CreatedAt: now, UpdatedAt: completedAt, Parameters: asrParams}
 	require.NoError(t, db.Table("transcription_jobs").Create(&job).Error)
 

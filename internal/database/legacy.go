@@ -46,16 +46,6 @@ type legacyRefreshToken struct {
 	UpdatedAt time.Time
 }
 
-type legacyTranscriptionProfile struct {
-	ID          string
-	Name        string
-	Description *string
-	IsDefault   bool
-	Parameters  models.ASRParams `gorm:"embedded"`
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
-}
-
 type legacyTranscriptionJob struct {
 	ID           string
 	Title        *string
@@ -157,9 +147,6 @@ func migrateLegacy(db *gorm.DB) error {
 			}
 		}
 
-		if err := migrateProfiles(tx, userID); err != nil {
-			return err
-		}
 		if err := migrateTranscriptions(tx, userID); err != nil {
 			return err
 		}
@@ -245,7 +232,6 @@ func migrateUsers(tx *gorm.DB) (uint, error) {
 			Role:                     "admin",
 			CreatedAt:                legacyUser.CreatedAt,
 			UpdatedAt:                legacyUser.UpdatedAt,
-			DefaultProfileID:         legacyUser.DefaultProfileID,
 			AutoTranscriptionEnabled: legacyUser.AutoTranscriptionEnabled,
 		}
 		if err := tx.Create(&user).Error; err != nil {
@@ -261,7 +247,6 @@ func migrateUsers(tx *gorm.DB) (uint, error) {
 func legacyHasOwnedData(tx *gorm.DB) (bool, error) {
 	tables := []string{
 		"transcription_jobs",
-		legacyPrefix + "transcription_profiles",
 		legacyPrefix + "summary_templates",
 		"llm_configs",
 		legacyPrefix + "api_keys",
@@ -296,33 +281,6 @@ func createMigrationUser(tx *gorm.DB) (uint, error) {
 		return 0, fmt.Errorf("create migration user: %w", err)
 	}
 	return user.ID, nil
-}
-
-func migrateProfiles(tx *gorm.DB, userID uint) error {
-	source := legacyPrefix + "transcription_profiles"
-	if !tx.Migrator().HasTable(source) {
-		return nil
-	}
-	var profiles []legacyTranscriptionProfile
-	if err := tx.Table(source).Order("created_at ASC").Find(&profiles).Error; err != nil {
-		return fmt.Errorf("load legacy profiles: %w", err)
-	}
-	for _, legacyProfile := range profiles {
-		profile := models.TranscriptionProfile{
-			ID:          legacyProfile.ID,
-			UserID:      userID,
-			Name:        legacyProfile.Name,
-			Description: legacyProfile.Description,
-			IsDefault:   legacyProfile.IsDefault,
-			Parameters:  legacyProfile.Parameters,
-			CreatedAt:   legacyProfile.CreatedAt,
-			UpdatedAt:   legacyProfile.UpdatedAt,
-		}
-		if err := tx.Create(&profile).Error; err != nil {
-			return fmt.Errorf("create migrated profile %s: %w", legacyProfile.ID, err)
-		}
-	}
-	return nil
 }
 
 func migrateTranscriptions(tx *gorm.DB, userID uint) error {
