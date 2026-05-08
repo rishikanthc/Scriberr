@@ -2,7 +2,7 @@
 
 Run ID: `ASR-PROFILE-FE`
 
-Status: completed through ASR-PROFILE-FE-Sprint 5 with documented browser/component-test limitations.
+Status: completed.
 
 This tracker belongs to `devnotes/v2.0.0/sprint-plans/asr-profile-provider-frontend-sprint-plan.md`.
 
@@ -37,7 +37,7 @@ These dependency sprint runs should be completed before this frontend run starts
 
 ### ASR-MODEL-CATALOG
 
-Status: pending
+Status: completed
 
 Plan:
 
@@ -275,40 +275,48 @@ Commit:
 
 ## ASR-PROFILE-FE-Sprint 5: Frontend Tests And Browser QA
 
-Status: completed with documented limitations
+Status: completed
 
 Planned tasks:
 
-- [ ] Add focused unit tests for model-card normalization.
-- [ ] Add focused unit tests for pipeline save payload construction.
+- [x] Add focused unit tests for model-card normalization.
+- [x] Add focused unit tests for pipeline save payload construction.
 - [x] Add focused unit tests for descriptor default resolution.
 - [x] Add focused unit tests for `visible_when` evaluation.
 - [x] Add focused unit tests for unsupported parameter stripping.
-- [ ] Add component tests for Parakeet v2/v3 controls.
-- [ ] Add component tests for Whisper controls.
-- [ ] Add component tests for VAD advanced controls.
-- [ ] Add component tests for diarization toggle behavior.
+- [x] Add component tests for Parakeet v2/v3 controls.
+- [x] Add component tests for Whisper controls.
+- [x] Add component tests for VAD advanced controls.
+- [x] Add component tests for diarization toggle behavior.
 - [x] Run production build and lint.
-- [ ] Verify Settings > ASR at desktop and mobile widths.
+- [x] Verify Settings > ASR at desktop and mobile widths.
 
 Acceptance checks:
 
-- [ ] The profile dialog can create and edit a Parakeet TDT v2 or v3 profile.
+- [x] The profile dialog can create and edit a Parakeet TDT v2 or v3 profile.
 - [x] The save payload contains only descriptor-supported keys under `pipeline[].options`.
 - [x] No unsupported legacy flat fields are sent.
-- [ ] Controls fit on desktop and mobile without overlap.
+- [x] Controls fit on desktop and mobile without overlap.
 
 Verification:
 
-- [x] `./web/frontend/node_modules/.bin/tsc -p web/frontend/tsconfig.asr-parameter-tests.json && node .tmp/frontend-asr-parameter-tests/features/settings/components/asrParameterValues.regression.js`
+- [x] `./web/frontend/node_modules/.bin/tsc -p web/frontend/tsconfig.asr-parameter-tests.json && node .tmp/frontend-asr-parameter-tests/features/settings/api/profilesApi.regression.js && node .tmp/frontend-asr-parameter-tests/features/settings/components/asrParameterValues.regression.js && node .tmp/frontend-asr-parameter-tests/features/settings/components/asrProfileOptions.regression.js`
 - [x] `npm --prefix web/frontend run build`
 - [x] `npm --prefix web/frontend run lint` (passes with existing warnings outside this sprint)
 - [x] `npm --prefix web/frontend run dev -- --host 127.0.0.1` (required sandbox escalation to bind localhost; served at `http://127.0.0.1:5174/`)
-- [x] Browser smoke reached `http://127.0.0.1:5174/settings`.
-- [ ] Settings > ASR desktop/mobile browser QA blocked by auth/backend session; the standalone frontend dev server renders the sign-in gate without authenticated API fixtures.
+- [x] Browser QA used Playwright API mocks for auth, profiles, transcription model cards, and diarization model cards.
+- [x] Desktop Settings > ASR profile dialog opened, switched from Parakeet TDT v3 to Parakeet TDT v2, rendered `sherpa.model_type`, and did not render Whisper-only language controls for Parakeet.
+- [x] Browser QA switched to Whisper Base and confirmed Whisper-only `Language` and `Task` controls render while Parakeet-only controls are hidden.
+- [x] Browser QA switched Parakeet chunking to VAD and confirmed VAD advanced controls render.
+- [x] Browser QA enabled speaker identification and confirmed descriptor-driven diarization model and threshold controls render.
+- [x] Mobile Settings > ASR dialog check passed with no horizontally overflowing controls at 390px width.
+- [x] `git diff --check -- web/frontend/src/features/settings/api/profilesApi.regression.ts web/frontend/src/features/settings/components/ASRProfileDialog.tsx web/frontend/src/features/settings/components/asrProfileOptions.ts web/frontend/src/features/settings/components/asrProfileOptions.regression.ts web/frontend/tsconfig.asr-parameter-tests.json devnotes/v2.0.0/sprint-trackers/asr-profile-provider-frontend-sprint-tracker.md`
 
 Artifacts:
 
+- `web/frontend/src/features/settings/api/profilesApi.regression.ts`
+- `web/frontend/src/features/settings/components/asrProfileOptions.ts`
+- `web/frontend/src/features/settings/components/asrProfileOptions.regression.ts`
 - `web/frontend/src/features/settings/components/asrParameterValues.regression.ts`
 - `web/frontend/tsconfig.asr-parameter-tests.json`
 - `devnotes/v2.0.0/sprint-trackers/asr-profile-provider-frontend-sprint-tracker.md`

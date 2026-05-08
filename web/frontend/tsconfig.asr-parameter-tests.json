@@ -12,7 +12,11 @@
     "noEmit": false
   },
   "include": [
+    "src/features/settings/api/profilesApi.ts",
+    "src/features/settings/api/profilesApi.regression.ts",
     "src/features/settings/components/asrParameterValues.ts",
-    "src/features/settings/components/asrParameterValues.regression.ts"
+    "src/features/settings/components/asrParameterValues.regression.ts",
+    "src/features/settings/components/asrProfileOptions.ts",
+    "src/features/settings/components/asrProfileOptions.regression.ts"
   ]
 }
