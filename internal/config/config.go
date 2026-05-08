@@ -4,7 +4,6 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -72,16 +71,6 @@ type ASRConfig struct {
 	ProviderAudioMountRoot string
 	LocalProviderEnabled   bool
 	DefaultProvider        string
-	RemoteProviders        []ASRRemoteProviderConfig
-	RemoteProviderTimeout  time.Duration
-	RemoteProviderPoll     time.Duration
-	RemoteMaxResponseBytes int64
-}
-
-type ASRRemoteProviderConfig struct {
-	ID       string
-	BaseURL  string
-	Required bool
 }
 
 type RecordingConfig struct {
@@ -147,10 +136,6 @@ func loadUnchecked() *Config {
 			ProviderAudioMountRoot: strings.TrimRight(getEnv("ASR_PROVIDER_AUDIO_MOUNT", "/provider-input/audio"), "/"),
 			LocalProviderEnabled:   getEnvBoolUnchecked("ASR_LOCAL_PROVIDER_ENABLED", true),
 			DefaultProvider:        strings.TrimSpace(getEnv("ASR_DEFAULT_PROVIDER", "local")),
-			RemoteProviders:        parseRemoteProvidersUnchecked(),
-			RemoteProviderTimeout:  getEnvDurationUnchecked("ASR_REMOTE_PROVIDER_TIMEOUT", 30*time.Second),
-			RemoteProviderPoll:     getEnvDurationUnchecked("ASR_REMOTE_PROVIDER_POLL_INTERVAL", 2*time.Second),
-			RemoteMaxResponseBytes: getEnvInt64Unchecked("ASR_REMOTE_PROVIDER_MAX_RESPONSE_BYTES", 4<<20),
 		},
 		Recordings: RecordingConfig{
 			Dir:                   getEnv("RECORDINGS_DIR", "data/recordings"),
@@ -214,20 +199,6 @@ func (c *Config) validate() error {
 	if _, err := getEnvBool("ASR_LOCAL_PROVIDER_ENABLED", true); err != nil {
 		return err
 	}
-	if _, err := getEnvDuration("ASR_REMOTE_PROVIDER_TIMEOUT", 30*time.Second); err != nil {
-		return err
-	}
-	if _, err := getEnvDuration("ASR_REMOTE_PROVIDER_POLL_INTERVAL", 2*time.Second); err != nil {
-		return err
-	}
-	if _, err := getEnvInt64("ASR_REMOTE_PROVIDER_MAX_RESPONSE_BYTES", 4<<20, 1); err != nil {
-		return err
-	}
-	remotes, err := parseRemoteProviders()
-	if err != nil {
-		return err
-	}
-	c.ASR.RemoteProviders = remotes
 	if err := validateASRProviders(c.ASR); err != nil {
 		return err
 	}
@@ -296,88 +267,10 @@ func validateASRProviders(cfg ASRConfig) error {
 	if cfg.LocalProviderEnabled {
 		registered["local"] = struct{}{}
 	}
-	for _, provider := range cfg.RemoteProviders {
-		id := strings.TrimSpace(provider.ID)
-		if id == "" {
-			return fmt.Errorf("ASR_REMOTE_PROVIDERS contains an empty provider id")
-		}
-		if id == "local" {
-			return fmt.Errorf("ASR_REMOTE_PROVIDERS must not redefine local provider")
-		}
-		if _, exists := registered[id]; exists {
-			return fmt.Errorf("ASR_REMOTE_PROVIDERS contains duplicate provider id %q", id)
-		}
-		if err := validateRemoteProviderURL(provider.BaseURL); err != nil {
-			return fmt.Errorf("ASR_REMOTE_PROVIDERS provider %q: %w", id, err)
-		}
-		registered[id] = struct{}{}
-	}
 	if _, ok := registered[defaultProvider]; !ok {
 		return fmt.Errorf("ASR_DEFAULT_PROVIDER %q is not registered", defaultProvider)
 	}
 	return nil
-}
-
-func validateRemoteProviderURL(value string) error {
-	parsed, err := url.Parse(strings.TrimSpace(value))
-	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
-		return fmt.Errorf("base URL is invalid")
-	}
-	if parsed.Scheme != "http" && parsed.Scheme != "https" {
-		return fmt.Errorf("base URL scheme must be http or https")
-	}
-	if parsed.RawQuery != "" || parsed.Fragment != "" {
-		return fmt.Errorf("base URL must not include query or fragment")
-	}
-	return nil
-}
-
-func parseRemoteProvidersUnchecked() []ASRRemoteProviderConfig {
-	providers, err := parseRemoteProviders()
-	if err != nil {
-		return nil
-	}
-	return providers
-}
-
-func parseRemoteProviders() ([]ASRRemoteProviderConfig, error) {
-	raw := strings.TrimSpace(os.Getenv("ASR_REMOTE_PROVIDERS"))
-	if raw == "" {
-		return nil, nil
-	}
-	required := csvSet(os.Getenv("ASR_REMOTE_PROVIDER_REQUIRED"))
-	parts := strings.Split(raw, ",")
-	providers := make([]ASRRemoteProviderConfig, 0, len(parts))
-	for _, part := range parts {
-		item := strings.TrimSpace(part)
-		if item == "" {
-			continue
-		}
-		id, baseURL, ok := strings.Cut(item, "=")
-		if !ok {
-			id, baseURL, ok = strings.Cut(item, "|")
-		}
-		if !ok {
-			return nil, fmt.Errorf("ASR_REMOTE_PROVIDERS entries must use id=url")
-		}
-		id = strings.TrimSpace(id)
-		providers = append(providers, ASRRemoteProviderConfig{
-			ID:       id,
-			BaseURL:  strings.TrimSpace(baseURL),
-			Required: required[id],
-		})
-	}
-	return providers, nil
-}
-
-func csvSet(raw string) map[string]bool {
-	out := map[string]bool{}
-	for _, item := range strings.Split(raw, ",") {
-		if trimmed := strings.TrimSpace(item); trimmed != "" {
-			out[trimmed] = true
-		}
-	}
-	return out
 }
 
 func validateProvider(provider string) error {

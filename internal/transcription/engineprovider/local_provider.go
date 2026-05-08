@@ -28,8 +28,7 @@ type speechEngine interface {
 	Models(ctx context.Context) ([]speechproviders.ModelDescriptor, error)
 	Status(ctx context.Context) (*speechengine.ProviderStatus, error)
 	LoadedModels() []speechengine.LoadedModel
-	Transcribe(ctx context.Context, req speechengine.TranscriptionRequest) (*speechengine.TranscriptionResult, error)
-	Diarize(ctx context.Context, req speechengine.DiarizationRequest) (*speechengine.DiarizationResult, error)
+	Execute(ctx context.Context, req speechengine.TaskRequest) (*speechengine.TaskResult, error)
 	Close() error
 }
 
@@ -157,26 +156,6 @@ func (p *LocalProvider) LoadedModels(ctx context.Context) ([]asrcontract.LoadedM
 	return out, nil
 }
 
-func (p *LocalProvider) Transcribe(ctx context.Context, req TranscriptionRequest) (*TranscriptionResult, error) {
-	out, err := p.ExecuteTask(ctx, TaskRequest{
-		JobID:      req.JobID,
-		UserID:     req.UserID,
-		Operation:  asrcontract.OperationTranscription,
-		AudioPath:  req.AudioPath,
-		Progress:   req.Progress,
-		ModelID:    req.ModelID,
-		Parameters: req.Parameters,
-	})
-	if err != nil {
-		return nil, err
-	}
-	result, ok := out.Result.(*TranscriptionResult)
-	if !ok || result == nil {
-		return nil, sanitizeErrorf("local engine returned no transcription result")
-	}
-	return result, nil
-}
-
 func (p *LocalProvider) ExecuteTask(ctx context.Context, req TaskRequest) (*TaskResult, error) {
 	switch req.Operation {
 	case asrcontract.OperationTranscription:
@@ -200,17 +179,22 @@ func (p *LocalProvider) ExecuteTask(ctx context.Context, req TaskRequest) (*Task
 
 func (p *LocalProvider) executeTranscription(ctx context.Context, req TaskRequest) (*TranscriptionResult, error) {
 	modelID := strings.TrimSpace(req.ModelID)
-	engineReq := speechengine.TranscriptionRequest{
+	engineReq := speechengine.TaskRequest{
 		RequestID:  req.JobID,
+		Task:       speechproviders.TaskTranscription,
 		ModelID:    modelID,
 		AudioPath:  req.AudioPath,
 		Parameters: copyParameters(req.Parameters),
 		Progress:   localProgressSink{downstream: req.Progress},
 	}
-	out, err := p.engine.Transcribe(ctx, engineReq)
+	taskResult, err := p.engine.Execute(ctx, engineReq)
 	if err != nil {
 		return nil, sanitizeError(err)
 	}
+	if taskResult == nil {
+		return nil, sanitizeErrorf("local engine returned no transcription task result")
+	}
+	out, _ := taskResult.Result.(*speechengine.TranscriptionResult)
 	if out == nil {
 		return nil, sanitizeErrorf("local engine returned no transcription result")
 	}
@@ -288,39 +272,24 @@ func copyParameters(in map[string]any) map[string]any {
 	return out
 }
 
-func (p *LocalProvider) Diarize(ctx context.Context, req DiarizationRequest) (*DiarizationResult, error) {
-	out, err := p.ExecuteTask(ctx, TaskRequest{
-		JobID:      req.JobID,
-		UserID:     req.UserID,
-		Operation:  asrcontract.OperationDiarization,
-		AudioPath:  req.AudioPath,
-		Progress:   req.Progress,
-		ModelID:    req.ModelID,
-		Parameters: req.Parameters,
-	})
-	if err != nil {
-		return nil, err
-	}
-	result, ok := out.Result.(*DiarizationResult)
-	if !ok || result == nil {
-		return nil, sanitizeErrorf("local engine returned no diarization result")
-	}
-	return result, nil
-}
-
 func (p *LocalProvider) executeDiarization(ctx context.Context, req TaskRequest) (*DiarizationResult, error) {
 	modelID := strings.TrimSpace(req.ModelID)
-	engineReq := speechengine.DiarizationRequest{
+	engineReq := speechengine.TaskRequest{
 		RequestID:  req.JobID,
+		Task:       speechproviders.TaskDiarization,
 		ModelID:    modelID,
 		AudioPath:  req.AudioPath,
 		Parameters: copyParameters(req.Parameters),
 		Progress:   localProgressSink{downstream: req.Progress},
 	}
-	out, err := p.engine.Diarize(ctx, engineReq)
+	taskResult, err := p.engine.Execute(ctx, engineReq)
 	if err != nil {
 		return nil, sanitizeError(err)
 	}
+	if taskResult == nil {
+		return nil, sanitizeErrorf("local engine returned no diarization task result")
+	}
+	out, _ := taskResult.Result.(*speechengine.DiarizationResult)
 	if out == nil {
 		return nil, sanitizeErrorf("local engine returned no diarization result")
 	}
@@ -340,24 +309,6 @@ func (p *LocalProvider) executeDiarization(ctx context.Context, req TaskRequest)
 		ModelID:  modelID,
 		EngineID: p.id,
 	}, nil
-}
-
-func (p *LocalProvider) IdentifySpeakers(ctx context.Context, req asrcontract.SpeakerIDRequest) (*asrcontract.SpeakerIDResult, error) {
-	out, err := p.ExecuteTask(ctx, TaskRequest{
-		JobID:      req.RequestID,
-		Operation:  asrcontract.OperationSpeakerIdentification,
-		AudioPath:  req.Audio.Path,
-		ModelID:    req.Model,
-		Parameters: req.Options,
-	})
-	if err != nil {
-		return nil, err
-	}
-	result, ok := out.Result.(*asrcontract.SpeakerIDResult)
-	if !ok || result == nil {
-		return nil, sanitizeErrorf("local engine returned no speaker identification result")
-	}
-	return result, nil
 }
 
 func (p *LocalProvider) Close() error {

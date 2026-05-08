@@ -363,7 +363,7 @@ func (s *FinalizerService) buildHandoffRecords(ctx context.Context, session *mod
 	if err != nil {
 		return nil, nil, err
 	}
-	applyRecordingOptions(&params, session.TranscriptionOptionsJSON)
+	language := applyRecordingOptions(&params, session.TranscriptionOptionsJSON)
 	fileID := file.ID
 	transcription := &models.TranscriptionJob{
 		ID:               uuid.NewString(),
@@ -374,7 +374,7 @@ func (s *FinalizerService) buildHandoffRecords(ctx context.Context, session *mod
 		SourceFileName:   file.SourceFileName,
 		SourceFileHash:   &fileID,
 		SourceDurationMs: session.DurationMs,
-		Language:         params.Language,
+		Language:         language,
 		Diarization:      hasASRStep(params.Pipeline, models.ASRStepDiarization),
 		Parameters:       params,
 	}
@@ -407,17 +407,19 @@ type recordingOptions struct {
 	Diarization *bool  `json:"diarization"`
 }
 
-func applyRecordingOptions(params *models.ASRParams, raw string) {
+func applyRecordingOptions(params *models.ASRParams, raw string) *string {
 	var opts recordingOptions
 	if err := json.Unmarshal([]byte(raw), &opts); err != nil {
-		return
+		return nil
 	}
+	var language *string
 	if opts.Language != "" {
-		params.Language = &opts.Language
+		language = &opts.Language
 	}
 	if opts.Diarization != nil {
 		setDiarizationPipeline(params, *opts.Diarization)
 	}
+	return language
 }
 
 func setDiarizationPipeline(params *models.ASRParams, enabled bool) {

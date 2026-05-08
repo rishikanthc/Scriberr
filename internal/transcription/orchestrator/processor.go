@@ -73,6 +73,12 @@ type resolvedASRStep struct {
 	Model      string
 	ModelType  string
 	Options    map[string]any
+	definition asrTaskDefinition
+}
+
+type taskExecutionState struct {
+	transcription *engineprovider.TranscriptionResult
+	diarization   *engineprovider.DiarizationResult
 }
 
 func (p *Processor) Process(ctx context.Context, job *models.TranscriptionJob) (worker.ProcessResult, error) {
@@ -98,7 +104,6 @@ func (p *Processor) Process(ctx context.Context, job *models.TranscriptionJob) (
 		err := fmt.Errorf("ASR pipeline requires a transcription step")
 		return failedResult(sanitizeErrorMessage(err)), err
 	}
-	diarizationStep, diarizationEnabled := firstStepByKind(pipeline, models.ASRStepDiarization)
 	transcriptionModel := transcriptionStep.Model
 	providerID := transcriptionStep.ProviderID
 
@@ -139,84 +144,41 @@ func (p *Processor) Process(ctx context.Context, job *models.TranscriptionJob) (
 		return withExecution(failedResult(message), err)
 	}
 	progressSink := providerProgressSink{processor: p, job: job}
-	transcriptionTask, err := transcriptionStep.Provider.ExecuteTask(ctx, engineprovider.TaskRequest{
-		JobID:      job.ID,
-		UserID:     job.UserID,
-		Operation:  transcriptionStep.Operation,
-		AudioPath:  audio.ProviderPath,
-		Progress:   progressSink,
-		ModelID:    transcriptionModel,
-		Parameters: providerParametersForStep(transcriptionStep),
-	})
-	if err != nil {
-		return withExecution(p.errorResult(ctx, err))
+	taskState := taskExecutionState{}
+	var providerMetadata map[string]any
+	for _, step := range pipeline {
+		task, err := step.Provider.ExecuteTask(ctx, engineprovider.TaskRequest{
+			JobID:      job.ID,
+			UserID:     job.UserID,
+			Operation:  step.Operation,
+			AudioPath:  audio.ProviderPath,
+			Progress:   progressSink,
+			ModelID:    step.Model,
+			Parameters: providerParametersForStep(step),
+		})
+		if err != nil {
+			return withExecution(p.errorResult(ctx, err))
+		}
+		if err := step.definition.handleResult(&taskState, step, task); err != nil {
+			return withExecution(failedResult(err.Error()), err)
+		}
+		if step.Kind == models.ASRStepTranscription && taskState.transcription != nil {
+			providerMetadata = taskState.transcription.Metadata
+		}
 	}
-	if transcriptionTask == nil {
-		return withExecution(failedResult("transcription provider returned no task result"), fmt.Errorf("transcription provider returned no task result"))
+	if taskState.transcription == nil {
+		err := fmt.Errorf("transcription provider returned no result")
+		return withExecution(failedResult(err.Error()), err)
 	}
-	transcription, ok := transcriptionTask.Result.(*engineprovider.TranscriptionResult)
-	if !ok {
-		return withExecution(failedResult("transcription provider returned invalid result"), fmt.Errorf("transcription provider returned invalid result"))
-	}
-	if transcription == nil {
-		return withExecution(failedResult("transcription provider returned no result"), fmt.Errorf("transcription provider returned no result"))
-	}
-	if transcription.ModelID == "" {
-		transcription.ModelID = transcriptionModel
-	}
-	if transcription.EngineID == "" {
-		transcription.EngineID = transcriptionStep.ProviderID
-	}
-	execution.ConfigJSON = executionConfigJSON(pipeline, transcription.Metadata)
+	execution.ConfigJSON = executionConfigJSON(pipeline, providerMetadata)
 	if err := p.Jobs.UpdateExecution(ctx, execution); err != nil {
 		return withExecution(failedResult(sanitizeErrorMessage(err)), err)
-	}
-
-	var diarization *engineprovider.DiarizationResult
-	if diarizationEnabled {
-		diarizationTask, err := diarizationStep.Provider.ExecuteTask(ctx, engineprovider.TaskRequest{
-			JobID:      job.ID,
-			UserID:     job.UserID,
-			Operation:  diarizationStep.Operation,
-			AudioPath:  audio.ProviderPath,
-			Progress:   progressSink,
-			ModelID:    diarizationStep.Model,
-			Parameters: providerParametersForStep(diarizationStep),
-		})
-		if err != nil {
-			return withExecution(p.errorResult(ctx, err))
-		}
-		if diarizationTask != nil {
-			diarization, _ = diarizationTask.Result.(*engineprovider.DiarizationResult)
-		}
-		if diarization != nil {
-			if diarization.ModelID == "" {
-				diarization.ModelID = diarizationStep.Model
-			}
-			if diarization.EngineID == "" {
-				diarization.EngineID = diarizationStep.ProviderID
-			}
-		}
-	}
-	for _, speakerStep := range stepsByKind(pipeline, models.ASRStepSpeakerIdentification) {
-		_, err := speakerStep.Provider.ExecuteTask(ctx, engineprovider.TaskRequest{
-			JobID:      job.ID,
-			UserID:     job.UserID,
-			Operation:  speakerStep.Operation,
-			AudioPath:  audio.ProviderPath,
-			Progress:   progressSink,
-			ModelID:    speakerStep.Model,
-			Parameters: providerParametersForStep(speakerStep),
-		})
-		if err != nil {
-			return withExecution(p.errorResult(ctx, err))
-		}
 	}
 
 	if err := p.publishProgress(ctx, job, "merging", 0.85, models.StatusProcessing); err != nil {
 		return withExecution(canceledResult(), err)
 	}
-	canonical, err := BuildCanonicalTranscript(transcription, diarization)
+	canonical, err := BuildCanonicalTranscript(taskState.transcription, taskState.diarization)
 	if err != nil {
 		message := sanitizeErrorMessage(err)
 		return withExecution(failedResult(message), err)
@@ -278,27 +240,76 @@ func (p *Processor) resolvePipeline(ctx context.Context, job *models.Transcripti
 			Model:      model,
 			ModelType:  strings.TrimSpace(step.ModelFamily),
 			Options:    copyStepOptions(step.Options),
+			definition: definition,
 		})
 	}
 	return out, nil
 }
 
 type asrTaskDefinition struct {
-	operation  asrcontract.Operation
-	capability asrcontract.Capability
+	operation    asrcontract.Operation
+	capability   asrcontract.Capability
+	handleResult func(*taskExecutionState, resolvedASRStep, *engineprovider.TaskResult) error
+}
+
+var asrTaskDefinitions = map[string]asrTaskDefinition{
+	models.ASRStepTranscription: {
+		operation:  asrcontract.OperationTranscription,
+		capability: asrcontract.CapabilityTranscription,
+		handleResult: func(state *taskExecutionState, step resolvedASRStep, task *engineprovider.TaskResult) error {
+			if task == nil {
+				return fmt.Errorf("transcription provider returned no task result")
+			}
+			transcription, ok := task.Result.(*engineprovider.TranscriptionResult)
+			if !ok {
+				return fmt.Errorf("transcription provider returned invalid result")
+			}
+			if transcription == nil {
+				return fmt.Errorf("transcription provider returned no result")
+			}
+			if transcription.ModelID == "" {
+				transcription.ModelID = step.Model
+			}
+			if transcription.EngineID == "" {
+				transcription.EngineID = step.ProviderID
+			}
+			state.transcription = transcription
+			return nil
+		},
+	},
+	models.ASRStepDiarization: {
+		operation:  asrcontract.OperationDiarization,
+		capability: asrcontract.CapabilityDiarization,
+		handleResult: func(state *taskExecutionState, step resolvedASRStep, task *engineprovider.TaskResult) error {
+			if task == nil || task.Result == nil {
+				return nil
+			}
+			diarization, ok := task.Result.(*engineprovider.DiarizationResult)
+			if !ok {
+				return fmt.Errorf("diarization provider returned invalid result")
+			}
+			if diarization.ModelID == "" {
+				diarization.ModelID = step.Model
+			}
+			if diarization.EngineID == "" {
+				diarization.EngineID = step.ProviderID
+			}
+			state.diarization = diarization
+			return nil
+		},
+	},
+	models.ASRStepSpeakerIdentification: {
+		operation:  asrcontract.OperationSpeakerIdentification,
+		capability: asrcontract.CapabilitySpeakerIdentification,
+		handleResult: func(state *taskExecutionState, step resolvedASRStep, task *engineprovider.TaskResult) error {
+			return nil
+		},
+	},
 }
 
 func taskDefinitionForStep(kind string) (asrTaskDefinition, bool) {
-	switch kind {
-	case models.ASRStepTranscription:
-		return asrTaskDefinition{operation: asrcontract.OperationTranscription, capability: asrcontract.CapabilityTranscription}, true
-	case models.ASRStepDiarization:
-		return asrTaskDefinition{operation: asrcontract.OperationDiarization, capability: asrcontract.CapabilityDiarization}, true
-	case models.ASRStepSpeakerIdentification:
-		return asrTaskDefinition{operation: asrcontract.OperationSpeakerIdentification, capability: asrcontract.CapabilitySpeakerIdentification}, true
-	default:
-		return asrTaskDefinition{}, false
-	}
+	definition, ok := asrTaskDefinitions[kind]
+	return definition, ok
 }
 
 func providerParametersForStep(step resolvedASRStep) map[string]any {

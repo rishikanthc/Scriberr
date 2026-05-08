@@ -68,24 +68,6 @@ type TaskResult struct {
 	Metadata  map[string]any
 }
 
-type TranscriptionRequest struct {
-	JobID      string
-	UserID     uint
-	AudioPath  string
-	Progress   ProgressSink
-	ModelID    string
-	Parameters map[string]any
-}
-
-type DiarizationRequest struct {
-	JobID      string
-	UserID     uint
-	AudioPath  string
-	Progress   ProgressSink
-	ModelID    string
-	Parameters map[string]any
-}
-
 type TranscriptWord struct {
 	Start   float64
 	End     float64

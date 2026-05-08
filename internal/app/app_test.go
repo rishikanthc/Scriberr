@@ -65,30 +65,20 @@ func TestServerUsesConfiguredAddressAndRouter(t *testing.T) {
 	}
 }
 
-func TestBuildProviderRegistryRegistersRemoteProviders(t *testing.T) {
+func TestBuildProviderRegistryUsesLocalProviderOnly(t *testing.T) {
 	local := fakeProvider{id: engineprovider.DefaultProviderID}
 	registry, providers, err := buildProviderRegistry(config.ASRConfig{
 		LocalProviderEnabled: true,
-		DefaultProvider:      "remote-a",
-		RemoteProviders: []config.ASRRemoteProviderConfig{
-			{ID: "remote-a", BaseURL: "https://asr-a.example/api"},
-			{ID: "remote-b", BaseURL: "http://asr-b.example"},
-		},
-		RemoteProviderTimeout:  time.Second,
-		RemoteProviderPoll:     time.Second,
-		RemoteMaxResponseBytes: 1 << 20,
+		DefaultProvider:      engineprovider.DefaultProviderID,
 	}, local)
 	if err != nil {
 		t.Fatalf("buildProviderRegistry returned error: %v", err)
 	}
-	if len(providers) != 3 {
-		t.Fatalf("providers length = %d, want 3", len(providers))
+	if len(providers) != 1 {
+		t.Fatalf("providers length = %d, want 1", len(providers))
 	}
-	if registry.DefaultProvider().ID() != "remote-a" {
+	if registry.DefaultProvider().ID() != engineprovider.DefaultProviderID {
 		t.Fatalf("default provider = %q", registry.DefaultProvider().ID())
-	}
-	if _, ok := registry.Provider("remote-b"); !ok {
-		t.Fatal("remote-b provider was not registered")
 	}
 }
 
@@ -118,9 +108,6 @@ func testConfig(root string) *config.Config {
 			ProviderAudioMountRoot: "/provider-input/audio",
 			LocalProviderEnabled:   true,
 			DefaultProvider:        engineprovider.DefaultProviderID,
-			RemoteProviderTimeout:  30 * time.Second,
-			RemoteProviderPoll:     2 * time.Second,
-			RemoteMaxResponseBytes: 4 << 20,
 		},
 		Recordings: config.RecordingConfig{
 			Dir:                   filepath.Join(root, "recordings"),
@@ -173,15 +160,6 @@ func (p fakeProvider) LoadedModels(ctx context.Context) ([]asrcontract.LoadedMod
 	return nil, nil
 }
 func (p fakeProvider) ExecuteTask(ctx context.Context, req engineprovider.TaskRequest) (*engineprovider.TaskResult, error) {
-	return nil, nil
-}
-func (p fakeProvider) Transcribe(ctx context.Context, req engineprovider.TranscriptionRequest) (*engineprovider.TranscriptionResult, error) {
-	return nil, nil
-}
-func (p fakeProvider) Diarize(ctx context.Context, req engineprovider.DiarizationRequest) (*engineprovider.DiarizationResult, error) {
-	return nil, nil
-}
-func (p fakeProvider) IdentifySpeakers(ctx context.Context, req asrcontract.SpeakerIDRequest) (*asrcontract.SpeakerIDResult, error) {
 	return nil, nil
 }
 func (p fakeProvider) Close() error { return nil }

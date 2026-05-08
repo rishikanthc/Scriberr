@@ -64,8 +64,6 @@ func TestProfileCRUDAndDefaultSelection(t *testing.T) {
 
 	var storedProfile models.TranscriptionProfile
 	require.NoError(t, database.DB.First(&storedProfile, "id = ?", strings.TrimPrefix(firstID, "profile_")).Error)
-	require.Empty(t, storedProfile.Parameters.Model)
-	require.Empty(t, storedProfile.Parameters.ChunkingStrategy)
 	require.Len(t, storedProfile.Parameters.Pipeline, 1)
 	require.Equal(t, models.ASRStepTranscription, storedProfile.Parameters.Pipeline[0].Kind)
 	require.Equal(t, "vad", storedProfile.Parameters.Pipeline[0].Options["chunking.mode"])
@@ -336,7 +334,8 @@ func TestCapabilitiesQueueAndEvents(t *testing.T) {
 	require.NotEmpty(t, items)
 	model := items[0].(map[string]any)
 	require.Equal(t, "local", model["provider"])
-	require.Contains(t, model["capabilities"].([]any), "transcription")
+	require.Equal(t, true, model["capabilities"].(map[string]any)["transcription"])
+	require.Contains(t, model, "parameter_schema")
 
 	resp, body = s.request(t, http.MethodGet, "/api/v1/admin/queue", nil, token, "")
 	require.Equal(t, http.StatusOK, resp.Code)

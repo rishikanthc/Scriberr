@@ -42,15 +42,6 @@ func (p contractStubProvider) LoadedModels(context.Context) ([]asrcontract.Loade
 func (p contractStubProvider) ExecuteTask(context.Context, engineprovider.TaskRequest) (*engineprovider.TaskResult, error) {
 	return nil, nil
 }
-func (p contractStubProvider) Transcribe(context.Context, engineprovider.TranscriptionRequest) (*engineprovider.TranscriptionResult, error) {
-	return nil, nil
-}
-func (p contractStubProvider) Diarize(context.Context, engineprovider.DiarizationRequest) (*engineprovider.DiarizationResult, error) {
-	return nil, nil
-}
-func (p contractStubProvider) IdentifySpeakers(context.Context, asrcontract.SpeakerIDRequest) (*asrcontract.SpeakerIDResult, error) {
-	return nil, nil
-}
 func (p contractStubProvider) Close() error { return nil }
 
 func TestRunProviderContractFailsInvalidParameterSchema(t *testing.T) {

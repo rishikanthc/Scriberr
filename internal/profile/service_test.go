@@ -58,13 +58,19 @@ type fakeModelCatalog struct {
 	err    error
 }
 
-func (c fakeModelCatalog) ResolveTranscriptionModel(ctx context.Context, model string) (ModelInfo, error) {
-	return c.ResolveModel(ctx, model, asrcontract.CapabilityTranscription)
+func (c fakeModelCatalog) ResolveTranscriptionModel(ctx context.Context, provider string, model string) (ModelInfo, error) {
+	return c.ResolveModel(ctx, provider, model, asrcontract.CapabilityTranscription)
 }
 
-func (c fakeModelCatalog) ResolveModel(ctx context.Context, model string, capability asrcontract.Capability) (ModelInfo, error) {
+func (c fakeModelCatalog) ResolveModel(ctx context.Context, provider string, model string, capability asrcontract.Capability) (ModelInfo, error) {
 	if c.err != nil {
 		return ModelInfo{}, c.err
+	}
+	if provider != "" {
+		providerModel := provider + "/" + model
+		if _, ok := c.models[providerModel]; ok {
+			model = providerModel
+		}
 	}
 	if model == "" {
 		model = "whisper-base"
@@ -77,6 +83,29 @@ func (c fakeModelCatalog) ResolveModel(ctx context.Context, model string, capabi
 		return ModelInfo{}, ErrInvalidModel
 	}
 	return info, nil
+}
+
+func TestServiceCreateRejectsModelFromDifferentProvider(t *testing.T) {
+	service := NewService(&fakeProfileRepository{}, fakeModelCatalog{models: map[string]ModelInfo{
+		"remote/parakeet-v2": {
+			ID:        "parakeet-v2",
+			ModelType: "nemo_transducer",
+			Capabilities: asrcontract.Capabilities{
+				Transcription: true,
+			},
+		},
+	}})
+
+	err := service.Create(context.Background(), &models.TranscriptionProfile{
+		UserID: 1,
+		Name:   "Wrong provider",
+		Parameters: models.ASRParams{
+			Pipeline: []models.ASRStep{{Kind: models.ASRStepTranscription, Provider: "local", Model: "parakeet-v2"}},
+		},
+	})
+	if !errors.Is(err, ErrInvalidPipeline) {
+		t.Fatalf("Create error = %v, want ErrInvalidPipeline", err)
+	}
 }
 
 func TestServiceCreateNormalizesProfileModelFromCatalog(t *testing.T) {
@@ -103,9 +132,6 @@ func TestServiceCreateNormalizesProfileModelFromCatalog(t *testing.T) {
 	}
 	if repo.created == nil {
 		t.Fatal("profile was not created")
-	}
-	if repo.created.Parameters.Model != "" || repo.created.Parameters.ModelFamily != "" {
-		t.Fatalf("flat profile parameters should remain empty: %#v", repo.created.Parameters)
 	}
 	if len(repo.created.Parameters.Pipeline) != 1 {
 		t.Fatalf("profile pipeline length = %d, want 1", len(repo.created.Parameters.Pipeline))

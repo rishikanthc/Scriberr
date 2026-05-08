@@ -86,15 +86,6 @@ func (p fakeCapabilityProvider) LoadedModels(context.Context) ([]asrcontract.Loa
 func (p fakeCapabilityProvider) ExecuteTask(context.Context, engineprovider.TaskRequest) (*engineprovider.TaskResult, error) {
 	return nil, nil
 }
-func (p fakeCapabilityProvider) Transcribe(context.Context, engineprovider.TranscriptionRequest) (*engineprovider.TranscriptionResult, error) {
-	return nil, nil
-}
-func (p fakeCapabilityProvider) Diarize(context.Context, engineprovider.DiarizationRequest) (*engineprovider.DiarizationResult, error) {
-	return nil, nil
-}
-func (p fakeCapabilityProvider) IdentifySpeakers(context.Context, asrcontract.SpeakerIDRequest) (*asrcontract.SpeakerIDResult, error) {
-	return nil, asrcontract.NewProviderError(asrcontract.CodeUnsupportedOperation, "speaker identification is not supported", false)
-}
 func (p fakeCapabilityProvider) Close() error { return nil }
 
 func modelCardsFromTestCapabilities(capabilities []engineprovider.ModelCapability) []asrcontract.ModelCard {
@@ -214,15 +205,6 @@ func (p *fakeAdminASRProvider) LoadedModels(context.Context) ([]asrcontract.Load
 	return p.loaded, nil
 }
 func (p *fakeAdminASRProvider) ExecuteTask(context.Context, engineprovider.TaskRequest) (*engineprovider.TaskResult, error) {
-	return nil, nil
-}
-func (p *fakeAdminASRProvider) Transcribe(context.Context, engineprovider.TranscriptionRequest) (*engineprovider.TranscriptionResult, error) {
-	return nil, nil
-}
-func (p *fakeAdminASRProvider) Diarize(context.Context, engineprovider.DiarizationRequest) (*engineprovider.DiarizationResult, error) {
-	return nil, nil
-}
-func (p *fakeAdminASRProvider) IdentifySpeakers(context.Context, asrcontract.SpeakerIDRequest) (*asrcontract.SpeakerIDResult, error) {
 	return nil, nil
 }
 func (p *fakeAdminASRProvider) Close() error { return nil }
@@ -392,6 +374,7 @@ func TestTranscriptExecutionsLogsModelsAndStatsUseEngineServices(t *testing.T) {
 	require.Equal(t, "whisper-base", model["id"])
 	require.Equal(t, true, model["installed"])
 	require.Equal(t, true, model["default"])
+	require.Equal(t, true, model["capabilities"].(map[string]any)["transcription"])
 
 	resp, body = s.request(t, http.MethodGet, "/api/v1/admin/queue", nil, token, "")
 	require.Equal(t, http.StatusOK, resp.Code)

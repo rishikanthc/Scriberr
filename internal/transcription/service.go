@@ -398,7 +398,6 @@ func (s *Service) createFromSource(ctx context.Context, userID uint, source *mod
 	}
 	if language != "" {
 		job.Language = &language
-		job.Parameters.Language = &language
 	}
 	if diarization != nil {
 		setDiarizationPipeline(&job.Parameters, *diarization)

@@ -30,13 +30,18 @@ func TestExampleProviderServerSatisfiesContract(t *testing.T) {
 		RequiredCapabilities: []asrcontract.Capability{asrcontract.CapabilityTranscription},
 	})
 
-	result, err := client.Transcribe(t.Context(), engineprovider.TranscriptionRequest{
+	out, err := client.ExecuteTask(t.Context(), engineprovider.TaskRequest{
 		JobID:     "contract-job",
+		Operation: asrcontract.OperationTranscription,
 		AudioPath: "/provider-input/audio/contract.wav",
 		ModelID:   "example-transcriber",
 	})
 	if err != nil {
-		t.Fatalf("Transcribe returned error: %v", err)
+		t.Fatalf("ExecuteTask returned error: %v", err)
+	}
+	result, _ := out.Result.(*engineprovider.TranscriptionResult)
+	if result == nil {
+		t.Fatalf("ExecuteTask returned no transcription result: %#v", out)
 	}
 	if result.Text != "hello from example provider" || result.EngineID != "example" {
 		t.Fatalf("unexpected result: %#v", result)

@@ -10,7 +10,7 @@ import (
 	admindomain "scriberr/internal/admin"
 	"scriberr/internal/models"
 	transcriptiondomain "scriberr/internal/transcription"
-	"scriberr/internal/transcription/engineprovider"
+	"scriberr/internal/transcription/asrcontract"
 	"scriberr/internal/transcription/scheduler"
 	"scriberr/internal/transcription/worker"
 
@@ -19,16 +19,18 @@ import (
 
 func (h *Handler) listTranscriptionModels(c *gin.Context) {
 	if h.modelRegistry != nil {
-		capabilities, err := h.modelRegistry.Capabilities(c.Request.Context())
+		models, err := h.modelRegistry.Models(c.Request.Context())
 		if err != nil {
 			writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not list transcription models", nil)
 			return
 		}
-		items := make([]gin.H, 0, len(capabilities))
-		for _, capability := range capabilities {
-			items = append(items, modelCapabilityResponse(capability))
+		transcriptionModels := make([]asrcontract.ModelCard, 0, len(models))
+		for _, model := range models {
+			if model.Supports(asrcontract.CapabilityTranscription) {
+				transcriptionModels = append(transcriptionModels, model)
+			}
 		}
-		c.JSON(http.StatusOK, gin.H{"items": items})
+		c.JSON(http.StatusOK, gin.H{"items": sanitizeModelCards(transcriptionModels)})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"items": []gin.H{}})
@@ -439,17 +441,6 @@ func (h *Handler) getTranscriptionLogs(c *gin.Context) {
 		return
 	}
 	c.Data(http.StatusOK, "text/plain; charset=utf-8", []byte(sanitizePublicText(logText)))
-}
-
-func modelCapabilityResponse(capability engineprovider.ModelCapability) gin.H {
-	return gin.H{
-		"id":           capability.ID,
-		"name":         capability.Name,
-		"provider":     capability.Provider,
-		"installed":    capability.Installed,
-		"default":      capability.Default,
-		"capabilities": capability.Capabilities,
-	}
 }
 
 func executionResponse(execution *models.TranscriptionJobExecution) gin.H {

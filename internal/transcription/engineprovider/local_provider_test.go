@@ -20,8 +20,8 @@ import (
 )
 
 type fakeSpeechEngine struct {
-	transcriptionReq  speechengine.TranscriptionRequest
-	diarizationReq    speechengine.DiarizationRequest
+	transcriptionReq  speechengine.TaskRequest
+	diarizationReq    speechengine.TaskRequest
 	transcriptionOut  *speechengine.TranscriptionResult
 	diarizationOut    *speechengine.DiarizationResult
 	err               error
@@ -96,20 +96,20 @@ func (e *fakeSpeechEngine) Status(ctx context.Context) (*speechengine.ProviderSt
 	}, nil
 }
 
-func (e *fakeSpeechEngine) Transcribe(ctx context.Context, req speechengine.TranscriptionRequest) (*speechengine.TranscriptionResult, error) {
-	e.transcriptionReq = req
+func (e *fakeSpeechEngine) Execute(ctx context.Context, req speechengine.TaskRequest) (*speechengine.TaskResult, error) {
 	if e.err != nil {
 		return nil, e.err
 	}
-	return e.transcriptionOut, nil
-}
-
-func (e *fakeSpeechEngine) Diarize(ctx context.Context, req speechengine.DiarizationRequest) (*speechengine.DiarizationResult, error) {
-	e.diarizationReq = req
-	if e.err != nil {
-		return nil, e.err
+	switch req.Task {
+	case speechproviders.TaskTranscription:
+		e.transcriptionReq = req
+		return &speechengine.TaskResult{Task: req.Task, Result: e.transcriptionOut}, nil
+	case speechproviders.TaskDiarization:
+		e.diarizationReq = req
+		return &speechengine.TaskResult{Task: req.Task, Result: e.diarizationOut}, nil
+	default:
+		return nil, fmt.Errorf("unexpected task %q", req.Task)
 	}
-	return e.diarizationOut, nil
 }
 
 func (e *fakeSpeechEngine) Close() error {
@@ -131,6 +131,26 @@ func (e *fakeSpeechEngine) LoadedModels() []speechengine.LoadedModel {
 	return e.loaded
 }
 
+func transcribeForTest(ctx context.Context, provider *LocalProvider, req TaskRequest) (*TranscriptionResult, error) {
+	req.Operation = asrcontract.OperationTranscription
+	out, err := provider.ExecuteTask(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	result, _ := out.Result.(*TranscriptionResult)
+	return result, nil
+}
+
+func diarizeForTest(ctx context.Context, provider *LocalProvider, req TaskRequest) (*DiarizationResult, error) {
+	req.Operation = asrcontract.OperationDiarization
+	out, err := provider.ExecuteTask(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	result, _ := out.Result.(*DiarizationResult)
+	return result, nil
+}
+
 func TestLocalProviderTranscribeMapsRequestAndWords(t *testing.T) {
 	fake := &fakeSpeechEngine{
 		transcriptionOut: &speechengine.TranscriptionResult{
@@ -148,7 +168,7 @@ func TestLocalProviderTranscribeMapsRequestAndWords(t *testing.T) {
 	provider := newLocalProviderWithEngine("local", LocalConfig{Threads: 4}, runtime.ProviderCPU, fake)
 	progress := &captureProgressSink{}
 
-	result, err := provider.Transcribe(context.Background(), TranscriptionRequest{
+	result, err := transcribeForTest(context.Background(), provider, TaskRequest{
 		JobID:     "job-1",
 		UserID:    7,
 		AudioPath: "/tmp/audio.wav",
@@ -237,7 +257,7 @@ func TestLocalProviderTranscribeUsesEnginePlanAndMetricsMetadata(t *testing.T) {
 	}
 	provider := newLocalProviderWithEngine("local", LocalConfig{Threads: 4}, runtime.ProviderCPU, fake)
 
-	result, err := provider.Transcribe(context.Background(), TranscriptionRequest{
+	result, err := transcribeForTest(context.Background(), provider, TaskRequest{
 		JobID:     "job-parakeet",
 		AudioPath: "/provider/audio.wav",
 		ModelID:   "parakeet-v3",
@@ -269,7 +289,7 @@ func TestLocalProviderTranscribePreservesExplicitParakeetVAD(t *testing.T) {
 	fake := &fakeSpeechEngine{transcriptionOut: &speechengine.TranscriptionResult{Text: "hello"}}
 	provider := newLocalProviderWithEngine("local", LocalConfig{Threads: 4}, runtime.ProviderCPU, fake)
 
-	_, err := provider.Transcribe(context.Background(), TranscriptionRequest{
+	_, err := transcribeForTest(context.Background(), provider, TaskRequest{
 		ModelID: "parakeet-v3",
 		Parameters: map[string]any{
 			asrcontract.CommonParameterChunkingMode:         "vad",
@@ -294,7 +314,7 @@ func TestLocalProviderTranscribeDefaultsAndEmptyWords(t *testing.T) {
 	}
 	provider := newLocalProviderWithEngine("local", LocalConfig{Threads: 4}, runtime.ProviderCPU, fake)
 
-	result, err := provider.Transcribe(context.Background(), TranscriptionRequest{})
+	result, err := transcribeForTest(context.Background(), provider, TaskRequest{})
 	if err != nil {
 		t.Fatalf("Transcribe returned error: %v", err)
 	}
@@ -312,7 +332,7 @@ func TestLocalProviderTranscribeDefaultsAndEmptyWords(t *testing.T) {
 func TestLocalProviderTranscribeRejectsNilEngineResult(t *testing.T) {
 	provider := newLocalProviderWithEngine("local", LocalConfig{}, runtime.ProviderCPU, &fakeSpeechEngine{})
 
-	_, err := provider.Transcribe(context.Background(), TranscriptionRequest{})
+	_, err := transcribeForTest(context.Background(), provider, TaskRequest{})
 	if err == nil {
 		t.Fatalf("Transcribe returned nil error")
 	}
@@ -332,7 +352,7 @@ func TestLocalProviderDiarizeMapsRequestAndSpeakers(t *testing.T) {
 	}
 	provider := newLocalProviderWithEngine("local", LocalConfig{Threads: 3}, runtime.ProviderCPU, fake)
 
-	result, err := provider.Diarize(context.Background(), DiarizationRequest{
+	result, err := diarizeForTest(context.Background(), provider, TaskRequest{
 		JobID:     "job-2",
 		AudioPath: "/tmp/audio.wav",
 		ModelID:   "diarization-default",
@@ -360,7 +380,7 @@ func TestLocalProviderDiarizeMapsRequestAndSpeakers(t *testing.T) {
 func TestLocalProviderDiarizeRejectsNilEngineResult(t *testing.T) {
 	provider := newLocalProviderWithEngine("local", LocalConfig{}, runtime.ProviderCPU, &fakeSpeechEngine{})
 
-	_, err := provider.Diarize(context.Background(), DiarizationRequest{})
+	_, err := diarizeForTest(context.Background(), provider, TaskRequest{})
 	if err == nil {
 		t.Fatalf("Diarize returned nil error")
 	}
@@ -555,7 +575,7 @@ func TestLocalProviderSanitizesErrors(t *testing.T) {
 	}
 	provider := newLocalProviderWithEngine("local", LocalConfig{}, runtime.ProviderCPU, fake)
 
-	_, err := provider.Transcribe(context.Background(), TranscriptionRequest{})
+	_, err := transcribeForTest(context.Background(), provider, TaskRequest{})
 	if err == nil {
 		t.Fatalf("Transcribe returned nil error")
 	}

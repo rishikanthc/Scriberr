@@ -174,8 +174,9 @@ func TestClientTranscribeSubmitsPollsAndReplaysProgress(t *testing.T) {
 	client := newTestClient(t, transport)
 	sink := &recordingSink{}
 
-	result, err := client.Transcribe(context.Background(), engineprovider.TranscriptionRequest{
+	out, err := client.ExecuteTask(context.Background(), engineprovider.TaskRequest{
 		JobID:     "local-job",
+		Operation: asrcontract.OperationTranscription,
 		AudioPath: "/mnt/audio/job.wav",
 		ModelID:   "remote-transcriber",
 		Parameters: map[string]any{
@@ -184,7 +185,11 @@ func TestClientTranscribeSubmitsPollsAndReplaysProgress(t *testing.T) {
 		Progress: sink,
 	})
 	if err != nil {
-		t.Fatalf("Transcribe returned error: %v", err)
+		t.Fatalf("ExecuteTask returned error: %v", err)
+	}
+	result, _ := out.Result.(*engineprovider.TranscriptionResult)
+	if result == nil {
+		t.Fatalf("ExecuteTask returned no transcription result: %#v", out)
 	}
 	if result.Text != "hello world" || result.ModelID != "remote-transcriber" || result.EngineID != "remote-a" {
 		t.Fatalf("unexpected transcription result: %#v", result)
@@ -230,16 +235,24 @@ func TestClientDiarizeAndSpeakerIdentification(t *testing.T) {
 	}}
 	client := newTestClient(t, transport)
 
-	diarization, err := client.Diarize(context.Background(), engineprovider.DiarizationRequest{JobID: "job", AudioPath: "/mnt/audio.wav", ModelID: "diarizer"})
+	diarizationTask, err := client.ExecuteTask(context.Background(), engineprovider.TaskRequest{JobID: "job", Operation: asrcontract.OperationDiarization, AudioPath: "/mnt/audio.wav", ModelID: "diarizer"})
 	if err != nil {
-		t.Fatalf("Diarize returned error: %v", err)
+		t.Fatalf("ExecuteTask diarization returned error: %v", err)
+	}
+	diarization, _ := diarizationTask.Result.(*engineprovider.DiarizationResult)
+	if diarization == nil {
+		t.Fatalf("ExecuteTask returned no diarization result: %#v", diarizationTask)
 	}
 	if len(diarization.Segments) != 1 || diarization.EngineID != "remote-a" {
 		t.Fatalf("unexpected diarization result: %#v", diarization)
 	}
-	speakers, err := client.IdentifySpeakers(context.Background(), asrcontract.SpeakerIDRequest{RequestID: "job", Model: "speaker-id"})
+	speakerTask, err := client.ExecuteTask(context.Background(), engineprovider.TaskRequest{JobID: "job", Operation: asrcontract.OperationSpeakerIdentification, ModelID: "speaker-id"})
 	if err != nil {
-		t.Fatalf("IdentifySpeakers returned error: %v", err)
+		t.Fatalf("ExecuteTask speaker identification returned error: %v", err)
+	}
+	speakers, _ := speakerTask.Result.(*asrcontract.SpeakerIDResult)
+	if speakers == nil {
+		t.Fatalf("ExecuteTask returned no speaker result: %#v", speakerTask)
 	}
 	if len(speakers.Speakers) != 1 || speakers.Speakers[0].Label != "Ada" {
 		t.Fatalf("unexpected speaker result: %#v", speakers)
@@ -342,10 +355,11 @@ func TestClientCancelsRemoteJobWhenContextIsCanceled(t *testing.T) {
 	}}
 	client := newTestClient(t, transport)
 	client.pollInterval = time.Hour
-	_, err := client.Transcribe(ctx, engineprovider.TranscriptionRequest{
-		JobID:    "local-job",
-		ModelID:  "remote-transcriber",
-		Progress: cancelingSink{cancel: cancel},
+	_, err := client.ExecuteTask(ctx, engineprovider.TaskRequest{
+		JobID:     "local-job",
+		Operation: asrcontract.OperationTranscription,
+		ModelID:   "remote-transcriber",
+		Progress:  cancelingSink{cancel: cancel},
 	})
 	if !errors.Is(err, context.Canceled) {
 		t.Fatalf("error = %v, want context canceled", err)
@@ -365,7 +379,7 @@ func TestClientSurfacesUnsupportedOperation(t *testing.T) {
 	client := newTestClient(t, &fakeTransport{handler: func(req *http.Request, body []byte) (*http.Response, error) {
 		return jsonResponse(http.StatusBadRequest, providerError(asrcontract.CodeUnsupportedOperation, "speaker identification is unsupported")), nil
 	}})
-	_, err := client.IdentifySpeakers(context.Background(), asrcontract.SpeakerIDRequest{RequestID: "job", Model: "speaker-id"})
+	_, err := client.ExecuteTask(context.Background(), engineprovider.TaskRequest{JobID: "job", Operation: asrcontract.OperationSpeakerIdentification, ModelID: "speaker-id"})
 	if !asrcontract.IsCode(err, asrcontract.CodeUnsupportedOperation) {
 		t.Fatalf("error = %v, want unsupported operation", err)
 	}

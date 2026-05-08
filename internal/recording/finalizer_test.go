@@ -200,13 +200,11 @@ func TestFinalizerFailsMissingChunkWithoutCleanup(t *testing.T) {
 
 func TestFinalizerCreatesAndEnqueuesAutoTranscription(t *testing.T) {
 	db, recordings, jobs, profiles, storage, user := openFinalizerTest(t)
-	language := "en"
 	profile := models.TranscriptionProfile{
 		UserID:    user.ID,
 		Name:      "Default",
 		IsDefault: true,
 		Parameters: models.ASRParams{
-			Language: &language,
 			Pipeline: []models.ASRStep{
 				{Kind: models.ASRStepTranscription, Model: "whisper-base"},
 				{Kind: models.ASRStepDiarization, Model: "diarization-default"},
@@ -217,6 +215,9 @@ func TestFinalizerCreatesAndEnqueuesAutoTranscription(t *testing.T) {
 		t.Fatalf("create profile returned error: %v", err)
 	}
 	session := createStoppedRecordingWithChunks(t, recordings, storage, user, true)
+	if err := db.Model(&models.RecordingSession{}).Where("id = ?", session.ID).UpdateColumn("transcription_options_json", `{"language":"en"}`).Error; err != nil {
+		t.Fatalf("update recording options returned error: %v", err)
+	}
 	queue := &fakeEnqueuer{}
 	events := &finalizerEvents{}
 	service := NewFinalizerService(recordings, jobs, profiles, storage, fakeMediaFinalizer{}, FinalizerConfig{})

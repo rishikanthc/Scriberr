@@ -40,15 +40,6 @@ func (p stubProvider) LoadedModels(context.Context) ([]asrcontract.LoadedModel, 
 func (p stubProvider) ExecuteTask(context.Context, TaskRequest) (*TaskResult, error) {
 	return nil, nil
 }
-func (p stubProvider) Transcribe(ctx context.Context, req TranscriptionRequest) (*TranscriptionResult, error) {
-	return nil, nil
-}
-func (p stubProvider) Diarize(ctx context.Context, req DiarizationRequest) (*DiarizationResult, error) {
-	return nil, nil
-}
-func (p stubProvider) IdentifySpeakers(context.Context, asrcontract.SpeakerIDRequest) (*asrcontract.SpeakerIDResult, error) {
-	return nil, asrcontract.NewProviderError(asrcontract.CodeUnsupportedOperation, "speaker identification is not supported", false)
-}
 func (p stubProvider) Close() error { return nil }
 
 func modelCardsFromCapabilities(capabilities []ModelCapability) []asrcontract.ModelCard {

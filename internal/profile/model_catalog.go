@@ -19,23 +19,27 @@ func NewProviderModelCatalog(registry ProviderModelRegistry) *ProviderModelCatal
 	return &ProviderModelCatalog{registry: registry}
 }
 
-func (c *ProviderModelCatalog) ResolveTranscriptionModel(ctx context.Context, model string) (ModelInfo, error) {
-	return c.ResolveModel(ctx, model, asrcontract.CapabilityTranscription)
+func (c *ProviderModelCatalog) ResolveTranscriptionModel(ctx context.Context, provider string, model string) (ModelInfo, error) {
+	return c.ResolveModel(ctx, provider, model, asrcontract.CapabilityTranscription)
 }
 
-func (c *ProviderModelCatalog) ResolveModel(ctx context.Context, model string, capability asrcontract.Capability) (ModelInfo, error) {
+func (c *ProviderModelCatalog) ResolveModel(ctx context.Context, provider string, model string, capability asrcontract.Capability) (ModelInfo, error) {
 	if c == nil {
 		return ModelInfo{}, ErrInvalidModel
 	}
 	if c.registry == nil {
 		return ModelInfo{}, ErrInvalidModel
 	}
+	provider = strings.TrimSpace(provider)
 	model = strings.TrimSpace(model)
 	models, err := c.registry.Models(ctx)
 	if err != nil {
 		return ModelInfo{}, err
 	}
 	for _, card := range models {
+		if provider != "" && card.Provider != provider {
+			continue
+		}
 		if model != "" && card.ID != model {
 			continue
 		}

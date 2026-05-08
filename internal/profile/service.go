@@ -119,11 +119,12 @@ func (s *Service) normalizePipeline(ctx context.Context, steps []models.ASRStep)
 		if err != nil {
 			return nil, err
 		}
+		provider := strings.TrimSpace(step.Provider)
 		model := strings.TrimSpace(step.Model)
 		if s.catalog == nil {
 			return nil, fmt.Errorf("%w: model catalog is required", ErrInvalidPipeline)
 		}
-		info, err := s.catalog.ResolveModel(ctx, model, capability)
+		info, err := s.catalog.ResolveModel(ctx, provider, model, capability)
 		if err != nil {
 			return nil, fmt.Errorf("%w: step %d model is invalid", ErrInvalidPipeline, i)
 		}
@@ -139,7 +140,7 @@ func (s *Service) normalizePipeline(ctx context.Context, steps []models.ASRStep)
 		}
 		out = append(out, models.ASRStep{
 			Kind:        kind,
-			Provider:    strings.TrimSpace(step.Provider),
+			Provider:    provider,
 			Model:       info.ID,
 			ModelFamily: info.ModelType,
 			Options:     options,
@@ -238,6 +239,6 @@ type ModelInfo struct {
 }
 
 type ModelCatalog interface {
-	ResolveTranscriptionModel(ctx context.Context, model string) (ModelInfo, error)
-	ResolveModel(ctx context.Context, model string, capability asrcontract.Capability) (ModelInfo, error)
+	ResolveTranscriptionModel(ctx context.Context, provider string, model string) (ModelInfo, error)
+	ResolveModel(ctx context.Context, provider string, model string, capability asrcontract.Capability) (ModelInfo, error)
 }

@@ -140,26 +140,6 @@ func (c *Client) LoadedModels(ctx context.Context) ([]asrcontract.LoadedModel, e
 	return out, nil
 }
 
-func (c *Client) Transcribe(ctx context.Context, req engineprovider.TranscriptionRequest) (*engineprovider.TranscriptionResult, error) {
-	out, err := c.ExecuteTask(ctx, engineprovider.TaskRequest{
-		JobID:      req.JobID,
-		UserID:     req.UserID,
-		Operation:  asrcontract.OperationTranscription,
-		AudioPath:  req.AudioPath,
-		Progress:   req.Progress,
-		ModelID:    req.ModelID,
-		Parameters: req.Parameters,
-	})
-	if err != nil {
-		return nil, err
-	}
-	result, ok := out.Result.(*engineprovider.TranscriptionResult)
-	if !ok || result == nil {
-		return nil, asrcontract.NewProviderError(asrcontract.CodeInferenceFailed, "remote provider returned no transcription result", false)
-	}
-	return result, nil
-}
-
 func (c *Client) ExecuteTask(ctx context.Context, req engineprovider.TaskRequest) (*engineprovider.TaskResult, error) {
 	switch req.Operation {
 	case asrcontract.OperationTranscription:
@@ -212,26 +192,6 @@ func (c *Client) executeTranscription(ctx context.Context, req engineprovider.Ta
 	return transcriptionResult(result, c.id), nil
 }
 
-func (c *Client) Diarize(ctx context.Context, req engineprovider.DiarizationRequest) (*engineprovider.DiarizationResult, error) {
-	out, err := c.ExecuteTask(ctx, engineprovider.TaskRequest{
-		JobID:      req.JobID,
-		UserID:     req.UserID,
-		Operation:  asrcontract.OperationDiarization,
-		AudioPath:  req.AudioPath,
-		Progress:   req.Progress,
-		ModelID:    req.ModelID,
-		Parameters: req.Parameters,
-	})
-	if err != nil {
-		return nil, err
-	}
-	result, ok := out.Result.(*engineprovider.DiarizationResult)
-	if !ok || result == nil {
-		return nil, asrcontract.NewProviderError(asrcontract.CodeInferenceFailed, "remote provider returned no diarization result", false)
-	}
-	return result, nil
-}
-
 func (c *Client) executeDiarization(ctx context.Context, req engineprovider.TaskRequest) (*engineprovider.DiarizationResult, error) {
 	model := strings.TrimSpace(req.ModelID)
 	if model == "" {
@@ -248,24 +208,6 @@ func (c *Client) executeDiarization(ctx context.Context, req engineprovider.Task
 		return nil, err
 	}
 	return diarizationResult(result, c.id), nil
-}
-
-func (c *Client) IdentifySpeakers(ctx context.Context, req asrcontract.SpeakerIDRequest) (*asrcontract.SpeakerIDResult, error) {
-	out, err := c.ExecuteTask(ctx, engineprovider.TaskRequest{
-		JobID:      req.RequestID,
-		Operation:  asrcontract.OperationSpeakerIdentification,
-		AudioPath:  req.Audio.Path,
-		ModelID:    req.Model,
-		Parameters: req.Options,
-	})
-	if err != nil {
-		return nil, err
-	}
-	result, ok := out.Result.(*asrcontract.SpeakerIDResult)
-	if !ok || result == nil {
-		return nil, asrcontract.NewProviderError(asrcontract.CodeInferenceFailed, "remote provider returned no speaker identification result", false)
-	}
-	return result, nil
 }
 
 func (c *Client) executeSpeakerIdentification(ctx context.Context, req engineprovider.TaskRequest) (*asrcontract.SpeakerIDResult, error) {

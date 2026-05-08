@@ -146,7 +146,6 @@ func TestTranscriptionCreateAppliesDefaultAndSelectedProfiles(t *testing.T) {
 
 	var defaultJob models.TranscriptionJob
 	require.NoError(t, database.DB.First(&defaultJob, "id = ?", defaultJobID).Error)
-	require.Empty(t, defaultJob.Parameters.Model)
 	require.Len(t, defaultJob.Parameters.Pipeline, 2)
 	require.Equal(t, "whisper-small", defaultJob.Parameters.Pipeline[0].Model)
 	require.Equal(t, "fr", defaultJob.Parameters.Pipeline[0].Options["sherpa.whisper.language"])
@@ -178,11 +177,10 @@ func TestTranscriptionCreateAppliesDefaultAndSelectedProfiles(t *testing.T) {
 
 	var selectedJob models.TranscriptionJob
 	require.NoError(t, database.DB.First(&selectedJob, "id = ?", selectedJobID).Error)
-	require.Empty(t, selectedJob.Parameters.Model)
 	require.Len(t, selectedJob.Parameters.Pipeline, 1)
 	require.Equal(t, "parakeet-v2", selectedJob.Parameters.Pipeline[0].Model)
-	require.NotNil(t, selectedJob.Parameters.Language)
-	require.Equal(t, "en", *selectedJob.Parameters.Language)
+	require.NotNil(t, selectedJob.Language)
+	require.Equal(t, "en", *selectedJob.Language)
 	require.False(t, selectedJob.Diarization)
 }
 

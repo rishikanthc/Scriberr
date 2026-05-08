@@ -38,25 +38,9 @@ type ASRStep struct {
 	Options     map[string]any `json:"options,omitempty"`
 }
 
-// ASRParams contains provider-neutral parameters for ASR execution.
+// ASRParams contains the provider task pipeline for ASR execution.
 type ASRParams struct {
-	Pipeline                []ASRStep `json:"pipeline,omitempty" gorm:"-"`
-	Provider                string    `json:"provider,omitempty"`
-	ModelFamily             string    `json:"model_family,omitempty"`
-	Model                   string    `json:"model,omitempty"`
-	Task                    string    `json:"task,omitempty"`
-	Language                *string   `json:"language,omitempty"`
-	Threads                 int       `json:"threads,omitempty"`
-	TailPaddings            *int      `json:"tail_paddings,omitempty"`
-	EnableTokenTimestamps   *bool     `json:"enable_token_timestamps,omitempty"`
-	EnableSegmentTimestamps *bool     `json:"enable_segment_timestamps,omitempty"`
-	DecodingMethod          string    `json:"decoding_method,omitempty"`
-	ChunkingStrategy        string    `json:"chunking_strategy,omitempty"`
-	ChunkSize               int       `json:"chunk_size,omitempty"`
-	NumSpeakers             int       `json:"num_speakers,omitempty"`
-	DiarizationThreshold    float64   `json:"diarization_threshold,omitempty"`
-	MinDurationOn           float64   `json:"min_duration_on,omitempty"`
-	MinDurationOff          float64   `json:"min_duration_off,omitempty"`
+	Pipeline []ASRStep `json:"pipeline,omitempty" gorm:"-"`
 }
 
 type transcriptionMetadata struct {
@@ -141,9 +125,6 @@ func (tj *TranscriptionJob) applyDefaults() error {
 }
 
 func (tj *TranscriptionJob) syncColumnsFromCompat() error {
-	if tj.Parameters.Language != nil {
-		tj.Language = tj.Parameters.Language
-	}
 	if tj.Status == StatusCompleted && tj.CompletedAt == nil {
 		now := time.Now()
 		tj.CompletedAt = &now
@@ -172,9 +153,6 @@ func (tj *TranscriptionJob) SyncColumnsForMigration() error {
 	if tj.SourceFileName == "" && tj.AudioPath != "" {
 		tj.SourceFileName = filepath.Base(tj.AudioPath)
 	}
-	if tj.Parameters.Language != nil {
-		tj.Language = tj.Parameters.Language
-	}
 	metadata := transcriptionMetadata{
 		Diarization: tj.Diarization || hasASRStep(tj.Parameters.Pipeline, ASRStepDiarization),
 		Summary:     tj.Summary,
@@ -191,9 +169,6 @@ func (tj *TranscriptionJob) SyncColumnsForMigration() error {
 func (tj *TranscriptionJob) syncCompatFromColumns() error {
 	tj.SourceFileName = coalesceString(tj.SourceFileName, filepath.Base(tj.AudioPath))
 	if tj.MetadataJSON == "" {
-		if tj.Language != nil {
-			tj.Parameters.Language = tj.Language
-		}
 		return nil
 	}
 	var metadata transcriptionMetadata
@@ -203,9 +178,6 @@ func (tj *TranscriptionJob) syncCompatFromColumns() error {
 	tj.Diarization = metadata.Diarization
 	tj.Summary = metadata.Summary
 	tj.Parameters = metadata.Parameters
-	if tj.Language != nil && tj.Parameters.Language == nil {
-		tj.Parameters.Language = tj.Language
-	}
 	return nil
 }
 
@@ -272,12 +244,6 @@ func (tje *TranscriptionJobExecution) syncColumnsFromCompat() error {
 	if err := requireUserIDForIdentifiedSave("transcription execution", tje.UserID, tje.ID != ""); err != nil {
 		return err
 	}
-	if tje.ModelName == "" {
-		tje.ModelName = tje.ActualParameters.Model
-	}
-	if tje.ModelFamily == "" {
-		tje.ModelFamily = tje.ActualParameters.ModelFamily
-	}
 	payload := executionPayload{Parameters: tje.ActualParameters, ProcessingDuration: tje.ProcessingDuration}
 	requestJSON, err := marshalJSONColumn("transcription_executions.request_json", payload)
 	if err != nil {
@@ -300,12 +266,6 @@ func (tje *TranscriptionJobExecution) syncColumnsFromCompat() error {
 func (tje *TranscriptionJobExecution) SyncColumnsForMigration() error {
 	if tje.UserID == 0 {
 		tje.UserID = primaryUserID
-	}
-	if tje.ModelName == "" {
-		tje.ModelName = tje.ActualParameters.Model
-	}
-	if tje.ModelFamily == "" {
-		tje.ModelFamily = tje.ActualParameters.ModelFamily
 	}
 	payload := executionPayload{
 		Parameters:         tje.ActualParameters,

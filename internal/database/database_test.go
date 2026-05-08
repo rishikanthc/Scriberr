@@ -834,7 +834,7 @@ func TestLegacyMigrationPreservesData(t *testing.T) {
 	assert.Contains(t, *transcription.Transcript, "hello world")
 	require.NotNil(t, transcription.Summary)
 	assert.Equal(t, "legacy summary cache", *transcription.Summary)
-	assert.Equal(t, "medium", transcription.Parameters.Model)
+	assert.Empty(t, transcription.Parameters.Pipeline)
 	require.NotNil(t, transcription.LatestExecutionID)
 
 	var execution models.TranscriptionJobExecution
@@ -842,7 +842,7 @@ func TestLegacyMigrationPreservesData(t *testing.T) {
 	assert.Equal(t, "job-1", execution.TranscriptionJobID)
 	assert.Equal(t, 1, execution.ExecutionNumber)
 	assert.Equal(t, models.StatusCompleted, execution.Status)
-	assert.Equal(t, "medium", execution.ActualParameters.Model)
+	assert.Empty(t, execution.ActualParameters.Pipeline)
 	var mappings []models.SpeakerMapping
 	require.NoError(t, db.Where("transcription_id = ?", "job-1").Find(&mappings).Error)
 	require.Len(t, mappings, 1)
@@ -995,8 +995,6 @@ func createLegacyDatabase(t *testing.T, dbPath string, withData bool) {
 	require.NoError(t, db.Table("users").Create(&user).Error)
 
 	asrParams := models.ASRParams{
-		Model:       "medium",
-		ModelFamily: "whisper",
 		Pipeline: []models.ASRStep{
 			{Kind: models.ASRStepTranscription, Model: "medium", ModelFamily: "whisper"},
 			{Kind: models.ASRStepDiarization, Model: "diarization-default"},

@@ -25,7 +25,6 @@ import (
 	"scriberr/internal/tags"
 	transcriptiondomain "scriberr/internal/transcription"
 	"scriberr/internal/transcription/engineprovider"
-	"scriberr/internal/transcription/engineprovider/remote"
 	"scriberr/internal/transcription/orchestrator"
 	"scriberr/internal/transcription/preprocess"
 	"scriberr/internal/transcription/worker"
@@ -202,20 +201,6 @@ func buildProviderRegistry(cfg config.ASRConfig, localProvider engineprovider.Pr
 			return nil, nil, fmt.Errorf("local ASR provider is enabled but was not initialized")
 		}
 		providers = append(providers, localProvider)
-	}
-	for _, remoteProvider := range cfg.RemoteProviders {
-		provider, err := remote.NewClient(remote.Config{
-			ID:               remoteProvider.ID,
-			BaseURL:          remoteProvider.BaseURL,
-			Timeout:          cfg.RemoteProviderTimeout,
-			PollInterval:     cfg.RemoteProviderPoll,
-			MaxResponseBytes: cfg.RemoteMaxResponseBytes,
-		})
-		if err != nil {
-			closeProviders(providers)
-			return nil, nil, fmt.Errorf("initialize remote ASR provider %q: %w", remoteProvider.ID, err)
-		}
-		providers = append(providers, provider)
 	}
 	registry, err := engineprovider.NewRegistry(defaultProvider, providers...)
 	if err != nil {

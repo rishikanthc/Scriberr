@@ -11,6 +11,7 @@ import (
 	"time"
 
 	appconfig "scriberr/internal/config"
+	"scriberr/internal/transcription/asrcontract"
 
 	speechengine "scriberr-engine/speech/engine"
 )
@@ -24,9 +25,10 @@ func TestRealEngineJFKTranscription(t *testing.T) {
 	provider := newRealTestProvider(t, cacheDir, true)
 	start := time.Now()
 
-	result, err := provider.Transcribe(context.Background(), TranscriptionRequest{
+	result, err := realTranscribeForTest(context.Background(), provider, TaskRequest{
 		JobID:     "real-jfk",
 		UserID:    1,
+		Operation: asrcontract.OperationTranscription,
 		AudioPath: audioPath,
 		Parameters: map[string]any{
 			"language": "en",
@@ -62,9 +64,10 @@ func TestRealEngineAutoDownloadDisabledMissingModelIsSanitized(t *testing.T) {
 	cacheDir := t.TempDir()
 	provider := newRealTestProvider(t, cacheDir, false)
 
-	_, err := provider.Transcribe(context.Background(), TranscriptionRequest{
+	_, err := realTranscribeForTest(context.Background(), provider, TaskRequest{
 		JobID:     "real-jfk-cache-disabled",
 		UserID:    1,
+		Operation: asrcontract.OperationTranscription,
 		AudioPath: audioPath,
 		Parameters: map[string]any{
 			"language": "en",
@@ -98,9 +101,10 @@ func BenchmarkRealEngineJFKTranscription(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		start := time.Now()
-		result, err := provider.Transcribe(context.Background(), TranscriptionRequest{
+		result, err := realTranscribeForTest(context.Background(), provider, TaskRequest{
 			JobID:     "bench-real-jfk",
 			UserID:    1,
+			Operation: asrcontract.OperationTranscription,
 			AudioPath: audioPath,
 			Parameters: map[string]any{
 				"language": "en",
@@ -112,6 +116,15 @@ func BenchmarkRealEngineJFKTranscription(b *testing.B) {
 		}
 		b.Logf("iteration %d completed in %s with %d words and %d chars", i+1, time.Since(start), len(result.Words), len(result.Text))
 	}
+}
+
+func realTranscribeForTest(ctx context.Context, provider *LocalProvider, req TaskRequest) (*TranscriptionResult, error) {
+	out, err := provider.ExecuteTask(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	result, _ := out.Result.(*TranscriptionResult)
+	return result, nil
 }
 
 type realEngineTB interface {

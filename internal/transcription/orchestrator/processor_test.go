@@ -33,9 +33,9 @@ type fakeProvider struct {
 	diarizeErr error
 	speakerErr error
 	progress   []asrcontract.ProviderProgress
-	transReq   engineprovider.TranscriptionRequest
-	diarizeReq engineprovider.DiarizationRequest
-	speakerReq asrcontract.SpeakerIDRequest
+	transReq   engineprovider.TaskRequest
+	diarizeReq engineprovider.TaskRequest
+	speakerReq engineprovider.TaskRequest
 }
 
 func (p *fakeProvider) ID() string { return p.id }
@@ -70,26 +70,10 @@ func (p *fakeProvider) modelCapabilities() []engineprovider.ModelCapability {
 		{ID: "speaker-id-default", Provider: p.id, Installed: true, Capabilities: []string{"speaker_identification"}},
 	}
 }
-func (p *fakeProvider) Transcribe(ctx context.Context, req engineprovider.TranscriptionRequest) (*engineprovider.TranscriptionResult, error) {
-	out, err := p.ExecuteTask(ctx, engineprovider.TaskRequest{
-		JobID:      req.JobID,
-		UserID:     req.UserID,
-		Operation:  asrcontract.OperationTranscription,
-		AudioPath:  req.AudioPath,
-		Progress:   req.Progress,
-		ModelID:    req.ModelID,
-		Parameters: req.Parameters,
-	})
-	if err != nil {
-		return nil, err
-	}
-	result, _ := out.Result.(*engineprovider.TranscriptionResult)
-	return result, nil
-}
 func (p *fakeProvider) ExecuteTask(ctx context.Context, req engineprovider.TaskRequest) (*engineprovider.TaskResult, error) {
 	switch req.Operation {
 	case asrcontract.OperationTranscription:
-		p.transReq = engineprovider.TranscriptionRequest{JobID: req.JobID, UserID: req.UserID, AudioPath: req.AudioPath, Progress: req.Progress, ModelID: req.ModelID, Parameters: req.Parameters}
+		p.transReq = req
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
@@ -100,13 +84,13 @@ func (p *fakeProvider) ExecuteTask(ctx context.Context, req engineprovider.TaskR
 		}
 		return &engineprovider.TaskResult{Operation: req.Operation, Result: p.transcribe}, p.transErr
 	case asrcontract.OperationDiarization:
-		p.diarizeReq = engineprovider.DiarizationRequest{JobID: req.JobID, UserID: req.UserID, AudioPath: req.AudioPath, Progress: req.Progress, ModelID: req.ModelID, Parameters: req.Parameters}
+		p.diarizeReq = req
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
 		return &engineprovider.TaskResult{Operation: req.Operation, Result: p.diarize}, p.diarizeErr
 	case asrcontract.OperationSpeakerIdentification:
-		p.speakerReq = asrcontract.SpeakerIDRequest{RequestID: req.JobID, Audio: asrcontract.AudioInput{Path: req.AudioPath}, Model: req.ModelID, Options: req.Parameters}
+		p.speakerReq = req
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
@@ -117,23 +101,6 @@ func (p *fakeProvider) ExecuteTask(ctx context.Context, req engineprovider.TaskR
 	default:
 		return nil, asrcontract.NewProviderError(asrcontract.CodeUnsupportedOperation, "task is not supported", false)
 	}
-}
-func (p *fakeProvider) Diarize(ctx context.Context, req engineprovider.DiarizationRequest) (*engineprovider.DiarizationResult, error) {
-	p.diarizeReq = req
-	if err := ctx.Err(); err != nil {
-		return nil, err
-	}
-	return p.diarize, p.diarizeErr
-}
-func (p *fakeProvider) IdentifySpeakers(ctx context.Context, req asrcontract.SpeakerIDRequest) (*asrcontract.SpeakerIDResult, error) {
-	p.speakerReq = req
-	if err := ctx.Err(); err != nil {
-		return nil, err
-	}
-	if p.speakerID != nil || p.speakerErr != nil {
-		return p.speakerID, p.speakerErr
-	}
-	return nil, asrcontract.NewProviderError(asrcontract.CodeUnsupportedOperation, "speaker identification is not supported", false)
 }
 func (p *fakeProvider) Close() error { return nil }
 
@@ -559,8 +526,8 @@ func TestProcessorExecutesSpeakerIdentificationStep(t *testing.T) {
 
 	require.NoError(t, err)
 	require.Equal(t, models.StatusCompleted, result.Status)
-	assert.Equal(t, job.ID, speakerProvider.speakerReq.RequestID)
-	assert.Equal(t, "speaker-id-default", speakerProvider.speakerReq.Model)
+	assert.Equal(t, job.ID, speakerProvider.speakerReq.JobID)
+	assert.Equal(t, "speaker-id-default", speakerProvider.speakerReq.ModelID)
 	assert.Empty(t, speakerProvider.transReq.JobID)
 	assertEventStages(t, events.events, []string{"preparing", "merging", "saving", "completed"})
 }
