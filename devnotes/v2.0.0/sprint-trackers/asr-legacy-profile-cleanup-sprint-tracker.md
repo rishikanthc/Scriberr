@@ -2,7 +2,7 @@
 
 Run ID: `ASR-LEGACY-CLEANUP`
 
-Status: not started.
+Status: completed through ASR-LEGACY-CLEANUP-Sprint 0.
 
 This tracker belongs to `devnotes/v2.0.0/sprint-plans/asr-legacy-profile-cleanup-sprint-plan.md`.
 
@@ -25,28 +25,45 @@ This tracker belongs to `devnotes/v2.0.0/sprint-plans/asr-legacy-profile-cleanup
 
 ## ASR-LEGACY-CLEANUP-Sprint 0: Inventory And Deletion Map
 
-Status: pending
+Status: completed
 
 Planned tasks:
 
-- [ ] Inventory frontend legacy flat profile fields and normalization.
-- [ ] Inventory backend request structs and validation guards.
-- [ ] Inventory database legacy profile migration code and tests.
-- [ ] Decide which denormalized columns remain.
-- [ ] Produce deletion map in this tracker.
+- [x] Inventory frontend legacy flat profile fields and normalization.
+- [x] Inventory backend request structs and validation guards.
+- [x] Inventory database legacy profile migration code and tests.
+- [x] Decide which denormalized columns remain.
+- [x] Produce deletion map in this tracker.
 
 Acceptance checks:
 
-- [ ] Every legacy flat ASR profile path has a delete/keep decision.
-- [ ] No runtime behavior changes.
+- [x] Every legacy flat ASR profile path has a delete/keep decision.
+- [x] No runtime behavior changes.
 
 Verification:
 
-- [ ] Pending.
+- [x] `rg 'language|task|threads|tail_paddings|decoding_method|chunking_strategy|num_speakers|diarization_threshold|min_duration_on|min_duration_off|diarization' web/frontend/src/features/settings internal/api internal/database internal/models internal/profile -n`
 
 Artifacts:
 
-- Pending.
+- `devnotes/v2.0.0/sprint-trackers/asr-legacy-profile-cleanup-sprint-tracker.md`
+
+Deletion map:
+
+- Frontend settings profile code:
+  - Delete flat `TranscriptionProfileOptions` fields in `web/frontend/src/features/settings/api/profilesApi.ts`.
+  - Delete `defaultProfileParams`, `familyForModel`, and flat `normalizeParams`.
+  - Delete legacy flat save payload construction.
+  - Replace `ASRProfileDialog.tsx` and `SettingsPage.tsx` flat-field reads during the frontend profile revamp rather than preserving compatibility.
+- Backend profile API:
+  - Delete flat fields from `profileOptionsRequest`.
+  - Delete `legacyProfileOptionField`.
+  - Keep `options.pipeline` required.
+  - Update tests that currently expect field-specific legacy rejection to expect generic pipeline-only validation or JSON unknown-field behavior.
+- Database legacy migration:
+  - Delete legacy ASR profile migration structs/code that only migrate removed embedded `ASRParams`.
+  - Keep non-ASR migration behavior intact.
+  - Keep denormalized `transcription_profiles` columns (`provider`, `model_name`, `model_family`, `diarization_enabled`) because current model hooks derive them from pipeline for listing/filtering. They are not compatibility inputs.
 
 Commit:
 
