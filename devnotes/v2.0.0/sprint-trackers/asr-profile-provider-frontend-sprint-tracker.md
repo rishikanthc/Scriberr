@@ -2,7 +2,7 @@
 
 Run ID: `ASR-PROFILE-FE`
 
-Status: completed through ASR-PROFILE-FE-Sprint 1.
+Status: completed through ASR-PROFILE-FE-Sprint 2.
 
 This tracker belongs to `devnotes/v2.0.0/sprint-plans/asr-profile-provider-frontend-sprint-plan.md`.
 
@@ -164,32 +164,36 @@ Commit:
 
 ## ASR-PROFILE-FE-Sprint 2: Dynamic Parameter Form Core
 
-Status: pending
+Status: completed
 
 Planned tasks:
 
-- [ ] Add a feature-local component for rendering one model card's `parameter_schema`.
-- [ ] Support `boolean`, `integer`, `number`, `string`, `enum`, `duration`, and `path_ref`.
-- [ ] Use descriptor metadata: `label`, `default`, `min`, `max`, `step`, `options`, `scope`, `advanced`, `requires_reload`, and `visible_when`.
-- [ ] Initialize values from existing step options, then `recommended_defaults`, then descriptor defaults.
-- [ ] Implement `visible_when` evaluation for VAD-only controls.
-- [ ] Group controls by scope.
-- [ ] Add an Advanced disclosure for `advanced` parameters.
+- [x] Add a feature-local component for rendering one model card's `parameter_schema`.
+- [x] Support `boolean`, `integer`, `number`, `string`, `enum`, `duration`, and `path_ref`.
+- [x] Use descriptor metadata: `label`, `default`, `min`, `max`, `step`, `options`, `scope`, `advanced`, `requires_reload`, and `visible_when`.
+- [x] Initialize values from existing step options, then `recommended_defaults`, then descriptor defaults.
+- [x] Implement `visible_when` evaluation for VAD-only controls.
+- [x] Group controls by scope.
+- [x] Add an Advanced disclosure for `advanced` parameters.
 
 Acceptance checks:
 
-- [ ] Selecting a model changes rendered controls from that model's descriptor.
-- [ ] Unsupported model-specific controls disappear automatically.
-- [ ] VAD settings appear only when `chunking.mode` is `vad`.
-- [ ] Boolean, enum, and numeric fields use appropriate controls.
+- [x] Selecting a model changes rendered controls from that model's descriptor.
+- [x] Unsupported model-specific controls disappear automatically.
+- [x] VAD settings appear only when `chunking.mode` is `vad`.
+- [x] Boolean, enum, and numeric fields use appropriate controls.
 
 Verification:
 
-- [ ] Pending.
+- [x] `npm --prefix web/frontend run build`
+- [x] `npm --prefix web/frontend run lint` (passes with existing warnings outside this sprint)
+- [x] `git diff --check -- web/frontend/src/features/settings/components/ASRParameterForm.tsx web/frontend/src/features/settings/components/asrParameterValues.ts devnotes/v2.0.0/sprint-trackers/asr-profile-provider-frontend-sprint-tracker.md`
 
 Artifacts:
 
-- Pending.
+- `web/frontend/src/features/settings/components/ASRParameterForm.tsx`
+- `web/frontend/src/features/settings/components/asrParameterValues.ts`
+- `devnotes/v2.0.0/sprint-trackers/asr-profile-provider-frontend-sprint-tracker.md`
 
 Commit:
 
