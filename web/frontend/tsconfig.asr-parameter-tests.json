@@ -1,0 +1,18 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM"],
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "strict": true,
+    "skipLibCheck": true,
+    "types": ["node"],
+    "outDir": "../../.tmp/frontend-asr-parameter-tests",
+    "rootDir": "src",
+    "noEmit": false
+  },
+  "include": [
+    "src/features/settings/components/asrParameterValues.ts",
+    "src/features/settings/components/asrParameterValues.regression.ts"
+  ]
+}

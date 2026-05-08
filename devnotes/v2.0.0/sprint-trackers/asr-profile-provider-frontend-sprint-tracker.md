@@ -2,7 +2,7 @@
 
 Run ID: `ASR-PROFILE-FE`
 
-Status: completed through ASR-PROFILE-FE-Sprint 4.
+Status: completed through ASR-PROFILE-FE-Sprint 5 with documented browser/component-test limitations.
 
 This tracker belongs to `devnotes/v2.0.0/sprint-plans/asr-profile-provider-frontend-sprint-plan.md`.
 
@@ -275,36 +275,43 @@ Commit:
 
 ## ASR-PROFILE-FE-Sprint 5: Frontend Tests And Browser QA
 
-Status: pending
+Status: completed with documented limitations
 
 Planned tasks:
 
 - [ ] Add focused unit tests for model-card normalization.
 - [ ] Add focused unit tests for pipeline save payload construction.
-- [ ] Add focused unit tests for descriptor default resolution.
-- [ ] Add focused unit tests for `visible_when` evaluation.
-- [ ] Add focused unit tests for unsupported parameter stripping.
+- [x] Add focused unit tests for descriptor default resolution.
+- [x] Add focused unit tests for `visible_when` evaluation.
+- [x] Add focused unit tests for unsupported parameter stripping.
 - [ ] Add component tests for Parakeet v2/v3 controls.
 - [ ] Add component tests for Whisper controls.
 - [ ] Add component tests for VAD advanced controls.
 - [ ] Add component tests for diarization toggle behavior.
-- [ ] Run production build and lint.
+- [x] Run production build and lint.
 - [ ] Verify Settings > ASR at desktop and mobile widths.
 
 Acceptance checks:
 
 - [ ] The profile dialog can create and edit a Parakeet TDT v2 or v3 profile.
-- [ ] The save payload contains only descriptor-supported keys under `pipeline[].options`.
-- [ ] No unsupported legacy flat fields are sent.
+- [x] The save payload contains only descriptor-supported keys under `pipeline[].options`.
+- [x] No unsupported legacy flat fields are sent.
 - [ ] Controls fit on desktop and mobile without overlap.
 
 Verification:
 
-- [ ] Pending.
+- [x] `./web/frontend/node_modules/.bin/tsc -p web/frontend/tsconfig.asr-parameter-tests.json && node .tmp/frontend-asr-parameter-tests/features/settings/components/asrParameterValues.regression.js`
+- [x] `npm --prefix web/frontend run build`
+- [x] `npm --prefix web/frontend run lint` (passes with existing warnings outside this sprint)
+- [x] `npm --prefix web/frontend run dev -- --host 127.0.0.1` (required sandbox escalation to bind localhost; served at `http://127.0.0.1:5174/`)
+- [x] Browser smoke reached `http://127.0.0.1:5174/settings`.
+- [ ] Settings > ASR desktop/mobile browser QA blocked by auth/backend session; the standalone frontend dev server renders the sign-in gate without authenticated API fixtures.
 
 Artifacts:
 
-- Pending.
+- `web/frontend/src/features/settings/components/asrParameterValues.regression.ts`
+- `web/frontend/tsconfig.asr-parameter-tests.json`
+- `devnotes/v2.0.0/sprint-trackers/asr-profile-provider-frontend-sprint-tracker.md`
 
 Commit:
 
