@@ -15,6 +15,28 @@ var ErrNotFound = errors.New("profile not found")
 var ErrInvalidModel = errors.New("profile model is invalid")
 var ErrInvalidPipeline = errors.New("profile pipeline is invalid")
 
+type ValidationFieldError struct {
+	Field string
+	Err   error
+}
+
+func (e *ValidationFieldError) Error() string {
+	if e == nil {
+		return ""
+	}
+	if e.Err != nil {
+		return fmt.Sprintf("%s: %v", e.Field, e.Err)
+	}
+	return e.Field
+}
+
+func (e *ValidationFieldError) Unwrap() error {
+	if e == nil {
+		return nil
+	}
+	return e.Err
+}
+
 type Service struct {
 	profiles repository.ProfileRepository
 	catalog  ModelCatalog
@@ -136,7 +158,7 @@ func (s *Service) normalizePipeline(ctx context.Context, steps []models.ASRStep)
 		}
 		options, err := validateStepOptions(info.ParameterSchema, step.Options)
 		if err != nil {
-			return nil, fmt.Errorf("%w: step %d options are invalid", ErrInvalidPipeline, i)
+			return nil, fmt.Errorf("%w: %w", ErrInvalidPipeline, profileStepOptionFieldError(i, err))
 		}
 		out = append(out, models.ASRStep{
 			Kind:        kind,
@@ -150,6 +172,15 @@ func (s *Service) normalizePipeline(ctx context.Context, steps []models.ASRStep)
 		return nil, fmt.Errorf("%w: pipeline must contain exactly one transcription step", ErrInvalidPipeline)
 	}
 	return out, nil
+}
+
+func profileStepOptionFieldError(stepIndex int, err error) error {
+	field := fmt.Sprintf("options.pipeline.%d.options", stepIndex)
+	var parameterErr *asrcontract.ParameterValueError
+	if errors.As(err, &parameterErr) && strings.TrimSpace(parameterErr.Parameter) != "" {
+		field = field + "." + strings.TrimSpace(parameterErr.Parameter)
+	}
+	return &ValidationFieldError{Field: field, Err: err}
 }
 
 func pipelineStepCapability(kind string) (asrcontract.Capability, error) {

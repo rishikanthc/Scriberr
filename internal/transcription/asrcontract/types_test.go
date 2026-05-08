@@ -90,6 +90,11 @@ func TestParameterSchemaValidationAndProfileValues(t *testing.T) {
 	}
 	if _, err := ValidateParameterValues(schema, map[string]any{CommonParameterRuntimeNumThreads: float64(99)}); err == nil {
 		t.Fatal("expected numeric bound violation")
+	} else {
+		var parameterErr *ParameterValueError
+		if !errors.As(err, &parameterErr) || parameterErr.Parameter != CommonParameterRuntimeNumThreads {
+			t.Fatalf("expected ParameterValueError for %q, got %T %[2]v", CommonParameterRuntimeNumThreads, err)
+		}
 	}
 	if _, err := ValidateParameterValues(schema, map[string]any{CommonParameterDecodingMethod: "unknown"}); err == nil {
 		t.Fatal("expected enum value violation")

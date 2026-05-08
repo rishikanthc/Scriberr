@@ -8,6 +8,10 @@ import (
 
 	"scriberr/internal/database"
 	"scriberr/internal/models"
+	profiledomain "scriberr/internal/profile"
+	"scriberr/internal/repository"
+	"scriberr/internal/transcription/asrcontract"
+	"scriberr/internal/transcription/engineprovider"
 
 	"github.com/stretchr/testify/require"
 )
@@ -152,6 +156,39 @@ func TestProfileValidationAndAuth(t *testing.T) {
 	require.Equal(t, http.StatusUnprocessableEntity, resp.Code)
 	errBody = body["error"].(map[string]any)
 	require.Equal(t, "options.pipeline", errBody["field"])
+
+	registry, err := engineprovider.NewRegistry("local", fakeCapabilityProvider{models: []asrcontract.ModelCard{{
+		ID:           "schema-model",
+		DisplayName:  "Schema Model",
+		Provider:     "local",
+		ModelType:    "schema",
+		Installed:    true,
+		Capabilities: testASRCapabilities(asrcontract.CapabilityTranscription),
+		ParameterSchema: asrcontract.ParameterSchema{{
+			Key:   asrcontract.CommonParameterRuntimeNumThreads,
+			Type:  asrcontract.ParameterTypeInteger,
+			Scope: asrcontract.ParameterScopeRuntime,
+		}},
+	}}})
+	require.NoError(t, err)
+	s.handler.modelRegistry = registry
+	s.handler.profiles = profiledomain.NewService(repository.NewProfileRepository(database.DB), profiledomain.NewProviderModelCatalog(registry))
+
+	resp, body = s.request(t, http.MethodPost, "/api/v1/profiles", map[string]any{
+		"name": "Invalid parameter",
+		"options": map[string]any{
+			"pipeline": []map[string]any{{
+				"kind":  "transcription",
+				"model": "schema-model",
+				"options": map[string]any{
+					"runtime.num_threads": "many",
+				},
+			}},
+		},
+	}, token, "")
+	require.Equal(t, http.StatusUnprocessableEntity, resp.Code)
+	errBody = body["error"].(map[string]any)
+	require.Equal(t, "options.pipeline.0.options.runtime.num_threads", errBody["field"])
 
 	resp, _ = s.request(t, http.MethodGet, "/api/v1/profiles/profile_missing", nil, token, "")
 	require.Equal(t, http.StatusNotFound, resp.Code)

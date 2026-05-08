@@ -52,7 +52,7 @@ func (h *Handler) createProfile(c *gin.Context) {
 	}
 	if err := h.profiles.Create(c.Request.Context(), profile); err != nil {
 		if errors.Is(err, profiledomain.ErrInvalidPipeline) {
-			writeError(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "pipeline is invalid", stringPtr("options.pipeline"))
+			writeError(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "pipeline is invalid", profileValidationField(err, "options.pipeline"))
 			return
 		}
 		if errors.Is(err, profiledomain.ErrInvalidModel) {
@@ -94,7 +94,7 @@ func (h *Handler) updateProfile(c *gin.Context) {
 	}
 	if err := h.profiles.Update(c.Request.Context(), profile, req.IsDefault != nil); err != nil {
 		if errors.Is(err, profiledomain.ErrInvalidPipeline) {
-			writeError(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "pipeline is invalid", stringPtr("options.pipeline"))
+			writeError(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "pipeline is invalid", profileValidationField(err, "options.pipeline"))
 			return
 		}
 		if errors.Is(err, profiledomain.ErrInvalidModel) {
@@ -151,6 +151,13 @@ func validateProfileInput(c *gin.Context, name string, options profileOptionsReq
 }
 func profileParams(options profileOptionsRequest) models.ASRParams {
 	return models.ASRParams{Pipeline: options.Pipeline}
+}
+func profileValidationField(err error, fallback string) *string {
+	var fieldErr *profiledomain.ValidationFieldError
+	if errors.As(err, &fieldErr) && strings.TrimSpace(fieldErr.Field) != "" {
+		return stringPtr(fieldErr.Field)
+	}
+	return stringPtr(fallback)
 }
 func (h *Handler) profileByPublicID(c *gin.Context, publicID string) (*models.TranscriptionProfile, bool) {
 	userID, ok := currentUserID(c)

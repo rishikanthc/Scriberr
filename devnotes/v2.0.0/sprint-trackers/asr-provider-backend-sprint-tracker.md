@@ -2,7 +2,7 @@
 
 Run ID: `ASRP`
 
-Status: completed through ASRP-Sprint 13.
+Status: completed through ASRP-Sprint 17.
 
 This tracker belongs to `devnotes/v2.0.0/sprint-plans/asr-provider-backend-sprint-plan.md` and the design spec in `devnotes/v2.0.0/specs/asr-provider-backend-architecture.md`.
 
@@ -761,26 +761,37 @@ Commit:
 
 ## ASRP-Sprint 17: Frontend-Facing Model/Profile Discovery API
 
-Status: planned
+Status: completed
 
 Planned tasks:
 
-- [ ] Expose task, language, capability, chunking, runtime, and parameter metadata for profile UI.
-- [ ] Keep backend schema display metadata lightweight.
-- [ ] Return validation errors keyed by stable parameter IDs.
-- [ ] Add compatibility mapping for existing profiles.
-- [ ] Prevent provider internals from leaking through discovery payloads.
+- [x] Expose task, language, capability, chunking, runtime, and parameter metadata for profile UI.
+- [x] Keep backend schema display metadata lightweight.
+- [x] Return validation errors keyed by stable parameter IDs.
+- [x] Drop compatibility mapping for existing profiles per legacy-cleanup direction.
+- [x] Prevent provider internals from leaking through discovery payloads.
 
 Acceptance checks:
 
-- [ ] Frontend can render ASR profile fields without hardcoding Whisper or Parakeet parameters.
-- [ ] Invalid profile submissions fail with useful parameter-keyed errors.
-- [ ] Existing profiles remain readable.
-- [ ] Non-admin discovery payloads are bounded and path-free.
+- [x] Frontend can render ASR profile fields without hardcoding Whisper or Parakeet parameters.
+- [x] Invalid profile submissions fail with useful parameter-keyed errors.
+- [x] Existing pipeline profiles remain readable.
+- [x] Non-admin discovery payloads are bounded and path-free.
 
 Verification:
 
-- [ ] Not started.
+- [x] `GOCACHE=/tmp/scriberr-go-cache go test ./internal/transcription/asrcontract ./internal/profile ./internal/api -run 'TestParameterSchemaValidationAndProfileValues|TestProfileValidationAndAuth|TestProfileCRUDAndDefaultSelection|TestService'`
+- [x] `GOCACHE=/tmp/scriberr-go-cache go vet ./internal/transcription/asrcontract ./internal/profile ./internal/api`
+- [x] `git diff --check -- internal/transcription/asrcontract/types.go internal/transcription/asrcontract/types_test.go internal/profile/service.go internal/api/profile_handlers.go internal/api/profile_settings_test.go devnotes/v2.0.0/sprint-trackers/asr-provider-backend-sprint-tracker.md`
+
+Artifacts:
+
+- `internal/transcription/asrcontract/types.go`
+- `internal/transcription/asrcontract/types_test.go`
+- `internal/profile/service.go`
+- `internal/api/profile_handlers.go`
+- `internal/api/profile_settings_test.go`
+- `devnotes/v2.0.0/sprint-trackers/asr-provider-backend-sprint-tracker.md`
 
 Commit:
 

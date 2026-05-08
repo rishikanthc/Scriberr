@@ -312,6 +312,29 @@ type ParameterOption struct {
 	Label string `json:"label,omitempty"`
 }
 
+type ParameterValueError struct {
+	Parameter string
+	Reason    string
+	Err       error
+}
+
+func (e *ParameterValueError) Error() string {
+	if e == nil {
+		return ""
+	}
+	if e.Err != nil {
+		return fmt.Sprintf("parameter %q %s: %v", e.Parameter, e.Reason, e.Err)
+	}
+	return fmt.Sprintf("parameter %q %s", e.Parameter, e.Reason)
+}
+
+func (e *ParameterValueError) Unwrap() error {
+	if e == nil {
+		return nil
+	}
+	return e.Err
+}
+
 func ValidateModelCard(card ModelCard) error {
 	if strings.TrimSpace(card.ID) == "" {
 		return fmt.Errorf("model id is required")
@@ -434,14 +457,14 @@ func ValidateParameterValues(schema ParameterSchema, values map[string]any) (map
 		key = strings.TrimSpace(key)
 		parameter, ok := byKey[key]
 		if !ok {
-			return nil, fmt.Errorf("parameter %q is not supported", key)
+			return nil, &ParameterValueError{Parameter: key, Reason: "is not supported"}
 		}
 		normalized, err := validateParameterValue(parameter, value)
 		if err != nil {
-			return nil, fmt.Errorf("parameter %q is invalid: %w", key, err)
+			return nil, &ParameterValueError{Parameter: key, Reason: "is invalid", Err: err}
 		}
 		if parameter.ReadOnly && !readOnlyValueAllowed(parameter, normalized) {
-			return nil, fmt.Errorf("parameter %q is read-only", key)
+			return nil, &ParameterValueError{Parameter: key, Reason: "is read-only"}
 		}
 		out[key] = normalized
 	}
