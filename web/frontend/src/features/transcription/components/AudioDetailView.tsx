@@ -25,7 +25,7 @@ import { preferVisibleTranscription, useFileTranscriptions, useTranscriptionTran
 import { ReadOnlyMarkdown } from "@/features/transcription/components/ReadOnlyMarkdown";
 import { buildHighlightRangesBySegment, hasDuplicateActiveHighlight, type SegmentHighlightRange } from "@/features/transcription/utils/transcriptHighlighting";
 import type { SelectionMenuRect } from "@/features/transcription/utils/transcriptHighlighting";
-import { buildWordSeekTargetsFromOffsets } from "@/features/transcription/utils/wordSeekIndex";
+import { assignWordsToSegments, buildWordSeekTargetsFromOffsets, shouldUseAlignedSegmentText } from "@/features/transcription/utils/wordSeekIndex";
 
 type DetailTab = "summary" | "transcript";
 
@@ -924,13 +924,14 @@ function buildTranscriptDisplaySegments(transcript?: TranscriptionTranscript): T
 
   if (transcript.segments.length > 1) {
     const words = transcript.words || [];
+    const wordAssignments = assignWordsToSegments(transcript.segments, words);
     return transcript.segments.flatMap((segment, index) => {
-      const segmentWords = words.filter((word) => word.start < segment.end + 0.25 && word.end > segment.start - 0.25);
-      const firstWordIndex = segmentWords[0] ? words.findIndex((word) => word === segmentWords[0]) : -1;
+      const assignment = wordAssignments[index] || { words: [], firstWordIndex: -1 };
+      const segmentWords = assignment.words;
       const segmentText = segment.text.trim();
       const textOffsets = segmentText ? computeWordOffsetsInText(segmentText, segmentWords) : [];
       const computed = computeWordOffsets(segmentWords);
-      const useSegmentText = Boolean(segmentText && (!segmentWords.length || textOffsets.length > 0));
+      const useSegmentText = shouldUseAlignedSegmentText(segmentText, segmentWords.length, textOffsets.length);
       const text = useSegmentText ? segmentText : computed.fullText;
       if (!text) return [];
       return [appendSegment({
@@ -940,7 +941,7 @@ function buildTranscriptDisplaySegments(transcript?: TranscriptionTranscript): T
         speaker: segment.speaker || segmentWords[0]?.speaker,
         text,
         offsets: useSegmentText ? textOffsets : computed.offsets,
-        wordStartIndex: firstWordIndex === -1 ? 0 : firstWordIndex,
+        wordStartIndex: assignment.firstWordIndex === -1 ? 0 : assignment.firstWordIndex,
       })];
     });
   }

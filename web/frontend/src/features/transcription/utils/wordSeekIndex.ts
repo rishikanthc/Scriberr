@@ -21,6 +21,21 @@ export type WordSeekOffsetInput = {
   endTime: number;
 };
 
+export type TimedWord = {
+  start: number;
+  end: number;
+};
+
+export type SegmentTimeRange = {
+  start: number;
+  end: number;
+};
+
+export type SegmentWordAssignment<TWord extends TimedWord> = {
+  words: TWord[];
+  firstWordIndex: number;
+};
+
 export type WordSeekIndex = {
   text: string;
   targets: WordSeekTarget[];
@@ -81,10 +96,50 @@ export function buildWordSeekTargetsFromOffsets(offsets: WordSeekOffsetInput[] =
   });
 }
 
+export function wordBelongsToSegment(word: TimedWord, segmentStart: number, segmentEnd: number) {
+  if (!Number.isFinite(word.start) || !Number.isFinite(word.end) || word.end <= word.start) return false;
+  return word.start >= segmentStart - 0.1 && word.start < segmentEnd + 0.25 && word.end > segmentStart - 0.05;
+}
+
+export function assignWordsToSegments<TWord extends TimedWord>(
+  segments: SegmentTimeRange[],
+  words: TWord[]
+): SegmentWordAssignment<TWord>[] {
+  const assignments = segments.map<SegmentWordAssignment<TWord>>(() => ({ words: [], firstWordIndex: -1 }));
+  let wordIndex = 0;
+
+  segments.forEach((segment, segmentIndex) => {
+    while (wordIndex < words.length && wordEndsBeforeSegment(words[wordIndex], segment.start)) {
+      wordIndex += 1;
+    }
+
+    while (wordIndex < words.length && wordBelongsToSegment(words[wordIndex], segment.start, segment.end)) {
+      if (assignments[segmentIndex].firstWordIndex === -1) {
+        assignments[segmentIndex].firstWordIndex = wordIndex;
+      }
+      assignments[segmentIndex].words.push(words[wordIndex]);
+      wordIndex += 1;
+    }
+  });
+
+  return assignments;
+}
+
+export function shouldUseAlignedSegmentText(segmentText: string, wordCount: number, offsetCount: number) {
+  if (!segmentText) return false;
+  if (wordCount === 0) return true;
+  if (offsetCount === 0) return false;
+  return offsetCount >= Math.ceil(wordCount * 0.65);
+}
+
 function earliestMatch(first: number, second: number) {
   if (first === -1) return second;
   if (second === -1) return first;
   return Math.min(first, second);
+}
+
+function wordEndsBeforeSegment(word: TimedWord, segmentStart: number) {
+  return Number.isFinite(word.end) && word.end <= segmentStart - 0.05;
 }
 
 export function findWordSeekTarget(targets: WordSeekTarget[], charOffset: number) {

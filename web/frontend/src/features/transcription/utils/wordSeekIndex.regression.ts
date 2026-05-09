@@ -1,5 +1,12 @@
 import * as assert from "node:assert/strict";
-import { buildWordSeekIndex, buildWordSeekTargetsFromOffsets, findWordSeekTarget } from "./wordSeekIndex";
+import {
+  assignWordsToSegments,
+  buildWordSeekIndex,
+  buildWordSeekTargetsFromOffsets,
+  findWordSeekTarget,
+  shouldUseAlignedSegmentText,
+  wordBelongsToSegment,
+} from "./wordSeekIndex";
 
 const index = buildWordSeekIndex("Hello, hello world.", [
   { word: "hello", start: 0.1, end: 0.4 },
@@ -62,5 +69,30 @@ assert.deepEqual(
     { word: "beta", wordIndex: 14, startChar: 10, endChar: 14, startMs: 3100, endMs: 3400 },
   ]
 );
+
+assert.equal(wordBelongsToSegment({ start: 179.68, end: 179.76 }, 180, 209.92), false);
+assert.equal(wordBelongsToSegment({ start: 180.24, end: 180.56 }, 180, 209.92), true);
+assert.equal(wordBelongsToSegment({ start: 179.94, end: 180.08 }, 180, 209.92), true);
+assert.equal(wordBelongsToSegment({ start: 210.3, end: 210.5 }, 180, 209.92), false);
+
+const assignments = assignWordsToSegments([
+  { start: 150, end: 179.759998396039 },
+  { start: 180, end: 209.92000022530556 },
+], [
+  { word: "hours", start: 179.19999885559082, end: 179.5999986231327 },
+  { word: "a", start: 179.5999984741211, end: 179.67999847233295 },
+  { word: "day.", start: 179.67999839782715, end: 179.759998396039 },
+  { word: "Something", start: 180.23999999463558, end: 180.55999997258186 },
+  { word: "like", start: 180.5600000023842, end: 180.7199999988079 },
+]);
+
+assert.deepEqual(assignments.map((assignment) => assignment.words.map((word) => word.word)), [
+  ["hours", "a", "day."],
+  ["Something", "like"],
+]);
+assert.equal(assignments[1].firstWordIndex, 3);
+assert.equal(shouldUseAlignedSegmentText("Something like that.", 10, 9), true);
+assert.equal(shouldUseAlignedSegmentText("Something like that.", 10, 3), false);
+assert.equal(shouldUseAlignedSegmentText("Untimed segment text.", 0, 0), true);
 
 console.info("word seek index regression checks passed");
