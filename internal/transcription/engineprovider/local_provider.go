@@ -183,7 +183,7 @@ func (p *LocalProvider) executeTranscription(ctx context.Context, req TaskReques
 		RequestID:  req.JobID,
 		Task:       speechproviders.TaskTranscription,
 		ModelID:    modelID,
-		AudioPath:  req.AudioPath,
+		AudioPath:  localEngineAudioPath(req),
 		Parameters: copyParameters(req.Parameters),
 		Progress:   localProgressSink{downstream: req.Progress},
 	}
@@ -248,6 +248,13 @@ func localTranscriptionMetadata(modelID string, out *speechengine.TranscriptionR
 	return metadata
 }
 
+func localEngineAudioPath(req TaskRequest) string {
+	if strings.TrimSpace(req.LocalAudioPath) != "" {
+		return req.LocalAudioPath
+	}
+	return req.AudioPath
+}
+
 func (p *LocalProvider) defaultModelID(ctx context.Context, capability asrcontract.Capability) string {
 	models, err := p.Models(ctx)
 	if err != nil {
@@ -278,7 +285,7 @@ func (p *LocalProvider) executeDiarization(ctx context.Context, req TaskRequest)
 		RequestID:  req.JobID,
 		Task:       speechproviders.TaskDiarization,
 		ModelID:    modelID,
-		AudioPath:  req.AudioPath,
+		AudioPath:  localEngineAudioPath(req),
 		Parameters: copyParameters(req.Parameters),
 		Progress:   localProgressSink{downstream: req.Progress},
 	}

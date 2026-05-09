@@ -517,6 +517,8 @@ func TestProcessorPassesPreprocessedAudioToProvider(t *testing.T) {
 	require.Equal(t, models.StatusCompleted, result.Status)
 	assert.Equal(t, "/provider-input/audio/file-orchestrator.wav", provider.transReq.AudioPath)
 	assert.Equal(t, provider.transReq.AudioPath, provider.diarizeReq.AudioPath)
+	assert.NotEmpty(t, provider.transReq.LocalAudioPath)
+	assert.Equal(t, provider.transReq.LocalAudioPath, provider.diarizeReq.LocalAudioPath)
 	assert.NotEqual(t, sourcePath, provider.transReq.AudioPath)
 }
 

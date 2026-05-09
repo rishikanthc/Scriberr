@@ -148,13 +148,14 @@ func (p *Processor) Process(ctx context.Context, job *models.TranscriptionJob) (
 	var providerMetadata map[string]any
 	for _, step := range pipeline {
 		task, err := step.Provider.ExecuteTask(ctx, engineprovider.TaskRequest{
-			JobID:      job.ID,
-			UserID:     job.UserID,
-			Operation:  step.Operation,
-			AudioPath:  audio.ProviderPath,
-			Progress:   progressSink,
-			ModelID:    step.Model,
-			Parameters: providerParametersForStep(step),
+			JobID:          job.ID,
+			UserID:         job.UserID,
+			Operation:      step.Operation,
+			AudioPath:      audio.ProviderPath,
+			LocalAudioPath: audio.Path,
+			Progress:       progressSink,
+			ModelID:        step.Model,
+			Parameters:     providerParametersForStep(step),
 		})
 		if err != nil {
 			return withExecution(p.errorResult(ctx, err))

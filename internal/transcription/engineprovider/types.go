@@ -42,13 +42,14 @@ type SelectionRequest struct {
 }
 
 type TaskRequest struct {
-	JobID      string
-	UserID     uint
-	Operation  asrcontract.Operation
-	AudioPath  string
-	Progress   ProgressSink
-	ModelID    string
-	Parameters map[string]any
+	JobID          string
+	UserID         uint
+	Operation      asrcontract.Operation
+	AudioPath      string
+	LocalAudioPath string
+	Progress       ProgressSink
+	ModelID        string
+	Parameters     map[string]any
 }
 
 type TaskResult struct {
