@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, type RefObject } from "react";
 import type { TranscriptAnnotationAnchor } from "@/features/transcription/api/annotationsApi";
-import type { WordOffset } from "@/features/transcription/hooks/useKaraokeHighlight";
 import { normalizeHashText } from "@/features/transcription/utils/transcriptHighlighting";
+import type { WordOffset } from "@/features/transcription/utils/wordSeekIndex";
 
 export type TranscriptSelectionSegment = {
   index: number;

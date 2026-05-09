@@ -3,6 +3,7 @@ import {
   assignWordsToSegments,
   buildWordSeekIndex,
   buildWordSeekTargetsFromOffsets,
+  computeWordOffsetsInText,
   findWordSeekTarget,
   shouldUseAlignedSegmentText,
   wordBelongsToSegment,
@@ -94,5 +95,23 @@ assert.equal(assignments[1].firstWordIndex, 3);
 assert.equal(shouldUseAlignedSegmentText("Something like that.", 10, 9), true);
 assert.equal(shouldUseAlignedSegmentText("Something like that.", 10, 3), false);
 assert.equal(shouldUseAlignedSegmentText("Untimed segment text.", 0, 0), true);
+
+const spacedPunctuationOffsets = computeWordOffsetsInText(
+  "On any other laptop, 20% battery end of the day. On this, it's like, okay, 20%, I'll use it.",
+  [
+    { word: "laptop,20%", start: 198, end: 198.72 },
+    { word: "battery", start: 198.96, end: 199.28 },
+    { word: "okay,20%,", start: 202.48, end: 203.52 },
+  ]
+);
+
+assert.deepEqual(spacedPunctuationOffsets.map((offset) => ({
+  word: offset.word,
+  text: "On any other laptop, 20% battery end of the day. On this, it's like, okay, 20%, I'll use it.".slice(offset.startChar, offset.endChar),
+})), [
+  { word: "laptop,20%", text: "laptop, 20%" },
+  { word: "battery", text: "battery" },
+  { word: "okay,20%,", text: "okay, 20%," },
+]);
 
 console.info("word seek index regression checks passed");

@@ -21,6 +21,8 @@ export type WordSeekOffsetInput = {
   endTime: number;
 };
 
+export type WordOffset = WordSeekOffsetInput;
+
 export type TimedWord = {
   start: number;
   end: number;
@@ -40,6 +42,56 @@ export type WordSeekIndex = {
   text: string;
   targets: WordSeekTarget[];
 };
+
+export function computeWordOffsets(words: { word: string; start: number; end: number }[]) {
+  let textBuilder = "";
+  const computedOffsets: WordOffset[] = [];
+
+  if (!words) return { fullText: "", offsets: [] };
+
+  words.forEach((w) => {
+    const word = w.word.trim();
+    if (!word || !Number.isFinite(w.start) || !Number.isFinite(w.end)) return;
+    if (textBuilder.length > 0) textBuilder += " ";
+    const startChar = textBuilder.length;
+    textBuilder += word;
+    const endChar = textBuilder.length;
+
+    computedOffsets.push({
+      startChar,
+      endChar,
+      startTime: w.start,
+      endTime: w.end,
+      word,
+    });
+  });
+
+  return { fullText: textBuilder, offsets: computedOffsets };
+}
+
+export function computeWordOffsetsInText(text: string, words: { word: string; start: number; end: number }[]) {
+  const offsets: WordOffset[] = [];
+  let searchFrom = 0;
+
+  words.forEach((w) => {
+    const word = w.word.trim();
+    if (!word || !Number.isFinite(w.start) || !Number.isFinite(w.end)) return;
+
+    const match = findDisplayWordMatch(text, word, searchFrom);
+    if (!match) return;
+
+    offsets.push({
+      startChar: match.startChar,
+      endChar: match.endChar,
+      startTime: w.start,
+      endTime: w.end,
+      word,
+    });
+    searchFrom = match.endChar;
+  });
+
+  return offsets;
+}
 
 export function buildWordSeekIndex(text: string, words: WordSeekInput[] = []): WordSeekIndex {
   const targets: WordSeekTarget[] = [];
@@ -140,6 +192,48 @@ function earliestMatch(first: number, second: number) {
 
 function wordEndsBeforeSegment(word: TimedWord, segmentStart: number) {
   return Number.isFinite(word.end) && word.end <= segmentStart - 0.05;
+}
+
+function findDisplayWordMatch(text: string, word: string, searchFrom: number) {
+  const lowerText = text.toLocaleLowerCase();
+  const lowerWord = word.toLocaleLowerCase();
+
+  let startChar = text.indexOf(word, searchFrom);
+  if (startChar !== -1) return { startChar, endChar: startChar + word.length };
+
+  startChar = lowerText.indexOf(lowerWord, searchFrom);
+  if (startChar !== -1) return { startChar, endChar: startChar + word.length };
+
+  return findWhitespaceTolerantWordMatch(text, lowerText, lowerWord, searchFrom);
+}
+
+function findWhitespaceTolerantWordMatch(text: string, lowerText: string, lowerWord: string, searchFrom: number) {
+  for (let start = Math.max(0, searchFrom); start < text.length; start += 1) {
+    let textIndex = start;
+    let wordIndex = 0;
+
+    while (textIndex < text.length && wordIndex < lowerWord.length) {
+      if (lowerText[textIndex] === lowerWord[wordIndex]) {
+        textIndex += 1;
+        wordIndex += 1;
+        continue;
+      }
+      if (wordIndex > 0 && isDisplayWhitespace(text[textIndex])) {
+        textIndex += 1;
+        continue;
+      }
+      break;
+    }
+
+    if (wordIndex === lowerWord.length) {
+      return { startChar: start, endChar: textIndex };
+    }
+  }
+  return null;
+}
+
+function isDisplayWhitespace(value: string) {
+  return /\s/.test(value);
 }
 
 export function findWordSeekTarget(targets: WordSeekTarget[], charOffset: number) {

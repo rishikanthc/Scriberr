@@ -16,7 +16,7 @@ import { TranscriptNotesSidebar } from "@/features/transcription/components/Tran
 import { TranscriptSelectionMenu } from "@/features/transcription/components/TranscriptSelectionMenu";
 import { AudioTagSection } from "@/features/tags/components/AudioTagSection";
 import { useTranscriptionDetailEvents } from "@/features/transcription/hooks/useTranscriptionDetailEvents";
-import { computeWordOffsets, computeWordOffsetsInText, createPlaybackSync, useTranscriptKaraokeHighlight, type KaraokeHighlightSegment, type PlaybackSync } from "@/features/transcription/hooks/useKaraokeHighlight";
+import { createPlaybackSync, useTranscriptKaraokeHighlight, type KaraokeHighlightSegment, type PlaybackSync } from "@/features/transcription/hooks/useKaraokeHighlight";
 import { useTranscriptClickSeek } from "@/features/transcription/hooks/useTranscriptClickSeek";
 import { useTranscriptTextSelection } from "@/features/transcription/hooks/useTranscriptTextSelection";
 import { selectTranscriptNotes, useCreateTranscriptHighlight, useCreateTranscriptNote, useCreateTranscriptNoteEntry, useDeleteTranscriptHighlight, useDeleteTranscriptNoteEntry, useTranscriptAnnotations, useUpdateTranscriptNoteEntry } from "@/features/transcription/hooks/useTranscriptAnnotations";
@@ -25,7 +25,7 @@ import { preferVisibleTranscription, useFileTranscriptions, useTranscriptionTran
 import { ReadOnlyMarkdown } from "@/features/transcription/components/ReadOnlyMarkdown";
 import { buildHighlightRangesBySegment, hasDuplicateActiveHighlight, type SegmentHighlightRange } from "@/features/transcription/utils/transcriptHighlighting";
 import type { SelectionMenuRect } from "@/features/transcription/utils/transcriptHighlighting";
-import { assignWordsToSegments, buildWordSeekTargetsFromOffsets, shouldUseAlignedSegmentText } from "@/features/transcription/utils/wordSeekIndex";
+import { assignWordsToSegments, buildWordSeekTargetsFromOffsets, computeWordOffsets, computeWordOffsetsInText, shouldUseAlignedSegmentText } from "@/features/transcription/utils/wordSeekIndex";
 
 type DetailTab = "summary" | "transcript";
 

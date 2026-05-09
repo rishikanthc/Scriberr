@@ -1,4 +1,5 @@
 import { useEffect, useMemo, type RefObject } from "react";
+import type { WordOffset } from "@/features/transcription/utils/wordSeekIndex";
 
 export type PlaybackSnapshot = {
     currentTime: number;
@@ -9,14 +10,6 @@ export type PlaybackSync = {
     getSnapshot: () => PlaybackSnapshot;
     publish: (next: Partial<PlaybackSnapshot>) => void;
     subscribe: (listener: (snapshot: PlaybackSnapshot) => void) => () => void;
-};
-
-export type WordOffset = {
-    startChar: number;
-    endChar: number;
-    startTime: number;
-    endTime: number;
-    word: string;
 };
 
 export type KaraokeHighlightSegment = {
@@ -30,13 +23,16 @@ const wordEndGraceSeconds = 0.12;
 declare global {
     interface CSS {
         highlights?: {
-            set(name: string, highlight: Highlight): void;
             clear(): void;
-            delete(name: string): void;
-            has(name: string): boolean;
         };
     }
 }
+
+type CSSHighlightRegistry = {
+    set(name: string, highlight: Highlight): void;
+    delete(name: string): void;
+    has(name: string): boolean;
+};
 
 export function createPlaybackSync(): PlaybackSync {
     let snapshot: PlaybackSnapshot = { currentTime: 0, isPlaying: false };
@@ -53,61 +49,6 @@ export function createPlaybackSync(): PlaybackSync {
             return () => listeners.delete(listener);
         },
     };
-}
-
-export function computeWordOffsets(words: { word: string; start: number; end: number }[]) {
-    let textBuilder = "";
-    const computedOffsets: WordOffset[] = [];
-
-    if (!words) return { fullText: "", offsets: [] };
-
-    words.forEach((w) => {
-        const word = w.word.trim();
-        if (!word || !Number.isFinite(w.start) || !Number.isFinite(w.end)) return;
-        if (textBuilder.length > 0) textBuilder += " ";
-        const startChar = textBuilder.length;
-        textBuilder += word;
-        const endChar = textBuilder.length;
-
-        computedOffsets.push({
-            startChar,
-            endChar,
-            startTime: w.start,
-            endTime: w.end,
-            word,
-        });
-    });
-
-    return { fullText: textBuilder, offsets: computedOffsets };
-}
-
-export function computeWordOffsetsInText(text: string, words: { word: string; start: number; end: number }[]) {
-    const offsets: WordOffset[] = [];
-    const lowerText = text.toLocaleLowerCase();
-    let searchFrom = 0;
-
-    words.forEach((w) => {
-        const word = w.word.trim();
-        if (!word || !Number.isFinite(w.start) || !Number.isFinite(w.end)) return;
-
-        let startChar = text.indexOf(word, searchFrom);
-        if (startChar === -1) {
-            startChar = lowerText.indexOf(word.toLocaleLowerCase(), searchFrom);
-        }
-        if (startChar === -1) return;
-
-        const endChar = startChar + word.length;
-        offsets.push({
-            startChar,
-            endChar,
-            startTime: w.start,
-            endTime: w.end,
-            word,
-        });
-        searchFrom = endChar;
-    });
-
-    return offsets;
 }
 
 function findActiveWordIndex(
@@ -139,9 +80,14 @@ function findCurrentWordIndex(offsets: WordOffset[], currentTime: number) {
 }
 
 function clearHighlight(name: string) {
-    if (typeof CSS !== "undefined" && CSS.highlights?.has(name)) {
-        CSS.highlights.delete(name);
+    const highlights = cssHighlights();
+    if (highlights?.has(name)) {
+        highlights.delete(name);
     }
+}
+
+function cssHighlights() {
+    return typeof CSS !== "undefined" ? CSS.highlights as unknown as CSSHighlightRegistry | undefined : undefined;
 }
 
 export function useTranscriptKaraokeHighlight(
@@ -157,7 +103,8 @@ export function useTranscriptKaraokeHighlight(
     }, [segments]);
 
     useEffect(() => {
-        if (!enabled || !activeWords.length || typeof CSS === "undefined" || !CSS.highlights) {
+        const highlights = cssHighlights();
+        if (!enabled || !activeWords.length || !highlights) {
             clearHighlight(transcriptHighlightName);
             return;
         }
@@ -194,7 +141,7 @@ export function useTranscriptKaraokeHighlight(
                     lastActiveIndex = null;
                     return;
                 }
-                CSS.highlights.set(transcriptHighlightName, new Highlight(range));
+                highlights.set(transcriptHighlightName, new Highlight(range));
                 lastActiveIndex = activeIndex;
             } catch {
                 clearHighlight(transcriptHighlightName);
