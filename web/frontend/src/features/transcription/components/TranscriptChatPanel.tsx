@@ -352,9 +352,9 @@ export function TranscriptChatPanel({ parentTranscriptionId }: TranscriptChatPan
               </Button>
             </div>
             <div className="scr-chat-session-list">
-              {sessionsQuery.isLoading ? <p className="scr-chat-menu-status">Loading conversations.</p> : null}
+              {sessionsQuery.isLoading ? <p className="scr-chat-menu-status">Loading chats.</p> : null}
               {!sessionsQuery.isLoading && (sessionsQuery.data?.items.length || 0) === 0 ? (
-                <p className="scr-chat-menu-status">No conversations yet.</p>
+                <p className="scr-chat-menu-status">No chats yet.</p>
               ) : null}
               {groupSessions(sessionsQuery.data?.items || []).map((group) => (
                 <div className="scr-chat-session-group" key={group.label}>
@@ -432,7 +432,7 @@ export function TranscriptChatPanel({ parentTranscriptionId }: TranscriptChatPan
         {!messagesQuery.isLoading && activeSessionId && displayMessages.length === 0 ? (
           <div className="scr-chat-empty">
             <Sparkles size={28} aria-hidden="true" />
-            <p>Ask anything about your conversations.</p>
+            <p>Ask anything about your audio.</p>
           </div>
         ) : null}
         {displayMessages.map((message) => (
@@ -467,7 +467,7 @@ export function TranscriptChatPanel({ parentTranscriptionId }: TranscriptChatPan
                 <CommandInput placeholder="Search" />
                 <CommandList>
                   <CommandEmpty>No completed transcripts.</CommandEmpty>
-                  <CommandGroup heading="Conversations">
+                  <CommandGroup heading="Audio files">
                     {transcriptChoices.isLoading ? (
                       <p className="scr-chat-menu-status">Loading transcripts.</p>
                     ) : selectableContexts.map((choice) => (
@@ -507,7 +507,7 @@ export function TranscriptChatPanel({ parentTranscriptionId }: TranscriptChatPan
           className="scr-chat-input"
           value={composerValue}
           aria-label="Chat message"
-          placeholder="Ask anything about your conversations"
+          placeholder="Ask anything about your audio"
           rows={2}
           disabled={!activeSessionId || !canChat || streamMutation.isPending}
           onChange={(event) => setComposerValue(event.currentTarget.value)}
