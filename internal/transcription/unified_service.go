@@ -295,6 +295,11 @@ func (u *UnifiedTranscriptionService) processSingleTrackJob(ctx context.Context,
 			return fmt.Errorf("failed to get transcription adapter: %w", err)
 		}
 
+		// No-op unless this model was skipped at startup by SCRIBERR_ENABLED_MODELS
+		if err := u.registry.EnsureModelReady(ctx, transcriptionModelID); err != nil {
+			return fmt.Errorf("failed to prepare transcription model: %w", err)
+		}
+
 		// Convert parameters for this specific model
 		params := u.convertParametersForModel(job.Parameters, transcriptionModelID)
 
@@ -314,6 +319,11 @@ func (u *UnifiedTranscriptionService) processSingleTrackJob(ctx context.Context,
 			diarizationAdapter, err := u.registry.GetDiarizationAdapter(diarizationModelID)
 			if err != nil {
 				return fmt.Errorf("failed to get diarization adapter: %w", err)
+			}
+
+			// No-op unless this model was skipped at startup by SCRIBERR_ENABLED_MODELS
+			if err := u.registry.EnsureModelReady(ctx, diarizationModelID); err != nil {
+				return fmt.Errorf("failed to prepare diarization model: %w", err)
 			}
 
 			// Use the same preprocessed audio for diarization

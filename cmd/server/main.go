@@ -219,6 +219,10 @@ func main() {
 func registerAdapters(cfg *config.Config) {
 	logger.Info("Registering adapters with environment path", "whisperx_env", cfg.WhisperXEnv)
 
+	// Optionally restrict which models get their environment prepared on startup
+	// (SCRIBERR_ENABLED_MODELS). All adapters stay registered regardless.
+	registry.GetRegistry().SetEnabledModels(cfg.EnabledModels)
+
 	// Shared environment path for NVIDIA models (NeMo-based)
 	nvidiaEnvPath := filepath.Join(cfg.WhisperXEnv, "parakeet")
 
