@@ -254,6 +254,19 @@ func (u *UnifiedTranscriptionService) processSingleTrackJob(ctx context.Context,
 		}
 	}
 
+	// A separate diarization pass reuses the same preprocessed audio, so a
+	// transcription model may only skip normalization if the diarization model
+	// that will consume the file can live without it too.
+	if capabilities.SkipAudioNormalization && transcriptionModelID != "" &&
+		job.Parameters.Diarize && diarizationModelID != "" &&
+		!u.transcriptionIncludesDiarization(transcriptionModelID, job.Parameters) {
+		if adapter, err := u.registry.GetDiarizationAdapter(diarizationModelID); err == nil {
+			capabilities.SkipAudioNormalization = adapter.GetCapabilities().SkipAudioNormalization
+		} else {
+			capabilities.SkipAudioNormalization = false
+		}
+	}
+
 	// Apply preprocessing
 	preprocessedInput, err = u.pipeline.ProcessAudio(ctx, audioInput, capabilities)
 	if err != nil {

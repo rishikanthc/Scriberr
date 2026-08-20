@@ -66,8 +66,10 @@ type AudioFormatPreprocessor struct{}
 
 // AppliesTo checks if this preprocessor should be used for the given model
 func (a *AudioFormatPreprocessor) AppliesTo(capabilities interfaces.ModelCapabilities) bool {
-	// Apply to all models for consistent audio format (mono 16kHz)
-	return true
+	// Apply to all models for consistent audio format (mono 16kHz), except
+	// those that explicitly opt out (e.g. cloud APIs that accept the original
+	// compressed file and cap request size).
+	return !capabilities.SkipAudioNormalization
 }
 
 // GetRequiredFormats returns the output formats this preprocessor can produce
