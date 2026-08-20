@@ -37,6 +37,10 @@ func NewOpenAIAdapter(apiKey string) *OpenAIAdapter {
 		SupportedFormats:  []string{"flac", "mp3", "mp4", "mpeg", "mpga", "m4a", "ogg", "wav", "webm"},
 		RequiresGPU:       false,
 		MemoryRequirement: 0, // Cloud-based
+		// The API accepts the compressed source file as-is and rejects requests
+		// over 25MB. Transcoding to 16kHz mono PCM WAV only inflates the upload
+		// (often past that cap) without improving accuracy.
+		SkipAudioNormalization: true,
 		Features: map[string]bool{
 			"timestamps":         true,  // Verbose JSON response includes segments
 			"word_level":         false, // Not supported by standard API yet (unless using verbose_json with timestamp_granularities which is beta)
