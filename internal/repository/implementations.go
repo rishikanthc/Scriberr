@@ -3,10 +3,22 @@ package repository
 import (
 	"context"
 	"scriberr/internal/models"
+	"strings"
 	"time"
 
 	"gorm.io/gorm"
 )
+
+// transcriptionJobSortColumns are the columns ListWithParams allows sorting
+// by. sortBy is a caller-supplied query param, so it has to be checked
+// against a fixed set before use rather than passed straight into ORDER BY.
+var transcriptionJobSortColumns = map[string]bool{
+	"created_at": true,
+	"updated_at": true,
+	"title":      true,
+	"status":     true,
+	"audio_path": true,
+}
 
 // UserRepository handles user-specific database operations
 type UserRepository interface {
@@ -111,12 +123,15 @@ func (r *jobRepository) ListWithParams(ctx context.Context, offset, limit int, s
 		return nil, 0, err
 	}
 
-	// Apply sorting
-	if sortBy != "" {
-		if sortOrder == "" {
-			sortOrder = "desc"
+	// Apply sorting. sortBy and sortOrder come straight from query params, so
+	// they're checked against a fixed set of values before being used to
+	// build the ORDER BY clause, instead of being concatenated in directly.
+	if transcriptionJobSortColumns[sortBy] {
+		direction := "desc"
+		if strings.EqualFold(sortOrder, "asc") {
+			direction = "asc"
 		}
-		db = db.Order(sortBy + " " + sortOrder)
+		db = db.Order(sortBy + " " + direction)
 	} else {
 		// Default sort
 		db = db.Order("created_at desc")
