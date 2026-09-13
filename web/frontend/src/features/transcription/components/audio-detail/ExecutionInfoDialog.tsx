@@ -149,6 +149,7 @@ function CuratedParamsDisplay({ params }: { params: any }) {
         ];
     } else if (params.model_family === 'nvidia_parakeet') {
         specificKeys = [
+            'model',
             'attention_context_left',
             'attention_context_right',
             ...(params.diarize ? ['diarize_model'] : [])

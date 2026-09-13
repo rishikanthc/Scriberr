@@ -19,11 +19,23 @@ import (
 // ParakeetAdapter implements the TranscriptionAdapter interface for NVIDIA Parakeet
 type ParakeetAdapter struct {
 	*BaseAdapter
-	envPath string
+	envPath                 string
+	model                   nemoCheckpoint
+	prepareLock             chan struct{}
+	orukeetEnvironmentReady bool
 }
 
 // NewParakeetAdapter creates a new Parakeet adapter
 func NewParakeetAdapter(envPath string) *ParakeetAdapter {
+	return newNemoParakeetAdapter(envPath, parakeetCheckpoint)
+}
+
+// NewOrukeetAdapter shares the NeMo runtime and downloads weights on first use.
+func NewOrukeetAdapter(envPath string) *ParakeetAdapter {
+	return newNemoParakeetAdapter(envPath, orukeetCheckpoint)
+}
+
+func newNemoParakeetAdapter(envPath string, model nemoCheckpoint) *ParakeetAdapter {
 	capabilities := interfaces.ModelCapabilities{
 		ModelID:            "parakeet",
 		ModelFamily:        "nvidia_parakeet",
@@ -49,6 +61,17 @@ func NewParakeetAdapter(envPath string) *ParakeetAdapter {
 			"sample_rate": "16000",
 			"format":      "16khz_mono_wav",
 		},
+	}
+
+	if model.ID == "orukeet" {
+		capabilities.ModelID = model.ID
+		capabilities.DisplayName = "Orukeet v0.1"
+		capabilities.Description = "Parakeet v3 fine-tune for local transcription in 25 European languages"
+		capabilities.Version = "0.1.0"
+		capabilities.SupportedLanguages = []string{"bg", "hr", "cs", "da", "nl", "en", "et", "fi", "fr", "de", "el", "hu", "it", "lv", "lt", "mt", "pl", "pt", "ro", "sk", "sl", "es", "sv", "ru", "uk"}
+		capabilities.Metadata["license"] = "CC-BY-SA-4.0"
+		capabilities.Metadata["language"] = "multilingual"
+		capabilities.Metadata["source"] = "oruk/orukeet"
 	}
 
 	schema := []interfaces.ParameterSchema{
@@ -106,11 +129,13 @@ func NewParakeetAdapter(envPath string) *ParakeetAdapter {
 		// Note: include_confidence removed as it's not supported by Parakeet script
 	}
 
-	baseAdapter := NewBaseAdapter("parakeet", envPath, capabilities, schema)
+	baseAdapter := NewBaseAdapter(model.ID, envPath, capabilities, schema)
 
 	adapter := &ParakeetAdapter{
 		BaseAdapter: baseAdapter,
 		envPath:     envPath,
+		model:       model,
+		prepareLock: make(chan struct{}, 1),
 	}
 
 	return adapter
@@ -118,11 +143,19 @@ func NewParakeetAdapter(envPath string) *ParakeetAdapter {
 
 // GetSupportedModels returns the specific Parakeet model available
 func (p *ParakeetAdapter) GetSupportedModels() []string {
-	return []string{"parakeet-tdt-0.6b-v3"}
+	return []string{p.model.Name}
 }
 
 // PrepareEnvironment sets up the Parakeet environment
 func (p *ParakeetAdapter) PrepareEnvironment(ctx context.Context) error {
+	// Registration must not download an optional 2.5 GB checkpoint.
+	if p.model.ID == "orukeet" {
+		if err := os.MkdirAll(p.envPath, 0755); err != nil {
+			return err
+		}
+		p.initialized = true
+		return nil
+	}
 	logger.Info("Preparing NVIDIA Parakeet environment", "env_path", p.envPath)
 
 	// Copy transcription scripts (standard and buffered)
@@ -159,7 +192,7 @@ func (p *ParakeetAdapter) PrepareEnvironment(ctx context.Context) error {
 	}
 
 	// Setup environment
-	if err := p.setupParakeetEnvironment(); err != nil {
+	if err := p.setupParakeetEnvironment(ctx); err != nil {
 		return fmt.Errorf("failed to setup Parakeet environment: %w", err)
 	}
 
@@ -174,7 +207,7 @@ func (p *ParakeetAdapter) PrepareEnvironment(ctx context.Context) error {
 }
 
 // setupParakeetEnvironment creates the Python environment for Parakeet
-func (p *ParakeetAdapter) setupParakeetEnvironment() error {
+func (p *ParakeetAdapter) setupParakeetEnvironment(ctx context.Context) error {
 	if err := os.MkdirAll(p.envPath, 0755); err != nil {
 		return fmt.Errorf("failed to create parakeet directory: %w", err)
 	}
@@ -201,7 +234,7 @@ func (p *ParakeetAdapter) setupParakeetEnvironment() error {
 
 	// Run uv sync
 	logger.Info("Installing Parakeet dependencies")
-	cmd := exec.Command("uv", "sync", "--native-tls")
+	cmd := exec.CommandContext(ctx, "uv", "sync", "--native-tls")
 	cmd.Dir = p.envPath
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -283,6 +316,12 @@ func (p *ParakeetAdapter) Transcribe(ctx context.Context, input interfaces.Audio
 		return nil, fmt.Errorf("invalid parameters: %w", err)
 	}
 
+	if p.model.ID == "orukeet" {
+		if err := p.prepareOrukeet(ctx); err != nil {
+			return nil, fmt.Errorf("failed to prepare Orukeet: %w", err)
+		}
+	}
+
 	// Create temporary directory
 	tempDir, err := p.CreateTempDirectory(procCtx)
 	if err != nil {
@@ -342,7 +381,7 @@ func (p *ParakeetAdapter) Transcribe(ctx context.Context, input interfaces.Audio
 	}
 
 	result.ProcessingTime = time.Since(startTime)
-	result.ModelUsed = "parakeet-tdt-0.6b-v3"
+	result.ModelUsed = p.model.Name
 	result.Metadata = p.CreateDefaultMetadata(params)
 
 	logger.Info("Parakeet transcription completed",
@@ -482,6 +521,7 @@ func (p *ParakeetAdapter) buildParakeetArgs(input interfaces.AudioInput, params 
 		"run", "--native-tls", "--project", p.envPath, "python", scriptPath,
 		input.FilePath,
 		"--output", outputFile,
+		"--model-file", p.model.Filename,
 	}
 
 	// Add timestamps flag (Parakeet script supports --timestamps)
@@ -598,6 +638,7 @@ func (p *ParakeetAdapter) buildBufferedArgs(input interfaces.AudioInput, params 
 		"run", "--native-tls", "--project", p.envPath, "python", scriptPath,
 		input.FilePath,
 		"--output", outputFile,
+		"--model-file", p.model.Filename,
 		"--chunk-len", chunkDuration,
 	}
 

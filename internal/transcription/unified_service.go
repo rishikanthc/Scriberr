@@ -25,6 +25,7 @@ const (
 	ModelWhisperX        = "whisperx"
 	ModelPyannote        = "pyannote"
 	ModelParakeet        = "parakeet"
+	ModelOrukeet         = "orukeet"
 	ModelCanary          = "canary"
 	ModelSortformer      = "sortformer"
 	ModelOpenAI          = "openai_whisper"
@@ -379,6 +380,9 @@ func (u *UnifiedTranscriptionService) selectModels(params models.WhisperXParams)
 	switch params.ModelFamily {
 	case FamilyNvidiaParakeet:
 		transcriptionModelID = ModelParakeet
+		if params.Model == "orukeet-v0.1.0" {
+			transcriptionModelID = ModelOrukeet
+		}
 	case FamilyNvidiaCanary:
 		transcriptionModelID = ModelCanary
 	case FamilyWhisper:
@@ -551,7 +555,7 @@ func (u *UnifiedTranscriptionService) createAudioInput(audioPath string) (interf
 // convertParametersForModel converts WhisperX parameters to model-specific parameters
 func (u *UnifiedTranscriptionService) convertParametersForModel(params models.WhisperXParams, modelID string) map[string]interface{} {
 	switch modelID {
-	case ModelParakeet:
+	case ModelParakeet, ModelOrukeet:
 		return u.convertToParakeetParams(params)
 	case ModelCanary:
 		return u.convertToCanaryParams(params)
