@@ -8,6 +8,7 @@ import argparse
 import json
 import sys
 import os
+import tempfile
 import librosa
 import soundfile as sf
 import numpy as np
@@ -91,10 +92,12 @@ def transcribe_buffered(
         print(f"Transcribing chunk {i+1}/{len(chunks)} (duration: {chunk_info['duration']:.1f}s)...")
 
         # Save chunk to temporary file
-        chunk_path = f"/tmp/chunk_{i}.wav"
-        sf.write(chunk_path, chunk_info['audio'], sr)
+        # Each request owns its file, including when two jobs share a worker.
+        with tempfile.NamedTemporaryFile(prefix="parakeet-chunk-", suffix=".wav", delete=False) as chunk_file:
+            chunk_path = chunk_file.name
 
         try:
+            sf.write(chunk_path, chunk_info['audio'], sr)
             # Transcribe chunk
             output = asr_model.transcribe(
                 [chunk_path],
