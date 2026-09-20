@@ -233,6 +233,7 @@ func registerAdapters(cfg *config.Config) {
 		adapters.NewWhisperXAdapter(cfg.WhisperXEnv))
 	registry.RegisterTranscriptionAdapter("parakeet",
 		adapters.NewParakeetAdapter(nvidiaEnvPath))
+	registry.RegisterTranscriptionAdapter("orukeet", adapters.NewOrukeetAdapter(nvidiaEnvPath))
 	registry.RegisterTranscriptionAdapter("canary",
 		adapters.NewCanaryAdapter(nvidiaEnvPath)) // Shares with Parakeet
 	registry.RegisterTranscriptionAdapter("voxtral",

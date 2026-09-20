@@ -18,12 +18,12 @@ def transcribe_audio(
     context_left: int = 256,
     context_right: int = 256,
     include_confidence: bool = True,
+    model_filename: str = "parakeet-tdt-0.6b-v3.nemo",
 ):
     """
     Transcribe audio using NVIDIA Parakeet model.
     """
     # Determine model path
-    model_filename = "parakeet-tdt-0.6b-v3.nemo"
     model_path = None
 
     # Locate project root: derived from VIRTUAL_ENV, which is set by `uv run` to path/.venv
@@ -86,11 +86,11 @@ def transcribe_audio(
         # Prepare output data
         output_data = {
             "transcription": text,
-            "language": "en",
+            "language": "und" if model_filename == "orukeet-v0.1.0.nemo" else "en",
             "word_timestamps": word_timestamps,
             "segment_timestamps": segment_timestamps,
             "audio_file": audio_path,
-            "model": "parakeet-tdt-0.6b-v3",
+            "model": Path(model_filename).stem,
             "context": {
                 "left": context_left,
                 "right": context_right
@@ -117,9 +117,9 @@ def transcribe_audio(
 
         output_data = {
             "transcription": text,
-            "language": "en",
+            "language": "und" if model_filename == "orukeet-v0.1.0.nemo" else "en",
             "audio_file": audio_path,
-            "model": "parakeet-tdt-0.6b-v3"
+            "model": Path(model_filename).stem
         }
 
         if output_file:
@@ -163,6 +163,8 @@ def main():
         help="Exclude confidence scores"
     )
 
+    parser.add_argument("--model-file", choices=["parakeet-tdt-0.6b-v3.nemo", "orukeet-v0.1.0.nemo"], default="parakeet-tdt-0.6b-v3.nemo")
+
     args = parser.parse_args()
 
     # Validate input file
@@ -178,6 +180,7 @@ def main():
             context_left=args.context_left,
             context_right=args.context_right,
             include_confidence=args.include_confidence,
+            model_filename=args.model_file,
         )
     except Exception as e:
         print(f"Error during transcription: {e}")

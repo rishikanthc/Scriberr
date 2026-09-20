@@ -368,7 +368,7 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
                         onValueChange={(v) => updateParam('model_family', v)}
                         options={[
                             { value: "whisper", label: "Whisper" },
-                            { value: "nvidia_parakeet", label: "NVIDIA Parakeet" },
+                            { value: "nvidia_parakeet", label: "Parakeet / Orukeet" },
                             { value: "nvidia_canary", label: "NVIDIA Canary" },
                             { value: "mistral_voxtral", label: "Mistral Voxtral" },
                             { value: "openai", label: "OpenAI" },
@@ -595,6 +595,15 @@ function WhisperConfig({ params, updateParam, isMultiTrack }: ConfigProps) {
 function ParakeetConfig({ params, updateParam, isMultiTrack }: ConfigProps) {
     return (
         <div className="space-y-6">
+            <SelectField
+                label="Model"
+                value={params.model === "orukeet-v0.1.0" ? params.model : "parakeet-tdt-0.6b-v3"}
+                onValueChange={(v) => updateParam("model", v)}
+                options={[
+                    { value: "parakeet-tdt-0.6b-v3", label: "NVIDIA Parakeet v3" },
+                    { value: "orukeet-v0.1.0", label: "Orukeet v0.1 (CC-BY-SA-4.0)" },
+                ]}
+            />
             <Section title="Audio Context" description="Configure how much context the model uses for long audio files">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                     <SliderField label="Left Context" value={params.attention_context_left} onValueChange={(v) => updateParam('attention_context_left', v)} min={64} max={512} step={64} />
