@@ -23,19 +23,28 @@ Scriberr is an open-source, and completely offline audio transcription applicati
 </div>
 
 ## Update on project status
-Hi everyone,
-It’s been a while since the last update, so I wanted to share what’s been going on with Scriberr.
 
-Recently, I was affected by layoffs at eBay (around 800 roles were impacted), and I unfortunately was one of them. The past few weeks have been a bit overwhelming as I’ve been focused on figuring out next steps and actively searching for new opportunities.
+Apologies for the radio silence.. I did find a new job, but had to move across the country for it. So between multiple moves, settling down into the new job and just recuperating from all the stress and anxiety I went through during the process made me want to take some time off.. So I was taking it easy, spending time with my family and didn't really have a lot of free time nor the mindset to work on my personal projects..
+That said, things are good now and boredom has been creeping up and I have been itching to get back into my personal projects.. I still need to setup my self-hosting server which I have been procrastinating for a while now xD
 
-Because of that, I haven’t been able to spend time on Scriberr lately. As much as I’d love to keep pushing it forward, I need to prioritize getting back on my feet first. Development is paused for now, but **definitely not abandoned. I still have a lot of ideas and plans I’m excited to come back to.**
+TLDR the project isn't abandoned. I'll be starting development again this week :)
+Look like a lot of advancements and developments have happened in this domain in the past few months and I could actually use your input and thoughts on something.
+Please check https://github.com/rishikanthc/Scriberr/discussions/485 and please do drop your thoughts and comments. I would like to get the communities input on this one to decide next steps.
+Also, thanks for all the love and support ! Y'all are awesome.
 
-That said, if anyone in the community is interested in contributing or helping move the project forward during this time, I’d be very open to collaborating. I’d love to see Scriberr continue to evolve even while I’m temporarily away from active development.
+~~Hi everyone,~~
+~~It’s been a while since the last update, so I wanted to share what’s been going on with Scriberr.~~
 
-I really appreciate all the support, interest, and encouragement this project has received so far. It genuinely means a lot, and I’m looking forward to continuing work on Scriberr once things stabilize on my end.
-Thanks again for your patience and support, I truly appreciate it.
+~~Recently, I was affected by layoffs at eBay (around 800 roles were impacted), and I unfortunately was one of them. The past few weeks have been a bit overwhelming as I’ve been focused on figuring out next steps and actively searching for new opportunities.~~
 
-In the meantime, if you happen to know of any opportunities in AI/ML engineering or research, I’d be incredibly grateful for any referrals or connections. You can find more about my work and experience here: https://rishikanthc.com
+~~Because of that, I haven’t been able to spend time on Scriberr lately. As much as I’d love to keep pushing it forward, I need to prioritize getting back on my feet first. Development is paused for now, but **definitely not abandoned. I still have a lot of ideas and plans I’m excited to come back to.**~~
+
+~~That said, if anyone in the community is interested in contributing or helping move the project forward during this time, I’d be very open to collaborating. I’d love to see Scriberr continue to evolve even while I’m temporarily away from active development.~~
+
+~~I really appreciate all the support, interest, and encouragement this project has received so far. It genuinely means a lot, and I’m looking forward to continuing work on Scriberr once things stabilize on my end.~~
+~~Thanks again for your patience and support, I truly appreciate it.~~
+
+~~In the meantime, if you happen to know of any opportunities in AI/ML engineering or research, I’d be incredibly grateful for any referrals or connections. You can find more about my work and experience here: https://rishikanthc.com~~
 
 ## Sponsors
 
