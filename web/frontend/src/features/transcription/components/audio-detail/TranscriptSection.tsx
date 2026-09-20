@@ -11,7 +11,9 @@ import { TranscriptSelectionMenu } from "./TranscriptSelectionMenu";
 import { NoteEditorDialog } from "./NoteEditorDialog";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useIsDesktop } from "@/hooks/useIsDesktop";
-import { X, StickyNote } from "lucide-react";
+import { X, StickyNote, ClipboardCopy } from "lucide-react";
+import { useToast } from "@/components/ui/toast";
+import { useTranscriptDownload } from "@/features/transcription/hooks/useTranscriptDownload";
 import { computeWordOffsets } from "@/features/transcription/hooks/useKaraokeHighlight";
 import type { Transcript } from "@/features/transcription/hooks/useAudioDetail";
 import { cn } from "@/lib/utils";
@@ -58,6 +60,8 @@ export function TranscriptSection({
     const isMobile = useIsMobile();
     const isDesktop = useIsDesktop();
     const queryClient = useQueryClient();
+    const { toast } = useToast();
+    const { copyText } = useTranscriptDownload();
 
     // Data hooks
     const { data: notes = [] } = useNotes(audioId);
@@ -158,10 +162,23 @@ export function TranscriptSection({
         }
     };
 
+    const handleCopyTranscript = async () => {
+        if (!transcript) return;
+        const success = await copyText(transcript, speakerMappings, {
+            includeTimestamps: false,
+            includeSpeakerLabels: true,
+        });
+        if (success) {
+            toast({ title: "Transcript copied to clipboard" });
+        } else {
+            toast({ title: "Copy failed", description: "Clipboard access was denied" });
+        }
+    };
+
     if (!transcript) return null;
 
     return (
-        <div className="md:glass-card md:rounded-[var(--radius-card)] md:border-[var(--border-subtle)] md:shadow-[var(--shadow-card)] md:hover:shadow-[var(--shadow-float)] p-4 md:p-6 min-h-[500px] transition-shadow">
+        <div className="relative md:glass-card md:rounded-[var(--radius-card)] md:border-[var(--border-subtle)] md:shadow-[var(--shadow-card)] md:hover:shadow-[var(--shadow-float)] p-4 md:p-6 min-h-[500px] transition-shadow">
             {/* 
                   TOOLBAR REMOVED -> Moved to Context Menu 
                 */}
@@ -175,7 +192,7 @@ export function TranscriptSection({
                     userSelect: 'text'
                 }}
             >
-                <div className="w-full text-[var(--text-secondary)] leading-relaxed">
+                <div className="w-full pb-10 text-[var(--text-secondary)] leading-relaxed">
                     <div
                         ref={transcriptRef}
                         className="relative"
@@ -199,6 +216,17 @@ export function TranscriptSection({
                     </div>
                 </div>
             </div>
+
+            {/* Copy to Clipboard — floating bottom-right of the transcript card */}
+            <button
+                type="button"
+                onClick={handleCopyTranscript}
+                aria-label="Copy transcript to clipboard"
+                title="Copy transcript to clipboard"
+                className="absolute bottom-4 right-4 z-10 h-10 w-10 inline-flex items-center justify-center rounded-full border-[var(--border-subtle)] shadow-sm bg-[var(--bg-card)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-main)] transition-all"
+            >
+                <ClipboardCopy className="h-4.5 w-4.5" />
+            </button>
 
             {/* Download Dialog */}
             <DownloadDialog

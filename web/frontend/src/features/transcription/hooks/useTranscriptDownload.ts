@@ -141,5 +141,60 @@ export function useTranscriptDownload() {
         downloadFile(JSON.stringify(jsonData, null, 2), `${filenameBase}.json`, 'application/json');
     };
 
-    return { downloadSRT, downloadTXT, downloadJSON };
+    const copyText = async (
+        transcript: Transcript,
+        speakerMappings: Record<string, string>,
+        options: { includeTimestamps: boolean; includeSpeakerLabels: boolean }
+    ): Promise<boolean> => {
+        if (!transcript) return false;
+
+        let content = '';
+
+        if (!options.includeSpeakerLabels && !options.includeTimestamps) {
+            content = transcript.text;
+        } else if (transcript.segments) {
+            transcript.segments.forEach((segment, index) => {
+                if (index > 0) content += '\n\n';
+
+                if (options.includeTimestamps) {
+                    content += `[${formatTimestamp(segment.start)}] `;
+                }
+
+                if (options.includeSpeakerLabels && segment.speaker) {
+                    content += `${getDisplaySpeakerName(segment.speaker, speakerMappings)}: `;
+                }
+
+                content += segment.text.trim();
+            });
+        } else {
+            content = transcript.text;
+        }
+
+        try {
+            if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+                await navigator.clipboard.writeText(content);
+                return true;
+            }
+            throw new Error('Clipboard API unavailable');
+        } catch {
+            // Fallback for non-secure contexts or blocked clipboard access
+            try {
+                const textarea = document.createElement('textarea');
+                textarea.value = content;
+                textarea.style.position = 'fixed';
+                textarea.style.left = '-9999px';
+                textarea.style.top = '-9999px';
+                textarea.setAttribute('readonly', '');
+                document.body.appendChild(textarea);
+                textarea.select();
+                const successful = document.execCommand('copy');
+                document.body.removeChild(textarea);
+                return successful;
+            } catch {
+                return false;
+            }
+        }
+    };
+
+    return { downloadSRT, downloadTXT, downloadJSON, copyText };
 }
