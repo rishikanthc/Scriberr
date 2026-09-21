@@ -2,6 +2,7 @@ package api
 
 import (
 	"bytes"
+	"context"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
@@ -24,6 +25,7 @@ import (
 	"scriberr/internal/service"
 	"scriberr/internal/sse"
 	"scriberr/internal/transcription"
+	"scriberr/internal/webhook"
 	"scriberr/pkg/logger"
 
 	"github.com/gin-gonic/gin"
@@ -52,6 +54,7 @@ type Handler struct {
 	quickTranscription  *transcription.QuickTranscriptionService
 	multiTrackProcessor *processing.MultiTrackProcessor
 	broadcaster         *sse.Broadcaster
+	webhookService      *webhook.Service
 }
 
 // NewHandler creates a new handler
@@ -96,8 +99,12 @@ func NewHandler(
 		quickTranscription:  quickTranscription,
 		multiTrackProcessor: multiTrackProcessor,
 		broadcaster:         broadcaster,
+		webhookService:      webhook.NewService(),
 	}
 }
+
+// SetWebhookDatabase connects webhook configuration and delivery to the application database.
+func (h *Handler) SetWebhookDatabase(db *gorm.DB) { h.webhookService.SetDatabase(db) }
 
 // SubmitJobRequest represents the submit job request
 type SubmitJobRequest struct {
@@ -325,6 +332,8 @@ func (h *Handler) UploadAudio(c *gin.Context) {
 		return
 	}
 
+	go h.webhookService.Dispatch(context.Background(), webhook.EventRecordingUploaded, &job, nil, "")
+
 	// Check for auto-transcription if user is authenticated via JWT
 	if userID, exists := c.Get("user_id"); exists {
 		// Use UserService to get user
@@ -432,6 +441,8 @@ func (h *Handler) UploadVideo(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create job"})
 		return
 	}
+
+	go h.webhookService.Dispatch(context.Background(), webhook.EventRecordingUploaded, &job, map[string]interface{}{"source": "video"}, "")
 
 	// Clean up video file as we only need audio
 	// TODO: Make this configurable? Some users might want to keep the video.
@@ -553,6 +564,8 @@ func (h *Handler) UploadMultiTrack(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create job"})
 		return
 	}
+
+	go h.webhookService.Dispatch(context.Background(), webhook.EventRecordingUploaded, &job, map[string]interface{}{"source": "multitrack"}, "")
 }
 
 // @Summary Get multi-track merge status

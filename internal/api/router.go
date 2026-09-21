@@ -241,6 +241,17 @@ func SetupRoutes(handler *Handler, authService *auth.AuthService) *gin.Engine {
 			summarize.POST("/", handler.Summarize)
 		}
 
+		// Webhook configuration routes (require authentication)
+		webhooks := v1.Group("/webhooks")
+		webhooks.Use(middleware.AuthMiddleware(authService))
+		{
+			webhooks.GET("/", handler.ListWebhooks)
+			webhooks.GET("/deliveries", handler.ListWebhookDeliveries)
+			webhooks.POST("/", handler.CreateWebhook)
+			webhooks.PUT("/:id", handler.UpdateWebhook)
+			webhooks.DELETE("/:id", handler.DeleteWebhook)
+		}
+
 		// Config routes (require authentication)
 		config := v1.Group("/config")
 		config.Use(middleware.AuthMiddleware(authService))

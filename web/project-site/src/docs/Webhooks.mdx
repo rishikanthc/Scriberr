@@ -1,0 +1,105 @@
+# Webhooks
+
+Scriberr webhooks send recording, transcription, and summary events to another application. Configure them under **Settings → Webhooks**, or use the [webhook API endpoints](/api#tag-webhooks).
+
+## Events
+
+Every request contains `schema_version: "1"`. Additive fields may be introduced without changing that version; breaking payload changes will use a new version.
+
+| Event | Sent when |
+| --- | --- |
+| `recording.uploaded` | A recording has been uploaded |
+| `transcription.completed` | Transcription completed successfully |
+| `transcription.failed` | Transcription failed |
+| `summary.completed` | Summary generation completed successfully |
+| `summary.failed` | Summary generation failed |
+
+All events share this shape. Fields that do not apply to an event are omitted.
+
+```json
+{
+  "schema_version": "1",
+  "event": "transcription.completed",
+  "job_id": "15e3254c-a6e2-4fad-96be-03030779e647",
+  "title": "Standard recording 25.mp3",
+  "status": "completed",
+  "audio_path": "/app/data/uploads/15e3254c-a6e2-4fad-96be-03030779e647.mp3",
+  "transcript": "Example transcript text",
+  "metadata": {
+    "duration_ms": 78659,
+    "model": "large-v3",
+    "model_family": "whisper"
+  },
+  "occurred_at": "2026-09-10T20:51:27.739939819Z"
+}
+```
+
+Failure events include an `error` field. Summary events may include `summary`; transcription events may include `transcript`.
+
+## Receiving deliveries
+
+Your endpoint must accept an HTTPS `POST` request with a JSON body and return a `2xx` status. Each request includes:
+
+| Header | Purpose |
+| --- | --- |
+| `Content-Type: application/json` | Identifies the JSON payload |
+| `User-Agent: Scriberr-Webhook/1.0` | Identifies Scriberr |
+| `X-Scriberr-Delivery` | Stable delivery ID for idempotency |
+| `X-Scriberr-Signature` | HMAC signature, when a secret is configured |
+
+Store processed `X-Scriberr-Delivery` values and ignore duplicates. Scriberr retries network errors, HTTP `408`, HTTP `429`, and `5xx` responses. There are three total attempts: the initial request, then retries after approximately 1 and 5 seconds.
+
+## Signing secret
+
+The signing secret is a shared value that you choose when creating the webhook. Scriberr stores it and uses it to sign every request. Enter the same secret in the receiving application; it is not included in webhook requests or API responses.
+
+Use a long, random value and keep it out of source control. Updating the secret affects newly queued deliveries. Leaving the field blank while editing keeps the existing secret.
+
+## Verifying signatures
+
+Scriberr computes an HMAC-SHA256 digest over the **exact raw request body bytes** and sends it as:
+
+```text
+X-Scriberr-Signature: sha256=<hex digest>
+```
+
+Do not parse and re-serialize the JSON before verification. Whitespace and key ordering change the bytes and produce a different digest.
+
+This Node.js example uses Express's raw-body middleware and a timing-safe comparison:
+
+```js
+import crypto from "node:crypto";
+import express from "express";
+
+const app = express();
+const secret = process.env.SCRIBERR_WEBHOOK_SECRET;
+
+app.post("/webhooks", express.raw({ type: "application/json" }), (req, res) => {
+  const signature = req.get("X-Scriberr-Signature") ?? "";
+  const supplied = Buffer.from(signature.replace(/^sha256=/, ""), "hex");
+  const expected = crypto.createHmac("sha256", secret).update(req.body).digest();
+  const valid =
+    supplied.length === expected.length &&
+    crypto.timingSafeEqual(supplied, expected);
+
+  if (!valid) return res.sendStatus(401);
+
+  const event = JSON.parse(req.body.toString("utf8"));
+  console.log(event);
+  res.sendStatus(204);
+});
+```
+
+For a quick manual check, save the exact body to `payload.json`, then run:
+
+```bash
+openssl dgst -sha256 -hmac 'YOUR_SECRET' payload.json
+```
+
+Compare the hexadecimal result with the value after `sha256=` in the signature header.
+
+## Testing locally
+
+Run any HTTP request logger locally, expose its port with `ngrok http PORT`, and configure the generated HTTPS URL as the webhook URL. A `502 Bad Gateway` from ngrok usually means nothing is listening on that local port.
+
+A request logger is useful for inspecting payloads, but it cannot verify a signature unless it preserves the exact raw body bytes.

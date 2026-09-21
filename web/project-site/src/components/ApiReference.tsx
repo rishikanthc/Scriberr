@@ -197,6 +197,9 @@ export default function ApiReference() {
                                             <h2 className="text-xl font-bold mb-6 text-gray-900 flex items-center gap-2 after:h-px after:flex-1 after:bg-gray-100">
                                                 {tag}
                                             </h2>
+                                            {tag === 'webhooks' && (
+                                                <a href="/docs/webhooks" className="inline-block mb-5 text-sm font-medium text-[#FF6D20] hover:underline">Webhook setup, payload, and signature guide →</a>
+                                            )}
                                             <div className="space-y-4">
                                                 {eps.map((e) => (
                                                     <EndpointCard key={`${e.method}-${e.path}`} ep={e} doc={doc} />

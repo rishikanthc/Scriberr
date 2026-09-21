@@ -8,6 +8,7 @@ import Usage from './docs/Usage.mdx';
 import Diarization from './docs/Diarization.mdx';
 import Installation from './docs/Installation.mdx';
 import Troubleshooting from './docs/Troubleshooting.mdx';
+import Webhooks from './docs/Webhooks.mdx';
 import ApiPage from './pages/ApiPage';
 
 function App() {
@@ -22,6 +23,7 @@ function App() {
               <Route path="intro" element={<Introduction />} />
               <Route path="features" element={<Features />} />
               <Route path="usage" element={<Usage />} />
+              <Route path="webhooks" element={<Webhooks />} />
               <Route path="diarization" element={<Diarization />} />
               <Route path="installation" element={<Installation />} />
               <Route path="troubleshooting" element={<Troubleshooting />} />

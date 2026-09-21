@@ -376,6 +376,141 @@ Once you have Scriberr up and running:
 - **Configure Diarization**: To enable speaker identification, visit the [Configuration page](https://scriberr.app/docs/configuration).
 - **Usage Guide**: For a detailed usage guide, visit [https://scriberr.app/docs/usage](https://scriberr.app/docs/usage).
 
+## Webhooks
+
+Scriberr can send JSON webhook requests when recordings, transcriptions, and summaries change. Configure subscriptions under **Settings → Webhooks**. Each subscription has a destination URL, one or more events, and an optional signing secret.
+
+| Event | Sent when |
+| :--- | :--- |
+| `recording.uploaded` | An audio, video, or multi-track recording is uploaded |
+| `transcription.completed` | Transcription finishes successfully |
+| `transcription.failed` | Transcription fails |
+| `summary.completed` | A summary finishes successfully |
+| `summary.failed` | Summary generation fails or times out |
+
+Scriberr sends each event as an HTTP `POST` with `Content-Type: application/json`. Event-specific fields that have no value are omitted. `schema_version` identifies the payload contract; additive changes can keep version `1`, while breaking changes will use a new version.
+
+<details>
+  <summary>Example webhook payloads</summary>
+
+### Recording uploaded
+
+```json
+{
+  "schema_version": "1",
+  "event": "recording.uploaded",
+  "job_id": "15e3254c-a6e2-4fad-96be-03030779e647",
+  "title": "Meeting.mp3",
+  "status": "uploaded",
+  "audio_path": "/app/data/uploads/15e3254c-a6e2-4fad-96be-03030779e647.mp3",
+  "occurred_at": "2026-09-10T20:45:00Z"
+}
+```
+
+### Transcription completed
+
+```json
+{
+  "schema_version": "1",
+  "event": "transcription.completed",
+  "job_id": "15e3254c-a6e2-4fad-96be-03030779e647",
+  "title": "Meeting.mp3",
+  "status": "completed",
+  "audio_path": "/app/data/uploads/15e3254c-a6e2-4fad-96be-03030779e647.mp3",
+  "transcript": "{\"text\":\"Example transcript\",\"segments\":[]}",
+  "metadata": {
+    "duration_ms": 78659,
+    "model": "large-v3",
+    "model_family": "whisper"
+  },
+  "occurred_at": "2026-09-10T20:51:27Z"
+}
+```
+
+### Transcription failed
+
+```json
+{
+  "schema_version": "1",
+  "event": "transcription.failed",
+  "job_id": "15e3254c-a6e2-4fad-96be-03030779e647",
+  "title": "Meeting.mp3",
+  "status": "failed",
+  "audio_path": "/app/data/uploads/15e3254c-a6e2-4fad-96be-03030779e647.mp3",
+  "error": "transcription failed: model process exited unexpectedly",
+  "metadata": {
+    "model": "large-v3",
+    "model_family": "whisper"
+  },
+  "occurred_at": "2026-09-10T20:51:27Z"
+}
+```
+
+### Summary completed
+
+```json
+{
+  "schema_version": "1",
+  "event": "summary.completed",
+  "job_id": "15e3254c-a6e2-4fad-96be-03030779e647",
+  "title": "Meeting.mp3",
+  "status": "completed",
+  "audio_path": "/app/data/uploads/15e3254c-a6e2-4fad-96be-03030779e647.mp3",
+  "summary": "The meeting covered the upcoming release.",
+  "metadata": {
+    "model": "llama3.2",
+    "template_id": "weekly-summary"
+  },
+  "occurred_at": "2026-09-10T21:05:00Z"
+}
+```
+
+### Summary failed
+
+```json
+{
+  "schema_version": "1",
+  "event": "summary.failed",
+  "job_id": "15e3254c-a6e2-4fad-96be-03030779e647",
+  "title": "Meeting.mp3",
+  "status": "completed",
+  "audio_path": "/app/data/uploads/15e3254c-a6e2-4fad-96be-03030779e647.mp3",
+  "error": "context deadline exceeded",
+  "metadata": {
+    "model": "llama3.2"
+  },
+  "occurred_at": "2026-09-10T21:05:00Z"
+}
+```
+
+</details>
+
+When a signing secret is configured, Scriberr calculates an HMAC-SHA256 over the exact request body and includes it as:
+
+```text
+X-Scriberr-Signature: sha256=<hex digest>
+X-Scriberr-Delivery: <stable delivery UUID>
+```
+
+The receiver should calculate the same digest with the shared secret and compare the signatures using a constant-time comparison. Use the original request bytes before parsing or reformatting the JSON. The delivery ID stays the same across retries and can be used as an idempotency key.
+
+Configured events are stored before Scriberr starts delivery. Network errors, HTTP `408`, `429`, and `5xx` responses are attempted up to three times with backoff. Other `4xx` responses fail immediately. Pending deliveries resume after Scriberr restarts. Because a process can stop after the receiver accepts a request but before Scriberr records the response, receivers should treat delivery as **at least once** and deduplicate by `X-Scriberr-Delivery` when necessary. The latest 50 delivery records are shown under **Settings → Webhooks**.
+
+Leaving the secret blank while editing preserves the existing secret. Use **Remove secret** to clear it explicitly.
+
+> [!IMPORTANT]
+> Webhook destinations may use HTTP and may point to private or loopback addresses so self-hosted Scriberr installations can call services on their own network. An authenticated user who can configure webhooks can therefore cause Scriberr to make requests from its host. Only give Scriberr access to trusted administrators, and use HTTPS for destinations outside your trusted network.
+
+Webhook subscriptions can also be managed through the authenticated API:
+
+| Method | Endpoint | Purpose |
+| :--- | :--- | :--- |
+| `GET` | `/api/v1/webhooks/` | List subscriptions |
+| `GET` | `/api/v1/webhooks/deliveries` | List the 50 most recent deliveries |
+| `POST` | `/api/v1/webhooks/` | Create a subscription |
+| `PUT` | `/api/v1/webhooks/{id}` | Update a subscription |
+| `DELETE` | `/api/v1/webhooks/{id}` | Delete a subscription |
+
 ## LLM Disclosure
 
 This project was developed using AI agents as pair programmer. It was NOT vibe coded. For context I’m a ML/AI researcher by profession and I have been programming for over a decade now. The codebase follows software engineering best practices and principles and all architecture decisions were made by me. All code generated by LLMs was reviewed and tested to the best of my abilities.
@@ -383,4 +518,3 @@ This project was developed using AI agents as pair programmer. It was NOT vibe c
 ## Donating
 
 <a href='https://ko-fi.com/H2H41KQZA3' target='_blank'><img height='36' style='border:0px;height:36px;' src='https://storage.ko-fi.com/cdn/kofi6.png?v=6' border='0' alt='Buy Me a Coffee at ko-fi.com' /></a>
-

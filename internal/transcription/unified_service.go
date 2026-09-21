@@ -19,6 +19,8 @@ import (
 	"scriberr/internal/transcription/registry"
 	"scriberr/internal/webhook"
 	"scriberr/pkg/logger"
+
+	"gorm.io/gorm"
 )
 
 const (
@@ -75,6 +77,11 @@ func NewUnifiedTranscriptionService(jobRepo repository.JobRepository, tempDir, o
 // SetBroadcaster sets the SSE broadcaster for the service
 func (u *UnifiedTranscriptionService) SetBroadcaster(b *sse.Broadcaster) {
 	u.broadcaster = b
+}
+
+// SetWebhookDatabase configures global webhook subscriptions.
+func (u *UnifiedTranscriptionService) SetWebhookDatabase(db *gorm.DB) {
+	u.webhookService.SetDatabase(db)
 }
 
 // Initialize prepares all registered models for use
@@ -154,14 +161,33 @@ func (u *UnifiedTranscriptionService) ProcessJob(ctx context.Context, jobID stri
 			})
 		}
 
+		job.Status = status
+		deliveryJob := job
+		if status == models.StatusCompleted {
+			if refreshedJob, refreshErr := u.jobRepo.FindByID(context.Background(), job.ID); refreshErr == nil {
+				deliveryJob = refreshedJob
+			} else {
+				logger.Warn("Failed to refresh job for webhook payload", "job_id", job.ID, "error", refreshErr)
+			}
+		}
+		deliveryJob.Status = status
+
+		event := webhook.EventTranscriptionSuccess
+		if status == models.StatusFailed {
+			event = webhook.EventTranscriptionFailed
+		}
+		u.webhookService.Dispatch(context.Background(), event, deliveryJob, map[string]interface{}{
+			"model": job.Parameters.Model, "model_family": job.Parameters.ModelFamily, "duration_ms": execution.ProcessingDuration,
+		}, errorMsg)
+
 		// Trigger webhook if callback URL is present
 		if job.Parameters.CallbackURL != nil && *job.Parameters.CallbackURL != "" {
 			payload := webhook.WebhookPayload{
-				JobID:        job.ID,
+				JobID:        deliveryJob.ID,
 				Status:       status,
-				AudioPath:    job.AudioPath,
-				Transcript:   job.Transcript,
-				Summary:      job.Summary,
+				AudioPath:    deliveryJob.AudioPath,
+				Transcript:   deliveryJob.Transcript,
+				Summary:      deliveryJob.Summary,
 				ErrorMessage: execution.ErrorMessage,
 				CompletedAt:  completedAt,
 				Metadata: map[string]interface{}{

@@ -165,6 +165,25 @@ definitions:
       name:
         type: string
     type: object
+  api.CreateWebhookRequest:
+    properties:
+      enabled:
+        type: boolean
+      events:
+        items:
+          $ref: '#/definitions/webhook.Event'
+        type: array
+      name:
+        type: string
+      secret:
+        type: string
+      url:
+        type: string
+    required:
+    - events
+    - name
+    - url
+    type: object
   api.ErrorResponse:
     properties:
       error:
@@ -379,6 +398,29 @@ definitions:
       auto_transcription_enabled:
         type: boolean
     type: object
+  api.UpdateWebhookRequest:
+    properties:
+      clear_secret:
+        description: Remove the existing signing secret when true. This only applies
+          to updates.
+        type: boolean
+      enabled:
+        type: boolean
+      events:
+        items:
+          $ref: '#/definitions/webhook.Event'
+        type: array
+      name:
+        type: string
+      secret:
+        type: string
+      url:
+        type: string
+    required:
+    - events
+    - name
+    - url
+    type: object
   api.UserSettingsResponse:
     properties:
       auto_transcription_enabled:
@@ -389,6 +431,50 @@ definitions:
   api.ValidateOpenAIKeyRequest:
     properties:
       api_key:
+        type: string
+    type: object
+  api.WebhookDeliveryResponse:
+    properties:
+      attempt_count:
+        type: integer
+      created_at:
+        type: string
+      delivered_at:
+        type: string
+      event:
+        type: string
+      id:
+        type: string
+      job_id:
+        type: string
+      last_error:
+        type: string
+      next_attempt_at:
+        type: string
+      response_status:
+        type: integer
+      status:
+        type: string
+      webhook_id:
+        type: string
+      webhook_name:
+        type: string
+    type: object
+  api.WebhookResponse:
+    properties:
+      enabled:
+        type: boolean
+      events:
+        items:
+          type: string
+        type: array
+      has_secret:
+        type: boolean
+      id:
+        type: string
+      name:
+        type: string
+      url:
         type: string
     type: object
   api.YouTubeDownloadRequest:
@@ -776,6 +862,20 @@ definitions:
       transcript:
         type: string
     type: object
+  webhook.Event:
+    enum:
+    - recording.uploaded
+    - transcription.completed
+    - transcription.failed
+    - summary.completed
+    - summary.failed
+    type: string
+    x-enum-varnames:
+    - EventRecordingUploaded
+    - EventTranscriptionSuccess
+    - EventTranscriptionFailed
+    - EventSummarySuccess
+    - EventSummaryFailed
 host: localhost:8080
 info:
   contact:
@@ -3133,6 +3233,199 @@ paths:
       summary: Update user settings
       tags:
       - user
+  /api/v1/webhooks/:
+    get:
+      description: List configured outbound webhook subscriptions without exposing
+        signing secrets. See https://scriberr.app/docs/webhooks for setup and payload
+        details.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/api.WebhookResponse'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - ApiKeyAuth: []
+      - BearerAuth: []
+      summary: List webhooks
+      tags:
+      - webhooks
+    post:
+      consumes:
+      - application/json
+      description: Create an outbound webhook subscription for one or more recording
+        lifecycle events. See https://scriberr.app/docs/webhooks for events and signature
+        verification.
+      parameters:
+      - description: Webhook configuration
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/api.CreateWebhookRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/api.WebhookResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - ApiKeyAuth: []
+      - BearerAuth: []
+      summary: Create a webhook
+      tags:
+      - webhooks
+  /api/v1/webhooks/{id}:
+    delete:
+      description: Delete a configured outbound webhook subscription. Delivery history
+        is retained.
+      parameters:
+      - description: Webhook ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - ApiKeyAuth: []
+      - BearerAuth: []
+      summary: Delete a webhook
+      tags:
+      - webhooks
+    put:
+      consumes:
+      - application/json
+      description: Update a webhook's name, URL, subscribed events, enabled state,
+        and optionally its signing secret. See https://scriberr.app/docs/webhooks
+        for signing details.
+      parameters:
+      - description: Webhook ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Webhook configuration
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/api.UpdateWebhookRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.WebhookResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - ApiKeyAuth: []
+      - BearerAuth: []
+      summary: Update a webhook
+      tags:
+      - webhooks
+  /api/v1/webhooks/deliveries:
+    get:
+      description: List the 50 most recent outbound webhook deliveries and their retry
+        status. See https://scriberr.app/docs/webhooks for delivery behavior.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/api.WebhookDeliveryResponse'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - ApiKeyAuth: []
+      - BearerAuth: []
+      summary: List webhook deliveries
+      tags:
+      - webhooks
   /health:
     get:
       description: Check if the API is healthy

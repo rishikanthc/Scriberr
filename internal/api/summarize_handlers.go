@@ -10,6 +10,7 @@ import (
 
 	"scriberr/internal/llm"
 	"scriberr/internal/models"
+	"scriberr/internal/webhook"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -106,12 +107,13 @@ func (h *Handler) processSummarization(c *gin.Context, req SummarizeRequest, svc
 				h.handleSummarizeError(c, req, svc, messages, err, finalText, start)
 			}
 			// Persist any partial content on error
-			h.persistSummary(req, finalText)
+			h.persistSummary(req, finalText, false)
 			return
 		case <-ctx.Done():
 			// Persist any partial content on timeout/cancel
-			h.persistSummary(req, finalText)
+			h.persistSummary(req, finalText, false)
 			log.Printf("[summarize] timeout/cancel transcription_id=%s model=%s bytes=%d duration_ms=%d", req.TranscriptionID, req.Model, len(finalText), time.Since(start).Milliseconds())
+			if job, lookupErr := h.jobRepo.FindByID(context.Background(), req.TranscriptionID); lookupErr == nil { h.webhookService.Dispatch(context.Background(), webhook.EventSummaryFailed, job, map[string]interface{}{"model": req.Model}, ctx.Err().Error()) }
 			return
 		}
 	}
@@ -129,6 +131,10 @@ func (h *Handler) handleSummarizeError(c *gin.Context, req SummarizeRequest, svc
 		resp, err2 := svc.ChatCompletion(c.Request.Context(), req.Model, messages, 0.0)
 		if err2 != nil || resp == nil || len(resp.Choices) == 0 {
 			log.Printf("[summarize] fallback failed transcription_id=%s model=%s err=%v", req.TranscriptionID, req.Model, err2)
+			if job, lookupErr := h.jobRepo.FindByID(context.Background(), req.TranscriptionID); lookupErr == nil {
+				message := errStr; if err2 != nil { message = err2.Error() }
+				h.webhookService.Dispatch(context.Background(), webhook.EventSummaryFailed, job, map[string]interface{}{"model": req.Model}, message)
+			}
 			_, _ = c.Writer.Write([]byte("\n"))
 			writer.Flush()
 			if flusher != nil {
@@ -163,9 +169,10 @@ func (h *Handler) handleSummarizeError(c *gin.Context, req SummarizeRequest, svc
 		flusher.Flush()
 	}
 	log.Printf("[summarize] error transcription_id=%s model=%s err=%v duration_ms=%d", req.TranscriptionID, req.Model, err, time.Since(start).Milliseconds())
+	if job, lookupErr := h.jobRepo.FindByID(context.Background(), req.TranscriptionID); lookupErr == nil { h.webhookService.Dispatch(context.Background(), webhook.EventSummaryFailed, job, map[string]interface{}{"model": req.Model}, errStr) }
 }
 
-func (h *Handler) persistSummary(req SummarizeRequest, content string) {
+func (h *Handler) persistSummary(req SummarizeRequest, content string, notify ...bool) {
 	if req.TranscriptionID == "" || content == "" {
 		return
 	}
@@ -181,6 +188,14 @@ func (h *Handler) persistSummary(req SummarizeRequest, content string) {
 	} else {
 		// Also cache on the transcription job for quick access
 		_ = h.jobRepo.UpdateSummary(context.Background(), req.TranscriptionID, content)
+	}
+	if (len(notify) == 0 || notify[0]) {
+		if job, err := h.jobRepo.FindByID(context.Background(), req.TranscriptionID); err == nil {
+			job.Summary = &content
+			h.webhookService.Dispatch(context.Background(), webhook.EventSummarySuccess, job, map[string]interface{}{
+			"model": req.Model, "template_id": req.TemplateID,
+		}, "")
+		}
 	}
 }
 

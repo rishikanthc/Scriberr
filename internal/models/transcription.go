@@ -47,6 +47,53 @@ const (
 )
 
 // WhisperXParams contains parameters for WhisperX transcription
+// Webhook stores a global outbound webhook subscription.
+type Webhook struct {
+	ID        string    `json:"id" gorm:"primaryKey;type:varchar(36)"`
+	Name      string    `json:"name" gorm:"type:varchar(255);not null"`
+	URL       string    `json:"url" gorm:"type:text;not null"`
+	Secret    *string   `json:"-" gorm:"type:text"`
+	Events    string    `json:"-" gorm:"type:text;not null"`
+	Enabled   bool      `json:"enabled" gorm:"not null;default:true"`
+	CreatedAt time.Time `json:"created_at" gorm:"autoCreateTime"`
+	UpdatedAt time.Time `json:"updated_at" gorm:"autoUpdateTime"`
+}
+
+func (w *Webhook) BeforeCreate(tx *gorm.DB) error {
+	if w.ID == "" {
+		w.ID = uuid.New().String()
+	}
+	return nil
+}
+
+// WebhookDelivery stores an outbound event before it is sent so delivery can
+// be retried after transient failures or an application restart.
+type WebhookDelivery struct {
+	ID             string     `json:"id" gorm:"primaryKey;type:varchar(36)"`
+	WebhookID      string     `json:"webhook_id" gorm:"type:varchar(36);not null;index"`
+	WebhookName    string     `json:"webhook_name" gorm:"type:varchar(255);not null"`
+	Event          string     `json:"event" gorm:"type:varchar(50);not null;index"`
+	JobID          string     `json:"job_id" gorm:"type:varchar(36);not null;index"`
+	DestinationURL string     `json:"-" gorm:"type:text;not null"`
+	Payload        string     `json:"-" gorm:"type:text;not null"`
+	Signature      string     `json:"-" gorm:"type:text"`
+	Status         string     `json:"status" gorm:"type:varchar(20);not null;index"`
+	AttemptCount   int        `json:"attempt_count" gorm:"not null;default:0"`
+	ResponseStatus *int       `json:"response_status,omitempty"`
+	LastError      *string    `json:"last_error,omitempty" gorm:"type:text"`
+	NextAttemptAt  *time.Time `json:"next_attempt_at,omitempty" gorm:"index"`
+	DeliveredAt    *time.Time `json:"delivered_at,omitempty"`
+	CreatedAt      time.Time  `json:"created_at" gorm:"autoCreateTime"`
+	UpdatedAt      time.Time  `json:"updated_at" gorm:"autoUpdateTime"`
+}
+
+func (d *WebhookDelivery) BeforeCreate(tx *gorm.DB) error {
+	if d.ID == "" {
+		d.ID = uuid.New().String()
+	}
+	return nil
+}
+
 type WhisperXParams struct {
 	// Model family (whisper or nvidia)
 	ModelFamily string `json:"model_family" gorm:"type:varchar(20);default:'whisper'"`
@@ -207,10 +254,10 @@ func (tp *TranscriptionProfile) BeforeSave(tx *gorm.DB) error {
 // LLMConfig represents LLM configuration settings
 type LLMConfig struct {
 	ID            uint      `json:"id" gorm:"primaryKey"`
-	Provider      string    `json:"provider" gorm:"not null;type:varchar(50)"` // "ollama" or "openai"
-	BaseURL       *string   `json:"base_url,omitempty" gorm:"type:text"`       // For Ollama
+	Provider      string    `json:"provider" gorm:"not null;type:varchar(50)"`  // "ollama" or "openai"
+	BaseURL       *string   `json:"base_url,omitempty" gorm:"type:text"`        // For Ollama
 	OpenAIBaseURL *string   `json:"openai_base_url,omitempty" gorm:"type:text"` // For OpenAI custom endpoint
-	APIKey        *string   `json:"api_key,omitempty" gorm:"type:text"`        // For OpenAI (encrypted)
+	APIKey        *string   `json:"api_key,omitempty" gorm:"type:text"`         // For OpenAI (encrypted)
 	IsActive      bool      `json:"is_active" gorm:"type:boolean;default:false"`
 	CreatedAt     time.Time `json:"created_at" gorm:"autoCreateTime"`
 	UpdatedAt     time.Time `json:"updated_at" gorm:"autoUpdateTime"`
