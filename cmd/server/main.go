@@ -13,6 +13,7 @@ import (
 
 	"scriberr/internal/api"
 	"scriberr/internal/auth"
+	"scriberr/internal/autosummary"
 	"scriberr/internal/config"
 	"scriberr/internal/database"
 	"scriberr/internal/processing"
@@ -117,6 +118,8 @@ func main() {
 	// Initialize unified transcription processor
 	logger.Startup("transcription", "Initializing transcription service")
 	unifiedProcessor := transcription.NewUnifiedJobProcessor(jobRepo, cfg.TempDir, cfg.TranscriptsDir)
+	autoSummaryService := autosummary.NewService(jobRepo, summaryRepo, llmConfigRepo, speakerMappingRepo)
+	unifiedProcessor.GetUnifiedService().SetAutoSummaryService(autoSummaryService)
 	unifiedProcessor.GetUnifiedService().SetBroadcaster(broadcaster)
 
 	// Bootstrap embedded Python environment (for all adapters)

@@ -17,6 +17,7 @@ import { LLMSettings } from "../components/LLMSettings";
 import { SummaryTemplateDialog, type SummaryTemplate } from "../components/SummaryTemplateDialog";
 import { SummaryTemplatesTable } from "../components/SummaryTemplatesTable";
 import { CLISettingsTab } from "../components/CLISettingsTab";
+import { AutoSummarySettings } from "../components/AutoSummarySettings";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 
 export function Settings() {
@@ -141,6 +142,8 @@ export function Settings() {
 
           {/* Summary Tab */}
           <TabsContent value="summary" className="space-y-6">
+            <AutoSummarySettings />
+
             <div className="bg-[var(--bg-card)] border border-[var(--border-subtle)] rounded-[var(--radius-card)] p-4 sm:p-6 shadow-sm">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0 mb-4">
                 <div>

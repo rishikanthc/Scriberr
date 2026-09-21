@@ -19,11 +19,15 @@ type SummaryTemplateRequest struct {
 }
 
 type SummarySettingsRequest struct {
-	DefaultModel string `json:"default_model" binding:"required,min=1"`
+	DefaultModel      *string `json:"default_model,omitempty"`
+	AutoSummarize     *bool   `json:"auto_summarize,omitempty"`
+	DefaultTemplateID *string `json:"default_template_id,omitempty"`
 }
 
 type SummarySettingsResponse struct {
-	DefaultModel string `json:"default_model"`
+	DefaultModel      string  `json:"default_model"`
+	AutoSummarize     bool    `json:"auto_summarize"`
+	DefaultTemplateID *string `json:"default_template_id,omitempty"`
 }
 
 // ListSummaryTemplates returns all templates
@@ -157,11 +161,22 @@ func (h *Handler) UpdateSummaryTemplate(c *gin.Context) {
 // @Produce json
 // @Param id path string true "Template ID"
 // @Success 204 {string} string "No Content"
+// @Failure 409 {object} map[string]string
 // @Failure 500 {object} map[string]string
 // @Security ApiKeyAuth
 // @Router /api/v1/summaries/{id} [delete]
 func (h *Handler) DeleteSummaryTemplate(c *gin.Context) {
 	id := c.Param("id")
+	settings, err := h.summaryRepo.GetSettings(c.Request.Context())
+	if err != nil && err != gorm.ErrRecordNotFound {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch summary settings"})
+		return
+	}
+	if settings != nil && settings.DefaultTemplateID != nil && *settings.DefaultTemplateID == id {
+		c.JSON(http.StatusConflict, gin.H{"error": "Choose or clear the default summary template before deleting it"})
+		return
+	}
+
 	if err := h.summaryRepo.Delete(c.Request.Context(), id); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete template"})
 		return
@@ -182,13 +197,13 @@ func (h *Handler) GetSummarySettings(c *gin.Context) {
 	s, err := h.summaryRepo.GetSettings(c.Request.Context())
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
-			c.JSON(http.StatusOK, SummarySettingsResponse{DefaultModel: ""})
+			c.JSON(http.StatusOK, SummarySettingsResponse{DefaultModel: "", AutoSummarize: false})
 			return
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch settings"})
 		return
 	}
-	c.JSON(http.StatusOK, SummarySettingsResponse{DefaultModel: s.DefaultModel})
+	c.JSON(http.StatusOK, SummarySettingsResponse{DefaultModel: s.DefaultModel, AutoSummarize: s.AutoSummarize, DefaultTemplateID: s.DefaultTemplateID})
 }
 
 // SaveSummarySettings updates default model (creates row if absent)
@@ -213,33 +228,60 @@ func (h *Handler) SaveSummarySettings(c *gin.Context) {
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			s = &models.SummarySetting{
-				DefaultModel: req.DefaultModel,
-				UpdatedAt:    time.Now(),
+				UpdatedAt: time.Now(),
 			}
-			// We can't use Create from BaseRepository because it expects *T, but GetSettings returns *T.
-			// BaseRepository.Create expects *T.
-			// Actually BaseRepository[T] Create takes *T.
-			// But here T is models.SummaryTemplate, NOT models.SummarySetting.
-			// SummaryRepository handles SummaryTemplate.
-			// But GetSettings returns SummarySetting.
-			// So I can't use h.summaryRepo.Create(s) because s is SummarySetting, not SummaryTemplate.
-			// I need to add SaveSettings to SummaryRepository which handles creation too.
-			// I added SaveSettings(ctx, settings).
+			if req.DefaultModel != nil {
+				s.DefaultModel = *req.DefaultModel
+			}
+			if req.AutoSummarize != nil {
+				s.AutoSummarize = *req.AutoSummarize
+			}
+			if req.DefaultTemplateID != nil {
+				s.DefaultTemplateID = req.DefaultTemplateID
+			}
+			if s.AutoSummarize {
+				if s.DefaultTemplateID == nil || *s.DefaultTemplateID == "" {
+					c.JSON(http.StatusBadRequest, gin.H{"error": "a default summary template is required when auto-summarize is enabled"})
+					return
+				}
+				if _, err := h.summaryRepo.FindByID(c.Request.Context(), *s.DefaultTemplateID); err != nil {
+					c.JSON(http.StatusBadRequest, gin.H{"error": "default summary template not found"})
+					return
+				}
+			}
 			if err := h.summaryRepo.SaveSettings(c.Request.Context(), s); err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save settings"})
 				return
 			}
-			c.JSON(http.StatusOK, SummarySettingsResponse{DefaultModel: s.DefaultModel})
+			c.JSON(http.StatusOK, SummarySettingsResponse{DefaultModel: s.DefaultModel, AutoSummarize: s.AutoSummarize, DefaultTemplateID: s.DefaultTemplateID})
 			return
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save settings"})
 		return
 	}
-	s.DefaultModel = req.DefaultModel
+	if req.DefaultModel != nil {
+		s.DefaultModel = *req.DefaultModel
+	}
+	if req.AutoSummarize != nil {
+		s.AutoSummarize = *req.AutoSummarize
+	}
+	if req.DefaultTemplateID != nil {
+		s.DefaultTemplateID = req.DefaultTemplateID
+	}
+	if s.AutoSummarize {
+		if s.DefaultTemplateID == nil || *s.DefaultTemplateID == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "a default summary template is required when auto-summarize is enabled"})
+			return
+		}
+		if _, err := h.summaryRepo.FindByID(c.Request.Context(), *s.DefaultTemplateID); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "default summary template not found"})
+			return
+		}
+	}
 	s.UpdatedAt = time.Now()
 	if err := h.summaryRepo.SaveSettings(c.Request.Context(), s); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save settings"})
 		return
 	}
-	c.JSON(http.StatusOK, SummarySettingsResponse{DefaultModel: s.DefaultModel})
+	c.JSON(http.StatusOK, SummarySettingsResponse{DefaultModel: s.DefaultModel, AutoSummarize: s.AutoSummarize, DefaultTemplateID: s.DefaultTemplateID})
 }

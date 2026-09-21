@@ -42,7 +42,8 @@ export function SummaryTemplatesTable({ onEdit, refreshTrigger = 0, disabled = f
       if (res.ok) {
         setItems(prev => prev.filter(i => i.id !== id));
       } else {
-        alert('Failed to delete');
+        const body: { error?: string } = await res.json().catch(() => ({}));
+        alert(body.error || 'Failed to delete');
       }
     } finally {
       setDeleting(prev => { const s = new Set(prev); s.delete(id); return s; });

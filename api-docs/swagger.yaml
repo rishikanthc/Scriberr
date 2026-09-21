@@ -343,15 +343,20 @@ definitions:
     type: object
   api.SummarySettingsRequest:
     properties:
+      auto_summarize:
+        type: boolean
       default_model:
-        minLength: 1
         type: string
-    required:
-    - default_model
+      default_template_id:
+        type: string
     type: object
   api.SummarySettingsResponse:
     properties:
+      auto_summarize:
+        type: boolean
       default_model:
+        type: string
+      default_template_id:
         type: string
     type: object
   api.SummaryTemplateRequest:
@@ -1853,6 +1858,12 @@ paths:
           description: No Content
           schema:
             type: string
+        "409":
+          description: Conflict
+          schema:
+            additionalProperties:
+              type: string
+            type: object
         "500":
           description: Internal Server Error
           schema:

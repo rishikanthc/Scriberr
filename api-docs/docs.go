@@ -1950,6 +1950,15 @@ const docTemplate = `{
                             "type": "string"
                         }
                     },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
@@ -4334,20 +4343,28 @@ const docTemplate = `{
         },
         "api.SummarySettingsRequest": {
             "type": "object",
-            "required": [
-                "default_model"
-            ],
             "properties": {
+                "auto_summarize": {
+                    "type": "boolean"
+                },
                 "default_model": {
-                    "type": "string",
-                    "minLength": 1
+                    "type": "string"
+                },
+                "default_template_id": {
+                    "type": "string"
                 }
             }
         },
         "api.SummarySettingsResponse": {
             "type": "object",
             "properties": {
+                "auto_summarize": {
+                    "type": "boolean"
+                },
                 "default_model": {
+                    "type": "string"
+                },
+                "default_template_id": {
                     "type": "string"
                 }
             }

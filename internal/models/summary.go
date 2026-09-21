@@ -28,9 +28,11 @@ func (st *SummaryTemplate) BeforeCreate(tx *gorm.DB) error {
 
 // SummarySetting stores global settings for summarization (single row)
 type SummarySetting struct {
-	ID           uint      `json:"id" gorm:"primaryKey"`
-	DefaultModel string    `json:"default_model" gorm:"type:varchar(255);not null;default:''"`
-	UpdatedAt    time.Time `json:"updated_at" gorm:"autoUpdateTime"`
+	ID                uint      `json:"id" gorm:"primaryKey"`
+	DefaultModel      string    `json:"default_model" gorm:"type:varchar(255);not null;default:''"`
+	AutoSummarize     bool      `json:"auto_summarize" gorm:"not null;default:false"`
+	DefaultTemplateID *string   `json:"default_template_id,omitempty" gorm:"type:varchar(36)"`
+	UpdatedAt         time.Time `json:"updated_at" gorm:"autoUpdateTime"`
 }
 
 // Summary stores a generated summary linked to a transcription
