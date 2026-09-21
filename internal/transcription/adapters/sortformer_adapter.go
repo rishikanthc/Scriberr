@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -62,6 +63,16 @@ func NewSortformerAdapter(envPath string) *SortformerAdapter {
 			Min:         &[]float64{1}[0],
 			Max:         &[]float64{8}[0],
 			Description: "Maximum number of speakers (optimized for 4)",
+			Group:       "basic",
+		},
+		{
+			Name:        "min_speakers",
+			Type:        "int",
+			Required:    false,
+			Default:     1,
+			Min:         &[]float64{1}[0],
+			Max:         &[]float64{8}[0],
+			Description: "Minimum number of speakers",
 			Group:       "basic",
 		},
 		{
@@ -423,10 +434,22 @@ func (s *SortformerAdapter) buildSortformerArgs(input interfaces.AudioInput, par
 func (s *SortformerAdapter) parseResult(tempDir string, input interfaces.AudioInput, params map[string]interface{}) (*interfaces.DiarizationResult, error) {
 	outputFormat := s.GetStringParameter(params, "output_format")
 
+	var (
+		result *interfaces.DiarizationResult
+		err    error
+	)
+
 	if outputFormat == OutputFormatJSON {
-		return s.parseJSONResult(tempDir)
+		result, err = s.parseJSONResult(tempDir)
+	} else {
+		result, err = s.parseRTTMResult(tempDir, input)
 	}
-	return s.parseRTTMResult(tempDir, input)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return s.enforceSpeakerLimit(result, params), nil
 }
 
 // parseJSONResult parses JSON format output
@@ -536,6 +559,126 @@ func (s *SortformerAdapter) parseRTTMResult(tempDir string, input interfaces.Aud
 	}
 
 	return result, nil
+}
+
+type sortformerSpeakerDuration struct {
+	speaker  string
+	duration float64
+}
+
+func (s *SortformerAdapter) enforceSpeakerLimit(result *interfaces.DiarizationResult, params map[string]interface{}) *interfaces.DiarizationResult {
+	maxSpeakers := s.GetIntParameter(params, "max_speakers")
+	if result == nil || maxSpeakers <= 0 {
+		return result
+	}
+
+	speakerDurations := make(map[string]float64)
+	for _, segment := range result.Segments {
+		duration := segment.End - segment.Start
+		if duration < 0 {
+			duration = 0
+		}
+		speakerDurations[segment.Speaker] += duration
+	}
+
+	originalSpeakerCount := len(speakerDurations)
+	if originalSpeakerCount <= maxSpeakers {
+		result.SpeakerCount = originalSpeakerCount
+		result.Speakers = sortedSpeakerList(speakerDurations)
+		return result
+	}
+
+	rankedSpeakers := make([]sortformerSpeakerDuration, 0, len(speakerDurations))
+	for speaker, duration := range speakerDurations {
+		rankedSpeakers = append(rankedSpeakers, sortformerSpeakerDuration{
+			speaker:  speaker,
+			duration: duration,
+		})
+	}
+
+	sort.Slice(rankedSpeakers, func(i, j int) bool {
+		if rankedSpeakers[i].duration == rankedSpeakers[j].duration {
+			return rankedSpeakers[i].speaker < rankedSpeakers[j].speaker
+		}
+		return rankedSpeakers[i].duration > rankedSpeakers[j].duration
+	})
+
+	keptSpeakers := make(map[string]bool, maxSpeakers)
+	fallbackSpeaker := rankedSpeakers[0].speaker
+	for i := 0; i < maxSpeakers && i < len(rankedSpeakers); i++ {
+		keptSpeakers[rankedSpeakers[i].speaker] = true
+	}
+
+	originalSegments := append([]interfaces.DiarizationSegment(nil), result.Segments...)
+	for i := range result.Segments {
+		if keptSpeakers[result.Segments[i].Speaker] {
+			continue
+		}
+
+		result.Segments[i].Speaker = nearestKeptSpeaker(originalSegments, i, keptSpeakers, fallbackSpeaker)
+	}
+
+	rebuildSpeakerSummary(result)
+
+	logger.Warn("Sortformer returned more speakers than requested; remapped extra speaker labels",
+		"requested_max_speakers", maxSpeakers,
+		"original_speakers", originalSpeakerCount,
+		"final_speakers", result.SpeakerCount)
+
+	return result
+}
+
+func nearestKeptSpeaker(segments []interfaces.DiarizationSegment, targetIndex int, keptSpeakers map[string]bool, fallbackSpeaker string) string {
+	target := segments[targetIndex]
+	bestSpeaker := fallbackSpeaker
+	bestDistance := -1.0
+
+	for i, segment := range segments {
+		if i == targetIndex || !keptSpeakers[segment.Speaker] {
+			continue
+		}
+
+		distance := segmentDistance(target, segment)
+		if bestDistance < 0 || distance < bestDistance || (distance == bestDistance && segment.Speaker < bestSpeaker) {
+			bestSpeaker = segment.Speaker
+			bestDistance = distance
+		}
+	}
+
+	return bestSpeaker
+}
+
+func segmentDistance(a, b interfaces.DiarizationSegment) float64 {
+	if b.End <= a.Start {
+		return a.Start - b.End
+	}
+	if a.End <= b.Start {
+		return b.Start - a.End
+	}
+	return 0
+}
+
+func rebuildSpeakerSummary(result *interfaces.DiarizationResult) {
+	speakers := make(map[string]float64)
+	for _, segment := range result.Segments {
+		duration := segment.End - segment.Start
+		if duration < 0 {
+			duration = 0
+		}
+		speakers[segment.Speaker] += duration
+	}
+
+	result.SpeakerCount = len(speakers)
+	result.Speakers = sortedSpeakerList(speakers)
+}
+
+func sortedSpeakerList(speakers map[string]float64) []string {
+	speakerList := make([]string, 0, len(speakers))
+	for speaker := range speakers {
+		speakerList = append(speakerList, speaker)
+	}
+	sort.Strings(speakerList)
+	return speakerList
 }
 
 // GetEstimatedProcessingTime provides Sortformer-specific time estimation

@@ -589,6 +589,12 @@ func (u *UnifiedTranscriptionService) convertToOpenAIParams(params models.Whispe
 	if params.APIKey != nil && *params.APIKey != "" {
 		paramMap["api_key"] = *params.APIKey
 	}
+	if params.APIURL != nil && *params.APIURL != "" {
+		paramMap["base_url"] = *params.APIURL
+	}
+	if params.TimeoutMinutes != nil && *params.TimeoutMinutes > 0 {
+		paramMap["timeout_minutes"] = *params.TimeoutMinutes
+	}
 
 	return paramMap
 }
@@ -739,11 +745,19 @@ func (u *UnifiedTranscriptionService) convertToPyannoteParams(params models.Whis
 
 // convertToSortformerParams converts to Sortformer-specific parameters
 func (u *UnifiedTranscriptionService) convertToSortformerParams(params models.WhisperXParams) map[string]interface{} {
-	return map[string]interface{}{
+	paramMap := map[string]interface{}{
 		"output_format":      OutputFormatJSON,
 		"auto_convert_audio": true,
-		// Sortformer is optimized for 4 speakers, no additional config needed
 	}
+
+	if params.MinSpeakers != nil {
+		paramMap["min_speakers"] = *params.MinSpeakers
+	}
+	if params.MaxSpeakers != nil {
+		paramMap["max_speakers"] = *params.MaxSpeakers
+	}
+
+	return paramMap
 }
 
 func (u *UnifiedTranscriptionService) parametersToMap(params models.WhisperXParams) map[string]interface{} {

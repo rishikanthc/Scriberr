@@ -72,6 +72,8 @@ export interface WhisperXParams {
     attention_context_right: number;
     is_multi_track_enabled: boolean;
     api_key?: string;
+    api_url?: string;
+    timeout_minutes?: number;
     max_new_tokens?: number;
 }
 
@@ -394,9 +396,13 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
                     )}
                     {params.model_family === "openai" && (
                         <OpenAIConfig
-                            params={params} updateParam={updateParam}
-                            isValidating={isValidating} validationStatus={validationStatus}
-                            validationMessage={validationMessage} availableModels={availableModels}
+                            params={params}
+                            updateParam={updateParam}
+                            isMultiTrack={isMultiTrack}
+                            isValidating={isValidating}
+                            validationStatus={validationStatus}
+                            validationMessage={validationMessage}
+                            availableModels={availableModels}
                             onValidate={validateAPIKey}
                         />
                     )}
@@ -632,14 +638,30 @@ interface OpenAIConfigProps extends ConfigProps {
 }
 
 function OpenAIConfig({
-    params, updateParam,
-    isValidating, validationStatus, validationMessage, availableModels, onValidate
+    params,
+    updateParam,
+    isMultiTrack,
+    isValidating,
+    validationStatus,
+    validationMessage,
+    availableModels,
+    onValidate
 }: OpenAIConfigProps) {
     return (
         <div className="space-y-6">
             <Section title="API Configuration">
                 <div className="space-y-4">
-                    <FormField label="OpenAI API Key" description="Your API key. Leave empty to use server default if configured.">
+                    <FormField label="Base URL" description="Leave empty for the official OpenAI API. Set to point at a self-hosted Whisper-compatible endpoint (e.g. http://host/v1).">
+                        <Input
+                            type="text"
+                            placeholder="https://your-whisper-server/v1"
+                            value={params.api_url || ""}
+                            onChange={(e) => updateParam('api_url', e.target.value || undefined)}
+                            className={inputClassName}
+                        />
+                    </FormField>
+
+                    <FormField label="API Key" description="Your API key. Leave empty to use server default if configured.">
                         <div className="flex gap-2">
                             <Input
                                 type="password" placeholder="sk-..."
@@ -647,14 +669,16 @@ function OpenAIConfig({
                                 onChange={(e) => updateParam('api_key', e.target.value)}
                                 className={`${inputClassName} flex-1`}
                             />
-                            <Button
-                                variant="outline" onClick={onValidate} disabled={isValidating}
-                                className="shrink-0 rounded-xl border-[var(--border-subtle)] cursor-pointer"
-                            >
-                                {isValidating ? <Loader2 className="h-4 w-4 animate-spin" /> : "Validate"}
-                            </Button>
+                            {!params.api_url && (
+                                <Button
+                                    variant="outline" onClick={onValidate} disabled={isValidating}
+                                    className="shrink-0 rounded-xl border-[var(--border-subtle)] cursor-pointer"
+                                >
+                                    {isValidating ? <Loader2 className="h-4 w-4 animate-spin" /> : "Validate"}
+                                </Button>
+                            )}
                         </div>
-                        {validationStatus !== 'idle' && (
+                        {validationStatus !== 'idle' && !params.api_url && (
                             <div className={`flex items-center gap-2 text-sm mt-2 ${validationStatus === 'valid' ? 'text-[var(--success-solid)]' : 'text-[var(--error)]'}`}>
                                 {validationStatus === 'valid' ? <Check className="h-4 w-4" /> : <XCircle className="h-4 w-4" />}
                                 <span>{validationMessage}</span>
@@ -662,12 +686,42 @@ function OpenAIConfig({
                         )}
                     </FormField>
 
-                    <SelectField label="Model" value={params.model || "whisper-1"} onValueChange={(v) => updateParam('model', v)} options={availableModels} />
+                    {params.api_url ? (
+                        <FormField label="Model">
+                            <Input
+                                type="text"
+                                placeholder="whisper-1"
+                                value={params.model || ""}
+                                onChange={(e) => updateParam('model', e.target.value)}
+                                className={inputClassName}
+                            />
+                        </FormField>
+                    ) : (
+                        <SelectField label="Model" value={params.model || "whisper-1"} onValueChange={(v) => updateParam('model', v)} options={availableModels} />
+                    )}
+
                     <SelectField label="Language" value={params.language || "auto"} onValueChange={(v) => updateParam('language', v === "auto" ? undefined : v)} options={LANGUAGES} />
+
+                    {params.api_url && (
+                        <FormField label="Timeout (minutes)" description="Request timeout. Increase for large files on slower self-hosted servers.">
+                            <Input
+                                type="number"
+                                min={1}
+                                placeholder="30"
+                                value={params.timeout_minutes || ""}
+                                onChange={(e) => updateParam('timeout_minutes', e.target.value ? parseInt(e.target.value) : undefined)}
+                                className={inputClassName}
+                            />
+                        </FormField>
+                    )}
                 </div>
             </Section>
 
-            {params.model && params.model !== "whisper-1" && (
+            {!isMultiTrack && (
+                <DiarizationSection id="openai_diarize" params={params} updateParam={updateParam} />
+            )}
+
+            {params.model && params.model !== "whisper-1" && !params.api_url && (
                 <InfoBanner variant="warning" title="Limited Features">
                     Word-level timestamps are only supported by whisper-1. Synchronized playback won't be available.
                 </InfoBanner>

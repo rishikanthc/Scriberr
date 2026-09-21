@@ -15,6 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
 import type { WhisperXParams } from "./TranscriptionConfigDialog";
@@ -38,6 +39,8 @@ interface TranscribeDDialogProps {
   title?: string;
 }
 
+type DiarizationModel = "pyannote" | "nvidia_sortformer";
+
 export function TranscribeDDialog({
   open,
   onOpenChange,
@@ -50,6 +53,19 @@ export function TranscribeDDialog({
   const [selectedProfileId, setSelectedProfileId] = useState<string>("");
   const [profilesLoading, setProfilesLoading] = useState(false);
   const [defaultProfile, setDefaultProfile] = useState<TranscriptionProfile | null>(null);
+  const [minSpeakersInput, setMinSpeakersInput] = useState("");
+  const [maxSpeakersInput, setMaxSpeakersInput] = useState("");
+  const [diarizationModel, setDiarizationModel] = useState<DiarizationModel>("pyannote");
+
+  const selectedProfile = profiles.find(p => p.id === selectedProfileId);
+  const showDiarizationSettings = selectedProfile?.parameters.diarize ?? false;
+  const minSpeakers = parseSpeakerLimit(minSpeakersInput);
+  const maxSpeakers = parseSpeakerLimit(maxSpeakersInput);
+  const hasInvalidSpeakerLimits = showDiarizationSettings && (
+    (minSpeakersInput.trim() !== "" && minSpeakers === undefined) ||
+    (maxSpeakersInput.trim() !== "" && maxSpeakers === undefined)
+  );
+  const hasSpeakerRangeError = showDiarizationSettings && minSpeakers !== undefined && maxSpeakers !== undefined && minSpeakers > maxSpeakers;
 
   const fetchProfiles = useCallback(async () => {
     try {
@@ -101,13 +117,30 @@ export function TranscribeDDialog({
     }
   }, [open, fetchProfiles]);
 
-  const handleStartTranscription = () => {
-    if (!selectedProfileId) return;
+  useEffect(() => {
+    const profile = profiles.find(p => p.id === selectedProfileId);
 
-    const selectedProfile = profiles.find(p => p.id === selectedProfileId);
-    if (selectedProfile) {
-      onStartTranscription(selectedProfile.parameters, selectedProfile.id);
+    setMinSpeakersInput(formatSpeakerLimit(profile?.parameters.min_speakers));
+    setMaxSpeakersInput(formatSpeakerLimit(profile?.parameters.max_speakers));
+    setDiarizationModel(normalizeDiarizationModel(profile?.parameters.diarize_model));
+  }, [profiles, selectedProfileId]);
+
+  const handleStartTranscription = () => {
+    if (!selectedProfile || hasInvalidSpeakerLimits || hasSpeakerRangeError) return;
+
+    const params: WhisperXParams = { ...selectedProfile.parameters };
+    if (showDiarizationSettings) {
+      params.diarize_model = diarizationModel;
+      params.min_speakers = minSpeakers;
+      params.max_speakers = maxSpeakers;
+
+      if (diarizationModel === "nvidia_sortformer") {
+        onStartTranscription(omitPyannoteOnlyParams(params), selectedProfile.id);
+        return;
+      }
     }
+
+    onStartTranscription(params, selectedProfile.id);
   };
 
   const handleProfileChange = (value: string) => {
@@ -183,6 +216,83 @@ export function TranscribeDDialog({
             )}
           </div>
 
+          {showDiarizationSettings && (
+            <div className="space-y-2">
+              <div className="space-y-2">
+                <Label htmlFor="diarization-model" className="text-[var(--text-secondary)] font-medium">
+                  Diarization Model
+                </Label>
+                <Select
+                  value={diarizationModel}
+                  onValueChange={(value) => setDiarizationModel(normalizeDiarizationModel(value))}
+                >
+                  <SelectTrigger
+                    id="diarization-model"
+                    className="h-11 rounded-[var(--radius-btn)] bg-[var(--bg-main)] border border-[var(--border-subtle)] text-[var(--text-primary)] focus:ring-[var(--brand-light)] focus:border-[var(--brand-solid)] shadow-none"
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="glass-card rounded-[var(--radius-btn)] border border-[var(--border-subtle)] shadow-[var(--shadow-float)]">
+                    <SelectItem
+                      value="pyannote"
+                      className="text-[var(--text-primary)] focus:bg-[var(--brand-light)] focus:text-[var(--brand-solid)] rounded-[8px] my-1 mx-1 cursor-pointer"
+                    >
+                      Pyannote
+                    </SelectItem>
+                    <SelectItem
+                      value="nvidia_sortformer"
+                      className="text-[var(--text-primary)] focus:bg-[var(--brand-light)] focus:text-[var(--brand-solid)] rounded-[8px] my-1 mx-1 cursor-pointer"
+                    >
+                      NVIDIA Sortformer
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label htmlFor="min-speakers" className="text-[var(--text-secondary)] font-medium">
+                    Min Speakers
+                  </Label>
+                  <Input
+                    id="min-speakers"
+                    type="number"
+                    min={1}
+                    max={20}
+                    step={1}
+                    placeholder="Auto"
+                    value={minSpeakersInput}
+                    onChange={(event) => setMinSpeakersInput(event.target.value)}
+                    aria-invalid={hasInvalidSpeakerLimits || hasSpeakerRangeError}
+                    className="h-11 rounded-[var(--radius-btn)] bg-[var(--bg-main)] border border-[var(--border-subtle)] text-[var(--text-primary)] focus-visible:ring-[var(--brand-light)] focus-visible:border-[var(--brand-solid)] shadow-none"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="max-speakers" className="text-[var(--text-secondary)] font-medium">
+                    Max Speakers
+                  </Label>
+                  <Input
+                    id="max-speakers"
+                    type="number"
+                    min={1}
+                    max={20}
+                    step={1}
+                    placeholder="Auto"
+                    value={maxSpeakersInput}
+                    onChange={(event) => setMaxSpeakersInput(event.target.value)}
+                    aria-invalid={hasInvalidSpeakerLimits || hasSpeakerRangeError}
+                    className="h-11 rounded-[var(--radius-btn)] bg-[var(--bg-main)] border border-[var(--border-subtle)] text-[var(--text-primary)] focus-visible:ring-[var(--brand-light)] focus-visible:border-[var(--brand-solid)] shadow-none"
+                  />
+                </div>
+              </div>
+              {hasInvalidSpeakerLimits && (
+                <p className="text-xs text-red-600 dark:text-red-400">Use whole numbers from 1 to 20.</p>
+              )}
+              {!hasInvalidSpeakerLimits && hasSpeakerRangeError && (
+                <p className="text-xs text-red-600 dark:text-red-400">Min speakers cannot exceed max speakers.</p>
+              )}
+            </div>
+          )}
 
         </div>
 
@@ -196,7 +306,7 @@ export function TranscribeDDialog({
           </Button>
           <Button
             onClick={handleStartTranscription}
-            disabled={loading || !selectedProfileId || profilesLoading || profiles.length === 0}
+            disabled={loading || !selectedProfile || profilesLoading || profiles.length === 0 || hasInvalidSpeakerLimits || hasSpeakerRangeError}
             className="min-w-[140px] !bg-[var(--brand-gradient)] hover:!opacity-90 !text-black dark:!text-white border-none shadow-lg shadow-orange-500/20"
           >
             {loading ? (
@@ -212,4 +322,34 @@ export function TranscribeDDialog({
       </DialogContent>
     </Dialog >
   );
+}
+
+function formatSpeakerLimit(value?: number): string {
+  return value ? String(value) : "";
+}
+
+function parseSpeakerLimit(value: string): number | undefined {
+  const trimmedValue = value.trim();
+  if (!trimmedValue) return undefined;
+
+  const parsedValue = Number(trimmedValue);
+  if (!Number.isInteger(parsedValue) || parsedValue < 1 || parsedValue > 20) return undefined;
+
+  return parsedValue;
+}
+
+function normalizeDiarizationModel(value?: string): DiarizationModel {
+  return value === "nvidia_sortformer" ? "nvidia_sortformer" : "pyannote";
+}
+
+function omitPyannoteOnlyParams(params: WhisperXParams): WhisperXParams {
+  const sortformerParams = {
+    ...params,
+  } as Omit<WhisperXParams, "hf_token" | "vad_onset" | "vad_offset"> & Partial<Pick<WhisperXParams, "hf_token" | "vad_onset" | "vad_offset">>;
+
+  delete sortformerParams.hf_token;
+  delete sortformerParams.vad_onset;
+  delete sortformerParams.vad_offset;
+
+  return sortformerParams as WhisperXParams;
 }
