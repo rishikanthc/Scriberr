@@ -1,8 +1,8 @@
 services:
   scriberr:
-    image: ghcr.io/rishikanthc/scriberr:latest
+    image: ${SCRIBERR_IMAGE:-ghcr.io/rishikanthc/scriberr:latest}
     ports:
-      - "8080:8080"
+      - "${SCRIBERR_PORT:-8080}:8080"
     volumes:
       - scriberr_data:/app/data
       - env_data:/app/whisperx-env
