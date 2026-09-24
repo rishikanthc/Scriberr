@@ -9,17 +9,22 @@ import (
 
 // ModelCapabilities describes what a model can do and its requirements
 type ModelCapabilities struct {
-	ModelID            string            `json:"model_id"`
-	ModelFamily        string            `json:"model_family"`
-	DisplayName        string            `json:"display_name"`
-	Description        string            `json:"description"`
-	Version            string            `json:"version"`
-	SupportedLanguages []string          `json:"supported_languages"`
-	SupportedFormats   []string          `json:"supported_formats"`
-	RequiresGPU        bool              `json:"requires_gpu"`
-	MemoryRequirement  int               `json:"memory_requirement_mb"`
-	Features           map[string]bool   `json:"features"`
-	Metadata           map[string]string `json:"metadata"`
+	ModelID            string   `json:"model_id"`
+	ModelFamily        string   `json:"model_family"`
+	DisplayName        string   `json:"display_name"`
+	Description        string   `json:"description"`
+	Version            string   `json:"version"`
+	SupportedLanguages []string `json:"supported_languages"`
+	SupportedFormats   []string `json:"supported_formats"`
+	RequiresGPU        bool     `json:"requires_gpu"`
+	MemoryRequirement  int      `json:"memory_requirement_mb"`
+	// SkipAudioNormalization opts the model out of the mono/16kHz PCM WAV
+	// preprocessing pass. The zero value (false) keeps normalization on, which
+	// is what local models need; cloud adapters that accept compressed audio
+	// directly (and enforce request size limits) set this to true.
+	SkipAudioNormalization bool              `json:"skip_audio_normalization"`
+	Features               map[string]bool   `json:"features"`
+	Metadata               map[string]string `json:"metadata"`
 }
 
 // ParameterSchema defines a parameter that a model accepts

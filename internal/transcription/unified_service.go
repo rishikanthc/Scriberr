@@ -238,39 +238,41 @@ func (u *UnifiedTranscriptionService) processSingleTrackJob(ctx context.Context,
 		return fmt.Errorf("failed to select models: %w", err)
 	}
 
-	// Apply preprocessing to ensure audio is in correct format (mono 16kHz)
-	var preprocessedInput interfaces.AudioInput
+	// Transcription and diarization can have conflicting audio requirements: a
+	// cloud transcription API takes the original compressed file (and caps
+	// request size), while a local diarization model needs mono 16kHz PCM WAV.
+	// Preprocess per consumer instead of forcing one shared file on both.
 	var tempFilesToCleanup []string
+	preprocessedByPipeline := map[string]interfaces.AudioInput{}
 
-	// Get model capabilities for preprocessing decisions
-	var capabilities interfaces.ModelCapabilities
-	if transcriptionModelID != "" {
-		if adapter, err := u.registry.GetTranscriptionAdapter(transcriptionModelID); err == nil {
-			capabilities = adapter.GetCapabilities()
+	// preprocessFor runs the pipeline for one adapter's capabilities, reusing an
+	// earlier result whenever the same set of preprocessors applies so identical
+	// output is not produced twice.
+	preprocessFor := func(capabilities interfaces.ModelCapabilities) interfaces.AudioInput {
+		signature := u.pipeline.PreprocessorSignature(capabilities)
+		if cached, ok := preprocessedByPipeline[signature]; ok {
+			return cached
 		}
-	} else if diarizationModelID != "" {
-		if adapter, err := u.registry.GetDiarizationAdapter(diarizationModelID); err == nil {
-			capabilities = adapter.GetCapabilities()
-		}
-	}
 
-	// Apply preprocessing
-	preprocessedInput, err = u.pipeline.ProcessAudio(ctx, audioInput, capabilities)
-	if err != nil {
-		logger.Warn("Audio preprocessing failed, using original", "error", err)
-		preprocessedInput = audioInput
-	} else {
-		// Track temporary file for cleanup if preprocessing created one
-		if preprocessedInput.TempFilePath != "" && preprocessedInput.TempFilePath != audioInput.FilePath {
-			tempFilesToCleanup = append(tempFilesToCleanup, preprocessedInput.TempFilePath)
+		processedInput, err := u.pipeline.ProcessAudio(ctx, audioInput, capabilities)
+		if err != nil {
+			logger.Warn("Audio preprocessing failed, using original", "error", err)
+			processedInput = audioInput
+		} else if processedInput.TempFilePath != "" && processedInput.TempFilePath != audioInput.FilePath {
+			// Track temporary file for cleanup if preprocessing created one
+			tempFilesToCleanup = append(tempFilesToCleanup, processedInput.TempFilePath)
 			logger.Info("Audio preprocessing completed",
+				"model_id", capabilities.ModelID,
 				"original", audioInput.FilePath,
-				"converted", preprocessedInput.TempFilePath,
+				"converted", processedInput.TempFilePath,
 				"original_sr", audioInput.SampleRate,
-				"converted_sr", preprocessedInput.SampleRate,
+				"converted_sr", processedInput.SampleRate,
 				"original_channels", audioInput.Channels,
-				"converted_channels", preprocessedInput.Channels)
+				"converted_channels", processedInput.Channels)
 		}
+
+		preprocessedByPipeline[signature] = processedInput
+		return processedInput
 	}
 
 	// Ensure cleanup of temporary files when function exits
@@ -287,7 +289,7 @@ func (u *UnifiedTranscriptionService) processSingleTrackJob(ctx context.Context,
 	var transcriptResult *interfaces.TranscriptResult
 	var diarizationResult *interfaces.DiarizationResult
 
-	// Perform transcription using the preprocessed audio
+	// Perform transcription using audio preprocessed for the transcription model
 	if transcriptionModelID != "" {
 		logger.Info("Running transcription", "model_id", transcriptionModelID)
 		transcriptionAdapter, err := u.registry.GetTranscriptionAdapter(transcriptionModelID)
@@ -298,7 +300,9 @@ func (u *UnifiedTranscriptionService) processSingleTrackJob(ctx context.Context,
 		// Convert parameters for this specific model
 		params := u.convertParametersForModel(job.Parameters, transcriptionModelID)
 
-		transcriptResult, err = transcriptionAdapter.Transcribe(ctx, preprocessedInput, params, procCtx)
+		transcriptionInput := preprocessFor(transcriptionAdapter.GetCapabilities())
+
+		transcriptResult, err = transcriptionAdapter.Transcribe(ctx, transcriptionInput, params, procCtx)
 		if err != nil {
 			return fmt.Errorf("transcription failed: %w", err)
 		}
@@ -316,8 +320,11 @@ func (u *UnifiedTranscriptionService) processSingleTrackJob(ctx context.Context,
 				return fmt.Errorf("failed to get diarization adapter: %w", err)
 			}
 
-			// Use the same preprocessed audio for diarization
-			diarizationResult, err = diarizationAdapter.Diarize(ctx, preprocessedInput, diarizationParams, procCtx)
+			// Preprocess independently for the diarization model, which may need
+			// a different format than the transcription model accepted
+			diarizationInput := preprocessFor(diarizationAdapter.GetCapabilities())
+
+			diarizationResult, err = diarizationAdapter.Diarize(ctx, diarizationInput, diarizationParams, procCtx)
 			if err != nil {
 				return fmt.Errorf("diarization failed: %w", err)
 			}
