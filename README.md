@@ -192,6 +192,32 @@ Scriberr works out of the box. However, for Homebrew or manual installations, yo
 | `WHISPERX_ENV` | Path to the managed Python environment for models. | `data/whisperx-env` |
 | `OPENAI_API_KEY` | API Key for OpenAI (optional). | `""` |
 | `JWT_SECRET` | Secret for signing JWTs. Auto-generated if not set. | Auto-generated |
+| `SCRIBERR_ENABLED_MODELS` | Comma separated model IDs to prepare on startup. Empty means all models. | `""` (all) |
+
+#### Limiting model downloads (`SCRIBERR_ENABLED_MODELS`)
+
+By default Scriberr prepares every bundled model on first boot: it installs the Python
+environments and downloads the weights for WhisperX, Parakeet, Canary, Voxtral, PyAnnote and
+Sortformer. If you only use one of them — for example an OpenAI-compatible endpoint for
+transcription — that is several GB of downloads you will never use.
+
+Set `SCRIBERR_ENABLED_MODELS` to a comma separated list of model IDs to prepare only those:
+
+```bash
+# Cloud transcription only, no local model environments
+SCRIBERR_ENABLED_MODELS=openai_whisper
+
+# Local WhisperX with PyAnnote diarization
+SCRIBERR_ENABLED_MODELS=whisperx,pyannote
+```
+
+Valid model IDs: `whisperx`, `parakeet`, `canary`, `voxtral`, `openai_whisper` (transcription)
+and `pyannote`, `sortformer` (diarization).
+
+When the variable is unset or empty, every model is prepared on startup, exactly as before.
+Models left out of the list stay selectable in the UI and API: their environment is prepared
+the first time a job actually uses them, so that first job takes as long as the install and
+download would have taken at boot.
 
 **Example `.env` file:**
 

@@ -37,6 +37,10 @@ func NewOpenAIAdapter(apiKey string) *OpenAIAdapter {
 		SupportedFormats:  []string{"flac", "mp3", "mp4", "mpeg", "mpga", "m4a", "ogg", "wav", "webm"},
 		RequiresGPU:       false,
 		MemoryRequirement: 0, // Cloud-based
+		// The API accepts the compressed source file as-is and rejects requests
+		// over 25MB. Transcoding to 16kHz mono PCM WAV only inflates the upload
+		// (often past that cap) without improving accuracy.
+		SkipAudioNormalization: true,
 		Features: map[string]bool{
 			"timestamps":         true,  // Verbose JSON response includes segments
 			"word_level":         false, // Not supported by standard API yet (unless using verbose_json with timestamp_granularities which is beta)
@@ -158,19 +162,61 @@ func (a *OpenAIAdapter) Transcribe(ctx context.Context, input interfaces.AudioIn
 		return nil, fmt.Errorf("OpenAI API key is required but not provided")
 	}
 
+	model := a.GetStringParameter(params, "model")
+	if model == "" {
+		model = "whisper-1"
+	}
+	writeLog("Model: %s", model)
+
+	// Some models reject audio longer than a fixed duration. Those inputs are
+	// split into chunks and reassembled; every other model keeps the single
+	// request it always used.
+	var (
+		result *interfaces.TranscriptResult
+		err    error
+	)
+	if durationCap := openAIDurationCap(model); durationCap > 0 && input.Duration > durationCap {
+		result, err = a.transcribeInChunks(ctx, input, model, apiKey, params, procCtx, durationCap, writeLog)
+	} else {
+		result, err = a.transcribeFile(ctx, input.FilePath, model, apiKey, input.Duration, params, writeLog)
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	result.ProcessingTime = time.Since(startTime)
+	result.ModelUsed = model
+	result.Metadata = a.CreateDefaultMetadata(params)
+
+	return result, nil
+}
+
+// transcribeFile sends one audio file to the transcriptions endpoint and parses
+// the response. Both the single-shot and the chunked path go through it, so the
+// request is built the same way either way. audioDuration is the length of the
+// file being sent and is only used when the response carries no timing at all.
+//
+//nolint:gocyclo // API interaction involves many steps
+func (a *OpenAIAdapter) transcribeFile(
+	ctx context.Context,
+	filePath, model, apiKey string,
+	audioDuration time.Duration,
+	params map[string]interface{},
+	writeLog func(format string, args ...interface{}),
+) (*interfaces.TranscriptResult, error) {
 	// Prepare request body
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
 
 	// Add file
-	file, err := os.Open(input.FilePath)
+	file, err := os.Open(filePath)
 	if err != nil {
 		writeLog("Error: Failed to open audio file: %v", err)
 		return nil, fmt.Errorf("failed to open audio file: %w", err)
 	}
 	defer file.Close()
 
-	part, err := writer.CreateFormFile("file", filepath.Base(input.FilePath))
+	part, err := writer.CreateFormFile("file", filepath.Base(filePath))
 	if err != nil {
 		writeLog("Error: Failed to create form file: %v", err)
 		return nil, fmt.Errorf("failed to create form file: %w", err)
@@ -181,11 +227,6 @@ func (a *OpenAIAdapter) Transcribe(ctx context.Context, input interfaces.AudioIn
 	}
 
 	// Add parameters
-	model := a.GetStringParameter(params, "model")
-	if model == "" {
-		model = "whisper-1"
-	}
-	writeLog("Model: %s", model)
 	_ = writer.WriteField("model", model)
 
 	if strings.HasPrefix(model, "gpt-4o") {
@@ -287,13 +328,10 @@ func (a *OpenAIAdapter) Transcribe(ctx context.Context, input interfaces.AudioIn
 
 	// Convert to TranscriptResult
 	result := &interfaces.TranscriptResult{
-		Language:       openAIResponse.Language,
-		Text:           openAIResponse.Text,
-		Segments:       make([]interfaces.TranscriptSegment, len(openAIResponse.Segments)),
-		WordSegments:   make([]interfaces.TranscriptWord, len(openAIResponse.Words)),
-		ProcessingTime: time.Since(startTime),
-		ModelUsed:      model,
-		Metadata:       a.CreateDefaultMetadata(params),
+		Language:     openAIResponse.Language,
+		Text:         openAIResponse.Text,
+		Segments:     make([]interfaces.TranscriptSegment, len(openAIResponse.Segments)),
+		WordSegments: make([]interfaces.TranscriptWord, len(openAIResponse.Words)),
 	}
 
 	if len(openAIResponse.Segments) > 0 {
@@ -305,11 +343,17 @@ func (a *OpenAIAdapter) Transcribe(ctx context.Context, input interfaces.AudioIn
 			}
 		}
 	} else if openAIResponse.Text != "" {
-		// If no segments returned (e.g. standard json format), create one segment with the whole text
+		// If no segments returned (e.g. standard json format), create one segment
+		// with the whole text. Its end falls back to the known length of the audio
+		// that was sent, so a chunk still lands on the right part of the timeline.
+		end := openAIResponse.Duration
+		if end == 0 {
+			end = audioDuration.Seconds()
+		}
 		result.Segments = []interfaces.TranscriptSegment{
 			{
 				Start: 0,
-				End:   openAIResponse.Duration,
+				End:   end,
 				Text:  openAIResponse.Text,
 			},
 		}

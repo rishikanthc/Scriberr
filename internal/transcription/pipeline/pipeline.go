@@ -61,13 +61,32 @@ func (p *ProcessingPipeline) ProcessAudio(ctx context.Context, input interfaces.
 	return currentInput, nil
 }
 
+// PreprocessorSignature returns a stable identifier for the set of preprocessors
+// that apply to the given capabilities. Two capability sets sharing a signature
+// produce identical preprocessing output, so a caller preparing audio for
+// several adapters can reuse one processed file instead of redoing the same
+// conversion.
+func (p *ProcessingPipeline) PreprocessorSignature(capabilities interfaces.ModelCapabilities) string {
+	applied := make([]string, 0, len(p.preprocessors))
+
+	for _, preprocessor := range p.preprocessors {
+		if preprocessor.AppliesTo(capabilities) {
+			applied = append(applied, fmt.Sprintf("%T", preprocessor))
+		}
+	}
+
+	return strings.Join(applied, "|")
+}
+
 // AudioFormatPreprocessor converts audio to required formats
 type AudioFormatPreprocessor struct{}
 
 // AppliesTo checks if this preprocessor should be used for the given model
 func (a *AudioFormatPreprocessor) AppliesTo(capabilities interfaces.ModelCapabilities) bool {
-	// Apply to all models for consistent audio format (mono 16kHz)
-	return true
+	// Apply to all models for consistent audio format (mono 16kHz), except
+	// those that explicitly opt out (e.g. cloud APIs that accept the original
+	// compressed file and cap request size).
+	return !capabilities.SkipAudioNormalization
 }
 
 // GetRequiredFormats returns the output formats this preprocessor can produce

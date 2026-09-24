@@ -19,7 +19,18 @@ type ModelRegistry struct {
 	diarizationAdapters   map[string]interfaces.DiarizationAdapter
 	compositeAdapters     map[string]interfaces.CompositeAdapter
 	capabilities          map[string]interfaces.ModelCapabilities
+	enabledModels         map[string]struct{}
+	preparedOnDemand      map[string]struct{}
 	initialized           bool
+
+	// prepareMu serializes on-demand environment preparation so two jobs
+	// cannot install the same Python environment concurrently.
+	prepareMu sync.Mutex
+}
+
+// environmentPreparer is the part of an adapter needed to set up its environment
+type environmentPreparer interface {
+	PrepareEnvironment(ctx context.Context) error
 }
 
 // Global registry instance
@@ -34,9 +45,42 @@ func GetRegistry() *ModelRegistry {
 			diarizationAdapters:   make(map[string]interfaces.DiarizationAdapter),
 			compositeAdapters:     make(map[string]interfaces.CompositeAdapter),
 			capabilities:          make(map[string]interfaces.ModelCapabilities),
+			preparedOnDemand:      make(map[string]struct{}),
 		}
 	})
 	return globalRegistry
+}
+
+// SetEnabledModels restricts which models InitializeModels prepares on startup.
+// Adapters stay registered either way, so they can still be looked up on demand;
+// only their (potentially expensive) environment preparation is skipped.
+// An empty list restores the default behaviour of initializing every model.
+func (r *ModelRegistry) SetEnabledModels(modelIDs []string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if len(modelIDs) == 0 {
+		r.enabledModels = nil
+		return
+	}
+
+	r.enabledModels = make(map[string]struct{}, len(modelIDs))
+	for _, modelID := range modelIDs {
+		r.enabledModels[strings.TrimSpace(modelID)] = struct{}{}
+	}
+
+	logger.Info("Restricting model initialization to enabled models",
+		"models", strings.Join(modelIDs, ", "))
+}
+
+// isEnabled reports whether a model should be initialized on startup.
+// Callers must hold r.mu.
+func (r *ModelRegistry) isEnabled(modelID string) bool {
+	if r.enabledModels == nil {
+		return true
+	}
+	_, enabled := r.enabledModels[modelID]
+	return enabled
 }
 
 // RegisterTranscriptionAdapter registers a transcription model adapter
@@ -419,18 +463,30 @@ func (r *ModelRegistry) InitializeModels(ctx context.Context) error {
 
 	// Initialize transcription adapters
 	for modelID, adapter := range r.transcriptionAdapters {
+		if !r.isEnabled(modelID) {
+			logger.Info("Skipping disabled transcription model", "model_id", modelID)
+			continue
+		}
 		wg.Add(1)
 		go initAdapter(modelID, adapter, "transcription")
 	}
 
 	// Initialize diarization adapters
 	for modelID, adapter := range r.diarizationAdapters {
+		if !r.isEnabled(modelID) {
+			logger.Info("Skipping disabled diarization model", "model_id", modelID)
+			continue
+		}
 		wg.Add(1)
 		go initAdapter(modelID, adapter, "diarization")
 	}
 
 	// Initialize composite adapters
 	for modelID, adapter := range r.compositeAdapters {
+		if !r.isEnabled(modelID) {
+			logger.Info("Skipping disabled composite model", "model_id", modelID)
+			continue
+		}
 		wg.Add(1)
 		go initAdapter(modelID, adapter, "composite")
 	}
@@ -455,6 +511,64 @@ func (r *ModelRegistry) InitializeModels(ctx context.Context) error {
 	r.initialized = true
 	logger.Info("Model initialization completed")
 	return nil
+}
+
+// EnsureModelReady prepares a model's environment on demand.
+//
+// It is a no-op unless the model was skipped at startup by the enabled-model
+// filter (see SetEnabledModels): those models are prepared the first time a job
+// actually needs them, so restricting startup initialization never makes a model
+// permanently unusable.
+func (r *ModelRegistry) EnsureModelReady(ctx context.Context, modelID string) error {
+	r.mu.RLock()
+	skipped := r.enabledModels != nil && !r.isEnabled(modelID)
+	r.mu.RUnlock()
+
+	if !skipped {
+		return nil
+	}
+
+	r.prepareMu.Lock()
+	defer r.prepareMu.Unlock()
+
+	r.mu.RLock()
+	_, alreadyPrepared := r.preparedOnDemand[modelID]
+	adapter, err := r.preparableAdapter(modelID)
+	r.mu.RUnlock()
+
+	if alreadyPrepared {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+
+	logger.Info("Preparing model environment on demand", "model_id", modelID)
+	if err := adapter.PrepareEnvironment(ctx); err != nil {
+		return fmt.Errorf("model %s: %w", modelID, err)
+	}
+
+	r.mu.Lock()
+	r.preparedOnDemand[modelID] = struct{}{}
+	r.mu.Unlock()
+
+	logger.Info("Model environment prepared on demand", "model_id", modelID)
+	return nil
+}
+
+// preparableAdapter looks up an adapter of any kind by ID.
+// Callers must hold r.mu.
+func (r *ModelRegistry) preparableAdapter(modelID string) (environmentPreparer, error) {
+	if adapter, exists := r.transcriptionAdapters[modelID]; exists {
+		return adapter, nil
+	}
+	if adapter, exists := r.diarizationAdapters[modelID]; exists {
+		return adapter, nil
+	}
+	if adapter, exists := r.compositeAdapters[modelID]; exists {
+		return adapter, nil
+	}
+	return nil, fmt.Errorf("model not found: %s", modelID)
 }
 
 // GetModelStatus returns the status of all registered models
@@ -563,6 +677,8 @@ func ClearRegistry() {
 	registry.diarizationAdapters = make(map[string]interfaces.DiarizationAdapter)
 	registry.compositeAdapters = make(map[string]interfaces.CompositeAdapter)
 	registry.capabilities = make(map[string]interfaces.ModelCapabilities)
+	registry.enabledModels = nil
+	registry.preparedOnDemand = make(map[string]struct{})
 	registry.initialized = false
 }
 

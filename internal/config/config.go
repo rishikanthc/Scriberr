@@ -41,6 +41,10 @@ type Config struct {
 
 	// Hugging Face configuration
 	HFToken string
+
+	// Model initialization: IDs of the models whose environments are prepared
+	// on startup. Empty means "all registered models" (default behaviour).
+	EnabledModels []string
 }
 
 // Load loads configuration from environment variables and .env file
@@ -70,7 +74,20 @@ func Load() *Config {
 		SecureCookies:  getEnv("SECURE_COOKIES", defaultSecure) == "true",
 		OpenAIAPIKey:   getEnv("OPENAI_API_KEY", ""),
 		HFToken:        getEnv("HF_TOKEN", ""),
+		EnabledModels:  parseList(getEnv("SCRIBERR_ENABLED_MODELS", "")),
 	}
+}
+
+// parseList splits a comma separated environment value into trimmed,
+// non-empty entries. Returns nil for an empty value.
+func parseList(value string) []string {
+	var items []string
+	for _, item := range strings.Split(value, ",") {
+		if trimmed := strings.TrimSpace(item); trimmed != "" {
+			items = append(items, trimmed)
+		}
+	}
+	return items
 }
 
 // IsProduction returns true if the environment is production
