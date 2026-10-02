@@ -1,0 +1,51 @@
+# Docker Compose for Scriberr with AMD ROCm GPU support
+# Targets AMD RX 5700 XT (RDNA 1, gfx1010) and compatible AMD GPUs.
+#
+# Prerequisites on the host:
+#   1. ROCm driver stack installed: https://rocm.docs.amd.com/en/latest/deploy/linux/quick_start.html
+#   2. Your user must be in the 'video' and 'render' groups:
+#        sudo usermod -aG video,render $USER
+#   3. Verify the GPU is visible: rocminfo | grep gfx
+#
+# Usage: docker compose -f docker-compose.rocm.yml up
+version: "3.9"
+services:
+  scriberr:
+    image: ghcr.io/rishikanthc/scriberr-rocm:latest
+    ports:
+      - "8080:8080"
+    volumes:
+      - scriberr_data:/app/data
+      - env_data:/app/whisperx-env
+    restart: unless-stopped
+    # AMD GPU access: expose the kernel fusion driver (/dev/kfd) and DRM render nodes (/dev/dri).
+    # No special Docker plugin is required — this works with plain Docker and Compose.
+    devices:
+      - /dev/kfd:/dev/kfd
+      - /dev/dri:/dev/dri
+    # The container user must belong to the 'video' and 'render' groups on the host.
+    group_add:
+      - video
+      - render
+    environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      - APP_ENV=production
+      # ROCm: PyTorch wheel version. Maps to https://download.pytorch.org/whl/rocm6.3
+      - PYTORCH_ROCM_VERSION=6.3
+      # RX 5700 XT (gfx1010 / RDNA 1) compatibility override.
+      # Instructs the ROCm runtime to use gfx1030 (RDNA 2) kernels, which are included
+      # in the ROCm distribution and compatible with RDNA 1 silicon.
+      # Remove or change this for other AMD GPU generations:
+      #   - RX 6000 series (RDNA 2, gfx1030): remove this line (officially supported)
+      #   - RX 7000 series (RDNA 3, gfx1100): remove this line (officially supported)
+      #   - Vega 56/64 (GCN 5, gfx900):      HSA_OVERRIDE_GFX_VERSION=9.0.0
+      - HSA_OVERRIDE_GFX_VERSION=10.3.0
+      # Optionally restrict to a specific GPU index (default: all)
+      # - ROCR_VISIBLE_DEVICES=0
+      # CORS: comma-separated list of allowed origins for production
+      # - ALLOWED_ORIGINS=https://your-domain.com
+
+volumes:
+  scriberr_data: {}
+  env_data: {}
