@@ -10,6 +10,9 @@ export interface AudioFile {
     diarization?: boolean;
     is_multi_track?: boolean;
     error_message?: string;
+    pipeline_stage?: string;
+    pipeline_progress?: number;
+    pipeline_message?: string;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     individual_transcripts?: any;
     speakers?: number;
