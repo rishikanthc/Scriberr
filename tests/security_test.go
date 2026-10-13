@@ -71,11 +71,13 @@ func (suite *SecurityTestSuite) SetupSuite() {
 	chatRepo := repository.NewChatRepository(database.DB)
 	noteRepo := repository.NewNoteRepository(database.DB)
 	speakerMappingRepo := repository.NewSpeakerMappingRepository(database.DB)
+	openClawProfileRepo := repository.NewOpenClawProfileRepository(database.DB)
 	refreshTokenRepo := repository.NewRefreshTokenRepository(database.DB)
 
 	// Initialize services
 	userService := service.NewUserService(userRepo, suite.authService)
 	fileService := service.NewFileService()
+	openClawService := service.NewOpenClawService()
 
 	// Initialize services
 	suite.unifiedProcessor = transcription.NewUnifiedJobProcessor(jobRepo, suite.config.TempDir, suite.config.TranscriptsDir)
@@ -104,7 +106,9 @@ func (suite *SecurityTestSuite) SetupSuite() {
 		chatRepo,
 		noteRepo,
 		speakerMappingRepo,
+		openClawProfileRepo,
 		refreshTokenRepo,
+		openClawService,
 		suite.taskQueue,
 		suite.unifiedProcessor,
 		suite.quickTranscriptionService,
@@ -252,6 +256,7 @@ func (suite *SecurityTestSuite) TestTranscriptionEndpointsUnauthorized() {
 		{"GET", "/api/v1/transcription/test-id/transcript", nil, false},
 		{"GET", "/api/v1/transcription/test-id/audio", nil, false},
 		{"PUT", "/api/v1/transcription/test-id/title", map[string]string{"title": "New Title"}, false},
+		{"POST", "/api/v1/transcription/test-id/send-openclaw", map[string]string{"profile_id": "profile-1"}, false},
 		{"GET", "/api/v1/transcription/test-id/summary", nil, false},
 		{"GET", "/api/v1/transcription/test-id", nil, false},
 		{"DELETE", "/api/v1/transcription/test-id", nil, false},
@@ -281,6 +286,39 @@ func (suite *SecurityTestSuite) TestTranscriptionEndpointsUnauthorized() {
 				w = suite.makeUnauthenticatedRequest(tc.method, tc.path, tc.body)
 			}
 
+			assert.Equal(t, 401, w.Code, "Should return 401 Unauthorized for unauthenticated request to %s %s", tc.method, tc.path)
+		})
+	}
+}
+
+func (suite *SecurityTestSuite) TestOpenClawEndpointsUnauthorized() {
+	testCases := []struct {
+		method string
+		path   string
+		body   interface{}
+	}{
+		{"GET", "/api/v1/openclaw/profiles", nil},
+		{"POST", "/api/v1/openclaw/profiles", map[string]interface{}{
+			"name":      "OpenClaw",
+			"ip":        "user@example-host",
+			"ssh_key":   "key",
+			"hook_key":  "hook",
+			"hook_name": "Dashboard",
+			"message":   "msg",
+		}},
+		{"GET", "/api/v1/openclaw/profiles/123", nil},
+		{"PUT", "/api/v1/openclaw/profiles/123", map[string]interface{}{
+			"name":      "OpenClaw Updated",
+			"ip":        "user@example-host",
+			"hook_name": "Dashboard",
+			"message":   "msg",
+		}},
+		{"DELETE", "/api/v1/openclaw/profiles/123", nil},
+	}
+
+	for _, tc := range testCases {
+		suite.T().Run(fmt.Sprintf("%s %s", tc.method, tc.path), func(t *testing.T) {
+			w := suite.makeUnauthenticatedRequest(tc.method, tc.path, tc.body)
 			assert.Equal(t, 401, w.Code, "Should return 401 Unauthorized for unauthenticated request to %s %s", tc.method, tc.path)
 		})
 	}

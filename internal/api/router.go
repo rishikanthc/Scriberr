@@ -136,6 +136,7 @@ func SetupRoutes(handler *Handler, authService *auth.AuthService) *gin.Engine {
 			transcription.GET("/:id/logs", handler.GetJobLogs)
 			transcription.GET("/:id/status", handler.GetJobStatus)
 			transcription.GET("/:id/transcript", handler.GetTranscript)
+			transcription.POST("/:id/send-openclaw", handler.SendTranscriptionToOpenClaw)
 			transcription.GET("/:id/execution", handler.GetJobExecutionData)
 			transcription.GET("/:id/merge-status", handler.GetMergeStatus)
 			transcription.GET("/:id/track-progress", handler.GetTrackProgress)
@@ -178,6 +179,17 @@ func SetupRoutes(handler *Handler, authService *auth.AuthService) *gin.Engine {
 			user.POST("/default-profile", handler.SetUserDefaultProfile)
 			user.GET("/settings", handler.GetUserSettings)
 			user.PUT("/settings", handler.UpdateUserSettings)
+		}
+
+		// OpenClaw profile routes (JWT-only due to stored secret material)
+		openClaw := v1.Group("/openclaw")
+		openClaw.Use(middleware.JWTOnlyMiddleware(authService))
+		{
+			openClaw.GET("/profiles", handler.ListOpenClawProfiles)
+			openClaw.POST("/profiles", handler.CreateOpenClawProfile)
+			openClaw.GET("/profiles/:id", handler.GetOpenClawProfile)
+			openClaw.PUT("/profiles/:id", handler.UpdateOpenClawProfile)
+			openClaw.DELETE("/profiles/:id", handler.DeleteOpenClawProfile)
 		}
 
 		// Admin routes (require authentication)

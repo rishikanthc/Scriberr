@@ -1,7 +1,8 @@
 import { useRef, useState, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { useParams, useNavigate } from "react-router-dom";
-import { MoreVertical, Edit2, Activity, FileText, Bot, Check, Loader2, List, AlignLeft, ArrowDownCircle, StickyNote, MessageCircle, FileImage, FileJson, Clock, AlertCircle, Users } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { MoreVertical, Edit2, Activity, FileText, Bot, Check, Loader2, List, AlignLeft, ArrowDownCircle, StickyNote, MessageCircle, FileImage, FileJson, Clock, AlertCircle, Users, Send } from "lucide-react";
 import { Header } from "@/components/Header";
 
 import { Button } from "@/components/ui/button";
@@ -21,6 +22,7 @@ import { TranscriptSection } from "./audio-detail/TranscriptSection";
 import { ExecutionInfoDialog } from "./audio-detail/ExecutionInfoDialog";
 import { LogsDialog } from "./audio-detail/LogsDialog";
 import { SummaryDialog } from "./audio-detail/SummaryDialog";
+import { SendToOpenClawDialog } from "./audio-detail/SendToOpenClawDialog";
 import { ChatSidePanel } from "./ChatSidePanel";
 import { useIsMobile } from "@/hooks/use-mobile";
 
@@ -55,6 +57,8 @@ export const AudioDetailView = function AudioDetailView({ audioId: propAudioId }
     const [executionDialogOpen, setExecutionDialogOpen] = useState(false);
     const [logsDialogOpen, setLogsDialogOpen] = useState(false);
     const [summaryDialogOpen, setSummaryDialogOpen] = useState(false);
+    const [sendOpenClawDialogOpen, setSendOpenClawDialogOpen] = useState(false);
+    const queryClient = useQueryClient();
 
     // Data Fetching
     const { data: audioFile, isLoading, error } = useAudioDetail(audioId || "");
@@ -335,6 +339,9 @@ export const AudioDetailView = function AudioDetailView({ audioId: propAudioId }
                                                     <DropdownMenuItem onClick={() => transcript && downloadSRT(transcript, audioFile?.title || 'transcript', speakerMappings)} className="rounded-[8px] cursor-pointer">
                                                         <FileImage className="mr-2 h-4 w-4 opacity-70" /> Download SRT
                                                     </DropdownMenuItem>
+                                                    <DropdownMenuItem onClick={() => setSendOpenClawDialogOpen(true)} disabled={!transcript} className="rounded-[8px] cursor-pointer">
+                                                        <Send className="mr-2 h-4 w-4 opacity-70" /> Send to OpenClaw
+                                                    </DropdownMenuItem>
                                                     <DropdownMenuItem onClick={() => { setDownloadFormat('txt'); setDownloadDialogOpen(true); }} className="rounded-[8px] cursor-pointer">
                                                         <AlignLeft className="mr-2 h-4 w-4 opacity-70" /> Download Text
                                                     </DropdownMenuItem>
@@ -439,6 +446,16 @@ export const AudioDetailView = function AudioDetailView({ audioId: propAudioId }
                 isOpen={summaryDialogOpen}
                 onClose={setSummaryDialogOpen}
                 llmReady={true}
+            />
+            <SendToOpenClawDialog
+                audioId={audioId}
+                title={audioFile.title}
+                open={sendOpenClawDialogOpen}
+                onOpenChange={setSendOpenClawDialogOpen}
+                onSent={() => {
+                    void queryClient.invalidateQueries({ queryKey: ["audio", audioId] });
+                    void queryClient.invalidateQueries({ queryKey: ["audioFiles"] });
+                }}
             />
 
             {/* Mobile / Overlay Chat */}

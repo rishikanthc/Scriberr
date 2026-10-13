@@ -45,11 +45,13 @@ func (suite *CLIHandlerTestSuite) SetupSuite() {
 	chatRepo := repository.NewChatRepository(suite.helper.DB)
 	noteRepo := repository.NewNoteRepository(suite.helper.DB)
 	speakerMappingRepo := repository.NewSpeakerMappingRepository(suite.helper.DB)
+	openClawProfileRepo := repository.NewOpenClawProfileRepository(suite.helper.DB)
 	refreshTokenRepo := repository.NewRefreshTokenRepository(suite.helper.DB)
 
 	// Initialize services
 	userService := service.NewUserService(userRepo, suite.helper.AuthService)
 	fileService := service.NewFileService()
+	openClawService := service.NewOpenClawService()
 
 	// Initialize services
 	suite.unifiedProcessor = transcription.NewUnifiedJobProcessor(jobRepo, suite.helper.Config.TempDir, suite.helper.Config.TranscriptsDir)
@@ -77,7 +79,9 @@ func (suite *CLIHandlerTestSuite) SetupSuite() {
 		chatRepo,
 		noteRepo,
 		speakerMappingRepo,
+		openClawProfileRepo,
 		refreshTokenRepo,
+		openClawService,
 		suite.taskQueue,
 		suite.unifiedProcessor,
 		suite.quickTranscription,

@@ -284,6 +284,31 @@ func (r *profileRepository) FindByName(ctx context.Context, name string) (*model
 	return &profile, nil
 }
 
+// OpenClawProfileRepository handles OpenClaw profile operations.
+type OpenClawProfileRepository interface {
+	Repository[models.OpenClawProfile]
+	FindByName(ctx context.Context, name string) (*models.OpenClawProfile, error)
+}
+
+type openClawProfileRepository struct {
+	*BaseRepository[models.OpenClawProfile]
+}
+
+func NewOpenClawProfileRepository(db *gorm.DB) OpenClawProfileRepository {
+	return &openClawProfileRepository{
+		BaseRepository: NewBaseRepository[models.OpenClawProfile](db),
+	}
+}
+
+func (r *openClawProfileRepository) FindByName(ctx context.Context, name string) (*models.OpenClawProfile, error) {
+	var profile models.OpenClawProfile
+	err := r.db.WithContext(ctx).Where("name = ?", name).First(&profile).Error
+	if err != nil {
+		return nil, err
+	}
+	return &profile, nil
+}
+
 // LLMConfigRepository handles LLM configuration operations
 type LLMConfigRepository interface {
 	Repository[models.LLMConfig]
