@@ -1,0 +1,15 @@
+[Unit]
+Description=Live Transcription Client Tray Daemon
+After=graphical-session.target pipewire.service
+PartOf=graphical-session.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/atlas/projects/Scriberr/linux
+ExecStart=/home/atlas/projects/Scriberr/linux/.venv/bin/python tray_recorder.py
+Restart=on-failure
+RestartSec=3s
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=graphical-session.target

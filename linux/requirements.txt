@@ -1,0 +1,6 @@
+requests>=2.28.0
+pynput>=1.7.6
+pystray>=0.19.5
+pillow>=10.0.0
+faster-whisper>=1.2.1
+av>=18,<19
