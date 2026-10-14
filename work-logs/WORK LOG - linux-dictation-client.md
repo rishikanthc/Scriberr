@@ -48,3 +48,38 @@ Excluded runtime/build artifacts: `last-take.wav`, `.venv/`, `__pycache__/`, `.g
 ## FOLLOW-UPS / NOTES
 - Optional follow-up: user may migrate the live systemd install to the new path (`~/.config/systemd/user/`) after merge.
 - Do not commit changes; user will commit.
+
+---
+
+## UPDATE (2026-10-14): Phrase-aware dictation chunking
+
+**Problem:** User reported dictation text arriving in 3-second bursts and always
+feeling like it was falling behind.
+
+**Investigation:** Inference was not the bottleneck (faster-whisper base.en CPU
+int8 = ~25-30x realtime on the dev box). The latency came from (1) fixed 3s
+chunks — text can only appear once a chunk fills, even mid-sentence and even
+after the speaker stops — and (2) `xdotool --delay 10ms/char` adding 0.5-0.8s
+per burst.
+
+**Change (linux/live_dictate.py):**
+- New default chunking mode `vad`: the streaming audio buffer is probed with
+  the bundled Silero VAD (~3-6ms per probe via `faster_whisper.vad.get_speech_timestamps`)
+  and a chunk is flushed the moment the speaker pauses (>= 300ms trailing
+  silence) or at the 4s cap — text now flows phrase by phrase.
+- `LT_DICTATE_CHUNK_MODE=fixed` restores the legacy fixed-chunk behavior
+  (`LT_DICTATE_CHUNK_SECONDS`). New env vars: `LT_DICTATE_CHUNK_MODE`,
+  `LT_DICTATE_MAX_CHUNK_SECONDS` (4), `LT_DICTATE_MIN_CHUNK_SECONDS` (0.5),
+  `LT_DICTATE_SILENCE_FLUSH_MS` (300). `LT_DICTATE_TYPE_DELAY_MS` default 10 -> 0.
+- Model warmup (0.5s dummy transcribe) right after model load so the first
+  chunk is responsive.
+- New dev mode `--test-chunks [FILE]`: simulates the adaptive chunker over a
+  WAV file and prints per-chunk flush time/reason/text plus latency stats.
+- README updated (env table + how chunking works + --test-chunks).
+
+**Verification:** `--test-chunks last-take.wav` (89s real speech): 27 chunks
+(15 phrase-end / 12 max), avg flush latency 0.36s, max 0.41s (was up to ~3s+
+per burst). Live daemon lifecycle (F8 start/stop under DISPLAY=:1) clean,
+VAD phrase-end flushes observed in real time, no tracebacks.
+
+Files changed: `linux/live_dictate.py`, `linux/README.md`.

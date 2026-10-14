@@ -8,15 +8,17 @@ A lightweight Linux (X11) system tray daemon that records microphone audio via g
 
 In addition to the server-backed transcription client (`tray_recorder.py`), this repository includes a standalone local dictation daemon (`live_dictate.py`). It captures audio directly from PipeWire (`pw-record`), transcribes speech locally in real-time using `faster-whisper` directly on this machine, and types the resulting text at the cursor of the currently focused X11 window using `xdotool`. No network service or server is required.
 
+Dictation is phrase-aware: Silero VAD watches the audio stream and flushes a chunk the moment you pause (~300ms silence) or at the 4s cap, so text appears phrase by phrase instead of in fixed bursts.
+
 - **Toggle Hotkey:** Press `F8` (default, configurable via `LT_DICTATE_HOTKEY`) once to start dictation, and press it again to stop and flush the final partial audio chunk.
-- **Pipeline:** Records audio in streaming chunks (default 3 seconds), transcribes each chunk via `faster-whisper`, and types the text snippet at the active cursor with automatic space separation between chunks.
+- **Pipeline:** Records audio via PipeWire, segments speech dynamically using Silero VAD, transcribes each phrase via `faster-whisper`, and types the text snippet at the active cursor with automatic space separation between phrases.
 - **Tray Icon Indicator:**
   - Gray: Idle
   - Red: Dictating
   - Yellow: Thinking / Transcribing chunk
   - Green: Brief "done" notification on stop
 - **Desktop Notifications:** Shows desktop notifications via `notify-send` when dictation starts ("good to go"), stops (with typed character count), and on errors.
-- **Lazy Model Loading:** The Whisper model is loaded lazily on the first dictation start (displaying "loading model…" in the tray).
+- **Lazy Model Loading & Warmup:** The Whisper model is loaded lazily on the first dictation start (displaying "loading model…" in the tray) and warmed up with a dummy transcription so the first dictation chunk is responsive.
 - **Prerequisites:** `xdotool` (`sudo apt install xdotool`), `pw-record`, and an active X11 desktop session.
 
 ### Environment Variables
@@ -27,8 +29,12 @@ In addition to the server-backed transcription client (`tray_recorder.py`), this
 | `LT_DICTATE_MODEL` | `base.en` | faster-whisper model name (e.g. `base.en`, `small.en`) |
 | `LT_DICTATE_DEVICE` | `cpu` | Device to run transcription on (`cpu` or `cuda`) |
 | `LT_DICTATE_COMPUTE` | `int8` | Model quantization / compute type (`int8`, `float16`, etc.) |
-| `LT_DICTATE_CHUNK_SECONDS` | `3` | Duration of each streaming chunk in seconds |
-| `LT_DICTATE_TYPE_DELAY_MS` | `10` | Milliseconds delay between typed keystrokes in xdotool |
+| `LT_DICTATE_CHUNK_MODE` | `vad` | Chunking mode: `vad` (phrase-aware adaptive chunking) or `fixed` (legacy fixed-size chunks using `LT_DICTATE_CHUNK_SECONDS`) |
+| `LT_DICTATE_MAX_CHUNK_SECONDS` | `4` | Maximum chunk duration in seconds before forcing a flush in VAD mode |
+| `LT_DICTATE_MIN_CHUNK_SECONDS` | `0.5` | Minimum chunk duration in seconds before VAD probes for phrase ends |
+| `LT_DICTATE_SILENCE_FLUSH_MS` | `300` | Trailing silence in milliseconds required to trigger a phrase-end flush |
+| `LT_DICTATE_CHUNK_SECONDS` | `3` | Duration of each streaming chunk in seconds (used only when `LT_DICTATE_CHUNK_MODE=fixed`) |
+| `LT_DICTATE_TYPE_DELAY_MS` | `0` | Milliseconds delay between typed keystrokes in xdotool (0 = type as fast as possible; raise to 5-20 if a slow app drops characters) |
 | `LT_DICTATE_TARGET` | *(empty)* | Optional PipeWire node target serial or name for pw-record |
 
 > [!NOTE]
@@ -43,12 +49,19 @@ You can verify audio decoding and local Whisper transcription against an audio f
 ```
 If `FILE` is omitted, it defaults to `last-take.wav` in the repository root. This mode decodes the audio via an `ffmpeg` subprocess directly to 16kHz mono float32, transcribes it, and outputs the full transcript along with execution timing and realtime multiplier.
 
-#### 2. Running Manually
+#### 2. Test Chunks Mode (`--test-chunks`)
+Dev / verification mode that simulates live adaptive chunking over an audio file (defaults to `last-take.wav`) in 4096-byte steps without starting the tray daemon or hotkeys:
+```bash
+.venv/bin/python live_dictate.py --test-chunks [FILE]
+```
+Transcribes each flushed chunk, displays flush timestamps, chunk durations, reasons (`phrase-end` vs `max`), and prints aggregate latency and typed character stats.
+
+#### 3. Running Manually
 ```bash
 DISPLAY=:1 .venv/bin/python live_dictate.py
 ```
 
-#### 3. Systemd User Service Setup
+#### 4. Systemd User Service Setup
 To run the live dictation daemon automatically in your desktop session:
 ```bash
 mkdir -p ~/.config/systemd/user
