@@ -1,3 +1,4 @@
+import { withBasePath } from '@/lib/basePath';
 import { useAuthStore } from '../features/auth/store/authStore';
 import { refreshToken, navigateToHome, parseRequestUrl } from './authHelpers';
 import './authTypes';
@@ -10,7 +11,8 @@ export function setupAuthInterceptor(): void {
     const originalFetch = window.fetch.bind(window);
     window.__scriberr_original_fetch = originalFetch;
 
-    const wrappedFetch: typeof window.fetch = async (input, init) => {
+    const wrappedFetch: typeof window.fetch = async (rawInput, init) => {
+        const input = typeof rawInput === 'string' ? withBasePath(rawInput) : rawInput;
         const url = parseRequestUrl(input);
         const isAuthEndpoint = url.includes('/api/v1/auth/');
 

@@ -7,6 +7,7 @@ import './App.css'
 import App from './App.tsx'
 import { ThemeProvider } from './contexts/ThemeContext'
 import { BrowserRouter } from 'react-router-dom'
+import { BASE_PATH } from './lib/basePath'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { ToastProvider } from '@/components/ui/toast'
@@ -24,7 +25,7 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
-        <BrowserRouter>
+        <BrowserRouter basename={BASE_PATH}>
           <TooltipProvider>
             <ToastProvider>
               <ChatEventsProvider>

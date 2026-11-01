@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"scriberr/internal/web"
 	"syscall"
 	"time"
 
@@ -172,7 +173,7 @@ func main() {
 	// Create server
 	srv := &http.Server{
 		Addr:    cfg.Host + ":" + cfg.Port,
-		Handler: router,
+		Handler: web.WithBasePath(cfg.BasePath, router),
 	}
 
 	// Start server in a goroutine

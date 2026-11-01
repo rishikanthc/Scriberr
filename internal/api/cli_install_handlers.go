@@ -150,7 +150,7 @@ func (h *Handler) GetInstallScript(c *gin.Context) {
 	if forwardedHost := c.GetHeader("X-Forwarded-Host"); forwardedHost != "" {
 		host = forwardedHost
 	}
-	serverURL := fmt.Sprintf("%s://%s", scheme, host)
+	serverURL := fmt.Sprintf("%s://%s%s", scheme, host, h.config.BasePath)
 
 	tmpl, err := template.New("install").Parse(installScriptTemplate)
 	if err != nil {
