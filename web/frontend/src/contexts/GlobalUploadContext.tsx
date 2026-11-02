@@ -30,7 +30,7 @@ interface GlobalUploadContextValue {
     // Multi-track
     handleMultiTrackUpload: (
         files: File[],
-        aupFile: File,
+        aupFile: File | undefined,
         title: string
     ) => Promise<void>;
     openMultiTrackDialog: () => void;
@@ -164,7 +164,7 @@ export function GlobalUploadProvider({ children }: PropsWithChildren) {
     );
 
     const handleMultiTrackUpload = useCallback(
-        async (files: File[], aupFile: File, title: string) => {
+        async (files: File[], aupFile: File | undefined, title: string) => {
             setIsUploading(true);
 
             if (isOnDashboard) {
@@ -240,7 +240,7 @@ export function GlobalUploadProvider({ children }: PropsWithChildren) {
     }, []);
 
     const handleMultiTrackConfirm = useCallback(
-        async (files: File[], aupFile: File, title: string) => {
+        async (files: File[], aupFile: File | undefined, title: string) => {
             await handleMultiTrackUpload(files, aupFile, title);
             handleMultiTrackDialogClose();
         },

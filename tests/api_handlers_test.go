@@ -623,6 +623,35 @@ func (suite *APIHandlerTestSuite) TestTranscriptionSubmit() {
 	assert.Equal(suite.T(), models.StatusPending, response.Status)
 }
 
+func (suite *APIHandlerTestSuite) TestUploadMultiTrackWithoutAup() {
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
+	for _, name := range []string{"alice.wav", "bob.wav"} {
+		part, err := writer.CreateFormFile("tracks", name)
+		assert.NoError(suite.T(), err)
+		part.Write([]byte("dummy audio"))
+	}
+	writer.WriteField("title", "Two Speakers")
+	writer.Close()
+
+	req, _ := http.NewRequest("POST", "/api/v1/transcription/upload-multitrack", body)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	req.Header.Set("X-API-Key", suite.helper.TestAPIKey)
+	w := httptest.NewRecorder()
+	suite.router.ServeHTTP(w, req)
+
+	assert.Equal(suite.T(), 200, w.Code, w.Body.String())
+	var job models.TranscriptionJob
+	assert.NoError(suite.T(), json.Unmarshal(w.Body.Bytes(), &job))
+	assert.True(suite.T(), job.IsMultiTrack)
+	assert.Nil(suite.T(), job.AupFilePath)
+	assert.NotNil(suite.T(), job.MultiTrackFolder)
+	if assert.Len(suite.T(), job.MultiTrackFiles, 2) {
+		assert.Equal(suite.T(), "alice", job.MultiTrackFiles[0].FileName)
+		assert.Equal(suite.T(), "bob", job.MultiTrackFiles[1].FileName)
+	}
+}
+
 // Test error responses for non-existent resources
 func (suite *APIHandlerTestSuite) TestNotFoundErrors() {
 	endpoints := []string{

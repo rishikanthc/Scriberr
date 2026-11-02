@@ -139,10 +139,10 @@ export function useMultiTrackUpload() {
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: async ({ files, aupFile, title }: { files: File[], aupFile: File, title: string }) => {
+        mutationFn: async ({ files, aupFile, title }: { files: File[], aupFile?: File, title: string }) => {
             const formData = new FormData();
             formData.append('title', title);
-            formData.append('aup', aupFile);
+            if (aupFile) formData.append('aup', aupFile);
 
             files.forEach(file => {
                 formData.append('tracks', file);

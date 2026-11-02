@@ -40,7 +40,7 @@ func (p *MultiTrackProcessor) ProcessMultiTrackJob(ctx context.Context, jobID st
 	}
 
 	// Verify it's a multi-track job
-	if !job.IsMultiTrack || job.AupFilePath == nil {
+	if !job.IsMultiTrack || job.MultiTrackFolder == nil {
 		return fmt.Errorf("job %s is not a multi-track job", jobID)
 	}
 
@@ -51,15 +51,18 @@ func (p *MultiTrackProcessor) ProcessMultiTrackJob(ctx context.Context, jobID st
 		return fmt.Errorf("failed to update status to processing: %w", err)
 	}
 
-	// Parse the .aup file to get track information
-	aupTracks, err := p.aupParser.ParseAupFile(*job.AupFilePath)
-	if err != nil {
-		errMsg := err.Error()
-		_ = p.updateMergeStatus(jobID, "failed", &errMsg)
-		return fmt.Errorf("failed to parse AUP file: %w", err)
+	// Without an .aup project every track starts at 0 with unity gain.
+	var aupTracks []audio.AupTrack
+	if job.AupFilePath != nil {
+		parsed, err := p.aupParser.ParseAupFile(*job.AupFilePath)
+		if err != nil {
+			errMsg := err.Error()
+			_ = p.updateMergeStatus(jobID, "failed", &errMsg)
+			return fmt.Errorf("failed to parse AUP file: %w", err)
+		}
+		aupTracks = parsed
+		logger.Info("Parsed AUP file", "job_id", jobID, "tracks_count", len(aupTracks))
 	}
-
-	logger.Info("Parsed AUP file", "job_id", jobID, "tracks_count", len(aupTracks))
 
 	// Update MultiTrackFile records with offset information
 	if err := p.updateTrackOffsets(jobID, aupTracks); err != nil {
