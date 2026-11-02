@@ -325,6 +325,7 @@ func (s *SortformerAdapter) Diarize(ctx context.Context, input interfaces.AudioI
 
 	// Execute Sortformer
 	cmd := exec.CommandContext(ctx, "uv", args...)
+	killProcessGroupOnCancel(cmd)
 	cmd.Env = append(os.Environ(), "PYTHONUNBUFFERED=1")
 
 	// Setup log file

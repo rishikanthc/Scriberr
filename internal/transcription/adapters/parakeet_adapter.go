@@ -385,6 +385,7 @@ func (p *ParakeetAdapter) transcribeStandard(ctx context.Context, input interfac
 
 	// Execute Parakeet
 	cmd := exec.CommandContext(ctx, "uv", args...)
+	killProcessGroupOnCancel(cmd)
 	cmd.Env = append(os.Environ(), "PYTHONUNBUFFERED=1")
 
 	// Setup log file
@@ -434,6 +435,7 @@ func (p *ParakeetAdapter) transcribeBuffered(ctx context.Context, input interfac
 
 	// Execute buffered inference
 	cmd := exec.CommandContext(ctx, "uv", args...)
+	killProcessGroupOnCancel(cmd)
 	cmd.Env = append(os.Environ(), "PYTHONUNBUFFERED=1")
 
 	// Setup log file

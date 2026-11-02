@@ -341,6 +341,7 @@ func (c *CanaryAdapter) Transcribe(ctx context.Context, input interfaces.AudioIn
 
 	// Execute Canary
 	cmd := exec.CommandContext(ctx, "uv", args...)
+	killProcessGroupOnCancel(cmd)
 	cmd.Env = append(os.Environ(),
 		"PYTHONUNBUFFERED=1",
 		"PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True")

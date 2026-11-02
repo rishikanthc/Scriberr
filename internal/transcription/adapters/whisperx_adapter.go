@@ -419,6 +419,7 @@ func (w *WhisperXAdapter) Transcribe(ctx context.Context, input interfaces.Audio
 
 	// Execute WhisperX
 	cmd := exec.CommandContext(ctx, "uv", args...)
+	killProcessGroupOnCancel(cmd)
 
 	// Add nvidia libraries to LD_LIBRARY_PATH
 	env := os.Environ()
