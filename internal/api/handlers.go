@@ -1158,21 +1158,11 @@ func (h *Handler) getValidatedTranscriptionParams(c *gin.Context, job *models.Tr
 		}
 	}
 
-	// Validate multi-track compatibility
-	if job.IsMultiTrack && !requestParams.IsMultiTrackEnabled {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Multi-track audio requires multi-track transcription to be enabled in the parameters"})
-		return nil, fmt.Errorf("multi-track mismatch")
-	}
-
-	if !job.IsMultiTrack && requestParams.IsMultiTrackEnabled {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Multi-track transcription cannot be used with single-track audio files"})
-		return nil, fmt.Errorf("single-track mismatch")
-	}
-
-	// Multi-track transcription should automatically disable diarization
-	if requestParams.IsMultiTrackEnabled && requestParams.Diarize {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Diarization must be disabled when using multi-track transcription"})
-		return nil, fmt.Errorf("diarization conflict")
+	// Multi-track is a property of the uploaded audio, not of the profile.
+	// Each track is one speaker, so diarization does not apply.
+	requestParams.IsMultiTrackEnabled = job.IsMultiTrack
+	if job.IsMultiTrack {
+		requestParams.Diarize = false
 	}
 
 	return &requestParams, nil
