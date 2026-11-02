@@ -65,8 +65,6 @@ export function MultiTrackUploadDialog({
 
 	const handleDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
 		e.preventDefault();
-		// The Dashboard's window drop listener would otherwise upload each track as its own job.
-		e.stopPropagation();
 		const droppedFiles = Array.from(e.dataTransfer.files);
 		addFiles(droppedFiles);
 	}, []);

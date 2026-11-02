@@ -50,9 +50,13 @@ export function Dashboard() {
 
 	// Global drag and drop handlers
 	useEffect(() => {
+		// An open modal owns drops; preventDefault still runs so stray drops don't open the file in the tab.
+		const isModalOpen = () => document.querySelector('[role="dialog"], [role="alertdialog"]') !== null;
+
 		const handleWindowDragEnter = (e: DragEvent) => {
 			e.preventDefault();
 			e.stopPropagation();
+			if (isModalOpen()) return;
 			dragCounter.current++;
 
 			if (e.dataTransfer?.items && e.dataTransfer.items.length > 0) {
@@ -75,6 +79,7 @@ export function Dashboard() {
 		const handleWindowDragLeave = (e: DragEvent) => {
 			e.preventDefault();
 			e.stopPropagation();
+			if (isModalOpen()) return;
 			dragCounter.current--;
 
 			if (dragCounter.current === 0) {
@@ -92,6 +97,7 @@ export function Dashboard() {
 		const handleWindowDrop = async (e: DragEvent) => {
 			e.preventDefault();
 			e.stopPropagation();
+			if (isModalOpen()) return;
 
 			// Reset drag state
 			dragCounter.current = 0;
