@@ -161,7 +161,7 @@ export function Dashboard() {
 					{/* Overall progress */}
 					<div className="mb-6">
 						<Progress
-							value={(uploadProgress.filter(p => p.status !== 'uploading').length / uploadProgress.length) * 100}
+							value={uploadProgress.reduce((sum, p) => sum + (p.status === 'uploading' ? p.percent : 100), 0) / uploadProgress.length}
 							className="h-2 bg-[var(--secondary)]"
 							indicatorClassName="bg-gradient-to-r from-[var(--brand-solid)] to-[var(--brand-solid)]"
 						/>
@@ -193,7 +193,7 @@ export function Dashboard() {
 									)}
 								</div>
 								<div className="flex-shrink-0 text-xs font-medium text-[var(--text-tertiary)]">
-									{progress.status === 'uploading' && 'Uploading...'}
+									{progress.status === 'uploading' && (progress.percent < 100 ? `${progress.percent}%` : 'Processing...')}
 									{progress.status === 'success' && 'Completed'}
 									{progress.status === 'error' && 'Failed'}
 								</div>

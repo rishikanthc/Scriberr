@@ -1,3 +1,4 @@
+import { uploadWithProgress, type UploadProgressHandler } from '@/lib/uploadWithProgress';
 import { useQuery, useMutation, useQueryClient, keepPreviousData, useInfiniteQuery } from '@tanstack/react-query';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 
@@ -105,11 +106,10 @@ export function useAudioListInfinite(params: Omit<AudioListParams, 'page'>) {
 }
 
 export function useAudioUpload() {
-    const { getAuthHeaders } = useAuth();
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: async ({ file, isVideo }: { file: File, isVideo: boolean }) => {
+        mutationFn: async ({ file, isVideo, onProgress }: { file: File, isVideo: boolean, onProgress?: UploadProgressHandler }) => {
             const formData = new FormData();
             const fieldName = isVideo ? 'video' : 'audio';
             const endpoint = isVideo ? '/api/v1/transcription/upload-video' : '/api/v1/transcription/upload';
@@ -117,16 +117,7 @@ export function useAudioUpload() {
             formData.append(fieldName, file);
             formData.append('title', file.name.replace(/\.[^/.]+$/, ''));
 
-            const response = await fetch(endpoint, {
-                method: 'POST',
-                headers: getAuthHeaders(),
-                body: formData,
-            });
-
-            if (!response.ok) {
-                throw new Error('Upload failed');
-            }
-            return response.json();
+            return uploadWithProgress(endpoint, formData, onProgress);
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['audioFiles'] });
@@ -135,11 +126,10 @@ export function useAudioUpload() {
 }
 
 export function useMultiTrackUpload() {
-    const { getAuthHeaders } = useAuth();
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: async ({ files, aupFile, title }: { files: File[], aupFile?: File, title: string }) => {
+        mutationFn: async ({ files, aupFile, title, onProgress }: { files: File[], aupFile?: File, title: string, onProgress?: UploadProgressHandler }) => {
             const formData = new FormData();
             formData.append('title', title);
             if (aupFile) formData.append('aup', aupFile);
@@ -148,17 +138,7 @@ export function useMultiTrackUpload() {
                 formData.append('tracks', file);
             });
 
-            const response = await fetch("/api/v1/transcription/upload-multitrack", {
-                method: "POST",
-                headers: getAuthHeaders(),
-                body: formData,
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || 'Upload failed');
-            }
-            return response.json();
+            return uploadWithProgress("/api/v1/transcription/upload-multitrack", formData, onProgress);
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['audioFiles'] });

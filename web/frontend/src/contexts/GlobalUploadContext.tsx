@@ -19,6 +19,7 @@ interface FileWithType {
 interface UploadProgress {
     fileName: string;
     status: "uploading" | "success" | "error";
+    percent: number;
     error?: string;
 }
 
@@ -90,6 +91,7 @@ export function GlobalUploadProvider({ children }: PropsWithChildren) {
                     processedFiles.map((item) => ({
                         fileName: item.file.name,
                         status: "uploading",
+                        percent: 0,
                     }))
                 );
             } else {
@@ -108,13 +110,22 @@ export function GlobalUploadProvider({ children }: PropsWithChildren) {
                 const isVideo = fileItem.isVideo;
 
                 try {
-                    await uploadFile({ file, isVideo });
+                    await uploadFile({
+                        file,
+                        isVideo,
+                        onProgress: isOnDashboard
+                            ? (percent) =>
+                                setUploadProgress((prev) =>
+                                    prev.map((item, index) => (index === i ? { ...item, percent } : item))
+                                )
+                            : undefined,
+                    });
 
                     if (isOnDashboard) {
                         setUploadProgress((prev) =>
                             prev.map((item, index) =>
                                 index === i
-                                    ? { ...item, status: "success", error: undefined }
+                                    ? { ...item, status: "success", percent: 100, error: undefined }
                                     : item
                             )
                         );
@@ -172,6 +183,7 @@ export function GlobalUploadProvider({ children }: PropsWithChildren) {
                     {
                         fileName: `${title} (${files.length} tracks)`,
                         status: "uploading",
+                        percent: 0,
                     },
                 ]);
             } else {
@@ -182,13 +194,21 @@ export function GlobalUploadProvider({ children }: PropsWithChildren) {
             }
 
             try {
-                await uploadMultiTrack({ files, aupFile, title });
+                await uploadMultiTrack({
+                    files,
+                    aupFile,
+                    title,
+                    onProgress: isOnDashboard
+                        ? (percent) => setUploadProgress((prev) => prev.map((item) => ({ ...item, percent })))
+                        : undefined,
+                });
 
                 if (isOnDashboard) {
                     setUploadProgress([
                         {
                             fileName: `${title} (${files.length} tracks)`,
                             status: "success",
+                            percent: 100,
                         },
                     ]);
                     setTimeout(() => setUploadProgress([]), 3000);
@@ -204,6 +224,7 @@ export function GlobalUploadProvider({ children }: PropsWithChildren) {
                         {
                             fileName: `${title} (${files.length} tracks)`,
                             status: "error",
+                            percent: 0,
                             error:
                                 error instanceof Error ? error.message : "Upload failed",
                         },
