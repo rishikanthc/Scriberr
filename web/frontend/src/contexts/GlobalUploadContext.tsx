@@ -241,8 +241,9 @@ export function GlobalUploadProvider({ children }: PropsWithChildren) {
 
     const handleMultiTrackConfirm = useCallback(
         async (files: File[], aupFile: File | undefined, title: string) => {
-            await handleMultiTrackUpload(files, aupFile, title);
+            // Close first so the dashboard progress row / toast is visible during upload.
             handleMultiTrackDialogClose();
+            await handleMultiTrackUpload(files, aupFile, title);
         },
         [handleMultiTrackUpload, handleMultiTrackDialogClose]
     );
