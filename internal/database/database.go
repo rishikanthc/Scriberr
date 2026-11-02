@@ -3,6 +3,7 @@ package database
 import (
 	"database/sql"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"time"
@@ -40,8 +41,13 @@ func Initialize(dbPath string) error {
 
 	// Open database connection with optimized config
 	DB, err = gorm.Open(sqlite.Open(dsn), &gorm.Config{
-		Logger:          logger.Default.LogMode(logger.Warn), // Reduce logging overhead
-		CreateBatchSize: 100,                                 // Optimize batch inserts
+		Logger: logger.New(log.New(os.Stdout, "\r\n", log.LstdFlags), logger.Config{
+			SlowThreshold:             200 * time.Millisecond,
+			LogLevel:                  logger.Warn,
+			IgnoreRecordNotFoundError: true, // lookups like FindDefault treat "none" as a normal result
+			Colorful:                  true,
+		}),
+		CreateBatchSize: 100, // Optimize batch inserts
 	})
 	if err != nil {
 		return fmt.Errorf("failed to connect to database: %v", err)
