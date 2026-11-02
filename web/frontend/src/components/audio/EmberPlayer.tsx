@@ -1,3 +1,4 @@
+import { refreshToken } from '@/lib/authHelpers';
 import { useRef, useState, useEffect, forwardRef, useImperativeHandle, useCallback } from "react";
 import { Play, Pause, AlertCircle } from "lucide-react";
 import { AudioVisualizer } from "./AudioVisualizer";
@@ -45,6 +46,22 @@ export const EmberPlayer = forwardRef<EmberPlayerRef, EmberPlayerProps>(
         }));
 
         // --- 2. URL Logic ---
+        const hasRetriedAuth = useRef(false);
+
+        // <audio> authenticates only by cookie, which may be missing or stale; refresh re-issues it.
+        const handleAudioError = async (e: React.SyntheticEvent<HTMLAudioElement>) => {
+            const audio = e.currentTarget;
+            if (!hasRetriedAuth.current) {
+                hasRetriedAuth.current = true;
+                if (await refreshToken()) {
+                    audio.load();
+                    return;
+                }
+            }
+            console.error("Audio Load Error", e);
+            setError("Unable to load audio stream.");
+        };
+
         let streamUrl = src;
         if (!streamUrl && audioId) {
             streamUrl = `/api/v1/transcription/${audioId}/audio`;
@@ -260,10 +277,7 @@ export const EmberPlayer = forwardRef<EmberPlayerRef, EmberPlayerProps>(
                     onTimeUpdate={handleTimeUpdate}
                     onLoadedMetadata={handleLoadedMetadata}
                     onEnded={() => setIsPlaying(false)}
-                    onError={(e) => {
-                        console.error("Audio Load Error", e);
-                        setError("Unable to load audio stream.");
-                    }}
+                    onError={handleAudioError}
                 />
             </div>
         );
