@@ -16,6 +16,14 @@ import {
 } from "@/utils/fileProcessor";
 import { useGlobalUpload } from "@/contexts/GlobalUploadContext";
 
+const BYTE_UNITS = ['B', 'KB', 'MB', 'GB', 'TB'];
+
+function formatBytes(bytes: number): string {
+	const exponent = bytes > 0 ? Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), BYTE_UNITS.length - 1) : 0;
+	const value = bytes / 1024 ** exponent;
+	return `${exponent === 0 ? Math.round(value) : value.toFixed(1)} ${BYTE_UNITS[exponent]}`;
+}
+
 export function Dashboard() {
 	// Get upload functionality from global context
 	const {
@@ -193,7 +201,13 @@ export function Dashboard() {
 									)}
 								</div>
 								<div className="flex-shrink-0 text-xs font-medium text-[var(--text-tertiary)]">
-									{progress.status === 'uploading' && (progress.percent < 100 ? `${progress.percent}%` : 'Processing...')}
+									{progress.status === 'uploading' && (progress.percent < 100 ? (
+										<span className="tabular-nums">
+											{progress.totalBytes !== undefined && `${formatBytes(progress.loadedBytes ?? 0)} / ${formatBytes(progress.totalBytes)} · `}
+											{progress.bytesPerSecond !== undefined && `${formatBytes(progress.bytesPerSecond)}/s · `}
+											{progress.percent}%
+										</span>
+									) : 'Processing...')}
 									{progress.status === 'success' && 'Completed'}
 									{progress.status === 'error' && 'Failed'}
 								</div>

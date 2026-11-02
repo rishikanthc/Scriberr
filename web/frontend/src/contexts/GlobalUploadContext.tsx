@@ -20,6 +20,9 @@ interface UploadProgress {
     fileName: string;
     status: "uploading" | "success" | "error";
     percent: number;
+    loadedBytes?: number;
+    totalBytes?: number;
+    bytesPerSecond?: number;
     error?: string;
 }
 
@@ -114,9 +117,9 @@ export function GlobalUploadProvider({ children }: PropsWithChildren) {
                         file,
                         isVideo,
                         onProgress: isOnDashboard
-                            ? (percent) =>
+                            ? (bytes) =>
                                 setUploadProgress((prev) =>
-                                    prev.map((item, index) => (index === i ? { ...item, percent } : item))
+                                    prev.map((item, index) => (index === i ? { ...item, ...bytes } : item))
                                 )
                             : undefined,
                     });
@@ -199,7 +202,7 @@ export function GlobalUploadProvider({ children }: PropsWithChildren) {
                     aupFile,
                     title,
                     onProgress: isOnDashboard
-                        ? (percent) => setUploadProgress((prev) => prev.map((item) => ({ ...item, percent })))
+                        ? (bytes) => setUploadProgress((prev) => prev.map((item) => ({ ...item, ...bytes })))
                         : undefined,
                 });
 

@@ -1,7 +1,14 @@
 import { useAuthStore } from '../features/auth/store/authStore';
 import { refreshToken, navigateToHome } from './authHelpers';
 
-export type UploadProgressHandler = (percent: number) => void;
+export interface UploadProgressEvent {
+    percent: number;
+    loadedBytes: number;
+    totalBytes: number;
+    bytesPerSecond: number;
+}
+
+export type UploadProgressHandler = (progress: UploadProgressEvent) => void;
 
 interface XhrResult {
     status: number;
@@ -14,8 +21,17 @@ function send(url: string, body: FormData, token: string | null, onProgress?: Up
         xhr.open('POST', url);
         if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
         xhr.responseType = 'json';
+        const startedAt = performance.now();
         xhr.upload.onprogress = (event) => {
-            if (event.lengthComputable) onProgress?.(Math.round((event.loaded / event.total) * 100));
+            if (!event.lengthComputable) return;
+            // Average since start: per-event deltas jump around too much to read.
+            const elapsedSeconds = (performance.now() - startedAt) / 1000;
+            onProgress?.({
+                percent: Math.round((event.loaded / event.total) * 100),
+                loadedBytes: event.loaded,
+                totalBytes: event.total,
+                bytesPerSecond: elapsedSeconds > 0 ? event.loaded / elapsedSeconds : 0,
+            });
         };
         xhr.onload = () => resolve({ status: xhr.status, body: xhr.response });
         xhr.onerror = () => reject(new Error('Network error during upload'));
