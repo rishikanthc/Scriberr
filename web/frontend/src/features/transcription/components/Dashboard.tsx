@@ -16,6 +16,14 @@ import {
 } from "@/utils/fileProcessor";
 import { useGlobalUpload } from "@/contexts/GlobalUploadContext";
 
+const BYTE_UNITS = ['B', 'KB', 'MB', 'GB', 'TB'];
+
+function formatBytes(bytes: number): string {
+	const exponent = bytes > 0 ? Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), BYTE_UNITS.length - 1) : 0;
+	const value = bytes / 1024 ** exponent;
+	return `${exponent === 0 ? Math.round(value) : value.toFixed(1)} ${BYTE_UNITS[exponent]}`;
+}
+
 export function Dashboard() {
 	// Get upload functionality from global context
 	const {
@@ -42,9 +50,13 @@ export function Dashboard() {
 
 	// Global drag and drop handlers
 	useEffect(() => {
+		// An open modal owns drops; preventDefault still runs so stray drops don't open the file in the tab.
+		const isModalOpen = () => document.querySelector('[role="dialog"], [role="alertdialog"]') !== null;
+
 		const handleWindowDragEnter = (e: DragEvent) => {
 			e.preventDefault();
 			e.stopPropagation();
+			if (isModalOpen()) return;
 			dragCounter.current++;
 
 			if (e.dataTransfer?.items && e.dataTransfer.items.length > 0) {
@@ -67,6 +79,7 @@ export function Dashboard() {
 		const handleWindowDragLeave = (e: DragEvent) => {
 			e.preventDefault();
 			e.stopPropagation();
+			if (isModalOpen()) return;
 			dragCounter.current--;
 
 			if (dragCounter.current === 0) {
@@ -84,6 +97,7 @@ export function Dashboard() {
 		const handleWindowDrop = async (e: DragEvent) => {
 			e.preventDefault();
 			e.stopPropagation();
+			if (isModalOpen()) return;
 
 			// Reset drag state
 			dragCounter.current = 0;
@@ -161,7 +175,7 @@ export function Dashboard() {
 					{/* Overall progress */}
 					<div className="mb-6">
 						<Progress
-							value={(uploadProgress.filter(p => p.status !== 'uploading').length / uploadProgress.length) * 100}
+							value={uploadProgress.reduce((sum, p) => sum + (p.status === 'uploading' ? p.percent : 100), 0) / uploadProgress.length}
 							className="h-2 bg-[var(--secondary)]"
 							indicatorClassName="bg-gradient-to-r from-[var(--brand-solid)] to-[var(--brand-solid)]"
 						/>
@@ -193,7 +207,13 @@ export function Dashboard() {
 									)}
 								</div>
 								<div className="flex-shrink-0 text-xs font-medium text-[var(--text-tertiary)]">
-									{progress.status === 'uploading' && 'Uploading...'}
+									{progress.status === 'uploading' && (progress.percent < 100 ? (
+										<span className="tabular-nums">
+											{progress.totalBytes !== undefined && `${formatBytes(progress.loadedBytes ?? 0)} / ${formatBytes(progress.totalBytes)} · `}
+											{progress.bytesPerSecond !== undefined && `${formatBytes(progress.bytesPerSecond)}/s · `}
+											{progress.percent}%
+										</span>
+									) : 'Processing...')}
 									{progress.status === 'success' && 'Completed'}
 									{progress.status === 'error' && 'Failed'}
 								</div>

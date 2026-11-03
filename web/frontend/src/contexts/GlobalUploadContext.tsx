@@ -19,6 +19,10 @@ interface FileWithType {
 interface UploadProgress {
     fileName: string;
     status: "uploading" | "success" | "error";
+    percent: number;
+    loadedBytes?: number;
+    totalBytes?: number;
+    bytesPerSecond?: number;
     error?: string;
 }
 
@@ -30,7 +34,7 @@ interface GlobalUploadContextValue {
     // Multi-track
     handleMultiTrackUpload: (
         files: File[],
-        aupFile: File,
+        aupFile: File | undefined,
         title: string
     ) => Promise<void>;
     openMultiTrackDialog: () => void;
@@ -90,6 +94,7 @@ export function GlobalUploadProvider({ children }: PropsWithChildren) {
                     processedFiles.map((item) => ({
                         fileName: item.file.name,
                         status: "uploading",
+                        percent: 0,
                     }))
                 );
             } else {
@@ -108,13 +113,22 @@ export function GlobalUploadProvider({ children }: PropsWithChildren) {
                 const isVideo = fileItem.isVideo;
 
                 try {
-                    await uploadFile({ file, isVideo });
+                    await uploadFile({
+                        file,
+                        isVideo,
+                        onProgress: isOnDashboard
+                            ? (bytes) =>
+                                setUploadProgress((prev) =>
+                                    prev.map((item, index) => (index === i ? { ...item, ...bytes } : item))
+                                )
+                            : undefined,
+                    });
 
                     if (isOnDashboard) {
                         setUploadProgress((prev) =>
                             prev.map((item, index) =>
                                 index === i
-                                    ? { ...item, status: "success", error: undefined }
+                                    ? { ...item, status: "success", percent: 100, error: undefined }
                                     : item
                             )
                         );
@@ -164,7 +178,7 @@ export function GlobalUploadProvider({ children }: PropsWithChildren) {
     );
 
     const handleMultiTrackUpload = useCallback(
-        async (files: File[], aupFile: File, title: string) => {
+        async (files: File[], aupFile: File | undefined, title: string) => {
             setIsUploading(true);
 
             if (isOnDashboard) {
@@ -172,6 +186,7 @@ export function GlobalUploadProvider({ children }: PropsWithChildren) {
                     {
                         fileName: `${title} (${files.length} tracks)`,
                         status: "uploading",
+                        percent: 0,
                     },
                 ]);
             } else {
@@ -182,13 +197,21 @@ export function GlobalUploadProvider({ children }: PropsWithChildren) {
             }
 
             try {
-                await uploadMultiTrack({ files, aupFile, title });
+                await uploadMultiTrack({
+                    files,
+                    aupFile,
+                    title,
+                    onProgress: isOnDashboard
+                        ? (bytes) => setUploadProgress((prev) => prev.map((item) => ({ ...item, ...bytes })))
+                        : undefined,
+                });
 
                 if (isOnDashboard) {
                     setUploadProgress([
                         {
                             fileName: `${title} (${files.length} tracks)`,
                             status: "success",
+                            percent: 100,
                         },
                     ]);
                     setTimeout(() => setUploadProgress([]), 3000);
@@ -204,6 +227,7 @@ export function GlobalUploadProvider({ children }: PropsWithChildren) {
                         {
                             fileName: `${title} (${files.length} tracks)`,
                             status: "error",
+                            percent: 0,
                             error:
                                 error instanceof Error ? error.message : "Upload failed",
                         },
@@ -240,9 +264,10 @@ export function GlobalUploadProvider({ children }: PropsWithChildren) {
     }, []);
 
     const handleMultiTrackConfirm = useCallback(
-        async (files: File[], aupFile: File, title: string) => {
-            await handleMultiTrackUpload(files, aupFile, title);
+        async (files: File[], aupFile: File | undefined, title: string) => {
+            // Close first so the dashboard progress row / toast is visible during upload.
             handleMultiTrackDialogClose();
+            await handleMultiTrackUpload(files, aupFile, title);
         },
         [handleMultiTrackUpload, handleMultiTrackDialogClose]
     );

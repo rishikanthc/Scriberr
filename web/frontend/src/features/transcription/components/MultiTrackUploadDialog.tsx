@@ -15,7 +15,7 @@ import { Upload, X, FileAudio, File, AlertCircle } from "lucide-react";
 interface MultiTrackUploadDialogProps {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
-	onMultiTrackUpload?: (files: File[], aupFile: File, title: string) => Promise<void>;
+	onMultiTrackUpload?: (files: File[], aupFile: File | undefined, title: string) => Promise<void>;
 	prePopulatedFiles?: File[];
 	prePopulatedAupFile?: File;
 	prePopulatedTitle?: string;
@@ -92,17 +92,16 @@ export function MultiTrackUploadDialog({
 
 	const audioFiles = files.filter(f => !f.isApu);
 	const aupFiles = files.filter(f => f.isApu);
-	const hasAupFile = aupFiles.length > 0;
 	const hasAudioFiles = audioFiles.length > 0;
 
-	const canUpload = title.trim() !== "" && hasAupFile && hasAudioFiles;
+	const canUpload = title.trim() !== "" && hasAudioFiles && aupFiles.length <= 1;
 
 	const handleUpload = async () => {
 		if (!canUpload) return;
 
 		// Extract audio files and aup file
 		const trackFiles = audioFiles.map(fileItem => fileItem.file);
-		const aupFileToUpload = aupFiles[0].file;
+		const aupFileToUpload = aupFiles[0]?.file;
 
 		// Call the callback with the files and title
 		await onMultiTrackUpload?.(trackFiles, aupFileToUpload, title.trim());
@@ -126,7 +125,7 @@ export function MultiTrackUploadDialog({
 					<DialogDescription>
 						{prePopulatedFiles && prePopulatedAupFile
 							? `Auto-detected multi-track project with ${prePopulatedFiles.length} audio tracks. Review and upload when ready.`
-							: "Upload multiple audio tracks with an .aup Audacity project file for multi-speaker transcription."
+							: "Upload one audio file per speaker. Tracks are assumed to start together; add an optional .aup Audacity project to apply track offsets and gain."
 						}
 					</DialogDescription>
 				</DialogHeader>
@@ -160,7 +159,7 @@ export function MultiTrackUploadDialog({
 							<div className="space-y-2">
 								<p className="text-lg font-medium text-[var(--text-primary)]">Drop files here or click to upload</p>
 								<p className="text-sm text-[var(--text-secondary)]">
-									Upload multiple audio files and one .aup Audacity project file
+									One audio file per speaker, plus an optional .aup project file
 								</p>
 								<input
 									type="file"
@@ -230,10 +229,10 @@ export function MultiTrackUploadDialog({
 						{/* Validation Messages */}
 						{files.length > 0 && (
 							<div className="space-y-1 text-sm">
-								{!hasAupFile && (
+								{aupFiles.length > 1 && (
 									<div className="flex items-center gap-2 text-[var(--error)]">
 										<AlertCircle className="h-4 w-4" />
-										<span>An .aup Audacity project file is required</span>
+										<span>Only one .aup project file is allowed</span>
 									</div>
 								)}
 								{!hasAudioFiles && (
