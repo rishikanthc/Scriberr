@@ -316,6 +316,7 @@ func (p *PyAnnoteAdapter) Diarize(ctx context.Context, input interfaces.AudioInp
 
 	// Execute PyAnnote
 	cmd := exec.CommandContext(ctx, "uv", args...)
+	killProcessGroupOnCancel(cmd)
 	cmd.Env = append(os.Environ(), "PYTHONUNBUFFERED=1")
 
 	// Setup log file

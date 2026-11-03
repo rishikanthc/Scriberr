@@ -235,6 +235,7 @@ func (v *VoxtralAdapter) Transcribe(ctx context.Context, input interfaces.AudioI
 
 	// Execute Voxtral
 	cmd := exec.CommandContext(ctx, "uv", args...)
+	killProcessGroupOnCancel(cmd)
 	cmd.Env = append(os.Environ(), "PYTHONUNBUFFERED=1")
 
 	// Setup log file
