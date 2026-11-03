@@ -313,18 +313,6 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 	const handleStartTranscription = useCallback(async (params: WhisperXParams) => {
 		if (!selectedJobId) return;
 
-		// Validate multi-track compatibility
-		const selectedJob = data.find(job => job.id === selectedJobId);
-		if (selectedJob?.is_multi_track && !params.is_multi_track_enabled) {
-			alert("Multi-track audio requires a profile with multi-track transcription enabled. Please select or create a profile with multi-track support.");
-			return;
-		}
-
-		if (!selectedJob?.is_multi_track && params.is_multi_track_enabled) {
-			alert("Multi-track transcription cannot be used with single-track audio files.");
-			return;
-		}
-
 		try {
 			setTranscriptionLoading(true);
 
@@ -355,23 +343,11 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 		} finally {
 			setTranscriptionLoading(false);
 		}
-	}, [selectedJobId, refetch, onTranscribe, data, getAuthHeaders]);
+	}, [selectedJobId, refetch, onTranscribe, getAuthHeaders]);
 
 	// Handle actual transcription start with profile parameters
 	const handleStartTranscriptionWithProfile = useCallback(async (params: WhisperXParams) => {
 		if (!selectedJobId) return;
-
-		// Validate multi-track compatibility
-		const selectedJob = data.find(job => job.id === selectedJobId);
-		if (selectedJob?.is_multi_track && !params.is_multi_track_enabled) {
-			alert("Multi-track audio requires a profile with multi-track transcription enabled. Please select a different profile with multi-track support.");
-			return;
-		}
-
-		if (!selectedJob?.is_multi_track && params.is_multi_track_enabled) {
-			alert("Multi-track transcription cannot be used with single-track audio files. Please select a different profile.");
-			return;
-		}
 
 		try {
 			setTranscriptionLoading(true);
@@ -401,7 +377,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 		} finally {
 			setTranscriptionLoading(false);
 		}
-	}, [selectedJobId, refetch, onTranscribe, data, getAuthHeaders]);
+	}, [selectedJobId, refetch, onTranscribe, getAuthHeaders]);
 
 	// Modified to verify file exists before opening dialog
 	const handleDeleteClick = useCallback((file: AudioFile) => {
@@ -482,10 +458,6 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 			for (const id of selectedIds) {
 				const job = data.find(j => j.id === id);
 				if (!job) continue;
-
-				// Skip if multi-track mismatch
-				if (job.is_multi_track && !params.is_multi_track_enabled) continue;
-				if (!job.is_multi_track && params.is_multi_track_enabled) continue;
 
 				await fetch(`/api/v1/transcription/${id}/start`, {
 					method: "POST",

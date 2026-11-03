@@ -2,11 +2,13 @@ package api
 
 import (
 	"bytes"
+	"context"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"mime/multipart"
 	"net/http"
 	"os"
 	"os/exec"
@@ -478,7 +480,8 @@ func (h *Handler) UploadVideo(c *gin.Context) {
 // @Accept multipart/form-data
 // @Produce json
 // @Param title formData string false "Job title"
-// @Param files formData file true "Audio track files" multiple
+// @Param files formData file true "Audio track files (one per speaker)" multiple
+// @Param aup formData file false "Optional Audacity .aup project for track offsets/gain"
 // @Success 200 {object} models.TranscriptionJob
 // @Failure 400 {object} map[string]string
 // @Failure 500 {object} map[string]string
@@ -493,10 +496,20 @@ func (h *Handler) UploadMultiTrack(c *gin.Context) {
 		return
 	}
 
-	files := form.File["files"]
+	// "tracks" is what the web UI sends; "files" is the documented API field.
+	files := append(form.File["tracks"], form.File["files"]...)
 	if len(files) == 0 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "No files uploaded"})
 		return
+	}
+
+	var aupHeader *multipart.FileHeader
+	if aups := form.File["aup"]; len(aups) > 0 {
+		aupHeader = aups[0]
+		if !strings.EqualFold(filepath.Ext(aupHeader.Filename), ".aup") {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Project file must have .aup extension"})
+			return
+		}
 	}
 
 	// Create a unique job ID
@@ -523,21 +536,35 @@ func (h *Handler) UploadMultiTrack(c *gin.Context) {
 			return
 		}
 
-		// Create track record
+		// FileName doubles as the speaker label and as the key for matching .aup tracks.
 		trackFiles = append(trackFiles, models.MultiTrackFile{
 			TranscriptionJobID: jobID,
 			FilePath:           filePath,
-			FileName:           fileHeader.Filename,
+			FileName:           strings.TrimSuffix(fileHeader.Filename, filepath.Ext(fileHeader.Filename)),
 			TrackIndex:         i,
+			Gain:               1.0,
 		})
 	}
 
 	// Create job record
 	job := models.TranscriptionJob{
-		ID:              jobID,
-		Status:          models.StatusUploaded,
-		IsMultiTrack:    true,
-		MultiTrackFiles: trackFiles,
+		ID:               jobID,
+		Status:           models.StatusUploaded,
+		AudioPath:        trackFiles[0].FilePath,
+		IsMultiTrack:     true,
+		MultiTrackFolder: &jobDir,
+		MultiTrackFiles:  trackFiles,
+		MergeStatus:      "pending",
+	}
+
+	if aupHeader != nil {
+		aupPath, err := h.fileService.SaveUpload(aupHeader, jobDir)
+		if err != nil {
+			_ = h.fileService.RemoveDirectory(jobDir)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save .aup file"})
+			return
+		}
+		job.AupFilePath = &aupPath
 	}
 
 	if title := c.PostForm(paramTitle); title != "" {
@@ -553,6 +580,14 @@ func (h *Handler) UploadMultiTrack(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create job"})
 		return
 	}
+
+	go func() {
+		if err := h.multiTrackProcessor.ProcessMultiTrackJob(context.Background(), jobID); err != nil {
+			logger.Error("Multi-track merge failed", "job_id", jobID, "error", err)
+		}
+	}()
+
+	c.JSON(http.StatusOK, job)
 }
 
 // @Summary Get multi-track merge status
@@ -1123,21 +1158,11 @@ func (h *Handler) getValidatedTranscriptionParams(c *gin.Context, job *models.Tr
 		}
 	}
 
-	// Validate multi-track compatibility
-	if job.IsMultiTrack && !requestParams.IsMultiTrackEnabled {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Multi-track audio requires multi-track transcription to be enabled in the parameters"})
-		return nil, fmt.Errorf("multi-track mismatch")
-	}
-
-	if !job.IsMultiTrack && requestParams.IsMultiTrackEnabled {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Multi-track transcription cannot be used with single-track audio files"})
-		return nil, fmt.Errorf("single-track mismatch")
-	}
-
-	// Multi-track transcription should automatically disable diarization
-	if requestParams.IsMultiTrackEnabled && requestParams.Diarize {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Diarization must be disabled when using multi-track transcription"})
-		return nil, fmt.Errorf("diarization conflict")
+	// Multi-track is a property of the uploaded audio, not of the profile.
+	// Each track is one speaker, so diarization does not apply.
+	requestParams.IsMultiTrackEnabled = job.IsMultiTrack
+	if job.IsMultiTrack {
+		requestParams.Diarize = false
 	}
 
 	return &requestParams, nil
