@@ -1,4 +1,5 @@
 
+import { withBasePath } from '@/lib/basePath';
 import { useState, useEffect } from 'react'
 import { Layout } from '@/components/Layout'
 
@@ -55,7 +56,7 @@ export function CLISettings() {
                 // Let's just use the current window location to construct the URL.
                 const protocol = window.location.protocol
                 const host = window.location.host
-                const url = `${protocol}//${host}/install.sh`
+                const url = `${protocol}//${host}${withBasePath("/install.sh")}`
 
                 setInstallCmd(`curl -sL "${url}" | bash`)
             } catch (err) {

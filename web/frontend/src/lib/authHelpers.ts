@@ -1,3 +1,4 @@
+import { withBasePath } from '@/lib/basePath';
 import { useAuthStore } from '../features/auth/store/authStore';
 import './authTypes';
 
@@ -6,7 +7,7 @@ export async function refreshToken(): Promise<string | null> {
     const state = useAuthStore.getState();
 
     try {
-        const response = await originalFetch('/api/v1/auth/refresh', { method: 'POST' });
+        const response = await originalFetch(withBasePath('/api/v1/auth/refresh'), { method: 'POST' });
         if (!response.ok) return null;
 
         const data = await response.json();
@@ -22,8 +23,9 @@ export async function refreshToken(): Promise<string | null> {
 }
 
 export function navigateToHome(): void {
-    if (window.location.pathname !== "/") {
-        window.history.pushState({ route: { path: 'home' } }, "", "/");
+    const home = withBasePath("/");
+    if (window.location.pathname !== home) {
+        window.history.pushState({ route: { path: 'home' } }, "", home);
         window.dispatchEvent(new PopStateEvent('popstate', { state: { route: { path: 'home' } } }));
     }
 }

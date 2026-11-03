@@ -1,7 +1,9 @@
 package web
 
 import (
+	"bytes"
 	"embed"
+	"html"
 	"io/fs"
 	"net/http"
 	"strings"
@@ -30,8 +32,46 @@ func GetIndexHTML() ([]byte, error) {
 	return staticFiles.ReadFile("dist/index.html")
 }
 
+// WithBasePath serves next under basePath by stripping the prefix. Unprefixed
+// requests still pass through, so in-container healthchecks keep working.
+func WithBasePath(basePath string, next http.Handler) http.Handler {
+	if basePath == "" {
+		return next
+	}
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == basePath {
+			target := basePath + "/"
+			if r.URL.RawQuery != "" {
+				target += "?" + r.URL.RawQuery
+			}
+			http.Redirect(w, r, target, http.StatusMovedPermanently)
+			return
+		}
+		rest, ok := strings.CutPrefix(r.URL.Path, basePath+"/")
+		if !ok {
+			next.ServeHTTP(w, r)
+			return
+		}
+		stripped := r.Clone(r.Context())
+		stripped.URL.Path = "/" + rest
+		stripped.URL.RawPath = ""
+		// Gin prepends this to its trailing-slash redirects.
+		stripped.Header.Set("X-Forwarded-Prefix", basePath)
+		next.ServeHTTP(w, stripped)
+	})
+}
+
+// injectBaseHref makes the relative asset and API URLs of the built frontend
+// resolve under basePath.
+func injectBaseHref(indexHTML []byte, basePath string) []byte {
+	tag := `<head><base href="` + html.EscapeString(basePath) + `/">`
+	return bytes.Replace(indexHTML, []byte("<head>"), []byte(tag), 1)
+}
+
 // SetupStaticRoutes configures static file serving in Gin
-func SetupStaticRoutes(router *gin.Engine, authService *auth.AuthService) {
+func SetupStaticRoutes(router *gin.Engine, authService *auth.AuthService, basePath string) {
+	rawIndexHTML, indexErr := GetIndexHTML()
+	indexHTML := injectBaseHref(rawIndexHTML, basePath)
 
 	// Serve static assets (CSS, JS, images) directly from embedded filesystem
 	router.GET("/assets/*filepath", func(c *gin.Context) {
@@ -109,7 +149,7 @@ func SetupStaticRoutes(router *gin.Engine, authService *auth.AuthService) {
 
 		// Try to read the file from embedded filesystem
 		fileContent, err := staticFiles.ReadFile("dist/" + path)
-		if err == nil {
+		if err == nil && path != "index.html" {
 			// File exists, serve it
 			contentType := "application/octet-stream"
 			if strings.HasSuffix(path, ".css") {
@@ -134,12 +174,10 @@ func SetupStaticRoutes(router *gin.Engine, authService *auth.AuthService) {
 
 		// For all other routes, serve the React app
 		// The React app will handle authentication client-side
-		indexHTML, err := GetIndexHTML()
-		if err != nil {
+		if indexErr != nil {
 			c.String(http.StatusInternalServerError, "Error loading page")
 			return
 		}
-
 		c.Data(http.StatusOK, "text/html; charset=utf-8", indexHTML)
 	})
 }

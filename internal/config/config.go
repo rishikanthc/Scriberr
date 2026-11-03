@@ -17,6 +17,8 @@ type Config struct {
 	// Server configuration
 	Port string
 	Host string
+	// BasePath is the URL prefix the app is served under, e.g. "/scriberr". Empty when served at the root.
+	BasePath string
 
 	// Database configuration
 	DatabasePath string
@@ -59,6 +61,7 @@ func Load() *Config {
 	return &Config{
 		Port:           getEnv("PORT", "8080"),
 		Host:           getEnv("HOST", "0.0.0.0"),
+		BasePath:       NormalizeBasePath(getEnv("BASE_PATH", "")),
 		Environment:    getEnv("APP_ENV", "development"),
 		AllowedOrigins: strings.Split(getEnv("ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:8080"), ","),
 		DatabasePath:   getEnv("DATABASE_PATH", "data/scriberr.db"),
@@ -71,6 +74,15 @@ func Load() *Config {
 		OpenAIAPIKey:   getEnv("OPENAI_API_KEY", ""),
 		HFToken:        getEnv("HF_TOKEN", ""),
 	}
+}
+
+// NormalizeBasePath turns "scriberr/", "/scriberr" or "/" into "/scriberr" or "".
+func NormalizeBasePath(p string) string {
+	p = strings.Trim(strings.TrimSpace(p), "/")
+	if p == "" {
+		return ""
+	}
+	return "/" + p
 }
 
 // IsProduction returns true if the environment is production

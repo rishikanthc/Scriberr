@@ -1,3 +1,4 @@
+import { withBasePath } from '@/lib/basePath';
 import { useState, useEffect, useRef, useCallback, memo } from "react";
 import { Send, User, MessageCircle, Copy, Check, Sparkles, Brain, ChevronDown } from "lucide-react";
 import ReactMarkdown from 'react-markdown'
@@ -485,7 +486,7 @@ export const ChatInterface = memo(function ChatInterface({ transcriptionId, acti
         <p className="text-sm text-muted-foreground text-center mb-4">
           To use the chat feature, please configure your OpenAI API key in Settings.
         </p>
-        <Button onClick={() => window.location.href = "/settings"}>
+        <Button onClick={() => window.location.href = withBasePath("/settings")}>
           Go to Settings
         </Button>
       </div>

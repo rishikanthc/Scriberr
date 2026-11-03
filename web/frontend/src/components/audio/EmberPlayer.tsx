@@ -1,3 +1,4 @@
+import { withBasePath } from '@/lib/basePath';
 import { useRef, useState, useEffect, forwardRef, useImperativeHandle, useCallback } from "react";
 import { Play, Pause, AlertCircle } from "lucide-react";
 import { AudioVisualizer } from "./AudioVisualizer";
@@ -47,7 +48,7 @@ export const EmberPlayer = forwardRef<EmberPlayerRef, EmberPlayerProps>(
         // --- 2. URL Logic ---
         let streamUrl = src;
         if (!streamUrl && audioId) {
-            streamUrl = `/api/v1/transcription/${audioId}/audio`;
+            streamUrl = withBasePath(`/api/v1/transcription/${audioId}/audio`);
         }
 
         // --- 3. Audio Handlers ---

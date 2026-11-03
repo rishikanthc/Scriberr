@@ -12,6 +12,11 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
+      // index.html gets its <base href> from the server, so never serve a precached copy.
+      workbox: {
+        globIgnores: ['**/node_modules/**/*', 'index.html'],
+        navigateFallback: null,
+      },
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
       manifest: {
         name: 'Scriberr',
@@ -21,7 +26,8 @@ export default defineConfig({
         background_color: '#2EC6FE',
         display: 'standalone',
         orientation: 'any',
-        start_url: '/',
+        start_url: '.',
+        scope: '.',
         id: 'scriberr-transcription',
         icons: [
           {
@@ -88,5 +94,6 @@ export default defineConfig({
       }
     }
   },
-  base: "/",
+  // Relative, so the server can mount the app under any BASE_PATH via <base href>.
+  base: "./",
 })

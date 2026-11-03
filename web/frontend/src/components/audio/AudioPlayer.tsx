@@ -1,3 +1,4 @@
+import { withBasePath } from '@/lib/basePath';
 import { useEffect, useRef, useState, forwardRef, useImperativeHandle } from 'react';
 import WaveSurfer from 'wavesurfer.js';
 import { Play, Pause } from 'lucide-react';
@@ -60,7 +61,7 @@ export const AudioPlayer = forwardRef<AudioPlayerRef, AudioPlayerProps>(({
                 setError(null);
                 setLoadingProgress(0);
 
-                const audioUrl = `/api/v1/transcription/${audioId}/audio`;
+                const audioUrl = withBasePath(`/api/v1/transcription/${audioId}/audio`);
 
                 const isDark = theme === 'dark';
 
