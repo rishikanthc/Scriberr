@@ -1117,7 +1117,7 @@ func (h *Handler) getValidatedTranscriptionParams(c *gin.Context, job *models.Tr
 		// No language restriction needed - models support auto-detection
 
 		// NVIDIA models support diarization via Pyannote integration or NVIDIA Sortformer
-		if requestParams.Diarize && requestParams.DiarizeModel == "pyannote" && (requestParams.HfToken == nil || *requestParams.HfToken == "") {
+		if requestParams.Diarize && requestParams.DiarizeModel == "pyannote" && (requestParams.HfToken == nil || *requestParams.HfToken == "") && os.Getenv("HF_TOKEN") == "" {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Hugging Face token (hf_token) is required for Pyannote diarization"})
 			return nil, fmt.Errorf("hf_token required")
 		}
