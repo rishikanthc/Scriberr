@@ -188,6 +188,13 @@ func NewWhisperXAdapter(envPath string) *WhisperXAdapter {
 
 		// Quality settings
 		{
+			Name:        "initial_prompt",
+			Type:        "string",
+			Required:    false,
+			Description: "Text to give the model as context before the first window",
+			Group:       "quality",
+		},
+		{
 			Name:        "temperature",
 			Type:        "float",
 			Required:    false,
@@ -556,6 +563,9 @@ func (w *WhisperXAdapter) buildWhisperXArgs(input interfaces.AudioInput, params 
 	args = append(args, "--best_of", strconv.Itoa(w.GetIntParameter(params, "best_of")))
 	args = append(args, "--beam_size", strconv.Itoa(w.GetIntParameter(params, "beam_size")))
 	args = append(args, "--patience", fmt.Sprintf("%.2f", w.GetFloatParameter(params, "patience")))
+	if initialPrompt := w.GetStringParameter(params, "initial_prompt"); initialPrompt != "" {
+		args = append(args, "--initial_prompt", initialPrompt)
+	}
 
 	// HuggingFace token - use param first, then fall back to environment variable
 	hfToken := w.GetStringParameter(params, "hf_token")
