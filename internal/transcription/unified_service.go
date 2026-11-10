@@ -703,6 +703,16 @@ func (u *UnifiedTranscriptionService) convertToWhisperXParams(params models.Whis
 	if params.InitialPrompt != nil {
 		paramMap["initial_prompt"] = *params.InitialPrompt
 	}
+	if params.Threads == 0 {
+		//If the variable is default, try to load it from env variable
+		valStr, ok := os.LookupEnv("WHX_NUM_THREADS")
+		if ok {
+			val, err := strconv.Atoi(valStr)
+			if err == nil && val >= 0 {
+				paramMap["threads"] = val
+			}
+		}
+	}
 
 	return paramMap
 }
